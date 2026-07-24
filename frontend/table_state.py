@@ -13,6 +13,7 @@ from common.table_metadata import (
     normalize_meta,
     normalize_rating,
     persist_table_meta,
+    reorder_leading_article,
     section,
     table_title,
 )
@@ -61,8 +62,18 @@ def tables_json(tables) -> str:
 
         vpinfe = section(meta, "VPinFE")
         info = section(meta, "Info")
+        used_alttitle = False
         if str(vpinfe.get("altvpsid", "") or "").strip() and str(vpinfe.get("alttitle", "") or "").strip():
             info["Title"] = str(vpinfe.get("alttitle", "") or "").strip()
+            meta["Info"] = info
+            used_alttitle = True
+
+        # Reorder a leading "The " on the canonical Info.Title so the theme
+        # displays and sorts by the second word, e.g. "The Addams Family" ->
+        # "Addams Family, The". A user-set alttitle is left exactly as entered.
+        # Idempotent, so the in-place mutation of the shared meta dict is safe.
+        if not used_alttitle and info.get("Title"):
+            info["Title"] = reorder_leading_article(info["Title"])
             meta["Info"] = info
 
         vpx = section(meta, "VPXFile")

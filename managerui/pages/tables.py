@@ -21,6 +21,7 @@ VPSDB_JSON_PATH = table_service.VPSDB_JSON_PATH
 
 # Load vpinfe.ini once to avoid repeated parsing
 from common.iniconfig import IniConfig
+from common.table_metadata import reorder_leading_article
 _INI_CFG = IniConfig(str(VPINFE_INI_PATH))
 
 #_vpsdb_cache: List[Dict] | None = None
@@ -163,7 +164,8 @@ def parse_table_info(info_path):
 
         data = {
             # Display / identity (strip whitespace from name)
-            "name": (get(("VPinFE", "alttitle"), ("Info", "Title"), ("root", "name"), default=table_name) or "").strip(),
+            "name": ((vpinfe.get("alttitle", "") or "").strip()
+                     or reorder_leading_article(get(("Info", "Title"), ("root", "name"), default=table_name) or "")),
             "filename": get(("VPXFile", "filename"), default=f"{table_name}.vpx"),
             "vpsid": get(("Info", "VPSId"), ("root", "id")),
             "id": get(("VPinFE", "altvpsid"), ("Info", "VPSId"), ("root", "id")),

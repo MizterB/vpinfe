@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 from common.paths import COLLECTIONS_PATH, get_ini_config, get_tables_path
-from common.table_metadata import first_meta_value, normalize_rating, section
+from common.table_metadata import first_meta_value, normalize_rating, reorder_leading_article, section
 from common.tableparser import TableParser
 from common.vpxcollections import VPXCollections
 
@@ -84,7 +84,8 @@ def table_to_row(table, collections_map: Optional[Dict[str, List[str]]] = None) 
     vpsid = first_meta_value(meta, ("Info", "VPSId"), default="")
     effective_id = first_meta_value(meta, ("VPinFE", "altvpsid"), ("Info", "VPSId"), default="")
     row = {
-        "name": (first_meta_value(meta, ("VPinFE", "alttitle"), ("Info", "Title"), default=table_name) or "").strip(),
+        "name": (str(vpinfe.get("alttitle", "") or "").strip()
+                 or reorder_leading_article(first_meta_value(meta, ("Info", "Title"), default=table_name) or "")),
         "filename": first_meta_value(meta, ("VPXFile", "filename"), default=Path(table.fullPathVPXfile).name),
         "vpsid": vpsid,
         "id": effective_id or vpsid,

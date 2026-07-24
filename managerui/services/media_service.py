@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 from common.media_paths import media_attr_key_map, media_filename_map
 from common.metaconfig import MetaConfig
+from common.table_metadata import reorder_leading_article
 from common.table_repository import ensure_tables_loaded
 
 from managerui.paths import CONFIG_DIR, get_tables_path
@@ -203,7 +204,8 @@ def scan_media_tables(reload: bool = False) -> List[Dict]:
             continue
         current_dir = Path(root).name
         info, vpinfe = _table_meta_sections(table)
-        name = ((vpinfe.get("alttitle") or info.get("Title") or current_dir) or "").strip()
+        name = ((vpinfe.get("alttitle") or "").strip()
+                or reorder_leading_article(info.get("Title") or current_dir))
 
         media_info = {}
         thumb_info = {}

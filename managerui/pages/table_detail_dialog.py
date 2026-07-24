@@ -11,6 +11,7 @@ from typing import Callable, Optional
 
 from nicegui import context, events, run, ui
 
+from common.table_metadata import reorder_leading_article
 from managerui.pages.table_dialog_context import TableDialogContext, default_context
 from managerui.pages.dnd_drop_zone import create_drop_zone, DropContext
 from managerui.services import plugin_profile_service, table_index_service, table_service
@@ -547,7 +548,7 @@ def _render_table_dialog(row_data: dict, on_close: Optional[Callable[[], None]] 
                                 fallback_name = (info.get("Title") or raw.get("name") or fallback_name).strip()
                             except Exception:
                                 pass
-                            effective_name = new_value or fallback_name
+                            effective_name = new_value or reorder_leading_article(fallback_name)
                             table_index_service.update_row_by_path(table_path_str, {
                                 'alttitle': new_value,
                                 'name': effective_name,

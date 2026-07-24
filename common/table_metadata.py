@@ -68,6 +68,23 @@ def is_truthy(value: Any, default: bool = False) -> bool:
     return normalized in {"1", "true", "yes", "on"}
 
 
+def reorder_leading_article(title: Any) -> str:
+    """Move a leading "The " article to the end so titles sort by their
+    second word, e.g. "The Addams Family" -> "Addams Family, The".
+
+    Idempotent: a title that has already been reordered (or never started
+    with "The") is returned unchanged. Only the whole word "The" followed by
+    more text is reordered ("Theatre of Magic" is left alone).
+    """
+    text = str(title or "").strip()
+    if not text:
+        return text
+    parts = text.split(None, 1)
+    if len(parts) == 2 and parts[0].lower() == "the":
+        return f"{parts[1]}, {parts[0]}"
+    return text
+
+
 def table_title(table) -> str:
     meta = normalize_meta(getattr(table, "metaConfig", {}))
     vpinfe = section(meta, "VPinFE")
@@ -75,8 +92,10 @@ def table_title(table) -> str:
     if str(vpinfe.get("altvpsid", "") or "").strip():
         alt_title = str(vpinfe.get("alttitle", "") or "").strip()
         if alt_title:
+            # A user-set alttitle is left exactly as entered - never reordered.
             return alt_title
-    return str(info.get("Title", "") or get_meta_value(meta, "VPSdb", "name", "") or getattr(table, "tableDirName", "") or "").strip()
+    raw = str(info.get("Title", "") or get_meta_value(meta, "VPSdb", "name", "") or getattr(table, "tableDirName", "") or "").strip()
+    return reorder_leading_article(raw)
 
 
 def table_themes(table) -> list[str]:
