@@ -398,7 +398,7 @@ class Library:
 
     def filter_axes(self) -> list[dict[str, Any]]:
         """The axes a rule can be written on. Read from core's registry, never listed
-        here - section 2.15 makes that registry the only place an axis is named."""
+        here: that registry is the only place an axis is named."""
         return self._client.filter_axes()
 
     def collections(self) -> list[dict[str, Any]]:
@@ -749,7 +749,7 @@ class Library:
                 "game_type": game.get("type") or "",
                 # No rom or version: both were the default table's reported as the
                 # game's, the columns that showed them are gone, and nothing has read
-                # them since. HUBUI section 14.2a.
+                # them since.
                 "table_count": int(game.get("table_count") or 0),
                 "rating": game.get("rating") or 0,
                 "themes": ", ".join(game.get("themes") or []),

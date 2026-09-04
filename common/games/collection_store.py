@@ -87,9 +87,8 @@ MEMBER_TABLE_KEY = "table"
 EXCLUDED_KEY = "excluded"
 # The criteria block. Its presence is what makes a collection a dynamic one.
 FILTERS_KEY = "filters"
-# What the collection is for, in the owner's words. Free to add: section 7's
-# extensibility table prices a new field on a collection at nothing, and a build that
-# does not know it leaves it alone.
+# What the collection is for, in the owner's words. Free to add: a new field on a
+# collection costs nothing, and a build that does not know it leaves it alone.
 DESCRIPTION_KEY = "description"
 
 # How a collection is ordered, as its own block rather than mixed in with the criteria.

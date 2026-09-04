@@ -297,7 +297,7 @@ def _tables(game, row: dict) -> list[dict]:
     # Why this one, not only which one. `default_table` falls through a recorded choice,
     # a filename matching the folder, then first alphabetically - which its own docstring
     # calls "deterministic rather than correct". A reader does not care which of the last
-    # two happened; they care whether they chose it or we did (HUBUI section 13).
+    # two happened; they care whether they chose it or we did.
     #
     # "user" only where the recorded choice is what actually won: a recorded name whose
     # table has since gone falls through to a derived pick, and calling that a choice
@@ -1110,9 +1110,9 @@ def put_table_rating(game_id: str, table_id: str,
                      payload: models.RatingRequest) -> models.Table:
     """A table's own rating, which refines the game's rather than replacing it.
 
-    INFO-SCHEMA section 8.1 left this open on one question - how a user sets a table's
-    rating when the wheel shows one entry per game. The Console's Tables grid is the answer:
-    the row you rate is the file. Additive on both lenses, as that section says.
+    The open question the per-table rating left was how a user sets one when the wheel
+    shows a single entry per game. The Console's Tables grid is the answer: the row you
+    rate is the file. Additive on both lenses.
 
     Returns the table rather than the rating, because a client that just rated one is
     about to redraw the row.

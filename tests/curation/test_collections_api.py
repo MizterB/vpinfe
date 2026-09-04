@@ -394,7 +394,7 @@ class MemberTableTests(TempTree):
         self.assertEqual(self._refs(), [{"game": TABLED_ID}])
 
     def test_a_game_named_twice_can_be_reordered(self) -> None:
-        """An order is over the rows, and section 2.10 lets one game hold several.
+        """An order is over the rows, and one game can hold several of them.
 
         `get_members` de-duplicates by design, so an order compared against it counted
         one row where the collection has two and refused every move in a collection

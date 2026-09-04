@@ -40,9 +40,9 @@ def _build_fixture_library(root: Path) -> None:
                  "Type": "SS", "VPSId": "vps-example"},
         "VPXFile": {"filename": "Example Table (Bally 1990).vpx", "rom": "exmpl"},
         "User": {"Rating": 3},
-        # The section 2.x owns. Present so the gate can see it: three of its keys
-        # stopped reaching contract 1 and nothing noticed, because the fixture had
-        # no VPinFE section for the comparison to miss.
+        # The `VPinFE` section, which 2.x owns. Present so the gate can see it: three of
+        # its keys stopped reaching contract 1 and nothing noticed, because the fixture
+        # had no VPinFE section for the comparison to miss.
         "VPinFE": {"deletedNVRamOnClose": False, "altlauncher": "", "alttitle": "",
                    "pluginprofile": "", "altvpsid": ""},
     }), encoding="utf-8")

@@ -41,9 +41,8 @@ WORKBENCH_MIN_PX = 320
 # that is Full's job, and Full has a control that brings it back.
 WORKBENCH_MAX_PX = 1000
 # A collection is authored rather than swept: its rule and its result sit side by
-# side, and the dock only splits two-column past 900px. Per subject, which is what
-# section 5 says pane geometry should be - the width that suits a game grid does not
-# suit this.
+# side, and the dock only splits two-column past 900px. Per subject, because the width
+# that suits a game grid does not suit this.
 WORKBENCH_COLLECTION_PX = 900
 # Below a desk-sized window the nav gives up its labels rather than its fifth of the
 # screen. The rail already existed as a manual toggle and simply never fired on size;
@@ -61,7 +60,7 @@ RAIL_PX = 57
 # is gone - the media map in the details pane answers "what is missing here" and the
 # Media section answers "what is missing anywhere", which is what it was reaching for.
 # Grouped, because four of these are what the library holds and the rest are not.
-# HUBUI section 16.1: a subject is a place, not transient state - so Tables and Tags are
+# A subject is a place, not transient state - so Tables and Tags are
 # rail entries rather than a mode a dropdown puts the Games page into. `casino` is the
 # asset registry's own icon for a table; the rail should not invent a second one.
 # Library is a rail entry like the rest, with the four it holds nested under it - not a
@@ -619,7 +618,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         Both grids land here, and which one you are on decides what a row means: under
         Games a row is a folder, under Tables it is one file inside one. There is no
         control to keep in step - the place you are in is the answer, which is what
-        section 16.1 bought by making a subject a rail entry rather than a dropdown.
+        making a subject a rail entry rather than a dropdown bought.
         """
         # A selection is the only thing that opens the pane. Arriving at a section does
         # not, because there is nothing selected yet to be about.

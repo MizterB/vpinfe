@@ -36,12 +36,12 @@ def filters() -> models.FilterAxisList:
     return {"axes": [{"name": axis.name, "scope": axis.scope, "kind": axis.kind,
                       # The name a reader sees, which the registry owns. Without it a
                       # client derives one from the key and gets "Game type" where the
-                      # rest of the app says "Type" - section 2.15 puts the naming here.
+                      # rest of the app says "Type". The registry owns the naming.
                       "label": axis.label,
                       "summary": axis.summary,
                       # Whether the axis takes several values, which is an OR across
                       # them. Declared here so a client renders the right control
-                      # without knowing which axes exist - section 2.15's whole point.
+                      # without knowing which axes exist.
                       "many": axis.many,
                       "values": available.get(axis.values_key)}
                      for axis in AXES]}

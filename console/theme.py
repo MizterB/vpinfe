@@ -472,8 +472,8 @@ body::before {
   box-sizing: border-box;
 }
 /* Named for the *shape*, not for what it means. Two vocabularies use these - which
-   table an entry points at, and where a media file resolved from - and section 13 is
-   explicit that they share the shapes and not the nouns. A modifier called `--fixed`
+   table an entry points at, and where a media file resolved from - and they share the
+   shapes without sharing the nouns. A modifier called `--fixed`
    would have carried one vocabulary's meaning into the other's screens. */
 .console-mark--full { background: currentColor; }
 /* The base circle, named so a caller can say which end of the ramp it means rather

@@ -199,8 +199,8 @@ class TableFeatureTests(_Lens):
 
 
 class TableRatingTests(_Lens):
-    """A table's own rating - INFO-SCHEMA section 8.1's open UI call, answered by the
-    Console's Tables grid: the row you rate is the file."""
+    """A table's own rating. How a user sets one when the wheel shows a single entry
+    per game is answered by the Console's Tables grid: the row you rate is the file."""
 
     def test_rating_a_table_stores_it_against_that_table(self) -> None:
         response = self.client.put(f"/games/{GAME_ID}/tables/tbl0000002/rating",

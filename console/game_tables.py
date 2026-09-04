@@ -1,4 +1,4 @@
-"""How a game and a table are named and shown, in one vocabulary. HUBUI section 13.
+"""How a game and a table are named and shown, in one vocabulary.
 
 Do not reuse `media_ownership.py`'s nouns here: "This table" and "All tables" are about
 which media file wins, and borrowing them would overload a vocabulary that is correct.
@@ -42,7 +42,7 @@ REFERENCE_WORDS = {
 # speck. CSS circles are the same diameter by construction.
 #
 # Full and outline are the two ends of the ramp - the clearest pair there is, and this
-# vocabulary has only two states to spend. HUBUI section 13 carries the rest.
+# vocabulary has only two states to spend.
 MARKS = {
     FIXED: "console-mark--full",
     FOLLOWS: "console-mark--outline",
@@ -104,7 +104,8 @@ def word_for(pair: tuple[str, str], notable: bool) -> str:
 def table_name(table: dict[str, Any]) -> str:
     """Which table this is: version then author, one order everywhere.
 
-    The filename only as a fallback - section 11 is why. `authors` is a list on the wire
+    The filename only as a fallback: it is what the pair above exists to avoid falling
+    back to. `authors` is a list on the wire
     and `author` a joined string in a grid row; both are read, because both call this.
     """
     authors = table.get("authors")

@@ -324,7 +324,7 @@ def play_record(meta: Any) -> dict[str, Any]:
 def table_rating(table: dict) -> int:
     """One table's own rating, and 0 for the many that have none.
 
-    The game's is the headline (INFO-SCHEMA section 8.1: both levels, game primary), so
+    The game's is the headline - both levels carry one, and the game's is primary - so
     an unrated table is the normal case rather than a gap - it means "the game's rating
     stands", never "nobody liked it".
     """

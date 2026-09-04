@@ -31,7 +31,7 @@ logger = logging.getLogger("vpinfe.console.games")
 
 SCOPE = "console.games.columns"
 
-# The groups are section 13's grain distinction, surfaced in the column picker: what
+# The groups are the grain distinction, surfaced in the column picker: what
 # the row *is*, what it rolls up, and what it has. Media sits last because it is most
 # of the list and least of the use - and last is where it already was, so the grouping
 # names a seam that was there rather than moving anything.
@@ -85,7 +85,7 @@ COLUMNS = [
                 help="The machine, as your library names it.\n"
                      "One row is one game folder, however many tables are in it."),
     # Always, including 1: it is the only thing saying the row collapses its tables,
-    # and it qualifies everything to its right. HUBUI section 13. "Table Count" rather
+    # and it qualifies everything to its right. "Table Count" rather
     # than "Tables", which read as the tables themselves - this is a number about the
     # game, and it belongs with the game's other facts.
     grid.column("table_count", "Table Count", type="numericColumn", group=_GAME,
@@ -129,7 +129,7 @@ COLUMNS = [
 VIEW_SECTIONS = {"builtin:Media": "media"}
 
 GAME_VIEWS: dict[str, list[str]] = {
-    # Named for the workbench group it matches. HUBUI section 14: a view and a panel
+    # Named for the workbench group it matches: a view and a panel
     # group about the same facts carry the same word, so crossing between the grid and
     # the panel is not a translation.
     game_tables.MACHINE: ["name", "table_count", "manufacturer", "year", "game_type",
@@ -686,7 +686,7 @@ TABLE_VIEWS: dict[str, list[str]] = {
     #
     # Named for the workbench groups. "Files" and "Play" were one question asked twice -
     # both were app and on-disk state, which is whether this thing runs - so they are
-    # Launch, once. HUBUI section 14.
+    # Launch, once.
     game_tables.FILE: ["game", "version", "author", "rating", "default_state",
                        "hidden", "filename"],
     game_tables.LAUNCH: ["game", "filename", "app", "rom", "default_state", "hidden",
@@ -774,7 +774,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         wire_views, view_picker, showing = view_control(library, f"{SCOPE}.tables",
                                                         presets, fields, table_columns)
         ui.space()
-        # Every glyph column carries a legend (HUBUI section 6), including the state
+        # Every glyph column carries a legend, including the state
         # drawn as nothing, which is the one a reader is least able to work out from
         # the grid. The states this library actually has, though: a table is unparsed
         # only between discovery finding it and the enrichment job reaching it, so a
@@ -849,8 +849,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
         Rebuilding the page was the whole answer here, and it reads as the grid
         flashing: scroll position, focus and the open panel all go, for a write that
-        touched one game's rows. `getRowId` is already the row's id - section 6 has it
-        so selection survives a refresh - which is exactly what a transaction needs.
+        touched one game's rows. `getRowId` is already the row's id, so selection
+        survives a refresh - which is exactly what a transaction needs.
 
         The whole game's rows, not the one acted on: a default moves, so the row that
         held it stops being the default in the same write.

@@ -746,8 +746,8 @@ def set_order(name: str,
         if manager.is_filter_based(name):
             raise ConflictError(
                 f"{name} is a filter collection - its order comes from its criteria")
-        # Per ref, not per game: an order is over the rows, and section 2.10 lets one
-        # game hold several. `get_members` de-duplicates by design, so comparing
+        # Per ref, not per game: an order is over the rows, and one game can hold
+        # several. `get_members` de-duplicates by design, so comparing
         # against it read 7 where the collection has 8 rows and refused every move.
         members = [ref["game"] for ref in manager.get_member_refs(name)]
         sent = list(request.games)
@@ -763,7 +763,7 @@ def set_order(name: str,
                 details={"missing": missing, "not_members": extra,
                          "sent": len(sent), "members": len(members)})
         # The stored refs, moved - not rebuilt from the ids sent. A member names a game
-        # and optionally one of its tables (COLLECTIONS section 2.10), and writing bare
+        # and optionally one of its tables, and writing bare
         # ids back is what `set_members` warns about: every table this collection had
         # *named* is discarded, and a game holding two of them collapses to one entry.
         # Measured before this: a three-ref tournament list came back as two bare games,

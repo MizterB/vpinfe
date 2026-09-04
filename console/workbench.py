@@ -714,7 +714,7 @@ def _go_to_table(context: dict[str, Any], table_id: str) -> None:
     if not table_id:
         return
     state = context["state"]
-    # The Tables grid is a place now, so going to one file is going there - section 16.1.
+    # The Tables grid is a place now, so going to one file is going there.
     state["view"] = "tables"
     state["table"] = table_id
     deeplink.sync(state)
@@ -1246,7 +1246,7 @@ def _table_rows(table: dict[str, Any],
         rom = f"{effective}  (declared {declared})"
 
     # Grouped by what a fact is about, one vocabulary shared with the views and the
-    # grid. HUBUI section 14. Each group carries the actions that work on it.
+    # grid. Each group carries the actions that work on it.
     features = table.get("features") or {}
     overrides = (table.get("overrides") or {}) if context else {}
 
@@ -1274,7 +1274,7 @@ def _table_rows(table: dict[str, Any],
                     (FULL, lambda: _feature_chips(features))]
 
     # Can it run, and how. The dependencies are shown as evidence, never managed
-    # here: a finding jumps to where it is fixed. HUBUI section 14.3.
+    # here: a finding jumps to where it is fixed.
     entries += [(HEADING, game_tables.LAUNCH)]
     present = bool(table.get("available"))
     entries += [
@@ -1530,8 +1530,8 @@ def _tag_picker(held: list[str], known: list[str],
     """The tags on this game, and the ones the library already knows.
 
     The same control a multi-valued filter axis uses - chips for what is set, and the
-    text input once the list outgrows a glance, which is section 5's rule about a list
-    longer than a screen being typed into rather than scrolled. Typing filters the known
+    text input once the list outgrows a glance, because a list longer than a screen is
+    typed into rather than scrolled. Typing filters the known
     ones, so a tag somebody already used is the easy thing to pick; a new one is added
     on Enter, and `add-unique` is what makes a repeat impossible.
 
@@ -2049,7 +2049,7 @@ def _tables_block(context: dict[str, Any]) -> None:
     its own columns.
 
     Version and author, never the filename - this is the block whose whole job is
-    telling them apart, and filenames cannot. HUBUI section 13.
+    telling them apart, and filenames cannot.
     """
     tables = context["tables"]
     if not tables:
@@ -2377,7 +2377,7 @@ def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
                   since: str) -> None:
     """Which table the game offers, and the way to change it.
 
-    Chris asked for this in section 13 - *"tables to be able to raise their hand and
+    Chris asked for this - *"tables to be able to raise their hand and
     say 'I am a default'"* - and the panel could only report it. A gone table is shown
     unset and is not offerable: the game cannot default to a file that is not there.
     """
@@ -2425,8 +2425,8 @@ def _rows(target: Any, entries: Sequence[tuple[Any, Any]]) -> None:
 
 # --- collections ------------------------------------------------------------------
 # A collection's rail. Nothing here is shared with a game's: the two subjects have no
-# section in common, which is what section 11 means by the rail being a function of
-# (nav node, subject) rather than one list everything appears in.
+# section in common, because the rail is a function of (nav node, subject) rather than
+# one list everything appears in.
 #
 # Two sections, not three. A rule and what it matches are one thing to look at - the
 # whole point of building a rule beside its result - so they share a section, with the
@@ -2818,7 +2818,7 @@ def _ordering_rows(context: dict[str, Any], row: dict[str, Any],
 
     `manual` order only where the membership is stable enough to arrange. A rule
     contributes rows that are not in the array, so an arrangement could not say where
-    they go - section 4 leaves that undefined and the API refuses it.
+    they go, so that arrangement is undefined and the API refuses it.
     """
     ordered = _order_control(context, row, arrangeable=arrangeable)
     entries: list[tuple[Any, Any]] = [(HEADING, "Presentation")]

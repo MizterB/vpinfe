@@ -189,7 +189,7 @@ class OrderTests(Harness):
 
 
 class OrderKeepsNamedTablesTests(Harness):
-    """A member names a game and optionally one of its tables (section 2.10). Rebuilding
+    """A member names a game and optionally one of its tables. Rebuilding
     the array from bare ids threw every named table away - measured, a three-ref
     tournament list came back as two bare games on a 204.
 
@@ -207,7 +207,7 @@ class OrderKeepsNamedTablesTests(Harness):
                          [{"game": "g2"}, {"game": "g1", "table": "t1"}])
 
     def test_two_tables_of_one_game_can_be_placed_apart(self):
-        """The thing section 2.10 opens by asking for. Naming the game at two positions
+        """Naming the game at two positions
         deals its refs out one each, in their own stored order."""
         self.use(Manager([{"game": "g1", "table": "t1"}, {"game": "g2"},
                           {"game": "g1", "table": "t2"}]))
