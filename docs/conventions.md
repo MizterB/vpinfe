@@ -145,13 +145,14 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
 
 ## Comments and docstrings
 
-The codebase is deliberately sparse — around 5% of lines are comments or docstrings. Match
-that.
+Write code that reads without them, and then add the ones that earn their place. There is no
+target ratio: a module whose two public functions each state a real contract carries more
+prose than one that reads straight through, and both are right.
 
-Treat the ratio as a smell test rather than a budget. It misfires on short files: a forty-line
-module whose two public functions each state a real contract can sit well above 5% and be
-right. What matters is whether the prose restates the code — cut it — or states something the
-caller cannot infer from the name and signature, which is worth keeping.
+What earns its place is a trap, a contract, or a decision that reads as a mistake without one
+line of reason. What does not is the argument behind the decision, the alternatives that were
+weighed, or the measurements that settled it — those go in the commit message, which is where
+somebody looks when they ask why.
 
 - **Module docstring: one line.** A second only if the module's *existence* is non-obvious.
   Long rationale goes in `docs/` with a pointer, not in the file.
