@@ -141,7 +141,7 @@ def _rail_row(key: str, label: str, open_now: bool,
         # `no-wrap`, or a long name is two lines and one taller row. The label ellipses
         # instead, which is what `truncate` was already there to do.
         with ui.row().classes("items-center grow min-w-0 no-wrap console-section-hit"):
-            ui.label(label).classes("console-section-text truncate")
+            ui.label(label).classes("truncate")
             if mark is not None:
                 mark()
         with ui.row().classes("items-center console-section-caret"):

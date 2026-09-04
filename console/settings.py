@@ -53,22 +53,6 @@ VPS_NOTE = ("Matching, release lists and what the catalog offers are read from a
 # What each page will hold. Written out because an index whose destinations are unknown
 # is not a design, and because reading this list is the cheapest way to notice that a
 # page is in the wrong group.
-STUBS = {
-    "library": "Where tables live, how often the library is rescanned, and what a scan "
-               "is allowed to write back.",
-    "appearance": "Palette, density, and which columns a fresh install starts with.",
-    "startup": "What launches with this install, and what it does when a device is already "
-               "running.",
-    "checks_media": "Checks about media presence, resolution and fallbacks.",
-    "checks_script": "Checks that read the table script.",
-    "vpinplay": "The account a score is submitted under.",
-    "webhooks": "Endpoints told when something changes here.",
-    "logs": "This install's log, filtered.",
-    "jobs": "What ran, when, and what it did.",
-    "support": "A bundle to attach to a bug report, with what it contains listed before "
-               "it is written.",
-}
-
 
 async def _write(library, section: str, key: str, value: Any) -> bool:
     """One setting, written when it is set.
@@ -476,14 +460,14 @@ def build_library_page(library, rerender: Callable[[], None], key: str,
     if kind == BUILT_PAGE:
         drawn = PAGES.get(key)
         if drawn is None:
-            panel.facts(ui, [panel.intro(STUBS.get(key, "Not built yet."))])
+            panel.facts(ui, [panel.intro("Not built yet.")])
             return
         drawn()
         return
 
     found = KIND_PAGES.get(key)
     if found is None:
-        panel.facts(ui, [panel.intro(STUBS.get(key, "Not built yet."))])
+        panel.facts(ui, [panel.intro("Not built yet.")])
         return
     note, _section, name, items, mode = found
     _kind_page(library, rerender, note, "", name, items, mode)

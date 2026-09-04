@@ -654,7 +654,7 @@ def _section_row(context: dict[str, Any], section: Section, open_now: bool,
     with row:
         name = ui.row().classes("items-center grow min-w-0 console-section-hit")
         with name:
-            text = ui.label(section.label(context)).classes("console-section-text truncate")
+            text = ui.label(section.label(context)).classes("truncate")
         # Shown only where the rows stack, because only there does one open under
         # another. Beside its content it would be pointing at nothing.
         with ui.row().classes("items-center console-section-caret"):

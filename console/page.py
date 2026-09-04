@@ -780,8 +780,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                    local_device_id=discovery.get("install_id"))
             elif view == "system":
                 settings_page.build_system(library, state, redraw, discovery)
-            else:
-                _placeholder(view)
 
     def mark_system() -> None:
         """How much of this install's configuration is stopping a feature it has on.
@@ -1003,12 +1001,6 @@ def _nav_item(key: str, label: str, icon: str, state: dict[str, Any], render,
     destinations[key] = row
     if held is not None and nested:
         held.append(row)
-
-
-def _placeholder(view: str) -> None:
-    with ui.column().classes("w-full items-center p-8 gap-2"):
-        ui.icon("construction", size="32px").classes("opacity-40")
-        ui.label(f"{view.title()} is not built yet").classes("text-sm opacity-60")
 
 
 async def _read_the_library() -> dict | None:

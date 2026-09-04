@@ -820,11 +820,6 @@ body::before {
   padding-top: 10px;
 }
 
-/* The dot that says a device answered, before its name in the devices rail. Its own
-   class rather than a mark: the mark vocabulary is about a library's coverage, and this
-   is about whether a machine is switched on. */
-.console-reach-dot { margin-right: 8px; }
-
 /* A feature is switched on and something it needs is not there. Danger rather than the
    warm above: an update waiting is worth doing when you get to it, and this is already
    broken, so the two must not read as the same kind of news. */
