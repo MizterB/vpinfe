@@ -31,10 +31,18 @@ MAX_RECORDS = 1000
 @router.get("", summary="Recent log records from this install",
             dependencies=[requires(scopes.SYSTEM_READ)])
 def get_log(limit: int = Query(200, ge=1, le=MAX_RECORDS),
-            level: str = "", contains: str = "") -> models.LogRecords:
-    """The tail, oldest first, optionally filtered by level or by text. `path` is served
-    so a person can go and read the rest of it."""
-    found = log_setup.read_log(limit=limit, level=level, contains=contains)
-    where = log_setup.log_file()
+            level: str = "", contains: str = "",
+            source: str = "") -> models.LogRecords:
+    """The tail, oldest first, optionally filtered by level or by text.
+
+    `source` names one of the files this install writes - the current log or a rotation
+    beside it - and is resolved against that list rather than opened as given. `path` is
+    served so a person can go and read the rest of it.
+    """
+    found = log_setup.read_log(limit=limit, level=level, contains=contains,
+                               source=source)
+    where = next((one for one in log_setup.log_files() if one.name == source),
+                 log_setup.log_file()) if source else log_setup.log_file()
     return {"count": len(found), "records": found,
-            "path": str(where) if where else ""}
+            "path": str(where) if where else "",
+            "sources": [one.name for one in log_setup.log_files()]}

@@ -180,7 +180,9 @@ class LogRecords(ApiModel):
     # Where the file is, so somebody can go and read the rest of it. Empty on an install
     # started with file logging off.
     path: str = ""
-
+    # What else could be shown: the current log and the rotations kept beside it. Named
+    # rather than spanned, because a rotation boundary is where an install restarted.
+    sources: list[str] = []
 
 class DiscoveredInstall(ApiModel):
     """One install heard announcing itself on this network.

@@ -63,7 +63,8 @@ LOG_LIMIT = 200
 
 # What each level is worth noticing. Only the two that mean something went wrong are
 # colored - a column where every row is lit says nothing about any of them.
-_LOG_LEVELS = {
+# Read by the Logs page too, so one install's log and another's are colored the same.
+LOG_LEVELS = {
     "ERROR": "console-log-bad",
     "CRITICAL": "console-log-bad",
     "WARNING": "console-log-warn",
@@ -748,7 +749,7 @@ def _log_lines(records: list[dict[str, Any]], path: str) -> None:
                 ui.label(str(record.get("when") or "")).classes("console-log-when")
                 level = str(record.get("level") or "")
                 ui.label(level).classes(
-                    "console-log-level " + _LOG_LEVELS.get(level, "console-log-plain"))
+                    "console-log-level " + LOG_LEVELS.get(level, "console-log-plain"))
                 ui.label(str(record.get("logger") or "")).classes("console-log-source")
             ui.label(str(record.get("message") or "")).classes("console-log-message")
     if path:

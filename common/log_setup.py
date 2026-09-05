@@ -228,14 +228,38 @@ _RECORD = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (\w+) \[([^\]]*)\] (.*)
 TAIL_BYTES = 512 * 1024
 
 
-def read_log(limit: int = 200, level: str = "", contains: str = "") -> list[dict]:
+def log_files() -> list[Path]:
+    """The current log and the rotations kept beside it, newest first.
+
+    Named separately rather than read as one stream: a rotation boundary is where an
+    install restarted, and a reader looking for what happened before a restart wants to
+    say so rather than scroll past it.
+    """
+    current = log_file()
+    if current is None:
+        return []
+    found = [current] if current.exists() else []
+    for index in range(1, LOG_BACKUP_COUNT + 1):
+        rolled = current.with_name(f"{current.name}.{index}")
+        if rolled.exists():
+            found.append(rolled)
+    return found
+
+
+def read_log(limit: int = 200, level: str = "", contains: str = "",
+             source: str = "") -> list[dict]:
     """The most recent records, oldest first.
 
     Records rather than lines. A traceback is one thing that happened, and splitting it
     into fourteen rows both buries the message that caused it and makes a level filter
     drop the half that carries the reason.
+
+    `source` names one of `log_files()` and is checked against that list rather than
+    opened as given - a caller must not be able to read an arbitrary file through this.
     """
     path = log_file()
+    if source:
+        path = next((one for one in log_files() if one.name == source), None)
     if path is None or not path.exists():
         return []
     try:
