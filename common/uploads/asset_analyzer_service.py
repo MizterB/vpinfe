@@ -392,7 +392,9 @@ def _basename(arcname: str) -> str:
 
 # --- Detection -------------------------------------------------------------
 
-def _analyze_entries(entries: list[SourceEntry]) -> tuple[list[DetectedAsset], list[str], bool]:
+def _analyze_entries(
+        entries: list[SourceEntry],
+) -> tuple[list[DetectedAsset], list[str], bool, tuple[str, ...]]:
     norm = _normalize(entries)
     files = [e for e in norm if not e.is_dir]
     claimed: set[str] = set()

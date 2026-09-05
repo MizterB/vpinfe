@@ -60,7 +60,10 @@ def _rom_audit_available() -> bool | tuple[bool, str]:
         from common.paths import get_ini_config
 
         vpx_bin = SettingsConfig.from_config(get_ini_config()).vpx_bin_path
-        return pinmame_catalog.availability(vpx_bin)
+        # The catalog reports no reason when it is simply available, and the shape the
+        # other three predicates share has no room for a None one.
+        available, reason = pinmame_catalog.availability(vpx_bin)
+        return (available, reason) if reason else available
     except Exception as exc:
         return False, f"Could not determine libpinmame state: {exc}"
 
