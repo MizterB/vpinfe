@@ -55,11 +55,35 @@ _LEGACY_TABLE_KEYS = {
 # passed through - the gate allows additions, never removals.
 _LEGACY_VPINFE_KEYS = {
     "delete_nvram_on_close": "deletedNVRamOnClose",
-    "alt_launcher": "altlauncher",
-    "plugin_profile": "pluginprofile",
     "alt_title": "alttitle",
     "alt_vpsid": "altvpsid",
 }
+
+def _derived_launcher_keys(row: dict) -> dict:
+    """`altlauncher` and `pluginprofile`, computed rather than stored.
+
+    Both were `.info` keys until launchers took over, and the contract allows additions
+    but never removals - so they are still published, from the resolver that decides what
+    actually runs. That makes them *more* correct than the stored values were: a stored
+    path could name a binary since moved, or a launcher since switched off.
+
+    Empty where the table is on the default launcher, which is what "alt" always meant.
+    Answering for every table would turn a field about the exception into one that says
+    the same thing everywhere.
+    """
+    try:
+        from common.games import launchers
+    except Exception:  # a theme payload must not fail over a launcher lookup
+        return {}
+
+    if not row.get("launcher") or not row.get("launcher_set_here"):
+        return {"altlauncher": "", "pluginprofile": ""}
+    found = launchers.get_launcher_store().get(str(row.get("launcher")))
+    if found is None:
+        return {"altlauncher": "", "pluginprofile": ""}
+    return {"altlauncher": str(found.value("bin_path") or ""),
+            "pluginprofile": str(found.value("ini_override") or "")}
+
 
 # What contract 1 calls each top-level row key. These are served identically at both
 # contracts until now, so the projection never had to touch anything outside meta.
@@ -141,6 +165,7 @@ def _to_contract_1(row: dict) -> dict:
 
     meta["VPinFE"] = {_LEGACY_VPINFE_KEYS.get(key, key): value
                       for key, value in dict(meta.get("vpinfe") or {}).items()}
+    meta["VPinFE"].update(_derived_launcher_keys(row))
     for section in ("tables", "vpinfe", "assets"):
         meta.pop(section, None)
 

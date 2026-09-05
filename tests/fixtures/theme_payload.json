@@ -54,8 +54,10 @@
           "rom": "afm_113b"
         },
         "VPinFE": {
+          "altlauncher": "",
           "default_table": "afmtable01",
           "game_id": "afm0000001",
+          "pluginprofile": "",
           "schema": 2
         }
       },
@@ -116,7 +118,9 @@
           "pupPackExists": false
         },
         "VPinFE": {
+          "altlauncher": "",
           "game_id": "bar0000001",
+          "pluginprofile": "",
           "schema": 2
         }
       },
@@ -178,8 +182,10 @@
           "pupPackExists": false
         },
         "VPinFE": {
+          "altlauncher": "",
           "default_table": "cngtable01",
           "game_id": "cng0000001",
+          "pluginprofile": "",
           "schema": 2
         }
       },
@@ -241,8 +247,10 @@
           "pupPackExists": false
         },
         "VPinFE": {
+          "altlauncher": "",
           "default_table": "mmtable001",
           "game_id": "mm00000001",
+          "pluginprofile": "",
           "schema": 2
         }
       },
