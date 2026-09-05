@@ -273,48 +273,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             legacy=(("Settings", "cabmode"), ("Settings", "cab_mode")),
         ),
     ),
+    # Seven Visual Pinball settings left this section for the launcher that owns them:
+    # the binary, its ini, the environment, the log-delete switch and the three override
+    # keys. They are not settings an install has, they are fields of a way of running an
+    # app, and a second way of running it would have collided with every one of them.
+    # `launchers.json` holds them now; `launcher_migration` reads them out of an older
+    # file once. What is left here belongs to the install itself.
     *in_section(
         "general",
-        ConfigOption(
-            "vpx_bin_path",
-            type="string",
-            path="exe",
-            default="",
-            label="VPX Executable Path",
-            description="Full path to the Visual Pinball executable VPinFE launches.",
-            aliases=("vpxbinpath",),
-        ),
-        ConfigOption(
-            "vpx_launch_env",
-            type="string",
-            default="",
-            label="VPX Launch Environment",
-            aliases=("vpxlaunchenv",),
-        ),
-        ConfigOption(
-            "global_ini_override",
-            type="string",
-            path="file",
-            default="",
-            label="Global INI Override",
-            description="Path to an ini to use instead of the default, for example"
-                        " /home/test/mysuper.ini. Empty means no override.",
-            aliases=("globalinioverride",),
-        ),
-        ConfigOption(
-            "global_game_ini_override_enabled",
-            type="bool",
-            default="false",
-            label="Global tableini Override Enabled",
-            aliases=("globaltableinioverrideenabled",),
-        ),
-        ConfigOption(
-            "global_game_ini_override_mask",
-            type="string",
-            default="",
-            label="Global tableini Override Mask",
-            aliases=("globaltableinioverridemask",),
-        ),
         ConfigOption(
             "game_root_dir",
             type="string",
@@ -359,16 +325,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
                         " to be listed here before VPinFE will read it.",
         ),
         ConfigOption(
-            "vpx_ini_path",
-            type="string",
-            path="file",
-            default="",
-            label="VPX INI Path",
-            description="Path to VPinballX.ini, which VPinFE reads for the key mappings the Remote"
-                        " page sends.",
-            aliases=("vpxinipath",),
-        ),
-        ConfigOption(
             "assets_dir",
             type="string",
             path="dir",
@@ -388,13 +344,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             description="Path to unar or unrar. Blank auto-detects one on this"
                         " machine.",
             aliases=("rartoolpath",),
-        ),
-        ConfigOption(
-            "vpx_log_delete_on_start",
-            type="bool",
-            default="false",
-            label="Delete VPinball Log On Table Start",
-            aliases=("vpxlogdeleteonstart",),
         ),
         ConfigOption(
             "theme",

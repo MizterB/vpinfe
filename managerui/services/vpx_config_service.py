@@ -13,9 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from common.config_access import cfg_get
-from common.config_store import ConfigStore
-from managerui.paths import CONFIG_DIR, VPINFE_INI_PATH
+from managerui.paths import CONFIG_DIR
 
 VPX_BACKUP_DIR = CONFIG_DIR / "backups" / "vpx_ini"
 
@@ -193,8 +191,10 @@ def write_updated_ini(
 
 
 def load_vpx_ini_path() -> Path | None:
-    config = ConfigStore(str(VPINFE_INI_PATH))
-    raw_path = cfg_get(config, "Settings", "vpx_ini_path", "").strip()
+    """The ini the install would launch with, which belongs to a launcher now."""
+    from common.games import launchers
+
+    raw_path = launchers.default_value("ini_path").strip()
     if not raw_path:
         return None
     return Path(os.path.expanduser(raw_path))

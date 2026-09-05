@@ -52,12 +52,12 @@ class FirstRunTests(ConfigStoreTests):
             {s: {k.lower() for k in v} for s, v in settings.items()},
             {s: {k.lower() for k in v} for s, v in config_schema.defaults().items()})
 
-    def test_the_three_settings_the_readme_asks_for_are_present(self) -> None:
-        """README.md walks a new user through these in the Manager UI."""
+    def test_the_library_root_is_there_for_a_new_install_to_fill_in(self) -> None:
+        """It used to check three. The other two named Visual Pinball's program and its
+        ini, which are fields of a launcher now rather than settings of the install."""
         store = ConfigStore(str(self.ini))
 
-        for key in ("vpx_bin_path", "game_root_dir", "vpx_ini_path"):
-            self.assertTrue(store.config.has_option("general", key))
+        self.assertTrue(store.config.has_option("general", "game_root_dir"))
 
     def test_a_second_run_is_not_a_first_run(self) -> None:
         ConfigStore(str(self.ini))

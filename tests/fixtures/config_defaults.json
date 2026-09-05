@@ -20,9 +20,6 @@
     "chrome_options_exclude": "",
     "disable_default_chrome_options": "false",
     "game_root_dir": "",
-    "global_game_ini_override_enabled": "false",
-    "global_game_ini_override_mask": "",
-    "global_ini_override": "",
     "hidden_asset_kinds": "",
     "hidden_media_kinds": "",
     "library_refresh_minutes": "0",
@@ -31,11 +28,7 @@
     "rar_tool_path": "",
     "splashscreen": "false",
     "startup_collection": "",
-    "theme": "Revolution",
-    "vpx_bin_path": "",
-    "vpx_ini_path": "",
-    "vpx_launch_env": "",
-    "vpx_log_delete_on_start": "false"
+    "theme": "Revolution"
   },
   "input": {
     "back": "key:b",
@@ -51,8 +44,8 @@
   },
   "install": {
     "display_name": "",
-    "id": "",
-    "features": "library,frontend,devices"
+    "features": "library,frontend,devices",
+    "id": ""
   },
   "libdmdutil": {
     "enabled": "false",

@@ -38,6 +38,10 @@ class NavTests(unittest.TestCase):
                 self.assertEqual(_rail(features), ["extensions", "settings",
                                                    "metrics", "logs"])
 
+    def test_the_landing_place_is_still_settings_with_launchers_present(self) -> None:
+        self.assertEqual(page.landing_for(_rail([install_identity.FRONTEND])),
+                         "settings")
+
     def test_extensions_is_not_a_front_door(self) -> None:
         """It leads the rail of an install with no library, and it is not defined enough
         yet to be the first thing anybody sees. Settings is the floor."""
@@ -54,14 +58,20 @@ class NavTests(unittest.TestCase):
         self.assertIn("games", _rail([]))
         self.assertNotIn("games", _rail([install_identity.CORE]))
 
-    def test_system_is_a_container_of_three(self) -> None:
+    def test_system_is_a_container(self) -> None:
         """It collapsed into its first child while `build_system` drew the index
         directly. Records are places; configuration is a setting."""
         under_system = [items for parent, items in page.nav_for(install_identity.FEATURES)
                         if parent == page.NAV_SYSTEM]
 
         self.assertEqual([key for key, *_rest in under_system[0]],
-                         ["settings", "metrics", "logs"])
+                         ["settings", "launchers", "metrics", "logs"])
+
+    def test_launchers_goes_with_the_feature_that_launches(self) -> None:
+        """An install that curates a library and never starts a game has nothing to run
+        a table with and no reason to be offered one."""
+        self.assertNotIn("launchers", _rail([install_identity.LIBRARY]))
+        self.assertIn("launchers", _rail([install_identity.FRONTEND]))
 
     def test_overview_has_to_be_asked_for(self) -> None:
         """It is a rollup of the other three rather than something an install does, so

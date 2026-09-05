@@ -13,8 +13,6 @@ import sys
 import time
 from pathlib import Path
 
-from common.config_access import cfg_get
-from common.config_store import ConfigStore
 from managerui.paths import VPINFE_INI_PATH
 
 logger = logging.getLogger("vpinfe.manager.keysimulator")
@@ -414,8 +412,10 @@ class KeySimulator:
             logger.debug("Looking for vpinfe.ini at: %s", config_path)
             logger.debug("File exists: %s", config_path.exists())
 
-        config_store = ConfigStore(str(config_path))
-        vpinball_ini_path = cfg_get(config_store, "Settings", "vpx_ini_path", "").strip()
+        # The ini belongs to the launcher that would run a table, not to the install.
+        from common.games import launchers
+
+        vpinball_ini_path = launchers.default_value("ini_path").strip()
 
         if self.debug:
             logger.debug("VPinballX.ini path from config: %s", vpinball_ini_path)

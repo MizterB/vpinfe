@@ -142,19 +142,20 @@ def cfg_set(source, section: str, key: str, value) -> None:
 
 @dataclass(frozen=True)
 class SettingsConfig:
+    """What the install itself is set to.
+
+    Visual Pinball's seven settings are not here any more: a binary, its ini, the
+    environment and the three overrides belong to a launcher, and `common/games/launchers.py`
+    holds them. Leaving them would have meant a second way of running Visual Pinball
+    colliding with every one of these names.
+    """
+
     game_root_dir: str = ""
     assets_dir: str = ""
-    vpx_bin_path: str = ""
-    vpx_ini_path: str = ""
     rar_tool_path: str = ""
-    vpx_log_delete_on_start: bool = False
     theme: str = "Revolution"
     startup_collection: str = ""
     auto_update_media_on_startup: bool = False
-    global_ini_override: str = ""
-    global_game_ini_override_enabled: bool = False
-    global_game_ini_override_mask: str = ""
-    vpx_launch_env: str = ""
     mute_audio: bool = False
     splashscreen: bool = False
     chrome_options: str = ""
@@ -169,17 +170,10 @@ class SettingsConfig:
         return cls(
             game_root_dir=cfg_get(source, "Settings", "gamerootdir", "").strip(),
             assets_dir=cfg_get(source, "Settings", "assetsdir", "").strip(),
-            vpx_bin_path=cfg_get(source, "Settings", "vpxbinpath", "").strip(),
-            vpx_ini_path=cfg_get(source, "Settings", "vpxinipath", "").strip(),
             rar_tool_path=cfg_get(source, "Settings", "rartoolpath", "").strip(),
-            vpx_log_delete_on_start=cfg_bool(source, "Settings", "vpxlogdeleteonstart", False),
             theme=theme,
             startup_collection=cfg_get(source, "Settings", "startup_collection", "").strip(),
             auto_update_media_on_startup=cfg_bool(source, "Settings", "autoupdatemediaonstartup", False),
-            global_ini_override=cfg_get(source, "Settings", "globalinioverride", "").strip(),
-            global_game_ini_override_enabled=cfg_bool(source, "Settings", "globaltableinioverrideenabled", False),
-            global_game_ini_override_mask=cfg_get(source, "Settings", "globaltableinioverridemask", ""),
-            vpx_launch_env=cfg_get(source, "Settings", "vpxlaunchenv", ""),
             mute_audio=cfg_bool(source, "Settings", "muteaudio", False),
             splashscreen=cfg_bool(source, "Settings", "splashscreen", False),
             chrome_options=cfg_get(source, "Settings", "chromeoptions", ""),

@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from common.config_access import SettingsConfig
+from common.config_access import cfg_bool, cfg_get
 from common.games import game_metadata, launchers, tables
 from common.paths import PLUGIN_PROFILES_DIR
 
@@ -41,8 +41,7 @@ def seed(store: launchers.LauncherStore, config) -> bool:
     if SEEDED in store.migrations():
         return False
 
-    settings = SettingsConfig.from_config(config)
-    shipped = launchers.seeded_from(settings)
+    shipped = launchers.seeded_from(read_old_keys(config))
     found = [launchers.replace(shipped, display_name=SHIPPED_NAME)]
     found += _from_profiles(shipped)
 
@@ -50,6 +49,47 @@ def seed(store: launchers.LauncherStore, config) -> bool:
     store.mark_migration(SEEDED)
     logger.info("Seeded %d launcher(s) from the existing configuration", len(found))
     return True
+
+
+# Where each launcher field was written before it was one, oldest spelling included.
+# Spelled out rather than resolved through the schema, because the schema no longer
+# declares them - which is the point of this pass - and a reader that asked it would find
+# nothing and seed a launcher with no binary.
+_OLD_KEYS: tuple[tuple[str, str, str, bool], ...] = (
+    ("bin_path", "general", "vpx_bin_path", False),
+    ("ini_path", "general", "vpx_ini_path", False),
+    ("launch_env", "general", "vpx_launch_env", False),
+    ("log_delete_on_start", "general", "vpx_log_delete_on_start", True),
+    ("ini_override", "general", "global_ini_override", False),
+    ("table_ini_override_enabled", "general", "global_game_ini_override_enabled", True),
+    ("table_ini_override_mask", "general", "global_game_ini_override_mask", False),
+)
+
+# What 2.x called the section and the keys. A file the config store has already migrated
+# holds the first spelling; one written by 2.x and not yet loaded holds the second.
+_OLD_SPELLINGS = {
+    "vpx_bin_path": "vpxbinpath",
+    "vpx_ini_path": "vpxinipath",
+    "vpx_launch_env": "vpxlaunchenv",
+    "vpx_log_delete_on_start": "vpxlogdeleteonstart",
+    "global_ini_override": "globalinioverride",
+    "global_game_ini_override_enabled": "globaltableinioverrideenabled",
+    "global_game_ini_override_mask": "globaltableinioverridemask",
+}
+
+
+def read_old_keys(config) -> dict[str, object]:
+    """The seven values, under whichever spelling the file happens to hold."""
+    found: dict[str, object] = {}
+    for field, section, key, is_bool in _OLD_KEYS:
+        old = _OLD_SPELLINGS[key]
+        if is_bool:
+            found[field] = (cfg_bool(config, section, key, False)
+                            or cfg_bool(config, "Settings", old, False))
+        else:
+            found[field] = (cfg_get(config, section, key, "").strip()
+                            or cfg_get(config, "Settings", old, "").strip())
+    return found
 
 
 def _from_profiles(shipped: launchers.Launcher) -> list[launchers.Launcher]:

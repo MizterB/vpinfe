@@ -375,9 +375,9 @@ def _tables(game, row: dict) -> list[dict]:
             if chain["effective"]:
                 # PinMAME's own audit, from the library the configured VPX ships.
                 # No answer leaves the name-match conclusion standing.
-                from common.config_access import SettingsConfig
+                from common.games import launchers
                 audit = pinmame_catalog.lookup(
-                    SettingsConfig.from_config(get_ini_config()).vpx_bin_path,
+                    launchers.default_value("bin_path"),
                     str(game_dir / "pinmame" / "roms"), chain["effective"])
                 asset_resolver.apply_audit(chain, audit)
             flex = asset_resolver.flexdmd_state(

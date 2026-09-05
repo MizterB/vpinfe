@@ -8,6 +8,7 @@ import unittest
 from tempfile import TemporaryDirectory
 
 from common import feature_checks, install_identity, path_checks
+from common.games.launchers import Launcher
 
 
 class RequirementTests(unittest.TestCase):
@@ -35,20 +36,33 @@ class RequirementTests(unittest.TestCase):
         about that path and not about the library as well."""
         return self._config(library_url="http://elsewhere:8001", **general)
 
-    def _unmet(self, config, features):
-        return [(u.feature, u.key, u.state)
-                for u in feature_checks.unmet(config, features)]
+    def _launcher_for(self, bin_path: str | None):
+        """What the install would launch with. None means it has no launcher at all."""
+        if bin_path is None:
+            return None
+        return Launcher(launcher_id="l1", app="vpx", display_name="Visual Pinball X",
+                        settings={"bin_path": bin_path})
+
+    def _unmet(self, config, features, bin_path="__ok__"):
+        found = self._launcher_for(self.launcher if bin_path == "__ok__" else bin_path)
+        return [(u.feature, u.key or u.where, u.state)
+                for u in feature_checks.unmet(config, features, launcher=found)]
 
     def test_a_fully_configured_install_reports_nothing(self) -> None:
-        config = self._config(game_root_dir=self.games, vpx_bin_path=self.launcher)
+        config = self._config(game_root_dir=self.games)
 
-        self.assertEqual(feature_checks.unmet(config, install_identity.FEATURES), [])
+        self.assertEqual(feature_checks.unmet(config, install_identity.FEATURES,
+                                              launcher=self._launcher_for(self.launcher)),
+                         [])
 
     def test_the_frontend_needs_a_launcher(self) -> None:
+        """An install with no launcher at all. It leads to the Launchers list rather than
+        to a setting, because adding one is not something a settings field does."""
         config = self._frontend_config(game_root_dir=self.games)
 
-        self.assertEqual(self._unmet(config, ["frontend"]),
-                         [("frontend", "vpx_bin_path", path_checks.UNSET)])
+        self.assertEqual(self._unmet(config, ["frontend"], bin_path=None),
+                         [("frontend", feature_checks.WHERE_LAUNCHERS,
+                           path_checks.UNSET)])
 
     def test_the_library_does_not_need_a_launcher(self) -> None:
         """It curates games; it never starts one. Requiring it would mark a catalog
@@ -60,7 +74,7 @@ class RequirementTests(unittest.TestCase):
     def test_a_setting_two_features_need_is_reported_against_each(self) -> None:
         """Somebody is looking at one feature's page and needs to know that page is
         affected - not that some other feature is also unhappy about the same setting."""
-        config = self._config(vpx_bin_path=self.launcher)
+        config = self._config()
 
         self.assertEqual(self._unmet(config, ["library", "frontend"]),
                          [("library", "game_root_dir", path_checks.UNSET),
@@ -69,30 +83,33 @@ class RequirementTests(unittest.TestCase):
     def test_a_path_that_is_set_and_wrong_is_not_the_same_as_unset(self) -> None:
         """The reason differs, and so does the fix: one is 'fill this in', the other is
         'what you filled in is not there'."""
-        config = self._frontend_config(game_root_dir=self.games,
-                                       vpx_bin_path="/nope/vpx")
+        config = self._frontend_config(game_root_dir=self.games)
 
-        self.assertEqual(self._unmet(config, ["frontend"]),
-                         [("frontend", "vpx_bin_path", path_checks.MISSING)])
+        self.assertEqual(self._unmet(config, ["frontend"], bin_path="/nope/vpx"),
+                         [("frontend", feature_checks.WHERE_LAUNCHERS,
+                           path_checks.MISSING)])
 
     def test_a_frontend_with_no_library_has_to_be_told_which_one(self) -> None:
         """No silent picking, not even when exactly one is on the network."""
-        config = self._config(game_root_dir=self.games, vpx_bin_path=self.launcher)
+        config = self._config(game_root_dir=self.games)
 
         self.assertEqual(self._unmet(config, ["frontend"]),
                          [("frontend", "library_url", path_checks.UNSET)])
 
     def test_a_frontend_that_holds_its_own_library_needs_no_picker(self) -> None:
         """The single-machine case, which is the common one."""
-        config = self._config(game_root_dir=self.games, vpx_bin_path=self.launcher)
+        config = self._config(game_root_dir=self.games)
 
-        self.assertEqual(feature_checks.unmet(config, ["library", "frontend"]), [])
+        self.assertEqual(feature_checks.unmet(config, ["library", "frontend"],
+                                              launcher=self._launcher_for(self.launcher)),
+                         [])
 
     def test_a_library_chosen_settles_it(self) -> None:
-        config = self._frontend_config(game_root_dir=self.games,
-                                       vpx_bin_path=self.launcher)
+        config = self._frontend_config(game_root_dir=self.games)
 
-        self.assertEqual(feature_checks.unmet(config, ["frontend"]), [])
+        self.assertEqual(feature_checks.unmet(config, ["frontend"],
+                                              launcher=self._launcher_for(self.launcher)),
+                         [])
 
     def test_managing_devices_requires_nothing_of_its_own(self) -> None:
         """It reaches other installs over the network. An address that does not answer is

@@ -52,6 +52,37 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(held[0].value("launch_env"), "SDL_VIDEODRIVER=wayland")
         self.assertEqual(held[0].display_name, launcher_migration.SHIPPED_NAME)
 
+    def test_a_2x_file_still_seeds_its_launcher(self) -> None:
+        """The seven keys left the schema, so nothing resolves their old spellings any
+        more. This pass has to know them itself, or an upgrading cabinet comes up with a
+        launcher that has no program and no way to say what happened."""
+        parser = configparser.ConfigParser()
+        parser.add_section("Settings")
+        parser.set("Settings", "vpxbinpath", "/opt/vpinball/VPinballX_GL")
+        parser.set("Settings", "vpxinipath", "/home/cab/VPinballX.ini")
+        parser.set("Settings", "vpxlogdeleteonstart", "true")
+        parser.set("Settings", "globaltableinioverridemask", "windows")
+
+        self._seed(parser)
+
+        one = self.store.launchers()[0]
+        self.assertEqual(one.value("bin_path"), "/opt/vpinball/VPinballX_GL")
+        self.assertEqual(one.value("ini_path"), "/home/cab/VPinballX.ini")
+        self.assertIs(one.value("log_delete_on_start"), True)
+        self.assertEqual(one.value("table_ini_override_mask"), "windows")
+
+    def test_a_3x_file_seeds_from_the_current_spellings(self) -> None:
+        parser = configparser.ConfigParser()
+        parser.add_section("general")
+        parser.set("general", "vpx_bin_path", "/usr/bin/VPinballX_BGFX")
+        parser.set("general", "global_ini_override", "/cfg/other.ini")
+
+        self._seed(parser)
+
+        one = self.store.launchers()[0]
+        self.assertEqual(one.value("bin_path"), "/usr/bin/VPinballX_BGFX")
+        self.assertEqual(one.value("ini_override"), "/cfg/other.ini")
+
     def test_an_install_with_nothing_configured_still_gets_one(self) -> None:
         """A launcher with no binary is something a person can fix from the Console. No
         launcher at all is a machine with nothing to point at."""

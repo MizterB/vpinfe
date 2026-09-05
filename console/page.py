@@ -8,7 +8,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import device_client, install_identity
+from common import device_client, feature_checks, install_identity
 from console import assets as assets_page
 from console import collections as collections_page
 from console import deeplink, games, grid, sections, tageditor, theme, views, workbench
@@ -95,7 +95,12 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
             ("extensions", "Extensions", "extension", install_identity.CORE))),
     # Last, and always here: every other section exists because a feature is enabled,
     # and this is where features are switched on.
+    # Launchers is a subject rather than a settings group: adding, removing and
+    # duplicating an object is a list with per-row actions, which is not what a page of
+    # (label, value) pairs does. It sits with Settings because both are how the machine is
+    # set up; Metrics and Logs are what it has recorded.
     (NAV_SYSTEM, (("settings", "Settings", "tune", install_identity.CORE),
+                  ("launchers", "Launchers", "rocket_launch", install_identity.FRONTEND),
                   ("metrics", "Metrics", "monitor_heart", install_identity.CORE),
                   ("logs", "Logs", "description", install_identity.CORE))),
 )
@@ -138,6 +143,7 @@ SECTIONS = {
     "devices": "Devices",
     "extensions": "Extensions",
     "settings": "Settings",
+    "launchers": "Launchers",
     "metrics": "Metrics",
     "logs": "Logs",
 }
@@ -790,6 +796,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                    local_device_id=discovery.get("install_id"))
             elif view == "settings":
                 settings_page.build_system(library, state, redraw, discovery)
+            elif view == "launchers":
+                sections.launchers()
             elif view == "metrics":
                 sections.metrics()
             elif view == "logs":
@@ -802,8 +810,15 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         a mark nobody sees on a rail they have collapsed.
         """
         items = state.get("trouble") or []
-        for key in ("system", "settings"):
-            _mark_trouble(badges.get(key), items)
+        # Split by where the fix is: a launcher that cannot run is not fixed on a
+        # settings page, and a badge that leads to the wrong place is worse than none.
+        at_settings = [one for one in items
+                       if one.where != feature_checks.WHERE_LAUNCHERS]
+        at_launchers = [one for one in items
+                        if one.where == feature_checks.WHERE_LAUNCHERS]
+        _mark_trouble(badges.get("system"), items)
+        _mark_trouble(badges.get("settings"), at_settings)
+        _mark_trouble(badges.get("launchers"), at_launchers)
 
     def _mark_trouble(badge, items) -> None:
         """Red, and a count rather than the warm one beside Devices: an update waiting is

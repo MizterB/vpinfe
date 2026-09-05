@@ -38,15 +38,17 @@ def _launch_available() -> bool | tuple[bool, str]:
     has to say so, or an instance advertises a Play button that always fails.
     """
     try:
-        from common.config_access import SettingsConfig
-        from common.paths import get_ini_config
+        from common.games import launchers
 
-        configured = (SettingsConfig.from_config(get_ini_config()).vpx_bin_path or "").strip()
+        found = launchers.default_launcher()
+        if found is None:
+            return False, "No launcher configured on this install."
+        configured = str(found.value("bin_path") or "").strip()
         if not configured:
-            return False, ("No launcher configured. Set Settings.vpxbinpath, or "
-                           "VPinFE.altlauncher on individual games.")
+            return False, f"{found.display_name} has no program set."
         if not Path(configured).exists():
-            return False, f"Configured launcher does not exist: {configured}"
+            return False, (f"{found.display_name} points at something that is "
+                           f"not there: {configured}")
         return True
     except Exception as exc:
         return False, f"Could not determine launcher state: {exc}"
@@ -55,11 +57,10 @@ def _launch_available() -> bool | tuple[bool, str]:
 def _rom_audit_available() -> bool | tuple[bool, str]:
     """Whether this machine can run PinMAME's own ROM audit."""
     try:
-        from common.config_access import SettingsConfig
+        from common.games import launchers
         from common.host import pinmame_catalog
-        from common.paths import get_ini_config
 
-        vpx_bin = SettingsConfig.from_config(get_ini_config()).vpx_bin_path
+        vpx_bin = launchers.default_value("bin_path")
         # The catalog reports no reason when it is simply available, and the shape the
         # other three predicates share has no room for a None one.
         available, reason = pinmame_catalog.availability(vpx_bin)

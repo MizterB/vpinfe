@@ -19,15 +19,21 @@ from dataclasses import dataclass
 from common import install_identity, path_checks
 from common.config_access import cfg_get
 
-# What each feature needs before it can do its job. Both of these happen to be paths,
-# which is not a rule - a requirement is any setting a feature cannot work without, and
-# paths are simply what the first two are.
+# Where the thing that fixes a requirement lives. A settings requirement ends at a field
+# on a settings page; a launcher one ends at the Launchers list, which is not a setting
+# and has no section and key to name.
+WHERE_SETTINGS = "settings"
+WHERE_LAUNCHERS = "launchers"
+
+# What each feature needs before it can do its job. These happen to be paths, which is not
+# a rule - a requirement is anything a feature cannot work without.
 REQUIREMENTS: dict[str, tuple[tuple[str, str], ...]] = {
     # Curating a library needs somewhere to find the games.
     install_identity.LIBRARY: (("general", "game_root_dir"),),
-    # Launching needs the games and something to launch them with.
-    install_identity.FRONTEND: (("general", "game_root_dir"),
-                                ("general", "vpx_bin_path")),
+    # Launching needs the games. Something to launch them *with* is not here: that is a
+    # launcher rather than a setting, and it is checked below against the launcher the
+    # install would actually use.
+    install_identity.FRONTEND: (("general", "game_root_dir"),),
     # Managing other installs needs nothing of its own: it reaches them over the network,
     # and an address it cannot reach is that device's row to report, not a setting here.
     install_identity.DEVICES: (),
@@ -53,6 +59,9 @@ class Unmet:
     key: str
     state: str
     reason: str
+    # Which surface resolves it. Defaulted, because every requirement was a setting until
+    # the binary moved onto a launcher, and most still are.
+    where: str = WHERE_SETTINGS
 
 
 def _option(section: str, key: str):
@@ -62,7 +71,13 @@ def _option(section: str, key: str):
                  if o.section == section and o.key == key), None)
 
 
-def unmet(config, features=None) -> list[Unmet]:
+# "Nobody asked about a launcher", as against None, which means there is not one. Two
+# different answers: a caller that does not hold the launchers is not reporting that the
+# install has none.
+NOT_ASKED = object()
+
+
+def unmet(config, features=None, launcher=NOT_ASKED) -> list[Unmet]:
     """Every requirement the enabled features do not satisfy, in feature order.
 
     One entry per (feature, setting), so a setting two features both need is reported
@@ -89,10 +104,41 @@ def unmet(config, features=None) -> list[Unmet]:
                 reason = f"{option.label} is not set."
             found.append(Unmet(feature=feature, section=section, key=key,
                                state=state, reason=reason))
-    missing_library = _no_library_to_read(config, on)
-    if missing_library is not None:
-        found.append(missing_library)
+    for extra in (_no_working_launcher(on, launcher),
+                  _no_library_to_read(config, on)):
+        if extra is not None:
+            found.append(extra)
     return found
+
+
+def _no_working_launcher(on, found) -> Unmet | None:
+    """A frontend with nothing it can actually run a table with.
+
+    Asked about the launcher the install would use rather than a config key, because that
+    is what a launch resolves and the two must not be able to disagree. It names no
+    section: the fix is adding or pointing a launcher, which is not a settings field.
+
+    The launcher is handed in already resolved. This module is infrastructure and may not
+    reach into a domain package to find one - and passing the answer rather than the
+    question keeps the resolution in the one place that owns it.
+    """
+    if install_identity.FRONTEND not in on or found is NOT_ASKED:
+        return None
+
+    if found is None:
+        reason, state = ("This install has no launcher, so there is nothing to play a "
+                         "table with.", path_checks.UNSET)
+    else:
+        configured = str(found.value("bin_path") or "").strip()
+        if not configured:
+            reason, state = f"{found.display_name} has no program set.", path_checks.UNSET
+        else:
+            state, said = path_checks.check("exe", configured)
+            if state == path_checks.OK:
+                return None
+            reason = f"{found.display_name}: {said}"
+    return Unmet(feature=install_identity.FRONTEND, section="", key="",
+                 state=state, reason=reason, where=WHERE_LAUNCHERS)
 
 
 def _no_library_to_read(config, on) -> Unmet | None:

@@ -92,13 +92,21 @@ class PathCheckTests(TempTree):
 
 class PathOptionTests(unittest.TestCase):
     def test_the_settings_that_name_something_on_disk(self) -> None:
-        """Declared on the option rather than matched on the key: vpx_bin_path and
-        vpx_ini_path end the same way and want different answers."""
+        """Declared on the option rather than matched on the key: `game_root_dir` and
+        `assets_dir` are both directories, and `rar_tool_path` is a program."""
         found = {(o.section, o.key): o.path for o in path_checks.path_options()}
 
-        self.assertEqual(found.get(("general", "vpx_bin_path")), "exe")
-        self.assertEqual(found.get(("general", "vpx_ini_path")), "file")
         self.assertEqual(found.get(("general", "game_root_dir")), "dir")
+        self.assertEqual(found.get(("general", "rar_tool_path")), "exe")
+
+    def test_a_launchers_paths_are_not_config_settings(self) -> None:
+        """They are fields of a launcher now, so this list must not still be offering to
+        check them - it walks the config schema, and they left it."""
+        found = {key for _section, key in
+                 ((o.section, o.key) for o in path_checks.path_options())}
+
+        self.assertNotIn("vpx_bin_path", found)
+        self.assertNotIn("vpx_ini_path", found)
 
     def test_every_declared_kind_is_one_the_checker_knows(self) -> None:
         """A kind with no checker silently passes everything it is given."""

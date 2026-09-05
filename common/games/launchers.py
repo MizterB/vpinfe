@@ -304,12 +304,15 @@ def launcher_for_table(filename: str, table_id: str, launchers, mappings) -> Lau
     return default_for(app.id, launchers)
 
 
-def seeded_from(settings, app_id: str = "vpx") -> Launcher:
-    """The launcher an install already had, read out of the configuration it was in.
+def seeded_from(values: dict[str, Any], app_id: str = "vpx") -> Launcher:
+    """The launcher an install already had, from the values read out of its old config.
 
-    The seven Visual Pinball keys in `general` were one launcher written flat, so this is
-    a reading rather than a conversion. `owns_ini` is False: the ini those keys name is
-    Visual Pinball's own, and nothing here created it.
+    Takes a plain mapping rather than a settings object: the seven keys it comes from are
+    no longer in the schema, so nothing types them for us any more and the reader that
+    finds them is the one that knows their old spellings.
+
+    `owns_ini` is False - the ini those keys named is Visual Pinball's own, and nothing
+    here created it.
     """
     return Launcher(
         launcher_id=mint_launcher_id(),
@@ -317,19 +320,22 @@ def seeded_from(settings, app_id: str = "vpx") -> Launcher:
         display_name=apps.app_name(app_id),
         enabled=True,
         owns_ini=False,
-        settings={
-            "bin_path": str(getattr(settings, "vpx_bin_path", "") or ""),
-            "ini_path": str(getattr(settings, "vpx_ini_path", "") or ""),
-            "launch_env": str(getattr(settings, "vpx_launch_env", "") or ""),
-            "log_delete_on_start": bool(
-                getattr(settings, "vpx_log_delete_on_start", False)),
-            "ini_override": str(getattr(settings, "global_ini_override", "") or ""),
-            "table_ini_override_enabled": bool(
-                getattr(settings, "global_game_ini_override_enabled", False)),
-            "table_ini_override_mask": str(
-                getattr(settings, "global_game_ini_override_mask", "") or ""),
-        },
+        settings=dict(values),
     )
+
+
+def default_launcher(app_id: str = "vpx") -> Launcher | None:
+    """This install's launcher for an app, for anything that needs Visual Pinball without
+    having a table in hand - a capability probe, or finding the ROM library beside it."""
+    return default_for(app_id, get_launcher_store().launchers())
+
+
+def default_value(key: str, app_id: str = "vpx") -> str:
+    """One field of that launcher, or "" where the install has none. Answering blank for
+    a missing launcher is right: nothing is configured, which is what the caller is
+    usually about to report."""
+    found = default_launcher(app_id)
+    return str(found.value(key) or "") if found is not None else ""
 
 
 def replace_settings(launcher: Launcher, **values: Any) -> Launcher:

@@ -625,24 +625,6 @@
   ],
   [
     "Settings",
-    "globalinioverride",
-    "general",
-    "global_ini_override"
-  ],
-  [
-    "Settings",
-    "globaltableinioverrideenabled",
-    "general",
-    "global_game_ini_override_enabled"
-  ],
-  [
-    "Settings",
-    "globaltableinioverridemask",
-    "general",
-    "global_game_ini_override_mask"
-  ],
-  [
-    "Settings",
     "hide_quit_button",
     "frontend",
     "hide_quit_button"
@@ -720,30 +702,6 @@
     "vpx_log_delete_on_start"
   ],
   [
-    "Settings",
-    "vpxbinpath",
-    "general",
-    "vpx_bin_path"
-  ],
-  [
-    "Settings",
-    "vpxinipath",
-    "general",
-    "vpx_ini_path"
-  ],
-  [
-    "Settings",
-    "vpxlaunchenv",
-    "general",
-    "vpx_launch_env"
-  ],
-  [
-    "Settings",
-    "vpxlogdeleteonstart",
-    "general",
-    "vpx_log_delete_on_start"
-  ],
-  [
     "State",
     "last_game",
     "state",
@@ -817,24 +775,6 @@
   ],
   [
     "general",
-    "globalinioverride",
-    "general",
-    "global_ini_override"
-  ],
-  [
-    "general",
-    "globaltableinioverrideenabled",
-    "general",
-    "global_game_ini_override_enabled"
-  ],
-  [
-    "general",
-    "globaltableinioverridemask",
-    "general",
-    "global_game_ini_override_mask"
-  ],
-  [
-    "general",
     "muteaudio",
     "general",
     "mute_audio"
@@ -844,30 +784,6 @@
     "rartoolpath",
     "general",
     "rar_tool_path"
-  ],
-  [
-    "general",
-    "vpxbinpath",
-    "general",
-    "vpx_bin_path"
-  ],
-  [
-    "general",
-    "vpxinipath",
-    "general",
-    "vpx_ini_path"
-  ],
-  [
-    "general",
-    "vpxlaunchenv",
-    "general",
-    "vpx_launch_env"
-  ],
-  [
-    "general",
-    "vpxlogdeleteonstart",
-    "general",
-    "vpx_log_delete_on_start"
   ],
   [
     "libdmdutil",

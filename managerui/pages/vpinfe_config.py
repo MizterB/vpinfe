@@ -204,38 +204,21 @@ def render_panel(tab=None):
 
     def _build_launch_preview_text() -> tuple[str, str]:
         sample_vpx = 'A-Go-Go (Williams 1966).vpx'
-        settings_inputs = inputs.get('general', {})
+        # Read off the launcher rather than off this page's inputs: what runs a table is
+        # a launcher's business now, and none of these are settings on this page any more.
+        from common.games import launchers
 
-        vpxbin = str(
-            getattr(settings_inputs.get('vpx_bin_path'), 'value', cfg_get(config, 'general', 'vpx_bin_path', ''))
-            or ''
-        ).strip()
-        global_ini_override = str(
-            getattr(settings_inputs.get('global_ini_override'), 'value', cfg_get(config, 'general', 'global_ini_override', ''))
-            or ''
-        ).strip()
-        tableini_enabled = _as_bool(
-            getattr(
-                settings_inputs.get('global_game_ini_override_enabled'),
-                'value',
-                cfg_get(config, 'general', 'global_game_ini_override_enabled', 'false'),
-            )
-        )
-        tableini_mask = str(
-            getattr(
-                settings_inputs.get('global_game_ini_override_mask'),
-                'value',
-                cfg_get(config, 'general', 'global_game_ini_override_mask', ''),
-            )
-            or ''
-        ).strip()
-        launch_env = str(
-            getattr(settings_inputs.get('vpx_launch_env'), 'value', cfg_get(config, 'general', 'vpx_launch_env', ''))
-            or ''
-        ).strip()
+        held = launchers.default_launcher()
+        vpxbin = str((held.value('bin_path') if held else '') or '').strip()
+        global_ini_override = str((held.value('ini_override') if held else '') or '').strip()
+        tableini_enabled = _as_bool(held.value('table_ini_override_enabled')
+                                    if held else False)
+        tableini_mask = str((held.value('table_ini_override_mask') if held else '')
+                            or '').strip()
+        launch_env = str((held.value('launch_env') if held else '') or '').strip()
 
         tableini_override = build_masked_tableini_path(sample_vpx, tableini_enabled, tableini_mask)
-        launcher = vpxbin or '<VPX Executable Path>'
+        launcher = vpxbin or '<no launcher configured>'
         command = build_vpx_launch_command(
             launcher_path=launcher,
             vpx_path=sample_vpx,
@@ -517,11 +500,9 @@ def render_panel(tab=None):
             # schema version and the typing, and writing past it would leave a stale copy.
             config.save()
             logger.info(
-                "Saved configuration to %s: vpxbinpath=%r gamerootdir=%r vpxinipath=%r",
+                "Saved configuration to %s: gamerootdir=%r",
                 config.configfilepath,
-                cfg_get(config, 'general', 'vpx_bin_path', ''),
                 cfg_get(config, 'general', 'game_root_dir', ''),
-                cfg_get(config, 'general', 'vpx_ini_path', ''),
             )
             try:
                 from common.games import game_index_service

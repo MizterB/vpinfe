@@ -86,15 +86,6 @@ class TestConfigStore(unittest.TestCase):
             self.assertEqual(
                 config.config.get("general", "disable_default_chrome_options"), "false")
 
-    def test_vpx_log_delete_on_start_defaults_off(self) -> None:
-        with TemporaryDirectory() as tmp:
-            ini_path = Path(tmp) / "vpinfe.ini"
-
-            config = ConfigStore(str(ini_path))
-
-            self.assertTrue(config.config.has_section("general"))
-            self.assertEqual(config.config.get("general", "vpx_log_delete_on_start"), "false")
-
     def test_restore_last_game_defaults_on(self) -> None:
         with TemporaryDirectory() as tmp:
             ini_path = Path(tmp) / "vpinfe.ini"

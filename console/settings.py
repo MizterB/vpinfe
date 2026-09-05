@@ -427,6 +427,10 @@ def pages_in_trouble(items) -> dict[str, list[Any]]:
     """
     found: dict[str, list[Any]] = {}
     for item in items:
+        # Only the ones a settings page can fix. A launcher is not a setting, and it
+        # carries its own mark on the entry that leads to it.
+        if item.where != feature_checks.WHERE_SETTINGS:
+            continue
         page = _page_holding(item.section)
         if not page:
             logger.warning("No settings page draws %s, so nothing can lead to %s.%s",
@@ -455,11 +459,16 @@ def local_trouble() -> list[Any]:
     """What this install's enabled features are missing.
 
     Asked of this machine's own configuration rather than over the API: a path is only
-    answerable by the machine holding it, and this is that machine.
+    answerable by the machine holding it, and this is that machine. Its launchers go with
+    it, because whether a table can be played is now a question about one of them.
     """
+    from common.games import launchers
     from common.paths import get_ini_config
 
-    return feature_checks.unmet(get_ini_config())
+    store = launchers.get_launcher_store()
+    return feature_checks.unmet(
+        get_ini_config(),
+        launcher=launchers.default_for("vpx", store.launchers()))
 
 
 def build_library_page(library, rerender: Callable[[], None], key: str,

@@ -57,19 +57,12 @@ uses an old spelling both still load.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `vpx_bin_path` | string |  | Full path to the Visual Pinball executable VPinFE launches. |
-| `vpx_launch_env` | string |  | VPX Launch Environment |
-| `global_ini_override` | string |  | Path to an ini to use instead of the default, for example /home/test/mysuper.ini. Empty means no override. |
-| `global_game_ini_override_enabled` | bool | `false` | Global tableini Override Enabled |
-| `global_game_ini_override_mask` | string |  | Global tableini Override Mask |
 | `game_root_dir` | string |  | The folder holding your table folders, one folder per game. |
 | `hidden_media_kinds` | list |  | Kinds of artwork this library does not collect. VPinFE stops showing and counting them; the files stay where they are. |
 | `hidden_asset_kinds` | list |  | Kinds of supporting file this library does not collect - an all-EM library has no ROMs. A table that will not launch still says so. |
 | `media_browse_dirs` | list |  | Extra folders you can pick artwork from when adding media by hand. The game library is always available; anywhere else has to be listed here before VPinFE will read it. |
-| `vpx_ini_path` | string |  | Path to VPinballX.ini, which VPinFE reads for the key mappings the Remote page sends. |
 | `assets_dir` | string |  | Root folder for assets shared across games rather than owned by one, such as manufacturer logos. Served at /assets/ and defaults to assets/ under the VPinFE config dir. |
 | `rar_tool_path` | string |  | Path to unar or unrar. Blank auto-detects one on this machine. |
-| `vpx_log_delete_on_start` | bool | `false` | Delete VPinball Log On Table Start |
 | `theme` | string | `Revolution` | Active Theme |
 | `startup_collection` | string |  | Default Startup Collection |
 | `library_refresh_minutes` | int | `0` | How often to re-read the library from disk, in minutes. It picks up everything, not just tables - media and assets added or removed beside them too. Zero never does, which is the default because a read walks every game folder: fine locally, real traffic on a network share. It can always be asked to read it now. |

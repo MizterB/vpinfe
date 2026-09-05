@@ -176,19 +176,20 @@ class ResolutionTests(unittest.TestCase):
 
 
 class SeedTests(unittest.TestCase):
-    """The launcher an install already had, read out of where it was written flat."""
+    """The launcher an install already had, from the values read out of its old config."""
 
-    class _Settings:
-        vpx_bin_path = "/usr/bin/VPinballX_GL"
-        vpx_ini_path = "/home/cab/.vpinball/VPinballX.ini"
-        vpx_launch_env = "SDL_VIDEODRIVER=wayland"
-        vpx_log_delete_on_start = True
-        global_ini_override = ""
-        global_game_ini_override_enabled = True
-        global_game_ini_override_mask = "{table}.ini"
+    VALUES = {
+        "bin_path": "/usr/bin/VPinballX_GL",
+        "ini_path": "/home/cab/.vpinball/VPinballX.ini",
+        "launch_env": "SDL_VIDEODRIVER=wayland",
+        "log_delete_on_start": True,
+        "ini_override": "",
+        "table_ini_override_enabled": True,
+        "table_ini_override_mask": "{table}.ini",
+    }
 
-    def test_the_seven_keys_arrive_as_one_launcher(self) -> None:
-        one = launchers.seeded_from(self._Settings())
+    def test_the_values_arrive_as_one_launcher(self) -> None:
+        one = launchers.seeded_from(self.VALUES)
 
         self.assertEqual(one.app, "vpx")
         self.assertEqual(one.value("bin_path"), "/usr/bin/VPinballX_GL")
@@ -198,12 +199,12 @@ class SeedTests(unittest.TestCase):
     def test_it_does_not_claim_to_own_visual_pinballs_own_ini(self) -> None:
         """Removing a launcher offers to delete the file it owns, and this one points at
         the ini Visual Pinball wrote. Claiming it would delete a person's real setup."""
-        self.assertFalse(launchers.seeded_from(self._Settings()).owns_ini)
+        self.assertFalse(launchers.seeded_from(self.VALUES).owns_ini)
 
-    def test_every_field_the_app_declares_is_seeded(self) -> None:
-        """A field left unseeded reads as its default, which for a path means the
-        install quietly stopped using what it was configured with."""
-        one = launchers.seeded_from(self._Settings())
+    def test_it_carries_exactly_what_the_app_declares(self) -> None:
+        """A field left unseeded reads as its default, which for a path means the install
+        quietly stopped using what it was configured with."""
+        one = launchers.seeded_from(self.VALUES)
 
         self.assertEqual(sorted(one.settings), sorted(f.key for f in apps.VPX_FIELDS))
 
