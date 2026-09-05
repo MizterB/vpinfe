@@ -10,6 +10,7 @@ name map that keeps twelve published themes working, and the gamepad binding pag
 
 from __future__ import annotations
 
+import configparser
 import re
 import unittest
 from pathlib import Path
@@ -66,6 +67,92 @@ class BindingProjectionTests(unittest.TestCase):
                          ["key:ArrowLeft", "key:ShiftLeft"])
         self.assertEqual(input_registry.binding_for_legacy("joyleft", "3"),
                          ["pad:0/button:3"])
+
+
+class CollisionTests(unittest.TestCase):
+    """A binding two actions hold only ever fires the first of them, and nothing said so.
+
+    Dispatch resolves a key to the first action listing it, so the loser is not a
+    conflict somebody is asked about - it is a binding that does nothing, made on a page
+    that showed no sign.
+    """
+
+    def test_a_binding_one_action_holds_is_not_a_collision(self) -> None:
+        found = input_registry.collisions(
+            {"previous": ["key:ArrowLeft"], "next": ["key:ArrowRight"]})
+
+        self.assertEqual(found, {})
+
+    def test_a_binding_two_actions_hold_names_both(self) -> None:
+        found = input_registry.collisions(
+            {"back": ["key:b", "key:Escape"], "exit": ["key:Escape", "key:q"]})
+
+        self.assertEqual(found, {"key:Escape": ["back", "exit"]})
+
+    def test_an_action_listing_one_twice_does_not_collide_with_itself(self) -> None:
+        self.assertEqual(
+            input_registry.collisions({"back": ["key:b", "key:b"]}), {})
+
+    def test_holders_answers_who_has_it_before_anything_clashes(self) -> None:
+        """Refusing a binding another action already holds needs this, not the clash
+        list - which by definition only names what is already broken."""
+        found = input_registry.holders({"previous": ["key:F9"], "next": []})
+
+        self.assertEqual(found, {"key:F9": ["previous"]})
+
+    def test_the_shipped_bindings_do_not_collide(self) -> None:
+        self.assertEqual(input_registry.collisions(input_registry.defaults()), {})
+
+    def test_an_install_that_holds_one_is_told(self) -> None:
+        """The Console refuses new ones; an install that already has one gets a line in
+        the log, because the alternative is a player concluding the cabinet is broken."""
+        input_api._said_collisions.clear()
+        parser = configparser.ConfigParser()
+        parser.add_section("input")
+        parser.set("input", "back", "key:b,key:Escape")
+
+        with self.assertLogs("vpinfe.frontend.input_api", level="WARNING") as caught:
+            input_api.get_bindings(parser)
+
+        self.assertIn("Esc", caught.output[0])
+        self.assertIn("back", caught.output[0])
+        self.assertIn("exit", caught.output[0])
+
+    def test_it_is_said_once_and_not_on_every_page(self) -> None:
+        input_api._said_collisions.clear()
+        parser = configparser.ConfigParser()
+        parser.add_section("input")
+        parser.set("input", "back", "key:b,key:Escape")
+        input_api.get_bindings(parser)
+
+        with self.assertNoLogs("vpinfe.frontend.input_api", level="WARNING"):
+            input_api.get_bindings(parser)
+
+
+class ReadableBindingTests(unittest.TestCase):
+    """A selector is written for a parser. Ten of them on a settings page is what made
+    input read as configuration rather than a choice."""
+
+    def test_a_key_is_named_as_a_keyboard_prints_it(self) -> None:
+        for selector, expected in (("key:ArrowLeft", "Left arrow"),
+                                   ("key:ShiftLeft", "Left Shift"),
+                                   ("key:KeyM", "M"),
+                                   ("key:Digit4", "4"),
+                                   ("key:Escape", "Esc"),
+                                   ("key:b", "b")):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.describe(selector), expected)
+
+    def test_pads_are_numbered_from_one_on_screen(self) -> None:
+        """Zero on the wire, one in the hand. Somebody with a single controller has
+        pad 1."""
+        self.assertEqual(input_registry.describe("pad:0/button:3"), "Pad 1 button 3")
+
+    def test_what_it_cannot_name_comes_back_as_it_was(self) -> None:
+        """Inventing a name for a chord would be worse than showing the one stored."""
+        for selector in ("pad:0/chord(1,2)", "key:ArrowLeft@hold", "nonsense"):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.describe(selector), selector)
 
 
 class JavaScriptCopiesTests(unittest.TestCase):

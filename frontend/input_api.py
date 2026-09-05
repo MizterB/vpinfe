@@ -11,8 +11,12 @@ anything built against them.
 
 from __future__ import annotations
 
+import logging
+
 from common import config_schema, input_registry
 from common.config_access import cfg_get
+
+logger = logging.getLogger("vpinfe.frontend.input_api")
 
 PAGING_GROUPS = config_schema.PAGING_GROUPS
 PAGING_GROUP_ALIASES = config_schema.PAGING_GROUP_ALIASES
@@ -54,7 +58,32 @@ def get_bindings(config) -> dict[str, list[str]]:
             if value is not None:
                 found += input_registry.binding_for_legacy(old, value)
         out[action.name] = found or list(action.bindings)
+    _say_what_collides(out)
     return out
+
+
+# Said once per process. This is asked on every page the frontend serves, and a warning
+# repeated a hundred times is one a reader learns to scroll past.
+_said_collisions: set[str] = set()
+
+
+def _say_what_collides(bound: dict[str, list[str]]) -> None:
+    """A binding two actions hold is one that only ever fires the first of them.
+
+    Dispatch resolves a key to the first action listing it, so the loser does nothing and
+    says nothing - and until the Console's binding editor there was no surface anywhere
+    that would have shown it. An install that already holds one gets told here, because
+    the alternative is a player concluding their cabinet is broken.
+    """
+    found = input_registry.collisions(bound)
+    for binding, names in sorted(found.items()):
+        if binding in _said_collisions:
+            continue
+        _said_collisions.add(binding)
+        logger.warning(
+            "%s is bound to %s. Only %s gets it - the rest do nothing. "
+            "Change it under Settings, Input.",
+            input_registry.describe(binding), ", ".join(names), names[0])
 
 
 def get_paging_config(config):
