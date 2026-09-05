@@ -51,6 +51,17 @@ def _has(parser, section: str, key: str) -> bool:
             return False
 
 
+def cfg_has(source, section: str, key: str) -> bool:
+    """Whether a setting is written down at all, under any spelling it has ever had.
+
+    Apart from `cfg_get` returning "": a value can be deliberately blank, and for a list
+    that is the difference between "I have not said" and "none of them".
+    """
+    parser = _parser(source)
+    return any(_has(parser, candidate_section, candidate_key)
+               for candidate_section, candidate_key in _candidates(section, key))
+
+
 def cfg_get(source, section: str, key: str, fallback: str = "") -> str:
     """Read a setting under any spelling it has ever had.
 

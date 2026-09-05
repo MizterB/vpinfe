@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import socket
 
-from common.config_access import cfg_get, cfg_list, cfg_set
+from common.config_access import cfg_get, cfg_has, cfg_list, cfg_set
 from common.games.ids import new_id
 
 logger = logging.getLogger("vpinfe.common.install_identity")
@@ -30,9 +30,15 @@ OVERVIEW = "overview"
 FEATURES = (LIBRARY, FRONTEND, DEVICES, OVERVIEW)
 
 # What every 2.x install and every desktop install already is. Not every feature: this
-# is also what an empty or unreadable setting falls back to, so a feature that has to be
-# asked for must not be in here or a typo would switch it on.
+# is also what an unreadable setting falls back to, so a feature that has to be asked
+# for must not be in here or a typo would switch it on.
 DEFAULT_FEATURES = (LIBRARY, FRONTEND, DEVICES)
+
+# The feature every install has, holding the settings that belong to the machine as a
+# whole - identity, features, network, logging. Synthesized on every read and never
+# written, so it cannot be edited out of a list, and not in FEATURES because that is the
+# set a person chooses from.
+CORE = "core"
 
 
 def install_id(config) -> str:
@@ -79,19 +85,28 @@ def _hostname() -> str:
 
 
 def features(config) -> list[str]:
-    """What this install is meant to do, in a stable order.
+    """What this install is for, in a stable order, `core` first because every one has it.
 
-    Empty or unrecognized falls back to the defaults, never to none: a typo must not
-    decide this machine stopped launching games. It falls back to those rather than to
-    every feature, so one that has to be asked for is never acquired by accident.
+    Unrecognized falls back to the defaults rather than to none: a typo must not decide
+    this machine stopped launching games. It falls back to those rather than to every
+    feature, so one that has to be asked for is never acquired by accident.
+
+    Written down and left empty is a different answer and is taken at its word - an
+    install that is not currently for anything. That is a legal state because `core`
+    keeps the settings that switch a feature back on.
     """
     configured = [name.strip().lower()
                   for name in cfg_list(config, ID_SECTION, "features")]
     known = [name for name in FEATURES if name in configured]
-    unknown = sorted(set(configured) - set(FEATURES))
+    unknown = sorted(set(configured) - set(FEATURES) - {CORE})
     if unknown:
         logger.warning("Ignoring unknown install features: %s", ", ".join(unknown))
-    return known or list(DEFAULT_FEATURES)
+    if not known:
+        # A setting that is there and empty says "none of them". One that is not there
+        # has not said, and neither has one holding nothing we recognize.
+        emptied = not configured and cfg_has(config, ID_SECTION, "features")
+        known = [] if emptied else list(DEFAULT_FEATURES)
+    return [CORE, *known]
 
 
 def has_feature(config, feature: str) -> bool:

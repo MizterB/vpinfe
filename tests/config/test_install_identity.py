@@ -93,27 +93,49 @@ class FeatureTests(unittest.TestCase):
     def test_an_install_has_every_feature_by_default(self) -> None:
         """Every 2.x install and every desktop user, so nobody has to set it."""
         self.assertEqual(install_identity.features(self.store),
-                         ["library", "frontend", "devices"])
+                         ["core", "library", "frontend", "devices"])
 
     def test_one_feature_can_be_declared_on_its_own(self) -> None:
-        self.assertEqual(self._features("frontend"), ["frontend"])
-        self.assertEqual(self._features("library"), ["library"])
-        self.assertEqual(self._features("devices"), ["devices"])
+        self.assertEqual(self._features("frontend"), ["core", "frontend"])
+        self.assertEqual(self._features("library"), ["core", "library"])
+        self.assertEqual(self._features("devices"), ["core", "devices"])
 
     def test_features_read_the_same_however_they_were_written(self) -> None:
         for written in ("frontend,library", " library , frontend ", "LIBRARY,Frontend"):
             with self.subTest(written=written):
-                self.assertEqual(self._features(written), ["library", "frontend"])
+                self.assertEqual(self._features(written),
+                                 ["core", "library", "frontend"])
 
     def test_a_typo_leaves_the_install_doing_what_it_did(self) -> None:
         """Falling back to everything, not to nothing: a misspelling must not decide that
-        this machine has stopped launching games, and an install with no features has an
-        empty nav and no way to fix itself from inside."""
-        self.assertEqual(self._features("wat"), ["library", "frontend", "devices"])
-        self.assertEqual(self._features(""), ["library", "frontend", "devices"])
+        this machine has stopped launching games."""
+        self.assertEqual(self._features("wat"),
+                         ["core", "library", "frontend", "devices"])
 
     def test_a_recognized_feature_survives_an_unrecognized_one(self) -> None:
-        self.assertEqual(self._features("library,wat"), ["library"])
+        self.assertEqual(self._features("library,wat"), ["core", "library"])
+
+    def test_an_install_can_be_for_nothing_yet(self) -> None:
+        """The setting is there and empty, which is somebody saying "none of them". It
+        is a legal state because `core` keeps the settings that switch one back on."""
+        self.assertEqual(self._features(""), ["core"])
+
+    def test_a_setting_that_was_never_written_has_not_said_anything(self) -> None:
+        """Apart from one written and emptied. A 2.x file names no features and is every
+        bit as much a working install as it was."""
+        import configparser
+
+        bare = configparser.ConfigParser()
+
+        self.assertEqual(install_identity.features(bare),
+                         ["core", "library", "frontend", "devices"])
+
+    def test_core_is_not_a_value_the_file_decides(self) -> None:
+        """It is synthesized either way, so naming it says nothing about the optional
+        ones - a list holding only it has not said, exactly like a typo."""
+        self.assertEqual(self._features("core"),
+                         ["core", "library", "frontend", "devices"])
+        self.assertEqual(self._features("core,library"), ["core", "library"])
 
     def test_has_feature_answers_for_one(self) -> None:
         cfg_set(self.store, "install", "features", "library")

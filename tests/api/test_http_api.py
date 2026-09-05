@@ -107,8 +107,10 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(payload["name"], "VPinFE")
         self.assertIn("install_id", payload)
         self.assertIn("display_name", payload)
-        self.assertEqual(payload["features"], ["library", "frontend", "devices"],
-                         "an unconfigured install does everything, as 2.x did")
+        self.assertEqual(payload["features"],
+                         ["core", "library", "frontend", "devices"],
+                         "an unconfigured install does everything, as 2.x did, and "
+                         "`core` is on the wire because every install has it")
 
     def test_asking_who_this_is_does_not_write_to_the_config(self) -> None:
         """Minting happens once at startup. A GET that wrote would make every reader a

@@ -107,7 +107,7 @@ rather than matching a version number against a document.
   "name": "VPinFE",
   "install_id": "7Kq2mVx9Ab",
   "display_name": "basement cab",
-  "features": ["library", "frontend", "devices"],
+  "features": ["core", "library", "frontend", "devices"],
   "api_version": "v1",
   "app_version": "2.5.0",
   "capabilities": [],
@@ -142,6 +142,12 @@ resolving through it breaks the first time somebody does.
 `features` says what this install is for: `library` curates the game library, `frontend`
 launches games on that machine, and `devices` manages the other installs on the network.
 It defaults to all three, which is what a desktop install and a standalone cabinet are.
+
+`core` is always in the list and is never one of the three. It is what every install has
+whatever else it is for — its identity, its features, the network and logging — so an
+install reporting `core` alone is one that is not currently for anything and can still be
+configured into being for something. It is synthesized rather than stored, so a client
+must not expect to find it in the config.
 
 ## Conventions
 

@@ -311,7 +311,7 @@ class RetiredRoleTests(ConfigStoreTests):
 
         store = ConfigStore(str(self.ini))
 
-        self.assertEqual(install_identity.features(store), ["frontend"])
+        self.assertEqual(install_identity.features(store), ["core", "frontend"])
 
 
 class ConfirmSwitchTests(ConfigStoreTests):

@@ -52,8 +52,8 @@ class NavTests(unittest.TestCase):
         config.add_section("install")
         config.set("install", "features", "libary, frontnd")
 
-        self.assertEqual(install_identity.features(config),
-                         list(install_identity.DEFAULT_FEATURES))
+        self.assertNotIn(install_identity.OVERVIEW,
+                         install_identity.features(config))
 
     def test_no_library_takes_the_library_sections_with_it(self) -> None:
         rail = _rail([install_identity.FRONTEND])
