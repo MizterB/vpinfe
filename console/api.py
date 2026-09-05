@@ -572,6 +572,14 @@ class ApiClient:
         """What the graphics cards are doing, asked separately because it shells out."""
         return dict(self._get("/metrics/gpu") or {})
 
+    def about(self, refresh: bool = False) -> dict:
+        """What this install and this machine are, grouped, with the text to paste.
+
+        The plain text comes back with the groups rather than being assembled here: the
+        two would drift apart the day either end gained a field.
+        """
+        return dict(self._get(f"/about?refresh={'true' if refresh else 'false'}") or {})
+
     def launchers(self) -> dict:
         """Every launcher, the tables that deviate, and which one is the default.
 

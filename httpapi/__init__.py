@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import (
+    about,
     actions,
     assets,
     auth,
@@ -108,6 +109,7 @@ def create_api_app() -> FastAPI:
     api.include_router(launchers.router)
     api.include_router(metrics.router)
     api.include_router(themes.router)
+    api.include_router(about.router)
     api.include_router(manufacturers.router)
     api.include_router(play.router)
     api.include_router(games.router)

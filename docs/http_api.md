@@ -104,6 +104,7 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/launchers/mappings/{table_id}` | Point one table at a launcher. `{"launcher": ""}` puts it back on the default |
 | GET | `/api/v1/metrics` | What this machine is doing now. `history_seconds` adds as much of this session as you ask for; 0 means none |
 | GET | `/api/v1/metrics/gpu` | What the graphics cards are doing. Separate because it shells out to nvtop, and says so where nvtop is missing rather than reporting no cards |
+| GET | `/api/v1/about` | What this install and this machine *are* - version, build, OS, browser, and where files live. `text` is the same answer as something to paste into a report |
 | GET | `/api/v1/themes` | Every frontend theme this install knows, active first. `refresh=true` re-reads the sources, which reaches the network |
 | POST | `/api/v1/themes/{key}/install` | Install or update. Installing over an existing copy is what an update is |
 | DELETE | `/api/v1/themes/{key}` | Remove an installed theme. Refused for the active one - the frontend would come up with no theme at all |

@@ -31,12 +31,12 @@ class NavTests(unittest.TestCase):
                                 for key, *_rest in items])
 
     def test_system_survives_an_install_that_is_for_nothing(self) -> None:
-        """The bootstrap case: features are switched on from in here, so the three
-        System holds are the only rail an install for nothing has."""
+        """The bootstrap case: features are switched on from in here, so what System
+        holds is the only rail an install for nothing has."""
         for features in (["nonsense"], [install_identity.CORE]):
             with self.subTest(features=features):
                 self.assertEqual(_rail(features), ["extensions", "settings",
-                                                   "metrics", "logs"])
+                                                   "metrics", "logs", "about"])
 
     def test_a_frontend_only_install_opens_on_what_it_has(self) -> None:
         """Launchers, because that is the first real place such an install holds. It has
@@ -66,7 +66,7 @@ class NavTests(unittest.TestCase):
                         if parent == page.NAV_SYSTEM]
 
         self.assertEqual([key for key, *_rest in under_system[0]],
-                         ["settings", "metrics", "logs"])
+                         ["settings", "metrics", "logs", "about"])
 
     def test_what_the_frontend_owns_has_a_container_of_its_own(self) -> None:
         """The rule Library and this one make together: a feature with more than one

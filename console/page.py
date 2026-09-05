@@ -9,6 +9,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common import device_client, feature_checks, install_identity
+from console import about as about_page
 from console import assets as assets_page
 from console import collections as collections_page
 from console import deeplink, games, grid, sections, tageditor, theme, views, workbench
@@ -115,7 +116,8 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
     # and this is where features are switched on.
     (NAV_SYSTEM, (("settings", "Settings", "tune", install_identity.CORE),
                   ("metrics", "Metrics", "monitor_heart", install_identity.CORE),
-                  ("logs", "Logs", "description", install_identity.CORE))),
+                  ("logs", "Logs", "description", install_identity.CORE),
+                  ("about", "About", "info", install_identity.CORE))),
 )
 
 
@@ -160,6 +162,7 @@ SECTIONS = {
     "themes": "Themes",
     "metrics": "Metrics",
     "logs": "Logs",
+    "about": "About",
 }
 
 
@@ -823,6 +826,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 metrics_page.build(library, state, redraw)
             elif view == "logs":
                 logs_page.build(library, state, redraw)
+            elif view == "about":
+                about_page.build(library, state, redraw)
 
     def mark_system() -> None:
         """How much of this install's configuration is stopping a feature it has on.

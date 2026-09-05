@@ -300,6 +300,11 @@ class Library:
     def gpu_metrics(self) -> dict:
         return self._client.gpu_metrics()
 
+    def about(self, refresh: bool = False) -> dict:
+        """Not cached here - the API holds it for the life of the process, and a second
+        cache in front of that one only makes `refresh` mean less than it says."""
+        return self._client.about(refresh)
+
     def launchers(self) -> dict:
         """Read fresh every time: a launcher is edited from this page, and a cache would
         show the value that was there before the edit that just happened."""
