@@ -545,6 +545,29 @@ class ApiClient:
         tail = f"?history_seconds={history_seconds}" if history_seconds else ""
         return dict(self._get(f"/metrics{tail}") or {})
 
+    def themes(self, refresh: bool = False) -> dict:
+        """Every theme this install knows, active first. `refresh` re-reads the sources,
+        which reaches the network - so it is asked for rather than done on every draw."""
+        return dict(self._get(f"/themes?refresh={'true' if refresh else 'false'}") or {})
+
+    def install_theme(self, key: str) -> dict:
+        """Install or update - installing over an existing copy is what an update is."""
+        return dict(self._post(f"/themes/{key}/install", {}) or {})
+
+    def remove_theme(self, key: str) -> dict:
+        self._delete(f"/themes/{key}")
+        return {"key": key}
+
+    def activate_theme(self, key: str) -> dict:
+        return dict(self._put("/themes/active", {"key": key}) or {})
+
+    def theme_options(self, key: str) -> dict:
+        """What a theme declares it can be configured with, and its current values."""
+        return dict(self._get(f"/themes/{key}/options") or {})
+
+    def save_theme_options(self, key: str, values: dict) -> dict:
+        return dict(self._put(f"/themes/{key}/options", {"values": values}) or {})
+
     def gpu_metrics(self) -> dict:
         """What the graphics cards are doing, asked separately because it shells out."""
         return dict(self._get("/metrics/gpu") or {})

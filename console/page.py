@@ -18,6 +18,7 @@ from console import logs as logs_page
 from console import media as media_page
 from console import metrics as metrics_page
 from console import settings as settings_page
+from console import themes as themes_page
 from console.api import ApiClient
 from console.data import Library
 
@@ -106,7 +107,8 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
     # which is not what a page of (label, value) pairs does. The frontend's *settings*
     # stay in Settings, the way media's do - one holds things, the other holds values.
     (NAV_FRONTEND, (("launchers", "Launchers", "rocket_launch",
-                     install_identity.FRONTEND),)),
+                     install_identity.FRONTEND),
+                    ("themes", "Themes", "palette", install_identity.FRONTEND))),
     (None, (("devices", "Devices", "devices", install_identity.DEVICES),
             ("extensions", "Extensions", "extension", install_identity.CORE))),
     # Last, and always here: every other section exists because a feature is enabled,
@@ -155,6 +157,7 @@ SECTIONS = {
     "extensions": "Extensions",
     "settings": "Settings",
     "launchers": "Launchers",
+    "themes": "Themes",
     "metrics": "Metrics",
     "logs": "Logs",
 }
@@ -814,6 +817,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                     install_identity.DEVICES in (discovery.get("features") or []))
                 state["install_id"] = discovery.get("install_id") or ""
                 launchers_page.build(library, state, redraw)
+            elif view == "themes":
+                themes_page.build(library, state, redraw)
             elif view == "metrics":
                 metrics_page.build(library, state, redraw)
             elif view == "logs":

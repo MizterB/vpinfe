@@ -2203,6 +2203,30 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   overflow-y: auto;
 }
 .console-section-row { grid-column: 1; }
+/* A theme is chosen by looking at it, so the card leads with the picture and the words
+   sit beside it. One preview width down the column, or every card has a different left
+   edge and the names stop lining up. */
+.console-theme-card { display: block; }
+/* The one that is playing, marked on the card rather than only by its chip - a column
+   of cards is scanned before it is read. */
+.console-theme-card--active { border-color: rgba(0, 255, 159, 0.45); }
+.console-theme-preview {
+  width: 240px; min-width: 240px; height: 150px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; border-radius: 8px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.console-theme-preview img { object-fit: cover; width: 100%; height: 100%; }
+/* What changed, under the card rather than beside it: it is prose, and prose in a
+   column 240px from the left edge is a paragraph two words wide. */
+.console-theme-changes {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line);
+}
+/* A theme's own settings can be a dozen, so the dialog scrolls rather than growing past
+   the window - a Save button below the fold is a Save button nobody finds. */
+.console-theme-config { max-width: 640px; width: 100%; }
+.console-theme-options { max-height: 60vh; overflow-y: auto; }
+
 /* A rail long enough to need grouping says what a run of rows is about. `.console-group`
    carries the treatment - this only puts it in the rail's column. */
 .console-rail-group { grid-column: 1; }

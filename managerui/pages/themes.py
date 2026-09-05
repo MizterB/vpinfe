@@ -4,9 +4,10 @@ import json
 
 from nicegui import run, ui
 
+from common.online import theme_service
 from common.online.themes import ThemeRegistry, ThemeRegistryError
 from managerui.paths import VPINFE_INI_PATH
-from managerui.services import app_control, theme_service
+from managerui.services import app_control
 from managerui.ui_helpers import load_page_style
 
 INI_PATH = VPINFE_INI_PATH

@@ -1,4 +1,10 @@
-"""Installing, removing and switching themes on behalf of the Themes page."""
+"""Installing, removing and switching frontend themes, and the options one declares.
+
+Here rather than under a UI package, which is where it began: this is what a theme *is*
+and what can be done to one, and two surfaces now ask - the Console over the API, and
+the Manager UI directly. The HTTP layer may not reach into a user interface, so a
+service only one of them could import was a service in the wrong place.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +16,7 @@ from common import theme_options
 from common.config_access import cfg_get, cfg_set
 from common.config_store import ConfigStore
 from common.online.themes import ThemeRegistry
-from managerui.paths import THEMES_DIR, VPINFE_INI_PATH
+from common.paths import THEMES_DIR, VPINFE_INI_PATH
 
 
 def get_active_theme() -> str:

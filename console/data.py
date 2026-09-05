@@ -277,6 +277,26 @@ class Library:
     def metrics(self, history_seconds: float = 0) -> dict:
         return self._client.metrics(history_seconds)
 
+    def themes(self, refresh: bool = False) -> dict:
+        """Never cached here: this page installs and removes them, and a cached list
+        would show the state before the act that just happened."""
+        return self._client.themes(refresh)
+
+    def install_theme(self, key: str) -> dict:
+        return self._client.install_theme(key)
+
+    def remove_theme(self, key: str) -> dict:
+        return self._client.remove_theme(key)
+
+    def activate_theme(self, key: str) -> dict:
+        return self._client.activate_theme(key)
+
+    def theme_options(self, key: str) -> dict:
+        return self._client.theme_options(key)
+
+    def save_theme_options(self, key: str, values: dict) -> dict:
+        return self._client.save_theme_options(key, values)
+
     def gpu_metrics(self) -> dict:
         return self._client.gpu_metrics()
 

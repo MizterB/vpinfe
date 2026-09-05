@@ -27,7 +27,7 @@ from managerui.config_fields import is_checkbox_field, sort_input_mapping_keys
 from managerui.filters import ALL_VALUE, apply_game_filters, build_game_filter_options
 from managerui.pages.collections import paging_labels
 from managerui.pages.vpinfe_config import tracked_values
-from managerui.services import theme_service
+from common.online import theme_service
 from managerui.services.collection_admin import get_filter_options, search_games
 from managerui.services.game_catalog import build_mobile_game_rows
 from managerui.services.system_service import format_bytes, metric_tone

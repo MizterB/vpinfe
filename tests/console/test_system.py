@@ -76,7 +76,8 @@ class NavTests(unittest.TestCase):
                           in page.nav_for(install_identity.FEATURES)
                           if parent == page.NAV_FRONTEND]
 
-        self.assertEqual([key for key, *_rest in under_frontend[0]], ["launchers"])
+        self.assertEqual([key for key, *_rest in under_frontend[0]],
+                         ["launchers", "themes"])
 
     def test_launchers_goes_with_the_feature_that_launches(self) -> None:
         """An install that curates a library and never starts a game has nothing to run
