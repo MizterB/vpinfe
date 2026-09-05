@@ -36,6 +36,7 @@ class Display:
     height: int
 
 
+
 class LocalDevice:
     """The device in this process. Imports are deferred so that importing this module
     does not pull the frontend in - an install without that feature has none."""
@@ -145,6 +146,7 @@ def probe(client) -> dict[str, Any]:
         return client.probe()
     except Exception as exc:  # noqa: BLE001 - not answering is an answer
         return {"state": UNREACHABLE, "what": "", "reason": str(exc)}
+
 
 
 class RemoteDevice:
@@ -269,6 +271,26 @@ class RemoteDevice:
 
         return dict((http_client.get_json(self._url("/config"))
                      or {}).get("values") or {})
+
+    def put_launcher(self, launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Write one whole launcher to another machine, under the id it already has.
+
+        The id is kept on purpose: that is what makes the same launcher exist on every
+        cabinet under one name, and what lets a mapping mean the same thing everywhere.
+        Renumbering on the way in would break every mapping that travelled with it.
+        """
+        from common import http_client
+
+        return dict(http_client.put_json(self._url(f"/launchers/{launcher_id}"),
+                                         body) or {})
+
+    def put_launcher_mapping(self, table_id: str, launcher_id: str) -> dict[str, Any]:
+        """Point a table on another machine at a launcher. Table ids travel because they
+        live in the `.info`, so the same id names the same table on both."""
+        from common import http_client
+
+        return dict(http_client.put_json(self._url(f"/launchers/mappings/{table_id}"),
+                                         {"launcher_id": launcher_id}) or {})
 
     def put_config(self, changes: dict[str, Any]) -> dict[str, Any]:
         """Write to another machine's config. The capability model allows it and this

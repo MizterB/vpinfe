@@ -798,6 +798,11 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             elif view == "settings":
                 settings_page.build_system(library, state, redraw, discovery)
             elif view == "launchers":
+                # Copying to other machines is offered only where this install manages
+                # them, and it needs to know which row is itself.
+                state["can_manage_devices"] = (
+                    install_identity.DEVICES in (discovery.get("features") or []))
+                state["install_id"] = discovery.get("install_id") or ""
                 launchers_page.build(library, state, redraw)
             elif view == "metrics":
                 sections.metrics()

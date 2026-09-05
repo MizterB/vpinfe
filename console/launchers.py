@@ -174,6 +174,10 @@ def _actions(library, state: dict[str, Any], redraw: Callable[[], None],
             ui.button("Duplicate",
                       on_click=lambda: _duplicate(library, state, redraw, launcher)) \
                 .props("flat dense no-caps size=sm")
+            if state.get("can_manage_devices"):
+                ui.button("Copy to devices",
+                          on_click=lambda: _copy_dialog(library, state, launcher)) \
+                    .props("flat dense no-caps size=sm")
             remove = ui.button(
                 "Remove",
                 on_click=lambda: _remove(library, state, redraw, launcher)) \
@@ -225,6 +229,83 @@ async def _duplicate(library, state: dict[str, Any], redraw: Callable[[], None],
         return
     state["launcher"] = made
     redraw()
+
+
+async def _copy_dialog(library, state: dict[str, Any], launcher: dict) -> None:
+    """Pick the machines, see what it will do, then do it.
+
+    A copy with no ongoing link, which the dialog says rather than leaving somebody to
+    find out: edit a cabinet's launcher afterwards and the two diverge.
+    """
+    try:
+        known = await run.io_bound(library.devices)
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(f"Could not read the devices: {exc}", type="negative")
+        return
+    # Only other VPinFE installs. A phone runs no launcher, and this install already has
+    # the launcher being copied.
+    mine = str(state.get("install_id") or "")
+    reachable = [one for one in known
+                 if str(one.get("kind") or "vpinfe") == "vpinfe"
+                 and str(one.get("device_id") or "") != mine]
+    if not reachable:
+        ui.notify("No other VPinFE installs are known to this one.", type="warning")
+        return
+
+    picked: set[str] = set()
+    with ui.dialog() as dialog, ui.card().classes("console-confirm"):
+        ui.label(f"Copy {launcher['display_name']} to which machines?") \
+            .classes("console-confirm-title")
+        ui.label("It arrives with the same name and the same id, so a table that names "
+                 "it there means this launcher. A program path that does not exist on "
+                 "that machine is reported by it, not here.") \
+            .classes("console-help")
+        for one in reachable:
+            name = str(one.get("display_name") or one.get("device_id"))
+            ui.checkbox(name, on_change=lambda e, d=one: (
+                picked.add(str(d.get("device_id"))) if e.value
+                else picked.discard(str(d.get("device_id"))))) \
+                .props("dense")
+        also = ui.checkbox("Also copy which tables use it").props("dense")
+        ui.label("A one-way copy. Change it on a machine afterwards and the two differ "
+                 "from then on - nothing keeps them in step.").classes("console-help")
+        with ui.row().classes("justify-end gap-2 w-full"):
+            ui.button("Cancel", on_click=lambda: dialog.submit(None)).props("flat no-caps")
+            ui.button("Copy", on_click=lambda: dialog.submit(True)).props("no-caps")
+
+    if not await dialog:
+        return
+    if not picked:
+        ui.notify("No machines picked.", type="warning")
+        return
+    await _do_copy(library, launcher, [one for one in reachable
+                                       if str(one.get("device_id")) in picked],
+                   bool(also.value))
+
+
+async def _do_copy(library, launcher: dict, devices: list[dict],
+                   with_mappings: bool) -> None:
+    from common.games import launcher_copy
+
+    mappings = {}
+    if with_mappings:
+        try:
+            found = await run.io_bound(library.launchers)
+            mappings = {table: to for table, to in (found.get("mappings") or {}).items()
+                        if to == launcher["launcher_id"]}
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(f"Could not read the assignments: {exc}", type="negative")
+            return
+
+    def client_for(device):
+        from common import device_client
+
+        return device_client.for_device(device)
+
+    outcomes = await run.io_bound(launcher_copy.copy_to, devices, [launcher],
+                                  mappings, client_for=client_for)
+    said = launcher_copy.said(outcomes)
+    ui.notify(said, type="positive" if all(one.ok for one in outcomes) else "warning")
 
 
 async def _remove(library, state: dict[str, Any], redraw: Callable[[], None],
