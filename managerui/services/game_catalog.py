@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from common.games import game_index_service
-from common.games.info_file import VPINFE_SECTION
 
 
 def scan_mobile_games(reload: bool = False) -> list[dict]:
@@ -72,12 +71,6 @@ def scan_launchable_games(games_path: str | None = None) -> list[dict]:
             "type": row.get("type", ""),
             "theme": row.get("theme") or row.get("themes", ""),
             "rating": row.get("rating", 0),
-            "meta": {
-                VPINFE_SECTION: {
-                    "alt_launcher": row.get("alt_launcher", ""),
-                    "plugin_profile": row.get("plugin_profile", ""),
-                }
-            },
         })
 
     games.sort(key=lambda game: game["name"].lower())

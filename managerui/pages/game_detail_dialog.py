@@ -18,7 +18,6 @@ from common.games.game_metadata import reorder_leading_article
 from common.games.media_service import invalidate_media_cache
 from managerui.pages.dnd_drop_zone import DropContext, create_drop_zone
 from managerui.pages.game_dialog_context import GameDialogContext, default_context
-from managerui.services import plugin_profile_service
 from managerui.ui_helpers import load_page_style
 
 logger = logging.getLogger("vpinfe.manager.games")
@@ -63,8 +62,6 @@ def _render_game_dialog(row_data: dict, on_close: Callable[[], None] | None = No
             with ui.column().classes('gap-0 flex-grow'):
                 with ui.row().classes('items-center gap-2'):
                     title_label = ui.label(game_name).classes('text-xl font-bold').style('color: var(--ink);')
-                    if (row_data.get('alt_launcher', '') or '').strip():
-                        ui.badge('ALT-L', color='warning').props('rounded')
                     if (row_data.get('alt_title', '') or '').strip():
                         ui.badge('ALT-T', color='info').props('rounded')
                 manufacturer = row_data.get('manufacturer', '')
@@ -124,11 +121,14 @@ def _render_game_dialog(row_data: dict, on_close: Callable[[], None] | None = No
                         rebuild_status.visible = True
                         rebuild_status.set_text('Extracting VBS...')
                     try:
+                        # No table id from this surface, which means the default
+                        # launcher - the same program the Manager UI would launch with.
+                        # It used to pass `alt_launcher` here, and that argument is a
+                        # table id now.
                         result = await run.io_bound(
                             game_service.extract_vbs,
                             game_dir,
                             filename,
-                            row_data.get('alt_launcher', ''),
                         )
                         with client:
                             rebuild_status.visible = False
@@ -517,11 +517,9 @@ def _render_game_dialog(row_data: dict, on_close: Callable[[], None] | None = No
                 ui.label('Overrides').classes('text-lg font-semibold mb-3').style('color: var(--ink);')
 
                 delete_nvram_value = row_data.get('delete_nvram_on_close', False)
-                altlauncher_value = row_data.get('alt_launcher', '')
                 alttitle_value = row_data.get('alt_title', '')
                 altvpsid_value = row_data.get('alt_vpsid', '')
                 frontend_dof_event_value = row_data.get('frontend_dof_event', '')
-                pluginprofile_value = row_data.get('plugin_profile', '')
 
                 with ui.row().classes('items-center gap-3 w-full'):
                     alttitle_input = ui.input(
@@ -598,52 +596,11 @@ def _render_game_dialog(row_data: dict, on_close: Callable[[], None] | None = No
                     ui.button('Save', icon='save', on_click=on_altvpsid_save).style('color: var(--neon-pink) !important; background: var(--surface) !important; border: 1px solid var(--neon-pink); border-radius: 18px; padding: 4px 10px;')
                 ui.label('When set, this overrides the VPS ID shown/used in Manager UI').classes('text-xs').style('color: var(--ink-muted);')
 
-                with ui.row().classes('items-center gap-3 w-full'):
-                    altlauncher_input = ui.input(
-                        label='Alt Launcher',
-                        value=altlauncher_value,
-                        placeholder='Optional executable override for this table'
-                    ).props('outlined dense clearable').classes('flex-grow')
-
-                    def on_altlauncher_save():
-                        new_value = (altlauncher_input.value or '').strip()
-                        if game_service.update_vpinfe_setting(game_dir, 'alt_launcher', new_value):
-                            row_data['alt_launcher'] = new_value
-                            game_index_service.update_row_by_path(game_dir, {'alt_launcher': new_value})
-                            ui.notify('Alt launcher saved', type='positive')
-                        else:
-                            ui.notify('Failed to save alt launcher', type='negative')
-
-                    ui.button('Save', icon='save', on_click=on_altlauncher_save).style('color: var(--neon-pink) !important; background: var(--surface) !important; border: 1px solid var(--neon-pink); border-radius: 18px; padding: 4px 10px;')
-                ui.label('When set, this overrides Settings.vpxbinpath for this table only').classes('text-xs').style('color: var(--ink-muted);')
-
-                with ui.row().classes('items-center gap-3 w-full'):
-                    # A profile the user deleted would otherwise vanish from the
-                    # dropdown with no sign it is still saved on this game.
-                    profile_options = plugin_profile_service.list_profiles()
-                    if pluginprofile_value and pluginprofile_value not in profile_options:
-                        profile_options = profile_options + [pluginprofile_value]
-
-                    pluginprofile_select = ui.select(
-                        profile_options,
-                        label='Plugin Profile',
-                        value=pluginprofile_value or plugin_profile_service.DEFAULT_PROFILE_NAME,
-                    ).props('outlined dense options-dense').classes('flex-grow')
-
-                    def on_pluginprofile_save():
-                        selected = str(pluginprofile_select.value or '').strip()
-                        # Default means "use the live VPinballX.ini", which is the
-                        # same as having no override, so store it as empty.
-                        new_value = '' if plugin_profile_service.is_default_profile(selected) else selected
-                        if game_service.update_vpinfe_setting(game_dir, 'plugin_profile', new_value):
-                            row_data['plugin_profile'] = new_value
-                            game_index_service.update_row_by_path(game_dir, {'plugin_profile': new_value})
-                            ui.notify('Plugin profile saved', type='positive')
-                        else:
-                            ui.notify('Failed to save plugin profile', type='negative')
-
-                    ui.button('Save', icon='save', on_click=on_pluginprofile_save).style('color: var(--neon-pink) !important; background: var(--surface) !important; border: 1px solid var(--neon-pink); border-radius: 18px; padding: 4px 10px;')
-                ui.label('When set, this table launches with -ini pointed at that plugin profile instead of VPinballX.ini').classes('text-xs').style('color: var(--ink-muted);')
+                # Alt Launcher and Plugin Profile were here and are gone. Both wrote
+                # `.info` keys that nothing reads any more: which launcher plays a table
+                # is the install's business now, held in launchers.json and set from the
+                # Console. Leaving the controls would have been two fields that save
+                # successfully and change nothing.
 
                 with ui.row().classes('items-center gap-3 w-full'):
                     frontend_dof_event_input = ui.input(

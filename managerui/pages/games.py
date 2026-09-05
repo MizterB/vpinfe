@@ -173,8 +173,6 @@ def parse_game_info(info_path):
 
             # VPinFE settings
             "delete_nvram_on_close": vpinfe.get("delete_nvram_on_close", False),
-            "alt_launcher": (vpinfe.get("alt_launcher", "") or "").strip(),
-            "plugin_profile": (vpinfe.get("plugin_profile", "") or "").strip(),
             "alt_title": (vpinfe.get("alt_title", "") or "").strip(),
             "alt_vpsid": (vpinfe.get("alt_vpsid", "") or "").strip(),
             "frontend_dof_event": (vpinfe.get("frontend_dof_event", "") or "").strip(),
@@ -802,13 +800,6 @@ def render_panel(tab=None):
                             <span v-if="Number(props.row.rating || 0) > 0" style="font-size: 0.9em; white-space: nowrap;">
                                 <span style="color: #facc15;">{{ '★'.repeat(Math.max(0, Math.min(5, Number(props.row.rating || 0)))) }}</span><span style="color: #64748b;">{{ '☆'.repeat(5 - Math.max(0, Math.min(5, Number(props.row.rating || 0)))) }}</span>
                             </span>
-                            <q-badge
-                                v-if="props.row.alt_launcher"
-                                color="orange-8"
-                                text-color="white"
-                                label="ALT-L"
-                                style="font-size: 10px; padding: 2px 6px;"
-                            />
                             <q-badge
                                 v-if="props.row.alt_title"
                                 color="cyan-8"
