@@ -81,6 +81,30 @@ from .errors import ConflictError, FeatureUnavailableError, InvalidRequestError,
 
 logger = logging.getLogger("vpinfe.httpapi.games")
 
+
+def _launcher_of(filename: str, table_id: str) -> dict:
+    """The launcher a table would play with, named for a reader.
+
+    Resolved rather than read off the assignment, because a table naming one that is
+    switched off falls back - and what a reader is shown has to be what will happen.
+    Empty where the install has none: a name invented here would say a table can be
+    played on a machine that cannot play it.
+    """
+    from common.games import launchers
+
+    store = launchers.get_launcher_store()
+    found = launchers.launcher_for_table(filename, table_id, store.launchers(),
+                                         store.mappings())
+    return {
+        "launcher": found.launcher_id if found else "",
+        "launcher_name": found.display_name if found else "",
+        # Set here against follows, which is the thing a mask can never show: a reader
+        # can see which tables were deliberately pointed somewhere, and therefore what
+        # changing the default will and will not move.
+        "launcher_set_here": bool(store.mapped(table_id)),
+    }
+
+
 router = APIRouter(prefix="/games", tags=["games"])
 
 # What the script was seen to use, named for the thing rather than for the .info key
@@ -336,6 +360,11 @@ def _tables(game, row: dict) -> list[dict]:
             # registry entry and not a search for where ".vpx" was hard-coded.
             "format": (apps.app_for(name) or apps.DEFAULT_APP).id,
             "app": (apps.app_for(name) or apps.DEFAULT_APP).id,
+            # Which launcher actually plays it, and whether that was chosen here or
+            # followed from the default. Resolved rather than read off the assignment,
+            # because a table naming one that is switched off falls back - and what a
+            # reader is shown has to be what will happen.
+            **_launcher_of(name, str(described_entry.get(TABLE_ID_KEY, "") or "")),
             "filename": name,
             "version": str(described_entry.get("version", "") or ""),
             "authors": [str(a) for a in (described_entry.get("authors") or [])],

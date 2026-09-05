@@ -91,6 +91,11 @@ def list_tables(limit: int = Query(0, ge=0), offset: int = Query(0, ge=0),
                 "available": bool(table.get("available")),
                 "absent_since": table.get("absent_since"),
                 "app": table.get("app") or "",
+                # The same three the games lens carries, so the two cannot describe one
+                # table differently.
+                "launcher": table.get("launcher") or "",
+                "launcher_name": table.get("launcher_name") or "",
+                "launcher_set_here": bool(table.get("launcher_set_here")),
             })
 
     found.sort(key=lambda item: (item["game"].lower(), item["filename"].lower()))

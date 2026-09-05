@@ -11,7 +11,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common.games import apps, asset_registry
+from common.games import asset_registry
 from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
@@ -604,8 +604,10 @@ TABLE_COLUMNS = [
                 help="The PinMAME rom this build actually resolves to, aliases\n"
                      "followed. Blank on a table that drives no emulator - an\n"
                      "electro-mechanical machine needs none."),
-    grid.column("app", "App", group=_TABLE,
-                help="What plays this file."),
+    grid.column("launcher", "Launcher", group=_TABLE,
+                help="Which launcher plays this file. A dot means this table names\n"
+                     "it; without one the table follows whichever launcher is the\n"
+                     "default, so changing the default moves it."),
     # One column per fact rather than one word folding three together. "Status" cannot
     # stay one column anyway - has an update, missing its rom and the rest are all
     # status - and folded, a table that is both the default and hidden reads as only
@@ -689,7 +691,7 @@ TABLE_VIEWS: dict[str, list[str]] = {
     # Launch, once.
     game_tables.FILE: ["game", "version", "author", "rating", "default_state",
                        "hidden", "filename"],
-    game_tables.LAUNCH: ["game", "filename", "app", "rom", "default_state", "hidden",
+    game_tables.LAUNCH: ["game", "filename", "launcher", "rom", "default_state", "hidden",
                          "missing"],
     # Its own view, not seven more columns on Play: this is a matrix, the same shape as
     # Media on the games grid, and Play stays a list somebody can read across.
@@ -707,6 +709,20 @@ def _table_label(row: dict[str, Any]) -> str:
     said = game_tables.table_name(row)
     game = row.get("game") or ""
     return f"{game}{game_tables.JOIN}{said}" if game and said else (game or said)
+
+
+# Marks the tables that were deliberately pointed somewhere, so a reader can see what
+# changing the default will and will not move. Only on those: a mark on every row would
+# say nothing, and following the default is the ordinary case.
+SET_HERE_MARK = "\u25cf "
+
+
+def _launcher_word(row: dict[str, Any]) -> str:
+    """What plays this table, marked where the table chose it rather than inherited it."""
+    name = str(row.get("launcher_name") or "")
+    if not name:
+        return ""
+    return f"{SET_HERE_MARK}{name}" if row.get("launcher_set_here") else name
 
 
 def _resolved_word(entry: dict[str, Any] | None) -> str:
@@ -733,7 +749,10 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
              "author": ", ".join(row.get("authors") or []),
              # The name, not the id: `app_name` says why, and the column has to sort
              # and filter on what a reader can see rather than on what is stored.
-             "app": apps.app_name(row.get("app")),
+             # The name plus a mark for chosen against inherited. One cell, because the
+             # answer is one fact - what plays this table - and which of the two it is
+             # only matters as a qualifier on it.
+             "launcher": _launcher_word(row),
              # One field per feature: a grid column reads a field, and the payload's
              # nested dict would have every column reaching into the same object.
              # `.get` rather than a default of False - a table nobody parsed answers

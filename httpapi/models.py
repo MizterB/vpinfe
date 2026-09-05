@@ -641,6 +641,11 @@ class Table(ApiModel):
     id: str
     format: str
     app: str
+    # The same three the row lens carries, so the two cannot describe one table
+    # differently. Resolved, not read off the assignment.
+    launcher: str = ""
+    launcher_name: str = ""
+    launcher_set_here: bool = False
     filename: str
     default: bool
     # Why it is the default, not only that it is: `user` where somebody chose it,
@@ -751,6 +756,15 @@ class TableRow(ApiModel):
     available: bool = True
     absent_since: str | None = None
     app: str = ""
+    # Which launcher plays it, resolved rather than read off the assignment: a table
+    # naming one that is switched off falls back, and a reader has to be shown what will
+    # actually happen. Empty on an install with no launcher at all.
+    launcher: str = ""
+    launcher_name: str = ""
+    # Whether this table chose it or is following the default. The thing an override
+    # mask can never show - which tables were deliberately pointed somewhere, and so
+    # what changing the default will and will not move.
+    launcher_set_here: bool = False
 
 
 class TableRowList(ApiModel):

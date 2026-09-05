@@ -23,7 +23,7 @@ from urllib.parse import quote
 
 from nicegui import run, ui
 
-from common.games import apps, asset_registry
+from common.games import asset_registry
 from common.games.asset_registry import ALWAYS_KEPT as _ALWAYS_KEPT
 from common.games.collection_filters import UNCONSTRAINED
 from common.games.collection_store import (
@@ -1282,7 +1282,9 @@ def _table_rows(table: dict[str, Any],
         (game_tables.FILE,
          _state(game_tables.word_for(game_tables.FILE_WORDS, not present),
                 "on" if present else "bad")),
-        ("Application", apps.app_name(table.get("app"))),
+        # What actually plays it, not what its extension implies. The panel and the grid
+        # read one field so they cannot say different things about one table.
+        ("Launcher", str(table.get("launcher_name") or "-")),
         ("ROM", _rom_state(pinmame, rom, context=context)),
     ]
     if context is not None:
@@ -2096,9 +2098,10 @@ def _tables_block(context: dict[str, Any]) -> None:
                 # exactly what separates a VPX build from a Future Pinball one - it
                 # used to appear only where the game had a single table, which is when
                 # it distinguishes nothing.
-                app = apps.app_name(table.get("app"))
-                if app:
-                    ui.label(app).classes("console-member-chip console-tier console-tier--off")
+                launcher = str(table.get("launcher_name") or "")
+                if launcher:
+                    ui.label(launcher) \
+                        .classes("console-member-chip console-tier console-tier--off")
                 with ui.element("div").classes("console-row-action"):
                     if since:
                         ui.button(icon="delete_outline",
