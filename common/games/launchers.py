@@ -38,6 +38,7 @@ SCHEMA = 1
 SCHEMA_KEY = "schema"
 LAUNCHERS_KEY = "launchers"
 MAPPINGS_KEY = "mappings"
+MIGRATIONS_KEY = "migrations"
 
 
 def mint_launcher_id() -> str:
@@ -205,7 +206,33 @@ class LauncherStore:
                 found.pop(table, None)
             self._write(held, found)
 
+    def migrations(self) -> list[str]:
+        """Which one-time conversions have already run against this file."""
+        with self._lock:
+            return self._stored_migrations()
+
+    def mark_migration(self, name: str) -> None:
+        """Note that one has run, so it never runs twice."""
+        wanted = str(name or "").strip()
+        if not wanted:
+            return
+        with self._lock:
+            names = self._stored_migrations()
+            if wanted in names:
+                return
+            held, mappings = self._load()
+            self._write(held, mappings, migrations=names + [wanted])
+
     # -- the file ------------------------------------------------------------
+
+    def _stored_migrations(self) -> list[str]:
+        try:
+            with open(self.path, encoding="utf-8") as handle:
+                payload = json.load(handle) or {}
+        except Exception:
+            return []
+        return [str(name) for name in payload.get(MIGRATIONS_KEY) or []
+                if str(name).strip()]
 
     def _load(self) -> tuple[list[Launcher], dict[str, str]]:
         try:
@@ -230,10 +257,15 @@ class LauncherStore:
                     if str(table).strip() and str(to) in ids}
         return held, mappings
 
-    def _write(self, launchers: list[Launcher], mappings: dict[str, str]) -> None:
+    def _write(self, launchers: list[Launcher], mappings: dict[str, str],
+               migrations: list[str] | None = None) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        # Read back rather than held: every other method here reads the file fresh, so
+        # keeping the markers in memory would let two writers drop each other's.
         payload = {
             SCHEMA_KEY: SCHEMA,
+            MIGRATIONS_KEY: (self._stored_migrations() if migrations is None
+                             else migrations),
             LAUNCHERS_KEY: [one.as_dict() for one in launchers],
             MAPPINGS_KEY: dict(mappings),
         }
@@ -303,3 +335,14 @@ def seeded_from(settings, app_id: str = "vpx") -> Launcher:
 def replace_settings(launcher: Launcher, **values: Any) -> Launcher:
     """A launcher with some of its settings changed, leaving the rest alone."""
     return replace(launcher, settings={**launcher.settings, **values})
+
+
+_store: LauncherStore | None = None
+
+
+def get_launcher_store() -> LauncherStore:
+    """This install's launchers. One per process, the way the device registry is."""
+    global _store
+    if _store is None:
+        _store = LauncherStore()
+    return _store

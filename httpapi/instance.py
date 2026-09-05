@@ -20,6 +20,7 @@ from common import (
 )
 from common.config_access import NetworkConfig
 from common.device_registry import get_device_registry
+from common.games import launcher_migration
 from common.host import launch_state
 from common.paths import get_ini_config
 from common.vpinfe_version import get_version
@@ -47,6 +48,9 @@ def mint_identity() -> None:
     except Exception as exc:
         logger.warning("Could not mint this install's identity: %s", exc)
         return
+    # Beside minting an identity because it is the same kind of thing: what this install
+    # already is, written down once in the shape the rest of the code expects.
+    launcher_migration.ensure_seeded(config)
     record_self()
 
 
