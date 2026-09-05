@@ -545,6 +545,10 @@ class ApiClient:
         tail = f"?history_seconds={history_seconds}" if history_seconds else ""
         return dict(self._get(f"/metrics{tail}") or {})
 
+    def gpu_metrics(self) -> dict:
+        """What the graphics cards are doing, asked separately because it shells out."""
+        return dict(self._get("/metrics/gpu") or {})
+
     def launchers(self) -> dict:
         """Every launcher, the tables that deviate, and which one is the default.
 

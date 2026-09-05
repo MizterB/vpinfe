@@ -17,8 +17,6 @@ from typing import Any
 
 from nicegui import run, ui
 
-from console import panel
-
 logger = logging.getLogger("vpinfe.console.metrics")
 
 # The cadence the job line already uses, so a page with both on it ticks once rather
@@ -35,75 +33,142 @@ WARN, BAD = 75.0, 90.0
 
 
 def build(library, state: dict[str, Any], redraw: Callable[[], None]) -> None:
-    """The readings, refreshed in place. Drawn once and updated on a timer rather than
-    rebuilt: a page that rebuilds every two seconds loses a scroll position and a
-    selection, and there is nothing here to select yet but the scroll is real."""
-    body = ui.column().classes("w-full gap-3")
-    held: dict[str, Any] = {"seen": None}
+    """Drawn once, then updated in place.
+
+    Clearing and rebuilding on every tick was the first attempt and it is wrong: the
+    graphics switch is a control somebody reaches for, and a control replaced under
+    their finger every two seconds cannot be clicked. Only the values move.
+    """
+    held: dict[str, Any] = {"gpu": None, "watch_gpu": bool(state.get("metrics_gpu"))}
+
+    with ui.column().classes("w-full gap-3"):
+        note = ui.label("").classes("console-help")
+        note.set_visibility(False)
+        with ui.row().classes("w-full gap-4 no-wrap items-stretch") as readings:
+            cpu = _reading_card("Processor")
+            memory = _reading_card("Memory")
+        disks_title = ui.label("Free space").classes("console-group mt-2")
+        disks = ui.element("div").classes("console-card w-full")
+        ui.label("Graphics").classes("console-group mt-2")
+        with ui.element("div").classes("console-card w-full"):
+            with ui.row().classes("items-center gap-3 w-full no-wrap"):
+                ui.label("Watch the graphics cards") \
+                    .classes("console-setting grow min-w-0")
+                switch = ui.switch(value=held["watch_gpu"]) \
+                    .props("dense").classes("console-fact-switch")
+            cards = ui.column().classes("w-full gap-0")
+
+    def on_switch(event: Any) -> None:
+        held["watch_gpu"] = bool(event.value)
+        state["metrics_gpu"] = held["watch_gpu"]
+        held["gpu"] = None
+        _draw_cards(cards, held)
+
+    switch.on_value_change(on_switch)
+
+    def show(said: str) -> None:
+        note.text = said
+        note.set_visibility(bool(said))
+        for element in (readings, disks_title, disks):
+            element.set_visibility(not said)
 
     async def tick() -> None:
         try:
             found = await run.io_bound(library.metrics, WINDOW_SECONDS)
         except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
-            held["seen"] = {"error": str(exc)}
-        else:
-            held["seen"] = found
-        _draw(body, held["seen"])
-
-    ui.timer(0.01, tick, once=True)
-    ui.timer(EVERY_SECONDS, tick)
-
-
-def _draw(body, found: dict[str, Any] | None) -> None:
-    body.clear()
-    with body:
-        if not found:
-            return
-        if found.get("error"):
-            panel.facts(ui, [panel.intro(
-                f"Could not read this machine: {found['error']}")])
+            show(f"Could not read this machine: {exc}")
             return
         now = found.get("now") or {}
         if not now.get("measurable"):
             # Offered with the reason rather than hidden: a page that simply omits the
             # readings leaves somebody unsure whether the machine is fine or this is.
-            panel.facts(ui, [panel.intro(
-                now.get("reason") or "This machine cannot report its readings.")])
+            show(str(now.get("reason") or "This machine cannot report its readings."))
             return
-        _live(now, found.get("history") or [])
+        show("")
+        history = found.get("history") or []
+        _fill(cpu, now.get("cpu_percent"),
+              [one.get("cpu_percent") for one in history],
+              _load_said(now.get("load")))
+        _fill(memory, now.get("memory_percent"),
+              [one.get("memory_percent") for one in history],
+              _bytes_said(now.get("memory_used"), now.get("memory_total")))
+        _fill_disks(disks, now.get("disks") or [])
+        if held["watch_gpu"]:
+            try:
+                held["gpu"] = await run.io_bound(library.gpu_metrics)
+            except Exception as exc:  # noqa: BLE001
+                held["gpu"] = {"available": False, "reason": str(exc), "gpus": []}
+            _draw_cards(cards, held)
+
+    ui.timer(0.01, tick, once=True)
+    ui.timer(EVERY_SECONDS, tick)
+    _draw_cards(cards, held)
 
 
-def _live(now: dict[str, Any], history: list[dict[str, Any]]) -> None:
-    with ui.row().classes("w-full gap-4 no-wrap items-stretch"):
-        _reading("Processor", now.get("cpu_percent"),
-                 [one.get("cpu_percent") for one in history],
-                 said=_load_said(now.get("load")))
-        _reading("Memory", now.get("memory_percent"),
-                 [one.get("memory_percent") for one in history],
-                 said=_bytes_said(now.get("memory_used"), now.get("memory_total")))
+def _reading_card(title: str) -> dict[str, Any]:
+    """The frame for one reading, kept so the tick can move the number rather than
+    build the card again."""
+    with ui.element("div").classes("console-card grow min-w-0"):
+        ui.label(title).classes("console-card-title")
+        value = ui.label("-").classes("console-kpi")
+        spark = ui.row().classes("items-end gap-px w-full no-wrap").style("height:28px")
+        said = ui.label("").classes("text-xs opacity-60")
+    return {"value": value, "spark": spark, "said": said}
 
-    disks = [one for one in (now.get("disks") or [])]
-    if not disks:
-        return
-    ui.label("Free space").classes("console-group mt-2")
-    with ui.element("div").classes("console-card w-full"):
+
+def _fill(card: dict[str, Any], value: Any, series: list[Any], said: str) -> None:
+    card["value"].text = "-" if value is None else f"{value:.0f}%"
+    card["value"].style(f"color: {_tone(value)}")
+    card["said"].text = said
+    _spark(card["spark"], [one for one in series if one is not None])
+
+
+def _fill_disks(target, disks: list[dict[str, Any]]) -> None:
+    target.clear()
+    with target:
         for disk in disks:
             _disk_row(disk)
 
 
-def _reading(title: str, value: Any, series: list[Any], said: str = "") -> None:
-    """One number, its trend, and the sentence underneath that says what it is of.
+def _draw_cards(target, held: dict[str, Any]) -> None:
+    """What the switch reveals. Its own function so the switch above it is built once
+    and never replaced under somebody's finger."""
+    target.clear()
+    with target:
+        if not held["watch_gpu"]:
+            ui.label("Off. Reading them runs nvtop, so it is asked for rather than "
+                     "assumed.").classes("console-help")
+            return
+        found = held.get("gpu")
+        if found is None:
+            ui.label("Reading them...").classes("console-help")
+            return
+        if not found.get("available"):
+            # "This machine has no graphics section" and "the tool that reads one is
+            # not installed" are different answers, and only the second can be acted on.
+            ui.label(str(found.get("reason") or "")).classes("console-help")
+            return
+        for card in found.get("gpus") or []:
+            _card(card, found.get("fields") or [])
 
-    A percentage on its own does not say how much: 80% of 8GB and 80% of 64GB are
-    different machines, and the number alone reads the same.
-    """
-    with ui.element("div").classes("console-card grow min-w-0"):
-        ui.label(title).classes("console-card-title")
-        shown = "-" if value is None else f"{value:.0f}%"
-        ui.label(shown).classes("console-kpi").style(f"color: {_tone(value)}")
-        _spark([one for one in series if one is not None])
-        if said:
-            ui.label(said).classes("text-xs opacity-60")
+
+
+
+
+
+def _card(card: dict[str, Any], fields: list[dict[str, Any]]) -> None:
+    """One card, per card rather than averaged. Two cards averaged is a number that
+    describes neither, and a second card is why somebody opened this."""
+    ui.label(str(card.get("name") or "GPU")).classes("console-setting mt-2")
+    with ui.row().classes("items-center gap-2 w-full flex-wrap"):
+        for field in fields:
+            value = card.get(field["key"])
+            if value in (None, ""):
+                continue
+            with ui.element("div").classes("console-member-chip console-tier "
+                                           "console-tier--off"):
+                ui.label(f"{field['label']} {value}")
+
 
 
 def _disk_row(disk: dict[str, Any]) -> None:
@@ -128,20 +193,22 @@ def _disk_row(disk: dict[str, Any]) -> None:
             .classes("text-xs opacity-60 shrink-0")
 
 
-def _spark(series: list[float]) -> None:
+def _spark(target, series: list[float]) -> None:
     """The shape of the last few minutes, drawn as bars rather than a line.
 
     A number says where it is; this says whether it got there. Nothing at all until
     there are two points - one bar is a shape that implies a trend it cannot have.
     """
+    target.clear()
     if len(series) < 2:
-        ui.label("collecting").classes("text-xs opacity-40")
+        with target:
+            ui.label("collecting").classes("text-xs opacity-40")
         return
     # Every other point at most, so a ten-minute window is a readable width rather than
     # three hundred hairlines.
     step = max(1, len(series) // 60)
     shown = series[::step][-60:]
-    with ui.row().classes("items-end gap-px w-full no-wrap").style("height:28px"):
+    with target:
         for one in shown:
             ui.element("div").style(
                 f"flex:1 1 0; min-width:1px; height:{max(2, min(100, one)):.0f}%;"

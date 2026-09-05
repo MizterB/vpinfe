@@ -277,6 +277,9 @@ class Library:
     def metrics(self, history_seconds: float = 0) -> dict:
         return self._client.metrics(history_seconds)
 
+    def gpu_metrics(self) -> dict:
+        return self._client.gpu_metrics()
+
     def launchers(self) -> dict:
         """Read fresh every time: a launcher is edited from this page, and a cache would
         show the value that was there before the edit that just happened."""

@@ -16,9 +16,12 @@ of zeros is a lie that looks like data.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import platform
 import shutil
+import subprocess
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -103,6 +106,73 @@ def read(paths=()) -> dict[str, Any]:
     except (OSError, AttributeError):
         sample["load"] = None
     return sample
+
+
+# What nvtop reports per card, and what to call each on screen. Declared rather than
+# rendered from raw keys: `mem_util` is not a label, and a surface guessing at one is a
+# surface that renames a field the day nvtop does.
+GPU_FIELDS: tuple[tuple[str, str], ...] = (
+    ("gpu_util", "Utilization"),
+    ("mem_util", "Memory"),
+    ("temp", "Temperature"),
+    ("fan_speed", "Fan"),
+    ("power_draw", "Power"),
+    ("gpu_clock", "GPU clock"),
+    ("mem_clock", "Memory clock"),
+)
+
+
+def gpu_supported() -> bool:
+    """Where asking is even meaningful. nvtop is a Linux and macOS tool, and offering
+    the switch on Windows would be offering something that can only ever fail."""
+    return platform.system() in {"Linux", "Darwin"}
+
+
+def gpu() -> dict[str, Any]:
+    """Every card nvtop can see, or the reason there are none.
+
+    Behind its own call rather than folded into `read`: it shells out, and a page that
+    is not showing GPUs should not pay for one every two seconds. Offered disabled with
+    the reason where nvtop is missing - decision 15's rule, and "no GPU section" and
+    "nvtop is not installed" are different answers.
+    """
+    if not gpu_supported():
+        return {"available": False,
+                "reason": f"nvtop does not run on {platform.system()}.", "gpus": []}
+    found = shutil.which("nvtop")
+    if not found:
+        return {"available": False, "reason": "nvtop is not installed.", "gpus": []}
+
+    try:
+        done = subprocess.run([found, "-s"], capture_output=True, text=True,
+                              timeout=3, check=False)
+    except subprocess.TimeoutExpired:
+        return {"available": False, "reason": "nvtop timed out.", "gpus": []}
+    except Exception as exc:  # noqa: BLE001 - a probe must not take the page with it
+        return {"available": False, "reason": f"nvtop failed: {exc}", "gpus": []}
+
+    text = (done.stdout or "").strip()
+    if done.returncode != 0 or not text:
+        said = (done.stderr or text or "nvtop returned nothing.").strip()
+        return {"available": False, "reason": said, "gpus": []}
+
+    try:
+        cards = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return {"available": False, "reason": f"Could not read nvtop: {exc}", "gpus": []}
+    if not isinstance(cards, list) or not cards:
+        return {"available": False, "reason": "nvtop reported no cards.", "gpus": []}
+
+    # Per card, not aggregated. Two cards averaged is a number describing neither, and a
+    # machine with a second card is exactly the machine somebody is looking at this for.
+    found_cards = [
+        {"id": index, "name": card.get("device_name") or f"GPU {index}",
+         **{key: card.get(key) for key, _label in GPU_FIELDS}}
+        for index, card in enumerate(cards, start=1) if isinstance(card, dict)]
+    if not found_cards:
+        return {"available": False, "reason": "nvtop reported nothing usable.",
+                "gpus": []}
+    return {"available": True, "reason": "", "gpus": found_cards}
 
 
 def _disks(paths) -> list[dict[str, Any]]:
