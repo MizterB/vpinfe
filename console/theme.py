@@ -555,6 +555,26 @@ body::before {
    line of sight, and the named files are quiet and breakable - a path is looked at, not
    read. */
 .console-confirm { min-width: 320px; max-width: 460px; }
+
+/* While the page is listening for a key. Centred and over everything, because it has
+   taken the keyboard: a prompt in the row would leave the rest of the page looking
+   usable while every key press belongs to the capture. Not a dialog - it is dismissed by
+   the very key it is waiting for, and a dialog's own Escape handling would eat the one
+   key that cancels. */
+.console-capture {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  text-align: center;
+  font-size: var(--fs-body);
+  color: var(--ink);
+  background: rgba(9, 5, 20, 0.82);
+  backdrop-filter: blur(2px);
+}
 /* A picker is a list to read down, not a question to answer, so it takes the room a
    list needs and caps its height rather than growing past the window. */
 .console-picker-dialog { min-width: 520px; max-width: 640px; }

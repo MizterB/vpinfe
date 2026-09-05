@@ -41,6 +41,9 @@ def _input_options() -> tuple[ConfigOption, ...]:
             default=",".join(action.bindings),
             label=action.label,
             group=action.group,
+            # A list of selectors is what it *is*; typing `pad:0/button:3` is not how
+            # anybody wants to say which button they pressed.
+            editor=EDITOR_BINDING,
             legacy=tuple(("Input", old) for old in action.legacy),
         )
         for action in input_registry.actions()
@@ -116,9 +119,20 @@ class ConfigOption:
     # setting moves the control with it. Suggestions, not choices: the list is offered
     # and anything may still be typed, because the thing that produces it can be wrong.
     suggest: str = ""
+    # A named tool this setting is edited with, where a control cannot do the job. The
+    # type still says what the value *is*, so anything that only reads the setting is
+    # unaffected and a surface with no such editor falls back to the control for its
+    # type rather than showing nothing.
+    editor: str = ""
 
 
 PATH_KINDS = ("file", "dir", "exe")
+
+# What an `editor` may name. Closed for the same reason `suggest` is: a typo should be a
+# setting drawn with its ordinary control, not a surface silently asking for a tool
+# nobody registered.
+EDITOR_BINDING = "binding"
+EDITORS = (EDITOR_BINDING,)
 
 # What a `suggest` may name. Closed, so a typo is a setting with no suggestions rather
 # than a surface quietly asking for a list nobody serves.

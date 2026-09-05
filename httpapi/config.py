@@ -57,6 +57,7 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         # What to gather it under on a page. Served rather than decided by a client, so
         # the grouping is the schema's answer and not one each surface invents.
         "group": option.group,
+        "editor": option.editor,
     }
 
 

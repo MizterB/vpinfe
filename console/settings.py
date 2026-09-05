@@ -25,7 +25,7 @@ from common import config_schema, feature_checks, install_identity, path_checks
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
 from common.labels import humanize
 from common.media_specs import media_label_map
-from console import deeplink, panel
+from console import binding_editor, deeplink, panel
 
 logger = logging.getLogger("vpinfe.console.settings")
 
@@ -69,10 +69,20 @@ async def _write(library, section: str, key: str, value: Any) -> bool:
     return True
 
 
+# Tools a setting can ask for by name, where a control cannot do the job. Routed the way
+# `type` is, so declaring one is a line in the schema rather than a branch here. A name
+# nothing serves falls back to the control for its type: a surface that has not been
+# taught the tool should still be able to edit the value badly rather than not at all.
+EDITORS: dict[str, Callable[..., Callable[[], None]]] = {
+    config_schema.EDITOR_BINDING: binding_editor.rows,
+}
+
+
 def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                 writable: bool = True, rerender: Callable[[], None] | None = None,
                 check: dict | None = None,
-                suggestions: dict[str, Any] | None = None) -> Callable[[], None]:
+                suggestions: dict[str, Any] | None = None,
+                section_values: dict[str, Any] | None = None) -> Callable[[], None]:
     """The control a declared value's type asks for.
 
     Driven by the declaration, never by the key's name: something added to the schema -
@@ -83,6 +93,11 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     are stored quite differently: a setting goes to a config section, and a launcher
     field goes to a launcher.
     """
+    editor = EDITORS.get(str(option.get("editor") or ""))
+    if editor is not None:
+        return editor(option, value, save, section=section_values or {},
+                      writable=writable, rerender=rerender)
+
     kind = option.get("type")
     off = not writable
     found = check or {}
@@ -542,6 +557,12 @@ def section_rows(source, section: str, options: list[dict], values: dict,
     source decides where the write lands.
     """
     current = dict(values.get(section) or {})
+    # What every setting in this section is *effectively* set to, defaults included. An
+    # editor that answers for a whole section - which binding two actions both claim -
+    # cannot see an action still on its default from `current` alone, because a value
+    # equal to its default is not stored.
+    effective = {one["key"]: current.get(one["key"], one.get("default"))
+                 for one in options}
     entries: list[tuple[Any, Any]] = []
     if not writable:
         entries.append(panel.intro("Read-only on this install."))
@@ -558,7 +579,8 @@ def section_rows(source, section: str, options: list[dict], values: dict,
                             _saver(source, section, option["key"]),
                             writable=writable, rerender=rerender,
                             check=(checks or {}).get((section, option["key"])),
-                            suggestions=suggestions)))
+                            suggestions=suggestions,
+                            section_values=effective)))
         if option.get("description"):
             entries.append(panel.note(option["description"]))
     return entries

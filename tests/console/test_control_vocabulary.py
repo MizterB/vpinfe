@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from console import panel, settings, themes
+from console import binding_editor, panel, settings, themes
 
 CONSOLE = Path(__file__).resolve().parent.parent.parent / "console"
 
@@ -130,6 +130,54 @@ class WhatTheDialogHolds(unittest.TestCase):
         shown = themes._shown({"key": "k", "type": "json"}, {"k": {"a": 1}})
 
         self.assertIn('"a"', shown)
+
+
+class ADeclaredEditorIsRouted(unittest.TestCase):
+    """A setting can ask for a tool where a control cannot do the job, and it is routed
+    the way `type` is - so declaring one is a line in the schema rather than a branch in
+    the renderer."""
+
+    def test_the_input_actions_ask_for_the_binding_editor(self) -> None:
+        from common import config_schema
+
+        asked = {one.editor for one in config_schema.options()
+                 if one.section == "input"}
+
+        self.assertEqual(asked, {config_schema.EDITOR_BINDING})
+
+    def test_every_declared_editor_is_one_the_console_serves(self) -> None:
+        from common import config_schema
+
+        declared = {one.editor for one in config_schema.options() if one.editor}
+
+        self.assertTrue(declared <= set(settings.EDITORS),
+                        "a setting asks for an editor nothing draws")
+        self.assertTrue(declared <= set(config_schema.EDITORS),
+                        "an editor name outside the closed set is a typo, not a tool")
+
+
+class BindingsAreNotTypedIn(unittest.TestCase):
+    """`pad:0/button:3` is written for a parser. The editor shows what was pressed."""
+
+    def test_a_default_arrives_as_a_string_and_is_not_read_letter_by_letter(self) -> None:
+        """A stored value is a list; a schema default is the comma-joined string the
+        config file would hold. `list()` of the second is one chip per character."""
+        self.assertEqual(
+            binding_editor._selectors("key:ArrowLeft,key:ShiftLeft"),
+            ["key:ArrowLeft", "key:ShiftLeft"])
+        self.assertEqual(
+            binding_editor._selectors(["key:Enter"]), ["key:Enter"])
+        self.assertEqual(binding_editor._selectors(None), [])
+
+    def test_it_names_who_already_holds_a_binding(self) -> None:
+        held = {"key:Escape": ["back", "exit"]}
+
+        self.assertEqual(
+            binding_editor._owner("key:Escape", held, {"key": "back"}), "Exit")
+        self.assertEqual(
+            binding_editor._owner("key:Escape", held, {"key": "exit"}), "Back")
+        self.assertEqual(
+            binding_editor._owner("key:m", held, {"key": "back"}), "")
 
 
 class RawControlsAreDeclared(unittest.TestCase):

@@ -329,6 +329,11 @@ class ConfigOptionInfo(ApiModel):
     # the first heading. Served so the grouping is the schema's answer rather than one
     # each surface invents.
     group: str = ""
+    # A named tool this setting is edited with, where a control cannot do the job -
+    # `binding` is a key or button captured by pressing it. `type` still says what the
+    # value is, so a client with no such editor renders the ordinary control and edits
+    # the value badly rather than not at all.
+    editor: str = ""
 
 
 class ConfigSection(ApiModel):
