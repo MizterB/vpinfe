@@ -75,6 +75,14 @@ NAV_PARENT = ("library", "Library", "inventory_2")
 # to do and what it has recorded doing. Records are places; configuration is a setting -
 # which is why the log *viewer* is here and the logger's own settings are a page inside
 # Settings.
+# What the `frontend` feature owns, gathered the way Library gathers what `library` owns.
+# The rule the two of them make: a feature with more than one subject gets a container.
+#
+# Launchers sat under System until 2026-09-05 and never fitted - System's three are
+# configuration and records, and a launcher is neither. It was also the one child there
+# gated on a feature rather than on `core`, which is the tell.
+NAV_FRONTEND = ("frontend", "Frontend", "smart_display")
+
 NAV_SYSTEM = ("system", "System", "settings")
 
 # Which feature each destination answers for, `core` being the one every install has. An
@@ -94,16 +102,16 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
                   ("collections", "Collections", "collections_bookmark",
                    install_identity.LIBRARY),
                   ("tags", "Tags", "sell", install_identity.LIBRARY))),
+    # Subjects, not settings: both are collections of objects with per-row actions,
+    # which is not what a page of (label, value) pairs does. The frontend's *settings*
+    # stay in Settings, the way media's do - one holds things, the other holds values.
+    (NAV_FRONTEND, (("launchers", "Launchers", "rocket_launch",
+                     install_identity.FRONTEND),)),
     (None, (("devices", "Devices", "devices", install_identity.DEVICES),
             ("extensions", "Extensions", "extension", install_identity.CORE))),
     # Last, and always here: every other section exists because a feature is enabled,
     # and this is where features are switched on.
-    # Launchers is a subject rather than a settings group: adding, removing and
-    # duplicating an object is a list with per-row actions, which is not what a page of
-    # (label, value) pairs does. It sits with Settings because both are how the machine is
-    # set up; Metrics and Logs are what it has recorded.
     (NAV_SYSTEM, (("settings", "Settings", "tune", install_identity.CORE),
-                  ("launchers", "Launchers", "rocket_launch", install_identity.FRONTEND),
                   ("metrics", "Metrics", "monitor_heart", install_identity.CORE),
                   ("logs", "Logs", "description", install_identity.CORE))),
 )

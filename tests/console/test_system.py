@@ -38,16 +38,17 @@ class NavTests(unittest.TestCase):
                 self.assertEqual(_rail(features), ["extensions", "settings",
                                                    "metrics", "logs"])
 
-    def test_the_landing_place_is_still_settings_with_launchers_present(self) -> None:
+    def test_a_frontend_only_install_opens_on_what_it_has(self) -> None:
+        """Launchers, because that is the first real place such an install holds. It has
+        no library, so there are no Games to open on, and Extensions is never a front
+        door."""
         self.assertEqual(page.landing_for(_rail([install_identity.FRONTEND])),
-                         "settings")
+                         "launchers")
 
     def test_extensions_is_not_a_front_door(self) -> None:
         """It leads the rail of an install with no library, and it is not defined enough
         yet to be the first thing anybody sees. Settings is the floor."""
         self.assertEqual(page.landing_for(_rail([install_identity.CORE])), "settings")
-        self.assertEqual(page.landing_for(_rail([install_identity.FRONTEND])),
-                         "settings")
         self.assertEqual(page.landing_for(_rail(install_identity.DEFAULT_FEATURES)),
                          "games")
 
@@ -65,12 +66,26 @@ class NavTests(unittest.TestCase):
                         if parent == page.NAV_SYSTEM]
 
         self.assertEqual([key for key, *_rest in under_system[0]],
-                         ["settings", "launchers", "metrics", "logs"])
+                         ["settings", "metrics", "logs"])
+
+    def test_what_the_frontend_owns_has_a_container_of_its_own(self) -> None:
+        """The rule Library and this one make together: a feature with more than one
+        subject gets a container. Launchers sat under System and never fitted - System's
+        three are configuration and records, and a launcher is neither."""
+        under_frontend = [items for parent, items
+                          in page.nav_for(install_identity.FEATURES)
+                          if parent == page.NAV_FRONTEND]
+
+        self.assertEqual([key for key, *_rest in under_frontend[0]], ["launchers"])
 
     def test_launchers_goes_with_the_feature_that_launches(self) -> None:
         """An install that curates a library and never starts a game has nothing to run
-        a table with and no reason to be offered one."""
+        a table with and no reason to be offered one - and with nothing left under it,
+        the container goes too."""
         self.assertNotIn("launchers", _rail([install_identity.LIBRARY]))
+        self.assertNotIn(page.NAV_FRONTEND,
+                         [parent for parent, _items
+                          in page.nav_for([install_identity.LIBRARY])])
         self.assertIn("launchers", _rail([install_identity.FRONTEND]))
 
     def test_overview_has_to_be_asked_for(self) -> None:
