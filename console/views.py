@@ -116,6 +116,20 @@ def remember(library: Any, scope: str, views: list[View], active: str) -> None:
         logger.warning("console: could not save views for %s", scope, exc_info=True)
 
 
+def visible_columns(view: View, all_fields: list[str]) -> list[str] | None:
+    """Which columns this view shows, or None when it names only fields that are gone.
+
+    None is the stale case and is not the same as showing everything: a view saved
+    against a library whose fields were renamed resolves nothing, and answering that
+    with every column reads as the view misbehaving. A view that names no columns at
+    all is a built-in carrying only a sort or a filter, and does mean all of them.
+    """
+    resolved = [field_name for field_name in view.columns if field_name in all_fields]
+    if view.columns and not resolved:
+        return None
+    return resolved or list(all_fields)
+
+
 def differs(view: View, columns: tuple[str, ...], sort: tuple[dict, ...],
             filters: dict[str, Any]) -> bool:
     """Whether the screen has drifted from the selected view. Column *order* is not

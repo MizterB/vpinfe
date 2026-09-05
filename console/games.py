@@ -1038,7 +1038,15 @@ def view_control(library: Any, scope: str, presets: dict[str, list[str]],
             switch."""
             purpose.text = getattr(view, "help", "") or ""
             purpose.set_visibility(bool(purpose.text))
-            wanted = [f for f in view.columns if f in all_fields] or all_fields
+            wanted = views.visible_columns(view, all_fields)
+            # Leaving the grid as it is keeps it usable, and the notify says why. The
+            # old fallback showed every column instead, which reads as the view
+            # misbehaving rather than as a view that has gone stale.
+            if wanted is None:
+                ui.notify(f'"{view.name}" was saved with columns this library no '
+                          "longer has, so the grid is unchanged", type="warning")
+                await _refresh()
+                return
             table.run_grid_method("setColumnsVisible", wanted, True)
             table.run_grid_method("setColumnsVisible",
                                   [f for f in all_fields if f not in wanted], False)

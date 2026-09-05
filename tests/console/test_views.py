@@ -12,6 +12,7 @@ from console import (
     stars,
     table_features,
     tageditor,
+    views,
     workbench,
 )
 
@@ -318,3 +319,27 @@ class TagEditorTests(unittest.TestCase):
         groups = tageditor.rows_by_key(self._rows([("Wide Body", 1), ("wide  body", 1)]))
 
         self.assertEqual(len(groups), 1)
+
+
+class StaleViewTests(unittest.TestCase):
+    """A saved view outliving the fields it named."""
+
+    FIELDS = ["name", "year", "manufacturer"]
+
+    def _view(self, columns):
+        return views.View(id="v", name="Mine", columns=tuple(columns))
+
+    def test_a_view_naming_only_gone_fields_is_stale_rather_than_everything(self) -> None:
+        """The old fallback showed every column here, which reads as the view
+        misbehaving rather than as a view saved against fields that have since gone."""
+        self.assertIsNone(views.visible_columns(self._view(["rom", "vbs_hash"]),
+                                                self.FIELDS))
+
+    def test_naming_no_columns_still_means_all_of_them(self) -> None:
+        """A built-in carrying only a sort or a filter. Not the stale case."""
+        self.assertEqual(views.visible_columns(self._view([]), self.FIELDS), self.FIELDS)
+
+    def test_the_fields_that_survive_are_what_shows(self) -> None:
+        self.assertEqual(
+            views.visible_columns(self._view(["year", "rom", "name"]), self.FIELDS),
+            ["year", "name"])
