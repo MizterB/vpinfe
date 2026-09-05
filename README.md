@@ -82,13 +82,20 @@ The frist is the "display" panel.  Its recommend you just start with one screen 
 
 <img width="1339" height="832" alt="2-settings-panel" src="https://github.com/user-attachments/assets/b659c70d-e103-482c-bafa-539995fcdc2d" />
 
-Next you must configure these three essential settings in the `general` section:
+Next you must tell VPinFE where your tables are, and how to run them.
 
 <img width="1307" height="591" alt="1-settings-panel" src="https://github.com/user-attachments/assets/4c774005-a6a6-4970-b85e-d4f26ea18941" />
 
-1. **vpxbinpath** - Full path to your VPinball executable (e.g., `/home/user/vpinball/build/VPinballX_BGFX`)
-2. **gamerootdir** - Root directory where all your tables are located (e.g., `/home/user/tables/`)
-3. **vpxinipath** - Path to your VPinballX.ini file (e.g., `~/.vpinball/VPinballX.ini`)
+1. **gamerootdir**, in the `general` section - root directory where all your tables are
+   located (e.g., `/home/user/tables/`)
+2. Your **launcher**, under System - Launchers. It ships with one called Visual Pinball
+   X; point its **Program** at your VPinball executable (e.g.,
+   `/home/user/vpinball/build/VPinballX_BGFX`) and its **Configuration File** at your
+   `VPinballX.ini` (e.g., `~/.vpinball/VPinballX.ini`).
+
+A launcher is one way of running a table. Most installs need only the one, and it is
+what every table uses unless it names another. Duplicate it if you want a second way to
+run the same program - pointed at a different ini, say.
 
 Once these are configured you can exit by clicking the shutdown button in the UI (upper left area).  Anytime you want to get back, look in the terminal for the webserver address.  Its a line that looks like this:
 
@@ -215,13 +222,7 @@ The **Configuration** page edits `vpinfe.ini`. Changes are only written when you
 
 Core startup and launch behavior:
 
-- **VPX Executable Path**: main VPinball executable or app bundle used to launch tables
-- **VPX Launch Environment**: optional environment variable overrides added only to VPX launches. Accepts `KEY=value` pairs, multiple lines, or semicolon-separated entries
-- **Global ini Override**: adds `-ini <path>` to all VPX launches
-- **Global tableini Override Enabled**: enables masked per-table `-tableini` launching
-- **Global tableini Override Mask**: builds `{TableName}.{mask}.ini` beside the `.vpx` and uses it only when the file exists
 - **Tables Directory**: root folder scanned for tables, metadata, media, mobile transfer, and VPinPlay sync
-- **VPX Ini Path**: path to your VPinballX ini file
 - **RAR Tool Path (unar/unrar, blank = auto-detect)**: path to the RAR extraction tool used by drag-and-drop import for `.rar` archives, for when the tool is not on your PATH
 - **Active Theme**: currently selected frontend theme
 - **Startup Collection**: collection opened when VPinFE starts
@@ -298,7 +299,7 @@ Logging behavior:
 - **Log Verbosity**: debug/info/warning/error/critical
 - **Console Logging**: enables console log output
 
-The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard config directory and starts a fresh log file on each launch. The VPinball Log card can enable `Settings.vpxlogdeleteonstart`, which deletes `vpinball.log` before each frontend table launch. VPinFE resolves that log path from `Settings.vpxinipath` by using the directory that contains `VPinballX.ini`.
+The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard config directory and starts a fresh log file on each launch. The VPinball Log card can enable **Clear The Log On Launch** on your launcher, which deletes `vpinball.log` before each frontend table launch. VPinFE resolves that log path from the launcher's **Configuration File** by using the directory that contains `VPinballX.ini`.
 
 #### Media section
 
@@ -618,9 +619,9 @@ Modes:
 
 Remote table launch behavior:
 
-- Uses `Settings.vpxbinpath` unless the table has a per-table **Alt Launcher**
-- Applies `Settings.globalinioverride` and masked `-tableini` overrides when configured
-- Applies `Settings.vpxlaunchenv` environment overrides
+- Uses the launcher the table names, or the default one under System - Launchers
+- Applies the launcher's **Override File** and its masked per-table override when configured
+- Applies the launcher's **Environment** overrides
 - Stops DOF and libdmdutil before launching
 - Restarts DOF after the launched process exits
 
