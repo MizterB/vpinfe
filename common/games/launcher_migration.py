@@ -16,9 +16,10 @@ should not find it back on the next start.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from common.config_access import SettingsConfig
-from common.games import launchers
+from common.games import game_metadata, launchers, tables
 from common.paths import PLUGIN_PROFILES_DIR
 
 logger = logging.getLogger("vpinfe.common.games.launcher_migration")
@@ -76,6 +77,104 @@ def _from_profiles(shipped: launchers.Launcher) -> list[launchers.Launcher]:
             settings={**shipped.settings, "ini_override": str(path)},
         ))
     return found
+
+
+ASSIGNED = "assignments-from-info"
+
+
+def migrate_assignments(store: launchers.LauncherStore, games) -> dict[str, int]:
+    """Turn each table's own override into a launcher and an assignment.
+
+    `alt_launcher` carried a raw binary path and `plugin_profile` a named ini, and they
+    were two partial ways of saying the same thing: this table launches differently. A
+    launcher id says it once.
+
+    Distinct binaries are de-duplicated by path, so a library where forty tables name one
+    alternative build gets one launcher rather than forty. A profile already became a
+    launcher when the install was seeded, so a table naming one is matched to it rather
+    than making a second.
+
+    The assignment lands on every table in the game, because the override was written per
+    game and there is no record of which of its tables it was meant for. Splitting them
+    afterwards is a thing a person can do; guessing here is not.
+
+    The two keys are left in the `.info` rather than stripped. Nothing reads them after
+    this, so removing them would be a write to every affected folder in somebody's library
+    for no change in behaviour - and `Medias` is the precedent for a key that stays listed
+    once nothing writes it. They remain machine-local, so import and export still leave
+    them behind.
+    """
+    if ASSIGNED in store.migrations():
+        return {}
+
+    held = store.launchers()
+    mappings = dict(store.mappings())
+    shipped = held[0] if held else None
+    by_path: dict[str, str] = {}
+    counts = {"launchers": 0, "tables": 0, "games": 0}
+
+    for game in games or []:
+        meta = getattr(game, "meta_config", None)
+        if not isinstance(meta, dict):
+            continue
+        vpinfe = game_metadata.vpinfe_section(meta)
+        alt = str(vpinfe.get("alt_launcher", "") or "").strip()
+        profile = str(vpinfe.get("plugin_profile", "") or "").strip()
+        if not alt and not profile:
+            continue
+
+        wanted = ""
+        if alt:
+            wanted = by_path.get(alt, "")
+            if not wanted:
+                made = _for_binary(alt, shipped)
+                held.append(made)
+                by_path[alt] = wanted = made.launcher_id
+                counts["launchers"] += 1
+        elif profile:
+            wanted = _profile_launcher(profile, held)
+
+        if not wanted:
+            logger.warning("No launcher for plugin profile %r; leaving %s on the default",
+                           profile, getattr(game, "gameDirName", "?"))
+            continue
+
+        for table_id in tables.table_entries(meta):
+            mappings[str(table_id)] = wanted
+            counts["tables"] += 1
+        counts["games"] += 1
+
+    store.save(held, mappings)
+    store.mark_migration(ASSIGNED)
+    if counts["games"]:
+        logger.info("Moved %d game(s) onto launchers: %d table(s), %d new launcher(s)",
+                    counts["games"], counts["tables"], counts["launchers"])
+    return counts
+
+
+def _for_binary(path: str, shipped: launchers.Launcher | None) -> launchers.Launcher:
+    """A launcher for a binary a table named, copied from the shipped one.
+
+    A copy because `alt_launcher` only ever replaced the program: everything else about
+    the launch - the ini, the environment, the overrides - came from the install, and a
+    bare launcher would silently drop all of it.
+    """
+    base = shipped or launchers.Launcher(launcher_id="", app="vpx")
+    return launchers.replace(
+        base,
+        launcher_id=launchers.mint_launcher_id(),
+        display_name=Path(path).stem or path,
+        owns_ini=False,
+        settings={**base.settings, "bin_path": path},
+    )
+
+
+def _profile_launcher(name: str, held) -> str:
+    """The launcher the seeding pass made from this profile, by the name it gave it."""
+    wanted = name.strip().lower()
+    found = next((one for one in held
+                  if one.display_name.strip().lower() == wanted), None)
+    return found.launcher_id if found is not None else ""
 
 
 def ensure_seeded(config) -> None:

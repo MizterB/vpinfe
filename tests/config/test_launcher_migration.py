@@ -130,5 +130,108 @@ class SeedTests(unittest.TestCase):
                          "mine")
 
 
+class _Game:
+    """Enough of a game for the assignment pass: its folder name and its metadata."""
+
+    def __init__(self, name: str, vpinfe: dict, tables: dict | None = None):
+        self.gameDirName = name
+        self.meta_config = {"vpinfe": dict(vpinfe),
+                            "tables": dict(tables or {"t-" + name: {"filename": "a.vpx"}})}
+
+
+class AssignmentTests(unittest.TestCase):
+    """A table's own override becomes a launcher and an assignment."""
+
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.store = launchers.LauncherStore(
+            os.path.join(self.tmp.name, "launchers.json"))
+        self.store.save([launchers.Launcher(
+            launcher_id="shipped", app="vpx",
+            display_name=launcher_migration.SHIPPED_NAME,
+            settings={"bin_path": "/usr/bin/vpx", "launch_env": "X=1"})], {})
+
+    def _run(self, games):
+        return launcher_migration.migrate_assignments(self.store, games)
+
+    def test_a_table_with_nothing_set_is_left_alone(self) -> None:
+        self._run([_Game("plain", {})])
+
+        self.assertEqual(self.store.mappings(), {})
+        self.assertEqual(len(self.store.launchers()), 1)
+
+    def test_an_alt_launcher_becomes_a_launcher_and_an_assignment(self) -> None:
+        self._run([_Game("vr", {"alt_launcher": "/opt/vpx-vr/VPinballX"})])
+
+        held = self.store.launchers()
+        self.assertEqual(len(held), 2)
+        self.assertEqual(held[1].display_name, "VPinballX")
+        self.assertEqual(self.store.mappings(), {"t-vr": held[1].launcher_id})
+
+    def test_the_same_binary_twice_is_one_launcher(self) -> None:
+        """Forty tables naming one alternative build is one launcher, not forty."""
+        self._run([_Game("a", {"alt_launcher": "/opt/x/VPinballX"}),
+                   _Game("b", {"alt_launcher": "/opt/x/VPinballX"})])
+
+        self.assertEqual(len(self.store.launchers()), 2)
+        self.assertEqual(len(set(self.store.mappings().values())), 1)
+
+    def test_an_alt_launcher_keeps_the_rest_of_the_install_setup(self) -> None:
+        """It only ever replaced the program. A bare launcher would drop the environment
+        and the overrides the install was already launching with."""
+        self._run([_Game("vr", {"alt_launcher": "/opt/x/VPinballX"})])
+
+        made = self.store.launchers()[1]
+        self.assertEqual(made.value("bin_path"), "/opt/x/VPinballX")
+        self.assertEqual(made.value("launch_env"), "X=1")
+
+    def test_a_plugin_profile_maps_to_the_launcher_seeding_made(self) -> None:
+        self.store.put(launchers.Launcher(launcher_id="p1", app="vpx",
+                                          display_name="no-dmd", owns_ini=True))
+
+        self._run([_Game("quiet", {"plugin_profile": "no-dmd"})])
+
+        self.assertEqual(self.store.mappings(), {"t-quiet": "p1"})
+        self.assertEqual(len(self.store.launchers()), 2, "no second launcher for it")
+
+    def test_a_profile_with_no_launcher_is_reported_and_left_on_the_default(self) -> None:
+        """The ini was deleted, or never existed. Falling back is right; doing it
+        silently is not."""
+        with self.assertLogs("vpinfe.common.games.launcher_migration",
+                             level="WARNING"):
+            self._run([_Game("quiet", {"plugin_profile": "gone"})])
+
+        self.assertEqual(self.store.mappings(), {})
+
+    def test_every_table_in_the_game_is_assigned(self) -> None:
+        """The override was written per game, and nothing records which of its tables it
+        was for. Guessing one would be inventing a choice nobody made."""
+        game = _Game("multi", {"alt_launcher": "/opt/x/VPinballX"},
+                     tables={"t1": {"filename": "a.vpx"}, "t2": {"filename": "b.vpx"}})
+
+        self._run([game])
+
+        self.assertEqual(sorted(self.store.mappings()), ["t1", "t2"])
+
+    def test_the_keys_are_left_in_the_info(self) -> None:
+        """Nothing reads them after this, so removing them would rewrite every affected
+        folder in a library for no change in behaviour."""
+        game = _Game("vr", {"alt_launcher": "/opt/x/VPinballX"})
+
+        self._run([game])
+
+        self.assertEqual(game.meta_config["vpinfe"]["alt_launcher"],
+                         "/opt/x/VPinballX")
+
+    def test_it_runs_once(self) -> None:
+        self._run([_Game("vr", {"alt_launcher": "/opt/x/VPinballX"})])
+        self.store.assign("t-vr", "")
+
+        self._run([_Game("vr", {"alt_launcher": "/opt/x/VPinballX"})])
+
+        self.assertEqual(self.store.mappings(), {})
+
+
 if __name__ == "__main__":
     unittest.main()
