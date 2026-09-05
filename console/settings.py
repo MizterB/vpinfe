@@ -104,11 +104,25 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     if kind == "bool":
         return panel.switch(bool(value), lambda e: save(bool(e.value)), disabled=off)
     if kind == "choice" and option.get("choices"):
-        return panel.select(list(option["choices"]), str(value or ""),
-                            lambda e: save(e.value), disabled=off)
+        # Passed through when it is already a mapping. A theme names its choices
+        # `{value: label}`, and flattening that to a list would put the stored value on
+        # screen where the label belongs.
+        choices = option["choices"]
+        return panel.select(choices if isinstance(choices, dict) else list(choices),
+                            str(value or ""), lambda e: save(e.value), disabled=off)
     if kind == "int":
         return panel.number(
             value, lambda e: save("" if e.value is None else int(e.value)), disabled=off)
+    if kind == "number":
+        # Not `int`: a theme declares scale factors and opacities, and a control that
+        # formats them as whole numbers shows a value that is not the one stored.
+        return panel.number(
+            value, lambda e: save(None if e.value is None else float(e.value)),
+            disabled=off, whole=False, low=option.get("min"), high=option.get("max"),
+            step=option.get("step"))
+    if kind == "text" and option.get("lines"):
+        return panel.field(str(value or ""), lambda text: save(text),
+                           lines=int(option["lines"]), disabled=off)
     if kind == "list":
         # One line, comma separated, which is how the file holds it. A chip editor would
         # be nicer and would need to know whether order matters; it does for some.

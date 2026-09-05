@@ -21,7 +21,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from console import confirm, panel
+from console import confirm, panel, settings
 
 logger = logging.getLogger("vpinfe.console.themes")
 
@@ -232,7 +232,11 @@ async def _configure(library, theme: dict[str, Any]) -> None:
         ui.notify(f"{theme['name']} declares no settings.", type="warning")
         return
 
-    controls: dict[str, Any] = {}
+    # Held rather than read back off the controls when Save is pressed: a json option
+    # is parsed as it is edited, so a mistake is reported while the dialog is still open
+    # and beside the field that has it.
+    wanted = {option["key"]: values.get(option["key"], option.get("default"))
+              for option in options}
     with ui.dialog() as dialog, ui.card().classes("console-confirm console-theme-config"):
         ui.label(found.get("title") or f"{theme['name']} settings") \
             .classes("console-confirm-title")
@@ -240,8 +244,7 @@ async def _configure(library, theme: dict[str, Any]) -> None:
                  or "These belong to the theme and are saved into its own file.") \
             .classes("console-help")
         with ui.column().classes("w-full gap-3 console-theme-options"):
-            for option in options:
-                controls[option["key"]] = _option_control(option, values)
+            panel.facts(ui, _rows(options, wanted))
         with ui.row().classes("justify-end gap-2 w-full"):
             ui.button("Cancel", on_click=lambda: dialog.submit(False)) \
                 .props("flat no-caps")
@@ -249,7 +252,6 @@ async def _configure(library, theme: dict[str, Any]) -> None:
 
     if not await dialog:
         return
-    wanted = {key: _read_control(control) for key, control in controls.items()}
     try:
         await run.io_bound(library.save_theme_options, theme["key"], wanted)
     except Exception as exc:  # noqa: BLE001
@@ -258,39 +260,86 @@ async def _configure(library, theme: dict[str, Any]) -> None:
     ui.notify("Saved", type="positive")
 
 
-def _option_control(option: dict[str, Any], values: dict[str, Any]) -> Any:
-    """One control, from the type the theme declares.
+def _rows(options: list[dict[str, Any]], wanted: dict[str, Any]) -> list[tuple]:
+    """The theme's options as settings rows, through the same grammar Settings uses.
 
-    An unknown type gets a text field rather than nothing: a theme that declares
-    something new should be editable by an install that has not heard of it, badly
-    rather than not at all.
+    A theme's settings are settings. Drawing them with a control vocabulary of their own
+    was a second answer to a question already answered, and the two drifted the moment
+    one of them gained a type - which is why the dispatch now lives in one place and this
+    only says what a theme option *is*.
     """
-    # The names the theme service normalizes to, not the ones they look like: it emits
-    # "boolean", and a renderer checking for "bool" draws a switch as a text field.
-    kind = str(option.get("type") or "text")
-    current = values.get(option["key"], option.get("default"))
-    with ui.column().classes("w-full gap-0"):
-        ui.label(str(option.get("name") or option["key"])).classes("console-setting")
-        if option.get("description"):
-            ui.label(option["description"]).classes("console-help")
-        if kind == "boolean":
-            control = ui.switch(value=bool(current)).props("dense")
-        elif kind == "number":
-            control = ui.number(value=current, min=option.get("min"),
-                                max=option.get("max"), step=option.get("step")) \
-                .props("dense outlined").classes("w-full")
-        elif kind == "select":
-            control = ui.select(_choices(option), value=current) \
-                .props("dense outlined").classes("w-full")
-        elif kind in ("textarea", "json"):
-            control = ui.textarea(value=_as_text(current)) \
-                .props("dense outlined").classes("w-full")
-        else:
-            control = ui.input(value=_as_text(current)) \
-                .props("dense outlined").classes("w-full")
-        ui.label(_expected(option, kind)).classes("console-help")
-    control.kind = kind
-    return control
+    rows: list[tuple] = []
+    for option in options:
+        key = option["key"]
+        rows.append((str(option.get("name") or key),
+                     settings.control_for(_as_option(option), _shown(option, wanted),
+                                          _saver(option, wanted))))
+        said = " ".join(part for part in (str(option.get("description") or ""),
+                                          _expected(option, _kind(option))) if part)
+        rows.append(panel.note(said))
+    return rows
+
+
+def _shown(option: dict[str, Any], wanted: dict[str, Any]) -> Any:
+    """What goes into the control. A json option holds an object, and a field handed one
+    renders Python's idea of it - single quotes and all - which is not what the theme
+    would read back."""
+    value = wanted.get(option["key"])
+    if _kind(option) == "json":
+        return _as_text(value)
+    return value
+
+
+def _kind(option: dict[str, Any]) -> str:
+    """The names the theme service normalizes to, not the ones they look like: it emits
+    "boolean", and a renderer checking for "bool" draws a switch as a text field."""
+    return str(option.get("type") or "text")
+
+
+def _as_option(option: dict[str, Any]) -> dict[str, Any]:
+    """A theme option in the shape the shared control dispatch reads.
+
+    An unknown type becomes text rather than nothing: a theme declaring something this
+    install has never heard of should be editable badly rather than not at all.
+    """
+    kind = _kind(option)
+    if kind == "boolean":
+        return {"type": "bool"}
+    if kind == "number":
+        return {"type": "number", "min": option.get("min"), "max": option.get("max"),
+                "step": option.get("step")}
+    if kind == "select":
+        return {"type": "choice", "choices": _choices(option)}
+    if kind in ("textarea", "json"):
+        return {"type": "text", "lines": 4}
+    return {"type": "text"}
+
+
+def _saver(option: dict[str, Any], wanted: dict[str, Any]) -> Callable[[Any], Any]:
+    """Into the dialog's own pending values, not to the install.
+
+    Nothing is written until Save, so this is where a json option is parsed - the
+    dialog is still open, and a mistake can be corrected where it was made.
+    """
+    key = option["key"]
+
+    def save(value: Any) -> bool:
+        if _kind(option) == "json":
+            text = str(value or "").strip()
+            if not text:
+                wanted[key] = None
+                return True
+            try:
+                wanted[key] = json.loads(text)
+            except json.JSONDecodeError as exc:
+                ui.notify(f"{option.get('name') or key}: that is not JSON - {exc.msg}",
+                          type="warning")
+                return False
+            return True
+        wanted[key] = value
+        return True
+
+    return save
 
 
 def _choices(option: dict[str, Any]) -> Any:
@@ -305,21 +354,6 @@ def _as_text(value: Any) -> str:
     if isinstance(value, (dict, list)):
         return json.dumps(value, indent=2)
     return "" if value is None else str(value)
-
-
-def _read_control(control: Any) -> Any:
-    """What the control holds, in the shape the theme asked for.
-
-    A json field is parsed here so a mistake is reported while the dialog is open,
-    rather than saved as a string that its code cannot read.
-    """
-    value = control.value
-    if getattr(control, "kind", "") == "json":
-        text = str(value or "").strip()
-        if not text:
-            return None
-        return json.loads(text)
-    return value
 
 
 def _expected(option: dict[str, Any], kind: str) -> str:

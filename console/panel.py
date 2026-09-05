@@ -226,6 +226,18 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
     return draw
 
 
+def search(placeholder: str) -> Any:
+    """The box above a grid that narrows what is in it.
+
+    Not a fact row - it has no label column and it sets nothing - but it is a control,
+    and six pages had written the same three props out by hand. Returned rather than
+    drawn into a callable, because the caller wires the grid to it and needs the control
+    itself.
+    """
+    return ui.input(placeholder=placeholder) \
+        .props("dense outlined clearable").classes("w-64")
+
+
 def trouble_mark(reason: str = "") -> Callable[[], None]:
     """The mark that says something under here is misconfigured.
 
@@ -328,12 +340,23 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
 
 
 def number(value: Any, on_change: Callable[[Any], Any], *,
-           disabled: bool = False) -> Callable[[], None]:
-    """A whole number. Narrow, because a four-digit box in a full-width field says the
-    value might be long."""
+           disabled: bool = False, whole: bool = True,
+           low: Any = None, high: Any = None, step: Any = None) -> Callable[[], None]:
+    """A number. Narrow, because a four-digit box in a full-width field says the value
+    might be long.
+
+    `whole` because not every number is a count: a port is, and a theme's scale factor
+    is not. Formatting a fraction as an integer does not round it on the way in - it
+    shows a different value than the one that is stored.
+
+    Bounds are the control's, not a check afterwards: a spinner that will not go past
+    the limit says what the limit is without anybody being told off for passing it.
+    """
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            control = ui.number(value=value if value != "" else None, format="%d",
+            control = ui.number(value=value if value != "" else None,
+                                format="%d" if whole else None,
+                                min=low, max=high, step=step,
                                 on_change=on_change) \
                 .props("dense borderless").classes("console-edit-field console-edit-narrow")
             if disabled:
