@@ -408,6 +408,10 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
     # round trip, which after a write reads as the panel flashing black - the write,
     # the reread and the redraw are one act to the person who asked for it.
     tables = await run.io_bound(library.tables_for, game_id)
+    # Off the loop and once, beside the tables: every table row offers the same list, so
+    # asking per row would be one blocking HTTP call per table - and the Console consumes
+    # its own process, so a blocking call here does not just cost time, it deadlocks.
+    held_launchers = await run.io_bound(_launchers_for_panel, library)
 
     container.clear()
     title.clear()
@@ -432,8 +436,8 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
         # the game and the panel answers for shared files; under Tables it is one file
         # and the panel answers for that.
         context = {"library": library, "game": game, "game_id": game_id,
-                   "tables": tables, "state": state, "lens": table_id, "redraws": [],
-                   "slot": state["slot"]}
+                   "tables": tables, "launchers": held_launchers, "state": state,
+                   "lens": table_id, "redraws": [], "slot": state["slot"]}
 
         async def rebuild() -> None:
             # The subject has to survive a rebuild. Left off, every rail click fell
@@ -1282,9 +1286,6 @@ def _table_rows(table: dict[str, Any],
         (game_tables.FILE,
          _state(game_tables.word_for(game_tables.FILE_WORDS, not present),
                 "on" if present else "bad")),
-        # What actually plays it, not what its extension implies. The panel and the grid
-        # read one field so they cannot say different things about one table.
-        ("Launcher", str(table.get("launcher_name") or "-")),
         ("ROM", _rom_state(pinmame, rom, context=context)),
     ]
     if context is not None:
@@ -1965,11 +1966,79 @@ def _table_override_rows(context: dict[str, Any], table: dict[str, Any],
                 hint="Remove the NVRAM file when this table exits")
 
     return [
-        ("Launcher", _override(overrides.get("alt_launcher") or "", None, "",
-                               save("alt_launcher"),
-                               hint="Empty uses the configured Visual Pinball binary")),
+        ("Launcher", _launcher_pick(context, table)),
+        panel_note_for_launcher(table),
         ("Clear NVRAM on exit", nvram),
     ]
+
+
+def panel_note_for_launcher(table: dict[str, Any]) -> tuple[Any, Any]:
+    """Said once under the control rather than inside it: what following means, and what
+    it currently resolves to, so the empty choice is not a blank with no consequence."""
+    name = str(table.get("launcher_name") or "")
+    if table.get("launcher_set_here"):
+        return panel.note("This table names its own. Clear it to follow whichever "
+                          "launcher is the default.")
+    return panel.note(f"Following the default, which is {name}." if name
+                      else "Following the default. This install has no launcher yet.")
+
+
+def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[], None]:
+    """Which launcher plays this table, chosen from the ones this install has.
+
+    A picker, not a path. It used to be a free-text `alt_launcher` field, which asked
+    somebody to type a binary that nothing validated and that every other table would
+    have had to be told about separately.
+
+    Empty is the default rather than a fourth state - an absent mapping already means
+    "whichever is the default", and offering a blank as well as a default would be two
+    spellings of one thing.
+    """
+    table_id = str(table.get("id") or "")
+    held = context.get("launchers") or []
+    default_name = next((one["display_name"] for one in held
+                         if one.get("is_default")), "")
+    options = {"": f"Default - {default_name}" if default_name else "Default"}
+    options.update({one["launcher_id"]: one["display_name"] for one in held})
+    current = str(table.get("launcher") or "") if table.get("launcher_set_here") else ""
+
+    def draw() -> None:
+        field = ui.select(options, value=current).props("dense outlined") \
+            .classes("w-full min-w-0")
+        if not held:
+            field.disable()
+            field.tooltip("This install has no launchers yet.")
+
+        async def changed() -> None:
+            try:
+                await run.io_bound(context["library"].assign_launcher,
+                                   table_id, str(field.value or ""))
+            except Exception as exc:
+                ui.notify(f"Could not point it at that launcher: {exc}",
+                          type="negative")
+                return
+            await context["rebuild"]()
+
+        field.on_value_change(changed)
+
+    return draw
+
+
+def _launchers_for_panel(library) -> list[dict[str, Any]]:
+    """This install's launchers, with the default marked. Runs off the event loop.
+
+    An empty list where the read fails: the panel is about a table, and a launcher list
+    that would not load is a disabled picker with a reason rather than a panel that does
+    not draw.
+    """
+    try:
+        found = library.launchers()
+    except Exception:
+        logger.exception("Could not read the launchers for the table panel")
+        return []
+    defaults = set((found.get("defaults") or {}).values())
+    return [{**one, "is_default": one["launcher_id"] in defaults}
+            for one in (found.get("launchers") or [])]
 
 
 # Named for the thing, not for the .info key. PinMAME is left out: it is not a script
