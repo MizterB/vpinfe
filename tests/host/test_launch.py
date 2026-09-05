@@ -33,14 +33,11 @@ def _game(name="Example"):
     )
 
 
-def _settings():
-    return types.SimpleNamespace(
-        vpx_bin_path="/opt/vpx",
-        global_ini_override="",
-        global_game_ini_override_enabled=False,
-        global_game_ini_override_mask="",
-        vpx_launch_env="",
-    )
+def _launcher(bin_path: str = "/opt/vpx"):
+    from common.games.launchers import Launcher
+
+    return Launcher(launcher_id="l1", app="vpx", display_name="Visual Pinball X",
+                    settings={"bin_path": bin_path})
 
 
 class LaunchTests(unittest.TestCase):
@@ -53,23 +50,20 @@ class LaunchTests(unittest.TestCase):
     def _run(self, popen=None, game=None, **overrides):
         """Launch with every collaborator stubbed, so only the orchestration runs."""
         popen = popen or (lambda cmd, **kwargs: _FakePopen())
-        launcher = types.SimpleNamespace(exists=lambda: True)
         patches = {
-            "get_effective_launcher": lambda binpath, meta: (launcher, "vpxbinpath", None),
+            "_binary_of": lambda launcher, asked_for: "/opt/vpx",
             "build_vpx_launch_command": lambda **kwargs: ["/opt/vpx", "-play", "x.vpx"],
             "parse_launch_env_overrides": lambda raw: {},
             "resolve_launch_tableini_override": lambda *a, **k: "",
-            "get_plugin_profile_from_meta": lambda meta: "",
-            "resolve_launch_plugin_profile": lambda profile: "",
-            "delete_vpinball_log_on_start_if_configured": lambda settings: None,
+            "delete_vpinball_log_on_start_if_configured": lambda *a, **k: None,
             "get_active_profile": lambda: None,
         }
         patches.update(overrides)
 
-        with mock.patch.object(launch, "SettingsConfig") as settings_cls, \
-                mock.patch.object(launch, "game_play_service") as play, \
+        with mock.patch.object(launch, "game_play_service") as play, \
+                mock.patch.object(launch, "_launcher_for",
+                                  lambda game, vpx_path: (_launcher(), "")), \
                 mock.patch.multiple(launch, **patches):
-            settings_cls.from_config.return_value = _settings()
             launch.launch_game(game or _game(), types.SimpleNamespace(config={}),
                                 source=launch_state.SOURCE_API, popen=popen)
         return play
@@ -185,23 +179,30 @@ class PlayDataTests(LaunchTests):
 
 class RefusalTests(LaunchTests):
     def _check(self, game=None, table=None, launcher_exists=True, launcher=True):
-        found = types.SimpleNamespace(exists=lambda: launcher_exists) if launcher else None
-        with mock.patch.object(launch, "SettingsConfig") as settings_cls, \
-                mock.patch.object(launch, "get_effective_launcher",
-                                  lambda binpath, meta: (found, "vpxbinpath", None)):
-            settings_cls.from_config.return_value = _settings()
+        found = _launcher("/opt/vpx" if launcher_exists else "/nope/vpx") \
+            if launcher else None
+        with mock.patch.object(launch, "_launcher_for",
+                               lambda game, vpx_path: (found, "")), \
+                mock.patch.object(launch, "resolve_launcher_path",
+                                  lambda value: types.SimpleNamespace(
+                                      exists=lambda: launcher_exists)):
             return launch.check_launchable(game or _game(),
                                            types.SimpleNamespace(config={}), table)
 
     def test_no_launcher_configured_is_refused_with_a_reason(self) -> None:
+        """An install with none at all. The sentence has to point at where one is made,
+        because there is nothing on this machine to correct."""
         with self.assertRaises(launch.LaunchUnavailableError) as caught:
             self._check(launcher=False)
 
-        self.assertIn("vpxbinpath", str(caught.exception))
+        self.assertIn("System", str(caught.exception))
 
     def test_a_launcher_that_is_not_there_is_refused(self) -> None:
-        with self.assertRaises(launch.LaunchUnavailableError):
+        with self.assertRaises(launch.LaunchUnavailableError) as caught:
             self._check(launcher_exists=False)
+
+        self.assertIn("Visual Pinball X", str(caught.exception),
+                      "the refusal names the launcher, not a config key")
 
     def test_a_second_launch_is_refused_while_one_is_running(self) -> None:
         """Two VPX processes would fight over the same hardware."""

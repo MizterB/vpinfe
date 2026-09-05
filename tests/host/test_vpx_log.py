@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import configparser
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common.config_access import SettingsConfig
 from common.host.vpx_log import (
     delete_vpinball_log_on_start_if_configured,
     resolve_vpinball_log_path,
@@ -26,15 +24,8 @@ class VpxLogTests(unittest.TestCase):
             log_path = Path(tmp) / "vpinball.log"
             log_path.write_text("old log", encoding="utf-8")
 
-            parser = configparser.ConfigParser()
-            parser.read_dict({
-                "Settings": {
-                    "vpxinipath": str(vpx_ini),
-                    "vpxlogdeleteonstart": "true",
-                }
-            })
-
-            result = delete_vpinball_log_on_start_if_configured(SettingsConfig.from_config(parser))
+            result = delete_vpinball_log_on_start_if_configured(
+                True, str(str(vpx_ini)))
 
             self.assertEqual(result, log_path)
             self.assertFalse(log_path.exists())
@@ -44,15 +35,8 @@ class VpxLogTests(unittest.TestCase):
             log_path = Path(tmp) / "vpinball.log"
             log_path.write_text("old log", encoding="utf-8")
 
-            parser = configparser.ConfigParser()
-            parser.read_dict({
-                "Settings": {
-                    "vpxinipath": str(Path(tmp) / "VPinballX.ini"),
-                    "vpxlogdeleteonstart": "false",
-                }
-            })
-
-            result = delete_vpinball_log_on_start_if_configured(SettingsConfig.from_config(parser))
+            result = delete_vpinball_log_on_start_if_configured(
+                False, str(str(Path(tmp) / "VPinballX.ini")))
 
             self.assertIsNone(result)
             self.assertTrue(log_path.exists())
@@ -64,15 +48,8 @@ class VpxLogTests(unittest.TestCase):
             uppercase_log = Path(tmp) / "VPinballX.log"
             uppercase_log.write_text("old log", encoding="utf-8")
 
-            parser = configparser.ConfigParser()
-            parser.read_dict({
-                "Settings": {
-                    "vpxinipath": str(vpx_ini),
-                    "vpxlogdeleteonstart": "true",
-                }
-            })
-
-            result = delete_vpinball_log_on_start_if_configured(SettingsConfig.from_config(parser))
+            result = delete_vpinball_log_on_start_if_configured(
+                True, str(str(vpx_ini)))
 
             self.assertEqual(result, Path(tmp) / "vpinball.log")
             self.assertTrue(uppercase_log.exists())

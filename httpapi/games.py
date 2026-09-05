@@ -1060,26 +1060,18 @@ def extract_table_script(game_id: str, table_id: str) -> models.Table:
     if not (game_dir / filename).is_file():
         raise NotFoundError("That table's file is not on disk",
                             details={"table": table_id})
-    launcher = _table_overrides(
-        entry_for_filename(table_entries(game.meta_config), filename)[1] or {},
-        vpinfe_section(game.meta_config)).get("alt_launcher", "")
+    table_id = entry_for_filename(table_entries(game.meta_config), filename)[0]
     # Asked before the work rather than read out of the failure: with the table's file
     # accounted for, every remaining launcher error means this machine cannot do it,
     # which is 501 and the answer /launch already gives - not a missing resource.
-    from common.config_access import SettingsConfig
-    binary, _source, configured = launch.get_effective_launcher(
-        SettingsConfig.from_config(get_ini_config()).vpx_bin_path,
-        {VPINFE_SECTION: {"alt_launcher": launcher}})
-    if not binary or not Path(binary).exists():
-        # The label a person reads in Settings, and the section it is really in: the
-        # key is `general.vpx_bin_path`, and `Settings` is its 2.x alias.
-        raise FeatureUnavailableError(
-            "Extracting a script runs Visual Pinball, and this machine has none. "
-            + (f"General - VPX Executable Path points at {configured or binary}, "
-               "which is not there." if (configured or binary)
-               else "Set General - VPX Executable Path in Settings."))
     try:
-        game_service.extract_vbs(game_dir, filename, launcher)
+        launch.binary_for(table_id, filename)
+    except launch.LaunchUnavailableError as exc:
+        raise FeatureUnavailableError(
+            f"Extracting a script runs Visual Pinball, and this machine has none. {exc}"
+        ) from exc
+    try:
+        game_service.extract_vbs(game_dir, filename, table_id)
     except Exception as exc:
         raise InvalidRequestError(f"Could not extract the script: {exc}") from exc
     return _table_or_404(game, table_id)

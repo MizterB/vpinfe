@@ -82,12 +82,14 @@ class TestApiInputMapping(unittest.TestCase):
     @patch("common.host.launch.subprocess.Popen")
     @patch("common.host.launch.build_vpx_launch_command",
            return_value=["/tmp/fake-launcher", "-play", "/tmp/table.vpx"])
-    @patch("common.host.launch.get_effective_launcher")
+    @patch("common.host.launch._binary_of", return_value="/tmp/fake-launcher")
+    @patch("common.host.launch._launcher_for")
     @patch("frontend.api.all_games")
     def test_launch_game_emits_launching_and_complete_events(
         self,
         mock_games,
-        mock_get_launcher,
+        mock_launcher_for,
+        _mock_binary,
         _mock_build_cmd,
         mock_popen,
     ) -> None:
@@ -106,7 +108,10 @@ class TestApiInputMapping(unittest.TestCase):
                 fullPathGame=str(Path(tmp)),
             )
             mock_games.return_value = [game]
-            mock_get_launcher.return_value = (launcher, "Settings", None)
+            from common.games.launchers import Launcher
+            mock_launcher_for.return_value = (
+                Launcher(launcher_id="l1", app="vpx", display_name="Visual Pinball X",
+                         settings={"bin_path": str(launcher)}), "")
 
             process = types.SimpleNamespace(stdout=[], wait=lambda: 0)
             mock_popen.return_value = process
@@ -131,7 +136,7 @@ class TestApiInputMapping(unittest.TestCase):
             self.addCleanup(events.clear)
             with (
                 patch("common.host.launch.delete_vpinball_log_on_start_if_configured",
-                      side_effect=lambda _settings: call_order.append("delete_log")),
+                      side_effect=lambda *_a: call_order.append("delete_log")),
                 patch("common.host.launch.game_play_service"),
                 patch("frontend.play_events.save_last_launched"),
             ):

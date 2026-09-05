@@ -6,7 +6,13 @@ import logging
 import os
 from pathlib import Path
 
-from common.config_access import SettingsConfig
+
+def _wanted(value) -> bool:
+    """A launcher's stored value, which a hand-edited file may hold as a string."""
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
+
 
 logger = logging.getLogger("vpinfe.common.host.vpx_log")
 
@@ -20,13 +26,18 @@ def resolve_vpinball_log_path(vpx_ini_path: str) -> Path | None:
     return Path(os.path.expanduser(vpx_ini_path)).parent / VPINBALL_LOG_FILENAME
 
 
-def delete_vpinball_log_on_start_if_configured(settings: SettingsConfig) -> Path | None:
-    if not settings.vpx_log_delete_on_start:
+def delete_vpinball_log_on_start_if_configured(delete_on_start, ini_path: str) -> Path | None:
+    """Clear Visual Pinball's log before a launch, if the launcher asks for it.
+
+    Takes the two values rather than a settings object: which launcher is about to run
+    decides both of them now, and a launcher is not a config section.
+    """
+    if not _wanted(delete_on_start):
         return None
 
-    log_path = resolve_vpinball_log_path(settings.vpx_ini_path)
+    log_path = resolve_vpinball_log_path(ini_path)
     if log_path is None:
-        logger.warning("Skipping VPinball log delete: Settings.vpxinipath is not set")
+        logger.warning("Skipping VPinball log delete: this launcher names no ini file")
         return None
 
     try:

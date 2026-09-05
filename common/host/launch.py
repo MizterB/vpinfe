@@ -23,9 +23,8 @@ import time
 from pathlib import Path
 
 from common import events
-from common.config_access import SettingsConfig, VPinPlayConfig
-from common.games import game_play_service
-from common.games.game_metadata import vpinfe_section
+from common.config_access import VPinPlayConfig
+from common.games import game_play_service, launchers
 from common.games.tables import (
     default_table,
     entry_for_filename,
@@ -72,16 +71,55 @@ class LaunchBusyError(LaunchUnavailableError):
     so differently."""
 
 
-def _resolve_launcher(game, settings) -> str:
-    launcher, source_key, _ = get_effective_launcher(settings.vpx_bin_path,
-                                                     getattr(game, "meta_config", {}))
-    if not launcher:
+def _launcher_for(game, vpx_path: str):
+    """Which launcher plays this table, and whether it is the one the table asked for.
+
+    Returns (launcher, asked_for). They differ when a table names a launcher that has
+    since been switched off, which falls back rather than refusing - and the caller says
+    so at launch, because a table quietly running on something else is the question
+    nobody can answer weeks later.
+    """
+    store = launchers.get_launcher_store()
+    held = store.launchers()
+    table_id = _launched_table_id(game, vpx_path)
+    asked_for = store.mapped(table_id)
+    return (launchers.launcher_for_table(os.path.basename(vpx_path), table_id,
+                                         held, store.mappings()),
+            asked_for)
+
+
+def binary_for(table_id: str, filename: str) -> str:
+    """The program that would play this table, for anything that needs to run Visual
+    Pinball without starting a session - extracting a script, say.
+
+    Through the same resolution the launch path uses, so what a surface reports and what
+    would actually run can never be two different programs. That divergence is the whole
+    reason resolution is one function.
+    """
+    store = launchers.get_launcher_store()
+    launcher = launchers.launcher_for_table(filename, table_id, store.launchers(),
+                                            store.mappings())
+    return _binary_of(launcher, store.mapped(table_id))
+
+
+def _binary_of(launcher, asked_for: str) -> str:
+    """The program a launcher runs, checked before anything is announced."""
+    if launcher is None:
         raise LaunchUnavailableError(
-            "No launcher configured. Set Settings.vpxbinpath, or VPinFE.altlauncher "
-            "on this table.")
-    if not launcher.exists():
-        raise LaunchUnavailableError(f"Launcher not found ({source_key}): {launcher}")
-    return str(launcher)
+            "No launcher configured. Add one under System, or point the one you have "
+            "at Visual Pinball.")
+    if asked_for and asked_for != launcher.launcher_id:
+        logger.warning("Table asked for launcher %s, which is not available; "
+                       "launching with %s instead", asked_for, launcher.display_name)
+    configured = str(launcher.value("bin_path") or "").strip()
+    if not configured:
+        raise LaunchUnavailableError(
+            f"{launcher.display_name} has no program set.")
+    resolved = resolve_launcher_path(configured)
+    if not resolved.exists():
+        raise LaunchUnavailableError(
+            f"{launcher.display_name} points at something that is not there: {resolved}")
+    return str(resolved)
 
 
 def _launched_table_id(game, vpx_path: str) -> str:
@@ -112,9 +150,9 @@ def _resolve_table(game, table: str | None) -> str:
     return os.path.join(game_dir, table)
 
 
-def _launch_env(settings) -> dict:
+def _launch_env(launcher) -> dict:
     env = os.environ.copy()
-    env.update(parse_launch_env_overrides(settings.vpx_launch_env))
+    env.update(parse_launch_env_overrides(str(launcher.value("launch_env") or "")))
 
     # PyInstaller bundles libraries that can be incompatible with the local ones,
     # so a frozen build hands VPX back the path it started with.
@@ -125,18 +163,21 @@ def _launch_env(settings) -> dict:
     return env
 
 
-def _command(game, vpx_path: str, launcher: str, settings) -> list[str]:
+def _command(vpx_path: str, binary: str, launcher) -> list[str]:
+    """The command line, from the launcher that is about to run it.
+
+    There is no precedence to resolve any more. A plugin profile and the global override
+    both drove VPX's single `-ini` and had to be ranked against each other; a launcher
+    carries one ini, and which launcher is playing already answered the question.
+    """
     return build_vpx_launch_command(
-        launcher_path=launcher,
+        launcher_path=binary,
         vpx_path=vpx_path,
-        global_ini_override=settings.global_ini_override,
+        global_ini_override=str(launcher.value("ini_override") or ""),
         tableini_override=resolve_launch_tableini_override(
             vpx_path,
-            settings.global_game_ini_override_enabled,
-            settings.global_game_ini_override_mask,
-        ),
-        plugin_profile_override=resolve_launch_plugin_profile(
-            get_plugin_profile_from_meta(getattr(game, "meta_config", {}))
+            launcher.value("table_ini_override_enabled"),
+            str(launcher.value("table_ini_override_mask") or ""),
         ),
     )
 
@@ -200,7 +241,7 @@ def check_launchable(game, ini_config, table: str | None = None) -> str:
     resolved = _resolve_table(game, table)
     if launch_state.current().launching:
         raise LaunchBusyError("A table is already launching on this machine")
-    _resolve_launcher(game, SettingsConfig.from_config(ini_config))
+    _binary_of(*_launcher_for(game, resolved))
     return resolved
 
 
@@ -214,11 +255,14 @@ def launch_game(game, ini_config, *, source: str, table: str | None = None,
     """
     # Looked up here rather than in the signature so a test can patch it.
     popen = popen or subprocess.Popen
-    settings = SettingsConfig.from_config(ini_config)
-    launcher = _resolve_launcher(game, settings)
+    # The table first: which launcher plays it is a question about the file, so there is
+    # nothing to resolve until the file is known.
     vpx_path = _resolve_table(game, table)
+    launcher, asked_for = _launcher_for(game, vpx_path)
+    binary = _binary_of(launcher, asked_for)
 
-    delete_vpinball_log_on_start_if_configured(settings)
+    delete_vpinball_log_on_start_if_configured(
+        launcher.value("log_delete_on_start"), str(launcher.value("ini_path") or ""))
 
     # Hooks run first and can still stop this - releasing the peripherals is one.
     # Nothing below has happened yet, so a refusal here leaves nothing to undo.
@@ -234,7 +278,7 @@ def launch_game(game, ini_config, *, source: str, table: str | None = None,
     # leaving the frontend with its input suppressed for the life of the process.
     try:
         launch_state.set_launching(getattr(game, "gameDirName", None), source=source)
-        cmd = _command(game, vpx_path, launcher, settings)
+        cmd = _command(vpx_path, binary, launcher)
         logger.info("Launching: %s", cmd)
         process = popen(
             cmd,
@@ -242,7 +286,7 @@ def launch_game(game, ini_config, *, source: str, table: str | None = None,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
             text=True,
-            env=_launch_env(settings),
+            env=_launch_env(launcher),
         )
         launch_state.attach(process)
         started_at = time.time()
@@ -302,24 +346,6 @@ _ENV_KEY_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 DEFAULT_PROFILE_NAME = "Default"
 
 
-def get_altlauncher_from_meta(meta_config) -> str:
-    """Read VPinFE.altlauncher from game metadata, normalized as a stripped string."""
-    if not isinstance(meta_config, dict):
-        return ""
-    vpinfe = vpinfe_section(meta_config)
-    if not isinstance(vpinfe, dict):
-        return ""
-    return str(vpinfe.get("alt_launcher", "") or "").strip()
-
-
-def get_plugin_profile_from_meta(meta_config) -> str:
-    """Read VPinFE.pluginprofile from game metadata, normalized as a stripped string."""
-    if not isinstance(meta_config, dict):
-        return ""
-    vpinfe = vpinfe_section(meta_config)
-    if not isinstance(vpinfe, dict):
-        return ""
-    return str(vpinfe.get("plugin_profile", "") or "").strip()
 
 
 def is_default_plugin_profile(profile_name: str) -> bool:
@@ -336,45 +362,6 @@ def plugin_profile_ini_path(profile_name: str) -> Path | None:
     if not name or is_default_plugin_profile(name):
         return None
     return PLUGIN_PROFILES_DIR / f"{name}.ini"
-
-
-def resolve_launch_plugin_profile(profile_name: str) -> str:
-    """
-    Resolve a table's plugin profile to an ini path for launch-time use.
-
-    Returns empty string when unset, when set to Default, or when the profile
-    file has been deleted — in each case VPX falls back to its normal ini.
-    """
-    profile_path = plugin_profile_ini_path(profile_name)
-    if profile_path is None:
-        return ""
-
-    if not profile_path.is_file():
-        logger.warning(
-            "Plugin profile '%s' not found; skipping -ini: %s", profile_name, profile_path
-        )
-        return ""
-
-    return str(profile_path)
-
-
-def get_effective_launcher(default_launcher: str, meta_config=None):
-    """
-    Resolve which executable to launch.
-    Uses VPinFE.altlauncher when set, otherwise falls back to vpinfe.ini Settings.vpxbinpath.
-
-    Returns (resolved_path: Path|None, source_key: str, configured_value: str)
-    """
-    default_value = str(default_launcher or "").strip()
-    alt_value = get_altlauncher_from_meta(meta_config)
-    configured_value = alt_value or default_value
-    source_key = "alt_launcher" if alt_value else "vpxbinpath"
-
-    if not configured_value:
-        return None, source_key, configured_value
-
-    return resolve_launcher_path(configured_value), source_key, configured_value
-
 
 
 
@@ -471,23 +458,16 @@ def build_vpx_launch_command(
     vpx_path: str,
     global_ini_override: str = "",
     tableini_override: str = "",
-    plugin_profile_override: str = "",
 ) -> list[str]:
     """
     Build VPX launch command and guarantee '-play <table>' is the last argument pair.
 
-    A game's plugin profile and the global ini override both drive VPX's single
-    -ini argument, so they cannot both be passed. The per-table profile wins when
-    set, mirroring how VPinFE.altlauncher takes precedence over Settings.vpxbinpath.
+    One ini, because there is only one source of it now. A plugin profile and the global
+    override both drove VPX's single -ini and had to be ranked against each other; a
+    launcher carries one, and which launcher is playing already answered it.
     """
     cmd = [str(launcher_path)]
-    profile_override = str(plugin_profile_override or "").strip()
-    ini_override = profile_override or str(global_ini_override or "").strip()
-    if profile_override and str(global_ini_override or "").strip():
-        logger.info(
-            "Plugin profile ini takes precedence over Settings.globalinioverride: %s",
-            profile_override,
-        )
+    ini_override = str(global_ini_override or "").strip()
     if ini_override:
         cmd.extend(["-ini", ini_override])
 

@@ -141,11 +141,16 @@ class ApiContractTests(unittest.TestCase):
 
     def test_launch_refuses_before_it_starts_anything(self) -> None:
         """Every refusal is answered synchronously. A launch that returns 202 and
-        then fails on its thread tells the caller nothing."""
+        then fails on its thread tells the caller nothing.
+
+        The reason names the launcher rather than a config key: the binary belongs to a
+        launcher now, and pointing somebody at `vpxbinpath` would send them to a setting
+        that no longer decides anything.
+        """
         no_launcher = self.probe["launch_no_launcher"]
         self.assertEqual(no_launcher["status"], 501)
         self.assertEqual(no_launcher["json"]["error"]["code"], "feature_unavailable")
-        self.assertIn("vpxbinpath", no_launcher["json"]["error"]["message"])
+        self.assertIn("Visual Pinball X", no_launcher["json"]["error"]["message"])
 
     def test_launch_rejects_a_table_the_game_does_not_have(self) -> None:
         entry = self.probe["launch_unknown_file"]

@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 from common import jobs
-from common.config_access import SettingsConfig, cfg_get
+from common.config_access import SettingsConfig
 from common.config_store import ConfigStore
 from common.games import game_index_service, game_repository, info_maintenance, metadata_service
 from common.games.collection_store import CollectionStore
@@ -400,7 +400,7 @@ def scan_missing_game_rows(reload: bool = False) -> list[dict]:
     return game_index_service.scan_missing_rows(reload=reload)
 
 
-def extract_vbs(game_dir: Path, vpx_filename: str, altlauncher: str = "") -> dict:
+def extract_vbs(game_dir: Path, vpx_filename: str, table_id: str = "") -> dict:
     """Run the VPX binary with -extractvbs to extract a table's .vbs script.
 
     VPX writes the extracted .vbs next to the .vpx file (the game's root dir)
@@ -412,16 +412,11 @@ def extract_vbs(game_dir: Path, vpx_filename: str, altlauncher: str = "") -> dic
     import subprocess
     import sys as _sys
 
-    from common.host.launch import get_effective_launcher
+    from common.host.launch import binary_for
 
-    cfg = _fresh_config()
-    vpxbin = cfg_get(cfg, 'Settings', 'vpx_bin_path', '')
-    meta = {VPINFE_SECTION: {"alt_launcher": (altlauncher or "").strip()}}
-    vpxbin_path, source_key, _configured = get_effective_launcher(vpxbin, meta)
-    if not vpxbin_path:
-        raise RuntimeError("No launcher configured (set Settings.vpxbinpath or VPinFE.altlauncher)")
-    if not vpxbin_path.exists():
-        raise FileNotFoundError(f"Launcher not found ({source_key}): {vpxbin_path}")
+    # Through the same resolution a launch uses, so the program that extracts a script is
+    # the one that would have played the table.
+    vpxbin_path = Path(binary_for(table_id, vpx_filename))
 
     vpx_file = game_dir / vpx_filename
     if not vpx_file.is_file():
