@@ -51,7 +51,10 @@ def all_games(reload: bool = False) -> list[Any]:
         needs_new_parser = _PARSER is None or str(_PARSER.gamesRootFilePath) != games_root
         if needs_new_parser:
             _PARSER = GameParser(games_root, get_ini_config())
-        elif reload:
+        # The flag carries the None check, but behind a name, where narrowing cannot
+        # follow. Stated once here for the two uses below.
+        assert _PARSER is not None
+        if not needs_new_parser and reload:
             _PARSER.loadGames(reload=True)
         games = list(_PARSER.getAllGames())
 

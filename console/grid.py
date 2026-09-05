@@ -328,7 +328,8 @@ async def apply_layout(grid: ui.aggrid, scope: str, columns: list[dict[str, Any]
 
     where = layout_scope(scope, view_of)
     try:
-        stored = (await run.io_bound(ApiClient().preferences, where)).get("columns")
+        held = await run.io_bound(ApiClient().preferences, where)
+        stored = (held or {}).get("columns")
     except Exception:
         logger.warning("console: could not read column state for %s", where, exc_info=True)
         return

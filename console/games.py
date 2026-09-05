@@ -267,7 +267,7 @@ def media_columns(kinds: list[str]) -> list[dict[str, Any]]:
     # between Playfield and Playfield Video, and DMD after Real DMD Color - a list that
     # looks unsorted because it is sorted on something the reader cannot see.
     headers = {kind: grid.two_line(labels.get(kind) or humanize(kind))
-               for kind in sorted(kinds, key=lambda k: labels.get(k, k).lower())}
+               for kind in sorted(kinds, key=lambda k: (labels.get(k) or k).lower())}
     width = max((grid.header_width(header) for header in headers.values()), default=92)
     return [grid.column(f"media_{kind}", header, width,
                         cellClass="console-media-cell", group=_MEDIA,
@@ -862,7 +862,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             return
         ui.notify(said, type="positive")
         game_id = str((row or {}).get("game_id") or "")
-        if not game_id:
+        if row is None or not game_id:
             if rerender is not None:
                 rerender()
             return

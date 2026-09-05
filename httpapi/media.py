@@ -217,7 +217,7 @@ def list_media(limit: int = Query(0, ge=0), offset: int = Query(0, ge=0),
                     "present": path is not None,
                     "file": path.name if path is not None else None,
                     "path": asset_origin.path_of(game_dir, path) or None,
-                    "via": hit.tier if path is not None else None,
+                    "via": hit.tier if hit is not None and path is not None else None,
                     "origin": asset_origin.origin_of(hosts, game_dir, path) or None,
                     "matched_to": asset_origin.match_of(recorded, game_dir, path) or None,
                     "standing_in": (hit.tier if hit is not None and hit.path is not None

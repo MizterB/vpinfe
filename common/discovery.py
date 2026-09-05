@@ -98,6 +98,9 @@ class _Discovery:
             logger.info("Announcing this install on %s", SERVICE_TYPE)
 
     def _announce(self, config, update: bool = False) -> None:
+        # Both callers hold the lock and have already established this: `start` has just
+        # constructed it, and `refresh` returns early without one.
+        assert self._zeroconf is not None
         port = NetworkConfig.from_config(config).http_port
         address = _routable_address()
         # Keyed on the install id, which is the one name guaranteed not to collide with

@@ -60,7 +60,8 @@ def list_tables(limit: int = Query(0, ge=0), offset: int = Query(0, ge=0),
                 continue
         row = game_to_row(entry)
         meta = getattr(entry, "meta_config", {}) or {}
-        info = meta.get("Info") if isinstance(meta.get("Info"), dict) else {}
+        declared = meta.get("Info")
+        info = declared if isinstance(declared, dict) else {}
         for table in _tables(entry, row):
             if not table.get("id"):
                 continue
