@@ -226,11 +226,11 @@ Core startup and launch behavior:
 - **RAR Tool Path (unar/unrar, blank = auto-detect)**: path to the RAR extraction tool used by drag-and-drop import for `.rar` archives, for when the tool is not on your PATH
 - **Active Theme**: currently selected frontend theme
 - **Startup Collection**: collection opened when VPinFE starts
-- **Auto Update Media On Startup**: enables startup media refresh behavior
+- **Auto Update Media on Startup**: enables startup media refresh behavior
 - **Restore Last Table**: opens the wheel on the last table you launched instead of the first; on by default, saved as `Settings.restorelasttable`
-- **Enable splashscreen**: shows the frontend splash screen during startup
+- **Enable Splash Screen**: shows the frontend splash screen during startup
 - **Mute Frontend Audio**: mutes frontend audio playback
-- **Hide Quit from MainMenu**: hides the **Quit** item from the frontend main menu; saved as `Settings.MMhideQuitButton` in `vpinfe.ini`
+- **Hide Quit from the Main Menu**: hides the **Quit** item from the frontend main menu; saved as `Settings.MMhideQuitButton` in `vpinfe.ini`
 
 The page also shows a **VPinball Launch Command w/Options** preview so you can verify the exact launch command and launch environment before saving.
 
@@ -299,7 +299,7 @@ Logging behavior:
 - **Log Verbosity**: debug/info/warning/error/critical
 - **Console Logging**: enables console log output
 
-The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard config directory and starts a fresh log file on each launch. The VPinball Log card can enable **Clear The Log On Launch** on your launcher, which deletes `vpinball.log` before each frontend table launch. VPinFE resolves that log path from the launcher's **Configuration File** by using the directory that contains `VPinballX.ini`.
+The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard config directory and starts a fresh log file on each launch. The VPinball Log card can enable **Clear the Log on Launch** on your launcher, which deletes `vpinball.log` before each frontend table launch. VPinFE resolves that log path from the launcher's **Configuration File** by using the directory that contains `VPinballX.ini`.
 
 #### Media section
 
@@ -326,8 +326,8 @@ Saved defaults for the **Mobile Uploader** page:
 - **Mobile Device IP**
 - **Mobile Device Port**
 - **Mobile Chunk Size**
-- **Enable Rename Mask To Default INI**
-- **Rename Mask To Default INI Mask**
+- **Send a Masked Configuration Instead**
+- **Configuration File Mask**
 
 When the rename-mask option is enabled for Web Send, VPinFE can send `{VPX_FILENAME}.{MASK}.ini` to the mobile device as `{VPX_FILENAME}.ini`.
 
@@ -347,11 +347,11 @@ The page also includes:
 
 Real DMD output integration:
 
-- **libdmdutil Service**: enables the bundled libdmdutil controller
-- **ZeDMDDevice**: explicit ZeDMD device path
-- **ZeDMDWiFiAddr**: ZeDMD network address
-- **PIN2DMD**
-- **PixelcadeDevice**
+- **Enable libdmdutil**: enables the bundled libdmdutil controller
+- **ZeDMD Serial Port**: explicit ZeDMD device path
+- **ZeDMD Wi-Fi Address**: ZeDMD network address
+- **Enable PIN2DMD**
+- **Pixelcade Serial Port**
 
 VPinFE currently uses the service enable flag plus the ZeDMD device/Wi-Fi settings directly. If both ZeDMD fields are blank, libdmdutil falls back to its own auto-detection behavior.
 
@@ -555,7 +555,7 @@ Uses the built-in web server in the mobile VPX app on Android/iOS. VPinFE can:
 Send options:
 
 - **Exclude {VPX_FILENAME}.ini files** prevents sending table-specific default ini files
-- **Enable Rename Mask To Default INI** can copy `{VPX_FILENAME}.{MASK}.ini` to the mobile device as `{VPX_FILENAME}.ini`
+- **Send a Masked Configuration Instead** can copy `{VPX_FILENAME}.{MASK}.ini` to the mobile device as `{VPX_FILENAME}.ini`
 
 **VPXZ Download**
 

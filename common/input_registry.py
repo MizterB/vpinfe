@@ -74,14 +74,14 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
         "page_previous",
         group="Moving through the library",
         bindings=("key:PageUp", "key:ArrowUp"),
-        label="Page previous",
+        label="Page Previous",
         legacy=("joypageup", "keypageup", "joyup", "keyup"),
     ),
     InputAction(
         "page_next",
         group="Moving through the library",
         bindings=("key:PageDown", "key:ArrowDown"),
-        label="Page next",
+        label="Page Next",
         legacy=("joypagedown", "keypagedown", "joydown", "keydown"),
     ),
     InputAction(
@@ -109,7 +109,7 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
         "collection_menu",
         group="Opening something",
         bindings=("key:c",),
-        label="Collection menu",
+        label="Collection Menu",
         legacy=("joycollectionmenu", "keycollectionmenu"),
     ),
     InputAction(

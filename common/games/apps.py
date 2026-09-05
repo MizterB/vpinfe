@@ -56,7 +56,7 @@ VPX_FIELDS: tuple[Field, ...] = (
                       "Visual Pinball finds itself."),
     Field("launch_env", "Environment",
           description="Variables to set before launching, one NAME=value per line."),
-    Field("log_delete_on_start", "Clear The Log On Launch", type="bool", default="false",
+    Field("log_delete_on_start", "Clear the Log on Launch", type="bool", default="false",
           description="Delete Visual Pinball's log before each table, so what is in it "
                       "is about the table that just ran."),
     Field("ini_override", "Override File", path="file",

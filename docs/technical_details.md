@@ -66,11 +66,11 @@ uses an old spelling both still load.
 | `theme` | string | `Revolution` | Active Theme |
 | `startup_collection` | string |  | Default Startup Collection |
 | `library_refresh_minutes` | int | `0` | How often to re-read the library from disk, in minutes. It picks up everything, not just tables - media and assets added or removed beside them too. Zero never does, which is the default because a read walks every game folder: fine locally, real traffic on a network share. It can always be asked to read it now. |
-| `auto_update_media_on_startup` | bool | `false` | Auto Update Media On Startup |
-| `splashscreen` | bool | `false` | Enable splashscreen |
+| `auto_update_media_on_startup` | bool | `false` | Auto Update Media on Startup |
+| `splashscreen` | bool | `false` | Enable Splash Screen |
 | `mute_audio` | bool | `false` | Mute Frontend Audio |
 | `chrome_options` | string |  | Additional Chrome Options |
-| `chrome_options_exclude` | string |  |  |
+| `chrome_options_exclude` | string |  | Which of the built-in options to leave off, one per line. For the case where one of them is the problem and turning all of them off would take the rest with it. |
 | `disable_default_chrome_options` | bool | `false` | Disable Default Chrome Options |
 
 ### `frontend`
@@ -80,7 +80,7 @@ uses an old spelling both still load.
 | `paging_group` | choice (sort, count) | `sort` | Page by |
 | `paging_size` | int | `10` | Paging Size |
 | `confirm` | bool | `false` | Ask before quitting VPinFE or powering off the machine. Closing the frontend never asks - the windows reopen from the Manager UI, so there is nothing to lose. Off is how VPinFE has always behaved, and the question is put to whichever surface asked. |
-| `hide_quit_button` | bool | `false` | Hide Quit from MainMenu |
+| `hide_quit_button` | bool | `false` | Hide Quit from the Main Menu |
 | `restore_last_table` | bool | `true` | Restore Last Table |
 
 ### `themes`
@@ -162,11 +162,11 @@ Runtime state written by VPinFE, not shown in the Manager UI.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `enabled` | bool | `false` | Enabled |
-| `pin2dmd_enabled` | bool | `false` | Enable |
-| `pixelcade_serial_port` | string |  | Pixelcade serial port |
-| `zedmd_serial_port` | string |  | ZeDMD serial port |
-| `zedmd_wifi_address` | string |  | ZeDMDWiFiAddr |
+| `enabled` | bool | `false` | Enable libdmdutil |
+| `pin2dmd_enabled` | bool | `false` | Enable PIN2DMD |
+| `pixelcade_serial_port` | string |  | Pixelcade Serial Port |
+| `zedmd_serial_port` | string |  | ZeDMD Serial Port |
+| `zedmd_wifi_address` | string |  | ZeDMD Wi-Fi Address |
 
 ### `mobile`
 
@@ -175,8 +175,8 @@ Runtime state written by VPinFE, not shown in the Manager UI.
 | `device_ip` | string |  | Mobile Device IP |
 | `device_port` | int | `2112` | Mobile Device Port |
 | `chunk_size` | int | `1048576` | Mobile Chunk Size |
-| `rename_mask_to_default_ini` | bool | `false` | Enable Rename Mask To Default INI |
-| `rename_mask_to_default_ini_mask` | string |  | Rename Mask To Default INI Mask |
+| `rename_mask_to_default_ini` | bool | `false` | Where a table has no configuration file of its own, send the masked one in its place under the name the table expects. |
+| `rename_mask_to_default_ini_mask` | string |  | The word between the table name and .ini - cab sends tablename.cab.ini as tablename.ini. |
 
 ### `vpinplay`
 
@@ -194,12 +194,12 @@ Runtime state written by VPinFE, not shown in the Manager UI.
 | --- | --- | --- | --- |
 | `previous` | list | `key:ArrowLeft,key:ShiftLeft` | Previous |
 | `next` | list | `key:ArrowRight,key:ShiftRight` | Next |
-| `page_previous` | list | `key:PageUp,key:ArrowUp` | Page previous |
-| `page_next` | list | `key:PageDown,key:ArrowDown` | Page next |
+| `page_previous` | list | `key:PageUp,key:ArrowUp` | Page Previous |
+| `page_next` | list | `key:PageDown,key:ArrowDown` | Page Next |
 | `select` | list | `key:Enter` | Select |
 | `back` | list | `key:b` | Back |
 | `menu` | list | `key:m` | Menu |
-| `collection_menu` | list | `key:c` | Collection menu |
+| `collection_menu` | list | `key:c` | Collection Menu |
 | `tutorial` | list | `key:t` | Tutorial |
 | `exit` | list | `key:Escape,key:q` | Exit |
 

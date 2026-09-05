@@ -530,12 +530,12 @@ def _build_web_send_panel():
         ui.label("Prevents sending the table-specific configuration file, e.g. 'tablename.ini'.").classes('text-xs ml-8 -mt-2').style('color: var(--ink-muted) !important;')
         with ui.row().classes('w-full items-end gap-3'):
             masked_ini_copy_checkbox = ui.checkbox(
-                'Enable Rename Mask To Default INI',
+                'Send a Masked Configuration Instead',
                 value=saved_rename_mask,
                 on_change=_save_rename_mask_enabled,
             ).props('dark')
             masked_ini_input = ui.input(
-                'Rename Mask',
+                'Configuration File Mask',
                 value=saved_rename_mask_value,
                 on_change=_save_rename_mask_value,
             ).props('dark outlined dense').style('min-width: 180px; max-width: 280px;')

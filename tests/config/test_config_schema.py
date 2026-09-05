@@ -224,9 +224,9 @@ class DocumentationCoverageTests(unittest.TestCase):
         missing = sorted(f"{e.section}.{e.key}" for e in config_schema.settable()
                          if not e.label)
 
-        self.assertEqual(missing, ["general.chrome_options_exclude",
-                                   "windows.playfield.media_rotation"],
-                         "either label the new option or update this list deliberately")
+        self.assertEqual(missing, [],
+                         "a settable option needs a label - humanizing its key is how "
+                         "a person came to read chrome_options_exclude on screen")
 
 
 if __name__ == "__main__":

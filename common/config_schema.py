@@ -259,6 +259,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "media_rotation",
             type="choice",
             default="auto",
+            label="Table Media Rotation",
             description="How far to turn playfield artwork so it fills the screen. auto measures"
                         " each image and turns only when it disagrees with the surface.",
             choices=("auto", "0", "90", "180", "270"),
@@ -376,7 +377,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             group="Reading the library",
             type="int",
             default="0",
-            label="Re-read The Library Every",
+            label="Re-read the Library Every",
             description="How often to re-read the library from disk, in minutes. It"
                         " picks up everything, not just tables - media and assets added"
                         " or removed beside them too. Zero never does, which is the"
@@ -389,7 +390,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             group="Reading the library",
             type="bool",
             default="false",
-            label="Auto Update Media On Startup",
+            label="Auto Update Media on Startup",
             aliases=("autoupdatemediaonstartup",),
         ),
         ConfigOption(
@@ -397,7 +398,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             group="What a player sees",
             type="bool",
             default="false",
-            label="Enable splashscreen",
+            label="Enable Splash Screen",
         ),
         ConfigOption(
             "mute_audio",
@@ -420,6 +421,10 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             group="The browser it runs in",
             type="string",
             default="",
+            label="Default Chrome Options to Drop",
+            description="Which of the built-in options to leave off, one per line."
+                        " For the case where one of them is the problem and turning"
+                        " all of them off would take the rest with it.",
             aliases=("chromeoptionsexclude",),
         ),
         ConfigOption(
@@ -467,7 +472,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "hide_quit_button",
             type="bool",
             default="false",
-            label="Hide Quit from MainMenu",
+            label="Hide Quit from the Main Menu",
             aliases=("MMhideQuitButton",),
             # The 2.x location, then the one 3.0 briefly used. The second is not
             # compatibility for a shipped release - 3.0 has none - it is so an install
@@ -633,7 +638,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             type="choice",
             default="daily",
             choices=("never", "daily", "weekly", "monthly"),
-            label="Check For Catalog Updates",
+            label="Check for Catalog Updates",
             description="How often to ask VPSdb whether it has changed.",
         ),
     ),
@@ -759,34 +764,34 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "enabled",
             type="bool",
             default="false",
-            label="Enabled",
+            label="Enable libdmdutil",
         ),
         ConfigOption(
             "pin2dmd_enabled",
             type="bool",
             default="false",
-            label="Enable",
+            label="Enable PIN2DMD",
             aliases=("pin2dmdenabled",),
         ),
         ConfigOption(
             "pixelcade_serial_port",
             type="string",
             default="",
-            label="Pixelcade serial port",
+            label="Pixelcade Serial Port",
             aliases=("pixelcadedevice",),
         ),
         ConfigOption(
             "zedmd_serial_port",
             type="string",
             default="",
-            label="ZeDMD serial port",
+            label="ZeDMD Serial Port",
             aliases=("zedmddevice",),
         ),
         ConfigOption(
             "zedmd_wifi_address",
             type="string",
             default="",
-            label="ZeDMDWiFiAddr",
+            label="ZeDMD Wi-Fi Address",
             aliases=("zedmdwifiaddr",),
         ),
     ),
@@ -817,14 +822,18 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "rename_mask_to_default_ini",
             type="bool",
             default="false",
-            label="Enable Rename Mask To Default INI",
+            label="Send a Masked Configuration Instead",
+            description="Where a table has no configuration file of its own, send the"
+                        " masked one in its place under the name the table expects.",
             aliases=("renamemasktodefaultini",),
         ),
         ConfigOption(
             "rename_mask_to_default_ini_mask",
             type="string",
             default="",
-            label="Rename Mask To Default INI Mask",
+            label="Configuration File Mask",
+            description="The word between the table name and .ini - cab sends"
+                        " tablename.cab.ini as tablename.ini.",
             aliases=("renamemasktodefaultinimask",),
         ),
     ),
