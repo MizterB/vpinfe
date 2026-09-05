@@ -365,21 +365,30 @@ def number(value: Any, on_change: Callable[[Any], Any], *,
     return draw
 
 
-def action(label: str, on_click: Callable[[], Any], *, icon: str = "",
+def action(label: str, on_click: Callable[[], Any] | None = None, *, icon: str = "",
            inline: bool = False, danger: bool = False, hint: str = "",
-           enabled: bool = True) -> Callable[[], None]:
+           enabled: bool = True, js: str = "") -> Callable[[], None]:
     """A verb, which follows the value it acts on.
 
     Weight follows the target: an action on a field or a section takes `.console-action`;
     one sitting beside a state takes `.console-action--inline`, the same control at the
     chip's type scale.
+
+    `js` is for the few acts a browser will only allow while it still believes a person
+    just asked for them. The Console is server-rendered, so an ordinary click goes to the
+    server and comes back - and by then the click's own permission has expired. A handler
+    given here runs in the browser at the moment of the click and `emit(...)`s its result,
+    which `on_click` then receives.
     """
     def draw() -> None:
         classes = "console-action--inline" if inline else "console-action"
         if danger:
             classes = f"console-action {classes} console-action--danger"
-        control = ui.button(label, icon=icon or None, on_click=on_click) \
+        control = ui.button(label, icon=icon or None,
+                            on_click=None if js else on_click) \
             .props("flat dense no-caps size=sm").classes(classes)
+        if js:
+            control.on("click", on_click, js_handler=js)
         if not enabled:
             control.disable()
         if hint:

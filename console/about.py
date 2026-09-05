@@ -8,6 +8,10 @@ two seconds and the other does not change at all.
 **The page exists for its copy button.** Reading fourteen fields off a screen and typing
 them into an issue is where a report goes wrong, so the whole set travels as one block
 of text, assembled by the install rather than by whoever is looking at it.
+
+The copy happens in the browser at the moment of the click. A browser only allows one
+while it still believes a person just asked, and this Console is server-rendered - a
+click that goes to the server and comes back has spent that permission on the way.
 """
 
 from __future__ import annotations
@@ -23,26 +27,29 @@ from console import panel
 
 logger = logging.getLogger("vpinfe.console.about")
 
-# The clipboard API is a secure-context feature, and a Console reached at
-# http://cab.local:8000 is not one - which is the normal way this install is used from
-# another machine. So it is tried, and the old command is there for when it is missing.
-_COPY_JS = """(() => {
+# Both halves run in the browser at the moment of the click, which is the whole point.
+# The clipboard API is a secure-context feature and http://cab.local:8000 - the ordinary
+# way this install is reached from another machine - is not one, so the old command is
+# what is left there. It needs the click's own permission, and a Console click that goes
+# to the server and back has spent it by the time anything runs.
+_COPY_JS = """() => {
   const text = %s;
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text);
-    return true;
+    navigator.clipboard.writeText(text).then(() => emit(true), () => emit(false));
+    return;
   }
   const box = document.createElement('textarea');
   box.value = text;
   box.style.position = 'fixed';
-  box.style.opacity = '0';
+  box.style.top = '-1000px';
   document.body.appendChild(box);
+  box.focus();
   box.select();
   let done = false;
   try { done = document.execCommand('copy'); } catch (e) { done = false; }
   document.body.removeChild(box);
-  return done;
-})()"""
+  emit(done);
+}"""
 
 
 def build(library, state: dict[str, Any], redraw: Callable[[], None]) -> None:
@@ -73,9 +80,10 @@ def _draw(body, groups: list[dict[str, Any]], held: dict[str, Any],
         with ui.row().classes("items-center gap-2 w-full no-wrap"):
             ui.label("Everything a bug report asks for, in one block") \
                 .classes("console-help grow min-w-0")
-            panel.action("Copy", lambda: _copy(held["text"]),
+            panel.action("Copy", lambda event: _copied(bool(event.args), held["text"]),
                          icon="content_copy",
-                         hint="Put all of it on the clipboard")()
+                         hint="Put all of it on the clipboard",
+                         js=_COPY_JS % json.dumps(held["text"]))()
             panel.action("Refresh", lambda: reload(True), icon="refresh",
                          hint="Read it again")()
         # One list for all of them, headings inside it, the way Settings next door
@@ -89,20 +97,13 @@ def _draw(body, groups: list[dict[str, Any]], held: dict[str, Any],
         panel.facts(ui, entries)
 
 
-async def _copy(text: str) -> None:
+def _copied(done: bool, text: str) -> None:
     """Copied, or shown so it can be copied by hand.
 
-    A button that silently does nothing is worse than no button, and on an install
-    reached over plain HTTP from another machine that is exactly what the clipboard API
-    does. Where it cannot write, the text is put on screen already selected.
+    A button that silently does nothing is worse than no button. Where the browser
+    refused - an old command in a page it does not trust - the text goes on screen
+    already selected.
     """
-    if not text:
-        return
-    done = False
-    try:
-        done = bool(await ui.run_javascript(_COPY_JS % json.dumps(text), timeout=2.0))
-    except Exception:  # noqa: BLE001 - a browser that will not answer has not copied
-        logger.debug("Could not copy to the clipboard", exc_info=True)
     if done:
         ui.notify("Copied", type="positive")
         return
