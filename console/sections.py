@@ -158,32 +158,6 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                     .set_enabled(bool(games))
 
 
-# --- Metrics and Logs ------------------------------------------------------------
-
-def metrics() -> None:
-    """What this machine is doing. The place exists; the readings are a later slice.
-
-    A destination rather than a page held back until it is full: System is a container
-    of three and a container missing a third of itself is not the thing being built.
-    """
-    _coming("Live readings from this machine - processor, memory, disk, and the "
-            "graphics card where there is one to ask. The Devices grid answers whether "
-            "a machine is healthy; this answers what it is doing.")
-
-
-def logs() -> None:
-    """What this machine has recorded. Same as `metrics`: the place, not the viewer."""
-    _coming("What VPinFE has written down, live as it is written, colored by level "
-            "and filterable. How much is recorded and where it goes is a setting, and "
-            "lives under Settings.")
-
-
-def _coming(what: str) -> None:
-    with ui.element("div").classes("console-card w-full"):
-        ui.label("Not built yet").classes("console-setting")
-        ui.label(what).classes("console-help")
-
-
 # --- Extensions ------------------------------------------------------------------
 
 def extensions(registry: list[dict]) -> None:

@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from common.host import metrics
+
 from . import capabilities
 
 logger = logging.getLogger("vpinfe.httpapi.core_capabilities")
@@ -102,6 +104,11 @@ def declare_core() -> None:
         feature=capabilities.install_identity.FRONTEND,
         description="Starting a game on this machine",
         is_available=_launch_available,
+    ))
+    capabilities.declare(capabilities.Capability(
+        name="metrics",
+        description="Live readings from this machine",
+        is_available=lambda: metrics.measurable(),
     ))
     capabilities.declare(capabilities.Capability(
         name="launchers",

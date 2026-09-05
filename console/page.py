@@ -14,7 +14,9 @@ from console import collections as collections_page
 from console import deeplink, games, grid, sections, tageditor, theme, views, workbench
 from console import devices as devices_page
 from console import launchers as launchers_page
+from console import logs as logs_page
 from console import media as media_page
+from console import metrics as metrics_page
 from console import settings as settings_page
 from console.api import ApiClient
 from console.data import Library
@@ -805,9 +807,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 state["install_id"] = discovery.get("install_id") or ""
                 launchers_page.build(library, state, redraw)
             elif view == "metrics":
-                sections.metrics()
+                metrics_page.build(library, state, redraw)
             elif view == "logs":
-                sections.logs()
+                logs_page.build(library, state, redraw)
 
     def mark_system() -> None:
         """How much of this install's configuration is stopping a feature it has on.

@@ -536,6 +536,15 @@ class ApiClient:
         self._answered(response)
         return response.json()
 
+    def metrics(self, history_seconds: float = 0) -> dict:
+        """What this machine is doing, and optionally what it has been doing.
+
+        Reading is what fills the history, so the page polling this is the thing that
+        builds the record - a machine nobody is looking at keeps none.
+        """
+        tail = f"?history_seconds={history_seconds}" if history_seconds else ""
+        return dict(self._get(f"/metrics{tail}") or {})
+
     def launchers(self) -> dict:
         """Every launcher, the tables that deviate, and which one is the default.
 
@@ -611,9 +620,12 @@ class ApiClient:
         return self._post("/actions", {"scope": scope, "action": action,
                                        "reason": reason or "asked from the Console"})
 
-    def logs(self, limit: int = 200, level: str = "", contains: str = "") -> dict:
-        """Recent records from this install's own log, oldest first."""
-        query = urlencode({"limit": limit, "level": level, "contains": contains})
+    def logs(self, limit: int = 200, level: str = "", contains: str = "",
+             source: str = "") -> dict:
+        """Recent records from this install's own log, oldest first, with the list of
+        files it could have come from."""
+        query = urlencode({"limit": limit, "level": level, "contains": contains,
+                           "source": source})
         return self._get(f"/logs?{query}")
 
     def update_check(self) -> dict:

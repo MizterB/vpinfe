@@ -274,6 +274,9 @@ class Library:
         somebody may have just changed it from somewhere else."""
         return self._client.config_values()
 
+    def metrics(self, history_seconds: float = 0) -> dict:
+        return self._client.metrics(history_seconds)
+
     def launchers(self) -> dict:
         """Read fresh every time: a launcher is edited from this page, and a cache would
         show the value that was there before the edit that just happened."""
@@ -324,9 +327,10 @@ class Library:
     def perform_action(self, scope: str, action: str, reason: str = "") -> dict:
         return self._client.perform_action(scope, action, reason)
 
-    def logs(self, limit: int = 200, level: str = "", contains: str = "") -> dict:
+    def logs(self, limit: int = 200, level: str = "", contains: str = "",
+             source: str = "") -> dict:
         """Never cached, obviously: the whole question is what has happened since."""
-        return self._client.logs(limit, level, contains)
+        return self._client.logs(limit, level, contains, source)
 
     def discovered_installs(self) -> list[dict]:
         """Never cached: what is on the network is the question, and an answer from when
