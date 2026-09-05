@@ -380,7 +380,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 # true and always shown. Whether a newer one exists is a device's
                 # business and is said on the Devices entry, which is one place for it
                 # rather than two that can disagree.
-                labels.append(ui.label(_version(discovery.get("app_version")))
+                labels.append(ui.label(_version(discovery.get("vpinfe_version")))
                               .classes("text-xs opacity-70"))
 
     async def _watch_jobs() -> None:

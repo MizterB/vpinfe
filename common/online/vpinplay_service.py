@@ -7,11 +7,11 @@ from urllib.parse import urlparse
 
 import requests
 
-from common.app_version import get_version
 from common.config_access import SettingsConfig, VPinPlayConfig
 from common.games.game_metadata import default_table, normalize_rating, vpinfe_section
 from common.games.game_repository import games_under
 from common.timestamps import utc_now_iso
+from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.online.vpinplay_service")
 

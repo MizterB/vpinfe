@@ -120,7 +120,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
             ui.label(str(len(registry))).classes("console-kpi")
             ui.label("known to this install").classes("text-xs opacity-60")
         with _card("This build"):
-            ui.label(str(discovery.get("app_version") or "?")).classes("console-kpi")
+            ui.label(str(discovery.get("vpinfe_version") or "?")).classes("console-kpi")
             ui.label("no update endpoint yet").classes("text-xs opacity-60")
 
     ui.label("Coverage by kind").classes("console-group mt-4")

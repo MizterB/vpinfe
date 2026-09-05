@@ -68,25 +68,25 @@ jobs:
           fi
         shell: bash
 
-      - name: Set app version from tag/commit
+      - name: Set VPinFE version from tag/commit
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            APP_VERSION="${GITHUB_REF_NAME}"
+            VPINFE_VERSION="${GITHUB_REF_NAME}"
           else
-            APP_VERSION="dev-${GITHUB_SHA::7}"
+            VPINFE_VERSION="dev-${GITHUB_SHA::7}"
           fi
 
           printf '%s\n' \
             '"""Build/version metadata for VPinFE."""' \
             '' \
-            "APP_VERSION = \"${APP_VERSION}\"" \
+            "VPINFE_VERSION = \"${VPINFE_VERSION}\"" \
             '' \
             'def get_version() -> str:' \
-            '    return APP_VERSION' \
-            > common/app_version.py
+            '    return VPINFE_VERSION' \
+            > common/vpinfe_version.py
 
-          echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"
-          echo "Using app version: ${APP_VERSION}"
+          echo "VPINFE_VERSION=${VPINFE_VERSION}" >> "$GITHUB_ENV"
+          echo "Using VPinFE version: ${VPINFE_VERSION}"
         shell: bash
 
       - name: Fetch DOF bundle

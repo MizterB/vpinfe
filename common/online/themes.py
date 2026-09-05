@@ -6,12 +6,12 @@ import os
 from io import BytesIO
 from typing import Any
 
-from common.app_version import get_version
 from common.online import theme_releases, theme_sources
 from common.online.theme_installer import ThemeInstallStore
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
 from common.paths import CONFIG_DIR, get_ini_config
 from common.values import parse_version
+from common.vpinfe_version import get_version
 
 # What a theme states as the oldest build it runs on. Named here rather than imported
 # from the frontend: the installer runs on installs that have no frontend at all.

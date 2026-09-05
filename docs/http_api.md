@@ -109,7 +109,7 @@ rather than matching a version number against a document.
   "display_name": "basement cab",
   "features": ["core", "library", "frontend", "devices"],
   "api_version": "v1",
-  "app_version": "2.5.0",
+  "vpinfe_version": "2.5.0",
   "capabilities": [],
   "services": {"assets": {"port": 8000}},
   "extensions": [],

@@ -79,7 +79,7 @@ class DiscoveryTests(unittest.TestCase):
 
         self.assertEqual(body["name"], "VPinFE")
         self.assertEqual(body["api_version"], "v1")
-        self.assertTrue(body["app_version"])
+        self.assertTrue(body["vpinfe_version"])
         self.assertEqual(body["extensions"], [])
         declared = {c["name"] for c in body["capabilities"]}
         self.assertIn("library", declared, "the shipped capabilities are declared")

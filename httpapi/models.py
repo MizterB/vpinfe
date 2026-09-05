@@ -78,7 +78,7 @@ class Discovery(ApiModel):
     display_name: str
     features: list[str]
     api_version: str
-    app_version: str
+    vpinfe_version: str
     capabilities: list[CapabilityInfo]
     # Servers that are not the API. `assets` is where artwork is fetched from, which a
     # device cannot guess: it is a different port from the one it asked this on.

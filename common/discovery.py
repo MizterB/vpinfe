@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
 from common import install_identity
-from common.app_version import get_version
 from common.config_access import NetworkConfig
+from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.discovery")
 

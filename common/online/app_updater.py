@@ -17,9 +17,9 @@ from pathlib import Path
 
 import requests
 
-from common.app_version import get_version
 from common.http_client import download_file, get_json
 from common.paths import CONFIG_DIR, bundled
+from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.online.app_updater")
 

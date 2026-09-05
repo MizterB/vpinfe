@@ -95,7 +95,7 @@ class LocalDevice:
 
     def probe(self) -> dict[str, Any]:
         """Always answering: this is the process being asked."""
-        from common.app_version import get_version
+        from common.vpinfe_version import get_version
 
         return {"state": ANSWERING, "what": f"VPinFE {get_version()}", "reason": ""}
 
@@ -288,7 +288,7 @@ class RemoteDevice:
 
         said = dict(http_client.get_json(self._url(""), timeout=_PROBE_TIMEOUT) or {})
         name = str(said.get("name") or "VPinFE")
-        version = str(said.get("app_version") or "")
+        version = str(said.get("vpinfe_version") or "")
         return {"state": ANSWERING,
                 "what": f"{name} {version}".strip(),
                 "features": list(said.get("features") or []),

@@ -42,7 +42,6 @@ from common.config_bootstrap import apply_configdir_override
 apply_configdir_override(sys.argv[1:])
 
 from common import shutdown, theme_options
-from common.app_version import get_version
 from common.config_store import ConfigStore
 from common.games.metadata_service import build_metadata
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
@@ -59,6 +58,7 @@ from common.paths import (
     configure_nicegui_storage,
     ensure_config_dir,
 )
+from common.vpinfe_version import get_version
 
 # Get the base path
 base_path = os.path.dirname(os.path.abspath(__file__))
@@ -110,8 +110,8 @@ from nicegui import app as nicegui_app
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-import httpapi
 import console
+import httpapi
 from cli import parseArgs
 from frontend import lifecycle_host, runtime
 from managerui.managerui import _shutdown_event, set_first_run, start_manager_ui, stop_manager_ui

@@ -18,11 +18,11 @@ from common import (
     install_identity,
     lifecycle,
 )
-from common.app_version import get_version
 from common.config_access import NetworkConfig
 from common.device_registry import get_device_registry
 from common.host import launch_state
 from common.paths import get_ini_config
+from common.vpinfe_version import get_version
 
 from . import capabilities, models, scopes
 from .auth import requires
@@ -150,7 +150,7 @@ def discovery_payload(prefix: str, api_version: str) -> dict:
         "name": "VPinFE",
         **_identity(),
         "api_version": api_version,
-        "app_version": get_version(),
+        "vpinfe_version": get_version(),
         "capabilities": capabilities.declared(),
         "services": _services(),
         "extensions": [],

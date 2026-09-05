@@ -15,7 +15,6 @@ import threading
 
 from nicegui import app, context, ui
 
-from common.app_version import get_version
 from common.online.app_updater import (
     check_for_updates as check_for_app_updates,
 )
@@ -24,6 +23,7 @@ from common.online.app_updater import (
     launch_prepared_update,
     prepare_update,
 )
+from common.vpinfe_version import get_version
 
 from .page_registry import NAV_PAGES, PAGE_ALIASES
 from .pages import collections as tab_collections
