@@ -29,7 +29,9 @@ _FIELDS = (
     # and leaving it out of the address would reopen one on the next reload.
     ("section", lambda state: _section(state)),
     ("slot", lambda state: _slot_kind(state)),
-    ("settings", lambda state: state.get("settings_page") or ""),
+    # Which page of a section is open. Named for that rather than for Settings, which
+    # is now one of System's three and not the only one with pages inside it.
+    ("page", lambda state: state.get("settings_page") or ""),
 )
 
 # Only where they mean something. A slot on the devices page is noise in an address
@@ -42,7 +44,7 @@ _FIELDS = (
 # is one game's slot - so leaving it out would drop the whole selection in silence.
 _PANEL = ("games", "tables", "media", "assets")
 _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
-            "settings": ("system",)}
+            "page": ("settings",)}
 
 
 # What the address calls a panel with nothing open.
@@ -102,5 +104,5 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
     if clean("slot"):
         state.setdefault("slot", {"kind": None})
         state["slot"]["kind"] = clean("slot")
-    if clean("settings"):
-        state["settings_page"] = clean("settings")
+    if clean("page"):
+        state["settings_page"] = clean("page")

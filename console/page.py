@@ -55,10 +55,9 @@ RAIL_PX = 57
 
 # Every entry is a place, not a thing. Jobs used to sit here and does not any more: it
 # is transient, and it belongs in the rail's foot, which is visible from every page and
-# costs nothing while there is nothing to say. Logs moved
-# under Settings > Diagnostics with the rest of the troubleshooting surface, and Gallery
-# is gone - the media map in the details pane answers "what is missing here" and the
-# Media section answers "what is missing anywhere", which is what it was reaching for.
+# costs nothing while there is nothing to say. Gallery is gone - the media map in the
+# details pane answers "what is missing here" and the Media section answers "what is
+# missing anywhere", which is what it was reaching for.
 # Grouped, because four of these are what the library holds and the rest are not.
 # A subject is a place, not transient state - so Tables and Tags are
 # rail entries rather than a mode a dropdown puts the Games page into. `casino` is the
@@ -69,11 +68,16 @@ RAIL_PX = 57
 # make one click mean two things, and the children are the destinations.
 NAV_PARENT = ("library", "Library", "inventory_2")
 
-# Which feature each destination answers for, empty meaning every install. An install
-# without a feature does not show its section at all - not greyed and not empty, absent -
-# because a section for something this machine is not for is a place with nothing in it.
-# Extensions names none: it is what this install has loaded, and belongs to a feature no
-# more than jobs do. Overview does name one, and that one is off unless asked for.
+# The other container, and its three are the split between what a machine is configured
+# to do and what it has recorded doing. Records are places; configuration is a setting -
+# which is why the log *viewer* is here and the logger's own settings are a page inside
+# Settings.
+NAV_SYSTEM = ("system", "System", "settings")
+
+# Which feature each destination answers for, `core` being the one every install has. An
+# install without a feature does not show its section at all - not greyed and not empty,
+# absent - because a section for something this machine is not for is a place with
+# nothing in it.
 NavItem = tuple[str, str, str, str]
 
 NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] = (
@@ -87,27 +91,38 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
                   ("collections", "Collections", "collections_bookmark",
                    install_identity.LIBRARY),
                   ("tags", "Tags", "sell", install_identity.LIBRARY))),
-    # System last, and it is the one entry that is always here. Every other section
-    # exists because a feature is enabled; this is where features are switched on, so an
-    # install with none of them still has a way to fix itself from inside.
     (None, (("devices", "Devices", "devices", install_identity.DEVICES),
-            ("extensions", "Extensions", "extension", ""),
-            ("system", "System", "settings", ""))),
+            ("extensions", "Extensions", "extension", install_identity.CORE))),
+    # Last, and always here: every other section exists because a feature is enabled,
+    # and this is where features are switched on.
+    (NAV_SYSTEM, (("settings", "Settings", "tune", install_identity.CORE),
+                  ("metrics", "Metrics", "monitor_heart", install_identity.CORE),
+                  ("logs", "Logs", "description", install_identity.CORE))),
 )
-
 
 
 def nav_for(features) -> list[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]]]:
     """The rail this install has. A group whose entries have all gone goes with them -
-    a disclosure with nothing under it is a control that does nothing."""
+    a disclosure with nothing under it is a control that does nothing.
+
+    `core` is held whatever arrives, including nothing, which is what keeps System in
+    a rail an install has switched everything else out of.
+    """
     held = ({str(name).strip().lower() for name in (features or [])}
-            or set(install_identity.FEATURES))
+            or set(install_identity.FEATURES)) | {install_identity.CORE}
     out = []
     for parent, items in NAV_GROUPS:
-        kept = tuple(item for item in items if not item[3] or item[3] in held)
+        kept = tuple(item for item in items if item[3] in held)
         if kept:
             out.append((parent, kept))
     return out
+
+def landing_for(views: list[str]) -> str:
+    """The first place in the rail, but never Extensions - it is not defined enough yet
+    to be a front door, and it leads the rail of an install with no library. Settings is
+    the floor, because every install has it."""
+    return next((key for key in views if key != "extensions"), "settings")
+
 
 # What the header calls each destination. A section owns a subject too, but that is a
 # fact about the data behind the page, not a caption for it - printing "one row is one
@@ -122,7 +137,9 @@ SECTIONS = {
     "assets": "Assets",
     "devices": "Devices",
     "extensions": "Extensions",
-    "system": "System",
+    "settings": "Settings",
+    "metrics": "Metrics",
+    "logs": "Logs",
 }
 
 
@@ -212,7 +229,7 @@ def _read_hub() -> dict[str, Any]:
 @ui.page("/", title="VPinFE Console", reconnect_timeout=300)
 @ui.page("/console", title="VPinFE Console", reconnect_timeout=300)
 async def console_page(view: str = "", game: str = "", table: str = "", section: str = "",
-                   slot: str = "", settings: str = "") -> None:
+                   slot: str = "", page: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # The palette and Quasar's dark mode are two separate switches. The toggle button
     # that used to own the second one is gone, so it is set here - without it the shell
@@ -249,9 +266,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     nav_groups = nav_for(discovery.get("features"))
     nav_items = [item for _parent, items in nav_groups for item in items]
 
-    # The first place this install actually has. Overview is off unless asked for, so a
-    # constant here would land a good many installs on a section that is not in the rail.
-    landing_view = nav_items[0][0] if nav_items else "system"
+    landing_view = landing_for([key for key, *_rest in nav_items])
 
     state: dict[str, Any] = {"view": landing_view, "device": None, "mini": False,
                              "workbench": True, "settings_page": "",
@@ -259,13 +274,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # Before anything is built, so the first render is the place asked for rather than
     # the front door followed by a jump.
     deeplink.apply(state, {"view": view, "game": game, "table": table,
-                           "section": section, "slot": slot, "settings": settings},
+                           "section": section, "slot": slot, "page": page},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
-    # An address written when Settings was a place still resolves. It was always about
-    # this install's own settings, and System is where those are.
-    if view == "settings":
-        state["view"] = "system"
 
     labels: list[ui.label] = []
     destinations: dict[str, ui.row] = {}
@@ -334,7 +345,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             held: list[ui.row] = []
             with nav_body:
                 if parent is not None:
-                    _nav_parent(parent, state, labels, held)
+                    _nav_parent(parent, state, labels, held, badges)
                 for key, label, icon, _feature in items:
                     # redraw, not render: a destination whose rows are read on demand
                     # has to read them before it draws, and arriving is when that is
@@ -777,20 +788,30 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 devices_page.build(devices, library, state, show_device,
                                    probe=_probe_devices,
                                    local_device_id=discovery.get("install_id"))
-            elif view == "system":
+            elif view == "settings":
                 settings_page.build_system(library, state, redraw, discovery)
+            elif view == "metrics":
+                sections.metrics()
+            elif view == "logs":
+                sections.logs()
 
     def mark_system() -> None:
         """How much of this install's configuration is stopping a feature it has on.
 
-        Red, and a count rather than the warm one beside Devices: an update waiting is
+        On the container and on Settings under it, because a mark only on the child is
+        a mark nobody sees on a rail they have collapsed.
+        """
+        items = state.get("trouble") or []
+        for key in ("system", "settings"):
+            _mark_trouble(badges.get(key), items)
+
+    def _mark_trouble(badge, items) -> None:
+        """Red, and a count rather than the warm one beside Devices: an update waiting is
         worth doing when you get to it, and this is something already broken. The reasons
         go in the tooltip because the entry is the only place they fit before the page.
         """
-        badge = badges.get("system")
         if badge is None:
             return
-        items = state.get("trouble") or []
         badge.set_visibility(bool(items))
         badge.classes(add="console-nav-badge--error") if items \
             else badge.classes(remove="console-nav-badge--error")
@@ -807,7 +828,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         asks for it rather than at startup - and off the loop, because render() runs on
         it and the client refuses an HTTP call there.
         """
-        if state["view"] == "system":
+        if state["view"] == "settings":
             # Asked again on every draw, which is when a path may just have been fixed -
             # and off the loop, because it stats the disk and a share that has gone away
             # is exactly the case this reports.
@@ -928,12 +949,13 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
 
 def _nav_parent(parent: tuple[str, str, str], state: dict[str, Any],
-                labels: list, held: list) -> None:
+                labels: list, held: list, badges: dict) -> None:
     """The row a group of entries sits under, which opens and closes them.
 
     A disclosure, not a place: it has no page of its own, so a click that navigated
     would have to pick one of its children and the caret would then mean something
-    different from the row it sits on.
+    different from the row it sits on. It carries a badge all the same - closed, it is
+    the only row left that can say something under it wants attention.
     """
     key, label, icon = parent
     state.setdefault(f"{key}_open", True)
@@ -947,7 +969,11 @@ def _nav_parent(parent: tuple[str, str, str], state: dict[str, Any],
     row = ui.row().classes("items-center gap-3 cursor-pointer w-full no-wrap "
                            "console-nav-row").on("click", toggle)
     with row:
-        ui.icon(icon, size="24px").classes("opacity-70 shrink-0")
+        with ui.element("div").classes("console-nav-mark"):
+            ui.icon(icon, size="24px").classes("opacity-70 shrink-0")
+            badge = ui.label("").classes("console-nav-badge")
+            badge.set_visibility(False)
+            badges[key] = badge
         labels.append(ui.label(label).classes("console-nav-item whitespace-nowrap"))
         ui.space()
         caret = ui.icon("expand_more", size="20px").classes("opacity-60 shrink-0")

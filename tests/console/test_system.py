@@ -31,9 +31,37 @@ class NavTests(unittest.TestCase):
                                 for key, *_rest in items])
 
     def test_system_survives_an_install_that_is_for_nothing(self) -> None:
-        """The bootstrap case: features are switched on from in here."""
-        self.assertIn("system", _rail([]))
-        self.assertIn("system", _rail(["nonsense"]))
+        """The bootstrap case: features are switched on from in here, so the three
+        System holds are the only rail an install for nothing has."""
+        for features in (["nonsense"], [install_identity.CORE]):
+            with self.subTest(features=features):
+                self.assertEqual(_rail(features), ["extensions", "settings",
+                                                   "metrics", "logs"])
+
+    def test_extensions_is_not_a_front_door(self) -> None:
+        """It leads the rail of an install with no library, and it is not defined enough
+        yet to be the first thing anybody sees. Settings is the floor."""
+        self.assertEqual(page.landing_for(_rail([install_identity.CORE])), "settings")
+        self.assertEqual(page.landing_for(_rail([install_identity.FRONTEND])),
+                         "settings")
+        self.assertEqual(page.landing_for(_rail(install_identity.DEFAULT_FEATURES)),
+                         "games")
+
+    def test_reporting_nothing_is_not_the_same_as_being_for_nothing(self) -> None:
+        """An install that is for nothing still reports `core`, so an empty list is a
+        machine that has not answered - and the rail assumes the ordinary install
+        rather than hiding sections it may well have."""
+        self.assertIn("games", _rail([]))
+        self.assertNotIn("games", _rail([install_identity.CORE]))
+
+    def test_system_is_a_container_of_three(self) -> None:
+        """It collapsed into its first child while `build_system` drew the index
+        directly. Records are places; configuration is a setting."""
+        under_system = [items for parent, items in page.nav_for(install_identity.FEATURES)
+                        if parent == page.NAV_SYSTEM]
+
+        self.assertEqual([key for key, *_rest in under_system[0]],
+                         ["settings", "metrics", "logs"])
 
     def test_overview_has_to_be_asked_for(self) -> None:
         """It is a rollup of the other three rather than something an install does, so
@@ -42,6 +70,12 @@ class NavTests(unittest.TestCase):
                          install_identity.DEFAULT_FEATURES)
         self.assertNotIn("overview", _rail(install_identity.DEFAULT_FEATURES))
         self.assertIn("overview", _rail(install_identity.FEATURES))
+
+    def test_core_is_never_one_of_the_switchable_features(self) -> None:
+        """Synthesized on every read and never stored, so it is not in the set a person
+        chooses from and cannot be edited out of a list."""
+        self.assertNotIn(install_identity.CORE, install_identity.FEATURES)
+        self.assertNotIn(install_identity.CORE, install_identity.DEFAULT_FEATURES)
 
     def test_a_typo_does_not_switch_overview_on(self) -> None:
         """An unreadable setting falls back to the defaults, which is why a feature that
@@ -60,7 +94,7 @@ class NavTests(unittest.TestCase):
 
         self.assertNotIn("games", rail)
         self.assertNotIn("collections", rail)
-        self.assertIn("system", rail)
+        self.assertIn("settings", rail)
 
     def test_a_group_with_nothing_left_in_it_goes_too(self) -> None:
         """A disclosure with no entries under it is a control that does nothing."""
@@ -88,27 +122,46 @@ class SystemIndexTests(unittest.TestCase):
         self.assertNotIn("displays", held)
         self.assertIn("mobile", held)
 
-    def test_pages_belonging_to_no_feature_are_always_offered(self) -> None:
+    def test_the_install_wide_pages_are_always_offered(self) -> None:
+        """They name `core`, which is how a page says it is here on every install
+        rather than leaving that to an empty string a reader has to know about."""
         held = _pages([install_identity.DEVICES])
 
         self.assertIn("general", held)
         self.assertIn("network", held)
+        self.assertIn("logging", held)
+
+    def test_every_page_names_a_feature(self) -> None:
+        """`core` where it belongs to the install as a whole. An unnamed one would be
+        filtered out rather than always offered, which is the failure worth pinning."""
+        for group, pages in settings_page.DEVICE_INDEX:
+            for page_item in pages:
+                with self.subTest(group=group, page=page_item[0]):
+                    self.assertIn(page_item[4],
+                                  {install_identity.CORE, *install_identity.FEATURES})
+
+    def test_identity_survives_an_install_that_is_for_nothing(self) -> None:
+        """The whole point of `core`: the screen that switches a feature back on is the
+        one screen an install with everything off still has."""
+        self.assertEqual(_pages([install_identity.CORE]),
+                         [settings_page.IDENTITY, "general", "network", "logging",
+                          "vpinplay"])
 
 
 class AddressTests(unittest.TestCase):
     """A page of System has to survive being written down and read back."""
 
     def test_the_page_is_named_in_the_address(self) -> None:
-        address = parse_qs(deeplink.query({"view": "system",
+        address = parse_qs(deeplink.query({"view": "settings",
                                            "settings_page": "network"}))
 
-        self.assertEqual(address["settings"], ["network"])
+        self.assertEqual(address["page"], ["network"])
 
     def test_a_page_name_is_noise_anywhere_else(self) -> None:
         address = parse_qs(deeplink.query({"view": "games",
                                            "settings_page": "network"}))
 
-        self.assertNotIn("settings", address)
+        self.assertNotIn("page", address)
 
 
 class TroubleTests(unittest.TestCase):

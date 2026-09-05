@@ -383,8 +383,7 @@ def rows(devices: list[dict[str, Any]],
             "what": str(probe.get("what") or ""),
             "address": str(device.get("address") or ""),
             "last_seen": _when(str(device.get("last_reachable") or "")),
-            "features": ", ".join(settings_page.FEATURE_LABELS.get(str(f), str(f))
-                                  for f in (device.get("features") or [])),
+            "features": settings_page.features_said(device.get("features")),
         })
     return out
 
@@ -608,8 +607,8 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         rows_out.append(panel.note(REMOTE_NAME_NOTE))
     rows_out.append(("Kind", KIND_LABELS.get(str(device.get("kind") or "vpinfe"),
                                              "VPinFE")))
-    rows_out.append(("Features", ", ".join(settings_page.FEATURE_LABELS.get(str(f), str(f))
-                                           for f in (device.get("features") or []))
+    rows_out.append(("Features",
+                     settings_page.features_said(device.get("features"))
                      or "Not reported"))
     return rows_out
 

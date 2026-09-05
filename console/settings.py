@@ -25,7 +25,7 @@ from common import config_schema, feature_checks, install_identity, path_checks
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
 from common.labels import humanize
 from common.media_specs import media_label_map
-from console import panel
+from console import deeplink, panel
 
 logger = logging.getLogger("vpinfe.console.settings")
 
@@ -308,7 +308,8 @@ def _section_label(key: str) -> str:
 # is divided is not how somebody looks for a setting.
 #
 # group -> ((page key, label, kind, sections it draws, feature), ...)
-# `feature` filters; empty means any install. `kind` picks the renderer.
+# Every page names a feature, `core` being the one every install has. `kind` picks the
+# renderer.
 SCHEMA_PAGE, KIND_PAGE, BUILT_PAGE = "schema", "kind", "built"
 
 DevicePage = tuple[str, str, str, tuple[str, ...], str]
@@ -328,31 +329,35 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
         ("feedback", "Peripherals", SCHEMA_PAGE, ("dof", "libdmdutil"), "frontend"),
     )),
     ("VPinFE", (
-        ("general", "General", SCHEMA_PAGE, ("general",), ""),
-        # Beside General rather than under Diagnostics. Ports, addresses and which
-        # library this install reads are configuration; Diagnostics is what you reach
-        # for when something is wrong.
-        ("network", "Network", SCHEMA_PAGE, ("network",), ""),
+        ("general", "General", SCHEMA_PAGE, ("general",), install_identity.CORE),
+        ("network", "Network", SCHEMA_PAGE, ("network",), install_identity.CORE),
+        # How much is written down and where it goes. The records themselves are a
+        # place of their own under System, so this page is named for the act rather
+        # than for them - two things called Logs is one too many.
+        ("logging", "Logging", SCHEMA_PAGE, ("logger",), install_identity.CORE),
         ("frontend", "Frontend", SCHEMA_PAGE, ("frontend",), "frontend"),
         ("media", "Media", SCHEMA_PAGE, ("media",), "library"),
     )),
     ("Integrations", (
         ("vps", "Virtual Pinball Spreadsheet", SCHEMA_PAGE, ("vpsdb",), "library"),
-        ("vpinplay", "VPinPlay", SCHEMA_PAGE, ("vpinplay",), ""),
+        ("vpinplay", "VPinPlay", SCHEMA_PAGE, ("vpinplay",), install_identity.CORE),
         ("mobile", "VPX Mobile", SCHEMA_PAGE, ("mobile",), "devices"),
-    )),
-    ("Diagnostics", (
-        ("logs", "Logs", SCHEMA_PAGE, ("logger",), ""),
     )),
 )
 
 
 def pages_for_features(features) -> list[tuple[str, DevicePage]]:
-    """(group, page) for every page the features an install has can answer for."""
+    """(group, page) for every page the features an install has can answer for.
+
+    `core` is held whatever arrives, including nothing. Identity and features are not
+    filtered here at all - `system_pages` puts them in front - because an install with
+    everything switched off has to be able to switch something on, and that screen is
+    the only way in.
+    """
     held = ({str(f).strip().lower() for f in (features or [])}
-            or set(install_identity.FEATURES))
+            or set(install_identity.FEATURES)) | {install_identity.CORE}
     return [(group, page) for group, pages in DEVICE_INDEX for page in pages
-            if not page[4] or page[4] in held]
+            if page[4] in held]
 
 
 # What a person calls each feature. The key names the thing and the label says what you
@@ -374,18 +379,27 @@ FEATURE_NOTES = {
                               "unless you ask for it.",
 }
 
-# Why the last one cannot be switched off here. An install with no features stored reads
-# as all of them rather than as none, so a screen that let you reach empty would be
-# showing a state the config layer does not hold.
-LAST_FEATURE_NOTE = "An install has to be for something. Turn another one on first."
+
+def features_said(features) -> str:
+    """What an install is for, in a person's words.
+
+    `core` is left out: every install has it, so a list naming it prints the same word
+    on every row. Anything else unrecognized is shown as it arrived, because a device
+    reporting a feature this build has not heard of is a fact rather than a blank.
+    """
+    return ", ".join(FEATURE_LABELS.get(str(name), str(name))
+                     for name in (features or [])
+                     if str(name) != install_identity.CORE)
+
 
 IDENTITY = "identity"
 
-# System's floor, and the one page in it that is not feature-derived: this is where
-# features are switched on, so an install with none still has a way to fix itself from
-# inside. Not a schema page - `features` is a list in the file and a closed set of three
-# on screen, and a comma-separated text field is the wrong control for that.
-IDENTITY_PAGE: DevicePage = (IDENTITY, "Identity", BUILT_PAGE, ("install",), "")
+# The one page that is pinned rather than filtered: this is where features are switched
+# on, so an install with none still has a way to fix itself from inside. Not a schema
+# page - `features` is a list in the file and a closed set on screen, and a
+# comma-separated text field is the wrong control for that.
+IDENTITY_PAGE: DevicePage = (IDENTITY, "Identity", BUILT_PAGE, ("install",),
+                             install_identity.CORE)
 
 # What the Identity page's group is called. This install, as against the Library group
 # below it, which is about the games rather than about the machine.
@@ -582,6 +596,10 @@ def build_system(library, state: dict[str, Any], redraw: Callable[[], None],
     def pick(key: str) -> None:
         state["settings_page"] = key
         redraw()
+        # The address was read on arrival and never written again, so a page opened by
+        # hand was lost on the next reload - and a reload is not always something you
+        # chose.
+        deeplink.sync(state)
 
     work = panel.sections(entries, chosen, pick, rail_px=RAIL_PX)
     with work:
@@ -677,13 +695,10 @@ async def _identity_page(library, reported: str,
         await _write(library, "install", "display_name", text.strip())
 
     async def flip(name: str, wanted_on: bool) -> None:
+        # Switching the last one off is allowed. An install for nothing is a real state
+        # and this page is still here in it: everything you need to make it for
+        # something belongs to `core`.
         after = (on | {name}) if wanted_on else (on - {name})
-        if not after:
-            # Redrawn rather than reloaded: nothing was written, and a reload takes the
-            # notification saying why with it before it can be read.
-            ui.notify(LAST_FEATURE_NOTE, type="warning")
-            redraw()
-            return
         # In the order the install declares them, so the file reads the same however the
         # switches were thrown.
         if await _write(library, "install", "features",
