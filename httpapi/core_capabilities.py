@@ -104,6 +104,11 @@ def declare_core() -> None:
         is_available=_launch_available,
     ))
     capabilities.declare(capabilities.Capability(
+        name="launchers",
+        feature=capabilities.install_identity.FRONTEND,
+        description="The configured ways this machine runs a table",
+    ))
+    capabilities.declare(capabilities.Capability(
         name="peripherals",
         feature=capabilities.install_identity.FRONTEND,
         description="DOF, real-DMD and other attached hardware",

@@ -158,14 +158,6 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                     .set_enabled(bool(games))
 
 
-def launchers() -> None:
-    """The configured ways this machine runs a table. The list and its editor are their
-    own slice; the place exists because the trouble badge has to lead somewhere."""
-    _coming("Every way this machine can run a table: what program, which configuration "
-            "file, and which tables use it rather than the usual one. Duplicate one to "
-            "run the same program a second way.")
-
-
 # --- Metrics and Logs ------------------------------------------------------------
 
 def metrics() -> None:

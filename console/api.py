@@ -536,6 +536,27 @@ class ApiClient:
         self._answered(response)
         return response.json()
 
+    def launchers(self) -> dict:
+        """Every launcher, the tables that deviate, and which one is the default.
+
+        The field shape travels with each launcher, so the editor is drawn from what the
+        install says a launcher of that app holds rather than from a list kept here.
+        """
+        return dict(self._get("/launchers") or {})
+
+    def put_launcher(self, launcher_id: str, body: dict) -> dict:
+        """One whole launcher, under an id the caller owns - which is also how one copied
+        from another machine lands without being renumbered."""
+        return dict(self._put(f"/launchers/{launcher_id}", body) or {})
+
+    def delete_launcher(self, launcher_id: str) -> None:
+        self._delete(f"/launchers/{launcher_id}")
+
+    def assign_launcher(self, table_id: str, launcher_id: str) -> dict:
+        """Point a table at one, or clear it back to the default with an empty id."""
+        return dict(self._put(f"/launchers/mappings/{table_id}",
+                              {"launcher_id": launcher_id}) or {})
+
     def config_schema(self) -> list[dict]:
         """Every setting this install has, sectioned. Read from the install rather than
         carried here, so a client cannot offer a setting the install does not have."""

@@ -13,6 +13,7 @@ from console import assets as assets_page
 from console import collections as collections_page
 from console import deeplink, games, grid, sections, tageditor, theme, views, workbench
 from console import devices as devices_page
+from console import launchers as launchers_page
 from console import media as media_page
 from console import settings as settings_page
 from console.api import ApiClient
@@ -797,7 +798,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             elif view == "settings":
                 settings_page.build_system(library, state, redraw, discovery)
             elif view == "launchers":
-                sections.launchers()
+                launchers_page.build(library, state, redraw)
             elif view == "metrics":
                 sections.metrics()
             elif view == "logs":

@@ -274,6 +274,20 @@ class Library:
         somebody may have just changed it from somewhere else."""
         return self._client.config_values()
 
+    def launchers(self) -> dict:
+        """Read fresh every time: a launcher is edited from this page, and a cache would
+        show the value that was there before the edit that just happened."""
+        return self._client.launchers()
+
+    def put_launcher(self, launcher_id: str, body: dict) -> dict:
+        return self._client.put_launcher(launcher_id, body)
+
+    def delete_launcher(self, launcher_id: str) -> None:
+        self._client.delete_launcher(launcher_id)
+
+    def assign_launcher(self, table_id: str, launcher_id: str) -> dict:
+        return self._client.assign_launcher(table_id, launcher_id)
+
     def put_config(self, changes: dict) -> dict:
         self._kept = None
         return self._client.put_config(changes)

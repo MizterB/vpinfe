@@ -69,21 +69,23 @@ async def _write(library, section: str, key: str, value: Any) -> bool:
     return True
 
 
-def _control(library, section: str, option: dict, value: Any,
-             writable: bool, rerender: Callable[[], None] | None = None,
-             checks: dict[tuple[str, str], dict] | None = None,
-             suggestions: dict[str, Any] | None = None) -> Callable[[], None]:
-    """The control a setting's type asks for.
+def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
+                writable: bool = True, rerender: Callable[[], None] | None = None,
+                check: dict | None = None,
+                suggestions: dict[str, Any] | None = None) -> Callable[[], None]:
+    """The control a declared value's type asks for.
 
-    Driven by the schema, never by the key's name: a setting added to config_schema
-    renders here without this file being touched, which is the whole point of the schema
-    being served rather than restated. `suggest` is the same rule for a value the install
-    can offer answers to at runtime.
+    Driven by the declaration, never by the key's name: something added to the schema -
+    or to an app's launcher fields - renders here without this file being touched.
+
+    `save` takes the new value and answers whether it was written. Passed in rather than
+    built from a section and a key, because the same grammar now draws two things that
+    are stored quite differently: a setting goes to a config section, and a launcher
+    field goes to a launcher.
     """
-    key = option["key"]
     kind = option.get("type")
     off = not writable
-    found = (checks or {}).get((section, key)) or {}
+    found = check or {}
     state = panel.value_state(str(found.get("state") or ""),
                               str(found.get("reason") or ""))
 
@@ -93,46 +95,45 @@ def _control(library, section: str, option: dict, value: Any,
         offered = (suggestions or {}).get(option["suggest"]) or {}
 
         async def save_suggested(event: Any) -> None:
-            if await _write(library, section, key, str(event.value or "").strip()) \
-                    and rerender is not None:
+            if await save(str(event.value or "").strip()) and rerender is not None:
                 rerender()
 
         return panel.combo(str(value or ""), offered, save_suggested, disabled=off,
                            status=state)
 
     if kind == "bool":
-        return panel.switch(
-            bool(value),
-            lambda e: _write(library, section, key, bool(e.value)), disabled=off)
+        return panel.switch(bool(value), lambda e: save(bool(e.value)), disabled=off)
     if kind == "choice" and option.get("choices"):
-        return panel.select(
-            list(option["choices"]), str(value or ""),
-            lambda e: _write(library, section, key, e.value), disabled=off)
+        return panel.select(list(option["choices"]), str(value or ""),
+                            lambda e: save(e.value), disabled=off)
     if kind == "int":
         return panel.number(
-            value,
-            lambda e: _write(library, section, key,
-                             "" if e.value is None else int(e.value)), disabled=off)
+            value, lambda e: save("" if e.value is None else int(e.value)), disabled=off)
     if kind == "list":
         # One line, comma separated, which is how the file holds it. A chip editor would
         # be nicer and would need to know whether order matters; it does for some.
         return panel.field(
             ", ".join(str(v) for v in (value or [])),
-            lambda text: _write(library, section, key,
-                                [p.strip() for p in text.split(",") if p.strip()]),
+            lambda text: save([p.strip() for p in text.split(",") if p.strip()]),
             disabled=off)
     if option.get("path"):
-        # A path is the one setting that can be well-formed and still wrong, and it fails
+        # A path is the one value that can be well-formed and still wrong, and it fails
         # much later - at launch, as a file-not-found. Re-checked after a write rather
         # than guessed at here: the answer is about this machine's disk, not the text.
         async def save_path(text: str) -> None:
-            if await _write(library, section, key, text) and rerender is not None:
+            if await save(text) and rerender is not None:
                 rerender()
 
         return panel.field(str(value or ""), save_path, disabled=off, status=state)
-    return panel.field(
-        str(value or ""),
-        lambda text: _write(library, section, key, text), disabled=off)
+    return panel.field(str(value or ""), lambda text: save(text), disabled=off)
+
+
+def _saver(source, section: str, key: str) -> Callable[[Any], Any]:
+    """Write one setting to a config section, for the control grammar to call."""
+    async def save(value: Any) -> bool:
+        return await _write(source, section, key, value)
+
+    return save
 
 
 def _kind_page(library, rerender: Callable[[], None], note: str,
@@ -515,8 +516,12 @@ def section_rows(source, section: str, options: list[dict], values: dict,
     for option in options:
         value = current.get(option["key"], option.get("default"))
         entries.append((option.get("label") or humanize(option["key"]),
-                        _control(source, section, option, value, writable,
-                                 rerender, checks, suggestions)))
+                        control_for(
+                            option, value,
+                            _saver(source, section, option["key"]),
+                            writable=writable, rerender=rerender,
+                            check=(checks or {}).get((section, option["key"])),
+                            suggestions=suggestions)))
         if option.get("description"):
             entries.append(panel.note(option["description"]))
     return entries
