@@ -75,8 +75,8 @@ _ACTION_ICONS = {
     ("frontend", "start"): "launch",
     ("frontend", "stop"): "close",
     ("frontend", "restart"): "refresh",
-    ("app", "stop"): "power_settings_new",
-    ("app", "restart"): "restart_alt",
+    ("vpinfe", "stop"): "power_settings_new",
+    ("vpinfe", "restart"): "restart_alt",
     ("system", "stop"): "power_settings_new",
     ("system", "restart"): "restart_alt",
 }
@@ -650,7 +650,7 @@ def capability_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 # What a lifecycle action costs, which is what decides whether it is asked about twice.
 # Closing a table loses a game in progress; the rest lose the whole machine for a while.
-_HEAVY = {"app", "system"}
+_HEAVY = {"vpinfe", "system"}
 
 
 async def action_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:

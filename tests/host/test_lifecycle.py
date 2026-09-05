@@ -20,8 +20,8 @@ class LifecycleTests(unittest.TestCase):
             (lifecycle.FRONTEND, lifecycle.START),
             (lifecycle.FRONTEND, lifecycle.STOP),
             (lifecycle.FRONTEND, lifecycle.RESTART),
-            (lifecycle.APP, lifecycle.STOP),
-            (lifecycle.APP, lifecycle.RESTART),
+            (lifecycle.VPINFE, lifecycle.STOP),
+            (lifecycle.VPINFE, lifecycle.RESTART),
             (lifecycle.SYSTEM, lifecycle.STOP),
             (lifecycle.SYSTEM, lifecycle.RESTART),
             (lifecycle.TABLE, lifecycle.STOP),
@@ -39,9 +39,9 @@ class LifecycleTests(unittest.TestCase):
             lifecycle.SURFACE_FRONTEND, lambda request: asked.append(request) or True)
 
         self.assertTrue(lifecycle.request(
-            lifecycle.APP, lifecycle.STOP, origin=self._at(lifecycle.SURFACE_FRONTEND)))
+            lifecycle.VPINFE, lifecycle.STOP, origin=self._at(lifecycle.SURFACE_FRONTEND)))
         self.assertEqual(asked, [])
-        self.assertEqual(self.done, [(lifecycle.APP, lifecycle.STOP)])
+        self.assertEqual(self.done, [(lifecycle.VPINFE, lifecycle.STOP)])
 
     def test_saying_no_stops_it(self) -> None:
         lifecycle.register_confirmer(lifecycle.SURFACE_FRONTEND, lambda _request: False)
@@ -56,9 +56,9 @@ class LifecycleTests(unittest.TestCase):
         lifecycle.register_confirmer(lifecycle.SURFACE_FRONTEND, lambda _request: False)
 
         self.assertTrue(lifecycle.request(
-            lifecycle.APP, lifecycle.STOP, origin=self._at(lifecycle.SURFACE_FRONTEND),
+            lifecycle.VPINFE, lifecycle.STOP, origin=self._at(lifecycle.SURFACE_FRONTEND),
             confirm_scopes=["system"]))
-        self.assertEqual(self.done, [(lifecycle.APP, lifecycle.STOP)])
+        self.assertEqual(self.done, [(lifecycle.VPINFE, lifecycle.STOP)])
 
     def test_the_question_goes_to_the_surface_that_asked(self) -> None:
         """The whole point of an addressed origin: a confirm follows the request home."""
@@ -79,10 +79,10 @@ class LifecycleTests(unittest.TestCase):
         lifecycle.register_confirmer(lifecycle.SURFACE_FRONTEND, lambda _request: False)
 
         self.assertTrue(lifecycle.request(
-            lifecycle.APP, lifecycle.STOP,
+            lifecycle.VPINFE, lifecycle.STOP,
             origin=lifecycle.Origin(lifecycle.SURFACE_SIGNAL),
             confirm_scopes=["app", "system", "frontend"]))
-        self.assertEqual(self.done, [(lifecycle.APP, lifecycle.STOP)])
+        self.assertEqual(self.done, [(lifecycle.VPINFE, lifecycle.STOP)])
 
     def test_a_surface_that_cannot_answer_denies(self) -> None:
         """The window went away mid-request, so the person is not there either."""
@@ -131,7 +131,7 @@ class LifecycleTests(unittest.TestCase):
         """`start` the machine and `start` VPinFE have nothing to act on: the process is
         already running and the machine is already on."""
         for scope, action in ((lifecycle.SYSTEM, lifecycle.START),
-                              (lifecycle.APP, lifecycle.START),
+                              (lifecycle.VPINFE, lifecycle.START),
                               ("everything", lifecycle.STOP)):
             with self.subTest(scope=scope, action=action):
                 with self.assertRaises(ValueError):
@@ -149,8 +149,8 @@ class LifecycleTests(unittest.TestCase):
             (lifecycle.FRONTEND, lifecycle.START): "Open the frontend windows",
             (lifecycle.FRONTEND, lifecycle.STOP): "Close the frontend windows",
             (lifecycle.FRONTEND, lifecycle.RESTART): "Reopen the frontend windows",
-            (lifecycle.APP, lifecycle.STOP): "Quit VPinFE",
-            (lifecycle.APP, lifecycle.RESTART): "Restart VPinFE",
+            (lifecycle.VPINFE, lifecycle.STOP): "Quit VPinFE",
+            (lifecycle.VPINFE, lifecycle.RESTART): "Restart VPinFE",
             (lifecycle.SYSTEM, lifecycle.STOP): "Power off this machine",
             (lifecycle.SYSTEM, lifecycle.RESTART): "Reboot this machine",
         }
@@ -245,7 +245,7 @@ class NoticeTests(unittest.TestCase):
         bridge = _Bridge()
         self._install(bridge)
 
-        lifecycle.request(lifecycle.APP, lifecycle.STOP,
+        lifecycle.request(lifecycle.VPINFE, lifecycle.STOP,
                           origin=lifecycle.Origin(lifecycle.SURFACE_FRONTEND, "table"))
 
         self.assertEqual(bridge.sent[0][1], "table")
@@ -266,7 +266,7 @@ class NoticeTests(unittest.TestCase):
         bridge = _Bridge()
         self._install(bridge)
 
-        lifecycle.request(lifecycle.APP, lifecycle.STOP,
+        lifecycle.request(lifecycle.VPINFE, lifecycle.STOP,
                           origin=lifecycle.Origin(lifecycle.SURFACE_SIGNAL))
 
         self.assertEqual(len(bridge.sent), 1)
@@ -277,7 +277,7 @@ class NoticeTests(unittest.TestCase):
         self._install(bridge)
         self._install(bridge)
 
-        lifecycle.request(lifecycle.APP, lifecycle.STOP,
+        lifecycle.request(lifecycle.VPINFE, lifecycle.STOP,
                           origin=lifecycle.Origin(lifecycle.SURFACE_SIGNAL))
 
         self.assertEqual(len(bridge.sent), 1, bridge.sent)

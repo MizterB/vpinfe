@@ -1335,7 +1335,7 @@ class VPinFECore {
   /**
    * Start, stop or restart the frontend, VPinFE or the machine.
    *
-   * Scope is "frontend", "app" or "system"; action is "start", "stop" or "restart".
+   * Scope is "frontend", "vpinfe" or "system"; action is "start", "stop" or "restart".
    * Confirms first when the user asked to be asked, and resolves false when they say no
    * or the build cannot do it, so a caller can leave its menu open.
    */
@@ -2421,7 +2421,7 @@ class VPinFECore {
       // nothing focuses the iframe - so this used to quit VPinFE from inside a menu.
       // Closing the overlay is what every overlay's own map already meant by it.
       if (overlay) this.#toggleOverlay(overlay);
-      else this.requestLifecycle("app", "stop");
+      else this.requestLifecycle("vpinfe", "stop");
     }
     else if (action === "menu") this.#toggleOverlay("menu");
     else if (action === "collection_menu") this.#toggleOverlay("collectionMenu");
@@ -2448,7 +2448,7 @@ class VPinFECore {
     else if (action === "back" && this.inputMode === "navigation"
              && this.contract >= CURRENT_CONTRACT
              && this.enabled("core_navigation") && !overlay && this.isController()) {
-      this.requestLifecycle("app", "stop");
+      this.requestLifecycle("vpinfe", "stop");
     }
     else this.#triggerInputAction(action);
   }

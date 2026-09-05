@@ -34,7 +34,7 @@ class PerformUpdateTests(unittest.TestCase):
         self.addCleanup(launch_state.clear)
         self.addCleanup(lifecycle.reset_for_tests)
         self.performed = []
-        for scope in (lifecycle.TABLE, lifecycle.APP):
+        for scope in (lifecycle.TABLE, lifecycle.VPINFE):
             lifecycle.register_performer(
                 scope, lifecycle.STOP,
                 lambda request: self.performed.append(request.pair))
@@ -122,7 +122,7 @@ class PerformUpdateTests(unittest.TestCase):
     def test_this_install_goes_down_so_the_updater_can_run(self) -> None:
         self._post()
 
-        self.assertIn((lifecycle.APP, lifecycle.STOP), self.performed)
+        self.assertIn((lifecycle.VPINFE, lifecycle.STOP), self.performed)
         self.assertEqual(self.forced, [True])
 
 

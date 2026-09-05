@@ -112,7 +112,7 @@ class RemoteRefusalTests(unittest.TestCase):
 
     def test_a_remote_device_never_asks_the_person_to_confirm(self) -> None:
         """The confirm belongs on the surface that asked, which is not that machine."""
-        self.assertFalse(self.device.wants_confirmation(lifecycle.APP))
+        self.assertFalse(self.device.wants_confirmation(lifecycle.VPINFE))
 
 
 if __name__ == "__main__":

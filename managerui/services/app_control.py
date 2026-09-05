@@ -97,12 +97,12 @@ async def _request(scope: str, action: str, notice: str, notice_type: str = "inf
 
 async def restart_app() -> bool:
     """Restart VPinFE by signaling main.py to re-exec itself."""
-    return await _request(lifecycle.APP, lifecycle.RESTART, "Restarting VPinFE...")
+    return await _request(lifecycle.VPINFE, lifecycle.RESTART, "Restarting VPinFE...")
 
 
 async def quit_app() -> bool:
     """Quit VPinFE, closing the frontend windows if any are open."""
-    return await _request(lifecycle.APP, lifecycle.STOP, "Quitting VPinFE...")
+    return await _request(lifecycle.VPINFE, lifecycle.STOP, "Quitting VPinFE...")
 
 
 async def shutdown_system() -> bool:

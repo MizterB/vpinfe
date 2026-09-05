@@ -159,7 +159,7 @@ Re-reading a game *replaces* the object rather than mutating it, so a holder of 
 one is stale with no way to notice - which is why the announcement has to exist at all.
 
 Start, stop and restart things through `common/lifecycle.py`. A request names a scope
-(`frontend`, `app`, `system`) and an action (`start`, `stop`, `restart`), so rebooting
+(`frontend`, `vpinfe`, `system`) and an action (`start`, `stop`, `restart`), so rebooting
 the machine is `restart` at system scope rather than a verb of its own, and the
 frontend, the Manager UI, an extension and a signal all arrive at one place. Reaching
 for the browser directly is what used to skip `shutdown_services` and lose a session's

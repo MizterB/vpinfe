@@ -1313,13 +1313,13 @@ The following methods are available via `vpin.call()`:
 
 `scope` is what the action applies to and `action` is what happens to it:
 
-| | `frontend` | `app` | `system` |
+| | `frontend` | `vpinfe` | `system` |
 |---|---|---|---|
 | `start` | yes | — | — |
 | `stop` | yes | yes | powers off |
 | `restart` | yes | yes | yes |
 
-`close_app` and `shutdown_system` still work and are unchanged — they are `app`/`stop`
+`close_app` and `shutdown_system` still work and are unchanged — they are `vpinfe`/`stop`
 and `system`/`stop` under the old names.
 
 Use `vpin.requestLifecycle(scope, action)` rather than calling the two methods directly.

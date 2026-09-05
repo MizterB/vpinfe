@@ -31,7 +31,7 @@ router = APIRouter(prefix="/actions", tags=["actions"])
 # whether it stopped, so these are handed to a background task and the response goes out
 # first - the same order `POST /update` uses, and for the same reason.
 GOES_AWAY = frozenset({
-    (lifecycle.APP, lifecycle.STOP), (lifecycle.APP, lifecycle.RESTART),
+    (lifecycle.VPINFE, lifecycle.STOP), (lifecycle.VPINFE, lifecycle.RESTART),
     (lifecycle.SYSTEM, lifecycle.STOP), (lifecycle.SYSTEM, lifecycle.RESTART),
 })
 

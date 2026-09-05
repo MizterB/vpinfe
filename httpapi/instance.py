@@ -267,6 +267,6 @@ def build_router(prefix: str, api_version: str) -> APIRouter:
 def _quit_for_update() -> None:
     """Go down the ordinary way, so the services shut down and the windows close."""
     device_client.local().request(
-        lifecycle.APP, lifecycle.STOP,
+        lifecycle.VPINFE, lifecycle.STOP,
         origin=lifecycle.Origin(lifecycle.SURFACE_API),
         reason="an update is staged")

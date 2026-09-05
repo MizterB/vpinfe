@@ -31,7 +31,7 @@ def confirm_scopes():
     """
     if _config_store is None or not cfg_bool(_config_store, "frontend", "confirm"):
         return ()
-    return (lifecycle.APP, lifecycle.SYSTEM)
+    return (lifecycle.VPINFE, lifecycle.SYSTEM)
 
 
 def wants_confirmation(scope: str) -> bool:
@@ -112,8 +112,8 @@ def install(*, config_store, config_dir, frontend_browser, shutdown_event,
     def stop_table(_request):
         launch_state.stop()
 
-    lifecycle.register_performer(lifecycle.APP, lifecycle.STOP, stop_app)
-    lifecycle.register_performer(lifecycle.APP, lifecycle.RESTART, restart_app)
+    lifecycle.register_performer(lifecycle.VPINFE, lifecycle.STOP, stop_app)
+    lifecycle.register_performer(lifecycle.VPINFE, lifecycle.RESTART, restart_app)
     lifecycle.register_performer(lifecycle.FRONTEND, lifecycle.STOP, stop_frontend)
     lifecycle.register_performer(lifecycle.SYSTEM, lifecycle.STOP, stop_system)
     lifecycle.register_performer(lifecycle.SYSTEM, lifecycle.RESTART, restart_system)

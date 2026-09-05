@@ -439,7 +439,7 @@ describe("back at the root leaves", () => {
 
     await press("b");
 
-    assert.deepEqual(asked, [["app", "stop"]],
+    assert.deepEqual(asked, [["vpinfe", "stop"]],
                      "through requestLifecycle, so Confirm Before Exit is honoured");
   });
 

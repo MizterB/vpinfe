@@ -321,13 +321,18 @@ table misses. One known ambiguity: some EM/PM recreations *conditionally* drive 
 chime sounds (the `cOptRom` pattern), and read as required when the player may run
 happily without the ROM. The flag lands on the table on the next metadata rebuild;
 until then the chain reports `required: null`.
-- **Launcher** — the application that runs a table file (VPX standalone today).
-  Not "app": that is VPinFE itself, and the lifecycle scopes use it that way.
+- **App** — a program that runs a table file: Visual Pinball X today, `generic` for one
+  we only know how to start. Code, not configuration - `common/games/apps.py` declares
+  them.
+- **Launcher** — a configured way of running an app: a name, a binary, an ini, its own
+  `launcher.<id>` section. User data, and what a table names when it plays differently
+  from the rest. One app, as many launchers as somebody wants.
 - **Install** — one VPinFE installation: its files, its config, its `install_id`. It
   survives restarts, and it is what an install is addressed as.
-- **App** — VPinFE running. What a lifecycle request starts, stops or restarts, as against
-  the `frontend` it opens and the `system` it runs on. The install is still there when the
-  app is not.
+- **VPinFE** — VPinFE running. What a lifecycle request starts, stops or restarts, as
+  against the `frontend` it opens and the `system` it runs on. The install is still there
+  when VPinFE is not. Never "app" for this: that word belongs to the thing that plays a
+  table, and one word cannot be both.
 - **Theme** — a player-facing frontend package.
 - **Device** — something a game can be launched on and played. A VPinFE install is
   one kind; a phone running VPX Mobile is another that never runs our code.

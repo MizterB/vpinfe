@@ -110,12 +110,12 @@ class ActionsApiTests(TempTree):
     def test_one_that_takes_the_machine_away_answers_before_it_goes(self) -> None:
         """A process that is stopping cannot report that it stopped, so the work is
         handed to a background task and the response goes out first."""
-        done = self._offer("app", "restart")
+        done = self._offer("vpinfe", "restart")
 
         with patch.object(httpapi.actions, "_perform",
                           side_effect=lambda *a: done.append(a)) as performed:
             body = self.client.post("/actions",
-                                    json={"scope": "app", "action": "restart"}).json()
+                                    json={"scope": "vpinfe", "action": "restart"}).json()
 
         self.assertTrue(body["performed"])
         self.assertTrue(performed.called, "the work was never handed over")

@@ -45,7 +45,7 @@ describe("nothing is asked when the setting is off", () => {
   test("the request goes straight through", async () => {
     const { vpin, methods, dialog } = controller({ confirm: false });
 
-    assert.equal(await vpin.requestLifecycle("app", "stop"), true);
+    assert.equal(await vpin.requestLifecycle("vpinfe", "stop"), true);
     assert.deepEqual(methods(), ["lifecycle_needs_confirmation", "lifecycle_request"]);
     assert.equal(dialog(), undefined, "no dialog should have been drawn");
   });
@@ -55,7 +55,7 @@ describe("with the setting on, the user answers first", () => {
   test("nothing is requested until they do", async () => {
     const { vpin, press, settle, methods, dialog } = controller({ confirm: true });
 
-    const pending = vpin.requestLifecycle("app", "stop");
+    const pending = vpin.requestLifecycle("vpinfe", "stop");
     await settle();
 
     assert.deepEqual(methods(), ["lifecycle_needs_confirmation"],
@@ -69,14 +69,14 @@ describe("with the setting on, the user answers first", () => {
   test("select confirms it", async () => {
     const { vpin, press, settle, methods, asked, dialog } = controller({ confirm: true });
 
-    const pending = vpin.requestLifecycle("app", "stop");
+    const pending = vpin.requestLifecycle("vpinfe", "stop");
     await settle();
     await press("Enter");
 
     assert.equal(await pending, true);
     assert.deepEqual(methods(), ["lifecycle_needs_confirmation", "lifecycle_request"]);
     // The bridge is told the question was already put, so it does not ask again.
-    assert.deepEqual(asked[1].args, ["app", "stop", "", true]);
+    assert.deepEqual(asked[1].args, ["vpinfe", "stop", "", true]);
     assert.equal(dialog(), undefined, "the dialog should be gone once answered");
   });
 
@@ -86,7 +86,7 @@ describe("with the setting on, the user answers first", () => {
     test(`${key} cancels it, and the app keeps running`, async () => {
       const { vpin, press, settle, methods, dialog } = controller({ confirm: true });
 
-      const pending = vpin.requestLifecycle("app", "stop");
+      const pending = vpin.requestLifecycle("vpinfe", "stop");
       await settle();
       await press(key);
 
@@ -102,7 +102,7 @@ describe("with the setting on, the user answers first", () => {
     // count as an answer in either direction, or a flipper nudge quits the app.
     const { vpin, press, settle, methods, dialog } = controller({ confirm: true });
 
-    const pending = vpin.requestLifecycle("app", "stop");
+    const pending = vpin.requestLifecycle("vpinfe", "stop");
     await settle();
     await press("ArrowRight");
     await settle();
@@ -122,7 +122,7 @@ describe("with the setting on, the user answers first", () => {
     const acted = [];
     vpin.inputHandlers.push((action) => { acted.push(action); });
 
-    const pending = vpin.requestLifecycle("app", "stop");
+    const pending = vpin.requestLifecycle("vpinfe", "stop");
     await settle();
     await press("Enter");
     await settle();
@@ -138,7 +138,7 @@ describe("with the setting on, the user answers first", () => {
     vpin.tableData = [{}, {}, {}];
     const before = vpin._currentTableIndex;
 
-    const pending = vpin.requestLifecycle("app", "stop");
+    const pending = vpin.requestLifecycle("vpinfe", "stop");
     await settle();
     await press("ArrowRight");
 

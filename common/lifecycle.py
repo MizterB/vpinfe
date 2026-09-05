@@ -1,6 +1,6 @@
 """Starting, stopping and restarting things, however the request arrives.
 
-    scope     frontend   app        system     table
+    scope     frontend   vpinfe     system     table
     start     yes        -          -          -
     stop      yes        yes        poweroff   yes
     restart   yes        yes        yes        -
@@ -22,7 +22,7 @@ logger = logging.getLogger("vpinfe.common.lifecycle")
 
 # What a request applies to.
 FRONTEND = "frontend"       # the Chromium windows; VPinFE keeps running
-APP = "app"                 # VPinFE itself
+VPINFE = "vpinfe"           # VPinFE itself
 SYSTEM = "system"           # the machine
 TABLE = "table"             # the table being played; VPinFE and the frontend keep running
 
@@ -36,7 +36,7 @@ POWEROFF = (SYSTEM, STOP)
 
 _ALLOWED = {
     (FRONTEND, START), (FRONTEND, STOP), (FRONTEND, RESTART),
-    (APP, STOP), (APP, RESTART),
+    (VPINFE, STOP), (VPINFE, RESTART),
     (SYSTEM, STOP), (SYSTEM, RESTART),
     # Stop only: starting a table is a launch, which needs to know which one, and
     # restarting one is that launch again.
@@ -81,7 +81,7 @@ class Request:
         """What this asks for, in the words a person would use.
 
         Written out rather than built from the scope and the action: the template read
-        "stop the app", which names an internal scope at someone about to be asked
+        "stop the vpinfe", which names an internal scope at someone about to be asked
         whether they meant it. Already sentence-cased, because str.capitalize lowercases
         the rest and "Quit VPinFE" would come back as "Quit vpinfe".
         """
@@ -93,8 +93,8 @@ _DESCRIPTIONS = {
     (FRONTEND, START): "Open the frontend windows",
     (FRONTEND, STOP): "Close the frontend windows",
     (FRONTEND, RESTART): "Reopen the frontend windows",
-    (APP, STOP): "Quit VPinFE",
-    (APP, RESTART): "Restart VPinFE",
+    (VPINFE, STOP): "Quit VPinFE",
+    (VPINFE, RESTART): "Restart VPinFE",
     (SYSTEM, STOP): "Power off this machine",
     (SYSTEM, RESTART): "Reboot this machine",
     (TABLE, STOP): "Close the table that is running",
@@ -106,7 +106,7 @@ _DESCRIPTIONS = {
 _ORDER = (
     (TABLE, STOP),
     (FRONTEND, RESTART), (FRONTEND, STOP), (FRONTEND, START),
-    (APP, RESTART), (APP, STOP),
+    (VPINFE, RESTART), (VPINFE, STOP),
     (SYSTEM, RESTART), (SYSTEM, STOP),
 )
 

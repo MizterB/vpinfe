@@ -356,8 +356,8 @@ class API:
         return lifecycle.Origin(lifecycle.SURFACE_FRONTEND, self.window_name or "")
 
     def close_app(self):
-        """Quit VPinFE. The 2.x spelling of `lifecycle_request('app', 'stop')`."""
-        return self.lifecycle_request(lifecycle.APP, lifecycle.STOP)
+        """Quit VPinFE. The 2.x spelling of `lifecycle_request('vpinfe', 'stop')`."""
+        return self.lifecycle_request(lifecycle.VPINFE, lifecycle.STOP)
 
     def shutdown_system(self):
         """Power off the host. The 2.x spelling of `lifecycle_request('system', 'stop')`."""
