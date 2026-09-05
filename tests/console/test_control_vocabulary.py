@@ -3,14 +3,40 @@
 The Console had two answers to "what control does this type want": `settings.control_for`
 for a config option, and a copy of it in the themes page for a theme's own options. Two
 answers drift the moment either gains a type, which is what these pin.
+
+The budget below is the other half. A raw `ui.*` control is not wrong - a toolbar search
+box has no label column and sets nothing, so it is not a fact row and forcing it through
+`panel` would be worse. What is wrong is a *new* one appearing without anybody deciding
+that, so each module says how many it has and why.
 """
 
 from __future__ import annotations
 
+import re
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 from console import panel, settings, themes
+
+CONSOLE = Path(__file__).resolve().parent.parent.parent / "console"
+
+CONTROLS = re.compile(r"ui\.(switch|checkbox|input|select|number|textarea)\(")
+
+# What each module draws by hand, and why it is not a fact row. `panel.py` is the home of
+# the grammar and is not counted. Raising a number is a decision: say what the control is
+# for, or use `panel`.
+BUDGET = {
+    "workbench.py": (15, "panel rows with bespoke wiring - chips, debounce, a disabled "
+                         "select carrying its own reason - plus one find box"),
+    "logs.py": (4, "the control bar above the viewport: two pickers, a level and a find"),
+    "games.py": (3, "the view picker in the toolbar, and two dialogs"),
+    "mediasource.py": (2, "a start picker and a search, both toolbar"),
+    "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
+    "about.py": (1, "the textarea a browser that will not copy falls back to"),
+    "collections.py": (1, "the name field in the new-collection dialog"),
+    "tageditor.py": (1, "the inline tag field, which is the editor itself"),
+}
 
 
 class ThemeOptionsUseTheSharedGrammar(unittest.TestCase):
@@ -100,6 +126,26 @@ class WhatTheDialogHolds(unittest.TestCase):
         shown = themes._shown({"key": "k", "type": "json"}, {"k": {"a": 1}})
 
         self.assertIn('"a"', shown)
+
+
+class RawControlsAreDeclared(unittest.TestCase):
+    def test_no_module_grows_one_unnoticed(self) -> None:
+        found = {}
+        for path in sorted(CONSOLE.glob("*.py")):
+            if path.name == "panel.py":
+                continue
+            count = len(CONTROLS.findall(path.read_text(encoding="utf-8")))
+            if count:
+                found[path.name] = count
+
+        expected = {name: count for name, (count, _why) in BUDGET.items()}
+        self.assertEqual(found, expected,
+                         "a control outside panel.py is a decision - either draw it "
+                         "with panel, or add it to BUDGET with what it is for")
+
+
+if __name__ == "__main__":
+    unittest.main()
 
 
 if __name__ == "__main__":

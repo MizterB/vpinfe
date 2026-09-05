@@ -422,8 +422,7 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
             else f"{len(built)} devices"
 
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel"):
-        search = ui.input(placeholder="Search devices") \
-            .props("dense outlined clearable").classes("w-64")
+        search = panel.search("Search devices")
         _wire_views, _picker, showing = view_control(library, SCOPE, VIEWS,
                                                     _ALL, COLUMNS)
         ui.space()

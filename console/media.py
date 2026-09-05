@@ -18,7 +18,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common.media_specs import media_label_map
-from console import confirm, grid, media_ownership, views
+from console import confirm, grid, media_ownership, panel, views
 from console.api import ApiClient
 from console.games import view_control
 
@@ -252,8 +252,7 @@ def build(found: list[dict[str, Any]], library: Any,
         return f"{on_screen['rows']} of {len(built)} media"
 
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel"):
-        search = ui.input(placeholder="Search media") \
-            .props("dense outlined clearable").classes("w-64")
+        search = panel.search("Search media")
         wire_views, _picker, showing = view_control(library, SCOPE, VIEWS,
                                                     _ALL, COLUMNS)
         ui.space()

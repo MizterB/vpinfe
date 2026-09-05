@@ -16,7 +16,7 @@ from urllib.parse import quote
 from nicegui import run, ui
 
 from common.games.collection_store import DIRECTION_LABELS, SORT_LABELS
-from console import confirm, grid, views
+from console import confirm, grid, panel, views
 from console.games import view_control
 
 logger = logging.getLogger("vpinfe.console.collections")
@@ -144,8 +144,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         ui.button("New collection", icon="add",
                   on_click=lambda: _ask_new(library, act)) \
             .props("flat dense no-caps size=sm").classes("shrink-0 console-action")
-        search = ui.input(placeholder="Search collections") \
-            .props("dense outlined clearable").classes("w-64")
+        search = panel.search("Search collections")
         wire_views, _picker, showing = view_control(library, SCOPE, COLLECTION_VIEWS,
                                                     fields, COLUMNS)
         ui.space()

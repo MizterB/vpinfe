@@ -17,6 +17,8 @@ from typing import Any
 
 from nicegui import run, ui
 
+from console import panel
+
 logger = logging.getLogger("vpinfe.console.metrics")
 
 # The cadence the job line already uses, so a page with both on it ticks once rather
@@ -54,8 +56,10 @@ def build(library, state: dict[str, Any], redraw: Callable[[], None]) -> None:
             with ui.row().classes("items-center gap-3 w-full no-wrap"):
                 ui.label("Watch the graphics cards") \
                     .classes("console-setting grow min-w-0")
-                switch = ui.switch(value=held["watch_gpu"]) \
-                    .props("dense").classes("console-fact-switch")
+                # Through the shared control, which is where "on is green" is decided.
+                # Drawn by hand here it was the default color, so the one switch on this
+                # page did not agree with every other switch in the Console.
+                panel.switch(held["watch_gpu"], lambda event: on_switch(event))()
             cards = ui.column().classes("w-full gap-0")
 
     def on_switch(event: Any) -> None:
@@ -63,8 +67,6 @@ def build(library, state: dict[str, Any], redraw: Callable[[], None]) -> None:
         state["metrics_gpu"] = held["watch_gpu"]
         held["gpu"] = None
         _draw_cards(cards, held)
-
-    switch.on_value_change(on_switch)
 
     def show(said: str) -> None:
         note.text = said

@@ -18,7 +18,7 @@ from typing import Any
 
 from nicegui import ui
 
-from console import grid, media_ownership, views
+from console import grid, media_ownership, panel, views
 from console.games import view_control
 
 logger = logging.getLogger("vpinfe.console.assets")
@@ -164,8 +164,7 @@ def build(found: list[dict[str, Any]], library: Any,
         return f"{on_screen['rows']} of {len(built)} assets"
 
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel"):
-        search = ui.input(placeholder="Search assets") \
-            .props("dense outlined clearable").classes("w-64")
+        search = panel.search("Search assets")
         wire_views, _picker, showing = view_control(library, SCOPE, VIEWS,
                                                     _ALL, COLUMNS)
         ui.space()
