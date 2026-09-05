@@ -696,14 +696,14 @@ class TableList(ApiModel):
 class LaunchApp(ApiModel):
     """A program that plays a table, and the files it claims.
 
-    `settings_key` names where its binary is configured, so a client can ask whether
-    this machine can actually run one rather than assuming a path.
+    It carries no path. Where a program lives is a fact about one machine, and it is a
+    launcher that holds it - `GET /launchers` answers what this install can actually run
+    with, and this list answers what kinds of file exist.
     """
 
     id: str
     name: str
     suffixes: list[str]
-    settings_key: str = ""
 
 
 class LaunchAppList(ApiModel):

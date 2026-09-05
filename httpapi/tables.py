@@ -36,8 +36,7 @@ def list_apps() -> models.LaunchAppList:
     from common.games import apps
 
     return {"apps": [{"id": app.id, "name": app.name,
-                      "suffixes": list(app.suffixes),
-                      "settings_key": app.settings_key}
+                      "suffixes": list(app.suffixes)}
                      for app in apps.APPS]}
 
 

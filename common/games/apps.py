@@ -42,7 +42,6 @@ class App:
     id: str
     name: str
     suffixes: tuple[str, ...]
-    settings_key: str = ""
     fields: tuple[Field, ...] = ()
 
 
@@ -70,7 +69,7 @@ VPX_FIELDS: tuple[Field, ...] = (
 )
 
 APPS: tuple[App, ...] = (
-    App("vpx", "Visual Pinball X", (".vpx",), "vpx_bin_path", VPX_FIELDS),
+    App("vpx", "Visual Pinball X", (".vpx",), VPX_FIELDS),
 )
 
 DEFAULT_APP = APPS[0]
