@@ -98,6 +98,18 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/uploads/{id}/plan` | Build an import plan |
 | POST | `/api/v1/uploads/{id}/import` | Execute the plan |
 | GET | `/api/v1/vps/search?q=&limit=` | VPSdb lookup |
+| GET | `/api/v1/launchers` | Every launcher this install has, the tables that deviate from the default, and the fields each launcher's app takes |
+| PUT | `/api/v1/launchers/{id}` | Add or replace one. The whole launcher, so a partial write cannot leave one half-configured |
+| DELETE | `/api/v1/launchers/{id}` | Forget one. Tables pointed at it fall back to the default |
+| PUT | `/api/v1/launchers/mappings/{table_id}` | Point one table at a launcher. `{"launcher": ""}` puts it back on the default |
+| GET | `/api/v1/metrics` | What this machine is doing now. `history_seconds` adds as much of this session as you ask for; 0 means none |
+| GET | `/api/v1/metrics/gpu` | What the graphics cards are doing. Separate because it shells out to nvtop, and says so where nvtop is missing rather than reporting no cards |
+| GET | `/api/v1/themes` | Every frontend theme this install knows, active first. `refresh=true` re-reads the sources, which reaches the network |
+| POST | `/api/v1/themes/{key}/install` | Install or update. Installing over an existing copy is what an update is |
+| DELETE | `/api/v1/themes/{key}` | Remove an installed theme. Refused for the active one - the frontend would come up with no theme at all |
+| PUT | `/api/v1/themes/active` | Choose which theme the frontend plays. Takes effect when the frontend next starts |
+| GET | `/api/v1/themes/{key}/options` | What a theme declares it can be configured with, and what it is set to |
+| PUT | `/api/v1/themes/{key}/options` | Change them. Kept beside the config, not inside the theme, which an update deletes |
 
 Discovery is the entry point: an integrator learns what an instance offers by asking it,
 rather than matching a version number against a document.
