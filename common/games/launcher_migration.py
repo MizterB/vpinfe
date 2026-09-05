@@ -138,11 +138,14 @@ def migrate_assignments(store: launchers.LauncherStore, games) -> dict[str, int]
     game and there is no record of which of its tables it was meant for. Splitting them
     afterwards is a thing a person can do; guessing here is not.
 
-    The two keys are left in the `.info` rather than stripped. Nothing reads them after
-    this, so removing them would be a write to every affected folder in somebody's library
-    for no change in behaviour - and `Medias` is the precedent for a key that stays listed
-    once nothing writes it. They remain machine-local, so import and export still leave
-    them behind.
+    The two keys are **consumed**: read here and then written out of the `.info`. They are
+    published to contract 1 themes, and a dead key in the theme API is a lie to
+    third-party code - so contract 1 computes them from the resolver instead, and the
+    stored ones go. Only the games that had one are rewritten.
+
+    This is why the schema migration does not drop them: a table has no id until the
+    minting pass runs over the migrated library, so dropping them earlier would destroy
+    the values before anything could record which table they belonged to.
     """
     if ASSIGNED in store.migrations():
         return {}
@@ -183,6 +186,7 @@ def migrate_assignments(store: launchers.LauncherStore, games) -> dict[str, int]
             mappings[str(table_id)] = wanted
             counts["tables"] += 1
         counts["games"] += 1
+        _consume(game, vpinfe)
 
     store.save(held, mappings)
     store.mark_migration(ASSIGNED)
@@ -190,6 +194,25 @@ def migrate_assignments(store: launchers.LauncherStore, games) -> dict[str, int]
         logger.info("Moved %d game(s) onto launchers: %d table(s), %d new launcher(s)",
                     counts["games"], counts["tables"], counts["launchers"])
     return counts
+
+
+def _consume(game, vpinfe: dict) -> None:
+    """Take the two keys out of this game's `.info`, now that a launcher holds them.
+
+    Written per game rather than in one sweep at the end, so a failure part-way through
+    leaves the files it already handled correct rather than all of them half-converted.
+    A game that cannot be written is logged and left: its keys stay, which reads as
+    not-yet-migrated rather than as data loss.
+    """
+    for key in ("alt_launcher", "plugin_profile"):
+        vpinfe.pop(key, None)
+    try:
+        from common.games.game_metadata import persist_game_meta
+
+        persist_game_meta(game, game.meta_config)
+    except Exception:
+        logger.exception("Could not rewrite %s without its launcher keys",
+                         getattr(game, "gameDirName", "?"))
 
 
 def _for_binary(path: str, shipped: launchers.Launcher | None) -> launchers.Launcher:

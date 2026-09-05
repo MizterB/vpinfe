@@ -245,15 +245,34 @@ class AssignmentTests(unittest.TestCase):
 
         self.assertEqual(sorted(self.store.mappings()), ["t1", "t2"])
 
-    def test_the_keys_are_left_in_the_info(self) -> None:
-        """Nothing reads them after this, so removing them would rewrite every affected
-        folder in a library for no change in behaviour."""
-        game = _Game("vr", {"alt_launcher": "/opt/x/VPinballX"})
+    def test_the_keys_are_taken_out_of_the_info(self) -> None:
+        """Consumed rather than left inert: both are published to contract 1 themes, and
+        a dead key in the theme API is a lie to third-party code. Contract 1 computes
+        them from the resolver now."""
+        game = _Game("vr", {"alt_launcher": "/opt/x/VPinballX",
+                            "plugin_profile": "no-dmd"})
+        written = []
 
-        self._run([game])
+        with patch("common.games.game_metadata.persist_game_meta",
+                   side_effect=lambda g, c: written.append(c)):
+            self._run([game])
 
-        self.assertEqual(game.meta_config["vpinfe"]["alt_launcher"],
-                         "/opt/x/VPinballX")
+        self.assertNotIn("alt_launcher", game.meta_config["vpinfe"])
+        self.assertNotIn("plugin_profile", game.meta_config["vpinfe"])
+        self.assertEqual(len(written), 1, "the file is rewritten without them")
+        self.assertNotIn("alt_launcher", written[0]["vpinfe"])
+
+    def test_a_game_that_had_none_is_not_rewritten(self) -> None:
+        """Only the games that carried an override are written. A library-wide rewrite
+        for nothing is a round trip per folder on a share."""
+        written = []
+        game = _Game("plain", {})
+
+        with patch("common.games.game_metadata.persist_game_meta",
+                   side_effect=lambda g, c: written.append(g)):
+            self._run([game])
+
+        self.assertEqual(written, [])
 
     def test_it_runs_once(self) -> None:
         self._run([_Game("vr", {"alt_launcher": "/opt/x/VPinballX"})])

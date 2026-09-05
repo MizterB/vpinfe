@@ -66,11 +66,13 @@ _VPINFE_KEYS = {
 _DROPPED_SECTIONS = ("VPXFile", "Medias")
 _DROPPED_INFO_KEYS = ("Rom",)
 
-# Retired: which launcher plays a table is the install's business, not the library's, so
-# it lives in the config directory beside collections and devices. Dropped rather than
-# left inert because they are published to contract 1 themes - a dead key in a file is
-# harmless, and a dead key in the theme API is a lie to third-party code.
-_DROPPED_VPINFE_KEYS = ("alt_launcher", "plugin_profile")
+# `alt_launcher` and `plugin_profile` are retired, and this is deliberately not where
+# they go. They name a launcher for a *table*, and a table has no id until
+# `ensure_unique_table_ids` mints one over the migrated library - so dropping them here
+# would destroy the values before anything could record which table they belonged to.
+# `launcher_migration` consumes them instead, after the ids exist, and writes the file
+# without them.
+
 
 
 def schema_of(data) -> int | None:
@@ -154,8 +156,6 @@ def migrate(data: dict) -> dict:
     already = data.get("vpinfe")
     if isinstance(already, dict):
         vpinfe.update(already)
-    for key in _DROPPED_VPINFE_KEYS:
-        vpinfe.pop(key, None)
     vpinfe[SCHEMA_KEY] = INFO_SCHEMA
 
     # The DOF override is configuration, and User is the interop contract for play

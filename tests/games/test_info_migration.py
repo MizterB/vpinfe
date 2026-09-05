@@ -112,15 +112,16 @@ class WhatSurvivesTests(unittest.TestCase):
         self.assertEqual(vpinfe["alt_title"], "Doctor Dude")
         self.assertEqual(vpinfe["alt_vpsid"], "vps-override")
 
-    def test_the_two_launcher_keys_are_consumed_rather_than_renamed(self) -> None:
-        """Which launcher plays a table is the install's business, not the library's, so
-        it lives in the config directory. Dropped rather than left inert because both are
-        published to contract 1 themes, and a dead key in the theme API is a lie to
-        third-party code - contract 1 computes them from the resolver instead."""
+    def test_the_two_launcher_keys_survive_this_pass_to_be_consumed_later(self) -> None:
+        """They are retired, but not here. They name a launcher for a *table*, and a
+        table has no id until the minting pass runs over the migrated library - so
+        dropping them at this point would destroy the values before anything could
+        record which table they belonged to. `launcher_migration` takes them once the
+        ids exist."""
         vpinfe = self.after["vpinfe"]
 
-        self.assertNotIn("alt_launcher", vpinfe)
-        self.assertNotIn("plugin_profile", vpinfe)
+        self.assertEqual(vpinfe["alt_launcher"], "/opt/vpx")
+        self.assertEqual(vpinfe["plugin_profile"], "no-dmd")
 
     def test_rerunning_over_a_built_entry_keeps_what_only_we_record(self):
         """The re-entry case: 2.x rebuilt a file we had already converted. Its VPXFile is

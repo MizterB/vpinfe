@@ -254,6 +254,12 @@ try:
     # folder holds, and minting is what turns those into addressable tables.
     discover(games)
     ensure_unique_table_ids(games)
+    # After the ids, because a launcher assignment is recorded against a table and a
+    # table has no id until the line above has run. One-time, marked so it never runs
+    # twice, and it only writes the games that carried an override.
+    from common.games.launcher_migration import migrate_assignments
+    from common.games.launchers import get_launcher_store
+    migrate_assignments(get_launcher_store(), games)
 except Exception:
     logger.exception("Id backfill failed; games or tables without an id are not addressable")
 
