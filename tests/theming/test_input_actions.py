@@ -155,6 +155,35 @@ class ReadableBindingTests(unittest.TestCase):
                 self.assertEqual(input_registry.describe(selector), selector)
 
 
+class WhatCaptureCannotRemakeTests(unittest.TestCase):
+    """A cabinet's hold-both-flippers binding must survive the settings page.
+
+    `unrenderable` was written when these were merely invisible. Now they are chips, and
+    a chip removes on a click - so the same binding is one click from gone with no way to
+    make it again.
+    """
+
+    def test_a_single_press_can_be_made_again(self) -> None:
+        for selector in ("key:ArrowLeft", "key:b", "pad:0/button:3"):
+            with self.subTest(selector=selector):
+                self.assertTrue(input_registry.capturable(selector))
+
+    def test_a_hold_a_chord_and_an_axis_cannot(self) -> None:
+        for selector in ("key:Escape@hold:1500", "chord(key:a+key:b)",
+                         "key:ctrl+KeyQ", "pad:0/axis:1+@deadzone:0.5"):
+            with self.subTest(selector=selector):
+                self.assertFalse(input_registry.capturable(selector))
+
+    def test_it_is_the_same_set_the_field_projections_refuse(self) -> None:
+        """One definition of "richer than a single press", not two that drift."""
+        bindings = ["key:ArrowLeft", "pad:0/button:3", "key:Escape@hold:1500",
+                    "chord(key:a+key:b)", "pad:0/axis:1+@deadzone:0.5"]
+
+        self.assertEqual(
+            sorted(input_registry.unrenderable(bindings)),
+            sorted(one for one in bindings if not input_registry.capturable(one)))
+
+
 class JavaScriptCopiesTests(unittest.TestCase):
     def test_the_fallback_bindings_match_the_shipped_ones(self) -> None:
         block = re.search(r"this\.keyActionMap = \{(.*?)\n    \};", CORE_JS, re.S)

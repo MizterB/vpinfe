@@ -22,7 +22,7 @@ from typing import Any
 from nicegui import ui
 
 from common import input_registry
-from console import panel
+from console import confirm, panel
 
 logger = logging.getLogger("vpinfe.console.binding_editor")
 
@@ -134,11 +134,25 @@ def _chip(binding: str, store: Callable[[list], Any], claimed_by: list[str],
     elif text != shown:
         # The stored selector, for somebody reading it against a config file.
         chip.tooltip(text)
-    if writable:
-        chip.classes("cursor-pointer") \
-            .on("click", lambda: store([one for one in held if str(one) != text]))
-        if len(claimed_by) <= 1:
-            chip.tooltip(f"{text} - click to remove")
+    if not writable:
+        return
+
+    async def remove() -> None:
+        # Asked about only where pressing something could not make it again. A hold, a
+        # chord and an axis have no capture yet, so removing one here is a door that
+        # opens one way - the case `unrenderable` was written for, back when the same
+        # bindings were merely invisible rather than one click from gone.
+        if not input_registry.capturable(text) and not await confirm.ask(
+                f"Remove {shown}?",
+                detail="Nothing here can bind that again yet - it would have to go back "
+                       "into the settings file by hand.",
+                confirm="Remove"):
+            return
+        await store([one for one in held if str(one) != text])
+
+    chip.classes("cursor-pointer").on("click", remove)
+    if len(claimed_by) <= 1:
+        chip.tooltip(f"{text} - click to remove")
 
 
 def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],

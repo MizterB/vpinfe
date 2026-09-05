@@ -182,6 +182,23 @@ def pad_buttons_in(bindings) -> list[str]:
     return out
 
 
+# What makes a binding more than a single press: a hold, a modifier, a chord, an axis.
+# One list, because two questions turn on it - what to call a binding, and whether
+# pressing something could produce it again.
+_RICHER = ("@", "+", "chord(", "/axis:")
+
+
+def capturable(binding: str) -> bool:
+    """Whether pressing something could produce this binding again.
+
+    A single key or a single button can be re-bound by pressing it. A hold, a chord, a
+    modified key and an axis cannot yet, so a surface that offers to delete one is
+    offering a door that only opens one way - which is what `unrenderable` was written to
+    prevent when the same bindings were merely invisible.
+    """
+    return not any(mark in str(binding or "") for mark in _RICHER)
+
+
 def describe(binding: str) -> str:
     """One binding as a person reads it.
 
@@ -191,10 +208,9 @@ def describe(binding: str) -> str:
     for a chord would be worse than showing the one that is stored.
     """
     text = str(binding or "").strip()
-    # A chord, a hold or an axis is returned whole. These are exactly what the two field
-    # projections already refuse to show, and half-naming one - "Left arrow" for
-    # `key:ArrowLeft@hold` - would say something the binding does not do.
-    if any(mark in text for mark in ("@", "+", "chord(", "/axis:")):
+    if not capturable(text):
+        # Returned whole. Half-naming `key:ArrowLeft@hold` as "Left arrow" would say
+        # something the binding does not do.
         return text
     if text.startswith(KEY_PREFIX):
         return _key_name(text[len(KEY_PREFIX):])
