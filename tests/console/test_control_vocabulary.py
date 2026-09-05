@@ -80,8 +80,12 @@ class ThemeOptionsUseTheSharedGrammar(unittest.TestCase):
 
 class WhatTheDialogHolds(unittest.TestCase):
     """Nothing is written until Save, so editing a control changes the dialog's own
-    pending values. Driven here because a synthetic click on a Quasar control does not
-    reach the server, so a browser cannot answer this one."""
+    pending values.
+
+    Unit-level because it is the wiring rather than the rendering. The round trip through
+    a real browser is a separate thing and it does work - a Quasar toggle clicked in
+    headless Chromium reaches the server and the value lands on disk.
+    """
 
     def setUp(self) -> None:
         self.captured: dict = {}
