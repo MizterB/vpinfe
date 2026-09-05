@@ -128,6 +128,24 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     return panel.field(str(value or ""), lambda text: save(text), disabled=off)
 
 
+def _by_group(options: list[dict]) -> list[dict]:
+    """The section's settings gathered under their headings.
+
+    Gathered rather than assumed contiguous: the schema declares settings in the order
+    they were added, so two of one group can end up either side of another, and a
+    renderer that emitted a heading on every change would print one twice.
+
+    The ungrouped come first, which is where a setting sits when it needs no explaining.
+    Groups follow in the order their first setting is declared, and within a group the
+    declaration order stands - so ordering a page is done by moving a line in the schema
+    rather than by keeping a second list in step with it.
+    """
+    ordered: dict[str, list[dict]] = {"": []}
+    for option in options:
+        ordered.setdefault(str(option.get("group") or ""), []).append(option)
+    return [option for group in ordered.values() for option in group]
+
+
 def _saver(source, section: str, key: str) -> Callable[[Any], Any]:
     """Write one setting to a config section, for the control grammar to call."""
     async def save(value: Any) -> bool:
@@ -513,7 +531,12 @@ def section_rows(source, section: str, options: list[dict], values: dict,
     entries: list[tuple[Any, Any]] = []
     if not writable:
         entries.append(panel.intro("Read-only on this install."))
-    for option in options:
+    heading = ""
+    for option in _by_group(options):
+        group = str(option.get("group") or "")
+        if group and group != heading:
+            entries.append((panel.HEADING, group))
+        heading = group
         value = current.get(option["key"], option.get("default"))
         entries.append((option.get("label") or humanize(option["key"]),
                         control_for(

@@ -54,6 +54,9 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         # client asks for them when it draws rather than reading a snapshot taken when
         # the schema was served.
         "suggest": option.suggest,
+        # What to gather it under on a page. Served rather than decided by a client, so
+        # the grouping is the schema's answer and not one each surface invents.
+        "group": option.group,
     }
 
 

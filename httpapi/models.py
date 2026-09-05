@@ -325,6 +325,10 @@ class ConfigOptionInfo(ApiModel):
     # changes while the install runs, so a client asks for it when it draws. Empty for
     # everything a person simply types.
     suggest: str = ""
+    # What to gather it under within its section, or empty for the ones that sit above
+    # the first heading. Served so the grouping is the schema's answer rather than one
+    # each surface invents.
+    group: str = ""
 
 
 class ConfigSection(ApiModel):

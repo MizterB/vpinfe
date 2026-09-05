@@ -31,6 +31,10 @@ class InputAction:
     label: str
     # What this used to be called, so an existing [Input] section still resolves.
     legacy: tuple[str, ...] = ()
+    # What kind of thing it does, for a page that has to show ten of these. Here rather
+    # than on the settings schema because this registry is what knows what an action is
+    # for - the schema is generated from it and would be restating the answer.
+    group: str = ""
 
     @property
     def config_key(self) -> str:
@@ -50,12 +54,14 @@ class InputAction:
 INPUT_ACTIONS: tuple[InputAction, ...] = (
     InputAction(
         "previous",
+        group="Moving through the library",
         bindings=("key:ArrowLeft", "key:ShiftLeft"),
         label="Previous",
         legacy=("joyleft", "keyleft"),
     ),
     InputAction(
         "next",
+        group="Moving through the library",
         bindings=("key:ArrowRight", "key:ShiftRight"),
         label="Next",
         legacy=("joyright", "keyright"),
@@ -66,48 +72,56 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
     # core answered it two ways.
     InputAction(
         "page_previous",
+        group="Moving through the library",
         bindings=("key:PageUp", "key:ArrowUp"),
         label="Page previous",
         legacy=("joypageup", "keypageup", "joyup", "keyup"),
     ),
     InputAction(
         "page_next",
+        group="Moving through the library",
         bindings=("key:PageDown", "key:ArrowDown"),
         label="Page next",
         legacy=("joypagedown", "keypagedown", "joydown", "keydown"),
     ),
     InputAction(
         "select",
+        group="Playing",
         bindings=("key:Enter",),
         label="Select",
         legacy=("joyselect", "keyselect"),
     ),
     InputAction(
         "back",
+        group="Playing",
         bindings=("key:b",),
         label="Back",
         legacy=("joyback", "keyback"),
     ),
     InputAction(
         "menu",
+        group="Opening something",
         bindings=("key:m",),
         label="Menu",
         legacy=("joymenu", "keymenu"),
     ),
     InputAction(
         "collection_menu",
+        group="Opening something",
         bindings=("key:c",),
         label="Collection menu",
         legacy=("joycollectionmenu", "keycollectionmenu"),
     ),
     InputAction(
         "tutorial",
+        group="Opening something",
         bindings=("key:t",),
         label="Tutorial",
         legacy=("joytutorial", "keytutorial"),
     ),
     InputAction(
         "exit",
+        group="Playing",
         bindings=("key:Escape", "key:q"),
         label="Exit",
         legacy=("joyexit", "keyexit"),

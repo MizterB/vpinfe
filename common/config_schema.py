@@ -40,6 +40,7 @@ def _input_options() -> tuple[ConfigOption, ...]:
             type="list",
             default=",".join(action.bindings),
             label=action.label,
+            group=action.group,
             legacy=tuple(("Input", old) for old in action.legacy),
         )
         for action in input_registry.actions()
@@ -102,6 +103,13 @@ class ConfigOption:
     # the same way and want different answers, and a surface that guesses from a name is
     # one rename away from validating the wrong thing.
     path: str = ""
+    # A heading to gather this setting under, within its section. Empty means it sits
+    # above the first heading, which is where the ones that need no explaining go.
+    #
+    # Only on a page that draws one section: a page drawing several already heads each
+    # of them, and a second level of identical headings would say which is which by
+    # position alone.
+    group: str = ""
     # A set of values worth offering that this file cannot hold, because it is not known
     # until the install is running - which installs are on the network, say. Declared
     # here rather than matched on the key by a surface, so the same rename that moves the
@@ -283,6 +291,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "general",
         ConfigOption(
             "game_root_dir",
+            group="Where things are",
             type="string",
             path="dir",
             default="",
@@ -317,6 +326,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "media_browse_dirs",
+            group="Where things are",
             type="list",
             default="",
             label="Browsable Media Folders",
@@ -326,6 +336,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "assets_dir",
+            group="Where things are",
             type="string",
             path="dir",
             default="",
@@ -337,6 +348,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "rar_tool_path",
+            group="Where things are",
             type="string",
             path="exe",
             default="",
@@ -347,18 +359,21 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "theme",
+            group="What a player sees",
             type="string",
             default="Revolution",
             label="Active Theme",
         ),
         ConfigOption(
             "startup_collection",
+            group="What a player sees",
             type="string",
             default="",
             label="Default Startup Collection",
         ),
         ConfigOption(
             "library_refresh_minutes",
+            group="Reading the library",
             type="int",
             default="0",
             label="Re-read The Library Every",
@@ -371,6 +386,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "auto_update_media_on_startup",
+            group="Reading the library",
             type="bool",
             default="false",
             label="Auto Update Media On Startup",
@@ -378,12 +394,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "splashscreen",
+            group="What a player sees",
             type="bool",
             default="false",
             label="Enable splashscreen",
         ),
         ConfigOption(
             "mute_audio",
+            group="What a player sees",
             type="bool",
             default="false",
             label="Mute Frontend Audio",
@@ -391,6 +409,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "chrome_options",
+            group="The browser it runs in",
             type="string",
             default="",
             label="Additional Chrome Options",
@@ -398,12 +417,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "chrome_options_exclude",
+            group="The browser it runs in",
             type="string",
             default="",
             aliases=("chromeoptionsexclude",),
         ),
         ConfigOption(
             "disable_default_chrome_options",
+            group="The browser it runs in",
             type="bool",
             default="false",
             label="Disable Default Chrome Options",
@@ -640,6 +661,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "network",
         ConfigOption(
             "theme_assets_port",
+            group="What this install serves",
             type="int",
             default="8000",
             label="Theme Server Port",
@@ -647,6 +669,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "theme_assets_bind",
+            group="What this install serves",
             type="string",
             default="127.0.0.1",
             label="Theme Server Address",
@@ -658,6 +681,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "ws_port",
+            group="What this install serves",
             type="int",
             default="8002",
             label="WebSocket Bridge Port",
@@ -667,6 +691,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "http_port",
+            group="What this install serves",
             type="int",
             default="8001",
             label="HTTP Port",
@@ -677,6 +702,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "library_url",
+            group="The library it reads",
             type="string",
             default="",
             suggest=SUGGEST_LIBRARIES,
@@ -689,6 +715,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "verify_shared_library",
+            group="The library it reads",
             type="bool",
             default="false",
             label="Verify Shared Library",
@@ -699,6 +726,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "http_bind",
+            group="What this install serves",
             type="string",
             default="0.0.0.0",
             label="HTTP Address",
