@@ -25,7 +25,7 @@ from common import config_schema, feature_checks, install_identity, path_checks
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
 from common.labels import humanize
 from common.media_specs import media_label_map
-from console import binding_editor, deeplink, panel
+from console import binding_editor, deeplink, input_watch, panel
 
 logger = logging.getLogger("vpinfe.console.settings")
 
@@ -290,8 +290,20 @@ async def _vps_foot(library, rerender: Callable[[], None]) -> list[tuple[Any, An
     return [(panel.HEADING, "Catalog"), ("Last checked", checked)]
 
 
-# section -> what to draw under its settings. Only where a page has an act in it.
-FOOTERS: dict[str, Callable] = {"vpsdb": _vps_foot}
+async def _input_foot(library, rerender: Callable[[], None]) -> list[tuple[Any, Any]]:
+    """What the machine's inputs are doing, under the bindings that name them.
+
+    Here because it is the same question one row up asked backwards. A binding says
+    *this key does that*; somebody who does not know which physical button is which
+    cannot use the row at all until something tells them. It sets nothing.
+    """
+    return [(panel.HEADING, "What I can see"),
+            (panel.FULL, input_watch.strip)]
+
+
+# section -> what to draw under its settings. Only where a page has an act in it, or a
+# reading that answers a question its settings raise.
+FOOTERS: dict[str, Callable] = {"vpsdb": _vps_foot, "input": _input_foot}
 
 
 def _checks_library() -> None:

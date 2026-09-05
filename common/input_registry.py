@@ -241,6 +241,15 @@ _KEY_NAMES = {
 }
 
 
+def key_names() -> dict[str, str]:
+    """The printed names, for a surface that has to do this without Python.
+
+    Handed over rather than reimplemented: a browser reading a gamepad cannot call
+    `describe`, and a second copy of this table is a second thing to keep in step.
+    """
+    return dict(_KEY_NAMES)
+
+
 def _key_name(code: str) -> str:
     if code in _KEY_NAMES:
         return _KEY_NAMES[code]
