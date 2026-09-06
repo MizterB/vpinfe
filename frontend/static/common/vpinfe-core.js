@@ -291,6 +291,63 @@ const MESSAGE_TYPE_CANONICAL = Object.fromEntries(
   Object.entries(MESSAGE_TYPE_ALIASES).map(([current, legacy]) => [legacy, current]),
 );
 
+
+// `chord(key:ShiftLeft+key:ShiftRight)@hold:1500` -> what dispatch needs, or null for
+// anything that is not a chord.
+//
+// Members are device selectors. Every other selector in the grammar names a device, and
+// a chord of *actions* would resolve through another action's bindings - so rebinding one
+// action would silently change what a chord on a different action means.
+function parseChordBinding(action, binding) {
+  if (typeof binding !== "string") return null;
+  if (!binding.startsWith("chord(") || !binding.includes(")")) return null;
+  const inside = binding.slice("chord(".length, binding.lastIndexOf(")"));
+  const members = [...new Set(inside.split("+").map(one => downToken(one.trim()))
+    .filter(Boolean))];
+  // One input is not a chord. Two spellings of the same one are not two.
+  if (members.length < 2) return null;
+  const hold = /@hold:(\d+)/.exec(binding);
+  return {action, members, holdMs: hold ? Number(hold[1]) : 0, firing: false};
+}
+
+// One name for "this input is down", whichever kind it is, so a chord can mix a key and
+// a button. Keys fold to lower case, which is what the single-key map already stores.
+function downToken(selector) {
+  if (typeof selector !== "string") return "";
+  if (selector.startsWith("key:")) {
+    return "key:" + selector.slice(4).trim().toLowerCase();
+  }
+  if (selector.startsWith("pad:") && selector.includes("/button:")) {
+    return "pad:" + selector.split("/button:").pop().trim();
+  }
+  return "";
+}
+
+
+// Every action and what is bound to it, sorted into the three shapes dispatch uses: a
+// key, a pad button, and a chord. Pure, so what a binding *means* can be checked without
+// standing up a core - which is the half that used to be untestable.
+function buildBindingMaps(bindings) {
+  const keys = {}, buttons = {}, chords = [];
+  for (const [action, list] of Object.entries(bindings || {})) {
+    for (const binding of list || []) {
+      if (typeof binding !== "string") continue;
+      const chord = parseChordBinding(action, binding);
+      if (chord) { chords.push(chord); continue; }
+      if (binding.startsWith("key:") && !binding.includes("@")
+          && !binding.includes("+")) {
+        (keys[action] ||= []).push(binding.slice(4).trim().toLowerCase());
+      } else if (binding.startsWith("pad:") && binding.includes("/button:")
+                 && !binding.includes("@") && !binding.includes("chord(")) {
+        // An axis is still the binding grammar's next phase, not this one.
+        (buttons[binding.split("/button:").pop().trim()] ||= []).push(action);
+      }
+    }
+  }
+  return {keys, buttons, chords,
+          members: new Set(chords.flatMap(one => one.members))};
+}
+
 function canonicalMessageType(type) {
   return MESSAGE_TYPE_CANONICAL[type] || type;
 }
@@ -703,6 +760,7 @@ class VPinFECore {
 
     // Set up keyboard listener
     window.addEventListener('keydown', (e) => this.#onKeyDown(e));
+    window.addEventListener('keyup', (e) => this.#onKeyUp(e));
 
     // Connect to WebSocket bridge
     this.#connectWebSocket();
@@ -2131,6 +2189,63 @@ class VPinFECore {
     ].filter(Boolean));
   }
 
+  // --- Chords -------------------------------------------------------------------
+  //
+  // Chris, 2026-09-06: the members fire, and their repeat stops once every one of them
+  // is down. So holding both flippers moves the wheel one step each way and then exits,
+  // rather than spinning it for the length of the hold - and no latency is added to a
+  // flipper, which is the one thing that must not happen here.
+
+  // Recording and deciding are separate, because they happen at different moments. What
+  // is down has to be known *before* an unbound key returns early, or a chord of two
+  // buttons that do nothing on their own could never complete; the chord itself is
+  // considered *after* the member has fired, so both flippers fire in the order they
+  // were pressed and the chord follows.
+  #noteDown(token) {
+    if (!token || !this.chordMembers || !this.chordMembers.has(token)) return;
+    (this._inputsDown ||= new Set()).add(token);
+  }
+
+  #inputUp(token) {
+    if (!token || !this._inputsDown) return;
+    this._inputsDown.delete(token);
+    this.#reconsiderChords();
+  }
+
+  // Whether every member of a chord is currently held.
+  #chordComplete(chord) {
+    const down = this._inputsDown || new Set();
+    return chord.members.every(one => down.has(one));
+  }
+
+  // True while some complete chord claims this input, which is when its own action
+  // stops repeating.
+  #heldByChord(token) {
+    return (this.chordBindings || []).some(
+      chord => chord.members.includes(token) && this.#chordComplete(chord));
+  }
+
+  #reconsiderChords() {
+    for (const chord of this.chordBindings || []) {
+      const complete = this.#chordComplete(chord);
+      if (!complete) {
+        // Let go of any member and the hold is off. Cleared rather than left to expire,
+        // so a second press does not inherit the first one's timer.
+        if (chord.timer) { clearTimeout(chord.timer); chord.timer = null; }
+        chord.firing = false;
+        continue;
+      }
+      if (chord.firing) continue;
+      chord.firing = true;
+      if (!chord.holdMs) { this.#dispatchAction(chord.action); continue; }
+      chord.timer = setTimeout(() => {
+        chord.timer = null;
+        // Checked again: the timer outlives a release by however long is left on it.
+        if (this.#chordComplete(chord)) this.#dispatchAction(chord.action);
+      }, chord.holdMs);
+    }
+  }
+
   #actionForKeyboardEvent(e) {
     const eventTokens = this.#eventKeyboardTokens(e);
     for (const [action, bindings] of Object.entries(this.keyActionMap)) {
@@ -2152,6 +2267,7 @@ class VPinFECore {
       const frameWindow = iframe && iframe.contentWindow;
       if (!frameWindow || typeof frameWindow.addEventListener !== "function") return;
       frameWindow.addEventListener("keydown", (e) => this.#onKeyDown(e));
+      frameWindow.addEventListener("keyup", (e) => this.#onKeyUp(e));
       this.#reportUncaughtFrom(
         frameWindow, (iframe.id || "").replace(/-frame$/, "") || "overlay");
     } catch {
@@ -2377,8 +2493,18 @@ class VPinFECore {
     if (!this.isController()) return;
     if (this.#isTextEntry(e.target)) return;
 
+    const token = downToken("key:" + (e.code || e.key || ""));
+    if (!e.repeat) this.#noteDown(token);
+
     const action = this.#actionForKeyboardEvent(e);
-    if (!action) return;
+    if (!action) { this.#reconsiderChords(); return; }
+
+    // A key a complete chord is holding stops repeating its own action. The first press
+    // already fired; what is suppressed is the wheel walking for the length of a hold.
+    if (e.repeat && this.#heldByChord(token)) {
+      e.preventDefault();
+      return;
+    }
 
     // Per action, not one timestamp for all of them. A repeating ArrowRight straight
     // after a repeating ArrowLeft is a different intent, and a shared clock ate it.
@@ -2393,6 +2519,14 @@ class VPinFECore {
     e.preventDefault();
 
     this.#dispatchAction(action);
+    this.#reconsiderChords();
+  }
+
+  // Only chords care that a key came back up, so this does not go through dispatch.
+  // A window that loses focus mid-hold never sees the keyup, which is why a chord is
+  // re-checked when its timer fires rather than trusted to still be held.
+  #onKeyUp(e) {
+    this.#inputUp(downToken("key:" + (e.code || e.key || "")));
   }
 
   // What an action does, whichever input produced it. One place, so the keyboard and
@@ -2644,24 +2778,17 @@ class VPinFECore {
   // One call, one shape: every action and what is bound to it. The keyboard map and the
   // gamepad map used to arrive separately, with a table translating key* to joy* - which
   // existed only because a stored value could not name its own input.
-  const bindings = await this.call("get_bindings") || {};
-  const keys = {}, buttons = {};
-  for (const [action, list] of Object.entries(bindings)) {
-    for (const binding of list || []) {
-      if (typeof binding !== "string") continue;
-      if (binding.startsWith("key:")) {
-        (keys[action] ||= []).push(binding.slice(4).trim().toLowerCase());
-      } else if (binding.startsWith("pad:") && binding.includes("/button:")
-                 && !binding.includes("@") && !binding.includes("chord(")) {
-        // Richer selectors - chord, hold, axis - are stored and round-tripped, and
-        // dispatching them is the binding grammar's phase, not this one.
-        (buttons[binding.split("/button:").pop().trim()] ||= []).push(action);
-      }
-    }
-  }
+  const {keys, buttons, chords, members} =
+    buildBindingMaps(await this.call("get_bindings") || {});
   if (Object.keys(keys).length) this.keyActionMap = keys;
   this.joyButtonMap = buttons;
+  this.chordBindings = chords;
+  // Which single inputs belong to some chord. Held so a key press does not walk every
+  // chord to find out it belongs to none.
+  this.chordMembers = members;
 }
+
+
 
  async #initGamepadMapping() {
   // Nothing to fetch: gamepad buttons arrive in the same binding list the keyboard
@@ -2676,6 +2803,7 @@ async #onButtonPressed(buttonIndex, gamepadIndex) {
     for (const action of this.joyButtonMap[buttonIndex.toString()] || []) {
       this.#dispatchAction(action);
     }
+    this.#reconsiderChords();
   }
 
   #updateGamepads() {
@@ -2692,6 +2820,11 @@ async #onButtonPressed(buttonIndex, gamepadIndex) {
         const wasPressed = this.previousButtonStates[i][index];
         const isPressed = button.pressed;
 
+        if (this.frontendInputEnabled && isPressed !== wasPressed) {
+          // Both edges: a chord is about what is held, so it has to hear the release.
+          if (isPressed) this.#noteDown("pad:" + index);
+          else this.#inputUp("pad:" + index);
+        }
         if (this.frontendInputEnabled && isPressed && !wasPressed) {
           //this.call("console_out", "Button: " + index);
           this.#onButtonPressed(index, i); // new press

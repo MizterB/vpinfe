@@ -205,7 +205,7 @@ describe("typing is typing, not input actions", () => {
 
     await press("ArrowLeft", { target: field("checkbox") });
 
-    assert.deepEqual(seen, ["previous"]);
+    assert.deepEqual([...seen], ["previous"]);
   });
 });
 
@@ -229,7 +229,7 @@ describe("a theme is handed the action names its contract published", () => {
   test("contract 2 receives previous", async () => {
     const { seen, press } = themeSees(2);
     await press("ArrowLeft");
-    assert.deepEqual(seen, ["previous"]);
+    assert.deepEqual([...seen], ["previous"]);
   });
 
   test("up merged into paging, which core consumes by default", async () => {
@@ -482,5 +482,216 @@ describe("back at the root leaves", () => {
 
     assert.deepEqual(asked, [], "there was somewhere to go back to");
     assert.equal(vpin.atRoot, true);
+  });
+});
+
+// Chords: what a cabinet actually asks for. Hold both flippers to exit.
+//
+// The design decision these pin (Chris, 2026-09-06): the members fire, and their repeat
+// stops once every one of them is down. So both flippers move the wheel one step each
+// way and then exit, instead of spinning it for the length of the hold - and no latency
+// is added to a flipper press, which is the one thing that must not happen here.
+describe("reading a chord out of a binding", () => {
+  const { context } = loadCore({ windowName: "table" });
+  const { parseChordBinding, downToken } = context;
+
+  test("members are device selectors and the hold comes off the end", () => {
+    const found = parseChordBinding(
+      "exit", "chord(key:ShiftLeft+key:ShiftRight)@hold:1500");
+
+    assert.equal(found.action, "exit");
+    assert.equal(found.holdMs, 1500);
+    assert.deepEqual([...found.members], ["key:shiftleft", "key:shiftright"]);
+  });
+
+  test("a chord can mix a key and a button", () => {
+    const found = parseChordBinding("exit", "chord(key:Escape+pad:0/button:5)");
+
+    assert.deepEqual([...found.members], ["key:escape", "pad:5"]);
+    assert.equal(found.holdMs, 0);
+  });
+
+  test("one input is not a chord, and nor is the same one twice", () => {
+    assert.equal(parseChordBinding("exit", "chord(key:a)"), null);
+    assert.equal(parseChordBinding("exit", "chord(key:a+key:A)"), null);
+  });
+
+  test("anything that is not a chord is left alone", () => {
+    for (const binding of ["key:Escape", "pad:0/button:3", "", "chord("]) {
+      assert.equal(parseChordBinding("exit", binding), null, binding);
+    }
+  });
+
+  test("a key folds to the case the single-key map already stores", () => {
+    assert.equal(downToken("key:ShiftLeft"), "key:shiftleft");
+    assert.equal(downToken("pad:0/button:5"), "pad:5");
+    assert.equal(downToken("pad:0/axis:1+"), "");
+  });
+});
+
+// A core with the listeners captured and a set of bindings already read in.
+async function chorded(bindings) {
+  const { VPinFECore, browser, context } = loadCore({ windowName: "table" });
+  const listeners = {};
+  browser.window.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
+  const vpin = new VPinFECore();
+  vpin.init();
+  vpin.isController = () => true;
+  vpin.frontendInputEnabled = true;
+  vpin._capabilities && (vpin._capabilities.core_navigation = false);
+  // Contract 2, so an action reaches the handler under its own name rather than the
+  // legacy one twelve published themes still match on.
+  vpin.contract = 2;
+
+  // Through the same pure function core builds its maps with, and from *this* core's
+  // context: the method that calls it is private, and a second context would hand back
+  // objects built against a different prototype.
+  const maps = context.buildBindingMaps(bindings);
+  vpin.keyActionMap = maps.keys;
+  vpin.joyButtonMap = maps.buttons;
+  vpin.chordBindings = maps.chords;
+  vpin.chordMembers = maps.members;
+
+  // The theme's own handler is where an action lands when no overlay is up.
+  const seen = [];
+  vpin.inputHandlers = [(action) => { seen.push(action); }];
+  const fire = async (type, code, repeat = false) => {
+    const event = { key: code, code, repeat, target: null, prevented: false,
+                    preventDefault() { event.prevented = true; } };
+    await Promise.all((listeners[type] || []).map(fn => fn(event)));
+    return event;
+  };
+  return {
+    vpin, seen,
+    down: (code, repeat = false) => fire("keydown", code, repeat),
+    up: (code) => fire("keyup", code),
+  };
+}
+
+// The chord is on an action core forwards to the theme. `menu` would have worked and
+// told us nothing: core opens the overlay itself, so the chord firing looks the same as
+// the chord not firing from the handler's side.
+const FLIPPERS = {
+  previous: ["key:a"],
+  next: ["key:b"],
+  page_next: ["chord(key:a+key:b)"],
+};
+
+describe("a chord fires when every member is held", () => {
+  test("the members keep their own bindings", () => {
+    const maps =
+      loadCore({ windowName: "table" }).context.buildBindingMaps(FLIPPERS);
+
+    assert.deepEqual([...maps.keys.previous], ["a"]);
+    assert.deepEqual([...maps.keys.next], ["b"]);
+    assert.equal(maps.chords.length, 1);
+    // And the chord is not left in the single-key map, where it could never match.
+    assert.ok(!(maps.keys.page_next || []).some(one => one.includes("chord")));
+  });
+
+  test("both members fire, and then the chord", async () => {
+    const { seen, down } = await chorded(FLIPPERS);
+
+    await down("a");
+    await down("b");
+
+    assert.deepEqual([...seen], ["previous", "next", "page_next"],
+      "the members fire first - that is the decision, not an accident");
+  });
+
+  test("one member alone is not a chord", async () => {
+    const { seen, down } = await chorded(FLIPPERS);
+
+    await down("a");
+
+    assert.deepEqual([...seen], ["previous"]);
+  });
+
+  test("it fires once, not on every repeat while it is held", async () => {
+    const { seen, down } = await chorded(FLIPPERS);
+
+    await down("a");
+    await down("b");
+    await down("a", true);
+    await down("b", true);
+
+    assert.equal(seen.filter(one => one === "page_next").length, 1);
+  });
+
+  test("a member stops repeating while the chord holds it", async () => {
+    const { seen, down } = await chorded(FLIPPERS);
+
+    await down("a");
+    await down("a", true);
+    const whileHeld = seen.filter(one => one === "previous").length;
+
+    await down("b");
+    await down("a", true);
+    await down("a", true);
+
+    assert.equal(seen.filter(one => one === "previous").length, whileHeld,
+      "the wheel must not walk for the length of a hold");
+  });
+
+  test("letting go and pressing again fires it again", async () => {
+    const { seen, down, up } = await chorded(FLIPPERS);
+
+    await down("a");
+    await down("b");
+    await up("b");
+    await down("b");
+
+    assert.equal(seen.filter(one => one === "page_next").length, 2);
+  });
+
+  test("repeat comes back once a member is released", async () => {
+    const { seen, down, up } = await chorded(FLIPPERS);
+
+    await down("a");
+    await down("b");
+    await up("b");
+    await down("a", true);
+
+    assert.ok(seen.filter(one => one === "previous").length > 1,
+      "a released chord must not leave its members muted");
+  });
+});
+
+describe("a chord that asks to be held", () => {
+  // `page_next` again, for the same reason: `exit` is what a cabinet really binds this
+  // to, and core answers it itself - so the chord firing and the chord not firing look
+  // identical from the theme handler.
+  const HELD = {previous: ["key:a"], next: ["key:b"],
+                page_next: ["chord(key:a+key:b)@hold:40"]};
+
+  test("nothing fires before the hold is up", async () => {
+    const { seen, down } = await chorded(HELD);
+
+    await down("a");
+    await down("b");
+
+    assert.ok(!seen.includes("page_next"), `fired too early: ${seen}`);
+  });
+
+  test("it fires once the hold is up", async () => {
+    const { seen, down } = await chorded(HELD);
+
+    await down("a");
+    await down("b");
+    await new Promise(resolve => setTimeout(resolve, 80));
+
+    assert.ok(seen.includes("page_next"), `never fired: ${seen}`);
+  });
+
+  test("letting go before the hold is up cancels it", async () => {
+    const { seen, down, up } = await chorded(HELD);
+
+    await down("a");
+    await down("b");
+    await up("b");
+    await new Promise(resolve => setTimeout(resolve, 80));
+
+    assert.ok(!seen.includes("page_next"),
+      "a hold that was let go of must not arrive late");
   });
 });
