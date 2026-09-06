@@ -618,15 +618,33 @@ def connection_rows(device: dict[str, Any],
     return _connection_rows(device, reach)
 
 
+def update_checker(is_local: bool, client: Any):
+    """Whichever client can answer *this* device's update check.
+
+    The local client is this process, and asking it to reach the network for a version
+    it already knows would be this install phoning itself - so it does not offer the
+    call at all. The Console does have a way to ask: its own API, which serves `/update`
+    for exactly this. Without this the local device raised, the caller logged that a
+    device could not be asked, and the one install that never learned it had an update
+    was the one in front of you.
+    """
+    if is_local:
+        from console.api import ApiClient
+
+        return ApiClient().update_check
+    return getattr(client, "update_check", None)
+
+
 async def software_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """What it is running. Asked of the device rather than read from the registry,
     which holds no version at all."""
     device = _of(context)
     client = _client_for(context)
     update = context.get("update")
-    if update is None and client is not None:
+    ask = update_checker(_is_local(context), client)
+    if update is None and ask is not None:
         try:
-            update = await run.io_bound(client.update_check)
+            update = await run.io_bound(ask)
         except Exception:  # noqa: BLE001 - unreachable is a state, not a 500
             logger.info("Could not ask %s what it is running",
                         device_label(device), exc_info=True)

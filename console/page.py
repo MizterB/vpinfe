@@ -445,8 +445,12 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             client = device_client.for_device(entry, discovery.get("install_id"))
             if client is None:
                 continue
+            ask = devices_page.update_checker(
+                entry.get("device_id") == discovery.get("install_id"), client)
+            if ask is None:
+                continue
             try:
-                found = await run.io_bound(client.update_check)
+                found = await run.io_bound(ask)
             except Exception:
                 logger.info("Could not ask %s what it is running",
                             devices_page.device_label(entry), exc_info=True)

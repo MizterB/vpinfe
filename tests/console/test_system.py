@@ -225,3 +225,41 @@ class TroubleTests(unittest.TestCase):
 
         self.assertEqual(marks[("general", "vpx_bin_path")]["state"], panel.REQUIRED)
         self.assertIn(panel.REQUIRED, panel._VALUE_STATES)
+
+
+class TheInstallYouAreSittingAtReportsItsOwnUpdate(unittest.TestCase):
+    """A caller asks every device whether a newer build is published, and gets the local
+    client back for the one it is running in.
+
+    That client does not offer the call - it is this process, and asking it to reach the
+    network for a version it already knows would be the install phoning itself. So the
+    call raised, the caller logged that a device could not be asked, and every machine on
+    the network reported correctly except the one in front of you. Silent, because a
+    device that cannot be reached is an ordinary thing.
+    """
+
+    def test_the_local_device_is_asked_through_this_install_s_own_api(self) -> None:
+        from console import devices as devices_page
+
+        ask = devices_page.update_checker(True, object())
+
+        self.assertIsNotNone(ask)
+        self.assertEqual(getattr(ask, "__name__", ""), "update_check")
+
+    def test_another_machine_is_still_asked_directly(self) -> None:
+        from console import devices as devices_page
+
+        class Remote:
+            def update_check(self):
+                return {"update_available": True}
+
+        client = Remote()
+        ask = devices_page.update_checker(False, client)
+
+        self.assertEqual(ask(), {"update_available": True})
+
+    def test_a_device_that_cannot_be_asked_answers_with_nothing(self) -> None:
+        """A phone speaks a different protocol entirely and has no such call."""
+        from console import devices as devices_page
+
+        self.assertIsNone(devices_page.update_checker(False, object()))
