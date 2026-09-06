@@ -8,6 +8,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadCore } from "./support/load-core.js";
+import { codeFor } from "./support/browser.js";
 
 // A controller core whose bridge answers instead of hanging, so a request can be
 // followed all the way through rather than stopping at the first call.
@@ -30,7 +31,7 @@ function controller({ confirm = false } = {}) {
   };
 
   const press = async (key) => {
-    const event = { key, code: key, repeat: false, target: null,
+    const event = { key, code: codeFor(key), repeat: false, target: null,
                     preventDefault() {} };
     await Promise.all((listeners.keydown || []).map(fn => fn(event)));
   };

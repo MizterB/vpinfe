@@ -8,6 +8,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadCore } from "./support/load-core.js";
+import { codeFor } from "./support/browser.js";
 
 // A controller-window core with the keydown listener core installs captured, so a test
 // can fire a key the way the browser would. Overlay flags are set directly: what is
@@ -30,7 +31,11 @@ function controller() {
   // call one through optional chaining, which silently did nothing.
   vpin._capabilities && (vpin._capabilities.core_navigation = false);
 
-  const press = async (key, { code = key, repeat = false, target = null } = {}) => {
+  // A browser reports both: `key` is what the key produced, `code` is which key it is.
+  // Defaulting the code to the key made "q" arrive as code "q", which no real keyboard
+  // sends - and the shipped bindings are codes, so those presses stopped matching.
+  const press = async (key, { code = codeFor(key), repeat = false,
+                              target = null } = {}) => {
     const event = { key, code, repeat, target, prevented: false,
                     preventDefault() { event.prevented = true; } };
     await Promise.all((listeners.keydown || []).map(fn => fn(event)));
@@ -140,8 +145,8 @@ describe("defaults agree across the boundary", () => {
   test("back is bound in the JavaScript fallback too", () => {
     const { vpin } = controller();
 
-    assert.deepEqual([...vpin.keyActionMap.back], ["b"],
-      "Python ships b for back; an empty fallback meant back did nothing until the "
+    assert.deepEqual([...vpin.keyActionMap.back], ["keyb"],
+      "Python ships KeyB for back; an empty fallback meant back did nothing until the "
       + "bridge answered");
   });
 });
@@ -563,8 +568,8 @@ async function chorded(bindings) {
   };
   return {
     vpin, seen,
-    down: (code, repeat = false) => fire("keydown", code, repeat),
-    up: (code) => fire("keyup", code),
+    down: (code, repeat = false) => fire("keydown", codeFor(code), repeat),
+    up: (code) => fire("keyup", codeFor(code)),
   };
 }
 
@@ -572,9 +577,9 @@ async function chorded(bindings) {
 // told us nothing: core opens the overlay itself, so the chord firing looks the same as
 // the chord not firing from the handler's side.
 const FLIPPERS = {
-  previous: ["key:a"],
-  next: ["key:b"],
-  page_next: ["chord(key:a+key:b)"],
+  previous: ["key:KeyA"],
+  next: ["key:KeyB"],
+  page_next: ["chord(key:KeyA+key:KeyB)"],
 };
 
 describe("a chord fires when every member is held", () => {
@@ -582,8 +587,8 @@ describe("a chord fires when every member is held", () => {
     const maps =
       loadCore({ windowName: "table" }).context.buildBindingMaps(FLIPPERS);
 
-    assert.deepEqual([...maps.keys.previous], ["a"]);
-    assert.deepEqual([...maps.keys.next], ["b"]);
+    assert.deepEqual([...maps.keys.previous], ["keya"]);
+    assert.deepEqual([...maps.keys.next], ["keyb"]);
     assert.equal(maps.chords.length, 1);
     // And the chord is not left in the single-key map, where it could never match.
     assert.ok(!(maps.keys.page_next || []).some(one => one.includes("chord")));
@@ -661,8 +666,8 @@ describe("a chord that asks to be held", () => {
   // `page_next` again, for the same reason: `exit` is what a cabinet really binds this
   // to, and core answers it itself - so the chord firing and the chord not firing look
   // identical from the theme handler.
-  const HELD = {previous: ["key:a"], next: ["key:b"],
-                page_next: ["chord(key:a+key:b)@hold:40"]};
+  const HELD = {previous: ["key:KeyA"], next: ["key:KeyB"],
+                page_next: ["chord(key:KeyA+key:KeyB)@hold:40"]};
 
   test("nothing fires before the hold is up", async () => {
     const { seen, down } = await chorded(HELD);

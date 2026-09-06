@@ -175,7 +175,9 @@ class BindingsAreNotTypedIn(unittest.TestCase):
     def test_a_chord_is_found_whichever_order_it_was_written(self) -> None:
         """A chord is a set. Looked up as raw text, one of the two rows holding it is
         marked and the other stays silent."""
-        held = {"chord(key:a+key:b)": ["back", "exit"]}
+        # Keyed the way `holders` keys it - by identity, which settles both the
+        # member order and each member's spelling.
+        held = {"chord(key:KeyA+key:KeyB)": ["back", "exit"]}
 
         self.assertEqual(
             binding_editor._owner("chord(key:b+key:a)", held, {"key": "exit"}), "Back")

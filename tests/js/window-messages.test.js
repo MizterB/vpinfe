@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { loadCore, newCore, REPO_ROOT } from "./support/load-core.js";
+import { codeFor } from "./support/browser.js";
 
 const { context } = loadCore();
 const ALIASES = context.MESSAGE_TYPE_ALIASES;
@@ -152,7 +153,7 @@ describe("every index path announces itself the same way", () => {
     // Captured after startup so the restore broadcast is separated from the rest.
     vpin.sendMessageToAllWindowsIncSelf = (m) => sent.push(m);
     const press = async (key) => {
-      const event = { key, code: key, repeat: false, target: null, preventDefault() {} };
+      const event = { key, code: codeFor(key), repeat: false, target: null, preventDefault() {} };
       await Promise.all((listeners.keydown || []).map(fn => fn(event)));
     };
     return { vpin, sent, press };

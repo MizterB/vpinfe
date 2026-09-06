@@ -31,16 +31,16 @@
     "theme": "Revolution"
   },
   "input": {
-    "back": "key:b",
-    "collection_menu": "key:c",
-    "exit": "key:Escape,key:q",
-    "menu": "key:m",
+    "back": "key:KeyB",
+    "collection_menu": "key:KeyC",
+    "exit": "key:Escape,key:KeyQ",
+    "menu": "key:KeyM",
     "next": "key:ArrowRight,key:ShiftRight",
     "page_next": "key:PageDown,key:ArrowDown",
     "page_previous": "key:PageUp,key:ArrowUp",
     "previous": "key:ArrowLeft,key:ShiftLeft",
     "select": "key:Enter",
-    "tutorial": "key:t"
+    "tutorial": "key:KeyT"
   },
   "install": {
     "display_name": "",

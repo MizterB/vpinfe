@@ -45,9 +45,9 @@ class TestConfigStore(unittest.TestCase):
                              "key:ArrowLeft,key:ShiftLeft")
             self.assertEqual(config.config.get("input", "page_previous"),
                              "key:PageUp,key:ArrowUp")
-            self.assertEqual(config.config.get("input", "back"), "key:b")
-            self.assertEqual(config.config.get("input", "exit"), "key:Escape,key:q")
-            self.assertEqual(config.config.get("input", "tutorial"), "key:t")
+            self.assertEqual(config.config.get("input", "back"), "key:KeyB")
+            self.assertEqual(config.config.get("input", "exit"), "key:Escape,key:KeyQ")
+            self.assertEqual(config.config.get("input", "tutorial"), "key:KeyT")
 
     def test_adds_mainmenu_hide_quit_button_setting_default(self) -> None:
         with TemporaryDirectory() as tmp:

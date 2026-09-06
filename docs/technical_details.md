@@ -197,11 +197,11 @@ Runtime state written by VPinFE, not shown in the Manager UI.
 | `page_previous` | list | `key:PageUp,key:ArrowUp` | Page Previous |
 | `page_next` | list | `key:PageDown,key:ArrowDown` | Page Next |
 | `select` | list | `key:Enter` | Select |
-| `back` | list | `key:b` | Back |
-| `menu` | list | `key:m` | Menu |
-| `collection_menu` | list | `key:c` | Collection Menu |
-| `tutorial` | list | `key:t` | Tutorial |
-| `exit` | list | `key:Escape,key:q` | Exit |
+| `back` | list | `key:KeyB` | Back |
+| `menu` | list | `key:KeyM` | Menu |
+| `collection_menu` | list | `key:KeyC` | Collection Menu |
+| `tutorial` | list | `key:KeyT` | Tutorial |
+| `exit` | list | `key:Escape,key:KeyQ` | Exit |
 
 ## Game Metadata File (based on the Zero install table format)
 When you run VPinFE with the `--buildmeta` option it recursively goes through your game directory attempts to match your games to their VPSDB id.  When matched, it will then parse the VPX for the game for more meta information and produce a `GAME FOLDER NAME(manufactuer year).info` in that game's directory.  Heres an example for the game 1-2-3:

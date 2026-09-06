@@ -206,3 +206,20 @@ export function makeBrowser({ windowName = "table", search = null, pathname = "/
 }
 
 export { FakeWebSocket, FakeAudio, FakeImage };
+
+/**
+ * What a browser sends as `event.code` for a single character.
+ *
+ * A keyboard event carries both: `key` is what the key produced ("q"), `code` is which
+ * key it is ("KeyQ"). A test that set the code to the key sent something no keyboard
+ * sends, which went unnoticed while the shipped bindings were spelled as keys - and
+ * became a test that waits forever the moment they were spelled as codes.
+ *
+ * Anything longer than one character is already a code - "Escape", "ArrowLeft".
+ */
+export function codeFor(key) {
+  if (typeof key !== "string" || key.length !== 1) return key;
+  if (/[a-z]/i.test(key)) return "Key" + key.toUpperCase();
+  if (/[0-9]/.test(key)) return "Digit" + key;
+  return key;
+}

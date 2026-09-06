@@ -94,35 +94,35 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
     InputAction(
         "back",
         group="Playing",
-        bindings=("key:b",),
+        bindings=("key:KeyB",),
         label="Back",
         legacy=("joyback", "keyback"),
     ),
     InputAction(
         "menu",
         group="Opening something",
-        bindings=("key:m",),
+        bindings=("key:KeyM",),
         label="Menu",
         legacy=("joymenu", "keymenu"),
     ),
     InputAction(
         "collection_menu",
         group="Opening something",
-        bindings=("key:c",),
+        bindings=("key:KeyC",),
         label="Collection Menu",
         legacy=("joycollectionmenu", "keycollectionmenu"),
     ),
     InputAction(
         "tutorial",
         group="Opening something",
-        bindings=("key:t",),
+        bindings=("key:KeyT",),
         label="Tutorial",
         legacy=("joytutorial", "keytutorial"),
     ),
     InputAction(
         "exit",
         group="Playing",
-        bindings=("key:Escape", "key:q"),
+        bindings=("key:Escape", "key:KeyQ"),
         label="Exit",
         legacy=("joyexit", "keyexit"),
     ),
@@ -209,7 +209,7 @@ def describe(binding: str) -> str:
     choice. Anything this cannot name is returned as it came, because inventing a name
     for a chord would be worse than showing the one that is stored.
     """
-    text = str(binding or "").strip()
+    text = normalize(str(binding or "").strip())
     members = chord_members(text)
     if members:
         # Composed, not looked up. "Left Shift + Right Shift, held 1.5s" is built from
@@ -287,6 +287,10 @@ _KEY_NAMES = {
     "PageUp": "Page Up", "PageDown": "Page Down",
     "Escape": "Esc", "Enter": "Enter", "Space": "Space", "Tab": "Tab",
     "Backspace": "Backspace", "Delete": "Delete", "Home": "Home", "End": "End",
+    # A code names the key; a chip shows what is printed on it.
+    "Minus": "-", "Equal": "=", "BracketLeft": "[", "BracketRight": "]",
+    "Backslash": "\\", "Semicolon": ";", "Quote": "'", "Comma": ",",
+    "Period": ".", "Slash": "/", "Backquote": "`",
 }
 
 
@@ -335,6 +339,41 @@ def chord_members(binding: str) -> tuple[str, ...]:
     return tuple(sorted({part.strip() for part in inside.split("+") if part.strip()}))
 
 
+# A key selector has two spellings, because a browser reports two things: `event.key` is
+# what the key produces - "c" - and `event.code` is which key it is - "KeyC". The defaults
+# were written in the first and capture stores the second, and both dispatch, so a config
+# can hold `key:c` and `key:KeyC` for one key and nothing notices.
+#
+# The code wins. It survives a layout where the same physical key produces something else,
+# which is the whole reason the browser reports both.
+_PUNCTUATION_CODES = {
+    "-": "Minus", "=": "Equal", "[": "BracketLeft", "]": "BracketRight",
+    "\\": "Backslash", ";": "Semicolon", "'": "Quote", ",": "Comma",
+    ".": "Period", "/": "Slash", "`": "Backquote", " ": "Space",
+}
+
+
+def normalize(binding: str) -> str:
+    """One spelling for a key selector: the code a browser reports.
+
+    Only a selector naming a single character is rewritten - `key:c` becomes `key:KeyC`.
+    Anything already spelled as a code is left as it is, and so is a binding this does not
+    understand, because guessing at one would invent a key nobody pressed.
+    """
+    text = str(binding or "").strip()
+    if not text.startswith(KEY_PREFIX):
+        return text
+    name = text[len(KEY_PREFIX):]
+    if len(name) != 1:
+        return text
+    if name.isalpha():
+        return f"{KEY_PREFIX}Key{name.upper()}"
+    if name.isdigit():
+        return f"{KEY_PREFIX}Digit{name}"
+    found = _PUNCTUATION_CODES.get(name)
+    return f"{KEY_PREFIX}{found}" if found else text
+
+
 def identity(binding: str) -> str:
     """The form two bindings are compared in.
 
@@ -350,17 +389,18 @@ def identity(binding: str) -> str:
     text = str(binding or "").strip()
     members = chord_members(text)
     if not members:
-        return text
+        return normalize(text)
     suffix = text[text.rindex(")") + 1:]
-    return f"{CHORD_PREFIX}{'+'.join(members)}){suffix}"
+    return f"{CHORD_PREFIX}{'+'.join(normalize(one) for one in members)}){suffix}"
 
 
 def holders(bound) -> dict[str, list[str]]:
     """Every binding, and which actions hold it.
 
-    Compared by `identity`, so a chord written in either order is one binding. Two
-    spellings of one *key* are still two bindings: nothing normalizes those, and
-    pretending otherwise would report a clash dispatch does not have.
+    Compared by `identity`, so a chord written in either order is one binding and a key
+    written either way - `key:c` or `key:KeyC` - is one key. Dispatch matches on both of
+    an event's tokens, so those two really are the same binding, and reading them as
+    different was how a clash could sit on the page unreported.
     """
     seen: dict[str, list[str]] = {}
     for name, bindings in dict(bound or {}).items():

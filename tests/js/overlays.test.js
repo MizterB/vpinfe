@@ -13,6 +13,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadCore, newCore } from "./support/load-core.js";
+import { codeFor } from "./support/browser.js";
 
 // Dispatch is private and reached by a keypress, so this is the same shape input.test.js
 // uses: capture the keydown listener core installs, then feed it an event.
@@ -25,7 +26,7 @@ function controller() {
   vpin.isController = () => true;
   vpin.frontendInputEnabled = true;
   const press = async (key) => {
-    const event = { key, code: key, repeat: false, target: null, preventDefault() {} };
+    const event = { key, code: codeFor(key), repeat: false, target: null, preventDefault() {} };
     await Promise.all((listeners.keydown || []).map(fn => fn(event)));
   };
   return { vpin, press };

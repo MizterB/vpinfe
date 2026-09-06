@@ -139,7 +139,8 @@ class ReadableBindingTests(unittest.TestCase):
                                    ("key:KeyM", "M"),
                                    ("key:Digit4", "4"),
                                    ("key:Escape", "Esc"),
-                                   ("key:b", "b")):
+                                   ("key:b", "B"),
+                                   ("key:Comma", ",")):
             with self.subTest(selector=selector):
                 self.assertEqual(input_registry.describe(selector), expected)
 
@@ -197,6 +198,54 @@ class ChordIdentityTests(unittest.TestCase):
         for selector in ("key:a", "pad:0/button:1", "chord(", ""):
             with self.subTest(selector=selector):
                 self.assertEqual(input_registry.chord_members(selector), ())
+
+
+class OneSpellingPerKeyTests(unittest.TestCase):
+    """A browser reports two things for a key: what it produces (`event.key`, "c") and
+    which key it is (`event.code`, "KeyC").
+
+    The defaults were written in the first and capture stores the second. Dispatch matches
+    on both of an event's tokens, so both work - and a config could hold one key under two
+    spellings with nothing to say so. That is the same silence B6 was about.
+    """
+
+    def test_a_single_character_becomes_its_code(self) -> None:
+        for selector, expected in (("key:c", "key:KeyC"), ("key:B", "key:KeyB"),
+                                   ("key:4", "key:Digit4"), ("key:,", "key:Comma")):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.normalize(selector), expected)
+
+    def test_a_code_is_already_the_answer(self) -> None:
+        for selector in ("key:KeyC", "key:ArrowLeft", "key:Escape", "key:F9"):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.normalize(selector), selector)
+
+    def test_it_leaves_alone_what_it_does_not_understand(self) -> None:
+        """Guessing would invent a key nobody pressed."""
+        for selector in ("pad:0/button:1", "chord(key:a+key:b)", "", "nonsense"):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.normalize(selector), selector)
+
+    def test_two_spellings_of_one_key_are_one_clash(self) -> None:
+        found = input_registry.collisions({"back": ["key:c"], "menu": ["key:KeyC"]})
+
+        self.assertEqual(found, {"key:KeyC": ["back", "menu"]})
+
+    def test_a_chord_normalizes_its_members_too(self) -> None:
+        self.assertEqual(input_registry.identity("chord(key:b+key:a)"),
+                         input_registry.identity("chord(key:KeyA+key:KeyB)"))
+
+    def test_both_spellings_read_the_same_on_screen(self) -> None:
+        self.assertEqual(input_registry.describe("key:c"),
+                         input_registry.describe("key:KeyC"))
+
+    def test_the_shipped_defaults_are_codes(self) -> None:
+        """So a captured binding and a shipped one are spelled the same way, which is
+        what stops the two drifting again."""
+        for action in input_registry.actions():
+            for binding in action.bindings:
+                with self.subTest(action=action.name, binding=binding):
+                    self.assertEqual(input_registry.normalize(binding), binding)
 
 
 class HoldEditingTests(unittest.TestCase):

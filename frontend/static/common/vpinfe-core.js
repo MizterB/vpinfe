@@ -619,11 +619,11 @@ class VPinFECore {
       page_previous: ['pageup', 'arrowup'],
       page_next: ['pagedown', 'arrowdown'],
       select: ['enter'],
-      back: ['b'],
-      menu: ['m'],
-      collection_menu: ['c'],
-      tutorial: ['t'],
-      exit: ['escape', 'q'],
+      back: ['keyb'],
+      menu: ['keym'],
+      collection_menu: ['keyc'],
+      tutorial: ['keyt'],
+      exit: ['escape', 'keyq'],
     };
     this.previousButtonStates = {};
     // A held key repeats at whatever rate the OS is set to - often 30 a second - and
