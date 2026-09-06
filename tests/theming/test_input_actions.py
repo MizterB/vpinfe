@@ -219,32 +219,28 @@ class ComposedNameTests(unittest.TestCase):
 
 
 class WhatCaptureCannotRemakeTests(unittest.TestCase):
-    """A cabinet's hold-both-flippers binding must survive the settings page.
+    """Asked before offering to delete a binding: removing what nothing can rebuild is a
+    door that only opens one way.
 
-    `unrenderable` was written when these were merely invisible. Now they are chips, and
-    a chip removes on a click - so the same binding is one click from gone with no way to
-    make it again.
+    The set shrank when capture learned to watch until release - a chord is pressing two
+    things and a hold is keeping one down, so both are gestures now.
     """
 
-    def test_a_single_press_can_be_made_again(self) -> None:
-        for selector in ("key:ArrowLeft", "key:b", "pad:0/button:3"):
+    def test_anything_a_gesture_can_make(self) -> None:
+        for selector in ("key:ArrowLeft", "pad:0/button:3",
+                         "chord(key:a+key:b)", "key:Escape@hold:1500",
+                         "chord(key:a+key:b)@hold:1500"):
             with self.subTest(selector=selector):
                 self.assertTrue(input_registry.capturable(selector))
 
-    def test_a_hold_a_chord_and_an_axis_cannot(self) -> None:
-        for selector in ("key:Escape@hold:1500", "chord(key:a+key:b)",
-                         "key:ctrl+KeyQ", "pad:0/axis:1+@deadzone:0.5"):
+    def test_a_modifier_and_an_axis_have_no_gesture(self) -> None:
+        """Shift is a flipper on a cabinet and has to stay bindable on its own, so a
+        modifier cannot be captured by pressing one; an axis is a tuned value rather
+        than a press."""
+        for selector in ("key:ctrl+KeyQ", "key:shift+KeyQ",
+                         "pad:0/axis:1+@deadzone:0.5"):
             with self.subTest(selector=selector):
                 self.assertFalse(input_registry.capturable(selector))
-
-    def test_it_is_the_same_set_the_field_projections_refuse(self) -> None:
-        """One definition of "richer than a single press", not two that drift."""
-        bindings = ["key:ArrowLeft", "pad:0/button:3", "key:Escape@hold:1500",
-                    "chord(key:a+key:b)", "pad:0/axis:1+@deadzone:0.5"]
-
-        self.assertEqual(
-            sorted(input_registry.unrenderable(bindings)),
-            sorted(one for one in bindings if not input_registry.capturable(one)))
 
 
 class JavaScriptCopiesTests(unittest.TestCase):

@@ -182,21 +182,23 @@ def pad_buttons_in(bindings) -> list[str]:
     return out
 
 
-# What makes a binding more than a single press: a hold, a modifier, a chord, an axis.
-# One list, because two questions turn on it - what to call a binding, and whether
-# pressing something could produce it again.
-_RICHER = ("@", "+", "chord(", "/axis:")
+# What no gesture can produce. A chord is pressing two things and a hold is keeping one
+# down, so both came off this list when capture learned to watch until release; a
+# modifier and an axis have no gesture yet - one because Shift is a flipper on a cabinet
+# and must stay bindable on its own, the other because it is a tuned value rather than
+# a press.
+_UNCAPTURABLE = ("ctrl+", "shift+", "alt+", "meta+", "/axis:")
 
 
 def capturable(binding: str) -> bool:
     """Whether pressing something could produce this binding again.
 
-    A single key or a single button can be re-bound by pressing it. A hold, a chord, a
-    modified key and an axis cannot yet, so a surface that offers to delete one is
-    offering a door that only opens one way - which is what `unrenderable` was written to
-    prevent when the same bindings were merely invisible.
+    Asked before offering to delete one: a surface that removes what nothing can rebuild
+    is a door that only opens one way, which is what `unrenderable` was written to
+    prevent back when the same bindings were merely invisible.
     """
-    return not any(mark in str(binding or "") for mark in _RICHER)
+    text = str(binding or "").lower()
+    return not any(mark in text for mark in _UNCAPTURABLE)
 
 
 def describe(binding: str) -> str:
@@ -216,10 +218,10 @@ def describe(binding: str) -> str:
         return f"{said}{_held_for(text)}"
     if text.endswith(_hold_of(text)) and _hold_of(text):
         return f"{describe(text[:-len(_hold_of(text))])}{_held_for(text)}"
-    if not capturable(text):
-        # Returned whole. Half-naming `key:ArrowLeft@chord` as "Left arrow" would say
-        # something the binding does not do, and inventing a name for a selector this
-        # build has never seen would be worse than showing the one that is stored.
+    if any(mark in text for mark in ("@", "+", "/axis:")):
+        # Whatever is left after chords and holds have been named above: a modifier, an
+        # axis, a selector this build has never seen. Returned whole, because inventing
+        # a name would say something the binding does not do.
         return text
     if text.startswith(KEY_PREFIX):
         return _key_name(text[len(KEY_PREFIX):])
@@ -228,10 +230,12 @@ def describe(binding: str) -> str:
         pad, _, what = rest.partition("/")
         # Pads are numbered from zero on the wire and from one on screen. A person with
         # one controller has "pad 1", not "pad 0".
+        if not what.startswith("button:"):
+            # An axis, or something this build has never seen. Half-naming it - "Pad 1"
+            # followed by the raw rest - would read as a name while saying nothing.
+            return text
         where = f"Pad {int(pad) + 1}" if pad.isdigit() else f"Pad {pad}"
-        if what.startswith("button:"):
-            return f"{where} button {what[len('button:'):]}"
-        return f"{where} {what}" if what else where
+        return f"{where} button {what[len('button:'):]}"
     return text
 
 

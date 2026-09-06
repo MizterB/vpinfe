@@ -15,6 +15,7 @@ readable there, so the whole listen happens client-side and emits the selector i
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -26,47 +27,102 @@ from console import confirm, panel
 
 logger = logging.getLogger("vpinfe.console.binding_editor")
 
-# Listens for whichever comes first, then stops. Escape cancels rather than binding, so
-# there is a way out that does not cost a binding - and a player about to bind Escape
-# can still do it from the keyboard field's own entry.
+# Listens until everything is let go, then stores what was held together. So a chord is
+# made by pressing two things and a hold by keeping one down - the gesture is the
+# notation, and there is no mode to choose first.
+#
+# Escape cancels rather than binding, so there is a way out that does not cost a binding.
+# Somebody who wants Escape itself can still hold it past the hold threshold, which is
+# not a cancel.
 _CAPTURE_JS = """() => {
+  const HOLD_AT = %(hold_at)d;
+  const down = new Map();          // token -> when it went down
+  const held = [];                 // in the order they arrived
+  let longest = 0;
+  let settled = null;
+
+  const note = document.createElement('div');
+  note.className = 'console-capture';
+  document.body.appendChild(note);
+  window.__captureOverlay = note;
+  const say = (text) => { note.textContent = text; };
+  say(%(asking)s);
+
   const stop = (value) => {
+    if (settled) return;
+    settled = true;
     window.removeEventListener('keydown', onKey, true);
-    if (timer) { clearInterval(timer); timer = null; }
-    if (window.__captureOverlay) {
-      window.__captureOverlay.remove();
-      window.__captureOverlay = null;
-    }
+    window.removeEventListener('keyup', onKeyUp, true);
+    clearInterval(pads);
+    clearInterval(tick);
+    note.remove();
+    window.__captureOverlay = null;
     emit(value);
   };
+
+  const arrived = (token) => {
+    if (down.has(token)) return;
+    down.set(token, Date.now());
+    if (!held.includes(token)) held.push(token);
+    say(%(holding)s + held.length + (held.length > 1 ? ' inputs' : ' input'));
+  };
+
+  const left = (token) => {
+    const at = down.get(token);
+    if (at === undefined) return;
+    longest = Math.max(longest, Date.now() - at);
+    down.delete(token);
+    // Everything let go: what was held together is the binding.
+    if (down.size === 0) stop(assemble());
+  };
+
+  const assemble = () => {
+    if (!held.length) return '';
+    const one = held.length === 1 ? held[0] : 'chord(' + held.join('+') + ')';
+    return longest >= HOLD_AT ? one + '@hold:' + Math.round(longest / 100) * 100 : one;
+  };
+
   const onKey = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    stop(e.code === 'Escape' ? '' : 'key:' + e.code);
+    if (e.repeat) return;
+    if (e.code === 'Escape' && !held.length) { stop(''); return; }
+    arrived('key:' + e.code);
   };
-  // Which buttons were already down when the capture opened, so a held flipper does not
-  // bind itself the instant the dialog appears.
-  const held = new Set();
-  const pads = () => [...(navigator.getGamepads ? navigator.getGamepads() : [])]
+  const onKeyUp = (e) => { e.preventDefault(); left('key:' + e.code); };
+
+  // Which buttons were already down when this opened, so a held flipper does not bind
+  // itself the instant the overlay appears.
+  const already = new Set();
+  const gamepads = () => [...(navigator.getGamepads ? navigator.getGamepads() : [])]
     .filter(Boolean);
-  pads().forEach(p => p.buttons.forEach((b, i) => { if (b.pressed) held.add(p.index + ':' + i); }));
-  let timer = setInterval(() => {
-    for (const pad of pads()) {
+  gamepads().forEach(p => p.buttons.forEach((b, i) => {
+    if (b.pressed) already.add(p.index + ':' + i);
+  }));
+  const pads = setInterval(() => {
+    for (const pad of gamepads()) {
       pad.buttons.forEach((b, i) => {
-        const id = pad.index + ':' + i;
-        if (!b.pressed) { held.delete(id); return; }
-        if (held.has(id)) return;
-        stop('pad:' + pad.index + '/button:' + i);
+        const seat = pad.index + ':' + i;
+        const token = 'pad:' + pad.index + '/button:' + i;
+        if (!b.pressed) { already.delete(seat); left(token); return; }
+        if (already.has(seat)) return;
+        arrived(token);
       });
     }
-  }, 60);
-  const note = document.createElement('div');
-  note.className = 'console-capture';
-  note.textContent = %s;
-  document.body.appendChild(note);
-  window.__captureOverlay = note;
+  }, 40);
+
+  // While something is down, say when it becomes a hold - so a hold is discovered by
+  // holding rather than by being told about.
+  const tick = setInterval(() => {
+    if (!down.size) return;
+    const oldest = Math.min(...down.values());
+    const ms = Date.now() - oldest;
+    if (ms >= HOLD_AT) say(%(hold_said)s);
+  }, 80);
+
   window.addEventListener('keydown', onKey, true);
-  setTimeout(() => { if (window.__captureOverlay === note) stop(''); }, 10000);
+  window.addEventListener('keyup', onKeyUp, true);
+  setTimeout(() => stop(assemble()), 15000);
 }"""
 
 
@@ -159,10 +215,14 @@ def _chip(binding: str, store: Callable[[list], Any], claimed_by: list[str],
         chip.tooltip(f"{text} - click to remove")
 
 
+# Past this, holding is what the person meant rather than a slow press. Announced on
+# screen as it passes, so a hold is found by holding rather than read about.
+HOLD_AT_MS = 600
+
+
 def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],
              claimed: dict[str, list[str]]) -> None:
     label = str(option.get("label") or option.get("key") or "this")
-    said = f'"Press a key or a controller button for {label}. Esc cancels."'
 
     async def heard(event: Any) -> None:
         selector = str(event.args or "").strip()
@@ -184,8 +244,16 @@ def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],
         await store([*held, selector])
 
     panel.action("Bind", heard, icon="add", inline=True,
-                 hint="Listen for the next key or button",
-                 js=_CAPTURE_JS % said)()
+                 hint="Press one input, two together, or hold to bind a hold",
+                 js=_CAPTURE_JS % {
+                     "hold_at": HOLD_AT_MS,
+                     "asking": json.dumps(
+                         f"Press what should do {label}. Two together makes a chord, "
+                         "and keeping it down makes a hold. Esc cancels."),
+                     "holding": json.dumps("Holding "),
+                     "hold_said": json.dumps("Keep holding for a hold. "
+                                             "Let go to bind it."),
+                 })()
 
 
 def _owner(selector: str, claimed: dict[str, list[str]],
