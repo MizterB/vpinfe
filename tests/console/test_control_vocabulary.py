@@ -34,6 +34,9 @@ BUDGET = {
     "mediasource.py": (2, "a start picker and a search, both toolbar"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
     "about.py": (1, "the textarea a browser that will not copy falls back to"),
+    "binding_editor.py": (2, "the hold switch and its duration, in the menu a chip "
+                             "opens - not a fact row, and the row it belongs to is "
+                             "already a strip of chips"),
     "collections.py": (1, "the name field in the new-collection dialog"),
     "tageditor.py": (1, "the inline tag field, which is the editor itself"),
 }
@@ -186,6 +189,37 @@ class BindingsAreNotTypedIn(unittest.TestCase):
             binding_editor._owner("key:Escape", held, {"key": "exit"}), "Back")
         self.assertEqual(
             binding_editor._owner("key:m", held, {"key": "back"}), "")
+
+
+class AHoldCanBeSetRatherThanPerformed(unittest.TestCase):
+    """You can hold a button for about a second and a half. You cannot hold it for
+    exactly 1,500ms, and you may want one on a binding you already captured without."""
+
+    def test_a_hold_is_added_to_a_binding_that_has_none(self) -> None:
+        from common import input_registry
+
+        self.assertEqual(input_registry.with_hold("chord(key:a+key:b)", 1500),
+                         "chord(key:a+key:b)@hold:1500")
+
+    def test_a_duration_is_changed_rather_than_stacked(self) -> None:
+        from common import input_registry
+
+        once = input_registry.with_hold("key:Escape", 1000)
+
+        self.assertEqual(input_registry.with_hold(once, 2500), "key:Escape@hold:2500")
+        self.assertEqual(input_registry.hold_ms(once), 1000)
+
+    def test_zero_takes_the_hold_off_again(self) -> None:
+        from common import input_registry
+
+        self.assertEqual(
+            input_registry.with_hold("chord(key:a+key:b)@hold:1500", 0),
+            "chord(key:a+key:b)")
+
+    def test_a_binding_with_no_hold_says_nothing_rather_than_zero(self) -> None:
+        from common import input_registry
+
+        self.assertEqual(input_registry.hold_ms("key:a"), 0)
 
 
 class RawControlsAreDeclared(unittest.TestCase):

@@ -308,6 +308,11 @@ body::before {
 }
 .q-menu .q-item:hover { background: var(--surface-hover); }
 .q-menu .q-separator { background: var(--line-strong); margin: 2px 0; }
+/* A menu that holds controls rather than items. `.q-item` carries its own gutters and
+   these do not, so the padding is here - and a width, because a number field alone in a
+   168px minimum reads as a menu that failed to load. */
+.console-binding-menu { padding: 10px 12px; min-width: 232px; }
+
 /* A picker over the whole library. Unconstrained, its menu is as wide as the longest
    title in it - which in a library with one 130-character name is the whole window -
    and it resizes and repositions itself as typing filters the list. Bounded here, so
@@ -349,12 +354,55 @@ body::before {
   border-radius: 999px;
   white-space: nowrap;
   flex: none;
+  /* Both of these, or a one-character chip sits high in its own circle: the glyph rides
+     the parent's line box instead of the chip's, and nothing centres the chip in a row
+     that is taller than it. `.console-tier` has carried them all along, so a chip
+     wearing only this class was the odd one out. */
+  line-height: 1.5;
+  align-self: center;
 }
 /* The ordinary state, dimmed so a scan passes over it, and the one that wants
    attention. Both are always present - what varies between rows is data, and reading it
-   from the absence of a mark cannot be told from a row that has no table at all. */
-.console-chip-quiet { color: var(--ink-3); border: 1px solid #241640; }
+   from the absence of a mark cannot be told from a row that has no table at all.
+
+   Quiet is not invisible. This border was a literal a shade off the page background, so
+   a row of them read as text with faint smudges around it rather than as chips; it takes
+   the declared line token and a wash, the way every other chip in the vocabulary does. */
+.console-chip-quiet {
+  color: var(--ink-2);
+  border: 1px solid rgba(155, 139, 189, 0.45);
+  background: rgba(155, 139, 189, 0.08);
+}
 .console-chip-warn { color: var(--tier-table); border: 1px solid rgba(255, 192, 97, 0.45); }
+
+/* Taking a binding off, on the chip that holds it. The same rule the row actions
+   follow: gated on what the pointer can do, never on how wide the screen is, and
+   visible is the default - hiding it behind hover on a device that cannot hover makes
+   it unreachable. So a touchscreen shows it and a mouse reveals it.
+
+   The corner rather than the end of the pill: a chip is as narrow as its text, and one
+   reading "b" has no room for a second glyph inside it. Absolutely placed, so nothing
+   reflows when it appears and a row of chips does not shuffle under the cursor. */
+.console-chip-holder { position: relative; display: inline-flex; flex: none; }
+.console-chip-remove {
+  position: absolute;
+  top: -5px; right: -5px;
+  width: 14px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 10px; line-height: 1;
+  cursor: pointer;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+.console-chip-remove:hover { color: var(--danger); border-color: var(--danger); }
+@media (hover: hover) and (pointer: fine) {
+  .console-chip-remove { opacity: 0; }
+  .console-chip-holder:hover .console-chip-remove,
+  .console-chip-holder:focus-within .console-chip-remove { opacity: 1; }
+}
 
 /* The collection's icon in a media slot's art region. Contained, so a wide banner and a
    square logo both sit in the same box. */

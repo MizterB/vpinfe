@@ -182,42 +182,107 @@ def _selectors(value: Any) -> list[str]:
 
 def _chip(binding: str, store: Callable[[list], Any], claimed_by: list[str],
           held: list, *, writable: bool) -> None:
-    """One binding. Marked where another action claims it too, because the one that
-    loses is invisible everywhere else."""
+    """One binding, and the way into what a gesture could not say.
+
+    Marked where another action claims it too, because the one that loses is invisible
+    everywhere else.
+    """
     text = str(binding)
     shown = input_registry.describe(text)
     tone = "console-chip-warn" if len(claimed_by) > 1 else "console-chip-quiet"
-    chip = ui.label(shown).classes(f"console-member-chip {tone}")
+    # The chip sits in a holder so the remove mark can be placed against its corner
+    # without the chip itself becoming a positioning context for its own text.
+    holder = ui.element("div").classes("console-chip-holder")
+    with holder:
+        chip = ui.label(shown).classes(f"console-member-chip {tone}")
     if len(claimed_by) > 1:
         others = [_label_for(name) for name in claimed_by]
         chip.tooltip(f"Also bound to {_and(others)}. Only the first one gets it.")
     elif text != shown:
-        # The stored selector, for somebody reading it against a config file.
         chip.tooltip(text)
     if not writable:
         return
 
-    async def remove() -> None:
-        # Asked about only where pressing something could not make it again. A hold, a
-        # chord and an axis have no capture yet, so removing one here is a door that
-        # opens one way - the case `unrenderable` was written for, back when the same
-        # bindings were merely invisible rather than one click from gone.
-        if not input_registry.capturable(text) and not await confirm.ask(
-                f"Remove {shown}?",
-                detail="Nothing here can bind that again yet - it would have to go back "
-                       "into the settings file by hand.",
-                confirm="Remove"):
-            return
-        await store([one for one in held if str(one) != text])
+    chip.classes("cursor-pointer")
+    with chip:
+        _menu(text, shown, store, held)
+    with holder:
+        # `click.stop`, or taking a binding off would also open the editor for the
+        # binding that is no longer there.
+        ui.label("✕").classes("console-chip-remove") \
+            .on("click.stop", lambda: _remove(text, shown, store, held)) \
+            .tooltip(f"Remove {shown}")
 
-    chip.classes("cursor-pointer").on("click", remove)
-    if len(claimed_by) <= 1:
-        chip.tooltip(f"{text} - click to remove")
+
+def _menu(text: str, shown: str, store: Callable[[list], Any], held: list) -> None:
+    """What a gesture cannot say, on the binding it belongs to.
+
+    A duration is the case: you can hold a button for about a second and a half, and you
+    cannot hold it for exactly 1,500ms - so what was captured is a starting point and
+    this is where it is set. Adding a hold to a binding that has none is the same edit,
+    which is why there is no separate way to do it.
+
+    Opened from the chip rather than sitting in the row: a hold is an exception, and
+    charging every binding a duration field for the few that want one is what the
+    workbench pattern exists to avoid.
+    """
+    with ui.menu().props("auto-close=false"), \
+            ui.column().classes("console-binding-menu gap-2"):
+        ui.label(shown).classes("console-setting")
+        ui.label(text).classes("console-help")
+
+        holding = input_registry.hold_ms(text)
+
+        async def set_hold(ms: int) -> None:
+            wanted = input_registry.with_hold(text, ms)
+            if wanted == text:
+                return
+            await store([wanted if str(one) == text else one for one in held])
+
+        with ui.row().classes("items-center gap-2 no-wrap"):
+            ui.label("Only after holding").classes("console-setting grow min-w-0")
+            switch = ui.switch(value=bool(holding)) \
+                .props("dense color=positive").classes("console-fact-switch")
+        seconds = ui.number(value=(holding or DEFAULT_HOLD_MS) / 1000,
+                            min=0.1, max=10, step=0.1, suffix="s") \
+            .props("dense outlined").classes("console-edit-narrow")
+        seconds.set_visibility(bool(holding))
+
+        switch.on_value_change(
+            lambda event: set_hold(
+                round(float(seconds.value or 0) * 1000) if event.value else 0))
+        seconds.on_value_change(
+            lambda: set_hold(round(float(seconds.value or 0) * 1000))
+            if switch.value else None)
+        ui.label("How long it has to be held before it counts.") \
+            .classes("console-help")
+
+        panel.action("Remove", lambda: _remove(text, shown, store, held),
+                     icon="close", danger=True)()
+
+
+async def _remove(text: str, shown: str, store: Callable[[list], Any],
+                  held: list) -> None:
+    # Asked about only where pressing something could not make it again. A modifier and
+    # an axis have no gesture, so removing one here is a door that opens one way - the
+    # case `unrenderable` was written for, back when the same bindings were merely
+    # invisible rather than one click from gone.
+    if not input_registry.capturable(text) and not await confirm.ask(
+            f"Remove {shown}?",
+            detail="Nothing here can bind that again yet - it would have to go back "
+                   "into the settings file by hand.",
+            confirm="Remove"):
+        return
+    await store([one for one in held if str(one) != text])
 
 
 # Past this, holding is what the person meant rather than a slow press. Announced on
-# screen as it passes, so a hold is found by holding rather than read about.
-HOLD_AT_MS = 600
+# screen as it passes, so a hold is found by holding rather than read about. A second,
+# because half of one is an ordinary press and nobody means it as a hold.
+HOLD_AT_MS = 1000
+
+# What a hold starts at when one is added on the chip rather than performed.
+DEFAULT_HOLD_MS = 1000
 
 
 def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],

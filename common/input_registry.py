@@ -239,6 +239,25 @@ def describe(binding: str) -> str:
     return text
 
 
+def hold_ms(binding: str) -> int:
+    """How long this binding asks to be held, or 0 for one that does not."""
+    suffix = _hold_of(binding)
+    return int(suffix[len(HOLD_MARK):]) if suffix else 0
+
+
+def with_hold(binding: str, ms: int) -> str:
+    """The same binding, held for `ms` - or not held at all when `ms` is 0.
+
+    A hold is a *modifier on* a binding rather than a different binding, so adding one
+    after the fact is editing this suffix and nothing else. Which is the point: a
+    duration nobody can perform exactly is the part of the grammar an editor exists for.
+    """
+    text = str(binding or "").strip()
+    bare = text[:-len(_hold_of(text))] if _hold_of(text) else text
+    wanted = max(0, int(ms or 0))
+    return f"{bare}{HOLD_MARK}{wanted}" if wanted else bare
+
+
 def _hold_of(binding: str) -> str:
     """The `@hold:<ms>` suffix, or "" - the whole suffix, so it can be taken off."""
     text = str(binding or "")

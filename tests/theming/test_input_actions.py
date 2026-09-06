@@ -199,6 +199,21 @@ class ChordIdentityTests(unittest.TestCase):
                 self.assertEqual(input_registry.chord_members(selector), ())
 
 
+class HoldEditingTests(unittest.TestCase):
+    """A hold is a modifier on a binding rather than a different binding, so adding one
+    after the fact is editing a suffix and nothing else."""
+
+    def test_it_round_trips(self) -> None:
+        for binding in ("key:Escape", "pad:0/button:3", "chord(key:a+key:b)"):
+            with self.subTest(binding=binding):
+                held = input_registry.with_hold(binding, 1500)
+                self.assertEqual(input_registry.hold_ms(held), 1500)
+                self.assertEqual(input_registry.with_hold(held, 0), binding)
+
+    def test_a_negative_duration_is_no_hold_rather_than_a_broken_one(self) -> None:
+        self.assertEqual(input_registry.with_hold("key:a", -50), "key:a")
+
+
 class ComposedNameTests(unittest.TestCase):
     def test_a_chord_reads_as_its_parts(self) -> None:
         self.assertEqual(
