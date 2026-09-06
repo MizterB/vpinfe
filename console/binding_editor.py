@@ -144,11 +144,18 @@ def rows(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
     claimed = input_registry.holders(
         {name: _selectors(one) for name, one in (section or {}).items()})
 
-    async def store(wanted: list[str]) -> None:
+    async def store(wanted: list[str], *, redraw: bool = True) -> None:
+        """Write, and redraw unless the caller is going to stay on screen.
+
+        A redraw rebuilds the page, which takes any menu open on it with it - so an
+        editor that saved through this closed itself on the first thing you changed.
+        What it edits it updates in place instead, and asks for the redraw when it is
+        dismissed.
+        """
         if await save(list(wanted)) is False:
             return
         held[:] = list(wanted)
-        if rerender is not None:
+        if redraw and rerender is not None:
             rerender()
 
     def draw() -> None:
@@ -159,9 +166,14 @@ def rows(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
                 # the two rows holding it and leaves the other one silent.
                 _chip(binding, store,
                       claimed.get(input_registry.identity(binding)) or [], held,
-                      writable=writable)
+                      writable=writable, rerender=rerender)
             if not held:
-                ui.label("Nothing bound").classes("console-member-chip console-chip-quiet")
+                # Amber, because this action cannot be triggered at all - which is the
+                # one thing on this page worth going and fixing. Drawn quiet, it read
+                # as a binding whose name happened to be "Nothing bound".
+                ui.label("Nothing bound") \
+                    .classes("console-member-chip console-tier console-tier--warn") \
+                    .tooltip("Nothing triggers this. Bind something to it.")
             if writable:
                 _capture(option, held, store, claimed)
 
@@ -180,8 +192,9 @@ def _selectors(value: Any) -> list[str]:
     return [str(one).strip() for one in (value or []) if str(one).strip()]
 
 
-def _chip(binding: str, store: Callable[[list], Any], claimed_by: list[str],
-          held: list, *, writable: bool) -> None:
+def _chip(binding: str, store: Callable[..., Any], claimed_by: list[str],
+          held: list, *, writable: bool,
+          rerender: Callable[[], None] | None = None) -> None:
     """One binding, and the way into what a gesture could not say.
 
     Marked where another action claims it too, because the one that loses is invisible
@@ -205,7 +218,7 @@ def _chip(binding: str, store: Callable[[list], Any], claimed_by: list[str],
 
     chip.classes("cursor-pointer")
     with chip:
-        _menu(text, shown, store, held)
+        _menu(chip, text, store, held, rerender)
     with holder:
         # `click.stop`, or taking a binding off would also open the editor for the
         # binding that is no longer there.
@@ -214,7 +227,8 @@ def _chip(binding: str, store: Callable[[list], Any], claimed_by: list[str],
             .tooltip(f"Remove {shown}")
 
 
-def _menu(text: str, shown: str, store: Callable[[list], Any], held: list) -> None:
+def _menu(chip: Any, binding: str, store: Callable[..., Any], held: list,
+          rerender: Callable[[], None] | None) -> None:
     """What a gesture cannot say, on the binding it belongs to.
 
     A duration is the case: you can hold a button for about a second and a half, and you
@@ -225,28 +239,42 @@ def _menu(text: str, shown: str, store: Callable[[list], Any], held: list) -> No
     Opened from the chip rather than sitting in the row: a hold is an exception, and
     charging every binding a duration field for the few that want one is what the
     workbench pattern exists to avoid.
-    """
-    with ui.menu().props("auto-close=false"), \
-            ui.column().classes("console-binding-menu gap-2"):
-        ui.label(shown).classes("console-setting")
-        ui.label(text).classes("console-help")
 
-        holding = input_registry.hold_ms(text)
+    Edits land on the chip and not through a redraw. The page is rebuilt when the menu
+    is dismissed, so a mark that another row's binding now clashes still arrives - just
+    not while somebody is still turning the dial.
+    """
+    # The binding changes under this menu as it is edited, so the current one is held
+    # rather than captured: a second edit has to start from the first one's result.
+    now = {"text": binding}
+
+    with ui.menu().props("auto-close=false") as menu, \
+            ui.column().classes("console-binding-menu gap-2"):
+        title = ui.label(input_registry.describe(binding)).classes("console-setting")
+        selector = ui.label(binding).classes("console-help")
 
         async def set_hold(ms: int) -> None:
-            wanted = input_registry.with_hold(text, ms)
-            if wanted == text:
+            wanted = input_registry.with_hold(now["text"], ms)
+            if wanted == now["text"]:
                 return
-            await store([wanted if str(one) == text else one for one in held])
+            await store([wanted if str(one) == now["text"] else one for one in held],
+                        redraw=False)
+            was, now["text"] = now["text"], wanted
+            shown = input_registry.describe(wanted)
+            chip.text = shown
+            title.text = shown
+            selector.text = wanted
+            logger.debug("Rebound %s as %s", was, wanted)
 
+        holding = input_registry.hold_ms(binding)
         with ui.row().classes("items-center gap-2 no-wrap"):
-            ui.label("Only after holding").classes("console-setting grow min-w-0")
+            ui.label("Held for").classes("console-setting grow min-w-0")
             switch = ui.switch(value=bool(holding)) \
                 .props("dense color=positive").classes("console-fact-switch")
         seconds = ui.number(value=(holding or DEFAULT_HOLD_MS) / 1000,
                             min=0.1, max=10, step=0.1, suffix="s") \
             .props("dense outlined").classes("console-edit-narrow")
-        seconds.set_visibility(bool(holding))
+        seconds.bind_visibility_from(switch, "value")
 
         switch.on_value_change(
             lambda event: set_hold(
@@ -257,8 +285,14 @@ def _menu(text: str, shown: str, store: Callable[[list], Any], held: list) -> No
         ui.label("How long it has to be held before it counts.") \
             .classes("console-help")
 
-        panel.action("Remove", lambda: _remove(text, shown, store, held),
+        panel.action("Remove",
+                     lambda: _remove(now["text"], input_registry.describe(now["text"]),
+                                     store, held),
                      icon="close", danger=True)()
+
+    # Dismissed is when the rest of the page catches up.
+    if rerender is not None:
+        menu.on("hide", lambda: rerender())
 
 
 async def _remove(text: str, shown: str, store: Callable[[list], Any],
