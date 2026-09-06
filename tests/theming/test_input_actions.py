@@ -155,6 +155,69 @@ class ReadableBindingTests(unittest.TestCase):
                 self.assertEqual(input_registry.describe(selector), selector)
 
 
+class ChordIdentityTests(unittest.TestCase):
+    """A chord is a set of inputs held together, so it is compared as one.
+
+    And it does not fold into its members: both flippers fire their own actions *and*
+    the chord, which is the decision rather than an oversight - so a chord and a plain
+    binding on one of its members are two bindings that both work.
+    """
+
+    def test_a_chord_written_either_way_round_is_one_binding(self) -> None:
+        self.assertEqual(
+            input_registry.identity("chord(key:b+key:a)"),
+            input_registry.identity("chord(key:a+key:b)"))
+
+    def test_two_actions_holding_the_same_chord_collide(self) -> None:
+        found = input_registry.collisions(
+            {"exit": ["chord(key:a+key:b)"], "back": ["chord(key:b+key:a)"]})
+
+        self.assertEqual(list(found.values()), [["exit", "back"]])
+
+    def test_a_chord_does_not_collide_with_its_own_members(self) -> None:
+        """The shipped idiom is exactly this - hold both flippers, and both flippers are
+        bound. A rule that called it a collision would refuse the one example the design
+        is built around."""
+        self.assertEqual(
+            input_registry.collisions({
+                "exit": ["chord(key:ShiftLeft+key:ShiftRight)@hold:1500"],
+                "previous": ["key:ShiftLeft"],
+                "next": ["key:ShiftRight"]}),
+            {})
+
+    def test_a_hold_is_part_of_what_makes_two_bindings_different(self) -> None:
+        self.assertNotEqual(input_registry.identity("chord(key:a+key:b)"),
+                            input_registry.identity("chord(key:a+key:b)@hold:1500"))
+
+    def test_a_repeated_member_is_held_once(self) -> None:
+        self.assertEqual(input_registry.chord_members("chord(key:a+key:a+key:b)"),
+                         ("key:a", "key:b"))
+
+    def test_what_is_not_a_chord_has_no_members(self) -> None:
+        for selector in ("key:a", "pad:0/button:1", "chord(", ""):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.chord_members(selector), ())
+
+
+class ComposedNameTests(unittest.TestCase):
+    def test_a_chord_reads_as_its_parts(self) -> None:
+        self.assertEqual(
+            input_registry.describe("chord(key:ShiftLeft+key:ShiftRight)@hold:1500"),
+            "Left Shift + Right Shift, held 1.5s")
+
+    def test_a_hold_is_said_in_seconds(self) -> None:
+        """A hold is something a person counts, not a number of milliseconds."""
+        self.assertEqual(input_registry.describe("key:Escape@hold:800"),
+                         "Esc, held 0.8s")
+        self.assertEqual(input_registry.describe("key:Escape@hold:2000"),
+                         "Esc, held 2s")
+
+    def test_a_selector_it_still_cannot_name_comes_back_whole(self) -> None:
+        for selector in ("pad:0/axis:1+@deadzone:0.5", "key:ctrl+KeyQ"):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.describe(selector), selector)
+
+
 class WhatCaptureCannotRemakeTests(unittest.TestCase):
     """A cabinet's hold-both-flippers binding must survive the settings page.
 

@@ -169,6 +169,14 @@ class BindingsAreNotTypedIn(unittest.TestCase):
             binding_editor._selectors(["key:Enter"]), ["key:Enter"])
         self.assertEqual(binding_editor._selectors(None), [])
 
+    def test_a_chord_is_found_whichever_order_it_was_written(self) -> None:
+        """A chord is a set. Looked up as raw text, one of the two rows holding it is
+        marked and the other stays silent."""
+        held = {"chord(key:a+key:b)": ["back", "exit"]}
+
+        self.assertEqual(
+            binding_editor._owner("chord(key:b+key:a)", held, {"key": "exit"}), "Back")
+
     def test_it_names_who_already_holds_a_binding(self) -> None:
         held = {"key:Escape": ["back", "exit"]}
 

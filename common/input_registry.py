@@ -208,9 +208,18 @@ def describe(binding: str) -> str:
     for a chord would be worse than showing the one that is stored.
     """
     text = str(binding or "").strip()
+    members = chord_members(text)
+    if members:
+        # Composed, not looked up. "Left Shift + Right Shift, held 1.5s" is built from
+        # its parts, which is where the readable names stop being a table.
+        said = " + ".join(describe(one) for one in members)
+        return f"{said}{_held_for(text)}"
+    if text.endswith(_hold_of(text)) and _hold_of(text):
+        return f"{describe(text[:-len(_hold_of(text))])}{_held_for(text)}"
     if not capturable(text):
-        # Returned whole. Half-naming `key:ArrowLeft@hold` as "Left arrow" would say
-        # something the binding does not do.
+        # Returned whole. Half-naming `key:ArrowLeft@chord` as "Left arrow" would say
+        # something the binding does not do, and inventing a name for a selector this
+        # build has never seen would be worse than showing the one that is stored.
         return text
     if text.startswith(KEY_PREFIX):
         return _key_name(text[len(KEY_PREFIX):])
@@ -224,6 +233,23 @@ def describe(binding: str) -> str:
             return f"{where} button {what[len('button:'):]}"
         return f"{where} {what}" if what else where
     return text
+
+
+def _hold_of(binding: str) -> str:
+    """The `@hold:<ms>` suffix, or "" - the whole suffix, so it can be taken off."""
+    text = str(binding or "")
+    at = text.rfind(HOLD_MARK)
+    return text[at:] if at != -1 and text[at + len(HOLD_MARK):].isdigit() else ""
+
+
+def _held_for(binding: str) -> str:
+    """", held 1.5s" - said in seconds, because a hold is something a person counts."""
+    suffix = _hold_of(binding)
+    if not suffix:
+        return ""
+    ms = int(suffix[len(HOLD_MARK):])
+    seconds = f"{ms / 1000:g}"
+    return f", held {seconds}s"
 
 
 # Key names as a keyboard has them printed. `event.code` is what a browser reports and
@@ -264,17 +290,59 @@ def _key_name(code: str) -> str:
     return code
 
 
+CHORD_PREFIX = "chord("
+HOLD_MARK = "@hold:"
+
+
+def chord_members(binding: str) -> tuple[str, ...]:
+    """What a chord is made of, in a settled order, or () for anything else.
+
+    Sorted and de-duplicated because a chord is a *set* of inputs held together -
+    `chord(a+b)` and `chord(b+a)` are one binding written two ways, and comparing them as
+    text would call them different.
+
+    The members are not looked at. The grammar's own example writes action names where
+    selectors would also read - see the note in 5.4a - and settling that is not this
+    function's to do; whichever it turns out to be, a chord is still its members.
+    """
+    text = str(binding or "").strip()
+    if not text.startswith(CHORD_PREFIX) or ")" not in text:
+        return ()
+    inside = text[len(CHORD_PREFIX):text.rindex(")")]
+    return tuple(sorted({part.strip() for part in inside.split("+") if part.strip()}))
+
+
+def identity(binding: str) -> str:
+    """The form two bindings are compared in.
+
+    A chord written in either order is one binding, so comparison happens on the settled
+    order rather than on what somebody typed. Everything else is already its own
+    identity.
+
+    **A chord does not fold into its members, and that is the decision rather than an
+    oversight** (Chris, 2026-09-06): both flippers fire their own actions *and* the
+    chord, so a chord and a plain binding on one of its members are two bindings that
+    both work. What repeat does while a chord is held is dispatch's to answer.
+    """
+    text = str(binding or "").strip()
+    members = chord_members(text)
+    if not members:
+        return text
+    suffix = text[text.rindex(")") + 1:]
+    return f"{CHORD_PREFIX}{'+'.join(members)}){suffix}"
+
+
 def holders(bound) -> dict[str, list[str]]:
     """Every binding, and which actions hold it.
 
-    Compared as stored. Two spellings of one key are two bindings until something
-    normalizes them, and pretending otherwise here would report a clash that dispatch
-    does not have.
+    Compared by `identity`, so a chord written in either order is one binding. Two
+    spellings of one *key* are still two bindings: nothing normalizes those, and
+    pretending otherwise would report a clash dispatch does not have.
     """
     seen: dict[str, list[str]] = {}
     for name, bindings in dict(bound or {}).items():
         for binding in bindings or ():
-            text = str(binding).strip()
+            text = identity(binding)
             if not text:
                 continue
             # An action listing the same binding twice holds it once.

@@ -98,7 +98,11 @@ def rows(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
     def draw() -> None:
         with ui.element("div").classes("console-chips"):
             for binding in held:
-                _chip(binding, store, claimed.get(str(binding)) or [], held,
+                # By identity, not by the text somebody typed: a chord written in the
+                # other order is the same binding, and looking it up raw marks one of
+                # the two rows holding it and leaves the other one silent.
+                _chip(binding, store,
+                      claimed.get(input_registry.identity(binding)) or [], held,
                       writable=writable)
             if not held:
                 ui.label("Nothing bound").classes("console-member-chip console-chip-quiet")
@@ -165,7 +169,8 @@ def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],
         if not selector:
             return
         shown = input_registry.describe(selector)
-        if selector in [str(one) for one in held]:
+        if input_registry.identity(selector) in [
+                input_registry.identity(one) for one in held]:
             ui.notify(f"{shown} already does this.", type="warning")
             return
         # Refused rather than taken with a warning. Dispatch gives a key to the first
@@ -186,7 +191,7 @@ def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],
 def _owner(selector: str, claimed: dict[str, list[str]],
            option: dict[str, Any]) -> str:
     """Which other action holds this binding, said as a person would name it."""
-    names = [name for name in claimed.get(selector, [])
+    names = [name for name in claimed.get(input_registry.identity(selector), [])
              if name != option.get("key")]
     return _and([_label_for(name) for name in names]) if names else ""
 
