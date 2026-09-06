@@ -358,18 +358,21 @@ def _as_text(value: Any) -> str:
 
 def _expected(option: dict[str, Any], kind: str) -> str:
     """What a valid answer looks like. The Manager UI says this under every option and
-    it is the difference between a field and a guess."""
+    it is the difference between a field and a guess.
+
+    No full stop: each of these is a fragment naming a shape, not a sentence about it.
+    """
     if kind == "boolean":
-        return "Expected: on or off."
+        return "Expected: on or off"
     if kind == "number":
         low, high = option.get("min"), option.get("max")
         if low is not None and high is not None:
-            return f"Expected: a number between {low} and {high}."
-        return "Expected: a number."
+            return f"Expected: a number between {low} and {high}"
+        return "Expected: a number"
     if kind == "select":
-        return f"Expected: one of {len(option.get('options') or [])} choices."
+        return f"Expected: one of {len(option.get('options') or [])} choices"
     if kind == "textarea":
-        return "Expected: text, over as many lines as you like."
+        return "Expected: text, over as many lines as you like"
     if kind == "json":
-        return "Expected: JSON - an object, an array, or a single value."
-    return "Expected: text."
+        return "Expected: JSON - an object, an array, or a single value"
+    return "Expected: text"

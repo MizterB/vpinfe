@@ -173,7 +173,7 @@ def rows(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
                 # as a binding whose name happened to be "Nothing bound".
                 ui.label("Nothing bound") \
                     .classes("console-member-chip console-tier console-tier--warn") \
-                    .tooltip("Nothing triggers this. Bind something to it.")
+                    .tooltip("Nothing triggers this - bind something to it")
             if writable:
                 _capture(option, held, store, claimed)
 
@@ -210,7 +210,7 @@ def _chip(binding: str, store: Callable[..., Any], claimed_by: list[str],
         chip = ui.label(shown).classes(f"console-member-chip {tone}")
     if len(claimed_by) > 1:
         others = [_label_for(name) for name in claimed_by]
-        chip.tooltip(f"Also bound to {_and(others)}. Only the first one gets it.")
+        chip.tooltip(f"Also bound to {_and(others)} - only the first one gets it")
     elif text != shown:
         chip.tooltip(text)
     if not writable:
@@ -282,7 +282,7 @@ def _menu(chip: Any, binding: str, store: Callable[..., Any], held: list,
         seconds.on_value_change(
             lambda: set_hold(round(float(seconds.value or 0) * 1000))
             if switch.value else None)
-        ui.label("How long it has to be held before it counts.") \
+        ui.label("How long it has to be held before it counts") \
             .classes("console-help")
 
         panel.action("Remove",
