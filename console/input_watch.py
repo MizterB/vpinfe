@@ -1,4 +1,4 @@
-"""What this machine's inputs are doing, right now, bound to nothing.
+"""The input detector: what this machine's inputs are doing, bound to nothing.
 
 Somebody with `pad:0/button:7` in a config file, or an unlabelled encoder board, has no
 way to learn which physical thing that is. Capture answers *what did I just press*; this
@@ -135,7 +135,7 @@ def strip() -> None:
     }), once=True)
 
 
-def watch(*, heading: str = "What I can see") -> None:
+def watch(*, heading: str = "Input detector") -> None:
     """The readout with its own heading, for a page that is not a list of settings."""
     ui.label(heading).classes("console-group")
     strip()

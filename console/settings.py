@@ -291,13 +291,13 @@ async def _vps_foot(library, rerender: Callable[[], None]) -> list[tuple[Any, An
 
 
 async def _input_foot(library, rerender: Callable[[], None]) -> list[tuple[Any, Any]]:
-    """What the machine's inputs are doing, under the bindings that name them.
+    """The input detector, under the bindings that name what it sees.
 
     Here because it is the same question one row up asked backwards. A binding says
     *this key does that*; somebody who does not know which physical button is which
     cannot use the row at all until something tells them. It sets nothing.
     """
-    return [(panel.HEADING, "What I can see"),
+    return [(panel.HEADING, "Input detector"),
             (panel.FULL, input_watch.strip)]
 
 
