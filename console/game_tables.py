@@ -119,6 +119,10 @@ SCRIPT_WORDS = ("External", "Internal")
 # Three-valued, so the unknown has its own word: a table nothing has parsed cannot be
 # called ready and has not been found wanting either.
 LAUNCH_WORDS = ("Blocked", "Ready")
+# Whether the catalog knows this machine. Notable first, and unmatched is the notable
+# half by a long way - a matched game is the ordinary case, and it is the unmatched one
+# that can look nothing up: no art, no release list, no update.
+VPS_WORDS = ("Unmatched", "Matched")
 
 # The label, not the state - "Default" alone left a reader asking "default what?" on a
 # panel that also has a default launcher and a default view. Named here so the grid and

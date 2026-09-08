@@ -56,6 +56,52 @@ class GameRowTests(unittest.TestCase):
         self.assertNotIn("rom", row)
         self.assertNotIn("version", row)
 
+    def test_a_game_with_no_catalog_match_says_so(self) -> None:
+        library = data.Library.__new__(data.Library)
+        library.games = [{"id": "g1", "name": "A", "vps_id": "abc"},
+                         {"id": "g2", "name": "B", "vps_id": ""},
+                         {"id": "g3", "name": "C"}]
+        library.media = {}
+
+        rows = library.game_rows()
+
+        self.assertEqual([row["vps_unmatched"] for row in rows],
+                         [False, True, True])
+
+
+class UnmatchedColumnTests(unittest.TestCase):
+    """The column that finds the games the catalog does not know."""
+
+    def _column(self, field: str) -> dict:
+        return next(one for one in games.COLUMNS if one["field"] == field)
+
+    def test_the_funnel_offers_the_pair_notable_first(self) -> None:
+        """Unmatched first, because that is the state somebody comes here to find -
+        and because every pair in this vocabulary reads that way."""
+        choices = self._column("vps_unmatched")["filterParams"]["choices"]
+
+        self.assertEqual([one["label"] for one in choices],
+                         list(game_tables.VPS_WORDS))
+        self.assertEqual([one["value"] for one in choices], [True, False])
+
+    def test_only_the_unmatched_cell_carries_a_word(self) -> None:
+        """A word on every row would say nothing. The formatter is JavaScript, so
+        this asserts the shape rather than running it."""
+        drawn = self._column("vps_unmatched")[":valueFormatter"]
+
+        self.assertIn(f'"{game_tables.VPS_WORDS[0]}"', drawn)
+        self.assertNotIn(game_tables.VPS_WORDS[1], drawn)
+
+    def test_the_column_click_opens_a_section_that_exists(self) -> None:
+        """The click is only worth taking if it lands somewhere - a section key that
+        no longer exists would quietly do nothing."""
+        known = {item.key for item in workbench.SECTIONS}
+
+        for field, section in games.COLUMN_SECTIONS.items():
+            with self.subTest(column=field):
+                self.assertIn(field, {one["field"] for one in games.COLUMNS})
+                self.assertIn(section, known)
+
 
 class AssetSectionTests(unittest.TestCase):
     """The Assets section: what it counts, and the one kind that takes no tier."""

@@ -78,6 +78,29 @@ _RATING_CHOICES = ([{"value": 0, "label": "Unrated"}]
                        "repeat": n} for n in range(1, 6)])
 
 
+def _two(words: tuple[str, str]) -> list[dict[str, Any]]:
+    """A fact's own pair as the funnel's two choices, true first - which is the notable
+    state, because that is the direction every one of these columns reads."""
+    return [{"value": True, "label": words[0]}, {"value": False, "label": words[1]}]
+
+
+# AG Grid infers `cellDataType: boolean` from the data and draws a checkbox for it,
+# and that renderer wins over any formatter - a boolean column meant to print a word or
+# a tick comes out blank without this. Every boolean column here turns it off.
+_NO_CHECKBOX = {":cellRenderer": None}
+
+_TICK = {
+    ":valueFormatter": "params => params.value ? '\u2713' : ''",
+    "cellClass": "console-tick",
+    **_NO_CHECKBOX,
+    # Yes and No, because the column's own header is the noun: "Hidden" answers yes or
+    # no, and a pair naming the thing again would read as "Hidden: Present". A column
+    # whose subject has better words passes its own.
+    **grid.choice_filter([{"value": True, "label": "Yes"},
+                          {"value": False, "label": "No"}]),
+}
+
+
 # Delegated once, in the capture phase for the same reason the enlarge is: the cell's
 # own click would move the focused row, and rating a row you can see is not a request
 # to go and look at it.
@@ -107,6 +130,20 @@ COLUMNS = [
     grid.column("themes", "Game Themes", 200, group=_GAME,
                 help="What the machine is about - its subject, not how it looks here.\n"
                      "Comes from the catalog, and a machine can carry several."),
+    # The word only where it is missing, and a blank cell everywhere else: most of a
+    # library is matched, so a mark on every row says nothing and the few that are not
+    # are the whole point of the column. It sits beside the catalog facts because it
+    # explains them - a game with no manufacturer, year or themes is usually a game the
+    # catalog has never been asked about.
+    grid.column("vps_unmatched", "VPS Match", group=_GAME,
+                help="Blank where this game is matched to a catalog entry.\n"
+                     "Unmatched means nothing can be looked up for it - no art,\n"
+                     "no release list, no update. Open the game to match it.",
+                **_NO_CHECKBOX,
+                **{":valueFormatter":
+                   "params => params.value ? "
+                   + json.dumps(game_tables.VPS_WORDS[0]) + " : ''"},
+                **grid.choice_filter(_two(game_tables.VPS_WORDS))),
     # No ROM or Version here: ROM is an asset (`asset_registry`), Version has no
     # game-level meaning, and both were the default table's shown as the game's.
     # Named for whose rating it is, because the tables grid has one too and "Rating"
@@ -129,12 +166,17 @@ COLUMNS = [
 # panel was, which is what stepping down a list needs.
 VIEW_SECTIONS = {"builtin:Media": "media"}
 
+# A column that reports a problem, and the panel section that fixes it. Clicking the
+# word is the only thing to do with it, so the click lands where the match is made
+# rather than on Details and one more click.
+COLUMN_SECTIONS = {"vps_unmatched": "vps"}
+
 GAME_VIEWS: dict[str, list[str]] = {
     # Named for the workbench group it matches: a view and a panel
     # group about the same facts carry the same word, so crossing between the grid and
     # the panel is not a translation.
     game_tables.MACHINE: ["name", "table_count", "manufacturer", "year", "game_type",
-                "themes", "rating"],
+                "themes", "vps_unmatched", "rating"],
     # Media and Assets are built from what the library reports it has, so both are
     # filled at render time. Two views, not one: they answer different questions - what
     # a game looks like, and what it needs to play as intended - and a matrix that mixes
@@ -390,7 +432,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             state["section"] = "media"
             state.setdefault("slot", {"kind": None})["kind"] = column[len("media_"):]
         elif row and state.get("section") != workbench.COLLAPSED:
-            section = VIEW_SECTIONS.get(str(view_picker.value or ""))
+            section = (COLUMN_SECTIONS.get(column)
+                       or VIEW_SECTIONS.get(str(view_picker.value or "")))
             if section:
                 state["section"] = section
         return on_select(row)
@@ -537,24 +580,6 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
 # say: it offers a select reading "Choose one / True / False" - "Choose one" twice, since
 # the placeholder is also the first option, and the two words that follow are the wire's,
 # not a person's. Two choices in the column's own terms instead.
-def _two(words: tuple[str, str]) -> list[dict[str, Any]]:
-    """A fact's own pair as the funnel's two choices, true first - which is the notable
-    state, because that is the direction every one of these columns reads."""
-    return [{"value": True, "label": words[0]}, {"value": False, "label": words[1]}]
-
-
-_TICK = {
-    ":valueFormatter": "params => params.value ? '\u2713' : ''",
-    "cellClass": "console-tick",
-    ":cellRenderer": None,
-    # Yes and No, because the column's own header is the noun: "Hidden" answers yes or
-    # no, and a pair naming the thing again would read as "Hidden: Present". A column
-    # whose subject has better words passes its own.
-    **grid.choice_filter([{"value": True, "label": "Yes"},
-                          {"value": False, "label": "No"}]),
-}
-
-
 # One column per feature. Not used draws nothing at all, so what a reader sees down a
 # column is the tables that have it - and, where a scan is mid-flight, the ones nobody
 # has read yet. A tick for the plain yes, the same as the asset and media columns; the

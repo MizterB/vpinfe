@@ -957,6 +957,10 @@ class Library:
                 # game's, the columns that showed them are gone, and nothing has read
                 # them since.
                 "table_count": int(game.get("table_count") or 0),
+                # The absence, not the id: the grid marks what needs attention, and
+                # nobody reads a VPS id down a column. The id itself is one click away
+                # in the panel, which is where it can be checked against the catalog.
+                "vps_unmatched": not game.get("vps_id"),
                 "rating": game.get("rating") or 0,
                 "themes": ", ".join(game.get("themes") or []),
                 # One field per asset kind, the same shape as media below. What used
