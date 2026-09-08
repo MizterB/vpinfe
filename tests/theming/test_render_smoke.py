@@ -161,6 +161,64 @@ class RenderSmokeTests(TempTree):
             before, after = asyncio.run(run(instance))
         self.assertNotEqual(before, after)
 
+    # Counts every time the theme lands on a different game, because with a handful of
+    # games a wheel that travelled all the way round would look like one that never
+    # moved. Installed before the press, so nothing is counted that happened first.
+    WATCH_MOVES = """
+    window.__moves = 0;
+    new MutationObserver(() => { window.__moves += 1; }).observe(
+      document.body, {attributes: true, attributeFilter: ['data-selected']});
+    """
+
+    def test_holding_a_button_over_the_api_walks_the_wheel(self) -> None:
+        """The whole chain, held: a press that is not released keeps going, and the
+        release stops it.
+
+        This is the half that makes a remote usable - a D-pad that steps once per tap
+        cannot cross a library - and it is the same engine a cabinet flipper uses, which
+        did not repeat at all before it existed.
+        """
+        async def run(instance: LiveInstance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open(browser, instance, "playfield")
+                await browser.evaluate(self.WATCH_MOVES)
+                instance.post("/api/v1/input/actions",
+                              {"action": "next", "phase": "press", "source": "smoke"})
+                await browser.wait_for("window.__moves > 1", timeout=10.0)
+                instance.post("/api/v1/input/actions",
+                              {"action": "next", "phase": "release", "source": "smoke"})
+                # Read after a pause rather than straight away: a repeat already in
+                # flight lands after the release, and asserting on the first reading
+                # would call that a runaway.
+                await asyncio.sleep(1.0)
+                settled = await browser.evaluate("window.__moves")
+                await asyncio.sleep(1.0)
+                return settled, await browser.evaluate("window.__moves")
+
+        with LiveInstance(self.root) as instance:
+            settled, later = asyncio.run(run(instance))
+        self.assertEqual(later, settled, "the wheel kept travelling after the release")
+
+    def test_a_hold_nobody_releases_lets_go_on_its_own(self) -> None:
+        """A phone locks its screen mid-hold and the release never arrives. Without the
+        expiry that is a wheel that spins until somebody notices."""
+        async def run(instance: LiveInstance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open(browser, instance, "playfield")
+                await browser.evaluate(self.WATCH_MOVES)
+                instance.post("/api/v1/input/actions",
+                              {"action": "next", "phase": "press", "source": "smoke",
+                               "ttl_ms": 300})
+                await browser.wait_for("window.__moves > 1", timeout=10.0)
+                await asyncio.sleep(1.5)
+                stopped = await browser.evaluate("window.__moves")
+                await asyncio.sleep(1.0)
+                return stopped, await browser.evaluate("window.__moves")
+
+        with LiveInstance(self.root) as instance:
+            stopped, later = asyncio.run(run(instance))
+        self.assertEqual(later, stopped, "nothing let go of a hold that was never released")
+
     # -- the main menu, driven the way a player drives it --------------------
     #
     #

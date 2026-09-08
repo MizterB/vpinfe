@@ -4,11 +4,19 @@
 // here: each one now pins the fixed behavior, so the same evidence that found the bugs is
 // the net that keeps them fixed.
 
-import { test, describe } from "node:test";
+import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { loadCore } from "./support/load-core.js";
 import { codeFor } from "./support/browser.js";
+
+// A test that presses without releasing leaves a hold repeating, and the runner waits
+// for its timer. A key held with no keyup is a real state - it is what losing focus
+// looks like - and core answers it on blur, so that is what this fires.
+const stillHeld = [];
+afterEach(() => {
+  for (const letGo of stillHeld.splice(0)) letGo();
+});
 
 // A controller-window core with the keydown listener core installs captured, so a test
 // can fire a key the way the browser would. Overlay flags are set directly: what is
@@ -41,6 +49,15 @@ function controller() {
     await Promise.all((listeners.keydown || []).map(fn => fn(event)));
     return event;
   };
+  // The other half of a press. A test that only ever presses is describing a key that
+  // is still down, which is a state core deliberately treats as a hold.
+  const release = async (key, { code = codeFor(key) } = {}) => {
+    const event = { key, code, target: null };
+    await Promise.all((listeners.keyup || []).map(fn => fn(event)));
+    return event;
+  };
+  const blur = () => (listeners.blur || []).forEach(fn => fn());
+  stillHeld.push(blur);
   const calls = () => socket.sent.filter(m => m.type === "api_call").map(m => m.method);
   // Exit quits through the lifecycle request now, which asks whether to confirm before
   // it asks to quit. Either call means the quit path was entered, which is what these
@@ -52,7 +69,7 @@ function controller() {
     return calls().some(m => m === "close_app" || m === "lifecycle_request"
                              || m === "lifecycle_needs_confirmation");
   };
-  return { vpin, press, calls, quits };
+  return { vpin, press, release, blur, calls, quits };
 }
 
 describe("exit never quits VPinFE from inside an overlay", () => {
@@ -105,39 +122,108 @@ describe("a bound key belongs to core", () => {
   });
 });
 
-describe("the auto-repeat throttle is per action", () => {
-  test("a repeating right is not swallowed by a repeating left", async () => {
-    const { vpin, press } = controller();
+describe("a held control repeats, and the repeat is ours", () => {
+  // The OS repeat used to be the whole mechanism, throttled to keep it from flooding the
+  // wheel. It was the one producer a flipper and a phone could not match: the rate is a
+  // machine setting, there is no ramp, and a held gamepad button did not repeat at all.
+  // So the curve moved into core, and these say what that means at the keyboard.
+  function handler() {
+    const made = controller();
     // Contract 2, so the names below are core's own rather than the translated ones a
-    // contract 1 theme is handed. What is under test is the throttle, not the naming.
-    vpin.contract = 2;
+    // contract 1 theme is handed. What is under test is the repeat, not the naming.
+    made.vpin.contract = 2;
     const seen = [];
     // Pushed directly: registerInputHandler awaits a bridge round-trip before it
     // registers anything, and what is under test here is dispatch.
-    vpin.inputHandlers.push((action) => { seen.push(action); });
+    made.vpin.inputHandlers.push((action) => { seen.push(action); });
+    return { ...made, seen };
+  }
 
-    await press("ArrowLeft", { repeat: true });
-    await press("ArrowRight", { repeat: true });
+  test("the operating system's own repeat is ignored", async () => {
+    const { press, seen } = handler();
 
-    assert.deepEqual(seen, ["previous", "next"],
-      "one shared timestamp read a direction change as the same key repeating");
-  });
-
-  test("the same action repeating is still throttled", async () => {
-    const { vpin, press } = controller();
-    // Contract 2, so the names below are core's own rather than the translated ones a
-    // contract 1 theme is handed. What is under test is the throttle, not the naming.
-    vpin.contract = 2;
-    const seen = [];
-    // Pushed directly: registerInputHandler awaits a bridge round-trip before it
-    // registers anything, and what is under test here is dispatch.
-    vpin.inputHandlers.push((action) => { seen.push(action); });
-
+    await press("ArrowLeft");
     await press("ArrowLeft", { repeat: true });
     await press("ArrowLeft", { repeat: true });
 
     assert.deepEqual(seen, ["previous"],
-      "the throttle is what keeps a held key from flooding the wheel");
+      "an OS repeat has no ramp and no agreement with any other control");
+  });
+
+  test("a repeat the OS sends is still claimed", async () => {
+    // Not acting on it is not the same as leaving it to the browser: the arrows would
+    // scroll the theme's page underneath for as long as the key was held.
+    const { press } = handler();
+
+    await press("ArrowLeft");
+
+    assert.equal((await press("ArrowLeft", { repeat: true })).prevented, true);
+  });
+
+  test("holding it walks the wheel", async () => {
+    const { vpin, press, seen } = handler();
+    quickly(vpin);
+
+    await press("ArrowLeft");
+    await ticks();
+
+    assert.ok(seen.length > 1, "a held control has to keep going, or it is a tap");
+    assert.ok(seen.every(one => one === "previous"));
+  });
+
+  test("letting go stops it", async () => {
+    const { vpin, press, release, seen } = handler();
+    quickly(vpin);
+
+    await press("ArrowLeft");
+    await ticks();
+    await release("ArrowLeft");
+    const whenReleased = seen.length;
+    await ticks();
+
+    assert.equal(seen.length, whenReleased);
+  });
+
+  test("losing focus stops it too", async () => {
+    // A window that loses focus mid-hold never sees the keyup, and the wheel would keep
+    // travelling behind whatever took the focus.
+    const { vpin, press, blur, seen } = handler();
+    quickly(vpin);
+
+    await press("ArrowLeft");
+    await ticks();
+    blur();
+    const whenBlurred = seen.length;
+    await ticks();
+
+    assert.equal(seen.length, whenBlurred);
+  });
+
+  test("the other direction takes the hold over", async () => {
+    // You cannot ask to go left and right at once, and a wheel that tried would answer
+    // neither.
+    const { vpin, press, seen } = handler();
+    quickly(vpin);
+
+    await press("ArrowLeft");
+    await press("ArrowRight");
+    await ticks();
+
+    assert.equal(seen.filter(one => one === "previous").length, 1,
+      "the first direction stopped repeating when the second was pressed");
+    assert.ok(seen.filter(one => one === "next").length > 1);
+  });
+
+  test("select does not repeat, however long it is held", async () => {
+    // Holding it would launch twice. A hold means "keep going", and going is something
+    // only the four movement actions do.
+    const { vpin, press, seen } = handler();
+    quickly(vpin);
+
+    await press("Enter");
+    await ticks();
+
+    assert.equal(seen.filter(one => one === "select").length, 1);
   });
 });
 
@@ -566,12 +652,25 @@ async function chorded(bindings) {
     await Promise.all((listeners[type] || []).map(fn => fn(event)));
     return event;
   };
+  stillHeld.push(() => (listeners.blur || []).forEach(fn => fn()));
   return {
     vpin, seen,
     down: (code, repeat = false) => fire("keydown", codeFor(code), repeat),
     up: (code) => fire("keyup", codeFor(code)),
   };
 }
+
+// The repeat curve, compressed so a test about holding does not cost most of a second.
+// The shape is what is under test - a delay, then repeats - not the numbers, which are
+// a feel decision and belong to the install.
+function quickly(vpin) {
+  vpin.repeatDelayMs = 5;
+  vpin.repeatStartMs = 5;
+  vpin.repeatFloorMs = 5;
+}
+
+// Long enough for several repeats at the compressed interval.
+const ticks = () => new Promise(resolve => setTimeout(resolve, 60));
 
 // The chord is on an action core forwards to the theme. `menu` would have worked and
 // told us nothing: core opens the overlay itself, so the chord firing looks the same as
@@ -624,15 +723,13 @@ describe("a chord fires when every member is held", () => {
   });
 
   test("a member stops repeating while the chord holds it", async () => {
-    const { seen, down } = await chorded(FLIPPERS);
+    const { vpin, seen, down } = await chorded(FLIPPERS);
+    quickly(vpin);
 
     await down("a");
-    await down("a", true);
-    const whileHeld = seen.filter(one => one === "previous").length;
-
     await down("b");
-    await down("a", true);
-    await down("a", true);
+    const whileHeld = seen.filter(one => one === "previous").length;
+    await ticks();
 
     assert.equal(seen.filter(one => one === "previous").length, whileHeld,
       "the wheel must not walk for the length of a hold");
@@ -650,14 +747,20 @@ describe("a chord fires when every member is held", () => {
   });
 
   test("repeat comes back once a member is released", async () => {
-    const { seen, down, up } = await chorded(FLIPPERS);
+    // Muted rather than cancelled: the player is still holding this one, and that is
+    // still a request to keep going.
+    const { vpin, seen, down, up } = await chorded(FLIPPERS);
+    quickly(vpin);
 
     await down("a");
     await down("b");
-    await up("b");
-    await down("a", true);
+    await ticks();
+    const whileHeld = seen.filter(one => one === "previous").length;
 
-    assert.ok(seen.filter(one => one === "previous").length > 1,
+    await up("b");
+    await ticks();
+
+    assert.ok(seen.filter(one => one === "previous").length > whileHeld,
       "a released chord must not leave its members muted");
   });
 });
@@ -707,12 +810,17 @@ describe("a chord that asks to be held", () => {
 describe("an action produced outside the browser", () => {
   function windows(controlling) {
     const { VPinFECore, browser } = loadCore({ windowName: "table" });
-    browser.window.addEventListener = () => {};
+    // Captured rather than discarded: a press starts a hold, and blur is how core is
+    // told to let go of one. Throwing the listeners away left every one of these tests
+    // repeating after it had passed.
+    const listeners = {};
+    browser.window.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
     const vpin = new VPinFECore();
     vpin.init();
     vpin.isController = () => controlling;
     vpin.frontendInputEnabled = true;
     vpin._capabilities && (vpin._capabilities.core_navigation = false);
+    stillHeld.push(() => (listeners.blur || []).forEach(fn => fn()));
     const seen = [];
     vpin.inputHandlers.push((action) => { seen.push(action); });
     return { vpin, seen };
@@ -752,6 +860,22 @@ describe("an action produced outside the browser", () => {
     assert.deepEqual(seen, []);
   });
 
+  test("holding it walks the wheel, and letting go stops it", async () => {
+    // The reason a hold is a press and a release rather than the client sending steps
+    // on a timer: the curve is here, so a thumb feels like a flipper feels like a key.
+    const { vpin, seen } = windows(true);
+    quickly(vpin);
+
+    await vpin.handleEvent({ type: "InputAction", action: "next", phase: "press" });
+    await ticks();
+    const whileHeld = seen.length;
+    await vpin.handleEvent({ type: "InputAction", action: "next", phase: "release" });
+    await ticks();
+
+    assert.ok(whileHeld > 1, "a held button has to keep going, or it is a tap");
+    assert.equal(seen.length, whileHeld);
+  });
+
   test("input that is suppressed for a launch stays suppressed", async () => {
     // The whole point of the suppression is that a table is coming up. A press that
     // walked in over the network while a launch was in flight would be the one input
@@ -762,5 +886,82 @@ describe("an action produced outside the browser", () => {
     await vpin.handleEvent({ type: "InputAction", action: "next", phase: "press" });
 
     assert.deepEqual(seen, []);
+  });
+});
+
+
+// A cabinet flipper held down did nothing at all: only the press edge counted, and the
+// keyboard's repeat came from the OS, which a gamepad has no equivalent of. This is the
+// half of the hold engine that fixes the cabinet rather than the phone.
+describe("a held gamepad button", () => {
+  // Booted through the socket, because the poll is started by the bridge-ready sequence
+  // and not by init(). Faking the loop instead would test the test.
+  async function padded() {
+    const { VPinFECore, browser } = loadCore({ windowName: "table" });
+    const listeners = {};
+    browser.window.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
+    const buttons = [{ pressed: false }, { pressed: false }];
+    browser.navigator.getGamepads = () => [{ index: 0, buttons }];
+    const vpin = new VPinFECore();
+    vpin.isController = () => true;
+    // Only the shapes the boot would otherwise throw on. The rest of the sequence
+    // tolerates an empty answer on purpose.
+    const answers = { get_tables: "[]", get_theme_assets_port: 8000,
+                      get_initial_table_index: 0, get_theme_config: {},
+                      get_keymapping: {}, get_joymaping: {}, get_mainmenu_config: {},
+                      get_monitors: [], get_collections: [] };
+    vpin.call = (method) => Promise.resolve(
+      method in answers ? answers[method] : null);
+    vpin.init();
+    await browser.WebSocket.instances.at(-1).onopen();
+    vpin.frontendInputEnabled = true;
+    vpin.contract = 2;
+    vpin._capabilities && (vpin._capabilities.core_navigation = false);
+    vpin.joyButtonMap = { "0": ["previous"], "1": ["select"] };
+    stillHeld.push(() => (listeners.blur || []).forEach(fn => fn()));
+    const seen = [];
+    vpin.inputHandlers.push((action) => { seen.push(action); });
+    // The poll re-arms itself every frame, so the harness holds the callback and a test
+    // steps it - which is the only way to produce a press edge and then a release edge.
+    const poll = () => browser.frames.step();
+    return { vpin, seen, buttons, poll };
+  }
+
+  test("it repeats while it is down", async () => {
+    const { vpin, seen, buttons, poll } = await padded();
+    quickly(vpin);
+
+    buttons[0].pressed = true;
+    poll();
+    await ticks();
+
+    assert.ok(seen.length > 1, "holding a flipper did not scroll the wheel at all");
+    assert.ok(seen.every(one => one === "previous"));
+  });
+
+  test("letting go stops it", async () => {
+    const { vpin, seen, buttons, poll } = await padded();
+    quickly(vpin);
+
+    buttons[0].pressed = true;
+    poll();
+    await ticks();
+    buttons[0].pressed = false;
+    poll();
+    const whenReleased = seen.length;
+    await ticks();
+
+    assert.equal(seen.length, whenReleased);
+  });
+
+  test("a button that is not movement fires once", async () => {
+    const { vpin, seen, buttons, poll } = await padded();
+    quickly(vpin);
+
+    buttons[1].pressed = true;
+    poll();
+    await ticks();
+
+    assert.deepEqual(seen, ["select"]);
   });
 });

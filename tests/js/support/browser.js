@@ -168,7 +168,20 @@ export function makeBrowser({ windowName = "table", search = null, pathname = "/
   FakeEventSource.instances = [];
   FakeImage.requested = [];
 
+  // The next animation frame the code under test asked for, and a way to run it. One
+  // slot, because the only caller that re-arms is the gamepad poll.
+  const frames = {
+    pending: null,
+    step() {
+      const fn = frames.pending;
+      frames.pending = null;
+      if (fn) fn();
+      return !!fn;
+    },
+  };
+
   return {
+    frames,
     window: windowStub,
     document: documentStub,
     navigator: { getGamepads: () => [] },
@@ -193,13 +206,25 @@ export function makeBrowser({ windowName = "table", search = null, pathname = "/
     Number,
     Boolean,
     Error,
-    setTimeout,
+    // Unreferenced, so a timer the code under test still has running cannot keep the
+    // runner alive after a test has passed. A browser page never exits and core's own
+    // timers are written for that - a held key repeats until it is released - so without
+    // this a test that presses without releasing hangs the suite rather than failing it.
+    setTimeout: (fn, ms, ...rest) => {
+      const timer = setTimeout(fn, ms, ...rest);
+      return timer && timer.unref ? timer.unref() : timer;
+    },
     clearTimeout,
-    // A no-op rather than a real frame: the gamepad poll re-arms itself every frame, so
-    // scheduling it for real would spin a test forever. Nothing here asserts on gamepads.
-    requestAnimationFrame: () => 0,
+    // Held rather than scheduled: the gamepad poll re-arms itself every frame, so a real
+    // frame would spin a test forever. Keeping the callback lets a test that cares about
+    // a held button step the poll itself - `frames.step()` - which is the only way to
+    // produce a press edge and then a release edge from here.
+    requestAnimationFrame: (fn) => { frames.pending = fn; return frames.pending ? 1 : 0; },
     cancelAnimationFrame: () => {},
-    setInterval,
+    setInterval: (fn, ms, ...rest) => {
+      const timer = setInterval(fn, ms, ...rest);
+      return timer && timer.unref ? timer.unref() : timer;
+    },
     clearInterval,
     console,
   };

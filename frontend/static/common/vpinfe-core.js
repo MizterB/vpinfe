@@ -132,6 +132,12 @@ function configValue(config, key) {
     (at && typeof at === "object") ? at[part] : undefined, config);
 }
 
+// Only movement repeats when it is held. Holding select must not launch twice and
+// holding exit must not ask to quit twice - a hold means "keep going", and going is
+// something only these four do.
+const REPEATING_ACTIONS = new Set(
+  ["previous", "next", "page_previous", "page_next"]);
+
 const MISSING_MEDIA_URL = "/core/images/file_missing.png";
 
 // The contract a theme declares in its manifest. 1 is what declaring nothing gets, and
@@ -626,13 +632,25 @@ class VPinFECore {
       exit: ['escape', 'keyq'],
     };
     this.previousButtonStates = {};
-    // A held key repeats at whatever rate the OS is set to - often 30 a second - and
-    // every one of those used to become a full wheel move. Deliberate presses are never
-    // throttled; only the automatic repeat is.
-    this.minRepeatIntervalMs = 150;
-    // Keyed by action: one timestamp for everything meant a fast direction change was
-    // read as the same key repeating and got dropped.
-    this._lastRepeatAt = {};
+    // Held input repeats here, not wherever the press came from. A press acts once;
+    // holding starts repeating after the delay and speeds up to the floor, so one
+    // control both nudges by a single game and travels across a large library.
+    //
+    // One curve for every producer. The keyboard used to lean on the OS repeat - a rate
+    // the machine picks, with no ramp - a held gamepad button did nothing at all because
+    // only the press edge counted, and a phone would have had to invent a third. Three
+    // controls that feel different doing one thing is the defect.
+    this.repeatDelayMs = 400;   // a deliberate press must never become a repeat
+    this.repeatStartMs = 260;   // the first repeat: a comfortable browse
+    this.repeatAccel = 0.82;    // each repeat is this much shorter than the last
+    this.repeatFloorMs = 70;    // as fast as this goes: quick, still trackable
+    // One at a time. You cannot ask to go left and right at once, and a wheel that tried
+    // would answer neither.
+    this._hold = null;
+    // How long after a move the wheel still counts as travelling, which is what the
+    // `moving` flag on an index message tells a theme. Its own constant now: it used to
+    // borrow the keyboard repeat throttle, which no longer exists.
+    this.movingWindowMs = 300;
     this.gamepadEnabled = true;
     this.frontendInputEnabled = true;
     this._launchInputSuppressedByLifecycle = false;
@@ -761,6 +779,13 @@ class VPinFECore {
     // Set up keyboard listener
     window.addEventListener('keydown', (e) => this.#onKeyDown(e));
     window.addEventListener('keyup', (e) => this.#onKeyUp(e));
+    // A window that loses focus mid-hold never sees the keyup, and the wheel would keep
+    // travelling behind whatever took the focus. The same failure the install guards a
+    // network press against by expiring it.
+    window.addEventListener('blur', () => this.#endHold());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.#endHold();
+    });
 
     // Connect to WebSocket bridge
     this.#connectWebSocket();
@@ -2477,7 +2502,7 @@ class VPinFECore {
 
   #stillMoving() {
     const now = Date.now();
-    const moving = (now - (this._lastMoveAt || 0)) < this.minRepeatIntervalMs * 2;
+    const moving = (now - (this._lastMoveAt || 0)) < this.movingWindowMs;
     this._lastMoveAt = now;
     return moving;
   }
@@ -2508,34 +2533,67 @@ class VPinFECore {
     const action = this.#actionForKeyboardEvent(e);
     if (!action) { this.#reconsiderChords(); return; }
 
-    // A key a complete chord is holding stops repeating its own action. The first press
-    // already fired; what is suppressed is the wheel walking for the length of a hold.
-    if (e.repeat && this.#heldByChord(token)) {
-      e.preventDefault();
-      return;
-    }
-
-    // Per action, not one timestamp for all of them. A repeating ArrowRight straight
-    // after a repeating ArrowLeft is a different intent, and a shared clock ate it.
-    if (e.repeat) {
-      const now = Date.now();
-      if (now - (this._lastRepeatAt[action] || 0) < this.minRepeatIntervalMs) return;
-      this._lastRepeatAt[action] = now;
-    }
-
     // A bound key belongs to us. Without this the arrows also scroll the theme's page
     // and Space activates whatever the browser thinks is focused.
     e.preventDefault();
 
+    // The OS repeat is not ours. It fires at whatever rate the machine is set to, with
+    // no ramp, and it is the one producer a flipper and a phone cannot match - so it is
+    // ignored and the hold below does the repeating instead.
+    if (e.repeat) return;
+
     this.#dispatchAction(action);
+    // A chord's members must not also walk the wheel for the length of the hold: what
+    // the player asked for is the chord's action. Checked after reconsidering, because
+    // the chord only completes once this member is down.
     this.#reconsiderChords();
+    if (!this.#heldByChord(token)) this.#startHold(action, token);
   }
 
-  // Only chords care that a key came back up, so this does not go through dispatch.
-  // A window that loses focus mid-hold never sees the keyup, which is why a chord is
-  // re-checked when its timer fires rather than trusted to still be held.
+  // A key coming back up ends its hold and lets any chord it belonged to fall apart.
   #onKeyUp(e) {
-    this.#inputUp(downToken("key:" + (e.code || e.key || "")));
+    const token = downToken("key:" + (e.code || e.key || ""));
+    this.#endHold(this.#actionForKeyboardEvent(e));
+    this.#inputUp(token);
+  }
+
+  // A press acts once and then, if it is still down after the delay, keeps going.
+  #startHold(action, token = "") {
+    if (!REPEATING_ACTIONS.has(action)) return;
+    this.#endHold();
+    const held = { action, token, interval: this.repeatStartMs, timer: null };
+    held.timer = setTimeout(() => this.#onRepeat(held), this.repeatDelayMs);
+    this._hold = held;
+  }
+
+  // Released - or the window lost focus mid-hold, which is a release nobody sees.
+  // Called with no action to stop whatever is running.
+  #endHold(action) {
+    if (!this._hold) return;
+    if (action && this._hold.action !== action) return;
+    clearTimeout(this._hold.timer);
+    this._hold = null;
+  }
+
+  async #onRepeat(held) {
+    if (this._hold !== held) return;
+    // Muted, not cancelled, while a complete chord owns this input: what the player
+    // asked for is the chord's action. Letting go of the other member brings the walk
+    // back, because still holding this one is still asking for it - and the ramp starts
+    // again rather than resuming at whatever speed it had reached.
+    const muted = held.token && this.#heldByChord(held.token);
+    // Wait for the step to be handled before pacing the next one. Without this the ramp
+    // outruns the theme's animation, the theme drops what arrives mid-move, and the
+    // wheel travels in lurches instead of accelerating.
+    const started = Date.now();
+    if (!muted) await this.#dispatchAction(held.action);
+    if (this._hold !== held) return;
+
+    held.interval = muted
+      ? this.repeatStartMs
+      : Math.max(this.repeatFloorMs, held.interval * this.repeatAccel);
+    const left = Math.max(0, held.interval - (Date.now() - started));
+    held.timer = setTimeout(() => this.#onRepeat(held), left);
   }
 
   // A press that arrived over the bus rather than off a key or a pad. Not a chord member
@@ -2547,9 +2605,11 @@ class VPinFECore {
   // sending a press and a release straight after already means.
   #applyRemoteInput(message) {
     if (!this.frontendInputEnabled) return;
-    if (message.phase === "release") return;
     const action = String(message && message.action || "");
-    if (action) this.#dispatchAction(action);
+    if (!action) return;
+    if (message.phase === "release") return this.#endHold(action);
+    this.#dispatchAction(action);
+    this.#startHold(action);
   }
 
   // What an action does, whichever input produced it. One place, so the keyboard and
@@ -2827,6 +2887,11 @@ async #onButtonPressed(buttonIndex, gamepadIndex) {
       this.#dispatchAction(action);
     }
     this.#reconsiderChords();
+    const token = "pad:" + buttonIndex;
+    if (this.#heldByChord(token)) return;
+    for (const action of this.joyButtonMap[buttonIndex.toString()] || []) {
+      this.#startHold(action, token);
+    }
   }
 
   #updateGamepads() {
@@ -2844,9 +2909,17 @@ async #onButtonPressed(buttonIndex, gamepadIndex) {
         const isPressed = button.pressed;
 
         if (this.frontendInputEnabled && isPressed !== wasPressed) {
-          // Both edges: a chord is about what is held, so it has to hear the release.
-          if (isPressed) this.#noteDown("pad:" + index);
-          else this.#inputUp("pad:" + index);
+          // Both edges: a chord is about what is held, so it has to hear the release -
+          // and so does the hold, which is why a held flipper can scroll the wheel at
+          // all. Only the press edge counted before, so holding one did nothing.
+          if (isPressed) {
+            this.#noteDown("pad:" + index);
+          } else {
+            this.#inputUp("pad:" + index);
+            for (const action of this.joyButtonMap[index.toString()] || []) {
+              this.#endHold(action);
+            }
+          }
         }
         if (this.frontendInputEnabled && isPressed && !wasPressed) {
           //this.call("console_out", "Button: " + index);

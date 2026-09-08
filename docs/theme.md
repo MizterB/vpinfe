@@ -1259,9 +1259,9 @@ was meant; both still work and neither is worth adding to a new theme.
 
 With `core_preload` on, core fetches the media for the selection and its two neighbors —
 but only once the wheel has stopped, after about 180 ms of quiet. That delay is the point.
-A held key repeats around 30 times a second, so a theme preloading on every step asks for
-hundreds of images that are obsolete before they decode, and the browser is still draining
-that queue long after the key is released. Waiting for the wheel to settle turns a
+A held control walks the wheel and speeds up as it goes — down to a step every 70 ms — so a
+theme preloading on every step asks for images that are obsolete before they decode, and the
+browser is still draining that queue long after the control is released. Waiting for the wheel to settle turns a
 two-second hold into one batch.
 
 `preload.kinds` chooses what gets fetched; the default is `["playfield", "bg", "wheel"]`.
