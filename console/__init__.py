@@ -1,12 +1,15 @@
-"""The Console: the web surface an install serves, at / and /console.
+"""The web surfaces an install serves: the Console at / and /console, the remote at
+/remote.
 
-What it contains depends on the install - one curating a library and one
-running games do not need the same screens.
+What the Console contains depends on the install - one curating a library and one
+running games do not need the same screens. The remote is the same install seen from a
+phone, and it is a second shell rather than the same one narrowed: a workbench is a list
+beside an inspector, and one hand cannot hold two panes.
 """
 
 from __future__ import annotations
 
 
 def register() -> None:
-    """Import the page module so its @ui.page decorator registers the route."""
-    from console import page  # noqa: F401
+    """Import the page modules so their @ui.page decorators register the routes."""
+    from console import page, remote  # noqa: F401

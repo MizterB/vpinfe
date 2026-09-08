@@ -54,6 +54,9 @@ BUDGET = {
                         "up front because a location with no folder set reads as "
                         "unreachable - the same words a dropped share uses"),
     "tageditor.py": (1, "the inline tag field, which is the editor itself"),
+    "remote.py": (1, "the target picker in the header, which is not a fact row - it "
+                     "says which machine every action on the screen is about, and it "
+                     "is only drawn where there is more than one to choose between"),
 }
 
 

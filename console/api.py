@@ -871,6 +871,24 @@ class ApiClient:
         call that install answers - a failure afterwards is the update working."""
         return self._post("/update", {"stop_table": stop_table})
 
+    def stop_play(self) -> dict:
+        """Close whatever is running. `stopped` is false where there was nothing to
+        close, which is an answer rather than a failure."""
+        return self._post("/play/stop", {})
+
+    def press_input(self, action: str, phase: str = "tap", *,
+                    ttl_ms: int = 0, source: str = "remote") -> dict:
+        """Press, hold or release one input action on the install this client points at.
+
+        Which install is the whole of the routing: a press reaches the windows of the
+        machine that received it, so aiming at another one is a different base URL rather
+        than a different call.
+        """
+        body: dict[str, Any] = {"action": action, "phase": phase, "source": source}
+        if ttl_ms:
+            body["ttl_ms"] = ttl_ms
+        return self._post("/input/actions", body)
+
     def play_state(self) -> dict:
         """What the play host is doing. `launching` stays true for as long as a table
         is up, not just while it is starting."""

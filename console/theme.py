@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from nicegui import ui
 
 # Taken from managerui/static/manager.css, which is where the brand already lives: the
@@ -96,6 +98,11 @@ _TOKENS = """
   /* A field sits in the fact rhythm rather than standing above it. Raised on touch
      with the rest, below. */
   --field-h: 26px;
+  /* A rating is five adjacent targets on one line, so it is sized on its own rather
+     than off `--target-min` - five 44px boxes is a row 220px wide, which is most of a
+     phone. Its own token so a surface can answer it without restyling the control. */
+  --star-size: 13px;
+  --star-gap: 2px;
 
   /* One row of facts, sized as text. A row that *is* a field keeps the field's own
      height; since such a field is never a swapped-in box, nothing jumps. */
@@ -161,6 +168,99 @@ _TOKENS = """
 ::-webkit-scrollbar-corner { background: transparent; }
 """
 
+
+# Density is per surface, not per stylesheet. The Console is desk-first and says so -
+# density is a feature there - and a page held in one hand inverts that: a thumb, a lit
+# screen, twenty seconds. Restating the same tokens at the size a finger needs keeps one
+# design system; a second stylesheet is how one product starts looking like two.
+#
+# 44px because that is the floor every platform's own guidance lands on, and because
+# 11 of 14 controls in the Console measure under it.
+_SURFACES = """
+[data-surface="remote"] {
+  --target-min: 44px;
+  --target-inline: 44px;
+  --field-h: 44px;
+  --fs-caption: 13px;
+  --fs-body: 16px;
+  --fs-title: 22px;
+  /* Twice the desk size, with the gap opened to match: five of these still fit a phone
+     across, and a thumb can pick the third one without picking the second. */
+  --star-size: 26px;
+  --star-gap: 8px;
+}
+"""
+
+# The remote's own components: a header that names the target, a tab bar under the
+# thumb, and an action that owns its row. Everything else it draws is the Console's -
+# `.console-card`, `.console-action`, the fact list - because the palette, the type ramp
+# and the treatments are one design system and only the density differs.
+_REMOTE = """
+.remote-shell { background: var(--surface-0); }
+.remote-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+  /* Above the notch on a phone that has one. `viewport-fit=cover` is what lets the
+     shell reach the edges; this is what keeps the content off them. */
+  padding-top: calc(10px + env(safe-area-inset-top));
+}
+.remote-mark { color: var(--accent); font-size: 22px; }
+.remote-target-name, .remote-target {
+  font-size: var(--fs-title);
+  color: var(--ink);
+}
+.remote-body { padding-bottom: 4px; }
+.remote-tabs {
+  border-top: 1px solid var(--line);
+  background: var(--surface-1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.remote-tab {
+  flex: 1 1 0;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  min-height: var(--target-min);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+/* The current screen is named by colour and by a rule at the top edge, not by colour
+   alone: a tab bar read at arm's length in a dim room is exactly where a single
+   hue-only signal disappears. */
+.remote-tab--here {
+  color: var(--accent);
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+.remote-tab-icon { font-size: 22px; }
+.remote-tab-label { font-size: var(--fs-caption); }
+/* An action on this surface owns its row. On a desk a button is one control among
+   several on a line; in one hand it is the thing being reached for, and a thumb does
+   not aim. */
+.remote-action.q-btn {
+  width: 100%;
+  min-height: var(--target-min);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: var(--fs-body);
+  background: rgba(255, 255, 255, 0.02);
+}
+.remote-action--danger.q-btn {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+/* The one line on the screen that is the content. A game's name, read at a glance, on
+   a screen that is lit for twenty seconds. */
+.remote-headline {
+  font-size: var(--fs-title);
+  color: var(--ink);
+  line-height: 1.25;
+}
+.remote-empty { color: var(--ink-3); font-size: var(--fs-body); }
+/* A line under the headline that qualifies it. The ramp's third step, the same as the
+   Console's help text - this surface changes the size of things, not what they mean. */
+.remote-note { color: var(--ink-3); font-size: var(--fs-caption); line-height: 1.3; }
+"""
 
 _FLAIR = """
 /* The base color goes on body alone. Painting it on .q-page-container too put an
@@ -556,10 +656,10 @@ body::before {
    is the compact form of the same five, and a star big enough to admire is a column
    wide enough to hurt. */
 .console-stars-cell { padding-left: 10px !important; }
-.console-stars { display: inline-flex; gap: 2px; line-height: 0; }
+.console-stars { display: inline-flex; gap: var(--star-gap); line-height: 0; }
 .console-star {
-  width: 13px;
-  height: 13px;
+  width: var(--star-size);
+  height: var(--star-size);
   cursor: pointer;
   background: var(--ink-3);
   /* One shape, filled or not, so the two states cannot differ in size the way ★ and ☆
@@ -578,8 +678,8 @@ body::before {
    library does not read as a column of dismissals. */
 .console-star-clear {
   margin-left: 5px;
-  font-size: 13px;
-  line-height: 13px;
+  font-size: var(--star-size);
+  line-height: var(--star-size);
   color: var(--ink-3);
   cursor: pointer;
   opacity: 0.75;
@@ -1358,8 +1458,21 @@ body.console-menu-open .q-tooltip { display: none !important; }
 def apply_flair() -> None:
     # Tokens first: everything after this refers to them.
     ui.add_css(_TOKENS)
+    ui.add_css(_SURFACES)
+    ui.add_css(_REMOTE)
     ui.add_css(_FLAIR)
     ui.add_css(_COMPONENTS)
+
+
+def apply_surface(name: str) -> None:
+    """Say which surface this page is, so the token layer can answer differently.
+
+    Width picks a layout; it must never pick a surface. A tablet held in portrait is
+    still a desk session and a phone in landscape is still a phone, so this is set by
+    the page rather than by a media query.
+    """
+    ui.run_javascript(
+        f"document.documentElement.dataset.surface = {json.dumps(name)}")
 
 
 def apply_colors(dark: bool) -> None:
