@@ -24,6 +24,7 @@ from . import (
     events,
     filesystem,
     games,
+    input,
     instance,
     jobs,
     launchers,
@@ -114,6 +115,7 @@ def create_api_app() -> FastAPI:
     api.include_router(about.router)
     api.include_router(manufacturers.router)
     api.include_router(play.router)
+    api.include_router(input.router)
     api.include_router(games.router)
     api.include_router(tables.router)
     api.include_router(media.router)

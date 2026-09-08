@@ -700,3 +700,67 @@ describe("a chord that asks to be held", () => {
       "a hold that was let go of must not arrive late");
   });
 });
+
+// A press from outside the browser: a phone, a button board. It reaches core as a
+// broadcast message rather than as a keystroke, and has to land on the same dispatch -
+// otherwise "the remote drives the wheel" is a second implementation of navigation.
+describe("an action produced outside the browser", () => {
+  function windows(controlling) {
+    const { VPinFECore, browser } = loadCore({ windowName: "table" });
+    browser.window.addEventListener = () => {};
+    const vpin = new VPinFECore();
+    vpin.init();
+    vpin.isController = () => controlling;
+    vpin.frontendInputEnabled = true;
+    vpin._capabilities && (vpin._capabilities.core_navigation = false);
+    const seen = [];
+    vpin.inputHandlers.push((action) => { seen.push(action); });
+    return { vpin, seen };
+  }
+
+  test("a press reaches the theme the way a keystroke does", async () => {
+    // Compared against a real keypress rather than against a spelling: core hands a
+    // theme the name that theme's contract uses, and pinning the string here would pass
+    // while the two paths quietly drifted apart.
+    const pressed = [];
+    const keys = controller();
+    keys.vpin.inputHandlers.push((action) => { pressed.push(action); });
+    await keys.press("ArrowRight");
+
+    const { vpin, seen } = windows(true);
+    await vpin.handleEvent({ type: "InputAction", action: "next", phase: "press" });
+
+    assert.deepEqual(seen, pressed);
+    assert.equal(seen.length, 1);
+  });
+
+  test("only the controller window answers it", async () => {
+    // Python broadcasts to every window because it cannot know which one is driving.
+    // Dropping it here is what stops one press becoming three on a three-screen cab.
+    const { vpin, seen } = windows(false);
+
+    await vpin.handleEvent({ type: "InputAction", action: "next", phase: "press" });
+
+    assert.deepEqual(seen, []);
+  });
+
+  test("a release does not press anything", async () => {
+    const { vpin, seen } = windows(true);
+
+    await vpin.handleEvent({ type: "InputAction", action: "next", phase: "release" });
+
+    assert.deepEqual(seen, []);
+  });
+
+  test("input that is suppressed for a launch stays suppressed", async () => {
+    // The whole point of the suppression is that a table is coming up. A press that
+    // walked in over the network while a launch was in flight would be the one input
+    // path that ignored it.
+    const { vpin, seen } = windows(true);
+    vpin.frontendInputEnabled = false;
+
+    await vpin.handleEvent({ type: "InputAction", action: "next", phase: "press" });
+
+    assert.deepEqual(seen, []);
+  });
+});

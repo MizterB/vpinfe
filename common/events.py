@@ -49,6 +49,12 @@ JOB_PROGRESS = "job.progress"
 JOB_DONE = "job.done"
 JOB_FAILED = "job.failed"
 
+# A player pressed something outside the browser. Subscribers only, and deliberately:
+# a press is not an operation anything may refuse, and a hook that could stop one would
+# be a way for a plugin to make a cabinet button do nothing.
+#   input.action  {action, phase: press|release, source, ttl_ms?, expired?}
+INPUT_ACTION = "input.action"
+
 DEFAULT_PRIORITY = 100
 
 

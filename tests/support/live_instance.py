@@ -155,6 +155,16 @@ class LiveInstance:
                 f"http://127.0.0.1:{self.ports['manager']}{path}", timeout=10) as handle:
             return json.load(handle)
 
+    def post(self, path: str, body: dict):
+        """A POST to the instance's API, for a test that has to make something happen
+        rather than read what already did."""
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.ports['manager']}{path}",
+            data=json.dumps(body).encode(), method="POST",
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=10) as handle:
+            return json.load(handle)
+
     def wait_for_api(self, timeout: float = 120.0) -> None:
         """Block until the API answers. Separate from `_wait_until_serving`, which waits
         on the asset server: the two come up independently, and the api is the slower."""

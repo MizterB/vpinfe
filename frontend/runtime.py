@@ -17,7 +17,7 @@ from common.games import remote_library
 from common.host import system_actions
 from common.host.display_service import get_display_monitors
 from common.online.vpinplay_runtime import clear_alternate_profile
-from frontend import library_resolver, play_events
+from frontend import input_events, library_resolver, play_events
 from frontend.api import API
 from frontend.chromium_manager import ChromiumManager
 from frontend.custom_http_server import CustomHTTPServer
@@ -80,6 +80,7 @@ def create_api_instances(iniconfig, logger):
     # Once, against the shared bridge - not once per window, which would send
     # every launch message three times.
     play_events.register(ws_bridge, frontend_browser, iniconfig)
+    input_events.register(ws_bridge)
 
     return ws_bridge, frontend_browser
 

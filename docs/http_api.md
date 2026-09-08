@@ -44,6 +44,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/events` | Subscribe to the event stream (SSE). `?events=` filters by name |
 | GET | `/api/v1/play/state` | What this play host is doing. The snapshot you take once; `play.state_changed` on the stream is how you hear about it after that |
 | POST | `/api/v1/play/stop` | Close the table this play host is running. `stopped` is false when there was nothing to close, which is an answer rather than a failure |
+| POST | `/api/v1/input/actions` | Press, hold or release an input action on this install — the door a remote drives the frontend through |
 | GET | `/api/v1/update` | Whether a newer build is published, and whether this install can take it. `update_supported` is the second question, and `support_reason` says which case it is |
 | POST | `/api/v1/update` | Stage the published build and go down to take it. 501 when this install cannot replace itself, 409 when a table is running and `stop_table` was not set |
 | GET | `/api/v1/collections` | List collections |
@@ -412,6 +413,44 @@ This is the same launch the wheel and the Remote Control page use. That matters 
 sounds — it means a launch from the API counts as a play, records the date and the start
 count, reads the score back out of NVRAM, and hands the peripherals over before VPX starts,
 because all of that lives in the one path rather than in whichever caller remembered it.
+
+## Input
+
+`POST /api/v1/input/actions` presses what a cabinet button presses. It's the third way an
+action reaches the frontend — the keyboard and the gamepad are the other two, and all
+three land on the same dispatch, so a remote isn't a second implementation of navigation.
+
+```
+POST /api/v1/input/actions
+{"action": "next", "phase": "press", "ttl_ms": 1500, "source": "remote"}
+```
+
+`action` is one of the ten in `common/input_registry.py` — `previous`, `next`,
+`page_previous`, `page_next`, `select`, `back`, `menu`, `collection_menu`, `tutorial`,
+`exit`. Anything else is a 400 that lists them.
+
+`phase` is `tap` (the default), `press` or `release`. **A hold is a press and a release,
+not a discrete action on a timer.** Send `press` when the button goes down and `release`
+when it comes up; the repeat curve lives in the install, so holding "next" feels the same
+whether you held a flipper, a key or a thumb.
+
+**A press expires unless you renew it.** A release can be lost — a phone locks its screen,
+a network drops — and a lost release is a wheel that spins forever. Send `press` again with
+the same action to renew; renewals aren't announced, so one gesture stays one press. `ttl_ms`
+is how long a press stands without one (200–10000, default 1500); renew at roughly a third
+of it. The response's `holding` lists every action the install currently believes is down,
+which is what a client that reconnected mid-gesture needs to see.
+
+It reaches this install's windows and no others. A client aimed at another machine calls
+that machine's copy of this route — the target picker in a client is a base URL, not a new
+transport.
+
+The endpoint carries `input:act`, deliberately its own scope: this is the first capability
+that lets a network caller act *as the player*, which is neither reading nor launching.
+
+Two producers at once isn't decided. A phone and a cabinet flipper holding opposite
+directions is last-press-wins because that's what the dispatch already does, not because
+anyone chose it. The expiry stops a lost release becoming a runaway; it doesn't arbitrate.
 
 ## Event stream
 

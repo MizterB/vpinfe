@@ -62,6 +62,12 @@ EVENTS_SUBSCRIBE = "events:subscribe"
 # watch a job is not the right to cause one.
 JOBS_READ = "jobs:read"
 
+# Acting as the player: pressing what a cabinet button presses. Its own scope because it
+# is neither reading nor launching - it is the first capability that lets a caller drive
+# the frontend somebody is standing in front of. Declared now and not enforced, because
+# adding a scope to a live route later is churn and declaring one is free.
+INPUT_ACT = "input:act"
+
 CORE = frozenset({
     INSTANCE_READ,
     GAMES_READ, GAMES_WRITE, GAMES_EXPORT_FULL,
@@ -70,7 +76,7 @@ CORE = frozenset({
     UPLOADS_WRITE, VPS_READ, FILESYSTEM_READ,
     CONFIG_READ, CONFIG_WRITE,
     SYSTEM_READ, SYSTEM_ADMIN,
-    EVENTS_SUBSCRIBE, JOBS_READ,
+    EVENTS_SUBSCRIBE, JOBS_READ, INPUT_ACT,
     DEVICES_READ, DEVICES_WRITE,
     PREFERENCES_READ, PREFERENCES_WRITE,
 })

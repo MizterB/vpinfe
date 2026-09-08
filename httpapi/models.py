@@ -164,6 +164,34 @@ class ActionResult(ApiModel):
     performed: bool
 
 
+class InputActionRequest(ApiModel):
+    """One press, one release, or a tap that is both.
+
+    `ttl_ms` is how long a press stands without a renewal. It is the caller saying how
+    often it intends to say "still held", so it belongs on the press rather than in the
+    install's configuration - a phone on a flaky link and a wired button board want
+    different answers.
+
+    `source` is who is pressing, and it travels into the log because "where did this
+    press come from" has already been a defect once.
+    """
+
+    action: str
+    phase: str = "tap"
+    ttl_ms: int | None = None
+    source: str = ""
+
+
+class InputActionResult(ApiModel):
+    """`holding` is every action the install currently believes is held down, so a
+    client that reconnected can see what it is still on the hook for renewing."""
+
+    action: str
+    phase: str
+    ttl_ms: int
+    holding: list[str]
+
+
 class LogRecord(ApiModel):
     """One thing that was logged. `message` carries its continuation lines, so a
     traceback arrives whole rather than as a dozen rows with no level."""

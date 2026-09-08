@@ -1252,6 +1252,15 @@ class VPinFECore {
       this.setAudioMuted(!!message.muted);
       return;
     }
+    // A press produced outside the browser - a phone, a button board. It is broadcast to
+    // every window because Python does not know which one is the controller and should
+    // not learn; that is knowledge this side already has, so the decision is made here.
+    // Returning either way: this is core's message, and a theme sees only the action, by
+    // the same path a keystroke reaches it.
+    if (message.type === "InputAction") {
+      if (this.isController()) this.#applyRemoteInput(message);
+      return;
+    }
     if (message.type === "LifecycleActing") {
       this.#showLifecycleNotice(message);
       // Still offered to the theme below: a theme may want to say it in its own voice,
@@ -2527,6 +2536,20 @@ class VPinFECore {
   // re-checked when its timer fires rather than trusted to still be held.
   #onKeyUp(e) {
     this.#inputUp(downToken("key:" + (e.code || e.key || "")));
+  }
+
+  // A press that arrived over the bus rather than off a key or a pad. Not a chord member
+  // and never will be: a chord is two physical inputs held together, and what arrives
+  // here is already an action.
+  //
+  // Only the press acts. The release is accepted and does nothing yet - it is what the
+  // hold engine reads - so until then a held button steps once, which is what a client
+  // sending a press and a release straight after already means.
+  #applyRemoteInput(message) {
+    if (!this.frontendInputEnabled) return;
+    if (message.phase === "release") return;
+    const action = String(message && message.action || "");
+    if (action) this.#dispatchAction(action);
   }
 
   // What an action does, whichever input produced it. One place, so the keyboard and

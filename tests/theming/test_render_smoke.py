@@ -139,6 +139,28 @@ class RenderSmokeTests(TempTree):
             before, after = asyncio.run(run(instance))
         self.assertNotEqual(before, after)
 
+    def test_a_press_over_the_api_moves_the_wheel(self) -> None:
+        """The seam a phone drives the frontend through, end to end.
+
+        Every piece of this has its own test and all of them passed while the wheel sat
+        still: what is proved here is that a POST reaches the bus, the bus reaches the
+        window, and the window moves - which is the only claim worth making.
+        """
+        async def run(instance: LiveInstance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open(browser, instance, "playfield")
+                before = (await browser.body_data()).get("selected")
+                instance.post("/api/v1/input/actions",
+                              {"action": "next", "source": "smoke"})
+                after = await browser.wait_for(
+                    f"document.body.dataset.selected !== '{before}' "
+                    f"&& document.body.dataset.selected")
+                return before, after
+
+        with LiveInstance(self.root) as instance:
+            before, after = asyncio.run(run(instance))
+        self.assertNotEqual(before, after)
+
     # -- the main menu, driven the way a player drives it --------------------
     #
     #
