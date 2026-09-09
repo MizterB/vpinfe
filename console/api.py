@@ -871,6 +871,23 @@ class ApiClient:
         call that install answers - a failure afterwards is the update working."""
         return self._post("/update", {"stop_table": stop_table})
 
+    def device_games(self, device_id: str) -> list[str]:
+        """The folder names a VPX Mobile device is carrying, asked of the device."""
+        return list(self._get(f"/devices/{quote(device_id)}/games").get("games") or [])
+
+    def send_to_device(self, device_id: str, game_ids: list[str], *,
+                       everything: bool = False) -> dict:
+        """Put games on a device. Returns the job to watch, not the finished work."""
+        return self._post(f"/devices/{quote(device_id)}/games",
+                          {"games": game_ids, "everything": everything})
+
+    def remove_from_device(self, device_id: str, name: str) -> None:
+        """Take one game off a device. It answers 204, so nothing is read."""
+        path = f"/devices/{quote(device_id)}/games/{quote(name, safe='')}"
+        _refuse_the_event_loop(path)
+        response = self._session.delete(f"{self._base}{path}", timeout=_TIMEOUT)
+        self._answered(response)
+
     def stop_play(self) -> dict:
         """Close whatever is running. `stopped` is false where there was nothing to
         close, which is an answer rather than a failure."""

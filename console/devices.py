@@ -8,11 +8,12 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import device_client
+from common import device_client, device_registry
 from common.labels import humanize
 
 from . import confirm, grid, panel, views
 from . import settings as settings_page
+from .api import ApiClient
 
 logger = logging.getLogger("vpinfe.console.devices")
 
@@ -496,11 +497,67 @@ async def detail_groups(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     rows_out += await _identity_rows(context)
     rows_out.append((panel.HEADING, "Connection"))
     rows_out += _connection_rows(_of(context), context.get("reach"))
-    rows_out.append((panel.HEADING, "Settings"))
-    rows_out += settings_door(context)
+    if _of(context).get("kind") == device_registry.KIND_VPX_MOBILE:
+        # A phone is not an install: no software, no lifecycle, no settings of ours to
+        # open. What it has instead is the one thing this end can act on - the games it
+        # is carrying - so that heading takes the place of Settings rather than being
+        # added beside it.
+        rows_out.append((panel.HEADING, "Carrying"))
+        rows_out += await _carrying_rows(context)
+    else:
+        rows_out.append((panel.HEADING, "Settings"))
+        rows_out += settings_door(context)
     rows_out.append((panel.HEADING, "This entry"))
     rows_out += entry_rows(context)
     return rows_out
+
+
+async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """What the device holds, asked of the device.
+
+    Never remembered between visits: a phone is filled up and emptied by hand and taken
+    out of the house, so anything recorded here would be a claim about a machine that
+    has not been asked. That it takes a moment is the honest cost of the answer being
+    true.
+    """
+    device = _of(context)
+    library = context.get("library")
+    try:
+        held = await run.io_bound(ApiClient().device_games,
+                                  str(device.get("device_id") or ""))
+    except Exception as exc:
+        # The words the API used. A device that is switched off is the ordinary case
+        # here, and it is not a failure of this panel.
+        return [panel.note(str(exc))]
+
+    async def forget(name: str) -> None:
+        if not await confirm.ask(
+                f"Remove {name} from {device_label(device)}?",
+                detail="It comes off the device. Your own copy is untouched.",
+                confirm="Remove", danger=True):
+            return
+        try:
+            await run.io_bound(ApiClient().remove_from_device,
+                               str(device.get("device_id") or ""), name)
+        except Exception as exc:
+            ui.notify(str(exc), type="negative")
+            return
+        if library is not None:
+            context["rerender"]()
+
+    if not held:
+        return [panel.note("Nothing on it yet. Send games from the Games list.")]
+
+    def row(name: str) -> Callable[[], None]:
+        def draw() -> None:
+            with ui.element("div").classes("console-slot-actions"):
+                ui.button("Remove", on_click=lambda _e=None: forget(name)) \
+                    .props("flat dense no-caps size=sm") \
+                    .classes("console-action console-action--inline")
+
+        return draw
+
+    return [(name, row(name)) for name in held]
 
 
 # Why a device's settings are somewhere else. Said where somebody is looking for them,

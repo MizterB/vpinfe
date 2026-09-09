@@ -21,6 +21,7 @@ from console import (
     media_ownership,
     mediaview,
     panel,
+    send_to_device,
     stars,
     table_features,
     views,
@@ -406,6 +407,11 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         with actions:
             with ui.menu():
                 ui.menu_item("Rate selected", lambda: _rate(selected))
+                # Where the games you have already picked go. From here rather than
+                # only from the device, because starting with the tables and choosing
+                # where they land is a different job from managing what a phone holds.
+                ui.menu_item("Send to device...",
+                             lambda: send_to_device.ask_where(selected))
                 ui.separator()
                 ui.menu_item("Clear selection",
                              lambda: table.run_grid_method("deselectAll"))
