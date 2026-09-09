@@ -188,6 +188,9 @@ _SURFACES = """
      across, and a thumb can pick the third one without picking the second. */
   --star-size: 26px;
   --star-gap: 8px;
+  /* Well above the target floor: this is the control the whole screen is for, it is
+     pressed without looking, and a thumb covers it entirely while it is down. */
+  --pad-key: 76px;
 }
 """
 
@@ -245,9 +248,13 @@ _REMOTE = """
   font-size: var(--fs-body);
   background: rgba(255, 255, 255, 0.02);
 }
+/* Set apart as well as coloured: it ends the thing every other button on the screen is
+   for, and sitting in the same rhythm as Menu and Tutorial is how a thumb reaches it on
+   the way past. */
 .remote-action--danger.q-btn {
   border-color: var(--danger);
-  color: var(--danger);
+  color: var(--danger) !important;
+  margin-top: 12px;
 }
 /* The one line on the screen that is the content. A game's name, read at a glance, on
    a screen that is lit for twenty seconds. */
@@ -282,6 +289,43 @@ _REMOTE = """
 /* The one thing the sheet is for. Everything else on it is a change you can make while
    you are there; this is the reason you opened it. */
 .remote-action--primary.q-btn { font-weight: 600; }
+/* The direction pad. A grid rather than three rows, because what makes it readable is
+   that the keys sit where they point - a list of five words asks the reader to translate
+   a direction into a name every time. */
+.remote-pad {
+  display: grid;
+  grid-template-columns: repeat(3, var(--pad-key));
+  grid-template-rows: repeat(3, var(--pad-key));
+  gap: 8px;
+  justify-content: center;
+}
+.remote-pad-up    { grid-area: 1 / 2; }
+.remote-pad-left  { grid-area: 2 / 1; }
+.remote-pad-mid   { grid-area: 2 / 2; }
+.remote-pad-right { grid-area: 2 / 3; }
+.remote-pad-down  { grid-area: 3 / 2; }
+.remote-pad-key.q-btn {
+  width: var(--pad-key);
+  height: var(--pad-key);
+  min-height: var(--pad-key);
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  font-size: 28px;
+  /* A thumb covers the key it is on, so the only feedback is what is around it. Held,
+     it stays lit for as long as the wheel is moving. */
+  transition: background 60ms linear, border-color 60ms linear;
+  /* Otherwise a held key selects the label under the thumb, and iOS raises the
+     magnifier over a control that is meant to be pressed and held. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.remote-pad-key.q-btn:active {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+.remote-pad-mid.q-btn { color: var(--accent); }
 """
 
 _FLAIR = """

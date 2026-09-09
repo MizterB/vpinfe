@@ -29,12 +29,30 @@ class TargetTests(unittest.TestCase):
 
         self.assertEqual([one["device_id"] for one in found], ["here", "far"])
 
-    def test_a_machine_with_no_way_to_reach_it_is_not_offered(self) -> None:
+    def test_a_machine_with_an_address_and_no_port_is_not_offered(self) -> None:
         """An entry written before installs declared a port cannot be dialled, and a
         picker entry that cannot answer is worse than one that is not there."""
-        found = remote.targets([_device("a", port=0), _device("b", address="")], "z")
+        found = remote.targets([_device("a", port=0)], "z")
 
         self.assertEqual(found, [])
+
+    def test_a_row_with_no_address_is_this_machine(self) -> None:
+        """Not a fallback for a broken entry - it is how this install looks in its own
+        registry. There is no address it would reach itself on, every other row is
+        written from one it was heard at, and a phone is refused without one."""
+        here = _device("a", address="", port=0)
+
+        self.assertTrue(remote.is_here(here, ""))
+        self.assertIn("127.0.0.1", remote.base_url_of(here, ""))
+        self.assertEqual([one["device_id"] for one in remote.targets([here], "")], ["a"])
+
+    def test_an_install_that_reported_no_id_is_still_a_target(self) -> None:
+        """Discovery reads the identity off the config file every time it is asked, and
+        a read landing while that file is rewritten answers with no id. Keying only on
+        the id made the surface say there was nothing to drive at all."""
+        found = remote.targets([_device("a", address="", port=0)], "")
+
+        self.assertEqual([one["device_id"] for one in found], ["a"])
 
     def test_this_install_is_reached_on_loopback(self) -> None:
         """Its registry entry holds the address *other* machines reach it on. Dialling

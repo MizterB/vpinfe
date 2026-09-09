@@ -21,7 +21,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import install_identity
+from common import device_registry, install_identity
 from common.labels import humanize
 from console import stars, theme
 from console.api import ApiClient, local_base_url
@@ -37,15 +37,33 @@ SCREENS = (
 )
 
 
+def is_here(device: dict[str, Any], local_device_id: str) -> bool:
+    """Whether this row is the install serving the page.
+
+    Two answers, and the second is not a fallback for the first. An install records
+    itself with nothing to dial - there is no address it would reach itself on - while
+    every other row is written from an address it was heard at, and a phone is refused
+    without one. So a row with no address *is* this machine, by construction.
+
+    That matters because the id is not always there to compare: discovery reads the
+    identity off the config file each time it is asked, and a read that lands while that
+    file is being rewritten answers with no id at all. Keying only on the id made the
+    whole surface report that there was nothing to drive.
+    """
+    if local_device_id and device.get("device_id") == local_device_id:
+        return True
+    return not str(device.get("address") or "").strip()
+
+
 def base_url_of(device: dict[str, Any], local_device_id: str) -> str:
     """Where to send this target's requests.
 
     Loopback for the install serving this page, whatever address it recorded for itself:
-    a machine's own registry entry holds the address other machines reach it on, and
-    dialling that from here would leave the network to answer a question we can answer
-    without it.
+    a machine's own entry holds the address other machines reach it on, and dialling
+    that from here would leave the network to answer a question we can answer without
+    it.
     """
-    if device.get("device_id") == local_device_id:
+    if is_here(device, local_device_id):
         return local_base_url()
     address = str(device.get("address") or "").strip()
     port = int(device.get("port") or 0)
@@ -64,7 +82,7 @@ def targets(devices: list[dict[str, Any]], local_device_id: str) -> list[dict[st
              and base_url_of(one, local_device_id)]
     # This install first: it is the one the person is most likely to mean, and it is the
     # only one that is certainly there - it is serving the page.
-    return sorted(found, key=lambda one: one.get("device_id") != local_device_id)
+    return sorted(found, key=lambda one: not is_here(one, local_device_id))
 
 
 def target_name(device: dict[str, Any]) -> str:
@@ -131,6 +149,11 @@ async def remote_page(screen: str = "") -> None:
         '<meta name="viewport" content="width=device-width, initial-scale=1, '
         'viewport-fit=cover">')
 
+    # Before the client connects, which is the only time a page can add to its own body.
+    # Adding it from inside the screen that uses it looked right and installed nothing:
+    # by then the page has been sent, and the pad had no behaviour at all.
+    ui.add_body_html(f"<script>{_HOLD_SCRIPT % {'renew': RENEW_MS}}</script>")
+
     with ui.column().classes("w-full h-full items-center justify-center gap-3") as loading:
         ui.spinner(size="lg").classes("text-primary")
         ui.label("Loading").classes("text-sm opacity-60")
@@ -180,6 +203,19 @@ async def remote_page(screen: str = "") -> None:
             _screen(state, client_for_target, redraw)
         with tabs:
             _tabs(state, redraw)
+
+    # Once per page, not once per draw. Registered inside the screen that uses them, a
+    # handler would be added again on every redraw and one thumb would send N presses.
+    async def held(event) -> None:
+        await _say(client_for_target, str((event.args or {}).get("action") or ""),
+                   "press")
+
+    async def let_go(event) -> None:
+        await _say(client_for_target, str((event.args or {}).get("action") or ""),
+                   "release")
+
+    ui.on("remote_press", held)
+    ui.on("remote_release", let_go)
 
     async def aim(device: dict[str, Any]) -> None:
         """A different machine is a different library, a different state and a different
@@ -260,7 +296,7 @@ def _screen(state: dict[str, Any], client_for_target, redraw) -> None:
     elif state["screen"] == PLAY:
         _play(state, client_for_target, redraw)
     else:
-        _nothing("Control")
+        _control(state, client_for_target, redraw)
 
 
 def _nothing(said: str) -> None:
@@ -299,7 +335,7 @@ def _playing(play: dict[str, Any], state: dict[str, Any], client_for_target,
         ui.label("Playing").classes("console-card-title")
         ui.label(str(play.get("game_name") or "A table")).classes("remote-headline")
     ui.button("Quit table", on_click=quit_table) \
-        .props("no-caps unelevated").classes("remote-action remote-action--danger")
+        .props("no-caps flat").classes("remote-action remote-action--danger")
 
 
 def _idle(state: dict[str, Any], redraw) -> None:
@@ -552,3 +588,174 @@ def _add_to_collection(game: dict[str, Any], state: dict[str, Any], sheet,
         with ui.menu():
             for name in named:
                 ui.menu_item(name, on_click=lambda _e=None, name=name: add(name))
+
+
+# What each button asks for, in the words a person would use rather than the vocabulary
+# the wire carries. `collection_menu` is the wheel's list of collections; on screen it is
+# what that list is called.
+BUTTON_WORDS = {
+    "select": "Select",
+    "back": "Back",
+    "menu": "Menu",
+    "collection_menu": "Collections",
+    "tutorial": "Tutorial",
+    "exit": "Quit VPinFE",
+}
+
+# The four that keep going while a thumb is down. The same four core repeats, and for
+# the same reason: a hold means "keep going", and going is something only these do.
+HELD_ACTIONS = ("previous", "next", "page_previous", "page_next")
+
+# How often a held button says it is still held. A third of the time to live, so a
+# renewal has to be lost twice running before the install lets go.
+RENEW_MS = 500
+
+# Press and release from a thumb, and the renewal in between.
+#
+# Client-side because a hold is a gesture, not a request: the browser is what knows the
+# thumb is still down, and a server that had to infer it from the last message would be
+# guessing at exactly the moment a wheel is moving. What it sends is what the seam
+# expects - one press, renewed, then one release.
+_HOLD_SCRIPT = """
+if (!window.__vpinRemoteHold) {
+  window.__vpinRemoteHold = true;
+  const held = new Map();
+  const letGo = (action) => {
+    const timer = held.get(action);
+    if (timer === undefined) return;
+    clearInterval(timer);
+    held.delete(action);
+    emitEvent('remote_release', {action});
+  };
+  const takeHold = (action) => {
+    if (held.has(action)) return;
+    emitEvent('remote_press', {action});
+    held.set(action, setInterval(() => emitEvent('remote_press', {action}), %(renew)d));
+  };
+  const actionAt = (target) => {
+    const el = target && target.closest ? target.closest('[data-hold-action]') : null;
+    return el ? el.dataset.holdAction : '';
+  };
+  document.addEventListener('pointerdown', (e) => {
+    const action = actionAt(e.target);
+    if (action) { e.preventDefault(); takeHold(action); }
+  });
+  // Every way a thumb can stop being on the button, including sliding off it and the
+  // browser taking the pointer away for a scroll. A release that is never sent is the
+  // failure the install's own expiry exists to catch, and this is the half that keeps
+  // it from happening in the first place.
+  for (const name of ['pointerup', 'pointercancel', 'pointerleave']) {
+    document.addEventListener(name, (e) => {
+      const action = actionAt(e.target);
+      if (action) letGo(action);
+    });
+  }
+  // The page going away with a thumb down: a phone locking its screen is the common
+  // one, and it is why the press expires at the other end as well.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) [...held.keys()].forEach(letGo);
+  });
+  window.addEventListener('blur', () => [...held.keys()].forEach(letGo));
+}
+"""
+
+
+def _control(state: dict[str, Any], client_for_target, redraw) -> None:
+    """Drive the frontend from here.
+
+    Not the table. In-game input is VPX's own and reaches it as keystrokes; what these
+    buttons produce is an action on the install's bus, addressed at the machine the
+    header names. Keeping the two apart is what stops a press meaning one thing on the
+    wheel and another inside a game.
+    """
+    target = state["target"]
+    if str(target.get("kind") or "") == device_registry.KIND_VPX_MOBILE:
+        # Said rather than shown as dead buttons: this is a real target and it really
+        # can be played on, which is a different thing from being driveable.
+        return _nothing(f"{target_name(target)} plays tables but does not run VPinFE, "
+                        "so there is nothing here to drive")
+
+    play = state.get("play") or {}
+    if play.get("launching"):
+        # Honest, and not a guess: the frontend stops listening for the length of a
+        # launch, so every button here would do nothing and report success.
+        return _playing_instead(play, state, client_for_target, redraw)
+
+    with ui.column().classes("w-full items-center gap-4 p-3"):
+        _pad(client_for_target)
+        with ui.column().classes("w-full gap-2"):
+            for action in ("back", "menu", "collection_menu", "tutorial"):
+                _tap_button(action, client_for_target)
+        # Apart from the rest and in the danger colour: it ends the thing every other
+        # button on this screen is for.
+        _tap_button("exit", client_for_target, danger=True)
+
+
+def _playing_instead(play: dict[str, Any], state: dict[str, Any], client_for_target,
+                     redraw) -> None:
+    with ui.column().classes("w-full gap-3 p-3"):
+        with ui.column().classes("w-full gap-1 console-card"):
+            ui.label("Playing").classes("console-card-title")
+            ui.label(str(play.get("game_name") or "A table")).classes("remote-headline")
+            ui.label("The wheel is not listening while a table is up") \
+                .classes("remote-note")
+        _playing(play, state, client_for_target, redraw)
+
+
+def _pad(client_for_target) -> None:
+    """The four directions and select, laid out as they move.
+
+    A cross rather than a list, because what these do is spatial - left and right step
+    the wheel, up and down jump it a page - and a list of five words makes the reader
+    translate a direction into a name every time.
+    """
+    with ui.element("div").classes("remote-pad"):
+        _held_button("page_previous", "keyboard_arrow_up", "remote-pad-up")
+        _held_button("previous", "keyboard_arrow_left", "remote-pad-left")
+        _tap_button("select", client_for_target, cls="remote-pad-mid", icon_only=True)
+        _held_button("next", "keyboard_arrow_right", "remote-pad-right")
+        _held_button("page_next", "keyboard_arrow_down", "remote-pad-down")
+
+
+def _held_button(action: str, icon: str, cls: str) -> None:
+    """A direction. Held down, it keeps going - the curve for that lives in the install,
+    so it feels the same from a thumb as it does from a flipper or a key."""
+    ui.button(icon=icon).props("flat round") \
+        .classes(f"remote-pad-key {cls}") \
+        .props(f'data-hold-action={action}')
+
+
+def _tap_button(action: str, client_for_target, *, danger: bool = False,
+                cls: str = "", icon_only: bool = False) -> None:
+    async def tap() -> None:
+        await _say(client_for_target, action, "tap")
+
+    said = BUTTON_WORDS.get(action, action)
+    button = ui.button(on_click=tap)
+    if icon_only:
+        button.props("flat round").classes(f"remote-pad-key {cls}").tooltip(said)
+        with button:
+            ui.icon("radio_button_checked")
+        return
+    # Flat either way: filled is what the one action a screen is *for* wears, and on
+    # this screen that is the pad. A destructive button drawn louder than everything
+    # around it is the one a thumb finds by accident.
+    button.props("no-caps flat") \
+        .classes("remote-action" + (" remote-action--danger" if danger else "")) \
+        .set_text(said)
+
+
+async def _say(client_for_target, action: str, phase: str) -> None:
+    """One press, one renewal or one release, at whichever machine is aimed at.
+
+    A failure is reported once and the gesture is abandoned rather than retried: a
+    renewal that cannot be delivered means the target has gone, and the install lets go
+    on its own the moment the renewals stop.
+    """
+    if not action:
+        return
+    try:
+        await run.io_bound(client_for_target().press_input, action, phase,
+                           ttl_ms=RENEW_MS * 3)
+    except Exception as exc:
+        logger.info("remote: %s %s did not reach the target: %s", action, phase, exc)

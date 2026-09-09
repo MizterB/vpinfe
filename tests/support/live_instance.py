@@ -134,6 +134,11 @@ class LiveInstance:
     def url(self, path: str = "/") -> str:
         return f"http://127.0.0.1:{self.ports['assets']}{path}"
 
+    def console_url(self, path: str = "/") -> str:
+        """The Console and the remote, which are served beside the API rather than by
+        the asset server a theme is loaded from."""
+        return f"http://127.0.0.1:{self.ports['manager']}{path}"
+
     def theme_url(self, window: str = "playfield") -> str:
         query = (f"/themes/{self.theme}/index_{window}.html?window={window}"
                  f"&wsPort={self.ports['ws']}"

@@ -210,6 +210,39 @@ class RenderSmokeTests(TempTree):
             stopped, later = asyncio.run(run(instance))
         self.assertEqual(later, stopped, "nothing let go of a hold that was never released")
 
+    def test_the_remote_pad_drives_the_wheel(self) -> None:
+        """The whole surface, end to end: a thumb on the remote's pad, a wheel on the
+        other side of it.
+
+        Two browsers against one instance, because that is the arrangement this exists
+        for - a phone in a hand and a machine across the room. Every piece of the chain
+        had its own passing test while the chain itself had never been exercised once.
+        """
+        with LiveInstance(self.root) as instance:
+            asyncio.run(self._drive_the_pad(instance))
+
+    async def _drive_the_pad(self, instance: LiveInstance) -> None:
+        hold = ("(down) => { const el ="
+                " document.querySelector('[data-hold-action=\"next\"]');"
+                " el.dispatchEvent(new PointerEvent(down ? 'pointerdown' : 'pointerup',"
+                " {bubbles: true})); return true; }")
+        async with BrowserSession(chromium_path()) as theme, \
+                BrowserSession(chromium_path()) as phone:
+            await self._open(theme, instance, "playfield")
+            await theme.evaluate(self.WATCH_MOVES)
+            await phone.navigate(instance.console_url("/remote?screen=control"))
+            await phone.wait_for(
+                "document.querySelectorAll('[data-hold-action]').length === 4",
+                timeout=self.READY_TIMEOUT)
+            # Held, not tapped: the page starts the hold on pointerdown and renews it,
+            # so what is under test is a gesture rather than a single press.
+            await phone.evaluate(f"({hold})(true)")
+            await theme.wait_for("window.__moves > 1", timeout=15.0)
+            await phone.evaluate(f"({hold})(false)")
+            settled, later = await _settles(theme)
+        self.assertEqual(later, settled,
+                         "the wheel kept travelling after the thumb came off")
+
     # -- the main menu, driven the way a player drives it --------------------
     #
     #
