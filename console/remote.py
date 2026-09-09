@@ -17,11 +17,13 @@ Three screens, and they read as a sequence: what is happening, pick something, d
 from __future__ import annotations
 
 import logging
+from io import BytesIO
 from typing import Any
 
 from nicegui import run, ui
 
 from common import device_registry, install_identity
+from common.config_access import NetworkConfig
 from common.labels import humanize
 from console import stars, theme
 from console.api import ApiClient, local_base_url
@@ -217,6 +219,8 @@ async def remote_page(screen: str = "") -> None:
     ui.on("remote_press", held)
     ui.on("remote_release", let_go)
 
+    state["reread"] = reread
+
     async def aim(device: dict[str, Any]) -> None:
         """A different machine is a different library, a different state and a different
         base URL, so everything below the header is read again."""
@@ -290,7 +294,7 @@ def _screen(state: dict[str, Any], client_for_target, redraw) -> None:
     if state.get("reachable") is False:
         # Said before anything is pressed rather than as the answer to a press: a target
         # that is not there is a fact about the screen, not a failed request.
-        return _nothing(f"{target_name(state['target'])} is not answering")
+        return _unreachable(state, redraw)
     if state["screen"] == NOW:
         _now(state, client_for_target, redraw)
     elif state["screen"] == PLAY:
@@ -302,6 +306,30 @@ def _screen(state: dict[str, Any], client_for_target, redraw) -> None:
 def _nothing(said: str) -> None:
     with ui.column().classes("w-full items-center justify-center grow gap-2 p-6"):
         ui.label(said).classes("remote-empty text-center")
+
+
+def _unreachable(state: dict[str, Any], redraw) -> None:
+    """The target is not there, and the way out is to ask it again.
+
+    Nothing here says *why*: this end cannot tell a machine that is switched off from
+    one whose network dropped, and a guess dressed as a diagnosis is worse than the
+    plain fact. What it can offer is the thing somebody does next, which is switch the
+    machine on and ask again.
+
+    The picker upstream does not mark a dead target, and deliberately. `last_reachable`
+    says when a device last answered, and a device recorded a moment ago has a fresh
+    timestamp whether or not it is on - so a mark drawn from it would call this one
+    alive. Asking is the only thing that knows.
+    """
+    async def again() -> None:
+        await state["reread"]()
+        redraw()
+
+    with ui.column().classes("w-full items-center justify-center grow gap-3 p-6"):
+        ui.label(f"{target_name(state['target'])} is not answering") \
+            .classes("remote-empty text-center")
+        ui.button("Try again", icon="refresh", on_click=again) \
+            .props("no-caps flat").classes("remote-action")
 
 
 def _now(state: dict[str, Any], client_for_target, redraw) -> None:
@@ -759,3 +787,72 @@ async def _say(client_for_target, action: str, phase: str) -> None:
                            ttl_ms=RENEW_MS * 3)
     except Exception as exc:
         logger.info("remote: %s %s did not reach the target: %s", action, phase, exc)
+
+
+def where_to_find_it() -> str:
+    """The address to hand somebody holding a phone.
+
+    Not the one the Console was reached on: an install is usually administered from the
+    machine itself, so that address is loopback and loopback is the one address certain
+    not to work from anywhere else.
+    """
+    from common.host.addresses import best
+    from common.paths import get_ini_config
+
+    return best(NetworkConfig.from_config(get_ini_config()).http_port, "/remote")
+
+
+def _qr_svg(url: str) -> str:
+    """The same address as something a camera can read. Empty where it cannot be drawn,
+    which the caller shows the plain address for instead."""
+    try:
+        import qrcode
+        from qrcode.image.svg import SvgPathImage
+    except Exception:
+        return ""
+    try:
+        code = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,
+                             box_size=8, border=2)
+        code.add_data(url)
+        code.make(fit=True)
+        held = BytesIO()
+        code.make_image(image_factory=SvgPathImage).save(held)
+        return held.getvalue().decode("utf-8")
+    except Exception:
+        logger.warning("console: could not draw the remote's address", exc_info=True)
+        return ""
+
+
+def invite(labels: list) -> None:
+    """The way somebody finds this surface at all.
+
+    In the Console, because that is where a person configuring an install already is -
+    and a phone is exactly the device that will not have found `/remote` by typing. It
+    does not reach somebody who never opens the Console on any device; that half is the
+    frontend's, and is not built.
+
+    The label joins `labels` so it collapses with the rail and leaves the icon, which is
+    the rule every other entry in this drawer follows.
+    """
+    said = where_to_find_it()
+    if not said:
+        return
+
+    def show() -> None:
+        with ui.dialog() as sheet, ui.card().classes("console-confirm items-center"):
+            ui.label("VPinFE on your phone").classes("console-confirm-title")
+            art = _qr_svg(said)
+            if art:
+                ui.html(art).classes("console-qr")
+            # Always, not only when the drawing failed: a camera is not the only way
+            # somebody gets this, and an address nobody can read out is one they cannot
+            # type either.
+            ui.label(said).classes("console-help text-center")
+            ui.button("Close", on_click=sheet.close) \
+                .props("flat no-caps").classes("console-action")
+        sheet.open()
+
+    with ui.row().classes("items-center justify-center gap-2 w-full no-wrap "
+                          "console-invite").on("click", show):
+        ui.icon("qr_code_2").classes("shrink-0")
+        labels.append(ui.label("On your phone").classes("text-xs"))

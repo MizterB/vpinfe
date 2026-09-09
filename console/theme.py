@@ -267,6 +267,24 @@ _REMOTE = """
 /* A line under the headline that qualifies it. The ramp's third step, the same as the
    Console's help text - this surface changes the size of things, not what they mean. */
 .remote-note { color: var(--ink-3); font-size: var(--fs-caption); line-height: 1.3; }
+/* The way out of the Console and onto a phone. In the drawer's foot with the version
+   and the job line: install-level, read once, and not a destination. */
+.console-invite {
+  color: var(--ink-3);
+  cursor: pointer;
+  padding: 4px 0;
+  min-height: var(--target-min);
+}
+.console-invite:hover { color: var(--accent); }
+/* The drawing carries its own quiet zone, so this only has to stop it filling the
+   dialog. White behind it because a camera reads contrast, not palette. */
+.console-qr {
+  width: 220px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px;
+}
+.console-qr svg { width: 100%; height: auto; display: block; }
 /* One game in the list. A full-width row with a rule under it rather than a card each:
    a list of cards is a list of boxes, and what is being scanned here is names. */
 .remote-row {

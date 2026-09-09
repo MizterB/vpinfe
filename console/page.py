@@ -16,6 +16,7 @@ from console import (
     deeplink,
     games,
     grid,
+    remote,
     sections,
     tageditor,
     theme,
@@ -531,6 +532,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             # the rail - an 820px square badge has nothing legible left at 57px, so
             # scaling it down there would be worse than dropping it.
             labels.append(ui.image(theme.LOGO).classes("w-28 h-28 mx-auto"))
+        with foot:
+            # Where somebody finds the phone surface, which is the one thing in this
+            # drawer that is about leaving it.
+            remote.invite(labels)
         with foot:
             # What the install is doing, when it is doing anything. Silent otherwise:
             # a line that reads "No active jobs" spends a permanent slot to report
