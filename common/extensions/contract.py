@@ -26,9 +26,11 @@ SUPPORTED_ABI: frozenset[int] = frozenset({PLATFORM_ABI})
 
 MANIFEST_NAME = "extension.json"
 
-# The name is the extension's identity in four places at once - a URL segment, a scope,
-# a log namespace and a config namespace - so it is restricted to what all four accept.
-NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{1,39}$")
+# The name is the extension's identity in five places at once - a URL segment, a scope,
+# a log namespace, a config namespace and the Python package core imports - so it is
+# restricted to what all five accept. No hyphen: the package is imported by this name,
+# and a name that cannot be one is a trap laid for whoever writes the second module.
+NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,39}$")
 ACTION_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 # What an extension may ask of the machine, as opposed to of the domain. Declared here

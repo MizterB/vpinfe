@@ -26,6 +26,7 @@ from .contract import (
     read_manifest,
 )
 from .host import (
+    BUNDLED_DIR,
     DISABLED,
     FAILED,
     INSTALLED_DIR,
@@ -37,7 +38,8 @@ from .host import (
 from .store import ExtensionStore, get_extension_store
 
 __all__ = [
-    "DISABLED", "FAILED", "INSTALLED_DIR", "LOADED", "LOG_ROOT", "OFF", "PLATFORM_ABI",
+    "BUNDLED_DIR", "DISABLED", "FAILED", "INSTALLED_DIR", "LOADED", "LOG_ROOT", "OFF",
+    "PLATFORM_ABI",
     "ContractError", "ExtensionContext", "ExtensionStore", "Manifest", "ManifestError",
     "Record", "Registry", "clear", "disable", "get_extension_store", "granted_scopes",
     "load_from", "load_installed", "logger_for", "mounted", "parse", "read_manifest",

@@ -18,7 +18,7 @@ from typing import Any
 
 from common import events as core_events
 from common import install_identity
-from common.paths import CONFIG_DIR, get_ini_config
+from common.paths import CONFIG_DIR, bundled, get_ini_config
 
 from .context import ExtensionContext
 from .contract import MANIFEST_NAME, Manifest, ManifestError, read_manifest
@@ -26,9 +26,12 @@ from .store import ExtensionStore, get_extension_store
 
 logger = logging.getLogger("vpinfe.common.extensions")
 
-# Where an install keeps the ones it has. A build that ships extensions of its own adds
-# a second root; the search is a list so that stays a configuration rather than an edit.
+# Where an install keeps the ones it has, and where the build keeps the ones it ships.
+# Installed first: an extension somebody installed under the same name as one we ship is
+# the one they meant, and shadowing it quietly the other way would be unexplainable.
 INSTALLED_DIR = CONFIG_DIR / "extensions"
+BUNDLED_DIR = bundled("extensions")
+SEARCH_PATH = (INSTALLED_DIR, BUNDLED_DIR)
 
 # Running.
 LOADED = "loaded"
@@ -121,7 +124,21 @@ class Registry:
         return [self.load(directory) for directory in _directories(root)]
 
     def load_installed(self) -> list[Record]:
-        return self.load_from(INSTALLED_DIR)
+        """Every extension this install has, from every root it keeps them in.
+
+        A name already loaded is not loaded again, which is what makes the search order
+        the precedence: an installed copy answers, and the bundled one is left alone
+        rather than replacing it halfway through a run.
+        """
+        found = []
+        for root in SEARCH_PATH:
+            for directory in _directories(root):
+                if self.get(directory.name) is not None:
+                    logger.info("Not loading %s from %s: already loaded",
+                                directory.name, root)
+                    continue
+                found.append(self.load(directory))
+        return found
 
     def load(self, directory: Path | str) -> Record:
         directory = Path(directory)

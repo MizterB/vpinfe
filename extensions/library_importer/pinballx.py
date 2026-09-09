@@ -1,0 +1,300 @@
+"""Reading a PinballX or PinballY library.
+
+One reader covers both: PinballY's table parser extends PinballX's, adding `title` and
+`ipdbid` over the same element set, so the database is shared and the extra children are
+simply absent from a PinballX file.
+
+Three things are read, and the source declares all three itself:
+
+- `Config/PinballX.ini`, **UTF-16** - the emulators, and where each keeps its tables.
+- `Databases/<name>/<name>.xml` - the games, one `<game>` element each.
+- `Media/<name>/<folder>/` - the artwork, found by the game's name attribute.
+
+The last two are derived from the emulator's name by convention rather than configured,
+which is why a source with a database needs to be asked almost nothing.
+"""
+
+from __future__ import annotations
+
+import configparser
+import logging
+import os
+import xml.etree.ElementTree as ElementTree
+from pathlib import Path
+
+from .source import SourceGame, SourceLibrary, SourceMedia, SourceSystem
+
+logger = logging.getLogger(__name__)
+
+SOURCE_ID = "pinballx"
+SOURCE_NAME = "PinballX or PinballY"
+
+CONFIG_RELATIVE = ("Config", "PinballX.ini")
+DATABASES_DIR = "Databases"
+MEDIA_DIR = "Media"
+
+# A media folder is one kind. PinballX files a still and a moving version of the same
+# subject in two folders and chooses between them by the file's extension - which is a
+# decision for something writing, not for something reading: each folder here is
+# unambiguous on its own, and both have to be walked or half the artwork is missed.
+MEDIA_FOLDERS = (
+    "Table Images", "Table Videos",
+    "Backglass Images", "Backglass Videos",
+    "DMD Images", "DMD Videos",
+    "Topper Images", "Topper Videos",
+    "FullDMD Videos",
+    "Wheel Images", "Logos",
+    "Table Audio", "Launch Audio",
+)
+
+# The `<game>` children, verbatim from the parser both frontends share. Read as text and
+# mapped where we have somewhere to put it; the rest travels in `extras` so a preview can
+# say what will not be carried.
+_FIELDS = {
+    "description": "description",
+    "rom": "rom",
+    "year": "year",
+    "manufacturer": "manufacturer",
+    "type": "game_type",
+    "version": "version",
+    "author": "author",
+    "rating": "rating",
+    "players": "players",
+    "comment": "comment",
+    # PinballY only. PinballX has no title of its own - its description carries the name
+    # with the manufacturer and year in it.
+    "title": "title",
+}
+
+# Case-folded, because a hand-edited database spells these however it likes and the
+# parser we read matches them without regard to case.
+_IDS = {"ipdbnr": "ipdb_id", "ipdbid": "ipdb_id", "vpsid": "vps_id"}
+
+_EXTRAS = ("hidedmd", "hidetopper", "hidebackglass", "alternateexe",
+           "dateadded", "datemodified", "theme")
+
+
+def detect(root: Path | str) -> bool:
+    """Whether this reader has anything to say about a root.
+
+    The databases rather than the ini: a library copied off an old machine very often
+    arrives without its config, and the games are the part worth having.
+    """
+    root = Path(root)
+    return (root / DATABASES_DIR).is_dir() or _config_path(root).is_file()
+
+
+def _config_path(root: Path) -> Path:
+    return root.joinpath(*CONFIG_RELATIVE)
+
+
+def read_config(root: Path | str) -> tuple[list[dict], list[str]]:
+    """The emulators the source declares, and anything worth saying about the read.
+
+    UTF-16, which is not a guess: the file is written that way and a plain UTF-8 read of
+    it fails outright. Read as text first so a source that is in fact UTF-8 - hand-made,
+    or already converted - still works rather than being refused on principle.
+    """
+    path = _config_path(Path(root))
+    if not path.is_file():
+        return [], [f"No {os.path.join(*CONFIG_RELATIVE)}, so the emulators were not read"]
+
+    text, notes = "", []
+    for encoding in ("utf-16", "utf-8-sig", "utf-8"):
+        try:
+            text = path.read_text(encoding=encoding)
+            break
+        except (UnicodeError, OSError) as exc:
+            notes = [f"Could not read {path.name}: {exc}"]
+    if not text:
+        return [], notes
+
+    parser = configparser.ConfigParser(strict=False, interpolation=None)
+    parser.optionxform = str
+    try:
+        parser.read_string(text)
+    except configparser.Error as exc:
+        return [], [f"{path.name} could not be parsed: {exc}"]
+
+    found = []
+    for section in parser.sections():
+        if not section.lower().startswith("system_"):
+            continue
+        values = {key.lower(): value for key, value in parser[section].items()}
+        name = str(values.get("name", "")).strip()
+        if not name:
+            continue
+        found.append({
+            "name": name,
+            "tables_dir": str(values.get("tablepath", "")).strip(),
+            "working_path": str(values.get("workingpath", "")).strip(),
+            "enabled": str(values.get("enabled", "true")).strip().lower()
+                       not in ("false", "0", "no"),
+        })
+    return found, []
+
+
+def _text(element, tag: str) -> str:
+    found = element.find(tag)
+    return (found.text or "").strip() if found is not None else ""
+
+
+def _game_from(element, tables_dir: str) -> SourceGame | None:
+    """One `<game>` element. Returns None for one with no name, which is the only
+    thing that makes it addressable - its media is found by it."""
+    key = str(element.get("name", "") or "").strip()
+    if not key:
+        return None
+
+    values: dict[str, str] = {}
+    extras: dict[str, str] = {}
+    themes: tuple[str, ...] = ()
+    hidden = False
+    for child in element:
+        tag = str(child.tag or "").lower()
+        text = (child.text or "").strip()
+        if tag in _FIELDS:
+            values[_FIELDS[tag]] = text
+        elif tag in _IDS:
+            if text:
+                values[_IDS[tag]] = text
+        elif tag == "enabled":
+            hidden = text.lower() in ("false", "0", "no")
+        elif tag in _EXTRAS and text:
+            if tag == "theme":
+                themes = tuple(part.strip() for part in text.split(",") if part.strip())
+            else:
+                extras[tag] = text
+
+    file_path = ""
+    if tables_dir:
+        # The name attribute is the table's filename without its extension. Which
+        # extension is not recorded, so the folder is asked rather than assumed.
+        file_path = _table_file(Path(tables_dir), key)
+
+    return SourceGame(key=key, themes=themes, hidden=hidden, table_file=file_path,
+                      extras=extras, **values)
+
+
+def _table_file(tables_dir: Path, key: str) -> str:
+    """The game file this entry names, or "" when the folder does not have it.
+
+    Exact stem first, then case-insensitively: a database written on Windows and read
+    from a case-sensitive share is the ordinary way this goes wrong.
+    """
+    try:
+        entries = list(tables_dir.iterdir())
+    except OSError:
+        return ""
+    for entry in entries:
+        if entry.is_file() and entry.stem == key:
+            return str(entry)
+    folded = key.lower()
+    for entry in entries:
+        if entry.is_file() and entry.stem.lower() == folded:
+            return str(entry)
+    return ""
+
+
+def read_database(path: Path | str,
+                  tables_dir: str = "") -> tuple[list[SourceGame], list[str]]:
+    """Every game in one database file."""
+    path = Path(path)
+    try:
+        root = ElementTree.parse(path).getroot()
+    except (OSError, ElementTree.ParseError) as exc:
+        return [], [f"{path.name} could not be read: {exc}"]
+
+    found, skipped = [], 0
+    for element in root.iter("game"):
+        game = _game_from(element, tables_dir)
+        if game is None:
+            skipped += 1
+            continue
+        found.append(game)
+    notes = [f"{path.name}: {skipped} entries have no name and cannot be matched to "
+             "their media"] if skipped else []
+    return found, notes
+
+
+def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGame]:
+    """Attach each game's artwork, found the way the source finds it.
+
+    A file belongs to a game when its filename starts with the game's name, compared
+    without regard to case - a prefix, not an exact match, so `<name>.png` and
+    `<name> (alt).png` both count.
+
+    Where two games' names are prefixes of one another the longer one wins, and it has to
+    be decided across the whole database rather than per game: `Taxi 2.png` starts with
+    `Taxi`, so a library holding both would otherwise hand Taxi its neighbour's artwork
+    while Taxi 2 kept it too. Preferring an exact name instead looks like the same fix
+    and is not - it drops `<name> (alt).png`, which the source means.
+    """
+    media_root = Path(media_root)
+    keys = sorted((game.key for game in games), key=len, reverse=True)
+    folded = {key.lower(): key for key in keys}
+
+    found: dict[str, list[SourceMedia]] = {key: [] for key in keys}
+    for folder in MEDIA_FOLDERS:
+        try:
+            entries = [item for item in (media_root / folder).iterdir() if item.is_file()]
+        except OSError:
+            continue
+        for item in entries:
+            stem = item.stem.lower()
+            owner = next((folded[key] for key in folded if stem.startswith(key)), None)
+            if owner is not None:
+                found[owner].append(SourceMedia(source_kind=folder, path=str(item)))
+
+    return [SourceGame(**{**vars(game), "media": tuple(found.get(game.key, ()))})
+            for game in games]
+
+
+def read(root: Path | str) -> SourceLibrary:
+    """Everything under one PinballX or PinballY root.
+
+    Every emulator it declares, plus any database folder the config did not mention -
+    a source whose ini did not travel still has its games, and they are the part worth
+    having.
+    """
+    root = Path(root)
+    declared, notes = read_config(root)
+    by_name = {entry["name"]: entry for entry in declared}
+
+    databases = root / DATABASES_DIR
+    try:
+        undeclared = sorted(item.name for item in databases.iterdir()
+                            if item.is_dir() and item.name not in by_name)
+    except OSError:
+        undeclared = []
+    for name in undeclared:
+        by_name[name] = {"name": name, "tables_dir": "", "working_path": "",
+                         "enabled": True}
+        notes.append(f"{name} has a database but the config does not declare it")
+
+    systems = []
+    for name, entry in by_name.items():
+        database = databases / name / f"{name}.xml"
+        if not database.is_file():
+            notes.append(f"{name} is declared but has no database at "
+                         f"{DATABASES_DIR}/{name}/{name}.xml")
+            continue
+        declared_tables = entry["tables_dir"]
+        if declared_tables and not Path(declared_tables).is_dir():
+            # An absolute path written on the machine the source came from. Said out
+            # loud rather than quietly importing every game without its table: the
+            # answer is to point at where those files are now, and nobody can give it
+            # without being told it is the question.
+            notes.append(f"{name}: the tables are recorded at {declared_tables}, "
+                         "which is not reachable from here")
+            declared_tables = ""
+        games, said = read_database(database, declared_tables)
+        notes.extend(said)
+        games = read_media(root / MEDIA_DIR / name, games)
+        systems.append(SourceSystem(name=name, games=tuple(games),
+                                    tables_dir=entry["tables_dir"],
+                                    working_path=entry["working_path"],
+                                    enabled=entry["enabled"]))
+
+    return SourceLibrary(source_id=SOURCE_ID, root=str(root),
+                         systems=tuple(systems), notes=tuple(notes))

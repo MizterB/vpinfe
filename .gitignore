@@ -3,6 +3,11 @@
 *.ini
 *.log
 
+# The same rule as the .json one below, for the same reason: config is .ini and the
+# fixtures we mean to keep are the exception. This one is a source library's own config,
+# in the UTF-16 it is really written in - the encoding is half of what the test is for.
+!tests/fixtures/pinballx/Config/*.ini
+
 # Config, logs and caches are JSON, and there are far more of those than there are
 # JSON files we mean to keep - so the rule is exclude-then-name-the-exceptions. A
 # committed .json needs a negation below, in the same commit that adds it: forgetting

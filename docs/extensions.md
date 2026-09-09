@@ -16,10 +16,14 @@ my-extension/
 ```
 
 The directory name is the extension's name, and the manifest has to agree: the name
-addresses it in a URL, a scope, a log namespace and a config file, so two answers to what
-it is called would each be right somewhere.
+addresses it in a URL, a scope, a log namespace, a config file and the Python package
+core imports, so two answers to what it is called would each be right somewhere.
 
 `__init__.py` defines `register(ctx)`. Core calls it once at startup and never again.
+
+Two places are searched, in this order: `extensions/` under the config directory, then the
+`extensions/` the build ships. An installed extension with the same name as a bundled one
+answers, and the bundled one is left alone.
 
 ```python
 from fastapi import APIRouter
@@ -42,7 +46,7 @@ def register(ctx):
 
 | key | what it is |
 |---|---|
-| `name` | Lowercase letters, digits, `-` and `_`, starting with a letter. Matches the directory |
+| `name` | Lowercase letters, digits and `_`, starting with a letter. Matches the directory, and is the Python package core imports - so it has to be a legal module name |
 | `display_name` | What to call it on screen. Defaults to `name` |
 | `version` | The extension's own version. Shown, never interpreted |
 | `description` | One line, shown beside it |
