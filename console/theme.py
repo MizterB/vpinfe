@@ -260,6 +260,28 @@ _REMOTE = """
 /* A line under the headline that qualifies it. The ramp's third step, the same as the
    Console's help text - this surface changes the size of things, not what they mean. */
 .remote-note { color: var(--ink-3); font-size: var(--fs-caption); line-height: 1.3; }
+/* One game in the list. A full-width row with a rule under it rather than a card each:
+   a list of cards is a list of boxes, and what is being scanned here is names. */
+.remote-row {
+  padding: 10px 14px;
+  min-height: var(--target-min);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.remote-row:active { background: var(--surface-hover); }
+.remote-row-name { font-size: var(--fs-body); color: var(--ink); }
+.remote-row-mark { color: var(--accent); font-size: 20px; }
+/* The sheet a row opens. Square at the foot because it is against the edge of the
+   screen, rounded at the top because that is the edge it came up from. */
+.remote-sheet {
+  border-radius: 14px 14px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  gap: 12px;
+  background: var(--surface-1);
+}
+/* The one thing the sheet is for. Everything else on it is a change you can make while
+   you are there; this is the reason you opened it. */
+.remote-action--primary.q-btn { font-weight: 600; }
 """
 
 _FLAIR = """

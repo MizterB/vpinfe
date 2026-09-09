@@ -84,8 +84,8 @@ def last_played(games: list[dict[str, Any]]) -> dict[str, Any]:
     return max(played, key=lambda one: str(one["user"]["last_played"]))
 
 
-def _read_remote() -> dict[str, Any]:
-    """Every blocking call the first draw needs, made once off the event loop.
+def _read_here() -> dict[str, Any]:
+    """What this install knows about the network, made off the event loop.
 
     The Console consumes its own process over HTTP, so a page handler that asks the API
     a question while holding the loop deadlocks - uvicorn cannot answer a request it is
@@ -94,10 +94,22 @@ def _read_remote() -> dict[str, Any]:
     client = ApiClient()
     return {
         "devices": client.devices(),
+        "local_device_id": str(client.discovery().get("install_id") or ""),
+    }
+
+
+def _read_target(client: ApiClient) -> dict[str, Any]:
+    """What the chosen machine is doing and what it can play.
+
+    Asked of the target rather than of this install, because that is the machine the
+    launch is going to. Two installs can hold different libraries, and a list read from
+    the wrong one offers games whose ids the target has never heard of.
+    """
+    return {
         "play": client.play_state(),
         "games": client.games(),
         "jobs": client.jobs(),
-        "local_device_id": str(client.discovery().get("install_id") or ""),
+        "collections": client.collections(),
     }
 
 
@@ -124,7 +136,7 @@ async def remote_page(screen: str = "") -> None:
         ui.label("Loading").classes("text-sm opacity-60")
 
     await ui.context.client.connected()
-    loaded = await run.io_bound(_read_remote)
+    loaded = await run.io_bound(_read_here)
     if ui.context.client.is_deleted:
         # Reading takes long enough that somebody can close the tab inside it, and there
         # is then nothing to draw on. Building anyway raises out of the page function and
@@ -137,14 +149,27 @@ async def remote_page(screen: str = "") -> None:
     state: dict[str, Any] = {
         "screen": screen if screen in {key for key, *_ in SCREENS} else NOW,
         "target": aimable[0] if aimable else {},
-        "play": loaded["play"],
-        "games": loaded["games"],
-        "jobs": loaded["jobs"],
+        "play": {}, "games": [], "jobs": [], "collections": [],
+        "find": "", "collection": "",
     }
 
     def client_for_target() -> ApiClient:
         """A client aimed at whichever target is chosen. The picker is a base URL."""
         return ApiClient(base_url_of(state["target"], local_device_id) or None)
+
+    async def reread() -> None:
+        """Ask the chosen machine again. Failure is a state, not a crash: a target that
+        has gone away is the ordinary case for a page held in a hand."""
+        if not state["target"]:
+            return
+        try:
+            state.update(await run.io_bound(_read_target, client_for_target()))
+            state["reachable"] = True
+        except Exception as exc:
+            logger.info("remote: %s did not answer: %s",
+                        target_name(state["target"]), exc)
+            state.update({"play": {}, "games": [], "jobs": [], "collections": [],
+                          "reachable": False})
 
     def redraw() -> None:
         """Both, always. The bar says which screen you are on, so a redraw that rebuilt
@@ -156,19 +181,27 @@ async def remote_page(screen: str = "") -> None:
         with tabs:
             _tabs(state, redraw)
 
+    async def aim(device: dict[str, Any]) -> None:
+        """A different machine is a different library, a different state and a different
+        base URL, so everything below the header is read again."""
+        state.update({"target": device, "find": "", "collection": ""})
+        await reread()
+        redraw()
+
     # Header, then the screen, then the tabs, in that order and inside the shell: the
     # body has to be built here rather than earlier and reparented, because a NiceGUI
     # element belongs to whatever slot was open when it was made.
     with ui.column().classes("w-full h-full gap-0 remote-shell no-wrap"):
-        _header(state, aimable, redraw)
+        _header(state, aimable, aim)
         body = ui.column().classes(
             "w-full grow min-h-0 gap-0 overflow-auto remote-body")
         tabs = ui.row().classes("w-full items-stretch gap-0 remote-tabs no-wrap")
+    await reread()
     redraw()
 
 
 def _header(state: dict[str, Any], aimable: list[dict[str, Any]],
-            redraw) -> None:
+            aim) -> None:
     """The target, on every screen, because every action's meaning depends on it.
 
     Drawn as a picker only when there is a choice to make. With one target it is the
@@ -181,12 +214,11 @@ def _header(state: dict[str, Any], aimable: list[dict[str, Any]],
             names = {one["device_id"]: target_name(one) for one in aimable}
             by_id = {one["device_id"]: one for one in aimable}
 
-            def aim(event) -> None:
-                state["target"] = by_id.get(event.value, {})
-                redraw()
+            async def chosen(event) -> None:
+                await aim(by_id.get(event.value, {}))
 
             ui.select(names, value=state["target"].get("device_id"),
-                      on_change=aim) \
+                      on_change=chosen) \
                 .props("dense borderless options-dense") \
                 .classes("remote-target grow min-w-0")
         elif aimable:
@@ -217,17 +249,23 @@ def _tabs(state: dict[str, Any], redraw) -> None:
 
 
 def _screen(state: dict[str, Any], client_for_target, redraw) -> None:
+    if not state["target"]:
+        return _nothing("Nothing to drive from here")
+    if state.get("reachable") is False:
+        # Said before anything is pressed rather than as the answer to a press: a target
+        # that is not there is a fact about the screen, not a failed request.
+        return _nothing(f"{target_name(state['target'])} is not answering")
     if state["screen"] == NOW:
         _now(state, client_for_target, redraw)
     elif state["screen"] == PLAY:
-        _placeholder("Play")
+        _play(state, client_for_target, redraw)
     else:
-        _placeholder("Control")
+        _nothing("Control")
 
 
-def _placeholder(name: str) -> None:
+def _nothing(said: str) -> None:
     with ui.column().classes("w-full items-center justify-center grow gap-2 p-6"):
-        ui.label(name).classes("remote-empty")
+        ui.label(said).classes("remote-empty text-center")
 
 
 def _now(state: dict[str, Any], client_for_target, redraw) -> None:
@@ -309,3 +347,208 @@ def _running_jobs(state: dict[str, Any]) -> None:
                                show_value=False).props("rounded")
             if job.get("message"):
                 ui.label(str(job["message"])).classes("remote-note")
+
+
+# What the list will draw before it asks you to narrow it. A phone renders every row it
+# is given, and a library is longer than a screen by design - the answer to a long list
+# is typing into it, not scrolling it.
+SHOWN_AT_ONCE = 40
+
+
+def matching(games: list[dict[str, Any]], said: str) -> list[dict[str, Any]]:
+    """The games a typed word finds.
+
+    Name, maker and year, because those are the three things somebody standing at a
+    machine knows about it. Every word has to land somewhere, so "bally 1991" narrows
+    rather than widening - which is what a person means by typing a second word.
+    """
+    words = said.lower().split()
+    if not words:
+        return games
+    found = []
+    for game in games:
+        against = " ".join(str(game.get(key) or "")
+                           for key in ("name", "manufacturer", "year")).lower()
+        if all(word in against for word in words):
+            found.append(game)
+    return found
+
+
+def in_collection(games: list[dict[str, Any]],
+                  ids: set[str] | None) -> list[dict[str, Any]]:
+    """Narrowed to one collection, or left alone where none is chosen."""
+    return games if ids is None else [one for one in games if one.get("id") in ids]
+
+
+def manual_collections(collections: list[dict[str, Any]]) -> list[str]:
+    """The ones a game can simply be put in.
+
+    A filter collection is a rule, and pinning a game against a rule is a curator's
+    decision made with the rule in view. That is desk work, and the posture line falls
+    where it falls everywhere else here.
+    """
+    return [str(one.get("name") or "") for one in collections
+            if str(one.get("type") or "") == "manual" and one.get("name")]
+
+
+def _play(state: dict[str, Any], client_for_target, redraw) -> None:
+    """Find a game and start it.
+
+    The search field is first because the library is longer than a screen, and a list
+    longer than a screen is typed into rather than scrolled.
+    """
+    async def typed(event) -> None:
+        state["find"] = str(event.value or "")
+        redraw()
+
+    async def narrow(event) -> None:
+        state["collection"] = str(event.value or "")
+        state["collection_ids"] = None
+        if state["collection"]:
+            try:
+                found = await run.io_bound(client_for_target().collection_games,
+                                           state["collection"])
+                state["collection_ids"] = {str(one.get("id") or "") for one in found}
+            except Exception as exc:
+                ui.notify(str(exc), type="negative")
+        redraw()
+
+    with ui.column().classes("w-full gap-2 p-3"):
+        ui.input(placeholder="Find a game", value=state.get("find") or "",
+                 on_change=typed) \
+            .props("dense outlined clearable inputmode=search").classes("w-full")
+        named = [one.get("name") for one in state.get("collections") or []
+                 if one.get("name")]
+        if named:
+            ui.select({"": "Whole library"} | {name: name for name in named},
+                      value=state.get("collection") or "", on_change=narrow) \
+                .props("dense outlined options-dense").classes("w-full")
+
+    found = in_collection(matching(state.get("games") or [],
+                                   state.get("find") or ""),
+                          state.get("collection_ids"))
+    _game_list(found, state, client_for_target, redraw)
+
+
+def _game_list(found: list[dict[str, Any]], state: dict[str, Any],
+               client_for_target, redraw) -> None:
+    if not found:
+        return _nothing("Nothing by that name")
+    with ui.column().classes("w-full gap-0"):
+        for game in found[:SHOWN_AT_ONCE]:
+            _game_row(game, state, client_for_target, redraw)
+        left = len(found) - SHOWN_AT_ONCE
+        if left > 0:
+            # The count, not a "load more": what is wanted is one game, and typing two
+            # more letters reaches it faster than paging to it does.
+            ui.label(f"{left} more - keep typing").classes("remote-note p-3")
+
+
+def _game_row(game: dict[str, Any], state: dict[str, Any], client_for_target,
+              redraw) -> None:
+    """One game, and a tap opens it rather than starting it.
+
+    Never tap-to-launch. A mis-tap that opens a sheet costs a tap to undo; a mis-tap
+    that starts a table takes the machine away from whoever is on it.
+    """
+    def open_sheet(_event=None) -> None:
+        _game_sheet(game, state, client_for_target, redraw)
+
+    with ui.row().on("click", open_sheet) \
+            .classes("w-full items-center gap-2 no-wrap remote-row"):
+        with ui.column().classes("grow min-w-0 gap-0"):
+            ui.label(str(game.get("name") or "")).classes("remote-row-name truncate")
+            made = " ".join(str(game.get(key) or "")
+                            for key in ("manufacturer", "year")).strip()
+            if made:
+                ui.label(made).classes("remote-note truncate")
+        if (game.get("user") or {}).get("favorite"):
+            ui.icon("favorite").classes("remote-row-mark")
+
+
+def _game_sheet(game: dict[str, Any], state: dict[str, Any], client_for_target,
+                redraw) -> None:
+    """One game, everything that can be done to it from here, and Launch at the foot.
+
+    A sheet from the bottom rather than a screen of its own: what is being decided is
+    about the row you just touched, and pushing a screen would take the list away to
+    answer a question about one line of it.
+    """
+    with ui.dialog().props("position=bottom") as sheet, \
+            ui.card().classes("w-full remote-sheet"):
+        ui.label(str(game.get("name") or "")).classes("remote-headline")
+        made = " ".join(str(game.get(key) or "")
+                        for key in ("manufacturer", "year")).strip()
+        if made:
+            ui.label(made).classes("remote-note")
+
+        async def write(call, *args) -> None:
+            try:
+                await run.io_bound(call, *args)
+            except Exception as exc:
+                ui.notify(str(exc), type="negative")
+                return False
+            return True
+
+        async def rate(value: int) -> None:
+            if await write(ApiClient().rate, game["id"], value):
+                game.setdefault("user", {})["rating"] = value
+                sheet.close()
+                redraw()
+
+        stars.draw(int((game.get("user") or {}).get("rating") or 0), rate)()
+
+        held = bool((game.get("user") or {}).get("favorite"))
+
+        async def favor() -> None:
+            if await write(ApiClient().set_favorite, game["id"], not held):
+                game.setdefault("user", {})["favorite"] = not held
+                sheet.close()
+                redraw()
+
+        ui.button("Favorite" if not held else "Remove favorite",
+                  icon="favorite" if not held else "favorite_border",
+                  on_click=favor) \
+            .props("no-caps flat").classes("remote-action")
+
+        _add_to_collection(game, state, sheet, write)
+
+        async def launch() -> None:
+            if await write(client_for_target().launch, game["id"]):
+                sheet.close()
+                state["screen"] = NOW
+                state["play"] = await run.io_bound(client_for_target().play_state)
+                redraw()
+
+        ui.button("Launch", icon="play_arrow", on_click=launch) \
+            .props("no-caps unelevated color=primary") \
+            .classes("remote-action remote-action--primary")
+    sheet.open()
+
+
+def _add_to_collection(game: dict[str, Any], state: dict[str, Any], sheet,
+                       write) -> None:
+    """Put it in a list you keep.
+
+    Shown disabled with the reason rather than hidden when there is nowhere to put it:
+    an action that vanishes leaves somebody wondering whether this surface can do it at
+    all, and the answer is that it can once there is a list to add to.
+    """
+    named = manual_collections(state.get("collections") or [])
+    if not named:
+        ui.button("Add to collection", icon="playlist_add") \
+            .props("no-caps flat disable").classes("remote-action") \
+            .tooltip("No lists of your own yet - a filter collection follows a rule "
+                     "rather than holding what you put in it")
+        return
+
+    async def add(name: str) -> None:
+        if await write(ApiClient().add_to_collection, name, game["id"]):
+            ui.notify(f"Added to {name}", type="positive")
+            sheet.close()
+
+    with ui.button("Add to collection", icon="playlist_add") \
+            .props("no-caps flat").classes("remote-action"):
+        with ui.menu():
+            for name in named:
+                ui.menu_item(name, on_click=lambda _e=None, name=name: add(name))

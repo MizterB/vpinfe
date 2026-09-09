@@ -187,13 +187,7 @@ class RenderSmokeTests(TempTree):
                 await browser.wait_for("window.__moves > 1", timeout=10.0)
                 instance.post("/api/v1/input/actions",
                               {"action": "next", "phase": "release", "source": "smoke"})
-                # Read after a pause rather than straight away: a repeat already in
-                # flight lands after the release, and asserting on the first reading
-                # would call that a runaway.
-                await asyncio.sleep(1.0)
-                settled = await browser.evaluate("window.__moves")
-                await asyncio.sleep(1.0)
-                return settled, await browser.evaluate("window.__moves")
+                return await _settles(browser)
 
         with LiveInstance(self.root) as instance:
             settled, later = asyncio.run(run(instance))
@@ -210,10 +204,7 @@ class RenderSmokeTests(TempTree):
                               {"action": "next", "phase": "press", "source": "smoke",
                                "ttl_ms": 300})
                 await browser.wait_for("window.__moves > 1", timeout=10.0)
-                await asyncio.sleep(1.5)
-                stopped = await browser.evaluate("window.__moves")
-                await asyncio.sleep(1.0)
-                return stopped, await browser.evaluate("window.__moves")
+                return await _settles(browser)
 
         with LiveInstance(self.root) as instance:
             stopped, later = asyncio.run(run(instance))
@@ -456,3 +447,23 @@ class RenderSmokeTests(TempTree):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+async def _settles(browser, quiet: float = 1.0, patience: float = 15.0):
+    """Wait for the wheel to stop moving, then say whether it stayed stopped.
+
+    Two readings a fixed pause apart is the obvious way to write this and it is wrong:
+    the repeat already in flight when the release was sent lands whenever the machine
+    gets round to it, so under load a correct stop reads as a runaway. This waits for
+    the count to hold still first, and only then asks whether it holds still again.
+    """
+    deadline = asyncio.get_event_loop().time() + patience
+    seen = await browser.evaluate("window.__moves")
+    while asyncio.get_event_loop().time() < deadline:
+        await asyncio.sleep(quiet)
+        now = await browser.evaluate("window.__moves")
+        if now == seen:
+            await asyncio.sleep(quiet)
+            return now, await browser.evaluate("window.__moves")
+        seen = now
+    raise AssertionError(f"the wheel never stopped moving ({seen} steps and counting)")

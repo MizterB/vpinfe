@@ -205,6 +205,29 @@ class BrowserSession:
             await asyncio.sleep(0.1)
         raise TimeoutError(f"never became truthy: {expression} (last={last!r})")
 
+    async def click(self, selector: str, *, nth: int = 0) -> None:
+        """Click something the way a finger does, at its own coordinates.
+
+        A real mouse event, not `element.click()`. Quasar builds several of its controls
+        - a select, a menu item - out of listeners that a synthetic click never reaches,
+        so a test that drives them with `.click()` reports success and changes nothing.
+        """
+        where = await self.evaluate(
+            "(() => {"
+            f" const found = document.querySelectorAll({json.dumps(selector)});"
+            f" const el = found[{int(nth)}]; if (!el) return null;"
+            " el.scrollIntoView({block: 'center'});"
+            " const box = el.getBoundingClientRect();"
+            " if (!box.width || !box.height) return null;"
+            " return {x: box.left + box.width / 2, y: box.top + box.height / 2};"
+            " })()")
+        if not where:
+            raise AssertionError(f"nothing to click at {selector!r}[{nth}]")
+        for event in ("mousePressed", "mouseReleased"):
+            await self.send("Input.dispatchMouseEvent",
+                            {"type": event, "x": where["x"], "y": where["y"],
+                             "button": "left", "clickCount": 1})
+
     async def press(self, key: str, code: str) -> None:
         for event in ("keyDown", "keyUp"):
             await self.send("Input.dispatchKeyEvent",
