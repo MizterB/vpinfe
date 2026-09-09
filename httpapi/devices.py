@@ -29,7 +29,7 @@ from common.paths import get_ini_config
 
 from . import models, scopes
 from .auth import requires
-from .errors import InvalidRequestError, NotFoundError
+from .errors import ConflictError, InvalidRequestError, NotFoundError
 
 logger = logging.getLogger("vpinfe.httpapi.devices")
 
@@ -158,4 +158,103 @@ def forget(device_id: str):
     """Forgetting one that is still running only means it announces itself again."""
     if not get_device_registry().forget(device_id):
         raise NotFoundError(f"No device with device id {device_id}")
+    return Response(status_code=204)
+
+
+def _mobile(device_id: str):
+    """The device this route is about, refusing anything that is not a phone.
+
+    An install carries its own library and its own API; asking one what folders it holds
+    over a protocol only VPX Mobile speaks would be a question it cannot answer.
+    """
+    found = get_device_registry().get(device_id)
+    if found is None:
+        raise NotFoundError(f"No device with device id {device_id}")
+    if found.kind != device_registry.KIND_VPX_MOBILE:
+        raise InvalidRequestError(
+            f"{found.display_name or device_id} is a VPinFE install, not a device "
+            "tables are sent to. Ask it for its own library instead.")
+    if not found.address or not found.port:
+        raise InvalidRequestError(
+            f"{found.display_name or device_id} has no address to send to")
+    return found
+
+
+@router.get("/{device_id}/games", summary="What a VPX Mobile device is carrying",
+            dependencies=[requires(scopes.DEVICES_READ)])
+async def device_games(device_id: str) -> models.DeviceGameList:
+    """Asked of the device, never remembered.
+
+    A phone is taken away, filled up and emptied by hand, so anything this end recorded
+    about it would be a claim rather than a fact. It is a short question and the answer
+    is only true at the moment it is given.
+    """
+    from starlette.concurrency import run_in_threadpool
+
+    from common.games import mobile_transfer
+
+    device = _mobile(device_id)
+    try:
+        found = await run_in_threadpool(
+            mobile_transfer.carried, device.address, device.port)
+    except mobile_transfer.DeviceUnreachableError as exc:
+        raise ConflictError(str(exc)) from exc
+    return {"device_id": device_id, "count": len(found), "games": found}
+
+
+@router.post("/{device_id}/games", summary="Send games to a VPX Mobile device",
+             status_code=202, dependencies=[requires(scopes.DEVICES_WRITE)])
+def send_games(device_id: str, response: Response,
+               payload: models.DeviceSendRequest = Body(...)) -> models.JobResource:
+    """A job, not an action.
+
+    The lifecycle vocabulary is for things that happen at once - stop the table, reboot.
+    A multi-file transfer with per-file progress over a phone's wifi is slow work, and
+    slow work has a shape here already.
+    """
+    from common import jobs as job_registry
+    from common.games import mobile_transfer
+
+    from . import jobs as jobs_api
+    from .games import folder_of
+
+    device = _mobile(device_id)
+    folders = [folder_of(game_id) for game_id in payload.games]
+    if not folders:
+        raise InvalidRequestError("Name at least one game to send")
+
+    def work(job) -> None:
+        reporter = job.reporter()
+        for index, folder in enumerate(folders):
+            reporter.progress(index, len(folders), f"Sending {folder.name}")
+            mobile_transfer.send(
+                folder, device.address, device.port, everything=payload.everything,
+                # The whole transfer's progress, not one game's: what a person watching
+                # wants is how far through the twelve they are.
+                on_progress=lambda done, total, said, at=index: reporter.progress(
+                    at * 100 + int(100 * done / max(total, 1)), len(folders) * 100, said))
+        reporter.progress(len(folders), len(folders), f"Sent {len(folders)} to "
+                                                      f"{device.display_name or device_id}")
+
+    try:
+        job = job_registry.submit(job_registry.KIND_DEVICE_SEND, work)
+    except job_registry.JobBusyError as exc:
+        raise ConflictError(str(exc)) from exc
+    response.headers["Location"] = f"/api/v1/jobs/{job.id}"
+    return jobs_api.resource(job)
+
+
+@router.delete("/{device_id}/games/{name}", summary="Remove a game from a device",
+               status_code=204, dependencies=[requires(scopes.DEVICES_WRITE)])
+async def remove_game(device_id: str, name: str):
+    from starlette.concurrency import run_in_threadpool
+
+    from common.games import mobile_transfer
+
+    device = _mobile(device_id)
+    try:
+        await run_in_threadpool(
+            mobile_transfer.remove, name, device.address, device.port)
+    except mobile_transfer.DeviceUnreachableError as exc:
+        raise ConflictError(str(exc)) from exc
     return Response(status_code=204)

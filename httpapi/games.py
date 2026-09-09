@@ -150,6 +150,15 @@ def _game_or_404(game_id: str):
     return game
 
 
+def folder_of(game_id: str) -> Path:
+    """The folder one game lives in, for a caller that has an id and needs the files.
+
+    Here rather than in the caller because the id-to-game lookup is this module's, and a
+    second one would be a second answer to which game an id names.
+    """
+    return Path(str(_game_or_404(game_id).fullPathGame))
+
+
 def _resource(row: dict, game_id: str) -> dict:
     prefix = f"/api/v1/games/{game_id}"
     return {

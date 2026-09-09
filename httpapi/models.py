@@ -164,6 +164,27 @@ class ActionResult(ApiModel):
     performed: bool
 
 
+class DeviceGameList(ApiModel):
+    """What a device that is not an install is carrying.
+
+    Folder names, because that is all such a device knows: it has no library and no
+    ids, so what it can be asked is which folders it holds. Matching them back to games
+    is this end's job.
+    """
+
+    device_id: str
+    count: int
+    games: list[str]
+
+
+class DeviceSendRequest(ApiModel):
+    """Which games to put on it. Ids, because this end has a library and the device
+    does not - the folder names are derived here rather than trusted from a caller."""
+
+    games: list[str]
+    everything: bool = False
+
+
 class InputActionRequest(ApiModel):
     """One press, one release, or a tap that is both.
 

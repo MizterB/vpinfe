@@ -42,6 +42,10 @@ FAILED = "failed"
 KIND_LIBRARY_SCAN = "library.scan"
 # Its own kind, not the scan's: this only reads, so it may run beside anything.
 KIND_VPS_ROLLUP = "library.vps_rollup"
+# Putting games on a device that is not an install. One at a time by design: the far end
+# is a phone with one small web server, and two transfers into it would interleave
+# chunks of different files.
+KIND_DEVICE_SEND = "device.send"
 
 # Finished jobs a client can still ask about. Small on purpose: this is a courtesy
 # for the caller who missed the last event, not a history feature.
