@@ -20,9 +20,9 @@ from .errors import NotFoundError
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
-def resource(job: job_registry.Job) -> dict:
+def resource(job: job_registry.Job, with_result: bool = False) -> dict:
     return {
-        **job.snapshot(),
+        **job.snapshot(with_result),
         "links": {"self": f"/api/v1/jobs/{job.id}", "events": "/api/v1/events"},
     }
 
@@ -39,7 +39,12 @@ def list_jobs(kind: str = Query("", description="Filter by job kind")) -> models
 @router.get("/{job_id}", summary="One job",
             dependencies=[requires(scopes.JOBS_READ)])
 def get_job(job_id: str) -> models.JobResource:
+    """One job, and what it answered.
+
+    The result is here and not on the list: some jobs answer with a row per game, and a
+    listing carrying twenty of those would make watching the queue expensive.
+    """
     job = job_registry.get(job_id)
     if job is None:
         raise NotFoundError(f"No job with id {job_id}")
-    return resource(job)
+    return resource(job, with_result=True)

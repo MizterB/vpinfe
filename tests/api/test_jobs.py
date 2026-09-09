@@ -9,9 +9,14 @@ asking later.
 from __future__ import annotations
 
 import threading
+import time
 import unittest
 
+from fastapi.testclient import TestClient
+
+import httpapi
 from common import events, jobs
+from common import jobs as job_registry
 
 
 class _Recorder:
@@ -254,6 +259,52 @@ class JobEndpointTests(unittest.TestCase):
         links = self.client.get("/").json()["links"]
 
         self.assertEqual(links["jobs"], "/api/v1/jobs")
+
+
+class ResultTests(unittest.TestCase):
+    """A job that produces an answer has somewhere to put it.
+
+    Some jobs are their own outcome - a library scan leaves a scanned library. An
+    import's outcome is which games came across and which did not, and without this
+    every such job has to invent a back channel of its own.
+    """
+
+    def setUp(self) -> None:
+        job_registry.reset_for_tests()
+        self.addCleanup(job_registry.reset_for_tests)
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def _finished(self, answer):
+        done = threading.Event()
+        job = job_registry.submit("probe", lambda _job: answer)
+        for _ in range(200):
+            if job.state != job_registry.RUNNING:
+                break
+            time.sleep(0.01)
+        done.set()
+        return job
+
+    def test_what_the_work_answered_comes_back_on_the_job(self) -> None:
+        job = self._finished({"created": 3, "failed": 1})
+
+        found = self.client.get(f"/jobs/{job.id}").json()
+
+        self.assertEqual(found["result"], {"created": 3, "failed": 1})
+
+    def test_work_that_answers_nothing_carries_nothing(self) -> None:
+        job = self._finished(None)
+
+        self.assertIsNone(self.client.get(f"/jobs/{job.id}").json()["result"])
+
+    def test_the_listing_leaves_it_out(self) -> None:
+        """A row per game is a fine answer for one job and an expensive one for twenty,
+        so watching the queue does not pay for it."""
+        self._finished({"games": [{"name": "one"}, {"name": "two"}]})
+
+        listed = self.client.get("/jobs").json()["jobs"]
+
+        self.assertTrue(listed)
+        self.assertIsNone(listed[0].get("result"))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ differ - that is the point of having a boundary.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -1667,6 +1667,10 @@ class JobResource(ApiModel):
     error: str | None
     started_at: float
     finished_at: float | None
+    # What the work answered, for the jobs that produce one. Null while it is running,
+    # and null afterwards for the ones whose outcome is the thing they changed - a
+    # library scan leaves a scanned library and has nothing else to say.
+    result: Any | None = None
     links: JobLinks
 
 

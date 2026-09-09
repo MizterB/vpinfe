@@ -64,7 +64,7 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT/GET/DELETE | `/api/v1/collections/{name}/image` | Its icon |
 | POST | `/api/v1/library/preview` | What a rule would match, storing nothing |
 | GET | `/api/v1/jobs` | Slow work, running first. `?kind=` filters |
-| GET | `/api/v1/jobs/{id}` | One job — state, last progress, outcome |
+| GET | `/api/v1/jobs/{id}` | One job — state, last progress, outcome, and `result` where the work produced one. Not on the listing: a result can be a row per game |
 | GET | `/api/v1/library/entries` | The play lens over the whole library |
 | GET | `/api/v1/library/filters` | Every filter axis, with the values this library holds |
 | GET | `/api/v1/library/policy` | What this library collects — hidden media kinds, hidden asset kinds, and which catalogs are searched. The library's answer, so every install reading one library gets the same one. Empty means everything |

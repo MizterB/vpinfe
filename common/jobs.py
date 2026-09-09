@@ -99,6 +99,11 @@ class Job:
     error: str | None = None
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
+    # What the work answered. Some jobs are their own outcome - a library scan leaves a
+    # scanned library - and some are not: an import's answer is which games came across
+    # and which did not, and without somewhere to put it every such job has to invent a
+    # back channel of its own.
+    result: object | None = None
     progress_cb: ProgressCallback | None = None
     log_cb: LogCallback | None = None
 
@@ -124,8 +129,11 @@ class Job:
         """This job as the surface services already accept."""
         return JobReporter(logger, progress_cb=self.progress, log_cb=self.log)
 
-    def snapshot(self) -> dict:
-        return {
+    def snapshot(self, with_result: bool = False) -> dict:
+        """What this job is doing. The result is asked for rather than always sent: it
+        can be a row per game, and a list of twenty jobs carrying twenty of those would
+        make watching the queue expensive."""
+        found = {
             "id": self.id,
             "kind": self.kind,
             "state": self.state,
@@ -135,6 +143,9 @@ class Job:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
         }
+        if with_result:
+            found["result"] = self.result
+        return found
 
 
 _lock = threading.RLock()
@@ -190,7 +201,7 @@ def submit(kind: str, work: Callable[[Job], object], *,
 
     def _run() -> None:
         try:
-            work(job)
+            job.result = work(job)
         except BaseException as exc:  # noqa: BLE001 - the thread's job is to record it
             logger.exception("Job %s (%s) failed", job.id, job.kind)
             _finish(job, exc)
