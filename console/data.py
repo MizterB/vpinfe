@@ -93,6 +93,7 @@ class Library:
         self.tables: dict[str, list[dict[str, Any]]] = {}
         self._collections: list[dict[str, Any]] | None = None
         self._metadata_state: dict[str, Any] | None = None
+        self._script_patches: dict[str, Any] | None = None
         # The by-file lens, read on first use rather than at load: most sessions never
         # switch to it, and it is a second walk of every folder.
         self._table_rows: list[dict[str, Any]] | None = None
@@ -569,6 +570,25 @@ class Library:
         answered by the process it is made from.
         """
         return self._metadata_state or {}
+
+    def script_patches(self) -> dict[str, Any]:
+        """What the published index offers. Already asked - this reads nothing.
+
+        Not part of `load`: it reaches the network, and a page that never opens Overview
+        should not wait on a request to GitHub to draw. Asked on demand instead, off the
+        loop, and kept.
+        """
+        return self._script_patches or {}
+
+    def read_script_patches(self) -> dict[str, Any]:
+        """Ask the index. Off the event loop - it is a network round trip."""
+        try:
+            self._script_patches = self._client.script_patches()
+        except Exception:
+            logger.warning("console: could not ask what script fixes are published",
+                           exc_info=True)
+            self._script_patches = {}
+        return self._script_patches
 
     def read_metadata_state(self) -> dict[str, Any]:
         """Ask again. Off the event loop, and after anything that rewrites a `.info`."""

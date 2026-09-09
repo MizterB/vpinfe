@@ -185,6 +185,24 @@ class InfoMaintenance(ApiModel):
     unreadable: list[dict]
 
 
+class ScriptPatches(ApiModel):
+    """What the community index has for this library.
+
+    `reachable` is false where the index could not be fetched. An index that cannot be
+    reached is not an empty one, and reporting it as "nothing to do" would say the
+    library is fine on the strength of a failed request.
+
+    `checked` counts only tables whose script has actually been read. A table nothing has
+    opened has no hash to match on, and calling it "nothing published" would be a
+    statement about a file nobody has looked at.
+    """
+
+    reachable: bool
+    offered: list[str]
+    already: int
+    checked: int
+
+
 class DeviceGameList(ApiModel):
     """What a device that is not an install is carrying.
 

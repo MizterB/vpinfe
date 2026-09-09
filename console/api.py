@@ -883,6 +883,15 @@ class ApiClient:
         """Put back the files saved before an upgrade. Returns the job to watch."""
         return self._post("/library/info/restore", {})
 
+    def script_patches(self) -> dict:
+        """What the community index publishes for this library. Reaches the network on
+        the server's side, and changes nothing."""
+        return self._get("/library/patches")
+
+    def apply_script_patches(self) -> dict:
+        """Fetch them. Returns the job to watch, not the finished work."""
+        return self._post("/library/patches", {})
+
     def device_games(self, device_id: str) -> list[str]:
         """The folder names a VPX Mobile device is carrying, asked of the device."""
         return list(self._get(f"/devices/{quote(device_id)}/games").get("games") or [])

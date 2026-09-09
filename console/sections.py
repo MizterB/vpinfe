@@ -158,6 +158,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                     .set_enabled(bool(games))
 
     metadata(library.metadata_state(), _metadata_action(library))
+    table_scripts(library)
 
 
 # --- The library's own metadata ---------------------------------------------------
@@ -285,6 +286,84 @@ def metadata(state: dict[str, Any], on_start: Callable[[str], Any]) -> None:
                 f"{restorable} games have a saved copy"
                 + (f" from {when}" if when else "") + ", taken before an upgrade",
                 ("Restore", lambda: on_start("restore")))
+
+
+# --- The scripts the tables run ---------------------------------------------------
+#
+# Standalone runs the same tables the Windows build does, and a good many of them need a
+# small script change to do it. The community keeps an index of those fixes, matched on
+# the hash of the script a table actually runs rather than on its name - one table's
+# script appears under a dozen filenames, and a fix is only correct for the bytes it was
+# built against. A fix arrives as a `.vbs` sidecar, which the program runs in place of
+# the script the table ships with.
+
+
+def _scripts_said(found: dict[str, Any]) -> tuple[bool, str]:
+    """Whether this is worth acting on, and the sentence for it."""
+    if found.get("reachable") is False:
+        # Not the same as nothing to do, and it must not read that way: the library was
+        # never examined.
+        return False, "The index could not be reached, so nothing has been checked"
+    offered = list(found.get("offered") or [])
+    checked = int(found.get("checked") or 0)
+    already = int(found.get("already") or 0)
+    if offered:
+        shown = ", ".join(offered[:3]) + (" and more" if len(offered) > 3 else "")
+        return False, f"{len(offered)} of {checked} can take a published fix: {shown}"
+    running = f", and {already} already run one" if already else ""
+    return True, f"Nothing published matches your tables ({checked} checked{running})"
+
+
+def table_scripts(library: Library) -> None:
+    """What the published index has for this library, once somebody asks.
+
+    Asked rather than read on every draw. It is a request to somebody else's server, and
+    a page that waited on it would be slow for a question most visits are not asking.
+    """
+    from console import confirm
+    from console.api import ApiClient
+
+    ui.label("Table scripts").classes("console-group mt-4")
+    card = ui.element("div").classes("console-card w-full")
+
+    def draw() -> None:
+        card.clear()
+        found = library.script_patches()
+        with card:
+            if not found:
+                _metadata_row(
+                    True, "Script fixes",
+                    "The community publishes script fixes that let a table run under "
+                    "Standalone. Nothing has been asked yet.",
+                    ("Check", check))
+                return
+            good, said = _scripts_said(found)
+            _metadata_row(good, "Script fixes", said,
+                          ("Fetch", fetch) if found.get("offered") else ("Check", check))
+
+    async def check() -> None:
+        await run.io_bound(library.read_script_patches)
+        draw()
+
+    async def fetch() -> None:
+        offered = list(library.script_patches().get("offered") or [])
+        if not await confirm.ask(
+                f"Fetch fixes for {len(offered)} table(s)?",
+                detail="Each one lands as a .vbs beside the table it is for, and VPX "
+                       "runs it instead of the script the table ships with. A table "
+                       "that already has one is left alone.",
+                confirm="Fetch", danger=False):
+            return
+        try:
+            await run.io_bound(ApiClient().apply_script_patches)
+        except Exception as exc:
+            ui.notify(str(exc), type="negative")
+            return
+        ui.notify("Fetching under way", type="positive")
+        await run.io_bound(library.read_script_patches)
+        draw()
+
+    draw()
 
 
 # --- Extensions ------------------------------------------------------------------

@@ -319,3 +319,38 @@ def restore_info(response: Response) -> models.JobResource:
     """Accepted, not done. Everything written since the backup was taken goes with it -
     a rating set afterwards is in the new file, not the old one."""
     return _one_pass(response, game_service.restore_info)
+
+
+@router.get("/patches", summary="What script fixes are published for this library",
+            dependencies=[requires(scopes.GAMES_READ)])
+def script_patches() -> models.ScriptPatches:
+    """Reaches the network on the server's side, and changes nothing.
+
+    Its own read rather than a flag on the apply, because what is being decided is
+    whether to let something write a file into every game folder that needs one. Being
+    able to ask first is the difference between a confirm and a leap.
+    """
+    from common.games import standalone_scripts
+    from common.games.game_repository import all_games
+
+    return standalone_scripts.offered_for(all_games())
+
+
+@router.post("/patches", summary="Fetch the published script fixes", status_code=202,
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def apply_script_patches(response: Response) -> models.JobResource:
+    """Accepted, not done. Each fix lands as a `.vbs` sidecar beside the table it is
+    for, which the program runs in place of the script that table ships with.
+
+    A table that already has a sidecar is left alone and recorded as patched: whatever
+    is in that file is what the table runs, and replacing it would overwrite somebody
+    else's work.
+    """
+    try:
+        job = job_registry.submit(
+            job_registry.KIND_LIBRARY_SCAN,
+            lambda job: game_service.apply_vpx_patches(progress_cb=job.progress))
+    except job_registry.JobBusyError as exc:
+        raise ConflictError(str(exc)) from exc
+    response.headers["Location"] = f"/api/v1/jobs/{job.id}"
+    return jobs_api.resource(job)

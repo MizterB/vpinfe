@@ -11,6 +11,43 @@ from common.http_client import download_file, get_json
 
 logger = logging.getLogger("vpinfe.common.games.standalone_scripts")
 
+# What a table's script is doing about the published fixes. Three states, because
+# "patched" and "nothing published for it" are different answers and a surface that
+# folded them together would report a table as fine for two unrelated reasons.
+OFFERED = "offered"      # a fix exists and this table does not have it yet
+ALREADY = "already"      # a .vbs sidecar is beside the table, so it is running one
+NOTHING = "nothing"      # nothing published matches this table's script
+
+
+def match_for(vbs_hash: str, hashes) -> dict | None:
+    """The published fix for one table's script, or None.
+
+    Matched on the hash of the script the table actually runs, not on its name: the
+    whole point of the index is that one table's script can appear under a dozen
+    filenames and a fix is only correct for the bytes it was built against.
+    """
+    if not vbs_hash:
+        return None
+    for patch in hashes or ():
+        if patch.get("sha256") == vbs_hash:
+            return patch
+    return None
+
+
+def state_of(vpx_path: str, vbs_hash: str, hashes) -> tuple[str, dict | None]:
+    """What is offered for one table, and what it is already doing.
+
+    A `.vbs` sidecar wins over anything published: the program runs that file in place
+    of the script the table ships with, so whatever is there is what the table is
+    running, and replacing it would be overwriting somebody's own work.
+    """
+    found = match_for(vbs_hash, hashes)
+    if found is None:
+        return NOTHING, None
+    if os.path.exists(os.path.splitext(vpx_path)[0] + ".vbs"):
+        return ALREADY, found
+    return OFFERED, found
+
 class StandaloneScripts:
 
     """The community script patches, fetched and applied to a table that needs one."""
@@ -61,24 +98,24 @@ class StandaloneScripts:
                 if not vpxFileVBSHash:
                     raise KeyError('vbs_hash')
                 logger.info("Checking %s", game.gameDirName)
-                for patch in self.hashes:
-                    if patch["sha256"] == vpxFileVBSHash:
-                        logger.info("Found a match for %s", game.fullPathVPXfile)
-                        if os.path.exists(os.path.splitext(game.fullPathVPXfile)[0] + ".vbs"):
-                            logger.info("A .vbs sidecar file already exists for that table. Assuming it is a patch.")
-                            try:
-                                game_dir = os.path.dirname(game.fullPathVPXfile)
-                                meta = MetaConfig(os.path.join(game_dir, game.gameDirName + '.info'))
-                                meta.set_table_value(vpxFileName, 'patch_applied', True)
-                            except Exception:
-                                pass
-                        else:
-                            self.downloadPatch(os.path.splitext(game.fullPathVPXfile)[0] + ".vbs", patch["patched"]["url"])
-                            # mark the .info file with patch_applied = true
-                            try:
-                                meta.set_table_value(vpxFileName, 'patch_applied', True)
-                            except Exception:
-                                pass
+                # One matching rule, shared with what the report offers. Two would be
+                # two answers to "does this table need a fix", and the one somebody was
+                # shown would not be the one that ran.
+                state, patch = state_of(game.fullPathVPXfile, vpxFileVBSHash, self.hashes)
+                if state == ALREADY:
+                    logger.info("A .vbs sidecar file already exists for that table. Assuming it is a patch.")
+                    try:
+                        meta.set_table_value(vpxFileName, 'patch_applied', True)
+                    except Exception:
+                        pass
+                elif state == OFFERED:
+                    logger.info("Found a match for %s", game.fullPathVPXfile)
+                    self.downloadPatch(os.path.splitext(game.fullPathVPXfile)[0] + ".vbs",
+                                       patch["patched"]["url"])
+                    try:
+                        meta.set_table_value(vpxFileName, 'patch_applied', True)
+                    except Exception:
+                        pass
              except KeyError:
                  pass
 
@@ -106,3 +143,46 @@ class StandaloneScripts:
                 pass
         except requests.RequestException as exc:
             logger.warning("Failed to download %s: %s", filename, exc)
+
+
+def offered_for(games, hashes=None) -> dict:
+    """What the published index has for this library, without changing anything.
+
+    Its own pass rather than a flag on the applier, because what a person is deciding is
+    whether to let something reach into every game folder and write a file. Being able to
+    ask first is the difference between a confirm and a leap.
+
+    `hashes` is fetched when it is not given. An index that cannot be reached is not an
+    empty index - the caller is told so rather than being shown a library with nothing
+    to do.
+    """
+    if hashes is None:
+        hashes = StandaloneScripts(games=[], auto_run=False).downloadHashes()
+    if not hashes:
+        return {"reachable": False, "offered": [], "already": 0, "checked": 0}
+
+    offered, already, checked = [], 0, 0
+    for game in games or ():
+        vpx_path = getattr(game, "fullPathVPXfile", "") or ""
+        folder = getattr(game, "fullPathGame", "") or ""
+        name = getattr(game, "gameDirName", "") or ""
+        if not vpx_path or not name:
+            continue
+        try:
+            meta = MetaConfig(os.path.join(folder, name + ".info"))
+            vbs_hash = meta.game_file_value(os.path.basename(vpx_path), "vbs_hash")
+        except Exception:
+            continue
+        if not vbs_hash:
+            # Nothing has read this table, so there is no script to match on. Not
+            # counted as checked: reporting it as "nothing published" would be a
+            # statement about a file nobody has opened.
+            continue
+        checked += 1
+        state, _patch = state_of(vpx_path, vbs_hash, hashes)
+        if state == OFFERED:
+            offered.append(name)
+        elif state == ALREADY:
+            already += 1
+    return {"reachable": True, "offered": sorted(offered), "already": already,
+            "checked": checked}
