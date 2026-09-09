@@ -239,6 +239,11 @@ def referenced_entry(path: str) -> dict:
     return {TABLE_PATH_KEY: stored_reference(path)}
 
 
+def contained_entry(filename: str) -> dict:
+    """A new entry for a game file in this folder."""
+    return {TABLE_FILENAME_KEY: str(filename or "").strip()}
+
+
 def entry_for_filename(entries: dict | None, filename: str) -> tuple[str, dict]:
     """(id, entry) for the table with this filename, or ("", {}). Callers arrive holding
     a name off a directory listing; the storage is keyed by id."""

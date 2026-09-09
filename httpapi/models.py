@@ -825,6 +825,21 @@ class TableReference(ApiModel):
     reachable: bool = False
 
 
+class NewGameRequest(ApiModel):
+    """A game to create. `name` is the folder's name; `location` names where it goes,
+    and left out it goes wherever new games are set to go."""
+
+    name: str
+    location: str = ""
+
+
+class TableImport(ApiModel):
+    """A game file elsewhere on this machine to copy into the game, as an absolute
+    path. Refused unless it is under a browsable root."""
+
+    path: str
+
+
 class NewTableRequest(ApiModel):
     """Something a game holds that a scan of its folder cannot find.
 

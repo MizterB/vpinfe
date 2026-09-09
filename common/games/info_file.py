@@ -27,6 +27,7 @@ from common.games.tables import (
     TABLE_PATH_KEY,
     TABLES_KEY,
     adopted_entry,
+    contained_entry,
     default_table,
     entry_filename,
     entry_for_filename,
@@ -500,6 +501,24 @@ class MetaConfig:
                if isinstance(one, dict)):
             return False
         entries[table_id] = {**referenced_entry(wanted), TABLE_ID_KEY: table_id}
+        self.write_config()
+        return True
+
+    def add_contained_table(self, filename, table_id):
+        """Record a game file that has just been copied into this folder.
+
+        A scan would find the file on its own, but not before this call returns, and the
+        caller has to be able to say which entry it just made - which is the same reason
+        the two above take an id rather than waiting for the minting pass.
+
+        Refuses a filename this game already holds, because the file is the identity.
+        """
+        entries = self._entries_by_id()
+        wanted = str(filename or "").strip()
+        if any(entry_native_key(one) == wanted for one in entries.values()
+               if isinstance(one, dict)):
+            return False
+        entries[table_id] = {**contained_entry(wanted), TABLE_ID_KEY: table_id}
         self.write_config()
         return True
 

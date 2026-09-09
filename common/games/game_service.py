@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+from contextlib import suppress
 from pathlib import Path
 
 from common import jobs
@@ -539,3 +540,48 @@ def restore_info(progress_cb=None, log_cb=None, *, job=None, **kwargs):
 
 def apply_vpx_patches(*args, **kwargs):
     return metadata_service.apply_vpx_patches(*args, iniconfig=_fresh_config(), **kwargs)
+
+
+def sanitize_dir_name(name: str) -> str:
+    """Strip filesystem-reserved characters from a proposed game folder name."""
+    return "".join(c for c in (name or "") if c not in '<>:"/\\|?*').strip()
+
+
+def create_game(name: str, location_id: str = "") -> Path:
+    """Make a game folder with a record in it, and return the folder.
+
+    A folder is an entry because it holds a record, so the record is written here rather
+    than left to the next scan: an entry with no game file - a ROM, something a program
+    looks up by name - has nothing else to be found by.
+
+    Raises ValueError with the sentence to show when there is nowhere to create it, and
+    FileExistsError when something is already there.
+    """
+    from common.games import locations
+    from common.games.info_file import MetaConfig
+
+    wanted = sanitize_dir_name(name)
+    if not wanted:
+        raise ValueError("Say what to call it.")
+
+    where = locations.destination(location_id)
+    if where.location is None:
+        raise ValueError(where.reason)
+
+    folder = Path(where.path) / wanted
+    if folder.exists():
+        raise FileExistsError(str(folder))
+
+    folder.mkdir(parents=True)
+    try:
+        MetaConfig(str(folder / f"{wanted}.info")).write_config_meta({})
+    except Exception:
+        # A folder with no record is not an entry, so leaving one behind would put a
+        # directory in the library that nothing can see and nothing will clean up.
+        with suppress(OSError):
+            folder.rmdir()
+        raise
+
+    refresh_game(folder)
+    logger.info("Created game folder %s", folder)
+    return folder

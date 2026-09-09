@@ -23,6 +23,7 @@ from common.games.game_service import (
     _find_vpx_file,
     _safe_upload_name,
     ensure_dir,
+    sanitize_dir_name,
 )
 from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.media_service import IMAGE_EXTENSIONS, replace_media_file
@@ -297,11 +298,6 @@ def build_media_slot_plan(source_path: Path, *, game_dir: Path, media_kind: str)
     destination = str(game_dir / "medias" / canonical)
     item = PlannedItem(asset, destination, "replace_media")
     return ImportPlan(str(game_dir), "", "", (item,), ())
-
-
-def sanitize_dir_name(name: str) -> str:
-    """Strip filesystem-reserved characters from a proposed game folder name."""
-    return "".join(c for c in (name or "") if c not in '<>:"/\\|?*').strip()
 
 
 def vps_folder_name(vps_entry: dict) -> str:

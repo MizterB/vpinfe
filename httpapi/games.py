@@ -28,6 +28,7 @@ from common.games import (
     game_identity,
     game_service,
     library_discovery,
+    locations,
     media_lookup,
     media_placement,
     tables,
@@ -55,6 +56,7 @@ from common.games.game_repository import (
     all_games,
     collections_by_game_id,
     game_to_row,
+    refresh_game,
 )
 from common.games.game_service import find_vps_release
 from common.games.ids import new_id
@@ -548,6 +550,48 @@ def list_games(
     if limit:
         resources = resources[:limit]
     return {"total": total, "offset": offset, "count": len(resources), "games": resources}
+
+
+@router.post("", summary="Create a game", status_code=201,
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def create_game(body: models.NewGameRequest) -> models.GameResource:
+    """Make a folder with a record in it, in the location new games go to.
+
+    The only way to bring an entry into being without a file arriving: an upload creates
+    one on the way past, and every other write needs a game that already exists.
+    """
+    try:
+        folder = game_service.create_game(body.name, body.location)
+    except FileExistsError as exc:
+        raise ConflictError("There is already a folder by that name",
+                            details={"path": str(exc)}) from exc
+    except ValueError as exc:
+        raise InvalidRequestError(str(exc), details=_where_else(body.location)) from exc
+    except OSError as exc:
+        raise ConflictError(f"Could not create it: {exc}") from exc
+
+    # Canonically, never by spelling. Re-reading one folder resolves the path it is
+    # given, so the game just created carries the real path while every game a scan
+    # found carries the location's own spelling - and under /var on macOS those differ.
+    wanted = locations.canonical(str(folder))
+    made = next((game for game in _catalog().values()
+                 if locations.canonical(str(getattr(game, "fullPathGame", ""))) == wanted),
+                None)
+    if made is None:
+        # The folder and its record are on disk and the library did not pick them up.
+        # Saying so beats a 500: what was asked for happened, and what is wrong is that
+        # the location it landed in is not one this install reads.
+        raise ConflictError(
+            "It was created, but this install does not read the folder it went into",
+            details={"path": str(folder)})
+    return get_game(game_identity.game_id(made))
+
+
+def _where_else(wanted: str) -> dict:
+    """The locations that would have worked, for a refusal to offer."""
+    where = locations.destination(wanted)
+    return {"alternatives": [{"location_id": one.location_id, "name": one.name,
+                              "path": one.path} for one in where.alternatives]}
 
 
 @router.get("/{game_id}", summary="One game", dependencies=[requires(scopes.GAMES_READ)])
@@ -1504,6 +1548,52 @@ def _table_or_404(game, table_id: str) -> dict:
     if found is None:
         raise NotFoundError("This game has no such table", details={"table": table_id})
     return found
+
+
+@router.post("/{game_id}/tables/import", summary="Copy a game file into this game",
+             status_code=201,
+             dependencies=[requires(scopes.GAMES_WRITE), requires(scopes.FILESYSTEM_READ)])
+def import_table(game_id: str, body: models.TableImport) -> models.Table:
+    """Bring a game file in from anywhere on this machine the install may read.
+
+    Both scopes, the same as putting artwork in a slot: it reads a file off the disk and
+    it writes a game, and holding one of those is not permission for the other.
+
+    One call rather than pointing at it and then bringing it in: an import interrupted
+    between those two leaves a library of entries referencing a folder that was only
+    ever meant to be read from. A copy, not a move.
+    """
+    import shutil
+
+    game = _game_or_404(game_id)
+    source = filesystem.within_roots(body.path)
+    if not source.is_file():
+        raise InvalidRequestError("That is not a file", details={"path": body.path})
+    if apps.app_for(source.name) is None:
+        raise InvalidRequestError(
+            f"Nothing this build knows plays {source.name}.")
+
+    game_dir = Path(getattr(game, "fullPathGame", "") or "")
+    landing = game_dir / source.name
+    if landing.exists():
+        raise ConflictError("This game already has a file by that name",
+                            details={"filename": source.name})
+
+    try:
+        shutil.copy2(source, landing)
+    except OSError as exc:
+        raise ConflictError(f"Could not copy it in: {exc}") from exc
+
+    table_id = new_id()
+    meta = MetaConfig(str(meta_file_path(game)))
+    if not meta.add_contained_table(source.name, table_id):
+        # The copy landed and the record did not. Undone, because a file with nothing
+        # describing it becomes a table with no id on the next scan.
+        landing.unlink(missing_ok=True)
+        raise ConflictError("Could not record it", details={"filename": source.name})
+    refresh_game(game_dir)
+    game.meta_config = load_game_meta(game)
+    return _table_or_404(game, table_id)
 
 
 @router.post("/{game_id}/tables", summary="Add something this game holds with no file",
