@@ -230,5 +230,61 @@ class ImportTableTests(CreateGameCase):
         self.assertEqual(again.status_code, 409)
 
 
+class DetailsTests(CreateGameCase):
+    def _game(self, name: str = "Taxi") -> str:
+        self.add_location(self.library)
+        return self.create(name).json()["id"]
+
+    def _put(self, game_id: str, **body):
+        return self.client.put(f"/games/{game_id}/details", json=body)
+
+    def test_a_game_no_catalog_matched_can_still_say_what_it_is(self) -> None:
+        game_id = self._game()
+
+        found = self._put(game_id, title="Taxi", manufacturer="Williams",
+                          year="1988", type="SS", themes=["Cars", "City"])
+
+        self.assertEqual(found.status_code, 200, found.text)
+        row = found.json()
+        self.assertEqual(row["manufacturer"], "Williams")
+        self.assertEqual(row["year"], "1988")
+        self.assertEqual(row["themes"], ["Cars", "City"])
+
+    def test_it_lands_in_the_record_on_disk(self) -> None:
+        game_id = self._game()
+        self._put(game_id, manufacturer="Williams")
+
+        held = json.loads((self.library / "Taxi" / "Taxi.info")
+                          .read_text(encoding="utf-8"))
+
+        self.assertEqual(held["Info"]["Manufacturer"], "Williams")
+
+    def test_a_field_left_out_is_left_alone(self) -> None:
+        """An importer filling in a year should not have to restate a title it never
+        knew, which a whole-value write would make it do."""
+        game_id = self._game()
+        self._put(game_id, title="Taxi", manufacturer="Williams")
+
+        self._put(game_id, year="1988")
+
+        row = self.client.get(f"/games/{game_id}").json()
+        self.assertEqual(row["manufacturer"], "Williams")
+        self.assertEqual(row["year"], "1988")
+
+    def test_a_field_sent_empty_is_cleared(self) -> None:
+        """Left alone and cleared have to be different, or nothing can undo a typo."""
+        game_id = self._game()
+        self._put(game_id, manufacturer="Willaims")
+
+        self._put(game_id, manufacturer="")
+
+        self.assertEqual(self.client.get(f"/games/{game_id}").json()["manufacturer"], "")
+
+    def test_a_game_that_is_not_here_is_a_404(self) -> None:
+        self.add_location(self.library)
+
+        self.assertEqual(self._put("nosuchgame", title="x").status_code, 404)
+
+
 if __name__ == "__main__":
     unittest.main()

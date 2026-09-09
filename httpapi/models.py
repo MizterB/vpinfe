@@ -825,6 +825,21 @@ class TableReference(ApiModel):
     reachable: bool = False
 
 
+class GameDetails(ApiModel):
+    """What the machine is, for a game no catalog has matched.
+
+    A patch: a field left out is left alone, so a caller filling in a year need not
+    restate a title it never knew. Sent empty, it is cleared.
+    """
+
+    title: str | None = None
+    manufacturer: str | None = None
+    year: str | None = None
+    type: str | None = None
+    themes: list[str] | None = None
+    ipdb_id: str | None = None
+
+
 class NewGameRequest(ApiModel):
     """A game to create. `name` is the folder's name; `location` names where it goes,
     and left out it goes wherever new games are set to go."""

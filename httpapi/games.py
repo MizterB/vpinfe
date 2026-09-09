@@ -56,7 +56,6 @@ from common.games.game_repository import (
     all_games,
     collections_by_game_id,
     game_to_row,
-    refresh_game,
 )
 from common.games.game_service import find_vps_release
 from common.games.ids import new_id
@@ -1563,7 +1562,6 @@ def import_table(game_id: str, body: models.TableImport) -> models.Table:
     between those two leaves a library of entries referencing a folder that was only
     ever meant to be read from. A copy, not a move.
     """
-    import shutil
 
     game = _game_or_404(game_id)
     source = filesystem.within_roots(body.path)
@@ -1574,24 +1572,15 @@ def import_table(game_id: str, body: models.TableImport) -> models.Table:
             f"Nothing this build knows plays {source.name}.")
 
     game_dir = Path(getattr(game, "fullPathGame", "") or "")
-    landing = game_dir / source.name
-    if landing.exists():
-        raise ConflictError("This game already has a file by that name",
-                            details={"filename": source.name})
-
-    try:
-        shutil.copy2(source, landing)
-    except OSError as exc:
-        raise ConflictError(f"Could not copy it in: {exc}") from exc
-
     table_id = new_id()
-    meta = MetaConfig(str(meta_file_path(game)))
-    if not meta.add_contained_table(source.name, table_id):
-        # The copy landed and the record did not. Undone, because a file with nothing
-        # describing it becomes a table with no id on the next scan.
-        landing.unlink(missing_ok=True)
-        raise ConflictError("Could not record it", details={"filename": source.name})
-    refresh_game(game_dir)
+    try:
+        game_service.add_table_file(game_dir, source, table_id)
+    except FileExistsError as exc:
+        raise ConflictError("This game already has a file by that name",
+                            details={"filename": str(exc)}) from exc
+    except (OSError, ValueError) as exc:
+        raise ConflictError(f"Could not bring it in: {exc}") from exc
+
     game.meta_config = load_game_meta(game)
     return _table_or_404(game, table_id)
 
@@ -1795,6 +1784,32 @@ def launch_game(game_id: str,
     return {"launching": True, "game_id": game_id,
             "file": Path(resolved).name,
             "links": {"state": "/api/v1/play/state", "events": "/api/v1/events"}}
+
+
+@router.put("/{game_id}/details", summary="Say what the machine is",
+            dependencies=[requires(scopes.GAMES_WRITE)])
+def put_game_details(game_id: str, body: models.GameDetails) -> models.GameResource:
+    """Describe a game no catalog has matched.
+
+    Everything in a game's details normally arrives from VPSdb, which leaves nothing for
+    one that came from somewhere else - a library converted from another frontend carries
+    a year and a manufacturer, and they would otherwise be read and then dropped.
+
+    Not where a VPS id goes. Saying which catalog record a game is claims an identity
+    rather than describing a machine, and there is already a way to say it - the alt_vps_id
+    override, which survives a rebuild because it is kept beside what was discovered
+    rather than written on top of it.
+    """
+    game = _game_or_404(game_id)
+    try:
+        game_service.set_details(Path(str(game.fullPathGame)),
+                                 body.model_dump(exclude_unset=True))
+    except FileNotFoundError as exc:
+        raise ConflictError("This game has no record to write into",
+                            details={"path": str(exc)}) from exc
+    except OSError as exc:
+        raise ConflictError(f"Could not write it: {exc}") from exc
+    return get_game(game_id)
 
 
 @router.put("/{game_id}/rating", summary="Rate a game",

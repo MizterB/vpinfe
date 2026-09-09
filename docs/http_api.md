@@ -83,6 +83,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/games` | List games (`q`, `limit`, `offset`) |
 | POST | `/api/v1/games` | Create one. A folder with a record in it, in the location new games go to; `location` overrides that for this one. The only way to bring an entry into being without a file arriving |
 | POST | `/api/v1/games/{id}/tables/import` | Copy a game file on this machine into the game. A copy, not a move, and refused unless the file is under a browsable root |
+| PUT | `/api/v1/games/{id}/details` | Say what the machine is, for a game no catalog matched. A patch - a field left out is left alone, a field sent empty is cleared. Not where a VPS id goes; that is the `alt_vps_id` override |
 | GET | `/api/v1/games/{id}` | One game |
 | GET | `/api/v1/games/{id}/tables` | The game's tables, with resolved assets and dependencies |
 | GET | `/api/v1/games/{id}/media` | Every media kind, present or not |

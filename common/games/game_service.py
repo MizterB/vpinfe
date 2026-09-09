@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import shutil
 from contextlib import suppress
 from pathlib import Path
 
@@ -540,6 +541,76 @@ def restore_info(progress_cb=None, log_cb=None, *, job=None, **kwargs):
 
 def apply_vpx_patches(*args, **kwargs):
     return metadata_service.apply_vpx_patches(*args, iniconfig=_fresh_config(), **kwargs)
+
+
+# What a game's `Info` block holds, keyed by the name the wire uses. The block is
+# VPS-shaped and keeps its casing; everything of ours is snake_case, so the two are
+# mapped here rather than each caller knowing both spellings.
+DETAIL_FIELDS = {
+    "title": "Title",
+    "manufacturer": "Manufacturer",
+    "year": "Year",
+    "type": "Type",
+    "themes": "Themes",
+    "ipdb_id": "IPDBId",
+}
+
+
+def set_details(game_dir: Path, values: dict) -> dict:
+    """Describe the machine, for a game no catalog has matched.
+
+    Everything in `Info` normally arrives from VPSdb, and for most of the library that is
+    right. It leaves nothing for a game that came from somewhere else - an import from
+    another frontend carries a year and a manufacturer, and without this they would be
+    read and then dropped.
+
+    A patch: what is not sent is left alone, so a caller filling in a year does not have
+    to restate a title it never knew. Sending a key empty does clear it.
+
+    Safe against a later rebuild, which was worth checking rather than assuming: the
+    metadata pass skips a folder that already has a record unless it is told to redo
+    everything, and skips again when the catalog cannot match it.
+    """
+    record = game_dir / f"{game_dir.name}.info"
+    if not record.is_file():
+        raise FileNotFoundError(str(record))
+
+    held = json.loads(record.read_text(encoding="utf-8"))
+    info = held.setdefault("Info", {})
+    if not isinstance(info, dict):
+        info = held["Info"] = {}
+    for name, key in DETAIL_FIELDS.items():
+        if name not in values:
+            continue
+        given = values[name]
+        info[key] = ([str(one).strip() for one in given if str(one).strip()]
+                     if key == "Themes" else str(given if given is not None else "").strip())
+
+    record.write_text(json.dumps(held, indent=4), encoding="utf-8")
+    refresh_game(game_dir)
+    return dict(info)
+
+
+def add_table_file(game_dir: Path, source: Path, table_id: str) -> str:
+    """Copy a game file into a folder and record it, as one operation.
+
+    Both halves or neither: a file in the folder with nothing describing it becomes a
+    table with no id on the next scan, which is a worse state than the copy not having
+    happened. Returns the filename it landed as.
+    """
+    from common.games.info_file import MetaConfig
+
+    landing = game_dir / source.name
+    if landing.exists():
+        raise FileExistsError(source.name)
+
+    shutil.copy2(source, landing)
+    meta = MetaConfig(str(game_dir / f"{game_dir.name}.info"))
+    if not meta.add_contained_table(source.name, table_id):
+        landing.unlink(missing_ok=True)
+        raise ValueError(f"Could not record {source.name}")
+    refresh_game(game_dir)
+    return source.name
 
 
 def sanitize_dir_name(name: str) -> str:
