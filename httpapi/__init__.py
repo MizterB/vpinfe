@@ -22,6 +22,7 @@ from . import (
     core_capabilities,
     devices,
     events,
+    extensions,
     filesystem,
     games,
     input,
@@ -68,6 +69,7 @@ __all__ = [
     "create_api_app",
     "error_response",
     "events",
+    "extensions",
     "register",
     "scopes",
 ]
@@ -97,7 +99,7 @@ def create_api_app() -> FastAPI:
         allow_credentials=False,
     )
 
-    install_error_handlers(api)
+    install_error_handlers(api, on_unhandled=extensions.blame)
     api.include_router(instance.build_router(API_PREFIX, API_VERSION))
     api.include_router(events.router)
     api.include_router(collections.router)
@@ -124,6 +126,10 @@ def create_api_app() -> FastAPI:
     api.include_router(mediasources.router)
     api.include_router(uploads.router)
     api.include_router(uploads.vps_router)
+    api.include_router(extensions.router)
+    # Last, so an extension cannot take a path core wanted: a router already
+    # included answers first, and the prefix keeps them apart anyway.
+    extensions.mount(api)
 
     instance.mint_identity()
     core_capabilities.declare_core()

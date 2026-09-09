@@ -85,9 +85,14 @@ def error_response(status_code: int, code: str, message: str,
     return JSONResponse(status_code=status_code, content={"error": error})
 
 
-def install_error_handlers(app) -> None:
+def install_error_handlers(app, on_unhandled=None) -> None:
     """Attach the envelope handlers. Only ever the /api/v1 app - these would turn the
-    Manager UI's HTML error pages into JSON."""
+    Manager UI's HTML error pages into JSON.
+
+    `on_unhandled` is told which request raised something nobody expected, so the
+    extension seam can take the extension that did it out. Passed in rather than
+    imported: this module is what the seam raises through.
+    """
 
     @app.exception_handler(ApiError)
     async def _api_error(request, exc: ApiError):
@@ -109,4 +114,9 @@ def install_error_handlers(app) -> None:
     async def _unhandled(request, exc: Exception):
         # Log the cause; tell the client nothing beyond "we broke".
         logger.exception("Unhandled error serving %s %s", request.method, request.url.path)
+        if on_unhandled is not None:
+            try:
+                on_unhandled(request)
+            except Exception:
+                logger.exception("Reporting the failure failed as well")
         return error_response(500, CODE_INTERNAL_ERROR, "Internal server error")

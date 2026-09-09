@@ -30,6 +30,21 @@ import from a domain package. That rule is the point of the layer; breaking it i
 - `shutdown.py`: what a kill signal does. Startup notes it and stops at the next step boundary; once the frontend is up it takes the same route as a user's own quit.
 - `log_setup.py`, `vpinfe_version.py`.
 
+**`common/extensions/`** - the extension host: loading somebody else's code, and
+containing it when it breaks.
+
+- `contract.py`: the manifest and the shape of the context. The only module of ours an
+  extension imports.
+- `context.py`: what `register(ctx)` is handed - a logger, a config namespace, the bus and
+  a way to offer routes. Never the application.
+- `host.py`: the registry, the load path and the kill switch.
+- `store.py`: `extensions.json` - an extension's own settings, and the switch that keeps
+  one from loading.
+
+Depends on the infrastructure layer only. The gate that decides whether an extension's
+route may be reached is in `httpapi/extensions.py`, because that is where a scope means
+something. `docs/extensions.md` is the contract an author reads.
+
 **`common/games/`** - games, their metadata, and the collections built from them.
 
 - `game.py`, `game_parser.py`, `game_repository.py`: game discovery and cached game rows.
@@ -70,7 +85,7 @@ Depends on `common/games/`, never the reverse: importing assets needs to know th
 Three cross-package edges are deliberate: `games` reads VPSdb through `online`
 when building metadata, and `online`'s VPinPlay client reaches into `games` to
 enumerate the library. That last one is the wrong direction; VPinPlay predates the
-extension model and is expected to become a plugin.
+extension model and is expected to become an extension.
 
 ## Design Rules
 

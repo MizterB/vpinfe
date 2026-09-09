@@ -12,6 +12,8 @@ from fastapi import Depends, Request
 from fastapi.routing import APIRoute
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from common import extensions
+
 from . import scopes
 from .errors import CODE_FORBIDDEN, ApiError
 
@@ -75,8 +77,17 @@ class LocalTrustPolicy:
     def identify(self, request: Request) -> Identity:
         local = caller_is_local(request)
         return Identity(name="local" if local else "network",
-                        scopes=scopes.CORE,
+                        scopes=scopes.CORE | granted_extension_scopes(),
                         origin=LOCAL if local else NETWORK)
+
+
+def granted_extension_scopes() -> frozenset[str]:
+    """The `ext:` scopes an extension that is running has put on its own routes.
+
+    Read per request, not held: disabling an extension takes its scopes with it, which
+    is how the kill switch reaches a route that is already mounted.
+    """
+    return extensions.granted_scopes()
 
 
 _policy: LocalTrustPolicy = LocalTrustPolicy()

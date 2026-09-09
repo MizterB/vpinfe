@@ -247,6 +247,7 @@ def _read_hub() -> dict[str, Any]:
         "library": library,
         "discovery": client.discovery(),
         "devices": client.devices(),
+        "extensions": client.extensions(),
         # This machine's own configuration, asked of this machine: a path is only
         # answerable by the install holding it, and the Console is served by that one.
         "trouble": settings_page.local_trouble(),
@@ -426,6 +427,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     library = loaded["library"]
     discovery = loaded["discovery"]
     devices = loaded["devices"]
+    installed_extensions = loaded["extensions"]
     device_capabilities = loaded["device_capabilities"]
     local_capabilities = loaded["local_capabilities"]
 
@@ -983,7 +985,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 assets_page.build(library.asset_rows(), library, show_slot, state,
                                   redraw, rescan=_rescan)
             elif view == "extensions":
-                sections.extensions(devices)
+                sections.extensions(installed_extensions)
             elif view == "devices":
                 devices_page.build(devices, library, state, show_device,
                                    probe=_probe_devices,

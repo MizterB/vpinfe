@@ -14,6 +14,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common.media_specs import media_label_map
+from console import panel
 from console.data import Library
 
 # name, one-line description, predicate over (game, media entries).
@@ -368,11 +369,60 @@ def table_scripts(library: Library) -> None:
 
 # --- Extensions ------------------------------------------------------------------
 
-def extensions(registry: list[dict]) -> None:
-    ui.label("An extension runs where its feature lives. Where it runs is a "
-             "property of the extension, not a setting.").classes("console-help mb-3")
-    with ui.element("div").classes("console-card w-full"):
-        ui.label("Nothing installed").classes("console-setting")
-        ui.label("Install one from a repository, or drop a package here. The list will "
-                 "show what it declares and which devices it reached.") \
-            .classes("console-help")
+# What a state is called on screen. "Off" is the switch somebody set; "Stopped" is an
+# error taking one out, which is a different thing to be told and reads as one.
+STATE_WORDS = {"off": "Off", "failed": "Failed", "disabled": "Stopped"}
+# Off costs nothing - it is what was asked for. The other two are a feature that is not
+# there, which is what the warn tone is for.
+QUIET_STATES = frozenset({"off"})
+
+
+def extensions(installed: list[dict]) -> None:
+    if not installed:
+        with ui.element("div").classes("console-card w-full"):
+            ui.label("Nothing installed").classes("console-setting")
+            ui.label("An extension adds a feature to this install without being part "
+                     "of it.").classes("console-help")
+        return
+
+    for found in installed:
+        _extension_card(found)
+
+
+def _extension_card(found: dict) -> None:
+    state = str(found.get("state") or "")
+    name = str(found.get("display_name") or found.get("name") or "")
+    version = str(found.get("version") or "")
+    with ui.element("div").classes("console-card w-full mb-2"):
+        with ui.row().classes("items-center gap-2 w-full"):
+            ui.label(" ".join(part for part in (name, version) if part)) \
+                .classes("console-setting")
+            if state in STATE_WORDS:
+                tone = ("console-chip-quiet" if state in QUIET_STATES
+                        else "console-chip-warn")
+                ui.label(STATE_WORDS[state]).classes(f"console-member-chip {tone}")
+        # What it is, then what happened to it. A card keeps its shape whatever state
+        # the extension is in, and the news is the line the chip points at.
+        for line in (str(found.get("description") or ""), str(found.get("reason") or "")):
+            if line:
+                ui.label(line).classes("console-help")
+        entries = _declared(found)
+        if entries:
+            panel.facts(ui, entries)
+
+
+def _declared(found: dict) -> list[tuple[str, str]]:
+    """What the extension asked for, in the words its manifest used.
+
+    The scope and capability names are shown as they are written rather than translated:
+    they are what was granted, and a friendlier word for a grant is a different grant as
+    far as anyone checking is concerned.
+    """
+    entries = []
+    reaches = [str(one) for one in found.get("scopes") or []]
+    if reaches:
+        entries.append(("Reaches", ", ".join(reaches)))
+    uses = [str(one) for one in found.get("capabilities") or []]
+    if uses:
+        entries.append(("Uses", ", ".join(uses)))
+    return entries

@@ -41,7 +41,7 @@ from common.config_bootstrap import apply_configdir_override
 
 apply_configdir_override(sys.argv[1:])
 
-from common import shutdown, theme_options
+from common import extensions, shutdown, theme_options
 from common.config_store import ConfigStore
 from common.games.metadata_service import build_metadata
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
@@ -132,6 +132,10 @@ class _SuppressNoResponseReturnedMiddleware(BaseHTTPMiddleware):
 
 
 nicegui_app.add_middleware(_SuppressNoResponseReturnedMiddleware)
+
+# Load what this install has installed, before the API is built: the API mounts the
+# routers extensions registered, so one loading afterwards would answer nothing.
+extensions.load_installed()
 
 # Mount the HTTP API. Has to happen before any ui.run(), including the early
 # first-run start below.

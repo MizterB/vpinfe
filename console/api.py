@@ -94,6 +94,10 @@ class ApiClient:
     def capabilities(self) -> list[dict]:
         return self.discovery().get("capabilities") or []
 
+    def extensions(self) -> list[dict]:
+        """Every extension this install looked at, running or not."""
+        return list(self._get("/extensions").get("extensions") or [])
+
     def games(self) -> list[dict]:
         return self._get("/games").get("games", [])
 
