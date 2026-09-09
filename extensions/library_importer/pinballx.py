@@ -212,8 +212,9 @@ def read_database(path: Path | str,
             skipped += 1
             continue
         found.append(game)
-    notes = [f"{path.name}: {skipped} entries have no name and cannot be matched to "
-             "their media"] if skipped else []
+    notes = [f"{path.name}: {skipped} "
+             f"{'entry has' if skipped == 1 else 'entries have'} no name and cannot be "
+             "matched to their media"] if skipped else []
     return found, notes
 
 

@@ -62,6 +62,7 @@ class Record:
     # (router, scope), collected at registration and mounted once by the API.
     routers: list[tuple[Any, str]] = field(default_factory=list)
     subscriptions: list[tuple[str, Any]] = field(default_factory=list)
+    files: Any = None
 
     @property
     def running(self) -> bool:
@@ -107,6 +108,15 @@ class Registry:
         """
         return frozenset(scope for record in self.records() if record.running
                          for _router, scope in record.routers)
+
+    def read_roots(self) -> tuple[str, ...]:
+        """Every folder a running extension says it works from.
+
+        Only from one that is running: an extension that has been taken out stops
+        widening what this install will read, the same way it stops holding its scopes.
+        """
+        return tuple(root for record in self.records() if record.running
+                     for root in (record.files.roots() if record.files else ()))
 
     def mounted(self) -> list[tuple[Record, Any, str]]:
         """Every router that registered, whatever state its extension is in now.
@@ -170,6 +180,7 @@ class Registry:
 
         record.routers = list(context.routers)
         record.subscriptions = list(context.events.registered)
+        record.files = context.files
         record.state, record.reason = LOADED, ""
         logger.info("Extension %s %s loaded", record.name, record.manifest.version)
         return self._remember(record)

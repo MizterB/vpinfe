@@ -43,7 +43,7 @@ __all__ = [
     "ContractError", "ExtensionContext", "ExtensionStore", "Manifest", "ManifestError",
     "Record", "Registry", "clear", "disable", "get_extension_store", "granted_scopes",
     "load_from", "load_installed", "logger_for", "mounted", "parse", "read_manifest",
-    "records", "refuse", "registry", "running", "set_registry",
+    "read_roots", "records", "refuse", "registry", "running", "set_registry",
 ]
 
 _registry: Registry | None = None
@@ -84,6 +84,10 @@ def granted_scopes() -> frozenset[str]:
 
 def mounted() -> list[tuple[Record, object, str]]:
     return registry().mounted()
+
+
+def read_roots() -> tuple[str, ...]:
+    return registry().read_roots()
 
 
 def disable(name: str, reason: str) -> None:

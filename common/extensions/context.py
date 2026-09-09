@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from common import events as core_events
@@ -71,6 +72,38 @@ class ExtensionEvents:
         core_events.emit(f"{self._name}.{wanted}", **payload)
 
 
+class ExtensionFiles:
+    """The folders an extension works from, so core will accept a path inside one.
+
+    Nothing here stops an extension reading a file - in-process Python cannot be
+    prevented from opening one, and pretending otherwise would be theater. What it does
+    is let core's own routes take a path the extension is working with: an importer
+    converting somebody's old library has to hand core files that are nowhere near ours,
+    and without this every one of them is refused.
+
+    Declared rather than assumed, and only by an extension whose manifest asks for it, so
+    what an install will read is something a person agreed to and can be shown.
+    """
+
+    def __init__(self, name: str, allowed: bool) -> None:
+        self._name = name
+        self._allowed = allowed
+        self._roots: tuple[str, ...] = ()
+
+    def roots(self) -> tuple[str, ...]:
+        return self._roots
+
+    def set_roots(self, paths) -> None:
+        """Replace the set. The user moves a share or points somewhere else, and what
+        core will accept has to follow rather than accumulate."""
+        if not self._allowed:
+            raise ContractError(f"{self._name} sets folders to read from, which needs "
+                                "the fs:read capability its manifest does not declare")
+        wanted = [str(one or "").strip() for one in paths]
+        self._roots = tuple(str(Path(one).expanduser().resolve())
+                            for one in wanted if one)
+
+
 class ExtensionContext:
     """What `register(ctx)` is given."""
 
@@ -81,6 +114,7 @@ class ExtensionContext:
         self.logger = logger_for(manifest.name)
         self.config = ExtensionConfig(manifest.name, store)
         self.events = ExtensionEvents(manifest.name, manifest.events, on_failure)
+        self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities)
         self.routers: list[tuple[Any, str]] = []
         # Registration is a moment, not a phase: routers are mounted once, so one added
         # after `register` returned would never be reachable and silently answer nothing.

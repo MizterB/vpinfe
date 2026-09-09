@@ -86,6 +86,18 @@ def _escapes(entry: Path, allowed: list[Path]) -> bool:
     return not any(target == root or root in target.parents for root in allowed)
 
 
+def _extension_roots() -> list[Path]:
+    """The folders a running extension works from.
+
+    Read here and not in `roots()`: browsing starts where a person's own media is, and an
+    importer's source folder in that picker would be somewhere they never put anything.
+    What may be read and where it is worth looking are two questions.
+    """
+    from common import extensions
+
+    return [Path(one) for one in extensions.read_roots()]
+
+
 def within_roots(raw: str) -> Path:
     """The path as a real location under some root, or a refusal.
 
@@ -97,7 +109,7 @@ def within_roots(raw: str) -> Path:
     except OSError as exc:
         raise InvalidRequestError("That path cannot be read",
                                   details={"path": raw}) from exc
-    allowed = [Path(item["path"]) for item in roots()]
+    allowed = [Path(item["path"]) for item in roots()] + _extension_roots()
     if not any(path == root or root in path.parents for root in allowed):
         raise InvalidRequestError(
             "That folder is not one this install may read",

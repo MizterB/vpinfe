@@ -12,13 +12,9 @@ something through them, the contract is short and that is worth finding out.
 
 from __future__ import annotations
 
-from . import pinballx
-
-# Every source this build can read. A reader answers `detect` and `read` and knows
-# nothing of ours - the mapping from what it found to what we store is the importer's,
-# and happens once.
-READERS = (pinballx,)
+from . import api
 
 
 def register(ctx) -> None:
-    ctx.logger.info("%s readers available", len(READERS))
+    api.build(ctx)
+    ctx.logger.info("%s source formats readable", len(api.READERS))
