@@ -92,6 +92,7 @@ class Library:
         self.table_media: dict[tuple[str, str], dict[str, Any]] = {}
         self.tables: dict[str, list[dict[str, Any]]] = {}
         self._collections: list[dict[str, Any]] | None = None
+        self._metadata_state: dict[str, Any] | None = None
         # The by-file lens, read on first use rather than at load: most sessions never
         # switch to it, and it is a second walk of every folder.
         self._table_rows: list[dict[str, Any]] | None = None
@@ -118,6 +119,7 @@ class Library:
         self.games = self._client.games()
         self.media = self._shared_media()
         self.kept_kinds()
+        self.read_metadata_state()
         # Info only when it took long enough to be worth knowing. This runs on every
         # draw, so at info always it is a line per page load saying the cache is warm -
         # and the reason this timing is logged at all is the cold read, which is the
@@ -558,6 +560,25 @@ class Library:
 
     def has_collections(self) -> bool:
         return self._collections is not None
+
+    def metadata_state(self) -> dict[str, Any]:
+        """What the library's `.info` files need. Already read - this asks nothing.
+
+        Read in `load` for the same reason the kept kinds are: Overview wants it while
+        it is drawing, which is on the event loop, and a call made there cannot be
+        answered by the process it is made from.
+        """
+        return self._metadata_state or {}
+
+    def read_metadata_state(self) -> dict[str, Any]:
+        """Ask again. Off the event loop, and after anything that rewrites a `.info`."""
+        try:
+            self._metadata_state = self._client.info_maintenance()
+        except Exception:
+            logger.warning("console: could not read the library's metadata state",
+                           exc_info=True)
+            self._metadata_state = {}
+        return self._metadata_state
 
     def load_collections(self) -> list[dict[str, Any]]:
         """Read the list. Off the event loop, and again after any write."""

@@ -498,28 +498,43 @@ def restorable_game_names():
     return game_repository.restorable_game_names()
 
 
-def upgrade_info(progress_cb=None, log_cb=None, **kwargs):
-    """Upgrade every game's .info in one pass.
+def _as_a_job(work, progress_cb, log_cb, job):
+    """Run one pass over the library's `.info` files, as a job either way.
 
-    Registered as a library scan rather than a kind of its own: the point of the kind is
-    that two things rewriting the same .info files must not overlap, and this rewrites
+    `job` is for a caller that started one already - the API submits to the registry and
+    owns the job before the work begins, so registering a second here would refuse itself
+    as busy. Without one, this registers its own, which is what an in-process caller
+    needs.
+
+    A library scan rather than a kind of its own, in both cases: the point of the kind is
+    that two things rewriting the same `.info` files must not overlap, and these rewrite
     exactly the files a scan does.
     """
-    with jobs.track(jobs.KIND_LIBRARY_SCAN, progress_cb=progress_cb, log_cb=log_cb) as job:
-        result = info_maintenance.upgrade_library(
-            get_games_path(), progress_cb=job.progress, log_cb=job.log, **kwargs)
+    if job is not None:
+        result = work(job)
+    else:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN,
+                        progress_cb=progress_cb, log_cb=log_cb) as owned:
+            result = work(owned)
     game_repository.refresh_games()
     return result
 
 
-def restore_info(progress_cb=None, log_cb=None, **kwargs):
+def upgrade_info(progress_cb=None, log_cb=None, *, job=None, **kwargs):
+    """Upgrade every game's .info in one pass."""
+    return _as_a_job(
+        lambda owned: info_maintenance.upgrade_library(
+            get_games_path(), progress_cb=owned.progress, log_cb=owned.log, **kwargs),
+        progress_cb, log_cb, job)
+
+
+def restore_info(progress_cb=None, log_cb=None, *, job=None, **kwargs):
     """Put back the .info files saved before upgrade, for every game that has one."""
-    with jobs.track(jobs.KIND_LIBRARY_SCAN, progress_cb=progress_cb, log_cb=log_cb) as job:
-        result = info_maintenance.restore_library(
+    return _as_a_job(
+        lambda owned: info_maintenance.restore_library(
             get_games_path(), config_dir=CONFIG_DIR,
-            progress_cb=job.progress, log_cb=job.log, **kwargs)
-    game_repository.refresh_games()
-    return result
+            progress_cb=owned.progress, log_cb=owned.log, **kwargs),
+        progress_cb, log_cb, job)
 
 
 def apply_vpx_patches(*args, **kwargs):

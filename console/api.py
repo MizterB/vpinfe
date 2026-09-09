@@ -871,6 +871,18 @@ class ApiClient:
         call that install answers - a failure afterwards is the update working."""
         return self._post("/update", {"stop_table": stop_table})
 
+    def info_maintenance(self) -> dict:
+        """What the library's own metadata files need doing to them."""
+        return self._get("/library/info")
+
+    def upgrade_info(self) -> dict:
+        """Bring every `.info` onto the current format. Returns the job to watch."""
+        return self._post("/library/info/upgrade", {})
+
+    def restore_info(self) -> dict:
+        """Put back the files saved before an upgrade. Returns the job to watch."""
+        return self._post("/library/info/restore", {})
+
     def device_games(self, device_id: str) -> list[str]:
         """The folder names a VPX Mobile device is carrying, asked of the device."""
         return list(self._get(f"/devices/{quote(device_id)}/games").get("games") or [])

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from nicegui import ui
+from nicegui import run, ui
 
 from common.media_specs import media_label_map
 from console.data import Library
@@ -156,6 +156,135 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                 ui.button("Show", on_click=lambda k=key: go("games")) \
                     .props("flat dense no-caps size=sm").classes("shrink-0") \
                     .set_enabled(bool(games))
+
+    metadata(library.metadata_state(), _metadata_action(library))
+
+
+# --- The library's own metadata ---------------------------------------------------
+#
+# Both operations rewrite a file in every game folder, so both ask first and both say
+# what they cost. The upgrade keeps a copy; the restore spends one.
+
+
+_ASKS = {
+    "upgrade": ("Bring every game onto the current format?",
+                "Each game's metadata file is copied beside itself first, so this can "
+                "be put back. Nothing about your games changes - only the shape of the "
+                "file they are described in.",
+                "Upgrade", False),
+    "restore": ("Put back the saved metadata?",
+                "Every game with a saved copy goes back to it. Anything written since "
+                "the copy was taken goes with it - a rating you set afterwards is in "
+                "the current file, not the old one.",
+                "Restore", True),
+}
+
+
+def _metadata_action(library: Library) -> Callable[[str], Any]:
+    """Ask, start the job, and say it is under way.
+
+    Under way rather than done: both of these rewrite a file per game and run as a job,
+    which the drawer already reports on. Waiting here would be a spinner in front of a
+    progress line that is already on screen.
+    """
+    from console import confirm
+    from console.api import ApiClient
+
+    async def start(which: str) -> None:
+        title, detail, word, danger = _ASKS[which]
+        if not await confirm.ask(title, detail=detail, confirm=word, danger=danger):
+            return
+        client = ApiClient()
+        call = client.upgrade_info if which == "upgrade" else client.restore_info
+        try:
+            await run.io_bound(call)
+        except Exception as exc:
+            ui.notify(str(exc), type="negative")
+            return
+        ui.notify(f"{word} under way", type="positive")
+        # The counts this card is drawn from are now stale. Asked again off the loop,
+        # for the same reason they were read there in the first place.
+        await run.io_bound(library.read_metadata_state)
+
+    return start
+
+
+# --- The library's own metadata, drawn ---------------------------------------------
+#
+# Every game folder carries a `.info`: its id, its catalog match, your rating and how
+# often you have played it. It is where the library actually lives, and the grid is a
+# view of it. Three things can be true of one that are worth acting on, and they are not
+# the same thing as a game being short of a rom or a wheel image - which is why this is
+# its own card rather than another row in the one above.
+
+
+def _stamp(said: str) -> str:
+    """`20260909T110917Z` as something a person reads, or "" for nothing."""
+    if len(said) < 8:
+        return ""
+    return f"{said[0:4]}-{said[4:6]}-{said[6:8]}"
+
+
+def _metadata_row(good: bool, name: str, said: str,
+                  action: tuple[str, Callable[[], Any]] | None = None) -> None:
+    with ui.row().classes("items-center gap-3 w-full no-wrap py-1"):
+        ui.icon("check_circle" if good else "error", size="18px") \
+            .classes("text-positive" if good else "text-warning")
+        with ui.column().classes("gap-0 grow min-w-0"):
+            ui.label(name).classes("console-setting")
+            ui.label(said).classes("console-help")
+        if action is not None:
+            label, run = action
+            ui.button(label, on_click=run) \
+                .props("flat dense no-caps size=sm").classes("shrink-0")
+
+
+def metadata(state: dict[str, Any], on_start: Callable[[str], Any]) -> None:
+    """What the library's metadata files need, and the two ways to act on it.
+
+    Drawn whole rather than only when something is wrong, the same as the card above it:
+    a section that comes and goes cannot be looked for, and "everything is current" is
+    worth being able to check rather than infer from an absence.
+    """
+    pending = int(state.get("pending_upgrade") or 0)
+    unreadable = list(state.get("unreadable") or [])
+    newer = int(state.get("newer_than_us") or 0)
+    restorable = int(state.get("restorable") or 0)
+
+    ui.label("Library metadata").classes("console-group mt-4")
+    with ui.element("div").classes("console-card w-full"):
+        _metadata_row(
+            not pending, "Format",
+            "Every game is on the current format" if not pending
+            else f"{pending} were written by an older build and can be brought forward",
+            None if not pending else ("Upgrade", lambda: on_start("upgrade")))
+
+        # No action: the fix is on disk, in a file this cannot repair without guessing
+        # what it was meant to say. Naming the folders is the whole of the help.
+        _metadata_row(
+            not unreadable, "Readable",
+            "Every folder's metadata could be read" if not unreadable
+            else f"{len(unreadable)} could not be read, so those games are not in your "
+                 f"library: {', '.join(str(one.get('name') or '?') for one in unreadable[:4])}"
+                 + (" and more" if len(unreadable) > 4 else ""))
+
+        # Only when it is true. A row saying "nothing here was written by a newer build"
+        # is a sentence about a thing that has never happened to most installs.
+        if newer:
+            _metadata_row(
+                False, "Newer than this build",
+                f"{newer} were written by a later version of VPinFE. This build reads "
+                "what it understands and leaves the rest alone.")
+
+        # A fact with an action rather than a warning: having backups is not a problem,
+        # and a permanent amber row saying so would be one more thing to ignore.
+        if restorable:
+            when = _stamp(str(state.get("newest_backup") or ""))
+            _metadata_row(
+                True, "Backups",
+                f"{restorable} games have a saved copy"
+                + (f" from {when}" if when else "") + ", taken before an upgrade",
+                ("Restore", lambda: on_start("restore")))
 
 
 # --- Extensions ------------------------------------------------------------------

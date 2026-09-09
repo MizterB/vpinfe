@@ -164,6 +164,27 @@ class ActionResult(ApiModel):
     performed: bool
 
 
+class InfoMaintenance(ApiModel):
+    """What the library's own metadata files need doing to them.
+
+    `newer_than_us` is the state that has to be told apart from the other two: a file
+    written by a newer build is not one this build can upgrade, and counting it with the
+    pending ones would report "I upgraded these" about files it cannot fully read.
+
+    `unreadable` names folders whose `.info` could not be parsed at all. Those games are
+    absent from the library entirely, which is the failure most worth saying out loud -
+    nothing else on any screen would show them.
+    """
+
+    pending_upgrade: int
+    restorable: int
+    newer_than_us: int
+    newest_backup: str
+    pending_games: list[str]
+    restorable_games: list[str]
+    unreadable: list[dict]
+
+
 class DeviceGameList(ApiModel):
     """What a device that is not an install is carrying.
 

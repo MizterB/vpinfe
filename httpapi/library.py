@@ -264,3 +264,58 @@ def refresh(response: Response) -> models.JobResource:
 
     response.headers["Location"] = f"/api/v1/jobs/{job.id}"
     return jobs_api.resource(job)
+
+
+@router.get("/info", summary="What the library's metadata files need",
+            dependencies=[requires(scopes.GAMES_READ)])
+def info_maintenance() -> models.InfoMaintenance:
+    """The three states a `.info` file can be in that are worth acting on, and the
+    folders that have no readable one at all.
+
+    Counted off the loaded library, which has already read every one of them, so asking
+    costs nothing beyond what a page already paid for.
+    """
+    from common.games import game_repository
+
+    counts = game_repository.info_maintenance_counts()
+    return {
+        "pending_upgrade": counts.get("pending_upgrade", 0),
+        "restorable": counts.get("restorable", 0),
+        "newer_than_us": counts.get("newer_than_us", 0),
+        "newest_backup": game_service.newest_backup_stamp() or "",
+        "pending_games": game_service.pending_upgrade_game_names(),
+        "restorable_games": game_service.restorable_game_names(),
+        "unreadable": game_repository.unreadable_games(),
+    }
+
+
+def _one_pass(response: Response, work) -> dict:
+    """Start a library-wide rewrite of the `.info` files as a job.
+
+    The scan's kind, because these rewrite exactly the files a scan does and two of them
+    at once would interleave writes to the same file. The job is owned here rather than
+    by the service, so the caller is handed something to watch.
+    """
+    try:
+        job = job_registry.submit(job_registry.KIND_LIBRARY_SCAN,
+                                  lambda job: work(job=job))
+    except job_registry.JobBusyError as exc:
+        raise ConflictError(str(exc)) from exc
+    response.headers["Location"] = f"/api/v1/jobs/{job.id}"
+    return jobs_api.resource(job)
+
+
+@router.post("/info/upgrade", summary="Bring every .info onto the current format",
+             status_code=202, dependencies=[requires(scopes.GAMES_WRITE)])
+def upgrade_info(response: Response) -> models.JobResource:
+    """Accepted, not done. Each file is copied to `<name>.info.bak` before it is
+    rewritten, which is what `/info/restore` puts back."""
+    return _one_pass(response, game_service.upgrade_info)
+
+
+@router.post("/info/restore", summary="Put back the .info files saved before an upgrade",
+             status_code=202, dependencies=[requires(scopes.GAMES_WRITE)])
+def restore_info(response: Response) -> models.JobResource:
+    """Accepted, not done. Everything written since the backup was taken goes with it -
+    a rating set afterwards is in the new file, not the old one."""
+    return _one_pass(response, game_service.restore_info)
