@@ -117,6 +117,7 @@ def _entry_row(entry, logo_cache, group=None) -> dict:
     game = entry.game
     meta = normalize_meta(game.meta_config)
     info = section(meta, "Info")
+    vpinfe = vpinfe_section(meta)
     maker = str(info.get("Manufacturer", "") or "")
     if maker not in logo_cache:
         logo_cache[maker] = manufacturer_logo_web_path(maker)
@@ -134,6 +135,16 @@ def _entry_row(entry, logo_cache, group=None) -> dict:
             "manufacturer_logo": logo_cache[maker],
             "created_at": epoch_to_iso(getattr(game, "creation_time", None)) or None,
             "user": play_record(meta),
+            # Everything the record declares about the machine. These were absent for
+            # no reason anybody chose - a projection listed some fields and stopped -
+            # and an extension, a remote frontend and the Console all read this.
+            "ipdb_id": str(info.get("IPDBId", "") or ""),
+            "tutorial": str(info.get("PinballPrimerTut", "") or ""),
+            "overrides": {
+                "alt_title": str(vpinfe.get("alt_title", "") or ""),
+                "alt_vps_id": str(vpinfe.get("alt_vpsid", "") or ""),
+                "frontend_dof_event": str(vpinfe.get("frontend_dof_event", "") or ""),
+            },
         },
         # `path` is the theme's alone: a local frontend opens the file, and REST cannot
         # carry a path that means anything on another machine.

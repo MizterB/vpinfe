@@ -315,6 +315,10 @@ def play_record(meta: Any) -> dict[str, Any]:
         "favorite": bool(user.get("Favorite", 0)),
         "tags": user.get("Tags") or [],
         "last_played": epoch_to_iso(user.get("LastRun")) or None,
+        # What the machine was last seen scoring, as the score parser read it off the
+        # hardware. Stored since schema 2 and published nowhere until now, so nothing
+        # but the file could see it.
+        "score": user.get("Score") if user.get("Score") not in ("", None) else None,
         "play_count": int(user.get("StartCount", 0) or 0),
         # The seconds we keep, not the minutes multiplied back up - that only ever
         # returned whole minutes, and inflated ones at that.
@@ -436,10 +440,28 @@ def table_descriptor(table: dict, *, default_id: str = "") -> dict[str, Any]:
         # Top level, where the game's rating is too, so the two lenses read alike.
         "rating": table_rating(table),
         "release_date": parsed("release_date"),
+        # The rest of what a parse takes. Declared in PARSED_KEYS and stored since
+        # schema 2, projected nowhere until now - the sha256 of the script sidecar, and
+        # and what the authoring tool recorded about the last save. Part of a table's
+        # identity in the same way `file_hash` and `version` are.
+        "vbs_hash": str(table.get("vbs_hash", "") or ""),
+        "save_date": parsed("save_date"),
+        "save_rev": parsed("save_rev"),
         "authors": table.get("authors") or [],
         "detects": {key.removeprefix("detect_"): bool(table.get(key, False))
                     for key in DETECTION_KEYS},
         "user": table_play_record(table),
+        # What the user said about this table, against what was discovered. The game
+        # carries its own three; these are the ones that govern a single file.
+        #
+        # The third one a table can hold is deliberately not here. It names a thing one
+        # program does with one kind of hardware state, and a descriptor every app
+        # answers is the wrong place to teach that - the ratchet over how much of one
+        # program core knows about is what said so. It stays settable where it is.
+        "overrides": {
+            "alt_launcher": str(table.get("alt_launcher", "") or ""),
+            "plugin_profile": str(table.get("plugin_profile", "") or ""),
+        },
     }
 
 

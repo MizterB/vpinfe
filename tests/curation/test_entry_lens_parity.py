@@ -84,6 +84,34 @@ class EntryLensParityTests(TempTree):
 
         self.assertEqual(set(self.wire) - declared, set())
 
+    def test_every_field_a_record_declares_reaches_a_consumer(self) -> None:
+        """A projection that lists some fields and stops is how this goes wrong.
+
+        Fifteen declared fields reached nothing at all - the catalog id nearly every
+        game carries, the high score, the script hash - not because anyone decided, but
+        because nobody ever diffed what a record holds against what a lens publishes. A
+        connector is what noticed. This is what notices next time.
+
+        The three the table deliberately omits are named, with the reason, so leaving
+        one out stays a decision rather than a slip.
+        """
+        # Measured across 162 real tables as populated in none of them, and `type`
+        # would put two meanings behind one word beside the game's - see
+        # `table_descriptor`.
+        DECIDED_ABSENT = {"manufacturer", "year", "type"}
+
+        from common.games.tables import DETECT_KEYS, PARSED_KEYS
+
+        published = set(self.theme["table"]) | set(self.theme["table"]["overrides"])
+        declared = (set(PARSED_KEYS) | {"authors", "hidden"}
+                    | {k.removeprefix("detect_") for k in DETECT_KEYS})
+        detects = set(self.theme["table"]["detects"])
+
+        missing = declared - published - detects - DECIDED_ABSENT
+
+        self.assertEqual(missing, set(),
+                         "a table's record declares these and no lens carries them")
+
     def test_the_shared_fields_carry_the_same_values(self) -> None:
         """Agreeing on names and disagreeing on answers would be worse than either."""
         for half in ("game", "table"):

@@ -559,6 +559,9 @@ class PlayRecord(ApiModel):
     favorite: bool = False
     tags: list[str] = Field(default_factory=list)
     last_played: str | None = None
+    # What the machine was last seen scoring, as the score parser read it off the
+    # hardware. Null where nothing has been read, which is not a score of zero.
+    score: Any | None = None
     play_count: int = 0
     play_time_seconds: int = 0
 
@@ -605,6 +608,10 @@ class GameResource(ApiModel):
     # play lens (`EntryGame`), so the surface that manages a library could not show
     # what somebody thought of a game or how much they had played it.
     user: PlayRecord = Field(default_factory=PlayRecord)
+    # The catalog's own id for the machine, and the tutorial it lists. Stored on nearly
+    # every game and published nowhere until now.
+    ipdb_id: str = ""
+    tutorial: str = ""
     links: GameLinks
 
 
@@ -1075,6 +1082,27 @@ class TableForgotten(ApiModel):
     forgotten: str
 
 
+class EntryOverrides(ApiModel):
+    """What the user said, against what was discovered. Kept beside the discovered
+    values rather than written onto them, so what a scan rebuilds does not lose them."""
+
+    alt_title: str = ""
+    alt_vps_id: str = ""
+    frontend_dof_event: str = ""
+
+
+class EntryTableOverrides(ApiModel):
+    """The ones that govern a single file rather than the machine.
+
+    The third a table can hold is not here: it names something one program does with one
+    kind of hardware state, and a descriptor every app answers is the wrong place for
+    that. It stays settable on the overrides route.
+    """
+
+    alt_launcher: str = ""
+    plugin_profile: str = ""
+
+
 class EntryGame(ApiModel):
     """The game half of an entry: enough to show it without a second request, which is
     what the play lens is for. `links.game` has the rest.
@@ -1098,6 +1126,9 @@ class EntryGame(ApiModel):
     # `user.rating` is where it belongs beside the rest of the play record.
     rating: int
     user: PlayRecord = Field(default_factory=PlayRecord)
+    ipdb_id: str = ""
+    tutorial: str = ""
+    overrides: EntryOverrides = Field(default_factory=EntryOverrides)
 
 
 class EntryTable(ApiModel):
@@ -1123,6 +1154,12 @@ class EntryTable(ApiModel):
     authors: list[str] = Field(default_factory=list)
     detects: dict[str, bool] = Field(default_factory=dict)
     user: TablePlayRecord = Field(default_factory=TablePlayRecord)
+    # The sha256 of the script sidecar, and what the authoring tool recorded about the
+    # last save. Part of a table's identity the way `file_hash` and `version` are.
+    vbs_hash: str = ""
+    save_date: str | None = None
+    save_rev: str | None = None
+    overrides: EntryTableOverrides = Field(default_factory=EntryTableOverrides)
 
 
 class EntryAssets(ApiModel):

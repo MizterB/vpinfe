@@ -8,6 +8,7 @@ somebody set is not the word for something that broke.
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from common.extensions import host
 from console import sections
@@ -34,18 +35,27 @@ class StateWordTests(unittest.TestCase):
         self.assertEqual(sections.QUIET_STATES, {host.OFF})
 
 
-class DeclaredTests(unittest.TestCase):
-    def test_an_extension_that_declared_nothing_shows_no_rows(self) -> None:
-        self.assertEqual(sections._declared({"name": "quiet"}), [])
+class FrontDoorTests(unittest.TestCase):
+    """What a person browsing what is installed is shown.
 
-    def test_scopes_and_capabilities_are_shown_as_written(self) -> None:
-        """They are what was granted, and a friendlier word for a grant is a different
-        grant as far as anyone checking is concerned."""
-        found = sections._declared({"scopes": ["games:read"],
-                                    "capabilities": ["config:own", "ui:mount"]})
+    Not what an extension may reach. A scope is what somebody agrees to when installing
+    something; on a list of what is already installed it is jargon in front of everybody
+    who is not auditing, and it belongs on the extension's own page.
+    """
 
-        self.assertEqual(found, [("Reaches", "games:read"),
-                                 ("Uses", "config:own, ui:mount")])
+    def test_the_card_does_not_name_scopes_or_capabilities(self) -> None:
+        source = Path(sections.__file__).read_text(encoding="utf-8")
+        card = source[source.index("def _extension_card"):source.index("def _actions")]
+
+        self.assertNotIn("scopes", card)
+        self.assertNotIn("capabilities", card)
+
+    def test_an_action_is_drawn_from_its_label_alone(self) -> None:
+        """The description is already the line under the extension's name."""
+        source = Path(sections.__file__).read_text(encoding="utf-8")
+        actions = source[source.index("def _actions"):]
+
+        self.assertIn("tooltip", actions)
 
 
 if __name__ == "__main__":

@@ -12,11 +12,11 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
-from . import adopt, emulationstation, pinballx
+from . import adopt, emulationstation, pinballx, popper
 
 # Asked in order, first to claim a folder wins. PinballX is looked for first
 # because it is the source somebody converting a pinball library actually has.
-READERS = (pinballx, emulationstation)
+READERS = (pinballx, popper, emulationstation)
 
 # Where the source is, in this extension's own settings. Not a core setting: it is a
 # fact about somebody's old machine, and it has no meaning to anything else here.
@@ -164,8 +164,8 @@ def build(ctx) -> None:
             "confirm": f"Bring in {games} game{'' if games == 1 else 's'}",
         }
 
-    @writing.post("/wizard/start")
-    def wizard_start(body: dict) -> dict:
+    @writing.post("/wizard/run")
+    def wizard_run(body: dict) -> dict:
         values = body.get("values") or {}
         return start_import({"systems": values.get("systems") or [],
                              "location": values.get("location") or ""})
@@ -197,8 +197,8 @@ def build(ctx) -> None:
         return {"started": True, "job_id": job.id,
                 "links": {"job": f"/api/v1/jobs/{job.id}"}}
 
-    ctx.ui.task(key="import", label="Bring in a library",
-                description="Convert a library from another frontend into game folders.",
-                confirm="Import", base="/wizard")
+    ctx.ui.action(key="import", label="Bring in a library",
+                  description="Convert a library from another frontend into game "
+                              "folders.", base="/wizard")
     ctx.add_router(reading, scope=ctx.scope("read"))
     ctx.add_router(writing, scope=ctx.scope("write"))

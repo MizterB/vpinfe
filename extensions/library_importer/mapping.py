@@ -40,8 +40,35 @@ EMULATIONSTATION_KINDS = {
     "marquee": "wheel",
 }
 
+# Popper files a folder per kind under the emulator's media directory, and unlike
+# PinballX it does not split a still from a moving one - a PlayField folder holds both,
+# and which we store it as follows the file's own extension.
+POPPER_KINDS = {
+    "PlayField": "playfield",
+    "BackGlass": "backglass",
+    "DMD": "scoreview",
+    "Wheel": "wheel",
+    "Topper": "topper",
+    "Loading": "loading",
+    "GameInfo": "instruction_card",
+    "GameHelp": "rule_sheet",
+    "Audio": "audio",
+    "AudioLaunch": "audio_launch",
+}
+
+# Where a source keeps stills and video together, the extension decides which of ours it
+# is. Only the kinds that have both.
+MOVING = {
+    "playfield": "playfield_video",
+    "backglass": "backglass_video",
+    "scoreview": "scoreview_video",
+    "topper": "topper_video",
+}
+VIDEO_SUFFIXES = frozenset({".mp4", ".m4v", ".mkv", ".avi", ".mov", ".webm", ".f4v"})
+
 KINDS_BY_SOURCE = {
     "pinballx": PINBALLX_KINDS,
+    "popper": POPPER_KINDS,
     "emulationstation": EMULATIONSTATION_KINDS,
 }
 
@@ -57,16 +84,32 @@ def media_for(source_id: str, game: SourceGame, known: tuple[str, ...]) -> list[
     found = []
     for item in game.media:
         kind = table.get(item.source_kind, "")
+        kind = _moving_form(kind, item.path)
         if kind and kind in known:
             found.append((kind, item.path))
     return found
+
+
+def _moving_form(kind: str, path: str) -> str:
+    """The video kind where the file is one and the source did not say.
+
+    PinballX files a still and a moving one apart, so its folder is the answer. Popper
+    puts both in one folder, so the extension is - and a playfield video landing in the
+    playfield slot would be a video where an image is expected.
+    """
+    if kind not in MOVING:
+        return kind
+    from pathlib import Path as _Path
+
+    return MOVING[kind] if _Path(path).suffix.lower() in VIDEO_SUFFIXES else kind
 
 
 def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...]) -> list[str]:
     """What the source held that we have nowhere to put, so it can be said out loud."""
     table = KINDS_BY_SOURCE.get(source_id, {})
     return sorted({item.source_kind for item in game.media
-                   if table.get(item.source_kind, "") not in known})
+                   if _moving_form(table.get(item.source_kind, ""), item.path)
+                   not in known})
 
 
 def folder_name(game: SourceGame) -> str:
@@ -94,8 +137,8 @@ def folder_name(game: SourceGame) -> str:
     return title
 
 
-def _title_from(game: SourceGame) -> str:
-    """The machine's name, out of a description that carries more than it.
+def _title_from(game: SourceGame, text: str = "") -> str:
+    """The machine's name, out of a string that carries more than it.
 
     PinballX has no title of its own - it holds "Attack from Mars (Bally 1995)" and
     nothing else - so an import that carried it straight across would put the
@@ -106,7 +149,7 @@ def _title_from(game: SourceGame) -> str:
     gave, so this is a removal of something known rather than a guess at what a name
     ends with. Anything else is left whole.
     """
-    described = (game.display_name or "").strip()
+    described = (text or game.display_name or "").strip()
     maker, year = game.manufacturer.strip(), game.year.strip()
     if not described or not maker or not year:
         return ""
@@ -124,7 +167,10 @@ def details_for(game: SourceGame) -> dict:
     found none - and for an unmatched import nobody examined anything.
     """
     found = {
-        "title": game.title or _title_from(game),
+        # Stripped whichever it came from. A source's own title field is not
+        # necessarily a bare title: Popper's is usually the whole
+        # "Title (Manufacturer Year)" and is sometimes only the title, in one database.
+        "title": _title_from(game, game.title) or game.title or _title_from(game),
         "manufacturer": game.manufacturer,
         "year": game.year,
         "type": game.game_type,

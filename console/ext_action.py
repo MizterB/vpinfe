@@ -1,12 +1,15 @@
-"""The wizard core draws for a task an extension offers.
+"""What core draws when somebody presses an action an extension offers.
 
-An extension describes a guided job - what to ask, what would happen, and a call that
-starts it - and this is the one place it is drawn. Nothing about the treatment comes from
-the extension, so every task looks like the Console rather than like whoever wrote it, and
-a task keeps working if that extension later runs somewhere else.
+The extension describes what to ask and what to call; this is the one place it is drawn.
+Nothing about the treatment comes from the extension, so every action looks like the
+Console rather than like whoever wrote it, and it keeps working if that extension later
+runs somewhere else.
 
-Three steps, because a guided job is three questions: what shall I work on, is this what
-you meant, and what happened.
+How many steps there are is read off what the extension answers, never declared. No
+fields means press it and it happens. Fields mean fill them in first. A `confirm` means a
+step showing what would happen before it runs. So an action that is nothing but a verb
+costs a person one press, and the guided one is the same contract with more of it filled
+in.
 """
 
 from __future__ import annotations
@@ -62,10 +65,10 @@ def _lines(target, title: str, lines: list[str], classes: str) -> None:
         ui.label(str(line)).classes(classes)
 
 
-async def open_task(extension: str, task: dict) -> None:
-    """Run one task from the top: ask, confirm, then watch it happen."""
+async def open_action(extension: str, action: dict) -> None:
+    """Run one action: ask if it asks, confirm if it confirms, then do it."""
     client = ApiClient()
-    base = f"/ext/{extension}{task.get('base') or ''}"
+    base = f"/ext/{extension}{action.get('base') or ''}"
     values: dict[str, Any] = {}
 
     form = await run.io_bound(client.ext_get, base)
@@ -76,11 +79,19 @@ async def open_task(extension: str, task: dict) -> None:
         # the question being asked, so it belongs to the step that asks it - carried
         # forward it would still be telling somebody to point at a folder while they
         # read what the import did.
-        ui.label(str(form.get("title") or task.get("label") or "")) \
+        ui.label(str(form.get("title") or action.get("label") or "")) \
             .classes("console-confirm-title")
 
         body = ui.column().classes("w-full gap-0")
         buttons = ui.row().classes("justify-end gap-2 w-full pt-2")
+
+        def steps_from(found: dict) -> tuple[bool, bool]:
+            """What this action needs, read off its own answer.
+
+            Never a mode it declares: a declaration is a second statement of what the
+            fields and the confirm already say, and the two come apart.
+            """
+            return bool(found.get("fields")), bool(found.get("confirm"))
 
         def draw_form(found: dict) -> None:
             body.clear()
@@ -92,10 +103,15 @@ async def open_task(extension: str, task: dict) -> None:
                 if found.get("facts"):
                     panel.facts(ui, [(one[0], one[1]) for one in found["facts"]])
                 _lines(body, "", list(found.get("notes") or []), "console-help")
+            asks, confirms = steps_from(found)
             with buttons:
                 ui.button("Cancel", on_click=lambda: dialog.submit(False)) \
                     .props("flat no-caps")
-                ui.button("Next", on_click=lambda: _check()).props("no-caps")
+                # The verb, unless there is something after this. An action with no
+                # confirm and no more to ask says what it does rather than "Next".
+                onward = "Next" if confirms else str(action.get("label") or "Go")
+                ui.button(onward,
+                          on_click=(_check if confirms else _start)).props("no-caps")
 
         def draw_confirm(found: dict) -> None:
             body.clear()
@@ -113,7 +129,7 @@ async def open_task(extension: str, task: dict) -> None:
                     ui.label(str(found.get("reason") or "")).classes("console-help")
             with buttons:
                 ui.button("Back", on_click=lambda: draw_form(form)).props("flat no-caps")
-                go = ui.button(str(found.get("confirm") or task.get("confirm") or "Go"),
+                go = ui.button(str(found.get("confirm") or action.get("label") or "Go"),
                                on_click=lambda: _start()).props("no-caps")
                 if not found.get("ready"):
                     go.disable()
@@ -129,17 +145,22 @@ async def open_task(extension: str, task: dict) -> None:
 
         async def _start() -> None:
             try:
-                started = await run.io_bound(client.ext_post, f"{base}/start",
+                started = await run.io_bound(client.ext_post, f"{base}/run",
                                              {"values": values})
             except Exception as exc:  # noqa: BLE001
                 ui.notify(str(exc), type="negative")
                 return
             job_id = str(started.get("job_id") or "")
-            if not job_id:
-                ui.notify(str(started.get("reason") or "It did not start"),
+            if job_id:
+                await _watch(job_id)
+                return
+            if started.get("ok") is False:
+                ui.notify(str(started.get("reason") or "It did not run"),
                           type="negative")
                 return
-            await _watch(job_id)
+            # Finished already. Some actions are one call and a sentence, and making
+            # those wear a progress bar would be theatre.
+            _finished(body, buttons, dialog, started)
 
         async def _watch(job_id: str) -> None:
             body.clear()
@@ -166,6 +187,20 @@ async def open_task(extension: str, task: dict) -> None:
         draw_form(form)
 
     await dialog
+
+
+def _finished(body, buttons, dialog, answer: dict) -> None:
+    """An action that ran and is done, with whatever it wants to say about it."""
+    body.clear()
+    buttons.clear()
+    with body:
+        said = str(answer.get("message") or "Done")
+        ui.label(said).classes("console-help")
+        facts = [(one[0], one[1]) for one in (answer.get("summary") or [])]
+        if facts:
+            panel.facts(ui, facts)
+    with buttons:
+        ui.button("Close", on_click=lambda: dialog.submit(True)).props("flat no-caps")
 
 
 def _wait() -> None:

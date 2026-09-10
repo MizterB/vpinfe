@@ -275,11 +275,18 @@
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Attack from Mars (Bally 1995)",
           "id": "afm0000001",
+          "ipdb_id": "",
           "manufacturer": "Bally",
           "manufacturer_logo": null,
           "name": "Attack from Mars",
+          "overrides": {
+            "alt_title": "",
+            "alt_vps_id": "",
+            "frontend_dof_event": ""
+          },
           "path": "/library/Attack from Mars (Bally 1995)",
           "themes": [],
+          "tutorial": "",
           "type": "SS",
           "user": {
             "favorite": false,
@@ -287,6 +294,7 @@
             "play_count": 0,
             "play_time_seconds": 0,
             "rating": 4,
+            "score": null,
             "tags": []
           },
           "vps_id": "vps-afm",
@@ -321,15 +329,22 @@
           "filename": "Attack from Mars (Bally 1995).vpx",
           "hidden": false,
           "id": "afmtable01",
+          "overrides": {
+            "alt_launcher": "",
+            "plugin_profile": ""
+          },
           "path": "/library/Attack from Mars (Bally 1995)/Attack from Mars (Bally 1995).vpx",
           "rating": 0,
           "release_date": null,
           "rom": "afm_113b",
+          "save_date": null,
+          "save_rev": null,
           "user": {
             "last_played": null,
             "play_count": 0,
             "play_time_seconds": 0
           },
+          "vbs_hash": "",
           "version": ""
         }
       },
@@ -344,11 +359,18 @@
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Bare Table (Gottlieb 1980)",
           "id": "bar0000001",
+          "ipdb_id": "",
           "manufacturer": "Gottlieb",
           "manufacturer_logo": null,
           "name": "Bare Table",
+          "overrides": {
+            "alt_title": "",
+            "alt_vps_id": "",
+            "frontend_dof_event": ""
+          },
           "path": "/library/Bare Table (Gottlieb 1980)",
           "themes": [],
+          "tutorial": "",
           "type": "EM",
           "user": {
             "favorite": false,
@@ -356,6 +378,7 @@
             "play_count": 0,
             "play_time_seconds": 0,
             "rating": 0,
+            "score": null,
             "tags": []
           },
           "vps_id": "",
@@ -381,15 +404,22 @@
           "filename": "Bare Table (Gottlieb 1980).vpx",
           "hidden": false,
           "id": "",
+          "overrides": {
+            "alt_launcher": "",
+            "plugin_profile": ""
+          },
           "path": "/library/Bare Table (Gottlieb 1980)/Bare Table (Gottlieb 1980).vpx",
           "rating": 0,
           "release_date": null,
           "rom": "",
+          "save_date": null,
+          "save_rev": null,
           "user": {
             "last_played": null,
             "play_count": 0,
             "play_time_seconds": 0
           },
+          "vbs_hash": "",
           "version": ""
         }
       },
@@ -404,11 +434,18 @@
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Congo (Williams 1995)",
           "id": "cng0000001",
+          "ipdb_id": "",
           "manufacturer": "Williams",
           "manufacturer_logo": null,
           "name": "Congo",
+          "overrides": {
+            "alt_title": "",
+            "alt_vps_id": "",
+            "frontend_dof_event": ""
+          },
           "path": "/library/Congo (Williams 1995)",
           "themes": [],
+          "tutorial": "",
           "type": "SS",
           "user": {
             "favorite": false,
@@ -416,6 +453,7 @@
             "play_count": 0,
             "play_time_seconds": 0,
             "rating": 0,
+            "score": null,
             "tags": []
           },
           "vps_id": "vps-congo",
@@ -443,15 +481,22 @@
           "filename": "Congo (Williams 1995).vpx",
           "hidden": false,
           "id": "cngtable01",
+          "overrides": {
+            "alt_launcher": "",
+            "plugin_profile": ""
+          },
           "path": "/library/Congo (Williams 1995)/Congo (Williams 1995).vpx",
           "rating": 0,
           "release_date": null,
           "rom": "",
+          "save_date": null,
+          "save_rev": null,
           "user": {
             "last_played": null,
             "play_count": 0,
             "play_time_seconds": 0
           },
+          "vbs_hash": "",
           "version": ""
         }
       },
@@ -466,11 +511,18 @@
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Medieval Madness (Williams 1997)",
           "id": "mm00000001",
+          "ipdb_id": "",
           "manufacturer": "Williams",
           "manufacturer_logo": null,
           "name": "Medieval Madness",
+          "overrides": {
+            "alt_title": "",
+            "alt_vps_id": "",
+            "frontend_dof_event": ""
+          },
           "path": "/library/Medieval Madness (Williams 1997)",
           "themes": [],
+          "tutorial": "",
           "type": "SS",
           "user": {
             "favorite": false,
@@ -478,6 +530,7 @@
             "play_count": 0,
             "play_time_seconds": 0,
             "rating": 5,
+            "score": null,
             "tags": []
           },
           "vps_id": "vps-mm",
@@ -506,15 +559,22 @@
           "filename": "Medieval Madness (Williams 1997).vpx",
           "hidden": false,
           "id": "mmtable001",
+          "overrides": {
+            "alt_launcher": "",
+            "plugin_profile": ""
+          },
           "path": "/library/Medieval Madness (Williams 1997)/Medieval Madness (Williams 1997).vpx",
           "rating": 0,
           "release_date": null,
           "rom": "",
+          "save_date": null,
+          "save_rev": null,
           "user": {
             "last_played": null,
             "play_count": 0,
             "play_time_seconds": 0
           },
+          "vbs_hash": "",
           "version": ""
         }
       }

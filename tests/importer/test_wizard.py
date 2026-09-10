@@ -40,19 +40,22 @@ class WizardCase(unittest.TestCase):
 
 
 class DeclarationTests(WizardCase):
-    def test_the_task_is_listed_with_the_extension(self) -> None:
+    def test_the_action_is_listed_with_the_extension(self) -> None:
         found = self.client.get("/extensions").json()["extensions"][0]
 
-        task = found["tasks"][0]
-        self.assertEqual(task["key"], "import")
-        self.assertEqual(task["base"], "/wizard")
-        self.assertTrue(task["label"])
+        action = found["actions"][0]
+        self.assertEqual(action["key"], "import")
+        self.assertEqual(action["base"], "/wizard")
+        self.assertTrue(action["label"])
 
-    def test_the_confirm_verb_is_the_tasks_own(self) -> None:
-        """A generic Confirm makes every task look like every other one."""
-        task = self.client.get("/extensions").json()["extensions"][0]["tasks"][0]
+    def test_an_action_declares_no_mode(self) -> None:
+        """How many steps it has is read off what it answers - the fields it asks
+        for and the confirm it names. A declared mode would be a second statement
+        of the same thing, and the two come apart."""
+        found = self.client.get("/extensions").json()["extensions"][0]
+        action = found["actions"][0]
 
-        self.assertEqual(task["confirm"], "Import")
+        self.assertEqual(sorted(action), ["base", "description", "key", "label"])
 
     def test_an_extension_that_is_not_running_offers_nothing(self) -> None:
         """A button that refuses is worse than no button."""
@@ -61,13 +64,13 @@ class DeclarationTests(WizardCase):
 
         found = self.client.get("/extensions").json()["extensions"][0]
 
-        self.assertEqual(found["tasks"], [])
+        self.assertEqual(found["actions"], [])
 
     def test_offering_one_without_the_capability_is_refused(self) -> None:
         from common.extensions.context import ExtensionUI
 
         with self.assertRaises(ContractError):
-            ExtensionUI("quiet", allowed=False).task("go", "Go", "/x")
+            ExtensionUI("quiet", allowed=False).action("go", "Go", "/x")
 
 
 class FormTests(WizardCase):

@@ -107,8 +107,16 @@ def table_of(entry: dict[str, Any]) -> dict[str, Any]:
             "run_time_seconds": user.get("play_time_seconds", 0) or 0,
         },
     }
-    if table.get("release_date") is not None:
-        restored["release_date"] = table["release_date"]
+    for key in ("release_date", "save_date", "save_rev"):
+        # Null means never parsed, and storing "" for it would say parsed-as-blank.
+        if table.get(key) is not None:
+            restored[key] = table[key]
+    if table.get("vbs_hash"):
+        restored["vbs_hash"] = table["vbs_hash"]
+    overrides = table.get("overrides") or {}
+    for key in ("alt_launcher", "plugin_profile"):
+        if overrides.get(key):
+            restored[key] = overrides[key]
     restored.update({f"detect_{name}": bool(value) for name, value in detects.items()})
     return restored
 

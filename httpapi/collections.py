@@ -293,6 +293,7 @@ def _entry_resource(entry, group=None) -> dict:
     default_id = offered[0].get("id", "") if offered else ""
     meta = entry.game.meta_config or {}
     info = meta.get("Info") or {}
+    vpinfe = meta.get("vpinfe") or {}
     prefix = f"/api/v1/games/{game_ident}"
     maker = str(info.get("Manufacturer", "") or "")
     return {
@@ -309,6 +310,13 @@ def _entry_resource(entry, group=None) -> dict:
             "created_at": epoch_to_iso(getattr(entry.game, "creation_time", None)) or None,
             "rating": game_rating(entry.game),
             "user": play_record(meta),
+            "ipdb_id": str(info.get("IPDBId", "") or ""),
+            "tutorial": str(info.get("PinballPrimerTut", "") or ""),
+            "overrides": {
+                "alt_title": str(vpinfe.get("alt_title", "") or ""),
+                "alt_vps_id": str(vpinfe.get("alt_vpsid", "") or ""),
+                "frontend_dof_event": str(vpinfe.get("frontend_dof_event", "") or ""),
+            },
         },
         "table": table_descriptor(entry.table, default_id=default_id),
         "siblings": entry.siblings,

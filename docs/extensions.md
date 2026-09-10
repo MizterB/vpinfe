@@ -81,7 +81,7 @@ application, and that is the guarantee the model rests on.
 | `ctx.games` | `kinds`, `folder`, `create`, `set_details`, `add_table`, `put_media`. Each needs the core scope its manifest declared |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
 | `ctx.entries` | `contribute(key, fetch)` — add something to every entry a theme is handed |
-| `ctx.ui` | `task(...)` — offer a guided job for the Console to draw. Needs `ui:mount` |
+| `ctx.ui` | `action(...)` — offer a verb for the Console to draw. Needs `ui:mount` |
 | `ctx.add_router(router, scope=...)` | Serve routes under `/api/v1/ext/<name>/` |
 
 `ctx.games` is not the HTTP API and is not a second implementation of it: both are thin
@@ -132,33 +132,37 @@ wait on four hundred calls to somebody else's server. A theme written as
 
 ## Offering something to do
 
-An extension does not draw. It declares a **task** — a guided job — and core renders it,
-so every task looks like the Console rather than like whoever wrote the extension, and a
-task keeps working if that extension later runs out of process, which a drawn page would
-not.
+An extension does not draw. It declares an **action** — a verb — and core renders it, so
+every action looks like the Console rather than like whoever wrote the extension, and it
+keeps working if that extension later runs out of process, which a drawn page would not.
 
 ```python
-ctx.ui.task(key="import", label="Bring in a library", base="/wizard",
-            description="Convert a library from another frontend into game folders.",
-            confirm="Import")
+ctx.ui.action(key="import", label="Bring in a library", base="/wizard",
+              description="Convert a library from another frontend into game folders.")
 ```
 
-Three calls on the extension's own router, under `base`:
+Two calls on the extension's own router, under `base`:
 
 | call | answers |
 |---|---|
-| `GET {base}` | `title`, `help`, `fields` — what to ask first |
+| `GET {base}` | `title`, `help`, `fields`, `confirm` — what to ask, if anything |
 | `POST {base}/check` | `ready`, `summary`, `notes`, more `fields`, `confirm` — what would happen |
-| `POST {base}/start` | `{"job_id": …}` — core watches it on `/api/v1/jobs` |
+| `POST {base}/run` | `{"job_id": …}`, or the outcome directly |
+
+**How many steps an action has is read off what it answers, never declared.** No `fields`
+means press it and it happens. `fields` means fill them in first. A `confirm` means a step
+showing what would happen before it runs. A declared mode would be a second statement of
+what the answers already say, and the two come apart.
+
+A run returns a `job_id` where the work is slow — core watches it on `/api/v1/jobs` — or
+the outcome where it is not, with an optional `message` and `summary`. An action that is
+one call and a sentence should not have to wear a progress bar.
 
 `fields` are `{key, type, label, value, help}`, where type is `path`, `string` or `multi`
-(with `choices`). Both `check` and `start` receive `{"values": {…}}`.
+(with `choices`). Both `check` and `run` receive `{"values": {…}}`.
 
-The shape is fixed at three because what is being described is one thing — a guided job.
-A general language for drawing anything is a different project.
-
-`confirm` is the verb at the point of no return, and it is the task's own: a generic
-"Confirm" makes every task look like every other one. `notes` travel with the summary,
+`confirm` is the verb at the point of no return, and it is the action's own: a generic
+"Confirm" makes every action look like every other one. `notes` travel with the summary,
 because a count that stays quiet about what the job cannot do describes something that
 will not happen.
 

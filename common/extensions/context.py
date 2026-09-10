@@ -106,40 +106,41 @@ class ExtensionFiles:
 
 
 class ExtensionUI:
-    """Guided tasks an extension offers, for core to put in front of somebody.
+    """What an extension offers a person: its actions, and the page they sit on.
 
     Declared rather than drawn. An extension that painted its own page would tie the
     Console's look to whoever wrote it, and would stop working the moment that extension
     moved out of this process - where a task described as data still does. Core owns the
     treatment; the extension owns what is asked and what happens.
 
-    Each task is three calls on the extension's own router, under the base it names:
-    the form to ask with, a check that says what would happen, and a start that answers
-    with a job. The shape is fixed at three because the thing being described is one
-    thing - a guided job - and a general language for drawing anything is a different
-    project.
+    An action is one call on the extension's own router. What varies is whether it takes
+    input, whether it warrants confirming, and whether it finishes now or hands back a
+    job - and core reads each of those off what the extension answers rather than from a
+    mode it declares, because a declared mode is a second statement of the same thing and
+    the two drift.
+
+    A form with no fields is pressed and happens. A form with fields is filled in first.
+    A form naming a confirm gets a step showing what would happen before it runs. The
+    run answers with a job where it is slow and with the outcome where it is not.
     """
 
     def __init__(self, name: str, allowed: bool) -> None:
         self._name = name
         self._allowed = allowed
-        self.tasks: list[dict] = []
+        self.actions: list[dict] = []
 
-    def task(self, key: str, label: str, base: str, description: str = "",
-             confirm: str = "") -> None:
+    def action(self, key: str, label: str, base: str, description: str = "") -> None:
+        """A verb somebody can press, in the vocabulary the rest of the app uses."""
         if not self._allowed:
-            raise ContractError(f"{self._name} offers a task, which needs the ui:mount "
-                                "capability its manifest does not declare")
+            raise ContractError(f"{self._name} offers an action, which needs the "
+                                "ui:mount capability its manifest does not declare")
         wanted = str(key or "").strip()
         if not wanted:
-            raise ContractError(f"{self._name} offers a task with no key")
-        self.tasks.append({
+            raise ContractError(f"{self._name} offers an action with no key")
+        self.actions.append({
             "key": wanted,
             "label": str(label or "").strip() or wanted,
             "description": str(description or "").strip(),
-            # What the button says at the point of no return. The task knows what it is
-            # about to do; a generic "Confirm" makes every one of them look the same.
-            "confirm": str(confirm or "").strip(),
             "base": str(base or "").strip(),
         })
 

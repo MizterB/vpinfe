@@ -14,7 +14,6 @@ from typing import Any
 from nicegui import run, ui
 
 from common.media_specs import media_label_map
-from console import panel
 from console.data import Library
 
 # name, one-line description, predicate over (game, media entries).
@@ -390,6 +389,13 @@ def extensions(installed: list[dict]) -> None:
 
 
 def _extension_card(found: dict) -> None:
+    """One extension, as somebody browsing what is installed needs it.
+
+    Its name, what it is for, and what they can do with it. Not what it may reach: a
+    scope is what somebody agrees to when they install something, and on a list of what
+    is already installed it is a line of jargon in front of everybody who is not
+    auditing. It is on the extension's own page, at the bottom, for whoever wants it.
+    """
     state = str(found.get("state") or "")
     name = str(found.get("display_name") or found.get("name") or "")
     version = str(found.get("version") or "")
@@ -403,51 +409,33 @@ def _extension_card(found: dict) -> None:
                 ui.label(STATE_WORDS[state]).classes(f"console-member-chip {tone}")
         # What it is, then what happened to it. A card keeps its shape whatever state
         # the extension is in, and the news is the line the chip points at.
-        for line in (str(found.get("description") or ""), str(found.get("reason") or "")):
+        for line in (str(found.get("description") or ""),
+                     str(found.get("reason") or "")):
             if line:
                 ui.label(line).classes("console-help")
-        entries = _declared(found)
-        if entries:
-            panel.facts(ui, entries)
-        _tasks(found)
+        _actions(found)
 
 
-def _tasks(found: dict) -> None:
-    """What this extension can be asked to do.
+def _actions(found: dict) -> None:
+    """The verbs this extension offers.
 
     Drawn where the extension is, rather than given a place of its own in the rail: an
     extension is a thing somebody installed, and what it offers belongs with it until
     there is enough of it to be a destination.
     """
-    from console import ext_task
+    from console import ext_action
 
-    offered = list(found.get("tasks") or [])
+    offered = list(found.get("actions") or [])
     if not offered:
         return
     name = str(found.get("name") or "")
     with ui.row().classes("items-center gap-2 w-full pt-2"):
-        for task in offered:
-            # The label is the whole of it. What the task is for is already the line
+        for action in offered:
+            # The label is the whole of it. What the action is for is already the line
             # under the extension's name, and saying it twice on one card is a sentence
             # that tells nobody anything they cannot see.
-            ui.button(str(task.get("label") or task.get("key") or ""),
-                      on_click=lambda _e=None, task=task: ext_task.open_task(name, task)) \
+            ui.button(str(action.get("label") or action.get("key") or ""),
+                      on_click=lambda _e=None, action=action:
+                          ext_action.open_action(name, action)) \
                 .props("no-caps outline") \
-                .tooltip(str(task.get("description") or ""))
-
-
-def _declared(found: dict) -> list[tuple[str, str]]:
-    """What the extension asked for, in the words its manifest used.
-
-    The scope and capability names are shown as they are written rather than translated:
-    they are what was granted, and a friendlier word for a grant is a different grant as
-    far as anyone checking is concerned.
-    """
-    entries = []
-    reaches = [str(one) for one in found.get("scopes") or []]
-    if reaches:
-        entries.append(("Reaches", ", ".join(reaches)))
-    uses = [str(one) for one in found.get("capabilities") or []]
-    if uses:
-        entries.append(("Uses", ", ".join(uses)))
-    return entries
+                .tooltip(str(action.get("description") or ""))
