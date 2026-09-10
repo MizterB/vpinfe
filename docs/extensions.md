@@ -172,12 +172,27 @@ A scope belonging to an extension is granted only while that extension is runnin
 
 ## Config
 
-Settings live in `extensions.json` in the config directory, under the extension's name.
+Two homes, because there are two owners.
+
+| file | holds |
+|---|---|
+| `extensions.json` | core's record of what is installed and what is switched off |
+| `extension_settings/<name>.json` | that extension's own settings |
+
 Never `vpinfe.ini` - that file holds what core is configured with, and it is where a token
 would go.
 
-The `enabled` key in the same file is the user's switch. An extension switched off is not
-loaded at all.
+A file each rather than a namespace inside one, for the same reason: a namespace in
+somebody else's file is a weaker form of "own" than a file. One unreadable
+`extensions.json` used to cost every extension its settings and switch the disabled ones
+back on. Now one extension's bad file costs that extension.
+
+Whether an extension is switched off stays core's record, because core has to know before
+it loads anything - reading a file per extension to answer "what am I not loading" is
+worse than reading one. An extension switched off is not loaded at all.
+
+Settings are not beside an extension's code: one the build ships has no directory in the
+config dir, so they need a home that does not depend on where the code came from.
 
 ## Logs
 

@@ -141,13 +141,65 @@ class ContextTests(HostCase):
 
         self.assertIn("hello", caught.output[0])
 
-    def test_settings_land_in_the_extensions_own_file_under_its_own_name(self) -> None:
+    def test_settings_land_in_a_file_of_the_extensions_own(self) -> None:
+        """A file each, not a namespace inside one. One bad write took every
+        extension's settings with it, and the switched-off ones came back on."""
         self.store.set_setting("sample", "greeting", "good evening")
+
+        path = self.root / "extension_settings" / "sample.json"
+
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")),
+                         {"greeting": "good evening"})
+
+    def test_core_keeps_only_what_core_needs_to_know(self) -> None:
+        """Whether it is switched off is core's record - it has to know before it loads
+        anything. What it is configured with is nobody's business but its own."""
+        self.store.set_setting("sample", "greeting", "good evening")
+        self.store.set_enabled("sample", False)
 
         held = json.loads((self.root / "extensions.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(held["extensions"]["sample"]["settings"],
-                         {"greeting": "good evening"})
+        self.assertEqual(held["extensions"]["sample"], {"enabled": False})
+
+    def test_one_extensions_unreadable_settings_cost_only_that_one(self) -> None:
+        """The whole reason they are not in one file together."""
+        self.store.set_setting("sample", "greeting", "good evening")
+        self.store.set_setting("bystander", "greeting", "hello")
+        (self.root / "extension_settings" / "sample.json").write_text("{", "utf-8")
+
+        with self.assertLogs("vpinfe.common.extensions.store", "ERROR"):
+            self.assertEqual(self.store.settings("sample"), {})
+
+        self.assertEqual(self.store.settings("bystander"), {"greeting": "hello"})
+        self.assertTrue(self.store.enabled("sample"))
+
+    def test_settings_written_before_the_split_are_carried_over(self) -> None:
+        """An install that ran a build where they lived together keeps them."""
+        (self.root / "extensions.json").write_text(json.dumps({
+            "schema": 1,
+            "extensions": {"sample": {"enabled": True,
+                                      "settings": {"greeting": "from before"}}},
+        }), encoding="utf-8")
+
+        self.assertEqual(self.store.settings("sample"), {"greeting": "from before"})
+        held = json.loads((self.root / "extensions.json").read_text(encoding="utf-8"))
+        self.assertNotIn("settings", held["extensions"]["sample"])
+
+    def test_forgetting_one_takes_its_file_with_it(self) -> None:
+        self.store.set_setting("sample", "greeting", "good evening")
+
+        self.store.forget("sample")
+
+        self.assertFalse((self.root / "extension_settings" / "sample.json").exists())
+
+    def test_the_settings_follow_the_registry_rather_than_this_machine(self) -> None:
+        """A store told where its registry is and left pointing at this machine's own
+        settings is not isolated at all - which wrote into a real config directory
+        before it was caught."""
+        from common.extensions import store as store_module
+
+        self.assertEqual(self.store.settings_dir, self.root / "extension_settings")
+        self.assertNotEqual(self.store.settings_dir, store_module.SETTINGS_DIR)
 
     def test_a_router_gated_on_an_undeclared_scope_is_refused(self) -> None:
         body = ("from fastapi import APIRouter\n"
