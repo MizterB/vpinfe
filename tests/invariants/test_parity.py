@@ -42,6 +42,10 @@ LEDGER_ALLOWS = {
     "PAR-30": {"get_theme_contract"},
     # PAR-32: one method added so the browser can learn the theme's window list.
     "PAR-32": {"get_theme_windows"},
+    # PAR-92: one method added so a theme can make core ask an extension again about a
+    # game. Additive - a theme that never calls it is unaffected, and the endpoint
+    # method it replaces the need for is still served.
+    "PAR-92": {"refresh_entry_data"},
     # PAR-33: one method added so the browser can learn how far to turn playfield art.
     "PAR-33": {"get_playfield_media_rotation"},
     # PAR-40: one method added so the browser can fetch an action's whole binding list.
@@ -163,6 +167,7 @@ class ParityTests(unittest.TestCase):
             current - master,
             {rename["added"]} | LEDGER_ALLOWS["PAR-21"] | LEDGER_ALLOWS["PAR-27"]
                 | LEDGER_ALLOWS["PAR-30"] | LEDGER_ALLOWS["PAR-32"]
+                | LEDGER_ALLOWS["PAR-92"]
                 | LEDGER_ALLOWS["PAR-33"]
             | LEDGER_ALLOWS["PAR-40"] | LEDGER_ALLOWS["PAR-45"]
             | LEDGER_ALLOWS["PAR-48"] | LEDGER_ALLOWS["PAR-63"]

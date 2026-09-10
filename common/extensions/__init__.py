@@ -14,6 +14,7 @@ running it happens to have installed.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from .context import LOG_ROOT, ExtensionContext, logger_for
@@ -43,8 +44,10 @@ __all__ = [
     "ContractError", "ExtensionContext", "ExtensionStore", "Manifest", "ManifestError",
     "Record", "Registry", "clear", "disable", "get_extension_store", "granted_scopes",
     "load_from", "load_installed", "logger_for", "mounted", "parse", "read_manifest",
-    "read_roots", "records", "refuse", "registry", "running", "set_registry",
+    "read_roots", "hand_over", "records", "refuse", "registry", "running", "set_registry",
 ]
+
+logger = logging.getLogger("vpinfe.common.extensions")
 
 _registry: Registry | None = None
 
@@ -60,6 +63,17 @@ def set_registry(replacement: Registry) -> None:
     """Swap the registry. For tests, and for whenever an install loads from elsewhere."""
     global _registry
     _registry = replacement
+
+
+def hand_over(config) -> int:
+    """Give each extension the settings core used to hold for it. Once, before loading."""
+    from . import handover
+
+    try:
+        return handover.seed(get_extension_store(), config)
+    except Exception:
+        logger.exception("Could not hand settings to the extensions that own them")
+        return 0
 
 
 def load_installed() -> list[Record]:

@@ -135,6 +135,9 @@ nicegui_app.add_middleware(_SuppressNoResponseReturnedMiddleware)
 
 # Load what this install has installed, before the API is built: the API mounts the
 # routers extensions registered, so one loading afterwards would answer nothing.
+# What core used to be configured with, given to the extensions that own it now. Before
+# they load, so one finds its settings already there on the run it is first installed.
+extensions.hand_over(config_store)
 extensions.load_installed()
 
 # Mount the HTTP API. Has to happen before any ui.run(), including the early

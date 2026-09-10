@@ -108,6 +108,18 @@ def refresh(descriptor: dict) -> dict:
     return found
 
 
+def forget_game(game_id: str) -> None:
+    """Drop what is known about one game, so the next ask goes out again.
+
+    For a player who has just rated a table: the cumulative answer has changed and the
+    held one is the answer from before they did.
+    """
+    wanted = str(game_id or "")
+    with _lock:
+        for held in [one for one in _answers if one[1] == wanted]:
+            _answers.pop(held, None)
+
+
 def clear() -> None:
     """Forget every contributor and every answer. For tests."""
     with _lock:

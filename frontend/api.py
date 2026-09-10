@@ -94,6 +94,7 @@ API_PUBLISHED_METHODS = {
     'get_theme_name',
     'get_media_priorities',
     'get_vpinplay_endpoint',
+    'refresh_entry_data',
     'get_temporary_vpinplay_profile',
     'set_temporary_vpinplay_profile',
     'clear_temporary_vpinplay_profile',
@@ -681,6 +682,27 @@ class API:
                 found.append(entry.game)
         return found
 
+    def refresh_entry_data(self, game_id):
+        """Ask the extensions about this game again, and answer with what they say.
+
+        For a theme that has just changed something an extension reports on - rating a
+        table changes what a ratings connector would now say, and the held answer is the
+        one from before.
+        """
+        from common.extensions import contributions
+        from frontend import ext_data
+
+        wanted = str(game_id or "").strip()
+        entry = next((one for one in self.entries
+                      if game_identity.game_id(one.game) == wanted), None)
+        if entry is None:
+            return {}
+        contributions.forget_game(wanted)
+        return contributions.refresh(ext_data.descriptor_for(entry.game))
+
+    def get_vpinplay_endpoint(self):
+        return config_api.get_vpinplay_endpoint(self._iniConfig.config)
+
     def get_game_rating(self, index):
         """Get User.Rating for a game index in the current filtered list."""
         entry = self.entry_at(index)
@@ -744,9 +766,6 @@ class API:
 
     def get_media_priorities(self):
         return config_api.get_media_priorities(self._iniConfig.config)
-
-    def get_vpinplay_endpoint(self):
-        return config_api.get_vpinplay_endpoint(self._iniConfig.config)
 
     def get_temporary_vpinplay_profile(self):
         return get_alternate_profile_state()

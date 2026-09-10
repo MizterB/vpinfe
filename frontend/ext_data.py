@@ -24,7 +24,7 @@ _registered = False
 _broadcast = None
 
 
-def _descriptor(game) -> dict:
+def descriptor_for(game) -> dict:
     """What a contributor is told about a game.
 
     A plain description and never our object: an extension holding one could reach the
@@ -48,7 +48,7 @@ def _fetch_and_tell(games) -> None:
     is on screen.
     """
     for index, game in enumerate(games):
-        descriptor = _descriptor(game)
+        descriptor = descriptor_for(game)
         found = contributions.refresh(descriptor)
         # A neighbour is fetched to be ready, not to be shown. Telling the windows about
         # a game nobody is looking at is a message per wheel step for nothing.

@@ -692,7 +692,6 @@ class VPinFECore {
     // The library's asset server, when the library is elsewhere. Its own port, not this
     // machine's: pairing a remote host with the local port addresses neither.
     this.libraryAssetsPort = port('libraryAssetsPort', this.themeAssetsPort);
-    this.vpinplayEndpoint = '';
 
     // Display config, as the ini states it. Raw values - `layout` below is what a theme
     // should read.
@@ -734,11 +733,8 @@ class VPinFECore {
     // The base mode is never popped; overlays and dialogs push on top.
     this._inputModes = ['navigation'];
     this._lastMoveAt = 0;
-    this.onSelection(() => this.getVPinPlayRating(this._currentTableIndex).catch(() => {}));
     this.onSelection(() => this.#notifySelectedGame().catch(() => {}));
     this.onSelection(() => this.#schedulePreload());
-    this._vpinplayRatingCache = new Map();
-    this._vpinplayRatingRequests = new Map();
 
     // WebSocket bridge
     this._ws = null;
@@ -1114,23 +1110,48 @@ class VPinFECore {
     return this._currentTableIndex;
   }
 
+  /**
+   * What VPinPlay's players have rated this table, or null.
+   *
+   * Read off the entry, which core filled in. The page used to call VPinPlay itself:
+   * every window on a cabinet asked the same question about the same game, and every
+   * reload threw the answers away. Kept because published themes call it by name;
+   * `entry.ext.vpinplay` is the same value and is what a theme should read now.
+   */
   getCachedVPinPlayRating(index = this._currentTableIndex) {
     const item = this.#itemByIndex(index);
-    if (!item) return null;
-
-    const vpsId = this.#vpsIdOf(item);
-    if (!vpsId) return null;
-
-    const cached = this._vpinplayRatingCache.get(vpsId);
-    return cached && cached.data ? cached.data : null;
+    if (!item || typeof item !== "object") return null;
+    const contributed = (item.ext && item.ext.vpinplay) || null;
+    return contributed || null;
   }
 
+  /** As above. Async because it always was, and a theme awaits it. */
   async getVPinPlayRating(index = this._currentTableIndex, options = {}) {
-    return this.#loadVPinPlayRating(index, !!(options && options.forceRefresh));
+    if (options && options.forceRefresh) return this.refreshVPinPlayRating(index);
+    return this.getCachedVPinPlayRating(index);
   }
 
+  /**
+   * Ask again for this game, rather than taking what is held.
+   *
+   * The answer is core's now, so this asks core to forget and re-fetch. What comes back
+   * arrives as an entry update like any other; this returns what is known once it has.
+   */
   async refreshVPinPlayRating(index = this._currentTableIndex) {
-    return this.#loadVPinPlayRating(index, true);
+    const item = this.#itemByIndex(index);
+    if (!item || typeof item !== "object") return null;
+    const gameId = String((item.game && item.game.id) || "");
+    if (!gameId) return this.getCachedVPinPlayRating(index);
+    try {
+      const found = await this.call("refresh_entry_data", gameId);
+      if (found && typeof found === "object") {
+        item.ext = Object.assign({}, item.ext || {}, found);
+      }
+    } catch (error) {
+      this.call("console_out", `Could not refresh the rating: ${error.message}`)
+        .catch(() => {});
+    }
+    return this.getCachedVPinPlayRating(index);
   }
 
   // The legacy copy goes out by the SAME delivery as the message it mirrors. Both
@@ -1182,13 +1203,13 @@ class VPinFECore {
     } else {
       // Contract 2 wraps the list so the collection it belongs to travels with it.
       this.tableData = payload.entries || [];
+      this.#applyVPinPlayShim();
       this.collection = payload.collection || "";
       // What kind of group each entry carries - "letter", "year", "rating" - or "" when
       // the order has none. The group itself rides on the entry, so a move costs no
       // round trip to know where the wheel is sitting.
       this.groupBy = payload.group_by || "";
     }
-    this.#attachCachedVPinPlayRatings();
     if (this.isController()) {
       const maxIndex = Math.max(0, this.tableData.length - 1);
       if (this._currentTableIndex > maxIndex) this._currentTableIndex = maxIndex;
@@ -1332,6 +1353,7 @@ class VPinFECore {
     for (const item of this.tables || []) {
       if (String((item && item.game && item.game.id) || "") !== gameId) continue;
       item.ext = Object.assign({}, item.ext || {}, added);
+      this.#setGameVPinPlayRating(item, item.ext.vpinplay || null);
       break;
     }
   }
@@ -1782,33 +1804,22 @@ class VPinFECore {
     return found >= 0 ? found : this._currentTableIndex;
   }
 
-  #getVPinPlayUrl(vpsId) {
-    const endpoint = String(this.vpinplayEndpoint || "").trim().replace(/\/+$/, "");
-    if (!endpoint || !vpsId) return "";
-    return `${endpoint}/api/v1/tables/${encodeURIComponent(vpsId)}/cumulative-rating`;
-  }
 
-  #normalizeVPinPlayRatingPayload(vpsId, payload) {
-    if (!payload || typeof payload !== "object") return null;
 
-    const resolvedVpsId = String(payload.vpsId || vpsId || "").trim();
-    const cumulativeRating = this.#coerceNumber(payload.cumulativeRating);
-    const ratingCount = this.#coerceNumber(payload.ratingCount);
-    const vpsdb = (payload.vpsdb && typeof payload.vpsdb === "object") ? payload.vpsdb : {};
-    const normalizedYear = this.#coerceNumber(vpsdb.year, vpsdb.year === "" ? null : vpsdb.year);
-
-    return {
-      vpsId: resolvedVpsId,
-      cumulativeRating: cumulativeRating === null ? null : cumulativeRating,
-      ratingCount: ratingCount === null ? 0 : Math.max(0, Math.floor(ratingCount)),
-      vpsdb: {
-        name: typeof vpsdb.name === "string" ? vpsdb.name : "",
-        authors: Array.isArray(vpsdb.authors) ? vpsdb.authors : [],
-        manufacturer: typeof vpsdb.manufacturer === "string" ? vpsdb.manufacturer : "",
-        year: normalizedYear !== null ? normalizedYear : (vpsdb.year || ""),
-      },
-      fetchedAt: new Date().toISOString(),
-    };
+  /**
+   * Keep `item.vpinplay` written from `entry.ext.vpinplay`.
+   *
+   * A shim, and it stays until contract 1 retires: twelve published themes read
+   * `item.vpinplay` and were built before there was an `ext` slot to read instead. New
+   * themes should read the slot - it is where every extension's contribution arrives,
+   * not just this one's.
+   */
+  #applyVPinPlayShim() {
+    if (!Array.isArray(this.tableData)) return;
+    for (const item of this.tableData) {
+      if (!item || typeof item !== "object") continue;
+      this.#setGameVPinPlayRating(item, (item.ext && item.ext.vpinplay) || null);
+    }
   }
 
   #setGameVPinPlayRating(item, payload) {
@@ -1816,95 +1827,9 @@ class VPinFECore {
     item.vpinplay = payload ? { ...payload } : null;
   }
 
-  #applyCachedRatingToList(vpsId, payload) {
-    if (!Array.isArray(this.tableData)) return;
-    this.tableData.forEach((item) => {
-      if (this.#vpsIdOf(item) === vpsId) {
-        this.#setGameVPinPlayRating(item, payload);
-      }
-    });
-  }
 
-  #attachCachedVPinPlayRatings() {
-    if (!Array.isArray(this.tableData)) return;
-    this.tableData.forEach((item) => {
-      const vpsId = this.#vpsIdOf(item);
-      if (!vpsId) {
-        this.#setGameVPinPlayRating(item, null);
-        return;
-      }
-      const cached = this._vpinplayRatingCache.get(vpsId);
-      this.#setGameVPinPlayRating(item, cached && cached.data ? cached.data : null);
-    });
-  }
 
-  async #loadVPinPlayRating(index, forceRefresh = false) {
-    const item = this.#itemByIndex(index);
-    if (!item) return null;
 
-    const vpsId = this.#vpsIdOf(item);
-    if (!vpsId) {
-      this.#setGameVPinPlayRating(item, null);
-      return null;
-    }
-
-    const cached = this._vpinplayRatingCache.get(vpsId);
-    if (!forceRefresh && cached && cached.data) {
-      this.#setGameVPinPlayRating(item, cached.data);
-      return cached.data;
-    }
-
-    const existingRequest = this._vpinplayRatingRequests.get(vpsId);
-    if (!forceRefresh && existingRequest) {
-      return existingRequest;
-    }
-
-    if (!this.vpinplayEndpoint) {
-      this.#setGameVPinPlayRating(item, null);
-      return null;
-    }
-
-    const request = this.#fetchVPinPlayRating(vpsId)
-      .then((payload) => {
-        const data = this.#normalizeVPinPlayRatingPayload(vpsId, payload);
-        if (!data) {
-          this._vpinplayRatingCache.delete(vpsId);
-          this.#applyCachedRatingToList(vpsId, null);
-          return null;
-        }
-        this._vpinplayRatingCache.set(vpsId, { data });
-        this.#applyCachedRatingToList(vpsId, data);
-        return data;
-      })
-      .catch((error) => {
-        this.call("console_out", `VPinPlay rating fetch failed for ${vpsId}: ${error.message}`).catch(() => {});
-        this.#applyCachedRatingToList(vpsId, null);
-        return null;
-      })
-      .finally(() => {
-        this._vpinplayRatingRequests.delete(vpsId);
-      });
-
-    this._vpinplayRatingRequests.set(vpsId, request);
-    return request;
-  }
-
-  async #fetchVPinPlayRating(vpsId) {
-    const url = this.#getVPinPlayUrl(vpsId);
-    if (!url) return null;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { "Accept": "application/json" },
-    });
-
-    if (response.status === 404) return null;
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    return response.json();
-  }
 
   #fadeAudio(from, to, onComplete) {
     clearInterval(this._audioFadeId);
@@ -2083,11 +2008,6 @@ class VPinFECore {
       this.mediaPriorities = this.#normalizeMediaPriorities(await this.call("get_media_priorities"));
     } catch (_e) {
       this.mediaPriorities = Object.assign({}, DEFAULT_MEDIA_PRIORITIES);
-    }
-    try {
-      this.vpinplayEndpoint = await this.call("get_vpinplay_endpoint");
-    } catch (_e) {
-      this.vpinplayEndpoint = "";
     }
     // Load display config
     this.playfieldOrientation = await this.call("get_playfield_orientation");

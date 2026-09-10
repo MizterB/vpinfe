@@ -274,6 +274,22 @@ window to show them on. A window's monitor is now read generically from
 not launched, which is the rule that already applied. Covered by
 `tests/theming/test_theme_windows.py`.
 
+**PAR-92 — Core fetches what an extension contributes, and one method asks it again.**
+`refresh_entry_data(game_id)` forgets what extensions have answered about one game and
+asks them again, returning what they say. Additive - a theme that never calls it is
+unaffected, and `get_vpinplay_endpoint` stays in the allowlist answering exactly what it
+answered before.
+*Why:* the browser used to call VPinPlay itself. Every window on a cabinet asked the same
+question about the same game, the answers were lost on each reload, and one vendor's name
+was compiled into `vpinfe-core.js` - a second connector would have needed a second
+`vpin.getXRating()`. Core makes the call now and an entry carries an `ext` slot any
+extension contributes to. `getVPinPlayRating`, `refreshVPinPlayRating` and
+`getCachedVPinPlayRating` all still answer, and `item.vpinplay` is still written from
+`entry.ext.vpinplay`, so a published theme cannot tell. The one thing a theme could do
+that reading a slot cannot is force a refetch after rating a table, which is what this
+method is for. Covered by `tests/extensions/test_contributions.py` and
+`tests/extensions/test_vpinplay.py`.
+
 **PAR-83 — `Last Played` derives itself instead of being maintained.** It used to be a
 collection the launcher wrote to on every launch — push the game onto the front of a member
 array, trim it to 30. It is an ordinary filter collection now: every game with a play date,

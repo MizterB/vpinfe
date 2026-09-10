@@ -179,6 +179,13 @@ def set_audio_muted(api, muted):
 
 
 def get_vpinplay_endpoint(config):
+    """Where VPinPlay is, for a theme that asks.
+
+    A shim. Core does not fetch a rating any more - an extension does, and a theme reads
+    the answer off the entry - but a published theme may still call this to build a URL
+    of its own, and the section it reads is still in the config because the handover to
+    that extension copies rather than moves.
+    """
     return VPinPlayConfig.from_config(config).api_endpoint
 
 

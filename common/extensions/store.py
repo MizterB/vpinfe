@@ -138,6 +138,19 @@ class ExtensionStore:
         }
         write_atomic(self.path, lambda handle: json.dump(payload, handle, indent=2))
 
+    def migrations(self) -> list[str]:
+        """Which one-time conversions have already run against this install."""
+        with self._lock:
+            return self._migrations()
+
+    def mark_migration(self, name: str) -> None:
+        """Note that one has run, so it never runs twice."""
+        wanted = str(name or "").strip()
+        with self._lock:
+            held = self._migrations()
+            if wanted and wanted not in held:
+                self._write_registry(self._registry(), migrations=[*held, wanted])
+
     def _migrations(self) -> list[str]:
         return [str(one) for one in self._payload().get(MIGRATIONS_KEY) or []]
 
