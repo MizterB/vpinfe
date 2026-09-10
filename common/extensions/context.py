@@ -105,6 +105,86 @@ class ExtensionFiles:
                             for one in wanted if one)
 
 
+class ExtensionApps:
+    """The programs this install can play a table with, as an extension may add to them.
+
+    VPinFE plays Visual Pinball and, through the generic app, anything a person can point
+    at a binary. An extension is how a format becomes first-class instead: something that
+    claims its own suffixes, so a library of them can be imported and offered rather than
+    read and dropped.
+    """
+
+    def __init__(self, name: str, scopes) -> None:
+        self._name = name
+        self._scopes = frozenset(scopes)
+        self._mine: list[str] = []
+
+    def provide(self, **described) -> str:
+        """Add an app, described in plain data. Answers with the id it took.
+
+        `id`, `name`, `suffixes`, and optionally `accepts_keys`, `fields`, `kinds` and
+        `command`. `command(entry, settings)` answers with a list of arguments, or with
+        nothing to run the launcher's binary and arguments the way the generic app does.
+        """
+        from . import provided_apps
+
+        if provided_apps.APPS_PROVIDE not in self._scopes:
+            raise ContractError(
+                f"{self._name} provides an app, which needs "
+                f"{provided_apps.APPS_PROVIDE}, and its manifest does not declare it")
+        from common import apps
+
+        built = provided_apps.build(self._name, described)
+        apps.contribute(built)
+        self._mine.append(built.id)
+        logger_for(self._name).info(
+            "provides the %s app for %s", built.id,
+            ", ".join(built.claim.suffixes) or "keyed entries")
+        return built.id
+
+    def suffixes(self) -> tuple[str, ...]:
+        """Every file extension this install can play, its own and any provided.
+
+        Ungated, unlike the library: this says what the build can do, not what the user
+        has. An extension deciding whether a foreign library is worth importing needs it
+        before it has been granted anything.
+        """
+        from common import apps
+
+        found: list[str] = []
+        for app in apps.all_apps():
+            found.extend(app.claim.suffixes)
+        return tuple(dict.fromkeys(found))
+
+    def names(self) -> tuple[str, ...]:
+        """What the apps here are called. For a source that says which program a system
+        used but not which files it holds - a database found in a folder named after the
+        program is often all there is."""
+        from common import apps
+
+        return tuple(one.name for one in apps.all_apps())
+
+    def plays(self, name: str) -> bool:
+        """Whether anything here plays a file of this name, or this bare suffix."""
+        wanted = str(name or "").strip().lower()
+        if not wanted:
+            return False
+        return any(wanted == one or wanted.endswith(one) for one in self.suffixes())
+
+    def provided(self) -> tuple[str, ...]:
+        """What this extension has added, which is what gets taken back with it."""
+        return tuple(self._mine)
+
+    def withdraw(self) -> None:
+        """Take them all back. Called when the extension is unloaded, so a disabled
+        extension does not leave a suffix claimed by something that is no longer here."""
+        from common import apps
+
+        for app_id in self._mine:
+            apps.withdraw(app_id)
+        self._mine.clear()
+
+
 class ExtensionUI:
     """What an extension offers a person: its actions, and the page they sit on.
 
@@ -244,6 +324,7 @@ class ExtensionContext:
         self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities)
         self.entries = ExtensionEntries(manifest.name)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
+        self.apps = ExtensionApps(manifest.name, manifest.scopes)
         self.routers: list[tuple[Any, str]] = []
         # Registration is a moment, not a phase: routers are mounted once, so one added
         # after `register` returned would never be reachable and silently answer nothing.

@@ -34,9 +34,44 @@ def _built_in() -> tuple[App, ...]:
     return _built_in_apps
 
 
+_contributed: dict[str, App] = {}
+
+
+def contribute(app: App) -> None:
+    """Add an app an extension provides.
+
+    Kept apart from the built-ins and always offered after them, so a contributed app
+    cannot take a suffix out from under Visual Pinball by loading first. An id already in
+    use is refused rather than allowed to win: ids are stored in a table's record, and
+    two apps answering to one id makes what is stored ambiguous.
+    """
+    if any(one.id == app.id for one in _built_in()):
+        raise ValueError(f"{app.id!r} is an app this build ships")
+    if app.id in _contributed:
+        raise ValueError(f"{app.id!r} is already provided by something else")
+    _contributed[app.id] = app
+
+
+def withdraw(app_id: str) -> None:
+    """Take one back, when its extension is disabled or reloaded."""
+    _contributed.pop(str(app_id or ""), None)
+
+
+def withdraw_all() -> None:
+    _contributed.clear()
+
+
+def contributed() -> tuple[App, ...]:
+    return tuple(_contributed.values())
+
+
 def all_apps() -> tuple[App, ...]:
-    """Every app this install has, in the order they are offered."""
-    return _built_in()
+    """Every app this install has, in the order they are offered.
+
+    Built-ins first. `app_for` takes the first that claims a file, so the order is what
+    decides a contest, and this build's own answer wins one.
+    """
+    return (*_built_in(), *_contributed.values())
 
 
 def default_app() -> App:

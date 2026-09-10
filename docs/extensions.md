@@ -78,16 +78,33 @@ application, and that is the guarantee the model rests on.
 | `ctx.events` | `subscribe` to a core event; `publish` one of its own |
 | `ctx.files` | `set_roots` — the folders it works from, so core will take a path from inside one. Needs `fs:read` |
 | `ctx.jobs` | `submit(kind, work)` — slow work, one at a time per kind, answerable on `/api/v1/jobs` |
-| `ctx.games` | `kinds`, `folder`, `create`, `set_details`, `add_table`, `put_media`. Each needs the core scope its manifest declared |
+| `ctx.games` | The library. `kinds`, `folder`, `folder_name_for`, `existing`, `create`, `add_table`, `put_media`, plus every operation core offers by name — `reaches()` lists them. Each needs the core scope its manifest declared |
+| `ctx.apps` | `provide(...)` — add a way to play a table. `suffixes`, `plays`, `names` say what this build can play. Providing needs `apps:provide` |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
 | `ctx.entries` | `contribute(key, fetch)` — add something to every entry a theme is handed |
 | `ctx.ui` | `action(...)` — offer a verb for the Console to draw. Needs `ui:mount` |
 | `ctx.add_router(router, scope=...)` | Serve routes under `/api/v1/ext/<name>/` |
 
-`ctx.games` is not the HTTP API and is not a second implementation of it: both are thin
-over the same services. An extension in this process cannot use the API — a synchronous
-call into the server it is running inside deadlocks — and may not import the library, so
-this is the door.
+`ctx.games` is not a second implementation of the HTTP API — it calls the API's own route
+functions. They are plain functions; the scope gate lives in each route's dependencies and
+only fires for a request arriving over the wire, so the gate is applied here against the
+manifest instead. An extension reaches the same code an HTTP client reaches, and the two
+cannot drift.
+
+That matters because they had. While the host kept its own smaller copy of the library,
+the importer worked out for itself what folder a game's name would become and got it
+wrong, on names core strips a character from. Anything core offers is now reachable by the
+name it is offered under:
+
+```python
+found = ctx.games.list_games(q="taxi", limit=10, offset=0)
+ctx.games.rate_table(game_id, table_id, 8)
+ctx.games.reaches()      # what this extension may actually call
+```
+
+An extension in this process cannot use the API over HTTP — a synchronous call into the
+server it is running inside deadlocks — and may not import the library, so this is the
+door.
 
 It is bounded twice. The manifest's `scopes` decide which of those an extension may call
 at all, which is what makes declaring them mean something. And a path it hands over has to
@@ -100,6 +117,39 @@ launch.
 
 Routers are collected during `register` and mounted once. One added afterwards would never
 be reachable, so it is refused rather than left to answer nothing.
+
+## Adding a way to play a table
+
+VPinFE plays Visual Pinball, and through the generic app anything a person can point at a
+binary. An extension is how another format becomes first-class: it claims its own
+suffixes, so a library of them is worth importing rather than read and dropped.
+
+```python
+ctx.apps.provide(
+    id="fp",
+    name="Future Pinball",
+    suffixes=(".fpt",),
+    fields=({"key": "bam_path", "label": "BAM folder", "path": "dir"},),
+    command=lambda entry, settings: ["/opt/fp", "--play", entry["table"]],
+)
+```
+
+It is described in plain data because an extension cannot import the app contract — its
+one door is `common.extensions.contract`, which is what makes the import boundary
+checkable. `command` answers with a list of arguments, never a string: splitting one is
+how a path with a space in it becomes a crash or an injection, and only the extension
+knows where its own arguments end. Answering with nothing runs the launcher's configured
+binary and arguments instead.
+
+Apps this build ships are offered first, so a provided one cannot take `.vpx` out from
+under Visual Pinball by loading before somebody looks. An id already in use is refused:
+ids are stored in a table's record and read back long afterwards. What an extension
+provides is taken back when it unloads, so a disabled extension leaves no suffix claimed
+by something that is no longer there.
+
+A provided app does not get the rest of the app contract — parsing a table, resolving a
+ROM, a settings surface. Those are declared absent rather than half-answered, the same way
+the generic app declares them.
 
 ## Adding something to an entry
 
