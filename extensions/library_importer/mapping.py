@@ -30,7 +30,20 @@ PINBALLX_KINDS = {
     "Logos": "logo",
 }
 
-KINDS_BY_SOURCE = {"pinballx": PINBALLX_KINDS}
+# EmulationStation names the file on the game rather than filing it in a folder, so the
+# element is the kind. Three of them have an answer here; a thumbnail is a smaller copy of
+# a picture we already take, and fanart has no slot, so both are reported rather than put
+# somewhere approximate.
+EMULATIONSTATION_KINDS = {
+    "image": "playfield",
+    "video": "playfield_video",
+    "marquee": "wheel",
+}
+
+KINDS_BY_SOURCE = {
+    "pinballx": PINBALLX_KINDS,
+    "emulationstation": EMULATIONSTATION_KINDS,
+}
 
 
 def media_for(source_id: str, game: SourceGame, known: tuple[str, ...]) -> list[tuple[str, str]]:
@@ -59,11 +72,26 @@ def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...]) -> 
 def folder_name(game: SourceGame) -> str:
     """What to call the game folder.
 
-    The source's description, which in both frontends that share this format is already
-    "Title (Manufacturer Year)" - our own convention, arrived at independently. Its name
-    is the fallback, and it is the filename stem rather than anything anybody wrote.
+    What the source shows a person, where it has one: PinballX's is already
+    "Title (Manufacturer Year)", which is our own convention arrived at independently, and
+    taking it whole keeps a converted library recognizable to whoever converted it.
+
+    Where the source has no display name of its own it is built the way our own import
+    builds one, out of the machine's name and what is known about it. The filename stem is
+    the last resort, and only because something has to be.
     """
-    return (game.description or game.key).strip()
+    if game.display_name.strip():
+        return game.display_name.strip()
+
+    title = game.title.strip()
+    if not title:
+        return game.key.strip()
+    maker, year = game.manufacturer.strip(), game.year.strip()
+    if maker and year:
+        return f"{title} ({maker} {year})"
+    if maker or year:
+        return f"{title} ({maker or year})"
+    return title
 
 
 def _title_from(game: SourceGame) -> str:
@@ -78,7 +106,7 @@ def _title_from(game: SourceGame) -> str:
     gave, so this is a removal of something known rather than a guess at what a name
     ends with. Anything else is left whole.
     """
-    described = (game.description or "").strip()
+    described = (game.display_name or "").strip()
     maker, year = game.manufacturer.strip(), game.year.strip()
     if not described or not maker or not year:
         return ""

@@ -12,9 +12,11 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
-from . import adopt, pinballx
+from . import adopt, emulationstation, pinballx
 
-READERS = (pinballx,)
+# Asked in order, first to claim a folder wins. PinballX is looked for first
+# because it is the source somebody converting a pinball library actually has.
+READERS = (pinballx, emulationstation)
 
 # Where the source is, in this extension's own settings. Not a core setting: it is a
 # fact about somebody's old machine, and it has no meaning to anything else here.

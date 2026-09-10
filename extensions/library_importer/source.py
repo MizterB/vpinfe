@@ -33,7 +33,12 @@ class SourceGame:
     """
 
     key: str
-    description: str = ""
+    # What the source puts in front of a person. PinballX's `description` is one -
+    # "Attack from Mars (Bally 1995)" - and EmulationStation's is prose about the game,
+    # so the two cannot share a field however alike the element names look.
+    display_name: str = ""
+    # A sentence about the game, where the source keeps one. Nothing of ours stores it.
+    blurb: str = ""
     title: str = ""
     manufacturer: str = ""
     year: str = ""

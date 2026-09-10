@@ -51,7 +51,7 @@ class ExtensionGames:
                 f"{self._name} offered {wanted}, which is not inside any folder it says "
                 "it works from")
         if not wanted.is_file():
-            raise FileNotFoundError(str(wanted))
+            raise FileNotFoundError(f"there is no file at {wanted}")
         return wanted
 
     def _game(self, game_id: str):

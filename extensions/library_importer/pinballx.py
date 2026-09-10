@@ -51,7 +51,7 @@ MEDIA_FOLDERS = (
 # mapped where we have somewhere to put it; the rest travels in `extras` so a preview can
 # say what will not be carried.
 _FIELDS = {
-    "description": "description",
+    "description": "display_name",
     "rom": "rom",
     "year": "year",
     "manufacturer": "manufacturer",

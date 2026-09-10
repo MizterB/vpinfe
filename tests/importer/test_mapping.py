@@ -25,27 +25,27 @@ def _game(**fields) -> SourceGame:
 
 class TitleTests(unittest.TestCase):
     def test_the_machine_name_is_lifted_out_of_the_description(self) -> None:
-        found = mapping.details_for(_game(description="Attack from Mars (Bally 1995)",
+        found = mapping.details_for(_game(display_name="Attack from Mars (Bally 1995)",
                                           manufacturer="Bally", year="1995"))
 
         self.assertEqual(found["title"], "Attack from Mars")
 
     def test_a_title_the_source_gave_is_never_second_guessed(self) -> None:
         found = mapping.details_for(_game(title="Big Bang Bar",
-                                          description="Big Bang Bar (Capcom 1996)",
+                                          display_name="Big Bang Bar (Capcom 1996)",
                                           manufacturer="Capcom", year="1996"))
 
         self.assertEqual(found["title"], "Big Bang Bar")
 
     def test_a_bracket_that_is_not_the_maker_and_year_is_left_alone(self) -> None:
         """A removal of something known, not a guess at what a name ends with."""
-        found = mapping.details_for(_game(description="Taxi (Redux)",
+        found = mapping.details_for(_game(display_name="Taxi (Redux)",
                                           manufacturer="Williams", year="1988"))
 
         self.assertNotIn("title", found)
 
     def test_nothing_is_lifted_without_both_halves_to_match_on(self) -> None:
-        found = mapping.details_for(_game(description="Taxi (Williams 1988)",
+        found = mapping.details_for(_game(display_name="Taxi (Williams 1988)",
                                           manufacturer="Williams"))
 
         self.assertNotIn("title", found)
@@ -98,13 +98,41 @@ class MediaTests(unittest.TestCase):
 
 
 class FolderNameTests(unittest.TestCase):
-    def test_the_description_names_the_folder(self) -> None:
+    def test_what_the_source_shows_a_person_names_the_folder(self) -> None:
+        """Taken whole, so a converted library stays recognizable to whoever converted
+        it."""
         self.assertEqual(
-            mapping.folder_name(_game(description="Taxi (Williams 1988)")),
+            mapping.folder_name(_game(display_name="Taxi (Williams 1988)")),
             "Taxi (Williams 1988)")
 
-    def test_the_key_is_the_fallback(self) -> None:
-        self.assertEqual(mapping.folder_name(_game(key="Taxi")), "Taxi")
+    def test_a_source_with_no_display_name_gets_one_built(self) -> None:
+        """EmulationStation names the machine and nothing else, so the folder is built
+        the way our own import builds one rather than left as a bare title."""
+        self.assertEqual(
+            mapping.folder_name(_game(title="Taxi", manufacturer="Williams",
+                                      year="1988")),
+            "Taxi (Williams 1988)")
+
+    def test_half_of_what_it_takes_still_builds_something(self) -> None:
+        self.assertEqual(
+            mapping.folder_name(_game(title="Taxi", manufacturer="Williams")),
+            "Taxi (Williams)")
+
+    def test_a_title_alone_is_the_folder(self) -> None:
+        self.assertEqual(mapping.folder_name(_game(title="Taxi")), "Taxi")
+
+    def test_the_key_is_the_last_resort(self) -> None:
+        """And only because something has to be."""
+        self.assertEqual(mapping.folder_name(_game(key="taxi")), "taxi")
+
+    def test_prose_is_never_mistaken_for_a_name(self) -> None:
+        """EmulationStation's desc is a sentence about the game. It shares a name with
+        PinballX's element and means something else entirely, which is how a folder came
+        to be called "A pinball machine."."""
+        self.assertEqual(
+            mapping.folder_name(_game(key="afm", title="Attack from Mars",
+                                      blurb="A pinball machine.")),
+            "Attack from Mars")
 
 
 if __name__ == "__main__":

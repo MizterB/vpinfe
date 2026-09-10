@@ -93,7 +93,7 @@ class DatabaseTests(unittest.TestCase):
         taxi = self.by_key["Taxi"]
 
         self.assertEqual(taxi.key, "Taxi")
-        self.assertEqual(taxi.description, "Taxi (Williams 1988)")
+        self.assertEqual(taxi.display_name, "Taxi (Williams 1988)")
 
     def test_a_game_the_source_was_told_to_hide_says_so(self) -> None:
         self.assertTrue(self.by_key["Taxi"].hidden)
