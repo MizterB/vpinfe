@@ -77,6 +77,12 @@ __all__ = [
 
 def create_api_app() -> FastAPI:
     """Build the /api/v1 app. Standalone: importable and testable without NiceGUI."""
+    # What extensions may do to the library, handed to the host before anything loads.
+    # Here rather than at startup so a test app offers the same set the real one does.
+    from . import extension_ops
+
+    extension_ops.offer_all()
+
     api = FastAPI(
         title="VPinFE API",
         version=API_VERSION,

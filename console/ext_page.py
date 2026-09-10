@@ -180,14 +180,36 @@ def _row(client, base: str, row: dict, redraw) -> None:
                 .props("flat dense no-caps")
 
 
+# What a scope or capability is called on screen. The wire says `games:write`; a person
+# reading a consent list should not have to work out what that lets somebody do.
+PLAINLY = {
+    "games:read": "read your library",
+    "games:write": "add and change games",
+    "filesystem:read": "read folders you point it at",
+    "ui:mount": "add a page to the Console",
+    "config:own": "keep its own settings",
+    "net:outbound": "reach the internet",
+    "proc:spawn": "run other programs",
+    "hardware:usb": "talk to USB devices",
+    "fs:read": "read files",
+    "fs:write": "write files",
+}
+
+
+def _plainly(name: str) -> str:
+    """Its own name is the fallback, never a guess: an unknown scope shown as prose
+    somebody invented is worse than one shown as it is."""
+    return PLAINLY.get(name, name)
+
+
 def _reach(extension: dict) -> None:
     """What this extension may do, for whoever came looking.
 
     At the bottom and never on the list of what is installed: a scope is what somebody
     agrees to when installing something, and in front of everybody else it is jargon.
     """
-    reaches = [str(one) for one in extension.get("scopes") or []]
-    uses = [str(one) for one in extension.get("capabilities") or []]
+    reaches = [_plainly(str(one)) for one in extension.get("scopes") or []]
+    uses = [_plainly(str(one)) for one in extension.get("capabilities") or []]
     if not reaches and not uses:
         return
     ui.label("What it can reach").classes("console-group mt-4")
