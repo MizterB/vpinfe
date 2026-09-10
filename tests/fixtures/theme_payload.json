@@ -270,6 +270,7 @@
           "alt_sound": false,
           "pup_pack": false
         },
+        "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Attack from Mars (Bally 1995)",
@@ -338,6 +339,7 @@
           "alt_sound": false,
           "pup_pack": false
         },
+        "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Bare Table (Gottlieb 1980)",
@@ -397,6 +399,7 @@
           "alt_sound": false,
           "pup_pack": false
         },
+        "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Congo (Williams 1995)",
@@ -458,6 +461,7 @@
           "alt_sound": false,
           "pup_pack": false
         },
+        "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
           "dir_name": "Medieval Madness (Williams 1997)",

@@ -80,6 +80,7 @@ application, and that is the guarantee the model rests on.
 | `ctx.jobs` | `submit(kind, work)` — slow work, one at a time per kind, answerable on `/api/v1/jobs` |
 | `ctx.games` | `kinds`, `folder`, `create`, `set_details`, `add_table`, `put_media`. Each needs the core scope its manifest declared |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
+| `ctx.entries` | `contribute(key, fetch)` — add something to every entry a theme is handed |
 | `ctx.ui` | `task(...)` — offer a guided job for the Console to draw. Needs `ui:mount` |
 | `ctx.add_router(router, scope=...)` | Serve routes under `/api/v1/ext/<name>/` |
 
@@ -99,6 +100,35 @@ launch.
 
 Routers are collected during `register` and mounted once. One added afterwards would never
 be reachable, so it is refused rather than left to answer nothing.
+
+## Adding something to an entry
+
+A theme reads `entry.ext.<key>`. It never learns which extension answered, and no
+extension gets a method of its own on the theme surface — the alternative needs a new call
+for every connector that follows.
+
+```python
+def rating_for(game):
+    # game is {game_id, vps_id, name, manufacturer, year} - a description, never our
+    # object. Return whatever a theme should read, or None where there is nothing.
+    return {"stars": look_it_up(game["vps_id"])}
+
+ctx.entries.contribute("rating", rating_for)
+```
+
+**Core makes the call; the browser makes none.** `fetch` runs on core's thread when the
+player moves to a game, so it may block — but it must not raise for a game it simply has
+no answer about. One that raises costs its own key and nothing else.
+
+Three things core does that no theme author sees. The answer is held per process, so one
+fetch serves every window and survives a reload. The games either side are fetched on the
+same signal, so what somebody sees is the answer fetched a step ago and the gap only shows
+on the first game of a cold start. And the message that carries an answer names the game
+it is about, so one arriving after the wheel has moved lands on the entry it belongs to.
+
+The slot is always present and empty at library load — a list of four hundred games cannot
+wait on four hundred calls to somebody else's server. A theme written as
+`if (entry.ext.rating)` is correct throughout without knowing there is a waiting state.
 
 ## Offering something to do
 

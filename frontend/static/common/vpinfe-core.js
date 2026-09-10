@@ -1293,6 +1293,13 @@ class VPinFECore {
     }
     this.#handleFrontendInputLifecycleEvent(message);
 
+    // What an extension answered about one game. Applied by id rather than by index:
+    // the wheel may have moved while core was waiting on somebody else's server, and
+    // the entry this belongs to is not necessarily the one in front of the player.
+    if (message.type === "EntryDataChange") {
+      this.#applyEntryData(message);
+    }
+
     // Default handling for TableDataChange
     if (message.type === "TableDataChange") {
       if (this.isController()) this._lastSelectedIndex = null;
@@ -1313,6 +1320,19 @@ class VPinFECore {
       for (const handler of this.eventHandlers[message.type]) {
         await handler(message);
       }
+    }
+  }
+
+  #applyEntryData(message) {
+    const gameId = String((message && message.game_id) || "");
+    const added = (message && message.ext) || null;
+    if (!gameId || !added) return;
+    // Merged rather than replaced: two extensions contribute two keys about the same
+    // game, and they arrive as two messages.
+    for (const item of this.tables || []) {
+      if (String((item && item.game && item.game.id) || "") !== gameId) continue;
+      item.ext = Object.assign({}, item.ext || {}, added);
+      break;
     }
   }
 

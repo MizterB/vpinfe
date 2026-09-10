@@ -660,8 +660,26 @@ class API:
             return {"success": False, "reason": "invalid_index"}
         game = entry.game
 
-        events.emit(events.GAME_SELECTED, game=game, ini_config=self._iniConfig)
+        # Where they are heading, for anything that can usefully get ahead of them. A
+        # subscriber that does not care ignores it, the way every subscriber already
+        # ignores what it was not written for.
+        events.emit(events.GAME_SELECTED, game=game, ini_config=self._iniConfig,
+                    neighbors=self._neighbors(index))
         return {"success": True}
+
+    def _neighbors(self, index):
+        """The games either side of the one just selected.
+
+        One step each way and no further: the wheel is turned a step at a time, so the
+        next selection is almost always one of these two, and fetching a wider window
+        would ask somebody else's server for games nobody is walking towards.
+        """
+        found = []
+        for offset in (1, -1):
+            entry = self.entry_at(index + offset)
+            if entry is not None and entry.game is not None:
+                found.append(entry.game)
+        return found
 
     def get_game_rating(self, index):
         """Get User.Rating for a game index in the current filtered list."""

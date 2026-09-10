@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
+from common.extensions import contributions
 from common.games import collection_filters, collection_resolver, game_identity
 from common.games.collection_filters import (
     GameListFilters,
@@ -150,6 +151,11 @@ def _entry_row(entry, logo_cache, group=None) -> dict:
         "media": resolved_kinds(game),
         # None when the order has no groups; `group_by` on the payload says which.
         "group": group,
+        # What extensions have contributed about this game. Always here and empty at
+        # load, because a list of four hundred cannot wait on four hundred calls to
+        # somebody else's server - a theme written as `if (entry.ext.rating)` is right
+        # throughout and never has to know there is a waiting state.
+        "ext": contributions.held(game_identity.game_id(game)),
     }
 
 

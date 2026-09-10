@@ -144,6 +144,33 @@ class ExtensionUI:
         })
 
 
+class ExtensionEntries:
+    """What this extension adds to every entry a theme is handed.
+
+    One key, filled in by core when the player moves to a game. A theme reads
+    `entry.ext.<key>` and never learns which extension answered - which is the point: the
+    surface a theme sees does not grow a method per connector.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def contribute(self, key: str, fetch) -> None:
+        """Answer about one game at a time.
+
+        `fetch` is given a plain description of the game - its ids and what is known
+        about the machine - and returns whatever a theme should read, or None where there
+        is nothing to say. It is called on core's thread when the wheel stops, so it may
+        block; it must not raise for a game it simply has no answer about.
+        """
+        from . import contributions
+
+        wanted = str(key or "").strip()
+        if not wanted:
+            raise ContractError(f"{self._name} contributes under no key")
+        contributions.register(self._name, wanted, fetch)
+
+
 class ExtensionJobs:
     """Slow work, run the way core runs it.
 
@@ -181,6 +208,7 @@ class ExtensionContext:
         self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities)
         self.jobs = ExtensionJobs(manifest.name)
         self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities)
+        self.entries = ExtensionEntries(manifest.name)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
         self.routers: list[tuple[Any, str]] = []
         # Registration is a moment, not a phase: routers are mounted once, so one added

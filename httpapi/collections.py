@@ -18,6 +18,7 @@ import logging
 from fastapi import APIRouter, Body, File, Request, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
+from common.extensions import contributions
 from common.games import game_identity
 from common.games.collection_filters import UNCONSTRAINED, group_key, group_kind
 from common.games.collection_resolver import (
@@ -319,6 +320,10 @@ def _entry_resource(entry, group=None) -> dict:
         "media": resolved_kinds(entry.game),
         # None when the order has no groups; `group_by` on the list says which.
         "group": group,
+        # What extensions have contributed. Here as well as in the theme payload
+        # because this lens exists to be what a frontend on another machine is built
+        # from, and one missing this renders a wheel with a badge short.
+        "ext": contributions.held(game_ident),
         "links": {"game": prefix, "launch": f"{prefix}/launch",
                   "media": f"{prefix}/media"},
     }

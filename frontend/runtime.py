@@ -17,7 +17,7 @@ from common.games import remote_library
 from common.host import system_actions
 from common.host.display_service import get_display_monitors
 from common.online.vpinplay_runtime import clear_alternate_profile
-from frontend import input_events, library_resolver, play_events
+from frontend import ext_data, input_events, library_resolver, play_events
 from frontend.api import API
 from frontend.chromium_manager import ChromiumManager
 from frontend.custom_http_server import CustomHTTPServer
@@ -81,6 +81,10 @@ def create_api_instances(iniconfig, logger):
     # every launch message three times.
     play_events.register(ws_bridge, frontend_browser, iniconfig)
     input_events.register(ws_bridge)
+    # What extensions add to an entry, fetched by core when the wheel stops. Given the
+    # bridge's own send rather than a bridge of its own, so one answer reaches every
+    # window as one message.
+    ext_data.register(ws_bridge.send_event_all_with_iframe)
 
     return ws_bridge, frontend_browser
 
