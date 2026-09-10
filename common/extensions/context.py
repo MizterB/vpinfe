@@ -128,6 +128,10 @@ class ExtensionUI:
         self._name = name
         self._allowed = allowed
         self.actions: list[dict] = []
+        self.settings_label = "Settings"
+        self.state_label = ""
+        self.settings_base = ""
+        self.state_base = ""
 
     def action(self, key: str, label: str, base: str, description: str = "") -> None:
         """A verb somebody can press, in the vocabulary the rest of the app uses."""
@@ -170,6 +174,35 @@ class ExtensionEntries:
         if not wanted:
             raise ContractError(f"{self._name} contributes under no key")
         contributions.register(self._name, wanted, fetch)
+
+
+    def settings(self, base: str, label: str = "Settings") -> None:
+        """Say that this extension has settings, and where core may read and write them.
+
+        Declared rather than drawn, like everything else here: the fields come back from
+        that call and core renders them in the one grammar the rest of the application
+        uses, so an extension's settings look like settings.
+        """
+        self._needs_ui("settings")
+        self.settings_base = str(base or "").strip()
+        self.settings_label = str(label or "").strip() or "Settings"
+
+    def state(self, base: str, label: str) -> None:
+        """Say that this extension holds something worth showing, and where to read it.
+
+        A list of rows, each a label, a line under it, and at most two things you can do
+        to it. Deliberately poor: it is enough for the accounts a connector is holding
+        and not enough to become a page somebody draws, and the day a third extension
+        needs more than this is the day to look again rather than to widen it now.
+        """
+        self._needs_ui("state")
+        self.state_base = str(base or "").strip()
+        self.state_label = str(label or "").strip()
+
+    def _needs_ui(self, what: str) -> None:
+        if not self._allowed:
+            raise ContractError(f"{self._name} offers {what}, which needs the ui:mount "
+                                "capability its manifest does not declare")
 
 
 class ExtensionJobs:

@@ -376,7 +376,7 @@ STATE_WORDS = {"off": "Off", "failed": "Failed", "disabled": "Stopped"}
 QUIET_STATES = frozenset({"off"})
 
 
-def extensions(installed: list[dict]) -> None:
+def extensions(installed: list[dict], open_one=None) -> None:
     if not installed:
         with ui.element("div").classes("console-card w-full"):
             ui.label("Nothing installed").classes("console-setting")
@@ -385,10 +385,10 @@ def extensions(installed: list[dict]) -> None:
         return
 
     for found in installed:
-        _extension_card(found)
+        _extension_card(found, open_one)
 
 
-def _extension_card(found: dict) -> None:
+def _extension_card(found: dict, open_one=None) -> None:
     """One extension, as somebody browsing what is installed needs it.
 
     Its name, what it is for, and what they can do with it. Not what it may reach: a
@@ -413,10 +413,10 @@ def _extension_card(found: dict) -> None:
                      str(found.get("reason") or "")):
             if line:
                 ui.label(line).classes("console-help")
-        _actions(found)
+        _actions(found, open_one)
 
 
-def _actions(found: dict) -> None:
+def _actions(found: dict, open_one=None) -> None:
     """The verbs this extension offers.
 
     Drawn where the extension is, rather than given a place of its own in the rail: an
@@ -426,9 +426,12 @@ def _actions(found: dict) -> None:
     from console import ext_action
 
     offered = list(found.get("actions") or [])
-    if not offered:
-        return
     name = str(found.get("name") or "")
+    # The way in is offered for anything that is running, whether or not it has an
+    # action: its settings and what it is holding live there too.
+    has_page = bool(found.get("surfaces") or offered)
+    if not offered and not has_page:
+        return
     with ui.row().classes("items-center gap-2 w-full pt-2"):
         for action in offered:
             # The label is the whole of it. What the action is for is already the line
@@ -439,3 +442,8 @@ def _actions(found: dict) -> None:
                           ext_action.open_action(name, action)) \
                 .props("no-caps outline") \
                 .tooltip(str(action.get("description") or ""))
+        if has_page and open_one is not None:
+            ui.space()
+            ui.button("Open", icon="arrow_forward",
+                      on_click=lambda _e=None, name=name: open_one(name)) \
+                .props("flat dense no-caps")

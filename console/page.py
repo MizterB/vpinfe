@@ -14,6 +14,7 @@ from console import assets as assets_page
 from console import collections as collections_page
 from console import (
     deeplink,
+    ext_page,
     games,
     grid,
     remote,
@@ -437,6 +438,11 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     nav_items = [item for _parent, items in nav_groups for item in items]
 
     landing_view = landing_for([key for key, *_rest in nav_items])
+
+    def show_extension(name: str) -> None:
+        """Open one extension's own page, or go back to the list."""
+        state["extension"] = str(name or "")
+        redraw()
 
     state: dict[str, Any] = {"view": landing_view, "device": None, "mini": False,
                              "workbench": True, "settings_page": "",
@@ -985,7 +991,13 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 assets_page.build(library.asset_rows(), library, show_slot, state,
                                   redraw, rescan=_rescan)
             elif view == "extensions":
-                sections.extensions(installed_extensions)
+                chosen = str(state.get("extension") or "")
+                found = next((one for one in installed_extensions
+                              if str(one.get("name") or "") == chosen), None)
+                if found is not None:
+                    ext_page.build(found, lambda: show_extension(""))
+                else:
+                    sections.extensions(installed_extensions, show_extension)
             elif view == "devices":
                 devices_page.build(devices, library, state, show_device,
                                    probe=_probe_devices,

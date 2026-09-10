@@ -65,6 +65,7 @@ class Record:
     subscriptions: list[tuple[str, Any]] = field(default_factory=list)
     files: Any = None
     actions: list[dict] = field(default_factory=list)
+    surfaces: dict = field(default_factory=dict)
 
     @property
     def running(self) -> bool:
@@ -80,7 +81,8 @@ class Record:
                 "routes": [scope for _router, scope in self.routers],
                 # Only while it is running: an action on an extension that is not
                 # there would draw a button that refuses.
-                "actions": list(self.actions) if self.running else []}
+                "actions": list(self.actions) if self.running else [],
+                "surfaces": dict(self.surfaces) if self.running else {}}
 
 
 class Registry:
@@ -187,6 +189,12 @@ class Registry:
         record.subscriptions = list(context.events.registered)
         record.files = context.files
         record.actions = list(context.ui.actions)
+        record.surfaces = {
+            "settings": context.ui.settings_base,
+            "settings_label": context.ui.settings_label,
+            "state": context.ui.state_base,
+            "state_label": context.ui.state_label,
+        }
         record.state, record.reason = LOADED, ""
         logger.info("Extension %s %s loaded", record.name, record.manifest.version)
         return self._remember(record)
