@@ -22,6 +22,7 @@ import os
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
+from . import drivemap
 from .source import SourceGame, SourceLibrary, SourceMedia, SourceSystem
 
 logger = logging.getLogger(__name__)
@@ -274,21 +275,27 @@ def read(root: Path | str) -> SourceLibrary:
         notes.append(f"{name} has a database but the config does not declare it")
 
     systems = []
+    mapped: set[str] = set()
     for name, entry in by_name.items():
         database = databases / name / f"{name}.xml"
         if not database.is_file():
             notes.append(f"{name} is declared but has no database at "
                          f"{DATABASES_DIR}/{name}/{name}.xml")
             continue
-        declared_tables = entry["tables_dir"]
-        if declared_tables and not Path(declared_tables).is_dir():
-            # An absolute path written on the machine the source came from. Said out
-            # loud rather than quietly importing every game without its table: the
-            # answer is to point at where those files are now, and nobody can give it
-            # without being told it is the question.
-            notes.append(f"{name}: the tables are recorded at {declared_tables}, "
+        recorded = entry["tables_dir"]
+        found = drivemap.resolve(recorded, root) if recorded else drivemap.Found()
+        declared_tables = found.path
+        if recorded and not declared_tables:
+            # A path written on the machine the source came from, and nothing here
+            # holds it. Said out loud rather than quietly importing every game without
+            # its table: the answer is to say where those files are now, and nobody can
+            # give it without being told it is the question.
+            notes.append(f"{name}: the tables are recorded at {recorded}, "
                          "which is not reachable from here")
-            declared_tables = ""
+        elif found.recorded_prefix and found.recorded_prefix not in mapped:
+            mapped.add(found.recorded_prefix)
+            notes.append(f"Reading {found.recorded_prefix} as {found.local_prefix} "
+                         "- the paths recorded here are the old machine's")
         games, said = read_database(database, declared_tables)
         notes.extend(said)
         games = read_media(root / MEDIA_DIR / name, games)

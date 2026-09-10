@@ -18,6 +18,7 @@ import logging
 import sqlite3
 from pathlib import Path
 
+from . import drivemap
 from .source import SourceGame, SourceLibrary, SourceMedia, SourceSystem
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,7 @@ def read(root: Path | str) -> SourceLibrary:
                              notes=(f"No {DATABASE} in {root.name}",))
 
     notes: list[str] = []
+    mapped: set[str] = set()
     systems: list[SourceSystem] = []
     try:
         db = _open(path)
@@ -173,10 +175,17 @@ def read(root: Path | str) -> SourceLibrary:
             if not name:
                 continue
             recorded = _text(emu, "DirGames")
-            tables_dir = recorded if recorded and Path(recorded).is_dir() else ""
+            found = drivemap.resolve(recorded, root) if recorded else drivemap.Found()
+            tables_dir = found.path
             if recorded and not tables_dir:
                 notes.append(f"{name}: the tables are recorded at {recorded}, which is "
                              "not reachable from here")
+            elif found.recorded_prefix and found.recorded_prefix not in mapped:
+                # Said once per prefix rather than once per emulator: it is one fact
+                # about where the share is, and repeating it per row buries the rest.
+                mapped.add(found.recorded_prefix)
+                notes.append(f"Reading {found.recorded_prefix} as {found.local_prefix} "
+                             "- the paths recorded here are the old machine's")
 
             rows = list(db.execute(
                 "select * from Games where EMUID = ? order by GameName",
@@ -192,7 +201,8 @@ def read(root: Path | str) -> SourceLibrary:
             games = read_media(root / MEDIA_DIR / name, games)
             systems.append(SourceSystem(
                 name=name, games=tuple(games), tables_dir=tables_dir,
-                working_path=_text(emu, "DirRoms"),
+                working_path=drivemap.resolve(_text(emu, "DirRoms"), root).path
+                or _text(emu, "DirRoms"),
                 enabled=not _hidden(emu["Visible"])))
     except sqlite3.Error as exc:
         notes.append(f"{DATABASE} could not be read past this point: {exc}")
