@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
-from . import pinballx
+from . import adopt, pinballx
 
 READERS = (pinballx,)
 
@@ -105,6 +105,33 @@ def build(ctx) -> None:
         ctx.config.set(SOURCE_KEY, wanted)
         follow_the_setting()
         return _state(ctx)
+
+    @writing.post("/import", status_code=202)
+    def start_import(body: dict) -> dict:
+        """Convert the chosen source into game folders. Answers with a job.
+
+        A job because it is slow and because it is the shape everything slow here takes:
+        an import of six hundred games is minutes of copying, and a request that waited
+        for it would time out somewhere in the middle with no way to ask what happened.
+        Progress and the outcome are on /api/v1/jobs, the same as a library scan.
+        """
+        state = _state(ctx)
+        if not state["source_id"]:
+            return {"started": False, "reason": state["reason"]}
+        reader = next(one for one in READERS if one.SOURCE_ID == state["source_id"])
+        systems = [str(one) for one in (body.get("systems") or [])]
+        location = str(body.get("location") or "")
+
+        def work(job):
+            library = reader.read(Path(state["path"]))
+            job.log(f"Read {len(library.games)} games from {state['path']}")
+            report = adopt.run(ctx, library, systems, location)
+            job.log(f"Created {report['created']}, failed {report['failed']}")
+            return report
+
+        job = ctx.jobs.submit("import", work)
+        return {"started": True, "job_id": job.id,
+                "links": {"job": f"/api/v1/jobs/{job.id}"}}
 
     ctx.add_router(reading, scope=ctx.scope("read"))
     ctx.add_router(writing, scope=ctx.scope("write"))

@@ -15,6 +15,7 @@ from typing import Any
 from common import events as core_events
 
 from .contract import ContractError, Manifest
+from .games import ExtensionGames
 from .store import ExtensionStore
 
 LOG_ROOT = "vpinfe.ext"
@@ -104,6 +105,30 @@ class ExtensionFiles:
                             for one in wanted if one)
 
 
+class ExtensionJobs:
+    """Slow work, run the way core runs it.
+
+    The kind carries the extension's name, so a job somebody is watching says which
+    extension is doing it - the same reason the log namespace does. One at a time per
+    kind, which is core's rule and is right here too: two imports of one library at once
+    would race each other into the same folders.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def submit(self, kind: str, work):
+        from common import jobs
+
+        return jobs.submit(f"{self._name}.{str(kind or '').strip()}", work)
+
+    def active(self) -> tuple[str, ...]:
+        from common import jobs
+
+        return tuple(job.id for job in jobs.active()
+                     if job.kind.startswith(f"{self._name}."))
+
+
 class ExtensionContext:
     """What `register(ctx)` is given."""
 
@@ -115,6 +140,8 @@ class ExtensionContext:
         self.config = ExtensionConfig(manifest.name, store)
         self.events = ExtensionEvents(manifest.name, manifest.events, on_failure)
         self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities)
+        self.jobs = ExtensionJobs(manifest.name)
+        self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
         self.routers: list[tuple[Any, str]] = []
         # Registration is a moment, not a phase: routers are mounted once, so one added
         # after `register` returned would never be reachable and silently answer nothing.

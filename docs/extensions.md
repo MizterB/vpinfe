@@ -76,8 +76,21 @@ application, and that is the guarantee the model rests on.
 | `ctx.logger` | A logger in `vpinfe.ext.<name>` |
 | `ctx.config` | `get`, `set`, `all` over its own settings |
 | `ctx.events` | `subscribe` to a core event; `publish` one of its own |
+| `ctx.files` | `set_roots` — the folders it works from, so core will take a path from inside one. Needs `fs:read` |
+| `ctx.jobs` | `submit(kind, work)` — slow work, one at a time per kind, answerable on `/api/v1/jobs` |
+| `ctx.games` | `kinds`, `folder`, `create`, `set_details`, `add_table`, `put_media`. Each needs the core scope its manifest declared |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
 | `ctx.add_router(router, scope=...)` | Serve routes under `/api/v1/ext/<name>/` |
+
+`ctx.games` is not the HTTP API and is not a second implementation of it: both are thin
+over the same services. An extension in this process cannot use the API — a synchronous
+call into the server it is running inside deadlocks — and may not import the library, so
+this is the door.
+
+It is bounded twice. The manifest's `scopes` decide which of those an extension may call
+at all, which is what makes declaring them mean something. And a path it hands over has to
+be inside a folder it declared through `ctx.files`, which is a tighter check than the same
+one on a route: this one knows which extension is asking, where a route only knows a path.
 
 There is deliberately no hook seam yet. A hook can stop a core operation, and handing that
 out before the isolation story for it is designed would let a broken extension stop a
