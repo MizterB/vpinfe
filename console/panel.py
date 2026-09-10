@@ -306,6 +306,27 @@ def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
     return draw
 
 
+def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], Any], *,
+                 disabled: bool = False) -> Callable[[], None]:
+    """Several from a list, where the row is a choice rather than a fact.
+
+    Closed rather than a column of checkboxes: the set here is as long as whatever it is
+    over - the systems in somebody's old library - and a control that grows down the
+    dialog would push what it is for off the screen. Everything selected shows, so what
+    is chosen is still readable without opening it.
+    """
+    def draw() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            control = ui.select(options, value=list(value or []), multiple=True,
+                                on_change=on_change) \
+                .props("dense borderless options-dense use-chips") \
+                .classes("console-edit-field console-edit-select")
+            if disabled:
+                control.disable()
+
+    return draw
+
+
 def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
           disabled: bool = False, status: Callable[[Any], Any] | None = None,
           placeholder: str = "") -> Callable[[], None]:

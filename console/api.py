@@ -94,6 +94,14 @@ class ApiClient:
     def capabilities(self) -> list[dict]:
         return self.discovery().get("capabilities") or []
 
+    def ext_get(self, path: str) -> dict:
+        """A GET on an extension's own routes. Generic on purpose: the client cannot
+        know what an extension serves, and a method per extension is not a client."""
+        return self._get(path)
+
+    def ext_post(self, path: str, body: dict) -> dict:
+        return self._post(path, body)
+
     def extensions(self) -> list[dict]:
         """Every extension this install looked at, running or not."""
         return list(self._get("/extensions").get("extensions") or [])

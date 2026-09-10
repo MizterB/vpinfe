@@ -409,6 +409,31 @@ def _extension_card(found: dict) -> None:
         entries = _declared(found)
         if entries:
             panel.facts(ui, entries)
+        _tasks(found)
+
+
+def _tasks(found: dict) -> None:
+    """What this extension can be asked to do.
+
+    Drawn where the extension is, rather than given a place of its own in the rail: an
+    extension is a thing somebody installed, and what it offers belongs with it until
+    there is enough of it to be a destination.
+    """
+    from console import ext_task
+
+    offered = list(found.get("tasks") or [])
+    if not offered:
+        return
+    name = str(found.get("name") or "")
+    with ui.row().classes("items-center gap-2 w-full pt-2"):
+        for task in offered:
+            # The label is the whole of it. What the task is for is already the line
+            # under the extension's name, and saying it twice on one card is a sentence
+            # that tells nobody anything they cannot see.
+            ui.button(str(task.get("label") or task.get("key") or ""),
+                      on_click=lambda _e=None, task=task: ext_task.open_task(name, task)) \
+                .props("no-caps outline") \
+                .tooltip(str(task.get("description") or ""))
 
 
 def _declared(found: dict) -> list[tuple[str, str]]:

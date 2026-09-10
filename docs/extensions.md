@@ -80,6 +80,7 @@ application, and that is the guarantee the model rests on.
 | `ctx.jobs` | `submit(kind, work)` — slow work, one at a time per kind, answerable on `/api/v1/jobs` |
 | `ctx.games` | `kinds`, `folder`, `create`, `set_details`, `add_table`, `put_media`. Each needs the core scope its manifest declared |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
+| `ctx.ui` | `task(...)` — offer a guided job for the Console to draw. Needs `ui:mount` |
 | `ctx.add_router(router, scope=...)` | Serve routes under `/api/v1/ext/<name>/` |
 
 `ctx.games` is not the HTTP API and is not a second implementation of it: both are thin
@@ -98,6 +99,38 @@ launch.
 
 Routers are collected during `register` and mounted once. One added afterwards would never
 be reachable, so it is refused rather than left to answer nothing.
+
+## Offering something to do
+
+An extension does not draw. It declares a **task** — a guided job — and core renders it,
+so every task looks like the Console rather than like whoever wrote the extension, and a
+task keeps working if that extension later runs out of process, which a drawn page would
+not.
+
+```python
+ctx.ui.task(key="import", label="Bring in a library", base="/wizard",
+            description="Convert a library from another frontend into game folders.",
+            confirm="Import")
+```
+
+Three calls on the extension's own router, under `base`:
+
+| call | answers |
+|---|---|
+| `GET {base}` | `title`, `help`, `fields` — what to ask first |
+| `POST {base}/check` | `ready`, `summary`, `notes`, more `fields`, `confirm` — what would happen |
+| `POST {base}/start` | `{"job_id": …}` — core watches it on `/api/v1/jobs` |
+
+`fields` are `{key, type, label, value, help}`, where type is `path`, `string` or `multi`
+(with `choices`). Both `check` and `start` receive `{"values": {…}}`.
+
+The shape is fixed at three because what is being described is one thing — a guided job.
+A general language for drawing anything is a different project.
+
+`confirm` is the verb at the point of no return, and it is the task's own: a generic
+"Confirm" makes every task look like every other one. `notes` travel with the summary,
+because a count that stays quiet about what the job cannot do describes something that
+will not happen.
 
 ## Scopes and the gate
 

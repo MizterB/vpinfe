@@ -63,6 +63,7 @@ class Record:
     routers: list[tuple[Any, str]] = field(default_factory=list)
     subscriptions: list[tuple[str, Any]] = field(default_factory=list)
     files: Any = None
+    tasks: list[dict] = field(default_factory=list)
 
     @property
     def running(self) -> bool:
@@ -75,7 +76,10 @@ class Record:
     def as_dict(self) -> dict[str, Any]:
         found = self.manifest.as_dict() if self.manifest else {"name": self.name}
         return {**found, "state": self.state, "reason": self.reason,
-                "routes": [scope for _router, scope in self.routers]}
+                "routes": [scope for _router, scope in self.routers],
+                # Only while it is running: a task on an extension that is not there
+                # would draw a button that refuses.
+                "tasks": list(self.tasks) if self.running else []}
 
 
 class Registry:
@@ -181,6 +185,7 @@ class Registry:
         record.routers = list(context.routers)
         record.subscriptions = list(context.events.registered)
         record.files = context.files
+        record.tasks = list(context.ui.tasks)
         record.state, record.reason = LOADED, ""
         logger.info("Extension %s %s loaded", record.name, record.manifest.version)
         return self._remember(record)

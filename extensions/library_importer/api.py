@@ -108,6 +108,68 @@ def build(ctx) -> None:
         follow_the_setting()
         return _state(ctx)
 
+    @reading.get("/wizard")
+    def wizard_form() -> dict:
+        """What to ask first: where the library is."""
+        state = _state(ctx)
+        return {
+            "title": "Bring in a library from another frontend",
+            "help": "Point at the folder the other frontend keeps its library in. "
+                    "Nothing there is written to or moved.",
+            "fields": [{
+                "key": "path", "type": "path", "label": "Folder",
+                "value": state["path"],
+                "help": "Its database and its artwork are read from here.",
+            }],
+            "facts": ([["Reads as", state["source_name"]]] if state["source_id"] else []),
+            "notes": ([state["reason"]] if state["reason"] and state["path"] else []),
+        }
+
+    @writing.post("/wizard/check")
+    def wizard_check(body: dict) -> dict:
+        """What would happen, and what is left to choose.
+
+        Pointing at the folder is done here rather than at the end, because it is what
+        makes the source readable at all - there is nothing to summarize until it is set.
+        """
+        wanted = str((body.get("values") or {}).get("path") or "").strip()
+        ctx.config.set(SOURCE_KEY, wanted)
+        follow_the_setting()
+
+        state = _state(ctx)
+        if not state["source_id"]:
+            return {"ready": False, "reason": state["reason"]}
+
+        reader = next(one for one in READERS if one.SOURCE_ID == state["source_id"])
+        found = _preview(reader.read(Path(state["path"])))
+        systems = found["systems"]
+        games = sum(one["games"] for one in systems)
+        return {
+            "ready": bool(games),
+            "reason": "" if games else "Nothing in there to bring in",
+            "summary": [
+                ["Reads as", state["source_name"]],
+                ["Games", str(games)],
+                ["With artwork", str(sum(one["with_artwork"] for one in systems))],
+                ["Already matched", str(sum(one["already_matched"] for one in systems))],
+            ],
+            "notes": found["notes"],
+            # One system is not a choice, so it is not offered as one.
+            "fields": ([{
+                "key": "systems", "type": "multi", "label": "Bring in",
+                "value": [one["name"] for one in systems],
+                "choices": [[one["name"], f"{one['name']} ({one['games']})"]
+                            for one in systems],
+            }] if len(systems) > 1 else []),
+            "confirm": f"Bring in {games} game{'' if games == 1 else 's'}",
+        }
+
+    @writing.post("/wizard/start")
+    def wizard_start(body: dict) -> dict:
+        values = body.get("values") or {}
+        return start_import({"systems": values.get("systems") or [],
+                             "location": values.get("location") or ""})
+
     @writing.post("/import", status_code=202)
     def start_import(body: dict) -> dict:
         """Convert the chosen source into game folders. Answers with a job.
@@ -135,5 +197,8 @@ def build(ctx) -> None:
         return {"started": True, "job_id": job.id,
                 "links": {"job": f"/api/v1/jobs/{job.id}"}}
 
+    ctx.ui.task(key="import", label="Bring in a library",
+                description="Convert a library from another frontend into game folders.",
+                confirm="Import", base="/wizard")
     ctx.add_router(reading, scope=ctx.scope("read"))
     ctx.add_router(writing, scope=ctx.scope("write"))

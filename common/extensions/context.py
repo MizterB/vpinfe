@@ -105,6 +105,45 @@ class ExtensionFiles:
                             for one in wanted if one)
 
 
+class ExtensionUI:
+    """Guided tasks an extension offers, for core to put in front of somebody.
+
+    Declared rather than drawn. An extension that painted its own page would tie the
+    Console's look to whoever wrote it, and would stop working the moment that extension
+    moved out of this process - where a task described as data still does. Core owns the
+    treatment; the extension owns what is asked and what happens.
+
+    Each task is three calls on the extension's own router, under the base it names:
+    the form to ask with, a check that says what would happen, and a start that answers
+    with a job. The shape is fixed at three because the thing being described is one
+    thing - a guided job - and a general language for drawing anything is a different
+    project.
+    """
+
+    def __init__(self, name: str, allowed: bool) -> None:
+        self._name = name
+        self._allowed = allowed
+        self.tasks: list[dict] = []
+
+    def task(self, key: str, label: str, base: str, description: str = "",
+             confirm: str = "") -> None:
+        if not self._allowed:
+            raise ContractError(f"{self._name} offers a task, which needs the ui:mount "
+                                "capability its manifest does not declare")
+        wanted = str(key or "").strip()
+        if not wanted:
+            raise ContractError(f"{self._name} offers a task with no key")
+        self.tasks.append({
+            "key": wanted,
+            "label": str(label or "").strip() or wanted,
+            "description": str(description or "").strip(),
+            # What the button says at the point of no return. The task knows what it is
+            # about to do; a generic "Confirm" makes every one of them look the same.
+            "confirm": str(confirm or "").strip(),
+            "base": str(base or "").strip(),
+        })
+
+
 class ExtensionJobs:
     """Slow work, run the way core runs it.
 
@@ -141,6 +180,7 @@ class ExtensionContext:
         self.events = ExtensionEvents(manifest.name, manifest.events, on_failure)
         self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities)
         self.jobs = ExtensionJobs(manifest.name)
+        self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
         self.routers: list[tuple[Any, str]] = []
         # Registration is a moment, not a phase: routers are mounted once, so one added
