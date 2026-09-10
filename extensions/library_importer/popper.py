@@ -144,12 +144,16 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
             for game in games]
 
 
-def read(root: Path | str) -> SourceLibrary:
+def read(root: Path | str, plays=None) -> SourceLibrary:
     """Every emulator the database declares, and the games under each.
 
     The media root is derived from where the database actually is rather than read off
     the row: what an install records is the path on the machine it ran on, and a library
     reached over a share is never at that path.
+
+    `plays` is accepted so every reader is called the same way. This one does not
+    filter on it yet: it reads one system, and what to do when that system is not
+    playable here is a question about what the source declares, which is unfinished.
     """
     root = Path(root)
     path = database_path(root)

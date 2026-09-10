@@ -112,12 +112,16 @@ def _game_from(element, root: Path) -> SourceGame | None:
                       extras=extras, **values)
 
 
-def read(root: Path | str) -> SourceLibrary:
+def read(root: Path | str, plays=None) -> SourceLibrary:
     """Everything one gamelist describes.
 
     One system per root, because a root is the folder somebody pointed at and ES keeps
     one gamelist per system. A source with several is imported one at a time, which is
     also how somebody thinks about it.
+
+    `plays` is accepted so every reader is called the same way. This one does not
+    filter on it yet: it reads one system, and what to do when that system is not
+    playable here is a question about what the source declares, which is unfinished.
     """
     root = Path(root)
     path = gamelist_path(root)

@@ -161,10 +161,16 @@ DEFAULTS = "default"
 def settings_for(keys: list[Key], rom: str) -> dict:
     """One ROM's settings, as VPinMAME would actually see them.
 
-    **A per-ROM key is a sparse override, not a record.** It holds only what differs from
-    `default`, so reading it alone gives a game a handful of settings and silently loses
-    every one it was inheriting. The two are layered here, once, rather than left for
-    each caller to remember.
+    A per-ROM key is usually a whole record and occasionally a sparse override, so the
+    two are layered here once rather than left for each caller to remember. Measured
+    against a real export of 398 ROMs: 397 of them held the full 114 values, `default`
+    held 33 and every one of those also appeared in the ROM keys, and exactly one ROM
+    held a single value and nothing else. Reading a key alone is therefore right almost
+    always and silently wrong for that one, which is the worst shape a bug can have.
+
+    Only 11 values ever differed from `default` across that whole library, nearly all of
+    them DMD colour. So the merge is cheap and changes little - it is there for the rare
+    key, not the common one.
 
     `globals` is deliberately not merged in: rompath and the directories are facts about
     the old machine, not about a game, and folding them into a game's settings would
