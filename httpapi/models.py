@@ -1158,6 +1158,10 @@ class Entry(ApiModel):
     # Which group this entry falls in under the collection's order - a letter, a year, a
     # rating. Absent when the order has no groups; `EntryList.group_by` says which.
     group: str | None = None
+    # What extensions have contributed about the game, keyed by what each declared.
+    # Present and empty until one answers, so a client reading `ext.rating` is correct
+    # without knowing there is a waiting state.
+    ext: dict[str, Any] = Field(default_factory=dict)
     links: EntryLinks
 
 

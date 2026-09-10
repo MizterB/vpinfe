@@ -71,6 +71,19 @@ class EntryLensParityTests(TempTree):
         self.assertEqual(set(self.theme) - set(self.wire), THEME_ONLY["top"])
         self.assertEqual(set(self.wire) - set(self.theme), WIRE_ONLY["top"])
 
+    def test_the_response_model_declares_everything_the_builder_produces(self) -> None:
+        """The builder is not what a caller receives.
+
+        FastAPI serializes through the declared model and silently drops any key it does
+        not know, so a field can be added, pass every test that calls the builder, and be
+        absent from the actual answer. That happened; this is what would have said so.
+        """
+        from httpapi import models
+
+        declared = set(models.Entry.model_fields)
+
+        self.assertEqual(set(self.wire) - declared, set())
+
     def test_the_shared_fields_carry_the_same_values(self) -> None:
         """Agreeing on names and disagreeing on answers would be worse than either."""
         for half in ("game", "table"):
