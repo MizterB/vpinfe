@@ -41,6 +41,15 @@ def _controls(fields: list[dict], values: dict[str, Any]) -> None:
             entries.append((label, panel.multi_select(
                 choices, list(values.get(key) or []),
                 lambda event, key=key: values.__setitem__(key, list(event.value or [])))))
+        elif kind == "select":
+            choices = {str(one[0]): str(one[1]) for one in field.get("choices") or []}
+            entries.append((label, panel.select(
+                choices, str(values.get(key) or ""),
+                lambda event, key=key: values.__setitem__(key, str(event.value or "")))))
+        elif kind == "switch":
+            entries.append((label, panel.switch(
+                bool(values.get(key)),
+                lambda event, key=key: values.__setitem__(key, bool(event.value)))))
         else:
             entries.append((label, panel.field(
                 str(values.get(key) or ""),
@@ -56,92 +65,80 @@ def _aside(text: str):
     return draw
 
 
-def _lines(target, title: str, lines: list[str], classes: str) -> None:
-    if not lines:
-        return
-    if title:
-        ui.label(title).classes("console-group mt-3")
-    for line in lines:
-        ui.label(str(line)).classes(classes)
-
-
 async def open_action(extension: str, action: dict) -> None:
-    """Run one action: ask if it asks, confirm if it confirms, then do it."""
+    """Run one action: ask what it asks, in as many steps as it asks it, then do it.
+
+    The extension decides what to ask next from what it has been given so far, and says
+    so by answering with another step. Core keeps everything answered and hands the whole
+    lot back each time, along with the step being left, so a step is a question rather
+    than a session - nothing is held between requests that could be stale by the time it
+    is used, and going Back and forward again asks the same questions in the same order
+    rather than jumping over the ones already answered.
+
+    It stops asking when it answers with a summary instead of fields. That is the same
+    rule as everywhere else here: the shape is read off the answer, never declared.
+    """
     client = ApiClient()
     base = f"/ext/{extension}{action.get('base') or ''}"
     values: dict[str, Any] = {}
+    history: list[dict] = []
 
-    form = await run.io_bound(client.ext_get, base)
+    step = await run.io_bound(client.ext_get, base)
 
     with ui.dialog().props("persistent") as dialog, \
             ui.card().classes("console-import-card"):
-        # The title names the task and stands for all three steps. The help is about
-        # the question being asked, so it belongs to the step that asks it - carried
-        # forward it would still be telling somebody to point at a folder while they
-        # read what the import did.
-        ui.label(str(form.get("title") or action.get("label") or "")) \
-            .classes("console-confirm-title")
-
-        body = ui.column().classes("w-full gap-0")
+        heading = ui.label("").classes("console-confirm-title")
+        body = ui.column().classes("w-full gap-0 console-import-body")
         buttons = ui.row().classes("justify-end gap-2 w-full pt-2")
 
-        def steps_from(found: dict) -> tuple[bool, bool]:
-            """What this action needs, read off its own answer.
-
-            Never a mode it declares: a declaration is a second statement of what the
-            fields and the confirm already say, and the two come apart.
-            """
-            return bool(found.get("fields")), bool(found.get("confirm"))
-
-        def draw_form(found: dict) -> None:
+        def draw(found: dict) -> None:
+            heading.text = str(found.get("title") or action.get("label") or "")
             body.clear()
             buttons.clear()
+            summary = found.get("summary")
             with body:
                 if found.get("help"):
-                    ui.label(str(found["help"])).classes("console-help")
+                    ui.label(str(found["help"])).classes("console-help mb-2")
+                if summary:
+                    _summary(summary)
                 _controls(list(found.get("fields") or []), values)
-                if found.get("facts"):
-                    panel.facts(ui, [(one[0], one[1]) for one in found["facts"]])
-                _lines(body, "", list(found.get("notes") or []), "console-help")
-            asks, confirms = steps_from(found)
-            with buttons:
-                ui.button("Cancel", on_click=lambda: dialog.submit(False)) \
-                    .props("flat no-caps")
-                # The verb, unless there is something after this. An action with no
-                # confirm and no more to ask says what it does rather than "Next".
-                onward = "Next" if confirms else str(action.get("label") or "Go")
-                ui.button(onward,
-                          on_click=(_check if confirms else _start)).props("no-caps")
-
-        def draw_confirm(found: dict) -> None:
-            body.clear()
-            buttons.clear()
-            with body:
-                if found.get("summary"):
-                    panel.facts(ui, [(one[0], one[1]) for one in found["summary"]])
-                _controls(list(found.get("fields") or []), values)
-                # What the read could not do travels with what it found. A summary that
-                # said 148 games and stayed quiet about their tables being on a machine
-                # that is not here would be describing an import that will not happen.
-                _lines(body, "Worth knowing", list(found.get("notes") or []),
-                       "console-help")
-                if not found.get("ready"):
+                _lines(list(found.get("notes") or []),
+                       "Worth knowing" if summary else "")
+                if summary and not found.get("ready"):
                     ui.label(str(found.get("reason") or "")).classes("console-help")
             with buttons:
-                ui.button("Back", on_click=lambda: draw_form(form)).props("flat no-caps")
-                go = ui.button(str(found.get("confirm") or action.get("label") or "Go"),
-                               on_click=lambda: _start()).props("no-caps")
-                if not found.get("ready"):
-                    go.disable()
+                if history:
+                    ui.button("Back", on_click=_back).props("flat no-caps")
+                else:
+                    ui.button("Cancel", on_click=lambda: dialog.submit(False)) \
+                        .props("flat no-caps")
+                if summary:
+                    go = ui.button(str(found.get("confirm")
+                                       or action.get("label") or "Go"),
+                                   on_click=_start).props("no-caps")
+                    if not found.get("ready"):
+                        go.disable()
+                else:
+                    ui.button("Next", on_click=_next).props("no-caps")
 
-        async def _check() -> None:
+        async def _next() -> None:
             try:
-                found = await run.io_bound(client.ext_post, f"{base}/check",
-                                           {"values": values})
+                found = await run.io_bound(
+                client.ext_post, f"{base}/check",
+                {"values": values, "step": str(step_now["found"].get("step") or "")})
             except Exception as exc:  # noqa: BLE001
                 ui.notify(str(exc), type="negative")
                 return
-            draw_confirm(found)
+            # A step that answers with itself is the same question asked again, not a
+            # new one. Remembering it would make Back go nowhere.
+            if str(found.get("step") or "") != str(step_now["found"].get("step") or ""):
+                history.append(step_now["found"])
+            step_now["found"] = found
+            draw(found)
+
+        def _back() -> None:
+            step_now["found"] = history.pop()
+            draw(step_now["found"])
 
         async def _start() -> None:
             try:
@@ -182,11 +179,35 @@ async def open_action(extension: str, action: dict) -> None:
                 await run.io_bound(_wait)
 
             close.enable()
+            heading.text = "What happened" if job.get("state") == "done" \
+                else "It did not finish"
             _report(body, job)
 
-        draw_form(form)
+        step_now = {"found": step}
+        draw(step)
 
     await dialog
+
+
+def _summary(rows) -> None:
+    """What the previous steps add up to, before anything is done about it.
+
+    A row of one is a heading rather than a fact. Where a summary covers both what was
+    chosen and what it comes to, running the two together makes a count read as one more
+    setting - and the counts are the part somebody is deciding on.
+    """
+    panel.facts(ui, [(panel.HEADING, str(row[0])) if len(row) < 2
+                     else (str(row[0]), str(row[1]))
+                     for row in rows])
+
+
+def _lines(lines: list[str], title: str) -> None:
+    if not lines:
+        return
+    if title:
+        ui.label(title).classes("console-group mt-3")
+    for line in lines:
+        ui.label(str(line)).classes("console-help")
 
 
 def _finished(body, buttons, dialog, answer: dict) -> None:
@@ -201,6 +222,34 @@ def _finished(body, buttons, dialog, answer: dict) -> None:
             panel.facts(ui, facts)
     with buttons:
         ui.button("Close", on_click=lambda: dialog.submit(True)).props("flat no-caps")
+
+
+def _compare(rows: list[dict]) -> None:
+    """Expected beside actual, and what is short.
+
+    Every row, including the ones that agree: a line that appears only when something
+    went wrong makes a clean import read as a report with things missing from it.
+    """
+    entries = []
+    for row in rows:
+        want, got = int(row.get("expected", 0)), int(row.get("actual", 0))
+        short = want - got
+        entries.append((str(row.get("label") or row.get("key") or ""),
+                        _counts(want, got, short)))
+    panel.facts(ui, entries)
+
+
+def _counts(want: int, got: int, short: int):
+    def draw() -> None:
+        with ui.row().classes("items-center gap-2"):
+            ui.label(str(got)).classes("console-fact-value")
+            if short:
+                # The number alone cannot say whether it is right. What was expected is
+                # what makes a shortfall visible without anybody counting.
+                ui.label(f"of {want}").classes("console-help")
+                ui.label(f"{short} short").classes(
+                    "console-member-chip console-chip-warn")
+    return draw
 
 
 def _wait() -> None:
@@ -219,15 +268,22 @@ def _report(body, job: dict) -> None:
                 .classes("console-help")
             return
         result = job.get("result") or {}
-        counts = [(label, str(result.get(key, 0)))
-                  for key, label in (("created", "Brought in"),
-                                     ("failed", "Not brought in"),
-                                     ("with_a_game_file", "With a game file"),
-                                     ("media_files", "Artwork files"))
-                  if key in result]
-        if counts:
-            panel.facts(ui, counts)
-        missed = [row for row in (result.get("games") or []) if row.get("error")]
+        compared = list(result.get("against") or [])
+        if compared:
+            _compare(compared)
+        elif result:
+            panel.facts(ui, [(str(key).replace("_", " ").capitalize(), str(value))
+                             for key, value in result.items()
+                             if isinstance(value, (int, str))])
+        held = list(result.get("already_here") or [])
+        if held:
+            ui.label(f"Already here ({len(held)})").classes("console-group mt-3")
+            for row in held[:20]:
+                ui.label(f"{row.get('name') or row.get('key')} - matched by "
+                         f"{row.get('how') or 'name'}").classes("console-help")
+            if len(held) > 20:
+                ui.label(f"and {len(held) - 20} more").classes("console-help")
+        missed = [row for row in (result.get("rows") or []) if row.get("error")]
         if missed:
             ui.label(f"Did not come across ({len(missed)})").classes("console-group mt-3")
             for row in missed[:20]:

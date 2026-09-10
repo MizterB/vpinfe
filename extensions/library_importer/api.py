@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from . import adopt, emulationstation, pinballx, popper
+from . import plan as plan_for
 
 # Asked in order, first to claim a folder wins. PinballX is looked for first
 # because it is the source somebody converting a pinball library actually has.
@@ -21,6 +22,17 @@ READERS = (pinballx, popper, emulationstation)
 # Where the source is, in this extension's own settings. Not a core setting: it is a
 # fact about somebody's old machine, and it has no meaning to anything else here.
 SOURCE_KEY = "source_root"
+
+# The order the questions come in. Which of them get asked depends on what is found, but
+# never on how somebody arrived: going Back and forward again asks the same things in
+# the same order rather than jumping over what is already answered.
+STEPS = ("source", "sources", "existing", "summary")
+
+
+def _after(step: str) -> tuple[str, ...]:
+    """The steps still to come after the one being left."""
+    at = STEPS.index(step) if step in STEPS else 0
+    return STEPS[at + 1:] or (STEPS[-1],)
 
 
 def reader_for(root: Path):
@@ -70,9 +82,27 @@ def _preview(library) -> dict:
 
 def build(ctx) -> None:
     """Register the routes, and keep what core may read in step with the setting."""
-    def follow_the_setting() -> None:
+    def follow_the_setting(*extra: str) -> None:
+        """Tell core every folder this import will actually read from.
+
+        The install folder is not enough and assuming it was cost a whole run: a
+        frontend keeps its database and artwork under its own roof, but the tables sit
+        wherever the emulator was installed - a real PinballY library recorded them two
+        directories away, and core refused all 581 of them because the importer had
+        resolved the path and never declared it.
+
+        So the roots follow what was resolved, not what was configured. Anything the
+        plan points at is a folder this will open, and core cannot know that from the
+        source root alone.
+        """
         configured = ctx.config.get(SOURCE_KEY, "")
-        ctx.files.set_roots([configured] if configured else [])
+        wanted = [configured] if configured else []
+        wanted += [one for one in extra if one]
+        ctx.files.set_roots(wanted)
+
+    def reading_from(made) -> list[str]:
+        """The folders a plan will read, beyond the source root itself."""
+        return [source.path for source in made.sources if source.active]
 
     follow_the_setting()
 
@@ -110,67 +140,169 @@ def build(ctx) -> None:
 
     @reading.get("/wizard")
     def wizard_form() -> dict:
-        """What to ask first: where the library is."""
+        """Step one: what are you importing from, and where is it.
+
+        The kind is asked rather than only sniffed. Somebody knows what they have, and a
+        detector that is wrong leaves them arguing with a guess; offering "work it out"
+        as the default means the common case is still one press.
+        """
         state = _state(ctx)
         return {
+            "step": "source",
             "title": "Bring in a library from another frontend",
             "help": "Point at the folder the other frontend keeps its library in. "
                     "Nothing there is written to or moved.",
-            "fields": [{
-                "key": "path", "type": "path", "label": "Folder",
-                "value": state["path"],
-                "help": "Its database and its artwork are read from here.",
-            }],
-            "facts": ([["Reads as", state["source_name"]]] if state["source_id"] else []),
-            "notes": ([state["reason"]] if state["reason"] and state["path"] else []),
+            "fields": [
+                {"key": "source_type", "type": "select", "label": "Coming from",
+                 "value": "auto",
+                 "choices": [["auto", "Work it out"]]
+                            + [[one.SOURCE_ID, one.SOURCE_NAME] for one in READERS],
+                 "help": "Which frontend the library belongs to."},
+                {"key": "path", "type": "path", "label": "Install folder",
+                 "value": state["path"],
+                 "help": "Its database and its artwork are read from here."},
+            ],
         }
+
+    def _reader_for(values: dict, path: Path):
+        """The reader this source is to be read with.
+
+        What somebody chose, where they chose; otherwise the first that claims the
+        folder. A chosen reader that does not claim it is still used - being told "that
+        is not a Popper install" is more useful than quietly reading it as something
+        else.
+        """
+        wanted = str(values.get("source_type") or "auto").strip()
+        if wanted and wanted != "auto":
+            return next((one for one in READERS if one.SOURCE_ID == wanted), None)
+        return reader_for(path)
 
     @writing.post("/wizard/check")
     def wizard_check(body: dict) -> dict:
-        """What would happen, and what is left to choose.
+        """Whatever comes next: another question, or what it all adds up to."""
+        values = body.get("values") or {}
+        leaving = str(body.get("step") or "source")
+        wanted = str(values.get("path") or "").strip()
+        if not wanted:
+            return _again("Say where the library is.", values)
 
-        Pointing at the folder is done here rather than at the end, because it is what
-        makes the source readable at all - there is nothing to summarize until it is set.
-        """
-        wanted = str((body.get("values") or {}).get("path") or "").strip()
         ctx.config.set(SOURCE_KEY, wanted)
         follow_the_setting()
+        path = Path(wanted)
+        if not path.is_dir():
+            return _again("That folder is not reachable from here.", values)
+        reader = _reader_for(values, path)
+        if reader is None:
+            return _again("Nothing this build can read is in that folder.", values)
+        if not reader.detect(path):
+            return _again(f"That does not look like {reader.SOURCE_NAME}.", values)
 
-        state = _state(ctx)
-        if not state["source_id"]:
-            return {"ready": False, "reason": state["reason"]}
+        library = reader.read(path, ctx.apps.plays, ctx.apps.names())
+        made = plan_for.build(library, ctx.games.existing(), _chosen(values),
+                              str(values.get("on_existing")
+                                  or plan_for.DEFAULT_ON_EXISTING),
+                              _systems(values), ctx.games.folder_name_for,
+                              library.source_id, ctx.games.kinds())
+        follow_the_setting(*reading_from(made))
 
-        reader = next(one for one in READERS if one.SOURCE_ID == state["source_id"])
-        found = _preview(reader.read(Path(state["path"])))
-        systems = found["systems"]
-        games = sum(one["games"] for one in systems)
+        for step in _after(leaving):
+            if step == "sources":
+                return _sources_step(reader, library, made)
+            if step == "existing" and made.already:
+                return _existing_step(made)
+            if step == "summary":
+                return _summary_step(reader, library, made)
+        return _summary_step(reader, library, made)
+
+    def _again(reason: str, values: dict) -> dict:
+        found = wizard_form()
+        found["notes"] = [reason]
+        for field in found["fields"]:
+            if field["key"] in values:
+                field["value"] = values[field["key"]]
+        return found
+
+    def _systems(values: dict) -> list[str]:
+        """Which of the source's systems, or all of them where it was never asked."""
+        return [str(one) for one in (values.get("systems") or [])]
+
+    def _chosen(values: dict) -> dict | None:
+        held = {key: values[key] for key, *_rest in plan_for.SOURCES if key in values}
+        return held or None
+
+    def _sources_step(reader, library, made) -> dict:
+        fields = [{
+            "key": source.key, "type": "path", "label": source.label,
+            "value": source.path,
+            "help": source.help + (" Worked out from the source."
+                                   if source.derived else ""),
+        } for source in made.sources]
+
+        # Only where there is a choice to make. One system is not a decision, and a
+        # control with a single option in it is a question that answers itself.
+        systems = [one.name for one in library.systems if one.games]
+        if len(systems) > 1:
+            fields.insert(0, {
+                "key": "systems", "type": "multi", "label": "Systems",
+                "value": systems,
+                "choices": [[one, one] for one in systems],
+                "help": "Which of the source's systems to bring across.",
+            })
+
         return {
-            "ready": bool(games),
-            "reason": "" if games else "Nothing in there to bring in",
-            "summary": [
-                ["Reads as", state["source_name"]],
-                ["Games", str(games)],
-                ["With artwork", str(sum(one["with_artwork"] for one in systems))],
-                ["Already matched", str(sum(one["already_matched"] for one in systems))],
-            ],
-            "notes": found["notes"],
-            # One system is not a choice, so it is not offered as one.
-            "fields": ([{
-                "key": "systems", "type": "multi", "label": "Bring in",
-                "value": [one["name"] for one in systems],
-                "choices": [[one["name"], f"{one['name']} ({one['games']})"]
-                            for one in systems],
-            }] if len(systems) > 1 else []),
-            "confirm": f"Bring in {games} game{'' if games == 1 else 's'}",
+            "step": "sources",
+            "title": f"Reading it as {reader.SOURCE_NAME}",
+            "help": "Where each kind of thing lives. What could be worked out is filled "
+                    "in; anything left empty is not imported.",
+            "fields": fields,
         }
 
-    @writing.post("/wizard/run")
-    def wizard_run(body: dict) -> dict:
-        values = body.get("values") or {}
-        return start_import({"systems": values.get("systems") or [],
-                             "location": values.get("location") or ""})
+    def _existing_step(made) -> dict:
+        return {
+            "step": "existing",
+            "title": f"{len(made.already)} of these are already here",
+            "help": "From a previous run, or added another way. Matched by the folder "
+                    "this import would make, then by catalog id, so one you have "
+                    "renamed is not brought in twice.",
+            "fields": [{
+                "key": "on_existing", "type": "select", "label": "What to do",
+                "value": made.on_existing,
+                "choices": [list(one) for one in plan_for.ON_EXISTING],
+            }],
+            "notes": [one.folder for one in made.already[:8]]
+                     + ([f"and {len(made.already) - 8} more"]
+                        if len(made.already) > 8 else []),
+        }
 
-    @writing.post("/import", status_code=202)
+    def _summary_step(reader, library, made) -> dict:
+        """Everything the previous steps decided, and what it comes to."""
+        found = _preview(library)
+        counts = plan_for.expected(made)
+        going = len(made.matches) if made.on_existing == "fill" else len(made.new)
+
+        rows = [["Reads as", reader.SOURCE_NAME], ["Folder", library.root]]
+        rows += [[source.label if source.active else f"No {source.label.lower()}",
+                  source.path or "not being imported"]
+                 for source in made.sources]
+        if made.already:
+            rows.append(["Already here",
+                         f"{len(made.already)} - "
+                         f"{dict(plan_for.ON_EXISTING)[made.on_existing].lower()}"])
+        rows.append(["Going into", "the location new games go to"])
+        rows.append(["What comes across"])
+        rows += [[label, str(counts[key])] for key, label in plan_for.COUNTS]
+
+        return {
+            "step": "summary",
+            "title": "This is what will happen",
+            "ready": bool(going),
+            "reason": "" if going else "Nothing left to bring in",
+            "summary": rows,
+            "notes": found["notes"],
+            "confirm": f"Bring in {going} game{'' if going == 1 else 's'}",
+        }
+
+    @writing.post("/wizard/run", status_code=202)
     def start_import(body: dict) -> dict:
         """Convert the chosen source into game folders. Answers with a job.
 
@@ -179,18 +311,31 @@ def build(ctx) -> None:
         for it would time out somewhere in the middle with no way to ask what happened.
         Progress and the outcome are on /api/v1/jobs, the same as a library scan.
         """
-        state = _state(ctx)
-        if not state["source_id"]:
-            return {"started": False, "reason": state["reason"]}
-        reader = next(one for one in READERS if one.SOURCE_ID == state["source_id"])
-        systems = [str(one) for one in (body.get("systems") or [])]
+        values = body.get("values") or {}
+        path = Path(str(values.get("path") or "").strip())
+        reader = _reader_for(values, path) if path.is_dir() else None
+        if reader is None:
+            return {"started": False,
+                    "reason": "Nothing this build can read is in that folder"}
+        systems = _systems(values)
         location = str(body.get("location") or "")
 
         def work(job):
-            library = reader.read(Path(state["path"]))
-            job.log(f"Read {len(library.games)} games from {state['path']}")
-            report = adopt.run(ctx, library, systems, location)
-            job.log(f"Created {report['created']}, failed {report['failed']}")
+            library = reader.read(path, ctx.apps.plays, ctx.apps.names())
+            job.log(f"Read {len(library.games)} games from {library.root}")
+            made = plan_for.build(library, ctx.games.existing(), _chosen(values),
+                                  str(values.get("on_existing")
+                                      or plan_for.DEFAULT_ON_EXISTING), systems,
+                                  ctx.games.folder_name_for, library.source_id,
+                                  ctx.games.kinds())
+            follow_the_setting(*reading_from(made))
+            want = plan_for.expected(made)
+            report = adopt.run(ctx, library, systems, location, made)
+            # Counted again from the plan the run was handed, so the report says what
+            # was asked for beside what happened rather than what was hoped for.
+            report["against"] = plan_for.against(want, report)
+            report["expected"] = want
+            job.log(f"Created {report['games']}, failed {report['failed']}")
             return report
 
         job = ctx.jobs.submit("import", work)

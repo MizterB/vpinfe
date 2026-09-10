@@ -15,9 +15,14 @@ from .source import SourceGame, SourceLibrary
 
 
 def _one(ctx, source_id: str, game: SourceGame, kinds: tuple[str, ...],
-         location: str) -> dict:
-    """One game, and what became of it. Returns a row for the report."""
-    name = mapping.folder_name(game)
+         location: str, name: str = "") -> dict:
+    """One game, and what became of it. Returns a row for the report.
+
+    The name is handed in because the caller has already asked core what folder it
+    becomes. Working it out again here would give the unsanitized one, and then the same
+    game is counted under two names.
+    """
+    name = name or mapping.folder_name(game)
     row = {"key": game.key, "name": name, "game_id": "", "table": False,
            "media": 0, "skipped_media": [], "error": ""}
     try:
@@ -53,26 +58,75 @@ def _one(ctx, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     return row
 
 
-def run(ctx, library: SourceLibrary, systems: list[str], location: str = "") -> dict:
-    """Convert the chosen systems. Answers with a row per game.
+def _another_build(ctx, game: SourceGame, name: str, game_id: str) -> dict:
+    """A second build of a machine the run has already made a game for.
+
+    Its file joins that game rather than starting another one. The artwork does not:
+    what is already there was placed for the same machine, and a second build's playfield
+    would replace it with a picture of the same table.
+    """
+    row = {"key": game.key, "name": name, "game_id": game_id, "table": False,
+           "media": 0, "skipped_media": [], "error": "", "joined": True}
+    if not game.table_file:
+        return row
+    try:
+        ctx.games.add_table(game_id, game.table_file)
+        row["table"] = True
+    except Exception as exc:
+        row["error"] = f"the game file did not come across: {exc}"
+    return row
+
+
+def run(ctx, library: SourceLibrary, systems: list[str], location: str = "",
+        plan=None) -> dict:
+    """Convert the chosen systems. Answers with a row per game and the counts.
 
     A game that fails is recorded and the next one is tried. An import of six hundred
     stopping on the one folder somebody already had would be worse than useless: it is
     the case this exists for, and the answer is to say which one and carry on.
+
+    A game the library already holds is left alone unless the plan says to fill in what
+    it is missing. Rewriting what somebody has curated since the last run is the worse
+    mistake, so it is not the default.
     """
     kinds = ctx.games.kinds()
     wanted = [system for system in library.systems
               if not systems or system.name in systems]
+    held = {one.key: one for one in (plan.matches if plan else [])}
+    fill = bool(plan and plan.on_existing == "fill")
 
-    rows = []
+    rows, skipped = [], []
+    # What this run has already made, by folder name. A source holds several builds of
+    # the same machine - three of Kiss (Bally 1979), by different authors - and they are
+    # one game with three tables here, not three games. Without this the first wins the
+    # folder and the rest fail on a name that is already taken.
+    made_here: dict[str, str] = {}
     for system in wanted:
         for game in system.games:
-            rows.append(_one(ctx, library.source_id, game, kinds, location))
+            match = held.get(game.key)
+            if match is not None and match.existing and not fill:
+                skipped.append({"key": game.key, "name": match.folder,
+                                "game_id": match.game_id, "how": match.how})
+                continue
+            # Asked of core, not worked out here: the folder a name becomes is core's
+            # rule, and a copy of it drifts without saying so.
+            name = ctx.games.folder_name_for(mapping.folder_name(game))
+            seen = made_here.get(name.lower())
+            if seen:
+                rows.append(_another_build(ctx, game, name, seen))
+                continue
+            row = _one(ctx, library.source_id, game, kinds, location, name)
+            if row["game_id"]:
+                made_here[name.lower()] = row["game_id"]
+            rows.append(row)
     made = [row for row in rows if row["game_id"]]
     return {
-        "created": len(made),
+        "games": len({row["name"].lower() for row in made}),
+        "tables": sum(1 for row in made if row["table"]),
+        "media": sum(row["media"] for row in made),
         "failed": len(rows) - len(made),
-        "with_a_game_file": sum(1 for row in made if row["table"]),
-        "media_files": sum(row["media"] for row in made),
-        "games": rows,
+        # Named rather than counted: after a partial run somebody wants to know which
+        # ones were left, not how many.
+        "already_here": skipped,
+        "rows": rows,
     }

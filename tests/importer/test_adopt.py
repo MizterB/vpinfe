@@ -83,7 +83,7 @@ class ImportTests(AdoptCase):
     def test_every_game_in_the_system_becomes_an_entry(self) -> None:
         report = self.imported()
 
-        self.assertEqual(report["created"], 3)
+        self.assertEqual(report["games"], 3)
         self.assertEqual(report["failed"], 0)
 
     def test_a_folder_is_named_the_way_our_own_are(self) -> None:
@@ -117,7 +117,7 @@ class ImportTests(AdoptCase):
 
     def test_a_kind_we_have_no_slot_for_is_reported_not_guessed_at(self) -> None:
         report = self.imported()
-        rows = {row["key"]: row for row in report["games"]}
+        rows = {row["key"]: row for row in report["rows"]}
 
         self.assertEqual(rows["Taxi"]["skipped_media"], [])
 
@@ -125,8 +125,8 @@ class ImportTests(AdoptCase):
         """Entries with artwork and no game file, which the library has a word for."""
         report = self.imported()
 
-        self.assertEqual(report["with_a_game_file"], 0)
-        self.assertEqual(report["created"], 3)
+        self.assertEqual(report["tables"], 0)
+        self.assertEqual(report["games"], 3)
 
     def test_one_game_failing_does_not_stop_the_rest(self) -> None:
         """An import of six hundred stopping on the one folder somebody already had
@@ -135,9 +135,9 @@ class ImportTests(AdoptCase):
 
         report = self.imported()
 
-        self.assertEqual(report["created"], 2)
+        self.assertEqual(report["games"], 2)
         self.assertEqual(report["failed"], 1)
-        failed = next(row for row in report["games"] if row["key"] == "Taxi")
+        failed = next(row for row in report["rows"] if row["key"] == "Taxi")
         self.assertTrue(failed["error"])
 
     def test_running_it_twice_creates_nothing_the_second_time(self) -> None:
@@ -147,7 +147,7 @@ class ImportTests(AdoptCase):
 
         again = self.imported()
 
-        self.assertEqual(again["created"], 0)
+        self.assertEqual(again["games"], 0)
         self.assertEqual(again["failed"], 3)
 
 
@@ -190,3 +190,31 @@ class BoundsTests(AdoptCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FolderNameTests(unittest.TestCase):
+    """The folder a name becomes is core's rule, and the importer asks rather than
+    reproduces it.
+
+    A real library held both `Star Trek: The Next Generation (Williams 1993)` and
+    `Star Trek - The Next Generation (Williams 1993)`. Core strips the colon, so the
+    first two are one folder; the importer's own copy of the rule did not, so it thought
+    they were two and the second failed on a name already taken.
+    """
+
+    def test_core_answers_what_a_name_becomes(self) -> None:
+        from common.extensions.games import ExtensionGames
+
+        games = ExtensionGames("probe", ("games:read",), None)
+
+        self.assertEqual(
+            games.folder_name_for("Star Trek: The Next Generation (Williams 1993)"),
+            "Star Trek The Next Generation (Williams 1993)")
+
+    def test_reading_a_name_is_a_read(self) -> None:
+        """It tells an extension what core would do, so it is gated like anything else
+        that reads."""
+        from common.extensions.games import ExtensionGames
+
+        with self.assertRaises(ContractError):
+            ExtensionGames("silent", (), None).folder_name_for("Anything")

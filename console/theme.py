@@ -1821,7 +1821,13 @@ body.console-dropping .ag-root-wrapper { outline: 1px dashed var(--accent); }
 
 /* The import confirmation. Wider than a confirm because every row carries four facts,
    and capped so a bundle of forty does not become a page. */
-.console-import-card { width: 680px; max-width: 92vw; }
+.console-import-card {
+  width: 680px; max-width: 92vw;
+  /* Bounded, and the body scrolls inside it: a step with a long summary
+     used to push its own buttons off a short window. */
+  max-height: 86vh; display: flex; flex-direction: column;
+}
+.console-import-body { overflow-y: auto; min-height: 0; }
 .console-import-rows { max-height: 46vh; overflow-y: auto; }
 .console-import-row { padding: 4px 0; }
 /* Fixed, so the names beside them line up and the column reads down rather than
