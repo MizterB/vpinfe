@@ -51,6 +51,28 @@ class OfferedTests(unittest.TestCase):
             anyone.delete_the_whole_library("please")
         self.assertIn("list_games", str(caught.exception))
 
+    def test_launching_is_not_granted_by_being_allowed_to_write(self) -> None:
+        """It takes over the cabinet rather than editing a record, and the scope
+        vocabulary said so before extensions existed. An extension that starts a game
+        asks for that by name, and whoever installs it reads it by name."""
+        writer = ExtensionGames("writer", ("games:read", "games:write"), None)
+
+        self.assertNotIn("launch_game", writer.reaches())
+        with self.assertRaises(ContractError):
+            writer.launch_game("g1")
+
+    def test_an_extension_that_asked_to_launch_can(self) -> None:
+        launcher = ExtensionGames("scheduler", ("launch:invoke",), None)
+
+        self.assertIn("launch_game", launcher.reaches())
+
+    def test_launching_alone_grants_nothing_else(self) -> None:
+        """The three are separate on purpose: a scheduler that can start a table should
+        not thereby be able to rewrite one."""
+        launcher = ExtensionGames("scheduler", ("launch:invoke",), None)
+
+        self.assertEqual(launcher.reaches(), ("launch_game",))
+
     def test_the_named_methods_still_win(self) -> None:
         """`kinds` is wrapped for a reason and is not one of the offered names; the
         lookup must not shadow it."""

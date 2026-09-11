@@ -16,9 +16,9 @@ named for its route; an extension author is reading a list of things they can do
 
 from __future__ import annotations
 
-from common.extensions.games import GAMES_READ, GAMES_WRITE, offer
+from common.extensions.games import offer
 
-from . import games, models
+from . import games, models, scopes
 
 
 def _details(game_id: str, **fields):
@@ -45,9 +45,20 @@ def _default_table(game_id: str, table_id: str):
     return games.put_default_table(game_id, models.TableDefault(table_id=table_id))
 
 
-# Reading is one scope and writing another, and a few of these are neither obvious:
-# launching a game is a write because it changes what the play record says, and taking
-# an entry's details from a catalog is a write for the same reason.
+def _launch(game_id: str, table: str = ""):
+    """Start a game. `table` picks one of its tables; left out, the default one."""
+    return games.launch_game(
+        game_id, models.LaunchRequest(file=table) if table else None)
+
+
+# Reading is one scope and writing another. Taking an entry's details from a catalog is
+# a write, because it changes the record.
+#
+# Launching is neither, and has its own. It takes over the cabinet rather than editing
+# something, and the scope vocabulary already said so before extensions existed: reading
+# what is happening is not the same as causing it to happen, and stopping a table
+# somebody may be mid-game on is a third thing again. An extension that wants to start a
+# game asks for that by name, and whoever installs it reads it by name.
 READS = {
     "list_games": games.list_games,
     "get_game": games.get_game,
@@ -57,6 +68,10 @@ READS = {
     "media_detail": games.get_game_media_detail,
     "vps_state": games.get_vps_state,
     "vps_details": games.get_vps_details,
+}
+
+LAUNCHES = {
+    "launch_game": _launch,
 }
 
 WRITES = {
@@ -77,6 +92,8 @@ WRITES = {
 def offer_all() -> None:
     """Hand the whole table to the extension host. Once, before anything loads."""
     for name, run in READS.items():
-        offer(name, GAMES_READ, run)
+        offer(name, scopes.GAMES_READ, run)
     for name, run in WRITES.items():
-        offer(name, GAMES_WRITE, run)
+        offer(name, scopes.GAMES_WRITE, run)
+    for name, run in LAUNCHES.items():
+        offer(name, scopes.LAUNCH_INVOKE, run)
