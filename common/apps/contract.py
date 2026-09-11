@@ -75,6 +75,10 @@ class Claim:
     suffixes: tuple[str, ...] = ()
     # Whether this app can play an entry that has no file at all.
     accepts_keys: bool = False
+    # What travels with one of its tables, sharing the table's stem: a backglass, a
+    # patched script, a point of view. Declared by the app because it is the app that
+    # knows - a generic list here would be one program's habits taught to everything.
+    companions: tuple[str, ...] = ()
 
     def claims(self, filename: str) -> bool:
         lowered = str(filename or "").lower()

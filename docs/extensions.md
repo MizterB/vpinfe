@@ -80,6 +80,7 @@ application, and that is the guarantee the model rests on.
 | `ctx.jobs` | `submit(kind, work)` — slow work, one at a time per kind, answerable on `/api/v1/jobs` |
 | `ctx.games` | The library. `kinds`, `folder`, `folder_name_for`, `existing`, `create`, `add_table`, `put_media`, plus every operation core offers by name — `reaches()` lists them. Each needs the core scope its manifest declared |
 | `ctx.apps` | `provide(...)` — add a way to play a table. `suffixes`, `plays`, `names` say what this build can play. Providing needs `apps:provide` |
+| `ctx.games.launch_game(...)` | Start a game on this play host. Needs `launch:invoke`, which `games:write` does not grant |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
 | `ctx.entries` | `contribute(key, fetch)` — add something to every entry a theme is handed |
 | `ctx.ui` | `action(...)` — offer a verb for the Console to draw. Needs `ui:mount` |
@@ -101,6 +102,13 @@ found = ctx.games.list_games(q="taxi", limit=10, offset=0)
 ctx.games.rate_table(game_id, table_id, 8)
 ctx.games.reaches()      # what this extension may actually call
 ```
+
+Launching is gated apart from the rest. It takes over the cabinet rather than editing a
+record, and the scope vocabulary already said so before extensions existed: reading what
+is happening is not the same as causing it to happen, and stopping a table somebody may be
+mid-game on is a third permission again. So `games:write` does not grant it — an extension
+that starts a game asks for `launch:invoke` by name, and whoever installs it reads it by
+name.
 
 An extension in this process cannot use the API over HTTP — a synchronous call into the
 server it is running inside deadlocks — and may not import the library, so this is the

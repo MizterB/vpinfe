@@ -225,4 +225,5 @@ class SummaryShapeTests(WizardCase):
         at = next(i for i, one in enumerate(found["summary"]) if len(one) == 1)
 
         after = [one[0] for one in found["summary"][at + 1:]]
-        self.assertEqual(after, ["Games", "Game files", "Artwork files"])
+        self.assertEqual(after, ["Games", "Game files", "Artwork files",
+                                 "Backglasses and settings"])

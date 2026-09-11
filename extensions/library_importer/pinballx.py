@@ -289,8 +289,14 @@ def _game_from(element, tables: tuple[dict[str, str], dict[str, str]]) -> Source
                       extras=extras, **values)
 
 
-def _table_index(tables_dir: Path) -> tuple[dict[str, str], dict[str, str]]:
-    """Everything in the tables folder, by stem: exact, and case-folded.
+def _table_index(tables_dir: Path, plays=_plays_vpx) -> tuple[dict[str, str], dict[str, str]]:
+    """The playable files in the tables folder, by stem: exact, and case-folded.
+
+    **Playable, not everything.** A table sits beside its companions and they share its
+    stem - `Taxi.vpx`, `Taxi.directb2s`, `Taxi.vbs` - so an index of every file has
+    several answers for one name and returns whichever the directory listed first. A
+    real import recorded a game's script as its table that way, and the game then had no
+    table at all.
 
     Listed once for the whole database rather than once per game. A real library put 654
     games against a folder of some three thousand entries, and asking the folder each
@@ -307,7 +313,9 @@ def _table_index(tables_dir: Path) -> tuple[dict[str, str], dict[str, str]]:
             for entry in entries:
                 if not entry.is_file():
                     continue
-                stem = os.path.splitext(entry.name)[0]
+                stem, suffix = os.path.splitext(entry.name)
+                if not plays(suffix):
+                    continue
                 exact.setdefault(stem, entry.path)
                 folded.setdefault(stem.lower(), entry.path)
     except OSError:
@@ -363,8 +371,8 @@ def _database_text(path: Path) -> tuple[str | None, list[str]]:
             "came across wrong"]
 
 
-def read_database(path: Path | str,
-                  tables_dir: str = "") -> tuple[list[SourceGame], list[str]]:
+def read_database(path: Path | str, tables_dir: str = "",
+                  plays=_plays_vpx) -> tuple[list[SourceGame], list[str]]:
     """Every game in one database file."""
     path = Path(path)
     text, notes = _database_text(path)
@@ -375,7 +383,7 @@ def read_database(path: Path | str,
     except ElementTree.ParseError as exc:
         return [], [*notes, f"{path.name} could not be read: {exc}"]
 
-    tables = _table_index(Path(tables_dir)) if tables_dir else ({}, {})
+    tables = _table_index(Path(tables_dir), plays) if tables_dir else ({}, {})
     found, skipped = [], 0
     for element in root.iter("game"):
         game = _game_from(element, tables)
@@ -488,7 +496,7 @@ def read(root: Path | str, plays=_plays_vpx,
             mapped.add(found.recorded_prefix)
             notes.append(f"Reading {found.recorded_prefix} as {found.local_prefix} "
                          "- the paths recorded here are the old machine's")
-        games, said = read_database(database, declared_tables)
+        games, said = read_database(database, declared_tables, plays)
         notes.extend(said)
         games = read_media(root / MEDIA_DIR / name, games)
         systems.append(SourceSystem(name=name, games=tuple(games),

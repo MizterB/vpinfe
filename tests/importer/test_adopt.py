@@ -218,3 +218,62 @@ class FolderNameTests(unittest.TestCase):
 
         with self.assertRaises(ContractError):
             ExtensionGames("silent", (), None).folder_name_for("Anything")
+
+
+class CompanionTests(unittest.TestCase):
+    """A table's backglass and settings come with it.
+
+    Measured on a real library: 696 of 702 tables had a `.directb2s` beside them and 704
+    had an `.ini`. Bringing the `.vpx` alone left every one of those behind, which is a
+    game with no backglass - the single largest thing the import was losing.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        self.source = self.root / "Tables"
+        self.source.mkdir()
+
+    def _table(self, stem: str, *companions: str) -> Path:
+        table = self.source / f"{stem}.vpx"
+        table.write_bytes(b"table")
+        for one in companions:
+            (self.source / one).write_bytes(b"beside it")
+        return table
+
+    def test_what_travels_with_a_table(self) -> None:
+        from common.games.game_service import companions_beside
+
+        table = self._table("Taxi (Williams 1988)",
+                            "Taxi (Williams 1988).directb2s",
+                            "Taxi (Williams 1988).ini",
+                            "Taxi (Williams 1988).vbs",
+                            "Taxi (Williams 1988).pov")
+
+        found = {one.name for one in companions_beside(table)}
+
+        self.assertEqual(len(found), 4)
+        self.assertIn("Taxi (Williams 1988).directb2s", found)
+
+    def test_a_neighbour_is_not_a_companion(self) -> None:
+        """Matched on the exact stem, or `Taxi.vpx` collects `Taxi 2`'s backglass."""
+        from common.games.game_service import companions_beside
+
+        table = self._table("Taxi", "Taxi.directb2s")
+        (self.source / "Taxi 2.directb2s").write_bytes(b"another game")
+
+        found = {one.name for one in companions_beside(table)}
+
+        self.assertEqual(found, {"Taxi.directb2s"})
+
+    def test_something_that_is_not_a_companion_kind_stays(self) -> None:
+        """The list is the one the export bundle ships, because these are the same
+        question asked in two directions."""
+        from common.games.game_service import companions_beside
+
+        table = self._table("Taxi", "Taxi.directb2s", "Taxi.png", "Taxi.txt")
+
+        found = {one.name for one in companions_beside(table)}
+
+        self.assertEqual(found, {"Taxi.directb2s"})

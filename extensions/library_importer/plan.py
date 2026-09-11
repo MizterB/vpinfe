@@ -78,6 +78,7 @@ class Match:
     # dict keyed on them silently counts one.
     tables: int = 0
     media: int = 0
+    companions: int = 0
 
     @property
     def existing(self) -> bool:
@@ -109,6 +110,7 @@ COUNTS = (
     ("games", "Games"),
     ("tables", "Game files"),
     ("media", "Artwork files"),
+    ("companions", "Backglasses and settings"),
 )
 
 
@@ -126,17 +128,20 @@ def expected(plan: Plan) -> dict:
     wanted = _wanted(plan)
     has = {source.key: bool(source.active) for source in plan.sources}
 
-    folders, tables, media = set(), 0, 0
+    folders, tables, media, companions = set(), 0, 0, 0
     for one in wanted:
         first = one.folder.lower() not in folders
         folders.add(one.folder.lower())
         if has.get("tables"):
             tables += one.tables
+            # They ride with the table, so they arrive only where it does.
+            companions += one.companions
         # Artwork rides with the game, and the game is made once.
         if has.get("media") and first:
             media += one.media
 
-    return {"games": len(folders), "tables": tables, "media": media, "roms": 0}
+    return {"games": len(folders), "tables": tables, "media": media,
+            "companions": companions, "roms": 0}
 
 
 def _wanted(plan: Plan) -> list[Match]:
@@ -194,7 +199,7 @@ def derive_sources(library, chosen: dict | None = None) -> list[Source]:
 def match_existing(library, existing: list[dict],
                    systems: list[str] | None = None,
                    folder_name_for=None, source_id: str = "",
-                   kinds: tuple[str, ...] = ()) -> list[Match]:
+                   kinds: tuple[str, ...] = (), companions_of=None) -> list[Match]:
     """Which of the source's games the library already holds.
 
     By the folder this import would create first, because that is what a previous run of
@@ -219,7 +224,9 @@ def match_existing(library, existing: list[dict],
                            game_id=str(held.get("game_id") or "") if held else "",
                            how=how,
                            tables=1 if game.table_file else 0,
-                           media=len(mapping.media_for(source_id, game, kinds))))
+                           media=len(mapping.media_for(source_id, game, kinds)),
+                           companions=(len(companions_of(game.table_file))
+                                       if companions_of and game.table_file else 0)))
     return found
 
 
@@ -238,9 +245,10 @@ def _games(library, systems: list[str] | None):
 def build(library, existing: list[dict], chosen: dict | None = None,
           on_existing: str = DEFAULT_ON_EXISTING,
           systems: list[str] | None = None, folder_name_for=None,
-          source_id: str = "", kinds: tuple[str, ...] = ()) -> Plan:
+          source_id: str = "", kinds: tuple[str, ...] = (),
+          companions_of=None) -> Plan:
     return Plan(sources=derive_sources(library, chosen),
                 matches=match_existing(library, existing, systems, folder_name_for,
-                                       source_id, kinds),
+                                       source_id, kinds, companions_of),
                 on_existing=on_existing if on_existing in dict(ON_EXISTING)
                 else DEFAULT_ON_EXISTING)

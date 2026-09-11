@@ -183,16 +183,30 @@ class ExtensionGames:
             raise LookupError(f"Created {folder} but this install does not read it")
         return game_identity.ensure_id(made)
 
-    def add_table(self, game_id: str, path) -> str:
-        """Copy a game file into an entry and answer with the table's id."""
+    def add_table(self, game_id: str, path) -> dict:
+        """Copy a game file into an entry, with whatever belongs to it.
+
+        Answers with the table's id and the companions that came - a caller counting
+        what an import produced needs to know what actually landed, not what was beside
+        the file when it started.
+        """
         self._needs(GAMES_WRITE)
         from common.games import game_service
         from common.games.ids import new_id
 
         source = self._source(path)
         table_id = new_id()
-        game_service.add_table_file(Path(self.folder(game_id)), source, table_id)
-        return table_id
+        found = game_service.add_table_file(Path(self.folder(game_id)), source, table_id)
+        return {"table_id": table_id, "companions": tuple(found["companions"])}
+
+    def companions_of(self, path) -> tuple[str, ...]:
+        """What would come with this table if it were added. For counting beforehand,
+        so a plan and the run that follows it agree."""
+        self._needs(GAMES_READ)
+        from common.games import game_service
+
+        return tuple(one.name for one in
+                     game_service.companions_beside(self._source(path)))
 
     def put_media(self, game_id: str, kind: str, path, table_stem: str = "") -> str:
         """Put a file in one of an entry's media slots. Answers with what it landed as."""

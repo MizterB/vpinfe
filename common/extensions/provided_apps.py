@@ -91,6 +91,9 @@ def build(name: str, described: dict):
     label = str(described.get("name") or "").strip() or app_id
 
     suffixes = tuple(_suffix(one) for one in described.get("suffixes") or ())
+    # What sits beside one of its tables and belongs to it. Its own list, because the
+    # next format's companions are not Visual Pinball's.
+    companions = tuple(_suffix(one) for one in described.get("companions") or ())
     accepts_keys = bool(described.get("accepts_keys"))
     if not suffixes and not accepts_keys:
         raise ValueError(f"{app_id} plays nothing: give it suffixes or accepts_keys")
@@ -106,7 +109,8 @@ def build(name: str, described: dict):
     return App(
         id=app_id,
         name=label,
-        claim=Claim(suffixes=suffixes, accepts_keys=accepts_keys),
+        claim=Claim(suffixes=suffixes, accepts_keys=accepts_keys,
+                    companions=companions),
         fields=fields,
         kinds=Kinds(frozenset(kinds)) if kinds else Kinds(),
         launch=_ExtensionLaunch(name, described.get("command")),

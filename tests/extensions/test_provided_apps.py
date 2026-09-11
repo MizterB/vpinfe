@@ -11,6 +11,7 @@ makes the import boundary checkable - so nothing here asks it to.
 
 from __future__ import annotations
 
+import pathlib
 import unittest
 
 from common import apps
@@ -75,6 +76,16 @@ class ProvideTests(unittest.TestCase):
         self.apps.provide(**FUTURE)
 
         self.assertIn("bin_path", [one.key for one in apps.get("fp").fields])
+
+    def test_an_app_declares_what_travels_with_its_tables(self) -> None:
+        """Its own list. A Future Pinball table's companions are not a VPX table's, and
+        a generic list would be one program's habits taught to everything."""
+        from common.games.game_service import companions_beside
+
+        self.apps.provide(**FUTURE, companions=("fpl", ".bam"))
+
+        self.assertEqual(apps.get("fp").claim.companions, (".fpl", ".bam"))
+        self.assertEqual(companions_beside(pathlib.Path("/nowhere/x.fpt")), [])
 
     def test_providing_needs_the_scope(self) -> None:
         with self.assertRaises(ContractError):

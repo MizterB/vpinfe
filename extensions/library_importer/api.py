@@ -100,9 +100,16 @@ def build(ctx) -> None:
         wanted += [one for one in extra if one]
         ctx.files.set_roots(wanted)
 
-    def reading_from(made) -> list[str]:
-        """The folders a plan will read, beyond the source root itself."""
-        return [source.path for source in made.sources if source.active]
+    def declare_roots(library, values) -> None:
+        """Tell core where this import will read, before anything tries to read there.
+
+        Before the plan, not after it: the plan counts what travels with each table,
+        which means opening the tables folder, which core refuses until it has been told
+        about it. The source map is derived from the library alone, so it is available
+        first and does not need the plan that needs it.
+        """
+        found = plan_for.derive_sources(library, _chosen(values))
+        follow_the_setting(*[source.path for source in found if source.active])
 
     follow_the_setting()
 
@@ -198,12 +205,13 @@ def build(ctx) -> None:
             return _again(f"That does not look like {reader.SOURCE_NAME}.", values)
 
         library = reader.read(path, ctx.apps.plays, ctx.apps.names())
+        declare_roots(library, values)
         made = plan_for.build(library, ctx.games.existing(), _chosen(values),
                               str(values.get("on_existing")
                                   or plan_for.DEFAULT_ON_EXISTING),
                               _systems(values), ctx.games.folder_name_for,
-                              library.source_id, ctx.games.kinds())
-        follow_the_setting(*reading_from(made))
+                              library.source_id, ctx.games.kinds(),
+                              ctx.games.companions_of)
 
         for step in _after(leaving):
             if step == "sources":
@@ -322,13 +330,13 @@ def build(ctx) -> None:
 
         def work(job):
             library = reader.read(path, ctx.apps.plays, ctx.apps.names())
+            declare_roots(library, values)
             job.log(f"Read {len(library.games)} games from {library.root}")
             made = plan_for.build(library, ctx.games.existing(), _chosen(values),
                                   str(values.get("on_existing")
                                       or plan_for.DEFAULT_ON_EXISTING), systems,
                                   ctx.games.folder_name_for, library.source_id,
-                                  ctx.games.kinds())
-            follow_the_setting(*reading_from(made))
+                                  ctx.games.kinds(), ctx.games.companions_of)
             want = plan_for.expected(made)
             report = adopt.run(ctx, library, systems, location, made)
             # Counted again from the plan the run was handed, so the report says what

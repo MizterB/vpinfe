@@ -285,3 +285,44 @@ class ReadTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TableFileTests(unittest.TestCase):
+    """Which file in the tables folder is the table.
+
+    A table sits beside its companions and they share its stem, so a folder listing has
+    several answers for one name. Picking any of them means a game whose recorded table
+    is its own script - which happened, and the game then had no table at all.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tables = Path(self._tmp.name)
+        for suffix in (".vpx", ".directb2s", ".ini", ".vbs", ".txt"):
+            (self.tables / f"Taxi (Williams 1988){suffix}").write_bytes(b"x")
+
+    def _pick(self, plays=None):
+        from vpinfe_ext_library_importer import pinballx
+
+        index = (pinballx._table_index(self.tables, plays) if plays
+                 else pinballx._table_index(self.tables))
+        return pinballx._table_file(index, "Taxi (Williams 1988)")
+
+    def test_the_table_is_the_one_something_can_play(self) -> None:
+        self.assertTrue(self._pick().endswith(".vpx"))
+
+    def test_it_is_not_whichever_the_directory_listed_first(self) -> None:
+        """Asserted over every ordering the filesystem could hand back, because the bug
+        this replaces only showed up on one of them."""
+        for _ in range(12):
+            self.assertTrue(self._pick().endswith(".vpx"))
+
+    def test_a_build_that_plays_another_format_picks_that(self) -> None:
+        """The rule is what the build plays, so an extension providing an app changes
+        which file is the table - not a suffix written down here."""
+        (self.tables / "Taxi (Williams 1988).fpt").write_bytes(b"x")
+
+        found = self._pick(plays=lambda s: s.lower() == ".fpt")
+
+        self.assertTrue(found.endswith(".fpt"))

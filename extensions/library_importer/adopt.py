@@ -24,7 +24,7 @@ def _one(ctx, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     """
     name = name or mapping.folder_name(game)
     row = {"key": game.key, "name": name, "game_id": "", "table": False,
-           "media": 0, "skipped_media": [], "error": ""}
+           "media": 0, "companions": 0, "skipped_media": [], "error": ""}
     try:
         game_id = ctx.games.create(name, location)
     except Exception as exc:
@@ -43,8 +43,9 @@ def _one(ctx, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     stem = ""
     if game.table_file:
         try:
-            ctx.games.add_table(game_id, game.table_file)
+            landed = ctx.games.add_table(game_id, game.table_file)
             row["table"] = True
+            row["companions"] = len(landed["companions"])
         except Exception as exc:
             row["error"] = f"the game file did not come across: {exc}"
 
@@ -66,12 +67,13 @@ def _another_build(ctx, game: SourceGame, name: str, game_id: str) -> dict:
     would replace it with a picture of the same table.
     """
     row = {"key": game.key, "name": name, "game_id": game_id, "table": False,
-           "media": 0, "skipped_media": [], "error": "", "joined": True}
+           "media": 0, "companions": 0, "skipped_media": [], "error": "", "joined": True}
     if not game.table_file:
         return row
     try:
-        ctx.games.add_table(game_id, game.table_file)
+        landed = ctx.games.add_table(game_id, game.table_file)
         row["table"] = True
+        row["companions"] = len(landed["companions"])
     except Exception as exc:
         row["error"] = f"the game file did not come across: {exc}"
     return row
@@ -124,6 +126,7 @@ def run(ctx, library: SourceLibrary, systems: list[str], location: str = "",
         "games": len({row["name"].lower() for row in made}),
         "tables": sum(1 for row in made if row["table"]),
         "media": sum(row["media"] for row in made),
+        "companions": sum(row["companions"] for row in made),
         "failed": len(rows) - len(made),
         # Named rather than counted: after a partial run somebody wants to know which
         # ones were left, not how many.

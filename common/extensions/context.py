@@ -122,9 +122,10 @@ class ExtensionApps:
     def provide(self, **described) -> str:
         """Add an app, described in plain data. Answers with the id it took.
 
-        `id`, `name`, `suffixes`, and optionally `accepts_keys`, `fields`, `kinds` and
-        `command`. `command(entry, settings)` answers with a list of arguments, or with
-        nothing to run the launcher's binary and arguments the way the generic app does.
+        `id`, `name`, `suffixes`, and optionally `accepts_keys`, `companions`,
+        `fields`, `kinds` and `command`. `command(entry, settings)` answers with a list
+        of arguments, or with nothing to run the launcher's binary and arguments the way
+        the generic app does.
         """
         from . import provided_apps
 

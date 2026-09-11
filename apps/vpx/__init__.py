@@ -12,6 +12,11 @@ from .capability import VPXCapability
 from .config import VPXConfig
 from .launch import VPXLaunch
 
+# What sits beside a table and belongs to it: its settings, a patched script, its
+# backglass, a point of view, a saved camera. Here rather than in a generic module
+# because it is this program's list and the next app's will differ.
+COMPANION_SUFFIXES: tuple[str, ...] = (".ini", ".vbs", ".directb2s", ".pov", ".scv")
+
 # What running Visual Pinball takes, in the order a person meets it: what to run, then
 # what to run it with, then the two overrides. The names have shed the `vpx_` prefix -
 # a field on a Visual Pinball launcher does not need to say which app it belongs to.
@@ -41,7 +46,9 @@ FIELDS: tuple[Field, ...] = (
 VPX = App(
     id="vpx",
     name="Visual Pinball X",
-    claim=Claim(suffixes=(".vpx",)),
+    claim=Claim(suffixes=(".vpx",),
+                # Stem-matched files that belong to one of its tables.
+                companions=COMPANION_SUFFIXES),
     fields=FIELDS,
     kinds=Kinds(),
     launch=VPXLaunch(),

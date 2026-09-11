@@ -37,10 +37,6 @@ from common.games.tables import (
 # `VPX_ASSET_KINDS` into that app's description rather than being extended in place.
 BUNDLE_DIRS = ("pinmame", "music", "serum", "vni", "altsound", "pupvideos")
 
-# Stem-matched companions of the chosen table, per the engine's own lookup.
-COMPANION_EXTENSIONS = (".ini", ".vbs", ".directb2s", ".pov", ".scv")
-
-
 
 def choose_table(game_dir: Path, table: str | None = None) -> str | None:
     """The bundle's table: the caller's pick, else the game's default."""
