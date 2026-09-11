@@ -201,6 +201,18 @@ class ReadTests(unittest.TestCase):
         self.assertLessEqual(len(seen), len(set(seen)) or 1,
                              f"listed a folder more than once: {seen}")
 
+    def test_what_a_filesystem_leaves_lying_about_is_not_a_system(self) -> None:
+        """A share served from a NAS carries @eaDir beside the real folders, and saying
+        we cannot play it reads as a finding rather than as noise."""
+        litter = FIXTURE / "Databases" / "@eaDir"
+        litter.mkdir(exist_ok=True)
+        self.addCleanup(litter.rmdir)
+
+        library = self.pinballx.read(FIXTURE)
+
+        self.assertNotIn("@eaDir", [one.name for one in library.systems])
+        self.assertFalse([one for one in library.notes if "@eaDir" in one])
+
     def test_a_system_this_build_cannot_play_is_left_behind(self) -> None:
         """Chris, 2026-09-10: only Visual Pinball, for now.
 

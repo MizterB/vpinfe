@@ -277,3 +277,29 @@ class CompanionTests(unittest.TestCase):
         found = {one.name for one in companions_beside(table)}
 
         self.assertEqual(found, {"Taxi.directb2s"})
+
+
+class RowShapeTests(unittest.TestCase):
+    """Every row the run produces has the same keys.
+
+    The report sums across all of them, so one row built somewhere else and missing a
+    key fails the whole import at the end - after the copying, which is the worst moment
+    to find out. It happened: a second build of a machine builds its own row, and only
+    the first path had been taught the new counts.
+    """
+
+    def test_both_kinds_of_row_carry_the_same_counts(self) -> None:
+        import inspect
+
+        from extensions.library_importer import adopt
+
+        source = inspect.getsource(adopt)
+        rows = [one for one in source.splitlines() if '"key": game.key, "name": name' in one]
+        self.assertEqual(len(rows), 2, "expected one row shape per path")
+
+        counted = ("media", "companions", "roms", "altdata")
+        for name in ("_one", "_another_build"):
+            body = inspect.getsource(getattr(adopt, name))
+            for key in counted:
+                with self.subTest(function=name, key=key):
+                    self.assertIn(f'"{key}"', body)

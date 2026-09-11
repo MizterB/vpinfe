@@ -45,14 +45,14 @@ class SourceTests(unittest.TestCase):
         self.assertTrue(found["tables"].derived)
         self.assertTrue(found["media"].derived)
 
-    def test_a_kind_nothing_can_place_is_not_offered(self) -> None:
-        """Derived where it can be, but kept out of what is asked for until there is
-        somewhere settled to put it. A field that carries nothing is a promise the code
-        cannot keep."""
+    def test_a_kind_with_nowhere_to_go_is_not_offered(self) -> None:
+        """A field that carries nothing is a promise the code cannot keep. Registry
+        settings have no destination on this platform at all - VPinMAME's per-ROM values
+        live in memory and nothing persists them - so they are read and not offered."""
         found = {one.key for one in plan_for.derive_sources(_library())}
 
         self.assertNotIn("registry", found)
-        self.assertNotIn("roms", found)
+        self.assertIn("roms", found)
 
     def test_what_the_user_said_wins(self) -> None:
         found = {one.key: one for one in
@@ -172,13 +172,15 @@ class ExpectedTests(unittest.TestCase):
 
         self.assertEqual(counts["media"], 0)
 
-    def test_a_kind_the_run_cannot_carry_is_not_offered(self) -> None:
-        """A field that brings nothing is a promise the code cannot keep, which is worse
-        than not asking. ROMs need somewhere to put them first."""
+    def test_a_kind_with_nowhere_to_go_is_not_offered(self) -> None:
+        """Registry settings are read and not offered: nothing on this platform reads
+        per-ROM VPinMAME values back, so anything written would be consumed by nothing."""
         offered = {key for key, *_rest in plan_for.SOURCES}
 
-        self.assertNotIn("roms", offered)
-        self.assertIn("roms", plan_for.NOT_YET)
+        self.assertNotIn("registry", offered)
+        self.assertIn("registry", plan_for.NOT_YET)
+        # And what does have somewhere to go is offered.
+        self.assertIn("roms", offered)
 
     def test_games_already_here_are_not_counted_unless_they_are_being_filled(self) -> None:
         library = _library(_game("Taxi", display_name="Taxi (Williams 1988)",

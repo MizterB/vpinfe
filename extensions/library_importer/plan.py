@@ -19,27 +19,28 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import mapping
+from . import gamestats, mapping
 
 # The kinds of thing an import can bring, in the order they are asked about. `key` is
 # what the wizard calls the field; `label` is what a person reads.
 SOURCES = (
     ("tables", "Game files", "The .vpx or .fpt files themselves."),
     ("media", "Artwork", "Playfield, backglass, wheel and the rest."),
+    ("roms", "ROMs", "The folder of ROM sets the old machine played from."),
+    ("altdata", "Sound and colour",
+     "AltSound banks and colour sets, in folders named for a ROM."),
+    ("history", "Play history",
+     "How often each game was played, and when it was last played."),
 )
 
-# Derived, and deliberately not offered yet: for both of these the reading works and
-# there is nowhere settled to put what it reads. Offering a field that carries nothing
-# would be a promise the code cannot keep, which is worse than not asking, and the
-# derivations stay because they are right and are what the options will use.
+# Derived and deliberately not offered. The reading works; there is nowhere settled to
+# put what it reads, and a field that carries nothing is a promise the code cannot keep.
 #
-# ROMs need somewhere to place an asset, and the destinations live inside the upload
-# planner rather than in anything an extension is handed. Registry settings need a
-# decision that is not ours: VPinMAME's own program options folder is the Windows
-# answer, and on standalone PinMAME is a plugin whose settings belong in the layered
-# app/folder/table ini the launcher already reads. A per-game file of our own invention
-# would be read by nothing.
-NOT_YET = ("roms", "registry")
+# Registry settings have no destination at all on this platform, which is upstream's
+# decision rather than an omission: VPinMAME's per-ROM values live in memory, set by a
+# table's own script and falling back to a table of Windows defaults. Nothing persists
+# them, so anything written would be read by nothing.
+NOT_YET = ("registry",)
 
 # What a second run does about a game it has already made. The default leaves it alone:
 # an import that quietly rewrites what somebody has since curated is the worse mistake.
@@ -182,9 +183,15 @@ def derive_sources(library, chosen: dict | None = None) -> list[Source]:
             break
     # Nothing derives a registry export: a share does not carry one unless somebody
     # exported it on purpose, so this stays empty until it is pointed at.
+    # VPinMAME keeps its own folders beside the emulator, not in it - a real machine
+    # recorded `rompath` as `<install>\VPinMame\roms`, and the sound and colour banks
+    # sit beside that. So the emulator's own directory is where the search starts rather
+    # than where it ends, and an empty answer leaves the field for somebody to fill.
+    working = next((one.working_path for one in library.systems if one.working_path), "")
     guessed = {"tables": tables, "media": media,
-               "roms": next((one.working_path for one in library.systems
-                             if one.working_path), ""),
+               "roms": _under(working, ("VPinMAME", "roms"), ("roms",)),
+               "altdata": _under(working, ("VPinMAME",), ()),
+               "history": _file_at(library.root, gamestats.STATS_FILE),
                "registry": ""}
 
     found = []
@@ -194,6 +201,37 @@ def derive_sources(library, chosen: dict | None = None) -> list[Source]:
         found.append(Source(key=key, label=label, help=help_text, path=path,
                             derived=said is None and bool(path)))
     return found
+
+
+def _file_at(root: str, name: str) -> str:
+    """A file beside the frontend, where it is the source for a whole kind rather than
+    a folder of them."""
+    if not root:
+        return ""
+    wanted = Path(root) / name
+    try:
+        return str(wanted) if wanted.is_file() else ""
+    except OSError:
+        return ""
+
+
+def _under(root: str, *candidates: tuple[str, ...]) -> str:
+    """The first of these that is actually there, or nothing.
+
+    Nothing rather than a guess: an empty field reads as "not being imported", which is
+    a state somebody can see and correct. A path that does not exist reads as a promise.
+    """
+    if not root:
+        return ""
+    base = Path(root)
+    for parts in candidates:
+        wanted = base.joinpath(*parts) if parts else base
+        try:
+            if wanted.is_dir():
+                return str(wanted)
+        except OSError:
+            continue
+    return ""
 
 
 def match_existing(library, existing: list[dict],

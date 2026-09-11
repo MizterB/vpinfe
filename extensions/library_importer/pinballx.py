@@ -447,6 +447,25 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
             for game in games]
 
 
+# What a filesystem leaves lying about, which is not a system somebody set up. A share
+# served from a NAS carries these beside real folders, and reporting one as a frontend
+# we cannot play reads as a finding rather than as noise.
+HOUSEKEEPING = ("@eadir", ".ds_store", "thumbs.db", "$recycle.bin", "system volume information")
+
+
+def _housekeeping(name: str) -> bool:
+    folded = name.strip().lower()
+    return folded.startswith(".") or folded in HOUSEKEEPING
+
+
+def _here(recorded: str, root: Path) -> str:
+    """A path the source wrote down, as it is reachable from this machine."""
+    if not recorded:
+        return ""
+    found = drivemap.resolve(recorded, root)
+    return found.path or ""
+
+
 def read(root: Path | str, plays=_plays_vpx,
          known_apps: tuple[str, ...] = ()) -> SourceLibrary:
     """Everything under one PinballX or PinballY root.
@@ -462,7 +481,8 @@ def read(root: Path | str, plays=_plays_vpx,
     databases = root / DATABASES_DIR
     try:
         undeclared = sorted(item.name for item in databases.iterdir()
-                            if item.is_dir() and item.name not in by_name)
+                            if item.is_dir() and item.name not in by_name
+                            and not _housekeeping(item.name))
     except OSError:
         undeclared = []
     for name in undeclared:
@@ -507,7 +527,10 @@ def read(root: Path | str, plays=_plays_vpx,
                                     # on `P:\...` names a folder that cannot be read and
                                     # cost a whole run of 581 files.
                                     tables_dir=declared_tables or recorded,
-                                    working_path=entry["working_path"],
+                                    # Resolved like the tables are, and for the same
+                                    # reason: what is derived from it gets opened, and
+                                    # the old machine's drive letter opens nothing.
+                                    working_path=_here(entry["working_path"], root),
                                     enabled=entry["enabled"]))
 
     if skipped:
