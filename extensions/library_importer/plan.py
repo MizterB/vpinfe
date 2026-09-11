@@ -243,8 +243,13 @@ def match_existing(library, existing: list[dict],
     By the folder this import would create first, because that is what a previous run of
     this import made. Then by catalog id, which catches a game somebody has since renamed
     - a rename should not turn one game into two.
+
+    Folder names are compared with their quotes taken off. A real library held
+    `\'300\' (Gottlieb 1975)` while the source called it `"300" (Gottlieb 1975)`, and
+    the quote a filesystem cannot keep is the one thing separating them - matched
+    literally, one machine ends up with the game twice.
     """
-    by_folder = {str(one.get("folder_name") or "").lower(): one for one in existing}
+    by_folder = {_folded(one.get("folder_name")): one for one in existing}
     by_vps = {str(one.get("vps_id") or "").lower(): one
               for one in existing if one.get("vps_id")}
 
@@ -253,7 +258,8 @@ def match_existing(library, existing: list[dict],
         folder = mapping.folder_name(game)
         if folder_name_for:
             folder = folder_name_for(folder)
-        held = by_folder.get(folder.lower())
+        folded = _folded(folder)
+        held = by_folder.get(folded)
         how = "folder" if held else ""
         if held is None and game.vps_id:
             held = by_vps.get(game.vps_id.lower())
@@ -266,6 +272,18 @@ def match_existing(library, existing: list[dict],
                            companions=(len(companions_of(game.table_file))
                                        if companions_of and game.table_file else 0)))
     return found
+
+
+# Quotes and the characters a filesystem substitutes for them. Stopping here on purpose:
+# stripping punctuation generally would make `Taxi` and `Taxi 2` the same game, and a
+# library that merges two machines is worse than one that holds a duplicate.
+_QUOTES = str.maketrans("", "", "\"'‘’“”`")
+
+
+def _folded(name) -> str:
+    """A folder name as it is compared: cased down, quotes taken off, spaces collapsed."""
+    said = str(name or "").translate(_QUOTES).lower()
+    return " ".join(said.split())
 
 
 def _games(library, systems: list[str] | None):

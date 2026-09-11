@@ -162,6 +162,34 @@ class ExpectedTests(unittest.TestCase):
 
         self.assertEqual(counts["tables"], 2)
 
+    def test_a_quote_a_filesystem_cannot_keep_does_not_make_a_second_game(self) -> None:
+        """A real library held `'300' (Gottlieb 1975)` where the source called it
+        `"300" (Gottlieb 1975)`. The quote is the only difference, and a filesystem
+        substitutes one for the other - matched literally, the machine ends up with the
+        game twice."""
+        library = _library(_game('"300"', display_name='"300" (Gottlieb 1975)',
+                                 table_file="/src/tables/300.vpx"))
+        held = [{"game_id": "g1", "folder_name": "'300' (Gottlieb 1975)",
+                 "name": "300", "vps_id": ""}]
+
+        made = self._plan(library, held)
+
+        self.assertEqual(len(made.already), 1)
+        self.assertEqual(made.new, [])
+
+    def test_two_machines_whose_names_differ_stay_two(self) -> None:
+        """The line this stops at: stripping punctuation generally would make Taxi and
+        Taxi 2 one game, and merging two machines is worse than holding a duplicate."""
+        library = _library(_game("Taxi", display_name="Taxi",
+                                 table_file="/src/tables/Taxi.vpx"))
+        held = [{"game_id": "g1", "folder_name": "Taxi 2", "name": "Taxi 2",
+                 "vps_id": ""}]
+
+        made = self._plan(library, held)
+
+        self.assertEqual(made.already, [])
+        self.assertEqual(len(made.new), 1)
+
     def test_a_source_nobody_set_contributes_nothing(self) -> None:
         """And says zero rather than being left out - an absent row reads as an
         oversight where a zero reads as a decision."""
