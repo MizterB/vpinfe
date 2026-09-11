@@ -144,6 +144,20 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
             for game in games]
 
 
+def _playable(said: str, plays) -> bool:
+    """Whether anything installed here plays what this emulator holds.
+
+    An emulator that records no extension is kept: saying nothing is not saying no, and
+    refusing it would drop a library over a blank column.
+    """
+    suffix = str(said or "").strip().lower()
+    if not suffix:
+        return True
+    if not suffix.startswith("."):
+        suffix = f".{suffix}"
+    return bool(plays(suffix)) if plays else suffix == ".vpx"
+
+
 def read(root: Path | str, plays=None) -> SourceLibrary:
     """Every emulator the database declares, and the games under each.
 
@@ -172,11 +186,18 @@ def read(root: Path | str, plays=None) -> SourceLibrary:
 
     try:
         emulators = list(db.execute(
-            "select EMUID, EmuName, DirGames, DirRoms, Visible from Emulators "
-            "order by EMUID"))
+            "select EMUID, EmuName, DirGames, DirRoms, Visible, GamesExt "
+            "from Emulators order by EMUID"))
+        skipped_systems = []
         for emu in emulators:
             name = _text(emu, "EmuName")
             if not name:
+                continue
+            # Popper records the extension per emulator, always - which is a better
+            # signal than either of the others gives, and the reason this filter is one
+            # line here and three branches there.
+            if not _playable(_text(emu, "GamesExt"), plays):
+                skipped_systems.append(name)
                 continue
             recorded = _text(emu, "DirGames")
             found = drivemap.resolve(recorded, root) if recorded else drivemap.Found()
@@ -208,6 +229,11 @@ def read(root: Path | str, plays=None) -> SourceLibrary:
                 working_path=drivemap.resolve(_text(emu, "DirRoms"), root).path
                 or _text(emu, "DirRoms"),
                 enabled=not _hidden(emu["Visible"])))
+        if skipped_systems:
+            # Named rather than dropped in silence, the same as the other reader:
+            # somebody who set Future Pinball up wants to know it was seen and left.
+            notes.append("Not brought in, because this build does not play them: "
+                         + ", ".join(sorted(skipped_systems)))
     except sqlite3.Error as exc:
         notes.append(f"{DATABASE} could not be read past this point: {exc}")
     finally:
