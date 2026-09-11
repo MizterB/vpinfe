@@ -13,7 +13,19 @@ rather than refused, and that is why the adapter is one place and not several.
 
 from __future__ import annotations
 
+import json
+import logging
+from datetime import UTC
 from typing import Any
+
+import requests
+
+logger = logging.getLogger("vpinfe.ext.vpinplay.sync")
+
+# Their endpoint takes the whole library in one request, so a slow one holds up a
+# shutdown. Ten seconds there, thirty when somebody asked for it and is watching.
+SHUTDOWN_TIMEOUT = 10
+ASKED_TIMEOUT = 30
 
 # Their bound, and one game outside it fails the whole request rather than that game.
 RATING_MIN, RATING_MAX = 0, 5
@@ -53,7 +65,7 @@ def payload_for(game: dict, table: dict | None) -> dict | None:
             "lastRun": _epoch(user.get("last_played")),
             "startCount": _number(user.get("play_count")),
             "runTime": _number(user.get("play_time_seconds")) // 60,
-            "score": user.get("score") if user.get("score") not in ("", None) else None,
+            "score": _score(user.get("score")),
         },
         "vpxFile": {
             "filename": _text(table.get("filename")),
@@ -110,6 +122,23 @@ def _epoch(value: Any) -> int | None:
         return None
 
 
+def _score(value: Any):
+    """A score is a reading off the hardware, which is a mapping of fields.
+
+    Anything else is not one. A string here has been seen - a machine that writes its
+    display rather than its values - and sending it describes nothing their models can
+    file, so it is left out rather than passed along.
+    """
+    return value if isinstance(value, dict) else None
+
+
+def now() -> str:
+    """When this was sent, as the service records it."""
+    from datetime import datetime
+
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def _text(value: Any) -> str:
     return str(value or "")
 
@@ -125,3 +154,56 @@ def _rating(value: Any) -> int:
     """Clamped rather than sent as it came: one game outside their bound fails the
     whole request, so a rating nobody meant is not worth losing a sync over."""
     return max(RATING_MIN, min(RATING_MAX, _number(value)))
+
+
+def send(endpoint: str, payload: dict, timeout_seconds: int) -> dict:
+    """Post one library to the service and describe what came back.
+
+    The body is kept whether it parsed or not: a failure is usually explained in text
+    their models did not produce, and dropping it leaves somebody with a status code.
+    """
+    response = requests.post(endpoint, json=payload, timeout=timeout_seconds)
+    body = response.text
+    try:
+        parsed = response.json()
+        body = json.dumps(parsed, indent=2)
+    except Exception:
+        parsed = None
+    return {
+        "endpoint": endpoint,
+        "status_code": response.status_code,
+        "ok": response.ok,
+        "response_body": body,
+        "response_json": parsed,
+        "payload": payload,
+    }
+
+
+def endpoint_for(said: str) -> str:
+    """Their sync path, from whatever somebody put in the setting.
+
+    A person types a host, a host and port, the API root, or the whole path - all four
+    have been seen in a config file, and the one that is already complete must not have
+    the path added twice. A scheme is assumed rather than demanded because nobody types
+    one for a machine on their own network.
+    """
+    from urllib.parse import urlparse
+
+    raw = str(said or "").strip()
+    if not raw:
+        raise ValueError("VPinPlay needs a service address before it can sync.")
+    if "://" not in raw:
+        raw = f"http://{raw}"
+    if not urlparse(raw).netloc:
+        raise ValueError(f"{said!r} is not an address this can reach.")
+
+    base = raw.rstrip("/")
+    if base.endswith(SYNC_PATH):
+        return base
+    if base.endswith(API_ROOT):
+        return f"{base}/sync"
+    return f"{base}{SYNC_PATH}"
+
+
+API_ROOT = "/api/v1"
+SYNC_PATH = f"{API_ROOT}/sync"

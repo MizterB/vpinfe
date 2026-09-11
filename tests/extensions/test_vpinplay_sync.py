@@ -27,7 +27,10 @@ GAME = {
     "year": "1995",
     "type": "SS",
     "user": {"rating": 4, "last_played": 1670739887, "play_count": 33,
-             "play_time_seconds": 9191, "score": 1234},
+             "play_time_seconds": 9191,
+             # A reading off the hardware, which is a mapping of fields rather than one
+             # number - a machine reports several and which is "the" score is its own.
+             "score": {"player1": 1234, "grandChampion": 9999}},
     "overrides": {"alt_title": "AFM", "alt_vps_id": "other"},
 }
 TABLE = {
@@ -93,6 +96,16 @@ class PayloadTests(unittest.TestCase):
 
         self.assertEqual(found["info"]["vpsId"], "abcd1234")
         self.assertEqual(found["vpxFile"]["filename"], "")
+
+
+    def test_only_a_reading_off_the_hardware_counts_as_a_score(self) -> None:
+        """A machine that writes its display rather than its values gives a string, and
+        sending that describes nothing their models can file."""
+        said = {**GAME, "user": {**GAME["user"], "score": "not-a-reading"}}
+
+        self.assertIsNone(sync.payload_for(said, TABLE)["user"]["score"])
+        self.assertEqual(sync.payload_for(GAME, TABLE)["user"]["score"],
+                         {"player1": 1234, "grandChampion": 9999})
 
 
 class EnvelopeTests(unittest.TestCase):

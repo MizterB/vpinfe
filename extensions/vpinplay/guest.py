@@ -1,7 +1,18 @@
 """Playing as somebody else for one session.
 
-A guest profile is deliberately temporary: it is cleared on shutdown, so a cabinet
-never comes back up still submitting scores under a visitor's name.
+A guest profile is deliberately temporary: it is cleared on shutdown, so a cabinet never
+comes back up still submitting scores under a visitor's name.
+
+**This is VPinPlay's, and lives here for that reason** - Chris, 2026-09-11. A guest on a
+shared cabinet reads like a general idea, and the state machine below would work for one;
+what makes it VPinPlay's is what a guest is *for*. The identity is theirs - a user id,
+initials and a machine id are the three things their service files a score under - and
+the only thing the profile exists to do is submit under that identity instead of the
+cabinet's own.
+
+The play a guest does is deliberately kept apart from the game's own record. A visitor's
+half hour must not land in the play count of a library that is not theirs, so it is held
+here, per profile, and goes when they do.
 """
 
 from __future__ import annotations
@@ -17,7 +28,7 @@ PROFILE_VERSION = 1
 
 
 @dataclass(frozen=True)
-class AlternateVPinPlayProfile:
+class GuestProfile:
     profile_key: str
     user_id: str
     initials: str
@@ -27,7 +38,7 @@ class AlternateVPinPlayProfile:
 
 
 _LOCK = threading.Lock()
-_PROFILES: dict[str, AlternateVPinPlayProfile] = {}
+_PROFILES: dict[str, GuestProfile] = {}
 _ACTIVE_PROFILE_KEY: str | None = None
 _GAME_USER_STATE_BY_PROFILE: dict[str, dict[str, dict[str, Any]]] = {}
 
@@ -73,7 +84,7 @@ def _build_profile_key(user_id: str, machine_id: str) -> str:
     return f"{str(user_id or '').strip()}::{str(machine_id or '').strip()}"
 
 
-def _profile_to_dict(profile: AlternateVPinPlayProfile) -> dict[str, Any]:
+def _profile_to_dict(profile: GuestProfile) -> dict[str, Any]:
     game_states = _GAME_USER_STATE_BY_PROFILE.get(profile.profile_key, {})
     return {
         "profileKey": profile.profile_key,
@@ -94,7 +105,7 @@ def activate_alternate_profile(payload: dict[str, Any], source_name: str = "") -
     normalized = _normalize_payload(payload)
     activated_at = int(time.time())
     profile_key = _build_profile_key(normalized["userId"], normalized["machineId"])
-    profile = AlternateVPinPlayProfile(
+    profile = GuestProfile(
         profile_key=profile_key,
         user_id=normalized["userId"],
         initials=normalized["initials"],
@@ -152,7 +163,7 @@ def get_alternate_profile_state() -> dict[str, Any]:
         }
 
 
-def get_active_profile() -> AlternateVPinPlayProfile | None:
+def get_active_profile() -> GuestProfile | None:
     with _LOCK:
         return _PROFILES.get(_ACTIVE_PROFILE_KEY) if _ACTIVE_PROFILE_KEY else None
 
@@ -196,7 +207,8 @@ def record_game_start(game_key: str, played_at: int | None = None) -> dict[str, 
         return copy.deepcopy(state)
 
 
-def add_game_runtime(game_key: str, elapsed_seconds: float, profile_key: str | None = None) -> dict[str, Any]:
+def add_game_runtime(game_key: str, elapsed_seconds: float,
+                     profile_key: str | None = None) -> dict[str, Any]:
     """Add one session to a profile's play time, in seconds.
 
     RunTime is what the API is sent and it carries minutes, so it is derived from the
@@ -218,7 +230,8 @@ def add_game_runtime(game_key: str, elapsed_seconds: float, profile_key: str | N
         return copy.deepcopy(state)
 
 
-def set_game_score(game_key: str, score_data: Any, profile_key: str | None = None) -> dict[str, Any]:
+def set_game_score(game_key: str, score_data: Any,
+                   profile_key: str | None = None) -> dict[str, Any]:
     with _LOCK:
         resolved_profile_key = str(profile_key or _ACTIVE_PROFILE_KEY or "").strip()
         if not resolved_profile_key:
