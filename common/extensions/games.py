@@ -95,14 +95,27 @@ class ExtensionGames:
         which extension is asking, where a route only knows a path.
         """
         wanted = Path(str(path or "")).expanduser().resolve()
-        roots = [Path(one) for one in self._files.roots()]
+        self._inside_declared(wanted)
+        if not wanted.is_file():
+            raise FileNotFoundError(f"there is no file at {wanted}")
+        return wanted
+
+    def _inside_declared(self, wanted: Path) -> None:
+        """The bound itself, for something that may be a file or a folder.
+
+        An asset arrives as a directory as often as a file - a ROM set is one, a sound
+        bank is one - so the check cannot insist on a file.
+
+        Both sides are resolved before comparing. A root is not always handed over
+        already resolved, and on a machine where `/var` is a link to `/private/var` an
+        unresolved root never contains a resolved path - which reads as an extension
+        reaching somewhere it did not declare, for a folder it did.
+        """
+        roots = [Path(one).expanduser().resolve() for one in self._files.roots()]
         if not any(wanted == root or root in wanted.parents for root in roots):
             raise ContractError(
                 f"{self._name} offered {wanted}, which is not inside any folder it says "
                 "it works from")
-        if not wanted.is_file():
-            raise FileNotFoundError(f"there is no file at {wanted}")
-        return wanted
 
     def _game(self, game_id: str):
         from common.games import game_identity
@@ -186,9 +199,10 @@ class ExtensionGames:
     def add_table(self, game_id: str, path) -> dict:
         """Copy a game file into an entry, with whatever belongs to it.
 
-        Answers with the table's id and the companions that came - a caller counting
-        what an import produced needs to know what actually landed, not what was beside
-        the file when it started.
+        Answers with the table's id, the companions that came, and the ROM the table
+        turns out to need - a caller counting what an import produced needs to know what
+        actually landed, and anything keyed on the ROM has no other way to learn it this
+        early.
         """
         self._needs(GAMES_WRITE)
         from common.games import game_service
@@ -197,7 +211,8 @@ class ExtensionGames:
         source = self._source(path)
         table_id = new_id()
         found = game_service.add_table_file(Path(self.folder(game_id)), source, table_id)
-        return {"table_id": table_id, "companions": tuple(found["companions"])}
+        return {"table_id": table_id, "companions": tuple(found["companions"]),
+                "rom": found.get("rom", "")}
 
     def companions_of(self, path) -> tuple[str, ...]:
         """What would come with this table if it were added. For counting beforehand,
@@ -207,6 +222,55 @@ class ExtensionGames:
 
         return tuple(one.name for one in
                      game_service.companions_beside(self._source(path)))
+
+    def asset_kinds(self) -> tuple[str, ...]:
+        """The kinds that live in a folder of their own, and so can be placed whole."""
+        self._needs(GAMES_READ)
+        from common.uploads.asset_import_service import folder_kinds
+
+        return folder_kinds()
+
+    def put_asset(self, game_id: str, kind: str, path, rom: str = "") -> str:
+        """Put a file or a whole folder where this kind of asset belongs.
+
+        For the things that are neither the game file nor artwork: a ROM set, an
+        alternative sound bank, a colour set. Where each goes is the registry's answer,
+        the same one an upload gets, so a library imported from another frontend puts
+        them where an upload would have.
+
+        Answers with the path it took, relative to the game. Never replaces: a second
+        run, or something somebody put there on purpose, is not ours to overwrite - the
+        same rule the import applies to games and to a table's companions.
+        """
+        self._needs(GAMES_WRITE)
+        import shutil
+
+        from common.uploads.asset_import_service import folder_for
+
+        source = Path(str(path or "")).expanduser().resolve()
+        if not source.exists():
+            raise FileNotFoundError(f"there is nothing at {source}")
+        self._inside_declared(source)
+
+        game_dir = Path(self.folder(game_id))
+        into = folder_for(kind, game_dir, rom)
+        if into is None:
+            raise ValueError(
+                f"{kind!r} is not a kind with a folder of its own"
+                + ("; it needs a ROM name" if kind in self.asset_kinds() else ""))
+
+        landing = into / source.name
+        if landing.exists():
+            raise FileExistsError(str(landing.relative_to(game_dir)))
+        into.mkdir(parents=True, exist_ok=True)
+        if source.is_dir():
+            shutil.copytree(source, landing)
+        else:
+            shutil.copy2(source, landing)
+        logger.info("%s put %s into %s", self._name, source.name, into)
+        # Forward slashes, because this is answered to a caller rather than used as a
+        # path here - the same rule every other path this project hands out follows.
+        return landing.relative_to(game_dir).as_posix()
 
     def put_media(self, game_id: str, kind: str, path, table_stem: str = "") -> str:
         """Put a file in one of an entry's media slots. Answers with what it landed as."""

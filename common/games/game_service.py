@@ -659,8 +659,26 @@ def add_table_file(game_dir: Path, source: Path, table_id: str) -> dict:
         except OSError as exc:
             logger.warning("%s did not come with %s: %s", one.name, source.name, exc)
 
+    # What the table says about itself, read out of it now rather than left for the
+    # sweep that enriches a whole library. A file that arrives unparsed has no ROM, no
+    # authors and no version until something else comes along, and anything keyed on the
+    # ROM - a ROM set, a sound bank, a colour set - cannot be placed beside it meanwhile.
+    # The upload path parses on the spot for the same reason. Before the refresh, so the
+    # refresh sees a described table rather than a bare filename.
+    rom = ""
+    try:
+        from common.games.library_enrichment import read_one
+
+        parsed = read_one(landing)
+        if parsed:
+            meta.replace_table("", source.name, parsed)
+            rom = str(parsed.get("rom") or "").strip()
+    except Exception:
+        logger.warning("Copied %s but could not read what it says about itself",
+                       source.name, exc_info=True)
+
     refresh_game(game_dir)
-    return {"table": source.name, "companions": brought}
+    return {"table": source.name, "companions": brought, "rom": rom}
 
 
 def sanitize_dir_name(name: str) -> str:

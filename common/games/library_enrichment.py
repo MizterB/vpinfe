@@ -54,20 +54,41 @@ def _read(parser, game, filename: str) -> dict | None:
         return None
 
 
+def _parser():
+    """The thing that reads a table file. One place names it, so this module's coupling
+    to a particular program is a single line rather than one per caller."""
+    from common.games.vpx_parser import VPXParser
+
+    return VPXParser()
+
+
+def read_one(table: Path) -> dict | None:
+    """What one table file says about itself, or None if it could not be read.
+
+    The same parse `enrich` does across a library, for the moment a single table
+    arrives. Here rather than at the call site because this module is where reading a
+    table's own format belongs - a copy operation should not have to know which program
+    wrote the file it just copied.
+    """
+    try:
+        return _parser().singleFileExtract(str(table))
+    except Exception:
+        logger.exception("Could not read %s", table)
+        return None
+
+
 def enrich(games, reporter: JobReporter | None = None) -> dict[str, int]:
     """Fill in what a parse knows for every table nothing has read.
 
     Written per game rather than per table: a folder with three unread builds is one
     `.info` write, not three.
     """
-    from common.games.vpx_parser import VPXParser
-
     todo = pending(games)
     totals = {"read": 0, "failed": 0, "games": 0}
     if not todo:
         return totals
 
-    parser = VPXParser()
+    parser = _parser()
     by_game: dict[int, list[tuple[str, str]]] = {}
     order: list[object] = []
     for game, key, filename in todo:

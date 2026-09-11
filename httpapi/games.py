@@ -42,6 +42,7 @@ from common.games.game_metadata import (
     reset_table_play_record,
     set_asset_source,
     set_game_favorite,
+    set_game_play_record,
     set_game_rating,
     set_game_tags,
     set_table_rating,
@@ -1835,6 +1836,27 @@ def put_game_tags(game_id: str, payload: models.TagsRequest) -> models.Tags:
     """
     game = _game_or_404(game_id)
     return {"tags": set_game_tags(game, payload.tags)}
+
+
+@router.put("/{game_id}/play_record", summary="Set a game's play counters",
+            dependencies=[requires(scopes.GAMES_WRITE)])
+def put_play_record(game_id: str, body: models.PlayRecordUpdate) -> models.PlayRecord:
+    """Set a game's counters, for a library that arrives already played.
+
+    The other half of the reset below, which says in its own note that setting a count
+    to a number is the migration case and is not what it does. This is that case: a
+    library converted from another frontend carries a play count and a last-played date,
+    and dropping them makes a collection that sorts by either of those wrong on arrival.
+
+    Rating, favorite and tags are opinions and have their own routes; these three are a
+    record of what happened.
+    """
+    game = _game_or_404(game_id)
+    return set_game_play_record(
+        game,
+        play_count=body.play_count,
+        run_time_seconds=body.play_time_seconds,
+        last_played=body.last_played)
 
 
 @router.delete("/{game_id}/play_record", summary="Reset a game's play counters",

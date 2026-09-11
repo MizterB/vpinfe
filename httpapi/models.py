@@ -551,6 +551,19 @@ class OverridesPatch(ApiModel):
     delete_nvram_on_close: bool | None = None
 
 
+class PlayRecordUpdate(ApiModel):
+    """Counters a library arriving from somewhere else brings with it.
+
+    A patch: a field left out is left alone, so a source that knows how often a game was
+    played but not for how long does not silently zero the time.
+    """
+
+    play_count: int | None = None
+    play_time_seconds: int | None = None
+    # Epoch seconds, the same as the file keeps. Null clears it.
+    last_played: int | None = None
+
+
 class PlayRecord(ApiModel):
     """What a person did with this, in a consumer's units rather than the file's - the
     `.info` keeps LastRun as an epoch integer and RunTime in minutes."""

@@ -387,6 +387,34 @@ def reset_game_play_record(game) -> dict[str, Any]:
     return play_record(config)
 
 
+def set_game_play_record(game, *, play_count=None, run_time_seconds=None,
+                         last_played=None) -> dict[str, Any]:
+    """Write a game's counters to given values. The migration case, and only that.
+
+    Resetting is the correction somebody makes about their own library; this is what a
+    library arriving from somewhere else needs, and the reset route's own note says so:
+    setting a count to a number is the migration case and is not that.
+
+    A field left out is left alone, so a source that knows a play count but not how long
+    it ran does not silently zero the time. `RunTime` is the minutes VPX keeps and the
+    seconds are the record, so both are written from the one number rather than one
+    being derived later from the other.
+    """
+    config = load_game_meta(game)
+    user = get_or_create_user_meta(config)
+    if play_count is not None:
+        user["StartCount"] = max(0, int(play_count))
+    if last_played is not None:
+        user["LastRun"] = int(last_played) or None
+    if run_time_seconds is not None:
+        seconds = max(0, int(run_time_seconds))
+        user["RunTime"] = seconds // 60
+        vpinfe_section(config)["run_time_seconds"] = seconds
+    persist_game_meta(game, config)
+    game.meta_config = config
+    return play_record(config)
+
+
 def reset_table_play_record(game, filename: str) -> dict[str, Any]:
     """The same, for one table's own counters."""
     config = load_game_meta(game)

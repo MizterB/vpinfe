@@ -138,6 +138,41 @@ def _sidecar_stem(assets, base: Path, vpx_stem: str) -> str:
     return vpx_stem
 
 
+# Where each kind that lives in a folder of its own is placed. One rule, because there
+# are two ways in - something uploaded and something imported from another frontend -
+# and a second copy would be right until one of them changed. `{rom}` is filled from the
+# game's ROM, which is why those kinds declare `requires_rom`.
+_FOLDERS: dict[str, tuple[str, ...]] = {
+    "rom": ("pinmame", "roms"),
+    "altsound": ("pinmame", "altsound", "{rom}"),
+    "altcolor_serum": ("serum", "{rom}"),
+    "altcolor_vni": ("vni", "{rom}"),
+    "music": ("music",),
+    "pup_pack": ("pupvideos",),
+}
+
+
+def folder_for(kind: str, game_dir, rom: str = "") -> Path | None:
+    """The folder inside a game that holds this kind, or None where it has no folder.
+
+    None is an answer: a backglass and a table sit beside the game file and are named
+    after it, so "which folder" is the wrong question for them and a made-up one would
+    be worse than saying so.
+    """
+    parts = _FOLDERS.get(str(kind or ""))
+    if parts is None:
+        return None
+    wanted = str(rom or "").strip()
+    if any("{rom}" in one for one in parts) and not wanted:
+        return None
+    return Path(game_dir).joinpath(*(one.replace("{rom}", wanted) for one in parts))
+
+
+def folder_kinds() -> tuple[str, ...]:
+    """The kinds that live in a folder of their own."""
+    return tuple(sorted(_FOLDERS))
+
+
 def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
                 source_name: str, game_kind_action: str,
                 sidecar_stem: str = "") -> tuple[PlannedItem | None, BlockedItem | None]:
@@ -158,21 +193,19 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
     if kind == "ini":
         stem = sidecar_stem or vpx_stem or Path(_basename(asset.entries[0].arcname)).stem
         return PlannedItem(asset, str(base / f"{stem}.ini"), "copy"), None
+    # Which folder each of these lands in is asked of the registry, not repeated here:
+    # an import from another frontend puts the same things in the same places, and two
+    # copies of the rule would be right until one of them changed.
     if kind == "rom":
         name, action = _rom_dest_name(asset, source_name)
-        return PlannedItem(asset, str(base / "pinmame" / "roms" / name), action), None
-    if kind == "altcolor_serum":
-        dest = base / "serum" / rom_name / _safe_upload_name(_basename(asset.entries[0].arcname))
+        return PlannedItem(asset, str(folder_for(kind, base) / name), action), None
+    if kind in ("altcolor_serum", "altcolor_vni"):
+        dest = (folder_for(kind, base, rom_name)
+                / _safe_upload_name(_basename(asset.entries[0].arcname)))
         return PlannedItem(asset, str(dest), "copy"), None
-    if kind == "altcolor_vni":
-        dest = base / "vni" / rom_name / _safe_upload_name(_basename(asset.entries[0].arcname))
-        return PlannedItem(asset, str(dest), "copy"), None
-    if kind == "altsound":
-        return PlannedItem(asset, str(base / "pinmame" / "altsound" / rom_name), "extract_tree"), None
-    if kind == "pup_pack":
-        return PlannedItem(asset, str(base / "pupvideos"), "extract_tree"), None
-    if kind == "music":
-        return PlannedItem(asset, str(base / "music"), "extract_tree"), None
+    if kind in ("altsound", "pup_pack", "music"):
+        return PlannedItem(asset, str(folder_for(kind, base, rom_name)),
+                           "extract_tree"), None
     if kind == "readme":
         name = _safe_upload_name(_basename(asset.entries[0].arcname))
         return PlannedItem(asset, str(base / name), "copy"), None

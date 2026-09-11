@@ -41,6 +41,14 @@ def _favorite(game_id: str, favorite: bool):
     return games.put_game_favorite(game_id, models.FavoriteRequest(favorite=favorite))
 
 
+def _play_record(game_id: str, play_count=None, play_time_seconds=None,
+                 last_played=None):
+    """Set what a game arrives already having done. A field left out is left alone."""
+    return games.put_play_record(game_id, models.PlayRecordUpdate(
+        play_count=play_count, play_time_seconds=play_time_seconds,
+        last_played=last_played))
+
+
 def _default_table(game_id: str, table_id: str):
     return games.put_default_table(game_id, models.TableDefault(table_id=table_id))
 
@@ -81,6 +89,7 @@ WRITES = {
     "set_tags": _tag,
     "set_favorite": _favorite,
     "set_default_table": _default_table,
+    "set_play_record": _play_record,
     "reset_play_record": games.reset_play_record,
     "take_vps_details": games.put_vps_details,
     "remove_media": games.delete_game_media,
