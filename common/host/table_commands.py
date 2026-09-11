@@ -22,9 +22,9 @@ from pathlib import Path
 from common import tokens
 from common.atomic_write import write_atomic
 from common.config_access import cfg_bool, cfg_get, cfg_int
+from common.extensions import services as ext_services
 from common.games import tables
 from common.host import commands
-from common.online.vpinplay_runtime import get_active_profile
 from common.paths import CONFIG_DIR
 
 logger = logging.getLogger("vpinfe.common.host.table_commands")
@@ -49,10 +49,10 @@ def player_name() -> str:
 
     Initials, because that is what a cabinet asks for and what shows on a score.
     """
-    profile = get_active_profile()
+    profile = ext_services.ask("guest.active")
     if profile is None:
         return ""
-    return str(profile.initials or profile.user_id or "")
+    return str(getattr(profile, "initials", "") or getattr(profile, "user_id", "") or "")
 
 
 def _values(game, playing, launcher) -> dict[str, str]:

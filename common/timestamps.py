@@ -25,11 +25,26 @@ def utc_now_iso() -> str:
 
 def epoch_to_iso(value) -> str:
     """An epoch integer as ISO, or "" if it is not one. For reading fields written
-    before this was the standard."""
+    before this was the standard.
+
+    A value that is already an ISO stamp comes back as one rather than as nothing. The
+    spec says this field is an epoch and files in the wild disagree - one written as ISO
+    was being read as absent, so a game with a last-played date reported having none.
+    Refusing to read what is plainly there helps nobody.
+    """
     try:
         stamp = datetime.fromtimestamp(int(value), UTC)
     except (TypeError, ValueError, OSError, OverflowError):
-        return ""
+        said = str(value or "").strip()
+        if not said:
+            return ""
+        try:
+            parsed = datetime.fromisoformat(said.replace("Z", "+00:00"))
+        except ValueError:
+            return ""
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     return stamp.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 

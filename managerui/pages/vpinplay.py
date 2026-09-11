@@ -13,7 +13,7 @@ from nicegui import run, ui
 
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
-from common.online.vpinplay_service import sync_installed_games
+from common.extensions import services as ext_services
 from managerui.config_fields import is_checkbox_field
 from managerui.config_options import get_friendly_name
 from managerui.paths import VPINFE_INI_PATH
@@ -279,16 +279,17 @@ def render_panel():
         sync_vpinplay_button.disable()
         sync_vpinplay_button.text = "Syncing..."
         try:
-            result = await run.io_bound(
-                sync_installed_games,
-                service_ip,
-                user_id,
-                initials,
-                machine_id,
-                games_dir,
-            )
+            # Asked of the extension that owns it. It reads the library through the
+            # same records everything else does rather than walking the folder itself,
+            # and it takes its own settings - so nothing is passed in here.
+            result = await run.io_bound(ext_services.ask, "sync.library")
+            if result is None:
+                status_label.text = "Nothing answered."
+                output_area.value = (
+                    "VPinPlay is not installed or is switched off, so nothing was sent.")
+                ui.notify("VPinPlay is not available.", type="warning")
+                return
             output_area.value = (
-                f"Scanned: {result['games_scanned']}\n"
                 f"Sent: {result['games_sent']}\n"
                 f"Skipped (missing VPSId): {result['games_skipped']}\n\n"
                 f"HTTP status: {result['status_code']}\n\n"

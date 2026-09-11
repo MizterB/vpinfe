@@ -51,7 +51,6 @@ from common.host.libdmdutil_service import (
 from common.log_setup import configure_logging, get_logger
 from common.online.pinmame_score_parser_updater import ensure_latest_roms_json
 from common.online.themes import ThemeRegistry
-from common.online.vpinplay_service import sync_on_shutdown as vpinplay_sync_on_shutdown
 from common.paths import (
     THEMES_DIR,
     VPINFE_INI_PATH,
@@ -384,7 +383,6 @@ runtime.run_frontend_loop(
 # Shutdown items - wrap each in try/except so restart check always runs
 runtime.shutdown_services(
     logger,
-    vpinplay_sync=vpinplay_sync_on_shutdown,
     iniconfig=config_store,
     ws_bridge=ws_bridge,
     stop_dof=stop_dof_service,

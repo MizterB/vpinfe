@@ -13,10 +13,10 @@ from pathlib import Path
 
 from common import discovery, shutdown
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
+from common.extensions import services as ext_services
 from common.games import remote_library
 from common.host import system_actions
 from common.host.display_service import get_display_monitors
-from common.online.vpinplay_runtime import clear_alternate_profile
 from frontend import ext_data, input_events, library_resolver, play_events
 from frontend.api import API
 from frontend.chromium_manager import ChromiumManager
@@ -295,11 +295,17 @@ def run_frontend_loop(headless, iniconfig, frontend_browser, shutdown_event, log
     frontend_browser.terminate_all()
 
 
-def shutdown_services(logger, *, vpinplay_sync, iniconfig, ws_bridge, stop_dof, stop_dmd, http_server, nicegui_app, stop_manager_ui):
+def shutdown_services(logger, *, iniconfig, ws_bridge, stop_dof, stop_dmd, http_server,
+                      nicegui_app, stop_manager_ui):
     logger.info("Shutting down services...")
     for label, action in (
-        ("vpinplay_sync_on_shutdown", lambda: vpinplay_sync(iniconfig)),
-        ("clear_alternate_vpinplay_profile", clear_alternate_profile),
+        # Whether anything wants a last word before the machine goes down. Nothing
+        # answering is the ordinary case and costs the shutdown nothing.
+        ("sync_on_shutdown", lambda: ext_services.ask("sync.on_exit")),
+        # A guest is temporary on purpose, so a cabinet never comes back up still
+        # submitting under a visitor's name. Nothing answering means nothing to clear.
+        ("clear_alternate_vpinplay_profile",
+         lambda: ext_services.ask("guest.clear")),
         ("ws_bridge.stop", ws_bridge.stop),
         ("stop_dof_service", stop_dof),
         ("stop_libdmdutil_service", lambda: stop_dmd(clear=False)),

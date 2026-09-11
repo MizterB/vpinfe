@@ -72,7 +72,12 @@ Depends on `common/games/`, never the reverse: importing assets needs to know th
 - `themes.py`: compatibility facade for manager UI theme registry operations.
 - `theme_registry_client.py`, `theme_installer.py`: theme registry network and local install helpers.
 - `app_updater.py`, `pinmame_score_parser_updater.py`: update checks and downloads.
-- `vpinplay_service.py`, `vpinplay_runtime.py`: the VPinPlay client.
+
+The VPinPlay client is no longer here. It reached down into `games` to enumerate the
+library, which is the wrong direction, and it now lives in the VPinPlay extension and is
+handed those records instead of reaching for them. What core keeps is the `[vpinplay]`
+config section, so an install that already had one hands its settings over and a revert
+to 2.x still finds them.
 
 **`common/host/`** - this machine: attached hardware, the launcher, the running session.
 

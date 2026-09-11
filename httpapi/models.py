@@ -813,6 +813,18 @@ class Table(ApiModel):
     # again" from "a different build with the same name", which no filename does.
     file_hash: str = ""
     vbs_hash: str = ""
+    # When the author released it, and when the file itself was last saved. Two
+    # different dates: a mod saved today can be a release from years ago, and a catalog
+    # tells them apart by both. Recorded since schema 2 and published nowhere until now.
+    release_date: str = ""
+    save_date: str = ""
+    save_rev: str = ""
+    # What the file itself declares about the machine, which is not always what the game
+    # resolves to: the game's answer prefers a catalog match, and these are the author's
+    # own words. A consumer describing the file wants these.
+    manufacturer: str = ""
+    year: str = ""
+    type: str = ""
     # What the script was seen to use. Three-valued per feature: true, false, and
     # null for a table nothing has parsed yet - which is not the same as "no".
     features: dict[str, bool | None] = {}

@@ -436,6 +436,12 @@ def _tables(game, row: dict) -> list[dict]:
             "authors": [str(a) for a in (described_entry.get("authors") or [])],
             "file_hash": str(described_entry.get("file_hash", "") or ""),
             "vbs_hash": str(described_entry.get("vbs_hash", "") or ""),
+            "release_date": str(described_entry.get("release_date", "") or ""),
+            "save_date": str(described_entry.get("save_date", "") or ""),
+            "save_rev": str(described_entry.get("save_rev", "") or ""),
+            "manufacturer": str(described_entry.get("manufacturer", "") or ""),
+            "year": str(described_entry.get("year", "") or ""),
+            "type": str(described_entry.get("type", "") or ""),
             # Tri-state throughout: a table nobody has parsed answers null for every
             # feature, which is not the same as answering no to all of them.
             "features": {name: _tristate(described_entry.get(key))

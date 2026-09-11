@@ -16,6 +16,7 @@ import logging
 from common import events, lifecycle
 from common.config_access import cfg_get
 from common.deprecations import announce
+from common.extensions import services as ext_services
 from common.games import game_identity
 from common.games.collection_store import normalize_direction, public_name
 from common.games.collections_service import (
@@ -28,11 +29,6 @@ from common.games.game_metadata import game_rating, normalize_meta, set_game_rat
 from common.games.game_repository import all_games
 from common.host import launch, launch_state
 from common.host.display_service import monitors_as_dicts
-from common.online.vpinplay_runtime import (
-    activate_alternate_profile,
-    clear_alternate_profile,
-    get_alternate_profile_state,
-)
 from frontend import (
     config_api,
     game_state,
@@ -45,6 +41,13 @@ from frontend import (
 )
 from frontend import library_resolver as frontend_library
 from frontend.theme_contract import CURRENT_CONTRACT, declared_contract
+
+# What a theme is told when nothing answers: the same thing core said when nobody was
+# signed in, so a cabinet with the extension disabled reads as one with no guest rather
+# than as one that is broken.
+_NOBODY_SIGNED_IN = {"active": False, "profile": None, "active_games": 0,
+                     "profiles": [], "activeProfileKey": ""}
+
 
 logger = logging.getLogger("vpinfe.frontend.api")
 
@@ -768,10 +771,18 @@ class API:
         return config_api.get_media_priorities(self._iniConfig.config)
 
     def get_temporary_vpinplay_profile(self):
-        return get_alternate_profile_state()
+        """Who is playing as somebody else, if anything answers.
+
+        The method stays here because published themes call it; what is behind it moved
+        to the extension that owns the identity. With nothing answering - disabled, or
+        never installed - a theme is told nobody is signed in, which is what core said
+        before there was an extension.
+        """
+        return ext_services.ask("guest.state") or _NOBODY_SIGNED_IN
 
     def set_temporary_vpinplay_profile(self, payload, source_name=""):
-        result = activate_alternate_profile(payload, source_name=source_name)
+        result = (ext_services.ask("guest.activate", payload, source_name=source_name)
+                  or _NOBODY_SIGNED_IN)
         self.send_event_all_windows_incself({
             "type": "VPinPlayAlternateProfileChanged",
             "profile": result,
@@ -779,7 +790,7 @@ class API:
         return result
 
     def clear_temporary_vpinplay_profile(self):
-        result = clear_alternate_profile()
+        result = ext_services.ask("guest.clear") or _NOBODY_SIGNED_IN
         self.send_event_all_windows_incself({
             "type": "VPinPlayAlternateProfileChanged",
             "profile": result,

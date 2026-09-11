@@ -54,7 +54,12 @@ class LaunchTests(unittest.TestCase):
         self.addCleanup(launch_state.clear)
 
     def _run(self, popen=None, game=None, **overrides):
-        """Launch with every collaborator stubbed, so only the orchestration runs."""
+        """Launch with every collaborator stubbed, so only the orchestration runs.
+
+        Nobody is signed in as a guest, and that needs no stub: with no extension
+        answering, the seam says so on its own - which is also what an install without
+        that extension looks like.
+        """
         popen = popen or (lambda cmd, **kwargs: _FakePopen())
         patches = {
             "_binary_of": lambda launcher, asked_for: "/opt/vpx",
@@ -62,7 +67,6 @@ class LaunchTests(unittest.TestCase):
                 ["/opt/vpx", "-play", "x.vpx"], "Startup done"),
             "parse_launch_env_overrides": lambda raw: {},
             "delete_vpinball_log_on_start_if_configured": lambda *a, **k: None,
-            "get_active_profile": lambda: None,
         }
         patches.update(overrides)
 

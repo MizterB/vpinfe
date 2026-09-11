@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 
 from common import apps, events
-from common.config_access import VPinPlayConfig
+from common.extensions import services as ext_services
 from common.games import game_play_service, info_file, launchers, tables
 from common.games.tables import (
     default_table,
@@ -34,14 +34,6 @@ from common.games.tables import (
 from common.host import commands, launch_state, table_commands
 from common.host.vpx_log import delete_vpinball_log_on_start_if_configured
 from common.launcher_path import resolve_launcher_path
-from common.online.vpinplay_runtime import (
-    add_game_runtime,
-    get_active_profile,
-    get_game_user_state,
-    record_game_start,
-    set_game_score,
-)
-from common.online.vpinplay_service import sync_single_game_meta
 from common.paths import PLUGIN_PROFILES_DIR
 
 logger = logging.getLogger("vpinfe.common.host.launch")
@@ -232,50 +224,30 @@ def _plan(entry: apps.Entry, binary: str, launcher) -> tuple[list[str], str]:
             app.launch.session(settings).readiness_marker)
 
 
-def _record_play(game, ini_config, elapsed_seconds: float, profile, table: str = "") -> None:
-    """Play data for a finished session. Runs on every path, which it did not use to."""
-    if profile is None:
+def _record_play(game, ini_config, elapsed_seconds: float, table: str = "") -> None:
+    """Play data for a finished session. Runs on every path, which it did not use to.
+
+    A guest takes the session if one is signed in - their half hour is theirs and must
+    not land in the play count of a library that is not theirs. Nothing answering means
+    nobody is, which is also what an install without that extension looks like. The
+    hardware is read once on either path.
+    """
+    if ext_services.ask("guest.active") is None:
         game_play_service.add_play_time(game, elapsed_seconds, table)
         game_play_service.update_score_from_nvram(game)
         return
 
-    game_key = str(getattr(game, "fullPathGame", "") or getattr(game, "gameDirName", "") or "")
+    game_key = str(getattr(game, "fullPathGame", "")
+                   or getattr(game, "gameDirName", "") or "")
     if not game_key:
-        logger.warning("Skipping alternate VPinPlay submission: missing table key")
+        logger.warning("Skipping a guest's session: nothing identifies the table")
         return
 
-    add_game_runtime(game_key, elapsed_seconds, profile.profile_key)
     score_data, score_path = game_play_service.parse_score_from_nvram(game)
+    ext_services.ask("guest.record_play", game_key, elapsed_seconds, score_data)
     if score_data:
-        set_game_score(game_key, score_data, profile.profile_key)
-        logger.info("Captured alternate User.Score for %s from %s",
+        logger.info("Captured a guest's score for %s from %s",
                     game.gameDirName, score_path)
-
-    game_meta = game_play_service.build_runtime_submission_meta(
-        game, get_game_user_state(game_key, profile.profile_key))
-    if not game_meta:
-        return
-
-    vpinplay = VPinPlayConfig.from_config(ini_config)
-    if not vpinplay.api_endpoint:
-        logger.warning("Skipping alternate VPinPlay submission: API endpoint is not configured.")
-        return
-
-    try:
-        result = sync_single_game_meta(
-            service_ip=vpinplay.api_endpoint,
-            user_id=profile.user_id,
-            initials=profile.initials,
-            machine_id=profile.machine_id,
-            game_meta=game_meta,
-        )
-        logger.info("Alternate VPinPlay submit complete for %s: status=%s ok=%s",
-                    game.gameDirName, result.get("status_code"), result.get("ok"))
-        if not result.get("ok"):
-            logger.warning("Alternate VPinPlay submit failed response: %s",
-                           result.get("response_body"))
-    except Exception:
-        logger.exception("Alternate VPinPlay submit failed for %s", game.gameDirName)
 
 
 def check_launchable(game, ini_config, table: str | None = None) -> str:
@@ -343,7 +315,6 @@ def launch_game(game, ini_config, *, source: str, table: str | None = None,
         launcher.value("log_delete_on_start"), str(launcher.value("ini_path") or ""))
 
     started_at = None
-    profile = None
     # Outside everything, including our own hooks. What a person writes here sets the
     # machine up for a table, so "before the table" has to mean before all of it -
     # anywhere further in and its meaning shifts as our sequence changes.
@@ -378,11 +349,13 @@ def launch_game(game, ini_config, *, source: str, table: str | None = None,
             )
             launch_state.attach(process)
             started_at = time.time()
-            profile = get_active_profile()
-            if profile is not None:
-                record_game_start(str(getattr(game, "fullPathGame", "")
-                                       or getattr(game, "gameDirName", "") or ""))
-            else:
+            # A guest's play is not the library's. Whoever is signed in takes the
+            # session, and the game's own count moves only when nobody is.
+            started = ext_services.ask(
+                "guest.record_start",
+                str(getattr(game, "fullPathGame", "")
+                    or getattr(game, "gameDirName", "") or ""))
+            if not started:
                 game_play_service.increment_start_count(
                     game, tables.entry_native_key(entry))
 
@@ -414,7 +387,7 @@ def launch_game(game, ini_config, *, source: str, table: str | None = None,
         table_commands.after(around, started_at=started_at)
 
     if started_at is not None:
-        _record_play(game, ini_config, max(0.0, time.time() - started_at), profile,
+        _record_play(game, ini_config, max(0.0, time.time() - started_at),
                      tables.entry_native_key(entry))
         events.emit(events.TABLE_PLAY_RECORDED, game=game, ini_config=ini_config)
     game_play_service.delete_nvram_if_configured(game)
