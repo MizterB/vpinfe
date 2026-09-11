@@ -269,6 +269,17 @@ roms = _Roms()
 
 
 def get_default_initials() -> str:
+    """Whose initials go on a score the machine did not record any for.
+
+    Read from the `[vpinplay]` section, which is where the only such setting has ever
+    lived - and deliberately still read from core rather than asked of the extension
+    that now owns VPinPlay. A score needs initials whether that extension is installed
+    or not, and asking something that may not be there would leave them blank on a
+    cabinet that had them before.
+
+    What this wants eventually is a setting of its own, because whose initials a
+    cabinet puts on a score is not a question about any one service.
+    """
     parser = configparser.ConfigParser(interpolation=None)
     read_files = parser.read(USER_CONFIG_PATH, encoding="utf-8")
     if not read_files:
