@@ -105,6 +105,36 @@ class ExtensionFiles:
                             for one in wanted if one)
 
 
+class ExtensionServices:
+    """Things this extension answers for core, that are not about one game.
+
+    A theme has been able to ask who is playing since before extensions existed, and
+    published themes still call those methods - so the method stays in core and the
+    answer moves here. Core asks by name and copes with nothing answering, which is what
+    an extension being disabled has to look like.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def answer(self, service: str, run) -> None:
+        """Answer this from now on. One extension per name."""
+        from . import services
+
+        services.provide(self._name, service, run)
+
+    def answers(self) -> tuple[str, ...]:
+        from . import services
+
+        return tuple(name for name in services.provided()
+                     if services.answered_by(name) == self._name)
+
+    def withdraw(self) -> None:
+        from . import services
+
+        services.forget(self._name)
+
+
 class ExtensionApps:
     """The programs this install can play a table with, as an extension may add to them.
 
@@ -326,6 +356,13 @@ class ExtensionContext:
         self.entries = ExtensionEntries(manifest.name)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
         self.apps = ExtensionApps(manifest.name, manifest.scopes)
+        self.serves = ExtensionServices(manifest.name)
+        # Which program this is, for an extension that has to say so to somebody else.
+        # Through the context rather than an import: the one module an extension may
+        # import is the contract, and that is what makes the boundary checkable.
+        from common.vpinfe_version import get_version
+
+        self.host_version = get_version()
         self.routers: list[tuple[Any, str]] = []
         # Registration is a moment, not a phase: routers are mounted once, so one added
         # after `register` returned would never be reachable and silently answer nothing.
