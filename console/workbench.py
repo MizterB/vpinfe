@@ -48,6 +48,7 @@ from console import (
     panel,
     stars,
     table_features,
+    vps_match,
 )
 from console import commands as commands_help
 from console import devices as devices_page
@@ -1833,74 +1834,17 @@ def _change_match(context: dict[str, Any]) -> Callable[[], None]:
 
 
 async def _pick_a_match(context: dict[str, Any]) -> None:
-    """Search the catalog and bind one entry, or clear the binding.
+    """Ask which catalog entry this game is, and write the answer.
 
-    Presented in the order the catalog answers in - by name, then year - and with no
-    mark of quality on any row. Section 15.2: sorting by "best match" is a claim, and
-    the measurement that would have to support it says the opposite.
-
-    The query starts as the game's name because that is where somebody would start
-    typing, and it is visible and editable rather than a filter applied behind them.
+    The picker itself is `console.vps_match`, because the grid offers the same act over
+    a selection and two copies of it would drift. What stays here is the write: this
+    section owns the game in front of it and knows how to redraw itself afterwards.
     """
-    game = context["game"]
-    library = context["library"]
-
-    with ui.dialog().props("persistent") as dialog, \
-            ui.card().classes("console-confirm console-picker-dialog"):
-        ui.label("Match this game to VPS").classes("console-confirm-title")
-        ui.label("Nothing here ranks the results - pick the machine you have.") \
-            .classes("console-help")
-        field = ui.input(value=str(game.get("name") or "")) \
-            .props("dense autofocus clearable").classes("console-edit-field w-full")
-        found = ui.column().classes("w-full gap-0 console-source-list")
-
-        async def look() -> None:
-            said = str(field.value or "").strip()
-            rows = await run.io_bound(library.vps_search, said, 40) if said else []
-            found.clear()
-            with found:
-                if not said:
-                    ui.label("Type a name, a maker or a year").classes("console-help")
-                    return
-                if not rows:
-                    ui.label(f"Nothing in the catalog matches “{said}”") \
-                        .classes("console-help")
-                    return
-                for row in rows:
-                    _match_row(row, dialog)
-
-        field.on("keydown.enter", look)
-        ui.button("Search", on_click=look).props("flat dense no-caps size=sm") \
-            .classes("console-action")
-        with ui.row().classes("justify-end gap-2 w-full"):
-            ui.button("Clear match", on_click=lambda: dialog.submit("")) \
-                .props("flat no-caps")
-            ui.button("Cancel", on_click=lambda: dialog.submit(None)).props("flat no-caps")
-        await look()
-
-    picked = await dialog
-    if picked is None:
+    picked = await vps_match.ask(context["library"], context["game"])
+    if picked is vps_match.CANCELLED:
         return
-    await _write(context, library.set_game_overrides, context["game_id"],
+    await _write(context, context["library"].set_game_overrides, context["game_id"],
                  {"alt_vps_id": str(picked)})
-
-
-def _match_row(row: dict[str, Any], dialog: Any) -> None:
-    """One candidate, with the machine's photograph where the catalog has one.
-
-    Named twice over - by the maker and year that tell two machines of one name apart,
-    and by the picture, which settles it faster than either. The release count rides in
-    the same line: it says which entry the world actually builds for, and it is not a
-    judgement of the match, which nothing here makes.
-    """
-    said = [" ".join(str(row.get(k) or "") for k in ("manufacturer", "year")).strip()]
-    count = int(row.get("releases") or 0)
-    if count:
-        said.append(f"{count} release{'' if count == 1 else 's'}")
-    candidates.choice(str(row.get("img_url") or ""), str(row.get("name") or ""),
-                      " \u00b7 ".join(part for part in said if part),
-                      lambda: dialog.submit(str(row.get("vps_id") or "")),
-                      glyph="videogame_asset")
 
 
 def _parked_match(context: dict[str, Any], parked: dict[str, Any]) -> Callable[[], None]:

@@ -25,6 +25,7 @@ from console import (
     stars,
     table_features,
     views,
+    vps_match,
     workbench,
 )
 from console.api import ApiClient
@@ -407,6 +408,12 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         with actions:
             with ui.menu():
                 ui.menu_item("Rate selected", lambda: _rate(selected))
+                # Walks the selection one picker at a time rather than matching them in
+                # a run. Nothing here can tell a right match from a wrong one - the
+                # ranker that would have was measured and retired - so a person decides
+                # every one, and Skip leaves a game exactly as it was.
+                ui.menu_item("Match to VPS...",
+                             lambda: vps_match.walk(library, list(selected)))
                 # Where the games you have already picked go. From here rather than
                 # only from the device, because starting with the tables and choosing
                 # where they land is a different job from managing what a phone holds.
