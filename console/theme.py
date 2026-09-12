@@ -828,7 +828,34 @@ body::before {
 
 /* The state picker inside a column's filter. The same words and marks as the legend,
    because a filter that named the states differently would be a third vocabulary. */
-.console-filter { padding: 6px 4px; min-width: 148px; }
+/* Long enough to want typing into rather than scrolling, so the box that does that
+   stays put while the choices move under it. */
+.console-filter { padding: 6px 4px; min-width: 148px; max-height: 340px; overflow-y: auto; }
+.console-filter-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 4px;
+  padding: 5px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 13px;
+}
+.console-filter-search::placeholder { color: var(--ink-3); }
+.console-filter-search:focus { outline: none; border-color: var(--accent); }
+/* How many the choice holds, over the whole library. Pushed to the right so the labels
+   stay a readable column and the numbers a scannable one. */
+.console-filter-count {
+  margin-left: auto;
+  padding-left: 10px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
 .console-filter-row {
   display: flex;
   align-items: center;

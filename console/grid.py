@@ -70,8 +70,29 @@ if (!window.HubChoiceFilter) {
       this.params = params;
       this.picked = new Set();
       this.boxes = new Map();
+      this.rows = new Map();
+      this.counts = new Map();
       this.gui = document.createElement('div');
       this.gui.className = 'console-filter';
+      // A list past this is read by typing, not by scrolling. Below it a box to type in
+      // is one more thing to look at for no gain.
+      if ((params.choices || []).length > 8) {
+        const search = document.createElement('input');
+        search.type = 'text';
+        search.className = 'console-filter-search';
+        search.placeholder = 'Filter this list';
+        search.addEventListener('input', () => {
+          const said = search.value.trim().toLowerCase();
+          for (const [value, row] of this.rows) {
+            const label = String(this.labels.get(value) || '').toLowerCase();
+            // A picked choice stays visible whatever is typed: hiding it would leave a
+            // filter in force with nothing on screen saying so.
+            row.hidden = said && !label.includes(said) && !this.picked.has(value);
+          }
+        });
+        this.gui.appendChild(search);
+      }
+      this.labels = new Map();
       for (const choice of params.choices || []) {
         const row = document.createElement('label');
         row.className = 'console-filter-row';
@@ -104,10 +125,33 @@ if (!window.HubChoiceFilter) {
         const word = document.createElement('span');
         word.textContent = choice.label;
         row.appendChild(word);
+        const tally = document.createElement('span');
+        tally.className = 'console-filter-count';
+        row.appendChild(tally);
+        this.counts.set(choice.value, tally);
+        this.labels.set(choice.value, choice.label);
         this.boxes.set(choice.value, box);
+        this.rows.set(choice.value, row);
         this.gui.appendChild(row);
       }
     }
+    // How big the bucket is, over the whole library rather than over what the other
+    // filters have left: a number that moved every time something else was picked would
+    // be a different fact under the same label.
+    tally() {
+      if (!this.params.api || !this.counts.size) return;
+      const seen = new Map();
+      this.params.api.forEachNode(node => {
+        const held = this.params.getValue(node);
+        const key = (held === null || held === undefined) ? '' : held;
+        seen.set(key, (seen.get(key) || 0) + 1);
+      });
+      for (const [value, el] of this.counts) {
+        const n = seen.get(value) || 0;
+        el.textContent = n ? String(n) : '';
+      }
+    }
+    afterGuiAttached() { this.tally(); }
     getGui() { return this.gui; }
     isFilterActive() { return this.picked.size > 0; }
     doesFilterPass(params) {

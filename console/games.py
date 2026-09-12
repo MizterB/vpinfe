@@ -297,6 +297,44 @@ if (!window.__hubCellMedia) {
 """
 
 
+# Columns whose values are the catalog's rather than a state this code defines. Every
+# other choice filter here lists what the code owns - Present/Missing, Matched/Unmatched -
+# and a fixed list for these would go stale the day VPS gains a value.
+_DERIVED_FACETS = ("manufacturer", "game_type")
+
+# Past this many distinct values a checkbox list stops being a list of choices and
+# becomes a haystack, whatever is typed at it. The funnel's own text box is the better
+# tool there. Measured over 148 games: 3 types, 17 manufacturers - and 50 years and 74
+# themes, which are why neither of those is a derived facet.
+_FACET_CEILING = 60
+
+
+def with_derived_facets(columns: list[dict[str, Any]],
+                        rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Give the open-valued columns a facet built from what the library actually holds.
+
+    Copies rather than edits: `COLUMNS` is a module constant and a filter injected into
+    it would outlive the render that wanted it.
+    """
+    built = []
+    for definition in columns:
+        field = str(definition.get("field") or "")
+        if field not in _DERIVED_FACETS:
+            built.append(definition)
+            continue
+        seen = sorted({str(row.get(field) or "").strip() for row in rows} - {""},
+                      key=str.casefold)
+        if not seen or len(seen) > _FACET_CEILING:
+            built.append(definition)
+            continue
+        choices = [{"value": value, "label": value} for value in seen]
+        # A blank is a value like any other here, and the component is written for it.
+        if any(not str(row.get(field) or "").strip() for row in rows):
+            choices.append({"value": "", "label": "Not recorded"})
+        built.append(definition | grid.choice_filter(choices))
+    return built
+
+
 def media_columns(kinds: list[str]) -> list[dict[str, Any]]:
     """One width for every kind, set by the widest line any of them needs.
 
@@ -366,7 +404,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
           rerender: Callable[[], None] | None = None,
           rescan: Callable[[], Any] | None = None) -> None:
     state = state if state is not None else {}
-    columns = COLUMNS + asset_columns(library.asset_keys()) + media_columns(kinds)
+    columns = with_derived_facets(COLUMNS, rows) \
+        + asset_columns(library.asset_keys()) + media_columns(kinds)
     all_fields = [definition["field"] for definition in columns]
     selected: list[dict[str, Any]] = []
     context_row: list[dict[str, Any]] = []
