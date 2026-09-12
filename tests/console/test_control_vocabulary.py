@@ -27,7 +27,7 @@ CONTROLS = re.compile(r"ui\.(switch|checkbox|input|select|number|textarea)\(")
 # the grammar and is not counted. Raising a number is a decision: say what the control is
 # for, or use `panel`.
 BUDGET = {
-    "workbench.py": (18, "panel rows with bespoke wiring - chips, debounce, a disabled "
+    "workbench.py": (17, "panel rows with bespoke wiring - chips, debounce, a disabled "
                          "select carrying its own reason - plus one find box, and what "
                          "the two add dialogs ask for: a name and a program for "
                          "something with no file, a path for something elsewhere. All "
@@ -60,6 +60,9 @@ BUDGET = {
                      "about what to show and the third is about where. A library is "
                      "longer than a screen, and a list longer than a screen is typed "
                      "into rather than scrolled"),
+    "vps_match.py": (1, "the query the catalog is searched with, which starts as the "
+                        "game's name and is meant to be edited. Not a fact row: it holds "
+                        "what is being asked, never what the game is"),
 }
 
 
