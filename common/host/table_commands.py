@@ -27,6 +27,7 @@ from common.games import tables
 from common.games.game import Game
 from common.games.launchers import Launcher
 from common.host import commands
+from common.i18n import t
 from common.paths import CONFIG_DIR
 
 logger = logging.getLogger("vpinfe.common.host.table_commands")
@@ -91,11 +92,9 @@ def before(game: Game, playing: apps.Entry, launcher: Launcher | None,
     around.launcher_after = str(settings.get("on_table_exit") or "")
 
     _run(cfg_get(ini_config, "table_commands", "on_start", ""), around,
-         required=cfg_bool(ini_config, "table_commands", "start_required", False),
-         whose="this install")
+         required=cfg_bool(ini_config, "table_commands", "start_required", False))
     _run(str(settings.get("on_table_start") or ""), around,
-         required=_as_bool(settings.get("on_start_required")),
-         whose=f"the {getattr(launcher, 'display_name', 'launcher')} launcher")
+         required=_as_bool(settings.get("on_start_required")), launcher=launcher)
 
     if around.ran:
         _remember(around)
@@ -120,7 +119,9 @@ def after(around: Around, *, started_at: float | None = None) -> None:
     _forget()
 
 
-def _run(text: str, around: Around, *, required: bool, whose: str) -> None:
+def _run(text: str, around: Around, *, required: bool,
+         launcher: Launcher | None = None) -> None:
+    """One setting's commands: the install's own, or `launcher`'s."""
     if not str(text or "").strip():
         return
     try:
@@ -133,8 +134,10 @@ def _run(text: str, around: Around, *, required: bool, whose: str) -> None:
         around.ran = True
         _remember(around)
         raise commands.CommandRefusedError(
-            f"A command {whose} runs before a table did not work, and was set to stop "
-            f"the launch if it did not: {exc}") from exc
+            t("error.table_commands.launcher_command_failed",
+              launcher_name=launcher.display_name, exc=exc)
+            if launcher is not None
+            else t("error.table_commands.install_command_failed", exc=exc)) from exc
     around.ran = around.ran or outcome.ran
 
 

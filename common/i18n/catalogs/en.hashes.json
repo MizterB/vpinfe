@@ -1714,6 +1714,8 @@
   "error.path.folder_wants_program": "7b496a639e2d",
   "error.path.not_executable": "71d4df2cd167",
   "error.path.nothing_there": "819a2f989a56",
+  "error.table_commands.install_command_failed": "d97928303ba7",
+  "error.table_commands.launcher_command_failed": "864c16baf8ec",
   "error.tags.no_name": "48cd56a3f737",
   "error.tags.no_such_color": "61c8c70db752",
   "error.themes.active_theme_make_another": "35505c441710",

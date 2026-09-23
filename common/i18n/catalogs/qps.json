@@ -1867,6 +1867,8 @@
   "error.path.folder_wants_program": "Ţĥàţ îš à ƒöŀđèř, àñđ ţĥîš ŵàñţš à þřöĝřàɱ",
   "error.path.not_executable": "Ţĥàţ ƒîŀè îš ñöţ èẋèçûţàƀŀè",
   "error.path.nothing_there": "Ñöţĥîñĝ îš àţ ţĥàţ þàţĥ",
+  "error.table_commands.install_command_failed": "À çöɱɱàñđ ţĥîš îñšţàŀŀ řûñš ƀèƒöřè à ţàƀŀè đîđ ñöţ ŵöřķ: {exc}",
+  "error.table_commands.launcher_command_failed": "À çöɱɱàñđ ţĥè {launcher_name} ŀàûñçĥèř řûñš ƀèƒöřè à ţàƀŀè đîđ ñöţ ŵöřķ: {exc}",
   "error.tags.no_name": "À ţàĝ ñèèđš à ñàɱè",
   "error.tags.no_such_color": "Ñö çöŀöř çàŀŀèđ {color}",
   "error.themes.active_theme_make_another": "{key} îš ţĥè àçţîṽè ţĥèɱè. Ḿàķè àñöţĥèř öñè àçţîṽè ƒîřšţ.",

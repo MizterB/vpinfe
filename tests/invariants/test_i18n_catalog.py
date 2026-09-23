@@ -543,6 +543,9 @@ class TestApiErrorMessages(unittest.TestCase):
         self.assertEqual(offenders, [], "call t() and put the words in the catalog")
 
 
+PASSED_ON_AS_A_REFUSAL = {"CommandRefusedError"}
+
+
 def _named(node: ast.expr) -> str | None:
     return getattr(node, "id", None) or getattr(node, "attr", None)
 
@@ -568,7 +571,8 @@ def _refusal_sweep() -> tuple[set[str], list[tuple[Path, str | None, ast.expr]]]
 class TestLaunchRefusalMessages(unittest.TestCase):
     def test_no_refusal_is_raised_with_a_literal_message(self) -> None:
         family, calls = _refusal_sweep()
-        offenders = [fault for path, name, message in calls if name in family
+        offenders = [fault for path, name, message in calls
+                     if name in family | PASSED_ON_AS_A_REFUSAL
                      for fault in _fault(path, name, "", message)]
         self.assertEqual(offenders, [], "call t() and put the words in the catalog")
 
@@ -577,6 +581,7 @@ class TestLaunchRefusalMessages(unittest.TestCase):
         family, calls = _refusal_sweep()
         self.assertGreater(len(family), 3)
         self.assertGreater(sum(1 for _, name, _ in calls if name in family), 5)
+        self.assertTrue(any(name in PASSED_ON_AS_A_REFUSAL for _, name, _ in calls))
 
 
 class TestTheCatalogHoldsWords(unittest.TestCase):
