@@ -23,10 +23,9 @@ from common.extensions import services as ext_services
 from common.games import game_identity
 from common.games.collection_store import normalize_direction, public_name
 from common.games.collections_service import (
+    get_cabinet_collections,
     get_collection_image_url,
-    get_collection_names,
     get_collections_manager,
-    get_collections_metadata,
 )
 from common.games.game_metadata import game_rating, normalize_meta, set_game_rating
 from common.games.game_repository import all_games
@@ -451,10 +450,10 @@ class API:
 
 
     def get_collections(self) -> list[str]:
-        return get_collection_names()
+        return [row["name"] for row in self.get_collections_metadata()]
 
     def get_collections_metadata(self) -> list[dict]:
-        return get_collections_metadata()
+        return get_cabinet_collections(public_name(self.current_collection))
 
     def get_collection_image_url(self, collection: str) -> str:
         return get_collection_image_url(collection)

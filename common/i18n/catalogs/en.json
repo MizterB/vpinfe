@@ -379,6 +379,9 @@
   "console.collections.needs_attention": "Needs Attention",
   "console.collections.new_collection": "New collection",
   "console.collections.not_saved.help": "Its rules have changes that are not saved",
+  "console.collections.off_cabinet.help": "Not shown on the cabinet",
+  "console.collections.on_cabinet": "On Cabinet",
+  "console.collections.on_cabinet.help": "Offered in the cabinet's collection menus",
   "console.collections.opens_on.help": "The cabinet opens on this collection",
   "console.collections.order": "Order",
   "console.collections.order.help": "The order the cabinet shows its games in",
@@ -1630,6 +1633,8 @@
   "console.workbench.shadowed": "Shadowed ({the_count})",
   "console.workbench.show_at_most": "Show at most",
   "console.workbench.show_in_games": "Show in Games",
+  "console.workbench.show_on_cabinet": "Show on Cabinet",
+  "console.workbench.show_on_cabinet.help": "Off leaves it out of the cabinet's collection menus",
   "console.workbench.single_game_folder_no": "A single game folder has no room for another game.",
   "console.workbench.smart_games": {
     "one": "Smart · {count} game",

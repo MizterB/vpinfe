@@ -43,12 +43,15 @@ _ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt
 _NAME = (
     "params => {" + _ESCAPE +
     f" const tip = esc({json.dumps(t('console.collections.opens_on.help'))});"
+    f" const off = esc({json.dumps(t('console.collections.off_cabinet.help'))});"
     f" const unsaved = esc({json.dumps(t('word.not_saved'))});"
     f" const why = esc({json.dumps(t('console.collections.not_saved.help'))});"
     " const d = params.data || {};"
     " let said = esc(params.value == null ? '' : params.value);"
     " if (d.opens_on) said += ' <i class=\"material-icons console-cell-mark"
     " console-cell-mark--chosen\" title=\"' + tip + '\">" + verbs.OPENS_ON + "</i>';"
+    " if (d.on_cabinet === false) said += ' <i class=\"material-icons console-cell-mark\""
+    " title=\"' + off + '\">" + verbs.HIDE + "</i>';"
     " if (d.unsaved) said += ' <span class=\"console-member-chip console-tier"
     " console-tier--warn\" title=\"' + why + '\">' + unsaved + '</span>';"
     " return said; }"
@@ -102,6 +105,13 @@ COLUMNS = [
                 help=t("console.collections.limit.help")),
     grid.column("missing", t("console.collections.missing"), **_NUMERIC,
                 help=t("console.collections.missing.help")),
+    grid.column("on_cabinet", t("console.collections.on_cabinet"),
+                help=t("console.collections.on_cabinet.help"),
+                **{":valueFormatter": "params => params.value ? '\u2713' : ''",
+                   "cellClass": "console-tick", ":cellRenderer": None,
+                   **grid.choice_filter([{"value": True, "label": t("word.yes")},
+                                         {"value": False, "label": t("word.no")}],
+                                        formatted=True)}),
     grid.column("attention", t("console.collections.needs_attention"),
                 **{":valueFormatter": "params => params.value ? '\u2713' : ''",
                    "cellClass": "console-tick", ":cellRenderer": None,
@@ -171,6 +181,7 @@ def rows(collections: list[dict[str, Any]], opens_on: str = "",
             "missing": missing,
             "attention": bool(missing or excluded),
             "opens_on": bool(opens_on) and row.get("name") == opens_on,
+            "on_cabinet": row.get("on_cabinet") is not False,
             "unsaved": row.get("name") in unsaved,
             "order": _order_line(row),
             "limit": row.get("limit") or None,
@@ -327,6 +338,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
         table.run_grid_method("setGridOption", "rowData", fresh)
+        table.run_grid_method("refreshCells", {"force": True, "columns": ["name"]})
         count.text = said()
         if not focus:
             return

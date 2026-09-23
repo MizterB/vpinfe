@@ -96,10 +96,6 @@ def forget_in_settings(name: str) -> None:
     store.save()
 
 
-def get_collection_names() -> list[str]:
-    return get_collections_manager().get_collections_name()
-
-
 def collection_icon_url(filename: str | None) -> str:
     filename = Path(filename or "").name.strip()
     if not filename:
@@ -130,12 +126,19 @@ def get_collections_metadata() -> list[dict]:
             "is_filter": is_filter,
             "image": image,
             "image_url": collection_icon_url(image),
+            "on_cabinet": manager.get_on_cabinet(name),
             # The stored membership, whatever else the collection carries. Criteria and
             # named members are combinable, so reporting null for
             # anything that filters hid the members it also held.
             "game_count": len(manager.get_members(name)),
         })
     return rows
+
+
+def get_cabinet_collections(showing: str = "") -> list[dict]:
+    """The collections the cabinet offers, and `showing` whether offered or not."""
+    return [row for row in get_collections_metadata()
+            if row["on_cabinet"] or (showing and row["name"] == showing)]
 
 
 def save_filter_collection(

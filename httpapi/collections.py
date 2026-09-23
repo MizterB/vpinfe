@@ -210,6 +210,7 @@ def patch_collection(name: str,
         clear_limit=request.clear_limit,
         description=request.description,
         image=request.image,
+        on_cabinet=request.on_cabinet,
         order_by=request.order_by,
         direction=request.direction,
         paging_group=request.paging_group))

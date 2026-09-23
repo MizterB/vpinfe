@@ -1723,6 +1723,7 @@ class CollectionResource(ApiModel):
     # identity; this is where the reason lives.
     description: str = ""
     image: str | None
+    on_cabinet: bool = True
     # What it resolves to right now - its size, which is the number a reader means by
     # "how big is this collection". `game_count` is the stored membership and the two
     # differ by design: criteria contribute rows that are stored nowhere.
@@ -1785,6 +1786,7 @@ class PatchCollectionRequest(ApiModel):
     # "" clears it, which is why this is not a bare falsy check on the way in.
     description: str | None = None
     image: str | None = None
+    on_cabinet: bool | None = None
     filters: CollectionFilters | None = None
     # Refused beside `filters`.
     clear_filters: bool = False

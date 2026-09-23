@@ -168,6 +168,7 @@ def _resource_for(row: dict) -> dict:
         "type": "filter" if row["is_filter"] else "manual",
         "description": get_collections_manager().get_description(name),
         "image": row.get("image") or None,
+        "on_cabinet": row.get("on_cabinet", True),
         "count": count,
         "before_limit": before_limit,
         "missing": _missing(name),
@@ -697,6 +698,7 @@ def patch(name: str, *, new_name: str | None = None, games: Iterable[str] | None
           clear_criteria: bool = False,
           limit: int | None = None, clear_limit: bool = False,
           description: str | None = None, image: str | None = None,
+          on_cabinet: bool | None = None,
           order_by: str | None = None, direction: str | None = None,
           paging_group: str | None = None) -> dict:
     """Name, image, criteria, membership and cap, in one place.
@@ -734,6 +736,9 @@ def patch(name: str, *, new_name: str | None = None, games: Iterable[str] | None
 
         if image is not None:
             manager.set_image(name, image)
+
+        if on_cabinet is not None:
+            manager.set_on_cabinet(name, on_cabinet)
 
         # After the criteria, so an order given alongside one is the explicit answer rather
         # than being overwritten by the order inside the criteria block.

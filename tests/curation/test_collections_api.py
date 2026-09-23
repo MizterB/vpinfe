@@ -72,6 +72,45 @@ class CollectionsApiTests(TempTree):
 
         self.assertEqual((2, 2), (held["count"], held["before_limit"]))
 
+    # --- on the cabinet or not --------------------------------------------
+
+    def test_a_collection_kept_off_the_cabinet_is_still_listed_here(self) -> None:
+        self.client.post("/collections", json={"name": "Favorites"})
+        self.client.post("/collections", json={"name": "Workbench"})
+
+        kept = self.client.patch("/collections/Workbench", json={"on_cabinet": False})
+        listed = {one["name"]: one["on_cabinet"]
+                  for one in self.client.get("/collections").json()["collections"]}
+
+        self.assertFalse(kept.json()["on_cabinet"])
+        self.assertEqual({"Favorites": True, "Workbench": False}, listed)
+
+    def test_the_cabinet_leaves_it_out(self) -> None:
+        from common.games.collections_service import get_cabinet_collections
+        self.client.post("/collections", json={"name": "Favorites"})
+        self.client.post("/collections", json={"name": "Workbench"})
+        self.client.patch("/collections/Workbench", json={"on_cabinet": False})
+
+        self.assertEqual(["Favorites"], [row["name"] for row in get_cabinet_collections()])
+
+    def test_the_one_on_screen_stays_in_the_cabinet_s_menu(self) -> None:
+        from common.games.collections_service import get_cabinet_collections
+        self.client.post("/collections", json={"name": "Favorites"})
+        self.client.post("/collections", json={"name": "Workbench"})
+        self.client.patch("/collections/Workbench", json={"on_cabinet": False})
+
+        self.assertEqual(["Favorites", "Workbench"],
+                         [row["name"] for row in get_cabinet_collections("Workbench")])
+
+    def test_shown_again_leaves_no_key_behind(self) -> None:
+        self.client.post("/collections", json={"name": "Workbench"})
+        self.client.patch("/collections/Workbench", json={"on_cabinet": False})
+        self.client.patch("/collections/Workbench", json={"on_cabinet": True})
+
+        stored = json.loads(open(self.manager.path, encoding="utf-8").read())
+
+        self.assertNotIn("on_cabinet", stored["collections"][0])
+
     # --- which collections hold a game -----------------------------------
 
     def test_every_game_s_collections_come_in_one_read(self) -> None:

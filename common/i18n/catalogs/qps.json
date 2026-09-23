@@ -379,6 +379,9 @@
   "console.collections.needs_attention": "Ñèèđš Àţţèñţîöñ",
   "console.collections.new_collection": "Ñèŵ çöŀŀèçţîöñ",
   "console.collections.not_saved.help": "Îţš řûŀèš ĥàṽè çĥàñĝèš ţĥàţ àřè ñöţ šàṽèđ",
+  "console.collections.off_cabinet.help": "Ñöţ šĥöŵñ öñ ţĥè çàƀîñèţ",
+  "console.collections.on_cabinet": "Öñ Çàƀîñèţ",
+  "console.collections.on_cabinet.help": "Öƒƒèřèđ îñ ţĥè çàƀîñèţ'š çöŀŀèçţîöñ ɱèñûš",
   "console.collections.opens_on.help": "Ţĥè çàƀîñèţ öþèñš öñ ţĥîš çöŀŀèçţîöñ",
   "console.collections.order": "Öřđèř",
   "console.collections.order.help": "Ţĥè öřđèř ţĥè çàƀîñèţ šĥöŵš îţš ĝàɱèš îñ",
@@ -1630,6 +1633,8 @@
   "console.workbench.shadowed": "Šĥàđöŵèđ ({the_count})",
   "console.workbench.show_at_most": "Šĥöŵ àţ ɱöšţ",
   "console.workbench.show_in_games": "Šĥöŵ îñ Ĝàɱèš",
+  "console.workbench.show_on_cabinet": "Šĥöŵ öñ Çàƀîñèţ",
+  "console.workbench.show_on_cabinet.help": "Öƒƒ ŀèàṽèš îţ öûţ öƒ ţĥè çàƀîñèţ'š çöŀŀèçţîöñ ɱèñûš",
   "console.workbench.single_game_folder_no": "À šîñĝŀè ĝàɱè ƒöŀđèř ĥàš ñö řööɱ ƒöř àñöţĥèř ĝàɱè.",
   "console.workbench.smart_games": {
     "one": "Šɱàřţ · {count} ĝàɱè",
