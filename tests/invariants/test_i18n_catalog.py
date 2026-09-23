@@ -543,6 +543,42 @@ class TestApiErrorMessages(unittest.TestCase):
         self.assertEqual(offenders, [], "call t() and put the words in the catalog")
 
 
+def _named(node: ast.expr) -> str | None:
+    return getattr(node, "id", None) or getattr(node, "attr", None)
+
+
+def _refusal_sweep() -> tuple[set[str], list[tuple[Path, str | None, ast.expr]]]:
+    """The LaunchUnavailableError family, and each call in `common/` with its first argument."""
+    parents: dict[str, set[str | None]] = {}
+    calls = []
+    for path in sorted((ROOT / "common").rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ClassDef):
+                parents[node.name] = {_named(base) for base in node.bases}
+            elif isinstance(node, ast.Call) and node.args:
+                calls.append((path, _named(node.func), node.args[0]))
+    family = {"LaunchUnavailableError"}
+    while grown := {name for name, bases in parents.items() if bases & family} - family:
+        family |= grown
+    return family, calls
+
+
+class TestLaunchRefusalMessages(unittest.TestCase):
+    def test_no_refusal_is_raised_with_a_literal_message(self) -> None:
+        family, calls = _refusal_sweep()
+        offenders = [fault for path, name, message in calls if name in family
+                     for fault in _fault(path, name, "", message)]
+        self.assertEqual(offenders, [], "call t() and put the words in the catalog")
+
+    def test_it_found_the_refusals(self) -> None:
+        """An empty sweep passes and measures nothing, which reads the same as clean."""
+        family, calls = _refusal_sweep()
+        self.assertGreater(len(family), 3)
+        self.assertGreater(sum(1 for _, name, _ in calls if name in family), 5)
+
+
 class TestTheCatalogHoldsWords(unittest.TestCase):
     def test_no_entry_is_a_class_list(self) -> None:
         """A translation of one restyles the page instead of rewording it."""

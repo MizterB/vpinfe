@@ -115,15 +115,15 @@ def binary_for(table_id: str, filename: str) -> str:
 def _binary_of(launcher: launchers.Launcher | None) -> str:
     """The program a launcher runs, checked before anything is announced."""
     if launcher is None:
-        raise LaunchUnavailableError(t("error.launchers.no_launcher_configured"))
+        raise LaunchUnavailableError(t("error.launch.no_launcher_configured"))
     configured = str(launcher.value("bin_path") or "").strip()
     if not configured:
         raise LaunchUnavailableError(
-            f"{launcher.display_name} has no program set.")
+            t("error.launch.no_program_set", launcher_name=launcher.display_name))
     resolved = resolve_launcher_path(configured)
     if not resolved.exists():
-        raise LaunchUnavailableError(
-            f"{launcher.display_name} points at something that is not there: {resolved}")
+        raise LaunchUnavailableError(t("error.launch.program_not_there",
+                                       launcher_name=launcher.display_name, path=resolved))
     return str(resolved)
 
 
@@ -151,7 +151,7 @@ def _resolve_entry(game: Game, named: str | None) -> tuple[str, dict]:
             return chosen
         path = str(game.full_path_vpx_file or "")
         if not path:
-            raise LaunchUnavailableError("This game has nothing to launch")
+            raise LaunchUnavailableError(t("error.launch.nothing_to_launch"))
         return "", {tables.TABLE_FILENAME_KEY: os.path.basename(path)}
 
     wanted = str(named).strip()
@@ -173,7 +173,7 @@ def _resolve_entry(game: Game, named: str | None) -> tuple[str, dict]:
         listing = [name for name in os.listdir(game_dir)
                    if os.path.isfile(os.path.join(game_dir, name))]
     if wanted not in table_names(listing):
-        raise UnknownTableError(f"No table named {named} in this game")
+        raise UnknownTableError(t("error.launch.no_table_named", table=named))
     found_id, found = entry_for_filename(entries, wanted)
     return found_id, found or {tables.TABLE_FILENAME_KEY: wanted}
 
@@ -215,7 +215,7 @@ def _plan(entry: apps.Entry, binary: str,
     app = apps.get(getattr(launcher, "app", "")) or apps.default_app()
     if app.launch is None:
         raise LaunchUnavailableError(
-            f"{apps.app_name(app.id)} does not know how to start anything.")
+            t("error.launch.app_starts_nothing", app_name=apps.app_name(app.id)))
 
     settings = {declared.key: launcher.value(declared.key)
                 for declared in launcher.fields()}
@@ -264,7 +264,7 @@ def check_launchable(game: Game, ini_config: ConfigStore,
     table_id, entry = _resolve_entry(game, table)
     _reference_is_reachable(game, entry)
     if launch_state.current().launching:
-        raise LaunchBusyError("A table is already launching on this machine")
+        raise LaunchBusyError(t("error.launch.already_launching"))
     _binary_of(_launcher_for(table_id, entry)[0])
     return _path_of(game, entry) or tables.entry_native_key(entry)
 
@@ -287,9 +287,8 @@ def _reference_is_reachable(game: Game, entry: dict) -> None:
     path = _path_of(game, entry)
     if path and os.path.isfile(path):
         return
-    raise ReferenceUnreachableError(
-        f"This table lives at {path or tables.entry_reference(entry)}, which is not "
-        "reachable from here.")
+    raise ReferenceUnreachableError(t("error.launch.reference_unreachable",
+                                      path=path or tables.entry_reference(entry)))
 
 
 def launch_game(game: Game, ini_config: ConfigStore, *, source: str,
