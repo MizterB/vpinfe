@@ -198,6 +198,9 @@ class Library:
     def browsed_file(self, path: str) -> bytes:
         return self._client.browsed_file(path)
 
+    def media_file(self, game_id: str, table_id: str | None, kind: str) -> tuple[bytes, str]:
+        return self._client.media_file(game_id, table_id or "", kind)
+
     def import_media(self, game_id: str, table_id: str | None, kind: str,
                      path: str) -> dict:
         result = self._client.import_media(game_id, table_id or "", kind, path)
@@ -730,6 +733,9 @@ class Library:
         *that still exist* - a stored member naming a game this library does not have
         resolves to nothing, which is why this can be shorter than `game_count`."""
         return self._client.collection_games(name)
+
+    def collection_entries(self, name: str) -> list[dict[str, Any]]:
+        return self._client.collection_entries(name)
 
     def collection_members(self, name: str) -> dict:
         """Stored membership and the state of each - the lens an editor needs. Not

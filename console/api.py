@@ -418,6 +418,11 @@ class ApiClient:
         return list(self._get(f"/collections/{quote(name, safe='')}/games")
                     .get("games") or [])
 
+    def collection_entries(self, name: str) -> list[dict]:
+        """The play lens: one entry per game, in the order the cabinet shows them."""
+        return list(self._get(f"/collections/{quote(name, safe='')}/entries")
+                    .get("entries") or [])
+
     def create_collection(self, name: str, filters: dict | None = None,
                           games: list[str] | None = None, copy_of: str | None = None) -> dict:
         """Criteria, hand-picked games, or both - they are combinable, and the kind is
@@ -561,6 +566,14 @@ class ApiClient:
         response = self._session.get(f"{self._base}{route}", timeout=_TIMEOUT)
         self._answered(response)
         return response.content
+
+    def media_file(self, game_id: str, table_id: str, kind: str) -> tuple[bytes, str]:
+        """The file a slot resolves to, and the content type it is served as."""
+        route = self._media_path(game_id, table_id, kind)
+        _refuse_the_event_loop(route)
+        response = self._session.get(f"{self._base}{route}", timeout=_TIMEOUT)
+        self._answered(response)
+        return response.content, response.headers.get("content-type", "")
 
     def import_media(self, game_id: str, table_id: str, kind: str, path: str) -> dict:
         """Copy a file from elsewhere on this machine into the slot."""

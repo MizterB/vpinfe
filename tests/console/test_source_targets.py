@@ -3,6 +3,7 @@ and a collection's image."""
 
 from __future__ import annotations
 
+import mimetypes
 import unittest
 from types import SimpleNamespace
 
@@ -79,6 +80,22 @@ class WhatIsAlreadyThere(unittest.TestCase):
         context = {"library": LIBRARY, "game_id": "game", "game": {"folder": "/games/Afm"}}
         self.assertEqual("", mediasource._Folder(context, "alt_color", "Alt Color",
                                                  _nothing).current)
+
+
+class ACollectionTakingAGameWheel(unittest.TestCase):
+    def test_only_a_collection_image_offers_its_games(self) -> None:
+        self.assertEqual([True, False],
+                         [mediasource._Image(LIBRARY, "Favorites", "Image", _nothing).games,
+                          mediasource._Folder.games])
+
+    def test_every_image_the_library_serves_is_named_so_a_collection_can_save_it(
+            self) -> None:
+        for suffix in IMAGE_FAMILY:
+            served = mimetypes.guess_type(f"wheel{suffix}")[0] or ""
+            with self.subTest(served=served):
+                named = mediasource._named_for("4 Queens", f"{served}; charset=binary")
+                self.assertTrue(named.startswith("4 Queens."))
+                self.assertIn(named[len("4 Queens"):], IMAGE_EXTENSIONS)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,10 @@
 """Where a file comes from, in one place.
 
 Three ways in, because there are three: the computer you are looking at this from, the
-machine VPinFE runs on, and the catalogs. Anything already on a disk there is one
-browser rather than a tab apiece - this game's folder, another game's, and a folder of
-downloads are the same act, and splitting them made three answers to one question.
+machine VPinFE runs on, and the catalogs. A collection's picture has a fourth, the art its
+games already have. Anything already on a disk is one browser rather than a tab apiece -
+this game's folder, another game's, and a folder of downloads are the same act, and
+splitting them made three answers to one question.
 
 A slot's file lands under the slot's name at the tier the lens is on, and whatever it
 displaced was named before it went.
@@ -12,14 +13,16 @@ displaced was named before it went.
 from __future__ import annotations
 
 import logging
+import mimetypes
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
+from urllib.parse import quote
 
 from nicegui import run, ui
 
-from common import labels
+from common import icons, labels
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, spec_for, specs_named
 from common.i18n import t
 from common.media_specs import (
@@ -49,6 +52,7 @@ _LIST_MAX = 60
 
 # Where `.console-source-host` cuts the tab's label, at 20ch.
 _HOST_NAME_MAX = 20
+_FIND_FROM = 8
 
 # Only a drag carrying files belongs to the dialog: text dragged within a field is left
 # to the field.
@@ -144,6 +148,7 @@ class _Sources:
     """
 
     online = False
+    games = False
 
     def __init__(self, library: Any, label: str, done: Callable, current: str = "") -> None:
         self.library = library
@@ -191,6 +196,9 @@ class _Sources:
     async def online_tab(self, body: ui.column) -> None:
         return None
 
+    async def games_tab(self, body: ui.column) -> None:
+        return None
+
     def open(self) -> None:
         with frame.opened(self.title(), classes="console-sources-card") as box:
             self.dialog = box
@@ -198,11 +206,14 @@ class _Sources:
             self.before()
             above = ui.column().classes("w-full gap-0 px-3")
 
-            # Ordered by how far the file has to travel: your own computer, the machine
-            # VPinFE runs on, then the internet.
+            # Ordered by how far the file has to travel: your own computer, this library,
+            # the machine VPinFE runs on, then the internet.
             host = _host_name(self.library)
             with ui.tabs().props("dense no-caps align=left").classes("w-full px-3") as tabs:
                 ui.tab("upload", label=t("console.mediasource.upload"), icon=verbs.FROM_FILE)
+                if self.games:
+                    ui.tab("games", label=t("console.mediasource.its_games"),
+                           icon=icons.GAMES)
                 named = ui.tab("host", label=host, icon=verbs.FROM_HOST) \
                     .classes("console-source-host")
                 if len(host) > _HOST_NAME_MAX:
@@ -211,12 +222,16 @@ class _Sources:
                     ui.tab("online", label=t("console.mediasource.online"),
                            icon=verbs.FROM_ONLINE)
             online_body: ui.column | None = None
+            games_body: ui.column | None = None
             with ui.tab_panels(tabs, value="upload").classes("w-full console-sources-panels"):
                 with ui.tab_panel("upload"), \
                         ui.column().classes("console-slot-blank console-source-zone "
                                             "items-center gap-2"):
                     ui.icon(verbs.FROM_FILE).classes("console-slot-blank-icon")
                     self.zone(card)
+                if self.games:
+                    with ui.tab_panel("games"):
+                        games_body = ui.column().classes("w-full gap-2 console-source-fill")
                 with ui.tab_panel("host"):
                     host_body = ui.column().classes("w-full gap-2 console-source-fill")
                 if self.online:
@@ -243,6 +258,8 @@ class _Sources:
                 await self.host_tab(host_body)
             elif event.value == "online" and online_body is not None:
                 await self.online_tab(online_body)
+            elif event.value == "games" and games_body is not None:
+                await self.games_tab(games_body)
 
         tabs.on_value_change(load)
 
@@ -891,6 +908,8 @@ class _Notes(_Folder):
 class _Image(_OneFile):
     """A collection's picture."""
 
+    games = True
+
     def __init__(self, library: Any, name: str, label: str, done: Callable) -> None:
         super().__init__(library, label, done, IMAGE_FAMILY)
         self.name = name
@@ -917,6 +936,61 @@ class _Image(_OneFile):
         candidates.row(self.library.browsed_file_url(item["path"]), item["name"],
                        _size(item.get("size_bytes")), "", take)
 
+    async def games_tab(self, body: ui.column) -> None:
+        body.clear()
+        try:
+            entries = await offload.io(self.library.collection_entries, self.name)
+        except Exception as exc:  # noqa: BLE001
+            with body:
+                ui.label(t("console.mediasource.could_not_read_its_games", exc=exc)) \
+                    .classes("console-help")
+            return
+        wheeled = [entry for entry in entries if "wheel" in (entry.get("media") or [])]
+        with body:
+            if not wheeled:
+                ui.label(t("console.mediasource.no_game_wheels")).classes("console-help")
+                return
+            find = None
+            if len(wheeled) > _FIND_FROM:
+                with ui.element("div").classes("w-full"):
+                    find = frame.field(placeholder=t("console.mediasource.find_game"))
+            listing = ui.column().classes("w-full gap-1 console-source-list")
+
+        def draw() -> None:
+            typed = str(find.value or "").strip().casefold() if find is not None else ""
+            found = [entry for entry in wheeled
+                     if typed in str((entry.get("game") or {}).get("name") or "").casefold()]
+            listing.clear()
+            with listing:
+                if not found:
+                    ui.label(t("console.mediasource.no_game_by_name")).classes("console-help")
+                for entry in found:
+                    self._wheel_row(entry)
+
+        if find is not None:
+            find.on_value_change(draw)
+        draw()
+
+    def _wheel_row(self, entry: dict[str, Any]) -> None:
+        game = entry.get("game") or {}
+        game_id = str(game.get("id") or "")
+        table_id = str((entry.get("table") or {}).get("id") or "")
+        name = str(game.get("name") or "")
+
+        async def take() -> None:
+            try:
+                data, served = await offload.io(self.library.media_file, game_id, table_id,
+                                                "wheel")
+            except Exception as exc:  # noqa: BLE001
+                ui.notify(t("console.mediasource.could_not_use_image", exc=exc),
+                          type="negative")
+                return
+            await self.took(_named_for(name, served), data)
+
+        table = f"/tables/{quote(table_id, safe='')}" if table_id else ""
+        candidates.row(f"/api/v1/games/{quote(game_id, safe='')}{table}/media/wheel", name,
+                       game_tables.made(game), "", take)
+
     async def took(self, name: str, data: bytes) -> None:
         try:
             await offload.io(self.library.set_collection_image, self.name, name, data)
@@ -931,6 +1005,10 @@ def _on_host(context: dict[str, Any], path: str) -> str:
     """A path in the game's folder, as the host tab lists it."""
     folder = str(context["game"].get("folder") or "")
     return str(PurePosixPath(folder) / path) if folder and path else ""
+
+
+def _named_for(name: str, served: str) -> str:
+    return name + (mimetypes.guess_extension(served.split(";")[0].strip()) or "")
 
 
 def _trimmed_stem(label: str) -> str:
