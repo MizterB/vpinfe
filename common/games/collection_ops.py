@@ -839,6 +839,22 @@ def set_arrangement(name: str, games: list[str]) -> None:
         manager.set_order(name, MANUAL_ORDER)
 
 
+def arrange_collections(names: list[str]) -> dict:
+    """Every collection in a new order, atomically, answered with the list as it now
+    reads."""
+    with get_collections_manager().mutate() as manager:
+        stored = manager.get_collections_name()
+        sent = [str(name) for name in names]
+        if sorted(sent) != sorted(stored):
+            raise service_errors.RefusedError(
+                t("error.collections.order_must_name_every"),
+                details={"missing": sorted(set(stored) - set(sent)),
+                         "unknown": sorted(set(sent) - set(stored)),
+                         "sent": len(sent), "collections": len(stored)})
+        manager.arrange(sent)
+    return listing()
+
+
 def _refuse_arrangement(members: list[str], sent: list[str]) -> None:
     # Counts, because the sets can match while the lists do not: a game named twice is one
     # entry in both sets and two rows in the collection. Reported without them, such a

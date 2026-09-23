@@ -365,6 +365,13 @@ class CollectionStore:
     def get_collections_name(self) -> list[str]:
         return [r["name"] for r in self.records]
 
+    def arrange(self, names: list[str]) -> None:
+        """Put the records in the order `names` gives, which must name each exactly once."""
+        if sorted(names) != sorted(self.get_collections_name()):
+            raise ValueError("An arrangement must name every collection exactly once")
+        place = {name: at for at, name in enumerate(names)}
+        self.records.sort(key=lambda record: place[record["name"]])
+
     def schema_version(self) -> int:
         return self._schema
 

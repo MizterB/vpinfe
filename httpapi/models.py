@@ -1911,6 +1911,12 @@ class MemberTableRequest(ApiModel):
     was: str = ""
 
 
+class CollectionsArrangementRequest(ApiModel):
+    """Every collection by name, in the order the cabinet shows them."""
+
+    order: list[str]
+
+
 class CollectionOrderRequest(ApiModel):
     """The membership in the order it should be read.
 

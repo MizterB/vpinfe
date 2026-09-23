@@ -459,6 +459,10 @@ class ApiClient:
         suffix = "" if table is None else f"?table={quote(table, safe='')}"
         self._delete(f"/collections/{quote(name, safe='')}/games/{game_id}{suffix}")
 
+    def arrange_collections(self, names: list[str]) -> list[dict]:
+        """Every collection, in the order the cabinet should show them."""
+        return list(self._patch("/collections", {"order": names}).get("collections") or [])
+
     def set_collection_order(self, name: str, games: list[str]) -> None:
         """The whole ordered list at once - atomic, and no index arithmetic here."""
         self._put_empty(f"/collections/{quote(name, safe='')}/order",

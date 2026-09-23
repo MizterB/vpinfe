@@ -774,6 +774,10 @@ class Library:
         self._collections_changed()
         return self._client.create_collection(name, copy_of=source)
 
+    def arrange_collections(self, names: list[str]) -> None:
+        self._collections_changed()
+        self._client.arrange_collections(names)
+
     def patch_collection(self, name: str, changes: dict) -> dict:
         self._collections_changed()
         return self._client.patch_collection(name, changes)

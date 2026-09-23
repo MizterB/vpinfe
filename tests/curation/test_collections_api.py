@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -107,9 +108,51 @@ class CollectionsApiTests(TempTree):
         self.client.patch("/collections/Workbench", json={"on_cabinet": False})
         self.client.patch("/collections/Workbench", json={"on_cabinet": True})
 
-        stored = json.loads(open(self.manager.path, encoding="utf-8").read())
+        stored = json.loads(Path(self.manager.path).read_text(encoding="utf-8"))
 
         self.assertNotIn("on_cabinet", stored["collections"][0])
+
+    # --- the order the cabinet shows them in ---------------------------
+
+    def _names(self) -> list[str]:
+        return [one["name"] for one in self.client.get("/collections").json()["collections"]]
+
+    def test_the_whole_order_is_written_at_once(self) -> None:
+        for name in ("Favorites", "Tournament", "EMs"):
+            self.client.post("/collections", json={"name": name})
+
+        answered = self.client.patch("/collections",
+                                     json={"order": ["EMs", "Favorites", "Tournament"]})
+
+        self.assertEqual(200, answered.status_code)
+        self.assertEqual(["EMs", "Favorites", "Tournament"],
+                         [one["name"] for one in answered.json()["collections"]])
+        self.assertEqual(["EMs", "Favorites", "Tournament"], self._names())
+
+    def test_an_order_leaving_one_out_is_refused_and_nothing_moves(self) -> None:
+        for name in ("Favorites", "Tournament", "EMs"):
+            self.client.post("/collections", json={"name": name})
+
+        refused = self.client.patch("/collections", json={"order": ["EMs", "Favorites"]})
+
+        self.assertEqual(400, refused.status_code)
+        self.assertEqual(["Tournament"], refused.json()["error"]["details"]["missing"])
+        self.assertEqual(["Favorites", "Tournament", "EMs"], self._names())
+
+    def test_an_order_naming_one_twice_is_refused(self) -> None:
+        for name in ("Favorites", "EMs"):
+            self.client.post("/collections", json={"name": name})
+
+        refused = self.client.patch(
+            "/collections", json={"order": ["EMs", "Favorites", "Favorites"]})
+
+        self.assertEqual(400, refused.status_code)
+        self.assertEqual(["Favorites", "EMs"], self._names())
+
+    def test_a_collection_called_order_is_still_its_own_address(self) -> None:
+        self.client.post("/collections", json={"name": "order"})
+
+        self.assertEqual("order", self.client.get("/collections/order").json()["name"])
 
     # --- which collections hold a game -----------------------------------
 

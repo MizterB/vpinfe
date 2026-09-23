@@ -80,7 +80,8 @@ COLUMNS = [
     grid.column("icon", "", 56, pinned="left", sortable=False, filter=False,
                 picker=t("console.collections.wheel"),
                 help=t("console.collections.icon.help")),
-    grid.identifier("name", t("word.name"), 240, pinned="left", **{":cellRenderer": _NAME}),
+    grid.identifier("name", t("word.name"), 240, pinned="left",
+                    rowDrag=True, **{":cellRenderer": _NAME}),
     grid.column("kind", t("word.kind"), 120, help=t("console.collections.kind.help"),
                 **{**grid.choice_filter([{"value": kind, "label": word}
                                          for kind, word in _KIND_WORDS.items()]),
@@ -119,6 +120,15 @@ COLUMNS = [
                                          {"value": False, "label": t("word.no")}],
                                         formatted=True)}),
 ]
+
+_ARRANGEMENT = """(() => {
+  const api = getElement(%d).api;
+  const shown = [];
+  api.forEachNodeAfterFilterAndSort(node => shown.push(node.data.id));
+  const by = api.getColumnState().filter(c => c.sort)
+    .sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0))[0];
+  return {shown: shown, sorted: by ? by.colId : ''};
+})()"""
 
 # Focusing the row is what opens its panel. Waits for the row, because the grid takes
 # new rowData after this runs; false where the row is not displayed.
@@ -236,11 +246,19 @@ def build(collections: list[dict[str, Any]], library: Any,
         if rerender is not None:
             rerender()
 
+    arrangement: dict[str, Any] = {"shown": [row["id"] for row in built], "sorted": ""}
+    hint: dict[str, Any] = {}
+
+    def annotate() -> None:
+        hint["label"] = ui.label().classes("text-xs console-label shrink-0 whitespace-nowrap")
+        hint["label"].set_visibility(False)
+
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                                   "console-panel console-grid-bar"):
         bar = panel.grid_bar()
         wire_views, _picker, showing, describe = view_control(
-            library, SCOPE, COLLECTION_VIEWS, fields, COLUMNS, bar=bar)
+            library, SCOPE, COLLECTION_VIEWS, fields, COLUMNS, bar=bar,
+            annotate=annotate)
         describe()
         with bar.top, panel.bar_end():
             search = panel.search(t("console.collections.search_collections"))
@@ -292,6 +310,8 @@ def build(collections: list[dict[str, Any]], library: Any,
         table = grid.build(COLUMNS, built, SCOPE, on_selected, on_context,
                            on_header_context, html_fields=["icon"], view_of=showing)
         menu = ui.context_menu()
+    table.options["rowDragManaged"] = True
+    table.options[":rowDragText"] = "params => params.rowNode.data.name"
 
     async def redrawn(_next: str | None) -> None:
         if rerender is not None:
@@ -318,14 +338,73 @@ def build(collections: list[dict[str, Any]], library: Any,
                                  "setColumnsVisible", [c], False)) \
                     .classes("console-menu-item")
             elif row:
-                panel.verb_menu(menu, row["name"], acts(library, state, row["name"], redrawn))
+                panel.verb_menu(menu, row["name"],
+                                moves(row["name"])
+                                + acts(library, state, row["name"], redrawn))
+
+    def moves(name: str) -> list[panel.Verb]:
+        out = []
+        for label, where in ((t("console.collections.move_up"), "up"),
+                             (t("console.collections.move_down"), "down"),
+                             (t("console.collections.move_to_top"), "top")):
+            order = moved(name, where)
+            out.append(panel.Verb(
+                label, (lambda o=order: arrange(o, name)) if order else None,
+                hint=sorted_said() if not order and arrangement["sorted"] else "",
+                in_panel=False))
+        return out
+
+    def sorted_said() -> str:
+        by = arrangement["sorted"]
+        header = next((d.get("headerName") for d in COLUMNS if d.get("field") == by), by)
+        return t("console.collections.sorted_to_arrange", column=header)
+
+    def moved(name: str, where: str) -> list[str] | None:
+        """The whole order with `name` moved, or None where it cannot go that way."""
+        shown = arrangement["shown"]
+        if arrangement["sorted"] or name not in shown:
+            return None
+        order = [row["id"] for row in built]
+        at = shown.index(name)
+        if where == "top":
+            if order[0] == name:
+                return None
+            order.remove(name)
+            order.insert(0, name)
+        elif where == "up":
+            if at == 0:
+                return None
+            order.remove(name)
+            order.insert(order.index(shown[at - 1]), name)
+        else:
+            if at == len(shown) - 1:
+                return None
+            order.remove(name)
+            order.insert(order.index(shown[at + 1]) + 1, name)
+        return order
+
+    async def arrange(order: list[str], focus: str = "") -> None:
+        try:
+            await run.io_bound(library.arrange_collections, order)
+        except Exception as exc:
+            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
+        await reread(focus)
+
+    async def dragged() -> None:
+        drawn = await ui.run_javascript(_ARRANGEMENT % table.id)
+        await arrange(list((drawn or {}).get("shown") or []))
 
     async def counted() -> None:
-        seen = await table.run_grid_method("getDisplayedRowCount")
-        shown["rows"] = seen if isinstance(seen, int) else len(built)
+        drawn = await ui.run_javascript(_ARRANGEMENT % table.id) or {}
+        arrangement["shown"] = list(drawn.get("shown") or [])
+        arrangement["sorted"] = str(drawn.get("sorted") or "")
+        shown["rows"] = len(arrangement["shown"])
         count.text = said()
+        hint["label"].text = sorted_said() if arrangement["sorted"] else ""
+        hint["label"].set_visibility(bool(arrangement["sorted"]))
 
     table.on("modelUpdated", counted)
+    table.on("rowDragEnd", dragged, args=["type"])
     wire_views(table)
     search.on_value_change(
         lambda: table.run_grid_method("setGridOption", "quickFilterText",

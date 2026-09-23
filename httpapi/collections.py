@@ -37,6 +37,15 @@ def list_collections() -> models.CollectionList:
     return models.CollectionList.model_validate(collection_ops.listing())
 
 
+@router.patch("", summary="Set the order of the collections",
+              dependencies=[requires(scopes.COLLECTIONS_WRITE)])
+def arrange_collections(
+        request: models.CollectionsArrangementRequest = Body(...)) -> models.CollectionList:
+    """Every collection named once, in the order the cabinet shows them."""
+    return models.CollectionList.model_validate(
+        collection_ops.arrange_collections(request.order))
+
+
 @router.get("/{name}", summary="One collection",
             dependencies=[requires(scopes.COLLECTIONS_READ)])
 def get_collection(name: str) -> models.CollectionResource:
