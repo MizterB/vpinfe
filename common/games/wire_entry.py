@@ -105,6 +105,7 @@ def table_of(entry: dict[str, Any]) -> dict[str, Any]:
             "last_run": user.get("last_played"),
             "start_count": user.get("play_count", 0) or 0,
             "run_time_seconds": user.get("play_time_seconds", 0) or 0,
+            "tags": list(user.get("tags") or []),
         },
     }
     for key in ("release_date", "save_date", "save_rev"):

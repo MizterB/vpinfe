@@ -568,7 +568,7 @@ def table_descriptor(table: dict, *, default_id: str = "") -> dict[str, Any]:
         "authors": table.get("authors") or [],
         "detects": {key.removeprefix("detect_"): bool(table.get(key, False))
                     for key in DETECTION_KEYS},
-        "user": table_play_record(table),
+        "user": {**table_play_record(table), "tags": table_tags(table)},
         # What the user said about this table, against what was discovered. The game
         # carries its own three; these are the ones that govern a single file.
         #

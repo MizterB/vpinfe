@@ -343,7 +343,8 @@
           "user": {
             "last_played": null,
             "play_count": 0,
-            "play_time_seconds": 0
+            "play_time_seconds": 0,
+            "tags": []
           },
           "vbs_hash": "",
           "version": ""
@@ -419,7 +420,8 @@
           "user": {
             "last_played": null,
             "play_count": 0,
-            "play_time_seconds": 0
+            "play_time_seconds": 0,
+            "tags": []
           },
           "vbs_hash": "",
           "version": ""
@@ -497,7 +499,8 @@
           "user": {
             "last_played": null,
             "play_count": 0,
-            "play_time_seconds": 0
+            "play_time_seconds": 0,
+            "tags": []
           },
           "vbs_hash": "",
           "version": ""
@@ -576,7 +579,8 @@
           "user": {
             "last_played": null,
             "play_count": 0,
-            "play_time_seconds": 0
+            "play_time_seconds": 0,
+            "tags": []
           },
           "vbs_hash": "",
           "version": ""

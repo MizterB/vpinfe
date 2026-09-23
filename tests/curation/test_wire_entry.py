@@ -164,7 +164,7 @@ class WireEntryTests(TempTree):
                         "scorbit": False, "fastflips": False, "flex": False,
                         "pinmame": True},
             "user": {"last_played": "2026-08-01T20:14:00Z", "play_count": 12,
-                     "play_time_seconds": 5400},
+                     "play_time_seconds": 5400, "tags": ["Wide Body"]},
             # Everything a parse takes, and what the user said about this one file.
             # Added to the wire together, so the trip has to carry them together.
             "vbs_hash": "9f1c22aa", "save_date": "2019-02-02", "save_rev": "412",
