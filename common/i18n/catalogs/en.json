@@ -375,7 +375,7 @@
   "console.collections.games_stay": "The games stay in the library.",
   "console.collections.games_stay_opens_all": "The games stay in the library. The cabinet will open on All Games instead.",
   "console.collections.hand_picked": "Hand-picked",
-  "console.collections.icon.help": "Shown in the cabinet's collection menu",
+  "console.collections.icon.help": "Shown when picking a collection on the cabinet",
   "console.collections.kind.help": "Hand-picked - holds the games you add\nSmart - fills itself from its rules",
   "console.collections.limit": "Limit",
   "console.collections.limit.help": "At most this many games\nBlank shows all",
