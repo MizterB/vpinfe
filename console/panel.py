@@ -652,7 +652,7 @@ def action(label: str,
     which `on_click` then receives.
     """
     def draw() -> None:
-        classes = "console-action--inline" if inline else "console-action"
+        classes = "console-action console-action--inline" if inline else "console-action"
         control = ui.button(label, icon=icon or None,
                             on_click=None if js else on_click) \
             .props("flat dense no-caps size=sm").classes(classes)
