@@ -1,4 +1,4 @@
-// The five methods core's collection menu owns, and the door it comes in by.
+// The methods core's collection menu and picker own, and the door they come in by.
 //
 // The allowlist in frontend/api.py used to be flat, so core had no way to have a private
 // call and these were theme API by construction. vpin.call refusing them is what makes
@@ -27,6 +27,7 @@ describe("vpin.call refuses core's own methods", () => {
     assert.deepEqual([...internal].sort(), [
       "apply_filters",
       "apply_sort",
+      "get_collection_picker_items",
       "get_current_filter_state",
       "get_current_order_state",
       "get_current_sort_state",
