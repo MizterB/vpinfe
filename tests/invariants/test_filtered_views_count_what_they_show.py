@@ -10,7 +10,7 @@ import pathlib
 import unittest
 
 CONSOLE = pathlib.Path(__file__).resolve().parents[2] / "console"
-FOLLOWS = "getDisplayedRowCount"
+FOLLOWS = ("getDisplayedRowCount", "forEachNodeAfterFilterAndSort")
 
 
 def _filtering_views(tree: ast.Module) -> bool:
@@ -33,7 +33,7 @@ class FilteredViewsCountWhatTheyShow(unittest.TestCase):
 
     def test_the_count_follows_the_grid(self) -> None:
         stuck = [path.name for path in self._filtering()
-                 if FOLLOWS not in path.read_text(encoding="utf-8")]
+                 if not any(call in path.read_text(encoding="utf-8") for call in FOLLOWS)]
         self.assertEqual([], stuck)
 
     def test_it_found_the_grids(self) -> None:
