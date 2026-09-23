@@ -476,6 +476,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
     # asking per row would be one blocking HTTP call per table - and the Console consumes
     # its own process, so a blocking call here does not just cost time, it deadlocks.
     held_launchers = await offload.io(_launchers_for_panel, library)
+    await offload.io(library.media_for, game_id, None)
 
     container.clear()
     title.clear()
