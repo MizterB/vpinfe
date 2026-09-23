@@ -636,19 +636,21 @@ async def _tag_games(context: dict[str, Any]) -> None:
         if not carrying and not tables:
             ui.label(t("console.tags.on_no_games")).classes("console-help px-3")
         for game in sorted(carrying, key=lambda one: str(one.get("name") or "").lower()):
-            with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
+            with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"), \
+                    ui.column().classes("gap-0 grow min-w-0"):
                 panel.link(str(game.get("name") or ""), to="/console?" + deeplink.query(
                     {"view": "games", "game": game["id"]}))()
-                ui.label(game_tables.made(game)).classes("console-help")
+                _said_line(game_tables.made(game))
         if tables:
             ui.label(t("console.tageditor.tables")).classes("console-group px-3 mt-2")
         for table in tables:
-            with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
+            with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"), \
+                    ui.column().classes("gap-0 grow min-w-0"):
                 panel.link(str(table.get("game") or table.get("name") or ""),
                            to="/console?" + deeplink.query(
                                {"view": "tables", "game": str(table.get("game_id") or ""),
                                 "table": str(table.get("id") or "")}))()
-                ui.label(_table_line(table)).classes("console-help")
+                _said_line(game_tables.made(table), table)
 
 
 async def _tag_actions(context: dict[str, Any]) -> None:
@@ -1444,6 +1446,24 @@ def _go_to_table(context: dict[str, Any], table_id: str) -> None:
     state["table"] = table_id
     deeplink.sync(state)
     asyncio.create_task(context["rebuild"]())
+
+
+def _said_line(made: str, table: dict[str, Any] | None = None) -> None:
+    said = game_tables.table_name(table) if table else ""
+    if not (made or said):
+        return
+    with ui.row().classes("items-center gap-1 w-full no-wrap min-w-0 console-member-table"):
+        if made:
+            ui.label(made).classes("console-cell-made whitespace-nowrap")
+        if made and said:
+            ui.label(game_tables.JOIN.strip()).classes("console-cell-join")
+        if said:
+            _built_label(table or {}, said).classes("min-w-0")
+
+
+def _built_label(table: dict[str, Any], said: str) -> ui.label:
+    return ui.label(said).classes("console-cell-built truncate") \
+        .tooltip(str(table.get("filename") or ""))
 
 
 def _table_line(table: dict[str, Any]) -> str:
@@ -5523,8 +5543,7 @@ def _table_choice(context: dict[str, Any], member: dict[str, Any],
         # The same line, and the same tooltip, as a game's Tables section: version and
         # author on screen, the filename a hover away. One formatter, so the two
         # surfaces cannot drift apart.
-        ui.label(said).classes("console-cell-built truncate grow min-w-0") \
-            .tooltip(str(table.get("filename") or ""))
+        _built_label(table, said).classes("grow min-w-0")
         if not editable:
             return
         ui.icon("expand_more").classes("console-member-table-caret")

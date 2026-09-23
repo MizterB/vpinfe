@@ -454,9 +454,8 @@ class GamePicker(ui.select):
         <q-item v-bind="props.itemProps">
           <q-item-section>
             <q-item-label>{{ props.opt.label }}</q-item-label>
-          </q-item-section>
-          <q-item-section side v-if="props.opt.made">
-            <q-item-label caption>{{ props.opt.made }}</q-item-label>
+            <q-item-label caption v-if="props.opt.made" class="console-cell-made">
+              {{ props.opt.made }}</q-item-label>
           </q-item-section>
           <q-item-section side class="console-pick-held">
             <q-icon v-if="props.opt.held" name="check" class="console-tick" />

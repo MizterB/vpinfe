@@ -1,0 +1,145 @@
+"""The line under a name, in the places a panel lists games or tables, read against the
+grid cell it copies. And a game's header with no manufacturer.
+
+Slow: boots a real instance and a real browser.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.parse import quote
+
+from tests.support.browser_session import BrowserSession, chromium_path
+from tests.support.library import game_info, write_game
+from tests.support.live_instance import LiveInstance
+
+EMPTY = "Empty List"
+# Words, color and size of each part of a line: the name's selector, then the root.
+PARTS = ("(root => { if (!root) return null;"
+         " const look = sel => { const el = root.querySelector(sel); if (!el) return null;"
+         " const style = getComputedStyle(el);"
+         " return [el.innerText.trim(), style.color, style.fontSize]; };"
+         " return [%s, '.console-cell-made', '.console-cell-join', '.console-cell-built']"
+         ".map(look); })(%s)")
+# A cell is drawn before its row's text arrives, so a line is read once it says something.
+SAID = "(line => line && line[1] ? line : null)(%s)"
+GAME_CELL = ".ag-row[row-id=\"alpha\"] .console-cell-identifier"
+TABLE_CELL = ".ag-row[row-id=\"t-a1\"] .console-cell-identifier"
+MEMBER = ("[...document.querySelectorAll('.console-section-work .console-member-row')]"
+          ".find(r => r.innerText.startsWith('Alpha'))")
+HEADER = ("(() => { const el = document.querySelector('.console-workbench-label');"
+          " return el ? el.innerText : null; })()")
+GAMES_ROW = ("(() => { const rows = [...document.querySelectorAll('.console-section-row')];"
+             " const at = rows.findIndex(r => r.innerText.startsWith('Games'));"
+             " return at < 0 ? 0 : rows[at].classList.contains('console-section-on')"
+             " ? -1 : at + 1; })()")
+ADD_BOX = ("[...document.querySelectorAll('.console-section-work .q-select')]"
+           ".findIndex(e => e.innerText.includes('Add Games'))")
+OPTION = ("(() => { const item = [...document.querySelectorAll('.q-menu .q-item')]"
+          ".find(e => e.innerText.startsWith('Alpha')); if (!item) return null;"
+          " const labels = [...item.querySelectorAll('.q-item__label')];"
+          " const side = item.querySelector('.q-item__section--side');"
+          " return [labels.map(l => [l.innerText.trim(), getComputedStyle(l).color]),"
+          " side ? side.innerText.trim() : null]; })()")
+
+
+def _cell(selector: str) -> str:
+    return f"document.querySelector({json.dumps(selector)})"
+
+
+class RecordLinesDrive(unittest.TestCase):
+    seen: dict = {}
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        if not chromium_path():
+            raise unittest.SkipTest("no Chromium on this machine")
+        with TemporaryDirectory() as tmp:
+            tables = {"t-a1": {"id": "t-a1", "filename": "Alpha 1.vpx", "version": "1.2",
+                               "authors": ["Someone"], "user": {"tags": ["VR"]}},
+                      "t-a2": {"id": "t-a2", "filename": "Alpha 2.vpx", "version": "2"}}
+            info = game_info("Alpha", vps_id="", game_id="alpha", tables=tables,
+                             Info={"Manufacturer": "Bally", "Year": "1992"},
+                             User={"Tags": ["Night"]})
+            write_game(Path(tmp), "Alpha", info=info, vpx=False,
+                       files={"Alpha 1.vpx": b"x", "Alpha 2.vpx": b"x"})
+            write_game(Path(tmp), "Charlie", info=game_info(
+                "Charlie", vps_id="", game_id="charlie", Info={"Year": "1993"}))
+            with LiveInstance(Path(tmp)) as instance:
+                cls.seen = asyncio.run(cls._drive(instance))
+
+    @classmethod
+    async def _drive(cls, instance: LiveInstance) -> dict:
+        seen: dict = {}
+        instance.wait_for_api()
+        instance.post("/api/v1/collections", {"name": EMPTY})
+
+        async with BrowserSession(chromium_path()) as browser:
+            async def parts(name: str, root: str, key: str) -> None:
+                seen[key] = await browser.wait_for(SAID % (PARTS % (json.dumps(name), root)),
+                                                   timeout=60.0)
+
+            async def open_tag(tag: str) -> None:
+                row = f".ag-row[row-id={json.dumps(tag)}] .ag-cell"
+                await browser.wait_for(f"!!document.querySelector({json.dumps(row)})",
+                                       timeout=60.0)
+                await browser.click(row)
+                at = await browser.wait_for(GAMES_ROW, timeout=30.0)
+                if at > 0:
+                    await browser.click(".console-section-row", nth=int(at) - 1)
+                await browser.wait_for(f"!!({MEMBER})", timeout=30.0)
+                await asyncio.sleep(0.5)
+
+            await browser.navigate(instance.console_url("/console?view=games"))
+            await parts(".console-cell-named", _cell(GAME_CELL), "grid_game")
+            await browser.navigate(instance.console_url("/console?view=tables"))
+            await parts(".console-cell-named", _cell(TABLE_CELL), "grid_table")
+
+            await browser.navigate(instance.console_url("/console?view=tags"))
+            await open_tag("Night")
+            await parts(".console-link", MEMBER, "tag_game")
+            await open_tag("VR")
+            await parts(".console-link", MEMBER, "tag_table")
+
+            await browser.navigate(instance.console_url("/console?view=games&game=charlie"))
+            seen["header"] = await browser.wait_for(HEADER, timeout=60.0)
+
+            await browser.navigate(instance.console_url(
+                f"/console?view=collections&collection={quote(EMPTY)}"))
+            await browser.wait_for("document.body.innerText.includes('Add Games')",
+                                   timeout=60.0)
+            await asyncio.sleep(2.0)
+            await browser.click(".console-section-work .q-select input",
+                                nth=await browser.evaluate(ADD_BOX))
+            seen["option"] = await browser.wait_for(OPTION, timeout=30.0)
+        return seen
+
+    def test_a_tag_s_game_reads_as_the_games_grid_does(self) -> None:
+        name, *line = self.seen["tag_game"]
+        self.assertEqual("Alpha", name[0])
+        self.assertEqual(self.seen["grid_game"][1:3], line[:2])
+        self.assertIsNone(line[2])
+
+    def test_a_tag_s_table_reads_as_the_tables_grid_does(self) -> None:
+        name, *line = self.seen["tag_table"]
+        self.assertEqual("Alpha", name[0])
+        self.assertEqual(self.seen["grid_table"][1:], line)
+        self.assertEqual(["Bally 1992", "·", "1.2 · Someone"],
+                         [part[0] for part in line])
+
+    def test_the_picker_says_maker_and_year_under_the_name_in_the_grid_s_color(self) -> None:
+        labels, side = self.seen["option"]
+        self.assertEqual(["Alpha", "Bally 1992"], [one[0] for one in labels])
+        self.assertEqual(self.seen["grid_game"][1][1], labels[1][1])
+        self.assertEqual("", side)
+
+    def test_a_game_with_no_maker_shows_its_year_alone(self) -> None:
+        self.assertEqual("1993", self.seen["header"])
+
+
+if __name__ == "__main__":
+    unittest.main()
