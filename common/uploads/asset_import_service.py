@@ -360,6 +360,22 @@ def build_media_slot_plan(source_path: Path, *, game_dir: Path, media_kind: str)
     return ImportPlan(str(game_dir), "", "", (item,), ())
 
 
+def build_readme_plan(source_path: Path, *, game_dir: Path) -> ImportPlan:
+    src = Path(source_path)
+    try:
+        size = src.stat().st_size
+    except OSError:
+        size = 0
+    entry = SourceEntry(src.name, src.name, size, False)
+    asset = DetectedAsset("readme", spec_for("readme").label, (entry,), size=size,
+                          detail=src.name)
+    if src.is_dir() or src.suffix.lower() in ARCHIVE_EXTENSIONS:
+        blocked = BlockedItem(asset, t("error.uploads.notes_one_file"))
+        return ImportPlan(str(game_dir), "", "", (), (blocked,))
+    item = PlannedItem(asset, str(game_dir / f"readme{src.suffix.lower()}"), "copy")
+    return ImportPlan(str(game_dir), "", "", (item,), ())
+
+
 def vps_folder_name(vps_entry: dict) -> str:
     """Derive the canonical game folder name from a VPS entry (same shape the
     Import Table dialog builds: "Name (Manufacturer Year)")."""

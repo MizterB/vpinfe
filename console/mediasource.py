@@ -847,7 +847,7 @@ class _Folder(_Sources):
             return
         self._busy = True
         try:
-            analysis = await uploads.analyzed(self.library, upload_id)
+            analysis = await self.analysis(upload_id)
             if analysis is not None:
                 await uploads.confirmed_import(
                     self.library, upload_id, analysis, source=source,
@@ -856,9 +856,36 @@ class _Folder(_Sources):
         finally:
             self._busy = False
 
+    async def analysis(self, upload_id: str) -> dict[str, Any] | None:
+        return await uploads.analyzed(self.library, upload_id)
+
     async def _imported(self) -> None:
         self.dialog.close()
         await self.done()
+
+
+class _Notes(_Folder):
+    def __init__(self, context: dict[str, Any], label: str, done: Callable) -> None:
+        super().__init__(context, "readme", label, done)
+
+    def listing(self, path: str) -> dict[str, Any]:
+        return self.library.browse(path)
+
+    def fits(self, item: dict[str, Any]) -> bool:
+        return item.get("family") == "doc"
+
+    def folder_use(self, path: str) -> Callable | None:
+        return None
+
+    async def analysis(self, upload_id: str) -> dict[str, Any] | None:
+        return {}
+
+    def zone(self, card: Any) -> None:
+        heard = uploads.listener(self.arrived)
+        ui.label(t("console.mediasource.drop_file")).classes("console-help")
+        panel.action(t("console.mediasource.choose_file"), heard, icon=verbs.FROM_FILE,
+                     js="() => window.__consoleChoose(false, emit)")()
+        card.on("drop", heard, js_handler=_MANY)
 
 
 class _Image(_OneFile):
@@ -936,6 +963,10 @@ def open_asset_sources(context: dict[str, Any], kind: str, label: str,
 def open_folder_sources(context: dict[str, Any], kind: str, label: str,
                         done: Callable, current: str = "") -> None:
     _Folder(context, kind, label, done, current).open()
+
+
+def open_notes_sources(context: dict[str, Any], label: str, done: Callable) -> None:
+    _Notes(context, label, done).open()
 
 
 def open_image_sources(library: Any, name: str, label: str, done: Callable) -> None:

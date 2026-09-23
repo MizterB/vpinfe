@@ -1858,6 +1858,7 @@
   "error.uploads.needs_package": "Opening this archive needs the {package} package",
   "error.uploads.no_importable_assets": "No importable assets",
   "error.uploads.no_such_vps_entry": "No such VPS entry",
+  "error.uploads.notes_one_file": "Author's Notes are one file, not an archive or a folder",
   "error.uploads.nothing_recognized": "No recognized assets found",
   "error.uploads.only_the_kind": "Only {kind} is added here",
   "error.uploads.rar_tool.linux": "Install unar or unrar from your package manager, or set {setting} in {section}.",

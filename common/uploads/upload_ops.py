@@ -28,6 +28,7 @@ from common.uploads.asset_import_service import (
     PlannedItem,
     build_import_plan,
     build_media_slot_plan,
+    build_readme_plan,
     execute_import_plan,
     find_vps_entry,
     only_kind,
@@ -265,6 +266,19 @@ def _slot_plan(upload_id: str, game_dir: str, media_kind: str) -> ImportPlan:
         raise service_errors.RefusedError(str(exc)) from exc
 
 
+def _named_plan(upload_id: str, request: dict[str, Any]) -> ImportPlan | None:
+    """The plan for a drop whose one file the sender has already named, or None where
+    the analysis decides what arrived."""
+    game_dir = request.get("game_dir") or ""
+    if request.get("media_kind"):
+        return _slot_plan(upload_id, game_dir, request["media_kind"])
+    if request.get("asset_kind") != "readme":
+        return None
+    if not game_dir:
+        raise service_errors.RefusedError(t("error.uploads.slot_import_needs_game"))
+    return build_readme_plan(_single_file(upload_id), game_dir=Path(game_dir))
+
+
 def _built_plan(analysis: AnalysisResult, request: dict[str, Any]) -> ImportPlan:
     try:
         plan = build_import_plan(
@@ -283,9 +297,9 @@ def _built_plan(analysis: AnalysisResult, request: dict[str, Any]) -> ImportPlan
 
 def plan_for(upload_id: str, request: dict[str, Any]) -> dict[str, Any]:
     """What the drop would do, before it does any of it."""
-    if request.get("media_kind"):
-        return _plan_to_dict(_slot_plan(upload_id, request.get("game_dir") or "",
-                                        request["media_kind"]))
+    named = _named_plan(upload_id, request)
+    if named is not None:
+        return _plan_to_dict(named)
     analysis, _source = _analysis_for(upload_id)
     vps_entry = _vps_entry(request.get("vps_id") or "")
     plan = _built_plan(analysis, request)
@@ -338,12 +352,11 @@ def execute(upload_id: str, request: dict[str, Any],
     # whichever upload it names, and saying so early keeps the reason readable.
     identities = _declared_identities(declared)
 
-    if request.get("media_kind"):
+    named = _named_plan(upload_id, request)
+    if named is not None:
         # A slot import has one file and no choice to make about it: the slot decided the
         # destination, so there is nothing to select from and nothing to name.
-        plan = _slot_plan(upload_id, request.get("game_dir") or "",
-                          request["media_kind"])
-        return _run(plan, _single_file(upload_id), identities, upload_id)
+        return _run(named, _single_file(upload_id), identities, upload_id)
 
     analysis, source_path = _analysis_for(upload_id)
     vps_entry = _vps_entry(request.get("vps_id") or "")

@@ -1705,6 +1705,7 @@
   "error.uploads.needs_package": "b178d78a0d4c",
   "error.uploads.no_importable_assets": "9e10d404551a",
   "error.uploads.no_such_vps_entry": "f08e49cb6d8c",
+  "error.uploads.notes_one_file": "12fd3e3ef3f3",
   "error.uploads.nothing_recognized": "732f9ddaf0ed",
   "error.uploads.only_the_kind": "3cc2bc4f5215",
   "error.uploads.rar_tool.linux": "0309f2950ec7",

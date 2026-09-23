@@ -2581,7 +2581,9 @@ async def _assets_block(context: dict[str, Any]) -> None:
         # which file wins, where the folder can only say one is somewhere in it.
         if kind in resolved:
             continue
-        entries.append((_asset_name(kind), _present_row(bool(state.get("present")))))
+        present = bool(state.get("present"))
+        entries.append((_asset_name(kind), _notes_row(context, present) if kind == "readme"
+                        else _present_row(present)))
 
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, entries)
@@ -2925,6 +2927,23 @@ def _rom_row(context: dict[str, Any], pinmame: dict[str, Any]) -> Any:
             panel.action(t("word.add"),
                          lambda: mediasource.open_folder_sources(context, "rom", label,
                                                                  context["rebuild"]),
+                         icon=verbs.ADD, inline=True)()
+
+    return draw
+
+
+def _notes_row(context: dict[str, Any], present: bool) -> Any:
+    chip = _present_row(present)
+    if present:
+        return chip
+    label = _asset_name("readme")
+
+    def draw() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            chip()
+            panel.action(t("word.add"),
+                         lambda: mediasource.open_notes_sources(context, label,
+                                                                context["rebuild"]),
                          icon=verbs.ADD, inline=True)()
 
     return draw

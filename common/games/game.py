@@ -60,6 +60,7 @@ class Game:
     b2s_exists: bool = False
     ini_exists: bool = False
     music_exists: bool = False
+    readme_exists: bool = False
 
     bg_image_path: str | None = None
     dmd_image_path: str | None = None

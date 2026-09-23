@@ -1858,6 +1858,7 @@
   "error.uploads.needs_package": "Öþèñîñĝ ţĥîš àřçĥîṽè ñèèđš ţĥè {package} þàçķàĝè",
   "error.uploads.no_importable_assets": "Ñö îɱþöřţàƀŀè àššèţš",
   "error.uploads.no_such_vps_entry": "Ñö šûçĥ ṼÞŠ èñţřý",
+  "error.uploads.notes_one_file": "Àûţĥöř'š Ñöţèš àřè öñè ƒîŀè, ñöţ àñ àřçĥîṽè öř à ƒöŀđèř",
   "error.uploads.nothing_recognized": "Ñö řèçöĝñîžèđ àššèţš ƒöûñđ",
   "error.uploads.only_the_kind": "Öñŀý {kind} îš àđđèđ ĥèřè",
   "error.uploads.rar_tool.linux": "Îñšţàŀŀ ûñàř öř ûñřàř ƒřöɱ ýöûř þàçķàĝè ɱàñàĝèř, öř šèţ {setting} îñ {section}.",

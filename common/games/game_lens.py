@@ -12,6 +12,7 @@ from typing import Any
 
 from common import service_errors
 from common.games import asset_resolver, game_repository
+from common.games.asset_registry import is_readme
 from common.games.game_repository import catalog, collections_by_game_id, game_to_row
 from common.games.tables import table_names
 from common.i18n import t
@@ -34,6 +35,7 @@ def asset_summary(row: dict) -> dict:
         "alt_color": {"present": bool(formats), "formats": formats},
         "alt_sound": {"present": bool(row.get("alt_sound_exists"))},
         "music": {"present": bool(row.get("music_exists"))},
+        "readme": {"present": bool(row.get("readme_exists"))},
     }
 
 
@@ -54,6 +56,7 @@ def inventory_assets(game_dir: Path) -> dict:
     inv["alt_color"] = {"present": bool(formats), "formats": formats}
     inv["alt_sound"] = {"present": (game_dir / "pinmame" / "altsound").is_dir()}
     inv["music"] = {"present": "music" in subdir_set}
+    inv["readme"] = {"present": any(is_readme(name) for name in files)}
     return inv
 
 

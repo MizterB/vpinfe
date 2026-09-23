@@ -205,6 +205,9 @@ class GameParser:
             game.ini_exists = True
         if "pinmame" in game_subdirs and (game_dir / "pinmame" / "altsound").is_dir():
             game.alt_sound_exists = True
+        from common.games.asset_registry import is_readme
+        if any(is_readme(name) for name in game_contents):
+            game.readme_exists = True
 
         try:
             self.load_metadata(game)
