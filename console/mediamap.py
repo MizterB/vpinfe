@@ -163,10 +163,8 @@ def _tile(prefix: str, kind: str, entry: dict[str, Any],
             # a slot one table differs on looks settled. This is the only thing that
             # says otherwise.
             if differing:
-                plural = "" if differing == 1 else "s"
                 ui.element("div").classes("console-mediatile-differs") \
-                    .tooltip(t("console.mediamap.table_use_something_else", differing=(differing),
-                            plural=(plural)))
+                    .tooltip(t("console.mediamap.table_use_something_else", count=differing))
             if state != "missing" and media_family(kind) in ("image", "video"):
                 # click.stop, or enlarging would also pick the tile and redraw the
                 # panel out from under the dialog.

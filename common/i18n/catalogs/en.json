@@ -278,7 +278,10 @@
   "console.app_settings.nothing_matches": "Nothing matches “{value}”",
   "console.app_settings.now_same_all_tables": "Now the same as all tables",
   "console.app_settings.search_settings": "Search settings",
-  "console.app_settings.setting_currently_reach_table": "{the_count} setting{value} currently reach this table from its folder.",
+  "console.app_settings.setting_currently_reach_table": {
+    "one": "1 setting currently reaches this table from its folder.",
+    "other": "{count} settings currently reach this table from its folder."
+  },
   "console.app_settings.settings": "Settings for “{launcher_name}”",
   "console.app_settings.table": "This table",
   "console.app_settings.table_no_launcher_configure": "This table has no launcher to configure.",
@@ -687,7 +690,10 @@
   "console.launchers.could_not_read_devices": "Could not read the devices: {exc}",
   "console.launchers.could_not_read_launchers": "Could not read the launchers: {exc}",
   "console.launchers.executable_launcher_runs.help": "The executable this launcher runs",
-  "console.launchers.launcher": "{len} launcher{value}",
+  "console.launchers.launcher": {
+    "one": "1 launcher",
+    "other": "{count} launchers"
+  },
   "console.launchers.no_launchers_yet_add": "No launchers yet. Add one and point it at the program that plays your tables.",
   "console.launchers.no_machines_picked": "No machines picked.",
   "console.launchers.no_other_vpinfe_installs": "No other VPinFE installs are known to this one.",
@@ -712,7 +718,10 @@
   "console.locations.game_folders_whose_id.help": "Game folders whose id a higher location already uses",
   "console.locations.games_leave_library_folders": "The games in them leave the library. Nothing on disk is touched, and adding the folders again brings them back with their media and their history.",
   "console.locations.games_leave_library_nothing": "The games in it leave the library. Nothing on disk is touched, and adding the folder again brings them back with their media and their history.",
-  "console.locations.location": "{len} location{value}",
+  "console.locations.location": {
+    "one": "1 location",
+    "other": "{count} locations"
+  },
   "console.locations.location_wins_two_them.help": "Which location wins when two hold the same game, 1 highest",
   "console.locations.name_a_folder": "Name a folder",
   "console.locations.new_games": "New Games",
@@ -805,7 +814,10 @@
   "console.mediamap.in_spreadsheet": "{offered} in the spreadsheet",
   "console.mediamap.no_kind": "No {kind}",
   "console.mediamap.one_in_spreadsheet": "One in the spreadsheet",
-  "console.mediamap.table_use_something_else": "{differing} table{plural} use something else here",
+  "console.mediamap.table_use_something_else": {
+    "one": "1 table uses something else here",
+    "other": "{count} tables use something else here"
+  },
   "console.mediasource.already": "already the {lower}",
   "console.mediasource.choose_file": "Choose a file",
   "console.mediasource.choose_files": "Choose files",
@@ -1153,7 +1165,10 @@
   "console.tageditor.entry_keeps_what_typed": "Entry keeps what you typed, so two spellings of one word both exist. Merging folds them into the most-used one.",
   "console.tageditor.every_game_carrying_one": "Every game carrying one of the others is retagged. This cannot be undone.",
   "console.tageditor.every_game_carrying_retagged": "Every game carrying it is retagged.",
-  "console.tageditor.game_changed": "{said} - {changed} game{value} changed",
+  "console.tageditor.game_changed": {
+    "one": "{said} - 1 game changed",
+    "other": "{said} - {count} games changed"
+  },
   "console.tageditor.games": "Games",
   "console.tageditor.games.help": "Games carrying this tag",
   "console.tageditor.in_use": "In use",
@@ -1316,7 +1331,10 @@
   "console.vps_match.go_back": "Go back to VPinFE's match",
   "console.vps_match.index_of_total": "{index} of {total}",
   "console.vps_match.match_named": "Match “{name}” to Virtual Pinball Spreadsheet",
-  "console.vps_match.match_set": "{changed} match{value} set",
+  "console.vps_match.match_set": {
+    "one": "1 match set",
+    "other": "{count} matches set"
+  },
   "console.vps_match.match_to_this": "Match to this",
   "console.vps_match.matched_to": "Matched To",
   "console.vps_match.nothing_changed": "Nothing changed",
@@ -2097,18 +2115,25 @@
   "order.direction.oldest_first": "Oldest first",
   "order.direction.z_to_a": "Z to A",
   "said.and_more": "...and {value} more",
+  "said.copied_to_devices": {
+    "one": "Copied to 1 device.",
+    "other": "Copied to {count} devices."
+  },
+  "said.copied_to_some": "Copied to {count} of {total}. {trouble}",
   "said.could_not_add_it": "Could not add it: {exc}",
   "said.could_not_clear_it": "Could not clear it: {exc}",
   "said.could_not_do_that": "Could not do that: {exc}",
   "said.could_not_read_the_settings": "Could not read the settings: {exc}",
   "said.could_not_remove_it": "Could not remove it: {exc}",
   "said.could_not_save_it": "Could not save it: {exc}",
+  "said.device_failed": "{name} - {error}",
   "said.give_it_a_name": "Give it a name",
   "said.guides": {
     "one": "{count} guide",
     "other": "{count} guides"
   },
   "said.no_program_set": "{launcher_name} has no program set.",
+  "said.nothing_was_copied": "Nothing was copied. {trouble}",
   "said.program_not_there": "{launcher_name} points at something that is not there: {path}",
   "word.actions": "Actions",
   "word.add": "Add",

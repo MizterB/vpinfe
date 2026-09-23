@@ -26,6 +26,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from common.i18n import t
+
 logger = logging.getLogger("vpinfe.common.games.launcher_copy")
 
 
@@ -167,8 +169,8 @@ def said(outcomes: Iterable[Outcome]) -> str:
     good = [one for one in outcomes if one.ok]
     bad = [one for one in outcomes if not one.ok]
     if not bad:
-        return f"Copied to {len(good)} device{'s' if len(good) != 1 else ''}."
-    trouble = "; ".join(f"{one.name} - {one.error}" for one in bad)
+        return t("said.copied_to_devices", count=len(good))
+    trouble = "; ".join(t("said.device_failed", name=one.name, error=one.error) for one in bad)
     if not good:
-        return f"Nothing was copied. {trouble}"
-    return (f"Copied to {len(good)} of {len(good) + len(bad)}. {trouble}")
+        return t("said.nothing_was_copied", trouble=trouble)
+    return t("said.copied_to_some", count=len(good), total=len(good) + len(bad), trouble=trouble)

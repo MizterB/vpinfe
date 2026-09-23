@@ -140,8 +140,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                 search = panel.search(t("console.locations.search_locations"))
             picked: list[dict[str, Any]] = []
             with bar.bottom, panel.bar_end():
-                count = ui.label(t("console.locations.location", len=(len(built)),
-                        value=('' if len(built) == 1 else 's'))) \
+                count = ui.label(t("console.locations.location", count=len(built))) \
                     .classes("text-xs console-label")
                 bulk = ui.button(icon=verbs.MORE).props("flat round dense") \
                     .tooltip(t("console.locations.actions_selected_locations"))
@@ -169,8 +168,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
             count.text = (t("console.locations.selected",
                             len=(len(rows_selected)), len2=(len(built)))
                           if rows_selected
-                          else t("console.locations.location", len=(len(built)),
-                                 value=('' if len(built) == 1 else 's')))
+                          else t("console.locations.location", count=len(built)))
 
         by_location = {str(one.get("location_id") or ""): one for one in held}
 

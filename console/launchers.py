@@ -138,8 +138,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.launchers.search_launchers"))
             with bar.bottom, panel.bar_end():
-                ui.label(t("console.launchers.launcher", len=(len(built)),
-                        value=('' if len(built) == 1 else 's'))) \
+                ui.label(t("console.launchers.launcher", count=len(built))) \
                     .classes("text-xs console-label")
                 panel.add_action(
                     [(t("console.launchers.add", value=(one['name'])),

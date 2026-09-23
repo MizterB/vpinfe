@@ -252,8 +252,7 @@ async def confirm_new_table_file(library: Library, launcher_id: str,
         return False
     count = len(reaching)
     said = await confirm.ask(
-        t("console.app_settings.setting_currently_reach_table", the_count=(count),
-                value=('' if count == 1 else 's')),
+        t("console.app_settings.setting_currently_reach_table", count=count),
         detail=t("console.app_settings.giving_table_own_settings"),
         confirm=t("console.app_settings.keep_them"), icon=verbs.KEEP)
     return True if said else None

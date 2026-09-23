@@ -90,8 +90,7 @@ def build(rows: list[dict[str, Any]], library: Any,
         except Exception as exc:
             ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
             return
-        ui.notify(t("console.tageditor.game_changed", said=(said), changed=(changed),
-                value=('' if changed == 1 else 's')),
+        ui.notify(t("console.tageditor.game_changed", said=said, count=changed),
                   type="positive")
         if rerender is not None:
             rerender()

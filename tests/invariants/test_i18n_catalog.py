@@ -702,6 +702,67 @@ class TestNoWordGluedToAValue(unittest.TestCase):
         self.assertEqual(offenders, [], "call t() with a named slot instead")
 
 
+class _PluralSuffixes(ast.NodeVisitor):
+    """A choice between "" and "s" handed to t() or written into an f-string."""
+
+    SUFFIXES = {"", "s", "es"}
+
+    def __init__(self) -> None:
+        self.found: list[int] = []
+        self.within: list[str] = []
+
+    def visit_Call(self, node: ast.Call) -> None:
+        name = getattr(node.func, "attr", None) or getattr(node.func, "id", None) or ""
+        self.visit(node.func)
+        self.within.append(name)
+        for argument in (*node.args, *node.keywords):
+            self.visit(argument)
+        self.within.pop()
+
+    def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
+        self.within.append("f-string")
+        self.generic_visit(node)
+        self.within.pop()
+
+    def visit_IfExp(self, node: ast.IfExp) -> None:
+        said = {getattr(b, "value", None) for b in (node.body, node.orelse)}
+        if len(said) == 2 and said <= self.SUFFIXES \
+           and not set(self.within) & NOT_ON_SCREEN \
+           and set(self.within) & {"t", "t_source", "f-string"}:
+            self.found.append(node.lineno)
+        self.generic_visit(node)
+
+
+class TestPluralsComeFromTheCatalog(unittest.TestCase):
+    """A count's word is a `one`/`other` entry, never a suffix chosen beside the call."""
+
+    def test_a_suffix_handed_to_t_is_found(self) -> None:
+        seen = _PluralSuffixes()
+        seen.visit(ast.parse('ui.label(t("k", value=("" if n == 1 else "s"))).classes("x")'))
+        self.assertEqual([1], seen.found)
+
+    def test_one_written_into_an_fstring_is_found(self) -> None:
+        seen = _PluralSuffixes()
+        seen.visit(ast.parse('f"{n} device{\'s\' if n != 1 else \'\'}"'))
+        self.assertEqual([1], seen.found)
+
+    def test_a_log_line_may_keep_one(self) -> None:
+        seen = _PluralSuffixes()
+        seen.visit(ast.parse('logger.info("%s", "" if n == 1 else "s")'))
+        self.assertEqual([], seen.found)
+
+    def test_no_screen_word_is_pluralised_in_code(self) -> None:
+        offenders = []
+        for folder in ("console", "common", "httpapi"):
+            for path in sorted((ROOT / folder).rglob("*.py")):
+                if "__pycache__" in path.parts:
+                    continue
+                seen = _PluralSuffixes()
+                seen.visit(ast.parse(path.read_text(encoding="utf-8")))
+                offenders += [f"{path.relative_to(ROOT)}:{line}" for line in seen.found]
+        self.assertEqual(offenders, [], "give the key one/other forms and pass count=")
+
+
 class TestFrontendChrome(unittest.TestCase):
     """The frontend serves its own markup, so the Python check cannot see any of it."""
 
