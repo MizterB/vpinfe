@@ -745,6 +745,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
         source.close()
 
     declared_written = record_declared_identities(plan, base, declared)
+    refresh_game(base)
 
     return {
         "imported": imported,

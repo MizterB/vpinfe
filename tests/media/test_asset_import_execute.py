@@ -151,6 +151,25 @@ class ImportExecuteTests(unittest.TestCase):
                 self.assertTrue((game_dir / "serum" / "mm_rom" / "mm.crz").exists())
                 self.assertIn("rom", report["imported"])
 
+    def test_the_game_is_read_again_once_its_files_are_in(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as tmp:
+            game_dir = Path(tmp) / "Foo (Bar 1999)"
+            game_dir.mkdir()
+            (game_dir / "Foo.vpx").write_bytes(b"old")
+            zip_path = Path(tmp) / "assets.zip"
+            make_zip(zip_path, ["MyPup/screens.pup", "MyPup/s1/a.mp4"])
+            plan = build_import_plan(analyze_path(zip_path), game_dir=game_dir)
+            seen: list[bool] = []
+            with mock.patch.object(asset_import_service, "refresh_game",
+                                   side_effect=lambda folder: seen.append(
+                                       (Path(folder) / "pupvideos" / "s1" / "a.mp4").exists())
+                                   ) as refresh:
+                execute_import_plan(plan, zip_path)
+            refresh.assert_called_with(game_dir)
+            self.assertEqual(seen[-1:], [True])
+
     def test_execute_replace_vpx_restems_backglass(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
