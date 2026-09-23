@@ -673,6 +673,8 @@ class GameResource(ApiModel):
     # play lens (`EntryGame`), so the surface that manages a library could not show
     # what somebody thought of a game or how much they had played it.
     user: PlayRecord = Field(default_factory=PlayRecord)
+    # Tags an extension's Community list puts on this, beside the user's own in `user`.
+    derived_tags: list[str] = Field(default_factory=list)
     # The catalog's own id for the machine, and the tutorial it lists. Stored on nearly
     # every game and published nowhere until now.
     ipdb_id: str = ""
@@ -896,6 +898,7 @@ class Table(ApiModel):
     # This table's own counters. The game's record is the headline; a table that has
     # been played and a sibling that has not is the thing a game's total cannot say.
     user: TablePlayRecord = Field(default_factory=TablePlayRecord)
+    derived_tags: list[str] = Field(default_factory=list)
     # Null on an entry with no file. Both of these come out of reading one, so an entry
     # that has none cannot have either - and reporting them as unknown would put a
     # dependency on something that can never carry one.
@@ -1030,6 +1033,7 @@ class TableRow(ApiModel):
     # built from: null is a table nothing has parsed, and only false is a fault.
     launchable: bool | None = None
     user: TablePlayRecord = Field(default_factory=TablePlayRecord)
+    derived_tags: list[str] = Field(default_factory=list)
     default: bool = False
     # Why it is the default, not only that it is: `user` where somebody chose it,
     # `auto` where the resolver picked one - a filename matching the folder, else first
@@ -1283,6 +1287,7 @@ class EntryGame(ApiModel):
     # `user.rating` is where it belongs beside the rest of the play record.
     rating: int
     user: PlayRecord = Field(default_factory=PlayRecord)
+    derived_tags: list[str] = Field(default_factory=list)
     ipdb_id: str = ""
     tutorial: str = ""
     guides: list[Guide] = Field(default_factory=list)
@@ -1312,6 +1317,7 @@ class EntryTable(ApiModel):
     authors: list[str] = Field(default_factory=list)
     detects: dict[str, bool] = Field(default_factory=dict)
     user: TablePlayRecord = Field(default_factory=TablePlayRecord)
+    derived_tags: list[str] = Field(default_factory=list)
     # The sha256 of the script sidecar, and what the authoring tool recorded about the
     # last save. Part of a table's identity the way `file_hash` and `version` are.
     vbs_hash: str = ""
@@ -2105,6 +2111,18 @@ class OwnedMap(ApiModel):
     owned: dict[str, Owned]
 
 
+class TagSource(ApiModel):
+    """A Community list that derives a tag. `stale` is a last read that failed, so the
+    tag still stands on what the one before it found."""
+
+    extension: str
+    display_name: str = ""
+    list: str
+    title: str = ""
+    read_at: str = ""
+    stale: bool = False
+
+
 class TagResource(ApiModel):
     """`color` is one of the names the palettes resolve; `chosen` is false where it was
     derived from the name because nobody picked one. `games` is 0 for a tag only written
@@ -2116,6 +2134,9 @@ class TagResource(ApiModel):
     description: str = ""
     color: str
     chosen: bool = False
+    # Where an extension derives it. A tag with a source is that extension's to put on
+    # and take off; its description and color are still the user's.
+    sources: list[TagSource] = Field(default_factory=list)
 
 
 class TagList(ApiModel):

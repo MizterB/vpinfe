@@ -1901,6 +1901,7 @@
   "error.pinmame.no_launcher": "Ñö ŀàûñçĥèř çöñƒîĝûřèđ, šö ţĥèřè îš ñö ṼÞẊ îñšţàŀŀ ţö ƀöřřöŵ ŀîƀþîñɱàɱè ƒřöɱ.",
   "error.table_commands.install_command_failed": "À çöɱɱàñđ ţĥîš îñšţàŀŀ řûñš ƀèƒöřè à ţàƀŀè đîđ ñöţ ŵöřķ: {exc}",
   "error.table_commands.launcher_command_failed": "À çöɱɱàñđ ţĥè {launcher_name} ŀàûñçĥèř řûñš ƀèƒöřè à ţàƀŀè đîđ ñöţ ŵöřķ: {exc}",
+  "error.tags.derived": "{tag} çöɱèš ƒřöɱ àñ èẋţèñšîöñ, ŵĥîçĥ đèçîđèš ŵĥèřè îţ ĝöèš",
   "error.tags.no_name": "À ţàĝ ñèèđš à ñàɱè",
   "error.tags.no_such_color": "Ñö çöŀöř çàŀŀèđ {color}",
   "error.themes.active_theme_make_another": "{key} îš ţĥè àçţîṽè ţĥèɱè. Ḿàķè àñöţĥèř öñè àçţîṽè ƒîřšţ.",

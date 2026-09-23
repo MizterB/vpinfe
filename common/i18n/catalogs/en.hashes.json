@@ -1730,6 +1730,7 @@
   "error.pinmame.no_launcher": "a6af8e1e2656",
   "error.table_commands.install_command_failed": "d97928303ba7",
   "error.table_commands.launcher_command_failed": "864c16baf8ec",
+  "error.tags.derived": "6119c29fa428",
   "error.tags.no_name": "48cd56a3f737",
   "error.tags.no_such_color": "61c8c70db752",
   "error.themes.active_theme_make_another": "35505c441710",

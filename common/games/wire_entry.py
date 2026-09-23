@@ -32,6 +32,7 @@ class WireGame:
         entry = entry or {}
         assets = entry.get("assets") or {}
         self.game_dir_name = game.get("dir_name") or ""
+        self.derived_tags = list(game.get("derived_tags") or [])
         self.creation_time = iso_to_epoch(game.get("created_at"))
         # Empty, not missing: they name that machine's disk, so an install holding them would
         # hold an address it cannot reach - but a reader still expects the attribute.
@@ -99,6 +100,7 @@ def table_of(entry: dict[str, Any]) -> dict[str, Any]:
         "authors": list(table.get("authors") or []),
         "hidden": table.get("hidden") is True,
         "default": table.get("default") is True,
+        "derived_tags": list(table.get("derived_tags") or []),
         "user": {
             # Stored beside the counters, which is where `set_table_rating` writes it.
             "rating": int(table.get("rating", 0) or 0),

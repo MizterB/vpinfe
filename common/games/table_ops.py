@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, service_errors
-from common.games import game_lens, locations, table_lens, tables
+from common.games import derived_tags, game_lens, locations, table_lens, tables
 from common.games.game import Game
 from common.games.game_metadata import (
     load_game_meta,
@@ -155,7 +155,8 @@ def set_source(game_id: str, table_id: str, vps_file_id: str) -> dict:
 
 def set_tags(game_id: str, table_id: str, tags: Any) -> dict:
     game = game_lens.game_or_refuse(game_id)
-    return {"tags": set_table_tags(game, filename_or_refuse(game, table_id), list(tags))}
+    derived_tags.refuse_added(game, tags := list(tags))
+    return {"tags": set_table_tags(game, filename_or_refuse(game, table_id), tags)}
 
 
 def reset_play_record(game_id: str, table_id: str) -> dict:

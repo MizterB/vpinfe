@@ -268,14 +268,17 @@ class ExtensionUI:
         })
 
     def community(self, key: str, title: str, base: str, *, columns: list[dict],
-                  views: list[dict] | None = None, relation: dict | None = None) -> None:
+                  views: list[dict] | None = None, relation: dict | None = None,
+                  tag: str = "") -> None:
         """A list this extension holds, shown under Community.
 
         `base` is a route of this extension's answering `{"rows": [...]}`. A column is
         `{"field", "header", "kind"}` with `kind` one of `text`, `number`, `date`, and the
         first may name `under`: row fields drawn on the line beneath its value. A view is
         `{"name", "columns", "sort": [{"field", "desc"}], "help"}`. `relation` is
-        `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`.
+        `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`. `tag` is put on
+        every game (`vps_entry`) or table (`vps_release`) of this library the list relates
+        to, so it needs a `relation`.
         """
         self._needs_ui("a community list")
         wanted = str(key or "").strip()
@@ -300,6 +303,10 @@ class ExtensionUI:
                          or relation.get("keys") not in RELATION_KEYS):
             raise ContractError(f"{self._name} relates its list on a field it does not "
                                 "have, or by something other than a VPS entry or release")
+        derived = " ".join(str(tag or "").split())
+        if derived and not relation:
+            raise ContractError(f"{self._name} derives a tag from a list that relates to "
+                                "nothing in the library")
         self.community_lists.append({
             "key": wanted, "title": str(title or "").strip() or wanted,
             "base": str(base or "").strip(),
@@ -314,6 +321,7 @@ class ExtensionUI:
                                 for one in view.get("sort") or []],
                        "help": str(view.get("help") or "")} for view in views or []],
             "relation": dict(relation) if relation else None,
+            "tag": derived,
         })
 
     def settings(self, base: str, label: str = "Settings") -> None:

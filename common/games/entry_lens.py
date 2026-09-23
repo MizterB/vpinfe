@@ -7,7 +7,7 @@ of these on a machine that does not hold the library; this is what it is rebuilt
 from __future__ import annotations
 
 from common.extensions import contributions
-from common.games import game_identity
+from common.games import derived_tags, game_identity
 from common.games.collection_resolver import Entry, visible_entries
 from common.games.game_metadata import (
     contract_1_tutorial,
@@ -55,6 +55,7 @@ def entry_resource(entry: Entry, group: str | None = None) -> dict:
             "created_at": epoch_to_iso(getattr(entry.game, "creation_time", None)) or None,
             "rating": game_rating(entry.game),
             "user": play_record(meta),
+            "derived_tags": derived_tags.game_tags(entry.game),
             "ipdb_id": game_ipdb_id(entry.game),
             "tutorial": contract_1_tutorial(entry.game.meta_config),
             "guides": guides_on_wire(entry.game.meta_config),

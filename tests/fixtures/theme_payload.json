@@ -273,6 +273,7 @@
         "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
+          "derived_tags": [],
           "dir_name": "Attack from Mars (Bally 1995)",
           "guides": [],
           "id": "afm0000001",
@@ -316,6 +317,7 @@
         "table": {
           "authors": [],
           "default": true,
+          "derived_tags": [],
           "detects": {
             "fastflips": false,
             "fleep": false,
@@ -359,6 +361,7 @@
         "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
+          "derived_tags": [],
           "dir_name": "Bare Table (Gottlieb 1980)",
           "guides": [],
           "id": "bar0000001",
@@ -393,6 +396,7 @@
         "table": {
           "authors": [],
           "default": false,
+          "derived_tags": [],
           "detects": {
             "fastflips": false,
             "fleep": false,
@@ -436,6 +440,7 @@
         "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
+          "derived_tags": [],
           "dir_name": "Congo (Williams 1995)",
           "guides": [],
           "id": "cng0000001",
@@ -472,6 +477,7 @@
         "table": {
           "authors": [],
           "default": true,
+          "derived_tags": [],
           "detects": {
             "fastflips": false,
             "fleep": false,
@@ -515,6 +521,7 @@
         "ext": {},
         "game": {
           "created_at": "2026-01-01T00:00:00Z",
+          "derived_tags": [],
           "dir_name": "Medieval Madness (Williams 1997)",
           "guides": [],
           "id": "mm00000001",
@@ -552,6 +559,7 @@
         "table": {
           "authors": [],
           "default": true,
+          "derived_tags": [],
           "detects": {
             "fastflips": false,
             "fleep": false,

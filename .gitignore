@@ -41,6 +41,7 @@
 
 # A fixture extension's manifest. One per fixture directory.
 !tests/fixtures/extensions/*/extension.json
+!tests/fixtures/community/*/extension.json
 
 # An extension the build ships declares itself in one of these. Without the
 # negation a clean checkout has the code and no manifest, and the host refuses

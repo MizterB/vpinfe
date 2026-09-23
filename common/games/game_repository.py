@@ -15,7 +15,7 @@ from typing import Any
 
 from common import events
 from common.config_store import ConfigStore
-from common.games import locations
+from common.games import derived_tags, locations
 from common.games.collection_store import CollectionStore
 from common.games.game import Game
 from common.games.game_identity import ensure_unique_ids
@@ -339,6 +339,7 @@ def game_to_row(game: Game,
         # readers hold it; this is where the rest of what a person did with a game
         # lives, and it reached only the play lens until now.
         "user": play_record(meta),
+        "derived_tags": derived_tags.game_tags(game),
         "collections": [],
     }
     if collections_map is not None:

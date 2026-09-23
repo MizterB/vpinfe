@@ -114,6 +114,7 @@ def game_resource(row: dict, game_id: str) -> dict[str, Any]:
         # Summary from the scan; the detail endpoint recomputes and attributes files.
         "assets": asset_summary(row),
         "user": row.get("user") or {},
+        "derived_tags": row.get("derived_tags") or [],
         "links": {
             "self": prefix,
             "tables": f"{prefix}/tables",

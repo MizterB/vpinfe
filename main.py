@@ -376,6 +376,13 @@ http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
 start_manager_ui(port=http_port, bind=http_bind)
 reconfigure_app_logging()
 
+try:
+    from common.games import derived_tags
+    from console.api import ApiClient
+    derived_tags.start_periodic(lambda path: ApiClient().ext_get(path))
+except Exception:
+    logger.exception("Could not start reading the tags extensions derive")
+
 # Start the WebSocket bridge
 ws_bridge.start()
 

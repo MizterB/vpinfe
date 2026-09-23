@@ -8,7 +8,7 @@ from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from common.extensions import contributions
-from common.games import collection_filters, collection_resolver, game_identity
+from common.games import collection_filters, collection_resolver, derived_tags, game_identity
 from common.games.collection_filters import (
     GameListFilters,
     group_key,
@@ -155,6 +155,7 @@ def _entry_row(entry: Entry, logo_cache: dict[str, str | None],
             "manufacturer_logo": logo_cache[maker],
             "created_at": epoch_to_iso(getattr(game, "creation_time", None)) or None,
             "user": play_record(meta),
+            "derived_tags": derived_tags.game_tags(game),
             # Everything the record declares about the machine. These were absent for
             # no reason anybody chose - a projection listed some fields and stopped -
             # and an extension, a remote frontend and the Console all read this.

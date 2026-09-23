@@ -529,6 +529,12 @@ def table_play_record(table: dict) -> dict[str, Any]:
         "play_time_seconds": int(user.get("run_time_seconds", 0) or 0),
     }
 
+def _derived_table_tags(table: dict) -> list[str]:
+    from common.games import derived_tags
+
+    return derived_tags.table_tags(table)
+
+
 def table_descriptor(table: dict, *, default_id: str = "") -> dict[str, Any]:
     """One table as both play lenses report it.
 
@@ -569,6 +575,7 @@ def table_descriptor(table: dict, *, default_id: str = "") -> dict[str, Any]:
         "detects": {key.removeprefix("detect_"): bool(table.get(key, False))
                     for key in DETECTION_KEYS},
         "user": {**table_play_record(table), "tags": table_tags(table)},
+        "derived_tags": _derived_table_tags(table),
         # What the user said about this table, against what was discovered. The game
         # carries its own three; these are the ones that govern a single file.
         #

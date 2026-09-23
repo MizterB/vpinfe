@@ -54,6 +54,19 @@ class TheDeclaration(unittest.TestCase):
             self.ui.community("tables", "Site", "/t", columns=COLUMNS,
                               relation={"field": "name", "keys": "rom"})
 
+    def test_a_tag_is_recorded_as_a_tag_would_be_stored(self) -> None:
+        self.ui.community("tables", "Site", "/t", columns=COLUMNS,
+                          relation={"field": "vpsId", "keys": "vps_release"},
+                          tag=" Weekly   Challenge ")
+
+        self.assertEqual("Weekly Challenge", self.ui.community_lists[0]["tag"])
+
+    def test_a_tag_on_a_list_that_relates_to_nothing_is_refused(self) -> None:
+        """The tag lands on what the list relates to, so without a relation it would
+        land nowhere and say nothing about why."""
+        with self.assertRaises(ContractError):
+            self.ui.community("tables", "Site", "/t", columns=COLUMNS, tag="Challenge")
+
     def test_it_needs_the_capability_to_draw(self) -> None:
         with self.assertRaises(ContractError):
             ExtensionUI("site", allowed=False).community("tables", "Site", "/t",

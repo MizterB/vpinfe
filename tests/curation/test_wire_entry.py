@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import unittest
 
-from common.games import collection_filters, collection_resolver, wire_entry
+from common.games import collection_filters, collection_resolver, derived_tags, wire_entry
 from common.games.entry_lens import entry_resource
 from common.games.game_metadata import game_title, table_descriptor
 from tests.support.entries import entries_for
@@ -165,6 +165,7 @@ class WireEntryTests(TempTree):
                         "pinmame": True},
             "user": {"last_played": "2026-08-01T20:14:00Z", "play_count": 12,
                      "play_time_seconds": 5400, "tags": ["Wide Body"]},
+            "derived_tags": ["Weekly Challenge"],
             # Everything a parse takes, and what the user said about this one file.
             # Added to the wire together, so the trip has to carry them together.
             "vbs_hash": "9f1c22aa", "save_date": "2019-02-02", "save_rev": "412",
@@ -180,6 +181,12 @@ class WireEntryTests(TempTree):
 
         self.assertEqual(again, original)
         self.assertIs(restored["default"], True)
+
+    def test_a_game_keeps_the_tags_an_extension_derived_on_the_hub(self) -> None:
+        """A player runs no extension of the hub's, so it reads them off the wire."""
+        game = wire_entry.game_of({"game": {"derived_tags": ["Machine of the Month"]}})
+
+        self.assertEqual(["Machine of the Month"], derived_tags.game_tags(game))
 
     def test_a_hidden_table_stays_hidden_after_the_trip(self) -> None:
         """`hidden` is the user's choice not to be offered a table. A device that loses it

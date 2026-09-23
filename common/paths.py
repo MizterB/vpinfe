@@ -47,6 +47,7 @@ CONFIG_DIR = _resolve_config_dir()
 VPINFE_INI_PATH = CONFIG_DIR / "vpinfe.ini"
 COLLECTIONS_PATH = CONFIG_DIR / "collections.json"
 TAGS_PATH = CONFIG_DIR / "tags.json"
+DERIVED_TAGS_PATH = CONFIG_DIR / "derived_tags.json"
 # Read once and converted; kept as a name so a restore can still find its backups.
 COLLECTIONS_INI_PATH = CONFIG_DIR / "collections.ini"
 THEMES_DIR = CONFIG_DIR / "themes"

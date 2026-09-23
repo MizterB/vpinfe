@@ -12,7 +12,14 @@ from typing import Any
 from urllib.parse import urlparse
 
 from common import service_errors
-from common.games import game_identity, game_lens, game_metadata, game_service, locations
+from common.games import (
+    derived_tags,
+    game_identity,
+    game_lens,
+    game_metadata,
+    game_service,
+    locations,
+)
 from common.games.game_metadata import (
     GUIDES_FIELD,
     adopt_vps_details,
@@ -112,7 +119,9 @@ def set_rating(game_id: str, rating: Any) -> dict:
 def set_tags(game_id: str, tags: Iterable[str]) -> dict:
     """The whole set, not a bag: a repeat is dropped, and case is left alone so two
     spellings stay two tags until somebody merges them."""
-    return {"tags": set_game_tags(game_lens.game_or_refuse(game_id), list(tags))}
+    game = game_lens.game_or_refuse(game_id)
+    derived_tags.refuse_added(game, tags := list(tags))
+    return {"tags": set_game_tags(game, tags)}
 
 
 def set_guides(game_id: str, wanted: list[dict[str, Any]]) -> dict:

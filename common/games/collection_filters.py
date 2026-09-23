@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from common import collation
+from common.games import derived_tags
 from common.games.game import GameRecord
 from common.games.game_metadata import (
     game_last_run,
@@ -77,14 +78,16 @@ def _match_tag(criterion: object, game: GameRecord, table: dict) -> bool:
     """Any of the tags asked for, on the game or on the table in hand. Case-sensitive,
     because the tags are: two spellings are two tags until somebody merges them, and
     matching across them would hide the duplicate the tag editor exists to find."""
-    return bool(_values(criterion) & (set(game_tags(game)) | set(table_tags(table))))
+    return bool(_values(criterion) & (set(game_tags(game)) | set(table_tags(table))
+                                      | set(derived_tags.game_tags(game))
+                                      | set(derived_tags.table_tags(table))))
 
 
 def _carried_tags(game: GameRecord) -> list[str]:
-    found = list(game_tags(game))
+    found = list(game_tags(game)) + derived_tags.game_tags(game)
     for entry in table_entries(getattr(game, "meta_config", {})).values():
         if isinstance(entry, dict):
-            found += table_tags(entry)
+            found += table_tags(entry) + derived_tags.table_tags(entry)
     return found
 
 

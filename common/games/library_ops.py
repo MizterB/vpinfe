@@ -17,6 +17,7 @@ from typing import Any
 from common import jobs as job_registry
 from common import service_errors
 from common.games import (
+    derived_tags,
     entry_lens,
     game_repository,
     game_service,
@@ -72,10 +73,12 @@ def _carried() -> tuple[dict[str, int], dict[str, int]]:
     games: dict[str, int] = {}
     tables: dict[str, int] = {}
     for game in game_repository.all_games():
-        for tag in game_tags(game):
+        for tag in set(game_tags(game)) | set(derived_tags.game_tags(game)):
             games[tag] = games.get(tag, 0) + 1
         for entry in table_entries(getattr(game, "meta_config", {})).values():
-            for tag in table_tags(entry) if isinstance(entry, dict) else []:
+            held = (set(table_tags(entry)) | set(derived_tags.table_tags(entry))
+                    if isinstance(entry, dict) else set())
+            for tag in held:
                 tables[tag] = tables.get(tag, 0) + 1
     return games, tables
 
@@ -83,10 +86,12 @@ def _carried() -> tuple[dict[str, int], dict[str, int]]:
 def tags() -> dict[str, Any]:
     entries = tag_registry.load()
     games, tables = _carried()
+    sources = derived_tags.sources()
     return {"tags": [{"name": name, "games": games.get(name, 0),
-                      "tables": tables.get(name, 0), **tag_registry.describe(name, entries)}
-                     for name in sorted(set(games) | set(tables) | set(entries),
-                                        key=str.casefold)]}
+                      "tables": tables.get(name, 0), **tag_registry.describe(name, entries),
+                      "sources": sources.get(name, [])}
+                     for name in sorted(set(games) | set(tables) | set(entries)
+                                        | set(sources), key=str.casefold)]}
 
 
 def put_tag(tag: str, description: str | None, color: str | None) -> dict[str, Any]:
@@ -101,12 +106,14 @@ def merge_tags(sources: Iterable[str], into: str) -> dict[str, Any]:
     """Across the library, because a tag is not owned by a game - half of them renamed
     is a worse state than either end of the merge."""
     sources = list(sources)
+    derived_tags.refuse([*sources, into])
     changed = retag_library(game_repository.all_games(), sources, into)
     tag_registry.moved(sources, into)
     return {"changed": changed}
 
 
 def drop_tag(tag: str) -> dict[str, Any]:
+    derived_tags.refuse([tag])
     changed = retag_library(game_repository.all_games(), [tag], "")
     tag_registry.dropped(tag)
     return {"changed": changed}
