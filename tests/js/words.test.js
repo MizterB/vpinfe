@@ -1,0 +1,28 @@
+// Core's words as a cabinet page reads them, off the real catalog.
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { newCore } from "./support/load-core.js";
+
+async function withWords() {
+  const { vpin } = newCore();
+  vpin.init();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return vpin;
+}
+
+test("a count picks its form", async () => {
+  const vpin = await withWords();
+
+  assert.equal(vpin.t("frontend.collectionmenu.games", "", { count: 1 }), "1 game");
+  assert.equal(vpin.t("frontend.collectionmenu.games", "", { count: 0 }), "0 games");
+  assert.equal(vpin.t("frontend.collectionmenu.games", "", { count: 12 }), "12 games");
+});
+
+test("a plain entry is unchanged by a count", async () => {
+  const vpin = await withWords();
+
+  assert.equal(vpin.t("frontend.collectionmenu.pages_time", "", { size: 5, count: 1 }),
+               "Pages 5 at a time");
+});

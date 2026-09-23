@@ -784,10 +784,15 @@ class VPinFECore {
    * read as a key. Unknown keys with no English answer with the key, never blank.
    */
   t(key, english = "", params = {}) {
-    const said = this.#words[key] ?? english;
+    const said = VPinFECore.pluralForm(this.#words[key], params.count) ?? english;
     if (!said) return key;
     return said.replace(/\{(\w+)\}/g, (whole, name) =>
       params[name] === undefined ? whole : params[name]);
+  }
+
+  static pluralForm(entry, count) {
+    if (entry === null || typeof entry !== "object") return entry;
+    return (Math.abs(Number(count)) === 1 && entry.one) || entry.other;
   }
 
   /**
@@ -800,7 +805,7 @@ class VPinFECore {
     for (const el of root.querySelectorAll("[data-i18n]")) {
       const key = el.getAttribute("data-i18n");
       const said = this.#words[key];
-      if (said !== undefined) el.textContent = said;
+      if (typeof said === "string") el.textContent = said;
     }
   }
 

@@ -199,18 +199,18 @@ def nicegui_language() -> str | None:
     return None
 
 
-def under(prefix: str) -> dict[str, str]:
+def under(prefix: str) -> dict[str, Any]:
     """Every entry below a prefix, resolved, with the prefix stripped.
 
     For handing a block of strings to something that wants them all at once - AG Grid's
     `localeText` is one dictionary, not a lookup per phrase.
     """
-    out: dict[str, str] = {}
+    out: dict[str, Any] = {}
     dotted = prefix if prefix.endswith(".") else prefix + "."
     for name in reversed(chain()):
-        for key in _load(name):
+        for key, entry in _load(name).items():
             if key.startswith(dotted):
-                out[key[len(dotted):]] = t(key)
+                out[key[len(dotted):]] = dict(entry) if isinstance(entry, dict) else t(key)
     return out
 
 
