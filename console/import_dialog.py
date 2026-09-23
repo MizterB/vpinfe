@@ -48,11 +48,11 @@ def _where(plan: dict[str, Any], item: dict[str, Any]) -> str:
         return f"{rel.as_posix()}/"
     if item.get("action") == "replace_media":
         return rel.as_posix()
+    if rel.name != str(item.get("name") or ""):
+        return rel.as_posix()
     if str(rel.parent) == ".":
         return t("console.import_dialog.game_folder")
-    if rel.name == str(item.get("name") or ""):
-        return f"{rel.parent.as_posix()}/"
-    return rel.as_posix()
+    return f"{rel.parent.as_posix()}/"
 
 
 async def ask_where(library: Any) -> str | None:
