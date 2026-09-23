@@ -1402,6 +1402,17 @@ a press will do. It is refused to themes — core's own overlay is the caller. C
 `tests/theming/test_paging.py`, `tests/curation/test_order_direction.py` and
 `tests/invariants/test_theme_api_surface.py`.
 
+**PAR-95 - Core's collection picker leads with All Games and marks the one showing.**
+One WebSocket method, `get_collection_picker_items`, answers the rows core's own picker
+draws: All Games first, then every collection the cabinet shows, each with how many
+entries it holds, the first few wheels of its games, and whether it is the one on screen.
+Refused to themes, like `get_paging_state`. A theme drawing its own collection menu still
+reads `get_collections` and `get_collections_metadata`, unchanged in name.
+*Why:* the picker had no way back to the whole library once a collection was chosen, and
+under a contract-1 theme the payload carries no collection name, so the browser could not
+tell which row to open on. Covered by `tests/js/list-stack.test.js`,
+`tests/theming/test_collection_view.py` and `tests/invariants/test_theme_api_surface.py`.
+
 ## Explicitly *not* exceptions
 
 The theme-facing payload (`tables_json` keys, media path fields, stable values) and
