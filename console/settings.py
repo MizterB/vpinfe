@@ -1038,6 +1038,7 @@ async def _identity_page(library: Library, reported: str,
             _take_the_page_again()
 
     entries: list[tuple[Any, Any]] = [
+        (panel.HEADING, t("word.identity")),
         # The name it reports with nothing set is its hostname, so the placeholder is
         # that answer rather than the word for it.
         (t("word.name"), panel.field(str(held.get("display_name") or ""),

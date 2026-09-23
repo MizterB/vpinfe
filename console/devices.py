@@ -188,11 +188,11 @@ def _software_rows(device: dict[str, Any], is_local: bool, client: Any,
                    update: dict[str, Any] | None) -> list[tuple[Any, Any]]:
     """What this device is running, and whether it can take what is published.
 
-    A device with no answer gets the heading and an unknown - one that announced itself
-    before ports were recorded cannot be reached, and one that is not answering has not
-    said. Either way "up to date" would be a guess wearing a fact.
+    A device with no answer gets an unknown - one that announced itself before ports were
+    recorded cannot be reached, and one that is not answering has not said. Either way
+    "up to date" would be a guess wearing a fact.
     """
-    rows: list[tuple[Any, Any]] = [(panel.HEADING, t("word.software"))]
+    rows: list[tuple[Any, Any]] = []
     if not update:
         rows.append((t("word.version"), panel.state(t("console.devices.not_known"),
                 "unknown")))

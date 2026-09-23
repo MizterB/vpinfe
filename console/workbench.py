@@ -4303,6 +4303,7 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
         return save
 
     entries: list[tuple[Any, Any]] = [
+        (HEADING, t("console.workbench.this_launcher")),
         (t("word.name"), panel.field(launcher["display_name"], rename,
                              placeholder=launcher["app_name"])),
         panel.note(t("console.workbench.what_call_way_running")),
@@ -4709,6 +4710,7 @@ async def _collection_details(context: dict[str, Any]) -> None:
     held = config_schema.option("behavior", "paging_size")
     size = int(said or (held.default if held else 0) or 0)
     entries: list[tuple[Any, Any]] = [
+        (HEADING, t("console.workbench.this_collection")),
         (t("word.name"), _text_control(context, row, "name")),
         (t("console.workbench.description"), _text_control(context, row, "description",
                 lines=3)),
@@ -4932,11 +4934,13 @@ async def _collection_games(context: dict[str, Any]) -> None:
     if not held and not _is_dynamic(row) and not _drafting(context):
         _empty_fork(context)
         return
-    with ui.column().classes("gap-0 w-full min-w-0"):
-        _rules_block(context, row)
+    def controls() -> None:
         _order_bar(context, row)
         _add_control(context, held)
-        _games_list(context, row)
+
+    with ui.column().classes("gap-0 w-full min-w-0"):
+        _rules_block(context, row)
+        _games_list(context, row, controls)
     if context.get("unsaved"):
         _draft_bar(context)
 
@@ -5014,17 +5018,17 @@ def _add_rule_button(context: dict[str, Any]) -> None:
 def _rules_block(context: dict[str, Any], row: dict[str, Any]) -> None:
     rows = _rules_now(context)
     smart = _is_dynamic(row)
+    with ui.row().classes("items-center gap-1 no-wrap console-group"):
+        ui.label(t("console.workbench.rules"))
+        if smart:
+            ui.icon(verbs.SMART).classes("console-heading-mark") \
+                .tooltip(t("console.collections.smart.help"))
     if not rows and not smart:
         with ui.row().classes("items-center gap-2 w-full no-wrap py-1"):
             ui.label(t("console.workbench.no_rules_hand_picked")) \
                 .classes("console-help min-w-0")
             _add_rule_button(context)
         return
-    with ui.row().classes("items-center gap-1 no-wrap console-group"):
-        ui.label(t("console.workbench.rules"))
-        if smart:
-            ui.icon(verbs.SMART).classes("console-heading-mark") \
-                .tooltip(t("console.collections.smart.help"))
     with ui.column().classes("gap-1 w-full min-w-0"):
         for index, one in enumerate(rows):
             _condition(context, index, one)
@@ -5366,14 +5370,11 @@ async def _patch(context: dict[str, Any], changes: dict[str, Any]) -> None:
 # --- what the collection holds ----------------------------------------------------
 
 
-def _games_list(context: dict[str, Any], row: dict[str, Any]) -> None:
+def _games_list(context: dict[str, Any], row: dict[str, Any],
+                controls: Callable[[], None]) -> None:
     live = not context.get("unsaved")
     lens = context.get("membership") if live else context.get("preview")
     lens = lens or {}
-    if lens.get("error"):
-        ui.label(t("console.workbench.could_not_work", exc=lens["error"])) \
-            .classes("console-help text-warning")
-        return
     members = lens.get("members") or []
     name = _collection(context)["name"]
     find = (context["state"].setdefault("member_find", {}).get(name, "")
@@ -5384,14 +5385,20 @@ def _games_list(context: dict[str, Any], row: dict[str, Any]) -> None:
     excluded = [one for one in members if (one.get("origin") or "") == "excluded"]
     playable = sum(1 for one in kept if one.get("included") and not one.get("past_limit"))
     with ui.row().classes("items-center gap-2 w-full mt-2"):
-        ui.label(t("console.workbench.count_games_taken_out", count=playable,
-                   taken=len(excluded))
+        ui.label(t("console.workbench.games") if lens.get("error")
+                 else t("console.workbench.count_games_taken_out", count=playable,
+                        taken=len(excluded))
                  if excluded else t("console.workbench.count_games", count=playable)) \
             .classes("console-card-title whitespace-nowrap")
         if live and int(row.get("count") or 0):
             with ui.element("span").classes("whitespace-nowrap"):
                 panel.link(t("console.workbench.show_in_games"), to="/console?"
                            + deeplink.query({"view": "games", "collection": name}))()
+    controls()
+    if lens.get("error"):
+        ui.label(t("console.workbench.could_not_work", exc=lens["error"])) \
+            .classes("console-help text-warning")
+        return
     if live and len((context.get("membership") or {}).get("members") or []) > 8:
         box = ui.input(placeholder=t("console.workbench.find_collection")) \
             .props("dense outlined clearable debounce=250") \

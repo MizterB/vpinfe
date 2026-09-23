@@ -488,6 +488,11 @@ defined.
 you are, and a second copy of the words under it is furniture. A rail long enough to need
 grouping takes group headings; a short one does not.
 
+**Every group in a section is headed, or none is.** Once any group under a rail row takes a
+heading, the first takes one too: content left unnamed above the first rule reads as a stray
+rather than as the start of the section. A section that is one group needs no heading,
+since the lit row names it, and never one that only says the row again.
+
 **One implementation, in `console/panel.py`.** The fact list and one constructor per kind of
 value live there, and every surface renders through it. Reaching for `ui.switch` or
 `ui.input` directly forks the design system — which is how the same field ended up with a
