@@ -21,7 +21,7 @@ from common.config_access import cfg_get
 from common.deprecations import announce
 from common.extensions import services as ext_services
 from common.games import game_identity
-from common.games.collection_store import normalize_direction, public_name
+from common.games.collection_store import BUILTIN_ALL, normalize_direction, public_name
 from common.games.collections_service import (
     get_cabinet_collections,
     get_collection_image_url,
@@ -142,6 +142,7 @@ API_PUBLISHED_METHODS = {
 # dispatchable while `vpin.call` refuses them.
 API_INTERNAL_METHODS = {
     'apply_filters',
+    'get_collection_picker_items',
     'apply_sort',
     'get_current_filter_state',
     'get_current_sort_state',
@@ -450,10 +451,23 @@ class API:
 
 
     def get_collections(self) -> list[str]:
-        return [row["name"] for row in self.get_collections_metadata()]
+        return [row["name"] for row in
+                get_cabinet_collections(public_name(self.current_collection))]
 
     def get_collections_metadata(self) -> list[dict]:
-        return get_cabinet_collections(public_name(self.current_collection))
+        return self._glanced(get_cabinet_collections(public_name(self.current_collection)))
+
+    def get_collection_picker_items(self) -> list[dict]:
+        """All Games, then what `get_collections_metadata` offers."""
+        showing = public_name(self.current_collection)
+        whole = {"name": "", "image": "", "image_url": ""}
+        rows = self._glanced([whole, *get_cabinet_collections(showing)])
+        return [row | {"showing": row["name"] == showing} for row in rows]
+
+    def _glanced(self, rows: list[dict]) -> list[dict]:
+        names = [row["name"] or BUILTIN_ALL for row in rows]
+        glances = self.library.glance(names)
+        return [row | glances[name] for row, name in zip(rows, names, strict=True)]
 
     def get_collection_image_url(self, collection: str) -> str:
         return get_collection_image_url(collection)

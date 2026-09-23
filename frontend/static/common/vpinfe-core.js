@@ -385,6 +385,7 @@ function announceLegacy(target, oldName, newName) {
 const INTERNAL_METHODS = new Set([
   "apply_filters",
   "apply_sort",
+  "get_collection_picker_items",
   "get_current_filter_state",
   "get_current_sort_state",
   "get_current_order_state",
@@ -2435,11 +2436,13 @@ class VPinFECore {
    * about - so a theme needs no mode flag of its own, and no `leaveCollectionMode`.
    */
   async openCollectionPicker() {
-    const rows = await this.call("get_collections_metadata");
-    if (!Array.isArray(rows) || !rows.length) return null;
-    return this.pushList(new NavigableList(rows, {
+    const rows = await this.callInternal("get_collection_picker_items");
+    if (!Array.isArray(rows) || rows.length < 2) return null;
+    const allGames = this.t("frontend.collectionmenu.all_games", "All Games");
+    const items = rows.map((row) => ({ ...row, label: row.name || allGames }));
+    return this.pushList(new NavigableList(items, {
       id: "collections", kind: "collection",
-      cursor: Math.max(0, rows.findIndex((row) => row.name === this.collection)),
+      cursor: Math.max(0, items.findIndex((row) => row.showing)),
     }));
   }
 
@@ -2451,7 +2454,12 @@ class VPinFECore {
     if (this.atRoot) return false;
     const item = this.activeList().current;
     this.popList();
-    if (!item || !item.name) return true;
+    if (!item) return true;
+    if (!item.name) {
+      await this.getTableData(true);
+      this.sendMessageToAllWindowsIncSelf({ type: "TableDataChange", index: 0, collection: "None" });
+      return true;
+    }
 
     // Three steps, and skipping either of the last two is why this looked wired and was
     // not: the backend swaps the view, this window still holds the previous list, and

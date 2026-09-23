@@ -11,9 +11,10 @@ import logging
 import threading
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import quote
 
 from common.config_access import ConfigSource, NetworkConfig
-from common.games import collection_resolver, remote_library
+from common.games import collection_resolver, game_identity, remote_library
 from common.games.collection_store import (
     BUILTIN_ALL,
     DEFAULT_DIRECTION,
@@ -23,9 +24,12 @@ from common.games.collection_store import (
 )
 from common.games.collections_service import get_collections_manager
 from common.games.game_repository import all_games
+from common.games.media_lookup import resolved_kinds
 from frontend import game_state
 
 logger = logging.getLogger("vpinfe.frontend.library_resolver")
+
+GLANCE_WHEELS = 4
 
 
 def library_url(ini_config: ConfigSource) -> str:
@@ -119,6 +123,29 @@ class LibraryResolver:
         if criteria:
             store.set_view_filters(criteria)
         return collection_resolver.resolve(collection, store, self.all_games)
+
+    def glance(self, names: list[str]) -> dict[str, dict[str, Any]]:
+        """How many entries each collection resolves to here, and the first few wheels."""
+        unknown: dict[str, Any] = {"table_count": None, "game_wheel_urls": []}
+        if self._remote:
+            return {name: dict(unknown) for name in names}
+        store = self.collections()
+        found: dict[str, dict[str, Any]] = {}
+        for name in names:
+            try:
+                entries = collection_resolver.resolve(name, store, self.all_games)
+            except collection_resolver.UnresolvableCollectionError:
+                found[name] = dict(unknown)
+                continue
+            wheels: list[str] = []
+            for entry in entries:
+                if len(wheels) == GLANCE_WHEELS:
+                    break
+                target = entry.table_id or game_identity.game_id(entry.game)
+                if target and "wheel" in resolved_kinds(entry.game):
+                    wheels.append(f"/media/{quote(target, safe='')}/wheel")
+            found[name] = {"table_count": len(entries), "game_wheel_urls": wheels}
+        return found
 
     # -- staleness -----------------------------------------------------------
 

@@ -47,7 +47,7 @@ def _ini() -> SimpleNamespace:
     return SimpleNamespace(config=parser, save=lambda: None)
 
 
-class CollectionViewTests(TempTree):
+class _Library(TempTree):
     def setUp(self) -> None:
         super().setUp()
         self.collections = CollectionStore(str(self.root / "collections.json"))
@@ -77,6 +77,8 @@ class CollectionViewTests(TempTree):
         return [(entry.game.meta_config["vpinfe"]["game_id"], entry.table_id)
                 for entry in api.entries]
 
+
+class CollectionViewTests(_Library):
     def test_the_default_view_is_the_whole_library(self) -> None:
         """`builtin:all` is what an empty collection has always meant, and the name for
         it never leaves core."""
@@ -160,3 +162,72 @@ class CollectionViewTests(TempTree):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CabinetCollectionRowsTests(_Library):
+    """What the cabinet's collection menu and core's picker are handed per collection."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        patcher = patch("common.games.collections_service.get_collections_manager",
+                        lambda: self.collections)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _row(self, rows, name):
+        return next(row for row in rows if row["name"] == name)
+
+    def test_the_count_is_what_the_collection_shows_rules_and_limit_included(self) -> None:
+        self.collections.add_filter_collection("Bally", manufacturer="Bally")
+        self.collections.add_collection("Short", ["mm", "afm", "taf"])
+        self.collections.set_limit("Short", 2)
+
+        rows = self._api().get_collections_metadata()
+
+        self.assertEqual(self._row(rows, "Bally")["table_count"], 2)
+        self.assertEqual(self._row(rows, "Short")["table_count"], 2)
+
+    def test_up_to_four_wheels_of_the_games_it_holds_skipping_games_with_none(self) -> None:
+        more = [_game(f"g{n}", f"Game {n}", {f"t{n}": _table(f"t{n}", f"G{n}.vpx")})
+                for n in range(5)]
+        for game in more:
+            game.wheel_image_path = f"{game.full_path_game}/medias/wheel.png"
+        self.afm.wheel_image_path = "/games/Attack from Mars/medias/wheel.png"
+        self.collections.add_collection("Many", ["mm", "afm", *[g.meta_config["vpinfe"]
+                                                                ["game_id"] for g in more]])
+        self.collections.set_order("Many", "manual")
+
+        rows = self._api(self.games + more).get_collections_metadata()
+
+        self.assertEqual(self._row(rows, "Many")["game_wheel_urls"],
+                         ["/media/a1/wheel", "/media/t0/wheel", "/media/t1/wheel",
+                          "/media/t2/wheel"])
+
+    def test_the_picker_leads_with_the_whole_library(self) -> None:
+        self.collections.add_collection("Short", ["mm"])
+
+        items = self._api().get_collection_picker_items()
+
+        self.assertEqual([item["name"] for item in items], ["", "Short"])
+        self.assertEqual(items[0]["table_count"], 3)
+        self.assertEqual(items[0]["image_url"], "")
+        self.assertEqual([item["showing"] for item in items], [True, False])
+
+    def test_the_picker_marks_what_is_showing_whatever_the_theme_contract(self) -> None:
+        self.collections.add_collection("Short", ["mm"])
+        api = self._api()
+        game_state.apply_collection(api, "Short")
+
+        items = api.get_collection_picker_items()
+
+        self.assertEqual([item["showing"] for item in items], [False, True])
+
+    def test_a_remote_library_counts_nothing_it_would_have_to_ask_for(self) -> None:
+        self.collections.add_collection("Short", ["mm"])
+        api = self._api()
+        api.library._remote = True
+
+        row = self._row(api.get_collections_metadata(), "Short")
+
+        self.assertIsNone(row["table_count"])
+        self.assertEqual(row["game_wheel_urls"], [])

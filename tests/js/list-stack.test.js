@@ -177,22 +177,54 @@ describe("select and back while core holds a list", () => {
 });
 
 describe("the picker core opens", () => {
+  const rows = (showing) => ["", "Favorites", "Played"].map(
+    (name) => ({ name, showing: name === showing }));
+
   test("it starts on the collection that is already showing", async () => {
     const { vpin } = controller();
-    vpin.collection = "Played";
-    vpin.call = async () => ([{ name: "Favorites" }, { name: "Played" }]);
+    vpin.callInternal = async () => rows("Played");
 
     const list = await vpin.openCollectionPicker();
 
-    assert.equal(list.cursor, 1);
+    assert.equal(list.cursor, 2);
     assert.equal(list.kind, "collection");
   });
 
-  test("an empty collection list pushes nothing", async () => {
+  test("All Games leads, is labeled, and is where it opens on the whole library", async () => {
     const { vpin } = controller();
-    vpin.call = async () => ([]);
+    vpin.callInternal = async () => rows("");
+
+    const list = await vpin.openCollectionPicker();
+
+    assert.equal(list.cursor, 0);
+    assert.deepEqual(list.items.map((item) => item.label), ["All Games", "Favorites", "Played"]);
+  });
+
+  test("a picker holding only All Games pushes nothing", async () => {
+    const { vpin } = controller();
+    vpin.callInternal = async () => ([{ name: "" }]);
 
     assert.equal(await vpin.openCollectionPicker(), null);
     assert.equal(vpin.atRoot, true, "there would be no way back out of an empty list");
+  });
+});
+
+describe("choosing All Games", () => {
+  test("resets the view and tells the other windows the way the menu does", async () => {
+    const { vpin, sent } = controller();
+    const calls = [];
+    vpin.call = async (name, ...args) => {
+      calls.push([name, ...args]);
+      return name === "get_tables" ? '[{"id":"x"}]' : null;
+    };
+    vpin.pushList(vpin.createList([{ name: "" }, { name: "Played" }], { kind: "collection" }));
+    sent.length = 0;
+
+    assert.equal(await vpin.selectCurrent(), true);
+
+    assert.deepEqual(calls[0], ["get_tables", true]);
+    assert.ok(!calls.some((c) => c[0] === "set_tables_by_collection"));
+    const change = sent.find((m) => m.type === "TableDataChange");
+    assert.equal(change.collection, "None");
   });
 });
