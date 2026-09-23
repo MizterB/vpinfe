@@ -93,6 +93,42 @@ def by_name(known: list[Field]) -> dict[str, Field]:
     return {one.name: one for one in known}
 
 
+@dataclass(frozen=True)
+class Template:
+    """A collection to start from: the rows it asks, and how it orders what they find."""
+
+    label: str
+    rows: tuple[dict[str, Any], ...]
+    order: dict[str, Any] = field(default_factory=dict)
+
+
+TEMPLATES = (
+    Template("console.collection_rules.recently_played",
+             ({"field": "played", "op": YES, "value": None},),
+             {"order_by": "last_played", "direction": "desc", "limit": 20}),
+    Template("console.collection_rules.favorites",
+             ({"field": "favorite", "op": YES, "value": None},)),
+    Template("console.collection_rules.never_played",
+             ({"field": "played", "op": NO, "value": None},)),
+    Template("console.collection_rules.top_rated",
+             ({"field": "rating", "op": AT_LEAST, "value": "4"},),
+             {"order_by": "rating", "direction": "desc"}),
+    Template("console.collection_rules.a_manufacturer",
+             ({"field": "manufacturer", "op": ANY_OF, "value": None},)),
+)
+
+
+def templates(known: list[Field]) -> list[Template]:
+    """The templates whose every row this library can ask."""
+    named = by_name(known)
+
+    def askable(row: dict[str, Any]) -> bool:
+        one = named.get(row["field"])
+        return one is not None and one.askable and row["op"] in one.operators
+
+    return [one for one in TEMPLATES if all(askable(row) for row in one.rows)]
+
+
 def row_on(chosen: Field) -> dict[str, Any]:
     """A row on this field, asking what the field asks first, of nothing yet."""
     return {"field": chosen.name, "op": chosen.operators[0], "value": None}

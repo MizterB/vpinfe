@@ -10,7 +10,8 @@ AXES = [{"name": "letter", "kind": "letter", "label": "Letter"},
         {"name": "manufacturer", "kind": "choice", "label": "Manufacturer",
          "values": ["Bally", "Stern"], "counts": {"Bally": 22, "Stern": 3}},
         {"name": "year", "kind": "choice", "label": "Year"},
-        {"name": "rating", "kind": "rating", "label": "Rating"},
+        {"name": "rating", "kind": "rating", "label": "Rating",
+         "values": ["1", "2", "3", "4", "5"]},
         {"name": "rating_or_higher", "kind": "rating", "label": "Rating",
          "field": "rating"},
         {"name": "played", "kind": "flag", "label": "Played"},
@@ -216,6 +217,46 @@ class UnsavedRules(unittest.TestCase):
                   "Untouched": {}, "Deleted": {"rules": []}}
 
         self.assertEqual({"Grown"}, unsaved(drafts, stored, FIELDS))
+
+
+class Templates(unittest.TestCase):
+    def test_each_asks_what_its_name_says(self) -> None:
+        asked = {one.label.rsplit(".", 1)[1]: rules.filters_from(list(one.rows), FIELDS)
+                 for one in rules.templates(FIELDS)}
+
+        self.assertEqual({"recently_played": {"played": True},
+                          "favorites": {"favorite": True},
+                          "never_played": {"played": False},
+                          "top_rated": {"rating": "4", "rating_or_higher": True},
+                          "a_manufacturer": {}}, asked)
+
+    def test_its_order_is_one_the_collection_can_be_given(self) -> None:
+        from common.games.collection_store import SORT_LABELS
+
+        for one in rules.TEMPLATES:
+            with self.subTest(one.label):
+                self.assertIn(one.order.get("order_by", "title"), SORT_LABELS)
+
+    def test_one_asking_what_this_library_cannot_is_not_offered(self) -> None:
+        without = rules.fields([axis for axis in AXES
+                                if axis["name"] not in ("favorite", "rating_or_higher")])
+        offered = [one.label.rsplit(".", 1)[1] for one in rules.templates(without)]
+
+        self.assertEqual(["recently_played", "never_played", "a_manufacturer"], offered)
+
+
+class DraftedOrder(unittest.TestCase):
+    def test_a_template_s_order_reads_over_the_stored_one(self) -> None:
+        from console.workbench import _ordered
+
+        stored = {"order_by": "title", "direction": "asc", "limit": 5}
+
+        self.assertEqual(stored, _ordered({"draft": {}}, stored))
+        self.assertEqual({"order_by": "rating", "direction": "desc", "limit": 5},
+                         _ordered({"draft": {"order": {"order_by": "rating",
+                                                       "direction": "desc"}}}, stored))
+        self.assertNotIn("limit", _ordered({"draft": {"order": {"clear_limit": True}}},
+                                           stored))
 
 
 if __name__ == "__main__":

@@ -1184,6 +1184,8 @@ async def _draw_collection(container: ui.column, title: ui.column, library: Libr
     draft = drafts.setdefault(name, {})
     if draft.get("rules") == collection_rules.rows_from(row.get("filters"), known):
         draft.pop("rules")
+    if "rules" not in draft:
+        draft.pop("order", None)
     waiting = unsaved(drafts, rows, known)
     preview: dict[str, Any] | None = None
     if name in waiting:
@@ -4853,6 +4855,21 @@ def _empty_fork(context: dict[str, Any]) -> None:
             ui.label(t("word.or")).classes("console-help")
             _add_rule_button(context)
             ui.label(t("console.workbench.to_fill_itself")).classes("console-help")
+        offered = collection_rules.templates(context["fields"])
+        if offered:
+            with ui.row().classes("items-baseline gap-2 no-wrap"):
+                ui.label(t("console.workbench.start_from")).classes("console-help shrink-0")
+                with ui.row().classes("items-center gap-2 min-w-0"):
+                    for one in offered:
+                        panel.action(t(one.label),
+                                     lambda _e=None, one=one: _start_from(context, one),
+                                     icon=verbs.ADD, inline=True)()
+
+
+def _start_from(context: dict[str, Any], template: collection_rules.Template) -> None:
+    context["draft"]["rules"] = [dict(row) for row in template.rows]
+    context["draft"]["order"] = dict(template.order)
+    asyncio.create_task(context["rebuild"]())
 
 
 # --- the rules ------------------------------------------------------------------
@@ -5098,12 +5115,15 @@ async def _save_rules(context: dict[str, Any]) -> None:
         else:
             await _cancel_rules(context)
         return
+    order = context["draft"].get("order") or {}
     try:
-        await run.io_bound(library.patch_collection, row["name"], {"filters": wanted})
+        await run.io_bound(library.patch_collection, row["name"],
+                           {"filters": wanted, **order})
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("console.workbench.could_not_save", exc=(exc)), type="negative")
         return
     context["draft"].pop("rules", None)
+    context["draft"].pop("order", None)
     await _written(context)
 
 
@@ -5202,6 +5222,7 @@ def _draft_bar(context: dict[str, Any]) -> None:
 
 
 def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
+    row = _ordered(context, row)
     by, direction = row.get("order_by") or DEFAULT_ORDER_BY, row.get("direction")
     orders = {token: t(key) for token, key in SORT_LABELS.items()}
     if not _is_dynamic(row) and not _rules_drafted(context):
@@ -5215,11 +5236,11 @@ def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
         changes: dict[str, Any] = {"order_by": event.value}
         if event.value in NATURAL_DIRECTION:
             changes["direction"] = NATURAL_DIRECTION[event.value]
-        await _patch(context, changes)
+        await _set_order(context, changes)
 
     async def turned(event: Any) -> None:
         if event.value != direction:
-            await _patch(context, {"order_by": by, "direction": event.value})
+            await _set_order(context, {"order_by": by, "direction": event.value})
 
     with ui.row().classes("items-center gap-x-4 gap-y-1 w-full console-order-bar"):
         with ui.row().classes("items-center gap-2 no-wrap grow"):
@@ -5250,10 +5271,34 @@ def _limit_box(context: dict[str, Any], row: dict[str, Any]) -> None:
         wanted = max(1, int(typed)) if isinstance(typed, (int, float)) else None
         if wanted == limit:
             return
-        await _patch(context, {"limit": wanted} if wanted else {"clear_limit": True})
+        await _set_order(context, {"limit": wanted} if wanted else {"clear_limit": True})
 
     box.on("blur", done)
     box.on("keydown.enter", lambda: box.run_method("blur"))
+
+
+def _ordered(context: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
+    """The collection as its order reads with a template's order drafted over it."""
+    order = context["draft"].get("order")
+    if order is None:
+        return row
+    merged = row | order
+    if order.get("clear_limit"):
+        merged.pop("limit", None)
+    return merged
+
+
+async def _set_order(context: dict[str, Any], changes: dict[str, Any]) -> None:
+    order = context["draft"].get("order")
+    if order is None:
+        await _patch(context, changes)
+        return
+    if "limit" in changes:
+        order.pop("clear_limit", None)
+    if "clear_limit" in changes:
+        order.pop("limit", None)
+    order.update(changes)
+    await context["rebuild"]()
 
 
 async def _patch(context: dict[str, Any], changes: dict[str, Any]) -> None:
