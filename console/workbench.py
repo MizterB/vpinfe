@@ -2573,9 +2573,7 @@ async def _assets_block(context: dict[str, Any]) -> None:
                     entries.append((t("console.workbench.script_hash"), digest))
         pinmame = (chosen.get("dependencies") or {}).get("pinmame") or {}
         if pinmame.get("effective") or pinmame.get("declared"):
-            entries.append((_asset_name("rom"), _rom_state(
-                pinmame, str(pinmame.get("effective")
-                             or pinmame.get("declared") or "-"))))
+            entries.append((_asset_name("rom"), _rom_row(context, pinmame)))
 
     entries += [(HEADING, t("console.workbench.game_folder"))]
     for kind, state in sorted(folder.items()):
@@ -2910,6 +2908,24 @@ def _rom_state(pinmame: dict[str, Any], rom: str,
             .props("flat dense no-caps size=sm") \
             .classes("console-action console-action--inline") \
             .tooltip(t("console.workbench.where_rom_managed"))
+
+    return draw
+
+
+def _rom_row(context: dict[str, Any], pinmame: dict[str, Any]) -> Any:
+    rom = str(pinmame.get("effective") or pinmame.get("declared") or "-")
+    chip = _rom_state(pinmame, rom)
+    if pinmame.get("installed") is not False:
+        return chip
+    label = _asset_name("rom")
+
+    def draw() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            chip()
+            panel.action(t("word.add"),
+                         lambda: mediasource.open_folder_sources(context, "rom", label,
+                                                                 context["rebuild"]),
+                         icon=verbs.ADD, inline=True)()
 
     return draw
 
