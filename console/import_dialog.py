@@ -21,7 +21,7 @@ from nicegui import run, ui
 
 from common.i18n import t
 from console import dialog as frame
-from console import offload, panel, verbs
+from console import game_tables, offload, panel, verbs
 
 logger = logging.getLogger("vpinfe.console.import_dialog")
 
@@ -302,8 +302,8 @@ async def _match(library: Any, named: dict[str, Any], field: Any) -> None:
         ui.notify(t("console.import_dialog.nothing_spreadsheet_matches_name"), type="warning")
         return
     offered = {str(one.get("vps_id") or ""):
-               f"{one.get('name') or ''} ({one.get('manufacturer') or ''} "
-               f"{one.get('year') or ''})".replace(" )", ")")
+               str(one.get("name") or "") + (f" ({made})" if (made := game_tables.made(one))
+                                             else "")
                for one in found}
     holds = {"id": next(iter(offered), "")}
     with frame.opened(t("console.import_dialog.one")) as picker:

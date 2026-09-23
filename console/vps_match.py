@@ -19,7 +19,7 @@ from nicegui import run, ui
 
 from common import icons
 from common.i18n import t
-from console import candidates, dialog, offload, panel, verbs
+from console import candidates, dialog, game_tables, offload, panel, verbs
 
 logger = logging.getLogger("vpinfe.console.vps_match")
 
@@ -188,7 +188,7 @@ def _seed(game: dict[str, Any]) -> str:
 
 
 def _own_pick(found: dict[str, Any], *, cleared: bool, back: Callable[[], None]) -> None:
-    said = " ".join(str(found.get(k) or "") for k in ("manufacturer", "year")).strip()
+    said = game_tables.made(found)
     name = str(found.get("name") or "") + (f" ({said})" if said else "")
     with ui.row().classes("items-center gap-3 w-full no-wrap console-vps-own"):
         ui.label(t("console.vps_match.you_cleared" if cleared else "console.vps_match.you_picked",
@@ -205,7 +205,7 @@ def entry_row(row: dict[str, Any], *, pick: Callable[[], None] | None = None,
     `pick` absent draws it without making it a target. `trailing` puts one control at
     the end, after the way out to the catalog.
     """
-    said = " ".join(str(row.get(k) or "") for k in ("manufacturer", "year")).strip()
+    said = game_tables.made(row)
     url = str(row.get("url") or "")
 
     def end() -> None:
@@ -233,7 +233,7 @@ def _match_row(row: dict[str, Any], dialog: Any) -> None:
     the same line: it says which entry the world actually builds for, and it is not a
     judgement of the match, which nothing here makes.
     """
-    said = [" ".join(str(row.get(k) or "") for k in ("manufacturer", "year")).strip()]
+    said = [game_tables.made(row)]
     count = int(row.get("releases") or 0)
     if count:
         said.append(t("console.vps_match.release" if count == 1

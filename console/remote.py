@@ -27,7 +27,7 @@ from common import device_registry, install_identity
 from common.config_access import NetworkConfig
 from common.i18n import t
 from common.labels import humanize
-from console import offload, stars, theme, verbs
+from console import game_tables, offload, stars, theme, verbs
 from console.api import ApiClient, local_base_url
 
 logger = logging.getLogger("vpinfe.console.remote")
@@ -536,8 +536,7 @@ def _game_row(game: dict[str, Any], state: dict[str, Any], client_for_target: Ca
             .classes("w-full items-center gap-2 no-wrap remote-row"):
         with ui.column().classes("grow min-w-0 gap-0"):
             ui.label(str(game.get("name") or "")).classes("remote-row-name truncate")
-            made = " ".join(str(game.get(key) or "")
-                            for key in ("manufacturer", "year")).strip()
+            made = game_tables.made(game)
             if made:
                 ui.label(made).classes("remote-note truncate")
         if (game.get("user") or {}).get("favorite"):
@@ -555,8 +554,7 @@ def _game_sheet(game: dict[str, Any], state: dict[str, Any], client_for_target: 
     with ui.dialog().props("position=bottom") as sheet, \
             ui.card().classes("w-full remote-sheet"):
         ui.label(str(game.get("name") or "")).classes("remote-headline")
-        made = " ".join(str(game.get(key) or "")
-                        for key in ("manufacturer", "year")).strip()
+        made = game_tables.made(game)
         if made:
             ui.label(made).classes("remote-note")
 

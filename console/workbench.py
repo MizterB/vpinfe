@@ -478,7 +478,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
     container.clear()
     title.clear()
     with container:
-        made = f"{game.get('manufacturer') or '?'} {game.get('year') or ''}"
+        made = game_tables.made(game)
         _title(title, game.get("name") or "", made)
         # Named under the game once a file is the subject, so the header says which of
         # the four you are looking at without a control to read.
@@ -639,9 +639,7 @@ async def _tag_games(context: dict[str, Any]) -> None:
             with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
                 panel.link(str(game.get("name") or ""), to="/console?" + deeplink.query(
                     {"view": "games", "game": game["id"]}))()
-                ui.label(" ".join(str(part) for part in (game.get("manufacturer"),
-                                                         game.get("year")) if part)) \
-                    .classes("console-help")
+                ui.label(game_tables.made(game)).classes("console-help")
         if tables:
             ui.label(t("console.tageditor.tables")).classes("console-group px-3 mt-2")
         for table in tables:

@@ -9,7 +9,7 @@ from typing import Any
 from common.games.asset_registry import ASSET_SPECS
 from common.i18n import t
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
-from console import media_ownership
+from console import game_tables, media_ownership
 from console.api import ApiClient
 
 logger = logging.getLogger("vpinfe.console.data")
@@ -75,12 +75,6 @@ def _listed(section: dict, key: str) -> set[str]:
     if isinstance(value, str):
         value = value.split(",")
     return {str(item).strip() for item in value if str(item).strip()}
-
-
-def _said(*parts: Any) -> str:
-    """What tells two rows apart, under the name. Blank parts drop out; the space is
-    held by the cell, not by a placeholder."""
-    return " ".join(str(one).strip() for one in parts if str(one or "").strip())
 
 
 class Library:
@@ -835,7 +829,7 @@ class Library:
 
     def _kept_media(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         kept = self.kept_kinds()["media"]
-        return [{**row, "said": _said(row.get("manufacturer"), row.get("year"))}
+        return [{**row, "said": game_tables.made(row)}
                 for row in rows if row.get("kind") in kept]
 
     def has_media_rows(self) -> bool:
@@ -860,7 +854,7 @@ class Library:
         kept = self.kept_kinds()["asset"]
         pairs = {"alt_color": ("altcolor_serum", "altcolor_vni"),
                  "alt_sound": ("altsound",)}
-        return [{**row, "said": _said(row.get("manufacturer"), row.get("year"))}
+        return [{**row, "said": game_tables.made(row)}
                 for row in rows
                 if (row.get("kind") in kept
                     or any(name in kept
@@ -1191,7 +1185,7 @@ class Library:
                 "manufacturer": game.get("manufacturer") or "",
                 "year": game.get("year") or "",
                 # Its own field, so sorting and filtering stay on the name.
-                "said": _said(game.get("manufacturer"), game.get("year")),
+                "said": game_tables.made(game),
                 "game_type": game.get("type") or "",
                 # No rom or version: both were the default table's reported as the
                 # game's, the columns that showed them are gone, and nothing has read

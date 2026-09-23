@@ -16,7 +16,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from console import offload, verbs
+from console import game_tables, offload, verbs
 
 # Rows that are not a fact. A group's title and an action strip span both columns, so
 # every group keeps the one shared label width.
@@ -467,8 +467,7 @@ class GamePicker(ui.select):
     def __init__(self, games: Sequence[dict[str, Any]], held: set[str], *,
                  label: str) -> None:
         # Before `super().__init__`, which builds the payload for the first time.
-        self.made = {str(game["id"]): " ".join(str(part) for part in (
-            game.get("manufacturer"), game.get("year")) if part) for game in games}
+        self.made = {str(game["id"]): game_tables.made(game) for game in games}
         self.held = set(held)
         super().__init__({str(game["id"]): str(game.get("name") or game["id"])
                           for game in games}, with_input=True, label=label)

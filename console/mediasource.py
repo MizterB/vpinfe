@@ -29,7 +29,16 @@ from common.media_specs import (
     media_family,
     media_label_map,
 )
-from console import candidates, confirm, media_ownership, offload, panel, uploads, verbs
+from console import (
+    candidates,
+    confirm,
+    game_tables,
+    media_ownership,
+    offload,
+    panel,
+    uploads,
+    verbs,
+)
 from console import dialog as frame
 
 logger = logging.getLogger("vpinfe.console.mediasource")
@@ -686,8 +695,7 @@ class _Slot(_OneFile):
         I mean", and the photograph settles that faster than a name that differs from
         the one you know it by.
         """
-        made = " ".join(str(part) for part in
-                        (item.get("manufacturer"), item.get("year")) if part)
+        made = game_tables.made(item)
         candidates.choice(item.get("img_url") or "",
                           str(item.get("name") or ""), made,
                           lambda i=item: self._show_offers(
