@@ -165,6 +165,14 @@ def _connection_rows(device: dict[str, Any],
     return rows
 
 
+def acts(library: Any, device: dict[str, Any],
+         rerender: Callable[[], Any] | None) -> list[panel.Verb]:
+    """What can be done to one device's entry here. Never offered for this install's
+    own, which is the one reading the Console and announces itself again at once."""
+    return [panel.Verb(t("word.forget"), lambda: _confirm_forget(library, device, rerender),
+                       danger=True)]
+
+
 async def _confirm_forget(library: Any, device: dict[str, Any],
                           rerender: Callable[[], None] | None) -> None:
     """Drop the entry, having said what that does and does not do."""
@@ -446,13 +454,7 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
         device = known.get(str(row.get("id") or ""))
         if device is None:
             return
-        with menu:
-            ui.item_label(str(row.get("name") or "")).props("header") \
-                .classes("console-menu-header")
-            ui.separator()
-            ui.menu_item(t("console.devices.forget_device"),
-                         lambda one=device: _confirm_forget(library, one, rerender)) \
-                .classes("console-menu-item console-menu-danger")
+        panel.verb_menu(menu, str(row.get("name") or ""), acts(library, device, rerender))
 
     async def on_header_context(col_id: str | None) -> None:
         await grid.header_menu(menu, table, COLUMNS, col_id)
@@ -496,7 +498,7 @@ def _client_for(context: dict[str, Any]) -> Any:
     """Who answers for this device. This install's own client for itself, the client
     that reaches it for anything else - both expose the same calls, which is what lets
     one page draw either."""
-    if _is_local(context):
+    if is_local(context):
         return context.get("library")
     return device_client.for_device(_of(context), context.get("local_device_id"))
 
@@ -505,7 +507,7 @@ def _of(context: dict[str, Any]) -> dict[str, Any]:
     return context.get("device") or {}
 
 
-def _is_local(context: dict[str, Any]) -> bool:
+def is_local(context: dict[str, Any]) -> bool:
     return _of(context).get("device_id") == context.get("local_device_id")
 
 
@@ -635,7 +637,7 @@ def settings_door(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     which is exactly where version skew bites.
     """
     device = _of(context)
-    here = _is_local(context)
+    here = is_local(context)
     stopped = door_reason(device, context.get("reach"), here)
 
     def open_it() -> None:
@@ -659,7 +661,7 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     device = _of(context)
     # The library this name can be written through, which only the install serving the
     # page has. Its absence is what makes the field read-only, so the two cannot drift.
-    library = context.get("library") if _is_local(context) else None
+    library = context.get("library") if is_local(context) else None
 
     # What the install has been told to call itself, which is not what it reports: the
     # reported name already fell back to the hostname, so showing that as the value
@@ -688,10 +690,10 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     rows_out: list[tuple[Any, Any]] = [
         (t("word.name"), panel.field(stored, rename,
                              placeholder=_hostname_placeholder(device,
-                                                               _is_local(context)),
+                                                               is_local(context)),
                              disabled=library is None)),
     ]
-    if not _is_local(context):
+    if not is_local(context):
         rows_out.append(panel.note(t("console.devices.name_belongs_install_can")))
     rows_out.append((t("word.kind"),
             KIND_LABELS.get(str(device.get("kind") or "vpinfe"),
@@ -730,7 +732,7 @@ async def software_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     device = _of(context)
     client = _client_for(context)
     update = context.get("update")
-    ask = update_checker(_is_local(context), client)
+    ask = update_checker(is_local(context), client)
     if update is None and ask is not None:
         try:
             update = await offload.io(ask)
@@ -739,7 +741,7 @@ async def software_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
                         device_label(device), exc_info=True)
             update = None
         context["update"] = update
-    return _software_rows(device, _is_local(context), client, update)
+    return _software_rows(device, is_local(context), client, update)
 
 
 def capability_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -878,20 +880,7 @@ def entry_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         (t("console.devices.announced"),
                 _when(str(device.get("last_seen") or ""), t("word.never"))),
     ]
-    if _is_local(context) or library is None:
+    if is_local(context) or library is None:
         out.append(panel.note(
             t("console.devices.install_reading_console_entry")))
-        return out
-
-    def forget_action() -> None:
-        # In the fact rhythm's own wrapper, or the button takes the whole value column -
-        # a destructive verb drawn as a full-width bar reads as a banner.
-        with ui.element("div").classes("console-fact-edit"):
-            panel.action(t("console.devices.forget_device"),
-                         lambda: _confirm_forget(library, device,
-                                                 context.get("rebuild")),
-                         icon="delete_outline", inline=True, danger=True)()
-
-    out.append(panel.note(t("console.devices.forgetting_device_removes_install")))
-    out.append(("", forget_action))
     return out

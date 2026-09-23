@@ -633,6 +633,28 @@ answers.
 
 ### An action sits with what it acts on
 
+Where a verb goes is decided by what it changes. Nothing is gathered under a heading
+called Actions, which names the mechanism and says nothing about the subject.
+
+| It acts on | It goes |
+|---|---|
+| the whole grid | the bar above the grid: add, the selection's `more_vert`, refresh |
+| the panel's subject | the `more_vert` in the panel header, the same list as that row's menu in the grid |
+| a section | a strip closing the section, with no heading |
+| one row | an icon at the row's end, repeated in the row's menu |
+| one value | inline, beside the value |
+| a dialog | the footer |
+
+- **One list per subject.** Each subject's module has an `acts()` returning `panel.Verb`s;
+  `panel.verb_menu` draws it on the grid row and `panel.subject_menu` in the header. A
+  verb that only makes sense in one of them says so with `in_panel=False`, as Rename does
+  where the panel already edits the name in place.
+- **Danger goes last, under a rule, in red.** A verb that cannot run right now stays in
+  the list, dimmed, with the reason under it, so nobody wonders where it went.
+- **One word per act.** **Delete** means gone from disk, or gone for good where there is
+  no disk. **Remove** takes it out of the library and keeps the files. **Forget** stops
+  tracking something VPinFE does not own. **Uninstall** is for a theme.
+
 A verb in a panel follows the value it changes — same column, one gap after it. It is not
 pushed to the panel's edge for a tidy column of verbs: that assumes the value fills the
 row, and a chip does not, so the verb ends a panel-width from the state it changes and
@@ -653,6 +675,10 @@ stretch to the same width.
   floor back where the pointer is a finger.
 - **Section actions sit in their own strip** under the content, as a media slot's do.
   Position is then what tells a row action from a section one.
+
+`tests/invariants/test_actions_sit_with_their_subject.py` fails on a section or heading
+called Actions, on a subject whose header menu has no matching row menu, and when the
+count of buttons built outside `panel.py` rises.
 
 ### A link says whether it leaves
 

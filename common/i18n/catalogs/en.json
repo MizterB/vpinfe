@@ -446,8 +446,6 @@
   "console.devices.features": "Features",
   "console.devices.first_seen": "First seen",
   "console.devices.forget": "Forget “{name}”?",
-  "console.devices.forget_device": "Forget this device",
-  "console.devices.forgetting_device_removes_install": "Forgetting a device removes this install's entry for it. Nothing on that machine changes, and it comes back the next time it announces itself.",
   "console.devices.forgot": "Forgot {name}",
   "console.devices.happen_device_not_install": "These happen on this device, not on the install you are reading from",
   "console.devices.happens_now": "This happens on {device_label}, now.",
@@ -1129,10 +1127,12 @@
   "console.table_features.script_uses": "The script uses it",
   "console.tageditor.add_new_tag": "Add a New Tag",
   "console.tageditor.already_a_tag": "Already a tag",
+  "console.tageditor.delete": "Delete “{tag}”?",
   "console.tageditor.delete_detail": {
     "one": "It is on {count} game. Its description and color go too.",
     "other": "It is on {count} games. Its description and color go too."
   },
+  "console.tageditor.deleted": "Deleted “{tag}”",
   "console.tageditor.entry_keeps_what_typed": "Entry keeps what you typed, so two spellings of one word both exist. Merging folds them into the most-used one.",
   "console.tageditor.every_game_carrying_one": "Every game carrying one of the others is retagged. This cannot be undone.",
   "console.tageditor.every_game_carrying_retagged": "Every game carrying it is retagged.",
@@ -1146,9 +1146,6 @@
   "console.tageditor.new_tag": "New tag...",
   "console.tageditor.no_tags_yet_tag": "No tags yet. Tag a game from its Play section, or write one down with New tag.",
   "console.tageditor.one_spelling": "One spelling",
-  "console.tageditor.remove_every_game": "Remove “{tag}” from every game?",
-  "console.tageditor.remove_every_game_2": "Remove from every game",
-  "console.tageditor.removed": "Removed {tag}",
   "console.tageditor.rename": "Rename…",
   "console.tageditor.rename_2": "Rename",
   "console.tageditor.rename_tag": "Rename this tag",
@@ -1188,7 +1185,7 @@
     "one": "Games ({count})",
     "other": "Games ({count})"
   },
-  "console.tags.merge_into": "Merge into...",
+  "console.tags.merge_into": "Merge into",
   "console.tags.on_games": {
     "one": "On {count} game",
     "other": "On {count} games"
@@ -1228,8 +1225,6 @@
   "console.themes.plays_frontend_next_starts": "{value} plays when the frontend next starts",
   "console.themes.registry": "Registry",
   "console.themes.registry.help": "The catalog that offers this theme\nBlank - listed by its own repository, or added by hand",
-  "console.themes.remove": "Remove “{value}”?",
-  "console.themes.removed": "{value} removed",
   "console.themes.repository": "Repository",
   "console.themes.search_themes": "Search themes",
   "console.themes.settings": "Settings",
@@ -1240,6 +1235,8 @@
     "other": "{count} themes"
   },
   "console.themes.themes_of": "{value} of {len} themes",
+  "console.themes.uninstall": "Uninstall “{value}”?",
+  "console.themes.uninstalled": "{value} uninstalled",
   "console.themes.update": "Update",
   "console.themes.update_available": "Update available",
   "console.themes.updated": "Last Updated",
@@ -1347,6 +1344,7 @@
   "console.workbench.clear_nvram_exit": "Clear NVRAM on exit",
   "console.workbench.cleared_match": "You cleared the match, so VPinFE leaves this game unmatched",
   "console.workbench.collections": "Collections",
+  "console.workbench.control": "Control",
   "console.workbench.convert": "Convert",
   "console.workbench.convert_detail": {
     "one": "It keeps the {count} game it shows now and stops updating.",
@@ -2139,6 +2137,7 @@
   "word.table_count": "Table Count",
   "word.tutorial": "Tutorial",
   "word.undo": "Undo",
+  "word.uninstall": "Uninstall",
   "word.unknown": "Unknown",
   "word.unpin": "Unpin",
   "word.unreachable": "Unreachable",

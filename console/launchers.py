@@ -153,10 +153,21 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
             return
 
         by_id = {row["id"]: row for row in built}
+        by_launcher = {one["launcher_id"]: one for one in held}
         grid.on_row_focus(SCOPE,
                           lambda event: on_select(by_id.get(grid.focused_row(event))))
+
+        def fill(row: dict | None) -> None:
+            launcher = by_launcher.get(str((row or {}).get("id") or ""))
+            if launcher is None:
+                menu.clear()
+                return
+            panel.verb_menu(menu, str(launcher["display_name"]),
+                            acts(library, state, launcher, len(held), redraw))
+
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table = grid.build(COLUMNS, built, SCOPE, view_of=showing)
+            table = grid.build(COLUMNS, built, SCOPE, on_context=fill, view_of=showing)
+            menu = ui.context_menu()
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
@@ -279,6 +290,21 @@ async def _do_copy(library: Library, launcher: dict, devices: list[dict],
                                   mappings, client_for=client_for)
     said = launcher_copy.said(outcomes)
     ui.notify(said, type="positive" if all(one.ok for one in outcomes) else "warning")
+
+
+def acts(library: Library, state: dict[str, Any], launcher: dict, count: int,
+         redraw: Callable[[], None]) -> list[panel.Verb]:
+    """What can be done to one launcher."""
+    offered = [panel.Verb(t("console.workbench.duplicate"),
+                          lambda: duplicate(library, state, redraw, launcher))]
+    if state.get("can_manage_devices"):
+        offered.append(panel.Verb(t("console.workbench.copy_devices"),
+                                  lambda: copy_dialog(library, state, launcher)))
+    offered.append(panel.Verb(
+        t("word.remove"),
+        None if count <= 1 else (lambda: remove(library, state, redraw, launcher)),
+        danger=True, hint=t("console.workbench.launcher_install")))
+    return offered
 
 
 async def remove(library: Library, state: dict[str, Any], redraw: Callable[[], None],

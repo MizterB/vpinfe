@@ -172,9 +172,20 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                           else t("console.locations.location", len=(len(built)),
                                  value=('' if len(built) == 1 else 's')))
 
+        by_location = {str(one.get("location_id") or ""): one for one in held}
+
+        def fill(row: dict | None) -> None:
+            location = by_location.get(str((row or {}).get("id") or ""))
+            if location is None:
+                menu.clear()
+                return
+            panel.verb_menu(menu, str(location.get("name") or location.get("path") or ""),
+                            acts(library, state, location, rerender))
+
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
             table = grid.build(COLUMNS, built, SCOPE, on_select_rows=on_selected,
-                               view_of=showing)
+                               on_context=fill, view_of=showing)
+            menu = ui.context_menu()
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
@@ -273,6 +284,20 @@ async def _create(library: Library, state: dict[str, Any], rerender: Callable[[]
     state["location"] = made
     if rerender is not None:
         rerender()
+
+
+def acts(library: Library, state: dict[str, Any], row: dict[str, Any],
+         redraw: Callable[[], None] | None) -> list[panel.Verb]:
+    """What can be done to one location."""
+    async def go() -> None:
+        if not await remove(library, row):
+            return
+        if state.get("location") == row["location_id"]:
+            state["location"] = ""
+        if redraw is not None:
+            redraw()
+
+    return [panel.Verb(t("word.remove"), go, danger=True)]
 
 
 async def remove(library: Library, row: dict[str, Any]) -> bool:

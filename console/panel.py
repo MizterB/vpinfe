@@ -11,6 +11,7 @@ into an entry list as the second half of a pair.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from nicegui import ui
@@ -685,6 +686,83 @@ def menu_entry(label: str, on_click: Callable[..., Any] | None = None, *,
         if trail is not None:
             trail()
     return item
+
+
+@dataclass(frozen=True)
+class Verb:
+    """One thing that can be done to a subject as a whole.
+
+    Written once per subject and drawn in both places it is offered: the panel header's
+    menu and the grid row's context menu. `run` absent is offered and refused, and
+    `hint` says why. `choices` opens a second menu instead of acting. `in_panel` false
+    keeps it to the grid, for a verb whose panel home is a field. `icon` is for where
+    it is also drawn as a button; a menu item takes none.
+    """
+    label: str
+    run: Callable[[], Any] | None = None
+    danger: bool = False
+    hint: str = ""
+    choices: tuple[tuple[str, Callable[[], Any]], ...] = ()
+    in_panel: bool = True
+    icon: str = ""
+
+
+def _verb_entry(verb: Verb) -> None:
+    live = verb.run is not None or bool(verb.choices)
+    classes = "console-menu-item"
+    if not live:
+        classes += " console-menu-blocked"
+    elif verb.danger:
+        classes += " console-menu-danger"
+    item = ui.menu_item(on_click=verb.run if live and not verb.choices else None,
+                        auto_close=live and not verb.choices).classes(classes)
+    with item, ui.row().classes("items-center gap-2 no-wrap w-full"):
+        with ui.column().classes("gap-0 grow min-w-0"):
+            ui.label(verb.label)
+            if verb.hint and not live:
+                ui.label(verb.hint).classes("console-menu-sub")
+        if verb.choices:
+            ui.icon(verbs.DRILL).classes("console-menu-trail")
+    if verb.choices:
+        with item, ui.menu().props('anchor="top end" self="top start"'):
+            for label, run in verb.choices:
+                ui.menu_item(label, run).classes("console-menu-item")
+
+
+def verb_entries(entries: Sequence[Verb]) -> None:
+    """Into the menu being built. The destructive ones last, under a rule."""
+    safe = [one for one in entries if not one.danger]
+    risky = [one for one in entries if one.danger]
+    for one in safe:
+        _verb_entry(one)
+    if safe and risky:
+        ui.separator()
+    for one in risky:
+        _verb_entry(one)
+
+
+def verb_menu(menu: Any, name: str, entries: Sequence[Verb]) -> None:
+    """A grid row's context menu: the row's name, then what can be done to it."""
+    menu.clear()
+    if not entries:
+        return
+    with menu:
+        ui.item_label(name).props("header").classes("console-menu-header")
+        ui.separator()
+        verb_entries(entries)
+
+
+def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
+    """The panel header's menu, for the subject the panel is about."""
+    slot.clear()
+    shown = [one for one in entries if one.in_panel]
+    if not shown:
+        return
+    with slot:
+        button = ui.button(icon=verbs.MORE).props("flat dense round size=sm") \
+            .tooltip(t("word.actions"))
+        with button, ui.menu():
+            verb_entries(shown)
 
 
 def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,

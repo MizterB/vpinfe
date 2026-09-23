@@ -148,6 +148,19 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
 )
 
 
+class _Title(ui.column):
+    """The panel header's name for its subject, and the slot beside it holding the
+    subject's menu. Cleared together: every drawing path clears the title, and a menu
+    left behind would offer to act on a subject that has gone."""
+
+    menu: ui.row | None = None
+
+    def clear(self) -> Any:
+        if self.menu is not None:
+            self.menu.clear()
+        return super().clear()
+
+
 def nav_for(features: Any, community: tuple[NavItem, ...] = ()
             ) -> list[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]]]:
     """The rail this install has. A group whose entries have all gone goes with them -
@@ -705,13 +718,15 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             # min-w-0 lets the column shrink below its content so the title truncates
             # instead of pushing the toggle onto a second line; shrink-0 keeps the
             # toggle at its own size while that happens.
-            workbench_title = ui.column().classes("gap-0 min-w-0 overflow-hidden")
+            workbench_title = _Title().classes("gap-0 min-w-0 overflow-hidden")
             with ui.row().classes("items-center gap-1 shrink-0 no-wrap"):
                 # Their own row so they can go with the panel: at the rail there is
                 # nothing to step through, and they do not fit beside a 57px header.
                 workbench_actions = ui.row() \
                     .classes("items-center gap-1 shrink-0 no-wrap")
                 with workbench_actions:
+                    workbench_title.menu = state["subject_menu"] = ui.row() \
+                        .classes("items-center shrink-0 no-wrap")
                     # Stepping the list from in here, so a sweep does not need the grid
                     # on screen - which is the point of Full.
                     ui.button(icon=verbs.COLLAPSE, on_click=lambda: _step(-1)) \

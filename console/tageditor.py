@@ -9,7 +9,8 @@ source.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from functools import partial
 from typing import Any
 
 from nicegui import ui
@@ -109,23 +110,6 @@ def build(rows: list[dict[str, Any]], library: Any,
         await sweep(library.merge_tags, others + [into], into,
                 said=t("console.tageditor.merged", into=(into)))
 
-    async def rename(row: dict[str, Any]) -> None:
-        said = await _ask_for_a_name(str(row.get("tag") or ""))
-        if not said or said == row.get("tag"):
-            return
-        await sweep(library.merge_tags, [str(row.get("tag"))], said,
-                    said=t("console.tageditor.renamed", said=(said)))
-
-    async def drop(row: dict[str, Any]) -> None:
-        tag = str(row.get("tag") or "")
-        count = int(row.get("games") or 0)
-        if not await confirm.ask(
-                t("console.tageditor.remove_every_game", tag=(tag)),
-                detail=t("console.tageditor.delete_detail", count=count),
-                confirm=t("word.remove"), icon=verbs.REMOVE):
-            return
-        await sweep(library.delete_tag, tag, said=t("console.tageditor.removed", tag=(tag)))
-
     duplicates = rows_by_key(rows)
     if duplicates:
         with ui.element("div").classes("console-card w-full mb-2"):
@@ -179,18 +163,16 @@ def build(rows: list[dict[str, Any]], library: Any,
 
     menu_row: dict[str, Any] = {}
 
+    async def redrawn(_next: str | None) -> None:
+        if rerender is not None:
+            rerender()
+
     def fill(row: dict | None) -> None:
-        menu.clear()
         if not row:
+            menu.clear()
             return
-        with menu:
-            ui.item_label(str(row.get("tag") or "")).props("header") \
-                .classes("console-menu-header")
-            ui.separator()
-            ui.menu_item(t("console.tageditor.rename"),
-                    lambda r=row: rename(r)).classes("console-menu-item")
-            ui.menu_item(t("console.tageditor.remove_every_game_2"), lambda r=row: drop(r)) \
-                .classes("console-menu-item console-menu-danger")
+        tag = str(row.get("tag") or "")
+        panel.verb_menu(menu, tag, acts(library, tag, int(row.get("games") or 0), redrawn))
 
     def on_context(row: dict | None) -> None:
         menu_row["row"] = row
@@ -276,6 +258,61 @@ async def _new_tag(library: Library) -> tuple[str, dict[str, str]] | None:
     frame.focus(box, fields["name"])
     frame.enter_presses(add)
     return await box
+
+
+def acts(library: Any, tag: str, games: int,
+         after: Callable[[str | None], Awaitable[None]]) -> list[panel.Verb]:
+    """What can be done to one tag. `after` is given the tag to show next, or None when
+    this one has gone."""
+    others = sorted((one for one in library.tag_looks() if one != tag), key=str.casefold)
+
+    async def rename() -> None:
+        said = await _ask_for_a_name(tag)
+        if not said or said == tag:
+            return
+        try:
+            await offload.io(library.merge_tags, [tag], said)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
+            return
+        ui.notify(t("console.tageditor.renamed", said=(said)), type="positive")
+        await after(said)
+
+    async def merge(into: str) -> None:
+        if not await confirm.ask(t("console.tageditor.merge", into=into),
+                                 detail=t("console.tageditor.every_game_carrying_one"),
+                                 lines=[t("console.tageditor.tag_game" if games == 1
+                                          else "console.tageditor.tag_games",
+                                          tag=tag, count=games)],
+                                 confirm=t("word.merge"), icon=verbs.MERGE):
+            return
+        try:
+            await offload.io(library.merge_tags, [tag], into)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
+            return
+        ui.notify(t("console.tageditor.merged", into=(into)), type="positive")
+        await after(into)
+
+    async def delete() -> None:
+        if not await confirm.ask(t("console.tageditor.delete", tag=tag),
+                                 detail=t("console.tageditor.delete_detail", count=games),
+                                 confirm=t("word.delete"), icon=verbs.DELETE):
+            return
+        try:
+            await offload.io(library.delete_tag, tag)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
+            return
+        ui.notify(t("console.tageditor.deleted", tag=tag), type="positive")
+        await after(None)
+
+    offered = [panel.Verb(t("console.tageditor.rename"), rename, in_panel=False)]
+    if others:
+        offered.append(panel.Verb(t("console.tags.merge_into"), choices=tuple(
+            (other, partial(merge, other)) for other in others)))
+    offered.append(panel.Verb(t("word.delete"), delete, danger=True))
+    return offered
 
 
 def _named(fields: dict[str, Any]) -> str:

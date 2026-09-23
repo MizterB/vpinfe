@@ -42,6 +42,7 @@ UNMATCH = "delete_outline"
 CLEAR = "backspace"
 REMOVE = "remove"
 DELETE = "delete_outline"
+UNINSTALL = "delete_outline"
 # Keeping out what a rule would bring back.
 EXCLUDE = "close"
 

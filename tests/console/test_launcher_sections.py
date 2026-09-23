@@ -1,8 +1,8 @@
 """Which sections a launcher's rail offers, and when.
 
 Offering a settings editor for a program that is not on this machine is a form of
-lying: there is nothing to read it out of and nothing a write could mean. Setup and
-Actions stay, because pointing the launcher somewhere else is how it gets fixed.
+lying: there is nothing to read it out of and nothing a write could mean. Setup
+stays, because pointing the launcher somewhere else is how it gets fixed.
 """
 
 from __future__ import annotations
@@ -34,12 +34,12 @@ class RailTests(unittest.TestCase):
 
         self.assertIn("launcher_backglass", shown)
         self.assertIn("launcher_setup", shown)
-        self.assertIn("launcher_actions", shown)
+        self.assertIn("launcher_backups", shown)
 
     def test_a_program_that_is_not_there_leaves_only_what_can_fix_it(self) -> None:
         shown = _shown(_context(path_checks.MISSING))
 
-        self.assertEqual(shown, ["launcher_setup", "launcher_actions"])
+        self.assertEqual(shown, ["launcher_setup", "launcher_backups"])
 
     def test_a_group_the_app_does_not_declare_is_absent_rather_than_empty(self) -> None:
         """An install without the plugin architecture shows fewer sections, not empty

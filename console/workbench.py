@@ -59,6 +59,7 @@ from console import (
     stars,
     table_features,
     tag_chips,
+    tageditor,
     verbs,
     vps_match,
     when,
@@ -652,52 +653,6 @@ async def _tag_games(context: dict[str, Any]) -> None:
                                {"view": "tables", "game": str(table.get("game_id") or ""),
                                 "table": str(table.get("id") or "")}))()
                 _said_line(game_tables.made(table), table)
-
-
-async def _tag_actions(context: dict[str, Any]) -> None:
-    library, name = context["library"], context["name"]
-    others = sorted((one for one in library.tag_looks() if one != name), key=str.casefold)
-    count = int(context["tag"].get("games") or 0)
-
-    async def merge(into: str) -> None:
-        if not await confirm.ask(t("console.tageditor.merge", into=into),
-                                 detail=t("console.tageditor.every_game_carrying_one"),
-                                 lines=[t("console.tageditor.tag_game" if count == 1
-                                          else "console.tageditor.tag_games",
-                                          tag=name, count=count)],
-                                 confirm=t("word.merge"), icon=verbs.MERGE):
-            return
-        try:
-            await run.io_bound(library.merge_tags, [name], into)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
-            return
-        await _tag_changed(context, into)
-
-    async def drop() -> None:
-        if not await confirm.ask(
-                t("console.tageditor.remove_every_game", tag=name),
-                detail=t("console.tageditor.delete_detail", count=count),
-                confirm=t("word.delete"), icon=verbs.DELETE):
-            return
-        try:
-            await run.io_bound(library.delete_tag, name)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
-            return
-        await _tag_changed(context, None)
-
-    with ui.element("div").classes("console-slot-actions px-3"):
-        button = ui.button(t("console.tags.merge_into"), icon=verbs.MERGE) \
-            .props("flat dense no-caps size=sm").classes("console-action")
-        if others:
-            with button, ui.menu():
-                for other in others:
-                    ui.menu_item(other, on_click=lambda _e=None, o=other: merge(o)) \
-                        .classes("console-menu-item")
-        else:
-            button.disable()
-        panel.action(t("word.delete"), drop, icon=verbs.DELETE, danger=True)()
 
 
 async def build_file(container: ui.column, title: ui.column, library: Library,
@@ -1297,6 +1252,10 @@ async def _rail(context: dict[str, Any], subject: str,
     to the open one, the work, then the rest. The markup is the same at either width, so
     nothing is rebuilt on a drag.
     """
+    header = state.get("subject_menu")
+    verbs_of = SUBJECT_VERBS.get(subject)
+    if header is not None and verbs_of is not None:
+        panel.subject_menu(header, verbs_of(context))
     rows = tuple(item for item in sections_for(subject)
                  if item.shown is None or item.shown(context))
     section = chosen_section(state, subject, rows)
@@ -3484,23 +3443,8 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
     with ui.row().classes("items-center gap-2 w-full no-wrap console-heading-row"):
         ui.label(said if tables else t("console.workbench.tables")) \
             .classes("console-card-title console-fact-heading grow")
-        # Beside the list rather than hidden in a menu, and drawn even where the list
-        # is empty: a folder with nothing in it yet is exactly where one of these is
-        # added, and returning early leaves that game with no way to gain anything.
-        #
-        # Two buttons rather than a menu of two. Both are always available, and a menu
-        # that opens onto two items charges a click to say so.
-        ui.button(t("console.workbench.point_file"), icon=verbs.BROWSE,
-                  on_click=lambda: _add_referenced_table(context)) \
-            .props("flat dense no-caps size=sm") \
-            .tooltip(t("console.workbench.table_lives_somewhere_else"))
-        ui.button(t("console.workbench.add_name"), icon=verbs.ADD,
-                  on_click=lambda: _add_keyed_table(context)) \
-            .props("flat dense no-caps size=sm") \
-            .tooltip(t("console.workbench.something_own_program_finds"))
     if not tables:
         ui.label(t("console.workbench.nothing_yet")).classes("console-help")
-        return
     for table in tables:
         since = str(table.get("absent_since") or "")
         here = str(table.get("id") or "") == showing
@@ -3568,7 +3512,7 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                     # re-adds it.
                     if since or game_tables.is_keyed(table) \
                             or game_tables.is_referenced(table):
-                        ui.button(icon="delete_outline",
+                        ui.button(icon=verbs.FORGET,
                                   on_click=lambda _, t=table: _forget_table(context, t)) \
                             .props("flat dense round size=sm color=warning") \
                             .tooltip(t("console.workbench.forget"))
@@ -3576,6 +3520,14 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                         _release_button(context, table)
                         _launch_button(context, table)
             _release_line(table, held)
+    # Drawn even where the list is empty: a folder with nothing in it yet is exactly
+    # where one of these is added.
+    with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
+        panel.action(t("console.workbench.point_file"),
+                     lambda: _add_referenced_table(context), icon=verbs.BROWSE,
+                     hint=t("console.workbench.table_lives_somewhere_else"))()
+        panel.action(t("console.workbench.add_name"), lambda: _add_keyed_table(context),
+                     icon=verbs.ADD, hint=t("console.workbench.something_own_program_finds"))()
 
 
 def _release_line(table: dict[str, Any], held: bool = True) -> None:
@@ -3970,7 +3922,7 @@ async def _device_logs(context: dict[str, Any]) -> None:
         _rows(ui, await devices_page.log_rows(context))
 
 
-async def _device_actions(context: dict[str, Any]) -> None:
+async def _device_control(context: dict[str, Any]) -> None:
     """What it can be told to do to itself."""
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, await devices_page.action_rows(context))
@@ -4008,8 +3960,8 @@ def _program_is_there(context: dict[str, Any]) -> bool:
     """Whether the program this launcher names is on this machine.
 
     Its own settings are read out of its own files, so without it there is nothing to
-    read and nothing that could be written back meaningfully. Setup and Actions stay,
-    because pointing it somewhere else is how the problem gets fixed.
+    read and nothing that could be written back meaningfully. Setup stays, because
+    pointing it somewhere else is how the problem gets fixed.
     """
     checks = (context.get("launcher") or {}).get("checks") or {}
     state = str((checks.get("bin_path") or {}).get("state") or "")
@@ -4336,38 +4288,6 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
         _rows(ui, entries)
 
 
-async def _launcher_actions(context: dict[str, Any]) -> None:
-    library = context["library"]
-    launcher = context["launcher"]
-    state = context["state"]
-    only_one = len(context.get("launchers") or []) <= 1
-
-    def again() -> None:
-        reload_page = state.get("rerender")
-        if callable(reload_page):
-            reload_page()
-
-    with ui.column().classes("gap-2 console-form px-3 py-2"):
-        await _config_backups(context, launcher)
-        with ui.row().classes("items-center gap-2 no-wrap"):
-            ui.button(t("console.workbench.duplicate"), icon=verbs.DUPLICATE,
-                      on_click=lambda: launchers_page.duplicate(
-                          library, state, again, launcher)) \
-                .props("flat dense no-caps size=sm")
-            if state.get("can_manage_devices"):
-                ui.button(t("console.workbench.copy_devices"), icon=verbs.COPY,
-                          on_click=lambda: launchers_page.copy_dialog(
-                              library, state, launcher)) \
-                    .props("flat dense no-caps size=sm")
-            remove = ui.button(t("word.remove"), icon=verbs.REMOVE,
-                               on_click=lambda: launchers_page.remove(
-                                   library, state, again, launcher)) \
-                .props("flat dense no-caps size=sm color=negative")
-            if only_one:
-                remove.disable()
-                remove.tooltip(t("console.workbench.launcher_install"))
-
-
 # Why a copy was taken, in the words somebody would use.
 BACKUP_REASONS = {"manual": t("console.workbench.taken"),
         "before-restore": t("console.workbench.before_restore")}
@@ -4385,17 +4305,14 @@ def _backup_when(one: dict) -> str:
     return f"{said} - {label}" if label else said
 
 
-async def _config_backups(context: dict[str, Any], launcher: dict) -> None:
+async def _config_backups(context: dict[str, Any]) -> None:
     """The settings file this launcher writes, and the copies kept of it.
 
-    Two verbs rather than a list of rows. Actions is a list of things to do, and a
-    timestamp is not a label - putting one in the label column made the section read
-    like a log somebody had to scan. Which copy to put back is a question, so it is
-    asked where questions are asked.
+    Two verbs rather than a list of rows. A timestamp is not a label - putting one in
+    the label column made the section read like a log somebody had to scan. Which copy
+    to put back is a question, so it is asked where questions are asked.
     """
-    library = context["library"]
-    if not _app_keeps_settings(context):
-        return
+    library, launcher = context["library"], context["launcher"]
     try:
         found = await offload.io(library.config_backups, launcher["launcher_id"])
     except Exception as exc:  # noqa: BLE001
@@ -4415,7 +4332,7 @@ async def _config_backups(context: dict[str, Any], launcher: dict) -> None:
         ui.notify(t("word.copied"), type="positive")
         await context["rebuild"]()
 
-    entries: list[tuple[Any, Any]] = [(HEADING, t("console.workbench.settings_file"))]
+    entries: list[tuple[Any, Any]] = []
     if named:
         entries.append((t("word.file"), _file_value(named[0])))
     entries.append((t("console.workbench.copies"), _copies_value(held, take, found, context,
@@ -4555,7 +4472,6 @@ async def _location_details(context: dict[str, Any]) -> None:
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, entries)
         await _shadowed_block(context, row)
-        _location_actions(context, row)
 
 
 def _location_priority(context: dict[str, Any],
@@ -4691,19 +4607,6 @@ def _location_write_to(context: dict[str, Any],
                         enabled=row["writable"] and row["kind"] == "root", hint=reason)
 
 
-def _location_actions(context: dict[str, Any], row: dict[str, Any]) -> None:
-    async def forget() -> None:
-        if await locations_page.remove(context["library"], row):
-            context["state"]["location"] = ""
-            reload_page = context["state"].get("rerender")
-            if callable(reload_page):
-                reload_page()
-
-    with ui.row().classes("items-center gap-2 no-wrap px-3 py-2"):
-        ui.button(t("word.remove"), icon=verbs.REMOVE, on_click=forget) \
-            .props("flat dense no-caps size=sm color=negative")
-
-
 async def _collection_details(context: dict[str, Any]) -> None:
     row = _collection(context)
     said = ((context.get("settings") or {}).get("behavior") or {}).get("paging_size")
@@ -4717,8 +4620,6 @@ async def _collection_details(context: dict[str, Any]) -> None:
         (HEADING, t("console.workbench.on_the_cabinet")),
         (t("console.workbench.page_buttons"), _page_buttons(context, row, size)),
         (FULL, partial(_image_slot, context, row)),
-        (HEADING, t("word.actions")),
-        (FULL, partial(_collection_actions, context)),
     ]
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, entries)
@@ -4842,62 +4743,6 @@ def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
                 ui.button(t("word.remove"), icon=verbs.REMOVE, on_click=clear) \
                     .props("flat dense no-caps size=sm") \
                     .classes("console-action console-action--danger")
-
-
-def _collection_actions(context: dict[str, Any]) -> None:
-    with ui.row().classes("items-center gap-2 no-wrap console-slot-actions"):
-        panel.action(t("console.workbench.duplicate"), lambda: _duplicate(context),
-                     icon=verbs.DUPLICATE)()
-        panel.action(t("word.delete"), lambda: _delete_collection(context),
-                     icon=verbs.DELETE, danger=True)()
-
-
-def _copy_name(name: str, taken: set[str]) -> str:
-    wanted = t("console.collections.copy_of", name=name)
-    number = 2
-    while wanted in taken:
-        wanted = t("console.collections.copy_of_n", name=name, n=number)
-        number += 1
-    return wanted
-
-
-async def _duplicate(context: dict[str, Any]) -> None:
-    library, name = context["library"], _collection(context)["name"]
-    try:
-        taken = {str(one.get("name") or "")
-                 for one in await offload.io(library.load_collections)}
-        made = await offload.io(library.copy_collection, _copy_name(name, taken), name)
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
-        return
-    copy = str(made.get("name") or "")
-    ui.notify(t("console.collections.created", strip=copy), type="positive")
-    context["state"]["collection"] = copy
-    await _written(context, copy)
-
-
-async def _delete_collection(context: dict[str, Any]) -> None:
-    # Imported here: console.collections imports console.games, which imports this module.
-    from console.collections import what_deleting_leaves
-
-    library, name = context["library"], _collection(context)["name"]
-    if not await confirm.ask(t("console.collections.delete", name=(name)),
-                             detail=await what_deleting_leaves(library, [name])):
-        return
-    try:
-        await run.io_bound(library.delete_collection, name)
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
-        return
-    ui.notify(t("console.collections.deleted", name=(name)), type="positive")
-    state = context["state"]
-    state.setdefault("collection_drafts", {}).pop(name, None)
-    state["collection"] = None
-    reread = state.get("refresh_collections")
-    if callable(reread):
-        await reread()
-    deeplink.sync(state)
-    await context["rebuild"]()
 
 
 async def _written(context: dict[str, Any], name: str = "") -> None:
@@ -5801,6 +5646,73 @@ def _add_control(context: dict[str, Any], members: list[dict]) -> None:
     ui.run_javascript(_ADD_BOX % (picker.id, "true" if again else "false"))
 
 
+def _tag_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    return tageditor.acts(context["library"], context["name"],
+                          int(context["tag"].get("games") or 0),
+                          partial(_tag_changed, context))
+
+
+def _collection_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    # Imported here: console.collections imports console.games, which imports this module.
+    from console.collections import acts
+
+    state = context["state"]
+
+    async def after(then: str | None) -> None:
+        if then:
+            state["collection"] = then
+            await _written(context, then)
+            return
+        reread = state.get("refresh_collections")
+        if callable(reread):
+            await reread()
+        deeplink.sync(state)
+        await context["rebuild"]()
+
+    return acts(context["library"], state, _collection(context)["name"], after)
+
+
+def _page_redraw(context: dict[str, Any]) -> Callable[[], None]:
+    def redraw() -> None:
+        reload_page = context["state"].get("rerender")
+        if callable(reload_page):
+            reload_page()
+    return redraw
+
+
+def _launcher_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    return launchers_page.acts(context["library"], context["state"], context["launcher"],
+                               len(context.get("launchers") or []), _page_redraw(context))
+
+
+def _location_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    return locations_page.acts(context["library"], context["state"], context["location"],
+                               _page_redraw(context))
+
+
+def _theme_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    return themes_page.acts(context["library"], context["theme"],
+                            partial(themes_page.changed, context))
+
+
+def _device_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    if devices_page.is_local(context) or context.get("library") is None:
+        return []
+    return devices_page.acts(context["library"], context["device"], _page_redraw(context))
+
+
+# What the panel header's menu offers, per subject: the same lists the grids' row menus
+# draw. A subject with none - a game, a table, a file - has no menu.
+SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
+    "tag": _tag_verbs,
+    "collection": _collection_verbs,
+    "launcher": _launcher_verbs,
+    "location": _location_verbs,
+    "theme": _theme_verbs,
+    "device": _device_verbs,
+}
+
+
 SECTIONS: tuple[Section, ...] = (
     # The game first, then the file: a table belongs to a game, and reading down is
     # reading from the thing that contains to the thing contained.
@@ -5818,12 +5730,12 @@ SECTIONS: tuple[Section, ...] = (
     Section("location_details", lambda _: t("console.workbench.details"), _location_details,
             subjects=frozenset({"location"})),
     # A launcher, in reading order: what it is and what it runs, then the program's own
-    # settings grouped as the app declares them, then what can be done to it.
+    # settings grouped as the app declares them, then the copies kept of its file.
     Section("launcher_setup", lambda _: t("console.workbench.setup"), _launcher_setup,
             subjects=frozenset({"launcher"})),
     *_launcher_config_sections(),
-    Section("launcher_actions", lambda _: t("word.actions"), _launcher_actions,
-            subjects=frozenset({"launcher"})),
+    Section("launcher_backups", lambda _: t("console.workbench.settings_file"),
+            _config_backups, subjects=frozenset({"launcher"}), shown=_app_keeps_settings),
     Section("collection_details", lambda _: t("console.workbench.details"),
             _collection_details,
             subjects=frozenset({"collection"})),
@@ -5836,8 +5748,6 @@ SECTIONS: tuple[Section, ...] = (
     Section("tag_games", lambda context: t("console.tags.games_counted",
                                            count=int(context["tag"].get("games") or 0)),
             _tag_games, subjects=frozenset({"tag"})),
-    Section("tag_actions", lambda _: t("word.actions"), _tag_actions,
-            subjects=frozenset({"tag"})),
     Section("asset_file", lambda _: t("word.file"), _asset_file_block,
             subjects=frozenset({"asset_file"})),
     # A device, in reading order: what it is, what it is running, what it can be asked
@@ -5855,8 +5765,8 @@ SECTIONS: tuple[Section, ...] = (
     Section("device_logs", lambda _: t("console.workbench.logs"), _device_logs,
             subjects=frozenset({"device"})),
     # Last, and it is the only one that changes anything: reading down the rail is
-    # reading from what a device is to what can be done to it.
-    Section("device_actions", lambda _: t("word.actions"), _device_actions,
+    # reading from what a device is to what it can be told to do.
+    Section("device_control", lambda _: t("console.workbench.control"), _device_control,
             subjects=frozenset({"device"})),
     Section("theme_details", lambda _: t("console.themes.theme"), themes_page.details,
             subjects=frozenset({"theme"})),

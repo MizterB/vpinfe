@@ -412,8 +412,8 @@ class TagRowTests(unittest.TestCase):
             with self.subTest(view=name):
                 self.assertLessEqual(set(preset.filters) | set(preset.columns), fields)
 
-    def test_a_tag_panel_is_details_games_and_actions(self) -> None:
-        self.assertEqual(["tag_details", "tag_games", "tag_actions"],
+    def test_a_tag_panel_is_details_and_games(self) -> None:
+        self.assertEqual(["tag_details", "tag_games"],
                          [item.key for item in workbench.sections_for("tag")])
 
 

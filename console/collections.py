@@ -11,7 +11,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 from urllib.parse import quote
 
@@ -282,6 +282,10 @@ def build(collections: list[dict[str, Any]], library: Any,
                            on_header_context, html_fields=["icon"], view_of=showing)
         menu = ui.context_menu()
 
+    async def redrawn(_next: str | None) -> None:
+        if rerender is not None:
+            rerender()
+
     def _fill(row: dict | None, col_id: str | None = None,
               pinned: bool = False) -> None:
         """One menu, filled for whatever was right-clicked."""
@@ -303,15 +307,7 @@ def build(collections: list[dict[str, Any]], library: Any,
                                  "setColumnsVisible", [c], False)) \
                     .classes("console-menu-item")
             elif row:
-                name = row["name"]
-                ui.item_label(name).props("header").classes("console-menu-header")
-                ui.separator()
-                # Renaming lives in the panel's Details, with the description it sits
-                # beside. One home per field: a name editable in two places is two
-                # answers, and this one is the collection's identity.
-                ui.menu_item(t("word.delete"),
-                        lambda n=name: _ask_delete(n, library, act)) \
-                    .classes("console-menu-item console-menu-danger")
+                panel.verb_menu(menu, row["name"], acts(library, state, row["name"], redrawn))
 
     async def counted() -> None:
         seen = await table.run_grid_method("getDisplayedRowCount")
@@ -375,13 +371,53 @@ async def _ask_delete_many(picked: list[dict], library: Any, act: Callable) -> N
                     said=t("console.collections.deleted", name=(name)))
 
 
-async def _ask_delete(name: str, library: Any, act: Callable) -> None:
-    """Asked, because a manual collection is somebody's hand-picked list and there is
-    no undo behind this."""
-    if await confirm.ask(t("console.collections.delete", name=(name)),
-                         detail=await what_deleting_leaves(library, [name])):
-        await act(library.delete_collection, name,
-                said=t("console.collections.deleted", name=(name)))
+def acts(library: Any, state: dict[str, Any], name: str,
+         after: Callable[[str | None], Awaitable[None]]) -> list[panel.Verb]:
+    """What can be done to one collection. `after` is given the collection to show next,
+    or None when this one has gone.
+
+    No Rename: the name is a field in the panel's Details, beside the description, and
+    a name editable in two places is two answers."""
+    async def duplicate() -> None:
+        try:
+            taken = {str(one.get("name") or "")
+                     for one in await offload.io(library.load_collections)}
+            made = await offload.io(library.copy_collection, _copy_name(name, taken), name)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
+            return
+        copy = str(made.get("name") or "")
+        ui.notify(t("console.collections.created", strip=copy), type="positive")
+        await after(copy)
+
+    async def delete() -> None:
+        # Asked, because a manual collection is somebody's hand-picked list and there
+        # is no undo behind this.
+        if not await confirm.ask(t("console.collections.delete", name=(name)),
+                                 detail=await what_deleting_leaves(library, [name])):
+            return
+        try:
+            await run.io_bound(library.delete_collection, name)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
+            return
+        ui.notify(t("console.collections.deleted", name=(name)), type="positive")
+        state.setdefault("collection_drafts", {}).pop(name, None)
+        if state.get("collection") == name:
+            state["collection"] = None
+        await after(None)
+
+    return [panel.Verb(t("console.workbench.duplicate"), duplicate),
+            panel.Verb(t("word.delete"), delete, danger=True)]
+
+
+def _copy_name(name: str, taken: set[str]) -> str:
+    wanted = t("console.collections.copy_of", name=name)
+    number = 2
+    while wanted in taken:
+        wanted = t("console.collections.copy_of_n", name=name, n=number)
+        number += 1
+    return wanted
 
 
 async def what_deleting_leaves(library: Any, names: list[str]) -> str:
