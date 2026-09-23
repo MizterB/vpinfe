@@ -1730,6 +1730,9 @@ class CollectionResource(ApiModel):
     count: int = 0
     # What it would resolve to with its limit set aside: `count` where there is none.
     before_limit: int = 0
+    # Up to four wheels of the games it hands out, in its order: what stands in for a
+    # collection with no image of its own.
+    game_wheels: list[str] = []
     game_count: int | None
     # Games, counted before the limit: written into it, brought in by its rule, and taken
     # out whole by name.

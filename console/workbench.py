@@ -4756,7 +4756,7 @@ def _page_buttons(context: dict[str, Any], row: dict[str, Any],
 
 
 def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
-    """The collection's icon, in the shape a media slot takes.
+    """The collection's wheel, in the shape a media slot takes.
 
     Same card, same art region, same blank state, same row of actions - a picture in
     this app is presented one way, and a bespoke drop target here was a second.
@@ -4764,26 +4764,35 @@ def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
     name = row.get("name") or ""
     library = context["library"]
     present = bool(row.get("image"))
+    stand_ins = [] if present else list(row.get("game_wheels") or [])
+    label = t("console.workbench.wheel")
 
     async def clear() -> None:
         await run.io_bound(library.clear_collection_image, name)
         await _written(context)
 
     with ui.column().classes("w-full gap-1 console-slot p-2 mt-3"):
-        ui.label(t("console.workbench.image")).classes("console-card-title")
-        with ui.element("div").classes("console-slot-art"):
+        ui.label(label).classes("console-card-title") \
+            .tooltip(t("console.workbench.wheel.help"))
+        with ui.element("div").classes("console-slot-art console-slot-art--wheel"):
             if present:
                 ui.image(f"/api/v1/collections/{quote(name, safe='')}/image") \
                     .classes("console-slot-image")
+            elif stand_ins:
+                with ui.element("div").classes("console-wheel-mosaic"):
+                    for src in stand_ins:
+                        ui.element("img").props(f'src="{src}" loading="lazy"')
             else:
                 with ui.column().classes("console-slot-blank items-center gap-1"):
                     ui.icon("image").classes("console-slot-blank-icon")
+        if stand_ins:
+            ui.label(t("console.workbench.from_its_games")) \
+                .classes("text-xs console-label self-center")
         with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
             ui.button(t("word.replace") if present else t("word.add"),
                       icon=verbs.REPLACE if present else verbs.ADD,
                       on_click=lambda: mediasource.open_image_sources(
-                          library, name, t("console.workbench.image"),
-                          lambda: _written(context))) \
+                          library, name, label, lambda: _written(context))) \
                 .props("flat dense no-caps size=sm").classes("console-action")
             if present:
                 ui.button(t("word.remove"), icon=verbs.REMOVE, on_click=clear) \

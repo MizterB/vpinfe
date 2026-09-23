@@ -12,6 +12,8 @@ from common.values import is_truthy
 
 COLLECTION_ICONS_DIR = COLLECTIONS_PATH.parent / "collection_icons"
 COLLECTION_IMAGE_KEY = "image"
+# How many of its games' wheels stand in for a collection with no picture of its own.
+WHEELS_SHOWN = 4
 
 
 def get_collections_manager() -> CollectionStore:

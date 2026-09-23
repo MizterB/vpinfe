@@ -73,6 +73,27 @@ class CollectionsApiTests(TempTree):
 
         self.assertEqual((2, 2), (held["count"], held["before_limit"]))
 
+    def test_the_wheels_of_its_games_skip_a_game_without_one(self) -> None:
+        self.catalog[OTHER_ID].wheel_image_path = "/games/Eight Ball/medias/wheel.png"
+        self.client.post("/collections",
+                         json={"name": "Bally", "filters": {"manufacturer": ["Bally"]}})
+
+        held = self.client.get("/collections/Bally").json()
+
+        self.assertEqual(1, len(held["game_wheels"]))
+        self.assertRegex(held["game_wheels"][0],
+                         rf"^/api/v1/games/{OTHER_ID}(/tables/[^/]+)?/media/wheel$")
+
+    def test_the_wheels_stop_where_the_limit_does(self) -> None:
+        self.catalog[OTHER_ID].wheel_image_path = "/games/Eight Ball/medias/wheel.png"
+        self.client.post("/collections",
+                         json={"name": "Bally", "filters": {"manufacturer": ["Bally"]}})
+        self.client.patch("/collections/Bally", json={"limit": 1})
+
+        held = self.client.get("/collections/Bally").json()
+
+        self.assertEqual([], held["game_wheels"])
+
     # --- on the cabinet or not --------------------------------------------
 
     def test_a_collection_kept_off_the_cabinet_is_still_listed_here(self) -> None:

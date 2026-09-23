@@ -2507,7 +2507,9 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
    level, positioning it collapsed this box - which is sized by its content - and a
    size container cannot be one without a definite height, which is the thing missing.
    Excludes the blank state, which is a column that lays itself out. */
-.console-slot-art > div:not(.console-slot-zoom):not(.console-slot-blank) { display: contents; }
+.console-slot-art > div:not(.console-slot-zoom):not(.console-slot-blank):not(.console-wheel-mosaic) {
+  display: contents;
+}
 .console-slot-art img, .console-slot-art video {
   max-width: 100%; max-height: 100%; object-fit: contain;
   min-height: 0; flex: 0 1 auto;
@@ -2519,6 +2521,15 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 
 /* An empty slot is still the shape of the thing that goes in it: the outline holds
    the same room the art would, so picking an empty slot does not resize the panel. */
+/* A collection's wheel is drawn square, the canvas a game's wheel comes on. */
+.console-slot-art--wheel { aspect-ratio: 1; width: 100%; max-width: 220px; align-self: center; }
+.console-wheel-mosaic {
+  display: grid; grid-template: 1fr 1fr / 1fr 1fr; gap: 6px;
+  width: 100%; height: 100%; place-items: center;
+}
+.console-wheel-mosaic:has(> img:only-child) { grid-template: 1fr / 1fr; }
+.console-wheel-mosaic:has(> img:nth-child(2):last-child) { grid-template: 1fr / 1fr 1fr; }
+.console-wheel-mosaic img { width: 100%; height: 100%; border: 0 !important; }
 .console-slot-blank {
   width: 100%; height: 100%; min-height: 90px;
   border: 1px dashed var(--line); border-radius: 6px;

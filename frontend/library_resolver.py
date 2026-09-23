@@ -22,14 +22,12 @@ from common.games.collection_store import (
     CollectionStore,
     public_name,
 )
-from common.games.collections_service import get_collections_manager
+from common.games.collections_service import WHEELS_SHOWN, get_collections_manager
 from common.games.game_repository import all_games
 from common.games.media_lookup import resolved_kinds
 from frontend import game_state
 
 logger = logging.getLogger("vpinfe.frontend.library_resolver")
-
-GLANCE_WHEELS = 4
 
 
 def library_url(ini_config: ConfigSource) -> str:
@@ -139,7 +137,7 @@ class LibraryResolver:
                 continue
             wheels: list[str] = []
             for entry in entries:
-                if len(wheels) == GLANCE_WHEELS:
+                if len(wheels) == WHEELS_SHOWN:
                     break
                 target = entry.table_id or game_identity.game_id(entry.game)
                 if target and "wheel" in resolved_kinds(entry.game):

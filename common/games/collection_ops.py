@@ -48,6 +48,7 @@ from common.games.collection_store import (
     normalize_paging_group,
 )
 from common.games.collections_service import (
+    WHEELS_SHOWN,
     collection_icon_path,
     follow_rename_in_settings,
     forget_in_settings,
@@ -56,6 +57,7 @@ from common.games.collections_service import (
     save_collection_icon,
 )
 from common.games.game_repository import collections_by_game_id, game_to_row
+from common.games.media_lookup import resolved_kinds
 from common.i18n import t
 from common.values import is_truthy
 
@@ -89,21 +91,36 @@ def _links(name: str) -> dict:
             "games": f"/api/v1/collections/{encoded}/games"}
 
 
-def _resolved_sizes(name: str) -> tuple[int, int]:
-    """How many entries this collection hands out, and how many it would without its
-    limit. Resolved, because that is what its size means - a rule's matches are stored
-    nowhere and a stored member that names a game this library lost resolves to nothing."""
+def _resolved_sizes(name: str) -> tuple[int, int, list[str]]:
+    """How many entries this collection hands out, how many it would without its
+    limit, and the wheels of the first few it hands out. Resolved, because that is what
+    its size means - a rule's matches are stored nowhere and a stored member that names
+    a game this library lost resolves to nothing."""
     manager = get_collections_manager()
     try:
-        uncapped = len(resolve(name, manager, list(game_repository.catalog().values()),
-                               capped=False))
+        entries = resolve(name, manager, list(game_repository.catalog().values()),
+                          capped=False)
     except Exception:
         # A collection this build cannot resolve still has to list. Its own reads say why;
         # a number in a table is not the place to raise it.
         logger.warning("could not size collection %r", name, exc_info=True)
-        return 0, 0
+        return 0, 0, []
     limit = manager.get_limit(name)
-    return (min(uncapped, limit) if limit else uncapped), uncapped
+    count = min(len(entries), limit) if limit else len(entries)
+    return count, len(entries), _wheels(entries[:count])
+
+
+def _wheels(entries: list[Any]) -> list[str]:
+    found: list[str] = []
+    for entry in entries:
+        if len(found) == WHEELS_SHOWN:
+            break
+        game = game_identity.game_id(entry.game)
+        if not game or "wheel" not in resolved_kinds(entry.game):
+            continue
+        table = f"/tables/{quote(entry.table_id, safe='')}" if entry.table_id else ""
+        found.append(f"/api/v1/games/{quote(game, safe='')}{table}/media/wheel")
+    return found
 
 
 def _names_what_is_gone(ref: dict, catalog: dict) -> bool:
@@ -141,7 +158,7 @@ def _resource_for(row: dict) -> dict:
     # default for keys the collection never set, so reading the sort there reports "Alpha"
     # for a collection that is ordered by anything else.
     order = get_collections_manager().get_order(name)
-    count, before_limit = _resolved_sizes(name)
+    count, before_limit, wheels = _resolved_sizes(name)
     if row["is_filter"]:
         raw = get_collections_manager().get_filters(name) or {}
         filters = {
@@ -171,6 +188,7 @@ def _resource_for(row: dict) -> dict:
         "on_cabinet": row.get("on_cabinet", True),
         "count": count,
         "before_limit": before_limit,
+        "game_wheels": wheels,
         "missing": _missing(name),
         "game_count": row.get("game_count"),
         "added": len(held.added) if held else 0,
