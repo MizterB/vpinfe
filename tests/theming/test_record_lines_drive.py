@@ -18,6 +18,19 @@ from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
 
 EMPTY = "Empty List"
+HELD = "Held List"
+# Two builds of one game told apart only at the end, and too long for any line here.
+LONG = "Delta (Williams 1993) " + "Community Remaster " * 6 + "%s.vpx"
+# Whether a filename's end is on screen and its front is what was cut.
+CUT = ("(root => { const box = root && root.querySelector('.console-file-name');"
+       " if (!box) return null; const all = box.getBoundingClientRect();"
+       " const text = box.firstElementChild.getBoundingClientRect();"
+       " return [text.right <= all.right + 1, text.left < all.left - 1,"
+       " box.firstElementChild.innerText]; })(%s)")
+DELTA_ROW = ("[...document.querySelectorAll('.console-section-work .console-member-row')]"
+             ".find(r => r.innerText.startsWith('Delta'))")
+DELTA_TABLE = ("[...document.querySelectorAll('.console-member-main')]"
+               ".find(r => r.innerText.includes('lw'))")
 # Words, color and size of each part of a line: the name's selector, then the root.
 PARTS = ("(root => { if (!root) return null;"
          " const look = sel => { const el = root.querySelector(sel); if (!el) return null;"
@@ -31,8 +44,9 @@ GAME_CELL = ".ag-row[row-id=\"alpha\"] .console-cell-identifier"
 TABLE_CELL = ".ag-row[row-id=\"t-a1\"] .console-cell-identifier"
 MEMBER = ("[...document.querySelectorAll('.console-section-work .console-member-row')]"
           ".find(r => r.innerText.startsWith('Alpha'))")
-HEADER = ("(() => { const el = document.querySelector('.console-workbench-label');"
-          " return el ? el.innerText : null; })()")
+HEADER = ("(() => { const title = document.querySelector('.console-workbench-title');"
+          " const el = document.querySelector('.console-workbench-label');"
+          " return title && title.innerText === 'Charlie' && el ? el.innerText : null; })()")
 GAMES_ROW = ("(() => { const rows = [...document.querySelectorAll('.console-section-row')];"
              " const at = rows.findIndex(r => r.innerText.startsWith('Games'));"
              " return at < 0 ? 0 : rows[at].classList.contains('console-section-on')"
@@ -67,6 +81,14 @@ class RecordLinesDrive(unittest.TestCase):
                              User={"Tags": ["Night"]})
             write_game(Path(tmp), "Alpha", info=info, vpx=False,
                        files={"Alpha 1.vpx": b"x", "Alpha 2.vpx": b"x"})
+            delta = {f"t-d{end}": {"id": f"t-d{end}", "filename": LONG % end,
+                                   **({"user": {"tags": ["VR"]}} if end == "lw" else {})}
+                     for end in ("12", "lw")}
+            held = game_info("Delta", vps_id="", game_id="delta", tables=delta,
+                             Info={"Manufacturer": "Williams", "Year": "1993"})
+            held["vpinfe"]["default_table"] = "t-dlw"
+            write_game(Path(tmp), "Delta", vpx=False, info=held,
+                       files={LONG % end: b"x" for end in ("12", "lw")})
             write_game(Path(tmp), "Charlie", info=game_info(
                 "Charlie", vps_id="", game_id="charlie", Info={"Year": "1993"}))
             with LiveInstance(Path(tmp)) as instance:
@@ -77,6 +99,8 @@ class RecordLinesDrive(unittest.TestCase):
         seen: dict = {}
         instance.wait_for_api()
         instance.post("/api/v1/collections", {"name": EMPTY})
+        instance.post("/api/v1/collections",
+                      {"name": HELD, "games": ["delta"]})
 
         async with BrowserSession(chromium_path()) as browser:
             async def parts(name: str, root: str, key: str) -> None:
@@ -98,15 +122,23 @@ class RecordLinesDrive(unittest.TestCase):
             await parts(".console-cell-named", _cell(GAME_CELL), "grid_game")
             await browser.navigate(instance.console_url("/console?view=tables"))
             await parts(".console-cell-named", _cell(TABLE_CELL), "grid_table")
+            seen["cut_grid"] = await browser.wait_for(
+                CUT % _cell(".ag-row[row-id=\"t-dlw\"] .console-cell-identifier"))
 
             await browser.navigate(instance.console_url("/console?view=tags"))
             await open_tag("Night")
             await parts(".console-link", MEMBER, "tag_game")
             await open_tag("VR")
             await parts(".console-link", MEMBER, "tag_table")
+            seen["cut_tag"] = await browser.wait_for(CUT % DELTA_ROW, timeout=30.0)
 
             await browser.navigate(instance.console_url("/console?view=games&game=charlie"))
             seen["header"] = await browser.wait_for(HEADER, timeout=60.0)
+            await browser.navigate(instance.console_url("/console?view=games&game=delta"))
+            seen["cut_game"] = await browser.wait_for(CUT % DELTA_TABLE, timeout=60.0)
+            await browser.navigate(instance.console_url(
+                f"/console?view=collections&collection={quote(HELD)}"))
+            seen["cut_collection"] = await browser.wait_for(CUT % DELTA_ROW, timeout=60.0)
 
             await browser.navigate(instance.console_url(
                 f"/console?view=collections&collection={quote(EMPTY)}"))
@@ -136,6 +168,11 @@ class RecordLinesDrive(unittest.TestCase):
         self.assertEqual(["Alpha", "Bally 1992"], [one[0] for one in labels])
         self.assertEqual(self.seen["grid_game"][1][1], labels[1][1])
         self.assertEqual("", side)
+
+    def test_a_long_filename_keeps_its_end_and_loses_its_front(self) -> None:
+        for place in ("cut_grid", "cut_tag", "cut_game", "cut_collection"):
+            with self.subTest(place=place):
+                self.assertEqual([True, True, LONG % "lw"], self.seen[place])
 
     def test_a_game_with_no_maker_shows_its_year_alone(self) -> None:
         self.assertEqual("1993", self.seen["header"])

@@ -952,6 +952,7 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
              "tags": list((row.get("user") or {}).get("tags") or []),
              "said": game_tables.made(row),
              "said_built": game_tables.table_name(row),
+             "said_built_file": game_tables.names_a_file(row),
              # The name, not the id: `app_name` says why, and the column has to sort
              # and filter on what a reader can see rather than on what is stored.
              # The name plus a mark for chosen against inherited. One cell, because the

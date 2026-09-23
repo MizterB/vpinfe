@@ -126,13 +126,7 @@ def table_name(table: dict[str, Any]) -> str:
     back to. `authors` is a list on the wire
     and `author` a joined string in a grid row; both are read, because both call this.
     """
-    authors = table.get("authors")
-    if isinstance(authors, list):
-        author = ", ".join(str(a) for a in authors if str(a).strip())
-    else:
-        author = str(table.get("author") or "").strip()
-    version = str(table.get("version") or "").strip()
-    said = JOIN.join(part for part in (version, author) if part)
+    said = _version_and_author(table)
     # An entry with no file has no version or author either - nothing read one. What
     # names it is what its program calls it, or the file it points at.
     if said:
@@ -140,6 +134,22 @@ def table_name(table: dict[str, Any]) -> str:
     reference = table.get("reference") or {}
     return (str(table.get("filename") or "") or str(table.get("key") or "")
             or str(reference.get("path") or ""))
+
+
+def names_a_file(table: dict[str, Any]) -> bool:
+    """Whether `table_name` fell back to a file, whose end is the part worth keeping
+    when there is no room for all of it."""
+    return not _version_and_author(table)
+
+
+def _version_and_author(table: dict[str, Any]) -> str:
+    authors = table.get("authors")
+    if isinstance(authors, list):
+        author = ", ".join(str(a) for a in authors if str(a).strip())
+    else:
+        author = str(table.get("author") or "").strip()
+    version = str(table.get("version") or "").strip()
+    return JOIN.join(part for part in (version, author) if part)
 
 
 def default_state(kind: str) -> tuple[str, str] | None:

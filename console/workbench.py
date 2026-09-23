@@ -48,6 +48,7 @@ from console import (
     confirm,
     deeplink,
     game_tables,
+    grid,
     media_ownership,
     mediamap,
     mediasource,
@@ -1461,9 +1462,17 @@ def _said_line(made: str, table: dict[str, Any] | None = None) -> None:
             _built_label(table or {}, said).classes("min-w-0")
 
 
-def _built_label(table: dict[str, Any], said: str) -> ui.label:
-    return ui.label(said).classes("console-cell-built truncate") \
-        .tooltip(str(table.get("filename") or ""))
+def _built_label(table: dict[str, Any], said: str) -> ui.element:
+    return _said_name(table, said).classes("console-cell-built")
+
+
+def _said_name(table: dict[str, Any], said: str) -> ui.element:
+    tip = str(table.get("filename") or "")
+    if not game_tables.names_a_file(table):
+        return ui.label(said).classes("truncate").tooltip(tip)
+    with ui.element("div").classes(grid.FILE_CLASS).tooltip(tip) as box:
+        ui.label(said)
+    return box
 
 
 def _table_line(table: dict[str, Any]) -> str:
@@ -3533,9 +3542,8 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                 # to tell two builds apart.
                 with ui.row().classes("items-center gap-2 grow min-w-0 "
                                       "console-member-main"):
-                    name = ui.label(game_tables.table_name(table)) \
-                        .classes("console-member-name min-w-0 truncate") \
-                        .tooltip(str(table.get("filename") or ""))
+                    name = _said_name(table, game_tables.table_name(table)) \
+                        .classes("console-member-name min-w-0")
                     # Which of them the panel beside this is about. Without it the block
                     # repeats the grid you are already looking at; with it, it is where
                     # you are - this game has two, you are on one, that one is default.

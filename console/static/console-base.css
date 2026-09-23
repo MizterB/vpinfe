@@ -334,6 +334,20 @@ body::before {
   color: color-mix(in srgb, var(--tier-table) var(--said-mix, 42%), var(--ink-3));
 }
 .console-cell-join { color: var(--ink-3); opacity: 0.6; }
+/* A filename standing in for a version and author loses its front, not its end: two
+   builds of one game share the prefix and differ at the tail. Right-to-left moves the
+   ellipsis to the front; the inner run is isolated so the name still reads forwards. */
+.console-file-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+.console-file-name > * { display: inline; direction: ltr; unicode-bidi: isolate; }
+.console-cell-said-file { display: flex; }
+.console-cell-said-file > * { flex: none; white-space: pre; }
+.console-cell-said-file > .console-file-name { flex: 0 1 auto; min-width: 0; }
 /* Two states, one color: both answer "which one", and a second hue would read as a
    third meaning. Selected is a fill, focused is a band, and a row can be both.
    Set on the row, not --ag-selected-row-background-color, which AG Grid 34 ignores. */

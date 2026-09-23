@@ -418,6 +418,8 @@ IDENTIFIER_CLASS = "console-cell-identifier"
 
 SUBTITLE_CLASS = "console-cell-said"
 TWO_LINE_CLASS = "console-cell-two-line"
+FILE_CLASS = "console-file-name"
+FILE_LINE_CLASS = "console-cell-said-file"
 PICTURED_CLASS = "console-cell-art-lead"
 ONE_LINE_ROW_PX = 42
 TWO_LINE_ROW_PX = 56
@@ -431,17 +433,21 @@ _SUBTITLE_RENDERER = (
     ".replace(/\"/g, '&quot;');"
     " const made = d['{made}'] || '';"
     " const built = {built};"
+    " const file = {file};"
     " const name = params.valueFormatted != null ? params.valueFormatted"
     " : (params.value == null ? '' : params.value);"
     " let said = '';"
     " if (made) said += '<span class=\"console-cell-made\">' + esc(made) + '</span>';"
     " if (made && built) said += '<span class=\"console-cell-join\"> \u00b7 </span>';"
-    " if (built) said += '<span class=\"console-cell-built\">' + esc(built) + '</span>';"
+    " if (built) said += file ? '<span class=\"console-cell-built " + FILE_CLASS + "\"><span>'"
+    " + esc(built) + '</span></span>'"
+    " : '<span class=\"console-cell-built\">' + esc(built) + '</span>';"
     " const href = d['{link}_href'] || '';"
     " const named = href ? '<a class=\"console-link\" href=\"' + esc(href) + '\" title=\"'"
     " + esc(d['{link}_tip'] || '') + '\">' + esc(name) + '</a>' : esc(name);"
     " const lines = '<span class=\"console-cell-named\">' + named"
-    " + '</span><span class=\"{cls}\">' + said + '</span>';"
+    " + '</span><span class=\"{cls}' + (file ? ' " + FILE_LINE_CLASS + "' : '')"
+    " + '\">' + said + '</span>';"
     " const art = {picture};"
     " if (art === null) return lines;"
     " const shown = art ? '<img loading=\"lazy\" alt=\"\" src=\"' + esc(art) + '\">'"
@@ -463,6 +469,8 @@ def identifier(field: str, header: str, width: int = 0, help: str = "",
     filtering stay on `field`, so the line is shown and never scanned.
 
     `link` makes the value an anchor on rows carrying `<link>_href`, titled `<link>_tip`.
+    A row carrying a true `<built>_file` has a filename for its second part, and keeps
+    the end of it when the line runs out.
     `picture` names the field holding an image address drawn ahead of both lines. Both
     need a subtitle to be drawn.
     """
@@ -478,6 +486,7 @@ def identifier(field: str, header: str, width: int = 0, help: str = "",
                          .replace("{link}", link or "_")
                          .replace("{made}", made)
                          .replace("{built}", f"d['{built}'] || ''" if built else "''")
+                         .replace("{file}", f"!!d['{built}_file']" if built else "false")
                          .replace("{cls}", SUBTITLE_CLASS))
     return column(field, header, width, help, cellClass=classes, **extra)
 
