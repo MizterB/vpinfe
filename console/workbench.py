@@ -5221,7 +5221,7 @@ def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
 
 def _limit_box(context: dict[str, Any], row: dict[str, Any]) -> None:
     limit = row.get("limit")
-    box = ui.number(value=limit, min=1, format="%d", placeholder=t("word.all")) \
+    box = ui.number(value=limit, min=1, format="%d", placeholder=t("word.any")) \
         .props("dense borderless debounce=0") \
         .classes("console-edit-field console-edit-narrow")
 

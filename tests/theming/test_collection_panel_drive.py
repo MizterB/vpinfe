@@ -169,11 +169,21 @@ class CollectionPanelDrive(unittest.TestCase):
             seen["cell_parts"] = await browser.evaluate(
                 PARTS % (json.dumps(".console-cell-named"),
                          "document.querySelector(" + json.dumps(ALPHA_CELL) + ")"))
+
+            await browser.navigate(instance.console_url(
+                f"/console?view=collections&collection={quote(OTHER)}"))
+            seen["no_limit"] = await browser.wait_for(
+                "(() => { const el = document.querySelector("
+                "'.console-section-work input[type=number]'); return el && el.placeholder; })()",
+                timeout=60.0)
         return seen
 
     def test_an_empty_collection_offers_both_ways_in(self) -> None:
         self.assertIn("Nothing in it yet", self.seen["empty"])
         self.assertIn("Add Games", self.seen["empty"])
+
+    def test_no_limit_reads_any(self) -> None:
+        self.assertEqual("Any", self.seen["no_limit"])
 
     def test_values_say_how_many_games_hold_them_and_stay_open_while_picked(self) -> None:
         self.assertIn("Bally\n2", self.seen["offered"])
