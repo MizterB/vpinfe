@@ -211,7 +211,7 @@ def entry_row(row: dict[str, Any], *, pick: Callable[[], None] | None = None,
     def end() -> None:
         with ui.row().classes("items-center gap-2 no-wrap shrink-0"):
             if bound:
-                panel.state(t("console.vps_match.current"), "on")()
+                panel.state(t("word.current"), "on")()
             if url:
                 # Or reading the entry would also pick it.
                 with ui.element("div").on("click.stop", lambda: None):

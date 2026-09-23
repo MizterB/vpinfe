@@ -13,7 +13,7 @@ LABEL = 40
 PROSE = 160
 OVER = 80
 
-OVER_EIGHTY = 125
+OVER_EIGHTY = 123
 
 TOO_LONG_TODAY = frozenset({
     "console.media.why_file_not_one.help",

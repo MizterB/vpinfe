@@ -145,10 +145,13 @@ class _Sources:
 
     online = False
 
-    def __init__(self, library: Any, label: str, done: Callable) -> None:
+    def __init__(self, library: Any, label: str, done: Callable, current: str = "") -> None:
         self.library = library
         self.label = label
         self.done = done
+        # The path on the host of what fills this now, which the host tab marks rather
+        # than offers.
+        self.current = current
         self.dialog: Any = None
         # Filled when the browser loads; the trail above a listing is written against
         # them, so a folder is named from its start rather than from "/".
@@ -215,10 +218,10 @@ class _Sources:
                     ui.icon(verbs.FROM_FILE).classes("console-slot-blank-icon")
                     self.zone(card)
                 with ui.tab_panel("host"):
-                    host_body = ui.column().classes("w-full gap-2")
+                    host_body = ui.column().classes("w-full gap-2 console-source-fill")
                 if self.online:
                     with ui.tab_panel("online"):
-                        online_body = ui.column().classes("w-full gap-2")
+                        online_body = ui.column().classes("w-full gap-2 console-source-fill")
             with frame.footer():
                 frame.cancel(box.close)
         card.on("dragover", js_handler=_LIGHT)
@@ -271,7 +274,7 @@ class _Sources:
                                 value=starts[0]["path"], label=t("console.mediasource.start"))
                       .props("outlined dense").classes("w-full")
                       if len(starts) > 1 else None)
-            listing = ui.column().classes("w-full gap-1")
+            listing = ui.column().classes("w-full gap-1 console-source-fill")
             if picker is not None:
                 picker.on_value_change(lambda event: self._show_folder(listing,
                                                                       event.value))
@@ -328,12 +331,14 @@ class _Sources:
     def _folder_link(self, label: str, path: str, listing: ui.column,
                      up: bool = False) -> None:
         row = ui.row().classes("items-center gap-2 w-full no-wrap console-source-row "
-                               "console-source-row--pick console-source-row--folder")
+                               "console-source-row--pick console-source-row--line")
         with row:
             ui.icon("arrow_upward" if up else "folder").classes("shrink-0")
             ui.label(label).classes("console-source-name grow")
             use = None if up else self.folder_use(path)
-            if use is not None:
+            if use is not None and path == self.current:
+                panel.state(t("word.current"), "on")()
+            elif use is not None:
                 # Use takes the folder; anywhere else on the row opens it.
                 with ui.element("div").classes("shrink-0") \
                         .on("click", js_handler="(e) => e.stopPropagation()"):
@@ -345,8 +350,8 @@ class _OneFile(_Sources):
     """A dialog that takes one file, through an uploader held to `accept`."""
 
     def __init__(self, library: Any, label: str, done: Callable,
-                 accept: tuple[str, ...]) -> None:
-        super().__init__(library, label, done)
+                 accept: tuple[str, ...], current: str = "") -> None:
+        super().__init__(library, label, done, current)
         self.accept = accept
         self.uploader: Any = None
         self._reading_note: Any = None
@@ -413,8 +418,9 @@ class _Slot(_OneFile):
     """A media or asset slot: one file, under the slot's own name."""
 
     def __init__(self, context: dict[str, Any], kind: str, label: str,
-                 done: Callable, target: _Target) -> None:
-        super().__init__(context["library"], label, done, target.accept)
+                 done: Callable, target: _Target, current: str = "") -> None:
+        super().__init__(context["library"], label, done, target.accept,
+                         _on_host(context, current))
         self.target = target
         self.online = target.online
         self.context = context
@@ -513,8 +519,8 @@ class _Slot(_OneFile):
                 ui.label(str(item.get("base") or "")).classes("console-placement-name")
                 going = list(item.get("displaces") or [])
                 if going:
-                    ui.label(t("console.mediasource.replaces_file_already", len=(len(going)),
-                            value=('s' if len(going) != 1 else ''))) \
+                    ui.label(t("console.mediasource.replaces_file_already",
+                               count=len(going))) \
                         .classes("console-destination-conflict")
         self._marks[table] = mark
         row.on("click", lambda t=table: self._choose_placement(t))
@@ -579,10 +585,11 @@ class _Slot(_OneFile):
         return not going or await confirm_replace(self.label, going)
 
     def candidate(self, src: str, name: str, meta: str, tag: str,
-                  take: Callable) -> None:
+                  take: Callable, current: bool = False) -> None:
         """A candidate row carrying what this dialog knows: how to draw a file of the
         kind being replaced."""
-        candidates.row(src, name, meta, tag, take, family=self.target.family)
+        candidates.row(src, name, meta, tag, take, family=self.target.family,
+                       line=not self.target.family, current=current)
 
     async def took(self, name: str, data: bytes) -> None:
         if not await self.confirmed(name):
@@ -608,8 +615,10 @@ class _Slot(_OneFile):
                 return
             await self.finish(t("console.mediasource.label_saved", label=self.label))
 
+        current = item["path"] == self.current
         self.candidate(self.library.browsed_file_url(item["path"]), item["name"],
-                       _size(item.get("size_bytes")), self._in_use(item["name"]), take)
+                       _size(item.get("size_bytes")),
+                       "" if current else self._in_use(item["name"]), take, current)
 
     def _in_use(self, name: str) -> str:
         """Whether this file is already serving one of the game's slots.
@@ -776,8 +785,8 @@ class _Folder(_Sources):
     """A kind that arrives as many files - a PUP pack, a color set, a sound bank, music."""
 
     def __init__(self, context: dict[str, Any], kind: str, label: str,
-                 done: Callable) -> None:
-        super().__init__(context["library"], label, done)
+                 done: Callable, current: str = "") -> None:
+        super().__init__(context["library"], label, done, _on_host(context, current))
         self.kind = kind
         self.game_id = context["game_id"]
         self.game_dir = str(context["game"].get("folder") or "")
@@ -805,7 +814,8 @@ class _Folder(_Sources):
         archive = _suffix(item) in ARCHIVE_EXTENSIONS
         candidates.row("", item["name"], _size(item.get("size_bytes")), "",
                        lambda: self._take(item["path"]), family="",
-                       glyph="folder_zip" if archive else self.glyph)
+                       glyph="folder_zip" if archive else self.glyph, line=True,
+                       current=item["path"] == self.current)
 
     def zone(self, card: Any) -> None:
         heard = uploads.listener(self.arrived)
@@ -890,16 +900,10 @@ class _Image(_OneFile):
         await self.finish(t("console.mediasource.label_saved", label=self.label))
 
 
-def _placement_label(item: dict[str, Any]) -> str:
-    """What to call a destination in the list, in the words the badges use.
-
-    A table is named by its .vpx, trimmed from the front: these names run long and
-    share a prefix with the folder, so the tail is the half that tells them apart.
-    """
-    label = str(item.get("label") or "")
-    if not item.get("table"):
-        return t("console.mediasource.all_tables_game")
-    return t("console.mediasource.only", trimmed=(_trimmed_stem(label)))
+def _on_host(context: dict[str, Any], path: str) -> str:
+    """A path in the game's folder, as the host tab lists it."""
+    folder = str(context["game"].get("folder") or "")
+    return str(PurePosixPath(folder) / path) if folder and path else ""
 
 
 def _trimmed_stem(label: str) -> str:
@@ -916,19 +920,22 @@ def _start_name(root: dict[str, Any]) -> str:
 
 
 def open_sources(context: dict[str, Any], kind: str, label: str,
-                 done: Callable) -> None:
-    """Open the ways to fill this slot. Returns as soon as the dialog is up."""
-    _Slot(context, kind, label, done, _media(context["library"], kind)).open()
+                 done: Callable, current: str = "") -> None:
+    """Open the ways to fill this slot. Returns as soon as the dialog is up.
+
+    `current` is what fills it now, as a path in the game's folder.
+    """
+    _Slot(context, kind, label, done, _media(context["library"], kind), current).open()
 
 
 def open_asset_sources(context: dict[str, Any], kind: str, label: str,
-                       done: Callable) -> None:
-    _Slot(context, kind, label, done, _asset(context["library"], kind)).open()
+                       done: Callable, current: str = "") -> None:
+    _Slot(context, kind, label, done, _asset(context["library"], kind), current).open()
 
 
 def open_folder_sources(context: dict[str, Any], kind: str, label: str,
-                        done: Callable) -> None:
-    _Folder(context, kind, label, done).open()
+                        done: Callable, current: str = "") -> None:
+    _Folder(context, kind, label, done, current).open()
 
 
 def open_image_sources(library: Any, name: str, label: str, done: Callable) -> None:

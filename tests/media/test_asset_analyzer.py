@@ -193,7 +193,7 @@ class AssetAnalyzerTests(unittest.TestCase):
             hint = rar_tool_hint()
             self.assertIn("package manager", hint)
             self.assertNotIn("apt", hint)   # never assume a specific distro's tool
-        self.assertIn("Configuration", rar_tool_hint())   # points at the configurable path
+        self.assertIn("RAR Tool Path", rar_tool_hint())   # points at the configurable path
 
     def test_configure_rar_tool_targets_right_global(self):
         from common.uploads.asset_analyzer_service import configure_rar_tool

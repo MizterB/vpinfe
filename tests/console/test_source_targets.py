@@ -67,5 +67,19 @@ class WhatThePickerOffers(unittest.TestCase):
         self.assertEqual(IMAGE_EXTENSIONS, set(image.accept))
 
 
+class WhatIsAlreadyThere(unittest.TestCase):
+    def test_the_current_file_is_named_as_the_host_tab_lists_it(self) -> None:
+        context = {"library": LIBRARY, "game_id": "game", "game": {"folder": "/games/Afm"}}
+        folder = mediasource._Folder(context, "alt_color", "Alt Color", _nothing,
+                                     "pinmame/altcolor")
+        self.assertEqual("/games/Afm/pinmame/altcolor", folder.current)
+
+    def test_nothing_is_current_without_a_game_folder_or_a_file(self) -> None:
+        self.assertEqual("", _folder("alt_color").current)
+        context = {"library": LIBRARY, "game_id": "game", "game": {"folder": "/games/Afm"}}
+        self.assertEqual("", mediasource._Folder(context, "alt_color", "Alt Color",
+                                                 _nothing).current)
+
+
 if __name__ == "__main__":
     unittest.main()

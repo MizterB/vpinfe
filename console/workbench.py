@@ -916,7 +916,7 @@ def _asset_actions(context: dict[str, Any], kind: str, label: str, present: bool
             ui.button(t("word.replace") if present else t("word.add"),
                       icon=verbs.REPLACE if present else verbs.ADD,
                       on_click=lambda: mediasource.open_asset_sources(
-                          context, kind, label, context["rebuild"])) \
+                          context, kind, label, context["rebuild"], path)) \
                 .props("flat dense no-caps size=sm").classes("console-action")
         if not (present and path):
             return
@@ -937,7 +937,7 @@ def _folder_actions(context: dict[str, Any], kind: str, label: str, present: boo
     with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
         panel.action(t("word.replace") if present else t("word.add"),
                      lambda: mediasource.open_folder_sources(context, kind, label,
-                                                             context["rebuild"]),
+                                                             context["rebuild"], path),
                      icon=verbs.REPLACE if present else verbs.ADD)()
         if present and path:
             ui.button(t("word.remove"), icon=verbs.REMOVE,
@@ -1816,8 +1816,9 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                 .style("flex-wrap:wrap"):
             ui.button(t("word.replace") if present else t("word.add"),
                       icon=verbs.ADD_ART,
-                      on_click=lambda: mediasource.open_sources(context, kind, label,
-                                                                draw)) \
+                      on_click=lambda: mediasource.open_sources(
+                          context, kind, label, draw,
+                          str(detail.get("path") or entry.get("path") or ""))) \
                 .props("flat dense no-caps size=sm").classes("console-action")
             if present:
                 # Beside the acts on the bytes: a slot holding nothing has no identity.

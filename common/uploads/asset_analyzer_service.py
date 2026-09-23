@@ -23,6 +23,7 @@ from common.games.asset_registry import (
     match_media_kind,
     spec_for,
 )
+from common.i18n import t
 
 try:
     import rarfile
@@ -54,8 +55,6 @@ _PUP_MARKER_GLOBS = ("*option*.bat", "*screen*.bat")
 _PUP_FALLBACK_MIN_SUBDIRS = 10
 _PUP_FALLBACK_MIN_VIDEOS = 10
 
-_RAR_TOOL_MISSING = ("RAR extraction requires the 'unar' or 'unrar' tool to be "
-                     "installed")
 
 
 @dataclass(frozen=True)
@@ -317,22 +316,23 @@ def rar_tool_available() -> bool:
         return False
 
 
+def _files(picked: list) -> str:
+    return t("asset.analysis.files", count=len(picked))
+
+
 def rar_tool_hint() -> str:
     """Platform-appropriate guidance for installing a RAR extraction tool.
 
-    Deliberately avoids naming a specific package manager — Linux distributions differ —
+    Deliberately avoids naming a specific package manager, since Linux distributions differ,
     and points at the configurable path setting as the alternative to a PATH install.
     """
+    setting = t("config.tools.rar_path.label")
+    section = t("console.section.settings")
     if sys.platform.startswith("win"):
-        return ("RAR support needs UnRAR.exe, which ships with WinRAR or 7-Zip. Install one "
-                "of those, or set the RAR tool path in Configuration.")
+        return t("error.uploads.rar_tool.windows", setting=setting, section=section)
     if sys.platform == "darwin":
-        how = "install it (for example, brew install unar)"
-    else:
-        how = ("install it from your distribution's package manager "
-               "(usually the 'unar' or 'unrar' package)")
-    return (f"RAR support needs the 'unar' or 'unrar' tool — {how}, "
-            "or set the RAR tool path in Configuration.")
+        return t("error.uploads.rar_tool.mac", setting=setting, section=section)
+    return t("error.uploads.rar_tool.linux", setting=setting, section=section)
 
 
 def open_source(path: Path) -> AssetSource:
@@ -345,11 +345,11 @@ def open_source(path: Path) -> AssetSource:
         return ZipSource(path)
     if ext == ".rar":
         if rarfile is None:
-            raise _MissingBackendError("RAR support requires the 'rarfile' package")
+            raise _MissingBackendError(t("error.uploads.needs_package", package="rarfile"))
         return RarSource(path)
     if ext == ".7z":
         if py7zr is None:
-            raise _MissingBackendError("7z support requires the 'py7zr' package")
+            raise _MissingBackendError(t("error.uploads.needs_package", package="py7zr"))
         return SevenZipSource(path)
     return SingleFileSource(path)
 
@@ -424,7 +424,7 @@ def _analyze_entries(
             claimed.add(e.path)
             has_game = True
             vpx_dirs.add(_parent(e.arcname))
-            assets.append(DetectedAsset("table", "Table", (e,),
+            assets.append(DetectedAsset("table", spec_for("table").label, (e,),
                                         size=e.size, detail=_basename(e.arcname)))
 
     # 1b. Game metadata — bundle-scoped only: a .info beside a claimed .vpx. A lone
@@ -432,14 +432,15 @@ def _analyze_entries(
     for e in list(unclaimed()):
         if _suffix(e.arcname) == ".info" and _parent(e.arcname) in vpx_dirs:
             claimed.add(e.path)
-            assets.append(DetectedAsset("game_info", "Metadata", (e,), size=e.size,
+            assets.append(DetectedAsset("game_info", spec_for("game_info").label, (e,),
+                                        size=e.size,
                                         detail=_basename(e.arcname)))
 
     # 2. Backglass
     for e in list(unclaimed()):
         if _suffix(e.arcname) == ".directb2s":
             claimed.add(e.path)
-            assets.append(DetectedAsset("backglass", "Backglass", (e,),
+            assets.append(DetectedAsset("backglass", spec_for("backglass").label, (e,),
                                         size=e.size, detail=_basename(e.arcname)))
 
     # Subtree claimers run before loose-file claimers so files inside a pack are not grabbed loose.
@@ -452,8 +453,8 @@ def _analyze_entries(
         picked = claim_subtree(root)
         if picked:
             assets.append(DetectedAsset(
-                "altsound", "AltSound", tuple(picked), root=root,
-                size=sum(p.size for p in picked), detail=f"{len(picked)} files"))
+                "altsound", spec_for("altsound").label, tuple(picked), root=root,
+                size=sum(p.size for p in picked), detail=_files(picked)))
 
     # 4. PUP pack
     pup_roots = _find_pup_roots(unclaimed())
@@ -461,22 +462,23 @@ def _analyze_entries(
         picked = claim_subtree(root)
         if picked:
             assets.append(DetectedAsset(
-                "pup_pack", "PUP Pack", tuple(picked), root=root,
-                size=sum(p.size for p in picked), detail=f"{len(picked)} files"))
+                "pup_pack", spec_for("pup_pack").label, tuple(picked), root=root,
+                size=sum(p.size for p in picked), detail=_files(picked)))
 
     # 5. Music
     for root in _find_music_roots(unclaimed()):
         picked = claim_subtree(root)
         if picked:
             assets.append(DetectedAsset(
-                "music", "Music", tuple(picked), root=root,
-                size=sum(p.size for p in picked), detail=f"{len(picked)} files"))
+                "music", spec_for("music").label, tuple(picked), root=root,
+                size=sum(p.size for p in picked), detail=_files(picked)))
 
     # 6. AltColor
     for e in list(unclaimed()):
         if _suffix(e.arcname) in _SERUM_SUFFIXES:
             claimed.add(e.path)
-            assets.append(DetectedAsset("altcolor_serum", "Serum Color", (e,),
+            assets.append(DetectedAsset("altcolor_serum", spec_for("altcolor_serum").label,
+                                        (e,),
                                         size=e.size, detail=_basename(e.arcname)))
     vni_by_dir: dict[str, list[SourceEntry]] = {}
     for e in unclaimed():
@@ -486,7 +488,7 @@ def _analyze_entries(
         for e in group:
             claimed.add(e.path)
         assets.append(DetectedAsset(
-            "altcolor_vni", "VNI/PAL Color", tuple(group),
+            "altcolor_vni", spec_for("altcolor_vni").label, tuple(group),
             size=sum(g.size for g in group), detail=", ".join(_basename(g.arcname) for g in group)))
 
     # 7. ROM
@@ -496,13 +498,13 @@ def _analyze_entries(
         for e in remaining:
             claimed.add(e.path)
         assets.append(DetectedAsset(
-            "rom", "ROM", tuple(remaining), size=sum(e.size for e in remaining),
-            detail="whole archive"))
+            "rom", spec_for("rom").label, tuple(remaining),
+            size=sum(e.size for e in remaining), detail=t("asset.analysis.whole_archive")))
     else:
         for e in list(unclaimed()):
             if _suffix(e.arcname) == ".zip":
                 claimed.add(e.path)
-                assets.append(DetectedAsset("rom", "ROM", (e,),
+                assets.append(DetectedAsset("rom", spec_for("rom").label, (e,),
                                             size=e.size, detail=_basename(e.arcname)))
 
     # 7b. Patch. A .dif is a delta against one exact base table, not an installable
@@ -511,14 +513,14 @@ def _analyze_entries(
     for e in list(unclaimed()):
         if _suffix(e.arcname) == ".dif":
             claimed.add(e.path)
-            assets.append(DetectedAsset("patch", "Table Patch", (e,), size=e.size,
+            assets.append(DetectedAsset("patch", spec_for("patch").label, (e,), size=e.size,
                                         detail=_basename(e.arcname)))
 
     # 8. INI
     for e in list(unclaimed()):
         if _suffix(e.arcname) == ".ini":
             claimed.add(e.path)
-            assets.append(DetectedAsset("ini", "Table INI", (e,),
+            assets.append(DetectedAsset("ini", spec_for("ini").label, (e,),
                                         size=e.size, detail=_basename(e.arcname)))
 
     # 8b. The author's own notes - readme* any extension, and .nfo. Before media,
@@ -673,7 +675,8 @@ def analyze_path(path: Path) -> AnalysisResult:
     except Exception:
         logger.exception("Failed to open source: %s", path)
         return AnalysisResult(
-            _source_kind(path), path.name, (), False, error="Could not read the dropped item")
+            _source_kind(path), path.name, (), False,
+            error=t("error.uploads.could_not_read_dropped"))
 
     # Surface a missing RAR tool up front, before the confirm dialog, rather than
     # failing at extraction time after the user has committed to the import.
@@ -687,11 +690,12 @@ def analyze_path(path: Path) -> AnalysisResult:
         except _rar_exec_errors() as exc:
             logger.warning("RAR backend unavailable: %s", exc)
             return AnalysisResult(
-                source.kind, source.name, (), False, error=_RAR_TOOL_MISSING)
+                source.kind, source.name, (), False, error=rar_tool_hint())
         except Exception:
             logger.exception("Failed to list source: %s", path)
             return AnalysisResult(
-                source.kind, source.name, (), False, error="Could not read the dropped item")
+                source.kind, source.name, (), False,
+                error=t("error.uploads.could_not_read_dropped"))
 
         assets, notes, has_game, unrecognized = _analyze_entries(entries)
 
@@ -707,13 +711,14 @@ def analyze_path(path: Path) -> AnalysisResult:
             if bundle_info is None:
                 assets = [a for a in assets if a.kind != "game_info"]
                 unrecognized = unrecognized + tuple(e.arcname for e in info_assets[0].entries)
-                notes = list(notes) + ["bundle .info is not valid metadata and was skipped"]
+                notes = list(notes) + [t("asset.analysis.info_skipped")]
     finally:
         source.close()
 
     if not assets:
         return AnalysisResult(source.kind, source.name, (), False, tuple(notes),
-                              error="No recognized assets found", unrecognized=unrecognized)
+                              error=t("error.uploads.nothing_recognized"),
+                              unrecognized=unrecognized)
     return AnalysisResult(source.kind, source.name, tuple(assets), has_game, tuple(notes),
                           unrecognized=unrecognized, bundle_info=bundle_info)
 

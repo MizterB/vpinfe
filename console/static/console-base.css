@@ -2657,8 +2657,8 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 
 .console-dialog.console-sources-card.q-card { width: min(840px, 94vw); max-height: 84vh; gap: 6px; }
 /* A row that navigates rather than acting: the whole thing is the target, so it says
-   so on hover instead of hiding a click behind a label. Separate from --folder, which
-   is one of these and also a row with no picture in it. */
+   so on hover instead of hiding a click behind a label. Separate from --line, which a
+   folder is and which is also a row with no picture in it. */
 .console-source-row--pick { cursor: pointer; }
 /* One line: these names carry the maker and year and run long, and four wrapped lines
    of one row makes a list of them unreadable. */
@@ -2719,7 +2719,10 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
    reads as belonging to it. */
 .console-source-under { padding-top: 10px; }
 
-.console-sources-panels { min-height: 260px; }
+/* One height for every tab. The lists inside take what is left and scroll. */
+.console-sources-panels { height: min(52vh, 560px); }
+.console-sources-panels .q-tab-panel { display: flex; flex-direction: column; }
+.console-source-fill { flex: 1 1 auto; min-height: 0; flex-wrap: nowrap; }
 /* Quasar paints its own ground on panels and on the tab bar. Left alone it is a pale
    slab in the middle of a dark dialog. */
 .console-sources-panels, .console-sources-panels .q-tab-panel,
@@ -2730,17 +2733,15 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 .console-sources-card .q-tab { color: var(--ink-3); padding: 4px 10px; min-width: 0; }
 .console-sources-card .q-tab--active { color: var(--accent); }
 .console-sources-card .q-tab__indicator { background: var(--accent); }
-/* Every tab is a list of candidates, and the dialog is capped - so the list scrolls
-   inside it rather than the dialog growing past the window. */
-.console-source-list { max-height: 52vh; overflow-y: auto; }
+.console-source-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* The online tab stacks two of these, and they are not equals: the games are how you
-   get to the files, and the files are what you came for. Uncapped, a long search
-   pushed the files off the bottom of the dialog with nothing to scroll. */
-.console-source-found { max-height: 26vh; overflow-y: auto; }
-.console-source-offers { max-height: 40vh; overflow-y: auto; }
+   get to the files, and the files are what you came for. So the search keeps its own
+   size up to a cap and the files give way. */
+.console-source-found { flex: 0 0 auto; max-height: 26vh; overflow-y: auto; }
+.console-source-offers { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* A folder is a line, not a picture: it has no thumbnail, so it should not reserve
-   the height of one. */
-.console-source-row--folder { padding: 5px 8px; }
+   the height of one. Nor should a file in a list where nothing has one. */
+.console-source-row--line { padding: 5px 8px; }
 .console-source-row {
   border: 1px solid var(--line-soft); border-radius: 6px; padding: 6px 8px;
 }
@@ -2789,7 +2790,7 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
   font-size: var(--fs-caption); color: var(--accent); opacity: 0.85;
 }
 
-.console-source-zone { min-height: 200px; padding: 20px 16px; }
+.console-source-zone { min-height: 200px; padding: 20px 16px; flex: 1 1 auto; }
 /* Past `_HOST_NAME_MAX` in mediasource.py the tab also carries a tooltip. */
 .console-source-host .q-tab__label {
   max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
