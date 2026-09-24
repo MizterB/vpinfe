@@ -73,8 +73,8 @@ A table assigned to a disabled launcher **falls back** to the default for its ap
 
 ## The API
 
-`docs/http_api.md` documents the endpoints: `GET /api/v1/launchers`, `PUT`/`DELETE /api/v1/launchers/{id}`, and `PUT /api/v1/launchers/mappings/{table_id}`.
+`docs/http_api.md` documents the endpoints, in its Endpoints table and its Launcher settings section.
 
 ## The Console
 
-Launchers is a subject under System, not a group in Settings, because Settings is label-and-value pairs and a launcher is an object to manage.
+Launchers is a subject under Frontend, beside Themes. Both are gated on the `frontend` feature, so an install without it shows neither. It is not a group in Settings, because Settings is label-and-value pairs and a launcher is an object to manage.

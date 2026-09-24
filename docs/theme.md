@@ -178,12 +178,15 @@ the game it belongs to attached.
 | `count` | How many entries. The same as `entries.length`. |
 | `entries[].game` | Identity and metadata for the machine. The same names `/api/v1/games` uses. |
 | `entries[].game.user` | What this user did with the game: `rating`, `favorite`, `tags`, `last_played`, `play_count`, `play_time_seconds`. Timestamps are ISO 8601 UTC and durations name their unit, whatever the `.info` stores. |
+| `entries[].game.derived_tags` | Tags an extension's Community list puts on the game, kept apart from the user's own in `user.tags`. Read-only. |
 | `entries[].table` | The `.vpx` this entry is. `id` is stable across renames; `filename` is not. |
 | `entries[].table.file_hash` | The sha256 of the `.vpx`. Two installs sharing a filesystem can agree they hold the same file without comparing paths, which differ by mount point. |
 | `entries[].table.hidden` | The user chose not to be offered this table. A wheel skips these; the library has already dropped them from what it serves. |
 | `entries[].table.release_date` | When this build was published, which is the table's own answer rather than the game's. Null where the `.vpx` did not say. |
 | `entries[].table.default` | Whether this is the table its game defaults to. A game offering several appears once per table when expanded; this says which one is the game's own. |
 | `entries[].table.user` | The same counters for this table alone — `last_played`, `play_count`, `play_time_seconds`. A game and its tables accumulate independently, so deleting a table does not un-play the game's hours. |
+| `entries[].table.user.tags` | The user's tags on this table rather than its game. |
+| `entries[].table.derived_tags` | Tags a Community list puts on this table alone - a list naming one build tags that build, not its game. |
 | `entries[].assets` | What the game needs to play as intended, as booleans. |
 | `entries[].siblings` | How many tables this entry's game offers. `1` means there is nothing to switch to. |
 | `entries[].media` | The media kinds this game **has a file for** — `playfield`, `bg`, `wheel` and the rest, the same names `vpin.getMedia(index, kind)` takes. Names, not paths: fetch one from `/media/<table id>/<kind>`. |
@@ -985,6 +988,14 @@ core owns `select` and `back` — select applies what the cursor is on and close
 closes without applying. It has to own them: your theme cannot pop a stack it does not
 know about.
 
+The picker's items are the rows `get_collections_metadata` returns, with *All Games*
+first. Every item has a `label` to draw - the collection's name, or "All Games" in the
+player's language - and `showing` is true on the one the cabinet is showing now, which
+is where the picker opens. *All Games* has an empty `name` and `image_url`, and its own
+`table_count` and `game_wheel_urls`. `vpin.openCollectionPicker()` returns the list, and
+its `items` are what to draw; it returns `null`, and opens nothing, when there are no
+collections to offer.
+
 **Nothing that follows the wheel fires while a picker is open.** The selected game does not
 change, `onSelection` listeners do not run, and window media is not re-rendered. So a theme
 does not need a mode flag, and does not need to undo anything when the picker closes — the
@@ -1384,7 +1395,7 @@ window is told through the `lifecycle.acting` event and cannot block it.
 | Method | Args | Returns | Description |
 |--------|------|---------|-------------|
 | `get_collections` | — | `array` | Returns list of collection names from `collections.ini`. |
-| `get_collections_metadata` | — | `array` | Returns collection objects with `name`, `type`, `is_filter`, `image`, `image_url`, and `table_count`. `image_url` is a theme-server URL such as `/collection_icons/favorites.png`, or an empty string when no image is set. |
+| `get_collections_metadata` | — | `array` | Returns the collections the cabinet offers, in the order they are arranged, each with `name`, `type`, `is_filter`, `image`, `image_url`, `on_cabinet`, `table_count` and `game_wheel_urls`. `image_url` is a theme-server URL such as `/collection_icons/favorites.png`, or an empty string when no image is set. `table_count` is how many entries the collection shows on this cabinet, rules and limit included, or `null` against a remote library. `game_wheel_urls` is up to four wheel URLs of the games it holds, the same shape as `image_url`, for drawing a collection with no image of its own. A collection switched off the cabinet is left out unless it is the one showing, which comes with `on_cabinet` false. |
 | `get_collection_image_url` | `collection` | `string` | Returns the image URL for one collection, or an empty string when no image is set. |
 | `set_tables_by_collection` | `collection` | — | Shows the named collection: what it holds, in the order it stores. Works for a hand-picked collection and a filter-based one alike. |
 | `save_filter_collection` | `name`, `letter`, `theme`, `table_type`, `manufacturer`, `year`, `sort_by`, `rating`, `rating_or_higher`, `order_by` | `object` | Saves the current filter settings as a named collection. `order_by` is `"Descending"` or `"Ascending"` and defaults to `"Descending"`. Returns `{success, message}`. |

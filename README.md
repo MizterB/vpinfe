@@ -103,7 +103,7 @@ Next you must tell VPinFE where your tables are, and how to run them.
 
 1. **gamerootdir**, in the `general` section - root directory where all your tables are
    located (e.g., `/home/user/tables/`)
-2. Your **launcher**, under System - Launchers. It ships with one called Visual Pinball
+2. Your **launcher**, under Frontend - Launchers. It ships with one called Visual Pinball
    X; point its **Program** at your VPinball executable (e.g.,
    `/home/user/vpinball/build/VPinballX_BGFX`) and its **Configuration File** at your
    `VPinballX.ini` (e.g., `~/.vpinball/VPinballX.ini`).
@@ -634,7 +634,7 @@ Modes:
 
 Remote table launch behavior:
 
-- Uses the launcher the table names, or the default one under System - Launchers
+- Uses the launcher the table names, or the default one under Frontend - Launchers
 - Applies the launcher's **Override File** and its masked per-table override when configured
 - Applies the launcher's **Environment** overrides
 - Stops DOF and libdmdutil before launching

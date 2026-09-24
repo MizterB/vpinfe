@@ -53,6 +53,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/collections` | Create one. `filters` makes it filter-based, `games` makes it manual. `copy_of` starts it as a copy of that collection - its games, criteria, exclusions, order, limit, description and image, under the new name - and is refused beside `filters`, `games` or `description` |
 | DELETE | `/api/v1/collections/{name}` | Delete it |
 | PATCH | `/api/v1/collections/{name}` | Change one. Only what you send is written — a rename need not restate the rest |
+| PATCH | `/api/v1/collections` | Rearrange them. `{"order": [...]}` names every collection once, in the order the cabinet shows them, and the answer is the list in that order. A name missing, repeated or unknown is refused and nothing is written |
 | GET | `/api/v1/collections/{name}/members` | Its **stored** membership, and why each entry is there. `ref_table` is the table a row *names* (empty when it names none) — its identity, and not the table it resolves to |
 | POST | `/api/v1/collections/{name}/members/preview` | The stored membership as it would be with other criteria in place of the collection's own, storing nothing. `{"filters": {…}}`; leaving `filters` out tries it with none. `matched` is how many games those criteria match in the library |
 | PUT | `/api/v1/collections/{name}/games/{id}` | Add a game (idempotent). `{"table": "…"}` names one of its tables; `{"after_table": "…"}` puts the new row beside that sibling instead of at the end |
@@ -72,9 +73,9 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/library/filters` | Every filter axis, with the values this library holds |
 | GET | `/api/v1/library/policy` | What this library collects — hidden media kinds, hidden asset kinds, and which catalogs are searched. The library's answer, so every install reading one library gets the same one. Empty means everything |
 | PUT | `/api/v1/library/policy` | Change it. A patch: an absent key is left alone, a key sent empty is stored empty |
-| GET | `/api/v1/library/tags` | Every tag - carried by games or tables, or only written down - with how many carry it, its description and its color |
+| GET | `/api/v1/library/tags` | Every tag - carried by games or tables, or only written down - with how many carry it, its description and its color. A tag an extension's Community list puts on names that list in `sources`, with when it was last read and whether that read is `stale`; it cannot be renamed, merged or removed |
 | PUT | `/api/v1/library/tags/{tag}` | Describe a tag and pick its color, writing it down if nothing has. `color` is one of `red orange amber green teal blue purple pink gray`; empty goes back to the one derived from its name |
-| POST | `/api/v1/library/owned` | Which of `{"ids": [...]}` - VPS entry or release ids - this library holds: an entry with its game, a release with its table |
+| POST | `/api/v1/library/owned` | Which of `{"ids": [...]}` - VPS entry or release ids - this library holds: an entry with its game, a release with its table. A release this library holds another version of comes back under `other_versions`, with that table's `version` and the release's `url` |
 | POST | `/api/v1/library/scan` | Rebuild game metadata from VPSdb. Returns `202` and a job; optional `{"download_media": bool, "update_all": bool}` |
 | GET | `/api/v1/devices` | The devices this install knows about |
 | PUT | `/api/v1/devices` | Record a device (idempotent). For a phone, or a machine mDNS cannot reach. `port` is declared by the caller — the address is read off the socket, which never says what that machine listens on |
@@ -93,7 +94,7 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/games/{id}/guides` | The game's guides, in order. An entry naming a stored guide by its address keeps it and sets `hidden`; any other is a new guide of the person's own. Leaving out a guide VPS lists is refused - hide it instead |
 | GET | `/api/v1/games/{id}` | One game |
 | GET | `/api/v1/games/{id}/tables` | The game's tables, with resolved assets and dependencies. `update_available` is true where VPS lists a later version of the release a table is matched to than the file's own `version`, false where it does not, and null where nothing can be weighed - no release, or a version on either side that does not read as one |
-| GET | `/api/v1/tables` | Every table in the library (`game`, `limit`, `offset`), each row carrying `source`, the named release, and `update_available` as a game's tables do |
+| GET | `/api/v1/tables` | Every table in the library (`game`, `limit`, `offset`), each row carrying `source`, the named release, `update_available` as a game's tables do, and `derived_tags` |
 | GET | `/api/v1/games/{id}/links` | Where the game is elsewhere, as extensions have contributed. `?table=` for one table, `?path=` for one of its files |
 | GET | `/api/v1/games/{id}/media` | Every media kind, present or not |
 | GET | `/api/v1/games/{id}/media/{kind}` | Stream one media file |
@@ -455,7 +456,7 @@ Every refusal happens before anything starts, and comes back synchronously:
 | 404 | `not_found` | no game with that id |
 | 400 | `invalid_request` | the named `file` isn't one of this game's tables |
 | 409 | `conflict` | something is already playing — two VPX processes would fight over the same hardware |
-| 501 | `feature_unavailable` | this machine can't launch at all, e.g. no `vpxbinpath` configured |
+| 501 | `feature_unavailable` | this game can't be launched here: no launcher for its app, a launcher with no program or one that isn't there, a table on a share that isn't reachable, or no table at all |
 
 The endpoint carries `launch:invoke`, which is deliberately not `games:write`: reading the
 library, changing it, and making the machine do something are three different permissions.
@@ -686,6 +687,11 @@ contribute rows that are stored nowhere. The size is `count`, what it resolves t
 unless the limit cuts. `missing` counts the stored members naming a game this library no
 longer has, or a table its game no longer has - the rows `/members` reports as missing.
 
+`game_wheels` is up to four wheel URLs of the games it hands out, in its own order and
+within its limit, skipping a game with no wheel - each one this API's own
+`/games/{id}[/tables/{table}]/media/wheel`. It is what to draw for a collection with no
+`image` of its own; the Console draws them as a two-by-two.
+
 `added`, `matched` and `excluded` count games before the limit: written into it, brought in
 by its rule, and taken out whole by name. `count` is what it hands out, which is tables.
 
@@ -728,6 +734,11 @@ Taking the criteria away is `clear_filters: true`, for the same reason a cap nee
 `clear_limit`. It keeps the games named by hand and drops the exclusions with the criteria,
 since they only said what to leave out of what the criteria found. Sending it beside
 `filters` is refused.
+
+`on_cabinet` is false on a collection kept off the cabinet: its collection menu and core's
+collection picker leave it out, while this API and the Console still list it. PATCH it with
+`on_cabinet`; `true` removes the key rather than storing it. The collection the cabinet is
+showing stays in its menu even when it is off, so a setting that opens on it still does.
 
 Collection names are the identity, so they are URL-encoded in paths (`Last%20Played`).
 `Last Played` itself is a filter collection over the games with a play on record, ordered

@@ -953,6 +953,13 @@ element.
   and widest instead. Never infer the column from where it sits: pinning is a layout
   preference the header menu offers on every column, and a hierarchy resting on one moves
   when a user rearranges their grid.
+- **A game or table in a list reads as the grid draws it.** The name, then a line under
+  it: maker and year from `game_tables.made`, then the table's version and author from
+  `game_tables.table_name`, in the `console-cell-made` and `console-cell-built` colors.
+  Where a filename stands in for version and author, a line too short for it keeps the
+  end (`console-file-name`), which is where two builds of one game differ.
+  `tests/invariants/test_maker_and_year_are_joined_once.py` fails on a maker-year join
+  written anywhere else.
 - **A badge on every row is not a badge** — where the badge is *constant*. A chip reading
   the same thing on every row, or an action identical on all of them, says nothing and
   comes off. This does **not** cover a state that varies per row: that is data, and hiding

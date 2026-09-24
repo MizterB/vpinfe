@@ -301,6 +301,13 @@ link: `keys` is `vps_entry` for a link to the game, or `vps_release` for one to 
 It is all data: core draws the list with the grid every other page uses, and nothing of
 the extension's runs in the page.
 
+With `tag="Weekly Challenge"` as well, the list puts that tag on what this library holds
+from it: the game for a `vps_entry` relation, the table for a `vps_release` one, so a
+challenge naming one build of a machine tags that build and not the others. Core reads
+the list shortly after it starts and every 30 minutes after; a read that fails keeps the
+last good one. The tag is the extension's - nobody can rename, merge or remove it, or put
+it on by hand - and it goes when the extension stops. A tag needs a `relation`.
+
 ## Scopes and the gate
 
 Core attaches the gate. An extension names an action it declared; core turns that into
