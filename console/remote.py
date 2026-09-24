@@ -129,7 +129,7 @@ def _read_target(client: ApiClient) -> dict[str, Any]:
     """
     return {
         "play": client.play_state(),
-        "games": client.games(),
+        "games": offered_games(client.library_entries()),
         "jobs": client.jobs(),
         "collections": client.collections(),
     }
@@ -450,6 +450,23 @@ def matching(games: list[dict[str, Any]], said: str) -> list[dict[str, Any]]:
     return found
 
 
+def offered_games(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    found = []
+    for entry in entries:
+        game = entry.get("game") or {}
+        game_id = str(game.get("id") or "")
+        if game_id and game_id not in seen:
+            seen.add(game_id)
+            found.append(game)
+    return found
+
+
+def cabinet_collections(collections: list[dict[str, Any]], chosen: str = "") -> list[str]:
+    return [str(one.get("name") or "") for one in collections
+            if one.get("name") and (one.get("on_cabinet", True) or one.get("name") == chosen)]
+
+
 def in_collection(games: list[dict[str, Any]],
                   ids: set[str] | None) -> list[dict[str, Any]]:
     """Narrowed to one collection, or left alone where none is chosen."""
@@ -484,9 +501,9 @@ def _play(state: dict[str, Any],
         state["collection_ids"] = None
         if state["collection"]:
             try:
-                found = await offload.io(client_for_target().collection_games,
+                found = await offload.io(client_for_target().collection_entries,
                                            state["collection"])
-                state["collection_ids"] = {str(one.get("id") or "") for one in found}
+                state["collection_ids"] = {one["id"] for one in offered_games(found)}
             except Exception as exc:
                 ui.notify(str(exc), type="negative")
         redraw()
@@ -495,8 +512,8 @@ def _play(state: dict[str, Any],
         ui.input(placeholder=t("console.remote.find_game"), value=state.get("find") or "",
                  on_change=typed) \
             .props("dense outlined clearable inputmode=search").classes("w-full")
-        named = [one.get("name") for one in state.get("collections") or []
-                 if one.get("name")]
+        named = cabinet_collections(state.get("collections") or [],
+                                    state.get("collection") or "")
         if named:
             ui.select({"": t("console.remote.all_games")} | {name: name for name in named},
                       value=state.get("collection") or "", on_change=narrow) \

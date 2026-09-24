@@ -418,6 +418,11 @@ class ApiClient:
         return list(self._get(f"/collections/{quote(name, safe='')}/games")
                     .get("games") or [])
 
+    def library_entries(self) -> list[dict]:
+        """The play lens over the whole library: what the cabinet offers before a
+        collection is chosen."""
+        return list(self._get("/library/entries").get("entries") or [])
+
     def collection_entries(self, name: str) -> list[dict]:
         """The play lens: one entry per game, in the order the cabinet shows them."""
         return list(self._get(f"/collections/{quote(name, safe='')}/entries")

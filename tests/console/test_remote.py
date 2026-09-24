@@ -153,3 +153,24 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(remote.in_collection(games, None), games)
         self.assertEqual(remote.in_collection(games, set()), [])
         self.assertEqual(remote.in_collection(games, {"b"}), [{"id": "b"}])
+
+
+class FollowsTheCabinetTests(unittest.TestCase):
+    def test_a_game_with_several_entries_is_listed_once(self) -> None:
+        entries = [{"game": {"id": "a", "name": "A"}}, {"game": {"id": "b", "name": "B"}},
+                   {"game": {"id": "a", "name": "A"}}]
+
+        self.assertEqual([one["id"] for one in remote.offered_games(entries)], ["a", "b"])
+
+    def test_a_collection_kept_off_the_cabinet_is_not_offered(self) -> None:
+        collections = [{"name": "Shown", "on_cabinet": True},
+                       {"name": "Kept off", "on_cabinet": False}]
+
+        self.assertEqual(remote.cabinet_collections(collections), ["Shown"])
+
+    def test_the_one_already_chosen_stays_whatever_the_switch_says(self) -> None:
+        collections = [{"name": "Shown", "on_cabinet": True},
+                       {"name": "Kept off", "on_cabinet": False}]
+
+        self.assertEqual(remote.cabinet_collections(collections, "Kept off"),
+                         ["Shown", "Kept off"])
