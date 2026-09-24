@@ -1657,15 +1657,10 @@ class YearRange(ApiModel):
     to: int | None = None
 
 
-class CollectionFilters(ApiModel):
-    """A filter collection's criteria. "All" means unconstrained on that axis -
-    the vocabulary the filter engine already uses, kept rather than translated so
-    a client sees the same values the Manager UI shows.
-
-    `order_by` is the field the collection sorts on and `direction` is which way. On disk
-    the 2.x criteria block spells them `sort_by` and `order_by`, and there `order_by` is
-    the direction - carrying that up here would give one word two meanings on the wire.
-    The disk keeps its spelling; the wire does not repeat it."""
+class CollectionCriteria(ApiModel):
+    """A filter collection's criteria, as a collection reports them. "All" means
+    unconstrained on that axis - the vocabulary the filter engine already uses, kept
+    rather than translated so a client sees the same values the Manager UI shows."""
 
     # The many-valued axes accept a list and are always reported as one. A criterion
     # has always been stored comma-joined and the matcher has always split it, so this
@@ -1693,6 +1688,12 @@ class CollectionFilters(ApiModel):
     manufacturer_none_of: MultiValue = "All"
     year_none_of: MultiValue = "All"
     tags_none_of: MultiValue = "All"
+
+
+class CollectionFilters(CollectionCriteria):
+    """Criteria as a request sends them, which may name the order too. On disk 2.x
+    spells the direction `order_by`; here `order_by` is only ever the field."""
+
     order_by: str = DEFAULT_ORDER_BY
     direction: str = DEFAULT_DIRECTION
 
@@ -1776,7 +1777,7 @@ class CollectionResource(ApiModel):
     # does not.
     missing: int = 0
     hidden: int = 0
-    filters: CollectionFilters | None
+    filters: CollectionCriteria | None
     # The cap, and how the list is ordered. Both were settable and neither was reported,
     # so a client could apply a cap and have no way to see that one was in force.
     # `manual` order means the stored member array is the order.

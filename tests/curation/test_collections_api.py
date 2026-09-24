@@ -317,8 +317,17 @@ class CollectionsApiTests(TempTree):
 
         body = self.client.get("/collections/Recent").json()
 
-        self.assertEqual(body["filters"]["order_by"], "last_played")
-        self.assertEqual(body["filters"]["direction"], "desc")
+        self.assertEqual(("last_played", "desc"), (body["order_by"], body["direction"]))
+
+    def test_the_order_is_reported_beside_the_criteria_and_not_in_them(self) -> None:
+        self.client.post("/collections", json={
+            "name": "Recent", "filters": {"played": True, "order_by": "last_played",
+                                          "direction": "desc"}})
+
+        body = self.client.get("/collections/Recent").json()
+
+        self.assertEqual(("last_played", "desc"), (body["order_by"], body["direction"]))
+        self.assertEqual(set(), {"order_by", "direction"} & set(body["filters"]))
 
     def test_a_rule_save_leaves_the_order_the_paging_and_the_limit(self) -> None:
         self.client.post("/collections", json={"name": "Recent",
@@ -366,7 +375,7 @@ class CollectionsApiTests(TempTree):
             "name": "Most Played", "filters": {"order_by": "Highest StartCount"}})
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json()["filters"]["order_by"], "play_count")
+        self.assertEqual(response.json()["order_by"], "play_count")
 
     def test_criteria_and_named_games_are_stored_together(self) -> None:
         """Not two kinds. They are combinable and the resolver

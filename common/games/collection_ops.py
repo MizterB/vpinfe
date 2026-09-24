@@ -196,8 +196,6 @@ def _resource_for(row: dict) -> dict:
             "manufacturer_none_of": _many_out(raw.get("manufacturer_none_of", "All")),
             "year_none_of": _many_out(raw.get("year_none_of", "All")),
             "tags_none_of": _many_out(raw.get("tags_none_of", "All")),
-            "order_by": order["by"],
-            "direction": order["direction"],
         }
     return {
         "name": name,
