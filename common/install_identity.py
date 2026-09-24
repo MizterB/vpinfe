@@ -30,6 +30,15 @@ DEVICES = "devices"
 OVERVIEW = "overview"
 FEATURES = (LIBRARY, FRONTEND, DEVICES, OVERVIEW)
 
+# What a person calls each. The id names the thing and the name says what you do with
+# it, which is why `devices` reads as Device Management.
+LABELS = {
+    LIBRARY: "install.feature.library",
+    FRONTEND: "install.feature.frontend",
+    DEVICES: "install.feature.devices",
+    OVERVIEW: "install.feature.overview",
+}
+
 # What every 2.x install and every desktop install already is. Not every feature: this
 # is also what an unreadable setting falls back to, so a feature that has to be asked
 # for must not be in here or a typo would switch it on.

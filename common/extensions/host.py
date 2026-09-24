@@ -45,10 +45,17 @@ DISABLED = "disabled"
 OFF = "off"
 
 _PLATFORMS = {"linux": "linux", "win32": "windows", "darwin": "macos"}
+PLATFORM_NAMES = {"linux": "extension.platform.linux",
+                  "windows": "extension.platform.windows",
+                  "macos": "extension.platform.macos"}
 
 
 def this_platform() -> str:
     return _PLATFORMS.get(sys.platform, sys.platform)
+
+
+def _read(value: str | tuple[str, ...]) -> str:
+    return ", ".join(i18n.t(key) for key in value) if isinstance(value, tuple) else value
 
 
 @dataclass
@@ -60,7 +67,7 @@ class Record:
     manifest: Manifest | None = None
     state: str = FAILED
     why: str = ""
-    why_values: dict[str, str] = field(default_factory=dict)
+    why_values: dict[str, str | tuple[str, ...]] = field(default_factory=dict)
     # (router, scope), collected at registration and mounted once by the API.
     routers: list[tuple[Any, str]] = field(default_factory=list)
     subscriptions: list[tuple[str, Any]] = field(default_factory=list)
@@ -76,9 +83,12 @@ class Record:
 
     @property
     def reason(self) -> str:
-        return i18n.t(self.why, **self.why_values) if self.why else ""
+        if not self.why:
+            return ""
+        return i18n.t(self.why, **{slot: _read(value)
+                                   for slot, value in self.why_values.items()})
 
-    def became(self, state: str, why: str = "", **values: str) -> None:
+    def became(self, state: str, why: str = "", **values: str | tuple[str, ...]) -> None:
         self.state, self.why, self.why_values = state, why, values
 
     def said(self, literal: str, key: str, fallback: str = "") -> tuple[str, str]:
@@ -272,14 +282,18 @@ class Registry:
         logger.info("Extension %s %s loaded", record.name, record.manifest.version)
         return self._remember(record)
 
-    def _why_not(self, manifest: Manifest) -> tuple[str, dict[str, str]]:
+    def _why_not(self, manifest: Manifest) -> tuple[str, dict[str, str | tuple[str, ...]]]:
         if not self._store.enabled(manifest.name):
             return "extension.reason.switched_off", {}
-        if manifest.platforms and this_platform() not in manifest.platforms:
-            return "extension.reason.not_for_platform", {"platform": this_platform()}
-        missing = sorted(set(manifest.requires_features) - set(_features()))
+        platform = this_platform()
+        if manifest.platforms and platform not in manifest.platforms:
+            return "extension.reason.not_for_platform", {
+                "platform": (PLATFORM_NAMES.get(platform, platform),)}
+        missing = [name for name in install_identity.FEATURES
+                   if name in manifest.requires_features and name not in _features()]
         if missing:
-            return "extension.reason.lacks_features", {"features": ", ".join(missing)}
+            return "extension.reason.lacks_features", {
+                "features": tuple(install_identity.LABELS[name] for name in missing)}
         return "", {}
 
     # -- the kill switch -----------------------------------------------------

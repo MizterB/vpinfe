@@ -605,15 +605,6 @@ def pages_for_features(features: Any) -> list[tuple[str, DevicePage]]:
             if page[4] in held]
 
 
-# What a person calls each feature. The key names the thing and the label says what you
-# do with it, which is why `devices` reads as Device Management on screen.
-FEATURE_LABELS = {
-    install_identity.LIBRARY: "console.settings.feature_label_library",
-    install_identity.FRONTEND: "console.settings.feature_label_frontend",
-    install_identity.DEVICES: "console.settings.feature_label_device_management",
-    install_identity.OVERVIEW: "console.settings.feature_label_overview",
-}
-
 # What switching one on gets you. The name says which feature; this says what the install
 # then does, which is the half a person switching it on is actually choosing between.
 FEATURE_NOTES = {
@@ -631,7 +622,7 @@ def features_said(features: Any) -> str:
     on every row. Anything else unrecognized is shown as it arrived, because a device
     reporting a feature this build has not heard of is a fact rather than a blank.
     """
-    return ", ".join(t(FEATURE_LABELS.get(str(name), str(name)))
+    return ", ".join(t(install_identity.LABELS.get(str(name), str(name)))
                      for name in (features or [])
                      if str(name) != install_identity.CORE)
 
@@ -1058,7 +1049,7 @@ async def _identity_page(library: Library, reported: str,
         panel.intro(t("console.settings.what_install_each_one")),
     ]
     for name in install_identity.FEATURES:
-        entries.append((t(FEATURE_LABELS[name]),
+        entries.append((t(install_identity.LABELS[name]),
                         panel.switch(name in on, flipper(name))))
         entries.append(panel.note(t(FEATURE_NOTES[name])))
     panel.facts(ui, entries)

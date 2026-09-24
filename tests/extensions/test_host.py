@@ -141,16 +141,43 @@ class LoadTests(HostCase):
         record = self.registry.load(directory)
 
         self.assertEqual(record.state, host.OFF)
-        self.assertIn(host.this_platform(), record.reason)
+        self.assertIn(i18n.t(host.PLATFORM_NAMES[host.this_platform()]), record.reason)
+
+    def test_a_platform_reads_as_its_name(self) -> None:
+        directory = self.make("elsewhere", {"platforms": ["windows"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="macos"):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.reason, "Not for macOS")
+
+    def test_a_platform_with_no_name_is_shown_as_it_arrived(self) -> None:
+        directory = self.make("elsewhere", {"platforms": ["windows"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="freebsd"):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.reason, "Not for freebsd")
 
     def test_an_extension_needing_a_feature_this_install_lacks_is_not_loaded(self) -> None:
-        directory = self.make("watcher", {"requires_features": ["overview"]},
+        directory = self.make("watcher", {"requires_features": ["overview", "devices"]},
                               "def register(ctx): pass\n")
         with unittest.mock.patch.object(host, "_features", return_value=("library",)):
             record = self.registry.load(directory)
 
         self.assertEqual(record.state, host.OFF)
-        self.assertIn("overview", record.reason)
+        self.assertEqual(record.reason,
+                         "This install does not do Device Management, Overview")
+
+    def test_the_names_follow_the_language_set(self) -> None:
+        directory = self.make("elsewhere", {"platforms": ["windows"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "this_platform", return_value="macos"):
+            record = self.registry.load(directory)
+        self.addCleanup(i18n.set_language, i18n.language())
+        i18n.set_language("qps")
+
+        self.assertNotIn("macOS", record.reason)
 
 
 class WordsTests(HostCase):
