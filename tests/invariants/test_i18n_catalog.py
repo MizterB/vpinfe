@@ -23,6 +23,7 @@ from common.games.launchers import OWN_FIELDS
 from common.input_registry import InputAction, actions
 from common.media_specs import MEDIA_SPECS, MediaSpec
 from common.tokens import Token
+from tests.support.catalogs import served
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOGS = ROOT / "common" / "i18n" / "catalogs"
@@ -668,6 +669,14 @@ class TestTheCatalogHoldsWords(unittest.TestCase):
                  for said in (value.values() if isinstance(value, dict) else [value])
                  if re.search(r"\bconsole-[a-z]", str(said))]
         self.assertEqual([], found)
+
+    def test_no_entry_is_a_fragment_glued_onto_another(self) -> None:
+        """A space at either end is the seam of a sentence built from pieces."""
+        joiners = {"console.collection_rules.list_join"}
+        found = [key for key, value in served().items() if key not in joiners
+                 for said in (value.values() if isinstance(value, dict) else [value])
+                 if str(said) != str(said).strip()]
+        self.assertEqual([], found, "take the other string as a slot")
 
 
 # An f-string reaching one of these is not a word anybody reads.

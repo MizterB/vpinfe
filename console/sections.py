@@ -236,6 +236,11 @@ def _stamp(said: str) -> str:
     return f"{said[0:4]}-{said[4:6]}-{said[6:8]}"
 
 
+def _first_of(names: list[str], most: int) -> str:
+    listed = ", ".join(names[:most])
+    return t("console.sections.more", names=listed) if len(names) > most else listed
+
+
 def _metadata_row(good: bool, name: str, said: str,
                   action: tuple[str, Callable[[], Any]] | None = None) -> None:
     with ui.row().classes("items-center gap-3 w-full no-wrap py-1"):
@@ -277,8 +282,7 @@ def metadata(state: dict[str, Any], on_start: Callable[[str], Any]) -> None:
             not unreadable, t("console.sections.readable"),
             t("console.sections.every_folder_s_metadata") if not unreadable
             else t("console.sections.could_not_read_games", len=(len(unreadable)),
-                    join=(', '.join(str(one.get('name') or '?') for one in unreadable[:4])))
-                 + (t("console.sections.more") if len(unreadable) > 4 else ""))
+                    join=_first_of([str(one.get("name") or "?") for one in unreadable], 4)))
 
         # Only when it is true. A row saying "nothing here was written by a newer build"
         # is a sentence about a thing that has never happened to most installs.
@@ -319,10 +323,8 @@ def _scripts_said(found: dict[str, Any]) -> tuple[bool, str]:
     checked = int(found.get("checked") or 0)
     already = int(found.get("already") or 0)
     if offered:
-        shown = ", ".join(offered[:3]) + (t("console.sections.more") if len(offered) > 3
-                else "")
         return False, t("console.sections.can_take_published_fix", len=(len(offered)),
-                checked=(checked), shown=(shown))
+                checked=(checked), shown=_first_of(offered, 3))
     running = t("console.sections.already_run_one", already=(already)) if already else ""
     return True, t("console.sections.nothing_published_matches_tables", checked=(checked),
             running=(running))

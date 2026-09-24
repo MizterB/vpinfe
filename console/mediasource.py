@@ -580,9 +580,9 @@ class _Slot(_OneFile):
         where = (t("console.mediasource.every_table_game") if not self.destination
                  else t("console.mediasource.for",
                         table=(_trimmed_stem(str(chosen.get("label") or "")))))
-        unseen = ("" if self.destination == (self.table_id or "") else
-                  t("console.mediasource.not_what_view_showing"))
-        await super().finish(f"{message} {where}{unseen}")
+        if self.destination != (self.table_id or ""):
+            where = t("console.mediasource.not_what_view_showing", where=where)
+        await super().finish(f"{message} {where}")
 
     async def confirmed(self, filename: str) -> bool:
         """Ask before a write that deletes something, naming what goes.

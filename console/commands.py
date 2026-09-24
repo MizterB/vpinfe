@@ -31,7 +31,7 @@ def add_to(entries: list[Any], context: str) -> None:
                 ui.label("{" + one.name + "}").classes("console-token")
                 says = tokens.stands_for(one)
                 if one.after_only:
-                    says += t("console.commands.after_finished")
+                    says = t("console.commands.after_finished", says=says)
                 ui.label(says).classes("console-help")
 
     def draw() -> None:

@@ -243,6 +243,9 @@ locale may leave in English.
 1. Call `t("...")` with a key and add the English to `en.json`.
 2. If it takes a value, name the slot: `"{count} tables"`, filled as `t(key, count=n)`.
    Never build a sentence by adding fragments — the join is different in most languages.
+   An entry with a space at either end is one of those fragments, and the catalog
+   invariant refuses it; a joiner such as `console.collection_rules.list_join` is the one
+   allowance.
 3. `python3 scripts/i18n.py --record` and `--pseudo`, which keep the staleness hashes and the
    render-check locale in step.
 
