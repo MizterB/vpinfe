@@ -116,8 +116,10 @@
   },
   "updates": {
     "ask_where_new_games_go": "true",
+    "download_spreadsheet": "daily",
     "match_new_games": "true",
-    "refresh_minutes": "0"
+    "refresh_minutes": "0",
+    "update_game_details": "never"
   },
   "vpinplay": {
     "api_endpoint": "https://api.vpinplay.com:8888",
@@ -128,10 +130,8 @@
   },
   "vpsdb": {
     "checked": "",
-    "download": "daily",
     "games_updated_to": "",
-    "last": "",
-    "update_matched_games": "never"
+    "last": ""
   },
   "vpxmobile": {
     "chunk_size": "1048576",

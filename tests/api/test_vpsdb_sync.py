@@ -15,11 +15,11 @@ from common import timestamps
 from common.online import vpsdb_sync
 
 
-def _config(**vpsdb: str) -> configparser.ConfigParser:
+def _config(download: str = "", **vpsdb: str) -> configparser.ConfigParser:
+    """`download` is the schedule a person sets; the rest is what the sync writes."""
     parser = configparser.ConfigParser()
-    parser.add_section("vpsdb")
-    for key, value in vpsdb.items():
-        parser.set("vpsdb", key, value)
+    parser.read_dict({"updates": {"download_spreadsheet": download} if download else {},
+                      "vpsdb": vpsdb})
     return parser
 
 

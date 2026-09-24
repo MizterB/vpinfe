@@ -99,9 +99,11 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `refresh_minutes` | int | `0` | How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
 | `match_new_games` | bool | `true` | When VPinFE finds a new game, match it to the spreadsheet from its folder name |
+| `update_game_details` | choice (never, daily, weekly, monthly) | `never` | How often to copy name, year, type, themes and guides from the spreadsheet onto matched games |
+| `refresh_minutes` | int | `0` | How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
 | `ask_where_new_games_go` | bool | `true` | On, an import that could go to more than one place asks which. Off, it goes to the place marked for new games. Never asked when there is only one. |
+| `download_spreadsheet` | choice (never, daily, weekly, monthly) | `daily` | How often to fetch the spreadsheet. Matching and release lists read this copy. |
 
 ### `presentation`
 
@@ -168,12 +170,12 @@ Runtime state written by VPinFE, not shown as a setting.
 
 ### `vpsdb`
 
+Runtime state written by VPinFE, not shown as a setting.
+
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `last` | string |  |  |
 | `checked` | string |  |  |
-| `download` | choice (never, daily, weekly, monthly) | `daily` | How often to fetch the spreadsheet. Matching and release lists read this copy. |
-| `update_matched_games` | choice (never, daily, weekly, monthly) | `never` | How often to re-copy name, year, type, themes and guides onto matched games |
 | `games_updated_to` | string |  |  |
 
 ### `state`

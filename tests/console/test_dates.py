@@ -90,7 +90,7 @@ class ChoiceLabels(unittest.TestCase):
         self.assertEqual(6, len(labels))
 
     def test_a_choice_it_does_not_name_carries_none(self) -> None:
-        self.assertEqual({}, self._labels("vpsdb", "download"))
+        self.assertEqual({}, self._labels("updates", "download_spreadsheet"))
 
 
 if __name__ == "__main__":

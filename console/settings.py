@@ -367,8 +367,8 @@ async def _vps_foot(library: Library, rerender: Callable[[], None]) -> list[tupl
                   type="positive" if done.get("changed") else "info")
         rerender()
 
-    # No heading of its own: the group above already names the catalog, and a second
-    # one here read as a separate subject.
+    # No heading of its own: Download Spreadsheet, the row above, already names the
+    # catalog, and a heading here reads as a separate subject.
     return [_last_checked(str(state.get("checked") or ""), now)]
 
 
@@ -419,7 +419,7 @@ async def _input_foot(library: Library, rerender: Callable[[], None]) -> list[tu
 
 # section -> what to draw under its settings. Only where a page has an act in it, or a
 # reading that answers a question its settings raise.
-FOOTERS: dict[str, Callable] = {"vpsdb": _vps_foot, "themes": _themes_foot,
+FOOTERS: dict[str, Callable] = {"updates": _vps_foot, "themes": _themes_foot,
                                  "input": _input_foot}
 
 # page -> the line under its heading. Optional: a page whose name says the whole thing
@@ -435,7 +435,6 @@ PAGE_NOTES: dict[str, str] = {
     "frontend.presentation": "console.settings.note_presentation",
     "vpinfe.tools": "console.settings.note_tools",
     "library.updates": "console.settings.note_updates",
-    "library.audit": "console.settings.note_audit",
     "vpinfe.vpxmobile": "console.settings.note_vpxmobile",
 }
 
@@ -563,8 +562,7 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
     ("console.settings.group_library", (
         ("library.media", "console.settings.page_media", SCHEMA_PAGE, ("media",), "library"),
         ("library.assets", "console.settings.page_assets", SCHEMA_PAGE, ("assets",), "library"),
-        ("library.audit", "console.settings.page_audit", SCHEMA_PAGE,
-                ("vpsdb",), "library"),
+        ("library.audit", "console.settings.page_audit", SCHEMA_PAGE, (), "library"),
         ("library.updates", "console.settings.page_updates", SCHEMA_PAGE, ("updates",),
                 "library"),
     )),
@@ -584,9 +582,10 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
 # A schema page that also draws switches from a registry, ordered among its settings
 # rather than beside them.
 # page -> ((registry, its heading, the schema heading it sits above), ...). An empty
-# third entry puts the block at the foot.
+# third entry puts the block at the foot; an empty heading is for a block that is the
+# whole page, which the page's own name already heads.
 PAGE_KINDS: dict[str, tuple[tuple[str, str, str], ...]] = {
-    "library.audit": (("library_checks", "console.settings.heading_reporting", ""),),
+    "library.audit": (("library_checks", "", ""),),
     "library.media": (("media_kinds", "console.settings.heading_kinds", "Local Sources"),
               ("media_sources", "console.settings.heading_online_sources", "Wheels")),
     "library.assets": (("asset_kinds", "console.settings.heading_kinds", "Local Sources"),),
@@ -812,7 +811,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
 
     drawn = [block for block in schema
              if str(block.get("name")) in sections and block.get("options")]
-    if not drawn:
+    if not drawn and not blocks:
         panel.facts(ui, [panel.intro(t("console.settings.device_declares_nothing_page"))])
         return
 
@@ -934,7 +933,8 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
     blocks = []
     for registry, heading, above in PAGE_KINDS.get(key, ()):
         rows = await _kind_rows(library, redraw, registry)
-        blocks.append((above, [(panel.HEADING, t(heading)), *rows]))
+        head = [(panel.HEADING, t(heading))] if heading else []
+        blocks.append((above, [*head, *rows]))
     with body:
         page_head(key)
         await build_device_page(library, {"library": library, "rebuild": redraw},

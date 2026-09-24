@@ -429,10 +429,25 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             legacy=(("general", "assetsdir"),),
         ),
     ),
-    # The library as something this install reads, as against `media`, which is what it
-    # collects.
+    # What this install does to the library on its own, as against `media`, which is what
+    # it collects. Drawn in this order, with the spreadsheet's Last checked / Check now
+    # under the whole section: `download_spreadsheet` stays last so the two sit together.
     *in_section(
         "updates",
+        ConfigOption(
+            "match_new_games",
+            type="bool",
+            default="true",
+            legacy=(),
+        ),
+        # Separate from `download_spreadsheet`: a machine can want current data for
+        # matching without wanting its games rewritten.
+        ConfigOption(
+            "update_game_details",
+            type="choice",
+            default="never",
+            choices=("never", "daily", "weekly", "monthly"),
+        ),
         ConfigOption(
             "refresh_minutes",
             type="int",
@@ -440,16 +455,16 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             legacy=(),
         ),
         ConfigOption(
-            "match_new_games",
+            "ask_where_new_games_go",
             type="bool",
             default="true",
             legacy=(),
         ),
         ConfigOption(
-            "ask_where_new_games_go",
-            type="bool",
-            default="true",
-            legacy=(),
+            "download_spreadsheet",
+            type="choice",
+            default="daily",
+            choices=("never", "daily", "weekly", "monthly"),
         ),
     ),
     # What the frontend shows, as against what it does. Every one is served to themes
@@ -732,22 +747,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             type="string",
             default="",
             internal=True,
-        ),
-        ConfigOption(
-            "download",
-            group=setting_groups.VPS,
-            type="choice",
-            default="daily",
-            choices=("never", "daily", "weekly", "monthly"),
-        ),
-        # Separate from `download`: a machine can want current data for matching
-        # without wanting its games rewritten.
-        ConfigOption(
-            "update_matched_games",
-            group=setting_groups.VPS,
-            type="choice",
-            default="never",
-            choices=("never", "daily", "weekly", "monthly"),
         ),
         # The spreadsheet version the games were last brought up to.
         ConfigOption(

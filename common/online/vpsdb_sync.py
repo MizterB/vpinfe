@@ -22,7 +22,9 @@ from common.config_store import ConfigStore
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb_sync")
 
+# What this module writes. The schedules it reads are a person's, and sit in SCHEDULES.
 SECTION = "vpsdb"
+SCHEDULES = "updates"
 NEVER = "never"
 
 # How long an answer stays good. `never` is absent rather than zero: it is not a very
@@ -34,8 +36,9 @@ EVERY = {
 }
 
 
-def schedule(config: ConfigStore, key: str = "download", default: str = "daily") -> str:
-    return (cfg_get(config, SECTION, key, default) or default).strip().lower()
+def schedule(config: ConfigStore, key: str = "download_spreadsheet",
+             default: str = "daily") -> str:
+    return (cfg_get(config, SCHEDULES, key, default) or default).strip().lower()
 
 
 def checked_at(config: ConfigStore) -> str:
@@ -61,7 +64,7 @@ def due(config: ConfigStore, now: float | None = None) -> bool:
 
 def adopt_due(config: ConfigStore) -> bool:
     """Whether the library is owed a sweep against the catalog it now holds."""
-    wanted = schedule(config, "update_matched_games", NEVER)
+    wanted = schedule(config, "update_game_details", NEVER)
     if wanted == NEVER or wanted not in EVERY:
         return False
     held = (cfg_get(config, SECTION, "last", "") or "").strip()

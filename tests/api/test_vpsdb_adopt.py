@@ -11,19 +11,19 @@ from common.online import vpsdb_sync
 class _Config:
     """A ConfigStore's surface, as much of it as this reads."""
 
-    def __init__(self, **vpsdb: str) -> None:
+    def __init__(self, schedules: dict[str, str], vpsdb: dict[str, str]) -> None:
         self.config = configparser.ConfigParser()
-        self.config.add_section("vpsdb")
-        for key, value in vpsdb.items():
-            self.config.set("vpsdb", key, value)
+        self.config.read_dict({"updates": schedules, "vpsdb": vpsdb})
         self.saved = 0
 
     def save(self) -> None:
         self.saved += 1
 
 
-def _config(**vpsdb: str) -> _Config:
-    return _Config(**vpsdb)
+def _config(download: str = "", update_game_details: str = "", **vpsdb: str) -> _Config:
+    """The two schedules a person sets, and the rest as the sync writes it."""
+    wanted = {"download_spreadsheet": download, "update_game_details": update_game_details}
+    return _Config({key: value for key, value in wanted.items() if value}, vpsdb)
 
 
 class WhenASweepIsOwed(unittest.TestCase):
@@ -34,7 +34,7 @@ class WhenASweepIsOwed(unittest.TestCase):
         from common.config_schema import options
 
         declared = next(one for one in options()
-                        if one.section == "vpsdb" and one.key == "update_matched_games")
+                        if one.section == "updates" and one.key == "update_game_details")
         self.assertEqual("never", declared.default)
 
     def test_a_config_with_nothing_set_is_owed_nothing(self) -> None:
@@ -42,29 +42,29 @@ class WhenASweepIsOwed(unittest.TestCase):
 
     def test_never_is_never_even_with_a_new_catalog(self) -> None:
         self.assertFalse(vpsdb_sync.adopt_due(
-            _config(update_matched_games="never", last="2026-09-22",
+            _config(update_game_details="never", last="2026-09-22",
                     games_updated_to="2026-01-01")))
 
     def test_a_catalog_that_moved_is_owed_one(self) -> None:
         self.assertTrue(vpsdb_sync.adopt_due(
-            _config(update_matched_games="daily", last="2026-09-22",
+            _config(update_game_details="daily", last="2026-09-22",
                     games_updated_to="2026-01-01")))
 
     def test_a_catalog_that_has_not_moved_is_not(self) -> None:
         self.assertFalse(vpsdb_sync.adopt_due(
-            _config(update_matched_games="daily", last="2026-09-22",
+            _config(update_game_details="daily", last="2026-09-22",
                     games_updated_to="2026-09-22")))
 
     def test_never_swept_and_a_catalog_in_hand_is_owed_one(self) -> None:
         self.assertTrue(vpsdb_sync.adopt_due(
-            _config(update_matched_games="weekly", last="2026-09-22")))
+            _config(update_game_details="weekly", last="2026-09-22")))
 
     def test_no_catalog_yet_is_not(self) -> None:
-        self.assertFalse(vpsdb_sync.adopt_due(_config(update_matched_games="daily", last="")))
+        self.assertFalse(vpsdb_sync.adopt_due(_config(update_game_details="daily", last="")))
 
     def test_a_typo_reads_as_off_rather_than_as_daily(self) -> None:
         self.assertFalse(vpsdb_sync.adopt_due(
-            _config(update_matched_games="dayly", last="2026-09-22",
+            _config(update_game_details="dayly", last="2026-09-22",
                     games_updated_to="2026-01-01")))
 
 
@@ -74,7 +74,7 @@ class TheTwoSchedulesAreSeparate(unittest.TestCase):
         self.assertFalse(vpsdb_sync.adopt_due(held))
 
     def test_sweeping_does_not_require_fetching(self) -> None:
-        held = _config(download="never", update_matched_games="daily",
+        held = _config(download="never", update_game_details="daily",
                        last="2026-09-22", games_updated_to="2026-01-01")
         self.assertTrue(vpsdb_sync.adopt_due(held))
 
