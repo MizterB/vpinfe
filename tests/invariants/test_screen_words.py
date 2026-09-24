@@ -38,7 +38,6 @@ BUILD = {
     "error.games.nothing_build_knows_plays": "this VPinFE build",
     "error.launchers.no_app_called_build": "this VPinFE build",
     "error.locations.no_location_kind_called": "this VPinFE build",
-    "ext.library_importer.note.not_played": "this VPinFE build",
     "ext.library_importer.reason.nothing_readable": "this VPinFE build",
     "frontend.buildmeta.build_metadata_started": "the verb",
     "frontend.mainmenu.build_metadata": "the verb",
