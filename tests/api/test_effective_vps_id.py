@@ -78,6 +78,23 @@ class EffectiveVpsIdTests(TempTree):
         self.assertEqual(found["vps_id"], FOUND)
         self.assertEqual(found["discovered"]["vps_id"], FOUND)
 
+    def _lens_ids(self) -> set[str]:
+        """What Get art asks a catalog for, from each media and asset row."""
+        from common.games import asset_lens, media_lens
+        rows = (media_lens.listing(game=GAME_ID)["media"]
+                + asset_lens.listing(game=GAME_ID)["assets"])
+        self.assertTrue(rows)
+        return {row["vps_id"] for row in rows}
+
+    def test_a_media_or_asset_row_asks_for_the_entry_a_person_picked(self) -> None:
+        self.assertEqual(self._lens_ids(), {CORRECTED})
+
+    def test_a_media_or_asset_row_asks_for_nothing_on_a_declared_no_match(self) -> None:
+        declared = {**INFO, "vpinfe": {**INFO["vpinfe"], "alt_vpsid": None}}
+        game = fake_game(self.root / FOLDER, FOLDER, meta=declared)
+        with patch("common.games.game_repository.catalog", return_value={GAME_ID: game}):
+            self.assertEqual(self._lens_ids(), {""})
+
 
 if __name__ == "__main__":
     unittest.main()

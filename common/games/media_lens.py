@@ -19,6 +19,7 @@ from typing import Any
 
 from common import collation
 from common.games import asset_origin, game_repository, media_service, sized_media, table_lens
+from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
 from common.media_specs import (
     MEDIA_SPECS,
@@ -116,7 +117,7 @@ def _row(game_id: str, row: dict, kind: str, table: str, table_file: str) -> dic
             "table": table, "table_file": table_file,
             # What a catalog is asked for. On the row because every act on a slot needs
             # it and the alternative is a lookup per row against the games list.
-            "vps_id": str(row.get("vpsid") or "")}
+            "vps_id": str(row.get("vps_id") or "")}
 
 
 def listing(limit: int = 0, offset: int = 0, game: str = "",
@@ -145,7 +146,8 @@ def listing(limit: int = 0, offset: int = 0, game: str = "",
     for game_id, entry in game_repository.catalog().items():
         if game and game != game_id:
             continue
-        row = game_to_row(entry)
+        row = {**game_to_row(entry),
+               "vps_id": effective_vps_id(entry.meta_config or {})}
         game_dir = Path(entry.full_path_game or "")
         try:
             files, medias = media_service.media_contents(game_dir)

@@ -24,6 +24,7 @@ from typing import Any
 from common import collation, media_probe, service_errors
 from common.games import asset_origin, asset_resolver, game_lens, game_repository, table_lens
 from common.games.asset_registry import spec_for
+from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
 from common.games.tables import table_names
 from common.i18n import t
@@ -60,7 +61,7 @@ def _row(game_id: str, row: dict, kind: str) -> dict:
             "year": str(row.get("year") or ""),
             "kind": kind, "label": _label(kind),
             "label_key": f"asset.kind.{kind}.label",
-            "vps_id": str(row.get("vpsid") or "")}
+            "vps_id": str(row.get("vps_id") or "")}
 
 
 def _folder_state(kind: str, game_dir: Path, subdirs: list[str]) -> str:
@@ -135,7 +136,8 @@ def listing(limit: int = 0, offset: int = 0, game: str = "",
     for game_id, entry in game_repository.catalog().items():
         if game and game != game_id:
             continue
-        row = game_to_row(entry)
+        row = {**game_to_row(entry),
+               "vps_id": effective_vps_id(entry.meta_config or {})}
         game_dir = Path(entry.full_path_game or "")
         try:
             files, subdirs = asset_resolver.folder_listing(game_dir)
