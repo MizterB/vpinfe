@@ -69,17 +69,20 @@ def filter_axes() -> dict[str, Any]:
 
 
 def _carried() -> tuple[dict[str, int], dict[str, int]]:
-    """How many games carry each tag, and how many tables."""
+    """How many games each tag reaches, on the game or one of its tables, and how many
+    tables carry it."""
     games: dict[str, int] = {}
     tables: dict[str, int] = {}
     for game in game_repository.all_games():
-        for tag in set(game_tags(game)) | set(derived_tags.game_tags(game)):
-            games[tag] = games.get(tag, 0) + 1
+        reached = set(game_tags(game)) | set(derived_tags.game_tags(game))
         for entry in table_entries(getattr(game, "meta_config", {})).values():
             held = (set(table_tags(entry)) | set(derived_tags.table_tags(entry))
                     if isinstance(entry, dict) else set())
+            reached |= held
             for tag in held:
                 tables[tag] = tables.get(tag, 0) + 1
+        for tag in reached:
+            games[tag] = games.get(tag, 0) + 1
     return games, tables
 
 

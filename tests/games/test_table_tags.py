@@ -71,11 +71,11 @@ class TableTags(TempTree):
                          (changed, self._on_disk()["tables"]["t2"]["user"]["tags"],
                           self._on_disk()["User"]["Tags"]))
 
-    def test_a_tag_only_a_table_carries_is_listed_and_counted(self) -> None:
+    def test_a_tag_only_a_table_carries_counts_that_tables_game(self) -> None:
         self._put("t2", ["VR"])
         self.game.meta_config = self._on_disk()
 
         said = {one["name"]: (one["games"], one["tables"])
                 for one in library_ops.tags()["tags"]}
 
-        self.assertEqual({"VR": (0, 1), "Wide Body": (1, 0)}, said)
+        self.assertEqual({"VR": (1, 1), "Wide Body": (1, 0)}, said)

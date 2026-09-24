@@ -136,7 +136,7 @@ class WhereTheyLand(DerivedTagCase):
         said = {one["name"]: one for one in library_ops.tags()["tags"]}
 
         self.assertEqual((1, 0), (said[MACHINE]["games"], said[MACHINE]["tables"]))
-        self.assertEqual((0, 1), (said[CHALLENGE]["games"], said[CHALLENGE]["tables"]))
+        self.assertEqual((1, 1), (said[CHALLENGE]["games"], said[CHALLENGE]["tables"]))
         (source,) = said[CHALLENGE]["sources"]
         self.assertEqual(("challenge", "releases", "Weekly Challenge", False),
                          (source["extension"], source["list"], source["title"],
