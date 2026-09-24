@@ -22,7 +22,7 @@ from urllib.parse import quote
 
 from nicegui import run, ui
 
-from common import icons, labels
+from common import icons
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, spec_for, specs_named
 from common.i18n import t
 from common.media_specs import (
@@ -739,10 +739,9 @@ class _Slot(_OneFile):
         body.clear()
         # Named only when it is not this game's own: a heading that says the obvious on
         # every visit stops being read by the time it matters.
-        found_online = labels.plural(self.label) + t("console.mediasource.found_online")
-        self.online_head.text = (found_online if vps_id == self._own_id
-                                 else t("console.mediasource.found_online_for",
-                                        found=found_online, name=name))
+        self.online_head.text = (t("console.mediasource.found_online")
+                                 if vps_id == self._own_id
+                                 else t("console.mediasource.found_online_for", name=name))
         if not vps_id:
             with body:
                 ui.label(t("console.mediasource.game_no_vps_id")) \
