@@ -50,6 +50,10 @@ EXCLUDE = "close"
 HIDE = "visibility_off"
 UNHIDE = "visibility"
 
+# Holding a pick where it is, and letting it follow again.
+LOCK = "lock"
+UNLOCK = "lock_open"
+
 # Answering a question a dialog asked.
 KEEP = "check"
 FORGET = "remove"

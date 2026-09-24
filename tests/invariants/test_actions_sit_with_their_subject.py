@@ -33,7 +33,7 @@ GRID_OF = {
 
 # Direct `ui.button(` calls outside `panel.py`. A count that only comes down: lower it
 # when one moves to a constructor, never raise it.
-BUTTON_CEILING = 91
+BUTTON_CEILING = 89
 
 
 def _tree(path: pathlib.Path) -> ast.Module:

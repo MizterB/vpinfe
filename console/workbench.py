@@ -2156,7 +2156,7 @@ def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 def _table_play_rows(context: dict[str, Any],
                      table: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """This file's own record, and what the frontend does with it."""
+    """This file's own record."""
     record = table.get("user") or {}
     table_id = str(table.get("id") or "")
 
@@ -2169,7 +2169,7 @@ def _table_play_rows(context: dict[str, Any],
         await _write(context, context["library"].reset_play_record,
                      context["game_id"], table_id)
 
-    return _play_rows(context, record, on_reset=reset) + _library_rows(context, table)
+    return _play_rows(context, record, on_reset=reset)
 
 
 def _play_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -2551,6 +2551,7 @@ def _table_entries(table: dict[str, Any],
     if not game_tables.is_keyed(table):
         entries.append((t("console.workbench.rom"), _rom_state(pinmame, rom, context=context)))
     if context is not None:
+        entries.append(_hidden_row(context, table))
         entries += _table_override_rows(context, table, overrides)
         entries += [(FULL, _play_action(context, table))]
     return entries
@@ -3023,81 +3024,18 @@ def _attention(table: dict[str, Any]) -> list[tuple[Any, Any]]:
     return [(FULL, draw)]
 
 
-def _library_rows(context: dict[str, Any],
-                  table: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """Which table this game offers, and whether the frontend shows it.
-
-    Both are the user's to change, so the verb sits beside the fact it changes.
-    """
-    library, game_id = context["library"], context["game_id"]
+def _hidden_row(context: dict[str, Any], table: dict[str, Any]) -> tuple[Any, Any]:
+    """Whether the frontend offers this table."""
     table_id = str(table.get("id") or "")
-    is_default = bool(table.get("default"))
-    hidden = bool(table.get("hidden"))
 
-    async def act(call: Callable[..., Any], *args: Any, done: str = "",
-                  shape: bool = True) -> None:
-        """Perform a write. `shape=False` where only the saved value changed."""
-        try:
-            await run.io_bound(call, *args)
-        except Exception as exc:
-            ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
-            return
-        if done:
-            ui.notify(done, type="positive")
-        await (context["rebuild"]() if shape else context["saved"]())
+    async def hide(event: Any) -> None:
+        await _write(context, context["library"].set_table_hidden, context["game_id"],
+                     table_id, bool(event.value))
 
-    def default_row() -> None:
-        """The state, and the one act that changes it.
-
-        Not a switch: the fact has three states - the default because somebody chose
-        it, the default because nothing did, and not the default - so a two-state
-        control has to say something else, and says "Default table for game" while the
-        grid says "User". The chip is the finding and the button is the act, which is
-        the panel's own convention.
-        """
-        said = game_tables.default_state(table.get("default_kind") or "")
-        with ui.element("div").classes("console-fact-edit"):
-            if is_default and said:
-                # No color: green in this panel means installed, present, extracted -
-                # facts whose absence costs you a working table. A game has a default
-                # either way, so the word carries it and the palette keeps its meaning.
-                ui.label(said[0]).classes("console-tier console-tier--off").tooltip(said[1])
-            if not is_default:
-                ui.button(t("word.make_default"), icon=verbs.MAKE_DEFAULT,
-                          on_click=lambda: act(library.set_default_table, game_id,
-                                               table_id,
-                                               done=t(
-                                                   "console.workbench.now_game_s_default"))) \
-                    .props("flat dense no-caps size=sm") \
-                    .classes("console-action console-action--inline")
-            elif (table.get("default_kind") or "") == game_tables.DERIVED:
-                # The way to stop it moving. Nothing else in the UI could pin the table
-                # a game had already landed on, so an automatic default stayed at the
-                # mercy of the next table installed.
-                ui.button(t("console.workbench.choose"), icon=verbs.CHOOSE,
-                          on_click=lambda: act(library.set_default_table, game_id,
-                                               table_id, done=t("word.chosen"))) \
-                    .props("flat dense no-caps size=sm") \
-                    .classes("console-action console-action--inline")
-            else:
-                ui.button(t("word.clear_choice"), icon=verbs.CLEAR,
-                          on_click=lambda: act(
-                              library.set_default_table, game_id, "",
-                              done=t("console.workbench.back_automatic_default"))) \
-                    .props("flat dense no-caps size=sm") \
-                    .classes("console-action console-action--inline")
-
-    def hidden_row() -> None:
-        # On is hidden, the same direction the column and the funnel read it. It used to
-        # be "Frontend visible" and inverted the value on its way to the API, so the two
-        # surfaces asked opposite questions about one flag.
-        _switch(hidden,
-                lambda event: act(library.set_table_hidden, game_id, table_id,
-                                  bool(event.value), shape=False),
-                hint=t("console.workbench.keep_table_frontend"))
-
-    return [(game_tables.DEFAULT_LABEL, default_row), (t("word.hidden"),
-            hidden_row)]
+    # On is hidden, the direction the grid column and its filter read the same flag.
+    return (t("word.hidden"),
+            lambda: _switch(bool(table.get("hidden")), hide,
+                            hint=t("console.workbench.keep_table_frontend")))
 
 
 def _switch(value: bool, on_change: Callable[[Any], Any], *,
@@ -3588,6 +3526,7 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                             .props("flat dense round size=sm color=warning") \
                             .tooltip(t("console.workbench.forget"))
                     if not since:
+                        _lock_button(context, table, several=len(tables) > 1)
                         _release_button(context, table)
                         _launch_button(context, table)
             _release_line(table, held)
@@ -3901,6 +3840,50 @@ def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
     mark.classes(add="cursor-pointer")
     mark.tooltip(t("console.workbench.make_default"))
     mark.on("click", lambda t=table: _make_default(context, t))
+
+
+def lock_act(table: dict[str, Any], *, several: bool) -> tuple[str, str] | None:
+    """The drawing and tooltip of the act that locks this default or unlocks it, or
+    None where there is none."""
+    if not table.get("default"):
+        return None
+    if (table.get("default_kind") or "") == game_tables.CHOSEN:
+        return verbs.UNLOCK, t("console.workbench.unlock_picks_newest")
+    return (verbs.LOCK, t("console.workbench.lock_table")) if several else None
+
+
+def _lock_button(context: dict[str, Any], table: dict[str, Any], *,
+                 several: bool) -> None:
+    act = lock_act(table, several=several)
+    if act is None:
+        return
+    icon, hint = act
+    ui.button(icon=icon, on_click=lambda: _lock_default(context, table,
+                                                        lock=icon == verbs.LOCK)) \
+        .props("flat dense round size=sm").tooltip(hint)
+
+
+async def _lock_default(context: dict[str, Any], table: dict[str, Any], *,
+                        lock: bool) -> None:
+    """Record this table as the game's choice, or clear the choice and say where the
+    default went."""
+    try:
+        after = await run.io_bound(context["library"].set_default_table, context["game_id"],
+                                   str(table.get("id") or "") if lock else "")
+    except Exception as exc:
+        ui.notify(t("console.workbench.could_not_change", exc=(exc)), type="negative")
+        return
+    if lock:
+        said = t("console.workbench.locked_to", table=game_tables.table_name(table))
+    else:
+        now: dict[str, Any] = next((row for row in (after or {}).get("tables") or []
+                                    if row.get("default")), {})
+        said = t("console.workbench.unlocked_now_plays",
+                 game=str(context["game"].get("name") or ""),
+                 table=game_tables.table_name(now)) \
+            if now and now.get("id") != table.get("id") else t("console.workbench.unlocked")
+    ui.notify(said, type="positive")
+    await context["rebuild"]()
 
 
 async def _make_default(context: dict[str, Any], table: dict[str, Any]) -> None:
