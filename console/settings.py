@@ -617,8 +617,8 @@ FEATURE_LABELS = {
 # What switching one on gets you. The name says which feature; this says what the install
 # then does, which is the half a person switching it on is actually choosing between.
 FEATURE_NOTES = {
-    install_identity.LIBRARY: "console.settings.feature.curate_game_library_machine",
-    install_identity.FRONTEND: "console.settings.feature.launch_games_machine",
+    install_identity.LIBRARY: "console.settings.feature.curate_game_library",
+    install_identity.FRONTEND: "console.settings.feature.launch_games",
     install_identity.DEVICES: "console.settings.feature.manage_other_vpinfe_installs",
     install_identity.OVERVIEW: "console.settings.feature.add_front_page_summarising"
 }

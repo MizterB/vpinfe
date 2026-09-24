@@ -377,7 +377,7 @@ Experimental online metadata sync:
 - **API Endpoint**: VPinPlay service base URL
 - **User ID**
 - **Initials**: uppercased in the UI and limited to 3 characters
-- **Machine ID**: auto-generated if missing and read-only in the UI
+- **Device ID**: auto-generated if missing and read-only in the UI
 - **Sync on Exit**: sends installed table metadata during shutdown when all required values are present
 
 The page also provides:

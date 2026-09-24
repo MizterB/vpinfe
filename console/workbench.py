@@ -1987,7 +1987,7 @@ def game_match_gap(vps_id: str, declared: bool, held: bool) -> tuple[str, str, s
     if not held:
         return ("word.unknown", "unknown", "console.workbench.vps_not_downloaded")
     return ("console.workbench.not_in_vps", "warn",
-            "console.workbench.vps_lists_no_such_machine")
+            "console.workbench.vps_lists_no_such_game")
 
 
 def release_match_gap(entry: str, bound: str, held: bool) -> tuple[str, str, str]:
@@ -3000,7 +3000,7 @@ def _attention(table: dict[str, Any]) -> list[tuple[Any, Any]]:
         if game_tables.is_referenced(table):
             faults.append(t("console.workbench.place_table_lives_not"))
         elif game_tables.is_keyed(table):
-            faults.append(t("console.workbench.nothing_machine_can_play"))
+            faults.append(t("console.workbench.nothing_device_can_play"))
         else:
             faults.append(t("console.workbench.file_not_disk"))
     if pinmame.get("effective") and pinmame.get("installed") is False:
@@ -3617,7 +3617,7 @@ def _release_line(table: dict[str, Any], held: bool = True) -> None:
     if not told and not held:
         return
     with ui.row().classes("items-center gap-2 w-full no-wrap console-member-table-line"):
-        ui.label(told or t("console.workbench.build_spreadsheet_no_longer")) \
+        ui.label(told or t("console.workbench.table_spreadsheet_no_longer")) \
             .classes("console-help truncate")
 
 
@@ -3714,7 +3714,7 @@ async def _pick_a_record(context: dict[str, Any], listed_as: str, label: str,
         ui.label(path).classes("console-help px-3")
         with ui.column().classes("w-full gap-0 console-source-list console-pick-list px-3"):
             if not records:
-                ui.label(t("console.workbench.vps_lists_no_machine", lower=(label.lower()))) \
+                ui.label(t("console.workbench.vps_lists_none_for_game", lower=(label.lower()))) \
                     .classes("console-help")
             for item in records:
                 _record_row(item, box, bound)
@@ -3781,7 +3781,7 @@ async def _pick_a_release(context: dict[str, Any], table: dict[str, Any]) -> Non
             _yours(table)
         with ui.column().classes("w-full gap-0 console-source-list console-pick-list px-3"):
             if not releases:
-                ui.label(t("console.workbench.vps_lists_no_builds") if held
+                ui.label(t("console.workbench.vps_lists_no_tables") if held
                          else t("console.workbench.vps_not_downloaded")) \
                     .classes("console-help")
             for item in releases:
@@ -4150,7 +4150,7 @@ def _run(clear: Callable, key: str) -> Any:
 # Said once over the group rather than on every row. The program rewrites both layers
 # when a table exits and its own in-game menu writes the same keys, so an edit made now
 # is one of two writers and the last one wins.
-PLAYING_NOTE = "console.workbench.table_playing_machine_read"
+PLAYING_NOTE = "console.workbench.table_playing_device_read"
 
 
 def _playing(library: Library) -> bool:
@@ -4339,7 +4339,7 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
 
     if not _program_is_there(context):
         entries.append(panel.note(
-            t("console.workbench.not_machine_own_settings", value=(launcher['app_name']))))
+            t("console.workbench.not_on_device_own_settings", value=(launcher['app_name']))))
     entries.append((HEADING, t("console.workbench.how_runs")))
     for field in launcher.get("fields") or []:
         entries.append((field["label"],

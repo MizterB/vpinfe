@@ -287,7 +287,7 @@ def _hostname_placeholder(device: dict[str, Any], is_local: bool) -> str:
     if not is_local:
         return str(device.get("display_name") or "")
     return str(device.get("display_name") or "") \
-        .strip() or t("console.devices.machine_s_hostname")
+        .strip() or t("console.devices.device_s_hostname")
 
 
 
@@ -592,7 +592,7 @@ async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 # Why a device's settings are somewhere else. Said where somebody is looking for them,
 # because "not here" without a reason reads as something missing.
-SETTINGS_NOTE = "console.devices.machine_s_settings_belong"
+SETTINGS_NOTE = "console.devices.device_s_settings_belong"
 
 # What is wrong when the door will not open. Both halves matter: one is a machine to go
 # and switch on, the other is an entry with nothing to dial.

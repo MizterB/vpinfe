@@ -42,7 +42,7 @@ class BuiltinViewTests(unittest.TestCase):
     def test_a_view_is_named_for_the_group_it_matches(self) -> None:
         """The views read the constants rather than repeating them; this says which are
         load-bearing, so renaming one fails here first."""
-        self.assertIn(game_tables.MACHINE, games.GAME_VIEWS)
+        self.assertIn(game_tables.GAME, games.GAME_VIEWS)
         for group in (game_tables.FILE, game_tables.LAUNCH, game_tables.FEATURES):
             self.assertIn(group, games.TABLE_VIEWS)
 

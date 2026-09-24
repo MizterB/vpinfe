@@ -87,7 +87,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `rar_path` | string |  | Path to unar or unrar. Blank auto-detects one on this machine. |
+| `rar_path` | string |  | Path to unar or unrar. Blank auto-detects one on this device. |
 
 ### `assets`
 
@@ -120,10 +120,10 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `paging_group` | choice (sort, count) | `sort` | Page by |
 | `paging_size` | int | `10` | Paging Size |
-| `startup_collection` | string |  | The collection the cabinet shows first. Empty shows all games. |
+| `startup_collection` | string |  | The collection the frontend shows first. Empty shows all games. |
 | `restore_last_table` | bool | `true` | Restore Last Table |
 | `splashscreen` | bool | `false` | Enable Splash Screen |
-| `confirm` | bool | `false` | Ask before quitting VPinFE or powering off the machine. Closing the frontend never asks. |
+| `confirm` | bool | `false` | Ask before quitting VPinFE or powering off this device. Closing the frontend never asks. |
 | `hide_quit_button` | bool | `false` | Hide Quit from the Main Menu |
 | `mute_audio` | bool | `false` | Mute Frontend Audio |
 
@@ -162,7 +162,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `id` | string |  | Written by VPinFE on first start. Installs are told apart by this, so changing it makes this a different install. |
-| `display_name` | string |  | What to call this device where one is listed. Defaults to this machine's hostname. Nothing is addressed by it, so renaming is safe. |
+| `display_name` | string |  | What to call this device where one is listed. Defaults to its hostname. Nothing is addressed by it, so renaming is safe. |
 | `features` | list | `library,frontend,devices` | What this install is for. Each one you add appears in the Console. Leave it empty and System is still here to come back and set it. |
 | `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Takes effect after a restart. Your library's own words - table names and the rest - are never translated. |
 
@@ -197,12 +197,12 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `theme_assets_port` | int | `8000` | Theme Server Port |
-| `theme_assets_bind` | string | `127.0.0.1` | Which address to serve theme packages and table media on. The default answers this machine only. Opening it wider shares read access to your table library. |
+| `theme_assets_bind` | string | `127.0.0.1` | Which address to serve theme packages and table media on. The default answers this device only. Opening it wider shares read access to your table library. |
 | `ws_port` | int | `8002` | Port the frontend windows and the theme talk to VPinFE over. Loopback only. |
 | `http_port` | int | `8001` | Port this install answers on: the HTTP API, the Console, and the remote and mobile pages |
 | `library_url` | string |  | Which install this one reads its library from. Empty means it holds its own. Installs on your network are offered; type an address for one that is not. |
 | `verify_shared_library` | bool | `false` | On startup, check that the library this install reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |
-| `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to reach it only from this machine. |
+| `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to reach it only from this device. |
 
 ### `dof`
 

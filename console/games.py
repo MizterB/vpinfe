@@ -121,7 +121,7 @@ _TICK = {
 COLUMNS = [
     grid.identifier("name", t(_GAME), 280, pinned="left", group=t(_GAME),
                 subtitle="said",
-                help=t("console.games.machine_library_names_one.help"),
+                help=t("console.games.game_library_names.help"),
                 **row_drag.source(row_drag.GAMES)),
     # Always, including 1: it is the only thing saying the row collapses its tables,
     # and it qualifies everything to its right. "Table Count" rather
@@ -134,12 +134,12 @@ COLUMNS = [
     grid.column("year", t("word.year"), group=t(_GAME),
                 help=t("help.year_released")),
     grid.column("game_type", t("console.games.type"), group=t(_GAME),
-                help=t("console.games.what_kind_machine_solid.help")),
+                help=t("console.games.solid_state_electro_mechanical.help")),
     # Qualified for the reason Game Rating is: an install has a *frontend* theme and will
     # have a Console one, so "Themes" in a column header is three things one screen apart.
     # The panel says "Themes" plainly, because a group headed Machine has said which.
     grid.list_column("themes", t("console.games.game_themes"), 200, group=t(_GAME),
-                     help=t("console.games.what_machine_about_subject.help")),
+                     help=t("console.games.what_game_about.help")),
     # The word only where it is missing, and a blank cell everywhere else: most of a
     # library is matched, so a mark on every row says nothing and the few that are not
     # are the whole point of the column. It sits beside the catalog facts because it
@@ -158,7 +158,7 @@ COLUMNS = [
     # Named for whose rating it is, because the tables grid has one too and "Rating"
     # in two places invites the reader to assume they are the same number.
     grid.column("rating", t("console.games.game_rating"), group=t(_GAME),
-                help=t("console.games.rating_machine_0_5.help"),
+                help=t("console.games.rating_game_0_5.help"),
                 cellClass="console-stars-cell",
                 **{**grid.choice_filter(_RATING_CHOICES),
                    ":cellRenderer": stars.renderer("game")}),
@@ -188,10 +188,10 @@ GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     # Named for the workbench group it matches: a view and a panel
     # group about the same facts carry the same word, so crossing between the grid and
     # the panel is not a translation.
-    game_tables.MACHINE: views.Preset(
+    game_tables.GAME: views.Preset(
         columns=("name", "table_count", "manufacturer", "year", "game_type",
                  "themes", "vps_unmatched", "rating", "tags", "collections"),
-        help=t("console.view.machine.help")),
+        help=t("console.view.game.help")),
     # Media and Assets are built from what the library reports it has, so both are
     # filled at render time. Two views, not one: they answer different questions - what
     # a game looks like, and what it needs to play as intended - and a matrix that mixes
@@ -756,10 +756,10 @@ _NEWER = "newer"
 TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
-                help=t("console.games.machine_build_several_rows.help"),
+                help=t("console.games.game_this_table.help"),
                 **row_drag.source(row_drag.TABLES)),
     grid.column("version", t("word.version"), group=t(_TABLE),
-                help=t("console.games.build_s_own_version.help")),
+                help=t("console.games.table_s_version.help")),
     grid.column("on_vps", t("console.games.on_vps"), group=t(_TABLE),
                 help=t("console.games.on_vps.help")),
     grid.column("update", t("console.games.update"), 140, group=t(_TABLE),
@@ -770,7 +770,7 @@ TABLE_COLUMNS = [
     grid.column("author", t("word.author"), 160, group=t(_TABLE),
                 help=t("console.games.built_table_several_names.help")),
     grid.column("rom", t("console.games.rom"), 110, group=t(_TABLE),
-                help=t("console.games.pinmame_rom_build_actually.help")),
+                help=t("console.games.pinmame_rom_table_resolves.help")),
     grid.column("launcher", t("console.games.launcher"), group=t(_TABLE),
                 help=t("console.games.launcher_plays_file_dot.help")),
     # One column per fact rather than one word folding three together. "Status" cannot
@@ -780,13 +780,13 @@ TABLE_COLUMNS = [
     # for. A summary column can be built later, deliberately, from these.
     # Not a tick: a chosen default and a derived one are different facts.
     grid.column("default_state", game_tables.DEFAULT_LABEL, group=t(_IN_PLAY),
-                help=t("console.games.build_frontend_offers_can.help"),
+                help=t("console.games.table_frontend_offers.help"),
                 **grid.choice_filter(
                     [{"value": word, "label": word}
                      for word, _why in game_tables.DEFAULT_WORDS.values()]
                     + [{"value": "", "label": t("console.games.not_default")}])),
     grid.column("rating", t("console.games.table_rating"), group=t(_TABLE),
-                help=t("console.games.rating_build_0_5.help"),
+                help=t("console.games.rating_table_0_5.help"),
                 cellClass="console-stars-cell",
                 **{**grid.choice_filter(_RATING_CHOICES),
                    ":cellRenderer": stars.renderer("table")}),

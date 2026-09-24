@@ -90,7 +90,7 @@ def targets(devices: list[dict[str, Any]], local_device_id: str) -> list[dict[st
 
 
 def target_name(device: dict[str, Any]) -> str:
-    return str(device.get("display_name") or "").strip() or t("console.remote.machine")
+    return str(device.get("display_name") or "").strip() or t("console.remote.this_device")
 
 
 def last_played(games: list[dict[str, Any]]) -> dict[str, Any]:

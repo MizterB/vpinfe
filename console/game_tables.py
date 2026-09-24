@@ -18,7 +18,7 @@ JOIN = " · "
 # Shown, but also stored: `grid.layout_scope` keys saved column geometry on
 # "scope::view", so this name is in ui-preferences.json on every install that has
 # arranged the grid. It stays an identifier and `_view_name` resolves it.
-MACHINE = t("console.view.machine")
+GAME = t("console.view.game")
 # "Table File", not "File": a panel that also shows a table ini, a script and a rom
 # left a reader asking which file. Named alongside `Default Table` below.
 FILE = t("console.game_tables.table_file")

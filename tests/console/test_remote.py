@@ -69,9 +69,9 @@ class TargetTests(unittest.TestCase):
 
         self.assertEqual(where, "http://10.0.0.9:8080")
 
-    def test_a_machine_that_named_itself_nothing_still_has_a_name(self) -> None:
+    def test_a_device_that_named_itself_nothing_still_has_a_name(self) -> None:
         """A picker row with no words in it cannot be chosen between."""
-        self.assertEqual(remote.target_name(_device("a")), "This machine")
+        self.assertEqual(remote.target_name(_device("a")), "This device")
         self.assertEqual(remote.target_name(_device("a", display_name="Cab")), "Cab")
 
 

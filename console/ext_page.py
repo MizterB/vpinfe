@@ -225,5 +225,5 @@ def _reach(extension: dict) -> None:
         if reaches:
             entries.append((t("console.ext_page.library"), ", ".join(reaches)))
         if uses:
-            entries.append((t("console.ext_page.machine"), ", ".join(uses)))
+            entries.append((t("console.ext_page.this_device"), ", ".join(uses)))
         panel.facts(ui, entries)
