@@ -33,6 +33,7 @@ _FIELDS = (
     # is now one of System's three and not the only one with pages inside it.
     ("page", lambda state: state.get("settings_page") or ""),
     ("collection", lambda state: state.get("collection") or ""),
+    ("launcher", lambda state: state.get("launcher") or ""),
 )
 
 # Only where they mean something. A slot on the devices page is noise in an address
@@ -45,7 +46,8 @@ _FIELDS = (
 # is one game's slot - so leaving it out would drop the whole selection in silence.
 _PANEL = ("games", "tables", "media", "assets")
 _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
-            "page": ("settings",), "collection": ("collections", "games")}
+            "page": ("settings",), "collection": ("collections", "games"),
+            "launcher": ("launchers",)}
 
 
 # What the address calls a panel with nothing open.
@@ -109,3 +111,5 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
         state["settings_page"] = clean("page")
     if str(params.get("collection") or "").strip():
         state["collection"] = str(params["collection"]).strip()
+    if str(params.get("launcher") or "").strip():
+        state["launcher"] = str(params["launcher"]).strip()

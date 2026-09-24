@@ -391,7 +391,7 @@ def _drop_target(library: Library, state: dict, drop: Any) -> tuple[str, str, st
 @ui.page("/console", title=t("console.page.vpinfe_console"), reconnect_timeout=300)
 async def console_page(view: str = "", game: str = "", table: str = "", section: str = "",
                    slot: str = "", page: str = "", mode: str = "",
-                   collection: str = "") -> None:
+                   collection: str = "", launcher: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # The palette and Quasar's dark mode are two separate switches. The toggle button
     # that used to own the second one is gone, so it is set here - without it the shell
@@ -454,7 +454,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # the front door followed by a jump.
     deeplink.apply(state, {"view": view, "game": game, "table": table,
                            "section": section, "slot": slot, "page": page,
-                           "collection": collection},
+                           "collection": collection, "launcher": launcher},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
 
@@ -933,6 +933,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         state["launcher"] = (row or {}).get("id")
         await workbench.build_launcher(panel, workbench_title, library,
                                        state["launcher"], state)
+        deeplink.sync(state)
 
     async def show_location(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about - the same rule
@@ -1251,6 +1252,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                             if state["view"] == "tables" else {"id": landing})
     elif state["view"] == "collections" and state.get("collection"):
         await show_collection({"id": state["collection"]})
+    elif state["view"] == "launchers" and state.get("launcher"):
+        await show_launcher({"id": state["launcher"]})
     elif state["view"] == "devices":
         # Arriving at Devices lands on this device with its rail open, so reaching a
         # setting is the two clicks it was when Settings was a place of its own. It is
@@ -1313,6 +1316,7 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["game"] = ""
         state["table"] = ""
         state["collection"] = None
+        state["launcher"] = None
     state["view"] = view
     remembered.put("section", view)
 

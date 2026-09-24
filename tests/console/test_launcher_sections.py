@@ -10,10 +10,11 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
+from urllib.parse import parse_qs
 
 from common import path_checks
 from common.i18n import t
-from console import settings, workbench
+from console import deeplink, page, settings, workbench
 
 
 def _launcher(state: str, *, has_config: bool = True) -> dict:
@@ -127,6 +128,36 @@ class BlankValueTests(unittest.TestCase):
                  "default": "", "blank": "From the screen"}
 
         self.assertEqual(self._placeholder(dict(field)), "From the screen")
+
+
+class AddressTests(unittest.TestCase):
+    """A reload lands on the launcher that was open, not on the empty panel."""
+
+    def test_the_open_launcher_is_in_the_address(self) -> None:
+        address = parse_qs(deeplink.query({"view": "launchers", "launcher": "second-vpx"}))
+
+        self.assertEqual(address["launcher"], ["second-vpx"])
+
+    def test_it_is_read_back_from_one(self) -> None:
+        state: dict = {"view": "launchers"}
+
+        deeplink.apply(state, {"view": "launchers", "launcher": "second-vpx"},
+                       views=["launchers"], sections=[])
+
+        self.assertEqual(state["launcher"], "second-vpx")
+
+    def test_it_is_noise_anywhere_else(self) -> None:
+        address = parse_qs(deeplink.query({"view": "games", "launcher": "second-vpx"}))
+
+        self.assertNotIn("launcher", address)
+
+    def test_leaving_the_page_lets_go_of_it(self) -> None:
+        state = {"view": "launchers", "launcher": "second-vpx", "game": "", "table": ""}
+
+        with patch.object(page.remembered, "put"):
+            page.leave_for(state, "games")
+
+        self.assertFalse(state["launcher"])
 
 
 if __name__ == "__main__":
