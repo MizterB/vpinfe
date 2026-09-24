@@ -153,6 +153,8 @@
   "config.updates.ask_where_new_games_go.description": "On, an import that could go to more than one place asks which. Off, it goes to the place marked for new games. Never asked when there is only one.",
   "config.updates.ask_where_new_games_go.label": "Ask Where a New Game Goes",
   "config.updates.auto_update_media.label": "Update Media on Startup",
+  "config.updates.match_new_games.description": "When VPinFE finds a new game, match it to the spreadsheet from its folder name",
+  "config.updates.match_new_games.label": "Match New Games",
   "config.updates.refresh_minutes.description": "How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share.",
   "config.updates.refresh_minutes.label": "Re-read the Library Every",
   "config.vpsdb.download.description": "How often to fetch the spreadsheet. Matching and release lists read this copy.",

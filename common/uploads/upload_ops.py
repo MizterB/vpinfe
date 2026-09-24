@@ -374,9 +374,34 @@ def execute(upload_id: str, request: dict[str, Any],
         raise service_errors.RefusedError(str(exc)) from exc
 
     report = _run(plan, source_path, identities, upload_id)
-    if vps_entry is not None and report.get("new_game"):
-        _associate(report, vps_entry)
+    if report.get("new_game"):
+        if vps_entry is not None:
+            _associate(report, vps_entry)
+        else:
+            _guess(report)
     return report
+
+
+def _guess(report: dict) -> None:
+    """Match a new game nobody picked an entry for, from its folder name. Offline, and
+    never fatal: the files are on disk whatever this finds."""
+    import logging
+
+    from common.games import auto_match
+    from common.games.game import Game
+    from common.games.game_metadata import load_game_meta
+    from common.games.game_repository import refresh_game
+
+    game_dir = Path(report["game_dir"])
+    game = Game(game_dir_name=game_dir.name, full_path_game=str(game_dir))
+    try:
+        game.meta_config = load_game_meta(game)
+        report["vps_matched"] = auto_match.match_new([game])["matched"] > 0
+        refresh_game(game_dir)
+    except Exception:
+        logging.getLogger("vpinfe.common.uploads.upload_ops").exception(
+            "Matching the new game failed after import")
+        report["vps_matched"] = False
 
 
 def _associate(report: dict, vps_entry: dict) -> None:

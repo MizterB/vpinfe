@@ -255,12 +255,14 @@ shutdown.exit_if_requested(logger)
 
 # Give every game and every table a stable id. One-time cost per library; a no-op
 # afterwards, and neither pass writes a .info it did not change.
+unseen: list = []
 try:
-    from common.games.game_identity import ensure_unique_ids
+    from common.games.game_identity import ensure_unique_ids, game_id
     from common.games.game_repository import all_games
     from common.games.library_discovery import discover
     from common.games.table_identity import ensure_unique_table_ids
     games = all_games()
+    unseen = [game for game in games if not game_id(game)]
     ensure_unique_ids(games)
     # Before the minting pass, not after: discovery adds an entry for every .vpx the
     # folder holds, and minting is what turns those into addressable tables.
@@ -281,8 +283,9 @@ except Exception:
 # meta_config rather than mutating the dict a reader may be holding.
 try:
     from common import jobs
-    from common.games.library_enrichment import enrich
-    jobs.submit(jobs.KIND_LIBRARY_SCAN, lambda job: enrich(games, job.reporter()))
+    from common.games.library_refresh import read_at_startup
+    jobs.submit(jobs.KIND_LIBRARY_SCAN,
+                lambda job: read_at_startup(games, unseen, job.reporter()))
 except Exception:
     logger.exception("Could not start library enrichment; unread tables stay unread")
 

@@ -5,9 +5,10 @@ from __future__ import annotations
 import configparser
 import json
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common.games import game_service, metadata_service
+from common.games import auto_match, game_service, library_refresh, metadata_service
 from common.games.game_metadata import (
     MATCHED_BY_USER,
     MATCHED_ON_IMPORT,
@@ -15,6 +16,7 @@ from common.games.game_metadata import (
     vps_matched_by,
 )
 from common.online.vpsdb import VPSdb
+from common.uploads import upload_ops
 from tests.support.library import TempTree, fake_game, game_info, write_game
 
 FOLDER = "Fathom (Bally 1981)"
@@ -162,6 +164,128 @@ class AssociateTests(TempTree):
 
         self.assertEqual(vps_matched_by(saved), MATCHED_BY_USER)
         self.assertEqual(saved["vpinfe"]["alt_vpsid"], "")
+
+
+def _offline(case: TempTree, catalog: list[dict]) -> None:
+    """The catalog on disk, and every way to the network refused."""
+    held = case.root / "vpsdb.json"
+    held.write_text(json.dumps(catalog), encoding="utf-8")
+    for patcher in (patch.object(game_service, "VPSDB_JSON_PATH", held),
+                    patch.object(game_service, "_vpsdb_cache", None),
+                    patch.object(VPSdb, "__init__", side_effect=AssertionError("VPSdb")),
+                    patch("socket.socket.connect", side_effect=OSError("offline"))):
+        patcher.start()
+        case.addCleanup(patcher.stop)
+
+
+def _read(folder: Path) -> dict:
+    return json.loads((folder / f"{folder.name}.info").read_text(encoding="utf-8"))
+
+
+NEW = "Fathom (Bally 1981)"
+UNKNOWN = "Nothing Like It (Nobody 1901)"
+SEEN = "Fathom Deluxe (Bally 1983)"
+DECLARED = "Fathom (Bally 1981) (homebrew)"
+
+
+class FirstSightTests(TempTree):
+    """Look for new tables over three new folders and one already seen."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        _offline(self, [_entry("fathom", "Fathom"),
+                        _entry("chosen", "Fathom Deluxe", year=1983)])
+        self.tables = {"tbl0000001": {"id": "tbl0000001", "filename": f"{NEW}.vpx"}}
+        self.folders = {
+            NEW: write_game(self.root, NEW, info=game_info(
+                vps_id="", tables=self.tables, vpinfe={"alt_title": "My Fathom"})),
+            UNKNOWN: write_game(self.root, UNKNOWN),
+            SEEN: write_game(self.root, SEEN, info=game_info(vps_id="", game_id="seen1")),
+            DECLARED: write_game(self.root, DECLARED, info=game_info(
+                vps_id="", vpinfe={"alt_vpsid": None})),
+        }
+        for patcher in (patch.object(library_refresh, "discover", return_value={"found": 0}),
+                        patch.object(library_refresh, "enrich", return_value={"read": 0}),
+                        patch("common.games.watching.note_games")):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def refresh(self) -> dict:
+        games = [fake_game(folder, name, meta=_read(folder)
+                           if (folder / f"{name}.info").exists() else {})
+                 for name, folder in self.folders.items()]
+        with patch("common.games.game_repository.all_games", return_value=games):
+            return library_refresh.refresh()
+
+    def test_a_new_game_is_matched_from_its_folder_name(self) -> None:
+        self.refresh()
+
+        saved = _read(self.folders[NEW])
+        self.assertEqual(saved["Info"]["VPSId"], "fathom")
+        self.assertEqual(vps_matched_by(saved), "")
+
+    def test_only_the_match_is_written(self) -> None:
+        self.refresh()
+
+        saved = _read(self.folders[NEW])
+        self.assertEqual({key: entry["filename"] for key, entry in saved["tables"].items()},
+                         {"tbl0000001": f"{NEW}.vpx"})
+        self.assertEqual(saved["vpinfe"]["alt_title"], "My Fathom")
+        self.assertTrue(saved["vpinfe"]["game_id"])
+
+    def test_a_game_already_seen_is_not_guessed(self) -> None:
+        self.refresh()
+
+        self.assertEqual(_read(self.folders[SEEN])["Info"]["VPSId"], "")
+
+    def test_a_declared_no_match_is_left_alone(self) -> None:
+        self.refresh()
+
+        saved = _read(self.folders[DECLARED])
+        self.assertIsNone(saved["vpinfe"]["alt_vpsid"])
+        self.assertEqual(saved["Info"]["VPSId"], "")
+
+    def test_the_result_counts_the_new_games(self) -> None:
+        result = self.refresh()
+
+        self.assertEqual((result["new_games"], result["new_matched"],
+                          result["new_unmatched"]), (3, 1, 1))
+
+    def test_switched_off_nothing_is_matched(self) -> None:
+        config = configparser.ConfigParser()
+        config["updates"] = {"match_new_games": "false"}
+        with patch.object(auto_match, "get_ini_config", return_value=config):
+            result = self.refresh()
+
+        self.assertEqual(_read(self.folders[NEW])["Info"]["VPSId"], "")
+        self.assertEqual((result["new_matched"], result["new_unmatched"]), (0, 2))
+
+
+class ImportWithoutPickTests(TempTree):
+    def imported(self, name: str) -> tuple[dict, Path]:
+        _offline(self, [_entry("fathom", "Fathom")])
+        folder = write_game(self.root, name)
+        plan = MagicMock(new_game_dir_name=name)
+        with patch.object(upload_ops, "_analysis_for", return_value=(None, self.root)), \
+                patch.object(upload_ops, "_built_plan", return_value=plan), \
+                patch.object(upload_ops, "select_plan_items", return_value=plan), \
+                patch.object(upload_ops, "_run", return_value={
+                    "new_game": True, "game_dir": str(folder)}), \
+                patch("common.games.game_repository.refresh_game"):
+            report = upload_ops.execute("upload1", {})
+        return report, folder
+
+    def test_the_new_game_is_matched_from_its_folder_name(self) -> None:
+        report, folder = self.imported(NEW)
+
+        self.assertTrue(report["vps_matched"])
+        self.assertEqual(_read(folder)["Info"]["VPSId"], "fathom")
+
+    def test_the_report_says_when_it_needs_a_match(self) -> None:
+        report, folder = self.imported(UNKNOWN)
+
+        self.assertFalse(report["vps_matched"])
+        self.assertFalse((folder / f"{UNKNOWN}.info").exists())
 
 
 if __name__ == "__main__":

@@ -26,35 +26,55 @@ _ticker: threading.Thread | None = None
 
 def refresh(reporter: JobReporter | None = None) -> dict:
     """Reconcile the library, and read whatever that turns up."""
+    from common.games import auto_match, game_identity, watching
     from common.games.game_repository import all_games
 
     if reporter:
-        reporter.progress(0, 3, "Reading the library")
+        reporter.progress(0, 4, "Reading the library")
     games = all_games(reload=True)
+    # Taken straight after the read: any request that reaches the catalog gives these
+    # an id, and then nothing can tell they are new.
+    unseen = [game for game in games if not game_identity.game_id(game)]
 
     if reporter:
-        reporter.progress(1, 3, "Reconciling tables")
+        reporter.progress(1, 4, "Reconciling tables")
     found = discover(games)
     # Between the halves, not after: this is what makes a discovered entry addressable.
     ensure_unique_table_ids(games)
 
     if reporter:
-        reporter.progress(2, 3, "Reading new tables")
+        reporter.progress(2, 4, "Matching new games")
+    matched = auto_match.match_new(unseen)
+
+    if reporter:
+        reporter.progress(3, 4, "Reading new tables")
     read = enrich(games, reporter)
 
     # Stamped here because this is the pass that knows a game is new. A game added
     # next year must not arrive holding a year of upstream activity it was not around
     # for - and a read path that stamped would make asking the question change it.
-    from common.games import game_identity, watching
     watching.note_games(game_identity.ensure_unique_ids(games))
 
     result = {"games": len(games), **{f"discovered_{k}": v for k, v in found.items()},
-              **{f"enriched_{k}": v for k, v in read.items()}}
+              **{f"enriched_{k}": v for k, v in read.items()},
+              **{f"new_{k}": v for k, v in matched.items()}}
     if reporter:
-        reporter.progress(3, 3, "Done")
-    logger.info("Library refresh: %s games, %s tables found, %s read",
-                len(games), found["found"], read["read"])
+        reporter.progress(4, 4, "Done")
+    logger.info("Library refresh: %s games, %s tables found, %s read, %s of %s new "
+                "games matched", len(games), found["found"], read["read"],
+                matched["matched"], matched["games"])
     return result
+
+
+def read_at_startup(games: list, unseen: list, reporter: JobReporter | None = None) -> dict:
+    """Startup's half of a refresh, after its ids: match the games it found new, then
+    read what nothing has read."""
+    from common.games import auto_match
+
+    matched = auto_match.match_new(unseen)
+    read = enrich(games, reporter)
+    return {**{f"enriched_{k}": v for k, v in read.items()},
+            **{f"new_{k}": v for k, v in matched.items()}}
 
 
 def start_periodic(minutes: int) -> None:

@@ -150,6 +150,8 @@
   "config.updates.ask_where_new_games_go.description": "bfe5fad8a23e",
   "config.updates.ask_where_new_games_go.label": "b6eb21a57c39",
   "config.updates.auto_update_media.label": "eb0fb64a05d1",
+  "config.updates.match_new_games.description": "785d7362b7a5",
+  "config.updates.match_new_games.label": "9e421f9f5009",
   "config.updates.refresh_minutes.description": "0556c0860579",
   "config.updates.refresh_minutes.label": "d74ead0083dd",
   "config.vpsdb.download.description": "997c9ad05f00",

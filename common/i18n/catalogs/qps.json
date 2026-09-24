@@ -153,6 +153,8 @@
   "config.updates.ask_where_new_games_go.description": "Öñ, àñ îɱþöřţ ţĥàţ çöûŀđ ĝö ţö ɱöřè ţĥàñ öñè þŀàçè àšķš ŵĥîçĥ. Öƒƒ, îţ ĝöèš ţö ţĥè þŀàçè ɱàřķèđ ƒöř ñèŵ ĝàɱèš. Ñèṽèř àšķèđ ŵĥèñ ţĥèřè îš öñŀý öñè.",
   "config.updates.ask_where_new_games_go.label": "Àšķ Ŵĥèřè à Ñèŵ Ĝàɱè Ĝöèš",
   "config.updates.auto_update_media.label": "Ûþđàţè Ḿèđîà öñ Šţàřţûþ",
+  "config.updates.match_new_games.description": "Ŵĥèñ ṼÞîñƑÈ ƒîñđš à ñèŵ ĝàɱè, ɱàţçĥ îţ ţö ţĥè šþřèàđšĥèèţ ƒřöɱ îţš ƒöŀđèř ñàɱè",
+  "config.updates.match_new_games.label": "Ḿàţçĥ Ñèŵ Ĝàɱèš",
   "config.updates.refresh_minutes.description": "Ĥöŵ öƒţèñ ţö řè-řèàđ ţĥè ŀîƀřàřý ƒřöɱ đîšķ. Îţ þîçķš ûþ ɱèđîà àñđ àššèţš, ñöţ ĵûšţ ţàƀŀèš. À řèàđ ŵàŀķš èṽèřý ĝàɱè ƒöŀđèř, šö îţ îš šŀöŵ öṽèř à ñèţŵöřķ šĥàřè.",
   "config.updates.refresh_minutes.label": "Řè-řèàđ ţĥè Ŀîƀřàřý Èṽèřý",
   "config.vpsdb.download.description": "Ĥöŵ öƒţèñ ţö ƒèţçĥ ţĥè šþřèàđšĥèèţ. Ḿàţçĥîñĝ àñđ řèŀèàšè ŀîšţš řèàđ ţĥîš çöþý.",

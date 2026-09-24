@@ -18,6 +18,56 @@ from common.paths import CONFIG_DIR
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb")
 
+_FOLDER_NAME = re.compile(r"^(.+?) \(([^()]+) (\d{4})\)(?:\s.*)?$")
+
+
+def parse_folder_name(directory_name: str) -> dict[str, Any] | None:
+    """Name, manufacturer and year from `Name (Manufacturer Year)`, ignoring anything
+    after that block: `Attack From Mars (Bally 1995) (v2)`."""
+    match = _FOLDER_NAME.match(directory_name)
+    if not match:
+        return None
+    return {"name": match.group(1), "manufacturer": match.group(2),
+            "year": int(match.group(3))}
+
+
+def lookup(catalog: list[dict] | None, name: str, manufacturer: str,
+           year: object) -> dict | None:
+    """The entry closest to a name, manufacturer and year, or None past every gate.
+
+    Each of the three has to be at least 0.8 alike; of the entries that pass, the
+    highest sum wins, and a tie goes to the first in the catalog.
+    """
+    if not all((name, manufacturer, year)):
+        return None
+
+    best: dict | None = None
+    top = 0.0
+    for game in catalog or []:
+        named = SequenceMatcher(None, name.lower(),
+                                str(game.get("name") or "").lower()).ratio()
+        if named < 0.8:
+            continue
+        made = SequenceMatcher(None, manufacturer.lower(),
+                               str(game.get("manufacturer") or "").lower()).ratio()
+        if made < 0.8:
+            continue
+        dated = SequenceMatcher(None, str(year), str(game.get("year") or "")).ratio()
+        if dated < 0.8:
+            continue
+        if named + made + dated > top:
+            best, top = game, named + made + dated
+
+    if best is None:
+        logger.debug("No match found for: %s", name)
+    return best
+
+
+def guess(catalog: list[dict] | None, folder_name: str) -> dict | None:
+    """The entry a folder's name points at, or None."""
+    parsed = parse_folder_name(folder_name)
+    return lookup(catalog, **parsed) if parsed else None
+
 
 class VPSdb:
     """
@@ -103,49 +153,10 @@ class VPSdb:
     # ----------------------------------------------------------------------
     # Game lookups
     def lookup_name(self, name: str, manufacturer: str, year: object) -> dict | None:
-        """The entry closest to a name, manufacturer and year, or None past every gate.
-
-        Each of the three has to be at least 0.8 alike; of the entries that pass, the
-        highest sum wins, and a tie goes to the first in the catalog.
-        """
-        if not all((name, manufacturer, year)):
-            return None
-
-        best: dict | None = None
-        top = 0.0
-        for game in self.data or []:
-            named = SequenceMatcher(None, name.lower(), game["name"].lower()).ratio()
-            if named < 0.8:
-                continue
-            made = SequenceMatcher(
-                None, manufacturer.lower(), game["manufacturer"].lower()).ratio()
-            if made < 0.8:
-                continue
-            dated = SequenceMatcher(None, str(year), str(game["year"])).ratio()
-            if dated < 0.8:
-                continue
-            if named + made + dated > top:
-                best, top = game, named + made + dated
-
-        if best is None:
-            logger.debug("No match found for: %s", name)
-        return best
+        return lookup(self.data, name, manufacturer, year)
 
     def parse_game_name_from_dir(self, directory_name: str) -> dict[str, Any] | None:
-        """
-        Parses a directory name of format: 'Name (Manufacturer Year)'
-        and ignores any suffix text after that block.
-        Example: 'Attack From Mars (Bally 1995) (v2)'
-        """
-        pattern = r"^(.+?) \(([^()]+) (\d{4})\)(?:\s.*)?$"
-        match = re.match(pattern, directory_name)
-        if not match:
-            return None
-        return {
-            "name": match.group(1),
-            "manufacturer": match.group(2),
-            "year": int(match.group(3))
-        }
+        return parse_folder_name(directory_name)
 
     # ----------------------------------------------------------------------
     # Remote content handling

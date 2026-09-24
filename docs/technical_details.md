@@ -101,6 +101,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `refresh_minutes` | int | `0` | How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
 | `auto_update_media` | bool | `false` | Update Media on Startup |
+| `match_new_games` | bool | `true` | When VPinFE finds a new game, match it to the spreadsheet from its folder name |
 | `ask_where_new_games_go` | bool | `true` | On, an import that could go to more than one place asks which. Off, it goes to the place marked for new games. Never asked when there is only one. |
 
 ### `presentation`

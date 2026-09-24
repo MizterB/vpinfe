@@ -446,6 +446,12 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             legacy=(("general", "autoupdatemediaonstartup"),),
         ),
         ConfigOption(
+            "match_new_games",
+            type="bool",
+            default="true",
+            legacy=(),
+        ),
+        ConfigOption(
             "ask_where_new_games_go",
             type="bool",
             default="true",
