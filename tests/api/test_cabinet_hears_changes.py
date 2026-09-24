@@ -1,0 +1,108 @@
+"""A change made anywhere but the cabinet reaches the cabinet.
+
+The whole path, against a real library: a write over HTTP, the announcement, the
+broadcast to the windows, and the list they read next.
+"""
+
+from __future__ import annotations
+
+import configparser
+from types import SimpleNamespace
+from unittest import mock
+
+from starlette.testclient import TestClient
+
+import httpapi
+from common import events
+from common.games import game_repository
+from common.games.game_parser import GameParser
+from common.games.locations import KIND_ROOT, Location
+from frontend import play_events
+from frontend.api import API
+from frontend.library_resolver import LibraryResolver
+from tests.support.library import TempTree, write_game
+
+GAME_ID = "Hear00000001"
+FOLDER = "Cactus Canyon (Bally 1998)"
+DESKTOP = f"{FOLDER}.vpx"
+VR = f"{FOLDER} - VR.vpx"
+
+INFO = {
+    "Info": {"Name": "Cactus Canyon", "Manufacturer": "Bally", "Year": "1998"},
+    "vpinfe": {"schema": 2, "game_id": GAME_ID},
+    "tables": {
+        "tbl0000001": {"id": "tbl0000001", "filename": DESKTOP},
+        "tbl0000002": {"id": "tbl0000002", "filename": VR},
+    },
+}
+
+
+class _Bridge:
+    """The cabinet's side of the socket: the windows it holds, and what it sent them."""
+
+    def __init__(self) -> None:
+        self._api_instances: dict[str, API] = {}
+        self.sent: list[str] = []
+
+    def send_event_all_with_iframe(self, message: dict) -> None:
+        self.sent.append(message["type"])
+
+
+def _ini() -> SimpleNamespace:
+    return SimpleNamespace(config=configparser.ConfigParser(), save=lambda: None)
+
+
+class CabinetHearsChangesTests(TempTree):
+    def setUp(self) -> None:
+        super().setUp()
+        write_game(self.root, FOLDER, info=INFO, vpx=False,
+                   files={DESKTOP: b"vpx", VR: b"vpx"})
+        config = configparser.ConfigParser()
+        config.read_dict({"Settings": {"gamerootdir": str(self.root)}, "Media": {}})
+        parser = GameParser(str(self.root), config)
+
+        held = mock.patch.object(
+            game_repository.locations, "configured",
+            return_value=[Location(location_id="test", path=str(self.root))])
+        held.start()
+        self.addCleanup(held.stop)
+        previous = dict(game_repository._PARSERS)
+        game_repository._PARSERS.clear()
+        game_repository._PARSERS[(str(self.root), KIND_ROOT)] = parser
+        self.addCleanup(game_repository._PARSERS.update, previous)
+        self.addCleanup(game_repository._PARSERS.clear)
+
+        events.clear()
+        play_events.reset_for_tests()
+        self.addCleanup(events.clear)
+        self.addCleanup(play_events.reset_for_tests)
+
+        self.bridge = _Bridge()
+        ini = _ini()
+        self.window = API(ini, window_name="playfield", library=LibraryResolver(ini))
+        self.bridge._api_instances["playfield"] = self.window
+        with mock.patch.object(play_events, "save_last_launched"):
+            play_events.register(self.bridge, None, None)
+
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def _offered(self) -> set[str]:
+        """The tables the wheel steps through, read the way a theme reads them."""
+        self.window.get_tables()
+        return {entry.table_id for entry in self.window.entries}
+
+    def _settle(self) -> None:
+        timer = play_events._change_timer
+        if timer is not None:
+            timer.join(timeout=5)
+
+    def test_a_table_hidden_over_http_leaves_the_wheel_without_a_reset(self) -> None:
+        self.assertEqual(self._offered(), {"tbl0000001"})
+
+        response = self.client.put(f"/games/{GAME_ID}/tables/tbl0000001/hidden",
+                                   json={"hidden": True})
+        self.assertEqual(response.status_code, 200, response.text)
+        self._settle()
+
+        self.assertIn("TableDataChange", self.bridge.sent)
+        self.assertEqual(self._offered(), {"tbl0000002"})

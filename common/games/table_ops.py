@@ -24,7 +24,7 @@ from common.games.game_metadata import (
     set_table_tags,
     vpinfe_section,
 )
-from common.games.game_repository import game_to_row
+from common.games.game_repository import game_to_row, reread_game
 from common.games.ids import new_id
 from common.games.info_file import MetaConfig
 from common.games.tables import ABSENT_SINCE_KEY, entry_filename, table_entries
@@ -75,7 +75,7 @@ def set_hidden(game_id: str, table_id: str, hidden: bool) -> dict:
     game = game_lens.game_or_refuse(game_id)
     filename = filename_or_refuse(game, table_id)
     MetaConfig(str(meta_file_path(game))).set_table_hidden(filename, bool(hidden))
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
@@ -136,7 +136,7 @@ def set_rating(game_id: str, table_id: str, rating: Any) -> dict:
     """A table's own rating, which refines the game's rather than replacing it."""
     game = game_lens.game_or_refuse(game_id)
     set_table_rating(game, filename_or_refuse(game, table_id), rating)
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
@@ -149,21 +149,25 @@ def set_source(game_id: str, table_id: str, vps_file_id: str) -> dict:
     """
     game = game_lens.game_or_refuse(game_id)
     set_table_source(game, filename_or_refuse(game, table_id), vps_file_id)
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
 def set_tags(game_id: str, table_id: str, tags: Any) -> dict:
     game = game_lens.game_or_refuse(game_id)
     derived_tags.refuse_added(game, tags := list(tags))
-    return {"tags": set_table_tags(game, filename_or_refuse(game, table_id), tags)}
+    stored = set_table_tags(game, filename_or_refuse(game, table_id), tags)
+    reread_game(game)
+    return {"tags": stored}
 
 
 def reset_play_record(game_id: str, table_id: str) -> dict:
     """One table's counters. The game's total is not touched: they are two records of two
     things, and a game played on one build has still been played."""
     game = game_lens.game_or_refuse(game_id)
-    return reset_table_play_record(game, filename_or_refuse(game, table_id))
+    record = reset_table_play_record(game, filename_or_refuse(game, table_id))
+    reread_game(game)
+    return record
 
 
 def set_default(game_id: str, table_id: str) -> dict:
@@ -180,7 +184,7 @@ def set_default(game_id: str, table_id: str) -> dict:
     except ValueError as exc:
         raise service_errors.RefusedError(str(exc),
                                           details={"table": table_id}) from exc
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return {"tables": table_lens.table_rows(game, game_to_row(game))}
 
 
@@ -241,7 +245,7 @@ def import_file(game_id: str, path: str) -> dict:
         raise service_errors.BlockedError(
             t("error.games.could_not_bring", exc=(exc))) from exc
 
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
@@ -273,7 +277,7 @@ def add_keyed(game_id: str, app_id: str, key: str) -> dict:
     if not MetaConfig(str(meta_file_path(game))).add_keyed_table(app_id, key, table_id):
         raise service_errors.BlockedError(t("error.games.game_already_one"),
                                           details={"app": app_id, "key": key})
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
@@ -308,7 +312,7 @@ def add_referenced(game_id: str, path: str) -> dict:
     if not MetaConfig(str(meta_file_path(game))).add_referenced_table(stored, table_id):
         raise service_errors.BlockedError(t("error.games.game_already_points_file"),
                                           details={"path": stored})
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
@@ -350,7 +354,7 @@ def contain(game_id: str, table_id: str) -> dict:
         landing.unlink(missing_ok=True)
         raise service_errors.BlockedError(t("error.games.could_not_record"),
                                           details={"table": table_id})
-    game.meta_config = load_game_meta(game)
+    game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
@@ -379,6 +383,5 @@ def forget(game_id: str, table_id: str) -> dict:
             details={"table": table_id, "filename": entry.get("filename", "")})
     else:
         meta.forget_table(table_id)
-    # The scan's copy still describes the table that just went.
-    game.meta_config = load_game_meta(game)
+    reread_game(game)
     return {"forgotten": table_id}

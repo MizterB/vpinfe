@@ -36,6 +36,7 @@ from common.games.game_metadata import (
     set_game_tags,
     vps_details_differ,
 )
+from common.games.game_repository import reread_game
 from common.i18n import t
 
 # Which keys this level will accept, and what each is called on disk. Declared rather than
@@ -113,7 +114,10 @@ def set_details(game_id: str, values: dict) -> dict:
 
 def set_rating(game_id: str, rating: Any) -> dict:
     """Set `User.Rating` on a game, 0-5."""
-    return {"rating": set_game_rating(game_lens.game_or_refuse(game_id), rating)}
+    game = game_lens.game_or_refuse(game_id)
+    stored = set_game_rating(game, rating)
+    reread_game(game)
+    return {"rating": stored}
 
 
 def set_tags(game_id: str, tags: Iterable[str]) -> dict:
@@ -121,7 +125,9 @@ def set_tags(game_id: str, tags: Iterable[str]) -> dict:
     spellings stay two tags until somebody merges them."""
     game = game_lens.game_or_refuse(game_id)
     derived_tags.refuse_added(game, tags := list(tags))
-    return {"tags": set_game_tags(game, tags)}
+    stored = set_game_tags(game, tags)
+    reread_game(game)
+    return {"tags": stored}
 
 
 def set_guides(game_id: str, wanted: list[dict[str, Any]]) -> dict:
@@ -134,6 +140,7 @@ def set_guides(game_id: str, wanted: list[dict[str, Any]]) -> dict:
     config = load_game_meta(game)
     config[GUIDES_KEY] = curate_guides(config.get(GUIDES_KEY) or [], wanted)
     persist_game_meta(game, config)
+    reread_game(game)
     return {"guides": guides_on_wire(config, hidden=True)}
 
 
@@ -174,7 +181,10 @@ def curate_guides(held: list[Any], wanted: list[dict[str, Any]]) -> list[dict[st
 
 def set_favorite(game_id: str, favorite: bool) -> dict:
     """Set `User.Favorite` on a game."""
-    return {"favorite": set_game_favorite(game_lens.game_or_refuse(game_id), favorite)}
+    game = game_lens.game_or_refuse(game_id)
+    stored = set_game_favorite(game, favorite)
+    reread_game(game)
+    return {"favorite": stored}
 
 
 def set_play_record(game_id: str, play_count: int | None = None,
@@ -186,16 +196,21 @@ def set_play_record(game_id: str, play_count: int | None = None,
     and dropping them makes a collection that sorts by either of those wrong on arrival.
     A field left out is left alone.
     """
-    return set_game_play_record(game_lens.game_or_refuse(game_id),
-                                play_count=play_count,
-                                run_time_seconds=play_time_seconds,
-                                last_played=last_played)
+    game = game_lens.game_or_refuse(game_id)
+    record = set_game_play_record(game, play_count=play_count,
+                                  run_time_seconds=play_time_seconds,
+                                  last_played=last_played)
+    reread_game(game)
+    return record
 
 
 def reset_play_record(game_id: str) -> dict:
     """Put the counters back to nothing, leaving rating, favorite and tags alone.
     Setting a count to a number is the migration case, and is `set_play_record`."""
-    return reset_game_play_record(game_lens.game_or_refuse(game_id))
+    game = game_lens.game_or_refuse(game_id)
+    record = reset_game_play_record(game)
+    reread_game(game)
+    return record
 
 
 def set_overrides(game_id: str, changes: dict) -> dict:
@@ -239,9 +254,11 @@ def set_file_source(game_id: str, path: str, vps_file_id: str) -> dict:
     """
     game = game_lens.game_or_refuse(game_id)
     try:
-        return set_asset_source(game, path, vps_file_id)
+        bound = set_asset_source(game, path, vps_file_id)
     except ValueError as exc:
         raise service_errors.RefusedError(str(exc)) from exc
+    reread_game(game)
+    return bound
 
 
 def vps_details(game_id: str) -> dict:
@@ -268,6 +285,7 @@ def adopt_details(game_id: str, fields: Iterable[str] | None = None) -> dict:
         raise service_errors.NotFoundError(t("error.games.game_matched_no_vps"),
                                            details={"game_id": game_id})
     adopt_vps_details(game, entry, fields)
+    reread_game(game)
     return vps_details(game_id)
 
 

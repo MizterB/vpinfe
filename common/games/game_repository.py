@@ -30,6 +30,7 @@ from common.games.game_metadata import (
     game_discovered,
     game_override,
     guides_on_wire,
+    load_game_meta,
     normalize_rating,
     play_record,
     reorder_leading_article,
@@ -212,6 +213,19 @@ def refresh_game(game_dir: Path) -> list[Any]:
     # comes through this to be re-read, so a new one cannot forget to say so.
     events.emit(events.GAME_CHANGED, game=found[0] if found else None, path=normalized)
     return found
+
+
+def reread_game(game: Any) -> Any:
+    """One game as it now stands on disk, after something wrote its record.
+
+    When the library holds no folder for it, the object passed in comes back with its
+    record reloaded.
+    """
+    found = refresh_game(Path(str(game.full_path_game or "")))
+    if found:
+        return found[0]
+    game.meta_config = load_game_meta(game)
+    return game
 
 
 def get_missing_games(reload: bool = False) -> list[dict[str, str]]:

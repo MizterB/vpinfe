@@ -55,9 +55,9 @@ def _mark_views_stale() -> None:
     if _bridge is None:
         return
     for api in list(getattr(_bridge, "_api_instances", {}).values()):
-        view = getattr(api, "view", None)
-        if view is not None:
-            view.mark_stale()
+        library = getattr(api, "library", None)
+        if library is not None:
+            library.mark_stale()
 
 
 def _broadcast(message: dict) -> None:
