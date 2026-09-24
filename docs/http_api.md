@@ -53,7 +53,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/collections` | Create one. `filters` makes it filter-based, `games` makes it manual. `copy_of` starts it as a copy of that collection - its games, criteria, exclusions, order, limit, description and image, under the new name - and is refused beside `filters`, `games` or `description` |
 | DELETE | `/api/v1/collections/{name}` | Delete it |
 | PATCH | `/api/v1/collections/{name}` | Change one. Only what you send is written — a rename need not restate the rest |
-| PATCH | `/api/v1/collections` | Rearrange them. `{"order": [...]}` names every collection once, in the order the cabinet shows them, and the answer is the list in that order. A name missing, repeated or unknown is refused and nothing is written |
+| PATCH | `/api/v1/collections` | Rearrange them. `{"order": [...]}` names every collection once, in the order the frontend shows them, and the answer is the list in that order. A name missing, repeated or unknown is refused and nothing is written |
 | GET | `/api/v1/collections/{name}/members` | Its **stored** membership, and why each entry is there. `ref_table` is the table a row *names* (empty when it names none) — its identity, and not the table it resolves to |
 | POST | `/api/v1/collections/{name}/members/preview` | The stored membership as it would be with other criteria in place of the collection's own, storing nothing. `{"filters": {…}}`; leaving `filters` out tries it with none. `matched` is how many games those criteria match in the library |
 | PUT | `/api/v1/collections/{name}/games/{id}` | Add a game (idempotent). `{"table": "…"}` names one of its tables; `{"after_table": "…"}` puts the new row beside that sibling instead of at the end |

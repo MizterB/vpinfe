@@ -379,10 +379,20 @@ what they have. Ours used to say the opposite of VPS on both nouns, which meant 
 reading both had to invert twice.
 
 - **Game** — the pinball-machine concept: folder, identity, metadata, media, assets.
-  VPS's top-level entry. One game, one folder.
+  VPS's top-level entry. One game, one folder. On screen it is also the word for the
+  pinball machine itself; *machine* is not a word the screens use.
 - **Table** — a launchable artifact for a specific launcher (`.vpx` today). VPS's
   `tableFiles`: a game has several, by different authors, at different versions. A game
   is not permanently one table.
+- **Release** - anything an author publishes through VPS for a game: a table, and equally
+  a backglass, wheel art, a ROM, a POV, a PuP pack or a media pack. Several authors can each
+  release their own of any kind for one game, and a mod or an edition is a release of its
+  own. What VPinFE and a theme publish is a release in the same sense.
+- **Version** - an update to a release by the same authors. VPS keeps the release's `id`
+  across versions, even a major rework, and records only the current one. A table on screen
+  is your file of a table release at one version.
+- **Build** - a build of a program: VPinFE's own ("This build", "a newer build") or an
+  app's, and the verb. Never a table.
 - **Playfield** — the main screen, and the media shown on it. Not "table": the playfield is
   a facet of a game, and `table` now means the file.
 - **Media** — artwork VPinFE shows *about* a game while you browse: playfield, backglass,
@@ -437,9 +447,21 @@ until then the chain reports `required: null`.
   against the `frontend` it opens and the `system` it runs on. The install is still there
   when VPinFE is not. Never "app" for this: that word belongs to the thing that plays a
   table, and one word cannot be both.
+- **Frontend** - the software a player picks a table and plays in: ours, or another one an
+  import reads from. On screen it is the word for anything shown, offered or opened there
+  (*In Frontend*, *The frontend opens on this collection*), and the Console area that sets
+  it up is named for it. A collection's `in_frontend` is the same word on the wire.
+- **Cabinet** - the physical cabinet only: Cabinet Mode, how a screen is mounted in it, a
+  theme made for a cabinet rather than a desktop, and VPX's own labels. Never the frontend
+  that runs on it.
 - **Theme** — a player-facing frontend package.
-- **Device** — something a game can be launched on and played. A VPinFE install is
-  one kind; a phone running VPX Mobile is another that never runs our code.
+- **Device** - a thing on the network: a VPinFE install, whatever it is switched on for, or
+  a phone running VPX Mobile, which never runs our code. Not "something that can play": an
+  install with only `library` on is a device and plays nothing, so a picker that targets
+  play filters on the `frontend` feature and keeps the word. On screen the computer VPinFE
+  runs on is *this device*.
+- **Computer** - a computer that is not a device: the one the browser is on, or the one an
+  import came from.
 - **Player** — a human who plays. Reserved for that and used for nothing else:
   it meant the machine until 2026-08-19, and every pinball machine ever built
   prints PLAYER 1 on its display.
