@@ -12,6 +12,7 @@ import inspect
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from functools import partial
 from typing import Any
 from urllib.parse import quote
 
@@ -349,7 +350,7 @@ def build(collections: list[dict[str, Any]], library: Any,
                              (t("console.collections.move_to_top"), "top")):
             order = moved(name, where)
             out.append(panel.Verb(
-                label, (lambda o=order: arrange(o, name)) if order else None,
+                label, partial(arrange, order, name) if order else None,
                 hint=sorted_said() if not order and arrangement["sorted"] else "",
                 in_panel=False))
         return out
