@@ -606,6 +606,7 @@ class Library:
         cache with it - a per-build read keyed on that table is now describing nothing."""
         result = self._client.forget_table(game_id, table_id)
         self.tables.pop(game_id, None)
+        self._table_rows = None
         self.forget_media(game_id)
         self._forget_game(game_id)
         return result

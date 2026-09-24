@@ -6,6 +6,7 @@ which media file wins, and borrowing them would overload a vocabulary that is co
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from common.i18n import t
@@ -127,9 +128,11 @@ def table_name(table: dict[str, Any]) -> str:
     # names it is what its program calls it, or the file it points at.
     if said:
         return said
-    reference = table.get("reference") or {}
+    # `reference` is a path string in a grid row and an object in the game's own read.
+    reference = table.get("reference")
+    path = str((reference.get("path") if isinstance(reference, dict) else reference) or "")
     return (str(table.get("filename") or "") or str(table.get("key") or "")
-            or str(reference.get("path") or ""))
+            or re.split(r"[\\/]", path)[-1])
 
 
 def names_a_file(table: dict[str, Any]) -> bool:

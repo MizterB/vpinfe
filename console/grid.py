@@ -6,6 +6,7 @@ sorted and what is filtered belong to a view; see console/views.py.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import logging
@@ -364,6 +365,39 @@ def focused_row(event: Any) -> str:
 def focused_column(event: Any) -> str:
     args = event.args
     return str((args.get("col") if isinstance(args, dict) else "") or "")
+
+
+_FOCUS_ROW = """new Promise((done) => {
+  const api = getElement(%d).api;
+  let tries = 0;
+  const look = () => {
+    const node = api && api.getRowNode(%s);
+    if (node && node.rowIndex !== null) {
+      api.ensureNodeVisible(node);
+      api.setFocusedCell(node.rowIndex, %s);
+      return done(true);
+    }
+    if (node || ++tries >= 40) return done(false);
+    setTimeout(look, 25);
+  };
+  look();
+})"""
+
+
+async def focus_row(table: Any, row_id: str, column: str) -> bool:
+    """Scroll to a row and focus it, which fires the grid's row focus as a click would.
+
+    Waits a second for a row a transaction has just added. False where the row never
+    arrives or a filter hides it, and the caller opens it some other way.
+    """
+    # An unawaited `run_grid_method` goes out from a task queued behind this one. Yield
+    # first, or the focus lands on a row index a pending transaction is about to shift.
+    await asyncio.sleep(0)
+    try:
+        return bool(await ui.run_javascript(
+            _FOCUS_ROW % (table.id, json.dumps(row_id), json.dumps(column)), timeout=2.0))
+    except Exception:  # noqa: BLE001 - False is the answer the caller acts on
+        return False
 
 
 def replace_rows(table: Any, held: list[dict[str, Any]], by_id: dict[str, Any],

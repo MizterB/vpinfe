@@ -620,6 +620,9 @@ body::before {
   border-radius: 6px;
   line-height: 1.25;
 }
+/* A row that has just been added, lit in the drop colour and let go. */
+@keyframes console-member-arrived { from { background-color: var(--drop-lit); } }
+.console-member-row--new { animation: console-member-arrived 2.4s ease-out; }
 /* The row the panel beside this is about. Weight, not colour: accent is the chosen one
    and the default mark already spends it on this list, so a second accent here would
    have two meanings in one row. */

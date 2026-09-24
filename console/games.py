@@ -1185,10 +1185,21 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         for entry in transaction.get("remove", ()):
             by_id.pop(entry["id"], None)
         by_id.update({row["id"]: row for row in fresh})
+        built[:] = [row for row in built if row.get("game_id") != game_id] + fresh
         if transaction:
             table.run_grid_method("applyTransaction", transaction)
 
+    async def open_table(table_id: str) -> None:
+        """Focus a table's row, which opens it in the panel; a row a filter hides is
+        opened without it."""
+        if table_id in by_id and await grid.focus_row(table, table_id, "game"):
+            return
+        opened = on_select(by_id.get(table_id))
+        if inspect.isawaitable(opened):
+            await opened
+
     state["refresh_game"] = refresh_game
+    state["open_table"] = open_table
 
     async def drop_script(row: dict[str, Any]) -> None:
         """Asked, because a patched table quietly becomes an unpatched one."""

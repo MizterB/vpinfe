@@ -88,6 +88,7 @@ FROM_FILE = "upload_file"
 FROM_FOLDER = "drive_folder_upload"
 FROM_HOST = "devices"
 FROM_ONLINE = "cloud_download"
+WITHOUT_FILE = "tag"
 ADD_ART = "add_photo_alternate"
 ADD_TO_LIST = "playlist_add"
 

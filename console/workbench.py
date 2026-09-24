@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -62,6 +63,7 @@ from console import (
     table_features,
     tag_chips,
     tageditor,
+    undo,
     verbs,
     vps_match,
     when,
@@ -511,6 +513,8 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
         context["rebuild"] = _rebuilds(
             context, f"{game_id}:{table_id}",
             lambda: build(container, title, library, game_id, state, table_id))
+        # The panel showing now, for a message that outlives the one that raised it.
+        state["panel_rebuild"] = context["rebuild"]
         await _rail(context, "table" if table_id else "game", state)
 
 
@@ -2491,10 +2495,10 @@ def _table_entries(table: dict[str, Any],
     reference = table.get("reference") or {}
     if game_tables.is_keyed(table):
         # Nothing read a file, so there is no version, author or hash to show and a
-        # row of dashes would say we looked. What it has is the name and whose it is.
+        # row of dashes would say we looked. What it has is the ID and whose it is.
         entries += [
             (HEADING, game_tables.KNOWN_AS),
-            (t("word.name"), table.get("key") or "-"),
+            (t("word.id"), table.get("key") or "-"),
             (t("word.program"), table.get("app_name") or "-"),
             panel.note(t("console.workbench.program_finds_name_rather")),
         ]
@@ -3294,11 +3298,13 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
     recognizes. The API refuses the request outright if the .vpx is back, so a stale
     panel cannot delete a table that returned while it was open.
     """
+    detail = ("console.workbench.forget_keyed" if game_tables.is_keyed(table)
+              else "console.workbench.forget_reference" if game_tables.is_referenced(table)
+              else "console.workbench.record_goes_no_file")
     if not await confirm.ask(
-            t("console.workbench.forget_table"),
-            detail=t("console.workbench.record_goes_no_file"),
-            lines=[table.get("filename") or t("console.workbench.table_2")],
-                    confirm=t("word.forget"), icon=verbs.FORGET):
+            t("console.workbench.forget_table"), detail=t(detail),
+            lines=[game_tables.table_name(table)],
+            confirm=t("word.forget"), icon=verbs.FORGET):
         return
     try:
         await run.io_bound(context["library"].forget_table,
@@ -3307,66 +3313,83 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
         ui.notify(t("console.workbench.could_not_forget", exc=(exc)), type="negative")
         return
     ui.notify(t("console.workbench.table_forgotten"), type="positive")
+    if table.get("id") and table.get("id") == context.get("lens"):
+        left = await offload.io(context["library"].tables_for, context["game_id"])
+        after = next((str(one.get("id") or "") for one in left if one.get("default")), "")
+        if await _open_in_tables(context, after):
+            return
     await _table_list_changed(context)
 
 
-async def _add_keyed_table(context: dict[str, Any]) -> None:
-    """Record something this game holds that has no file.
+# How long a table that has just been added is marked as new in its game's block.
+_ARRIVED_S = 5.0
 
-    A folder scan finds files, so this is the one thing it can never find - which is why
-    it is an action rather than something that appears on its own. What is asked for is
-    the name the program uses, because that is what it will be handed.
-    """
-    library = context["library"]
+
+def _add_table(context: dict[str, Any]) -> None:
+    """Open the ways a table joins this game, remembering what it held before so what
+    arrived can be told from what was there."""
+    held = {str(one.get("id") or "") for one in context["tables"]}
+    was = next((one for one in context["tables"] if one.get("default")), None)
+    mediasource.open_table_sources(context, partial(_table_added, context, held, was))
+
+
+async def _table_added(context: dict[str, Any], held: set[str],
+                       was: dict[str, Any] | None) -> None:
     try:
-        offered = [one for one in await offload.io(library.launch_apps)
-                   if one.get("accepts_keys")]
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_read_what", exc=(exc)), type="negative")
+        tables = await offload.io(context["library"].tables_for, context["game_id"])
+    except Exception:  # noqa: BLE001 - the redraw below reads it again and says why
+        tables = []
+    new = next((one for one in tables if str(one.get("id") or "") not in held), None)
+    if new is None:
+        await _table_list_changed(context)
         return
-    if not offered:
-        ui.notify(t("console.workbench.nothing_build_knows_plays"), type="warning")
-        return
-
-    chosen = {"app": str(offered[0].get("id") or "")}
-    held: dict[str, Any] = {}
-
-    def draw_name() -> None:
-        held["typed"] = frame.field(placeholder=t("console.workbench.name_program_uses"))
-
-    async def add() -> None:
-        said = str(held["typed"].value or "").strip()
-        if not said:
-            held["typed"].props["error"] = True
-            held["typed"].props["error-message"] = t("said.give_it_a_name")
-            return
-        box.close()
-        try:
-            await run.io_bound(library.add_keyed_table, context["game_id"],
-                               chosen["app"], said)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_add_it", exc=(exc)), type="negative")
-            return
-        ui.notify(t("console.workbench.added_2", said=(said)), type="positive")
+    context["state"]["arrived_table"] = (str(new.get("id") or ""), time.monotonic())
+    _say_added(context, new, was, tables)
+    if not await _open_in_tables(context, str(new.get("id") or "")):
         await _table_list_changed(context)
 
-    rows: list[tuple[Any, Any]] = []
-    # Only where there is a choice. A question with one answer is a click charged
-    # for nothing, and today one app plays something by name.
-    if len(offered) > 1:
-        rows.append((t("console.workbench.played_2"), panel.select(
-            {str(one["id"]): str(one.get("name") or one["id"]) for one in offered},
-            chosen["app"], lambda event: chosen.update(app=str(event.value or "")))))
-    rows.append((t("word.name"), draw_name))
-    with frame.opened(t("console.workbench.add_something_no_file")) as box:
-        ui.label(t("console.workbench.anything_own_program_finds")).classes("console-help px-3")
-        panel.facts(ui, rows)
-        with frame.footer():
-            frame.cancel(box.close)
-            go = frame.answer(t("word.add"), add, icon=verbs.ADD)
-    frame.focus(box, held["typed"])
-    frame.enter_presses(go)
-    box.open()
+
+def _say_added(context: dict[str, Any], new: dict[str, Any], was: dict[str, Any] | None,
+               tables: list[dict[str, Any]]) -> None:
+    """Name what arrived, and where the automatic default moved to it, offer the one it
+    moved from back, locked."""
+    name = game_tables.table_name(new)
+    plays = next((one for one in tables if one.get("default")), None)
+    if was is None or plays is None or plays.get("id") != new.get("id"):
+        ui.notify(t("console.game_tables.added", table=name), type="positive")
+        return
+    state, game_id, library = context["state"], context["game_id"], context["library"]
+    view = state.get("view")
+    kept = game_tables.table_name(was)
+
+    async def keep() -> None:
+        await offload.io(library.set_default_table, game_id, str(was.get("id") or ""))
+        redraw = state.get("panel_rebuild")
+        if state.get("game") == game_id and state.get("view") == view and callable(redraw):
+            await redraw()
+            return
+        refresh = state.get("refresh_game")
+        if callable(refresh):
+            await refresh(game_id)
+
+    undo.offer(t("console.game_tables.added_now_plays", table=name,
+                 game=str(context["game"].get("name") or "")), keep,
+               label=t("console.game_tables.keep", table=kept),
+               done=t("console.game_tables.locked_to", table=kept))
+
+
+async def _open_in_tables(context: dict[str, Any], table_id: str) -> bool:
+    """Under Tables, put the grid right and open `table_id` there, or nothing where it
+    is "". False under any other view, which a rebuild answers instead."""
+    state = context["state"]
+    opens = state.get("open_table")
+    if state.get("view") != "tables" or not callable(opens):
+        return False
+    refresh = state.get("refresh_game")
+    if callable(refresh):
+        await refresh(context["game_id"])
+    await opens(table_id)
+    return True
 
 
 async def _table_list_changed(context: dict[str, Any]) -> None:
@@ -3375,49 +3398,6 @@ async def _table_list_changed(context: dict[str, Any]) -> None:
     A name at the call site; `rebuild` does both.
     """
     await context["rebuild"]()
-
-
-async def _add_referenced_table(context: dict[str, Any]) -> None:
-    """Point this game at a table that is not in its folder.
-
-    Asked as a full path, and checked when it is given: a path that is wrong the moment
-    it is typed is a typo, and keeping it would leave a record that never worked reading
-    the same as a share that is simply away.
-    """
-    library = context["library"]
-    held: dict[str, Any] = {}
-
-    def draw_path() -> None:
-        # No suffix in the example: which ones are tables is the app registry's answer,
-        # and hard-coding one here would be this surface deciding it.
-        held["typed"] = panel.path_field(placeholder=t("console.workbench.path_table_file"),
-                                         wants="file", width="w-full")
-
-    async def keep() -> None:
-        said = str(held["typed"].value or "").strip()
-        if not said:
-            held["typed"].props["error"] = True
-            held["typed"].props["error-message"] = t("console.workbench.name_a_file")
-            return
-        box.close()
-        try:
-            await run.io_bound(library.add_referenced_table,
-                               context["game_id"], said)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_add_it", exc=(exc)), type="negative")
-            return
-        ui.notify(t("console.workbench.added"), type="positive")
-        await _table_list_changed(context)
-
-    with frame.opened(t("console.workbench.point_table_elsewhere")) as box:
-        ui.label(t("console.workbench.table_share_one_file")).classes("console-help px-3")
-        panel.facts(ui, [(t("word.file"), draw_path)])
-        with frame.footer():
-            frame.cancel(box.close)
-            go = frame.answer(t("word.add"), keep, icon=verbs.ADD)
-    frame.focus(box, held["typed"])
-    frame.enter_presses(go)
-    box.open()
 
 
 async def _contain_table(context: dict[str, Any], table: dict[str, Any]) -> None:
@@ -3466,11 +3446,16 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
         ui.label(said if tables else t("console.workbench.tables")) \
             .classes("console-card-title console-fact-heading grow")
     if not tables:
-        ui.label(t("console.workbench.nothing_yet")).classes("console-help")
+        ui.label(t("console.workbench.no_tables")).classes("console-help")
+    arrived, at = context["state"].get("arrived_table") or ("", 0.0)
+    if time.monotonic() - at > _ARRIVED_S:
+        arrived = ""
     for table in tables:
         since = str(table.get("absent_since") or "")
         here = str(table.get("id") or "") == showing
-        with ui.column().classes("gap-0 w-full console-member-row"):
+        with ui.column().classes("gap-0 w-full console-member-row") as row:
+            if arrived and table.get("id") == arrived:
+                row.classes(add="console-member-row--new")
             # Chips gathered before anything is drawn: they wrap under the name rather
             # than competing with it for the line, and an empty run must draw no row.
             chips: list[tuple[str, str, str]] = []
@@ -3548,11 +3533,8 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
     # Drawn even where the list is empty: a folder with nothing in it yet is exactly
     # where one of these is added.
     with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
-        panel.action(t("console.workbench.point_file"),
-                     lambda: _add_referenced_table(context), icon=verbs.BROWSE,
-                     hint=t("console.workbench.table_lives_somewhere_else"))()
-        panel.action(t("console.workbench.add_name"), lambda: _add_keyed_table(context),
-                     icon=verbs.ADD, hint=t("console.workbench.something_own_program_finds"))()
+        panel.action(t("console.workbench.add_table"), lambda: _add_table(context),
+                     icon=verbs.ADD)()
 
 
 def _release_line(table: dict[str, Any], held: bool = True) -> None:

@@ -2,9 +2,9 @@
 
 Three ways in, because there are three: the computer you are looking at this from, the
 machine VPinFE runs on, and the catalogs. A collection's picture has a fourth, the art its
-games already have. Anything already on a disk is one browser rather than a tab apiece -
-this game's folder, another game's, and a folder of downloads are the same act, and
-splitting them made three answers to one question.
+games already have, and a table has one with no file at all. Anything already on a disk
+is one browser rather than a tab apiece - this game's folder, another game's, and a folder
+of downloads are the same act, and splitting them made three answers to one question.
 
 A slot's file lands under the slot's name at the tier the lens is on, and whatever it
 displaced was named before it went.
@@ -35,6 +35,7 @@ from console import (
     art,
     candidates,
     confirm,
+    deeplink,
     game_tables,
     media_ownership,
     offload,
@@ -147,8 +148,10 @@ class _Sources:
     files there can fill it, and what happens to a file once it arrives.
     """
 
+    uploads = True
     online = False
     games = False
+    keyed = False
 
     def __init__(self, library: Any, label: str, done: Callable, current: str = "") -> None:
         self.library = library
@@ -199,6 +202,9 @@ class _Sources:
     async def games_tab(self, body: ui.column) -> None:
         return None
 
+    async def keyed_tab(self, body: ui.column) -> None:
+        return None
+
     def open(self) -> None:
         with frame.opened(self.title(), classes="console-sources-card") as box:
             self.dialog = box
@@ -210,7 +216,9 @@ class _Sources:
             # the machine VPinFE runs on, then the internet.
             host = _host_name(self.library)
             with ui.tabs().props("dense no-caps align=left").classes("w-full px-3") as tabs:
-                ui.tab("upload", label=t("console.mediasource.upload"), icon=verbs.FROM_FILE)
+                if self.uploads:
+                    ui.tab("upload", label=t("console.mediasource.upload"),
+                           icon=verbs.FROM_FILE)
                 if self.games:
                     ui.tab("games", label=t("console.mediasource.its_games"),
                            icon=icons.GAMES)
@@ -221,14 +229,20 @@ class _Sources:
                 if self.online:
                     ui.tab("online", label=t("console.mediasource.online"),
                            icon=verbs.FROM_ONLINE)
+                if self.keyed:
+                    ui.tab("keyed", label=t("console.mediasource.without_file"),
+                           icon=verbs.WITHOUT_FILE)
             online_body: ui.column | None = None
             games_body: ui.column | None = None
-            with ui.tab_panels(tabs, value="upload").classes("w-full console-sources-panels"):
-                with ui.tab_panel("upload"), \
-                        ui.column().classes("console-slot-blank console-source-zone "
-                                            "items-center gap-2"):
-                    ui.icon(verbs.FROM_FILE).classes("console-slot-blank-icon")
-                    self.zone(card)
+            keyed_body: ui.column | None = None
+            first = "upload" if self.uploads else "host"
+            with ui.tab_panels(tabs, value=first).classes("w-full console-sources-panels"):
+                if self.uploads:
+                    with ui.tab_panel("upload"), \
+                            ui.column().classes("console-slot-blank console-source-zone "
+                                                "items-center gap-2"):
+                        ui.icon(verbs.FROM_FILE).classes("console-slot-blank-icon")
+                        self.zone(card)
                 if self.games:
                     with ui.tab_panel("games"):
                         games_body = ui.column().classes("w-full gap-2 console-source-fill")
@@ -237,10 +251,14 @@ class _Sources:
                 if self.online:
                     with ui.tab_panel("online"):
                         online_body = ui.column().classes("w-full gap-2 console-source-fill")
+                if self.keyed:
+                    with ui.tab_panel("keyed"):
+                        keyed_body = ui.column().classes("w-full gap-2 console-source-fill")
             with frame.footer():
                 frame.cancel(box.close)
-        card.on("dragover", js_handler=_LIGHT)
-        card.on("dragleave", js_handler=_DIM)
+        if self.uploads:
+            card.on("dragover", js_handler=_LIGHT)
+            card.on("dragleave", js_handler=_DIM)
 
         box.open()
         self.opened(above)
@@ -260,8 +278,14 @@ class _Sources:
                 await self.online_tab(online_body)
             elif event.value == "games" and games_body is not None:
                 await self.games_tab(games_body)
+            elif event.value == "keyed" and keyed_body is not None:
+                await self.keyed_tab(keyed_body)
 
         tabs.on_value_change(load)
+        if first == "host":
+            loaded.add("host")
+            with box:
+                ui.timer(0, lambda: self.host_tab(host_body), once=True)
 
     async def finish(self, message: str) -> None:
         self.dialog.close()
@@ -812,6 +836,8 @@ class _Folder(_Sources):
         specs = specs_named(kind)
         self.extensions = {extension for spec in specs for extension in spec.extensions}
         self.glyph = specs[0].icon
+        # The kind an import is held to, or "" for whatever the drop brought.
+        self.narrows_to = kind
         self._busy = False
 
     def title(self) -> str:
@@ -871,7 +897,7 @@ class _Folder(_Sources):
                 await uploads.confirmed_import(
                     self.library, upload_id, analysis, source=source,
                     on_done=self._imported, game_id=self.game_id,
-                    game_dir=self.game_dir, asset_kind=self.kind)
+                    game_dir=self.game_dir, asset_kind=self.narrows_to)
         finally:
             self._busy = False
 
@@ -905,6 +931,199 @@ class _Notes(_Folder):
         panel.action(t("console.mediasource.choose_file"), heard, icon=verbs.FROM_FILE,
                      js="() => window.__consoleChoose(false, emit)")()
         card.on("drop", heard, js_handler=_MANY)
+
+
+class _Table(_Folder):
+    """A table for a game: taken from the device as a copy or where it is, or an ID its
+    launcher starts it from."""
+
+    uploads = False
+    keyed = True
+
+    def __init__(self, context: dict[str, Any], done: Callable) -> None:
+        super().__init__(context, "table", t("asset.kind.table.label"), done)
+        self.game_name = str(context["game"].get("name") or "")
+        self.narrows_to = ""
+        self.copies = True
+
+    def title(self) -> str:
+        return t("console.mediasource.add_table_to", name=self.game_name)
+
+    def starts(self) -> list[dict[str, Any]]:
+        return [root for root in self.library.browse_roots(self.game_id)
+                if root.get("source") != "game"]
+
+    def listing(self, path: str) -> dict[str, Any]:
+        return self.library.browse(path, self.kind)
+
+    def fits(self, item: dict[str, Any]) -> bool:
+        inside = self.game_dir and str(item.get("path") or "").startswith(
+            self.game_dir.rstrip("/") + "/")
+        return _suffix(item) in self.extensions and not inside
+
+    def folder_use(self, path: str) -> Callable | None:
+        return None
+
+    def file_row(self, item: dict[str, Any]) -> None:
+        candidates.row("", item["name"], _size(item.get("size_bytes")), "",
+                       lambda: self._chosen(item["path"]), family="", glyph=self.glyph,
+                       line=True)
+
+    async def host_tab(self, body: ui.column) -> None:
+        body.clear()
+        with body:
+            self._ways()
+            listed = ui.column().classes("w-full gap-2")
+            with ui.row().classes("items-start gap-2 w-full no-wrap"):
+                typed = panel.path_field(placeholder=t("console.workbench.path_table_file"),
+                                         wants="file", width="grow min-w-0")
+                panel.action(t("word.add"), lambda: self._typed(typed), icon=verbs.ADD)()
+            typed.on("keydown.enter", lambda: self._typed(typed))
+        await super().host_tab(listed)
+
+    def _ways(self) -> None:
+        """Copy or reference, as radios with their descriptions: the descriptions are
+        what the choice is made on."""
+        marks: dict[bool, Any] = {}
+
+        def pick(copies: bool) -> None:
+            self.copies = copies
+            for key, mark in marks.items():
+                mark.props(f'name={"radio_button_checked" if key == copies else
+                                    "radio_button_unchecked"}')
+                mark.classes(replace="console-placement-mark"
+                             + (" console-placement-mark--on" if key == copies else ""))
+
+        with ui.column().classes("w-full gap-0 console-destination"):
+            for copies, name, help_ in (
+                    (True, t("console.mediasource.copy_in"),
+                     t("console.mediasource.copy_in.help")),
+                    (False, t("console.mediasource.use_where"),
+                     t("console.mediasource.use_where.help"))):
+                row = ui.row().classes("items-start gap-2 w-full no-wrap console-placement")
+                with row:
+                    marks[copies] = ui.icon("radio_button_unchecked") \
+                        .classes("console-placement-mark")
+                    with ui.column().classes("gap-0 min-w-0 grow"):
+                        ui.label(name).classes("console-placement-name")
+                        ui.label(help_).classes("console-help")
+                row.on("click", lambda c=copies: pick(c))
+        pick(self.copies)
+
+    async def _typed(self, typed: Any) -> None:
+        said = str(typed.value or "").strip()
+        if said:
+            await self._chosen(said)
+
+    async def _chosen(self, path: str) -> None:
+        # Not through the import: it treats a table for a game that has one as an update,
+        # and deletes the file already there.
+        try:
+            made = await offload.io(self.library.add_referenced_table, self.game_id, path)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.could_not_add_it", exc=exc), type="negative")
+            return
+        if self.copies:
+            try:
+                await offload.io(self.library.contain_table, self.game_id,
+                                 str(made.get("id") or ""))
+            except Exception as exc:  # noqa: BLE001
+                await offload.io(self.library.forget_table, self.game_id,
+                                 str(made.get("id") or ""))
+                ui.notify(t("said.could_not_add_it", exc=exc), type="negative")
+                return
+        await self._imported()
+
+    async def keyed_tab(self, body: ui.column) -> None:
+        body.clear()
+        try:
+            found = await offload.io(self.library.launchers)
+            apps = await offload.io(self.library.launch_apps)
+        except Exception as exc:  # noqa: BLE001
+            with body:
+                ui.label(t("console.launchers.could_not_read_launchers", exc=exc)) \
+                    .classes("console-help")
+            return
+        takes_ids = {str(app.get("id") or "") for app in apps if app.get("accepts_keys")}
+        offered = [one for one in found.get("launchers") or []
+                   if str(one.get("app") or "") in takes_ids and one.get("enabled", True)]
+        defaults = dict(found.get("defaults") or {})
+        with body:
+            ui.label(t("console.mediasource.without_file.help")).classes("console-help")
+            if not offered:
+                ui.label(t("console.mediasource.no_launcher_takes_id")) \
+                    .classes("console-help")
+                with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
+                    panel.action(t("console.mediasource.add_launcher"),
+                                 lambda: self._add_launcher(sorted(takes_ids)),
+                                 icon=verbs.ADD)()
+                return
+            first = next((one for one in offered
+                          if defaults.get(one.get("app")) == one.get("launcher_id")),
+                         offered[0])
+            chosen = {"launcher": first}
+            by_id = {str(one["launcher_id"]): one for one in offered}
+            held: dict[str, Any] = {}
+
+            def draw_id() -> None:
+                held["typed"] = frame.field(placeholder=t("console.mediasource.id_example"))
+
+            rows: list[tuple[Any, Any]] = []
+            if len(offered) > 1:
+                rows.append((t("console.workbench.launcher_2"), panel.select(
+                    {key: str(one.get("display_name") or key) for key, one in by_id.items()},
+                    str(first["launcher_id"]),
+                    lambda event: chosen.update(launcher=by_id[str(event.value)]))))
+            rows.append((t("word.id"), draw_id))
+            panel.facts(ui, rows)
+
+            async def add() -> None:
+                said = str(held["typed"].value or "").strip()
+                if not said:
+                    held["typed"].props["error"] = True
+                    held["typed"].props["error-message"] = \
+                        t("console.mediasource.give_it_an_id")
+                    held["typed"].update()
+                    return
+                launcher = chosen["launcher"]
+                app = str(launcher.get("app") or "")
+                try:
+                    made = await offload.io(self.library.add_keyed_table, self.game_id,
+                                            app, said)
+                    if defaults.get(app) != launcher.get("launcher_id"):
+                        await offload.io(self.library.assign_launcher,
+                                         str(made.get("id") or ""),
+                                         str(launcher["launcher_id"]))
+                except Exception as exc:  # noqa: BLE001
+                    ui.notify(t("said.could_not_add_it", exc=exc), type="negative")
+                    return
+                await self._imported()
+
+            with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
+                panel.action(t("word.add"), add, icon=verbs.ADD)()
+            held["typed"].on("keydown.enter", add)
+
+    async def _add_launcher(self, apps: list[str]) -> None:
+        """A launcher for the program that takes an ID, opened on the Launchers page to
+        be named and pointed at its program."""
+        from common.games import launchers as model
+
+        wanted = "/console?" + deeplink.query({"view": "launchers"})
+        if len(apps) == 1:
+            made = model.mint_launcher_id()
+            name = next((str(one.get("name") or "") for one in
+                         await offload.io(self.library.launch_apps)
+                         if one.get("id") == apps[0]), apps[0])
+            try:
+                await offload.io(self.library.put_launcher, made,
+                                 {"app": apps[0], "display_name": name, "enabled": True,
+                                  "settings": {}})
+            except Exception as exc:  # noqa: BLE001
+                ui.notify(t("said.could_not_add_it", exc=exc), type="negative")
+                return
+            wanted = "/console?" + deeplink.query({"view": "launchers", "launcher": made})
+        self.dialog.close()
+        ui.navigate.to(wanted)
 
 
 class _Image(_OneFile):
@@ -1047,6 +1266,11 @@ def open_folder_sources(context: dict[str, Any], kind: str, label: str,
 
 def open_notes_sources(context: dict[str, Any], label: str, done: Callable) -> None:
     _Notes(context, label, done).open()
+
+
+def open_table_sources(context: dict[str, Any], done: Callable) -> None:
+    """The ways a table joins this game. `done` runs after any of them adds one."""
+    _Table(context, done).open()
 
 
 def open_image_sources(library: Any, name: str, label: str, done: Callable) -> None:

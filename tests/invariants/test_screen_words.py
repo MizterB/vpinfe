@@ -33,7 +33,6 @@ BUILD = {
     "console.sections.newer_build": "this VPinFE build",
     "console.sections.written_later_version_vpinfe": "this VPinFE build",
     "console.sections.written_older_build_can": "an older VPinFE build",
-    "console.workbench.nothing_build_knows_plays": "this VPinFE build",
     "error.games.no_app_called_build": "this VPinFE build",
     "error.games.nothing_build_knows_plays": "this VPinFE build",
     "error.launchers.no_app_called_build": "this VPinFE build",

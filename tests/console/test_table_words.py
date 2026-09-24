@@ -234,5 +234,29 @@ class HiddenGameColumnTests(unittest.TestCase):
         self.assertEqual([row["hidden"] for row in library.game_rows()], [True, False])
 
 
+class ReferenceNameTests(unittest.TestCase):
+    """A table played from somewhere else is named by its file, from either wire."""
+
+    PATH = "../Other Game (Maker 1990)/Other Game.vpx"
+
+    def test_the_game_s_own_read_names_the_file(self) -> None:
+        table = {"form": "referenced", "filename": "",
+                 "reference": {"path": self.PATH, "resolved": "/tables/x.vpx"}}
+
+        self.assertEqual(game_tables.table_name(table), "Other Game.vpx")
+
+    def test_the_grid_row_carries_the_path_as_a_string_and_still_draws(self) -> None:
+        (row,) = games.table_rows([{"id": "t1", "game_id": "g1", "game": "A",
+                                    "form": "referenced", "filename": "",
+                                    "reference": self.PATH}])
+
+        self.assertEqual(row["said_built"], "Other Game.vpx")
+
+    def test_a_windows_path_is_cut_at_its_own_separator(self) -> None:
+        table = {"reference": {"path": "D:\\Tables\\Other Game.vpx"}}
+
+        self.assertEqual(game_tables.table_name(table), "Other Game.vpx")
+
+
 if __name__ == "__main__":
     unittest.main()
