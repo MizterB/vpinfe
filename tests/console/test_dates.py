@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import configparser
+import os
+import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -76,6 +79,41 @@ class TimeFormat(unittest.TestCase):
         found = sorted(path.name for path in CONSOLE.glob("*.py")
                        if path.name != "when.py" and "i18n.date(" in path.read_text())
         self.assertEqual([], found)
+
+
+class TheSettingsFile(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.file = Path(folder.name) / "vpinfe.json"
+        self.file.write_text("{}", encoding="utf-8")
+        self.reads = 0
+        self.dates = "iso"
+        for one in (patch("common.paths.VPINFE_INI_PATH", self.file.with_suffix(".ini")),
+                    patch("common.paths.get_ini_config", self._read),
+                    patch.object(when, "_settings", None)):
+            one.start()
+            self.addCleanup(one.stop)
+
+    def _read(self) -> configparser.ConfigParser:
+        self.reads += 1
+        parser = configparser.ConfigParser()
+        parser.read_dict({"console": {"dates": self.dates}})
+        return parser
+
+    def test_a_list_of_dates_reads_the_file_once(self) -> None:
+        for _ in range(100):
+            self.assertEqual("iso", when._setting("dates", "language"))
+
+        self.assertEqual(1, self.reads)
+
+    def test_a_change_to_the_file_is_read_on_the_next_date(self) -> None:
+        when._setting("dates", "language")
+        self.dates = "dd.mm.yyyy"
+        later = self.file.stat().st_mtime_ns + 1_000_000
+        os.utime(self.file, ns=(later, later))
+
+        self.assertEqual(("dd.mm.yyyy", 2), (when._setting("dates", "language"), self.reads))
 
 
 class ChoiceLabels(unittest.TestCase):

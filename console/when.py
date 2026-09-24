@@ -45,11 +45,26 @@ def local(stamp: Any) -> str:
     return f"{day(at)} {clock(at)}"
 
 
+_settings: tuple[int, Any] | None = None
+
+
+def _config() -> Any:
+    global _settings
+    from common.paths import VPINFE_INI_PATH, get_ini_config
+
+    try:
+        changed = VPINFE_INI_PATH.with_suffix(".json").stat().st_mtime_ns
+    except OSError:
+        return get_ini_config()
+    if _settings is None or _settings[0] != changed:
+        _settings = (changed, get_ini_config())
+    return _settings[1]
+
+
 def _setting(key: str, default: str) -> str:
     from common.config_access import cfg_get
-    from common.paths import get_ini_config
 
-    return str(cfg_get(get_ini_config(), "console", key, default) or default).strip().lower()
+    return str(cfg_get(_config(), "console", key, default) or default).strip().lower()
 
 
 def day(at: datetime) -> str:
