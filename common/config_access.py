@@ -162,7 +162,6 @@ class SettingsConfig:
     rar_tool_path: str = ""
     theme: str = "Revolution"
     startup_collection: str = ""
-    auto_update_media_on_startup: bool = False
     mute_audio: bool = False
     splashscreen: bool = False
     chrome_options: str = ""
@@ -180,8 +179,6 @@ class SettingsConfig:
             rar_tool_path=cfg_get(source, "Settings", "rartoolpath", "").strip(),
             theme=theme,
             startup_collection=cfg_get(source, "behavior", "startup_collection", "").strip(),
-            auto_update_media_on_startup=cfg_bool(
-                source, "Settings", "autoupdatemediaonstartup", False),
             mute_audio=cfg_bool(source, "Settings", "muteaudio", False),
             splashscreen=cfg_bool(source, "Settings", "splashscreen", False),
             chrome_options=cfg_get(source, "Settings", "chromeoptions", ""),

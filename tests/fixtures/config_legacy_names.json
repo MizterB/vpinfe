@@ -361,12 +361,6 @@
   ],
   [
     "Settings",
-    "autoupdatemediaonstartup",
-    "updates",
-    "auto_update_media"
-  ],
-  [
-    "Settings",
     "cabmode",
     "presentation",
     "cab_mode"
@@ -490,12 +484,6 @@
     "assetsdir",
     "assets",
     "dir"
-  ],
-  [
-    "general",
-    "autoupdatemediaonstartup",
-    "updates",
-    "auto_update_media"
   ],
   [
     "general",

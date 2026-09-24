@@ -22,7 +22,6 @@ class TypedConfigTests(unittest.TestCase):
                 "vpxinipath": "/home/player/.vpinball/VPinballX.ini",
                 "vpxlogdeleteonstart": "yes",
                 "theme": "",
-                "autoupdatemediaonstartup": "yes",
                 "cabmode": "true",
             },
             "Media": {
@@ -50,7 +49,6 @@ class TypedConfigTests(unittest.TestCase):
 
         self.assertEqual(SettingsConfig.from_config(parser).game_root_dir, "/games")
         self.assertEqual(SettingsConfig.from_config(parser).theme, "Revolution")
-        self.assertTrue(SettingsConfig.from_config(parser).auto_update_media_on_startup)
         self.assertFalse(SettingsConfig.from_config(parser).disable_default_chrome_options)
         media_config = MediaConfig.from_config(parser)
         self.assertEqual(media_config.playfield_variant, "fss")

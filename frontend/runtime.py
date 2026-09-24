@@ -142,46 +142,6 @@ def _apply_theme_media_sets(iniconfig: ConfigStore, logger: logging.Logger) -> N
         logger.exception("Could not apply the theme's media set choices")
 
 
-def start_startup_media_sync(iniconfig: ConfigStore, logger: logging.Logger,
-                             build_metadata_func: Callable[..., Any],
-                             started: bool = False) -> bool:
-    if started:
-        return True
-
-    if iniconfig.is_new:
-        logger.debug("Skipping startup media sync on first run.")
-        return False
-
-    settings = SettingsConfig.from_config(iniconfig)
-    enabled = settings.auto_update_media_on_startup
-
-    if not enabled:
-        return False
-
-    game_root = settings.game_root_dir
-    if not game_root:
-        logger.warning("Startup media sync enabled, but gamerootdir is empty. Skipping.")
-        return False
-
-    def _worker() -> None:
-        logger.info("Startup media sync enabled. Checking VPinMediaDB for missing/updated media...")
-        try:
-            result = build_metadata_func(download_media=True, update_all=True, user_media=False)
-            if isinstance(result, dict):
-                logger.info(
-                    "Startup media sync complete. Scanned %s game(s); %s not found in VPSdb.",
-                    result.get("found", 0),
-                    result.get("not_found", 0),
-                )
-            else:
-                logger.info("Startup media sync complete.")
-        except Exception:
-            logger.exception("Startup media sync failed")
-
-    threading.Thread(target=_worker, daemon=True, name="startup-media-sync").start()
-    return True
-
-
 def build_mount_points(base_path: str, config_dir: Path,
                        iniconfig: ConfigStore) -> tuple[dict[str, str], str]:
     themes_dir = str(config_dir / "themes")

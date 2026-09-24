@@ -5,7 +5,7 @@ The frontend starts at `main.py`, but most runtime responsibilities now live in 
 ## Startup Flow
 
 1. `main.py` handles executable-only concerns such as platform console behavior, early config/logging setup, and command-line parsing.
-2. `frontend.runtime` creates the websocket/API/browser runtime, starts optional startup media sync, builds static mount points, starts the theme asset server, runs the frontend blocking loop, and performs shutdown/restart handling.
+2. `frontend.runtime` creates the websocket/API/browser runtime, builds static mount points, starts the theme asset server, runs the frontend blocking loop, and performs shutdown/restart handling.
 3. `frontend.device_channel.DeviceChannel` receives JavaScript calls from theme windows and dispatches only methods listed by `frontend.api.API_ALLOWED_METHODS`.
 4. `frontend.api.API` remains the JS-facing facade for theme code. It should stay thin and delegate feature behavior to service modules.
 

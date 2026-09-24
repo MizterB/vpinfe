@@ -671,7 +671,7 @@ def render_panel(tab=None):
                                 ]
                                 frontend_toggle_keys = [
                                     key for key in general_keys
-                                    if key in ('auto_update_media_on_startup', 'splashscreen', 'mute_audio', 'hide_quit_button')
+                                    if key in ('splashscreen', 'mute_audio', 'hide_quit_button')
                                 ]
                                 frontend_primary_keys = [
                                     key for key in general_keys

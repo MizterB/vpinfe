@@ -43,7 +43,6 @@ apply_configdir_override(sys.argv[1:])
 
 from common import extensions, i18n, shutdown, theme_options
 from common.config_store import ConfigStore
-from common.games.metadata_service import build_metadata
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
     stop_libdmdutil_service,
@@ -184,7 +183,6 @@ if sys.platform == "win32":
 # Shared instances accessible from other modules (e.g. remote.py)
 ws_bridge = None
 frontend_browser = None
-_startup_media_sync_started = False
 
 
 def create_api_instances():
@@ -202,17 +200,6 @@ def create_api_instances():
         ws_bridge=ws_bridge,
     )
     app_control.install_notices()
-
-
-def _start_startup_media_sync():
-    """Optionally sync media from VPinMediaDB on startup in a background thread."""
-    global _startup_media_sync_started
-    _startup_media_sync_started = runtime.start_startup_media_sync(
-        config_store,
-        logger,
-        lambda **kwargs: build_metadata(iniconfig=config_store, **kwargs),
-        started=_startup_media_sync_started,
-    )
 
 
 cli_args = parse_args() if len(sys.argv) > 0 else None
@@ -330,9 +317,6 @@ except Exception:
     logger.exception("Mobile device import failed; [mobile] left as it was")
 
 shutdown.exit_if_requested(logger)
-
-# Optionally sync media updates from VPinMediaDB in background
-_start_startup_media_sync()
 
 # The catalog everything VPS-shaped reads from - matching, release lists, what a kind is
 # offered from. It was only ever downloaded by a Manager UI page, so an install that never

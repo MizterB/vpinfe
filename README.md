@@ -241,7 +241,6 @@ Core startup and launch behavior:
 - **RAR Tool Path (unar/unrar, blank = auto-detect)**: path to the RAR extraction tool used by drag-and-drop import for `.rar` archives, for when the tool is not on your PATH
 - **Active Theme**: currently selected frontend theme
 - **Startup Collection**: collection opened when VPinFE starts
-- **Auto Update Media on Startup**: enables startup media refresh behavior
 - **Restore Last Table**: opens the wheel on the last table you launched instead of the first; on by default, saved as `Settings.restorelasttable`
 - **Enable Splash Screen**: shows the frontend splash screen during startup
 - **Mute Frontend Audio**: mutes frontend audio playback
