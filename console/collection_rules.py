@@ -100,6 +100,11 @@ class Template:
     label: str
     rows: tuple[dict[str, Any], ...]
     order: dict[str, Any] = field(default_factory=dict)
+    # The words on its button, for one the catalog does not name.
+    text: str = ""
+
+    def reads(self) -> str:
+        return self.text or t(self.label)
 
 
 TEMPLATES = (
@@ -127,6 +132,20 @@ def templates(known: list[Field]) -> list[Template]:
         return one is not None and one.askable and row["op"] in one.operators
 
     return [one for one in TEMPLATES if all(askable(row) for row in one.rows)]
+
+
+def tagged(lists: list[tuple[str, str]], known: list[Field]) -> list[Template]:
+    """A template for each (words, tag) a Community list derives, where a rule can ask
+    for tags at all. One tagging nothing yet is offered too: the list fills it later."""
+    if "tags" not in by_name(known):
+        return []
+    return [Template("", ({"field": "tags", "op": ANY_OF, "value": [tag]},), text=words)
+            for words, tag in lists]
+
+
+def named(value: Any) -> list[str]:
+    """The values a stored criterion names."""
+    return _chosen(value)
 
 
 def row_on(chosen: Field) -> dict[str, Any]:

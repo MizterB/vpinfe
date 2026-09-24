@@ -1,13 +1,14 @@
 """A tag an extension derives, as the Console shows it: in the grids beside the user's
-own, never offered by hand, and moved by nobody but its extension."""
+own, never offered by hand, moved by nobody but its extension, and offered as a
+collection from its list."""
 
 from __future__ import annotations
 
 import unittest
 from typing import Any
 
-from console import games, tageditor
-from console.data import Library
+from console import collection_rules, community, games, tageditor
+from console.data import Library, read_state, sources_of
 
 SOURCE = {"extension": "challenge", "display_name": "Challenge", "list": "releases",
           "title": "Weekly Challenge", "read_at": "2026-09-23T12:00:00Z", "stale": False}
@@ -72,6 +73,50 @@ class OnTheTagsPage(unittest.TestCase):
         into = next(verb for verb in verbs if verb.choices)
 
         self.assertNotIn(DERIVED, [label for label, _ in into.choices])
+
+
+def _smart(name: str, tags: Any, **others: Any) -> dict[str, Any]:
+    return {"name": name, "type": "filter",
+            "filters": {"tags": tags, "manufacturer": ["All"], **others}}
+
+
+class FromItsList(unittest.TestCase):
+    def test_the_list_finds_its_tag_and_last_read(self) -> None:
+        said = sources_of(_library().tag_looks(), "challenge", "releases")
+
+        self.assertEqual((DERIVED, SOURCE["read_at"]), (said["tag"], said["read_at"]))
+        self.assertEqual({}, sources_of(_library().tag_looks(), "challenge", "machines"))
+
+    def test_a_failed_read_says_when_the_last_good_one_was(self) -> None:
+        self.assertTrue(read_state({**SOURCE, "stale": True}).startswith(
+            "Last good read "))
+        self.assertTrue(read_state(SOURCE).startswith("Read "))
+        self.assertEqual("Not read yet", read_state({"stale": True}))
+
+    def test_the_collection_on_that_tag_alone_is_the_one_it_opens(self) -> None:
+        collections = [{"name": "Mine", "type": "manual", "filters": None},
+                       _smart("Wider", [DERIVED, "Wide Body"]),
+                       _smart("Challenge", [DERIVED])]
+
+        self.assertEqual("Challenge", community.collection_for(collections, DERIVED))
+        self.assertEqual("", community.collection_for(collections[:2], DERIVED))
+
+    def test_a_new_one_takes_the_lists_title_numbered_if_taken(self) -> None:
+        collections = [{"name": "weekly challenge"}, {"name": "Weekly Challenge 2"}]
+
+        self.assertEqual("Weekly Challenge 3",
+                         community.free_name("Weekly Challenge", collections))
+        self.assertEqual("Other", community.free_name("Other", collections))
+
+    def test_an_empty_collection_can_start_from_it(self) -> None:
+        known = [collection_rules.Field("tags", "Tags", "", "choice")]
+
+        (one,) = collection_rules.tagged([("Challenge: Weekly Challenge", DERIVED)], known)
+
+        self.assertEqual("Challenge: Weekly Challenge", one.reads())
+        self.assertEqual({"tags": [DERIVED]},
+                         collection_rules.filters_from(list(one.rows), known))
+        self.assertEqual([], collection_rules.tagged([("x", DERIVED)], []))
 
 
 if __name__ == "__main__":

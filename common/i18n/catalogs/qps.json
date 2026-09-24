@@ -408,11 +408,14 @@
   "console.commands.after_finished": " - öñŀý àƒţèř îţ ĥàš ƒîñîšĥèđ",
   "console.commands.each_stands_something_command": "Èàçĥ šţàñđš ƒöř šöɱèţĥîñĝ ŵĥèñ ţĥè çöɱɱàñđ řûñš. À ñàɱè ţĥàţ îš ñöţ öñ ţĥîš ŀîšţ îš řèƒûšèđ řàţĥèř ţĥàñ ŀèƒţ ƀŀàñķ.",
   "console.commands.names_can_use": "Ñàɱèš ýöû çàñ ûšè ({len})",
+  "console.community.collection_n": "{name} {n}",
   "console.community.could_not_read": "Çöûŀđ ñöţ řèàđ {name}: {exc}",
   "console.community.held": "Îñ ýöûř ŀîƀřàřý",
   "console.community.in_library": "Îñ Ŀîƀřàřý",
   "console.community.in_library.help": "Ţĥè ĝàɱè îţ îš, ŵĥèřè ýöû ĥàṽè îţ",
+  "console.community.make_collection": "Ḿàķè à Çöŀŀèçţîöñ",
   "console.community.not_held": "Ñöţ îñ ýöûř ŀîƀřàřý",
+  "console.community.open_collection": "Öþèñ Çöŀŀèçţîöñ",
   "console.community.rows": {
     "one": "{count} řöŵ",
     "other": "{count} řöŵš"
@@ -1233,7 +1236,7 @@
   },
   "console.tags.read": "Řèàđ {ago}",
   "console.tags.source": "{extension}: {title}",
-  "console.tags.stale": "Çöûŀđ ñöţ ƀè řèàđ šîñçè {ago}",
+  "console.tags.stale": "Ŀàšţ ĝööđ řèàđ {ago}",
   "console.themes.active": "Àçţîṽè",
   "console.themes.added_by_hand": "Àđđèđ ƀý ĥàñđ",
   "console.themes.both": "Çàƀîñèţ öř đèšķţöþ",

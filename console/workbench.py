@@ -73,7 +73,7 @@ from console import locations as locations_page
 from console import settings as settings_page
 from console import themes as themes_page
 from console.api import ApiError
-from console.data import Library, tag_source
+from console.data import Library, read_state, tag_source
 
 logger = logging.getLogger("vpinfe.console.workbench")
 
@@ -619,14 +619,7 @@ def _tag_source(said: dict[str, Any]) -> None:
     with ui.column().classes("gap-0 min-w-0"):
         panel.link(tag_source(said), to=community.address(str(said.get("extension") or ""),
                                                           str(said.get("list") or "")))()
-        read = when.ago(said.get("read_at"))
-        if said.get("stale"):
-            ui.label(t("console.tags.stale", ago=read) if read
-                     else t("console.tags.never_read")).classes("console-help")
-        elif read:
-            ui.label(t("console.tags.read", ago=read)).classes("console-help")
-        else:
-            ui.label(t("console.tags.never_read")).classes("console-help")
+        ui.label(read_state(said)).classes("console-help")
 
 
 def _swatches(context: dict[str, Any]) -> None:
@@ -4892,13 +4885,17 @@ def _empty_fork(context: dict[str, Any]) -> None:
             ui.label(t("word.or")).classes("console-help")
             _add_rule_button(context)
             ui.label(t("console.workbench.to_fill_itself")).classes("console-help")
-        offered = collection_rules.templates(context["fields"])
+        library = context["library"]
+        lists = [(tag_source(one), tag) for tag, look in library.tag_looks().items()
+                 for one in look.get("sources") or []]
+        offered = [*collection_rules.templates(context["fields"]),
+                   *collection_rules.tagged(lists, context["fields"])]
         if offered:
             with ui.row().classes("items-baseline gap-2 no-wrap"):
                 ui.label(t("console.workbench.start_from")).classes("console-help shrink-0")
                 with ui.row().classes("items-center gap-2 min-w-0"):
                     for one in offered:
-                        panel.action(t(one.label),
+                        panel.action(one.reads(),
                                      lambda _e=None, one=one: _start_from(context, one),
                                      icon=verbs.ADD, inline=True)()
 

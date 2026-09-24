@@ -9,7 +9,7 @@ from typing import Any
 from common.games.asset_registry import ASSET_SPECS
 from common.i18n import t
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
-from console import game_tables, media_ownership
+from console import game_tables, media_ownership, when
 from console.api import ApiClient
 
 logger = logging.getLogger("vpinfe.console.data")
@@ -81,6 +81,22 @@ def tag_source(said: dict[str, Any]) -> str:
     return t("console.tags.source", extension=str(said.get("display_name")
                                                  or said.get("extension") or ""),
              title=str(said.get("title") or said.get("list") or ""))
+
+
+def read_state(said: dict[str, Any]) -> str:
+    """How old the last good read of a tagged list is, or since when none has worked."""
+    read = when.ago(said.get("read_at"))
+    if not read:
+        return t("console.tags.never_read")
+    return t("console.tags.stale" if said.get("stale") else "console.tags.read", ago=read)
+
+
+def sources_of(looks: dict[str, dict[str, Any]], extension: str,
+               key: str) -> dict[str, Any]:
+    """What the Tags list says about one extension's list: its tag and its last read."""
+    return next(({**one, "tag": tag} for tag, look in looks.items()
+                 for one in look.get("sources") or []
+                 if one.get("extension") == extension and one.get("list") == key), {})
 
 
 class Library:

@@ -408,11 +408,14 @@
   "console.commands.after_finished": " - only after it has finished",
   "console.commands.each_stands_something_command": "Each stands for something when the command runs. A name that is not on this list is refused rather than left blank.",
   "console.commands.names_can_use": "Names you can use ({len})",
+  "console.community.collection_n": "{name} {n}",
   "console.community.could_not_read": "Could not read {name}: {exc}",
   "console.community.held": "In your library",
   "console.community.in_library": "In Library",
   "console.community.in_library.help": "The game it is, where you have it",
+  "console.community.make_collection": "Make a Collection",
   "console.community.not_held": "Not in your library",
+  "console.community.open_collection": "Open Collection",
   "console.community.rows": {
     "one": "{count} row",
     "other": "{count} rows"
@@ -1233,7 +1236,7 @@
   },
   "console.tags.read": "Read {ago}",
   "console.tags.source": "{extension}: {title}",
-  "console.tags.stale": "Could not be read since {ago}",
+  "console.tags.stale": "Last good read {ago}",
   "console.themes.active": "Active",
   "console.themes.added_by_hand": "Added by hand",
   "console.themes.both": "Cabinet or desktop",

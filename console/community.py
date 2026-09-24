@@ -7,9 +7,9 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from console import deeplink, grid, offload, panel, views, when
+from console import collection_rules, deeplink, grid, offload, panel, tag_chips, verbs, views, when
 from console.api import ApiClient, ApiError
-from console.data import Library
+from console.data import Library, read_state, sources_of
 
 logger = logging.getLogger("vpinfe.console.community")
 
@@ -118,6 +118,46 @@ def _address(mine: dict[str, Any], relation: dict[str, Any]) -> str:
     return "/console?" + deeplink.query({"view": "games", "game": game})
 
 
+def collection_for(collections: Sequence[dict[str, Any]], tag: str) -> str:
+    """The smart collection whose rule is this tag alone, or ""."""
+    return next((str(one.get("name") or "") for one in collections
+                 if one.get("type") == "filter"
+                 and collection_rules.named((one.get("filters") or {}).get("tags")) == [tag]),
+                "")
+
+
+def free_name(wanted: str, collections: Sequence[dict[str, Any]]) -> str:
+    taken = {str(one.get("name") or "").casefold() for one in collections}
+    name, number = wanted, 2
+    while name.casefold() in taken:
+        name = t("console.community.collection_n", name=wanted, n=number)
+        number += 1
+    return name
+
+
+def _collection_address(name: str) -> str:
+    return "/console?" + deeplink.query({"view": "collections", "collection": name})
+
+
+async def _make_collection(library: Library, title: str, tag: str) -> None:
+    collections = await offload.io(library.load_collections)
+    try:
+        made = await offload.io(library.create_collection, free_name(title, collections),
+                                {"tags": [tag]})
+    except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+        ui.notify(t("said.could_not_do_that", exc=exc), type="negative")
+        return
+    name = str(made.get("name") or "")
+    ui.notify(t("console.collections.created", strip=name), type="positive")
+    ui.navigate.to(_collection_address(name))
+
+
+def _tag_line(said: dict[str, Any], library: Library) -> None:
+    """The tag this list puts on, and how old the read behind it is."""
+    tag_chips.draw([str(said["tag"])], library.tag_looks())
+    ui.label(read_state(said)).classes("text-xs console-label")
+
+
 def build(extension: dict[str, Any], declared: dict[str, Any], library: Library) -> None:
     body = ui.column().classes("w-full grow min-h-0 gap-0")
     ui.timer(0.01, lambda: _fill(extension, declared, library, body), once=True)
@@ -129,6 +169,13 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
 
     name = str(extension.get("name") or "")
     said = str(extension.get("display_name") or name)
+    tagging, existing = {}, ""
+    if declared.get("tag"):
+        await offload.io(library.read_tags)
+        tagging = sources_of(library.tag_looks(), name, str(declared.get("key") or ""))
+        if tagging:
+            existing = collection_for(await offload.io(library.load_collections),
+                                      str(tagging["tag"]))
     try:
         found = (await offload.io(ApiClient().ext_get,
                                   f"/ext/{name}{declared.get('base') or ''}")).get("rows") or []
@@ -137,6 +184,9 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
         with body:
             panel.facts(ui, [panel.intro(t("console.community.could_not_read", name=said,
                                            exc=(exc)))])
+            if tagging:
+                with ui.row().classes("items-center gap-2 px-3"):
+                    _tag_line(tagging, library)
         return
     relation = declared.get("relation") or {}
     held = (await offload.io(library.owned, [str(one.get(relation["field"]) or "")
@@ -154,8 +204,20 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                 library, scope, presets(declared), fields, shown, bar=bar)
             describe()
             with bar.top, panel.bar_end():
+                if existing:
+                    panel.action(t("console.community.open_collection"),
+                                 lambda: ui.navigate.to(_collection_address(existing)),
+                                 icon=verbs.GO, hint=existing)()
+                elif tagging:
+                    panel.action(t("console.community.make_collection"),
+                                 lambda: _make_collection(
+                                     library, str(declared.get("title") or ""),
+                                     str(tagging["tag"])),
+                                 icon=verbs.CREATE)()
                 search = panel.search(t("console.community.search"))
             with bar.bottom, panel.bar_end():
+                if tagging:
+                    _tag_line(tagging, library)
                 count = ui.label(t("console.community.rows", count=len(built))) \
                     .classes("text-xs console-label")
 
