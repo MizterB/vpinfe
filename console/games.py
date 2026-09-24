@@ -954,6 +954,21 @@ def row_transaction(showing: dict[str, dict[str, Any]], game_id: str,
     return transaction
 
 
+def in_place(built: list[dict[str, Any]], game_id: str,
+             transaction: dict[str, Any]) -> list[dict[str, Any]]:
+    """`built` once `transaction` has been applied to the grid, with the transaction's
+    `addIndex` set so what arrived follows its game's rows. Without it an unsorted grid
+    puts an add after the last row of all."""
+    at = next((index for index, row in enumerate(built) if row.get("game_id") == game_id),
+              len(built))
+    stays = [row for row in built if row.get("game_id") != game_id]
+    changed = list(transaction.get("update", ()))
+    arrived = list(transaction.get("add", ()))
+    if arrived:
+        transaction["addIndex"] = at + len(changed)
+    return stays[:at] + changed + arrived + stays[at:]
+
+
 def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The API's tables, flattened for a grid.
 
@@ -1185,7 +1200,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         for entry in transaction.get("remove", ()):
             by_id.pop(entry["id"], None)
         by_id.update({row["id"]: row for row in fresh})
-        built[:] = [row for row in built if row.get("game_id") != game_id] + fresh
+        built[:] = in_place(built, game_id, transaction)
         if transaction:
             table.run_grid_method("applyTransaction", transaction)
 

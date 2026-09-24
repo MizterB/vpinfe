@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unittest
 
-from console.games import row_transaction
+from console.games import in_place, row_transaction
 
 
 def _showing(*pairs):
@@ -62,6 +62,35 @@ class RowTransactionTests(unittest.TestCase):
         """An empty transaction is not sent, so a write that changed nothing does not
         make the grid do work."""
         self.assertEqual(row_transaction(_showing(("t9", "g2")), "g1", []), {})
+
+
+class InPlaceTests(unittest.TestCase):
+    """Where an added row goes, and the rows the count reads once it has."""
+
+    BUILT = _fresh(("a1", "ga"), ("b1", "gb"), ("b2", "gb"), ("c1", "gc"))
+
+    def _apply(self, fresh):
+        showing = {row["id"]: row for row in self.BUILT}
+        transaction = row_transaction(showing, "gb", fresh)
+        return transaction, in_place(list(self.BUILT), "gb", transaction)
+
+    def test_an_added_row_follows_its_game_s_rows(self) -> None:
+        transaction, built = self._apply(_fresh(("b1", "gb"), ("b2", "gb"), ("b3", "gb")))
+
+        self.assertEqual(transaction["addIndex"], 3)
+        self.assertEqual([row["id"] for row in built], ["a1", "b1", "b2", "b3", "c1"])
+
+    def test_a_removal_leaves_the_rest_in_order(self) -> None:
+        transaction, built = self._apply(_fresh(("b2", "gb")))
+
+        self.assertNotIn("addIndex", transaction)
+        self.assertEqual([row["id"] for row in built], ["a1", "b2", "c1"])
+
+    def test_an_add_and_a_removal_at_once_count_what_stayed(self) -> None:
+        transaction, built = self._apply(_fresh(("b2", "gb"), ("b3", "gb")))
+
+        self.assertEqual(transaction["addIndex"], 2)
+        self.assertEqual([row["id"] for row in built], ["a1", "b2", "b3", "c1"])
 
 
 if __name__ == "__main__":
