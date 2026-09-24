@@ -60,6 +60,7 @@ HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device")
 # A trailing part rather than a whole section: `[Backglass.Priority.PUP]` is one of
 # several, one per plugin, and they arrive as plugins do.
 HIDDEN_PARTS = ("Priority",)
+POINT_OF_VIEW = "TableOverride.View"
 
 # VPX sizes a window left blank from its screen, never by the 16384 it declares.
 _WINDOWS = (("Player", "Playfield"), ("Backglass", "Backglass"), ("ScoreView", "ScoreView"),
@@ -314,6 +315,18 @@ class VPXConfig:
         """By key, the word in this app's catalog for what a blank value does, where that
         is not the declared default."""
         return dict.fromkeys(FROM_THE_SCREEN, "from_the_screen")
+
+    def held_for_table(self, target: str) -> dict[str, Any]:
+        """What the one file VPX reads for this table sets: which scope that file is, how
+        many settings it changes for the table, and whether it holds a camera."""
+        winning = table_layer(target)
+        held = _read(winning)
+        setting = [q for q in held.settings if held.value(q) is not None]
+        return {
+            "scope": _scope_of(winning, target, {}),
+            "settings": sum(1 for q in setting if _offered(q) and not _all_tables_only(q)),
+            "point_of_view": any(q.startswith(POINT_OF_VIEW) for q in setting),
+        }
 
 
 def _inherited(scope: str, values: Mapping[str, str],

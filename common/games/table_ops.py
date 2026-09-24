@@ -38,15 +38,19 @@ from common.i18n import t
 TABLE_OVERRIDES = ("alt_launcher", "plugin_profile", "delete_nvram_on_close")
 
 
+def _game_tables(game: Game) -> list[dict]:
+    return table_lens.table_rows(game, game_to_row(game), launcher_settings=True)
+
+
 def rows_of(game_id: str) -> dict:
     """Every table this game offers."""
     game = game_lens.game_or_refuse(game_id)
-    return {"tables": table_lens.table_rows(game, game_to_row(game))}
+    return {"tables": _game_tables(game)}
 
 
 def row_or_refuse(game: Game, table_id: str) -> dict:
     """One table as the lens describes it, or a refusal naming it."""
-    found = next((row for row in table_lens.table_rows(game, game_to_row(game))
+    found = next((row for row in _game_tables(game)
                   if row.get("id") == table_id), None)
     if found is None:
         raise service_errors.NotFoundError(t("error.games.game_no_such_table"),
@@ -86,7 +90,7 @@ def _offered_first(game: Game) -> dict | None:
     wanted = offered[0].get(tables.TABLE_ID_KEY) if offered else ""
     if not wanted:
         return None
-    return next((row for row in table_lens.table_rows(game, game_to_row(game))
+    return next((row for row in _game_tables(game)
                  if row.get("id") == wanted), None)
 
 
@@ -199,7 +203,7 @@ def set_default(game_id: str, table_id: str) -> dict:
         raise service_errors.RefusedError(str(exc),
                                           details={"table": table_id}) from exc
     game = reread_game(game)
-    return {"tables": table_lens.table_rows(game, game_to_row(game))}
+    return {"tables": _game_tables(game)}
 
 
 def set_overrides(game_id: str, table_id: str, changes: dict) -> dict:

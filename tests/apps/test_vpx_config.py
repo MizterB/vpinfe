@@ -202,6 +202,45 @@ class AllTablesOnlyTests(_Case):
         self.assertTrue(found.in_effect)
 
 
+CAMERA = "[TableOverride]\nViewCabMode = 1\nViewCabFOV = 55\nViewCabLayback = 0\n"
+
+
+class HeldForTableTests(_Case):
+    def held(self, table=None) -> dict:
+        return self.config.held_for_table(str(table or self.table))
+
+    def test_a_table_with_no_file_holds_nothing(self) -> None:
+        self.assertEqual(self.held(), {"scope": "", "settings": 0, "point_of_view": False})
+
+    def test_its_own_file_is_counted_at_the_table(self) -> None:
+        self.table_file("[Backglass]\nBackglassOutput = 0\nGrillHeight = 200\n")
+
+        self.assertEqual(self.held(),
+                         {"scope": SCOPE_ENTRY, "settings": 2, "point_of_view": False})
+
+    def test_a_blank_key_sets_nothing(self) -> None:
+        self.table_file("[Backglass]\nBackglassOutput = 0\nGrillHeight =\n")
+
+        self.assertEqual(self.held()["settings"], 1)
+
+    def test_the_camera_is_one_thing_not_its_numbers(self) -> None:
+        self.table_file(CAMERA)
+
+        self.assertEqual(self.held(),
+                         {"scope": SCOPE_ENTRY, "settings": 0, "point_of_view": True})
+
+    def test_a_setting_read_for_all_tables_only_is_not_counted(self) -> None:
+        self.table_file("[Player]\nShowFPS = 1\n[Input]\nNudgeSensorCount = 4\n")
+
+        self.assertEqual(self.held()["settings"], 0)
+
+    def test_a_folder_file_reaching_the_table_is_the_folder_s(self) -> None:
+        self.folder_file("[Backglass]\nBackglassOutput = 0\n" + CAMERA)
+
+        self.assertEqual(self.held(),
+                         {"scope": SCOPE_FOLDER, "settings": 1, "point_of_view": True})
+
+
 SIZES_INI = """\
 [Player]
 ; Width: Width of the window [Default: 16384]

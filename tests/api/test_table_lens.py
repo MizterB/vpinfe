@@ -15,7 +15,7 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import table_lens
+from common.games import launcher_migration, launchers, table_lens
 from tests.support.library import TempTree, fake_game, write_game
 
 GAME_ID = "Lens00000001"
@@ -240,6 +240,42 @@ class TableScriptTests(_Lens):
 
         self.assertEqual(response.status_code, 501, response.text)
         self.assertEqual(response.json()["error"]["code"], "feature_unavailable")
+
+
+class OwnSettingsTests(_Lens):
+    def setUp(self) -> None:
+        super().setUp()
+        store = launchers.LauncherStore(str(self.root / "launchers.json"))
+        store.mark_migration(launcher_migration.SEEDED)
+        patcher = patch.object(launchers, "get_launcher_store", return_value=store)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+        self.client.put("/launchers/vpx", json={"app": "vpx", "display_name": "VPX"})
+
+    def _held(self) -> dict:
+        got = self.client.get(f"/games/{GAME_ID}/tables")
+        self.assertEqual(got.status_code, 200, got.text)
+        return {one["id"]: (one["launcher_settings_here"],
+                            one["launcher_settings_from_folder"],
+                            one["launcher_point_of_view"])
+                for one in got.json()["tables"]}
+
+    def test_a_table_with_no_file_holds_nothing(self) -> None:
+        self.assertEqual(self._held(), {"tbl0000001": (0, 0, False),
+                                        "tbl0000002": (0, 0, False)})
+
+    def test_the_file_named_for_the_folder_is_its_table_s_and_reaches_the_other(self) -> None:
+        (self.folder / f"{FOLDER}.ini").write_text(
+            "[Backglass]\nBackglassOutput = 0\n[TableOverride]\nViewCabMode = 1\n")
+
+        self.assertEqual(self._held(), {"tbl0000001": (2, 0, True),
+                                        "tbl0000002": (0, 2, True)})
+
+    def test_the_library_wide_list_reads_no_settings_file(self) -> None:
+        (self.folder / f"{FOLDER}.ini").write_text("[Backglass]\nBackglassOutput = 0\n")
+
+        self.assertNotIn("launcher_settings_here", self._rows()[0])
 
 
 class TableFeatureTests(_Lens):

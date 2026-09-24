@@ -833,6 +833,11 @@ class Table(ApiModel):
     # Whether the program that launcher runs has settings of its own. A launcher whose
     # app has none opens onto nothing, so the row that leads there is simply absent.
     launcher_app_configurable: bool = False
+    # How many settings the one file that program reads for this table changes, counted
+    # under whose file it is, a saved camera counting as one.
+    launcher_settings_here: int = 0
+    launcher_settings_from_folder: int = 0
+    launcher_point_of_view: bool = False
     filename: str
     # `contained` for something in the game's folder, `referenced` for a file elsewhere
     # that it points at, `keyed` for something with no file at all that its app finds by

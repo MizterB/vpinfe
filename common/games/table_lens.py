@@ -80,6 +80,21 @@ def _app_configurable(launcher: launchers.Launcher | None) -> bool:
     return app is not None and app.config is not None
 
 
+def launcher_settings_held(app_id: str, target: str) -> dict:
+    """What the app's own settings file for this table sets, split by whose file it is.
+    Zeros where there is no file to read or the app keeps no settings of its own."""
+    app = apps.get(app_id)
+    held_for = getattr(getattr(app, "config", None), "held_for_table", None)
+    held = held_for(target) if held_for is not None and target else {}
+    count = int(held.get("settings") or 0) + (1 if held.get("point_of_view") else 0)
+    scope = held.get("scope")
+    return {
+        "launcher_settings_here": count if scope == "entry" else 0,
+        "launcher_settings_from_folder": count if scope == "folder" else 0,
+        "launcher_point_of_view": bool(held.get("point_of_view")),
+    }
+
+
 # What the script was seen to use, named for the thing rather than for the .info key
 # it sits under. Scorbit is spelled the way the product is - the Manager UI's
 # "Scorebit" label is the typo, not the key.
@@ -149,7 +164,7 @@ def update_available(version: str, source: dict | None) -> bool | None:
     return newer_version(listed, held) if listed and held else None
 
 
-def table_rows(game: Game, row: dict) -> list[dict]:
+def table_rows(game: Game, row: dict, *, launcher_settings: bool = False) -> list[dict]:
     """The game's launchable artifacts.
 
     Enumerates what is actually in the folder rather than trusting the single
@@ -159,6 +174,9 @@ def table_rows(game: Game, row: dict) -> list[dict]:
     A table the metadata describes but absent from disk is still reported - a
     table pointing at a missing file is something the caller should see - but the
     default falls to one that exists, since the default is what a caller would launch.
+
+    `launcher_settings` adds what each table's settings file sets, reading one file per
+    table.
     """
     game_dir = Path(row.get("game_dir", ""))
     described = table_settings(game_dir)
@@ -301,6 +319,9 @@ def table_rows(game: Game, row: dict) -> list[dict]:
             # empty one: a keyed entry's art is the folder's art.
             "assets": asset_resolver.resolve_for_table(name, game_dir.name, files),
         }
+        if launcher_settings:
+            entry.update(launcher_settings_held(
+                app_id, "" if keyed else points_at or str(game_dir / name)))
         if keyed:
             # Both come out of reading a file, and there is none. Saying "unknown" here
             # would put a dependency on an entry that cannot carry one.
