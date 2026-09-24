@@ -505,7 +505,9 @@ does not read answers with no scopes, and refuses a write.
 
 The settings in `groups` are read from VPX's own file rather than declared here, so a
 setting a later VPX adds appears without VPinFE changing. They are named `Section.Key`
-(`Player.FXAA`), because a key is only unique inside its section.
+(`Player.FXAA`), because a key is only unique inside its section. Where VPX works out what
+a blank value means rather than using the default it declares, `default` is empty and
+`blank` says what it does instead: every window's size reads *From the screen*.
 
 **Every value says which layer answered.** Somebody changing one layer of several has to
 see which one is in force:

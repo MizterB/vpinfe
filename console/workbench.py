@@ -4281,7 +4281,8 @@ def _as_option(field: Any) -> dict[str, Any]:
     """A declared field as the control grammar reads it. `choices` is a mapping so the
     label goes on screen where the stored value would otherwise be."""
     option: dict[str, Any] = {"key": field.key, "type": field.type,
-                              "label": field.label, "default": field.default}
+                              "label": field.label, "default": field.default,
+                              "blank": getattr(field, "blank", "")}
     if field.choices:
         option["choices"] = {value: label for value, label in field.choices}
         option["type"] = "choice"

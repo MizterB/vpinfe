@@ -16,7 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from common import apps, path_checks, service_errors
+from common import apps, i18n, path_checks, service_errors
 from common.games import config_backups, game_repository, launchers, tables
 from common.games.config_backups import Backup
 from common.games.table_identity import find_table_by_id
@@ -240,11 +240,12 @@ def app_config(launcher_id: str, table: str = "",
         held = values.get(field.key)
         return scope in scopes_for(field.key) or (held is not None and held.set_here)
 
+    blank = _blank_words(found.app, config)
     groups = [(g, [f for f in g.settings if shown(f)]) for g in config.groups(settings)]
     return {
         "scopes": list(config.scopes()),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),
-                    "settings": [{**_described_field(found.app, f),
+                    "settings": [{**_described_field(found.app, f), "blank": blank(f.key),
                                   "scopes": list(scopes_for(f.key))} for f in fields]}
                    for g, fields in groups if fields],
         "values": {key: {"value": one.value, "scope": one.scope,
@@ -258,6 +259,15 @@ def _scopes_for(config: Any) -> Callable[[str], tuple[str, ...]]:
     """An app that does not say otherwise offers every setting at every scope."""
     answer = getattr(config, "scopes_for", None)
     return answer if answer is not None else (lambda _key: tuple(config.scopes()))
+
+
+def _blank_words(app_id: str, config: Any) -> Callable[[str], str]:
+    """What a blank value does, in the app's own words, where the app says it is not the
+    declared default. An app that does not say leaves every one empty."""
+    naming = getattr(config, "blank_words", None)
+    words = dict(naming()) if naming is not None else {}
+    return lambda key: (i18n.literal_or("", f"app.{app_id}.{words[key]}")[0]
+                        if key in words else "")
 
 
 def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:

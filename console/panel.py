@@ -612,7 +612,8 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
 
 def number(value: Any, on_change: Callable[[Any], Any], *,
            disabled: bool = False, whole: bool = True,
-           low: Any = None, high: Any = None, step: Any = None) -> Callable[[], None]:
+           low: Any = None, high: Any = None, step: Any = None,
+           placeholder: str = "") -> Callable[[], None]:
     """A number. Narrow, because a four-digit box in a full-width field says the value
     might be long.
 
@@ -626,6 +627,7 @@ def number(value: Any, on_change: Callable[[Any], Any], *,
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             control = ui.number(value=value if value != "" else None,
+                                placeholder=placeholder or None,
                                 format="%d" if whole else None,
                                 min=low, max=high, step=step,
                                 on_change=on_change) \

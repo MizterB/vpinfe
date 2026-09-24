@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from common import path_checks
 from common.i18n import t
-from console import workbench
+from console import settings, workbench
 
 
 def _launcher(state: str, *, has_config: bool = True) -> dict:
@@ -107,6 +108,25 @@ class PlayingTests(unittest.TestCase):
         """The program rewrites this file itself when a table exits, so an edit made now
         is one of two writers and the last one wins."""
         self.assertIn("writes this file itself", t(workbench.PLAYING_NOTE))
+
+
+class BlankValueTests(unittest.TestCase):
+    def _placeholder(self, option: dict) -> str:
+        with patch.object(settings.panel, "number") as number:
+            settings.control_for(option, settings.value_for(option, ""), lambda _v: True)
+        return number.call_args.kwargs.get("placeholder", "")
+
+    def test_a_blank_its_app_works_out_says_so_in_the_control(self) -> None:
+        field = SimpleNamespace(key="Player.PlayfieldWidth", type="int", label="Width",
+                                default="", choices=(), blank="From the screen")
+
+        self.assertEqual(self._placeholder(workbench._as_option(field)), "From the screen")
+
+    def test_the_table_dialog_s_field_says_so_too(self) -> None:
+        field = {"key": "Player.PlayfieldWidth", "type": "int", "label": "Width",
+                 "default": "", "blank": "From the screen"}
+
+        self.assertEqual(self._placeholder(dict(field)), "From the screen")
 
 
 if __name__ == "__main__":

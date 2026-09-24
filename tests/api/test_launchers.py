@@ -270,6 +270,22 @@ class ClearingTests(_TableCase):
                          ("2", "1", "launcher"))
 
 
+class BlankWordsTests(_TableCase):
+    def test_a_window_size_left_blank_reads_from_the_screen(self) -> None:
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Player]\n; Width: Width of the window [Default: 16384]\n"
+                           "PlayfieldWidth =\nFXAA = 1\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+        got = self.client.get("/launchers/l1/config")
+
+        offered = {f["key"]: f for g in got.json()["groups"] for f in g["settings"]}
+        size = offered["Player.PlayfieldWidth"]
+        self.assertEqual((size["default"], size["blank"]), ("", "From the screen"))
+        self.assertEqual(offered["Player.FXAA"]["blank"], "")
+
+
 class AllTablesOnlyTests(_TableCase):
     def setUp(self) -> None:
         super().setUp()

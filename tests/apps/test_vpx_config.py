@@ -12,6 +12,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from apps.vpx.config import VPXConfig
+from apps.vpx.setting_types import TYPES
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
 
 APP_INI = """\
@@ -199,6 +200,41 @@ class AllTablesOnlyTests(_Case):
         self.assertEqual((found.value, found.scope), ("0", SCOPE_LAUNCHER))
         self.assertTrue(found.set_here)
         self.assertTrue(found.in_effect)
+
+
+SIZES_INI = """\
+[Player]
+; Width: Width of the window [Default: 16384]
+PlayfieldWidth =
+
+; Maximum texture dimension: The largest texture it loads [Default: 16384]
+MaxTexDimension =
+"""
+
+
+class WindowSizeTests(_Case):
+    def setUp(self) -> None:
+        super().setUp()
+        self.app_ini.write_text(SIZES_INI)
+
+    def field(self, key: str):
+        return next(f for g in self.config.groups(self.settings) for f in g.settings
+                    if f.key == key)
+
+    def test_a_window_size_worked_out_from_the_screen_declares_no_default(self) -> None:
+        self.assertEqual(self.field("Player.PlayfieldWidth").default, "")
+        self.assertEqual(self.config.blank_words().get("Player.PlayfieldWidth"),
+                         "from_the_screen")
+
+    def test_a_declared_default_it_uses_is_kept(self) -> None:
+        self.assertEqual(self.field("Player.MaxTexDimension").default, "16384")
+        self.assertNotIn("Player.MaxTexDimension", self.config.blank_words())
+
+    def test_every_window_s_four_sizes_are_settings_vpx_declares(self) -> None:
+        named = self.config.blank_words()
+
+        self.assertEqual(len(named), 20)
+        self.assertEqual([key for key in named if key not in TYPES], [])
 
 
 class WriteTests(_Case):

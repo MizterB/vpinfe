@@ -191,16 +191,18 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
             choices = {value: named.get(value, value) for value in choices}
         return panel.select(choices if isinstance(choices, dict) else list(choices),
                             str(value or ""), lambda e: save(e.value), disabled=off)
+    blank = str(option.get("blank") or "")
     if kind == "int":
         return panel.number(
-            value, lambda e: save("" if e.value is None else int(e.value)), disabled=off)
+            value, lambda e: save("" if e.value is None else int(e.value)), disabled=off,
+            placeholder=blank)
     if kind == "number":
         # Not `int`: a theme declares scale factors and opacities, and a control that
         # formats them as whole numbers shows a value that is not the one stored.
         return panel.number(
             value, lambda e: save(None if e.value is None else float(e.value)),
             disabled=off, whole=False, low=option.get("min"), high=option.get("max"),
-            step=option.get("step"))
+            step=option.get("step"), placeholder=blank)
     if kind == "text" and option.get("lines"):
         return panel.field(str(value or ""), lambda text: save(text),
                            lines=int(option["lines"]), disabled=off)

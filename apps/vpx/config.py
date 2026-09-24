@@ -61,6 +61,12 @@ HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device")
 # several, one per plugin, and they arrive as plugins do.
 HIDDEN_PARTS = ("Priority",)
 
+# VPX sizes a window left blank from its screen, never by the 16384 it declares.
+_WINDOWS = (("Player", "Playfield"), ("Backglass", "Backglass"), ("ScoreView", "ScoreView"),
+            ("Topper", "Topper"), ("PlayerVR", "Preview"))
+FROM_THE_SCREEN = frozenset(f"{section}.{window}{mode}{side}" for section, window in _WINDOWS
+                            for mode in ("", "FS") for side in ("Width", "Height"))
+
 ALL_TABLES_ONLY_SECTIONS = frozenset({"Input"})
 ALL_TABLES_ONLY = frozenset({
     "Player.PlayfieldDisplay", "Player.PlayfieldFullScreen", "Player.PlayfieldWndX",
@@ -304,6 +310,11 @@ class VPXConfig:
             return {}
         return {q: one.value for q, one in _read(folder).settings.items()}
 
+    def blank_words(self) -> dict[str, str]:
+        """By key, the word in this app's catalog for what a blank value does, where that
+        is not the declared default."""
+        return dict.fromkeys(FROM_THE_SCREEN, "from_the_screen")
+
 
 def _inherited(scope: str, values: Mapping[str, str],
                settings: Mapping[str, Any]) -> frozenset[str]:
@@ -402,7 +413,7 @@ def _field(one: vini.Setting) -> Field:
         key=one.qualified,
         label=one.label,
         type=_type_of(one),
-        default=one.default,
+        default="" if one.qualified in FROM_THE_SCREEN else one.default,
         description=one.description,
         choices=one.choices,
         minimum=one.minimum,

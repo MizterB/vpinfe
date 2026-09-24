@@ -10,6 +10,7 @@
   "field.table_ini_override_enabled.label": "Per-Table Override",
   "field.table_ini_override_mask.description": "Added to the table's name before .ini",
   "field.table_ini_override_mask.label": "Per-Table Override Pattern",
+  "from_the_screen": "From the screen",
   "group.backglass.label": "Backglass",
   "group.more.label": "More settings",
   "group.play.label": "Playing",

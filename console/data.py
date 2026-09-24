@@ -439,7 +439,8 @@ class Library:
                 key=f["key"], label=f["label"], type=f["type"],
                 default=f["default"], description=f["description"],
                 choices=tuple(tuple(pair) for pair in f.get("choices") or ()),
-                minimum=f.get("minimum"), maximum=f.get("maximum"))
+                minimum=f.get("minimum"), maximum=f.get("maximum"),
+                blank=f.get("blank", ""))
                 for f in g["settings"]])
             for g in found.get("groups") or []]
 
