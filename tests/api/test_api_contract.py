@@ -181,7 +181,7 @@ class ApiContractTests(unittest.TestCase):
         self.assertNotIn("media", game, "these were mislabelled as media")
         self.assertEqual(set(game["assets"]),
                          {"backglass", "ini", "script", "pov", "scv",
-                          "pup_pack", "alt_color", "alt_sound", "music"})
+                          "pup_pack", "alt_color", "alt_sound", "music", "readme"})
 
     def test_assets_present_in_the_folder_are_reported(self) -> None:
         """The fixture game ships a backglass, a per-table ini and music."""
