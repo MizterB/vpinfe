@@ -4328,6 +4328,9 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("console.workbench.could_not_save", exc=(exc)), type="negative")
             return False
+        recheck = context["state"].get("recheck_trouble")
+        if callable(recheck):
+            await recheck()
         return True
 
     async def rename(text: str) -> None:

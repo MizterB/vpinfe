@@ -1092,6 +1092,13 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         _mark_trouble(badges.get("launchers"), at_launchers)
         _mark_trouble(badges.get("locations"), at_locations)
 
+    async def recheck_trouble() -> None:
+        """For a write outside Settings that can mend or break a feature."""
+        state["trouble"] = await offload.io(settings_page.local_trouble)
+        mark_system()
+
+    state["recheck_trouble"] = recheck_trouble
+
     def _mark_trouble(badge: Any, items: Any) -> None:
         """Red, and a count rather than the warm one beside Devices: an update waiting is
         worth doing when you get to it, and this is something already broken. The reasons
