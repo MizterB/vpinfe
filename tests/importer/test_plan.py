@@ -91,7 +91,7 @@ class MatchTests(unittest.TestCase):
         found = plan_for.match_existing(library, self.HELD)
 
         self.assertTrue(found[0].existing)
-        self.assertEqual(found[0].how, "catalog id")
+        self.assertEqual(found[0].how, "catalog_id")
 
     def test_a_game_nothing_here_matches_is_new(self) -> None:
         found = plan_for.match_existing(_library(_game("Funhouse")), self.HELD)
@@ -203,7 +203,7 @@ class ExpectedTests(unittest.TestCase):
     def test_a_kind_with_nowhere_to_go_is_not_offered(self) -> None:
         """Registry settings are read and not offered: nothing on this platform reads
         per-ROM VPinMAME values back, so anything written would be consumed by nothing."""
-        offered = {key for key, *_rest in plan_for.SOURCES}
+        offered = set(plan_for.SOURCES)
 
         self.assertNotIn("registry", offered)
         self.assertIn("registry", plan_for.NOT_YET)

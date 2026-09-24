@@ -21,7 +21,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from common.extensions.contract import words
+
 logger = logging.getLogger(__name__)
+t = words("library_importer")
 
 HEADER = "Windows Registry Editor"
 KEY_LINE = re.compile(r"^\[(-?)([^]]+)\]\s*$")
@@ -100,8 +103,8 @@ def read_text(path: Path | str) -> tuple[str, str]:
         except UnicodeError:
             continue
         except OSError as exc:
-            return "", f"{path.name} could not be read: {exc}"
-    return "", f"{path.name} is not in an encoding this can read"
+            return "", t("note.unreadable", file=path.name, error=exc)
+    return "", t("note.no_encoding", file=path.name)
 
 
 def parse(text: str) -> list[Key]:
@@ -146,7 +149,7 @@ def read(path: Path | str) -> tuple[list[Key], str]:
     if not text:
         return [], said
     if HEADER not in text.splitlines()[0]:
-        return [], f"{Path(path).name} does not look like a registry export"
+        return [], t("note.not_a_registry_export", file=Path(path).name)
     return parse(text), said
 
 

@@ -20,10 +20,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from common.extensions.contract import words
+
 from . import drivemap
 from .source import SourceGame, SourceLibrary, SourceMedia, SourceSystem
 
 logger = logging.getLogger(__name__)
+t = words("library_importer")
 
 SOURCE_ID = "popper"
 SOURCE_NAME = "PinUP Popper"
@@ -176,7 +179,7 @@ def read(root: Path | str,
     path = database_path(root)
     if not path.is_file():
         return SourceLibrary(source_id=SOURCE_ID, root=str(root),
-                             notes=(f"No {DATABASE} in {root.name}",))
+                             notes=(t("note.no_file", file=DATABASE, folder=root.name),))
 
     notes: list[str] = []
     mapped: set[str] = set()
@@ -185,7 +188,7 @@ def read(root: Path | str,
         db = _open(path)
     except sqlite3.Error as exc:
         return SourceLibrary(source_id=SOURCE_ID, root=str(root),
-                             notes=(f"{DATABASE} could not be opened: {exc}",))
+                             notes=(t("note.unopened", file=DATABASE, error=exc),))
 
     try:
         emulators = list(db.execute(
@@ -206,14 +209,13 @@ def read(root: Path | str,
             found = drivemap.resolve(recorded, root) if recorded else drivemap.Found()
             tables_dir = found.path
             if recorded and not tables_dir:
-                notes.append(f"{name}: the tables are recorded at {recorded}, which is "
-                             "not reachable from here")
+                notes.append(t("note.tables_unreachable", system=name, path=recorded))
             elif found.recorded_prefix and found.recorded_prefix not in mapped:
                 # Said once per prefix rather than once per emulator: it is one fact
                 # about where the share is, and repeating it per row buries the rest.
                 mapped.add(found.recorded_prefix)
-                notes.append(f"Reading {found.recorded_prefix} as {found.local_prefix} "
-                             "- the paths recorded here are the old machine's")
+                notes.append(t("note.remapped", recorded=found.recorded_prefix,
+                               local=found.local_prefix))
 
             rows = list(db.execute(
                 "select * from Games where EMUID = ? order by GameName",
@@ -222,10 +224,7 @@ def read(root: Path | str,
                      if one is not None]
             skipped = len(rows) - len(games)
             if skipped:
-                notes.append(f"{name}: {skipped} "
-                             f"{'row has' if skipped == 1 else 'rows have'} no name, so "
-                             "nothing can be matched to "
-                             f"{'it' if skipped == 1 else 'them'}")
+                notes.append(t("note.rows_unnamed", system=name, count=skipped))
             games = read_media(root / MEDIA_DIR / name, games)
             systems.append(SourceSystem(
                 name=name, games=tuple(games), tables_dir=tables_dir,
@@ -235,10 +234,9 @@ def read(root: Path | str,
         if skipped_systems:
             # Named rather than dropped in silence, the same as the other reader:
             # somebody who set Future Pinball up wants to know it was seen and left.
-            notes.append("Not brought in, because this build does not play them: "
-                         + ", ".join(sorted(skipped_systems)))
+            notes.append(t("note.not_played", systems=", ".join(sorted(skipped_systems))))
     except sqlite3.Error as exc:
-        notes.append(f"{DATABASE} could not be read past this point: {exc}")
+        notes.append(t("note.read_stopped", file=DATABASE, error=exc))
     finally:
         db.close()
 

@@ -24,13 +24,16 @@ import xml.etree.ElementTree as ElementTree
 from collections.abc import Callable
 from pathlib import Path, PureWindowsPath
 
+from common.extensions.contract import words
+
 from . import drivemap
 from .source import SourceGame, SourceLibrary, SourceMedia, SourceSystem
 
 logger = logging.getLogger(__name__)
+t = words("library_importer")
 
 SOURCE_ID = "pinballx"
-SOURCE_NAME = "PinballX or PinballY"
+SOURCE_NAME = "PinballX / PinballY"
 
 CONFIG_RELATIVE = ("Config", "PinballX.ini")
 DATABASES_DIR = "Databases"
@@ -107,8 +110,8 @@ def read_config(root: Path | str) -> tuple[list[dict], list[str]]:
         settings = root / PINBALLY_SETTINGS
         if settings.is_file():
             return read_pinbally_config(settings)
-        return [], [f"No {os.path.join(*CONFIG_RELATIVE)} and no {PINBALLY_SETTINGS}, "
-                    "so the emulators were not read"]
+        return [], [t("note.no_config", config=os.path.join(*CONFIG_RELATIVE),
+                      settings=PINBALLY_SETTINGS)]
 
     text, notes = "", []
     for encoding in ("utf-16", "utf-8-sig", "utf-8"):
@@ -116,7 +119,7 @@ def read_config(root: Path | str) -> tuple[list[dict], list[str]]:
             text = path.read_text(encoding=encoding)
             break
         except (UnicodeError, OSError) as exc:
-            notes = [f"Could not read {path.name}: {exc}"]
+            notes = [t("note.unreadable", file=path.name, error=exc)]
     if not text:
         return [], notes
 
@@ -126,7 +129,7 @@ def read_config(root: Path | str) -> tuple[list[dict], list[str]]:
     try:
         parser.read_string(text)
     except configparser.Error as exc:
-        return [], [f"{path.name} could not be parsed: {exc}"]
+        return [], [t("note.unparsed", file=path.name, error=exc)]
 
     found = []
     for section in parser.sections():
@@ -212,7 +215,7 @@ def read_pinbally_config(path: Path) -> tuple[list[dict], list[str]]:
     try:
         text = path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError as exc:
-        return [], [f"Could not read {path.name}: {exc}"]
+        return [], [t("note.unreadable", file=path.name, error=exc)]
 
     systems: dict[str, dict[str, str]] = {}
     for line in text.splitlines():
@@ -360,7 +363,7 @@ def _database_text(path: Path) -> tuple[str | None, list[str]]:
     try:
         raw = path.read_bytes()
     except OSError as exc:
-        return None, [f"{path.name} could not be read: {exc}"]
+        return None, [t("note.unreadable", file=path.name, error=exc)]
 
     for encoding in ("utf-8-sig", "utf-8"):
         try:
@@ -368,12 +371,9 @@ def _database_text(path: Path) -> tuple[str | None, list[str]]:
         except UnicodeDecodeError:
             continue
     try:
-        return raw.decode("cp1252"), [
-            f"{path.name} is not UTF-8, so it was read as Windows-1252"]
+        return raw.decode("cp1252"), [t("note.read_as_windows", file=path.name)]
     except UnicodeDecodeError:
-        return raw.decode("utf-8", "replace"), [
-            f"{path.name} holds bytes in no encoding this reads, so some characters "
-            "came across wrong"]
+        return raw.decode("utf-8", "replace"), [t("note.bytes_lost", file=path.name)]
 
 
 def read_database(path: Path | str, tables_dir: str = "",
@@ -387,7 +387,7 @@ def read_database(path: Path | str, tables_dir: str = "",
     try:
         root = ElementTree.fromstring(text)
     except ElementTree.ParseError as exc:
-        return [], [*notes, f"{path.name} could not be read: {exc}"]
+        return [], [*notes, t("note.unreadable", file=path.name, error=exc)]
 
     tables = _table_index(Path(tables_dir), plays) if tables_dir else ({}, {})
     found, skipped = [], 0
@@ -397,9 +397,7 @@ def read_database(path: Path | str, tables_dir: str = "",
             skipped += 1
             continue
         found.append(game)
-    notes = [f"{path.name}: {skipped} "
-             f"{'entry has' if skipped == 1 else 'entries have'} no name, so nothing "
-             f"can be matched to {'it' if skipped == 1 else 'them'}"] if skipped else []
+    notes = [t("note.entries_unnamed", file=path.name, count=skipped)] if skipped else []
     return found, notes
 
 
@@ -492,7 +490,7 @@ def read(root: Path | str, plays: Callable[[str], bool] = _plays_vpx,
     for name in undeclared:
         by_name[name] = {"name": name, "tables_dir": "", "working_path": "",
                          "enabled": True}
-        notes.append(f"{name} has a database but the config does not declare it")
+        notes.append(t("note.undeclared", system=name))
 
     systems = []
     mapped: set[str] = set()
@@ -503,8 +501,8 @@ def read(root: Path | str, plays: Callable[[str], bool] = _plays_vpx,
             continue
         database = databases / name / f"{name}.xml"
         if not database.is_file():
-            notes.append(f"{name} is declared but has no database at "
-                         f"{DATABASES_DIR}/{name}/{name}.xml")
+            notes.append(t("note.no_database", system=name,
+                           path=f"{DATABASES_DIR}/{name}/{name}.xml"))
             continue
         recorded = entry["tables_dir"]
         found = drivemap.resolve(recorded, root) if recorded else drivemap.Found()
@@ -514,12 +512,11 @@ def read(root: Path | str, plays: Callable[[str], bool] = _plays_vpx,
             # holds it. Said out loud rather than quietly importing every game without
             # its table: the answer is to say where those files are now, and nobody can
             # give it without being told it is the question.
-            notes.append(f"{name}: the tables are recorded at {recorded}, "
-                         "which is not reachable from here")
+            notes.append(t("note.tables_unreachable", system=name, path=recorded))
         elif found.recorded_prefix and found.recorded_prefix not in mapped:
             mapped.add(found.recorded_prefix)
-            notes.append(f"Reading {found.recorded_prefix} as {found.local_prefix} "
-                         "- the paths recorded here are the old machine's")
+            notes.append(t("note.remapped", recorded=found.recorded_prefix,
+                           local=found.local_prefix))
         games, said = read_database(database, declared_tables, plays)
         notes.extend(said)
         games = read_media(root / MEDIA_DIR / name, games)
@@ -540,8 +537,7 @@ def read(root: Path | str, plays: Callable[[str], bool] = _plays_vpx,
     if skipped:
         # Named rather than dropped in silence. Somebody who set up Future Pinball wants
         # to know it was seen and left, not to wonder whether it was noticed at all.
-        notes.append(f"Not brought in, because this build does not play them: "
-                     f"{', '.join(sorted(skipped))}")
+        notes.append(t("note.not_played", systems=", ".join(sorted(skipped))))
 
     return SourceLibrary(source_id=SOURCE_ID, root=str(root),
                          systems=tuple(systems), notes=tuple(notes))

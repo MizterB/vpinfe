@@ -49,16 +49,15 @@ def _state(ctx: Any) -> dict:
     configured = ctx.config.get(SOURCE_KEY, "")
     if not configured:
         return {"path": "", "reachable": False, "source_id": "", "source_name": "",
-                "reason": "No source has been chosen"}
+                "reason": ctx.t("reason.no_source")}
     path = Path(configured)
     if not path.is_dir():
         return {"path": configured, "reachable": False, "source_id": "",
-                "source_name": "", "reason": "That folder is not reachable from here"}
+                "source_name": "", "reason": ctx.t("reason.unreachable")}
     reader = reader_for(path)
     if reader is None:
         return {"path": configured, "reachable": True, "source_id": "",
-                "source_name": "",
-                "reason": "Nothing this build can read is in that folder"}
+                "source_name": "", "reason": ctx.t("reason.nothing_readable")}
     return {"path": configured, "reachable": True, "source_id": reader.SOURCE_ID,
             "source_name": reader.SOURCE_NAME, "reason": ""}
 
@@ -159,18 +158,18 @@ def build(ctx: Any) -> None:
         state = _state(ctx)
         return {
             "step": "source",
-            "title": "Bring in a library from another frontend",
-            "help": "Point at the folder the other frontend keeps its library in. "
-                    "Nothing there is written to or moved.",
+            "title": ctx.t("wizard.source.title"),
+            "help": ctx.t("wizard.source.help"),
             "fields": [
-                {"key": "source_type", "type": "select", "label": "Coming from",
+                {"key": "source_type", "type": "select",
+                 "label": ctx.t("wizard.source.source_type.label"),
                  "value": "auto",
-                 "choices": [["auto", "Work it out"]]
+                 "choices": [["auto", ctx.t("wizard.source.auto")]]
                             + [[one.SOURCE_ID, one.SOURCE_NAME] for one in READERS],
-                 "help": "Which frontend the library belongs to."},
-                {"key": "path", "type": "path", "label": "Install folder",
+                 "help": ctx.t("wizard.source.source_type.help")},
+                {"key": "path", "type": "path", "label": ctx.t("wizard.source.path.label"),
                  "value": state["path"],
-                 "help": "Its database and its artwork are read from here."},
+                 "help": ctx.t("wizard.source.path.help")},
             ],
         }
 
@@ -194,18 +193,19 @@ def build(ctx: Any) -> None:
         leaving = str(body.get("step") or "source")
         wanted = str(values.get("path") or "").strip()
         if not wanted:
-            return _again("Say where the library is.", values)
+            return _again(ctx.t("reason.say_where"), values)
 
         ctx.config.set(SOURCE_KEY, wanted)
         follow_the_setting()
         path = Path(wanted)
         if not path.is_dir():
-            return _again("That folder is not reachable from here.", values)
+            return _again(ctx.t("reason.unreachable"), values)
         reader = _reader_for(values, path)
         if reader is None:
-            return _again("Nothing this build can read is in that folder.", values)
+            return _again(ctx.t("reason.nothing_readable"), values)
         if not reader.detect(path):
-            return _again(f"That does not look like {reader.SOURCE_NAME}.", values)
+            return _again(ctx.t("reason.not_this_source", source=reader.SOURCE_NAME),
+                          values)
 
         library = reader.read(path, ctx.apps.plays, ctx.apps.names())
         declare_roots(library, values)
@@ -238,15 +238,15 @@ def build(ctx: Any) -> None:
         return [str(one) for one in (values.get("systems") or [])]
 
     def _chosen(values: dict) -> dict | None:
-        held = {key: values[key] for key, *_rest in plan_for.SOURCES if key in values}
+        held = {key: values[key] for key in plan_for.SOURCES if key in values}
         return held or None
 
     def _sources_step(reader: ModuleType, library: SourceLibrary, made: Plan) -> dict:
         fields: list[dict[str, Any]] = [{
             "key": source.key, "type": "path", "label": source.label,
             "value": source.path,
-            "help": source.help + (" Worked out from the source."
-                                   if source.derived else ""),
+            "help": (ctx.t("wizard.sources.worked_out", help=source.help)
+                     if source.derived else source.help),
         } for source in made.sources]
 
         # Only where there is a choice to make. One system is not a decision, and a
@@ -254,34 +254,34 @@ def build(ctx: Any) -> None:
         systems = [one.name for one in library.systems if one.games]
         if len(systems) > 1:
             fields.insert(0, {
-                "key": "systems", "type": "multi", "label": "Systems",
+                "key": "systems", "type": "multi",
+                "label": ctx.t("wizard.sources.systems.label"),
                 "value": systems,
                 "choices": [[one, one] for one in systems],
-                "help": "Which of the source's systems to bring across.",
+                "help": ctx.t("wizard.sources.systems.help"),
             })
 
         return {
             "step": "sources",
-            "title": f"Reading it as {reader.SOURCE_NAME}",
-            "help": "Where each kind of thing lives. What could be worked out is filled "
-                    "in; anything left empty is not imported.",
+            "title": ctx.t("wizard.sources.title", source=reader.SOURCE_NAME),
+            "help": ctx.t("wizard.sources.help"),
             "fields": fields,
         }
 
     def _existing_step(made: Plan) -> dict:
         return {
             "step": "existing",
-            "title": f"{len(made.already)} of these are already here",
-            "help": "From a previous run, or added another way. Matched by the folder "
-                    "this import would make, then by catalog id, so one you have "
-                    "renamed is not brought in twice.",
+            "title": ctx.t("wizard.existing.title", count=len(made.already)),
+            "help": ctx.t("wizard.existing.help"),
             "fields": [{
-                "key": "on_existing", "type": "select", "label": "What to do",
+                "key": "on_existing", "type": "select",
+                "label": ctx.t("wizard.existing.on_existing.label"),
                 "value": made.on_existing,
-                "choices": [list(one) for one in plan_for.ON_EXISTING],
+                "choices": [[one, ctx.t(f"on_existing.{one}")]
+                            for one in plan_for.ON_EXISTING],
             }],
             "notes": [one.folder for one in made.already[:8]]
-                     + ([f"and {len(made.already) - 8} more"]
+                     + ([ctx.t("wizard.existing.more", count=len(made.already) - 8)]
                         if len(made.already) > 8 else []),
         }
 
@@ -291,26 +291,28 @@ def build(ctx: Any) -> None:
         counts = plan_for.expected(made)
         going = len(made.matches) if made.on_existing == "fill" else len(made.new)
 
-        rows = [["Reads as", reader.SOURCE_NAME], ["Folder", library.root]]
-        rows += [[source.label if source.active else f"No {source.label.lower()}",
-                  source.path or "not being imported"]
+        rows = [[ctx.t("wizard.summary.reads_as"), reader.SOURCE_NAME],
+                [ctx.t("wizard.summary.folder"), library.root]]
+        rows += [[source.label if source.active else ctx.t(f"kind.{source.key}.none"),
+                  source.path or ctx.t("wizard.summary.not_imported")]
                  for source in made.sources]
         if made.already:
-            rows.append(["Already here",
-                         f"{len(made.already)} - "
-                         f"{dict(plan_for.ON_EXISTING)[made.on_existing].lower()}"])
-        rows.append(["Going into", "the location new games go to"])
-        rows.append(["What comes across"])
-        rows += [[label, str(counts[key])] for key, label in plan_for.COUNTS]
+            rows.append([ctx.t("wizard.summary.already_here"),
+                         ctx.t(f"wizard.summary.already.{made.on_existing}",
+                               count=len(made.already))])
+        rows.append([ctx.t("wizard.summary.going_into"),
+                     ctx.t("wizard.summary.new_games_go")])
+        rows.append([ctx.t("wizard.summary.comes_across")])
+        rows += [[ctx.t(f"count.{key}"), str(counts[key])] for key in plan_for.COUNTS]
 
         return {
             "step": "summary",
-            "title": "This is what will happen",
+            "title": ctx.t("wizard.summary.title"),
             "ready": bool(going),
-            "reason": "" if going else "Nothing left to bring in",
+            "reason": "" if going else ctx.t("reason.nothing_left"),
             "summary": rows,
             "notes": found["notes"],
-            "confirm": f"Bring in {going} game{'' if going == 1 else 's'}",
+            "confirm": ctx.t("wizard.summary.confirm", count=going),
         }
 
     @writing.post("/wizard/run", status_code=202)
@@ -326,8 +328,7 @@ def build(ctx: Any) -> None:
         path = Path(str(values.get("path") or "").strip())
         reader = _reader_for(values, path) if path.is_dir() else None
         if reader is None:
-            return {"started": False,
-                    "reason": "Nothing this build can read is in that folder"}
+            return {"started": False, "reason": ctx.t("reason.nothing_readable")}
         systems = _systems(values)
         location = str(body.get("location") or "")
 
@@ -353,8 +354,6 @@ def build(ctx: Any) -> None:
         return {"started": True, "job_id": job.id,
                 "links": {"job": f"/api/v1/jobs/{job.id}"}}
 
-    ctx.ui.action(key="import", label="Bring in a library",
-                  description="Convert a library from another frontend into game "
-                              "folders.", base="/wizard")
+    ctx.ui.action("import", "/wizard")
     ctx.add_router(reading, scope=ctx.scope("read"))
     ctx.add_router(writing, scope=ctx.scope("write"))

@@ -994,8 +994,8 @@ class TestParametersMatchTheirTemplate(unittest.TestCase):
 APPS = ROOT / "apps"
 
 
-def _app_catalog(app_id: str, name: str = "en") -> dict:
-    path = APPS / app_id / "i18n" / f"{name}.json"
+def _file(directory: Path, name: str = "en") -> dict:
+    path = directory / f"{name}.json"
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
 
 
@@ -1035,7 +1035,7 @@ class TestEachAppKeepsItsOwnWords(unittest.TestCase):
 
     def test_every_reason_an_app_gives_is_in_its_catalog(self) -> None:
         for app in self.built_in:
-            held = _app_catalog(app.id)
+            held = _file(APPS / app.id / "i18n")
             with self.subTest(app=app.id):
                 self.assertEqual([r for r in _reasons(app.id) if r not in held], [])
 
@@ -1046,7 +1046,7 @@ class TestEachAppKeepsItsOwnWords(unittest.TestCase):
         for app in self.built_in:
             fields = {f.key for f in app.fields}
             said = _package_strings(app.id)
-            spare = [key for key in _app_catalog(app.id)
+            spare = [key for key in _file(APPS / app.id / "i18n")
                      if key != "name" and key not in said
                      and not any(key in (f"field.{f}.label", f"field.{f}.description")
                                  for f in fields)
@@ -1055,41 +1055,269 @@ class TestEachAppKeepsItsOwnWords(unittest.TestCase):
             with self.subTest(app=app.id):
                 self.assertEqual(spare, [], "nothing asks for these")
 
-    def test_the_recorded_hashes_match(self) -> None:
-        import hashlib
-        for app in self.built_in:
-            current = {k: hashlib.sha256(json.dumps(
-                v, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
-                for k, v in _app_catalog(app.id).items()}
-            with self.subTest(app=app.id):
-                self.assertEqual(_app_catalog(app.id, "en.hashes"), current,
-                                 "run scripts/i18n.py --record")
-
-    def test_the_pseudo_locale_is_in_step(self) -> None:
-        for app in self.built_in:
-            with self.subTest(app=app.id):
-                self.assertEqual(sorted(_app_catalog(app.id, "qps")),
-                                 sorted(_app_catalog(app.id)),
-                                 "run scripts/i18n.py --pseudo")
-
-    def test_no_translation_holds_a_key_english_does_not(self) -> None:
-        for app in self.built_in:
-            english = set(_app_catalog(app.id))
-            for path in sorted((APPS / app.id / "i18n").glob("*.json")):
-                if path.stem in ("en", "en.hashes", "qps"):
-                    continue
-                with self.subTest(app=app.id, locale=path.stem):
-                    extra = set(json.loads(path.read_text(encoding="utf-8"))) - english
-                    self.assertEqual(sorted(extra), [], "keys nothing serves")
-
     def test_no_entry_has_a_slot(self) -> None:
         """Nothing fills one. A field's words are looked up with no parameters."""
         for app in self.built_in:
-            slotted = [key for key, entry in _app_catalog(app.id).items()
+            slotted = [key for key, entry in _file(APPS / app.id / "i18n").items()
                        if isinstance(entry, str)
                        and any(name for _, name, _, _ in string.Formatter().parse(entry))]
             with self.subTest(app=app.id):
                 self.assertEqual(slotted, [])
+
+
+EXTENSIONS = ROOT / "extensions"
+
+
+class TestEachOwnersFileIsInStep(unittest.TestCase):
+    def setUp(self) -> None:
+        self.owners = sorted([*APPS.glob("*/i18n"), *EXTENSIONS.glob("*/i18n")])
+
+    def test_the_owners_were_found(self) -> None:
+        found = [str(one.relative_to(ROOT)) for one in self.owners]
+        self.assertIn("apps/vpx/i18n", found)
+        self.assertIn("extensions/library_importer/i18n", found)
+
+    def test_the_recorded_hashes_match(self) -> None:
+        import hashlib
+        for owner in self.owners:
+            current = {k: hashlib.sha256(json.dumps(
+                v, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+                for k, v in _file(owner).items()}
+            with self.subTest(owner=str(owner.relative_to(ROOT))):
+                self.assertEqual(_file(owner, "en.hashes"), current,
+                                 "run scripts/i18n.py --record")
+
+    def test_the_pseudo_locale_is_in_step(self) -> None:
+        for owner in self.owners:
+            with self.subTest(owner=str(owner.relative_to(ROOT))):
+                self.assertEqual(sorted(_file(owner, "qps")), sorted(_file(owner)),
+                                 "run scripts/i18n.py --pseudo")
+
+    def test_no_translation_holds_a_key_english_does_not(self) -> None:
+        for owner in self.owners:
+            english = set(_file(owner))
+            for path in sorted(owner.glob("*.json")):
+                if path.stem in ("en", "en.hashes", "qps"):
+                    continue
+                with self.subTest(owner=str(owner.relative_to(ROOT)), locale=path.stem):
+                    extra = set(json.loads(path.read_text(encoding="utf-8"))) - english
+                    self.assertEqual(sorted(extra), [], "keys nothing serves")
+
+
+STILL_WRITES_ITS_OWN = {"vpinplay"}
+MATCHED_NOT_SHOWN = {"visual pinball x", "system volume information"}
+# A log line and a query handed to SQLite.
+NOT_READ_AT_A_SCREEN = {"debug", "info", "warning", "error", "exception", "critical",
+                        "log", "execute"}
+# The wizard's and the report's own, beside what the Console draws.
+EXTENSION_DISPLAY_KEYS = DISPLAY_KWARGS | {"reason", "error", "how"}
+# The first segment of a key the host looks up, rather than the extension's code.
+HOST_READS = {"action", "community", "token", "app"}
+HOST_SEGMENTS = {"label", "description", "title", "column", "header", "help", "view",
+                 "name", "says", "field", "group"}
+
+
+def _extensions() -> list[Path]:
+    return sorted(path.parent for path in EXTENSIONS.glob("*/extension.json"))
+
+
+def _modules(package: Path) -> list[tuple[Path, ast.Module]]:
+    return [(path, ast.parse(path.read_text(encoding="utf-8")))
+            for path in sorted(package.rglob("*.py")) if "__pycache__" not in path.parts]
+
+
+def _a_sentence(said: str) -> bool:
+    """Two words or more with a lowercase one among them: a phrase, not a name or a key."""
+    return len(said.split()) >= 2 and any(
+        word.islower() and len(word) > 1 for word in re.findall(r"[^\W\d_]+", said))
+
+
+def _docstrings(tree: ast.AST) -> set[int]:
+    return {id(node.body[0].value) for node in ast.walk(tree)
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef))
+            and node.body and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+            and isinstance(node.body[0].value.value, str)}
+
+
+class _Sentences(ast.NodeVisitor):
+    def __init__(self, tree: ast.AST) -> None:
+        self.skip = _docstrings(tree)
+        self.calls: list[str] = []
+        self.found: list[tuple[int, str]] = []
+        self.visit(tree)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        self.visit(node.func)
+        self.calls.append(getattr(node.func, "attr", None)
+                          or getattr(node.func, "id", None) or "")
+        for argument in (*node.args, *node.keywords):
+            self.visit(argument)
+        self.calls.pop()
+
+    def _read(self, line: int, said: str) -> None:
+        if not set(self.calls) & NOT_READ_AT_A_SCREEN and said not in MATCHED_NOT_SHOWN \
+           and _a_sentence(said):
+            self.found.append((line, said))
+
+    def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
+        self._read(node.lineno, _glued_words(node))
+        for value in node.values:
+            if isinstance(value, ast.FormattedValue):
+                self.visit(value)
+
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if isinstance(node.value, str) and id(node) not in self.skip:
+            self._read(node.lineno, node.value)
+
+
+def _written_in_place(tree: ast.AST, product: str) -> list[tuple[int, str]]:
+    found = []
+    for node in ast.walk(tree):
+        spots: list[tuple[str, ast.expr]] = []
+        if isinstance(node, ast.Call):
+            name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+            if name not in API_DOCUMENTATION:
+                spots = [(kw.arg, kw.value) for kw in node.keywords
+                         if kw.arg in EXTENSION_DISPLAY_KEYS]
+        elif isinstance(node, ast.Dict):
+            spots = [(key.value, value) for key, value in zip(node.keys, node.values,
+                                                               strict=True)
+                     if isinstance(key, ast.Constant) and key.value in EXTENSION_DISPLAY_KEYS]
+        found += [(value.lineno, f"{key}={value.value!r}") for key, value in spots
+                  if isinstance(value, ast.Constant) and _is_text(value.value)
+                  and value.value != product]
+    return found
+
+
+def _asks(tree: ast.AST) -> list[tuple[int, str | re.Pattern, set[str]]]:
+    """Each key a module asks its own file for, and the slots it fills.
+
+    `ctx.t` and a module's `t = words(name)` both. A key built in an f-string asks for
+    every entry its shape matches.
+    """
+    found: list[tuple[int, str | re.Pattern, set[str]]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not node.args \
+           or (getattr(node.func, "attr", None) or getattr(node.func, "id", None)) != "t":
+            continue
+        key, fills = node.args[0], {kw.arg for kw in node.keywords if kw.arg}
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            found.append((node.lineno, key.value, fills))
+        elif isinstance(key, ast.JoinedStr):
+            shape = "".join(re.escape(str(part.value)) if isinstance(part, ast.Constant)
+                            else "[a-z0-9_]+" for part in key.values)
+            found.append((node.lineno, re.compile(shape), fills))
+    return found
+
+
+def _slots(entry: object) -> set[str]:
+    """What an entry fills in. A plural is chosen by `count`, whichever form uses it."""
+    forms = list(entry.values()) if isinstance(entry, dict) else [entry]
+    wants = {name for form in forms for _, name, _, _ in string.Formatter().parse(str(form))
+             if name}
+    return wants | {"count"} if isinstance(entry, dict) else wants
+
+
+class TestEachExtensionKeepsItsOwnWords(unittest.TestCase):
+    """An extension's words are in its own `i18n/`, and its code asks for them."""
+
+    def setUp(self) -> None:
+        self.extensions = [one for one in _extensions() if one.name not in STILL_WRITES_ITS_OWN]
+
+    def test_the_extensions_were_found(self) -> None:
+        self.assertEqual([one.name for one in _extensions()], ["library_importer", "vpinplay"])
+
+    def test_no_sentence_is_written_in_its_code(self) -> None:
+        offenders = [f"{path.relative_to(ROOT)}:{line} {said[:50]!r}"
+                     for package in self.extensions
+                     for path, tree in _modules(package)
+                     for line, said in _Sentences(tree).found]
+        self.assertEqual(offenders, [], "ctx.t() or words(), and the words in i18n/en.json")
+
+    def test_nothing_it_shows_is_written_in_place(self) -> None:
+        offenders = []
+        for package in self.extensions:
+            product = json.loads((package / "extension.json").read_text(
+                encoding="utf-8")).get("display_name", "")
+            offenders += [f"{path.relative_to(ROOT)}:{line} {said}"
+                          for path, tree in _modules(package)
+                          for line, said in _written_in_place(tree, product)]
+        self.assertEqual(offenders, [], "ctx.t() or words(), and the words in i18n/en.json")
+
+    def test_one_still_held_out_still_writes_its_own(self) -> None:
+        for name in STILL_WRITES_ITS_OWN:
+            with self.subTest(extension=name):
+                self.assertTrue([said for _, tree in _modules(EXTENSIONS / name)
+                                 for said in _Sentences(tree).found],
+                                "its words have moved: take it out of STILL_WRITES_ITS_OWN")
+
+    def test_a_sentence_is_found_wherever_it_is_written(self) -> None:
+        tree = ast.parse('"""Reads a library."""\n'
+                         'NOTE = "Could not read it"\n'
+                         'reason = f"{name} is not reachable"\n'
+                         'logger.warning("Could not read %s", path)\n'
+                         'db.execute("select name from games")\n'
+                         'HINTS = ("vpx", "visual pinball x")\n'
+                         'SOURCE = "PinballX / PinballY"\n'
+                         'field = {"label": "Systems", "key": "systems"}\n'
+                         'ctx.ui.settings("/s", label="VPinPlay")\n')
+        self.assertEqual([said for _, said in _Sentences(tree).found],
+                         ["Could not read it", " is not reachable"])
+        self.assertEqual([said for _, said in _written_in_place(tree, "VPinPlay")],
+                         ["label='Systems'"])
+
+    def test_every_key_it_asks_for_is_served_with_its_slots(self) -> None:
+        offenders = []
+        for package in self.extensions:
+            held = _file(package / "i18n")
+            for path, tree in _modules(package):
+                for line, asked, fills in _asks(tree):
+                    where = f"{path.relative_to(ROOT)}:{line}"
+                    keys = [asked] if isinstance(asked, str) \
+                        else [key for key in held if asked.fullmatch(key)]
+                    if not keys or any(key not in held for key in keys):
+                        shown = getattr(asked, "pattern", asked)
+                        offenders.append(f"{where} {shown} is not served")
+                    offenders += [f"{where} {key} wants {sorted(_slots(held[key]))}, "
+                                  f"gets {sorted(fills)}"
+                                  for key in keys if key in held and _slots(held[key]) != fills]
+        self.assertEqual(offenders, [])
+
+    def test_the_asks_were_found(self) -> None:
+        asked = [asked for _, tree in _modules(EXTENSIONS / "library_importer")
+                 for _, asked, _ in _asks(tree)]
+        self.assertIn("wizard.summary.confirm", asked)
+        self.assertTrue(any(isinstance(one, re.Pattern) and one.fullmatch("kind.roms.label")
+                            for one in asked))
+
+    def test_no_entry_is_asked_for_by_nothing(self) -> None:
+        for package in self.extensions:
+            manifest = json.loads((package / "extension.json").read_text(encoding="utf-8"))
+            trees = [tree for _, tree in _modules(package)]
+            asked = [one for tree in trees for _, one, _ in _asks(tree)]
+            said = {node.value for tree in trees for node in ast.walk(tree)
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+            called = {node.func.attr for tree in trees for node in ast.walk(tree)
+                      if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)}
+            spare = []
+            for key in _file(package / "i18n"):
+                segments = key.split(".")
+                if key in asked or any(isinstance(one, re.Pattern) and one.fullmatch(key)
+                                       for one in asked):
+                    continue
+                if key == "name" and not manifest.get("display_name") \
+                   or key == "description" and not manifest.get("description"):
+                    continue
+                if key in ("settings.label", "state.label") and segments[0] in called:
+                    continue
+                if segments[0] in HOST_READS and all(
+                        one in said for one in segments[1:] if one not in HOST_SEGMENTS):
+                    continue
+                spare.append(key)
+            with self.subTest(extension=package.name):
+                self.assertEqual(spare, [], "nothing asks for these")
 
 
 class TestCatalogs(unittest.TestCase):

@@ -18,6 +18,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from common.extensions.contract import words
+
+t = words("library_importer")
+
 STATS_FILE = "GameStats.csv"
 
 # `Game` is "<display name>.<system>" - the same display name the artwork is filed
@@ -66,7 +70,7 @@ def read(path: Path | str) -> tuple[list[Played], list[str]]:
     try:
         raw = path.read_bytes()
     except OSError as exc:
-        return [], [f"{path.name} could not be read: {exc}"]
+        return [], [t("note.unreadable", file=path.name, error=exc)]
 
     text, note = _text(raw, path.name)
     found = []
@@ -85,7 +89,7 @@ def _text(raw: bytes, name: str) -> tuple[str, str]:
             return raw.decode(encoding), ""
         except UnicodeDecodeError:
             continue
-    return raw.decode("cp1252", "replace"), f"{name} is in no encoding this reads cleanly"
+    return raw.decode("cp1252", "replace"), t("note.bytes_lost", file=name)
 
 
 def _played(row: dict) -> Played | None:

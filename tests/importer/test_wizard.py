@@ -115,7 +115,7 @@ class CheckTests(WizardCase):
         self.assertTrue(found["ready"])
         summary = dict(one for one in found["summary"] if len(one) == 2)
         self.assertEqual(summary["Games"], "4")
-        self.assertEqual(summary["Reads as"], "PinballX or PinballY")
+        self.assertEqual(summary["Reads as"], "PinballX / PinballY")
 
     def test_a_kind_with_no_source_says_it_is_not_coming(self) -> None:
         """"No artwork" should be a choice somebody can see they made, not a silence

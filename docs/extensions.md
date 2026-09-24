@@ -157,7 +157,10 @@ written in every language, which is for a product name.
 
 The file is served under `ext.<name>.`, so an extension adds words and never changes one of
 core's. `scripts/i18n.py` reads a bundled extension's file along with core's, and
-`--record` and `--pseudo` write its hashes and pseudo-locale.
+`--record` and `--pseudo` write its hashes and pseudo-locale. The invariants hold a bundled
+one's file to what its code asks for, both ways, and to the rules under "Type" in
+`docs/conventions.md`, and fail on a sentence written anywhere in its code outside a
+docstring, a log line or a query.
 
 ## Adding a way to play a table
 
@@ -301,7 +304,7 @@ ctx.ui.action("import", "/wizard")
 ```json
 {
   "action.import.label": "Bring in a library",
-  "action.import.description": "Convert a library from another frontend into game folders."
+  "action.import.description": "Convert a library from another frontend into game folders"
 }
 ```
 

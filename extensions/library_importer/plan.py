@@ -21,20 +21,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from common.extensions.contract import words
+
 from . import gamestats, mapping
 from .source import SourceGame, SourceLibrary
 
-# The kinds of thing an import can bring, in the order they are asked about. `key` is
-# what the wizard calls the field; `label` is what a person reads.
-SOURCES = (
-    ("tables", "Game files", "The .vpx or .fpt files themselves."),
-    ("media", "Artwork", "Playfield, backglass, wheel and the rest."),
-    ("roms", "ROMs", "The folder of ROM sets the old machine played from."),
-    ("altdata", "Sound and color",
-     "AltSound banks and color sets, in folders named for a ROM."),
-    ("history", "Play history",
-     "How often each game was played, and when it was last played."),
-)
+t = words("library_importer")
+
+# The kinds of thing an import can bring, in the order they are asked about, by the key
+# the wizard calls the field.
+SOURCES = ("tables", "media", "roms", "altdata", "history")
 
 # Derived and deliberately not offered. The reading works; there is nowhere settled to
 # put what it reads, and a field that carries nothing is a promise the code cannot keep.
@@ -47,10 +43,7 @@ NOT_YET = ("registry",)
 
 # What a second run does about a game it has already made. The default leaves it alone:
 # an import that quietly rewrites what somebody has since curated is the worse mistake.
-ON_EXISTING = (
-    ("skip", "Leave them alone"),
-    ("fill", "Add anything they are missing"),
-)
+ON_EXISTING = ("skip", "fill")
 DEFAULT_ON_EXISTING = "skip"
 
 
@@ -110,12 +103,7 @@ class Plan:
 # What the report counts, in the order it reads. The same keys come back from the run,
 # so expected and actual are one shape and a difference is a subtraction rather than a
 # comparison somebody has to make by eye.
-COUNTS = (
-    ("games", "Games"),
-    ("tables", "Game files"),
-    ("media", "Artwork files"),
-    ("companions", "Backglasses and settings"),
-)
+COUNTS = ("games", "tables", "media", "companions")
 
 
 def expected(plan: Plan) -> dict:
@@ -160,11 +148,11 @@ def against(expected_counts: dict, actual: dict) -> list[dict]:
     wrong makes a clean import look like a report with things missing from it.
     """
     rows = []
-    for key, label in COUNTS:
+    for key in COUNTS:
         want = int(expected_counts.get(key, 0) or 0)
         got = int(actual.get(key, 0) or 0)
-        rows.append({"key": key, "label": label, "expected": want, "actual": got,
-                     "short": want - got})
+        rows.append({"key": key, "label": t(f"count.{key}"), "expected": want,
+                     "actual": got, "short": want - got})
     return rows
 
 
@@ -198,10 +186,11 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
                "registry": ""}
 
     found = []
-    for key, label, help_text in SOURCES:
+    for key in SOURCES:
         said = chosen.get(key)
         path = str(said if said is not None else guessed.get(key, "") or "").strip()
-        found.append(Source(key=key, label=label, help=help_text, path=path,
+        found.append(Source(key=key, label=t(f"kind.{key}.label"),
+                            help=t(f"kind.{key}.help"), path=path,
                             derived=said is None and bool(path)))
     return found
 
@@ -268,7 +257,7 @@ def match_existing(library: SourceLibrary, existing: list[dict],
         how = "folder" if held else ""
         if held is None and game.vps_id:
             held = by_vps.get(game.vps_id.lower())
-            how = "catalog id" if held else ""
+            how = "catalog_id" if held else ""
         found.append(Match(key=game.key, folder=folder,
                            game_id=str(held.get("game_id") or "") if held else "",
                            how=how,
@@ -313,5 +302,5 @@ def build(library: SourceLibrary, existing: list[dict], chosen: dict | None = No
     return Plan(sources=derive_sources(library, chosen),
                 matches=match_existing(library, existing, systems, folder_name_for,
                                        source_id, kinds, companions_of),
-                on_existing=on_existing if on_existing in dict(ON_EXISTING)
+                on_existing=on_existing if on_existing in ON_EXISTING
                 else DEFAULT_ON_EXISTING)

@@ -158,7 +158,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
             row["companions"] = len(landed["companions"])
             rom = landed.get("rom", "")
         except Exception as exc:
-            row["error"] = f"the game file did not come across: {exc}"
+            row["error"] = ctx.t("error.game_file", error=exc)
 
     for kind, path in mapping.media_for(source_id, game, kinds):
         try:
@@ -201,7 +201,7 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str) -> Adopt
         row["table"] = True
         row["companions"] = len(landed["companions"])
     except Exception as exc:
-        row["error"] = f"the game file did not come across: {exc}"
+        row["error"] = ctx.t("error.game_file", error=exc)
     return row
 
 
@@ -251,7 +251,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             match = held.get(game.key)
             if match is not None and match.existing and not fill:
                 skipped.append({"key": game.key, "name": match.folder,
-                                "game_id": match.game_id, "how": match.how})
+                                "game_id": match.game_id,
+                                "how": ctx.t(f"match.{match.how}")})
                 continue
             # Asked of core, not worked out here: the folder a name becomes is core's
             # rule, and a copy of it drifts without saying so.

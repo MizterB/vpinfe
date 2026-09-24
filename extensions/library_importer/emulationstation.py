@@ -22,9 +22,12 @@ import xml.etree.ElementTree as ElementTree
 from collections.abc import Callable
 from pathlib import Path
 
+from common.extensions.contract import words
+
 from .source import SourceGame, SourceLibrary, SourceMedia, SourceSystem
 
 logger = logging.getLogger(__name__)
+t = words("library_importer")
 
 SOURCE_ID = "emulationstation"
 SOURCE_NAME = "EmulationStation"
@@ -131,13 +134,13 @@ def read(root: Path | str,
     path = gamelist_path(root)
     if not path.is_file():
         return SourceLibrary(source_id=SOURCE_ID, root=str(root),
-                             notes=(f"No {GAMELIST} in {root.name}",))
+                             notes=(t("note.no_file", file=GAMELIST, folder=root.name),))
 
     try:
         tree = ElementTree.parse(path).getroot()
     except (OSError, ElementTree.ParseError) as exc:
         return SourceLibrary(source_id=SOURCE_ID, root=str(root),
-                             notes=(f"{GAMELIST} could not be read: {exc}",))
+                             notes=(t("note.unreadable", file=GAMELIST, error=exc),))
 
     games, skipped = [], 0
     for element in tree.iter("game"):
@@ -149,14 +152,11 @@ def read(root: Path | str,
 
     notes = []
     if skipped:
-        notes.append(f"{GAMELIST}: {skipped} "
-                     f"{'entry names' if skipped == 1 else 'entries name'} no file and "
-                     "cannot be imported")
+        notes.append(t("note.entries_fileless", file=GAMELIST, count=skipped))
     missing = sum(1 for game in games if game.table_file
                   and not Path(game.table_file).is_file())
     if missing:
-        notes.append(f"{missing} of {len(games)} games name a file that is not reachable "
-                     "from here")
+        notes.append(t("note.files_unreachable", count=missing, total=len(games)))
 
     return SourceLibrary(
         source_id=SOURCE_ID, root=str(root), notes=tuple(notes),
