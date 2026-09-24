@@ -531,8 +531,11 @@ window.receiveEvent = function(event) {
     logContainer.scrollTop = logContainer.scrollHeight;
   } else if (event.type === 'buildmeta_complete') {
     document.getElementById('progress-bar').style.width = '100%';
-    document.getElementById('progress-text').textContent =
-      `Complete! ${event.result.found} tables scanned, ${event.result.not_found} not found in VPSdb`;
+    const missed = event.result.not_found;
+    document.getElementById('progress-text').textContent = missed
+      ? t('frontend.mainmenu.done_with_misses', 'Done. {count} could not be matched or read.',
+          { count: missed })
+      : t('word.done', 'Done');
     document.getElementById('buildmeta-close').style.display = 'block';
   } else if (event.type === 'buildmeta_error') {
     document.getElementById('progress-text').textContent =
