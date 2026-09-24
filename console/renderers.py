@@ -149,7 +149,8 @@ def install_collection_looks(smart: set[str], on: ui.element | None = None) -> N
 def drawable(default: str, *others: str, **params: Any) -> dict[str, Any]:
     """What makes a column drawn by name: `default` until a view says otherwise, and
     `others` as the choices it offers. `params` reach the drawing as it runs."""
-    return {":cellRenderer": DISPATCH, "cellRendererParams": {**params, "drawn": default},
+    return {":cellRenderer": DISPATCH, ":equals": "() => false",
+            "cellRendererParams": {**params, "drawn": default},
             CHOICES_KEY: (default, *others)}
 
 

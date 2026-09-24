@@ -1524,7 +1524,7 @@ async def _media_block(context: dict[str, Any]) -> None:
                     logger.debug("No detail for %s", kind, exc_info=True)
             with dock:
                 if kind and kind in entries:
-                    _slot(context, kind, entries[kind], detail, draw,
+                    _slot(context, kind, entries[kind], detail, written,
                           (overrides or {}).get(kind) or [])
                 else:
                     # The region is reserved either way, so it says what it is for
@@ -1537,7 +1537,13 @@ async def _media_block(context: dict[str, Any]) -> None:
                         ui.label(t("console.workbench.select_media_item_manage")) \
                             .classes("console-help")
 
-    context["redraws"].append(draw)
+    async def written() -> None:
+        await draw()
+        saved = context.get("saved")
+        if callable(saved):
+            await saved()
+
+    context["redraws"].append(written)
     await draw()
 
 
