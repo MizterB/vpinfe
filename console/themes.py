@@ -179,11 +179,9 @@ async def _fill(library: Library, state: dict[str, Any],
             with bar.bottom, panel.bar_end():
                 count = ui.label(_themes_said(len(built), len(built))) \
                     .classes("text-xs console-label")
-                ui.button(icon=verbs.REFRESH,
-                          on_click=lambda: _fill(library, state, on_select, redraw, body,
-                                                 refresh=True)) \
-                    .props("flat dense round size=sm").classes("shrink-0") \
-                    .tooltip(t("console.themes.check_updates"))
+                panel.refresh(lambda: _fill(library, state, on_select, redraw, body,
+                                            refresh=True),
+                              t("console.themes.check_updates"))
 
         async def on_header_context(col_id: str | None) -> None:
             await grid.header_menu(menu, table, COLUMNS, col_id)

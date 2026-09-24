@@ -241,9 +241,7 @@ def build(found: list[dict[str, Any]], library: Any,
             actions = ui.button(icon=verbs.MORE).props("flat round dense") \
                 .tooltip(t("console.media.actions_selected_media"))
             if rescan is not None:
-                ui.button(icon=verbs.REFRESH, on_click=rescan) \
-                    .props("flat dense round size=sm").classes("shrink-0") \
-                    .tooltip(t("console.media.read_library_disk_pick"))
+                panel.refresh(rescan, t("console.media.read_library_disk_pick"))
 
         async def refill() -> None:
             for game_id in {row["game_id"] for row in selected}:

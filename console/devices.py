@@ -437,9 +437,7 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
         with bar.bottom, panel.bar_end():
             count = ui.label(said()).classes("text-xs console-label")
             if probe is not None:
-                ui.button(icon=verbs.REFRESH, on_click=probe) \
-                    .props("flat dense round size=sm").classes("shrink-0") \
-                    .tooltip(t("console.devices.ask_every_device_whether"))
+                panel.refresh(probe, t("console.devices.ask_every_device_whether"))
 
     by_id = {row["id"]: row for row in built}
     grid.on_row_focus(SCOPE,

@@ -464,9 +464,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                 bulk_menu = ui.menu().props("no-parent-event")
             actions.set_visibility(False)
             if rescan is not None:
-                ui.button(icon=verbs.REFRESH, on_click=rescan) \
-                    .props("flat dense round size=sm").classes("shrink-0") \
-                    .tooltip(t("console.games.read_library_disk_pick"))
+                panel.refresh(rescan, t("console.games.read_library_disk_pick"))
 
     shown: dict[str, int] = {"rows": len(rows)}
 
@@ -1097,9 +1095,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 bulk_menu = ui.menu().props("no-parent-event")
             actions.set_visibility(False)
             if rescan is not None:
-                ui.button(icon=verbs.REFRESH, on_click=rescan) \
-                    .props("flat dense round size=sm").classes("shrink-0") \
-                    .tooltip(t("console.games.read_library_disk_pick"))
+                panel.refresh(rescan, t("console.games.read_library_disk_pick"))
 
     # The workbench follows the focused row, the same way it does under Games - focus
     # rather than selection, so arrowing down the list is a sweep and the checkboxes
