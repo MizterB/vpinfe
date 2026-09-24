@@ -49,6 +49,7 @@ RATING = t("console.workbench.your_rating")
 FAVORITE = t("word.favorite")
 TAGS = t("console.workbench.tags")
 MARKS = {RATING, FAVORITE, TAGS}
+DOF_EVENT = t("console.workbench.dof_event")
 
 
 class GameSectionTests(unittest.TestCase):
@@ -64,6 +65,12 @@ class GameSectionTests(unittest.TestCase):
 
         self.assertEqual(headings.index(YOURS),
                          headings.index(t("console.workbench.details")) + 1)
+
+    def test_the_dof_event_sits_under_frontend_after_yours(self) -> None:
+        headings = _headings(self.entries)
+
+        self.assertEqual(_under(self.entries, game_tables.FRONTEND), [DOF_EVENT])
+        self.assertEqual(headings.index(game_tables.FRONTEND), headings.index(YOURS) + 1)
 
 
 class TableSectionTests(unittest.TestCase):
@@ -130,6 +137,12 @@ class PlaySectionTests(unittest.TestCase):
                   for label in labels}
 
         self.assertFalse(labels & MARKS)
+
+    def test_a_game_s_play_holds_only_its_record(self) -> None:
+        labels = {label for _, labels in _groups(workbench._play_entries(_context()))
+                  for label in labels}
+
+        self.assertNotIn(DOF_EVENT, labels)
 
     def test_a_table_s_play_holds_no_marks(self) -> None:
         entries = workbench._play_entries(_context(lens="beta"))

@@ -2085,7 +2085,23 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
         *_outside(links),
         (t("word.folder"), PurePosixPath(folder).name or folder or "-"),
     ]
-    return entries + _game_marks(context)
+    return entries + _game_marks(context) + _game_frontend(context)
+
+
+def _game_frontend(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    overrides = context["game"].get("overrides") or {}
+
+    async def save_dof(value: str) -> None:
+        await _save_overrides(context, {"frontend_dof_event": value}, table=False)
+
+    # Empty is the revert: nothing but the user supplies this, and clearing it asks for
+    # the frontend's own effect.
+    return [
+        (HEADING, game_tables.FRONTEND),
+        (t("console.workbench.dof_event"),
+         _override(overrides.get("frontend_dof_event") or "", None, "", save_dof,
+                   hint=t("console.workbench.empty_uses_default_effect"))),
+    ]
 
 
 def _game_marks(context: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -2138,10 +2154,8 @@ def _table_marks(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[A
 
 
 def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """The game's own record, and the one frontend setting it carries."""
-    game = context["game"]
-    record = game.get("user") or {}
-    overrides = game.get("overrides") or {}
+    """The game's own record."""
+    record = context["game"].get("user") or {}
 
     async def reset() -> None:
         if not await confirm.ask(
@@ -2152,17 +2166,7 @@ def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         await _write(context, context["library"].reset_play_record,
                      context["game_id"])
 
-    async def save_dof(value: str) -> None:
-        await _save_overrides(context, {"frontend_dof_event": value}, table=False)
-
-    rows = _play_rows(context, record, on_reset=reset)
-    # Empty is the revert: nothing but the user supplies this, and clearing it asks for
-    # the frontend's own effect.
-    rows.append((t("console.workbench.dof_event"),
-                 _override(overrides.get("frontend_dof_event") or "", None, "",
-                           save_dof,
-                           hint=t("console.workbench.empty_uses_default_effect"))))
-    return rows
+    return _play_rows(context, record, on_reset=reset)
 
 
 def _table_play_rows(context: dict[str, Any],
@@ -2196,7 +2200,7 @@ def _play_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 
 async def _play_block(context: dict[str, Any]) -> None:
-    """What has been done with this, and what the frontend does with it."""
+    """What has been done with this."""
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, _play_entries(context))
 
