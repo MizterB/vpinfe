@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from common.config_access import MediaConfig
-from common.games import asset_origin
+from common.games import asset_origin, sized_media
 from common.games.game import GameRecord
 from common.games.game_metadata import reorder_leading_article, vpinfe_section
 from common.games.game_repository import all_games
@@ -132,6 +132,7 @@ def media_entries(resolved: dict, game_dir: Path, prefix: str) -> dict:
             "via": hit.tier,
             "origin": asset_origin.origin_of(hosts, game_dir, hit.path) or None,
             "matched_to": asset_origin.match_of(recorded, game_dir, hit.path) or None,
+            "version": sized_media.version(hit.path),
             "links": {"self": f"{prefix}/{key}"} if hit.path is not None else {"self": None},
         }
         for key, hit in resolved.items()

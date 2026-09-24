@@ -19,7 +19,7 @@ from common.games import collection_ops
 from . import models, scopes
 from .auth import requires
 from .criteria import criteria_for
-from .responses import revalidating_file
+from .responses import ART_SIZE, ART_VERSION, art_file
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -182,9 +182,9 @@ def clear_image(name: str) -> Response:
 
 @router.get("/{name}/image", summary="A collection's image",
             dependencies=[requires(scopes.COLLECTIONS_READ)])
-def get_image(name: str, request: Request) -> Response:
-    # Named for the collection, not the file: a new image changes what this serves.
-    return revalidating_file(collection_ops.image_path(name), request)
+def get_image(name: str, request: Request, size: int | None = ART_SIZE,
+              v: str = ART_VERSION) -> Response:
+    return art_file(collection_ops.image_path(name, size), request, v)
 
 
 @router.post("/{name}/members/from_filters",

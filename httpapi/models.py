@@ -1103,6 +1103,8 @@ class MediaSlot(ApiModel):
     # honest answer for anything placed before the ledger or by another tool.
     origin: str | None = None
     matched_to: str | None = None
+    # The `v` for the file this row's route serves, where one does.
+    version: str | None = None
     # What is filling this slot on the cabinet while the slot itself is empty - a set,
     # or a cross-kind fallback. Another slot's file, so it does not make this row
     # present, but a curator reading "Missing" against a machine that shows something
@@ -1405,6 +1407,8 @@ class MediaEntry(ApiModel):
     origin: str | None = None
     # Null means nobody has said, not that a look came back empty.
     matched_to: str | None = None
+    # The `v` that lets `links.self` be cached for good; null when nothing is there.
+    version: str | None = None
     links: MediaEntryLinks
 
 
@@ -1736,6 +1740,8 @@ class CollectionResource(ApiModel):
     # identity; this is where the reason lives.
     description: str = ""
     image: str | None
+    # The `v` that lets `/collections/{name}/image` be cached for good.
+    image_version: str | None = None
     in_frontend: bool = True
     # What it resolves to right now - its size, which is the number a reader means by
     # "how big is this collection". `game_count` is the stored membership and the two

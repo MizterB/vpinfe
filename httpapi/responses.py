@@ -4,8 +4,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fastapi import Query
 from starlette.requests import Request
 from starlette.responses import FileResponse, Response
+
+from common.games import sized_media
+from common.games.sized_media import Served
+
+FOREVER = "public, max-age=31536000, immutable"
+
+ART_SIZE = Query(None, description="The longest edge in pixels, for an image: "
+                                   + " or ".join(str(one) for one in sized_media.SIZES))
+ART_VERSION = Query("", description="The `version` the listing gave; a match is kept "
+                                    "for good")
+
+
+def art_file(served: Served, request: Request, sent_version: str) -> Response:
+    """Kept for good when the address names the file's current version, and asked
+    about every time otherwise."""
+    if sent_version and sent_version == served.version:
+        return FileResponse(served.path, headers={"Cache-Control": FOREVER})
+    return revalidating_file(served.path, request)
 
 
 def revalidating_file(path: Path, request: Request) -> Response:

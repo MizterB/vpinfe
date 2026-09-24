@@ -17,12 +17,18 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from common import service_errors
-from common.games import entry_lens, game_identity, game_lens, game_repository, table_lens
+from common.games import (
+    entry_lens,
+    game_identity,
+    game_lens,
+    game_repository,
+    sized_media,
+    table_lens,
+)
 from common.games.collection_filters import (
     UNCONSTRAINED,
     group_key,
@@ -195,6 +201,7 @@ def _resource_for(row: dict) -> dict:
         "type": "filter" if row["is_filter"] else "manual",
         "description": get_collections_manager().get_description(name),
         "image": row.get("image") or None,
+        "image_version": sized_media.version(collection_icon_path(row.get("image"))),
         "in_frontend": row.get("in_frontend", True),
         "count": count,
         "before_limit": before_limit,
@@ -514,13 +521,16 @@ def entries_of(name: str) -> dict:
                         for one in entries]}
 
 
-def image_path(name: str) -> Path:
-    """The file behind a collection's icon, or a refusal."""
-    here = collection_icon_path(_row_or_refuse(name).get("image"))
+def image_path(name: str, size: int | None = None) -> sized_media.Served:
+    """The file behind a collection's icon, at `size` if one is asked for, or a
+    refusal."""
+    row = _row_or_refuse(name)
+    size = sized_media.size_or_refuse(size, "image")
+    here = collection_icon_path(row.get("image"))
     if here is None:
         raise service_errors.NotFoundError(
             t("error.collections.no_image", name=(name)))
-    return here
+    return sized_media.served(here, size)
 
 
 # -- writes -----------------------------------------------------------------------

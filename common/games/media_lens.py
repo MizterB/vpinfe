@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from common import collation
-from common.games import asset_origin, game_repository, media_service, table_lens
+from common.games import asset_origin, game_repository, media_service, sized_media, table_lens
 from common.games.game_repository import game_to_row
 from common.media_specs import (
     MEDIA_SPECS,
@@ -218,6 +218,7 @@ def listing(limit: int = 0, offset: int = 0, game: str = "",
                                                      shared_path) or None,
                     "matched_to": asset_origin.match_of(recorded, game_dir,
                                                         shared_path) or None,
+                    "version": sized_media.version(shared_path),
                     "standing_in": (hit.tier if hit is not None and hit.path is not None
                                     and hit.tier not in _SHARED_TIERS else ""),
                 })
@@ -239,6 +240,7 @@ def listing(limit: int = 0, offset: int = 0, game: str = "",
                     "via": table["hit"].tier,
                     "origin": asset_origin.origin_of(hosts, game_dir, own) or None,
                     "matched_to": asset_origin.match_of(recorded, game_dir, own) or None,
+                    "version": sized_media.version(own),
                     "standing_in": "",
                 })
                 for covered in _covered(game_dir, files, medias, slot, variant, sets,

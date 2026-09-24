@@ -15,7 +15,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from common import media_probe, service_errors
-from common.games import asset_origin, game_lens, media_lookup, media_placement, media_service
+from common.games import (
+    asset_origin,
+    game_lens,
+    media_lookup,
+    media_placement,
+    media_service,
+    sized_media,
+)
 from common.games.game import Game
 from common.games.game_repository import game_to_row
 from common.i18n import t
@@ -83,16 +90,19 @@ def table_media(game_id: str, table_id: str) -> dict:
                                              stem)}
 
 
-def media_file(game_id: str, kind: str, table_id: str = "") -> Path:
-    """The file a slot currently resolves to, or a refusal. The caller sends it."""
+def media_file(game_id: str, kind: str, table_id: str = "",
+               size: int | None = None) -> sized_media.Served:
+    """The file a slot currently resolves to, at `size` if one is asked for, or a
+    refusal. The caller sends it."""
     game = game_lens.game_or_refuse(game_id)
     kind = kind_or_refuse(kind)
+    size = sized_media.size_or_refuse(size, media_family(kind))
     stem = stem_or_refuse(game, table_id) if table_id else None
     hit = media_service.resolved_media(_folder(game), stem).get(kind)
     path = hit.path if hit is not None else None
     if path is None or not path.is_file():
         raise service_errors.NotFoundError(t("error.games.game_no_media", kind=(kind)))
-    return path
+    return sized_media.served(path, size)
 
 
 def overrides(game_id: str) -> dict:

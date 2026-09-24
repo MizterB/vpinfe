@@ -97,7 +97,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/tables` | Every table in the library (`game`, `limit`, `offset`), each row carrying `source`, the named release, `update_available` as a game's tables do, and `derived_tags` |
 | GET | `/api/v1/games/{id}/links` | Where the game is elsewhere, as extensions have contributed. `?table=` for one table, `?path=` for one of its files |
 | GET | `/api/v1/games/{id}/media` | Every media kind, present or not |
-| GET | `/api/v1/games/{id}/media/{kind}` | Stream one media file |
+| GET | `/api/v1/games/{id}/media/{kind}` | Stream one media file. `?size=` sends a picture smaller; `?v=` lets it be kept |
 | GET | `/api/v1/games/{id}/media/{kind}/detail` | What that file is. `format` is what the file's header says it is, `width`/`height` are an image's or a video's, and `duration_s` is a video's or a sound's running time |
 | GET | `/api/v1/games/{id}/assets/detail?path=` | One asset file or folder: size, date and format, a folder's file count, and a text file's first lines (`lines=`, 0 for all). A path out of the game's folder is refused |
 | GET | `/api/v1/games/{id}/assets/{kind}/placements` | Where a backglass, ini, script, point of view or score view could go - the folder's own name, or one table's - and what each would replace. A point of view has no folder name |
@@ -259,6 +259,19 @@ One cross-kind rule: a game with a `logo` and no wheel serves the logo in the wh
 below every real wheel tier; such an entry carries `via: "logo"` so a client that cares can
 tell a fallback from the real thing. An unknown kind is an
 `invalid_request` naming the known kinds; a known-but-absent kind is a `not_found`.
+
+**Draw art at the size you draw it.** `?size=256` or `?size=1024` sends a picture no
+longer than that on its longest edge, as WebP, made once and kept until the file behind the
+slot changes. A picture is never made larger. An animated one, or one that cannot be read,
+is sent as it is. Any other size is an `invalid_request` naming the two, and so is a size
+on a video or a sound.
+
+**Keep art for good by naming its version.** Each present entry, each row of
+`GET /media`, and a collection's `image_version` carry a `version` that changes whenever
+the file does. A request whose `?v=` matches the current one is sent as `immutable` with a
+year's `max-age`, so a browser never asks again; anything else, including no `v` at all,
+is sent `no-cache` and answered `304` while the file is unchanged. A stale `v` is never
+kept, so an address from an old listing still gets the new file.
 
 Assets come in two lenses, both computed from the folder at request time:
 
@@ -699,6 +712,8 @@ table does not fall back to the game's default.
 within its limit, skipping a game with no wheel - each one this API's own
 `/games/{id}[/tables/{table}]/media/wheel`. It is what to draw for a collection with no
 `image` of its own; the Console draws them as a two-by-two.
+
+`image_version` is the `v` for `/collections/{name}/image`, and null when it has none.
 
 `added`, `matched` and `excluded` count games before the limit: written into it, brought in
 by its rule, and taken out whole by name. `count` is what it hands out, which is tables.

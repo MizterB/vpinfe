@@ -171,8 +171,10 @@ def get_media_overrides(game_id: str) -> models.MediaOverrideList:
 
 @router.get("/{game_id}/media/{kind}", summary="One shared media file",
             dependencies=[requires(scopes.GAMES_READ)])
-def get_game_media_file(game_id: str, kind: str, request: Request) -> Response:
-    return responses.revalidating_file(media_ops.media_file(game_id, kind), request)
+def get_game_media_file(game_id: str, kind: str, request: Request,
+                        size: int | None = responses.ART_SIZE,
+                        v: str = responses.ART_VERSION) -> Response:
+    return responses.art_file(media_ops.media_file(game_id, kind, "", size), request, v)
 
 
 @router.get("/{game_id}/tables/{table_id}/media", summary="One table's media",
@@ -183,10 +185,11 @@ def get_table_media(game_id: str, table_id: str) -> models.MediaList:
 
 @router.get("/{game_id}/tables/{table_id}/media/{kind}", summary="One table's media file",
             dependencies=[requires(scopes.GAMES_READ)])
-def get_table_media_file(game_id: str, table_id: str, kind: str,
-                         request: Request) -> Response:
-    return responses.revalidating_file(
-        media_ops.media_file(game_id, kind, table_id), request)
+def get_table_media_file(game_id: str, table_id: str, kind: str, request: Request,
+                         size: int | None = responses.ART_SIZE,
+                         v: str = responses.ART_VERSION) -> Response:
+    return responses.art_file(
+        media_ops.media_file(game_id, kind, table_id, size), request, v)
 
 
 @router.get("/{game_id}/media/{kind}/placements",
