@@ -39,13 +39,13 @@ def _peek(src: str, family: str) -> None:
 
 
 def _body(src: str, name: str, meta: str, tag: str, family: str, glyph: str,
-          small: bool = False, line: bool = False) -> None:
+          small: bool = False, line: bool = False, peek: str = "") -> None:
     """The picture and the words, which both shapes draw the same way."""
     frame = "console-source-thumb" + (" console-source-thumb--small" if small else "")
     if line:
         ui.icon(glyph or GLYPHS.get(family, FALLBACK)).classes("shrink-0")
     else:
-        _frame(frame, src, family, glyph)
+        _frame(frame, src, family, glyph, peek)
     with ui.column().classes("gap-0 min-w-0 grow"):
         ui.label(name).classes("console-source-name")
         if meta:
@@ -54,7 +54,7 @@ def _body(src: str, name: str, meta: str, tag: str, family: str, glyph: str,
             ui.label(tag).classes("console-source-tag")
 
 
-def _frame(frame: str, src: str, family: str, glyph: str) -> None:
+def _frame(frame: str, src: str, family: str, glyph: str, peek: str = "") -> None:
     with ui.element("div").classes(frame):
         if src and family == "video":
             ui.html(f'<video src="{src}#t=0.1" preload="metadata" muted '
@@ -65,20 +65,21 @@ def _frame(frame: str, src: str, family: str, glyph: str) -> None:
             ui.icon(glyph or GLYPHS.get(family, FALLBACK)) \
                 .classes("console-source-thumb-glyph")
         if src and family in SHOWABLE:
-            _peek(src, family)
+            _peek(peek or src, family)
 
 
 def row(src: str, name: str, meta: str, tag: str, take: Callable, *,
         family: str = "image", glyph: str = "", action: str = t("console.candidates.use"),
-        line: bool = False, current: bool = False) -> None:
+        line: bool = False, current: bool = False, peek: str = "") -> None:
     """What it looks like, what it is, and the one thing you can do with it.
 
     `line` draws it the way a folder is drawn, for a list where nothing has a picture.
-    `current` marks the one already in place, which has nothing left to do.
+    `current` marks the one already in place, which has nothing left to do. `peek` is a
+    larger copy for the bigger look, where `src` is sized for the row.
     """
     classes = "items-center gap-3 w-full no-wrap console-source-row"
     with ui.row().classes(classes + (" console-source-row--line" if line else "")):
-        _body(src, name, meta, tag, family, glyph, line=line)
+        _body(src, name, meta, tag, family, glyph, line=line, peek=peek)
         if current:
             panel.state(t("word.current"), "on")()
         else:

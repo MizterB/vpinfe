@@ -18,7 +18,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
-from urllib.parse import quote
 
 from nicegui import run, ui
 
@@ -33,6 +32,7 @@ from common.media_specs import (
     media_label_map,
 )
 from console import (
+    art,
     candidates,
     confirm,
     game_tables,
@@ -986,9 +986,9 @@ class _Image(_OneFile):
                 return
             await self.took(_named_for(name, served), data)
 
-        table = f"/tables/{quote(table_id, safe='')}" if table_id else ""
-        candidates.row(f"/api/v1/games/{quote(game_id, safe='')}{table}/media/wheel", name,
-                       game_tables.made(game), "", take)
+        candidates.row(art.media(game_id, "wheel", table_id, size=art.CELL), name,
+                       game_tables.made(game), "", take,
+                       peek=art.media(game_id, "wheel", table_id, size=art.PANEL))
 
     async def took(self, name: str, data: bytes) -> None:
         try:
