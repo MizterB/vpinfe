@@ -43,6 +43,7 @@ FAILED = "failed"
 DISABLED = "disabled"
 # Switched off by the user, or not for this machine.
 OFF = "off"
+SWITCHED_OFF = "extension.reason.switched_off"
 
 _PLATFORMS = {"linux": "linux", "win32": "windows", "darwin": "macos"}
 PLATFORM_NAMES = {"linux": "extension.platform.linux",
@@ -147,7 +148,7 @@ class Record:
         found = self.manifest.as_dict() if self.manifest else {"name": self.name}
         return {**found, "display_name": self.display_name,
                 "description": self.description,
-                "state": self.state, "reason": self.reason,
+                "state": self.state, "reason": self.reason, "reason_key": self.why,
                 "routes": [scope for _router, scope in self.routers],
                 # Only while it is running: an action on an extension that is not
                 # there would draw a button that refuses.
@@ -284,7 +285,7 @@ class Registry:
 
     def _why_not(self, manifest: Manifest) -> tuple[str, dict[str, str | tuple[str, ...]]]:
         if not self._store.enabled(manifest.name):
-            return "extension.reason.switched_off", {}
+            return SWITCHED_OFF, {}
         platform = this_platform()
         if manifest.platforms and platform not in manifest.platforms:
             return "extension.reason.not_for_platform", {

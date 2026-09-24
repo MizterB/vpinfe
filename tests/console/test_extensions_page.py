@@ -64,6 +64,26 @@ class FrontDoorTests(unittest.TestCase):
         self.assertIn("tooltip", actions)
 
 
+def _card(found: dict) -> list[str]:
+    with ui.column() as body:
+        sections._extension_card(found)
+    return [one.text for one in body.descendants() if isinstance(one, ui.label)]
+
+
+class CardTests(unittest.TestCase):
+    def test_one_switched_off_says_off_once(self) -> None:
+        said = _card({"name": "sample", "state": host.OFF, "reason": "Switched off",
+                      "reason_key": host.SWITCHED_OFF})
+
+        self.assertEqual(said, ["sample", i18n.t("word.off")])
+
+    def test_one_off_for_another_reason_says_which(self) -> None:
+        said = _card({"name": "sample", "state": host.OFF, "reason": "Not for macOS",
+                      "reason_key": "extension.reason.not_for_platform"})
+
+        self.assertIn("Not for macOS", said)
+
+
 class LanguageTests(unittest.TestCase):
     def setUp(self) -> None:
         self.addCleanup(i18n.set_language, i18n.language())

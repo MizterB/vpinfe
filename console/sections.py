@@ -13,6 +13,7 @@ from typing import Any
 
 from nicegui import run, ui
 
+from common.extensions.host import SWITCHED_OFF
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import verbs
@@ -425,8 +426,9 @@ def _extension_card(found: dict, open_one: Callable[..., Any] | None = None) -> 
                 ui.label(t(STATE_WORDS[state])).classes(f"console-member-chip {tone}")
         # What it is, then what happened to it. A card keeps its shape whatever state
         # the extension is in, and the news is the line the chip points at.
-        for line in (str(found.get("description") or ""),
-                     str(found.get("reason") or "")):
+        news = ("" if found.get("reason_key") == SWITCHED_OFF
+                else str(found.get("reason") or ""))
+        for line in (str(found.get("description") or ""), news):
             if line:
                 ui.label(line).classes("console-help")
         _actions(found, open_one)

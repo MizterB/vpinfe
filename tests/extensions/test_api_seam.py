@@ -118,6 +118,7 @@ class ListingTests(SeamCase):
 
         self.assertEqual(sample["state"], "off")
         self.assertEqual(sample["reason"], "Switched off")
+        self.assertEqual(sample["reason_key"], "extension.reason.switched_off")
 
 
 class FailureTests(SeamCase):
