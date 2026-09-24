@@ -2108,6 +2108,9 @@ class Owned(ApiModel):
 
 
 class OtherVersion(Owned):
+    """The table held where another version of the release was asked about. `version`
+    is that table's; `url` is where the release asked about is published."""
+
     version: str = ""
     url: str = ""
 
