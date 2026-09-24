@@ -28,10 +28,17 @@ def _item(name: str, **more: object) -> dict:
             **more}
 
 
+def _pages(total: int) -> object:
+    def page(_endpoint: str, offset: int) -> dict:
+        names = [f"T{index:05d}" for index in range(offset, min(offset + 100, total))]
+        return {"items": [_item(one) for one in names],
+                "pagination": {"total": total, "hasNext": offset + 100 < total}}
+    return page
+
+
 class Rows(unittest.TestCase):
     def setUp(self) -> None:
         self.community = _module()
-        self.community._held.update(at=0.0, endpoint="", rows=[])
 
     def test_a_row_is_in_this_list_s_words(self) -> None:
         row = self.community._row(_item("AFM"))
@@ -44,7 +51,22 @@ class Rows(unittest.TestCase):
     def test_a_rating_is_to_one_place(self) -> None:
         self.assertEqual(3.3, self.community._row(_item("BK2K", avgRating=10 / 3))["rating"])
 
-    def test_every_page_is_read_until_there_are_no_more(self) -> None:
+    def test_the_total_says_which_pages_to_read_and_they_keep_their_order(self) -> None:
+        with patch.object(self.community, "_page", side_effect=_pages(250)) as asked:
+            rows = self.community.tables("https://vpinplay.example")
+
+        self.assertEqual([0, 100, 200],
+                         sorted(call.args[1] for call in asked.call_args_list))
+        self.assertEqual([f"T{index:05d}" for index in range(250)],
+                         [one["name"] for one in rows])
+
+    def test_a_list_past_five_thousand_is_read_whole(self) -> None:
+        with patch.object(self.community, "_page", side_effect=_pages(5050)):
+            rows = self.community.tables("https://vpinplay.example")
+
+        self.assertEqual(5050, len(rows))
+
+    def test_without_a_total_every_page_is_read_until_there_are_no_more(self) -> None:
         pages = [{"items": [_item("A")], "pagination": {"hasNext": True}},
                  {"items": [_item("B")], "pagination": {"hasNext": False}}]
         with patch.object(self.community, "_page", side_effect=pages) as asked:
@@ -54,13 +76,13 @@ class Rows(unittest.TestCase):
                          ([one["name"] for one in rows],
                           [call.args[1] for call in asked.call_args_list]))
 
-    def test_a_second_look_within_ten_minutes_asks_nothing(self) -> None:
+    def test_every_look_asks_the_service_again(self) -> None:
         with patch.object(self.community, "_page",
                           return_value={"items": [_item("A")], "pagination": {}}) as asked:
             self.community.tables("https://vpinplay.example")
             self.community.tables("https://vpinplay.example")
 
-        self.assertEqual(1, asked.call_count)
+        self.assertEqual(2, asked.call_count)
 
     def test_a_server_that_does_not_answer_is_said_as_such(self) -> None:
         app = FastAPI()

@@ -366,6 +366,11 @@ rows this library holds and makes their name a link: `keys` is `vps_entry` for a
 the game, or `vps_release` for one to the table. It is all data: core draws the list with
 the grid every other page uses, and nothing of the extension's runs in the page.
 
+Core keeps the last good read of each list on disk. The page draws it at once, with how old
+it is, and asks the route again behind it; a read that fails leaves the last good list on
+screen, said to be stale. The route is asked on every visit and on Refresh, so it answers
+with the whole list as it is now rather than holding a copy of its own.
+
 With `tag="Weekly Challenge"` as well, the list puts that tag on what this library holds
 from it: the game for a `vps_entry` relation, the table for a `vps_release` one, so a
 challenge naming one build of a machine tags that build and not the others. Core reads

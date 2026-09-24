@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from nicegui import ui
 
+from common import paths
+from common.atomic_write import write_atomic
 from common.i18n import t
+from common.timestamps import utc_now_iso
 from console import collection_rules, deeplink, grid, offload, panel, tag_chips, verbs, views, when
 from console.api import ApiClient, ApiError
 from console.data import Library, read_state, sources_of
@@ -17,6 +23,7 @@ PREFIX = "community:"
 ICON = "extension"
 HELD = "held"
 UNDER = "under_said"
+KEPT = paths.CONFIG_DIR / "cache" / "community"
 
 _KIND = {"number": {"type": "numericColumn", "filter": "agNumberColumnFilter"},
          "text": {}, "date": {}}
@@ -128,6 +135,44 @@ def _address(mine: dict[str, Any], relation: dict[str, Any]) -> str:
     return "/console?" + deeplink.query({"view": "games", "game": game})
 
 
+def _kept_at(extension: str, key: str) -> Path:
+    return KEPT / extension / f"{quote(key, safe='')}.json"
+
+
+def kept(extension: str, key: str) -> dict[str, Any]:
+    """The last good read of a list, with `rows` None when there is none."""
+    nothing = {"rows": None, "read_at": "", "stale": False, "error": ""}
+    try:
+        said = json.loads(_kept_at(extension, key).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return nothing
+    except (OSError, ValueError):
+        logger.warning("Could not read the kept copy of %s/%s", extension, key,
+                       exc_info=True)
+        return nothing
+    found = said.get("rows") if isinstance(said, dict) else None
+    if not isinstance(found, list):
+        return nothing
+    return {**nothing, "rows": found, "read_at": str(said.get("read_at") or "")}
+
+
+def read(extension: str, key: str, fetch: Callable[[], dict]) -> dict[str, Any]:
+    """Read a list and keep it. A read that fails answers with the last good one, said
+    to be stale, and with `rows` None when there is none."""
+    try:
+        found = [one for one in (fetch() or {}).get("rows") or [] if isinstance(one, dict)]
+    except (ApiError, OSError) as exc:
+        return {**kept(extension, key), "stale": True, "error": str(exc)}
+    said = {"rows": found, "read_at": utc_now_iso()}
+    path = _kept_at(extension, key)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_atomic(path, lambda handle: json.dump(said, handle, ensure_ascii=False))
+    except OSError:
+        logger.warning("Could not keep %s/%s", extension, key, exc_info=True)
+    return {**said, "stale": False, "error": ""}
+
+
 def collection_for(collections: Sequence[dict[str, Any]], tag: str) -> str:
     """The smart collection whose rule is this tag alone, or ""."""
     return next((str(one.get("name") or "") for one in collections
@@ -162,10 +207,16 @@ async def _make_collection(library: Library, title: str, tag: str) -> None:
     ui.navigate.to(_collection_address(name))
 
 
-def _tag_line(said: dict[str, Any], library: Library) -> None:
-    """The tag this list puts on, and how old the read behind it is."""
+def _tag_chip(said: dict[str, Any], library: Library) -> None:
     tag_chips.draw([str(said["tag"])], library.tag_looks())
-    ui.label(read_state(said)).classes("text-xs console-label")
+
+
+def _said_age(age: Any, state: dict[str, Any]) -> None:
+    age.text = read_state(state)
+    age.clear()
+    if state.get("error"):
+        with age:
+            ui.tooltip(str(state["error"]))
 
 
 def build(extension: dict[str, Any], declared: dict[str, Any], library: Library) -> None:
@@ -178,33 +229,49 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     from .games import view_control
 
     name = str(extension.get("name") or "")
+    key = str(declared.get("key") or "")
     said = str(extension.get("display_name") or name)
     tagging, existing = {}, ""
     if declared.get("tag"):
         await offload.io(library.read_tags)
-        tagging = sources_of(library.tag_looks(), name, str(declared.get("key") or ""))
+        tagging = sources_of(library.tag_looks(), name, key)
         if tagging:
             existing = collection_for(await offload.io(library.load_collections),
                                       str(tagging["tag"]))
-    try:
-        found = (await offload.io(ApiClient().ext_get,
-                                  f"/ext/{name}{declared.get('base') or ''}")).get("rows") or []
-    except (ApiError, OSError) as exc:
+    route = f"/ext/{name}{declared.get('base') or ''}"
+
+    def fetch() -> dict:
+        return ApiClient().ext_get(route)
+
+    state = await offload.io(kept, name, key)
+    reading = state["rows"] is None
+    if reading:
+        body.clear()
+        with body, ui.row().classes("w-full justify-center py-8"):
+            ui.spinner(size="lg").classes("text-primary")
+        state = await offload.io(read, name, key, fetch)
+    if state["rows"] is None:
         body.clear()
         with body:
             panel.facts(ui, [panel.intro(t("console.community.could_not_read", name=said,
-                                           exc=(exc)))])
+                                           exc=state["error"]))])
             if tagging:
                 with ui.row().classes("items-center gap-2 px-3"):
-                    _tag_line(tagging, library)
+                    _tag_chip(tagging, library)
         return
     relation = declared.get("relation") or {}
-    held, other = (await offload.io(library.owned, [str(one.get(relation["field"]) or "")
-                                                    for one in found])
-                   if relation else ({}, {}))
-    built = rows(found, declared, held, other)
+
+    async def drawn(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        held, other = (await offload.io(library.owned,
+                                        [str(one.get(relation["field"]) or "")
+                                         for one in found])
+                       if relation else ({}, {}))
+        return rows(found, declared, held, other)
+
+    built = await drawn(state["rows"])
+    by_id = {row["id"]: row for row in built}
     shown = columns(declared)
-    scope = f"console.community.{name}.{declared.get('key')}"
+    scope = f"console.community.{name}.{key}"
     fields = [one["field"] for one in shown]
     body.clear()
     with body:
@@ -228,9 +295,13 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                 search = panel.search(t("console.community.search"))
             with bar.bottom, panel.bar_end():
                 if tagging:
-                    _tag_line(tagging, library)
+                    _tag_chip(tagging, library)
+                age = ui.label().classes("text-xs console-label")
+                _said_age(age, state)
                 count = ui.label(t("console.community.rows", count=len(built))) \
                     .classes("text-xs console-label")
+                again = panel.refresh(lambda: read_again(asked=True),
+                                      t("console.community.read_again", name=said))
 
         async def on_header_context(col_id: str | None) -> None:
             await grid.header_menu(menu, table, shown, col_id)
@@ -250,3 +321,20 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
+
+    async def read_again(asked: bool = False) -> None:
+        again.disable()
+        fresh = await offload.io(read, name, key, fetch)
+        found = None if fresh["stale"] else await drawn(fresh["rows"])
+        if table.is_deleted:
+            return
+        again.enable()
+        _said_age(age, fresh)
+        if found is not None:
+            grid.replace_rows(table, built, by_id, found, lambda _row: True)
+        elif asked:
+            ui.notify(t("console.community.could_not_read", name=said, exc=fresh["error"]),
+                      type="negative")
+
+    if not reading:
+        await read_again()

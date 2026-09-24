@@ -430,6 +430,7 @@
   "console.community.open_collection": "Open Collection",
   "console.community.other_version": "Different version - you have {version}",
   "console.community.other_version_unknown": "Different version",
+  "console.community.read_again": "Read the list again from {name}",
   "console.community.rows": {
     "one": "{count} row",
     "other": "{count} rows"

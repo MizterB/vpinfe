@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from collections.abc import Callable
+from pathlib import Path
+from unittest.mock import patch
 
 from common import install_identity
 from console import community, page, views
+from console.api import ApiError
+from console.data import read_state
 
 DECLARED = {"key": "tables", "title": "Site", "base": "/community/tables",
             "columns": [{"field": "name", "header": "Table", "kind": "text",
@@ -102,6 +108,69 @@ class TheGrid(unittest.TestCase):
         for name, preset in community.presets(DECLARED).items():
             with self.subTest(view=name):
                 self.assertNotIn(community.HELD, preset.columns)
+
+
+def _answering(*rows: dict) -> Callable[[], dict]:
+    return lambda: {"rows": list(rows)}
+
+
+def _down() -> dict:
+    raise ApiError("https://site.example did not answer")
+
+
+class TheLastGoodRead(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        kept = patch.object(community, "KEPT", Path(folder.name))
+        kept.start()
+        self.addCleanup(kept.stop)
+
+    def test_a_fresh_read_is_kept_and_said_to_be_now(self) -> None:
+        said = community.read("site", "tables", _answering({"name": "AFM"}))
+
+        self.assertEqual(([{"name": "AFM"}], False, ""),
+                         (said["rows"], said["stale"], said["error"]))
+        self.assertEqual(["AFM"], [one["name"] for one in
+                                   community.kept("site", "tables")["rows"]])
+        self.assertTrue(said["read_at"])
+
+    def test_an_outage_answers_with_the_last_good_list_said_to_be_stale(self) -> None:
+        good = community.read("site", "tables", _answering({"name": "AFM"}))
+
+        said = community.read("site", "tables", _down)
+
+        self.assertEqual(([{"name": "AFM"}], True, good["read_at"]),
+                         (said["rows"], said["stale"], said["read_at"]))
+        self.assertIn("did not answer", said["error"])
+        self.assertIn("Last good read", read_state(said))
+
+    def test_an_outage_with_nothing_kept_has_no_list_to_show(self) -> None:
+        said = community.read("site", "tables", _down)
+
+        self.assertEqual((None, True), (said["rows"], said["stale"]))
+        self.assertIsNone(community.kept("site", "tables")["rows"])
+
+    def test_with_nothing_kept_the_answer_is_still_an_answer(self) -> None:
+        """The page reads it through `offload.io`, which takes None for a shutdown."""
+        self.assertEqual({"rows": None, "read_at": "", "stale": False, "error": ""},
+                         community.kept("site", "tables"))
+
+    def test_a_later_good_read_replaces_the_kept_one(self) -> None:
+        community.read("site", "tables", _answering({"name": "AFM"}))
+        community.read("site", "tables", _answering({"name": "TAF"}, {"name": "MM"}))
+
+        self.assertEqual(["TAF", "MM"], [one["name"] for one in
+                                         community.kept("site", "tables")["rows"]])
+
+    def test_each_list_is_kept_apart_whatever_its_key_holds(self) -> None:
+        community.read("site", "tables", _answering({"name": "AFM"}))
+        community.read("site", "../tables", _answering({"name": "TAF"}))
+
+        self.assertEqual((["AFM"], ["TAF"]),
+                         tuple([one["name"] for one in community.kept("site", key)["rows"]]
+                               for key in ("tables", "../tables")))
+        self.assertEqual(["site"], [one.name for one in community.KEPT.iterdir()])
 
 
 if __name__ == "__main__":

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -19,11 +18,8 @@ logger = logging.getLogger(__name__)
 t = words("vpinplay")
 
 PAGE = 100
-KEEP_SECONDS = 600
+AT_ONCE = 8
 TIMEOUT_SECONDS = 15
-# A bound on a list that should end, so a server that always says there is more cannot
-# keep this asking.
-MOST_PAGES = 50
 
 COLUMNS = [
     {"field": "name", "under": ["manufacturer", "year"]},
@@ -48,9 +44,6 @@ def _view(field: str, *then: str) -> dict[str, Any]:
 VIEWS = [_view("rating", "ratings"), _view("plays"), _view("hours"), _view("last_played"),
          _view("players")]
 RELATION = {"field": "vps_id", "keys": "vps_entry"}
-
-_lock = threading.Lock()
-_held: dict[str, Any] = {"at": 0.0, "endpoint": "", "rows": []}
 
 
 def _utc(stamp: Any) -> str:
@@ -82,21 +75,29 @@ def _page(endpoint: str, offset: int) -> dict[str, Any]:
         return json.loads(answer.read().decode("utf-8"))
 
 
+def _rows(said: dict[str, Any]) -> list[dict[str, Any]]:
+    return [_row(one) for one in said.get("items") or [] if isinstance(one, dict)]
+
+
 def tables(endpoint: str) -> list[dict[str, Any]]:
-    """Every table VPinPlay lists, kept for `KEEP_SECONDS`."""
-    with _lock:
-        if (_held["endpoint"] == endpoint and _held["rows"]
-                and time.monotonic() - _held["at"] < KEEP_SECONDS):
-            return list(_held["rows"])
-    rows: list[dict[str, Any]] = []
-    for page in range(MOST_PAGES):
-        said = _page(endpoint, page * PAGE)
-        rows += [_row(one) for one in said.get("items") or [] if isinstance(one, dict)]
-        if not (said.get("pagination") or {}).get("hasNext"):
-            break
-    with _lock:
-        _held.update(at=time.monotonic(), endpoint=endpoint, rows=rows)
-    return list(rows)
+    """Every table VPinPlay lists: the first page, then every page its total calls for.
+    A service that gives no total is read a page at a time until it says there is no
+    more."""
+    said = _page(endpoint, 0)
+    rows = _rows(said)
+    total = (said.get("pagination") or {}).get("total")
+    if isinstance(total, int):
+        with ThreadPoolExecutor(max_workers=AT_ONCE) as pool:
+            for page in pool.map(lambda offset: _page(endpoint, offset),
+                                 range(PAGE, total, PAGE)):
+                rows += _rows(page)
+        return rows
+    offset = 0
+    while (said.get("pagination") or {}).get("hasNext") and said.get("items"):
+        offset += PAGE
+        said = _page(endpoint, offset)
+        rows += _rows(said)
+    return rows
 
 
 def router(endpoint_of: Any) -> APIRouter:

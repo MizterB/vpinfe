@@ -331,6 +331,13 @@ def search(placeholder: str) -> Any:
         .props("dense outlined clearable clear-icon=close").classes("w-64")
 
 
+def refresh(on_click: Callable[[], Any], hint: str) -> Any:
+    """The round Refresh at the end of a grid's bar, after its count. Returned, so a
+    caller whose read takes a while can disable it until the read is back."""
+    return ui.button(icon=verbs.REFRESH, on_click=on_click) \
+        .props("flat dense round size=sm").classes("shrink-0").tooltip(hint)
+
+
 def trouble_mark(reason: str = "") -> Callable[[], None]:
     """The mark that says something under here is misconfigured.
 
