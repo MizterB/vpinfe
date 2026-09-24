@@ -40,23 +40,26 @@ def field_label(text: str) -> str:
     Takes a key or a phrase, so `vps_id` and `VPS ID` both come back `VPS ID`.
     """
     said = str(text or "").replace("_", " ")
+    shouting = not any(one.islower() for one in said)
     found = list(_WORDS.finditer(said))
     last = len(found) - 1
     out, at = [], 0
     for place, match in enumerate(found):
         out.append(said[at:match.start()])
-        out.append(_titled(match.group(0), lead_or_close=place in (0, last)))
+        out.append(_titled(match.group(0), lead_or_close=place in (0, last),
+                           shouting=shouting))
         at = match.end()
     out.append(said[at:])
     return "".join(out).strip()
 
 
-def _titled(word: str, *, lead_or_close: bool) -> str:
-    """One word of a title. A small word stays down unless it leads or closes."""
+def _titled(word: str, *, lead_or_close: bool, shouting: bool) -> str:
+    """One word of a title. A small word stays down unless it leads or closes, and a
+    word with capitals after its first letter is written as its source writes it, unless
+    the whole phrase is in capitals."""
     if word.lower() in ACRONYMS:
         return word.upper()
-    rest = word[1:]
-    if any(one.isupper() for one in rest) and any(one.islower() for one in rest):
+    if not shouting and any(one.isupper() for one in word[1:]):
         return word
     if word.lower() in SMALL_WORDS and not lead_or_close:
         return word.lower()

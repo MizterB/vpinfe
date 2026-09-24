@@ -256,6 +256,15 @@ class LabelCasingTests(unittest.TestCase):
                          [field_label(text) for text in
                           ("VPinPlay", "PinMAME settings", "TABLE SCRIPT")])
 
+    def test_a_word_its_source_writes_in_capitals_keeps_them(self) -> None:
+        for text, said in (("Disable tonemapping on HDR display",
+                            "Disable Tonemapping on HDR Display"),
+                           ("HDR Display Global Exposure", "HDR Display Global Exposure"),
+                           ("MSAA level", "MSAA Level"),
+                           ("RAR Tool Path", "RAR Tool Path")):
+            with self.subTest(text=text):
+                self.assertEqual(field_label(text), said)
+
     def test_an_apostrophe_does_not_start_a_word(self) -> None:
         """`str.title` would give "Author'S"."""
         self.assertEqual(field_label("author's notes"), "Author's Notes")
