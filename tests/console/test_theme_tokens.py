@@ -47,10 +47,10 @@ NOT_A_PALETTE = re.compile(r"\.console-qr\s*\{[^}]*\}", re.DOTALL)
 # us: defined here, used by a stylesheet we do not ship.
 FOREIGN_PREFIXES = ("--ag-", "--q-")
 
-# Set on an element while the page runs, from the drag handlers - the workbench's, and
-# where a row dragged from a grid opens the rail's collections - so the stylesheet reads
-# them and never defines them.
-RUNTIME = {"--dock-h", "--rows", "--drops-top", "--drops-left"}
+# Set on an element while the page runs, so the stylesheet reads them and never defines
+# them: by the drag handlers - the workbench's, and where a row dragged from a grid opens
+# the rail's collections - and on an empty number box, from the words it shows.
+RUNTIME = {"--dock-h", "--rows", "--drops-top", "--drops-left", "--blank"}
 
 
 def _same_color(literal):
