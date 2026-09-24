@@ -146,8 +146,8 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/themes/active` | Choose which theme the frontend plays. Takes effect when the frontend next starts |
 | GET | `/api/v1/themes/{key}/options` | What a theme declares it can be configured with, and what it is set to |
 | PUT | `/api/v1/themes/{key}/options` | Change them. Kept beside the config, not inside the theme, which an update deletes |
-| GET | `/api/v1/extensions` | Every extension this install looked at, running or not, and what each declared. One that is not running carries the reason |
-| any | `/api/v1/ext/{name}/…` | An extension's own routes, gated on a scope it declared. `501` while it is not running, naming which one and why. See `docs/extensions.md` |
+| GET | `/api/v1/extensions` | Every extension this install looked at, running or not, and what each declared. One that is not running carries `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
+| any | `/api/v1/ext/{name}/…` | An extension's own routes, gated on a scope it declared. `501` once it has stopped, naming which one and why. One that never started, switched off or not for this install, has no routes, so `404`. See `docs/extensions.md` |
 
 Discovery is the entry point: an integrator learns what an instance offers by asking it,
 rather than matching a version number against a document.
