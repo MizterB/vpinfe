@@ -2585,8 +2585,8 @@ async def _assets_block(context: dict[str, Any]) -> None:
         if kind in resolved:
             continue
         present = bool(state.get("present"))
-        entries.append((_asset_name(kind), _notes_row(context, present) if kind == "readme"
-                        else _present_row(present)))
+        chip = _present_row(present)
+        entries.append((_asset_name(kind), chip if present else _with_add(context, kind, chip)))
 
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, entries)
@@ -2634,6 +2634,8 @@ def _resolved_row(context: dict[str, Any], table: dict[str, Any], kind: str,
                 ui.label(name).classes("console-slot-file truncate").tooltip(name)
             if kind == "script":
                 _script_actions(context, table, external)
+            elif not external:
+                _add_action(context, kind)
 
     return draw
 
@@ -2922,34 +2924,30 @@ def _rom_row(context: dict[str, Any], pinmame: dict[str, Any]) -> Any:
     chip = _rom_state(pinmame, rom)
     if pinmame.get("installed") is not False:
         return chip
-    label = _asset_name("rom")
+    return _with_add(context, "rom", chip)
 
+
+def _with_add(context: dict[str, Any], kind: str, chip: Callable[[], Any]) -> Any:
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             chip()
-            panel.action(t("word.add"),
-                         lambda: mediasource.open_folder_sources(context, "rom", label,
-                                                                 context["rebuild"]),
-                         icon=verbs.ADD, inline=True)()
+            _add_action(context, kind)
 
     return draw
 
 
-def _notes_row(context: dict[str, Any], present: bool) -> Any:
-    chip = _present_row(present)
-    if present:
-        return chip
-    label = _asset_name("readme")
-
-    def draw() -> None:
-        with ui.element("div").classes("console-fact-edit"):
-            chip()
-            panel.action(t("word.add"),
-                         lambda: mediasource.open_notes_sources(context, label,
-                                                                context["rebuild"]),
-                         icon=verbs.ADD, inline=True)()
-
-    return draw
+def _add_action(context: dict[str, Any], kind: str) -> None:
+    label = _asset_name(kind)
+    done = context["rebuild"]
+    if kind == "readme":
+        opens = partial(mediasource.open_notes_sources, context, label, done)
+    elif kind in _WHOLE_FOLDER or kind == "rom":
+        opens = partial(mediasource.open_folder_sources, context, kind, label, done)
+    elif kind in _PLACEABLE:
+        opens = partial(mediasource.open_asset_sources, context, kind, label, done)
+    else:
+        return
+    panel.action(t("word.add"), opens, icon=verbs.ADD, inline=True)()
 
 
 def _attention(table: dict[str, Any]) -> list[tuple[Any, Any]]:

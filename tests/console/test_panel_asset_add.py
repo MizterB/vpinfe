@@ -1,0 +1,38 @@
+"""A Missing asset row in the panel opens the same dialog the Assets page does."""
+
+from __future__ import annotations
+
+import unittest
+from unittest import mock
+
+from console import mediasource, workbench
+
+CONTEXT = {"rebuild": object()}
+
+
+def _opens(kind: str):
+    with mock.patch.object(workbench.panel, "action") as action:
+        workbench._add_action(CONTEXT, kind)
+    if not action.called:
+        return None
+    return action.call_args.args[1].func
+
+
+class PanelAssetAddTests(unittest.TestCase):
+    def test_a_whole_folder_kind_opens_the_folder_dialog(self) -> None:
+        for kind in ("music", "pup_pack", "alt_sound", "alt_color", "rom"):
+            self.assertIs(_opens(kind), mediasource.open_folder_sources, kind)
+
+    def test_a_file_vpx_finds_by_name_opens_the_slot_dialog(self) -> None:
+        for kind in ("backglass", "ini", "pov", "scv"):
+            self.assertIs(_opens(kind), mediasource.open_asset_sources, kind)
+
+    def test_authors_notes_open_the_notes_dialog(self) -> None:
+        self.assertIs(_opens("readme"), mediasource.open_notes_sources)
+
+    def test_a_kind_the_assets_page_offers_nothing_for_gets_no_add(self) -> None:
+        self.assertIsNone(_opens("table"))
+
+
+if __name__ == "__main__":
+    unittest.main()
