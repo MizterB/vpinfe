@@ -2,9 +2,8 @@
 """What a VPinFE build contains, for every platform and both variants.
 
 PyInstaller follows imports on its own but cannot see data files, so anything that is not
-Python has to be named here or it will not be in the artifact. Nothing in the test suite
-checks that: a path that is wrong reaches a user as a missing splash screen or a dark DMD
-panel, never as a red build.
+Python has to be named here or it will not be in the artifact.
+`tests/invariants/test_build_ships_its_data.py` fails on a tracked file no root reaches.
 
 This replaces five near-identical `pyinstaller` command lines that between them repeated
 six facts twenty-six times, in two separator dialects - `:` on POSIX and `;` on Windows,
@@ -24,9 +23,12 @@ Run it the same way everywhere:
     VPINFE_SLIM=1 pyinstaller packaging/vpinfe.spec    # slim
 """
 
+import ast
 import os
 import sys
 from pathlib import Path
+
+from PyInstaller.compat import PY3_BASE_MODULES
 
 REPO_ROOT = Path(SPECPATH).parent
 SLIM = os.environ.get("VPINFE_SLIM") == "1"
@@ -36,14 +38,16 @@ IS_WINDOWS = sys.platform == "win32"
 IS_MACOS = sys.platform == "darwin"
 
 # Every directory we ship, whatever the platform or variant. Each is a data root in its
-# own right - either a top-level one, or an <owner>/static/ directory belonging to the
-# subsystem that reads it. `third_party/` is fetched by scripts/ before the build, not
-# committed; the rest are in git.
+# own right - a top-level one, an <owner>/static/ directory, or the catalogs a subsystem
+# reads. `third_party/` is fetched by scripts/ before the build, not committed; the rest
+# are in git.
 DATA_ROOTS = [
     "frontend/static",
     "managerui/static",
     "console/static",
     "common/host/static",
+    "common/i18n/catalogs",
+    "extensions",
     "third_party/dof",
     "third_party/libdmdutil",
 ]
@@ -63,6 +67,23 @@ datas = [(str(REPO_ROOT / root), root) for root in DATA_ROOTS]
 # to the import scan. Only X11 matters: the Windows and macOS backends are imported
 # normally.
 hiddenimports = ["pynput.keyboard._xorg", "pynput.mouse._xorg"] if IS_LINUX else []
+
+
+def _extension_imports() -> list[str]:
+    """Every module a bundled extension imports. Core loads an extension from its
+    directory at runtime, so the import scan never reaches one."""
+    found = set()
+    for path in (REPO_ROOT / "extensions").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                found.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
+                found.add(node.module)
+    # The base library ships whole, and a module inside it cannot be named as one.
+    return sorted(name for name in found if name.split(".")[0] not in PY3_BASE_MODULES)
+
+
+hiddenimports += _extension_imports()
 
 analysis = Analysis(
     [str(REPO_ROOT / "main.py")],

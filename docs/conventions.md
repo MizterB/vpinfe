@@ -144,9 +144,9 @@ feature-detect them. That is what keeps bumps rare enough to be worth doing prop
   the first, the icon and the PyInstaller spec are the second.
 - Reach a shipped file through `common.paths.bundled()`. It answers for a source checkout and
   for both kinds of frozen build, so nothing needs its own chain of guesses.
-- A directory added to `<owner>/static/` must also be listed in `packaging/vpinfe.spec`, or it
-  is simply absent from the build. No test covers that — the failure is a missing image in a
-  release artifact, not a red suite.
+- A file the app reads that is not Python sits under a root `packaging/vpinfe.spec` lists, or
+  it is absent from the build. `tests/invariants/test_build_ships_its_data.py` fails on one
+  that does not. What a bundled extension imports, the spec finds and names itself.
 
 ## Comments and docstrings
 

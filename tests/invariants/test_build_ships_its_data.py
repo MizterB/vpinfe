@@ -1,23 +1,27 @@
-"""Every `<owner>/static/` directory is one the build actually ships.
+"""Everything the app reads at runtime that is not Python is in the build.
 
-`docs/conventions.md` says a directory added under an owner's `static/` must also reach
-`packaging/vpinfe.spec`, and said in the same breath that no test covered it. That is the
-worst shape for a rule: the failure is a missing image in a release artifact, found by a
-person looking at a cabinet, and never by a red suite.
+PyInstaller follows imports and nothing else, so a data file reaches a release only if
+`packaging/vpinfe.spec` names a root above it. The failure is a missing image or a key on
+screen in a release artifact, found by a person looking at a cabinet and never by a red
+suite.
 
-The spec lists roots and PyInstaller takes each one whole, so a new subdirectory under an
-existing root needs nothing. What needs saying is a new *owner* - the Console's own
-`static/` was exactly that, and it arrived after this rule was written.
+The spec lists roots and PyInstaller takes each one whole, so a new file under an existing
+root needs nothing. What needs saying is a new *owner*.
 """
 
 from __future__ import annotations
 
 import ast
 import pathlib
+import subprocess
 import unittest
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 SPEC = REPO / "packaging" / "vpinfe.spec"
+
+# What the build runs or is described by, never what it ships.
+NOT_SHIPPED = ("tests/", "docs/", "packaging/", "scripts/", ".github/")
+SUBMODULE = "160000"
 
 
 def _declared_roots() -> set[str]:
@@ -38,6 +42,25 @@ def _declared_roots() -> set[str]:
             if isinstance(element, ast.Constant) and isinstance(element.value, str)
         }
     raise AssertionError("packaging/vpinfe.spec no longer declares DATA_ROOTS")
+
+
+def _tracked_data() -> list[str]:
+    """Every tracked file that is not Python and not one of the build's own."""
+    listed = subprocess.run(["git", "ls-files", "-s", "-z"], cwd=REPO, check=True,
+                            capture_output=True, text=True).stdout
+    found = []
+    for line in filter(None, listed.split("\0")):
+        mode, _, _, path = line.split(maxsplit=3)
+        if mode == SUBMODULE or "/" not in path or path.startswith(NOT_SHIPPED):
+            continue
+        if not path.endswith(".py"):
+            found.append(path)
+    return found
+
+
+def _unshipped(paths: list[str], roots: set[str]) -> list[str]:
+    return sorted(path for path in paths
+                  if not any(path.startswith(f"{root}/") for root in roots))
 
 
 def _static_dirs_in_tree() -> set[str]:
@@ -67,6 +90,10 @@ class BuildDataTests(unittest.TestCase):
         )
         self.assertEqual(missing, [])
 
+    @unittest.skipIf(not (REPO / ".git").exists(), "not a git checkout")
+    def test_every_tracked_data_file_is_under_a_root_the_build_ships(self) -> None:
+        self.assertEqual(_unshipped(_tracked_data(), _declared_roots()), [])
+
     def test_the_spec_names_nothing_that_has_gone(self) -> None:
         """A root that no longer exists means the build copies nothing and says nothing.
 
@@ -84,3 +111,9 @@ class BuildDataTests(unittest.TestCase):
         declared = _declared_roots()
         self.assertIn("frontend/static", declared)
         self.assertNotIn("nothing/static", declared)
+
+    @unittest.skipIf(not (REPO / ".git").exists(), "not a git checkout")
+    def test_the_file_check_can_actually_fail(self) -> None:
+        unshipped = _unshipped(_tracked_data(), {"frontend/static"})
+        self.assertIn("common/i18n/catalogs/en.json", unshipped)
+        self.assertNotIn("frontend/static/common/vpinfe-core.js", unshipped)
