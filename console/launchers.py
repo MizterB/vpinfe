@@ -47,8 +47,7 @@ _STATE_CHOICES = [{"value": one, "label": one}
                               t(STATE_BROKEN))]
 
 COLUMNS: list[dict[str, Any]] = [
-    grid.identifier("name", t("word.name"), 240, pinned="left",
-                help=t("console.launchers.what_called_way_running.help")),
+    grid.identifier("name", t("word.name"), 240, pinned="left"),
     grid.column("app", t("word.runs"), 180,
                 help=t("console.launchers.program_behind_says_something.help")),
     grid.column("state", t("word.state"), 150, **grid.choice_filter(_STATE_CHOICES),
@@ -319,14 +318,39 @@ def acts(library: Library, state: dict[str, Any], launcher: dict, count: int,
     return offered
 
 
+def removal_words(found: dict[str, Any]) -> tuple[str, list[str]]:
+    """The confirm's detail and lines, from what switching the launcher off would do,
+    which is what removing it does to its tables."""
+    kept = t("console.launchers.remove_keeps_files")
+    count = int(found.get("tables") or 0)
+    goes = list(found.get("fallbacks") or [])
+    if not count:
+        return kept, []
+    if len(goes) == 1:
+        name = goes[0].get("display_name")
+        said = (t("console.launchers.remove_moves_to", count=count, fallback=name) if name
+                else t("console.launchers.remove_strands", count=count))
+        return f"{said} {kept}", []
+    return (f"{kept} {t('console.launchers.remove_split', count=count)}",
+            [t("console.workbench.count_launch_with", count=int(one["tables"]),
+               name=one["display_name"]) if one.get("display_name")
+             else t("console.launchers.count_no_launcher", count=int(one["tables"]))
+             for one in goes])
+
+
 async def remove(library: Library, state: dict[str, Any], redraw: Callable[[], None],
                   launcher: dict) -> None:
     """Asked about first, because it is the destructive one and it takes assignments
     with it - a table pointing here goes back to the default."""
+    try:
+        found = await offload.io(library.launcher_fallback, launcher["launcher_id"])
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("console.workbench.could_not_work", exc=(exc)), type="negative")
+        return
+    detail, lines = removal_words(found)
     if not await confirm.ask(
             t("console.launchers.remove", value=(launcher['display_name'])),
-            detail=t("console.launchers.tables_name_go_back"),
-            confirm=t("word.remove"), icon=verbs.REMOVE):
+            detail=detail, lines=lines, confirm=t("word.remove"), icon=verbs.REMOVE):
         return
     try:
         await run.io_bound(library.delete_launcher, launcher["launcher_id"])

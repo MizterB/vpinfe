@@ -709,7 +709,7 @@
   "console.input_watch.press_anything_see_what": "Þřèšš àñýţĥîñĝ ţö šèè ŵĥàţ îţ îš. Ţĥèšè àřè ţĥè îñþûţš öñ ţĥè çöɱþûţèř ýöû àřè ûšîñĝ, àñđ þřèššîñĝ öñè ƀîñđš ñöţĥîñĝ.",
   "console.launchers.add": "Àđđ {value}",
   "console.launchers.also_copy_tables_use": "Àŀšö çöþý ŵĥîçĥ ţàƀŀèš ûšè îţ",
-  "console.launchers.arrives_same_name_same": "Îţ àřřîṽèš ŵîţĥ ţĥè šàɱè ñàɱè àñđ ţĥè šàɱè îđ, šö à ţàƀŀè ţĥàţ ñàɱèš îţ ţĥèřè ɱèàñš ţĥîš ŀàûñçĥèř. À þřöĝřàɱ þàţĥ ţĥàţ đöèš ñöţ èẋîšţ öñ ţĥàţ đèṽîçè îš řèþöřţèđ ƀý îţ, ñöţ ĥèřè.",
+  "console.launchers.arrives_same_name_same": "Îţ àřřîṽèš ŵîţĥ ţĥè šàɱè ñàɱè. Îƒ îţš þřöĝřàɱ îš šöɱèŵĥèřè èŀšè ţĥèřè, çĥàñĝè îţ öñ ţĥàţ đèṽîçè.",
   "console.launchers.cannot_run": "Çàññöţ řûñ",
   "console.launchers.copy_of": "{name} çöþý",
   "console.launchers.copy_to_devices": "Çöþý “{value}” ţö ŵĥîçĥ đèṽîçèš?",
@@ -717,6 +717,10 @@
   "console.launchers.could_not_read_assignments": "Çöûŀđ ñöţ řèàđ ţĥè àššîĝñɱèñţš: {exc}",
   "console.launchers.could_not_read_devices": "Çöûŀđ ñöţ řèàđ ţĥè đèṽîçèš: {exc}",
   "console.launchers.could_not_read_launchers": "Çöûŀđ ñöţ řèàđ ţĥè ŀàûñçĥèřš: {exc}",
+  "console.launchers.count_no_launcher": {
+    "one": "{count} ĥàš ñö ŀàûñçĥèř ŀèƒţ",
+    "other": "{count} ĥàṽè ñö ŀàûñçĥèř ŀèƒţ"
+  },
   "console.launchers.executable_launcher_runs.help": "Ţĥè èẋèçûţàƀŀè ţĥîš ŀàûñçĥèř řûñš",
   "console.launchers.launcher": {
     "one": "1 ŀàûñçĥèř",
@@ -726,16 +730,27 @@
   "console.launchers.no_launchers_yet_add": "Ñö ŀàûñçĥèřš ýèţ. Àđđ öñè àñđ þöîñţ îţ àţ ţĥè þřöĝřàɱ ţĥàţ þŀàýš ýöûř ţàƀŀèš.",
   "console.launchers.no_other_frontend": "Ñö öţĥèř ķñöŵñ đèṽîçè řûñš ţĥè ƒřöñţèñđ.",
   "console.launchers.no_program": "Ñö þřöĝřàɱ",
-  "console.launchers.one_way_copy_change": "À öñè-ŵàý çöþý. Çĥàñĝè îţ öñ à đèṽîçè àƒţèřŵàřđš àñđ ţĥè ţŵö đîƒƒèř ƒřöɱ ţĥèñ öñ - ñöţĥîñĝ ķèèþš ţĥèɱ îñ šţèþ.",
+  "console.launchers.one_way_copy_change": "À öñè-ţîɱè çöþý - à ŀàţèř çĥàñĝè öñ èîţĥèř đèṽîçè šţàýš ţĥèřè",
   "console.launchers.program_behind_says_something.help": "Ţĥè þřöĝřàɱ ƀèĥîñđ îţ",
   "console.launchers.ready_switched_program_cannot.help": "Řèàđý - šŵîţçĥèđ öñ àñđ îţš þřöĝřàɱ îš ţĥèřè\nÑö þřöĝřàɱ - ñöţĥîñĝ ţö řûñ ýèţ\nÇàññöţ řûñ - à þàţĥ îţ ñàɱèš îš ŵřöñĝ\nŠŵîţçĥèđ öƒƒ - îţš ţàƀŀèš ûšè ţĥè đèƒàûŀţ",
   "console.launchers.remove": "Řèɱöṽè “{value}”?",
+  "console.launchers.remove_keeps_files": "Ţĥè þřöĝřàɱ àñđ àñý ƒîŀè îţ þöîñţš àţ šţàý ŵĥèřè ţĥèý àřè.",
+  "console.launchers.remove_moves_to": {
+    "one": "{count} ţàƀŀè ûšèš îţ. Îţ ŵîŀŀ ŀàûñçĥ ŵîţĥ {fallback} îñšţèàđ.",
+    "other": "{count} ţàƀŀèš ûšè îţ. Ţĥèý ŵîŀŀ ŀàûñçĥ ŵîţĥ {fallback} îñšţèàđ."
+  },
+  "console.launchers.remove_split": {
+    "one": "{count} ţàƀŀè ûšèš îţ. Öñçè îţ îš řèɱöṽèđ:",
+    "other": "{count} ţàƀŀèš ûšè îţ. Öñçè îţ îš řèɱöṽèđ:"
+  },
+  "console.launchers.remove_strands": {
+    "one": "{count} ţàƀŀè ûšèš îţ, àñđ ñö öţĥèř ŀàûñçĥèř çàñ þŀàý îţ.",
+    "other": "{count} ţàƀŀèš ûšè îţ, àñđ ñö öţĥèř ŀàûñçĥèř çàñ þŀàý ţĥèɱ."
+  },
   "console.launchers.search_launchers": "Šèàřçĥ ŀàûñçĥèřš",
   "console.launchers.switched_off": "Šŵîţçĥèđ öƒƒ",
-  "console.launchers.tables_name_go_back": "Ţàƀŀèš ţĥàţ ñàɱè îţ ĝö ƀàçķ ţö ţĥè đèƒàûŀţ ŀàûñçĥèř. Îţš šèţţîñĝš àřè ĝöñè; ţĥè þřöĝřàɱ àñđ àñý ƒîŀè îţ þöîñţš àţ àřè ŀèƒţ àŀöñè.",
   "console.launchers.tables_name_no_launcher": "Ţàƀŀèš ţĥàţ ñàɱè ñö ŀàûñçĥèř ûšè ţĥîš öñè.",
   "console.launchers.tables_name_no_launcher.help": "Ţàƀŀèš ţĥàţ ñàɱè ñö ŀàûñçĥèř ûšè ţĥîš öñè",
-  "console.launchers.what_called_way_running.help": "Ŵĥàţ ýöû çàŀŀèđ ţĥîš ŵàý öƒ řûññîñĝ à ţàƀŀè",
   "console.locations.actions_selected_locations": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ ŀöçàţîöñš",
   "console.locations.add_location": "Àđđ à ŀöçàţîöñ",
   "console.locations.could_not_read_locations": "Çöûŀđ ñöţ řèàđ ţĥè ŀöçàţîöñš: {exc}",
@@ -972,7 +987,7 @@
   "console.purpose.devices": "Ţĥè îñšţàŀŀš àñđ þĥöñèš öñ ýöûř ñèţŵöřķ, àñđ ŵĥàţ èàçĥ çàñ đö",
   "console.purpose.extensions": "Çöđè ţĥàţ àđđš ţö ṼÞîñƑÈ ŵîţĥöûţ ƀèîñĝ þàřţ öƒ îţ",
   "console.purpose.games": "Èṽèřý ĝàɱè ýöûř ŀîƀřàřý ĥöŀđš, àñđ ŵĥàţ èàçĥ öñè ĥàš",
-  "console.purpose.launchers": "Ţĥè þřöĝřàɱš ţĥàţ þŀàý à ţàƀŀè, àñđ ŵĥîçĥ öñè îš ţĥè đèƒàûŀţ",
+  "console.purpose.launchers": "Ţĥè þřöĝřàɱš ţĥàţ þŀàý ýöûř ţàƀŀèš",
   "console.purpose.locations": "Ţĥè ƒöŀđèřš ýöûř ŀîƀřàřý îš řèàđ ƒřöɱ, àñđ ŵĥîçĥ öñè ŵîñš",
   "console.purpose.logs": "Ŵĥàţ ţĥè îñšţàŀŀ ĥàš ƀèèñ đöîñĝ, àš îţ ĥàþþèñèđ",
   "console.purpose.media": "Ţĥè àřţ èàçĥ ĝàɱè šĥöŵš, àñđ ŵĥàţ îš ɱîššîñĝ öř ûñûšèđ",

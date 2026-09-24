@@ -709,7 +709,7 @@
   "console.input_watch.press_anything_see_what": "Press anything to see what it is. These are the inputs on the computer you are using, and pressing one binds nothing.",
   "console.launchers.add": "Add {value}",
   "console.launchers.also_copy_tables_use": "Also copy which tables use it",
-  "console.launchers.arrives_same_name_same": "It arrives with the same name and the same id, so a table that names it there means this launcher. A program path that does not exist on that device is reported by it, not here.",
+  "console.launchers.arrives_same_name_same": "It arrives with the same name. If its program is somewhere else there, change it on that device.",
   "console.launchers.cannot_run": "Cannot run",
   "console.launchers.copy_of": "{name} copy",
   "console.launchers.copy_to_devices": "Copy “{value}” to which devices?",
@@ -717,6 +717,10 @@
   "console.launchers.could_not_read_assignments": "Could not read the assignments: {exc}",
   "console.launchers.could_not_read_devices": "Could not read the devices: {exc}",
   "console.launchers.could_not_read_launchers": "Could not read the launchers: {exc}",
+  "console.launchers.count_no_launcher": {
+    "one": "{count} has no launcher left",
+    "other": "{count} have no launcher left"
+  },
   "console.launchers.executable_launcher_runs.help": "The executable this launcher runs",
   "console.launchers.launcher": {
     "one": "1 launcher",
@@ -726,16 +730,27 @@
   "console.launchers.no_launchers_yet_add": "No launchers yet. Add one and point it at the program that plays your tables.",
   "console.launchers.no_other_frontend": "No other known device runs the frontend.",
   "console.launchers.no_program": "No program",
-  "console.launchers.one_way_copy_change": "A one-way copy. Change it on a device afterwards and the two differ from then on - nothing keeps them in step.",
+  "console.launchers.one_way_copy_change": "A one-time copy - a later change on either device stays there",
   "console.launchers.program_behind_says_something.help": "The program behind it",
   "console.launchers.ready_switched_program_cannot.help": "Ready - switched on and its program is there\nNo program - nothing to run yet\nCannot run - a path it names is wrong\nSwitched off - its tables use the default",
   "console.launchers.remove": "Remove “{value}”?",
+  "console.launchers.remove_keeps_files": "The program and any file it points at stay where they are.",
+  "console.launchers.remove_moves_to": {
+    "one": "{count} table uses it. It will launch with {fallback} instead.",
+    "other": "{count} tables use it. They will launch with {fallback} instead."
+  },
+  "console.launchers.remove_split": {
+    "one": "{count} table uses it. Once it is removed:",
+    "other": "{count} tables use it. Once it is removed:"
+  },
+  "console.launchers.remove_strands": {
+    "one": "{count} table uses it, and no other launcher can play it.",
+    "other": "{count} tables use it, and no other launcher can play them."
+  },
   "console.launchers.search_launchers": "Search launchers",
   "console.launchers.switched_off": "Switched off",
-  "console.launchers.tables_name_go_back": "Tables that name it go back to the default launcher. Its settings are gone; the program and any file it points at are left alone.",
   "console.launchers.tables_name_no_launcher": "Tables that name no launcher use this one.",
   "console.launchers.tables_name_no_launcher.help": "Tables that name no launcher use this one",
-  "console.launchers.what_called_way_running.help": "What you called this way of running a table",
   "console.locations.actions_selected_locations": "Actions for the selected locations",
   "console.locations.add_location": "Add a location",
   "console.locations.could_not_read_locations": "Could not read the locations: {exc}",
@@ -972,7 +987,7 @@
   "console.purpose.devices": "The installs and phones on your network, and what each can do",
   "console.purpose.extensions": "Code that adds to VPinFE without being part of it",
   "console.purpose.games": "Every game your library holds, and what each one has",
-  "console.purpose.launchers": "The programs that play a table, and which one is the default",
+  "console.purpose.launchers": "The programs that play your tables",
   "console.purpose.locations": "The folders your library is read from, and which one wins",
   "console.purpose.logs": "What the install has been doing, as it happened",
   "console.purpose.media": "The art each game shows, and what is missing or unused",
