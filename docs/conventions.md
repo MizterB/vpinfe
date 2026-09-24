@@ -473,6 +473,10 @@ until then the chain reports `required: null`.
   nothing declared) nor plugins (that word belongs to VPX standalone), so say "third-party"
   and not "integration" or "external service".
 
+A catalog string that says *cabinet*, *machine* or *build* fails
+`tests/invariants/test_screen_words.py` unless its key is listed there with what the word
+names in it.
+
 A game is not permanently one `.vpx`; say "table" when the file is what is meant.
 
 Media and assets are not the same thing, and the line is what each is *for*: media is what
