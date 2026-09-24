@@ -191,6 +191,24 @@ def entry_app(entry: dict | None) -> str:
     return str(entry.get(TABLE_APP_KEY, "") or "").strip()
 
 
+def app_of(entry: dict) -> str:
+    """Which app plays an entry, or "".
+
+    A file says so by its own suffix, wherever that file is - a reference names one, so
+    it answers the same way a table in the folder does. Something with no file at all
+    has to declare it, because nothing about a key says whose it is.
+    """
+    declared = entry_app(entry)
+    if declared:
+        return declared
+    # The reference first where there is one: it is what the entry actually plays, and
+    # a stray `filename` beside it would answer for a file this folder does not have.
+    reference = entry_reference(entry)
+    named = os.path.basename(reference) if reference else entry_filename(entry)
+    found = apps.app_for(named)
+    return found.id if found is not None else ""
+
+
 def entry_reference(entry: dict | None) -> str:
     """Where an entry's game file is, when it is not in this folder. As stored: relative
     to the game folder, or absolute, and forward-slashed either way."""

@@ -9,6 +9,7 @@ import os
 import pathlib
 import unittest
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -308,6 +309,110 @@ class AllTablesOnlyTests(_TableCase):
 
         self.assertEqual(got.status_code, 200, got.text)
         self.assertNotIn("ShowFPS", pathlib.Path(self.beside).read_text())
+
+
+class SwitchingOffTests(unittest.TestCase):
+    """Three tables, all played by the first of two VPX launchers."""
+
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.store = launchers.LauncherStore(
+            os.path.join(self.tmp.name, "launchers.json"))
+        store_patch = patch.object(launchers, "get_launcher_store",
+                                   return_value=self.store)
+        store_patch.start()
+        self.addCleanup(store_patch.stop)
+        self.store.mark_migration(launcher_migration.SEEDED)
+        library = [SimpleNamespace(meta_config={"tables": {
+            one: {"id": one, "filename": f"{one}.vpx"} for one in ("t1", "t2", "t3")}})]
+        games_patch = patch("common.games.game_repository.all_games",
+                            return_value=library)
+        games_patch.start()
+        self.addCleanup(games_patch.stop)
+        self.client = _client()
+        self._put("wide", display_name="VPX Wide", bin_path="/opt/wide")
+        self._put("plain", display_name="VPX Plain", bin_path="/opt/plain")
+
+    def _put(self, launcher_id: str, *, app: str = "vpx", enabled: bool = True,
+             display_name: str = "", bin_path: str = ""):
+        return self.client.put(f"/launchers/{launcher_id}", json={
+            "app": app, "display_name": display_name, "enabled": enabled,
+            "settings": {"bin_path": bin_path}})
+
+    def _fallback(self, launcher_id: str) -> dict:
+        got = self.client.get(f"/launchers/{launcher_id}/fallback")
+        self.assertEqual(got.status_code, 200, got.text)
+        return got.json()
+
+    def _enabled(self, launcher_id: str) -> bool:
+        return next(one["enabled"] for one in self.client.get("/launchers").json()
+                    ["launchers"] if one["launcher_id"] == launcher_id)
+
+    def test_it_counts_the_tables_it_plays_and_names_where_they_go(self) -> None:
+        said = self._fallback("wide")
+
+        self.assertEqual(said["tables"], 3)
+        self.assertEqual(said["fallbacks"], [{"launcher_id": "plain",
+                                              "display_name": "VPX Plain",
+                                              "tables": 3, "has_program": True}])
+        self.assertEqual(said["refused"], "")
+
+    def test_a_table_pointed_elsewhere_is_not_counted(self) -> None:
+        self.store.assign("t1", "plain")
+
+        self.assertEqual(self._fallback("wide")["tables"], 2)
+
+    def test_one_pointed_at_a_launcher_that_is_not_the_default_is(self) -> None:
+        self.store.assign("t1", "plain")
+
+        said = self._fallback("plain")
+
+        self.assertEqual(said["tables"], 1)
+        self.assertEqual(said["fallbacks"][0]["launcher_id"], "wide")
+
+    def test_switching_off_onto_a_launcher_with_no_program_is_refused(self) -> None:
+        self._put("plain", display_name="VPX Plain")
+
+        got = self._put("wide", display_name="VPX Wide", bin_path="/opt/wide",
+                        enabled=False)
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertIn("VPX Plain", got.json()["error"]["message"])
+        self.assertTrue(self._enabled("wide"))
+
+    def test_and_the_fallback_says_so_before_anything_is_tried(self) -> None:
+        self._put("plain", display_name="VPX Plain")
+
+        said = self._fallback("wide")
+
+        self.assertFalse(said["fallbacks"][0]["has_program"])
+        self.assertIn("VPX Plain", said["refused"])
+
+    def test_switching_off_the_last_launcher_for_its_tables_is_refused(self) -> None:
+        self.client.delete("/launchers/plain")
+        self._put("gen", app="generic", display_name="Generic", bin_path="/opt/gen")
+
+        got = self._put("wide", display_name="VPX Wide", bin_path="/opt/wide",
+                        enabled=False)
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertEqual(self._fallback("wide")["fallbacks"][0]["launcher_id"], "")
+
+    def test_one_no_table_uses_switches_off_whatever_the_fallback(self) -> None:
+        self._put("spare", display_name="Spare")
+
+        got = self._put("plain", display_name="VPX Plain", bin_path="/opt/plain",
+                        enabled=False)
+
+        self.assertEqual(got.status_code, 200, got.text)
+
+    def test_a_working_fallback_lets_it_go(self) -> None:
+        got = self._put("wide", display_name="VPX Wide", bin_path="/opt/wide",
+                        enabled=False)
+
+        self.assertEqual(got.status_code, 200, got.text)
+        self.assertFalse(self._enabled("wide"))
 
 
 if __name__ == "__main__":

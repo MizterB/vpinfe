@@ -126,8 +126,9 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/filesystem/entries` | What is in one folder. With `kind`, the files that asset kind takes are listed beside the media (`backglass` lists `.directb2s`); `kind` is the registry's name or the asset lens's, so `alt_color` lists both Serum and VNI files. `archives=true` lists archives too. `/filesystem/file` still serves media only |
 | GET | `/api/v1/vps/search?q=&limit=` | VPSdb lookup |
 | GET | `/api/v1/launchers` | Every launcher this install has, the tables that deviate from the default, and the fields each launcher's app takes |
-| PUT | `/api/v1/launchers/{id}` | Add or replace one. The whole launcher, so a partial write cannot leave one half-configured |
+| PUT | `/api/v1/launchers/{id}` | Add or replace one. The whole launcher, so a partial write cannot leave one half-configured. Switching one off is refused when the tables it plays would land on a launcher with no program, or on none |
 | DELETE | `/api/v1/launchers/{id}` | Forget one. Tables pointed at it fall back to the default |
+| GET | `/api/v1/launchers/{id}/fallback` | What switching it off would do: `tables` it plays now, `fallbacks` naming where each group of them would go (`launcher_id` empty for nowhere) and whether that one `has_program`, and `refused`, the refusal a switch-off would get, or `""` |
 | GET | `/api/v1/launchers/{id}/config` | The settings of the program it runs, and every value as it stands at one `scope` - `launcher` (the default), `folder` or `entry`. `table=` names the table for the last two |
 | PUT | `/api/v1/launchers/{id}/config` | Set values at one scope, `{"scope", "table", "values", "seed"}` → `{"written", "cleared"}` |
 | GET | `/api/v1/launchers/{id}/config/reaching?table=` | What the folder's settings file gives a table that has no file of its own |

@@ -40,6 +40,14 @@ def put_launcher(launcher_id: str, body: dict[str, Any] = Body(...)) -> dict[str
     return launcher_ops.put(launcher_id, body)
 
 
+@router.get("/{launcher_id}/fallback", summary="Where its tables go if it is switched off",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def launcher_fallback(launcher_id: str) -> dict[str, Any]:
+    """How many tables it plays, what each group of them would use instead, and the
+    refusal a switch-off would get, or ""."""
+    return launcher_ops.fallback(launcher_id)
+
+
 @router.get("/{launcher_id}/config", summary="What the app it runs can be set to",
             dependencies=[requires(scopes.CONFIG_READ)])
 def launcher_config(launcher_id: str, table: str = "",

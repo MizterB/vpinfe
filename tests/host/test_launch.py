@@ -15,6 +15,7 @@ from pathlib import PurePath
 from unittest import mock
 
 from common import events
+from common.games import tables
 from common.host import commands, launch, launch_state, table_commands
 
 
@@ -429,7 +430,7 @@ class ReferencedEntryTests(LaunchTests):
     def test_the_file_it_points_at_says_which_app_plays_it(self) -> None:
         """A reference names a file, so it answers the same way a table in the folder
         does - there is no `app` on the record and none is needed."""
-        self.assertEqual(launch._app_of({"path": self.elsewhere}), "vpx")
+        self.assertEqual(tables.app_of({"path": self.elsewhere}), "vpx")
 
     def test_the_command_is_built_from_the_resolved_path(self) -> None:
         entry = launch.apps.Entry(entry_id="r1", table=self.elsewhere,

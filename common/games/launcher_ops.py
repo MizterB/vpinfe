@@ -11,12 +11,13 @@ what a Visual Pinball launcher happens to hold.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from common import apps, path_checks, service_errors
-from common.games import config_backups, game_repository, launchers
+from common.games import config_backups, game_repository, launchers, tables
 from common.games.config_backups import Backup
 from common.games.table_identity import find_table_by_id
 from common.i18n import t
@@ -113,15 +114,76 @@ def put(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
                     join=(', '.join(app.id for app in apps.all_apps()))))
 
     store = launchers.get_launcher_store()
+    enabled = bool(body.get("enabled", True))
+    before = store.get(wanted)
+    if before is not None and before.enabled and not enabled:
+        refused = _fallback(before)["refused"]
+        if refused:
+            raise service_errors.RefusedError(refused)
     written = store.put(launchers.Launcher(
         launcher_id=wanted,
         app=app_id,
         display_name=str(body.get("display_name") or "").strip() or apps.app_name(app_id),
-        enabled=bool(body.get("enabled", True)),
+        enabled=enabled,
         owns_ini=bool(body.get("owns_ini", False)),
         settings=dict(body.get("settings") or {}),
     ))
     return _described(written)
+
+
+def fallback(launcher_id: str) -> dict[str, Any]:
+    """What switching one off would do: the tables it plays, where each group of them
+    would go, and the refusal `put` would give, or ""."""
+    return _fallback(launcher_or_refuse(launcher_id))
+
+
+def _fallback(leaving: launchers.Launcher) -> dict[str, Any]:
+    store = launchers.get_launcher_store()
+    held = store.launchers()
+    mappings = store.mappings()
+    without = [replace(one, enabled=False) if one.launcher_id == leaving.launcher_id
+               else one for one in held]
+    moving: dict[str, tuple[launchers.Launcher | None, int]] = {}
+    for app_id, table_id in _library_tables():
+        now = launchers.launcher_for_entry(app_id, table_id, held, mappings)
+        if now is None or now.launcher_id != leaving.launcher_id:
+            continue
+        after = launchers.launcher_for_entry(app_id, table_id, without, mappings)
+        key = after.launcher_id if after is not None else ""
+        moving[key] = (after, moving.get(key, (after, 0))[1] + 1)
+    return {
+        "tables": sum(count for _one, count in moving.values()),
+        "fallbacks": [{"launcher_id": key,
+                       "display_name": one.display_name if one is not None else "",
+                       "tables": count,
+                       "has_program": one is not None and _has_program(one)}
+                      for key, (one, count) in moving.items()],
+        "refused": _refusal([one for one, _count in moving.values()]),
+    }
+
+
+def _refusal(fallbacks: list[launchers.Launcher | None]) -> str:
+    for one in fallbacks:
+        if one is None:
+            return t("error.launchers.no_fallback")
+        if not _has_program(one):
+            return t("error.launchers.fallback_has_no_program", name=one.display_name)
+    return ""
+
+
+def _has_program(launcher: launchers.Launcher) -> bool:
+    return all(str(launcher.value(field.key) or "").strip()
+               for field in launcher.fields() if field.path == "exe")
+
+
+def _library_tables() -> Iterator[tuple[str, str]]:
+    """(app, table id) for every table in the library that has an id."""
+    for game in game_repository.all_games():
+        stored = (getattr(game, "meta_config", None) or {}).get(tables.TABLES_KEY)
+        for entry in (stored.values() if isinstance(stored, dict) else ()):
+            found = tables.table_id(entry)
+            if found:
+                yield tables.app_of(entry), found
 
 
 def _app_settings_surface(launcher: launchers.Launcher) -> Any:
