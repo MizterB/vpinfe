@@ -73,25 +73,27 @@ class TableVisibilityTests(unittest.TestCase):
     the user does not want offered. Hiding never deletes: the patched table cannot be
     rebuilt without the base."""
 
+    @staticmethod
+    def _offered(settings, names):
+        from common.games.tables import entry_filename, offered_tables
+        return sorted(entry_filename(entry) for _id, entry in offered_tables(settings,
+                                                                             listing=names))
+
     def test_absent_settings_mean_everything_is_visible(self):
-        from common.games.tables import visible_tables
         names = ["a.vpx", "b.vpx"]
-        self.assertEqual(visible_tables(names, None), ["a.vpx", "b.vpx"])
-        self.assertEqual(visible_tables(names, {}), ["a.vpx", "b.vpx"])
+        self.assertEqual(self._offered(None, names), ["a.vpx", "b.vpx"])
+        self.assertEqual(self._offered({}, names), ["a.vpx", "b.vpx"])
 
     def test_hidden_files_are_not_offered(self):
-        from common.games.tables import hidden_tables, visible_tables
+        from common.games.tables import hidden_tables
         settings = {"base.vpx": {"hidden": True}}
         names = ["base.vpx", "table.vpx", "table (VR).vpx"]
         self.assertEqual(hidden_tables(settings), {"base.vpx"})
-        self.assertEqual(visible_tables(names, settings),
-                         ["table (VR).vpx", "table.vpx"])
+        self.assertEqual(self._offered(settings, names), ["table (VR).vpx", "table.vpx"])
 
     def test_several_visible_tables_are_peers(self):
         """No primary-with-alternates: a VR table and a desktop one are equals."""
-        from common.games.tables import visible_tables
-        names = ["table.vpx", "table (VR).vpx"]
-        self.assertEqual(len(visible_tables(names, {})), 2)
+        self.assertEqual(len(self._offered({}, ["table.vpx", "table (VR).vpx"])), 2)
 
     def test_malformed_settings_do_not_hide_anything(self):
         from common.games.tables import hidden_tables

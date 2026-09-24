@@ -19,7 +19,8 @@ from common.games.asset_resolver import resolve_for_table
 from common.games.game_metadata import vpinfe_section
 from common.games.info_file import ASSETS_KEY
 from common.games.tables import (
-    default_table,
+    default_entry,
+    entry_filename,
     recorded_default,
     table_entries,
     table_names,
@@ -47,14 +48,16 @@ def choose_table(game_dir: Path, table: str | None = None) -> str | None:
     if table:
         return table if table in names else None
 
-    recorded = ""
+    meta: dict = {}
     info_path = game_dir / f"{game_dir.name}.info"
     try:
         meta = json.loads(info_path.read_text(encoding="utf-8"))
-        recorded = recorded_default(vpinfe_section(meta), table_entries(meta))
     except (OSError, ValueError):
         pass
-    return default_table(listing, game_dir.name, recorded) or (names[0] if names else None)
+    entries = table_entries(meta)
+    recorded = recorded_default(vpinfe_section(meta))
+    chosen = entry_filename(default_entry(entries, recorded, listing)[1])
+    return chosen if chosen in names else (names[0] if names else None)
 
 
 def prune_info(info_text: str, bundled_arcnames: set[str]) -> str:

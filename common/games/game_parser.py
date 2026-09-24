@@ -23,7 +23,8 @@ from common.games.info_migration import (
     restorable_backup,
 )
 from common.games.tables import (
-    default_table,
+    default_entry,
+    entry_file,
     recorded_default,
     table_entries,
     table_names,
@@ -224,12 +225,12 @@ class GameParser:
 
         # After the metadata, so a folder with several .vpx launches the one its
         # metadata describes rather than whichever the filesystem listed first.
-        recorded = recorded_default(vpinfe_section(game.meta_config),
-                                    table_entries(game.meta_config))
-        chosen = default_table(game_contents, game_dir.name, recorded)
-        # Empty rather than a path, because `game_dir / ""` is the folder and a reader
-        # that stats it would be told there is a table here.
-        game.full_path_vpx_file = str(game_dir / chosen) if chosen else ""
+        _found, chosen = default_entry(table_entries(game.meta_config),
+                                       recorded_default(vpinfe_section(game.meta_config)),
+                                       game_contents)
+        # Empty rather than the folder for a table with no file, because a reader that
+        # stats the folder would be told there is a table here.
+        game.full_path_vpx_file = entry_file(str(game_dir), chosen)
 
         # Media after the default pick: tier 1 of the resolution chain keys off
         # the table that actually launches.
@@ -237,7 +238,7 @@ class GameParser:
             game,
             game_contents=game_contents,
             has_medias_dir="medias" in game_subdirs,
-            table_stem=Path(chosen).stem if chosen else None,
+            table_stem=Path(game.full_path_vpx_file).stem if game.full_path_vpx_file else None,
         )
         # The folder when there is no table, so "recently added" still orders an entry
         # that has nothing to stat.

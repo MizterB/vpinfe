@@ -7,6 +7,7 @@ broadcast to the windows, and the list they read next.
 from __future__ import annotations
 
 import configparser
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -97,12 +98,24 @@ class CabinetHearsChangesTests(TempTree):
             timer.join(timeout=5)
 
     def test_a_table_hidden_over_http_leaves_the_wheel_without_a_reset(self) -> None:
-        self.assertEqual(self._offered(), {"tbl0000001"})
+        shown = self._offered()
+        self.assertEqual(len(shown), 1)
 
-        response = self.client.put(f"/games/{GAME_ID}/tables/tbl0000001/hidden",
+        response = self.client.put(f"/games/{GAME_ID}/tables/{min(shown)}/hidden",
                                    json={"hidden": True})
         self.assertEqual(response.status_code, 200, response.text)
         self._settle()
 
         self.assertIn("TableDataChange", self.bridge.sent)
-        self.assertEqual(self._offered(), {"tbl0000002"})
+        self.assertEqual(self._offered(), {"tbl0000001", "tbl0000002"} - shown)
+
+    def test_hiding_the_default_moves_the_scans_path_to_what_plays_now(self) -> None:
+        (shown,) = self._offered()
+        (other,) = {"tbl0000001", "tbl0000002"} - {shown}
+
+        response = self.client.put(f"/games/{GAME_ID}/tables/{shown}/hidden",
+                                   json={"hidden": True})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        playing = game_repository.game_by_id(GAME_ID).full_path_vpx_file
+        self.assertEqual(Path(playing).name, INFO["tables"][other]["filename"])

@@ -390,6 +390,8 @@ When you run VPinFE with the `--buildmeta` option it recursively goes through yo
   - detect_* flags: what was found in the table's script
   - hidden: set to keep a table out of the frontend without deleting it — a patch base
     has to stay on disk, but should not be offered
+  - added: when the library first had this table, as ISO 8601 UTC. The moment a person or
+    an extension added it, or the file's own creation date for one found on disk.
   - user: play history for this table alone (last_run, start_count, run_time_seconds).
     It accumulates separately from `User`, which is the game's own history.
 
@@ -399,7 +401,9 @@ When you run VPinFE with the `--buildmeta` option it recursively goes through yo
   - schema: the version of this file's shape. Absent means a 2.x file, which is migrated on
     first read — see below.
   - id: the game's stable local identity, used in the API, in events and in collections
-  - default_table: which table a consumer that can only take one should get
+  - default_table: which table a consumer that can only take one should get. With none
+    recorded, or when the recorded one is hidden or gone, it is the most recently added
+    visible table, and a tie goes to the first by name.
   - delete_nvram_on_close: (true/false) Some games, like Taito machines, retain the game
     state when you quit. Enabling this deletes the NVRAM file on close. Default is false.
   - alt_launcher: Optional executable path override for this game alone. If set, it is used

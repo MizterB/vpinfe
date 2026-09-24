@@ -80,13 +80,13 @@ def upgrade_library(
     game_name: str | None = None,
     progress_cb: ProgressCallback | None = None,
     log_cb: LogCallback | None = None,
-    route_match: Callable[[dict, str], str] | None = None,
+    route_match: Callable[[dict], str] | None = None,
 ) -> UpgradeResult:
     """Upgrade every table's `.info` in one pass.
 
     Startup already does the library, so this is the repair for what it did not reach.
 
-    `route_match` is given each migrated record and the folder it came from, and says
+    `route_match` is given each migrated record, and says
     what it did with the 2.x VPS match. Injected because deciding that needs the
     catalog, which is a layer above this one.
     """
@@ -113,7 +113,7 @@ def upgrade_library(
                 result["already_current"] += 1
                 continue
             if route_match is not None:
-                routed = route_match(meta.data, game_dir.name)
+                routed = route_match(meta.data)
                 if routed == "bound":
                     result["matches_bound"] += 1
                     log(f"Bound the VPS match to the table it names: {game_dir.name}")

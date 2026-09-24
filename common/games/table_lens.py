@@ -35,7 +35,6 @@ from common.games.game_service import find_vps_release
 from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.tables import (
     TABLE_ID_KEY,
-    default_table,
     entry_for_filename,
     hidden_tables,
     is_parsed,
@@ -182,24 +181,13 @@ def table_rows(game: Game, row: dict) -> list[dict]:
     if not rows:
         return []
 
-    # Same resolver the launcher and the metadata build use, so all three agree.
-    recorded = recorded_default(vpinfe_section(game.meta_config), described)
-    default = default_table(files or [f for _n, f, _e in rows if f],
-                            game_dir.name, recorded)
-    if not default:
-        # Nothing with a file. The default is then whichever entry the launch path would
-        # pick, which is the one thing this must not disagree with.
-        default = tables.entry_native_key(
-            tables.default_entry(described, game_dir.name, recorded)[1])
-    # Why this one, not only which one. `default_table` falls through a recorded choice,
-    # a filename matching the folder, then first alphabetically - which its own docstring
-    # calls "deterministic rather than correct". A reader does not care which of the last
-    # two happened; they care whether they chose it or we did.
-    #
-    # "user" only where the recorded choice is what actually won: a recorded name whose
-    # table has since gone falls through to a derived pick, and calling that a choice
-    # would be a lie.
-    default_kind = "user" if recorded and recorded == default else "auto"
+    recorded = recorded_default(vpinfe_section(game.meta_config))
+    default_id, chosen = tables.default_entry(described, recorded, files or None)
+    default = tables.entry_native_key(chosen)
+    # "user" only where the recorded choice is what actually won: a recorded table that
+    # has since gone falls through to a derived pick, and calling that a choice would be
+    # a lie.
+    default_kind = "user" if tables.is_recorded(recorded, default_id, chosen) else "auto"
     hidden = hidden_tables(described)
 
     # Dependency context, once per request: the alias map and the rom listing are

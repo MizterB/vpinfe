@@ -50,7 +50,7 @@ something. `docs/extensions.md` is the contract an author reads.
 - `game.py`, `game_parser.py`, `game_repository.py`: game discovery and cached game rows.
 - `game_metadata.py`, `info_file.py`: `.info` file schema, defaults, display helpers, and persistence. `metaconfig` also versions the `VPinFE` section and migrates it forward on read.
 - `game_identity.py`: the stable per-install game id that addresses a game everywhere.
-- `tables.py`: which .vpx in a game folder is the default table. Every caller resolves through it.
+- `tables.py`: which table in a game folder plays when nobody names one. Every caller resolves through `default_entry()` or `offered_tables()`.
 - `metadata_service.py`, `game_report_service.py`, `game_play_service.py`: workflows over games and metadata.
 - `collections_service.py`, `collection_store.py`, `collection_filters.py`: collection and filter logic. `collections.ini` carries its own schema version in a reserved `[VPinFE]` section.
 - `vpx_parser.py`, `standalone_scripts.py`: reading and patching the .vpx itself.
@@ -195,7 +195,7 @@ come.
 
 Never pick a game's `.vpx` yourself. A folder can hold several, and picking
 differently from everyone else means the metadata a user sees describes a different
-file than the one that launches. Use `tables.default_table()`.
+file than the one that launches. Use `tables.default_entry()`.
 
 Use `config_access.py` when reading common INI values from code outside the
 configuration editor itself. This keeps defaults and bool/int coercion in one

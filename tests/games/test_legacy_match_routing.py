@@ -33,7 +33,7 @@ class RoutingCase(unittest.TestCase):
     def _route(self, alt: str) -> tuple[str, dict]:
         data = copy.deepcopy(RECORD)
         data["vpinfe"]["alt_vpsid"] = alt
-        return route_legacy_match(data, "AC-DC (Stern 2013)"), data
+        return route_legacy_match(data), data
 
 
 class ClassifyTests(RoutingCase):
@@ -82,7 +82,7 @@ class RouteTests(RoutingCase):
         data = copy.deepcopy(RECORD)
         data["tables"]["tbl001"]["source"] = {"base": "Old.vpx", "patch": "p.jdiff"}
 
-        route_legacy_match(data, "AC-DC (Stern 2013)")
+        route_legacy_match(data)
 
         source = data["tables"]["tbl001"]["source"]
         self.assertEqual(source["base"], "Old.vpx")
@@ -93,7 +93,7 @@ class NoCatalogTests(unittest.TestCase):
     def test_nothing_is_routed_while_the_catalog_is_empty(self) -> None:
         data = copy.deepcopy(RECORD)
         with patch("common.games.game_service.load_vpsdb", return_value=[]):
-            done = route_legacy_match(data, "AC-DC (Stern 2013)")
+            done = route_legacy_match(data)
 
         self.assertEqual(done, "")
         self.assertEqual(data["vpinfe"]["alt_vpsid"], RELEASE)

@@ -30,11 +30,12 @@ from common.games.info_file import VPINFE_SECTION
 from common.games.info_maintenance import RestoreResult, UpgradeResult
 from common.games.tables import (
     TABLES_KEY,
-    default_table,
-    entry_for_filename,
+    default_entry,
+    entry_filename,
+    offered_tables,
     recorded_default,
     table_entries,
-    table_filenames,
+    table_names,
 )
 from common.games.vpx_parser import VPXParser
 from common.jobs import LogCallback, ProgressCallback
@@ -214,7 +215,7 @@ def classify_vps_id(vps_id: str) -> str:
     return "release" if find_vps_release(wanted) else ""
 
 
-def route_legacy_match(data: dict, folder_name: str = "") -> str:
+def route_legacy_match(data: dict) -> str:
     """Put an `alt_vpsid` where the id it holds belongs, and say what was done.
 
     Returns `"kept"`, `"bound"`, `"dropped"`, or `""` where there was nothing to route.
@@ -238,9 +239,7 @@ def route_legacy_match(data: dict, folder_name: str = "") -> str:
         return "dropped"
 
     entries = table_entries(data)
-    filename = default_table(table_filenames(entries), folder_name,
-                             recorded_default(vpinfe, entries))
-    _, entry = entry_for_filename(entries, filename)
+    _, entry = default_entry(entries, recorded_default(vpinfe))
     if not entry:
         return "dropped"
     source = dict(entry.get(SOURCE_KEY) or {})
@@ -303,9 +302,28 @@ def _safe_upload_name(filename: str) -> str:
     return safe_name
 
 
+def _stored_meta(game_dir: Path) -> dict:
+    """The folder's record, or {} where it has none that reads."""
+    from common.games.info_file import MetaConfig
+
+    meta_path = game_dir / f"{game_dir.name}.info"
+    if not meta_path.exists():
+        return {}
+    try:
+        return MetaConfig(str(meta_path)).data
+    except Exception:
+        return {}
+
+
 def _find_vpx_file(game_dir: Path, preferred_filename: str = "") -> Path:
+    """The file named, else the folder's default game file, else its first."""
     names = [path.name for path in game_dir.iterdir() if path.is_file()]
-    chosen = default_table(names, game_dir.name, Path(preferred_filename or "").name)
+    stored = _stored_meta(game_dir)
+    recorded = Path(preferred_filename or "").name or recorded_default(vpinfe_section(stored))
+    offered = offered_tables(table_entries(stored), recorded, names)
+    chosen = next((entry_filename(entry) for _id, entry in offered
+                   if entry_filename(entry) in names), "")
+    chosen = chosen or next(iter(table_names(names)), "")
     if not chosen:
         raise FileNotFoundError(f"No .vpx found in {game_dir}")
     return game_dir / chosen
@@ -429,15 +447,7 @@ def associate_vps_to_folder(
         raise FileNotFoundError(f"Folder not found: {game_dir}")
 
     meta_path = game_dir / f"{game_dir.name}.info"
-    recorded = ""
-    if meta_path.exists():
-        try:
-            stored = MetaConfig(str(meta_path)).data
-            recorded = recorded_default(vpinfe_section(stored), table_entries(stored))
-        except Exception:
-            recorded = ""
-
-    vpx_file = _find_vpx_file(game_dir, recorded)
+    vpx_file = _find_vpx_file(game_dir)
     parser = VPXParser()
     vpxdata = parser.single_file_extract(str(vpx_file))
 

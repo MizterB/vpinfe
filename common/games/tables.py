@@ -9,8 +9,8 @@ import os
 from collections.abc import Iterable
 from pathlib import Path
 
-from common import apps
-from common.timestamps import iso_from_asctime, iso_from_authored_date
+from common import apps, collation
+from common.timestamps import epoch_to_iso, iso_from_asctime, iso_from_authored_date
 
 # One entry per .vpx, keyed by the table's id so a rename rewrites one field:
 #
@@ -27,6 +27,10 @@ TABLES_KEY = "tables"
 # almost always a share that has not mounted yet. Written by discovery, read by anyone
 # deciding whether a table can be offered or acted on.
 ABSENT_SINCE_KEY = "absent_since"
+
+# When the library first had this table: the moment a person or an extension added it, or
+# the file's own dates for one found on disk.
+ADDED_KEY = "added"
 
 # Minted on the first rebuild that sees the file, and outlives its name - see
 # `adopted_entry`, which is what carries it across a rename.
@@ -317,66 +321,78 @@ def hidden_tables(entries: dict | None) -> set[str]:
     }
 
 
-def visible_tables(names: Iterable[str], settings: dict | None = None) -> list[str]:
-    """The tables a frontend should offer. Each is independently launchable: several
-    tables of one game are peers, not a primary with alternates."""
-    hidden = hidden_tables(settings)
-    return [n for n in table_names(names) if n not in hidden]
+def offerable(entry: dict) -> bool:
+    """Whether this table can be handed to something that plays it: not hidden, and its
+    file not gone."""
+    return entry.get("hidden") is not True and not entry.get(ABSENT_SINCE_KEY)
 
 
-def default_table(names: Iterable[str], folder_name: str = "", recorded: str = "") -> str:
-    """Which table a single-table consumer gets, or "" when there are none.
+def is_recorded(recorded: str, found_id: str, entry: dict) -> bool:
+    """Whether this is the table recorded as the game's default. The record holds an id,
+    or the filename a 2.x library named."""
+    wanted = (recorded or "").strip()
+    return bool(wanted) and wanted in (found_id, entry_native_key(entry), entry_filename(entry))
 
-    Not "the one to launch" - every visible table is launchable. This is for the
-    places that must pick exactly one: an export, a game row, any theme written so far.
 
-    Falling through to the first by name is deterministic rather than correct, which is
-    the point: the alternative is directory order.
+def _by_name(pair: tuple[str, dict]) -> tuple[str, str]:
+    return collation.sort_key(entry_filename(pair[1]) or entry_native_key(pair[1]))
+
+
+def offered_tables(entries: dict | None, recorded: str = "",
+                   listing: Iterable[str] | None = None) -> list[tuple[str, dict]]:
+    """(id, entry) for each table a game offers, the default first and the rest by name.
+
+    The default is the recorded choice, else the most recently added, ties by name. With
+    `listing`, a table in the folder has to be in it, and a table file nothing describes
+    yet is offered with no id.
     """
-    candidates = table_names(names)
-    if not candidates:
+    held = rekey_by_id(entries)
+    listed = table_names(listing) if listing is not None else None
+    found = [(table_id(entry), entry) for entry in held.values()
+             if isinstance(entry, dict) and offerable(entry)
+             and (listed is None or entry_form(entry) != FORM_CONTAINED
+                  or entry_filename(entry) in listed)]
+    if listed is not None:
+        described = {entry_filename(e).lower() for e in held.values() if isinstance(e, dict)}
+        found += [("", contained_entry(name)) for name in listed
+                  if name.lower() not in described]
+    found.sort(key=_by_name)
+
+    head = next((pair for pair in found if is_recorded(recorded, *pair)), None)
+    if head is None and found:
+        head = max(found, key=lambda pair: str(pair[1].get(ADDED_KEY) or ""))
+    return [head, *(pair for pair in found if pair is not head)] if head else []
+
+
+def default_entry(entries: dict | None, recorded: str = "",
+                  listing: Iterable[str] | None = None) -> tuple[str, dict]:
+    """(id, entry) for the table a game plays when nothing names one, or ("", {})."""
+    offered = offered_tables(entries, recorded, listing)
+    return offered[0] if offered else ("", {})
+
+
+def entry_file(game_dir: str, entry: dict) -> str:
+    """Where an entry's game file is, or "" for one that has none."""
+    if entry_key(entry):
         return ""
-
-    recorded = (recorded or "").strip()
-    if recorded in candidates:
-        return recorded
-
-    stem = (folder_name or "").strip().lower()
-    if stem:
-        for name in candidates:
-            if apps.strip_suffix(name).lower() == stem:
-                return name
-
-    return candidates[0]
+    reference = entry_reference(entry)
+    if reference:
+        return resolved_reference(game_dir, reference)
+    name = entry_filename(entry)
+    return os.path.join(game_dir, name) if name and game_dir else ""
 
 
-def default_entry(entries: dict | None, folder_name: str = "",
-                  recorded: str = "") -> tuple[str, dict]:
-    """(id, entry) for the one a single-entry consumer gets, or ("", {}).
-
-    `default_table` answers the same question in filenames and most callers want that,
-    because most entries are files. This one also sees the entries that are not - a
-    folder holding only a keyed entry has no filenames at all, and answering "" for it
-    would make it the one kind of game nothing can launch.
-    """
-    held = dict(entries or {})
-    if not held:
-        return "", {}
-
-    wanted = str(recorded or "").strip()
-    if wanted in held:
-        return wanted, held[wanted]
-
-    named = default_table([entry_filename(e) for e in held.values()],
-                          folder_name, wanted)
-    if named:
-        return entry_for_filename(held, named)
-
-    # Nothing in the folder. Ordered by what names it, so the answer is the same every
-    # time - the same reason `default_table` falls through to the first by name.
-    rest = sorted(((i, e) for i, e in held.items() if entry_native_key(e)),
-                  key=lambda pair: entry_native_key(pair[1]))
-    return rest[0] if rest else ("", {})
+def stamp_added(game_dir: str, entry: dict) -> bool:
+    """Give a table found on disk its `added`, from the file's birth time, or its ctime
+    where the filesystem keeps none. False when it has one, or its file cannot be read."""
+    if entry.get(ADDED_KEY):
+        return False
+    try:
+        stat = os.stat(entry_file(game_dir, entry))
+    except (OSError, ValueError):
+        return False
+    entry[ADDED_KEY] = epoch_to_iso(getattr(stat, "st_birthtime", stat.st_ctime))
+    return True
 
 
 def table_entries(meta: dict | None) -> dict:
@@ -389,21 +405,15 @@ def table_entries(meta: dict | None) -> dict:
     return rekey_by_id(entries) if isinstance(entries, dict) else {}
 
 
-def recorded_default(vpinfe: dict | None, entries: dict | None = None) -> str:
-    """The filename of the default someone chose for this game, or "".
+def recorded_default(vpinfe: dict | None) -> str:
+    """The default someone chose for this game, as stored, or "".
 
-    Stored as a table id so the choice survives a rename; resolved to a name here
-    because every caller is about to match it against a folder listing. A value that
-    is not a known id is read as a filename - that is what the 2.x migration seeds,
-    and what a hand-edited .info is likely to hold.
+    A table id, so the choice survives a rename, or a filename where the 2.x migration
+    seeded one or a hand-edited .info holds one. `is_recorded` reads either.
 
     Absent is the normal case and means "resolve from what is in the folder" - it is
     never written on a rebuild, which would freeze an arbitrary pick as a choice.
     """
     if not isinstance(vpinfe, dict):
         return ""
-    recorded = str(vpinfe.get(DEFAULT_TABLE_KEY, "") or "").strip()
-    if not recorded:
-        return ""
-    entry = (entries or {}).get(recorded)
-    return entry_filename(entry) if isinstance(entry, dict) else recorded
+    return str(vpinfe.get(DEFAULT_TABLE_KEY, "") or "").strip()

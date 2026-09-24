@@ -5,7 +5,7 @@ from typing import Any
 
 from common.games import game_identity, game_repository
 from common.games.game_metadata import default_table, game_title, game_vps_id, normalize_meta
-from common.games.tables import entry_for_filename, table_entries
+from common.games.tables import table_entries, table_id
 
 
 def owned(vps_ids: Iterable[Any]) -> dict[str, Any]:
@@ -50,9 +50,9 @@ def _other_versions(missing: set[str], games: list[Any]) -> dict[str, dict[str, 
         if game is None:
             continue
         meta = normalize_meta(game.meta_config)
-        filename, table = default_table(meta, folder_name=game.game_dir_name or "")
+        _filename, table = default_table(meta)
         other[release] = {"game_id": game_identity.game_id(game),
-                          "table_id": entry_for_filename(table_entries(meta), filename)[0],
+                          "table_id": table_id(table),
                           "name": game_title(game),
                           "version": str(table.get("version") or ""), "url": address}
     return other

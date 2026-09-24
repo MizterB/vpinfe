@@ -1,6 +1,30 @@
+import os
+import tempfile
 import unittest
 
-from common.games.tables import default_table, is_parsed, table_names
+from common.games.tables import (
+    ADDED_KEY,
+    default_entry,
+    entry_filename,
+    is_parsed,
+    offered_tables,
+    stamp_added,
+    table_names,
+)
+
+OLDER = "2025-03-01T10:00:00Z"
+NEWER = "2026-06-01T10:00:00Z"
+
+
+def _table(table_id: str, filename: str, added: str = "", **more: object) -> dict:
+    entry = {"id": table_id, "filename": filename, **more}
+    if added:
+        entry[ADDED_KEY] = added
+    return entry
+
+
+def _entries(*tables: dict) -> dict:
+    return {one["id"]: one for one in tables}
 
 
 class TableNamesTests(unittest.TestCase):
@@ -18,54 +42,125 @@ class TableNamesTests(unittest.TestCase):
 
 
 class DefaultTableTests(unittest.TestCase):
-    """Which .vpx is 'the' table. Every caller has to agree, or metadata describes
-    one file while another launches."""
+    """Which table a game plays when nothing names one. Every caller has to agree, or
+    metadata describes one file while another launches."""
 
-    def test_the_recorded_file_wins(self) -> None:
-        names = ["Alt Build.vpx", "The Table (Bally 1990).vpx"]
+    def _default(self, entries: dict, recorded: str = "", listing: list | None = None) -> str:
+        return entry_filename(default_entry(entries, recorded, listing)[1])
 
-        chosen = default_table(names, "The Table (Bally 1990)", "Alt Build.vpx")
+    def test_the_most_recently_added_wins_whatever_the_names_say(self) -> None:
+        entries = _entries(_table("tbl0000001", "AFM (bigus1 1.3.0).vpx", OLDER),
+                           _table("tbl0000002", "AFM (cyberpez Beta4).vpx", NEWER))
 
-        self.assertEqual(chosen, "Alt Build.vpx",
-                         "the metadata and media were built against this one")
+        self.assertEqual(self._default(entries), "AFM (cyberpez Beta4).vpx")
 
-    def test_a_recorded_file_that_is_absent_is_ignored(self) -> None:
-        names = ["Alt Build.vpx", "The Table (Bally 1990).vpx"]
+    def test_a_tie_goes_to_the_first_by_name(self) -> None:
+        entries = _entries(_table("tbl0000001", "b build.vpx", OLDER),
+                           _table("tbl0000002", "a build.vpx", OLDER))
 
-        chosen = default_table(names, "The Table (Bally 1990)", "gone.vpx")
+        self.assertEqual(self._default(entries), "a build.vpx")
 
-        self.assertEqual(chosen, "The Table (Bally 1990).vpx", "falls to the folder name")
+    def test_a_table_with_no_date_is_older_than_one_with_a_date(self) -> None:
+        entries = _entries(_table("tbl0000001", "a build.vpx"),
+                           _table("tbl0000002", "b build.vpx", OLDER))
 
-    def test_the_folder_name_breaks_the_tie(self) -> None:
-        names = ["aaa mod.vpx", "The Table (Bally 1990).vpx"]
+        self.assertEqual(self._default(entries), "b build.vpx")
 
-        chosen = default_table(names, "The Table (Bally 1990)")
+    def test_the_recorded_table_wins(self) -> None:
+        entries = _entries(_table("tbl0000001", "Alt Build.vpx", OLDER),
+                           _table("tbl0000002", "The Table.vpx", NEWER))
 
-        self.assertEqual(chosen, "The Table (Bally 1990).vpx",
-                         "not 'aaa mod.vpx', which sorts first")
+        self.assertEqual(self._default(entries, "tbl0000001"), "Alt Build.vpx")
 
-    def test_folder_name_match_is_case_insensitive(self) -> None:
-        chosen = default_table(["zzz.vpx", "THE TABLE.vpx"], "The Table")
+    def test_a_filename_recorded_by_2x_is_read(self) -> None:
+        entries = _entries(_table("tbl0000001", "Alt Build.vpx", OLDER),
+                           _table("tbl0000002", "The Table.vpx", NEWER))
 
-        self.assertEqual(chosen, "THE TABLE.vpx")
+        self.assertEqual(self._default(entries, "Alt Build.vpx"), "Alt Build.vpx")
 
-    def test_otherwise_the_first_by_name_wins(self) -> None:
-        names = ["b build.vpx", "a build.vpx"]
+    def test_a_recorded_table_that_is_gone_is_ignored(self) -> None:
+        entries = _entries(_table("tbl0000001", "Alt Build.vpx", OLDER),
+                           _table("tbl0000002", "The Table.vpx", NEWER))
 
-        chosen = default_table(names, "Some Folder")
+        self.assertEqual(self._default(entries, "gone.vpx"), "The Table.vpx")
 
-        self.assertEqual(chosen, "a build.vpx", "deterministic, not directory order")
+    def test_a_hidden_table_is_never_the_default(self) -> None:
+        entries = _entries(_table("tbl0000001", "Base.vpx", OLDER),
+                           _table("tbl0000002", "Patched.vpx", NEWER, hidden=True))
+
+        self.assertEqual(self._default(entries), "Base.vpx")
+        self.assertEqual(self._default(entries, "tbl0000002"), "Base.vpx",
+                         "not even the recorded one")
+
+    def test_a_table_whose_file_is_gone_is_never_the_default(self) -> None:
+        entries = _entries(_table("tbl0000001", "Base.vpx", OLDER),
+                           _table("tbl0000002", "New.vpx", NEWER,
+                                  absent_since="2026-07-01T00:00:00Z"))
+
+        self.assertEqual(self._default(entries), "Base.vpx")
+
+    def test_with_a_listing_a_file_not_in_it_is_passed_over(self) -> None:
+        entries = _entries(_table("tbl0000001", "Base.vpx", OLDER),
+                           _table("tbl0000002", "New.vpx", NEWER))
+
+        self.assertEqual(self._default(entries, listing=["Base.vpx"]), "Base.vpx")
+
+    def test_with_a_listing_a_file_nothing_describes_is_offered(self) -> None:
+        offered = offered_tables({}, listing=["notes.txt", "Only.vpx"])
+
+        self.assertEqual(offered, [("", {"filename": "Only.vpx"})])
+
+    def test_every_table_hidden_offers_nothing(self) -> None:
+        entries = _entries(_table("tbl0000001", "A.vpx", hidden=True))
+
+        self.assertEqual(default_entry(entries), ("", {}))
 
     def test_a_folder_with_no_tables_resolves_to_nothing(self) -> None:
-        self.assertEqual(default_table(["readme.txt"], "Some Folder"), "")
+        self.assertEqual(self._default({}, listing=["readme.txt"]), "")
+
+    def test_the_rest_follow_by_name(self) -> None:
+        entries = _entries(_table("tbl0000001", "c.vpx", OLDER),
+                           _table("tbl0000002", "a.vpx", OLDER),
+                           _table("tbl0000003", "b.vpx", NEWER))
+
+        self.assertEqual([entry_filename(e) for _i, e in offered_tables(entries)],
+                         ["b.vpx", "a.vpx", "c.vpx"])
 
     def test_the_answer_never_depends_on_listing_order(self) -> None:
         names = ["c.vpx", "a.vpx", "Folder.vpx", "b.vpx"]
 
-        first = default_table(names, "Folder")
-        shuffled = default_table(list(reversed(names)), "Folder")
+        self.assertEqual(self._default({}, listing=names),
+                         self._default({}, listing=list(reversed(names))))
 
-        self.assertEqual(first, shuffled)
+
+class StampAddedTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.folder = tempfile.mkdtemp()
+        with open(os.path.join(self.folder, "Table.vpx"), "wb") as handle:
+            handle.write(b"vpx")
+
+    def test_a_table_on_disk_is_dated_from_its_file(self) -> None:
+        entry = {"id": "tbl0000001", "filename": "Table.vpx"}
+
+        self.assertTrue(stamp_added(self.folder, entry))
+        self.assertRegex(entry[ADDED_KEY], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
+    def test_a_date_already_held_is_kept(self) -> None:
+        entry = {"id": "tbl0000001", "filename": "Table.vpx", ADDED_KEY: OLDER}
+
+        self.assertFalse(stamp_added(self.folder, entry))
+        self.assertEqual(entry[ADDED_KEY], OLDER)
+
+    def test_a_file_that_is_not_there_leaves_it_undated(self) -> None:
+        entry = {"id": "tbl0000001", "filename": "Gone.vpx"}
+
+        self.assertFalse(stamp_added(self.folder, entry))
+        self.assertNotIn(ADDED_KEY, entry)
+
+    def test_a_table_with_no_file_leaves_it_undated(self) -> None:
+        entry = {"id": "tbl0000001", "app": "pinballfx", "key": "123"}
+
+        self.assertFalse(stamp_added(self.folder, entry))
 
 
 class IsParsedTests(unittest.TestCase):

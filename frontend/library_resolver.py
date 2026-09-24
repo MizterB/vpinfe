@@ -140,7 +140,7 @@ class LibraryResolver:
                 if len(wheels) == WHEELS_SHOWN:
                     break
                 target = entry.table_id or game_identity.game_id(entry.game)
-                if target and "wheel" in resolved_kinds(entry.game):
+                if target and "wheel" in resolved_kinds(entry.game, entry.table_id):
                     wheels.append(f"/media/{quote(target, safe='')}/wheel")
             found[name] = {"table_count": len(entries), "game_wheel_urls": wheels}
         return found

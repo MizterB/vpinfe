@@ -20,16 +20,13 @@ from common.games.tables import (
     TABLE_FILENAME_KEY,
     TABLE_ID_KEY,
     TABLES_KEY,
+    default_entry,
     entry_filename,
     entry_for_filename,
     entry_native_key,
     recorded_default,
     rekey_by_id,
     table_entries,
-    table_filenames,
-)
-from common.games.tables import (
-    default_table as _resolve_default,
 )
 
 # Re-exported so the theme payload and the Manager UI agree with storage. Sourced
@@ -76,8 +73,7 @@ def first_meta_value(meta: Any, *paths: tuple[str, str], default: Any = "") -> A
     return default
 
 
-def default_table(meta: Any, names: Any = None,
-                      folder_name: str = "") -> tuple[str, dict[str, Any]]:
+def default_table(meta: Any, names: Any = None) -> tuple[str, dict[str, Any]]:
     """(filename, entry) for the table this game defaults to; ("", {}) when it has none.
 
     Returns both because the callers that need one usually need the other - a row on the
@@ -88,16 +84,14 @@ def default_table(meta: Any, names: Any = None,
     longer on disk falls through to one that is.
     """
     normalized = normalize_meta(meta)
-    entries = table_entries(normalized)
-    candidates = list(names) if names is not None else table_filenames(entries)
-    name = _resolve_default(candidates, folder_name,
-                            recorded_default(vpinfe_section(normalized), entries))
-    return name, entry_for_filename(entries, name)[1]
+    _found, entry = default_entry(table_entries(normalized),
+                                  recorded_default(vpinfe_section(normalized)), names)
+    return entry_filename(entry), entry
 
 
-def default_table_entry(meta: Any, names: Any = None, folder_name: str = "") -> dict[str, Any]:
+def default_table_entry(meta: Any, names: Any = None) -> dict[str, Any]:
     """What the game's default table says about itself, or {}."""
-    return default_table(meta, names, folder_name)[1]
+    return default_table(meta, names)[1]
 
 
 def normalize_rating(value: Any) -> int:

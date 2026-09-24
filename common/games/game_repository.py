@@ -268,7 +268,7 @@ def game_to_row(game: Game,
     vpsid = first_meta_value(meta, ("Info", "VPSId"), default="")
     # The row describes one table - the game's default. A folder can hold several,
     # and the API lists them all separately; this is what the game-level views show.
-    gf_name, gf = default_table(meta, folder_name=game_name)
+    gf_name, gf = default_table(meta)
 
     def gf_value(key: str, default: Any = "") -> Any:
         value = gf.get(key, None)

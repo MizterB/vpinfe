@@ -6,18 +6,21 @@ are the ones about what happens when a file is renamed, copied, or rebuilt.
 """
 
 import json
+import os
 import unittest
 from pathlib import Path
 
 from common.games import ids, table_identity
 from common.games.info_file import MetaConfig
 from common.games.tables import (
+    ADDED_KEY,
     TABLE_FILENAME_KEY,
     TABLE_ID_KEY,
     TABLES_KEY,
     entry_for_filename,
     table_id,
 )
+from common.timestamps import epoch_to_iso, utc_now_iso
 from tests.support.library import TempTree, fake_game, write_game
 
 
@@ -101,6 +104,48 @@ class RebuildTests(TempTree):
         edited = _by_name(self._rebuild(("a.vpx", {"file_hash": "zzz"})), "a.vpx")[TABLE_ID_KEY]
 
         self.assertEqual(first, edited)
+
+
+class AddedStampTests(TempTree):
+    """When the library first had a table, which is what picks a game's default."""
+
+    def test_a_table_found_on_disk_is_dated_from_its_file(self) -> None:
+        meta = _meta(("a.vpx", {TABLE_ID_KEY: "tbl0000001"}))
+        game = _game(self.root, "Found", meta)
+        (self.root / "Found" / "a.vpx").write_bytes(b"vpx")
+        stat = os.stat(self.root / "Found" / "a.vpx")
+
+        table_identity.ensure_unique_table_ids([game])
+
+        stored = json.loads((self.root / "Found" / "Found.info").read_text(encoding="utf-8"))
+        self.assertEqual(stored[TABLES_KEY]["tbl0000001"][ADDED_KEY],
+                         epoch_to_iso(getattr(stat, "st_birthtime", stat.st_ctime)))
+
+    def test_a_table_already_dated_keeps_its_date(self) -> None:
+        meta = _meta(("a.vpx", {TABLE_ID_KEY: "tbl0000001",
+                                ADDED_KEY: "2020-01-01T00:00:00Z"}))
+        game = _game(self.root, "Dated", meta)
+        (self.root / "Dated" / "a.vpx").write_bytes(b"vpx")
+
+        table_identity.ensure_unique_table_ids([game])
+
+        stored = json.loads((self.root / "Dated" / "Dated.info").read_text(encoding="utf-8"))
+        self.assertEqual(stored[TABLES_KEY]["tbl0000001"][ADDED_KEY], "2020-01-01T00:00:00Z")
+
+    def test_a_table_someone_adds_is_dated_now(self) -> None:
+        folder = write_game(self.root, "Added", info=_meta(), vpx=False)
+        config = MetaConfig(str(folder / "Added.info"))
+        before = utc_now_iso()
+
+        config.add_contained_table("b.vpx", "tbl0000002")
+        config.add_keyed_table("pinballfx", "123", "tbl0000003")
+        config.add_referenced_table("../Elsewhere/c.vpx", "tbl0000004")
+
+        stored = json.loads((folder / "Added.info").read_text(encoding="utf-8"))[TABLES_KEY]
+        for table in ("tbl0000002", "tbl0000003", "tbl0000004"):
+            with self.subTest(table):
+                self.assertGreaterEqual(stored[table][ADDED_KEY], before)
+                self.assertLessEqual(stored[table][ADDED_KEY], utc_now_iso())
 
 
 class BackfillTests(TempTree):

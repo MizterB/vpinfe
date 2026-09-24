@@ -39,16 +39,14 @@ from common.games.game_metadata import (
     vpinfe_section,
 )
 from common.games.tables import (
-    ABSENT_SINCE_KEY,
     TABLE_FILENAME_KEY,
     TABLE_ID_KEY,
     entry_filename,
-    entry_for_filename,
+    offerable,
+    offered_tables,
     recorded_default,
     table_entries,
-    table_filenames,
 )
-from common.games.tables import default_table as resolve_default_name
 
 MEMBER_GAME_KEY = "game"
 MEMBER_TABLE_KEY = "table"
@@ -111,18 +109,8 @@ def _user_value(game: GameRecord, key: str, fallback: int = 0) -> int:
         return fallback
 
 
-def _offerable(entry: dict) -> bool:
-    """Whether the play lens may hand this table to a frontend.
-
-    `hidden` is a choice - a patch base kept on disk without being playable. An
-    `absent_since` stamp is a fact - discovery looked and the file was not there. They
-    mean the same thing to a player: launching it would fail, so it is not offered.
-    """
-    return entry.get("hidden") is not True and not entry.get(ABSENT_SINCE_KEY)
-
-
 def visible_entries(game: ScannedGame) -> list[dict]:
-    """A game's offerable tables, the default first and the rest by filename.
+    """A game's offerable tables, the default first and the rest by name.
 
     Default first is what makes a member naming only a game deterministic: it takes the
     head of this list, and that is the game's own choice rather than directory order.
@@ -134,19 +122,8 @@ def visible_entries(game: ScannedGame) -> list[dict]:
     # was hidden, or one whose file is gone.
     if not entries:
         return _unparsed_entry(game)
-    visible = [e for e in entries.values() if _offerable(e)]
-    if not visible:
-        return []
-
-    meta = getattr(game, "meta_config", {})
-    chosen = recorded_default(vpinfe_section(meta), entries) or resolve_default_name(
-        table_filenames(entries), game.game_dir_name or "")
-    default_id = entry_for_filename(entries, chosen)[0]
-
-    rest = sorted((e for e in visible if e.get(TABLE_ID_KEY) != default_id),
-                  key=lambda e: collation.sort_key(entry_filename(e)))
-    head = [e for e in visible if e.get(TABLE_ID_KEY) == default_id]
-    return head + rest
+    recorded = recorded_default(vpinfe_section(getattr(game, "meta_config", {})))
+    return [entry for _id, entry in offered_tables(entries, recorded)]
 
 
 def _unparsed_entry(game: ScannedGame) -> list[dict]:
@@ -168,7 +145,7 @@ def _named_table(game: GameRecord, table_id: str) -> dict | None:
     library-wide and beat a member: `hidden` exists so a patch base can stay on disk
     without being playable, and an absent file has nothing to launch."""
     entry = table_entries(getattr(game, "meta_config", {})).get(table_id)
-    if not isinstance(entry, dict) or not _offerable(entry):
+    if not isinstance(entry, dict) or not offerable(entry):
         return None
     return entry
 

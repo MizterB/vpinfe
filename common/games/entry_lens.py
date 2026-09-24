@@ -72,7 +72,7 @@ def entry_resource(entry: Entry, group: str | None = None) -> dict:
             "alt_color": bool(entry.game.alt_color_exists),
             "alt_sound": bool(entry.game.alt_sound_exists),
         },
-        "media": resolved_kinds(entry.game),
+        "media": resolved_kinds(entry.game, entry.table_id),
         # None when the order has no groups; `group_by` on the list says which.
         "group": group,
         # What extensions have contributed. Here as well as in the theme payload

@@ -116,7 +116,7 @@ def _wheels(entries: list[Any]) -> list[str]:
         if len(found) == WHEELS_SHOWN:
             break
         game = game_identity.game_id(entry.game)
-        if not game or "wheel" not in resolved_kinds(entry.game):
+        if not game or "wheel" not in resolved_kinds(entry.game, entry.table_id):
             continue
         table = f"/tables/{quote(entry.table_id, safe='')}" if entry.table_id else ""
         found.append(f"/api/v1/games/{quote(game, safe='')}{table}/media/wheel")

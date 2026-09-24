@@ -26,6 +26,7 @@ from common.games.info_migration import (
 )
 from common.games.tables import (
     ABSENT_SINCE_KEY,
+    ADDED_KEY,
     DEFAULT_TABLE_KEY,
     DETECT_KEYS,
     TABLE_FILENAME_KEY,
@@ -41,6 +42,7 @@ from common.games.tables import (
     entry_reference,
     keyed_entry,
     referenced_entry,
+    stamp_added,
     stored_reference,
     table_entries,
 )
@@ -339,6 +341,8 @@ class MetaConfig:
                 # deletes it on the next rebuild. Play stats and match records live
                 # here; neither should depend on somebody updating a list.
                 entry = {**prior, **entry}
+            else:
+                stamp_added(os.path.dirname(self.config_file_path), entry)
             entry.setdefault(TABLE_ID_KEY, new_id())
             built[entry[TABLE_ID_KEY]] = entry
         return built
@@ -469,7 +473,8 @@ class MetaConfig:
         if any(entry_native_key(one) == wanted for one in entries.values()
                if isinstance(one, dict)):
             return False
-        entries[table_id] = {**keyed_entry(app, key), TABLE_ID_KEY: table_id}
+        entries[table_id] = {**keyed_entry(app, key), TABLE_ID_KEY: table_id,
+                             ADDED_KEY: utc_now_iso()}
         self.write_config()
         return True
 
@@ -488,7 +493,8 @@ class MetaConfig:
         if any(entry_native_key(one) == wanted for one in entries.values()
                if isinstance(one, dict)):
             return False
-        entries[table_id] = {**referenced_entry(wanted), TABLE_ID_KEY: table_id}
+        entries[table_id] = {**referenced_entry(wanted), TABLE_ID_KEY: table_id,
+                             ADDED_KEY: utc_now_iso()}
         self.write_config()
         return True
 
@@ -506,7 +512,8 @@ class MetaConfig:
         if any(entry_native_key(one) == wanted for one in entries.values()
                if isinstance(one, dict)):
             return False
-        entries[table_id] = {**contained_entry(wanted), TABLE_ID_KEY: table_id}
+        entries[table_id] = {**contained_entry(wanted), TABLE_ID_KEY: table_id,
+                             ADDED_KEY: utc_now_iso()}
         self.write_config()
         return True
 

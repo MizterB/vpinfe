@@ -29,7 +29,6 @@ from common.extensions import services as ext_services
 from common.games import game_play_service, info_file, launchers, tables
 from common.games.game import Game
 from common.games.tables import (
-    default_table,
     entry_for_filename,
     table_entries,
     table_names,
@@ -142,11 +141,8 @@ def _resolve_entry(game: Game, named: str | None) -> tuple[str, dict]:
     """
     entries = table_entries(getattr(game, "meta_config", {}))
     if named is None:
-        chosen = tables.default_entry(
-            entries, game.game_dir_name or "",
-            tables.recorded_default(
-                (getattr(game, "meta_config", None) or {}).get(info_file.VPINFE_SECTION),
-                entries))
+        chosen = tables.default_entry(entries, tables.recorded_default(
+            (getattr(game, "meta_config", None) or {}).get(info_file.VPINFE_SECTION)))
         if chosen[0] or chosen[1]:
             return chosen
         path = str(game.full_path_vpx_file or "")
@@ -401,18 +397,6 @@ def launch_game(game: Game, ini_config: ConfigStore, *, source: str,
         events.emit(events.TABLE_PLAY_RECORDED, game=game, ini_config=ini_config)
     game_play_service.delete_nvram_if_configured(game)
 
-
-def table_for(game: Game, table: str | None = None) -> str:
-    """The file a launch would use, without launching it."""
-    if table is not None:
-        return table
-    game_dir = str(game.full_path_game or "")
-    listing = []
-    if game_dir and os.path.isdir(game_dir):
-        listing = [name for name in os.listdir(game_dir)
-                   if os.path.isfile(os.path.join(game_dir, name))]
-    recorded = os.path.basename(str(game.full_path_vpx_file or ""))
-    return default_table(listing, os.path.basename(game_dir), recorded) or recorded
 
 # ---------------------------------------------------------------------------
 # What to launch with: the alt launcher, the plugin profile, the environment
