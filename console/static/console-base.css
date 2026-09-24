@@ -1789,7 +1789,7 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
    argument for the settings pages, so it gets a class rather than ad-hoc utilities. */
 .console-help {
   font-size: var(--fs-caption); color: var(--ink-3); line-height: 1.4;
-  max-width: var(--measure);
+  max-width: var(--measure); white-space: pre-line;
 }
 .console-setting { font-size: var(--fs-body); color: var(--ink); font-weight: 600; }
 
