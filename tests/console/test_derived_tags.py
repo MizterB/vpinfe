@@ -7,6 +7,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
+from common.timestamps import utc_now_iso
 from console import collection_rules, community, games, tageditor
 from console.data import Library, read_state, sources_of
 
@@ -92,6 +93,9 @@ class FromItsList(unittest.TestCase):
             "Last good read "))
         self.assertTrue(read_state(SOURCE).startswith("Read "))
         self.assertEqual("Not read yet", read_state({"stale": True}))
+
+    def test_a_read_a_moment_ago_reads_as_part_of_the_sentence(self) -> None:
+        self.assertEqual("Read just now", read_state({"read_at": utc_now_iso()}))
 
     def test_the_collection_on_that_tag_alone_is_the_one_it_opens(self) -> None:
         collections = [{"name": "Mine", "type": "manual", "filters": None},

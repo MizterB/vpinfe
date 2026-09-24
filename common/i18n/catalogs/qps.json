@@ -1744,6 +1744,7 @@
     "other": "{count} ĥöûřš àĝö"
   },
   "date.just_now": "Ĵûšţ ñöŵ",
+  "date.just_now.inline": "ĵûšţ ñöŵ",
   "date.minutes_ago": {
     "one": "{count} ɱîñûţè àĝö",
     "other": "{count} ɱîñûţèš àĝö"

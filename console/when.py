@@ -64,8 +64,10 @@ def clock(at: datetime) -> str:
     return at.strftime("%H:%M")
 
 
-def ago(stamp: Any, now: datetime | None = None, *, timed: bool = False) -> str:
-    """How long ago, in the catalog's words. "" where there is no stamp.
+def ago(stamp: Any, now: datetime | None = None, *, timed: bool = False,
+        inline: bool = False) -> str:
+    """How long ago, in the catalog's words. "" where there is no stamp. `inline` for
+    one that sits inside a sentence rather than starting it.
 
     A stamp ahead of the clock answers with the time itself - nothing is seen in the
     future, so that is a clock worth showing rather than hiding behind "just now".
@@ -80,7 +82,7 @@ def ago(stamp: Any, now: datetime | None = None, *, timed: bool = False) -> str:
     if _setting("relative_dates", "true") in ("false", "0", "no", "off"):
         return local(stamp) if timed else day(at.astimezone())
     if seconds < 60:
-        return t("date.just_now")
+        return t("date.just_now.inline" if inline else "date.just_now")
     if seconds < 3600:
         return t("date.minutes_ago", count=int(seconds // 60))
     if seconds < 86400:

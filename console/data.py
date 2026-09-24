@@ -85,7 +85,7 @@ def tag_source(said: dict[str, Any]) -> str:
 
 def read_state(said: dict[str, Any]) -> str:
     """How old the last good read of a tagged list is, or since when none has worked."""
-    read = when.ago(said.get("read_at"))
+    read = when.ago(said.get("read_at"), inline=True)
     if not read:
         return t("console.tags.never_read")
     return t("console.tags.stale" if said.get("stale") else "console.tags.read", ago=read)
