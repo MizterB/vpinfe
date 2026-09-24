@@ -517,7 +517,7 @@ see which one is in force:
 - `set_here` is true where this scope's file names it. `in_effect` is false where it does
   and another layer answers anyway.
 - `fallback` and `fallback_scope` are what would answer if this scope stopped naming it,
-  both empty where that is VPX's own default.
+  both empty where that is VPX's own default. `app_name` is whose default that is.
 
 **The two table files do not stack.** VPX reads a table's own file where there is one and
 the folder's where there is not, never both. So the write that gives a table its own file

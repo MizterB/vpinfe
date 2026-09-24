@@ -41,21 +41,47 @@ class ValueWordTests(unittest.TestCase):
 
 
 class ClearHintTests(unittest.TestCase):
-    def test_clearing_names_what_it_will_follow(self) -> None:
+    def test_clearing_names_the_value_it_goes_back_to_and_whose(self) -> None:
         """So nobody has to change a value to find out what it was following."""
         said = workbench._clear_hint(
-            {"fallback_scope": "launcher", "fallback": "0"}, _Bool)
+            {"fallback_scope": "launcher", "fallback": "0"}, _Bool, "Visual Pinball X")
 
-        self.assertEqual(said, "Will follow the launcher (Off)")
+        self.assertEqual(said, "Back to Off - All Tables")
 
-    def test_and_names_the_layer_by_what_it_is(self) -> None:
+    def test_whose_is_said_in_the_scope_words(self) -> None:
         said = workbench._clear_hint(
-            {"fallback_scope": "folder", "fallback": "1"}, _Choice)
+            {"fallback_scope": "folder", "fallback": "1"}, _Choice, "Visual Pinball X")
 
-        self.assertEqual(said, "Will follow the folder (Floating)")
+        self.assertEqual(said, "Back to Floating - This Game")
 
     def test_with_nothing_under_it_the_program_answers(self) -> None:
-        self.assertEqual(workbench._clear_hint({}, _Bool), "Will go back to On")
+        self.assertEqual(workbench._clear_hint({}, _Bool, "Visual Pinball X"),
+                         "Back to On - Visual Pinball X's default")
+
+    def test_a_default_with_no_value_names_only_whose(self) -> None:
+        class _Text:
+            type = "text"
+            choices = ()
+            default = ""
+
+        self.assertEqual(workbench._clear_hint({}, _Text, "Visual Pinball X"),
+                         "Back to Visual Pinball X's default")
+
+
+class SwitchedOffTests(unittest.TestCase):
+    ONE = {"launcher_id": "a", "app": "vpx", "enabled": True, "display_name": "Wide"}
+    TWO = {"launcher_id": "b", "app": "vpx", "enabled": True, "display_name": "Narrow"}
+
+    def test_it_names_where_the_tables_go(self) -> None:
+        self.assertEqual(workbench._switched_off_goes_to(self.ONE, [self.ONE, self.TWO]),
+                         "Narrow")
+
+    def test_nothing_is_said_where_nothing_could_take_them(self) -> None:
+        other_app = dict(self.TWO, app="fp")
+        switched_off = dict(self.TWO, enabled=False)
+        for held in ([self.ONE], [self.ONE, other_app], [self.ONE, switched_off]):
+            with self.subTest(held=held):
+                self.assertEqual(workbench._switched_off_goes_to(self.ONE, held), "")
 
 
 class MarkTests(unittest.TestCase):

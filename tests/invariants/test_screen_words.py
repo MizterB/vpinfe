@@ -13,7 +13,6 @@ CABINET = {
     "config.windows.playfield.orientation.description": "how a screen is mounted in it",
     "console.themes.both": "a theme made for a cabinet or a desktop",
     "console.themes.cabinet": "a theme made for a cabinet rather than a desktop",
-    "console.workbench.section.standalone_runtime_behavior_cabinet": "VPX's own words",
 }
 
 MACHINE: dict[str, str] = {}

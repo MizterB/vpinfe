@@ -230,7 +230,8 @@ def app_config(launcher_id: str, table: str = "",
     found = launcher_or_refuse(launcher_id)
     config = _app_settings_surface(found)
     if config is None:
-        return {"groups": [], "values": {}, "scopes": [], "shared_with_game": False}
+        return {"groups": [], "values": {}, "scopes": [], "shared_with_game": False,
+                "app_name": apps.app_name(found.app)}
 
     settings = _launcher_settings(found)
     if scope not in config.scopes():
@@ -249,6 +250,7 @@ def app_config(launcher_id: str, table: str = "",
     blank = _blank_words(found.app, config)
     groups = [(g, [f for f in g.settings if shown(f)]) for g in config.groups(settings)]
     return {
+        "app_name": apps.app_name(found.app),
         "scopes": list(config.scopes()),
         "shared_with_game": bool(target and shares is not None and shares(target)),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),

@@ -38,6 +38,7 @@ from common.games.collection_store import (
     NATURAL_DIRECTION,
     SORT_LABELS,
 )
+from common.games.launchers import OWN_FIELDS
 from common.i18n import t
 from common.labels import field_label, humanize
 from common.media_specs import media_family, media_label_map
@@ -4057,15 +4058,6 @@ CAME_FROM = {
     "entry": "console.workbench.table",
 }
 
-# The same three as a bare noun. `_clear_hint` used to strip "From " off the phrases
-# above, which is string surgery on an English prefix and the first thing a translation
-# breaks.
-FOLLOWS = {
-    "launcher": "console.workbench.launcher_3",
-    "folder": "console.workbench.folder_2",
-    "entry": "console.workbench.table_2",
-}
-
 
 def _config_mark(held: dict, scope: str) -> Callable[[], None] | None:
     """The one thing worth saying about where this value comes from.
@@ -4098,21 +4090,22 @@ def _said_value(field: Any, value: str) -> str:
     return value
 
 
-def _clear_hint(held: dict, field: Any) -> str:
-    """What clearing it will leave in force, named rather than discovered by doing it."""
+def _clear_hint(held: dict, field: Any, app_name: str) -> str:
+    """What clearing it will leave in force, and whose value that is."""
     where = held.get("fallback_scope") or ""
-    said = _said_value(field, held.get("fallback") or "")
     if where:
-        whose = t(FOLLOWS.get(where,
-                "console.workbench.layer_above"))
-        return t("console.workbench.follow", whose=(whose),
-                said=(f" ({said})" if said else ""))
-    shown = _said_value(field, field.default) or t("console.workbench.what_program")
-    return t("console.workbench.go_back", shown=(shown))
+        whose = t(CAME_FROM.get(where, "console.workbench.inherited"))
+        value = _said_value(field, held.get("fallback") or "")
+    else:
+        whose = t("console.workbench.app_default", app=app_name)
+        value = _said_value(field, field.default)
+    if value:
+        return t("console.workbench.back_to", value=value, whose=whose)
+    return t("console.workbench.back_to_whose", whose=whose)
 
 
-def _beside(mark: Callable[[], None], held: dict, field: Any,
-            clear: Callable, playing: bool = False) -> Callable[[], None]:
+def _beside(mark: Callable[[], None], held: dict, field: Any, clear: Callable,
+            app_name: str, playing: bool = False) -> Callable[[], None]:
     """The mark, and where it is somebody's own value, the way back off it.
 
     Clear only where there is something to clear. Almost every setting in this program is
@@ -4127,7 +4120,7 @@ def _beside(mark: Callable[[], None], held: dict, field: Any,
                              icon=verbs.CLEAR, inline=True,
                              enabled=not playing,
                              hint=t(PLAYING_NOTE) if playing
-                             else _clear_hint(held, field))()
+                             else _clear_hint(held, field, app_name))()
     return draw
 
 
@@ -4141,7 +4134,8 @@ def _run(clear: Callable, key: str) -> Any:
 # Said once over the group rather than on every row. The program rewrites both layers
 # when a table exits and its own in-game menu writes the same keys, so an edit made now
 # is one of two writers and the last one wins.
-PLAYING_NOTE = "console.workbench.table_playing_device_read"
+PLAYING_NOTE = "console.workbench.read_only_playing"
+PLAYING_WHY = "console.workbench.read_only_playing.help"
 
 
 def _playing(library: Library) -> bool:
@@ -4193,7 +4187,7 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
     playing = bool(context.get("playing"))
     entries: list[tuple[Any, Any]] = []
     if playing:
-        entries.append(panel.note(t(PLAYING_NOTE)))
+        entries.append(panel.note(t(PLAYING_NOTE), hint=t(PLAYING_WHY)))
     seen = ""
     sections = {_section_of(f.key) for f in group.settings}
     for field in group.settings:
@@ -4205,10 +4199,6 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
         if section != seen and len(sections) > 1:
             seen = section
             entries.append((HEADING, _section_label(section, group.label)))
-            said = SECTION_NOTES.get(section)
-            said = t(said) if said else said
-            if said:
-                entries.append(panel.note(said))
         held = values.get(field.key) or {}
         option = _as_option(field)
         entries.append((field.label,
@@ -4219,7 +4209,8 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
         mark = _config_mark(held, scope)
         if mark is not None:
             entries.append((panel.ASIDE,
-                            _beside(mark, held, field, clear, playing)))
+                            _beside(mark, held, field, clear,
+                                    str(launcher.get("app_name") or ""), playing)))
         if field.description:
             entries.append(panel.note(field.description))
     with ui.column().classes("gap-0 console-form"):
@@ -4230,28 +4221,6 @@ def _section_of(qualified: str) -> str:
     """The part before the last dot. A section name has dots of its own -
     `Plugin.B2S.Enable` is `Enable` in `Plugin.B2S`."""
     return qualified.rsplit(".", 1)[0] if "." in qualified else ""
-
-
-# What a source section is for, carried over from the 2.x page this replaces. VPinFE's
-# own words, written for its own users - the program says what each *setting* does and
-# nothing about what a section is. A section with nothing useful to add is absent rather
-# than carrying a line that restates its own name.
-SECTION_NOTES = {
-    "Editor": "console.workbench.section.editor_debugging_layout_appearance",
-    "Player": "console.workbench.section.runtime_audio_display_physics",
-    "Backglass": "console.workbench.section.backglass_output_positioning",
-    "ScoreView": "console.workbench.section.score_view_window_rendering",
-    "Topper": "console.workbench.section.topper_output_placement",
-    "PlayerVR": "console.workbench.section.vr_preview_table_placement",
-    "DefaultCamera": "console.workbench.section.default_desktop_full_single",
-    "TableOverride": "console.workbench.section.global_table_view_difficulty",
-    "Input": "console.workbench.section.input_controller_keyboard_nudge",
-    "DMD": "console.workbench.section.dot_matrix_rendering_layout",
-    "Alpha": "console.workbench.section.alphanumeric_display_rendering",
-    "Controller": "console.workbench.section.controller_integrations_external",
-    "Standalone": "console.workbench.section.standalone_runtime_behavior_cabinet",
-    "TableOption": "console.workbench.section.table_script_options_saved",
-}
 
 
 def _section_label(section: str, group_label: str) -> str:
@@ -4312,6 +4281,18 @@ async def _agreed_to_switch_off(library: Any, launcher: dict[str, Any]) -> bool:
         icon=verbs.SWITCH_OFF, danger=False)
 
 
+# Every launcher's own fields follow its app's, and they are the commands.
+COMMANDS_FROM = OWN_FIELDS[0].key
+
+
+def _switched_off_goes_to(launcher: dict[str, Any], held: list[dict[str, Any]]) -> str:
+    """The launcher its tables would use with this one off, or empty where none would."""
+    found = next((one for one in held
+                  if one.get("app") == launcher.get("app") and one.get("enabled")
+                  and one.get("launcher_id") != launcher.get("launcher_id")), None)
+    return str(found.get("display_name") or found.get("app_name") or "") if found else ""
+
+
 async def _launcher_setup(context: dict[str, Any]) -> None:
     """What this launcher is, and what it runs. Its own fields, which are few - the
     program's settings are the sections after this one."""
@@ -4360,13 +4341,16 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
     entries.append((t("console.workbench.enabled"), panel.switch(
         launcher["enabled"], lambda e: flip(bool(e.value)), disabled=only_one,
         hint=t("console.workbench.launcher_install") if only_one else "")))
-    entries.append(panel.note(
-        t("console.workbench.switched_off_stays_configured")))
+    if goes_to := _switched_off_goes_to(launcher, context.get("launchers") or []):
+        entries.append(panel.note(
+            t("console.workbench.switched_off_stays_configured", default=goes_to)))
 
     if note := _program_note(launcher):
         entries.append(panel.note(note))
-    entries.append((HEADING, t("console.workbench.how_runs")))
+    entries.append((HEADING, t("word.program")))
     for field in launcher.get("fields") or []:
+        if field["key"] == COMMANDS_FROM:
+            entries.append((HEADING, t("console.workbench.commands")))
         entries.append((field["label"],
                         settings_page.control_for(
                             field, launcher["settings"].get(field["key"]),

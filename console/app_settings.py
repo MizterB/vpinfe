@@ -26,7 +26,7 @@ from console.data import Library
 
 # One definition of both: the launcher's rail and this dialog are the same surface at
 # two scopes, and two spellings of "a table is playing" would drift.
-from console.workbench import CAME_FROM, PLAYING_NOTE, _playing
+from console.workbench import CAME_FROM, PLAYING_NOTE, PLAYING_WHY, _playing
 
 logger = logging.getLogger("vpinfe.console.app_settings")
 
@@ -127,7 +127,8 @@ async def _fill(library: Library, launcher_id: str, table_id: str, state: dict[s
     if (shared := shared_note(found, scope, int(state.get("folder_tables") or 1))):
         entries.append(shared)
     if playing:
-        entries.append(panel.intro(t(PLAYING_NOTE)))
+        entries.append(panel.intro(t(PLAYING_NOTE), hint=t(PLAYING_WHY)))
+    app_name = str(found.get("app_name") or "")
     wanted = state["search"]
     shown = 0
     for group in groups:
@@ -139,7 +140,7 @@ async def _fill(library: Library, launcher_id: str, table_id: str, state: dict[s
         shown += len(rows)
         entries.append((panel.HEADING, group["label"]))
         entries.extend(_group_rows(library, launcher_id, table_id, scope, rows, values,
-                                   draw, playing))
+                                   draw, app_name, playing))
 
     if not shown:
         entries.append(panel.intro(
@@ -150,7 +151,7 @@ async def _fill(library: Library, launcher_id: str, table_id: str, state: dict[s
 
 
 def _group_rows(library: Library, launcher_id: str, table_id: str, scope: str,
-                rows: list[dict], values: dict, draw: Callable,
+                rows: list[dict], values: dict, draw: Callable, app_name: str,
                 playing: bool = False) -> list[tuple[Any, Any]]:
     """One group's settings, with where each value comes from and the way off it."""
     entries: list[tuple[Any, Any]] = []
@@ -160,7 +161,7 @@ def _group_rows(library: Library, launcher_id: str, table_id: str, scope: str,
                         _control(library, launcher_id, table_id, scope, field,
                                  held, draw, playing)))
         aside = _aside(library, launcher_id, table_id, scope, field, held, draw,
-                       playing)
+                       app_name, playing)
         if aside is not None:
             entries.append((panel.ASIDE, aside))
         if field.get("description"):
@@ -215,7 +216,7 @@ def _offered_here(field: dict, scope: str) -> bool:
 
 
 def _aside(library: Library, launcher_id: str, table_id: str, scope: str, field: dict,
-           held: dict, draw: Callable,
+           held: dict, draw: Callable, app_name: str,
            playing: bool = False) -> Callable[[], None] | None:
     from console import workbench
 
@@ -246,7 +247,7 @@ def _aside(library: Library, launcher_id: str, table_id: str, scope: str, field:
                 panel.action(t("word.clear"), wipe, icon=verbs.CLEAR, inline=True,
                         enabled=not playing,
                              hint=(t(workbench.PLAYING_NOTE) if playing
-                                   else workbench._clear_hint(held, _Field)))()
+                                   else workbench._clear_hint(held, _Field, app_name)))()
     return drawn
 
 

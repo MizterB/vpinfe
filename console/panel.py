@@ -842,15 +842,17 @@ def out(*, to: str, hint: str) -> Callable[[], None]:
     return draw
 
 
-def note(text: str) -> tuple[Any, Callable[[], None]]:
-    """The sentence under a control that says what it does.
+def note(text: str, hint: str = "") -> tuple[Any, Callable[[], None]]:
+    """The sentence under a control that says what it does, and why on hover.
 
     Written out rather than left to a tooltip, and only where the label cannot carry
     the meaning on its own: a config key's name says what it is called, not what
     turning it off costs. Help you have to already suspect you need is not help.
     """
     def draw() -> None:
-        ui.label(text).classes("console-help")
+        label = ui.label(text).classes("console-help")
+        if hint:
+            label.tooltip(hint)
 
     return (ASIDE, draw)
 
@@ -863,13 +865,15 @@ def lede(text: str) -> tuple[Any, Callable[[], None]]:
     return (LEDE, draw)
 
 
-def intro(text: str) -> tuple[Any, Callable[[], None]]:
+def intro(text: str, hint: str = "") -> tuple[Any, Callable[[], None]]:
     """What a whole page cannot say row by row, said once above the rows.
 
     The width of the panel, because it is not about any one control - which is the
     difference between this and `note`.
     """
     def draw() -> None:
-        ui.label(text).classes("console-help")
+        label = ui.label(text).classes("console-help")
+        if hint:
+            label.tooltip(hint)
 
     return (FULL, draw)

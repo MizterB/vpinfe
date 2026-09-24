@@ -108,7 +108,7 @@ class PlayingTests(unittest.TestCase):
     def test_the_reason_says_who_the_other_writer_is(self) -> None:
         """The program rewrites this file itself when a table exits, so an edit made now
         is one of two writers and the last one wins."""
-        self.assertIn("writes this file itself", t(workbench.PLAYING_NOTE))
+        self.assertIn("rewrites this file", t(workbench.PLAYING_WHY))
 
 
 class BlankValueTests(unittest.TestCase):
