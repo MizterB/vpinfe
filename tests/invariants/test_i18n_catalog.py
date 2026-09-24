@@ -85,34 +85,61 @@ class TestRegistriesHoldNoWords(unittest.TestCase):
         self.assertEqual(offenders, [], "the catalog owns these words now")
 
 
-# Modules in `common` whose return values are words a surface shows.
-SPEAKS_TO_A_SURFACE = ("common/path_checks.py",)
+# Modules whose return values and reasons are words a surface shows: a path's verdict,
+# what an enabled feature is missing, and why discovery calls a capability unavailable.
+SPEAKS_TO_A_SURFACE = ("common/path_checks.py", "common/feature_checks.py",
+                       "common/host/metrics.py", "common/host/pinmame_catalog.py",
+                       "httpapi/capabilities.py", "httpapi/core_capabilities.py")
 
 
-class TestWhatCommonHandsBackIsLookedUp(unittest.TestCase):
+def _pieces(node: ast.expr) -> list[ast.expr]:
+    """A value split through tuples, conditionals and joins."""
+    if isinstance(node, ast.Tuple):
+        return [piece for one in node.elts for piece in _pieces(one)]
+    if isinstance(node, ast.IfExp):
+        return _pieces(node.body) + _pieces(node.orelse)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _pieces(node.left) + _pieces(node.right)
+    return [node]
 
-    def test_no_returned_word_is_written_in_place(self) -> None:
-        offenders = []
-        for name in SPEAKS_TO_A_SURFACE:
-            path = ROOT / name
-            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-                if not isinstance(node, ast.Return) or node.value is None:
-                    continue
-                said = (node.value.elts if isinstance(node.value, ast.Tuple)
-                        else [node.value])
-                offenders += [
-                    f"{name}:{one.lineno} {one.value!r}" for one in said
-                    if isinstance(one, ast.Constant) and isinstance(one.value, str)
-                    and one.value.strip()]
+
+def _handed_back(path: Path) -> list[tuple[str, ast.expr]]:
+    """Each value a module returns or gives as a `reason`, and which of the two it was."""
+    found: list[tuple[str, ast.expr]] = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Return) and node.value is not None:
+            found += [("return", one) for one in _pieces(node.value)]
+        elif isinstance(node, ast.keyword) and node.arg == "reason":
+            found += [("reason", one) for one in _pieces(node.value)]
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                pairs = (list(zip(target.elts, node.value.elts, strict=True))
+                         if isinstance(target, ast.Tuple)
+                         and isinstance(node.value, ast.Tuple)
+                         else [(target, node.value)])
+                found += [("reason", one) for held, value in pairs
+                          if getattr(held, "id", None) == "reason"
+                          for one in _pieces(value)]
+    return found
+
+
+class TestWhatAModuleHandsBackIsLookedUp(unittest.TestCase):
+
+    def test_no_word_handed_back_is_written_in_place(self) -> None:
+        offenders = [f"{name}:{one.lineno} {ast.unparse(one)[:60]}"
+                     for name in SPEAKS_TO_A_SURFACE
+                     for _, one in _handed_back(ROOT / name)
+                     if isinstance(one, ast.JoinedStr)
+                     or (isinstance(one, ast.Constant) and isinstance(one.value, str)
+                         and one.value.strip())]
         self.assertEqual(offenders, [], "the catalog owns these words now")
 
-    def test_it_found_the_returns(self) -> None:
+    def test_it_found_the_returns_and_the_reasons(self) -> None:
         """An empty sweep passes and measures nothing, which reads the same as clean."""
-        seen = sum(1 for name in SPEAKS_TO_A_SURFACE
-                   for node in ast.walk(ast.parse(
-                       (ROOT / name).read_text(encoding="utf-8")))
-                   if isinstance(node, ast.Return))
-        self.assertGreater(seen, 5)
+        kinds = [kind for name in SPEAKS_TO_A_SURFACE
+                 for kind, _ in _handed_back(ROOT / name)]
+        self.assertGreater(kinds.count("return"), 5)
+        self.assertGreater(kinds.count("reason"), 5)
 
 
 # The display positions a string reaches a person through. Kept beside the check rather

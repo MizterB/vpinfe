@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 from common.host import metrics
+from common.i18n import t
 
 from . import capabilities
 
@@ -27,10 +28,10 @@ def _peripherals_available() -> bool | tuple[bool, str]:
         enabled = [name for name, check in (("DOF", dof_enabled), ("real-DMD", dmd_enabled))
                    if check(config)]
         if not enabled:
-            return False, "No peripherals are turned on in configuration"
+            return False, t("error.capabilities.no_peripherals_on")
         return True
     except Exception as exc:
-        return False, f"Could not determine peripheral state: {exc}"
+        return False, t("error.capabilities.peripheral_state_unknown", exc=exc)
 
 
 def _launch_available() -> bool | tuple[bool, str]:
@@ -44,16 +45,16 @@ def _launch_available() -> bool | tuple[bool, str]:
 
         found = launchers.default_launcher()
         if found is None:
-            return False, "No launcher configured on this install."
+            return False, t("error.capabilities.no_launcher")
         configured = str(found.value("bin_path") or "").strip()
         if not configured:
-            return False, f"{found.display_name} has no program set."
+            return False, t("said.no_program_set", launcher_name=found.display_name)
         if not Path(configured).exists():
-            return False, (f"{found.display_name} points at something that is "
-                           f"not there: {configured}")
+            return False, t("said.program_not_there",
+                             launcher_name=found.display_name, path=configured)
         return True
     except Exception as exc:
-        return False, f"Could not determine launcher state: {exc}"
+        return False, t("error.capabilities.launcher_state_unknown", exc=exc)
 
 
 def _rom_audit_available() -> bool | tuple[bool, str]:
@@ -68,7 +69,7 @@ def _rom_audit_available() -> bool | tuple[bool, str]:
         available, reason = pinmame_catalog.availability(vpx_bin)
         return (available, reason) if reason else available
     except Exception as exc:
-        return False, f"Could not determine libpinmame state: {exc}"
+        return False, t("error.capabilities.libpinmame_state_unknown", exc=exc)
 
 
 def _actions_available() -> bool | tuple[bool, str]:
@@ -79,7 +80,7 @@ def _actions_available() -> bool | tuple[bool, str]:
 
     if any(lifecycle.performable(*pair) for pair in lifecycle.offered()):
         return True
-    return False, "Nothing on this install performs a lifecycle action"
+    return False, t("error.capabilities.nothing_performs_actions")
 
 
 def declare_core() -> None:

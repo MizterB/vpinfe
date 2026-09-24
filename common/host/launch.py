@@ -119,10 +119,10 @@ def _binary_of(launcher: launchers.Launcher | None) -> str:
     configured = str(launcher.value("bin_path") or "").strip()
     if not configured:
         raise LaunchUnavailableError(
-            t("error.launch.no_program_set", launcher_name=launcher.display_name))
+            t("said.no_program_set", launcher_name=launcher.display_name))
     resolved = resolve_launcher_path(configured)
     if not resolved.exists():
-        raise LaunchUnavailableError(t("error.launch.program_not_there",
+        raise LaunchUnavailableError(t("said.program_not_there",
                                        launcher_name=launcher.display_name, path=resolved))
     return str(resolved)
 

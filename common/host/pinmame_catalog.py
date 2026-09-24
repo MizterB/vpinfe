@@ -19,6 +19,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from common.i18n import t
+
 logger = logging.getLogger("vpinfe.common.host.pinmame_catalog")
 
 ENV_OVERRIDE = "VPINFE_LIBPINMAME"
@@ -64,10 +66,9 @@ def find_library(vpx_bin_path: str) -> Path | None:
 def availability(vpx_bin_path: str) -> tuple[bool, str | None]:
     """For discovery: can this instance audit ROM sets at all?"""
     if not (vpx_bin_path or "").strip():
-        return False, ("No launcher configured, so there is no VPX install "
-                       "to borrow libpinmame from.")
+        return False, t("error.pinmame.no_launcher")
     if find_library(vpx_bin_path) is None:
-        return False, "libpinmame not found in the configured VPX install."
+        return False, t("error.pinmame.library_not_found")
     return True, None
 
 

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from common import install_identity, path_checks
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
+from common.i18n import t
 
 if TYPE_CHECKING:
     from common.config_schema import ConfigOption
@@ -113,7 +114,7 @@ def unmet(config: ConfigStore, features: Iterable[str] | None = None,
             # blank means "use the default" for an optional path, and these have no
             # default to fall back on.
             if state == path_checks.UNSET:
-                reason = f"{option.label} is not set."
+                reason = t("error.features.not_set", label=option.label)
             found.append(Unmet(feature=feature, section=section, key=key,
                                state=state, reason=reason))
     for extra in (*_no_reachable_location(on, locations),
@@ -141,10 +142,9 @@ def _no_reachable_location(on: list[str], found: Any) -> tuple[Unmet, ...]:
 
     held = list(found or [])
     if not held:
-        reason = "This install has no location, so there is nowhere to find games."
+        reason = t("error.features.no_location")
     elif not any(state.reachable for state in (one[1] for one in held)):
-        reason = ("None of this install's locations can be reached. A share that has "
-                  "not mounted is the usual cause.")
+        reason = t("error.features.no_location_reachable")
     else:
         return ()
     return tuple(Unmet(feature=feature, section="", key="", state=path_checks.UNSET,
@@ -167,17 +167,18 @@ def _no_working_launcher(on: list[str], found: Any) -> Unmet | None:
         return None
 
     if found is None:
-        reason, state = ("This install has no launcher, so there is nothing to play a "
-                         "table with.", path_checks.UNSET)
+        reason, state = t("error.features.no_launcher"), path_checks.UNSET
     else:
         configured = str(found.value("bin_path") or "").strip()
         if not configured:
-            reason, state = f"{found.display_name} has no program set.", path_checks.UNSET
+            reason, state = (t("said.no_program_set", launcher_name=found.display_name),
+                             path_checks.UNSET)
         else:
             state, said = path_checks.check("exe", configured)
             if state == path_checks.OK:
                 return None
-            reason = f"{found.display_name}: {said}"
+            reason = t("error.features.program_problem",
+                       launcher_name=found.display_name, problem=said)
     return Unmet(feature=install_identity.FRONTEND, section="", key="",
                  state=state, reason=reason, where=WHERE_LAUNCHERS)
 
@@ -196,7 +197,7 @@ def _no_library_to_read(config: ConfigStore, on: list[str]) -> Unmet | None:
     return Unmet(feature=install_identity.FRONTEND,
                  section=LIBRARY_URL[0], key=LIBRARY_URL[1],
                  state=path_checks.UNSET,
-                 reason="No library chosen, and this install holds none of its own.")
+                 reason=t("error.features.no_library_chosen"))
 
 
 def features_in_trouble(config: ConfigStore,

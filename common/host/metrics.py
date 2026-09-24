@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from common.i18n import t
+
 try:  # optional, and an install without it still runs
     import psutil
 except Exception:  # noqa: BLE001 - any import failure means "not measurable"
@@ -68,8 +70,7 @@ def measurable() -> tuple[bool, str]:
     readings leaves somebody wondering whether the machine is fine or the page is broken.
     """
     if psutil is None:
-        return False, ("psutil is not installed, so this machine cannot report its "
-                       "processor or memory.")
+        return False, t("error.metrics.psutil_missing")
     return True, ""
 
 
