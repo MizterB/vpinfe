@@ -1,9 +1,9 @@
 {
-  "description": "Shows what VPinPlay's players have rated a table",
+  "description": "Community ratings and top lists, and your plays shared with VPinPlay",
   "token.player.says": "The initials of whoever is signed in to play",
   "settings.help": "This install's VPinPlay account, and what it sends",
-  "settings.endpoint.label": "API Endpoint",
-  "settings.endpoint.help": "Where scores and ratings are read from and sent. Blank uses {default}.",
+  "settings.endpoint.label": "Server",
+  "settings.endpoint.help": "Where scores and ratings are read from and sent. Blank uses {default}, VPinPlay's own server.",
   "settings.user_id.label": "User ID",
   "settings.user_id.help": "Your VPinPlay account. Without it nothing is sent.",
   "settings.initials.label": "Initials",
