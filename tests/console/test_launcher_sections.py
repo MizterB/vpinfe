@@ -159,6 +159,37 @@ class TableDialogTests(unittest.TestCase):
                                                    app_settings.SCOPE_ENTRY, 1))
 
 
+class TableRowTests(unittest.TestCase):
+    """The row under a table's launcher that leads to the program's settings for it."""
+
+    TABLE = {"launcher_name": "Visual Pinball X", "launcher_app_configurable": True}
+
+    def _state(self, table: dict) -> str:
+        rows = workbench._program_settings_row({}, {**self.TABLE, **table})
+        with patch.object(workbench, "ui"), \
+                patch.object(workbench.panel, "state") as state:
+            rows[0][1]()
+        return str(state.call_args.args[0])
+
+    def test_values_the_game_s_file_gives_it_are_counted(self) -> None:
+        self.assertEqual(self._state({"launcher_settings_from_folder": 3}),
+                         "From This Game - 3 changed")
+
+    def test_its_own_values_are_said_over_the_game_s(self) -> None:
+        self.assertEqual(self._state({"launcher_settings_here": 2,
+                                      "launcher_settings_from_folder": 3}),
+                         t("console.workbench.set_changed", changed=2))
+
+    def test_a_camera_saved_for_the_table_is_a_row_of_its_own(self) -> None:
+        rows = workbench._program_settings_row(
+            {}, {**self.TABLE, "launcher_point_of_view": True})
+
+        self.assertEqual(rows[1], ("Point of View", "Saved for this table"))
+
+    def test_and_absent_without_one(self) -> None:
+        self.assertEqual(len(workbench._program_settings_row({}, self.TABLE)), 1)
+
+
 def _said(entry) -> str:
     with patch("console.panel.ui") as ui:
         entry[1]()

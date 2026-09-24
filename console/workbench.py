@@ -3131,7 +3131,10 @@ def _program_settings_row(context: dict[str, Any],
     if not name or not table.get("launcher_app_configurable"):
         return []
     changed = int(table.get("launcher_settings_here") or 0)
+    from_game = int(table.get("launcher_settings_from_folder") or 0)
     said = (t("console.workbench.set_changed", changed=(changed)) if changed
+            else t("console.workbench.folder_changed", scope=t(CAME_FROM["folder"]),
+                   changed=from_game) if from_game
             else t("console.workbench.following", name=(name)))
 
     # An async handler rather than a lambda that returns one: the panel hands what it
@@ -3152,7 +3155,11 @@ def _program_settings_row(context: dict[str, Any],
                       on_click=open_them) \
                 .props("flat dense no-caps size=sm").classes("console-action--inline")
 
-    return [(t("console.workbench.name_settings", name=name), draw)]
+    rows: list[tuple[Any, Any]] = [(t("console.workbench.name_settings", name=name), draw)]
+    if table.get("launcher_point_of_view"):
+        rows.append((t("console.workbench.point_of_view"),
+                     t("console.workbench.saved_for_this_table")))
+    return rows
 
 
 async def _open_table_settings(context: dict[str, Any], table: dict[str, Any]) -> None:
