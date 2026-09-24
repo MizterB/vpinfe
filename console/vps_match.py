@@ -222,22 +222,3 @@ def entry_row(row: dict[str, Any], *, pick: Callable[[], None] | None = None,
     candidates.choice(str(row.get("img_url") or ""), str(row.get("name") or ""),
                       said, pick, glyph=icons.GAMES, chosen=chosen,
                       trailing=end, entry=True)
-
-
-def _match_row(row: dict[str, Any], dialog: Any) -> None:
-    """One candidate, with the machine's photograph where VPS has one.
-
-    Named twice over - by the maker and year that tell two machines of one name apart,
-    and by the picture, which settles it faster than either. The release count rides in
-    the same line: it says which entry the world actually builds for, and it is not a
-    judgement of the match, which nothing here makes.
-    """
-    said = [game_tables.made(row)]
-    count = int(row.get("releases") or 0)
-    if count:
-        said.append(t("console.vps_match.release" if count == 1
-                      else "console.vps_match.releases", count=count))
-    candidates.choice(str(row.get("img_url") or ""), str(row.get("name") or ""),
-                      " · ".join(part for part in said if part),
-                      lambda: dialog.submit(str(row.get("vps_id") or "")),
-                      glyph=icons.GAMES)
