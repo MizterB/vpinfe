@@ -289,6 +289,31 @@ class UpdateTests(_Lens):
         self.assertEqual({"tbl0000001": True, "tbl0000002": None}, said)
 
 
+class DerivedTagTests(_Lens):
+    """A tag an extension's list derives rides on the table it names, in both lists."""
+
+    info = UpdateTests.info
+
+    def setUp(self) -> None:
+        listed = patch("common.games.derived_tags._index",
+                       return_value=({}, {"release01": {"Weekly Challenge"}}))
+        listed.start()
+        self.addCleanup(listed.stop)
+        super().setUp()
+
+    def test_the_library_list_carries_it(self) -> None:
+        said = {row["id"]: row["derived_tags"] for row in self._rows()}
+
+        self.assertEqual({"tbl0000001": ["Weekly Challenge"], "tbl0000002": []}, said)
+
+    def test_a_game_s_own_tables_carry_it(self) -> None:
+        body = self.client.get(f"/games/{GAME_ID}/tables").json()
+        tables = body["tables"] if isinstance(body, dict) else body
+
+        said = {table["id"]: table["derived_tags"] for table in tables}
+        self.assertEqual({"tbl0000001": ["Weekly Challenge"], "tbl0000002": []}, said)
+
+
 class UpdateAvailableTests(unittest.TestCase):
     def test_the_file_s_version_is_weighed_against_the_release_s(self) -> None:
         for held, listed, expected in (("1.0", "1.2", True), ("1.2", "1.2.0", False),

@@ -429,6 +429,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "") -> dict[str, A
                                   .get("pinmame", {}).get("installed")),
                 "launchable": table.get("launchable"),
                 "user": table.get("user") or {},
+                "derived_tags": table.get("derived_tags") or [],
                 "default": bool(table.get("default")),
                 "default_kind": str(table.get("default_kind") or ""),
                 "hidden": bool(table.get("hidden")),
