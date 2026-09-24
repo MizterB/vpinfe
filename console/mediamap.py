@@ -17,7 +17,7 @@ from nicegui import ui
 
 from common.i18n import t
 from common.media_specs import media_family, media_label_map
-from console import media_ownership, mediaview, verbs
+from console import art, media_ownership, mediaview, verbs
 
 # Top of the cabinet down to the floor. Kinds on the same row are the same screen shown
 # two ways - a still and its video - and share a row so the pair reads as one slot.
@@ -123,10 +123,12 @@ def _state(entry: dict[str, Any]) -> str:
     return "borrowed" if via.startswith("fallback:") else "present"
 
 
-def _tile(prefix: str, kind: str, entry: dict[str, Any],
+def _tile(game_id: str, table_id: str, kind: str, entry: dict[str, Any],
           on_pick: Callable[[str], None] | None, selected: str | None,
           differing: int = 0, offered: int = 0) -> None:
     state = _state(entry)
+    version = entry.get("version")
+    src = art.media(game_id, kind, table_id, version=version, size=art.PANEL)
     ratio = TILE_AR.get(kind, 1.6)
     tile = ui.element("div").classes(
         f"console-mediatile console-mediatile--{state}"
@@ -150,9 +152,9 @@ def _tile(prefix: str, kind: str, entry: dict[str, Any],
             elif glyph is not None:
                 ui.icon(glyph, size="18px").classes("text-primary opacity-80")
             elif media_family(kind) == "video":
-                ui.html(_TILE_VIDEO.format(src=f"{prefix}/{kind}"))
+                ui.html(_TILE_VIDEO.format(src=src))
             else:
-                ui.html(f'<img src="{prefix}/{kind}" loading="lazy">')
+                ui.html(f'<img src="{src}" loading="lazy">')
             # Only where a file is genuinely a table's own. Marking the other twenty
             # tiles "All tables" would put a badge on every one of them and make the
             # map harder to read than it is without any.
@@ -172,7 +174,7 @@ def _tile(prefix: str, kind: str, entry: dict[str, Any],
                     .props("flat dense round size=sm") \
                     .classes("console-mediatile-zoom") \
                     .on("click.stop", lambda: mediaview.open_viewer(
-                        f"{prefix}/{kind}", kind,
+                        art.media(game_id, kind, table_id, version=version), kind,
                         media_label_map().get(kind, kind))) \
                     .tooltip(t("word.enlarge"))
         ui.label(media_label_map().get(kind, kind)).classes("console-mediatile-cap")
@@ -188,7 +190,7 @@ def _tooltip(kind: str, entry: dict[str, Any]) -> str:
     return "  ·  ".join(part for part in parts if part)
 
 
-def build(entries: dict[str, dict[str, Any]], prefix: str,
+def build(entries: dict[str, dict[str, Any]], game_id: str, table_id: str = "",
           on_pick: Callable[[str], None] | None = None,
           selected: str | None = None,
           overrides: dict[str, list[dict[str, Any]]] | None = None,
@@ -196,8 +198,8 @@ def build(entries: dict[str, dict[str, Any]], prefix: str,
           kept: set[str] | None = None) -> None:
     """Draw the map into the current container.
 
-    `prefix` is where the art is fetched from, and it is what the lens changes: the
-    game's shared media, or one build's. The map itself does not care which.
+    `table_id` is the lens: empty for the game's shared media, or one table's. The map
+    itself does not care which.
 
     `offered` is how many files the catalog lists per kind. It only ever marks an empty
     slot: on a slot that is filled it would be saying somebody could replace this,
@@ -222,7 +224,7 @@ def build(entries: dict[str, dict[str, Any]], prefix: str,
             # it - captions on one line whatever shapes sit above them.
             with ui.row().classes("w-full gap-1 no-wrap items-stretch"):
                 for kind in kinds:
-                    _tile(prefix, kind, entries[kind], on_pick, selected,
+                    _tile(game_id, table_id, kind, entries[kind], on_pick, selected,
                           len((overrides or {}).get(kind) or []),
                           (offered or {}).get(kind, 0))
         extras = [kind for kind in EXTRAS if kind in entries]
@@ -232,7 +234,7 @@ def build(entries: dict[str, dict[str, Any]], prefix: str,
             ui.element("div").classes("console-mediatile-rule")
             with ui.element("div").classes("console-mediatile-grid"):
                 for kind in extras:
-                    _tile(prefix, kind, entries[kind], on_pick, selected,
+                    _tile(game_id, table_id, kind, entries[kind], on_pick, selected,
                           len((overrides or {}).get(kind) or []),
                           (offered or {}).get(kind, 0))
     ui.run_javascript(_HOVER)

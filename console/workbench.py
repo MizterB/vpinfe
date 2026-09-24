@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import urlencode, urlparse
 
 from nicegui import run, ui
 
@@ -42,6 +42,7 @@ from common.labels import field_label, humanize
 from common.media_specs import media_family, media_label_map
 from common.online import vps_kinds
 from console import (
+    art,
     candidates,
     collection_adds,
     collection_rules,
@@ -1378,11 +1379,6 @@ def _title(target: ui.column, name: str, subtitle: str) -> None:
         ui.label(subtitle).classes("text-xs console-workbench-label leading-none truncate")
 
 
-def _prefix(game_id: str, table_id: str) -> str:
-    return (f"/api/v1/games/{game_id}/tables/{table_id}/media" if table_id
-            else f"/api/v1/games/{game_id}/media")
-
-
 def _media_label(context: dict[str, Any]) -> str:
     present, borrowed, total = mediamap.summary(
         context["library"].media.get(context["game_id"], {}))
@@ -1490,7 +1486,7 @@ async def _media_block(context: dict[str, Any]) -> None:
         kept = await offload.io(_kept_kinds, context, "media")
         holder.clear()
         with holder:
-            mediamap.build(entries, _prefix(game_id, table_id),
+            mediamap.build(entries, game_id, table_id or "",
                            on_pick=lambda kind: _pick_slot(context, kind, draw),
                            selected=context["slot"]["kind"],
                            overrides=overrides, offered=offered, kept=kept)
@@ -1708,13 +1704,15 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
 
         with ui.element("div").classes("console-slot-art"):
             if present:
-                src = f"{_prefix(game_id, table_id)}/{kind}"
-                _preview(src, kind, label)
+                version = entry.get("version")
+                _preview(art.media(game_id, kind, table_id or "", version=version,
+                                   size=art.PANEL), kind, label)
                 # On the picture, where the map puts it. Images only: a video keeps its
                 # native controls here, and those carry a full-screen button already.
                 if media_family(kind) == "image":
+                    full = art.media(game_id, kind, table_id or "", version=version)
                     ui.button(icon=verbs.ENLARGE,
-                              on_click=lambda s=src, k=kind, la=label:
+                              on_click=lambda s=full, k=kind, la=label:
                                   mediaview.open_viewer(s, k, la)) \
                         .props("flat dense round size=sm") \
                         .classes("console-slot-zoom").tooltip(t("word.enlarge"))
@@ -2313,7 +2311,8 @@ async def _guides_block(context: dict[str, Any]) -> None:
             ui.label(t("console.workbench.no_guides")).classes("console-help px-3")
         if sheet:
             _guide_row(media_label_map().get("rule_sheet", "rule_sheet"),
-                       f"{_prefix(context['game_id'], '')}/rule_sheet",
+                       art.media(context["game_id"], "rule_sheet",
+                                 version=sheet.get("version")),
                        t("console.workbench.in_game_folder"))
         with ui.column().classes("gap-0 w-full").props('data-arrange="hub_guide_moved"'):
             for one in shown:
@@ -4795,12 +4794,14 @@ def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
             .tooltip(t("console.workbench.wheel.help"))
         with ui.element("div").classes("console-slot-art console-slot-art--wheel"):
             if present:
-                ui.image(f"/api/v1/collections/{quote(name, safe='')}/image") \
+                ui.image(art.collection(name, version=row.get("image_version"),
+                                        size=art.PANEL)) \
                     .classes("console-slot-image")
             elif stand_ins:
                 with ui.element("div").classes("console-wheel-mosaic"):
                     for src in stand_ins:
-                        ui.element("img").props(f'src="{src}" loading="lazy"')
+                        ui.element("img").props(
+                            f'src="{art.sized(src, art.CELL)}" loading="lazy"')
             else:
                 with ui.column().classes("console-slot-blank items-center gap-1"):
                     ui.icon("image").classes("console-slot-blank-icon")
