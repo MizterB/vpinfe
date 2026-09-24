@@ -33,9 +33,9 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
               walking: bool = False) -> str | None:
     """Ask which VPS entry this game is. The caller writes; this only asks.
 
-    Answers with the chosen id, `""` where the choice is the one the scan already found
-    and no override is wanted, `CLEARED` to say the machine is in no catalog, `CANCELLED`
-    to do nothing, or `STOPPED` when walking. `place` is "3 of 34", empty for a game.
+    Answers with the chosen id, `""` to go back to the scan's own answer, `CLEARED` to
+    say the machine is in no catalog, `CANCELLED` to do nothing, or `STOPPED` when
+    walking. `place` is "3 of 34", empty for a game.
 
     `walking` splits Cancel into Skip and Stop, which are different intents in a run and
     cannot share one button.
@@ -52,10 +52,6 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
                        wide=True, persistent=True) as box:
         if place:
             ui.label(place).classes("console-help px-3")
-
-        def answer(vps_id: str) -> str:
-            """An override, or "" where the choice is the scan's own answer."""
-            return "" if vps_id and vps_id == scanned else vps_id
 
         def clear() -> None:
             ui.button(t("console.vps_match.clear_match"), icon=verbs.UNMATCH,
@@ -83,7 +79,7 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
             entries.append((panel.FULL, lambda: entry_row(entry, trailing=clear)))
         if behind:
             entries.append((panel.FULL, lambda: _own_pick(
-                behind, cleared=not entry, back=lambda: box.submit(answer(scanned)))))
+                behind, cleared=not entry, back=lambda: box.submit(""))))
         entries.append((panel.HEADING, t("console.vps_match.find_another" if entry or behind
                                          else "console.vps_match.find_a_match")))
         entries.append((panel.FULL, search_row))
@@ -100,7 +96,7 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
                 ui.button(t("word.cancel"), icon=verbs.CANCEL,
                           on_click=lambda: box.submit(CANCELLED)).props("flat no-caps")
             update = ui.button(t("console.vps_match.match_to_this"), icon=verbs.MATCH,
-                               on_click=lambda: box.submit(answer(str(picked["id"])))) \
+                               on_click=lambda: box.submit(str(picked["id"]))) \
                 .props("no-caps")
         update.set_visibility(False)
 

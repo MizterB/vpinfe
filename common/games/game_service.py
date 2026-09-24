@@ -21,8 +21,10 @@ from common.games.game import Game, GameRecord
 from common.games.game_metadata import (
     CONFIRMED_BY_USER,
     GAME_OVERRIDES,
+    MATCHED_BY_USER,
     SOURCE_KEY,
     game_vps_id,
+    record_vps_match,
     vpinfe_section,
 )
 from common.games.game_repository import refresh_game
@@ -440,6 +442,7 @@ def associate_vps_to_folder(
     game_dir: Path,
     vps_entry: dict,
     download_media: bool = False,
+    matched_by: str = MATCHED_BY_USER,
 ) -> None:
     from common.games.info_file import MetaConfig
 
@@ -452,6 +455,7 @@ def associate_vps_to_folder(
     vpxdata = parser.single_file_extract(str(vpx_file))
 
     meta = MetaConfig(str(meta_path))
+    record_vps_match(meta.data, matched_by)
     meta.write_config_meta({"vpsdata": vps_entry, "vpxdata": vpxdata})
 
     if download_media:

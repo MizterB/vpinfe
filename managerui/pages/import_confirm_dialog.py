@@ -12,6 +12,7 @@ from nicegui import context, run, ui
 
 from common.games import game_service
 from common.games.asset_registry import spec_for
+from common.games.game_metadata import MATCHED_ON_IMPORT
 from common.games.media_service import (
     MEDIA_LABEL_BY_KIND,
     invalidate_media_cache,
@@ -341,7 +342,8 @@ def open_import_confirm_dialog(analysis: AnalysisResult, plan: ImportPlan, sourc
                     loading_label.set_text("Associating with VPS and downloading media...")
                 try:
                     await run.io_bound(game_service.associate_vps_to_folder,
-                                       Path(report["game_dir"]), vps_entry, True)
+                                       Path(report["game_dir"]), vps_entry, True,
+                                       MATCHED_ON_IMPORT)
                     await run.io_bound(game_service.build_metadata, download_media=True,
                                        update_all=True, game_name=resolved.new_game_dir_name)
                 except Exception:

@@ -235,11 +235,15 @@ class MetaConfig:
         return bool(self._pre_migration)
 
     def write_config_meta(self, configdata: dict[str, Any]) -> None:
-        """
-        Build the .info JSON structure
-        """
-        info = info_from_vps(configdata.get("vpsdata", {}))
-        guides = guides_from_vps(configdata.get("vpsdata", {}))
+        """Build the .info JSON structure. `vpsdata` None keeps `Info` and the guides."""
+        vpsdata = configdata.get("vpsdata", {})
+        if vpsdata is None:
+            kept, held = self.data.get("Info"), self.data.get(GUIDES_KEY)
+            info = kept if isinstance(kept, dict) else info_from_vps(None)
+            guides = held if isinstance(held, list) else []
+        else:
+            info = info_from_vps(vpsdata)
+            guides = guides_from_vps(vpsdata)
 
         user = self.data.get("User", {
             "Rating": 0,
@@ -268,8 +272,6 @@ class MetaConfig:
         vpinfe.setdefault("alt_title", "")
         # Configuration, not a play record - see game_metadata.game_frontend_dof_event.
         vpinfe.setdefault("frontend_dof_event", "")
-        # Outside the filehash check below on purpose: the id must survive the table
-        # changing, which is exactly when alt_vpsid is cleared.
         if not str(vpinfe.get(GAME_ID_KEY, "") or "").strip():
             # Imported here because game_identity reaches back through game_metadata
             # to this module. One minting rule, one place, no cycle.

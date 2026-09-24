@@ -415,19 +415,19 @@ When you run VPinFE with the `--buildmeta` option it recursively goes through yo
 
   `alt_vpsid` is a manual VPS match: automatic matching got the game wrong, and somebody
   looked up the right record and said so. It overrides `Info.VPSId` everywhere an id is
-  used - collections, media matching, the VPinPlay payload.
+  used - collections, media matching, the VPinPlay payload. `null` says the machine is in
+  no catalog, and nothing is matched to it.
 
-  It **stops applying** when the default table's hash changes during a rebuild, because
-  the claim was made about the file that was there and that file has been replaced.
-  Matching falls back to `Info.VPSId`.
+  - vps_matched_by
 
-  - alt_vpsid_previous
+  How the match in `Info` was made: `import` for an entry picked when the game was
+  imported, `user` for one somebody chose. Absent means VPinFE guessed it from the folder
+  name. A game with an `alt_vpsid`, or a `null` one, counts as matched by somebody
+  whatever this says.
 
-  The superseded override, set aside rather than deleted: `{"value", "table",
-  "set_aside"}`. **Nothing resolves through it** - it is what the user typed, kept so it
-  can be offered back rather than retyped from memory. Only the most recent is kept; a
-  claim made two tables ago is history nobody will restore. Absent when there was no
-  override to set aside.
+  A rebuild, `--update-all` included, guesses again only for a game nobody matched. A game
+  somebody matched keeps `Info` and its guides as they are: the rebuild reads its tables
+  again and fetches art for the entry in force.
 
 - assets
 

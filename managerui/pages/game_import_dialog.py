@@ -11,6 +11,7 @@ from pathlib import Path
 from nicegui import context, events, run, ui
 
 from common.games import game_service
+from common.games.game_metadata import MATCHED_ON_IMPORT
 from common.games.media_service import invalidate_media_cache
 from managerui.paths import get_games_path
 from managerui.ui_helpers import debounced_input
@@ -315,7 +316,8 @@ def open_import_game_dialog(perform_scan_cb=None):
                 # Create metadata and download media
                 with client:
                     import_loading_label.set_text('Creating metadata and downloading media...')
-                await run.io_bound(game_service.associate_vps_to_folder, game_dir, vps_entry, True)
+                await run.io_bound(game_service.associate_vps_to_folder, game_dir, vps_entry, True,
+                                   MATCHED_ON_IMPORT)
 
                 # Rebuild metadata (same as "Rebuild Meta" button in game detail)
                 game_dir_name = game_dir.name

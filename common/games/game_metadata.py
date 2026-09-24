@@ -599,13 +599,53 @@ def declared_no_match(meta: dict[str, Any]) -> bool:
 
 
 def game_vps_id(game: GameRecord) -> str:
-    meta = normalize_meta(getattr(game, "meta_config", {}))
+    return effective_vps_id(normalize_meta(getattr(game, "meta_config", {})))
+
+
+def effective_vps_id(meta: dict[str, Any]) -> str:
+    """The entry in force: a person's override, else `Info`'s, else ""."""
     if declared_no_match(meta):
         return ""
     alt_vpsid = str(vpinfe_section(meta).get("alt_vpsid", "") or "").strip()
     if alt_vpsid:
         return alt_vpsid
     return str(section(meta, "Info").get("VPSId", "") or "").strip()
+
+
+# How the match in `Info` was made, kept in the `vpinfe` section. Absent is VPinFE's
+# guess from the folder name.
+VPS_MATCHED_BY_KEY = "vps_matched_by"
+MATCHED_ON_IMPORT = "import"
+MATCHED_BY_USER = "user"
+
+
+def vps_matched_by(meta: dict[str, Any]) -> str:
+    """`"user"` or `"import"` where a person made the match in force, else `""`.
+
+    An override and a declared no-match are a person's whatever the record says.
+    """
+    vpinfe = vpinfe_section(meta)
+    if declared_no_match(meta) or str(vpinfe.get("alt_vpsid", "") or "").strip():
+        return MATCHED_BY_USER
+    if not str(section(meta, "Info").get("VPSId", "") or "").strip():
+        return ""
+    said = vpinfe.get(VPS_MATCHED_BY_KEY)
+    return said if said in (MATCHED_ON_IMPORT, MATCHED_BY_USER) else ""
+
+
+def record_vps_match(meta: dict[str, Any], matched_by: str) -> None:
+    """Say how the entry about to be written to `Info` was chosen, `""` for a guess.
+
+    Clears the override, which the new entry settles. Mutates `meta`.
+    """
+    vpinfe = meta.get(VPINFE_SECTION)
+    if not isinstance(vpinfe, dict):
+        vpinfe = meta[VPINFE_SECTION] = {}
+    vpinfe["alt_vpsid"] = ""
+    if matched_by:
+        vpinfe[VPS_MATCHED_BY_KEY] = matched_by
+    else:
+        vpinfe.pop(VPS_MATCHED_BY_KEY, None)
 
 
 def base_game_vps_id(game: GameRecord) -> str:

@@ -383,12 +383,12 @@ def _associate(report: dict, vps_entry: dict) -> None:
     """Files are on disk; association failure is reported, not fatal."""
     import logging
 
-    from common.games.game_service import associate_vps_to_folder, build_metadata
+    from common.games.game_metadata import MATCHED_ON_IMPORT
+    from common.games.game_service import associate_vps_to_folder
 
     try:
-        associate_vps_to_folder(Path(report["game_dir"]), vps_entry, True)
-        build_metadata(download_media=True, update_all=True,
-                       game_name=Path(report["game_dir"]).name)
+        associate_vps_to_folder(Path(report["game_dir"]), vps_entry, True,
+                                matched_by=MATCHED_ON_IMPORT)
         report["vps_associated"] = True
     except Exception as exc:
         logging.getLogger("vpinfe.common.uploads.upload_ops").exception(

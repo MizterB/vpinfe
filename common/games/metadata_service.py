@@ -7,6 +7,7 @@ import os
 
 from common.config_access import SettingsConfig
 from common.config_store import ConfigStore
+from common.games.game_metadata import effective_vps_id, record_vps_match, vps_matched_by
 from common.games.game_repository import games_under
 from common.games.info_file import MetaConfig
 from common.games.standalone_scripts import StandaloneScripts
@@ -72,21 +73,27 @@ def build_metadata(
         if progress_cb:
             reporter.progress(current, total, f"Processing {game.game_dir_name}")
 
-        vps_search_data = vps.parse_game_name_from_dir(game.game_dir_name)
-        vps_data = (
-            vps.lookup_name(
-                vps_search_data["name"],
-                vps_search_data["manufacturer"],
-                vps_search_data["year"],
+        vps_data: dict | None = None
+        if vps_matched_by(meta.data):
+            log("  - Matched by a person; the match is left as it is")
+            art_for = effective_vps_id(meta.data)
+        else:
+            vps_search_data = vps.parse_game_name_from_dir(game.game_dir_name)
+            vps_data = (
+                vps.lookup_name(
+                    vps_search_data["name"],
+                    vps_search_data["manufacturer"],
+                    vps_search_data["year"],
+                )
+                if vps_search_data
+                else None
             )
-            if vps_search_data
-            else None
-        )
-
-        if not vps_data:
-            log("  - Not found in VPS")
-            not_found_games += 1
-            continue
+            if not vps_data:
+                log("  - Not found in VPS")
+                not_found_games += 1
+                continue
+            art_for = vps_data["id"]
+            record_vps_match(meta.data, "")
 
         log(f"Parsing VPX file: {game.full_path_vpx_file}")
         vpx_data = parservpx.single_file_extract(game.full_path_vpx_file)
@@ -107,9 +114,9 @@ def build_metadata(
         # library themselves. Media already on disk needs no such flag: the
         # downloader compares hashes and leaves anything it cannot prove is ours
         # alone (common/online/vpsdb_media.py).
-        if download_media and not user_media:
+        if download_media and not user_media and art_for:
             try:
-                vps.download_media_for_game(game, vps_data["id"], meta_config=meta)
+                vps.download_media_for_game(game, art_for, meta_config=meta)
                 log("Downloaded media")
             except KeyError:
                 log("No media found")
