@@ -1834,7 +1834,7 @@ async def _game_block(context: dict[str, Any]) -> None:
     held = bool(found) or not vps_id or await offload.io(library.vps_catalog_held)
     links = await offload.io(library.outside_links, context["game_id"])
     with ui.column().classes("gap-0 console-form"):
-        _identity_rows(context, found, differs, held, links)
+        _rows(ui, _game_entries(context, found, differs, held, links))
         _tables_block(context, held)
 
 
@@ -1850,7 +1850,7 @@ async def _table_block(context: dict[str, Any]) -> None:
         if chosen is None:
             ui.label(t("console.workbench.no_table_selected")).classes("console-help")
             return
-        _table_rows(chosen, context, match, links)
+        _rows(ui, _table_entries(chosen, context, match, links))
 
 
 async def _release_match(context: dict[str, Any],
@@ -2031,9 +2031,9 @@ def _outside_lines(links: Sequence[dict[str, Any]]) -> None:
                 panel.link_out(str(one.get("name") or ""), to=str(one["url"]))()
 
 
-def _identity_rows(context: dict[str, Any], entry: dict[str, Any],
-                   differs: list[dict[str, Any]], held: bool,
-                   links: Sequence[dict[str, Any]] = ()) -> None:
+def _game_entries(context: dict[str, Any], entry: dict[str, Any],
+                  differs: list[dict[str, Any]], held: bool,
+                  links: Sequence[dict[str, Any]] = ()) -> list[tuple[Any, Any]]:
     game = context["game"]
     # The folder is the tail, not the whole path: the library root is the same for
     # every game and repeating it costs the only column that has to hold a name.
@@ -2074,15 +2074,12 @@ def _identity_rows(context: dict[str, Any], entry: dict[str, Any],
         *_outside(links),
         (t("word.folder"), PurePosixPath(folder).name or folder or "-"),
     ]
+    return entries + _game_marks(context)
 
-    _rows(ui, entries)
 
-
-def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """The game's own record, and the one frontend setting it carries."""
+def _game_marks(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     game = context["game"]
     record = game.get("user") or {}
-    overrides = game.get("overrides") or {}
 
     async def rate(value: int) -> None:
         await _write(context, context["library"].set_game_rating,
@@ -2096,6 +2093,45 @@ def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         await _write(context, context["library"].set_game_tags,
                      context["game_id"], chosen)
 
+    return [
+        (HEADING, t("console.workbench.yours")),
+        (t("console.workbench.your_rating"), stars.draw(int(game.get("rating") or 0), rate)),
+        (t("word.favorite"),
+         lambda: _switch(bool(record.get("favorite")), favorite,
+                         hint=t("console.workbench.frontend_can_filter"))),
+        (t("console.workbench.tags"),
+         _tag_picker(list(record.get("tags") or []), context["library"], retag,
+                     list(game.get("derived_tags") or []))),
+    ]
+
+
+def _table_marks(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[Any, Any]]:
+    record = table.get("user") or {}
+    table_id = str(table.get("id") or "")
+
+    async def rate(value: int) -> None:
+        await _write(context, context["library"].set_table_rating,
+                     context["game_id"], table_id, value)
+
+    async def retag(chosen: list[str]) -> None:
+        await _write(context, context["library"].set_table_tags,
+                     context["game_id"], table_id, chosen)
+
+    return [
+        (HEADING, t("console.workbench.yours")),
+        (t("console.workbench.your_rating"), stars.draw(int(table.get("rating") or 0), rate)),
+        (t("console.workbench.tags"),
+         _tag_picker(list(record.get("tags") or []), context["library"], retag,
+                     list(table.get("derived_tags") or []))),
+    ]
+
+
+def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """The game's own record, and the one frontend setting it carries."""
+    game = context["game"]
+    record = game.get("user") or {}
+    overrides = game.get("overrides") or {}
+
     async def reset() -> None:
         if not await confirm.ask(
                 t("console.workbench.reset_game_s_play"),
@@ -2108,13 +2144,7 @@ def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     async def save_dof(value: str) -> None:
         await _save_overrides(context, {"frontend_dof_event": value}, table=False)
 
-    rows = _play_rows(context, record, rating=int(game.get("rating") or 0),
-                      on_rate=rate, on_reset=reset,
-                      favorite=lambda: _switch(bool(record.get("favorite")), favorite,
-                                               hint=t("console.workbench.yours_frontend_can_filter")),
-                      tags=_tag_picker(list(record.get("tags") or []),
-                                       context["library"], retag,
-                                       list(game.get("derived_tags") or [])))
+    rows = _play_rows(context, record, on_reset=reset)
     # Empty is the revert: nothing but the user supplies this, and clearing it asks for
     # the frontend's own effect.
     rows.append((t("console.workbench.dof_event"),
@@ -2130,10 +2160,6 @@ def _table_play_rows(context: dict[str, Any],
     record = table.get("user") or {}
     table_id = str(table.get("id") or "")
 
-    async def rate(value: int) -> None:
-        await _write(context, context["library"].set_table_rating,
-                     context["game_id"], table_id, value)
-
     async def reset() -> None:
         if not await confirm.ask(
                 t("console.workbench.reset_table_s_play"),
@@ -2143,35 +2169,25 @@ def _table_play_rows(context: dict[str, Any],
         await _write(context, context["library"].reset_play_record,
                      context["game_id"], table_id)
 
-    async def retag(chosen: list[str]) -> None:
-        await _write(context, context["library"].set_table_tags,
-                     context["game_id"], table_id, chosen)
+    return _play_rows(context, record, on_reset=reset) + _library_rows(context, table)
 
-    rows = _play_rows(context, record, rating=int(table.get("rating") or 0),
-                      on_rate=rate, on_reset=reset,
-                      tags=_tag_picker(list(record.get("tags") or []),
-                                       context["library"], retag,
-                                       list(table.get("derived_tags") or [])))
-    return rows + _library_rows(context, table)
+
+def _play_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """Under a table both levels show, each under its own heading."""
+    chosen = next((row for row in context["tables"]
+                   if row.get("id") == context["lens"]), None)
+    if chosen is None:
+        return _game_play_rows(context)
+    return [(HEADING, t("console.workbench.game_details")),
+            *_game_play_rows(context),
+            (HEADING, t("console.workbench.table_details")),
+            *_table_play_rows(context, chosen)]
 
 
 async def _play_block(context: dict[str, Any]) -> None:
-    """What has been done with this, and what the frontend does with it.
-
-    Under a table both levels show, each under its own heading.
-    """
-    chosen = next((row for row in context["tables"]
-                   if row.get("id") == context["lens"]), None)
-    entries: list[tuple[Any, Any]] = []
-    if chosen is None:
-        entries += _game_play_rows(context)
-    else:
-        entries += [(HEADING, t("console.workbench.game_details"))]
-        entries += _game_play_rows(context)
-        entries += [(HEADING, t("console.workbench.table_details"))]
-        entries += _table_play_rows(context, chosen)
+    """What has been done with this, and what the frontend does with it."""
     with ui.column().classes("gap-0 console-form"):
-        _rows(ui, entries)
+        _rows(ui, _play_entries(context))
 
 
 HELD_HOW = {"added": "console.workbench.held_added",
@@ -2436,10 +2452,10 @@ def _guide_row(name: str, address: str, said: str, *, arrange: bool = False,
             act()
 
 
-def _table_rows(table: dict[str, Any],
-                context: dict[str, Any] | None = None,
-                match: Sequence[tuple[Any, Any]] = (),
-                links: Sequence[dict[str, Any]] = ()) -> None:
+def _table_entries(table: dict[str, Any],
+                   context: dict[str, Any] | None = None,
+                   match: Sequence[tuple[Any, Any]] = (),
+                   links: Sequence[dict[str, Any]] = ()) -> list[tuple[Any, Any]]:
     """One table's own facts.
 
     The rom is the one it resolves to with any alias followed, which is the one that
@@ -2515,6 +2531,8 @@ def _table_rows(table: dict[str, Any],
         # labelled for its own group is the File/Filename collision again.
         entries += [(HEADING, game_tables.FEATURES),
                     (FULL, lambda: _feature_chips(features))]
+    if context is not None:
+        entries += _table_marks(context, table)
 
     # Can it run, and how. The dependencies are shown as evidence, never managed
     # here: a finding jumps to where it is fixed.
@@ -2535,8 +2553,7 @@ def _table_rows(table: dict[str, Any],
     if context is not None:
         entries += _table_override_rows(context, table, overrides)
         entries += [(FULL, _play_action(context, table))]
-
-    _rows(ui, entries)
+    return entries
 
 
 _state = panel.state
@@ -2711,23 +2728,9 @@ def _played_for(seconds: int) -> str:
 
 
 def _play_rows(context: dict[str, Any], record: dict[str, Any], *,
-               rating: int, on_rate: Callable[[int], Any],
-               on_reset: Callable[[], Any],
-               favorite: Callable[[], None] | None = None,
-               tags: Callable[[], None] | None = None) -> list[tuple[Any, Any]]:
-    """What somebody thinks of this, and what they have done with it.
-
-    Two kinds in one group and the controls say which: rating and favorite are opinions
-    somebody sets, the counters are a record of what happened. Only the record can be
-    reset, and the act sits under it rather than beside a row it does not belong to.
-    """
-    rows: list[tuple[Any, Any]] = [(t("word.rating"), stars.draw(rating,
-            on_rate))]
-    if favorite is not None:
-        rows.append((t("word.favorite"), favorite))
-    if tags is not None:
-        rows.append((t("console.workbench.tags"), tags))
-    rows += [
+               on_reset: Callable[[], Any]) -> list[tuple[Any, Any]]:
+    """What has been done with this. The reset sits under the record it clears."""
+    rows: list[tuple[Any, Any]] = [
         (t("word.last_played"), _played_when(record.get("last_played"))),
         (t("console.workbench.times_played"),
                 str(int(record.get("play_count") or 0) or t("word.never"))),

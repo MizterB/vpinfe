@@ -224,8 +224,7 @@ class PlayGroupTests(unittest.TestCase):
         noop = lambda *a: None  # noqa: E731
 
         def labels(record):
-            return [row[0] for row in workbench._play_rows(
-                {}, record, rating=0, on_rate=noop, on_reset=noop)]
+            return [row[0] for row in workbench._play_rows({}, record, on_reset=noop)]
 
         self.assertNotIn(workbench.FULL, labels(nothing))
         self.assertIn(workbench.FULL, labels(played))
