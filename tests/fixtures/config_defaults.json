@@ -117,6 +117,7 @@
   "updates": {
     "ask_where_new_games_go": "true",
     "auto_update_media": "false",
+    "match_new_games": "true",
     "refresh_minutes": "0"
   },
   "vpinplay": {
