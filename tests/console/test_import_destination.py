@@ -2,8 +2,9 @@
 
 import unittest
 
+from common import config_schema
 from common.i18n import t
-from console.import_dialog import _where
+from console.import_dialog import STOP_ASKING, _where
 
 PLAN = {"game_dir": "/tables/Game (Maker 1990)"}
 
@@ -28,6 +29,15 @@ class ImportDestinationTests(unittest.TestCase):
     def test_a_renamed_file_in_a_subfolder_says_the_whole_path(self) -> None:
         self.assertEqual(_where(PLAN, _item("b.ini", "pinmame/ini/game.ini")),
                          "pinmame/ini/game.ini")
+
+
+class StopAskingTests(unittest.TestCase):
+    def test_dont_ask_again_writes_a_setting_this_install_has(self) -> None:
+        settable = {(option.section, option.key) for option in config_schema.settable()}
+        written = {(section, key) for section, values in STOP_ASKING.items()
+                   for key in values}
+
+        self.assertEqual(written - settable, set())
 
 
 if __name__ == "__main__":

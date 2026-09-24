@@ -25,6 +25,8 @@ from console import game_tables, offload, panel, verbs
 
 logger = logging.getLogger("vpinfe.console.import_dialog")
 
+STOP_ASKING = {"updates": {"ask_where_new_games_go": False}}
+
 
 def _size(count: int) -> str:
     size = float(count or 0)
@@ -127,9 +129,7 @@ async def _pick(library: Any, reason: str, offered: list[dict[str, Any]],
         return None
     if holds["stop_asking"]:
         try:
-            await run.io_bound(
-                library.put_config,
-                {"general": {"ask_where_new_games_go": False}})
+            await run.io_bound(library.put_config, STOP_ASKING)
             await run.io_bound(library.set_location_write_to, said)
         except Exception as exc:  # noqa: BLE001
             # The import still goes where they said. Only the remembering failed.
