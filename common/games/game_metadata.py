@@ -627,9 +627,15 @@ def vps_matched_by(meta: dict[str, Any]) -> str:
     vpinfe = vpinfe_section(meta)
     if declared_no_match(meta) or str(vpinfe.get("alt_vpsid", "") or "").strip():
         return MATCHED_BY_USER
+    return info_matched_by(meta)
+
+
+def info_matched_by(meta: dict[str, Any]) -> str:
+    """How the entry in `Info` was made, whatever overrides it: `"user"`, `"import"`,
+    or `""` for a guess and for no entry."""
     if not str(section(meta, "Info").get("VPSId", "") or "").strip():
         return ""
-    said = vpinfe.get(VPS_MATCHED_BY_KEY)
+    said = vpinfe_section(meta).get(VPS_MATCHED_BY_KEY)
     return said if said in (MATCHED_ON_IMPORT, MATCHED_BY_USER) else ""
 
 

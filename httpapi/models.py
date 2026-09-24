@@ -574,6 +574,8 @@ class GameDiscovered(ApiModel):
 
     name: str = ""
     vps_id: str = ""
+    # As `GameResource.vps_matched_by`, for the entry underneath any override.
+    vps_matched_by: str = ""
     manufacturer: str = ""
     year: str = ""
     type: str = ""
@@ -650,6 +652,10 @@ class GameResource(ApiModel):
 
     id: str
     vps_id: str
+    # Who made the match in `vps_id`: "import" for a pick on import, "user" for one a
+    # person made or a no-match they declared, "" for VPinFE's guess from the folder name
+    # and for no match.
+    vps_matched_by: str = ""
     name: str
     manufacturer: str
     year: str

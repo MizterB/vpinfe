@@ -1392,7 +1392,8 @@
     "one": "{count} found",
     "other": "{count} found"
   },
-  "console.vps_match.go_back": "Go back to VPinFE's match",
+  "console.vps_match.go_back": "Go back to the auto-match",
+  "console.vps_match.go_back_to_yours": "Go back to your earlier match",
   "console.vps_match.index_of_total": "{index} of {total}",
   "console.vps_match.match_named": "Match “{name}” to Virtual Pinball Spreadsheet",
   "console.vps_match.match_set": {
@@ -1409,8 +1410,10 @@
   "console.vps_match.stop": "Stop",
   "console.vps_match.type_name_maker_year": "Type a name, a maker or a year",
   "console.vps_match.vps_not_downloaded": "VPS has not been downloaded yet",
-  "console.vps_match.you_cleared": "You cleared the match. VPinFE matched it to {name} on its own.",
-  "console.vps_match.you_picked": "You picked this. VPinFE matched it to {name} on its own.",
+  "console.vps_match.you_cleared": "You cleared the match. The auto-match was {name}.",
+  "console.vps_match.you_cleared_over_yours": "You cleared the match. Your earlier match was {name}.",
+  "console.vps_match.you_picked": "You picked this. The auto-match was {name}.",
+  "console.vps_match.you_picked_over_yours": "You picked this. Your earlier match was {name}.",
   "console.workbench.add_games": "Add Games",
   "console.workbench.add_guide": "Add a guide...",
   "console.workbench.add_guide_to": "Add a guide to “{name}”",

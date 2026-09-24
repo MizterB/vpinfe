@@ -1392,7 +1392,8 @@
     "one": "{count} ƒöûñđ",
     "other": "{count} ƒöûñđ"
   },
-  "console.vps_match.go_back": "Ĝö ƀàçķ ţö ṼÞîñƑÈ'š ɱàţçĥ",
+  "console.vps_match.go_back": "Ĝö ƀàçķ ţö ţĥè àûţö-ɱàţçĥ",
+  "console.vps_match.go_back_to_yours": "Ĝö ƀàçķ ţö ýöûř èàřŀîèř ɱàţçĥ",
   "console.vps_match.index_of_total": "{index} öƒ {total}",
   "console.vps_match.match_named": "Ḿàţçĥ “{name}” ţö Ṽîřţûàŀ Þîñƀàŀŀ Šþřèàđšĥèèţ",
   "console.vps_match.match_set": {
@@ -1409,8 +1410,10 @@
   "console.vps_match.stop": "Šţöþ",
   "console.vps_match.type_name_maker_year": "Ţýþè à ñàɱè, à ɱàķèř öř à ýèàř",
   "console.vps_match.vps_not_downloaded": "ṼÞŠ ĥàš ñöţ ƀèèñ đöŵñŀöàđèđ ýèţ",
-  "console.vps_match.you_cleared": "Ýöû çŀèàřèđ ţĥè ɱàţçĥ. ṼÞîñƑÈ ɱàţçĥèđ îţ ţö {name} öñ îţš öŵñ.",
-  "console.vps_match.you_picked": "Ýöû þîçķèđ ţĥîš. ṼÞîñƑÈ ɱàţçĥèđ îţ ţö {name} öñ îţš öŵñ.",
+  "console.vps_match.you_cleared": "Ýöû çŀèàřèđ ţĥè ɱàţçĥ. Ţĥè àûţö-ɱàţçĥ ŵàš {name}.",
+  "console.vps_match.you_cleared_over_yours": "Ýöû çŀèàřèđ ţĥè ɱàţçĥ. Ýöûř èàřŀîèř ɱàţçĥ ŵàš {name}.",
+  "console.vps_match.you_picked": "Ýöû þîçķèđ ţĥîš. Ţĥè àûţö-ɱàţçĥ ŵàš {name}.",
+  "console.vps_match.you_picked_over_yours": "Ýöû þîçķèđ ţĥîš. Ýöûř èàřŀîèř ɱàţçĥ ŵàš {name}.",
   "console.workbench.add_games": "Àđđ Ĝàɱèš",
   "console.workbench.add_guide": "Àđđ à ĝûîđè...",
   "console.workbench.add_guide_to": "Àđđ à ĝûîđè ţö “{name}”",

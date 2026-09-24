@@ -72,6 +72,7 @@ def game_resource(row: dict, game_id: str) -> dict[str, Any]:
         # undo reverts to, and is the only place the superseded id belongs.
         "vps_id": ("" if row.get("alt_vpsid", "") is None
                    else row.get("alt_vpsid", "") or row.get("vpsid", "")),
+        "vps_matched_by": row.get("vps_matched_by", ""),
         "name": row.get("name", ""),
         "manufacturer": row.get("manufacturer", ""),
         "year": str(row.get("year") or ""),
@@ -101,6 +102,7 @@ def game_resource(row: dict, game_id: str) -> dict[str, Any]:
         "discovered": {
             "name": row.get("found_name", ""),
             "vps_id": row.get("vpsid", ""),
+            "vps_matched_by": row.get("found_vps_matched_by", ""),
             "manufacturer": row.get("found_manufacturer", ""),
             "year": str(row.get("found_year") or ""),
             "type": row.get("found_type", ""),

@@ -30,12 +30,14 @@ from common.games.game_metadata import (
     game_discovered,
     game_override,
     guides_on_wire,
+    info_matched_by,
     load_game_meta,
     normalize_rating,
     play_record,
     reorder_leading_article,
     section,
     vpinfe_section,
+    vps_matched_by,
 )
 from common.games.game_parser import GameParser
 from common.games.info_migration import INFO_SCHEMA, schema_of
@@ -346,6 +348,8 @@ def game_to_row(game: Game,
         # would turn that into "no opinion" and let the scan's answer stand again.
         "alt_vpsid": (None if declared_no_match(meta)
                       else str(vpinfe.get("alt_vpsid", "") or "").strip()),
+        "vps_matched_by": vps_matched_by(meta),
+        "found_vps_matched_by": info_matched_by(meta),
         **{GAME_OVERRIDES[name][0]: answered[name]
            for name in ("manufacturer", "year", "type", "themes", "ipdb_id")},
         "frontend_dof_event": str(vpinfe.get("frontend_dof_event", "") or "").strip(),

@@ -78,8 +78,9 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
         if entry:
             entries.append((panel.FULL, lambda: entry_row(entry, trailing=clear)))
         if behind:
+            guessed = not (game.get("discovered") or {}).get("vps_matched_by")
             entries.append((panel.FULL, lambda: _own_pick(
-                behind, cleared=not entry, back=lambda: box.submit(""))))
+                behind, cleared=not entry, guessed=guessed, back=lambda: box.submit(""))))
         entries.append((panel.HEADING, t("console.vps_match.find_another" if entry or behind
                                          else "console.vps_match.find_a_match")))
         entries.append((panel.FULL, search_row))
@@ -182,13 +183,25 @@ def _seed(game: dict[str, Any]) -> str:
     return " ".join(part for part in parts if part)
 
 
-def _own_pick(found: dict[str, Any], *, cleared: bool, back: Callable[[], None]) -> None:
+_OWN_PICK_WORDS = {
+    # (cleared, guessed): the line, then the button that goes back.
+    (False, True): ("console.vps_match.you_picked", "console.vps_match.go_back"),
+    (True, True): ("console.vps_match.you_cleared", "console.vps_match.go_back"),
+    (False, False): ("console.vps_match.you_picked_over_yours",
+                     "console.vps_match.go_back_to_yours"),
+    (True, False): ("console.vps_match.you_cleared_over_yours",
+                    "console.vps_match.go_back_to_yours"),
+}
+
+
+def _own_pick(found: dict[str, Any], *, cleared: bool, guessed: bool,
+              back: Callable[[], None]) -> None:
     said = game_tables.made(found)
     name = str(found.get("name") or "") + (f" ({said})" if said else "")
+    line, button = _OWN_PICK_WORDS[(cleared, guessed)]
     with ui.row().classes("items-center gap-3 w-full no-wrap console-vps-own"):
-        ui.label(t("console.vps_match.you_cleared" if cleared else "console.vps_match.you_picked",
-                   name=name)).classes("console-help grow min-w-0")
-        ui.button(t("console.vps_match.go_back"), icon=verbs.REVERT, on_click=back) \
+        ui.label(t(line, name=name)).classes("console-help grow min-w-0")
+        ui.button(t(button), icon=verbs.REVERT, on_click=back) \
             .props("flat dense no-caps size=sm").classes("console-action shrink-0")
 
 
