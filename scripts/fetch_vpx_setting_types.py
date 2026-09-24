@@ -27,7 +27,6 @@ from collections.abc import Iterable
 
 SOURCE = ("https://raw.githubusercontent.com/vpinball/vpinball/master/"
           "src/core/Settings_properties.inl")
-TARBALL = "https://codeload.github.com/vpinball/vpinball/tar.gz/refs/heads/master"
 OUT = pathlib.Path(__file__).resolve().parent.parent / "apps" / "vpx" / "setting_types.py"
 
 # The macro's name says the type.
