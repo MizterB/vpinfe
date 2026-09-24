@@ -31,8 +31,12 @@ def _resource(entry: dict) -> dict:
         # Present on 39% of entries, measured on a 2570-entry snapshot. A surface that
         # leads with it has to hold its own shape when there is none.
         "img_url": entry.get("imgUrl") or "",
-        "url": f"https://virtualpinballspreadsheet.github.io/?game={entry.get('id')}",
+        "url": entry_address(str(entry.get("id") or "")),
     }
+
+
+def entry_address(vps_id: str) -> str:
+    return f"https://virtualpinballspreadsheet.github.io/?game={vps_id}"
 
 
 def _entry_or_refuse(vps_id: str) -> dict:

@@ -2107,8 +2107,14 @@ class Owned(ApiModel):
     name: str = ""
 
 
+class OtherVersion(Owned):
+    version: str = ""
+    url: str = ""
+
+
 class OwnedMap(ApiModel):
     owned: dict[str, Owned]
+    other_versions: dict[str, OtherVersion] = {}
 
 
 class TagSource(ApiModel):

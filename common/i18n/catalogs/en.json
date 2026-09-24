@@ -416,6 +416,8 @@
   "console.community.make_collection": "Make a Collection",
   "console.community.not_held": "Not in your library",
   "console.community.open_collection": "Open Collection",
+  "console.community.other_version": "Different version - you have {version}",
+  "console.community.other_version_unknown": "Different version",
   "console.community.rows": {
     "one": "{count} row",
     "other": "{count} rows"

@@ -92,19 +92,28 @@ def presets(declared: dict[str, Any]) -> dict[str, views.Preset]:
 
 
 def rows(found: list[dict[str, Any]], declared: dict[str, Any],
-         held: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+         held: dict[str, dict[str, Any]],
+         other: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """`other` is the releases held as another version, by release id."""
     relation = declared.get("relation") or {}
     declared_columns = declared.get("columns") or []
     dates = [one["field"] for one in declared_columns if one.get("kind") == "date"]
     under = list(declared_columns[0].get("under") or []) if declared_columns else []
     out = []
     for index, row in enumerate(found):
-        mine = held.get(str(row.get(relation.get("field", "")) or "")) if relation else None
-        built = {**row, "id": str(index), HELD: bool(mine),
-                 UNDER: " ".join(str(row[one]) for one in under
-                                 if row.get(one) not in (None, "")),
-                 f"{HELD}_href": _address(mine, relation) if mine else "",
-                 f"{HELD}_tip": t("console.community.held") if mine else ""}
+        said = str(row.get(relation.get("field", "")) or "") if relation else ""
+        mine = held.get(said) if relation else None
+        elsewhere = (other or {}).get(said) if relation and not mine else None
+        line = " ".join(str(row[one]) for one in under if row.get(one) not in (None, ""))
+        href, tip = (_address(mine, relation), t("console.community.held")) if mine else ("", "")
+        if elsewhere:
+            version = str(elsewhere.get("version") or "")
+            tip = (t("console.community.other_version", version=version) if version
+                   else t("console.community.other_version_unknown"))
+            href = str(elsewhere.get("url") or "")
+            line = " · ".join(one for one in (line, tip) if one)
+        built = {**row, "id": str(index), HELD: bool(mine), UNDER: line,
+                 f"{HELD}_href": href, f"{HELD}_tip": tip}
         for field in dates:
             built = when.said(built, field)
         out.append(built)
@@ -189,9 +198,10 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                     _tag_line(tagging, library)
         return
     relation = declared.get("relation") or {}
-    held = (await offload.io(library.owned, [str(one.get(relation["field"]) or "")
-                                             for one in found]) if relation else {})
-    built = rows(found, declared, held)
+    held, other = (await offload.io(library.owned, [str(one.get(relation["field"]) or "")
+                                                    for one in found])
+                   if relation else ({}, {}))
+    built = rows(found, declared, held, other)
     shown = columns(declared)
     scope = f"console.community.{name}.{declared.get('key')}"
     fields = [one["field"] for one in shown]

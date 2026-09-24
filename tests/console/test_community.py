@@ -76,6 +76,17 @@ class TheGrid(unittest.TestCase):
 
         self.assertEqual("/console?view=tables&game=afm&table=t1", row["held_href"])
 
+    def test_another_version_says_which_and_links_to_the_release(self) -> None:
+        released = {**DECLARED, "relation": {"field": "vps_id", "keys": "vps_release"}}
+        (row,) = community.rows(
+            [{"name": "AFM", "maker": "Bally", "vps_id": "rel-2", "last": ""}], released, {},
+            {"rel-2": {"game_id": "afm", "table_id": "t1", "name": "AFM", "version": "1.2",
+                       "url": "https://example.test/afm"}})
+
+        self.assertEqual((False, "https://example.test/afm"),
+                         (row[community.HELD], row["held_href"]))
+        self.assertEqual("Bally · Different version - you have 1.2", row[community.UNDER])
+
     def test_the_fields_under_the_name_make_its_second_line(self) -> None:
         (row,) = community.rows([{"name": "AFM", "maker": "Bally", "year": 1995,
                                   "vps_id": "", "last": ""}], DECLARED, {})
