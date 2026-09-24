@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import unittest
 
-from console import workbench
+from common.i18n import t
+from console import app_settings, workbench
 
 
 class _Bool:
@@ -86,6 +87,22 @@ class MarkTests(unittest.TestCase):
 
         self.assertNotIn("unset", said)
         self.assertNotIn("scope", said)
+
+
+class ScopeWordTests(unittest.TestCase):
+    """Where an edit goes and where a value came from, in one set of words."""
+
+    def test_the_picker_says_what_the_marks_say(self) -> None:
+        self.assertEqual(app_settings.scope_words(1),
+                         {scope: t(key) for scope, key in workbench.CAME_FROM.items()})
+
+    def test_they_are_the_three_a_person_says(self) -> None:
+        self.assertEqual(sorted(app_settings.scope_words(1).values()),
+                         ["All Tables", "This Game", "This Table"])
+
+    def test_a_game_of_several_tables_says_how_many(self) -> None:
+        self.assertEqual(app_settings.scope_words(3)[app_settings.SCOPE_FOLDER],
+                         "This Game - 3 tables")
 
 
 if __name__ == "__main__":

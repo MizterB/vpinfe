@@ -26,7 +26,7 @@ from console.data import Library
 
 # One definition of both: the launcher's rail and this dialog are the same surface at
 # two scopes, and two spellings of "a table is playing" would drift.
-from console.workbench import PLAYING_NOTE, _playing
+from console.workbench import CAME_FROM, PLAYING_NOTE, _playing
 
 logger = logging.getLogger("vpinfe.console.app_settings")
 
@@ -35,16 +35,14 @@ SCOPE_FOLDER = "folder"
 SCOPE_LAUNCHER = "launcher"
 
 
-def scope_words(folder_tables: int, launcher_name: str) -> dict[str, str]:
-    """What each scope is called, with the folder saying how many it reaches - a folder
-    of one is a fact worth seeing before choosing it over the table."""
-    return {
-        SCOPE_ENTRY: t("console.app_settings.table"),
-        SCOPE_FOLDER: (t("console.app_settings.folder_tables", folder_tables=(folder_tables))
-                if folder_tables != 1
-                       else t("console.app_settings.folder_1_table")),
-        SCOPE_LAUNCHER: t("console.app_settings.everything_plays", launcher_name=(launcher_name)),
-    }
+def scope_words(folder_tables: int) -> dict[str, str]:
+    """What each scope is called: the words the mark beside a value uses, so where an
+    edit goes and where a value came from are said the same way."""
+    words = {scope: t(key) for scope, key in CAME_FROM.items()}
+    if folder_tables > 1:
+        words[SCOPE_FOLDER] = t("console.app_settings.folder_tables",
+                                scope=words[SCOPE_FOLDER], folder_tables=folder_tables)
+    return words
 
 
 async def open_for_table(library: Library, *, launcher_id: str, launcher_name: str,
@@ -55,7 +53,7 @@ async def open_for_table(library: Library, *, launcher_id: str, launcher_name: s
         return
 
     state: dict[str, Any] = {"scope": SCOPE_ENTRY, "search": ""}
-    words = scope_words(folder_tables, launcher_name or t("console.app_settings.launcher"))
+    words = scope_words(folder_tables)
 
     with frame.opened(t("console.app_settings.settings", launcher_name=launcher_name),
                       full=True) as dialog:
