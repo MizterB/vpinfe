@@ -27,23 +27,20 @@ def fields(ctx: Any, default_endpoint: str) -> list[dict]:
     """Every setting, with what it is set to now."""
     held = ctx.config.all() if hasattr(ctx.config, "all") else {}
     return [
-        {"key": ENDPOINT_KEY, "label": "API Endpoint", "type": "string",
+        {"key": ENDPOINT_KEY, "label": ctx.t("settings.endpoint.label"), "type": "string",
          "value": str(held.get(ENDPOINT_KEY) or ""), "placeholder": default_endpoint,
-         "help": "Where scores and ratings are read from and sent. Blank uses "
-                 f"{default_endpoint}."},
-        {"key": USER_KEY, "label": "User ID", "type": "string",
-         "value": str(held.get(USER_KEY) or ""),
-         "help": "Your VPinPlay account. Without it nothing is sent."},
-        {"key": INITIALS_KEY, "label": "Initials", "type": "string",
+         "help": ctx.t("settings.endpoint.help", default=default_endpoint)},
+        {"key": USER_KEY, "label": ctx.t("settings.user_id.label"), "type": "string",
+         "value": str(held.get(USER_KEY) or ""), "help": ctx.t("settings.user_id.help")},
+        {"key": INITIALS_KEY, "label": ctx.t("settings.initials.label"), "type": "string",
          "value": str(held.get(INITIALS_KEY) or ""),
-         "help": "What a score is recorded under, as a machine would show it."},
-        {"key": MACHINE_KEY, "label": "Machine ID", "type": "string",
+         "help": ctx.t("settings.initials.help")},
+        {"key": MACHINE_KEY, "label": ctx.t("settings.machine_id.label"), "type": "string",
          "value": str(held.get(MACHINE_KEY) or ""),
-         "help": "Identifies this cabinet to VPinPlay. Generated on first run; change "
-                 "it only if you are told to."},
-        {"key": SYNC_ON_EXIT_KEY, "label": "Sync on Exit", "type": "switch",
-         "value": _truthy(held.get(SYNC_ON_EXIT_KEY)),
-         "help": "Send this library's play record when VPinFE shuts down."},
+         "help": ctx.t("settings.machine_id.help")},
+        {"key": SYNC_ON_EXIT_KEY, "label": ctx.t("settings.sync_on_exit.label"),
+         "type": "switch", "value": _truthy(held.get(SYNC_ON_EXIT_KEY)),
+         "help": ctx.t("settings.sync_on_exit.help")},
     ]
 
 
@@ -55,8 +52,7 @@ def routers(ctx: Any, default_endpoint: str) -> tuple[APIRouter, APIRouter]:
 
     @reading.get("/settings")
     def read_settings() -> dict:
-        return {"help": "This install's VPinPlay account, and what it sends.",
-                "fields": fields(ctx, default_endpoint)}
+        return {"help": ctx.t("settings.help"), "fields": fields(ctx, default_endpoint)}
 
     @writing.put("/settings")
     def write_settings(payload: dict) -> dict:

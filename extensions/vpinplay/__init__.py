@@ -109,8 +109,7 @@ def register(ctx: Any) -> None:
             return ""
         return str(profile.initials or profile.user_id or "")
 
-    ctx.tokens.offer("player", (ctx.tokens.TABLE,), _player,
-                     says="The initials of whoever is signed in to play")
+    ctx.tokens.offer("player", (ctx.tokens.TABLE,), _player)
     def _who() -> tuple[str, str, str, str]:
         """The four settings a sync needs, as this install has them."""
         return (str(ctx.config.get(ENDPOINT_KEY, "") or DEFAULT_ENDPOINT),
@@ -126,12 +125,11 @@ def register(ctx: Any) -> None:
         client reaching down into games.
         """
         endpoint, user_id, initials, machine_id = _who()
-        missing = [name for name, value in (("a service address", endpoint),
-                                            ("a user id", user_id),
-                                            ("initials", initials),
-                                            ("a machine id", machine_id)) if not value]
+        missing = [key for key, value in ((ENDPOINT_KEY, endpoint), (USER_KEY, user_id),
+                                          (INITIALS_KEY, initials),
+                                          (MACHINE_KEY, machine_id)) if not value]
         if missing:
-            ctx.logger.info("Not syncing: VPinPlay still needs %s", ", ".join(missing))
+            ctx.logger.info("Not syncing: VPinPlay's %s left empty", ", ".join(missing))
             return None
 
         games, skipped = [], 0

@@ -13,7 +13,10 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from common.extensions.contract import words
+
 logger = logging.getLogger(__name__)
+t = words("vpinplay")
 
 PAGE = 100
 KEEP_SECONDS = 600
@@ -23,35 +26,27 @@ TIMEOUT_SECONDS = 15
 MOST_PAGES = 50
 
 COLUMNS = [
-    {"field": "name", "header": "Table", "under": ["manufacturer", "year"]},
-    {"field": "manufacturer", "header": "Manufacturer"},
-    {"field": "year", "header": "Year", "kind": "number"},
-    {"field": "rating", "header": "Rating", "kind": "number",
-     "help": "The average of what VPinPlay's players rated it"},
-    {"field": "ratings", "header": "Ratings", "kind": "number",
-     "help": "How many players rated it"},
-    {"field": "plays", "header": "Plays", "kind": "number"},
-    {"field": "hours", "header": "Hours Played", "kind": "number"},
-    {"field": "players", "header": "Players", "kind": "number",
-     "help": "How many VPinPlay players have it"},
-    {"field": "last_played", "header": "Last Played", "kind": "date"},
-    {"field": "vps_id", "header": "VPS ID"},
+    {"field": "name", "under": ["manufacturer", "year"]},
+    {"field": "manufacturer"},
+    {"field": "year", "kind": "number"},
+    {"field": "rating", "kind": "number"},
+    {"field": "ratings", "kind": "number"},
+    {"field": "plays", "kind": "number"},
+    {"field": "hours", "kind": "number"},
+    {"field": "players", "kind": "number"},
+    {"field": "last_played", "kind": "date"},
+    {"field": "vps_id"},
 ]
 _SHOWN = ["name", "rating", "ratings", "plays", "hours", "players", "last_played"]
 
 
-def _view(name: str, field: str, help_: str, *then: str) -> dict[str, Any]:
-    return {"key": field, "name": name, "columns": _SHOWN, "help": help_,
+def _view(field: str, *then: str) -> dict[str, Any]:
+    return {"key": field, "columns": _SHOWN,
             "sort": [{"field": one, "desc": True} for one in (field, *then)]}
 
 
-VIEWS = [
-    _view("Top Rated", "rating", "What VPinPlay's players rate highest", "ratings"),
-    _view("Most Played", "plays", "What VPinPlay's players start most often"),
-    _view("Most Time Played", "hours", "What VPinPlay's players spend longest on"),
-    _view("Recently Played", "last_played", "What was played last, anywhere"),
-    _view("Most Installed", "players", "What the most players have"),
-]
+VIEWS = [_view("rating", "ratings"), _view("plays"), _view("hours"), _view("last_played"),
+         _view("players")]
 RELATION = {"field": "vps_id", "keys": "vps_entry"}
 
 _lock = threading.Lock()
@@ -115,6 +110,7 @@ def router(endpoint_of: Any) -> APIRouter:
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             logger.warning("VPinPlay did not answer at %s: %s", endpoint, exc)
             raise HTTPException(status_code=502,
-                                detail=f"VPinPlay did not answer: {exc}") from exc
+                                detail=t("error.no_answer", endpoint=endpoint,
+                                         error=exc)) from exc
 
     return reading

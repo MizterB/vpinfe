@@ -160,7 +160,9 @@ core's. `scripts/i18n.py` reads a bundled extension's file along with core's, an
 `--record` and `--pseudo` write its hashes and pseudo-locale. The invariants hold a bundled
 one's file to what its code asks for, both ways, and to the rules under "Type" in
 `docs/conventions.md`, and fail on a sentence written anywhere in its code outside a
-docstring, a log line or a query.
+docstring, a log line, a query or a builtin exception. What a `ValueError` says reaches a
+log and nobody else; what an `HTTPException` says is read by a person, so its `detail`
+comes from `ctx.t`.
 
 ## Adding a way to play a table
 

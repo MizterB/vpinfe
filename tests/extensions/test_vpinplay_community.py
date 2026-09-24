@@ -69,7 +69,9 @@ class Rows(unittest.TestCase):
                           side_effect=urllib.error.URLError("refused")):
             response = TestClient(app).get("/community/tables")
 
-        self.assertEqual(502, response.status_code)
+        self.assertEqual((502, "https://vpinplay.example did not answer: "
+                               "<urlopen error refused>"),
+                         (response.status_code, response.json()["detail"]))
 
 
 class TheDeclaration(unittest.TestCase):
@@ -78,7 +80,7 @@ class TheDeclaration(unittest.TestCase):
         self.addCleanup(registry.clear)
         record = registry.load(host.BUNDLED_DIR / "vpinplay")
 
-        (said,) = record.community
+        (said,) = record.lists()
         self.assertEqual(("tables", "VPinPlay", "vps_entry", "Top Rated"),
                          (said["key"], said["title"], said["relation"]["keys"],
                           said["views"][0]["name"]))

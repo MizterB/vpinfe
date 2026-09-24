@@ -1104,11 +1104,9 @@ class TestEachOwnersFileIsInStep(unittest.TestCase):
                     self.assertEqual(sorted(extra), [], "keys nothing serves")
 
 
-STILL_WRITES_ITS_OWN = {"vpinplay"}
 MATCHED_NOT_SHOWN = {"visual pinball x", "system volume information"}
-# A log line and a query handed to SQLite.
-NOT_READ_AT_A_SCREEN = {"debug", "info", "warning", "error", "exception", "critical",
-                        "log", "execute"}
+# What the Console never shows, beside a log line and a query handed to SQLite.
+NOT_READ_AT_A_SCREEN = NOT_ON_SCREEN | {"log", "execute"}
 # The wizard's and the report's own, beside what the Console draws.
 EXTENSION_DISPLAY_KEYS = DISPLAY_KWARGS | {"reason", "error", "how"}
 # The first segment of a key the host looks up, rather than the extension's code.
@@ -1224,7 +1222,7 @@ class TestEachExtensionKeepsItsOwnWords(unittest.TestCase):
     """An extension's words are in its own `i18n/`, and its code asks for them."""
 
     def setUp(self) -> None:
-        self.extensions = [one for one in _extensions() if one.name not in STILL_WRITES_ITS_OWN]
+        self.extensions = _extensions()
 
     def test_the_extensions_were_found(self) -> None:
         self.assertEqual([one.name for one in _extensions()], ["library_importer", "vpinplay"])
@@ -1245,13 +1243,6 @@ class TestEachExtensionKeepsItsOwnWords(unittest.TestCase):
                           for path, tree in _modules(package)
                           for line, said in _written_in_place(tree, product)]
         self.assertEqual(offenders, [], "ctx.t() or words(), and the words in i18n/en.json")
-
-    def test_one_still_held_out_still_writes_its_own(self) -> None:
-        for name in STILL_WRITES_ITS_OWN:
-            with self.subTest(extension=name):
-                self.assertTrue([said for _, tree in _modules(EXTENSIONS / name)
-                                 for said in _Sentences(tree).found],
-                                "its words have moved: take it out of STILL_WRITES_ITS_OWN")
 
     def test_a_sentence_is_found_wherever_it_is_written(self) -> None:
         tree = ast.parse('"""Reads a library."""\n'
