@@ -63,7 +63,7 @@ class TheGridsListColumns(unittest.TestCase):
         column = _column(games.COLUMNS, "collections")
         self.assertEqual(grid.LIST_FILTER, column[":filter"])
         self.assertEqual(renderers.COLLECTION_LOOKS, column["filterParams"]["looks"])
-        preset = games.GAME_VIEWS[games.game_tables.GAME]
+        preset = games.GAME_VIEWS["console.view.game"]
         self.assertIn("collections", preset.columns)
 
     def test_a_smart_collection_s_chip_carries_the_smart_mark(self) -> None:

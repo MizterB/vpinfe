@@ -6,7 +6,18 @@ import ast
 import pathlib
 import unittest
 
-from console import assets, collections, devices, games, launchers, locations, media
+from common import i18n
+from console import (
+    assets,
+    collections,
+    devices,
+    games,
+    launchers,
+    locations,
+    media,
+    tageditor,
+    themes,
+)
 from console import views as views_module
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -56,6 +67,31 @@ class BuiltinViewsAreDescribed(unittest.TestCase):
                     plain.append(f"console/games.py:{node.lineno}: a view built here "
                                  "is a plain list, so it has no description")
         self.assertEqual(plain, [], "\n" + "\n".join(plain))
+
+
+class BuiltinViewsAreKeptByKey(unittest.TestCase):
+    """The view last showing is remembered by id, so an id holding the words on screen
+    is forgotten when the language changes."""
+
+    GRIDS = {**DECLARED, "themes": themes.VIEWS, "tags": tageditor.VIEWS}
+
+    def test_every_id_is_a_catalog_key(self):
+        worded = [f"{grid}: {view.id}"
+                  for grid, presets in self.GRIDS.items()
+                  for view in views_module.builtins(presets)
+                  if not i18n.first_key(view.id.removeprefix(views_module.builtin_id("")))]
+        self.assertEqual(worded, [], "\n" + "\n".join(worded))
+
+    def test_the_name_is_read_in_the_language_set(self):
+        self.addCleanup(i18n.set_language, i18n.language())
+        english = [view.name for view in views_module.builtins(media.VIEWS)]
+        i18n.set_language("qps")
+
+        self.assertNotEqual(english, [view.name for view in views_module.builtins(media.VIEWS)])
+
+    def test_a_view_named_for_its_panel_section_is_one_the_grid_declares(self):
+        declared = {view.id for view in views_module.builtins(games.GAME_VIEWS)}
+        self.assertLessEqual(set(games.VIEW_SECTIONS), declared)
 
 
 if __name__ == "__main__":

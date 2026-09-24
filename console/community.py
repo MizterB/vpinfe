@@ -75,7 +75,8 @@ def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:
 
 def presets(declared: dict[str, Any]) -> dict[str, views.Preset]:
     related = bool(declared.get("relation"))
-    out = {view["name"]: views.Preset(
+    out = {view["key"]: views.Preset(
+        name=view["name"],
         columns=tuple(view["columns"]),
         sort=tuple({"colId": one["field"], "sort": "desc" if one.get("desc") else "asc",
                     "sortIndex": index} for index, one in enumerate(view.get("sort") or [])),
@@ -83,9 +84,9 @@ def presets(declared: dict[str, Any]) -> dict[str, views.Preset]:
     shown = tuple(one["field"] for one in declared.get("columns") or [])
     first = next(iter(out.values()), None)
     if not out:
-        out[t("console.view.everything")] = views.Preset(columns=shown)
+        out["console.view.everything"] = views.Preset(columns=shown)
     if related:
-        out[t("console.community.yours")] = views.Preset(
+        out["console.community.yours"] = views.Preset(
             columns=first.columns if first else shown, filters={HELD: {"values": [True]}},
             help=t("console.community.yours.help"))
     return out

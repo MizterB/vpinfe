@@ -102,28 +102,28 @@ COLUMNS: list[dict[str, Any]] = [
 _ALL = [definition["field"] for definition in COLUMNS]
 
 VIEWS: dict[str, list[str] | views.Preset] = {
-    t("console.view.missing"): views.Preset(
+    "console.view.missing": views.Preset(
         columns=("game", "label", "reason"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [MISSING]}},
         help=t("console.assets.what_table_could_use.help")),
-    t("console.view.orphans"): views.Preset(
+    "console.view.orphans": views.Preset(
         columns=("game", "label", "reason", "table_file", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [ORPHAN]}},
         help=t("console.assets.files_left_behind_table.help")),
-    t("console.view.unused"): views.Preset(
+    "console.view.unused": views.Preset(
         columns=("game", "label", "reason", "used_by", "table_file", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [UNUSED]}},
         help=t("console.assets.correctly_named_files_nothing.help")),
-    t("console.view.sources"): views.Preset(
+    "console.view.sources": views.Preset(
         columns=("game", "label", "used_by", "path", "source", "match"),
         sort=({"colId": "source", "sort": "asc", "sortIndex": 0},
               {"colId": "game", "sort": "asc", "sortIndex": 1}),
         filters={"reason": {"values": [""]}},
         help=t("console.assets.where_files_rely_came.help")),
-    t("console.view.everything"): views.Preset(
+    "console.view.everything": views.Preset(
         columns=tuple(_ALL),
         help=t("console.assets.every_row_nothing_hidden.help")),
 }

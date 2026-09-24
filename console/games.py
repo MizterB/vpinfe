@@ -55,6 +55,7 @@ SCOPE = "console.games.columns"
 _GAME = "word.game"
 _ASSETS = "console.view.assets"
 _MEDIA = "console.view.media"
+_FEATURES_VIEW = "console.game_tables.features"
 
 # What the games resource calls an asset is not always what `asset_registry` calls it -
 # `settings` is the table INI, and one `alt_color` covers both Serum and VNI. Named
@@ -179,7 +180,7 @@ COLUMNS = [
 # Which part of a game a view is about, so a row lands there rather than on Details
 # and one more click. Only where the view leaves no doubt - the rest open wherever the
 # panel was, which is what stepping down a list needs.
-VIEW_SECTIONS = {"builtin:Media": "media"}
+VIEW_SECTIONS = {views.builtin_id(_MEDIA): "media"}
 
 # A column that reports a problem, and the panel section that fixes it. Clicking the
 # word is the only thing to do with it, so the click lands where the match is made
@@ -190,7 +191,7 @@ GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     # Named for the workbench group it matches: a view and a panel
     # group about the same facts carry the same word, so crossing between the grid and
     # the panel is not a translation.
-    game_tables.GAME: views.Preset(
+    "console.view.game": views.Preset(
         columns=("name", "table_count", "manufacturer", "year", "game_type",
                  "themes", "vps_unmatched", "rating", "tags", "collections"),
         help=t("console.view.game.help")),
@@ -198,8 +199,8 @@ GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     # filled at render time. Two views, not one: they answer different questions - what
     # a game looks like, and what it needs to play as intended - and a matrix that mixes
     # them is neither.
-    t(_MEDIA): views.Preset(help=t("console.view.game_media.help")),
-    t(_ASSETS): views.Preset(help=t("console.view.game_assets.help")),
+    _MEDIA: views.Preset(help=t("console.view.game_media.help")),
+    _ASSETS: views.Preset(help=t("console.view.game_assets.help")),
 }
 
 _ALL = [definition["field"] for definition in COLUMNS]
@@ -410,10 +411,10 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         bar = panel.grid_bar()
         # The media preset is the library's own kinds, so it is only knowable here.
         presets = {**GAME_VIEWS,
-                   t(_MEDIA): views.Preset(
+                   _MEDIA: views.Preset(
                        columns=("name", *[f"media_{kind}" for kind in kinds]),
                        help=t("console.view.game_media.help")),
-                   t(_ASSETS): views.Preset(
+                   _ASSETS: views.Preset(
                        columns=("name",
                                 *[f"asset_{key}" for key in library.asset_keys()]),
                        help=t("console.view.game_assets.help"))}
@@ -433,7 +434,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                         ui.element("span").classes(f"console-mark {tier.mark}")
                         ui.label(t(tier.noun))
             legend.bind_visibility_from(view_picker, "value",
-                                        lambda value: value == "builtin:Media")
+                                        lambda value: value == views.builtin_id(_MEDIA))
 
         narrowed = str(state.get("collection") or "")
         wire_views, view_picker, showing, describe = view_control(
@@ -863,19 +864,19 @@ TABLE_VIEWS: dict[str, list[str] | views.Preset] = {
     # Named for the workbench groups. "Files" and "Play" were one question asked twice -
     # both were app and on-disk state, which is whether this thing runs - so they are
     # Launch, once.
-    game_tables.FILE: views.Preset(
+    "console.game_tables.table_file": views.Preset(
         columns=("game", "rating", "default_state", "hidden", "filename"),
         help=t("console.view.table_file.help")),
-    game_tables.LAUNCH: views.Preset(
+    "console.game_tables.launch": views.Preset(
         columns=("game", "filename", "launcher", "rom", "default_state", "hidden",
                  "missing"),
         help=t("console.view.launch.help")),
     # Its own view, not seven more columns on Play: this is a matrix, the same shape as
     # Media on the games grid, and Play stays a list somebody can read across.
-    game_tables.FEATURES: views.Preset(
+    _FEATURES_VIEW: views.Preset(
         columns=("game", *[f"feature_{key}" for key in table_features.LABELS]),
         help=t("console.view.features.help")),
-    t("console.view.updates"): views.Preset(
+    "console.view.updates": views.Preset(
         columns=("game", "version", "on_vps", "default_state", "hidden", "filename"),
         filters={"update": {"values": [_NEWER]}},
         help=t("console.view.updates.help")),
@@ -1023,7 +1024,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                                   "console-panel console-grid-bar"):
         bar = panel.grid_bar()
         presets = {**TABLE_VIEWS,
-                   t(_ASSETS): views.Preset(
+                   _ASSETS: views.Preset(
                        columns=("game",
                                 *[f"asset_{key}" for key in TABLE_ASSET_KEYS]),
                        help=t("console.view.table_assets.help"))}
@@ -1054,7 +1055,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                                 if shown.mark else "console-mark-none")
                         ui.label(shown.noun)
             legend.bind_visibility_from(view_picker, "value",
-                                        lambda value: value == "builtin:Features")
+                                        lambda value: value == views.builtin_id(_FEATURES_VIEW))
 
         wire_views, view_picker, showing, describe = view_control(
             library, f"{SCOPE}.tables", presets, fields, table_columns, bar=bar,
@@ -1657,12 +1658,8 @@ def view_control(library: Any, scope: str,
 
 
 def _view_name(view: Any) -> str:
-    """Whatever it is called. A name somebody typed is shown as they typed it - the
-    built-ins come first in the list and only a view of theirs offers to be deleted,
-    which is enough to tell them apart without editing anybody's words.
-
-    A built-in's name is already resolved where the view is declared, so there is
-    nothing to look up here - doing it again built a key out of the translation."""
+    """As typed, or as `views.builtins` read it. Looking it up again here would build a
+    key out of the translation."""
     return str(view.name or "")
 
 

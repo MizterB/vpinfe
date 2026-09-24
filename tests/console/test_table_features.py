@@ -47,7 +47,7 @@ class StateTests(unittest.TestCase):
     def test_present_is_green_and_unread_is_quiet(self) -> None:
         """`docs/conventions.md`: green is present, and accent is the current value and
         nothing else - so a tick on every true cell of a matrix cannot be accent. An
-        unread table is not a fault and must not be coloured as one."""
+        unread table is not a fault and must not be colored as one."""
         self.assertEqual(table_features.state_for(table_features.IN_SCRIPT).glyph_class,
                          "console-tick")
         self.assertEqual(table_features.state_for(table_features.UNKNOWN).glyph_class,
@@ -80,7 +80,7 @@ class ViewTests(unittest.TestCase):
         self.assertIsNone(rows[0]["feature_ssf"])
 
     def test_the_features_view_shows_features_and_what_names_the_row(self) -> None:
-        columns = games.TABLE_VIEWS["Features"].columns
+        columns = games.TABLE_VIEWS["console.game_tables.features"].columns
 
         self.assertEqual([c for c in columns if not c.startswith("feature_")],
                          ["game"])

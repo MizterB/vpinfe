@@ -333,24 +333,24 @@ _ALL = [definition["field"] for definition in COLUMNS if definition["field"] != 
 _SELF_FIRST = {"colId": "self", "sort": "desc", "sortIndex": 0}
 
 VIEWS: dict[str, list[str] | views.Preset] = {
-    t("console.devices.all_devices"): views.Preset(
+    "console.devices.all_devices": views.Preset(
         columns=("name", "kind", "state", "what", "last_seen"),
         sort=(_SELF_FIRST,
               {"colId": "state", "sort": "asc", "sortIndex": 1},
               {"colId": "name", "sort": "asc", "sortIndex": 2}),
         help=t("console.devices.every_device_install_met.help")),
-    t("console.view.answering"): views.Preset(
+    "console.view.answering": views.Preset(
         columns=("name", "kind", "what", "address", "features"),
         sort=(_SELF_FIRST, {"colId": "name", "sort": "asc", "sortIndex": 1}),
         filters={"state": {"values": [_REACH[device_client.ANSWERING][0]]}},
         help=t("console.devices.what_switched_reachable_right.help")),
-    t("console.devices.not_answering"): views.Preset(
+    "console.devices.not_answering": views.Preset(
         columns=("name", "kind", "state", "address", "last_seen"),
         sort=(_SELF_FIRST, {"colId": "last_seen", "sort": "asc", "sortIndex": 1}),
         filters={"state": {"values": [_REACH[device_client.UNREACHABLE][0],
                                       _REACH[device_client.UNASKABLE][0]]}},
         help=t("console.devices.devices_could_not_reached.help")),
-    t("console.view.everything"): views.Preset(
+    "console.view.everything": views.Preset(
         columns=tuple(_ALL),
         help=t("console.devices.every_row_every_column.help")),
 }

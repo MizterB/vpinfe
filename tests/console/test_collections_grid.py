@@ -53,7 +53,7 @@ class TheRows(unittest.TestCase):
         self.assertEqual({"90s Bally": True, "Five Bally": False, "Friday Night": True,
                           "Tournament": True},
                          {one["name"]: one["attention"] for one in self.built})
-        preset = collections.COLLECTION_VIEWS[t("console.collections.needs_attention")]
+        preset = collections.COLLECTION_VIEWS["console.collections.needs_attention"]
         self.assertIn("hidden", preset.columns)
 
     def test_only_the_collection_the_cabinet_opens_on_is_marked(self) -> None:

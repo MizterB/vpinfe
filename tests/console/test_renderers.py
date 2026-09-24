@@ -51,7 +51,8 @@ class AView(unittest.TestCase):
         self.assertEqual({}, views.from_record({"id": "view:x", "name": "Old"}).drawn)
 
     def test_drawing_differently_is_drift(self) -> None:
-        view = views.View(id="builtin:Media", name="Media", columns=("name",))
+        view = views.View(id=views.builtin_id("console.view.media"), name="Media",
+                          columns=("name",))
         self.assertFalse(views.differs(view, ("name",), (), {}, {}))
         self.assertTrue(views.differs(view, ("name",), (), {}, {"media_wheel": "picture"}))
 

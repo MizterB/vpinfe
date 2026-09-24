@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from common import install_identity
-from console import community, page
+from console import community, page, views
 
 DECLARED = {"key": "tables", "title": "Site", "base": "/community/tables",
             "columns": [{"field": "name", "header": "Table", "kind": "text",
@@ -13,7 +13,7 @@ DECLARED = {"key": "tables", "title": "Site", "base": "/community/tables",
                         {"field": "plays", "header": "Plays", "kind": "number"},
                         {"field": "last", "header": "Last", "kind": "date"},
                         {"field": "vps_id", "header": "VPS", "kind": "text"}],
-            "views": [{"name": "Most played", "columns": ["name", "plays"],
+            "views": [{"key": "plays", "name": "Most played", "columns": ["name", "plays"],
                        "sort": [{"field": "plays", "desc": True}], "help": ""}],
             "relation": {"field": "vps_id", "keys": "vps_entry"}}
 LOADED = {"name": "site", "state": "loaded", "community": [DECLARED]}
@@ -55,9 +55,14 @@ class TheGrid(unittest.TestCase):
         presets = community.presets(DECLARED)
 
         self.assertEqual(({"colId": "plays", "sort": "desc", "sortIndex": 0},),
-                         presets["Most played"].sort)
+                         presets["plays"].sort)
         self.assertEqual({community.HELD: {"values": [True]}},
-                         presets["In Your Library"].filters)
+                         presets["console.community.yours"].filters)
+
+    def test_a_view_is_kept_by_its_key_and_shown_by_the_name_it_was_sent(self) -> None:
+        (plays, _yours) = views.builtins(community.presets(DECLARED))
+
+        self.assertEqual((views.builtin_id("plays"), "Most played"), (plays.id, plays.name))
 
     def test_a_held_row_links_its_name_to_the_game(self) -> None:
         rows = community.rows([{"name": "AFM", "vps_id": "vps-afm", "last": ""},

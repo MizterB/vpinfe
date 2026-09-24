@@ -53,12 +53,12 @@ _ALL = [one["field"] for one in COLUMNS]
 _SHOWN = ("tag", "description", "games", "tables", "source")
 
 VIEWS: dict[str, list[str] | views.Preset] = {
-    t("console.view.everything"): views.Preset(
+    "console.view.everything": views.Preset(
         columns=_SHOWN, help=t("console.view.tags_everything.help")),
-    t("console.tageditor.unused"): views.Preset(
+    "console.tageditor.unused": views.Preset(
         columns=_SHOWN, filters={"unused": {"values": [True]}},
         help=t("console.view.tags_unused.help")),
-    t("console.tageditor.two_spellings"): views.Preset(
+    "console.tageditor.two_spellings": views.Preset(
         columns=_SHOWN, filters={"duplicate": {"values": [True]}},
         sort=({"colId": "same", "sort": "asc", "sortIndex": 0},
               {"colId": "games", "sort": "desc", "sortIndex": 1}),

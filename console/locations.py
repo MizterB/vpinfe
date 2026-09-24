@@ -61,12 +61,12 @@ COLUMNS = [
 ]
 
 LOCATION_VIEWS: dict[str, list[str] | views.Preset] = {
-    t("console.view.overview"): views.Preset(
+    "console.view.overview": views.Preset(
         columns=("name", "contains", "state", "new_games", "shadowed", "path"),
         help=t("console.view.locations.help")),
     # Its own view rather than more columns on Overview: this one is read when
     # something is wrong, and the question is which location beats which.
-    t("word.priority"): views.Preset(
+    "word.priority": views.Preset(
         columns=("name", "priority", "shadowed", "state", "path"),
         help=t("console.view.priority.help")),
 }

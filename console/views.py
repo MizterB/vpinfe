@@ -69,17 +69,27 @@ class Preset:
     # was worth building a view for.
     help: str = ""
     drawn: dict[str, str] = field(default_factory=dict)
+    # Words that arrived already read, from an extension.
+    name: str = ""
+
+
+def builtin_id(key: str) -> str:
+    return f"builtin:{key}"
 
 
 def builtins(presets: Mapping[str, list[str] | Preset]) -> list[View]:
-    """The read-only starting points a grid declares."""
-    return [View(id=f"builtin:{name}", name=name, builtin=True,
+    """The read-only starting points a grid declares, each under the catalog key of its
+    name. A preset's own `name` is shown as given instead."""
+    return [View(id=builtin_id(key),
+                 name=(preset.name if isinstance(preset, Preset) and preset.name
+                       else t(key)),
+                 builtin=True,
                  columns=tuple(preset.columns if isinstance(preset, Preset) else preset),
                  sort=tuple(preset.sort) if isinstance(preset, Preset) else (),
                  filters=dict(preset.filters) if isinstance(preset, Preset) else {},
                  help=preset.help if isinstance(preset, Preset) else "",
                  drawn=dict(preset.drawn) if isinstance(preset, Preset) else {})
-            for name, preset in presets.items()]
+            for key, preset in presets.items()]
 
 
 def to_record(view: View) -> dict[str, Any]:

@@ -152,10 +152,10 @@ _FOCUS_ROW = """new Promise((done) => {
 })"""
 
 COLLECTION_VIEWS: dict[str, list[str] | views.Preset] = {
-    t("console.view.everything"): views.Preset(
+    "console.view.everything": views.Preset(
         columns=("icon", "name", "kind", "count", "order"),
         help=t("console.view.collections_everything.help")),
-    t("console.collections.needs_attention"): views.Preset(
+    "console.collections.needs_attention": views.Preset(
         columns=("icon", "name", "kind", "added", "matched", "excluded", "missing",
                  "hidden"),
         filters={"attention": {"values": [True]}},
