@@ -9,7 +9,7 @@ from typing import Any
 from common.games.asset_registry import ASSET_SPECS
 from common.i18n import t
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
-from console import game_tables, media_ownership, when
+from console import art, game_tables, media_ownership, when
 from console.api import ApiClient
 
 logger = logging.getLogger("vpinfe.console.data")
@@ -32,7 +32,8 @@ _SLOW_READ = 1.0
 # A media slot, and what one nothing serves looks like. The fields the per-game read
 # returns, less its `links` block, which nothing here draws.
 _MEDIA_ABSENT: dict[str, Any] = {"present": False, "file": None, "path": None,
-                                 "via": None, "origin": None, "matched_to": None}
+                                 "via": None, "origin": None, "matched_to": None,
+                                 "version": None}
 
 
 # A video shows the frame at `#t=0.1` - metadata alone paints nothing, and the fragment
@@ -51,7 +52,7 @@ def _thumb(game_id: str, kind: str, entry: dict) -> str:
     family = media_family(kind)
     if not entry.get("present") or family not in ("image", "video"):
         return ""
-    src = f"/api/v1/games/{game_id}/media/{kind}"
+    src = art.media(game_id, kind, version=entry.get("version"), size=art.CELL)
     return (_VIDEO if family == "video" else _PICTURE).format(src=src)
 
 

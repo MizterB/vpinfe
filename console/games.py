@@ -19,6 +19,7 @@ from common.i18n import t
 from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
+    art,
     collection_adds,
     confirm,
     deeplink,
@@ -495,7 +496,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         args = event.args if isinstance(event.args, dict) else {}
         game_id, kind = str(args.get("game") or ""), str(args.get("kind") or "")
         if game_id and kind:
-            mediaview.open_viewer(f"/api/v1/games/{game_id}/media/{kind}", kind,
+            version = (library.media.get(game_id) or {}).get(kind, {}).get("version")
+            mediaview.open_viewer(art.media(game_id, kind, version=version), kind,
                                   media_label_map().get(kind, kind))
 
     rate_row = stars.rating_handler(by_id, lambda: table, ApiClient)

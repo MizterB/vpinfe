@@ -14,13 +14,12 @@ import logging
 from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import Any
-from urllib.parse import quote
 
 from nicegui import run, ui
 
 from common.games.collection_store import DIRECTION_WORDS, MANUAL_ORDER, SORT_LABELS
 from common.i18n import t
-from console import collection_adds, confirm, grid, offload, panel, verbs, views
+from console import art, collection_adds, confirm, grid, offload, panel, verbs, views
 from console.games import view_control
 
 logger = logging.getLogger("vpinfe.console.collections")
@@ -216,9 +215,9 @@ def _icon_cell(row: dict[str, Any]) -> str:
     squares is louder than the few real pictures in it."""
     if not row.get("image"):
         return ""
-    name = quote(str(row.get("name") or ""), safe="")
-    return (f'<img src="/api/v1/collections/{name}/image" loading="lazy" '
-            f'class="console-collection-cell">')
+    src = art.collection(str(row.get("name") or ""), version=row.get("image_version"),
+                         size=art.CELL)
+    return f'<img src="{src}" loading="lazy" class="console-collection-cell">'
 
 
 def _order_line(row: dict[str, Any]) -> str:
