@@ -162,15 +162,15 @@ class FollowsTheCabinetTests(unittest.TestCase):
 
         self.assertEqual([one["id"] for one in remote.offered_games(entries)], ["a", "b"])
 
-    def test_a_collection_kept_off_the_cabinet_is_not_offered(self) -> None:
-        collections = [{"name": "Shown", "on_cabinet": True},
-                       {"name": "Kept off", "on_cabinet": False}]
+    def test_a_collection_kept_out_of_the_frontend_is_not_offered(self) -> None:
+        collections = [{"name": "Shown", "in_frontend": True},
+                       {"name": "Kept off", "in_frontend": False}]
 
-        self.assertEqual(remote.cabinet_collections(collections), ["Shown"])
+        self.assertEqual(remote.frontend_collections(collections), ["Shown"])
 
     def test_the_one_already_chosen_stays_whatever_the_switch_says(self) -> None:
-        collections = [{"name": "Shown", "on_cabinet": True},
-                       {"name": "Kept off", "on_cabinet": False}]
+        collections = [{"name": "Shown", "in_frontend": True},
+                       {"name": "Kept off", "in_frontend": False}]
 
-        self.assertEqual(remote.cabinet_collections(collections, "Kept off"),
+        self.assertEqual(remote.frontend_collections(collections, "Kept off"),
                          ["Shown", "Kept off"])

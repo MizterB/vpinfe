@@ -92,8 +92,8 @@ MEMBER_TABLE_KEY = "table"
 EXCLUDED_KEY = "excluded"
 # The criteria block. Its presence is what makes a collection a dynamic one.
 FILTERS_KEY = "filters"
-# False keeps the collection out of the cabinet's menus; absent means shown.
-ON_CABINET_KEY = "on_cabinet"
+# False keeps the collection out of the frontend's menus; absent means shown.
+IN_FRONTEND_KEY = "in_frontend"
 # What the collection is for, in the owner's words. Free to add: a new field on a
 # collection costs nothing, and a build that does not know it leaves it alone.
 DESCRIPTION_KEY = "description"
@@ -770,15 +770,15 @@ class CollectionStore:
         else:
             record.pop(DESCRIPTION_KEY, None)
 
-    def get_on_cabinet(self, section: str) -> bool:
-        return (self._record(section) or {}).get(ON_CABINET_KEY) is not False
+    def get_in_frontend(self, section: str) -> bool:
+        return (self._record(section) or {}).get(IN_FRONTEND_KEY) is not False
 
-    def set_on_cabinet(self, section: str, shown: bool) -> None:
+    def set_in_frontend(self, section: str, shown: bool) -> None:
         record = self._require_mutable(section)
         if shown:
-            record.pop(ON_CABINET_KEY, None)
+            record.pop(IN_FRONTEND_KEY, None)
         else:
-            record[ON_CABINET_KEY] = False
+            record[IN_FRONTEND_KEY] = False
 
     def get_image(self, section: str) -> str:
         record = self._record(section)

@@ -743,10 +743,11 @@ Taking the criteria away is `clear_filters: true`, for the same reason a cap nee
 since they only said what to leave out of what the criteria found. Sending it beside
 `filters` is refused.
 
-`on_cabinet` is false on a collection kept off the cabinet: its collection menu and core's
-collection picker leave it out, while this API and the Console still list it. PATCH it with
-`on_cabinet`; `true` removes the key rather than storing it. The collection the cabinet is
-showing stays in its menu even when it is off, so a setting that opens on it still does.
+`in_frontend` is false on a collection kept out of the frontend: its collection menu and
+core's collection picker leave it out, while this API and the Console still list it. PATCH it
+with `in_frontend`; `true` removes the key rather than storing it. The collection the
+frontend is showing stays in its menu even when it is off, so a setting that opens on it
+still does.
 
 Collection names are the identity, so they are URL-encoded in paths (`Last%20Played`).
 `Last Played` itself is a filter collection over the games with a play on record, ordered

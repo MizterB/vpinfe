@@ -462,9 +462,9 @@ def offered_games(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return found
 
 
-def cabinet_collections(collections: list[dict[str, Any]], chosen: str = "") -> list[str]:
+def frontend_collections(collections: list[dict[str, Any]], chosen: str = "") -> list[str]:
     return [str(one.get("name") or "") for one in collections
-            if one.get("name") and (one.get("on_cabinet", True) or one.get("name") == chosen)]
+            if one.get("name") and (one.get("in_frontend", True) or one.get("name") == chosen)]
 
 
 def in_collection(games: list[dict[str, Any]],
@@ -512,7 +512,7 @@ def _play(state: dict[str, Any],
         ui.input(placeholder=t("console.remote.find_game"), value=state.get("find") or "",
                  on_change=typed) \
             .props("dense outlined clearable inputmode=search").classes("w-full")
-        named = cabinet_collections(state.get("collections") or [],
+        named = frontend_collections(state.get("collections") or [],
                                     state.get("collection") or "")
         if named:
             ui.select({"": t("console.remote.all_games")} | {name: name for name in named},

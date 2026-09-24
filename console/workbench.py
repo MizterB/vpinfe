@@ -4685,8 +4685,8 @@ async def _collection_details(context: dict[str, Any]) -> None:
         (t("word.name"), _text_control(context, row, "name")),
         (t("console.workbench.description"), _text_control(context, row, "description",
                 lines=3)),
-        (HEADING, t("console.workbench.on_the_cabinet")),
-        (t("console.workbench.show_on_cabinet"), _on_cabinet_switch(context, row)),
+        (HEADING, t("console.workbench.in_the_frontend")),
+        (t("console.workbench.show_in_frontend"), _in_frontend_switch(context, row)),
         (t("console.workbench.page_buttons"), _page_buttons(context, row, size)),
         (FULL, partial(_image_slot, context, row)),
     ]
@@ -4754,14 +4754,14 @@ async def _rename(context: dict[str, Any], wanted: str) -> None:
     await context["rebuild"]()
 
 
-def _on_cabinet_switch(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
-    shown = row.get("on_cabinet") is not False
+def _in_frontend_switch(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
+    shown = row.get("in_frontend") is not False
 
     async def changed(event: Any) -> None:
         if bool(event.value) != shown:
-            await _patch(context, {"on_cabinet": bool(event.value)})
+            await _patch(context, {"in_frontend": bool(event.value)})
 
-    return panel.switch(shown, changed, hint=t("console.workbench.show_on_cabinet.help"))
+    return panel.switch(shown, changed, hint=t("console.workbench.show_in_frontend.help"))
 
 
 _PAGE_BY_GROUP = {"letter": "console.workbench.by_letter",

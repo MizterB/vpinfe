@@ -63,11 +63,11 @@ class TheRows(unittest.TestCase):
     def test_opening_on_all_games_marks_none(self) -> None:
         self.assertFalse(any(one["opens_on"] for one in collections.rows([_SMART, _GONE])))
 
-    def test_only_a_collection_kept_off_the_cabinet_says_so(self) -> None:
-        built = collections.rows([{**_SMART, "on_cabinet": False}, _GONE])
+    def test_only_a_collection_kept_out_of_the_frontend_says_so(self) -> None:
+        built = collections.rows([{**_SMART, "in_frontend": False}, _GONE])
 
         self.assertEqual({"90s Bally": False, "Friday Night": True},
-                         {one["name"]: one["on_cabinet"] for one in built})
+                         {one["name"]: one["in_frontend"] for one in built})
         self.assertIn(verbs.HIDE, _column("name")[":cellRenderer"])
 
     def test_an_order_reads_in_its_field_s_own_words(self) -> None:

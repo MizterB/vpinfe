@@ -23,9 +23,9 @@ from common.extensions import services as ext_services
 from common.games import game_identity
 from common.games.collection_store import BUILTIN_ALL, normalize_direction, public_name
 from common.games.collections_service import (
-    get_cabinet_collections,
     get_collection_image_url,
     get_collections_manager,
+    get_frontend_collections,
 )
 from common.games.game_metadata import game_rating, normalize_meta, set_game_rating
 from common.games.game_repository import all_games
@@ -452,16 +452,16 @@ class API:
 
     def get_collections(self) -> list[str]:
         return [row["name"] for row in
-                get_cabinet_collections(public_name(self.current_collection))]
+                get_frontend_collections(public_name(self.current_collection))]
 
     def get_collections_metadata(self) -> list[dict]:
-        return self._glanced(get_cabinet_collections(public_name(self.current_collection)))
+        return self._glanced(get_frontend_collections(public_name(self.current_collection)))
 
     def get_collection_picker_items(self) -> list[dict]:
         """All Games, then what `get_collections_metadata` offers."""
         showing = public_name(self.current_collection)
         whole = {"name": "", "image": "", "image_url": ""}
-        rows = self._glanced([whole, *get_cabinet_collections(showing)])
+        rows = self._glanced([whole, *get_frontend_collections(showing)])
         return [row | {"showing": row["name"] == showing} for row in rows]
 
     def _glanced(self, rows: list[dict]) -> list[dict]:

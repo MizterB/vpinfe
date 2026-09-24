@@ -128,7 +128,7 @@ def get_collections_metadata() -> list[dict]:
             "is_filter": is_filter,
             "image": image,
             "image_url": collection_icon_url(image),
-            "on_cabinet": manager.get_on_cabinet(name),
+            "in_frontend": manager.get_in_frontend(name),
             # The stored membership, whatever else the collection carries. Criteria and
             # named members are combinable, so reporting null for
             # anything that filters hid the members it also held.
@@ -137,10 +137,10 @@ def get_collections_metadata() -> list[dict]:
     return rows
 
 
-def get_cabinet_collections(showing: str = "") -> list[dict]:
-    """The collections the cabinet offers, and `showing` whether offered or not."""
+def get_frontend_collections(showing: str = "") -> list[dict]:
+    """The collections the frontend offers, and `showing` whether offered or not."""
     return [row for row in get_collections_metadata()
-            if row["on_cabinet"] or (showing and row["name"] == showing)]
+            if row["in_frontend"] or (showing and row["name"] == showing)]
 
 
 def save_filter_collection(
