@@ -70,10 +70,7 @@ def reported(library: Library) -> tuple:
     installs reading one library report the same ones. An unreadable policy reports
     everything, which is the answer a fresh library gives anyway.
     """
-    try:
-        hidden = {str(one) for one in (library.library_policy().get("hidden_checks") or [])}
-    except Exception:  # noqa: BLE001 - a report that cannot read a preference still runs
-        hidden = set()
+    hidden = library.hidden_checks()
     return tuple(one for one in CHECKS if one[0] not in hidden)
 
 

@@ -115,6 +115,7 @@ class Library:
         self._config_schema: list[dict[str, Any]] | None = None
         self._launch_apps: list[dict[str, Any]] | None = None
         self._kept: dict[str, set[str]] | None = None
+        self._hidden_checks: set[str] | None = None
         self._tags: list[dict[str, Any]] = []
 
     def load(self) -> None:
@@ -606,6 +607,29 @@ class Library:
     def has_table_rows(self) -> bool:
         return self._table_rows is not None
 
+    def load_overview(self) -> None:
+        """What the Overview draws from. Off the event loop."""
+        self.load_tables()
+        if self._media_missing():
+            shared = self._shared_media()
+            for game_id in self._media_missing():
+                self.media[game_id] = shared[game_id]
+        try:
+            policy = self.library_policy()
+        except Exception:  # noqa: BLE001 - a report that cannot read a preference still runs
+            policy = {}
+        self._hidden_checks = {str(one) for one in (policy.get("hidden_checks") or [])}
+
+    def has_overview(self) -> bool:
+        return (self._table_rows is not None and self._hidden_checks is not None
+                and not self._media_missing())
+
+    def _media_missing(self) -> list[str]:
+        return [game["id"] for game in self.games if game["id"] not in self.media]
+
+    def hidden_checks(self) -> set[str]:
+        return self._hidden_checks or set()
+
     # --- collections ----------------------------------------------------------
     # Held, because render() runs on the event loop and the client refuses an HTTP call
     # there - the same reason the by-file lens is warmed rather than fetched. Every
@@ -999,6 +1023,7 @@ class Library:
 
     def put_library_policy(self, changes: dict) -> dict:
         self._kept = None
+        self._hidden_checks = None
         return self._client.put_library_policy(changes)
 
     def offered_media(self, game_id: str) -> dict[str, int]:

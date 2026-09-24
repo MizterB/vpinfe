@@ -1130,6 +1130,12 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 render()
             asyncio.create_task(read_game_collections_then_draw())
             return
+        if state["view"] == "overview" and not library.has_overview():
+            async def read_overview_then_draw() -> None:
+                await run.io_bound(library.load_overview)
+                render()
+            asyncio.create_task(read_overview_then_draw())
+            return
         if state["view"] == "tables" and not library.has_table_rows():
             async def read_then_draw() -> None:
                 await run.io_bound(library.load_tables)
@@ -1214,6 +1220,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # An address that names a section has to read what that section needs, because the
     # first draw goes straight to render() and only redraw() reads on the way in. Both
     # of these drew empty from a link and filled in on the next click.
+    if state["view"] == "overview":
+        await run.io_bound(library.load_overview)
     if state["view"] == "games":
         await run.io_bound(library.load_game_collections)
     if state["view"] == "tables":

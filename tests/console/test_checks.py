@@ -10,19 +10,23 @@ from __future__ import annotations
 
 import unittest
 
-from console import sections
+from console import data, sections
 
 
 class FakeLibrary:
     """Just enough of Library for the checks: games, their media, and the flat lens."""
 
-    def __init__(self, games, rows, media=None):
+    def __init__(self, games, rows, media=None, hidden=()):
         self.games = games
         self.media = media or {g["id"]: {} for g in games}
         self._rows = rows
+        self._hidden = set(hidden)
 
     def table_rows(self):
         return self._rows
+
+    def hidden_checks(self):
+        return self._hidden
 
 
 def game(game_id, **rest):
@@ -78,11 +82,97 @@ class FindingsTests(unittest.TestCase):
         lib = FakeLibrary([game("g1")], [])
         self.assertEqual(sections.findings(lib)["rom_missing"], [])
 
+    def test_a_check_the_library_keeps_quiet_is_not_run(self):
+        lib = FakeLibrary([game("g1")], [table("g1", False)], hidden=["rom_missing"])
+        self.assertNotIn("rom_missing", sections.findings(lib))
+
     def test_every_check_gets_the_third_argument(self):
         """The signature changed for one check; the others must still run."""
         lib = FakeLibrary([game("g1", year="")], [table("g1", True)])
         found = sections.findings(lib)
         self.assertEqual([g["id"] for g in found["no_year"]], ["g1"])
+
+
+class _Client:
+    def __init__(self, policy=None):
+        self.policy = policy
+        self.reads = {"tables": 0, "media": 0, "policy": 0}
+
+    def games(self):
+        return [game("g1"), game("g2")]
+
+    def media(self, game_id):
+        return {"wheel": {"present": False}}
+
+    def all_tables(self):
+        self.reads["tables"] += 1
+        return [table("g1", False)]
+
+    def all_media(self):
+        self.reads["media"] += 1
+        return [{"game_id": "g1", "kind": "wheel", "present": True}]
+
+    def library_policy(self):
+        self.reads["policy"] += 1
+        if self.policy is None:
+            raise OSError("unreachable")
+        return self.policy
+
+
+class OverviewReadTests(unittest.TestCase):
+    """Everything the Overview counts is read before it draws."""
+
+    def _library(self, client):
+        library = data.Library(client)
+        library.games = [game("g1"), game("g2")]
+        return library
+
+    def test_it_reads_the_tables_media_and_quiet_checks(self):
+        library = self._library(_Client({"hidden_checks": ["no_year"]}))
+        self.assertFalse(library.has_overview())
+
+        library.load_overview()
+
+        self.assertTrue(library.has_overview())
+        self.assertEqual({"no_year"}, library.hidden_checks())
+        self.assertEqual(["g1"], [g["id"] for g in sections.findings(library)["rom_missing"]])
+
+    def test_the_draw_reads_nothing(self):
+        client = _Client({"hidden_checks": []})
+        library = self._library(client)
+        library.load_overview()
+        before = dict(client.reads)
+
+        sections.findings(library)
+
+        self.assertEqual(before, client.reads)
+
+    def test_media_an_import_emptied_is_read_again(self):
+        client = _Client({})
+        library = self._library(client)
+        library.load_overview()
+        library.refresh_after_import()
+
+        self.assertFalse(library.has_overview())
+        library.load_overview()
+        self.assertTrue(library.media["g1"]["wheel"]["present"])
+
+    def test_one_game_the_panel_read_does_not_stand_for_the_library(self):
+        client = _Client({})
+        library = self._library(client)
+        library.load_overview()
+        library.refresh_after_import()
+        library.media_for("g2", None)
+
+        self.assertFalse(library.has_overview())
+        library.load_overview()
+        self.assertEqual(["g1", "g2"], sorted(library.media))
+        self.assertFalse(library.media["g2"]["wheel"]["present"])
+
+    def test_an_unreadable_policy_reports_every_check(self):
+        library = self._library(_Client(None))
+        library.load_overview()
+        self.assertEqual(set(), library.hidden_checks())
 
 
 if __name__ == "__main__":
