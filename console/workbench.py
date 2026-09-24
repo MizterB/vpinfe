@@ -45,6 +45,7 @@ from console import (
     candidates,
     collection_adds,
     collection_rules,
+    community,
     confirm,
     deeplink,
     game_tables,
@@ -72,7 +73,7 @@ from console import locations as locations_page
 from console import settings as settings_page
 from console import themes as themes_page
 from console.api import ApiError
-from console.data import Library
+from console.data import Library, tag_source
 
 logger = logging.getLogger("vpinfe.console.workbench")
 
@@ -604,12 +605,28 @@ async def _tag_details(context: dict[str, Any]) -> None:
         if callable(refresh):
             await refresh()
 
+    sources = list(look.get("sources") or [])
     _rows(ui, [
-        (t("console.tageditor.tag"), panel.field(name, rename)),
+        (t("console.tageditor.tag"), name if sources else panel.field(name, rename)),
+        *[(t("console.tags.from"), partial(_tag_source, one)) for one in sources],
         (t("console.workbench.description"), panel.field(str(look.get("description") or ""),
                                             describe, lines=2)),
         (t("console.tags.color"), partial(_swatches, context)),
     ])
+
+
+def _tag_source(said: dict[str, Any]) -> None:
+    with ui.column().classes("gap-0 min-w-0"):
+        panel.link(tag_source(said), to=community.address(str(said.get("extension") or ""),
+                                                          str(said.get("list") or "")))()
+        read = when.ago(said.get("read_at"))
+        if said.get("stale"):
+            ui.label(t("console.tags.stale", ago=read) if read
+                     else t("console.tags.never_read")).classes("console-help")
+        elif read:
+            ui.label(t("console.tags.read", ago=read)).classes("console-help")
+        else:
+            ui.label(t("console.tags.never_read")).classes("console-help")
 
 
 def _swatches(context: dict[str, Any]) -> None:
@@ -627,13 +644,16 @@ def _swatches(context: dict[str, Any]) -> None:
     tag_chips.swatches(chosen, tag_registry.derived_color(name), pick)
 
 
+def _carried(row: dict[str, Any]) -> list[str]:
+    return [*((row.get("user") or {}).get("tags") or []), *(row.get("derived_tags") or [])]
+
+
 async def _tag_games(context: dict[str, Any]) -> None:
     name = context["name"]
     library = context["library"]
-    carrying = [one for one in library.games
-                if name in ((one.get("user") or {}).get("tags") or [])]
+    carrying = [one for one in library.games if name in _carried(one)]
     tables = ([one for one in await offload.io(library.load_tables)
-               if name in ((one.get("user") or {}).get("tags") or [])]
+               if name in _carried(one)]
               if context["tag"].get("tables") else [])
     with ui.column().classes("gap-0 console-form w-full min-w-0"):
         if not carrying and not tables:
@@ -2100,7 +2120,8 @@ def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
                       favorite=lambda: _switch(bool(record.get("favorite")), favorite,
                                                hint=t("console.workbench.yours_frontend_can_filter")),
                       tags=_tag_picker(list(record.get("tags") or []),
-                                       context["library"], retag))
+                                       context["library"], retag,
+                                       list(game.get("derived_tags") or [])))
     # Empty is the revert: nothing but the user supplies this, and clearing it asks for
     # the frontend's own effect.
     rows.append((t("console.workbench.dof_event"),
@@ -2136,7 +2157,8 @@ def _table_play_rows(context: dict[str, Any],
     rows = _play_rows(context, record, rating=int(table.get("rating") or 0),
                       on_rate=rate, on_reset=reset,
                       tags=_tag_picker(list(record.get("tags") or []),
-                                       context["library"], retag))
+                                       context["library"], retag,
+                                       list(table.get("derived_tags") or [])))
     return rows + _library_rows(context, table)
 
 
@@ -2725,7 +2747,8 @@ def _play_rows(context: dict[str, Any], record: dict[str, Any], *,
 
 
 def _tag_picker(held: list[str], library: Library,
-                on_change: Callable[[list[str]], Any]) -> Callable[[], None]:
+                on_change: Callable[[list[str]], Any],
+                derived: Sequence[str] = ()) -> Callable[[], None]:
     """The tags on this game, and the ones the library already knows.
 
     The same control a multi-valued filter axis uses - chips for what is set, and the
@@ -2738,14 +2761,29 @@ def _tag_picker(held: list[str], library: Library,
     folding here would hide the duplicate instead of letting it be found.
     """
     def draw() -> None:
-        control = tag_chips.Picker(library.tags(), value=held,
-                                   looks=library.tag_looks(), adds=True) \
-            .props('dense outlined hide-dropdown-icon '
-                   'popup-content-class="console-picker-popup"') \
-            .classes("w-full min-w-0")
+        with ui.column().classes("gap-1 w-full min-w-0"):
+            if derived:
+                _derived_chips(derived, library.tag_looks())
+            control = tag_chips.Picker(library.tags(), value=held,
+                                       looks=library.tag_looks(), adds=True) \
+                .props('dense outlined hide-dropdown-icon '
+                       'popup-content-class="console-picker-popup"') \
+                .classes("w-full min-w-0")
         control.on_value_change(lambda: on_change(list(control.value or [])))
 
     return draw
+
+
+def _derived_chips(tags: Sequence[str], looks: dict[str, dict[str, Any]]) -> None:
+    with ui.element("span").classes(tag_chips.BOX):
+        for tag in tags:
+            sources = (looks.get(tag) or {}).get("sources") or [{}]
+            panel.tag_link(
+                tag, tag_chips.color_of(tag, looks), mark=community.ICON,
+                to=community.address(str(sources[0].get("extension") or ""),
+                                     str(sources[0].get("list") or "")),
+                hint=t("console.tags.from_source",
+                       source=", ".join(tag_source(one) for one in sources if one)))()
 
 
 def _reset_action(on_reset: Callable[[], Any]) -> Callable[[], None]:

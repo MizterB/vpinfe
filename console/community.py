@@ -27,6 +27,10 @@ def view_key(extension: str, key: str) -> str:
     return f"{PREFIX}{extension}:{key}"
 
 
+def address(extension: str, key: str) -> str:
+    return "/console?" + deeplink.query({"view": view_key(extension, key)})
+
+
 def lists(extensions: Sequence[dict[str, Any]]) -> list[tuple[dict, dict]]:
     """(extension, list) for every list a running extension declares."""
     return [(one, declared) for one in extensions

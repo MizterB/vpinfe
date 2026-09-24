@@ -1213,11 +1213,15 @@
   "console.tags.color.purple": "Purple",
   "console.tags.color.red": "Red",
   "console.tags.color.teal": "Teal",
+  "console.tags.from": "From",
+  "console.tags.from.help": "The extension list that puts it on",
+  "console.tags.from_source": "From {source}",
   "console.tags.games_counted": {
     "one": "Games ({count})",
     "other": "Games ({count})"
   },
   "console.tags.merge_into": "Merge into",
+  "console.tags.never_read": "Not read yet",
   "console.tags.on_games": {
     "one": "On {count} game",
     "other": "On {count} games"
@@ -1227,6 +1231,9 @@
     "one": "On {count} table",
     "other": "On {count} tables"
   },
+  "console.tags.read": "Read {ago}",
+  "console.tags.source": "{extension}: {title}",
+  "console.tags.stale": "Could not be read since {ago}",
   "console.themes.active": "Active",
   "console.themes.added_by_hand": "Added by hand",
   "console.themes.both": "Cabinet or desktop",

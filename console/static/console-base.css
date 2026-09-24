@@ -2438,6 +2438,9 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
   padding: 0 8px 0 6px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--surface-lift); color: var(--ink);
 }
+a.console-tag { text-decoration: none; }
+a.console-tag:hover { background: var(--wash-hover); }
+.console-tag .q-icon { font-size: 1.1em; color: var(--ink-3); }
 .q-chip.console-tag { height: auto; margin: 2px 4px 2px 0; padding: 0 2px 0 6px; }
 .q-chip.console-tag .q-chip__content { gap: 6px; }
 .q-chip.console-tag .q-chip__icon--remove { font-size: 1.15em; margin: 0; }

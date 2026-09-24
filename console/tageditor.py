@@ -36,6 +36,7 @@ COLUMNS = [
                 help=t("console.tageditor.games.help")),
     grid.column("tables", t("console.tageditor.tables"), type="numericColumn",
                 help=t("console.tageditor.tables.help")),
+    grid.column("source", t("console.tags.from"), 200, help=t("console.tags.from.help")),
     grid.column("unused", t("console.tageditor.unused"), 120,
                 **grid.choice_filter([{"value": True, "label": t("console.tageditor.unused")},
                                       {"value": False, "label": t("console.tageditor.in_use")}],
@@ -49,7 +50,7 @@ COLUMNS = [
                 help=t("console.tageditor.spelled_as.help")),
 ]
 _ALL = [one["field"] for one in COLUMNS]
-_SHOWN = ("tag", "description", "games", "tables")
+_SHOWN = ("tag", "description", "games", "tables", "source")
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     t("console.view.everything"): views.Preset(
@@ -73,6 +74,8 @@ def rows_by_key(rows: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     """
     groups: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
+        if row.get("sources"):
+            continue
         groups.setdefault(str(row.get("same") or ""), []).append(row)
     return [sorted(group, key=lambda r: (-int(r.get("games") or 0), str(r.get("tag"))))
             for group in groups.values() if len(group) > 1]
@@ -263,7 +266,11 @@ def acts(library: Any, tag: str, games: int,
          after: Callable[[str | None], Awaitable[None]]) -> list[panel.Verb]:
     """What can be done to one tag. `after` is given the tag to show next, or None when
     this one has gone."""
-    others = sorted((one for one in library.tag_looks() if one != tag), key=str.casefold)
+    derived = library.derived_tags()
+    if tag in derived:
+        return []
+    others = sorted((one for one in library.tag_looks() if one != tag and one not in derived),
+                    key=str.casefold)
 
     async def rename() -> None:
         said = await _ask_for_a_name(tag)

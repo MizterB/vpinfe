@@ -1213,11 +1213,15 @@
   "console.tags.color.purple": "Þûřþŀè",
   "console.tags.color.red": "Řèđ",
   "console.tags.color.teal": "Ţèàŀ",
+  "console.tags.from": "Ƒřöɱ",
+  "console.tags.from.help": "Ţĥè èẋţèñšîöñ ŀîšţ ţĥàţ þûţš îţ öñ",
+  "console.tags.from_source": "Ƒřöɱ {source}",
   "console.tags.games_counted": {
     "one": "Ĝàɱèš ({count})",
     "other": "Ĝàɱèš ({count})"
   },
   "console.tags.merge_into": "Ḿèřĝè îñţö",
+  "console.tags.never_read": "Ñöţ řèàđ ýèţ",
   "console.tags.on_games": {
     "one": "Öñ {count} ĝàɱè",
     "other": "Öñ {count} ĝàɱèš"
@@ -1227,6 +1231,9 @@
     "one": "Öñ {count} ţàƀŀè",
     "other": "Öñ {count} ţàƀŀèš"
   },
+  "console.tags.read": "Řèàđ {ago}",
+  "console.tags.source": "{extension}: {title}",
+  "console.tags.stale": "Çöûŀđ ñöţ ƀè řèàđ šîñçè {ago}",
   "console.themes.active": "Àçţîṽè",
   "console.themes.added_by_hand": "Àđđèđ ƀý ĥàñđ",
   "console.themes.both": "Çàƀîñèţ öř đèšķţöþ",

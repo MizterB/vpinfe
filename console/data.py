@@ -77,6 +77,12 @@ def _listed(section: dict, key: str) -> set[str]:
     return {str(item).strip() for item in value if str(item).strip()}
 
 
+def tag_source(said: dict[str, Any]) -> str:
+    return t("console.tags.source", extension=str(said.get("display_name")
+                                                 or said.get("extension") or ""),
+             title=str(said.get("title") or said.get("list") or ""))
+
+
 class Library:
     """Games, their media and their tables, fetched once per page load.
 
@@ -940,11 +946,15 @@ class Library:
         return [kind for kind in self.kinds() if kind in seen]
 
     def tags(self) -> list[str]:
-        """Every tag a picker offers: those carried, and those only written down."""
+        """Every tag a picker offers: those carried, and those only written down. Not
+        one an extension derives."""
         seen = {str(one.get("name") or "") for one in self._tags}
         for game in self.games:
             seen.update((game.get("user") or {}).get("tags") or [])
-        return sorted(seen - {""}, key=str.lower)
+        return sorted(seen - {""} - self.derived_tags(), key=str.lower)
+
+    def derived_tags(self) -> set[str]:
+        return {str(one.get("name") or "") for one in self._tags if one.get("sources")}
 
     def tag_rows(self) -> list[dict[str, Any]]:
         """One row per tag: what it is, how many games carry it, and which tags it may
@@ -967,6 +977,9 @@ class Library:
                          "tables": int(one.get("tables") or 0),
                          "description": str(one.get("description") or ""),
                          "same": key,
+                         "sources": list(one.get("sources") or []),
+                         "source": ", ".join(tag_source(said)
+                                             for said in one.get("sources") or []),
                          # Only where there is another spelling of it - a mark on every
                          # row would say nothing, and this is the row people are after.
                          "duplicate": keys[key] > 1,
@@ -1232,7 +1245,8 @@ class Library:
                 "vps_unmatched": not game.get("vps_id"),
                 "rating": game.get("rating") or 0,
                 "themes": list(game.get("themes") or []),
-                "tags": list((game.get("user") or {}).get("tags") or []),
+                "tags": [*((game.get("user") or {}).get("tags") or []),
+                         *(game.get("derived_tags") or [])],
                 "collections": [str(one.get("name") or "") for one in
                                 (self._game_collections or {}).get(game_id, [])],
                 # One field per asset kind, the same shape as media below. What used

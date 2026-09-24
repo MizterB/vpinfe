@@ -17,7 +17,7 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from console import game_tables, offload, verbs
+from console import game_tables, offload, tag_chips, verbs
 
 # Rows that are not a fact. A group's title and an action strip span both columns, so
 # every group keeps the one shared label width.
@@ -785,6 +785,21 @@ def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
         if on_click is not None:
             row.classes("console-link--inplace")
             row.on("click", on_click)
+        if hint:
+            row.tooltip(hint)
+
+    return draw
+
+
+def tag_link(tag: str, color: str, *, to: str, mark: str = "",
+             hint: str = "") -> Callable[[], None]:
+    """A tag chip that goes somewhere: the chip's look, and an address like any link."""
+    def draw() -> None:
+        with ui.link(target=to).classes(tag_chips.chip_class(color)) as row:
+            ui.element("span").classes(tag_chips.dot_class(color))
+            ui.label(tag)
+            if mark:
+                ui.icon(mark)
         if hint:
             row.tooltip(hint)
 
