@@ -82,28 +82,48 @@ class LoadTests(HostCase):
         self.assertIn("the folder is the name", record.reason)
 
     def test_a_package_with_no_register_is_refused(self) -> None:
-        with self.assertLogs(self.LOG, "ERROR"):
+        with self.assertLogs(self.LOG, "ERROR") as logged:
             record = self.registry.load(self.make("silent", body="VALUE = 1\n"))
 
         self.assertEqual(record.state, host.FAILED)
-        self.assertIn("register(ctx)", record.reason)
+        self.assertIn("register(ctx)", logged.output[0])
 
     def test_a_directory_with_no_package_is_refused(self) -> None:
-        with self.assertLogs(self.LOG, "ERROR"):
+        with self.assertLogs(self.LOG, "ERROR") as logged:
             record = self.registry.load(self.make("empty"))
 
         self.assertEqual(record.state, host.FAILED)
-        self.assertIn("__init__.py", record.reason)
+        self.assertIn("__init__.py", logged.output[0])
 
     def test_a_register_that_raises_takes_only_that_extension(self) -> None:
         self.load()
-        with self.assertLogs(self.LOG, "ERROR"):
+        with self.assertLogs(self.LOG, "ERROR") as logged:
             record = self.registry.load(self.make(
-                "hostile", body='def register(ctx):\n    raise RuntimeError("no")\n'))
+                "hostile", body='def register(ctx):\n    raise RuntimeError("halted")\n'))
 
         self.assertEqual(record.state, host.FAILED)
-        self.assertIn("no", record.reason)
+        self.assertIn("RuntimeError('halted')", logged.output[0])
         self.assertTrue(self.registry.running("sample"))
+
+    def test_what_its_code_raised_stays_off_the_screen(self) -> None:
+        with self.assertLogs(self.LOG, "ERROR"):
+            record = self.registry.load(self.make(
+                "hostile", body='def register(ctx):\n    raise KeyError("token")\n'))
+
+        self.assertNotIn("token", record.reason)
+        self.assertEqual(record.reason, "The log says why it did not start")
+
+    def test_why_is_read_in_the_language_set_when_it_is_shown(self) -> None:
+        self.store.set_enabled("sample", False)
+        self.load()
+        record = self.registry.get("sample")
+        self.assertEqual(record.reason, "Switched off")
+
+        self.addCleanup(i18n.set_language, i18n.language())
+        i18n.set_language("qps")
+
+        self.assertNotIn("Switched", record.reason)
+        self.assertNotIn("Switched", record.as_dict()["reason"])
 
     def test_an_extension_the_user_switched_off_is_not_loaded(self) -> None:
         self.store.set_enabled("sample", False)
@@ -298,20 +318,20 @@ class ContextTests(HostCase):
         body = ("from fastapi import APIRouter\n"
                 "def register(ctx):\n"
                 "    ctx.add_router(APIRouter(), scope='ext:sample:read')\n")
-        with self.assertLogs(self.LOG, "ERROR"):
+        with self.assertLogs(self.LOG, "ERROR") as logged:
             record = self.registry.load(self.make("greedy", {"provides": ["read"]}, body))
 
         self.assertEqual(record.state, host.FAILED)
-        self.assertIn("does not provide", record.reason)
+        self.assertIn("does not provide", logged.output[0])
 
     def test_publishing_an_undeclared_event_is_refused(self) -> None:
         body = ("def register(ctx):\n"
                 "    ctx.events.publish('surprise')\n")
-        with self.assertLogs(self.LOG, "ERROR"):
+        with self.assertLogs(self.LOG, "ERROR") as logged:
             record = self.registry.load(self.make("loud", body=body))
 
         self.assertEqual(record.state, host.FAILED)
-        self.assertIn("does not declare", record.reason)
+        self.assertIn("does not declare", logged.output[0])
 
     def test_a_published_event_carries_the_extensions_namespace(self) -> None:
         self.load()

@@ -59,7 +59,8 @@ class Record:
     directory: Path
     manifest: Manifest | None = None
     state: str = FAILED
-    reason: str = ""
+    why: str = ""
+    why_values: dict[str, str] = field(default_factory=dict)
     # (router, scope), collected at registration and mounted once by the API.
     routers: list[tuple[Any, str]] = field(default_factory=list)
     subscriptions: list[tuple[str, Any]] = field(default_factory=list)
@@ -72,6 +73,13 @@ class Record:
     @property
     def running(self) -> bool:
         return self.state == LOADED
+
+    @property
+    def reason(self) -> str:
+        return i18n.t(self.why, **self.why_values) if self.why else ""
+
+    def became(self, state: str, why: str = "", **values: str) -> None:
+        self.state, self.why, self.why_values = state, why, values
 
     def said(self, literal: str, key: str, fallback: str = "") -> tuple[str, str]:
         """Words it declared: `literal` as written, else `ext.<name>.<key>` from its own
@@ -218,12 +226,14 @@ class Registry:
             record.manifest = _read_manifest(directory)
             record.name = record.manifest.name
         except ManifestError as exc:
-            return self._remember(_failed(record, str(exc)))
+            logger.error("Extension %s: %s", record.name, exc)
+            record.became(FAILED, "extension.reason.refused_manifest", detail=str(exc))
+            return self._remember(record)
         i18n.own(f"ext.{record.name}", directory / "i18n")
 
-        skip = self._why_not(record.manifest)
-        if skip:
-            record.state, record.reason = OFF, skip
+        why, values = self._why_not(record.manifest)
+        if why:
+            record.became(OFF, why, **values)
             return self._remember(record)
 
         context: ExtensionContext | None = None
@@ -235,14 +245,16 @@ class Registry:
             name = record.name
             context = ExtensionContext(
                 record.manifest, self._store,
-                on_failure=lambda why: self.disable(name, why), directory=directory)
+                on_failure=lambda why, **values: self.disable(name, why, **values),
+                directory=directory)
             register(context)
             context.open = False
         except Exception as exc:
-            logger.exception("Extension %s did not load", record.name)
+            logger.exception("Extension %s did not load: %r", record.name, exc)
             if context is not None:
                 _withdraw(record.name, context.events.registered, context.apps)
-            return self._remember(_failed(record, _said(exc)))
+            record.became(FAILED, "extension.reason.did_not_start")
+            return self._remember(record)
 
         record.routers = list(context.routers)
         record.subscriptions = list(context.events.registered)
@@ -256,45 +268,42 @@ class Registry:
             "state": context.ui.state_base,
             "state_label": context.ui.state_label,
         }
-        record.state, record.reason = LOADED, ""
+        record.became(LOADED)
         logger.info("Extension %s %s loaded", record.name, record.manifest.version)
         return self._remember(record)
 
-    def _why_not(self, manifest: Manifest) -> str:
+    def _why_not(self, manifest: Manifest) -> tuple[str, dict[str, str]]:
         if not self._store.enabled(manifest.name):
-            return "Switched off"
+            return "extension.reason.switched_off", {}
         if manifest.platforms and this_platform() not in manifest.platforms:
-            return f"Not for {this_platform()}"
+            return "extension.reason.not_for_platform", {"platform": this_platform()}
         missing = sorted(set(manifest.requires_features) - set(_features()))
         if missing:
-            return f"This install does not do {', '.join(missing)}"
-        return ""
+            return "extension.reason.lacks_features", {"features": ", ".join(missing)}
+        return "", {}
 
     # -- the kill switch -----------------------------------------------------
 
-    def disable(self, name: str, reason: str) -> None:
-        """Stop an extension without stopping anything else.
+    def disable(self, name: str, why: str, **values: str) -> None:
+        """Stop one without stopping anything else, for `why`, a catalog key. Not written
+        down: a fault that happened once must not take it away until somebody notices a
+        setting they never set."""
+        self._stop(name, DISABLED, why, **values)
 
-        Its subscriptions go, so it is told nothing more; its scopes go with its state,
-        so its routes refuse. Not written down: a fault that happened once must not take
-        the extension away until somebody notices a setting they never set.
-        """
-        self._stop(name, DISABLED, reason)
-
-    def refuse(self, name: str, reason: str) -> None:
+    def refuse(self, name: str, why: str, **values: str) -> None:
         """Take one out for something only the seam it registered at could see - an
         extension that never really loaded, rather than one that broke."""
-        self._stop(name, FAILED, reason)
+        self._stop(name, FAILED, why, **values)
 
-    def _stop(self, name: str, state: str, reason: str) -> None:
+    def _stop(self, name: str, state: str, why: str, **values: str) -> None:
         with self._lock:
             record = self._records.get(str(name or "").strip())
             if record is None or record.state != LOADED:
                 return
             _withdraw(record.name, record.subscriptions, record.apps)
             record.subscriptions = []
-            record.state, record.reason = state, reason
-        logger.error("Extension %s %s: %s", name, state, reason)
+            record.became(state, why, **values)
+        logger.error("Extension %s %s: %s", name, state, i18n.t_source(why, **values))
 
     def clear(self) -> None:
         """Forget everything loaded, unsubscribing as it goes. For tests."""
@@ -320,21 +329,6 @@ def _withdraw(name: str, subscriptions: list[tuple[str, Any]],
     services.forget(name)
     if apps is not None:
         apps.withdraw()
-
-
-def _said(exc: Exception) -> str:
-    """What to put in front of whoever installed this, which is not a traceback.
-
-    The type and the stack are in the log, under the extension's own namespace. On screen
-    the useful half is the sentence - and the type only when there is no sentence.
-    """
-    return str(exc).strip() or type(exc).__name__
-
-
-def _failed(record: Record, reason: str) -> Record:
-    record.state, record.reason = FAILED, reason
-    logger.error("Extension %s: %s", record.name, reason)
-    return record
 
 
 def _features() -> tuple[str, ...]:

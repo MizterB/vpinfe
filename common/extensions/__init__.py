@@ -113,12 +113,12 @@ def read_roots() -> tuple[str, ...]:
     return registry().read_roots()
 
 
-def disable(name: str, reason: str) -> None:
-    registry().disable(name, reason)
+def disable(name: str, why: str, **values: str) -> None:
+    registry().disable(name, why, **values)
 
 
-def refuse(name: str, reason: str) -> None:
-    registry().refuse(name, reason)
+def refuse(name: str, why: str, **values: str) -> None:
+    registry().refuse(name, why, **values)
 
 
 def clear() -> None:

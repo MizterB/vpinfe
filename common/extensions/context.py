@@ -50,7 +50,7 @@ class ExtensionEvents:
     its own namespace so nothing it emits can be mistaken for a core event."""
 
     def __init__(self, name: str, declared: tuple[str, ...],
-                 on_failure: Callable[[str], None]) -> None:
+                 on_failure: Callable[..., None]) -> None:
         self._name = name
         self._declared = frozenset(declared)
         self._on_failure = on_failure
@@ -63,7 +63,7 @@ class ExtensionEvents:
                 handler(**payload)
             except Exception:
                 self._logger.exception("Handling %s failed", event)
-                self._on_failure(f"Failed while handling {event}")
+                self._on_failure("extension.reason.failed_handling", event=event)
 
         core_events.subscribe(event, contained)
         self.registered.append((event, contained))
@@ -469,7 +469,7 @@ class ExtensionContext:
     """What `register(ctx)` is given."""
 
     def __init__(self, manifest: Manifest, store: ExtensionStore,
-                 on_failure: Callable[[str], None], directory: Path | None = None) -> None:
+                 on_failure: Callable[..., None], directory: Path | None = None) -> None:
         self.name = manifest.name
         self.manifest = manifest
         self.logger = logger_for(manifest.name)

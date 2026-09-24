@@ -42,10 +42,12 @@ def _running(name: str) -> Any:
     async def check() -> None:
         record = extensions.registry().get(name)
         if record is None or not record.running:
-            reason = record.reason if record is not None else "It is not installed"
+            reason = (record.reason if record is not None
+                      else t("extension.reason.not_installed"))
             display = record.display_name if record is not None else name
             raise FeatureUnavailableError(t("error.extensions.extension_not_running",
-                    display=(display), value=(reason or 'no reason recorded')))
+                    display=(display),
+                    value=(reason or t("extension.reason.none_recorded"))))
 
     return Depends(check)
 
@@ -61,8 +63,8 @@ def mount(api: FastAPI) -> None:
         unknown = sorted(one for one in (manifest.scopes if manifest else ())
                          if not scopes.is_known(one))
         if unknown:
-            extensions.refuse(record.name,
-                              f"Asks for scopes that do not exist: {', '.join(unknown)}")
+            extensions.refuse(record.name, "extension.reason.unknown_scopes",
+                              scopes=", ".join(unknown))
         for route in getattr(ext_router, "routes", []):
             # On each route rather than on the inclusion: the startup check that refuses
             # an ungated route reads what a route itself declares, and a gate it cannot
@@ -84,4 +86,4 @@ def blame(request: Request) -> None:
         return
     name = path.split(marker, 1)[1].split("/", 1)[0]
     if extensions.registry().get(name) is not None:
-        extensions.disable(name, f"Unhandled error serving {path}")
+        extensions.disable(name, "extension.reason.failed_serving", path=path)
