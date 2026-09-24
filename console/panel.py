@@ -632,6 +632,8 @@ def number(value: Any, on_change: Callable[[Any], Any], *,
                                 min=low, max=high, step=step,
                                 on_change=on_change) \
                 .props("dense borderless").classes("console-edit-field console-edit-narrow")
+            if placeholder:
+                control.style(f"--blank: {len(placeholder) + 1}ch")
             if disabled:
                 control.disable()
 
