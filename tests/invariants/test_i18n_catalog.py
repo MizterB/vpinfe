@@ -6,17 +6,22 @@ recorded hash that has drifted means `--stale` stops reporting.
 """
 
 import ast
+import dataclasses
 import importlib.util
 import json
 import re
+import string
 import unittest
 from pathlib import Path
 
-from common import i18n
-from common.games.asset_registry import ASSET_SPECS
-from common.games.collection_filters import AXES
-from common.input_registry import actions
-from common.media_specs import MEDIA_SPECS
+from common import apps, i18n
+from common.apps.contract import Availability, ConfigGroup, Field
+from common.config_schema import ConfigOption
+from common.games.asset_registry import ASSET_SPECS, AssetSpec
+from common.games.collection_filters import AXES, FilterAxis
+from common.games.launchers import OWN_FIELDS
+from common.input_registry import InputAction, actions
+from common.media_specs import MEDIA_SPECS, MediaSpec
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOGS = ROOT / "common" / "i18n" / "catalogs"
@@ -25,11 +30,13 @@ SOURCE = json.loads((CATALOGS / "en.json").read_text(encoding="utf-8"))
 # The registries whose words now live in the catalog. A declaration here holding a
 # string literal is one the translator never sees.
 CONVERTED = {
-    "ConfigOption": {"label", "description", "group"},
-    "MediaSpec": {"label"},
-    "AssetSpec": {"label"},
-    "InputAction": {"label", "group"},
-    "FilterAxis": {"label", "summary"},
+    ConfigOption: {"label", "description", "group"},
+    MediaSpec: {"label"},
+    AssetSpec: {"label"},
+    InputAction: {"label", "group"},
+    FilterAxis: {"label", "summary"},
+    Field: {"label", "description"},
+    ConfigGroup: {"label"},
 }
 
 
@@ -64,25 +71,63 @@ class TestEveryRegistryResolves(unittest.TestCase):
         missing = [f"{o.section}.{o.key}" for o in shown if not o.label]
         self.assertEqual(missing, [], "a setting with no name of its own")
 
+    def test_launcher_fields(self) -> None:
+        described = [(f"{app.id}.{f.key}", apps.field_words(app.id, f))
+                     for app in apps.all_apps() for f in (*app.fields, *OWN_FIELDS)]
+        self.assertEqual([name for name, said in described
+                          if not said["label_key"] or not said["description"]], [],
+                         "a launcher field with no words of its own")
+
+    def test_app_names(self) -> None:
+        self.assertEqual([app.id for app in apps.all_apps()
+                          if apps.app_name(app.id) == app.id], [])
+
+    def test_app_setting_groups(self) -> None:
+        from apps.vpx import config
+        keys = [key for key, _ in config.GROUPS] + [config.REST]
+        self.assertEqual([key for key in keys
+                          if not apps.group_words("vpx", ConfigGroup(key))["label_key"]],
+                         [])
+
+
+def _literal_words(tree: ast.AST) -> list[tuple[int, str]]:
+    """Each converted declaration given a word in place, by name or by position."""
+    held = {cls.__name__: (names, [f.name for f in dataclasses.fields(cls)])
+            for cls, names in CONVERTED.items()}
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+        if name not in held:
+            continue
+        names, order = held[name]
+        given = [*zip(order, node.args, strict=False),
+                 *((kw.arg, kw.value) for kw in node.keywords)]
+        found += [(value.lineno, f"{name}({arg}={value.value!r})")
+                  for arg, value in given
+                  if arg in names and isinstance(value, ast.Constant) and value.value]
+    return found
+
 
 class TestRegistriesHoldNoWords(unittest.TestCase):
     def test_no_converted_declaration_carries_a_literal(self) -> None:
-        offenders = []
-        for path in sorted((ROOT / "common").rglob("*.py")):
-            if "__pycache__" in path.parts:
-                continue
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
-                    continue
-                name = getattr(node.func, "id", None)
-                for kw in node.keywords:
-                    if kw.arg in CONVERTED.get(name, ()) \
-                       and isinstance(kw.value, ast.Constant):
-                        offenders.append(
-                            f"{path.relative_to(ROOT)}:{kw.value.lineno} "
-                            f"{name}({kw.arg}={kw.value.value!r})")
+        offenders = [f"{path.relative_to(ROOT)}:{line} {said}"
+                     for root in ("common", "apps")
+                     for path in sorted((ROOT / root).rglob("*.py"))
+                     if "__pycache__" not in path.parts
+                     for line, said in _literal_words(
+                         ast.parse(path.read_text(encoding="utf-8")))]
         self.assertEqual(offenders, [], "the catalog owns these words now")
+
+    def test_a_word_is_found_however_it_is_given(self) -> None:
+        source = ('Field("bin_path", "Program")\n'
+                  'apps.Field("args", description="Arguments")\n'
+                  'ConfigGroup("rom", "ROM")\n'
+                  'Field("bin_path", path="exe")\n')
+        self.assertEqual([said for _, said in _literal_words(ast.parse(source))],
+                         ["Field(label='Program')", "Field(description='Arguments')",
+                          "ConfigGroup(label='ROM')"])
 
 
 # Modules whose return values and reasons are words a surface shows: a path's verdict,
@@ -916,7 +961,6 @@ class TestParametersMatchTheirTemplate(unittest.TestCase):
     """
 
     def test_every_call_fills_exactly_the_slots_its_entry_has(self) -> None:
-        import string
         offenders = []
         for root in ("console", "frontend", "httpapi", "common"):
             for path in sorted((ROOT / root).rglob("*.py")):
@@ -940,6 +984,107 @@ class TestParametersMatchTheirTemplate(unittest.TestCase):
                             f"{node.args[0].value} wants {sorted(wants)}, "
                             f"gets {sorted(fills)}")
         self.assertEqual(offenders, [], "a slot nobody fills renders as its own name")
+
+
+APPS = ROOT / "apps"
+
+
+def _app_catalog(app_id: str, name: str = "en") -> dict:
+    path = APPS / app_id / "i18n" / f"{name}.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+
+
+def _package_strings(app_id: str) -> set[str]:
+    """Every string constant in an app's code: a group's key, a reason it hands back."""
+    return {node.value for path in (APPS / app_id).rglob("*.py")
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+
+
+def _reasons(app_id: str) -> list[str]:
+    """Every reason an app writes into an `Availability`, by position or by name."""
+    found = []
+    for path in (APPS / app_id).rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call) \
+               or getattr(node.func, "id", None) != Availability.__name__:
+                continue
+            given = [*node.args[1:2], *(kw.value for kw in node.keywords
+                                        if kw.arg == "reason")]
+            found += [one.value for one in given
+                      if isinstance(one, ast.Constant) and one.value]
+    return found
+
+
+class TestEachAppKeepsItsOwnWords(unittest.TestCase):
+    """An app's words are in its own `i18n/`, and served under `app.<id>.`."""
+
+    def setUp(self) -> None:
+        self.built_in = [app for app in apps.all_apps() if (APPS / app.id).is_dir()]
+
+    def test_the_apps_were_found(self) -> None:
+        self.assertEqual(sorted(app.id for app in self.built_in), ["generic", "vpx"])
+
+    def test_core_holds_none_of_an_owners_words(self) -> None:
+        self.assertEqual([k for k in SOURCE if k.startswith(i18n.OWNED)], [])
+
+    def test_every_reason_an_app_gives_is_in_its_catalog(self) -> None:
+        for app in self.built_in:
+            held = _app_catalog(app.id)
+            with self.subTest(app=app.id):
+                self.assertEqual([r for r in _reasons(app.id) if r not in held], [])
+
+    def test_the_reasons_were_found(self) -> None:
+        self.assertIn("no_plugins", _reasons("vpx"))
+
+    def test_no_entry_is_one_the_app_cannot_ask_for(self) -> None:
+        for app in self.built_in:
+            fields = {f.key for f in app.fields}
+            said = _package_strings(app.id)
+            spare = [key for key in _app_catalog(app.id)
+                     if key != "name" and key not in said
+                     and not any(key in (f"field.{f}.label", f"field.{f}.description")
+                                 for f in fields)
+                     and not (key.startswith("group.") and key.endswith(".label")
+                              and key[len("group."):-len(".label")] in said)]
+            with self.subTest(app=app.id):
+                self.assertEqual(spare, [], "nothing asks for these")
+
+    def test_the_recorded_hashes_match(self) -> None:
+        import hashlib
+        for app in self.built_in:
+            current = {k: hashlib.sha256(json.dumps(
+                v, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+                for k, v in _app_catalog(app.id).items()}
+            with self.subTest(app=app.id):
+                self.assertEqual(_app_catalog(app.id, "en.hashes"), current,
+                                 "run scripts/i18n.py --record")
+
+    def test_the_pseudo_locale_is_in_step(self) -> None:
+        for app in self.built_in:
+            with self.subTest(app=app.id):
+                self.assertEqual(sorted(_app_catalog(app.id, "qps")),
+                                 sorted(_app_catalog(app.id)),
+                                 "run scripts/i18n.py --pseudo")
+
+    def test_no_translation_holds_a_key_english_does_not(self) -> None:
+        for app in self.built_in:
+            english = set(_app_catalog(app.id))
+            for path in sorted((APPS / app.id / "i18n").glob("*.json")):
+                if path.stem in ("en", "en.hashes", "qps"):
+                    continue
+                with self.subTest(app=app.id, locale=path.stem):
+                    extra = set(json.loads(path.read_text(encoding="utf-8"))) - english
+                    self.assertEqual(sorted(extra), [], "keys nothing serves")
+
+    def test_no_entry_has_a_slot(self) -> None:
+        """Nothing fills one. A field's words are looked up with no parameters."""
+        for app in self.built_in:
+            slotted = [key for key, entry in _app_catalog(app.id).items()
+                       if isinstance(entry, str)
+                       and any(name for _, name, _, _ in string.Formatter().parse(entry))]
+            with self.subTest(app=app.id):
+                self.assertEqual(slotted, [])
 
 
 class TestCatalogs(unittest.TestCase):

@@ -9,7 +9,7 @@ moves between screens constantly and never moves between owners. Each segment ha
 a word a translator already knows or the name of a file they can open, because the
 catalog's third audience is somebody who has never read this code.
 
-Nothing here raises. A key with no entry falls back to English and then to the key
+No lookup raises. A key with no entry falls back to English and then to the key
 itself, because a missing translation is a blemish and a traceback is an outage.
 """
 
@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Any, get_args
 
@@ -31,21 +32,59 @@ SOURCE = "en"
 # chrome and lets these fall back to English without that being a defect.
 PROSE_LEAVES = frozenset({"help", "description", "summary"})
 
+# What an owner's key may start with. Core's namespaces are never among them, so an
+# owner adds words and cannot change one of ours.
+OWNED = ("app.", "ext.")
+
 _catalogs: dict[str, dict[str, Any]] = {}
+_owners: dict[str, tuple[Path, str]] = {}
+_lock = threading.Lock()
 _language = SOURCE
 
 
+def own(prefix: str, directory: Path, *, section: str = "") -> None:
+    """Serve `<directory>/<language>.json` under `prefix`.
+
+    With `section`, only the file's keys under it are served, with `section` read as
+    `prefix`: an extension's file holds its apps' words beside its own.
+    Raises ValueError for a prefix outside `OWNED`.
+    """
+    if not prefix.startswith(OWNED) or prefix.endswith("."):
+        raise ValueError(f"{prefix!r} is not a prefix an owner can hold")
+    with _lock:
+        _owners[prefix] = (Path(directory), section)
+        _catalogs.clear()
+
+
+def disown(prefix: str) -> None:
+    with _lock:
+        if _owners.pop(prefix, None) is not None:
+            _catalogs.clear()
+
+
+def _read(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        logger.warning("Could not read %s; treating it as empty", path)
+        return {}
+
+
 def _load(name: str) -> dict[str, Any]:
-    if name not in _catalogs:
-        path = CATALOGS / f"{name}.json"
-        try:
-            _catalogs[name] = json.loads(path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            _catalogs[name] = {}
-        except Exception:
-            logger.warning("Could not read %s; treating it as empty", path)
-            _catalogs[name] = {}
-    return _catalogs[name]
+    found = _catalogs.get(name)
+    if found is not None:
+        return found
+    with _lock:
+        merged = _read(CATALOGS / f"{name}.json")
+        for prefix, (directory, section) in _owners.items():
+            under = f"{section}." if section else ""
+            for key, entry in _read(directory / f"{name}.json").items():
+                if key.startswith(under):
+                    merged[f"{prefix}.{key[len(under):]}"] = entry
+        _catalogs[name] = merged
+        return merged
 
 
 def chain(language: str = "") -> tuple[str, ...]:
@@ -108,6 +147,12 @@ def available() -> tuple[str, ...]:
 
 def is_prose(key: str) -> bool:
     return key.rsplit(".", 1)[-1] in PROSE_LEAVES
+
+
+def first_key(*keys: str) -> str:
+    """The first of these with an entry, or "" when none has one."""
+    source = _load(SOURCE)
+    return next((key for key in keys if key in source), "")
 
 
 class _Blanks(dict):

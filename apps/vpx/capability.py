@@ -13,7 +13,6 @@ from typing import Any
 
 from common.apps.contract import Availability
 
-PROGRAM = "program"
 PLUGINS = "plugins"
 PER_TABLE_SETTINGS = "per_table_settings"
 
@@ -33,20 +32,8 @@ def _program_dir(bin_path: str) -> Path | None:
 class VPXCapability:
     def probe(self, settings: Mapping[str, Any]) -> Mapping[str, Availability]:
         bin_path = str(settings.get("bin_path") or "").strip()
-        program = Path(bin_path).exists() if bin_path else False
-
-        if not bin_path:
-            program_state = Availability(False, "This launcher has no program set.")
-        elif not program:
-            program_state = Availability(
-                False, f"Nothing is at the program this launcher names: {bin_path}")
-        else:
-            program_state = Availability(True)
-
         return {
-            PROGRAM: program_state,
-            PLUGINS: self._plugins(bin_path, settings) if program else Availability(
-                False, "The program has to be found before its plugins can be."),
+            PLUGINS: self._plugins(bin_path, settings),
             # Read by 10.8.0 and by master alike, so there is nothing to gate on.
             PER_TABLE_SETTINGS: Availability(True),
         }
@@ -63,7 +50,7 @@ class VPXCapability:
         if ini_path and _declares_a_plugin(Path(ini_path)):
             return Availability(True)
 
-        return Availability(False, "This build has no plugins beside it.")
+        return Availability(False, "no_plugins")
 
 
 def _declares_a_plugin(ini_path: Path) -> bool:

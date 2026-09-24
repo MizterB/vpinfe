@@ -47,6 +47,8 @@ DATA_ROOTS = [
     "console/static",
     "common/host/static",
     "common/i18n/catalogs",
+    "apps/generic/i18n",
+    "apps/vpx/i18n",
     "extensions",
     "third_party/dof",
     "third_party/libdmdutil",

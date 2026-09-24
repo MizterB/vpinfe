@@ -21,7 +21,7 @@ class _Case(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.ini = self.root / "VPinballX.ini"
         self.ini.write_text("[A]\nB = 1\n")
-        self.files = {"Application settings": str(self.ini)}
+        self.files = {"application": str(self.ini)}
         patch = mock.patch.object(backups, "BACKUPS_DIR", self.root / "backups")
         patch.start()
         self.addCleanup(patch.stop)

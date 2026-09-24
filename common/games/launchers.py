@@ -47,19 +47,9 @@ MIGRATIONS_KEY = "migrations"
 # are this launcher's, because they run only when this launcher is what plays the table.
 # The install-wide pair is in Settings, and runs outside these.
 OWN_FIELDS: tuple[apps.Field, ...] = (
-    apps.Field("on_table_start", "When This Launcher Starts a Table", type="text",
-               lines=3,
-               description="One command per line, run after the install-wide ones and "
-                           "before the program. For something only this way of playing "
-                           "needs."),
-    apps.Field("on_table_exit", "When This Launcher's Table Exits", type="text",
-               lines=3,
-               description="Run whenever the ones above ran, even if the program never "
-                           "started."),
-    apps.Field("on_start_required", "A Failure Stops the Launch", type="bool",
-               default="false",
-               description="On, a command that fails before the table starts stops it "
-                           "launching. Off, the failure is noted and it starts anyway."),
+    apps.Field("on_table_start", type="text", lines=3),
+    apps.Field("on_table_exit", type="text", lines=3),
+    apps.Field("on_start_required", type="bool", default="false"),
 )
 
 

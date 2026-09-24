@@ -248,6 +248,23 @@ locale may leave in English.
 
 `scripts/i18n.py` also answers `--missing`, `--stale`, `--unused` and `--coverage`.
 
+### An app's words
+
+An app keeps its own in `i18n/en.json` beside its code, served under `app.<id>.`: the
+`name` in `apps/vpx/i18n/en.json` is `app.vpx.name` to everything else. A prefix is all an
+app can hold, so it adds words and never changes one of core's.
+
+- `name`, `field.<key>.label`, `field.<key>.description` and `group.<key>.label` are found
+  by what the app declares. Any other key is one its code hands back, such as the reason
+  in an `Availability`.
+- A field the app's file does not name takes core's `launcher.field.<key>`, so Program
+  reads the same on every launcher.
+- A label set in code is shown as written. That is for the program's own words, like the
+  ones VPX writes above each setting in its ini, and for a product name.
+
+`--record` and `--pseudo` write every owner's files, and the invariants hold each app's
+file to what the app declares, both ways.
+
 ## Logging
 
 Logs are read by one person trying to work out what happened, usually from the Logs page in
@@ -937,8 +954,8 @@ element.
   that is a single sentence does not either, because the stop is doing no work when nothing
   follows it. Punctuate where a second sentence makes the boundary worth marking. "Nothing
   in it yet." is a fragment wearing a period. `tests/invariants/test_copy_full_stops.py`
-  holds it for every `.help`, `.label`, `.summary` and `.description` entry, and wherever
-  the Console draws a tooltip, a note, a state or a help line.
+  holds it for every `.help`, `.label`, `.summary` and `.description` entry in every
+  owner's file, and wherever the Console draws a tooltip, a note, a state or a help line.
 - **The shortest true word wins.** A chip reads `Missing`, not "Not in this library"; the
   sentence goes in the tooltip where it costs nothing.
 - **A grid marks the one column its rows are scanned by, and marks it on the column.**

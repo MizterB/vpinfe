@@ -4,14 +4,15 @@ no full stop."""
 from __future__ import annotations
 
 import ast
-import json
 import re
 import unittest
 from pathlib import Path
 from typing import Any
 
+from tests.support.catalogs import served
+
 ROOT = Path(__file__).resolve().parents[2]
-CATALOG = json.loads((ROOT / "common/i18n/catalogs/en.json").read_text(encoding="utf-8"))
+CATALOG = served()
 
 # One sentence ending and the next beginning.
 _BOUNDARY = re.compile(r"[.!?][”\"')]?\s+(?=[A-Z0-9“\"(])")

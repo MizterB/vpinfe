@@ -106,8 +106,7 @@ def build(name: str, described: dict) -> App:
     if not any(one.key == "bin_path" for one in fields):
         # Every launcher needs the program it runs, and an extension that forgot would
         # ship a launcher nobody can point at anything.
-        fields = (Field("bin_path", "Program", path="exe",
-                        description=f"The program {label} runs."), *fields)
+        fields = (Field("bin_path", path="exe"), *fields)
 
     kinds = described.get("kinds")
     return App(

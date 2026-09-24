@@ -11,12 +11,27 @@ implementations.
 
 from __future__ import annotations
 
-from .contract import App, Availability, Claim, Entry, Field, Kinds, Parsed, Session
+from pathlib import Path
+
+from common import i18n
+from common.i18n import t
+
+from .contract import (
+    App,
+    Availability,
+    Claim,
+    ConfigGroup,
+    Entry,
+    Field,
+    Kinds,
+    Parsed,
+    Session,
+)
 
 __all__ = [
-    "App", "Availability", "Claim", "Entry", "Field", "Kinds", "Parsed", "Session",
-    "all_apps", "app_for", "app_name", "default_app", "get", "strip_suffix",
-    "table_suffixes",
+    "App", "Availability", "Claim", "ConfigGroup", "Entry", "Field", "Kinds", "Parsed",
+    "Session", "all_apps", "app_for", "app_name", "default_app", "field_words", "get",
+    "group_words", "strip_suffix", "table_suffixes",
 ]
 
 _built_in_apps: tuple[App, ...] = ()
@@ -27,10 +42,12 @@ def _built_in() -> tuple[App, ...]:
     initializes this package, so an app imported first would find it half-built."""
     global _built_in_apps
     if not _built_in_apps:
-        from apps.generic import GENERIC
-        from apps.vpx import VPX
+        from apps import generic, vpx
 
-        _built_in_apps = (VPX, GENERIC)
+        shipped = ((vpx, vpx.VPX), (generic, generic.GENERIC))
+        for module, app in shipped:
+            i18n.own(f"app.{app.id}", Path(str(module.__file__)).parent / "i18n")
+        _built_in_apps = tuple(app for _, app in shipped)
     return _built_in_apps
 
 
@@ -98,7 +115,39 @@ def app_name(app_id: str | None) -> str:
     if not wanted:
         return "-"
     found = get(wanted)
-    return found.name if found is not None else wanted
+    if found is None:
+        return wanted
+    return _resolved(found.name, f"app.{found.id}.name", fallback=found.id)[0]
+
+
+def _resolved(literal: str, *keys: str, fallback: str = "") -> tuple[str, str]:
+    """The words and the key they came from: `literal` as written with no key, else the
+    first of `keys` with an entry, else `fallback`."""
+    if literal:
+        return literal, ""
+    key = i18n.first_key(*keys)
+    return (t(key), key) if key else (fallback, "")
+
+
+def field_words(app_id: str, field: Field) -> dict[str, str]:
+    """`label`, `label_key` and `description` for a field on a launcher of this app.
+
+    The app's catalog answers first, then core's `launcher.field.*`, which holds the
+    fields every launcher has.
+    """
+    def leaf(name: str, literal: str, fallback: str) -> tuple[str, str]:
+        return _resolved(literal, f"app.{app_id}.field.{field.key}.{name}",
+                         f"launcher.field.{field.key}.{name}", fallback=fallback)
+
+    label, label_key = leaf("label", field.label, field.key)
+    return {"label": label, "label_key": label_key,
+            "description": leaf("description", field.description, "")[0]}
+
+
+def group_words(app_id: str, group: ConfigGroup) -> dict[str, str]:
+    label, label_key = _resolved(group.label, f"app.{app_id}.group.{group.key}.label",
+                                 fallback=group.key)
+    return {"label": label, "label_key": label_key}
 
 
 def table_suffixes() -> tuple[str, ...]:

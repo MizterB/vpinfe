@@ -1,0 +1,19 @@
+{
+  "field.bin_path.description": "The Visual Pinball executable this launcher runs",
+  "field.ini_override.description": "Launch every table with this ini instead of the usual one",
+  "field.ini_override.label": "Override File",
+  "field.ini_path.description": "The VPinballX.ini this launcher reads; left empty, the one Visual Pinball finds",
+  "field.ini_path.label": "Configuration File",
+  "field.log_delete_on_start.description": "Delete Visual Pinball's log before each table, so it covers only that table",
+  "field.log_delete_on_start.label": "Clear the Log on Launch",
+  "field.table_ini_override_enabled.description": "Let a table use its own ini file when one sits beside it",
+  "field.table_ini_override_enabled.label": "Per-Table Override",
+  "field.table_ini_override_mask.description": "How a table's own ini is named, relative to the table",
+  "field.table_ini_override_mask.label": "Per-Table Override Pattern",
+  "group.backglass.label": "Backglass",
+  "group.more.label": "More settings",
+  "group.play.label": "Playing",
+  "group.rom.label": "ROM",
+  "group.scoreview.label": "Score View",
+  "no_plugins": "This build has no plugins beside it."
+}

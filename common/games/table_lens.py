@@ -375,7 +375,7 @@ def launch_apps() -> dict[str, Any]:
     Answered rather than left as a constant, because a caller showing an App column
     should read the list rather than carry its own copy of it.
     """
-    return {"apps": [{"id": app.id, "name": app.name,
+    return {"apps": [{"id": app.id, "name": apps.app_name(app.id),
                       "suffixes": list(app.claim.suffixes),
                       "accepts_keys": app.claim.accepts_keys}
                      for app in apps.all_apps()]}

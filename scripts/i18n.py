@@ -4,6 +4,9 @@
 A translation is a copy of `en.json` with the values rewritten. This reports what is
 missing, what has gone stale because the English moved under it, and what nothing asks
 for any more. Nothing here edits a translation - the file is the translator's.
+
+Core's catalogs are one owner; each app's `i18n/` is another, and its keys are reported
+under the prefix the app serves them at. `--record` and `--pseudo` write every owner's.
 """
 
 import argparse
@@ -16,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CATALOGS = ROOT / "common" / "i18n" / "catalogs"
 SOURCE = "en"
-HASHES = CATALOGS / f"{SOURCE}.hashes.json"
+HASHES = f"{SOURCE}.hashes.json"
 PROSE_LEAVES = {"help", "description", "summary"}
 
 # Where a key can be written. A key built at runtime - `f"filter.{name}.label"` - is
@@ -29,9 +32,27 @@ KEY_FSTRING = re.compile(r"""f["']([a-z][a-z0-9_]*(?:\.[a-z0-9_]*)+)\{""")
 KEY_UNDER = re.compile(r"""under\(\s*["']([a-z][a-z0-9_.]*)["']""")
 
 
-def load(name):
-    path = CATALOGS / f"{name}.json"
+def owners():
+    """`(prefix, directory)` for every catalog, core's first with no prefix."""
+    yield "", CATALOGS
+    for directory in sorted((ROOT / "apps").glob("*/i18n")):
+        yield f"app.{directory.parent.name}.", directory
+
+
+def load(name, directory=CATALOGS):
+    path = directory / f"{name}.json"
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def merged(name):
+    """One catalog across every owner, keyed as the app serves it."""
+    return {prefix + key: value for prefix, directory in owners()
+            for key, value in load(name, directory).items()}
+
+
+def locales():
+    return sorted({p.stem for _, directory in owners() for p in directory.glob("*.json")
+                   if not p.stem.endswith(".hashes")})
 
 
 def digest(value):
@@ -92,33 +113,39 @@ def main():
     ap.add_argument("--missing", metavar="LANG", help="keys with no translation yet")
     ap.add_argument("--stale", metavar="LANG",
                     help="translations written against English that has since changed")
-    ap.add_argument("--unused", action="store_true", help="catalog keys nothing asks for")
+    ap.add_argument("--unused", action="store_true",
+                    help="core catalog keys nothing asks for")
     ap.add_argument("--coverage", action="store_true", help="percentage per locale, per tier")
     ap.add_argument("--pseudo", action="store_true",
                     help="write the qps pseudo-locale, for the runtime leak check")
     ap.add_argument("--record", action="store_true",
-                    help=f"rewrite {HASHES.name} to match {SOURCE}.json, after a reword")
+                    help=f"rewrite each {HASHES} to match its {SOURCE}.json, after a reword")
     args = ap.parse_args()
 
-    source = load(SOURCE)
-
     if args.record:
-        HASHES.write_text(json.dumps({k: digest(v) for k, v in sorted(source.items())},
-                                     indent=2) + "\n", encoding="utf-8")
-        print(f"recorded {len(source)} keys in {HASHES.name}")
+        for _, directory in owners():
+            held = load(SOURCE, directory)
+            path = directory / HASHES
+            path.write_text(json.dumps({k: digest(v) for k, v in sorted(held.items())},
+                                       indent=2) + "\n", encoding="utf-8")
+            print(f"recorded {len(held)} keys in {path.relative_to(ROOT)}")
         return 0
 
     if args.pseudo:
-        out = {k: _accent(v) if isinstance(v, str)
-               else {kk: _accent(vv) for kk, vv in v.items()}
-               for k, v in source.items()}
-        path = CATALOGS / "qps.json"
-        path.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        print(f"wrote {path.name}: {len(out)} entries")
+        for _, directory in owners():
+            out = {k: _accent(v) if isinstance(v, str)
+                   else {kk: _accent(vv) for kk, vv in v.items()}
+                   for k, v in load(SOURCE, directory).items()}
+            path = directory / "qps.json"
+            path.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n",
+                            encoding="utf-8")
+            print(f"wrote {path.relative_to(ROOT)}: {len(out)} entries")
         return 0
 
+    source = merged(SOURCE)
+
     if args.missing:
-        other = load(args.missing)
+        other = merged(args.missing)
         gaps = [k for k in sorted(source) if not other.get(k)]
         for key in gaps:
             print(f"{tier(key):7} {key}")
@@ -126,9 +153,9 @@ def main():
         return 0
 
     if args.stale:
-        other, recorded = load(args.stale), load(f"{SOURCE}.hashes")
+        other, recorded = merged(args.stale), merged(f"{SOURCE}.hashes")
         if not recorded:
-            print(f"No {HASHES.name}. Run --record once to start tracking.", file=sys.stderr)
+            print(f"No {HASHES}. Run --record once to start tracking.", file=sys.stderr)
             return 1
         moved = [k for k in sorted(other)
                  if k in source and recorded.get(k) not in (None, digest(source[k]))]
@@ -139,20 +166,20 @@ def main():
 
     if args.unused:
         exact, prefixes = referenced()
-        orphans = [k for k in sorted(source)
+        core = load(SOURCE)
+        orphans = [k for k in sorted(core)
                    if k not in exact and not any(k.startswith(p) for p in prefixes)]
         for key in orphans:
             print(key)
-        print(f"\n{len(orphans)} of {len(source)} catalog keys are asked for by nothing")
+        print(f"\n{len(orphans)} of {len(core)} catalog keys are asked for by nothing")
         return 0
 
     if args.coverage:
-        names = sorted(p.stem for p in CATALOGS.glob("*.json")
-                       if not p.stem.endswith(".hashes"))
+        names = locales()
         totals = {t: sum(1 for k in source if tier(k) == t) for t in ("chrome", "prose")}
         print(f"{'locale':10} {'chrome':>14} {'prose':>14}")
         for name in names:
-            other = load(name)
+            other = merged(name)
             cells = []
             for t, total in totals.items():
                 have = sum(1 for k in source if tier(k) == t and other.get(k))

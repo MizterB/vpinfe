@@ -21,7 +21,6 @@ from typing import Any
 from common.apps.contract import (
     SESSION_NONE,
     App,
-    Availability,
     Claim,
     Entry,
     Field,
@@ -42,14 +41,9 @@ KINDS: frozenset[str] = frozenset({
 })
 
 FIELDS: tuple[Field, ...] = (
-    Field("bin_path", "Program", path="exe",
-          description="The program this launcher runs."),
-    Field("args", "Arguments",
-          description="Arguments to pass, quoted the way a shell would be. Write "
-                      "{table} or {key} where the entry goes; left out, it is "
-                      "added last."),
-    Field("launch_env", "Environment",
-          description="Variables to set before launching, one NAME=value per line."),
+    Field("bin_path", path="exe"),
+    Field("args"),
+    Field("launch_env"),
 )
 
 
@@ -79,23 +73,13 @@ class GenericLaunch:
         return Session(kind=SESSION_NONE)
 
 
-class GenericCapability:
-    def probe(self, settings: Mapping[str, Any]) -> Mapping[str, Availability]:
-        bin_path = str(settings.get("bin_path") or "").strip()
-        if not bin_path:
-            return {"program": Availability(False, "This launcher has no program set.")}
-        return {"program": Availability(True)}
-
-
 # Claims no suffix at all: a file this app could play is one a person pointed a launcher
 # at, and claiming an extension here would let it take tables away from the app that
 # actually understands them.
 GENERIC = App(
     id="generic",
-    name="Generic",
     claim=Claim(accepts_keys=True),
     fields=FIELDS,
     kinds=Kinds(applicable=KINDS),
     launch=GenericLaunch(),
-    capability=GenericCapability(),
 )

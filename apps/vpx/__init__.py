@@ -21,23 +21,13 @@ COMPANION_SUFFIXES: tuple[str, ...] = (".ini", ".vbs", ".directb2s", ".pov", ".s
 # what to run it with, then the two overrides. The names have shed the `vpx_` prefix -
 # a field on a Visual Pinball launcher does not need to say which app it belongs to.
 FIELDS: tuple[Field, ...] = (
-    Field("bin_path", "Program", path="exe",
-          description="The Visual Pinball executable this launcher runs."),
-    Field("ini_path", "Configuration File", path="file",
-          description="The VPinballX.ini this launcher reads. Leave empty for the one "
-                      "Visual Pinball finds itself."),
-    Field("launch_env", "Environment",
-          description="Variables to set before launching, one NAME=value per line."),
-    Field("log_delete_on_start", "Clear the Log on Launch", type="bool", default="false",
-          description="Delete Visual Pinball's log before each table, so what is in it "
-                      "is about the table that just ran."),
-    Field("ini_override", "Override File", path="file",
-          description="Launch every table with this ini instead of the usual one."),
-    Field("table_ini_override_enabled", "Per-Table Override", type="bool",
-          default="false",
-          description="Let a table use its own ini file when one sits beside it."),
-    Field("table_ini_override_mask", "Per-Table Override Pattern",
-          description="How a table's own ini is named, relative to the table."),
+    Field("bin_path", path="exe"),
+    Field("ini_path", path="file"),
+    Field("launch_env"),
+    Field("log_delete_on_start", type="bool", default="false"),
+    Field("ini_override", path="file"),
+    Field("table_ini_override_enabled", type="bool", default="false"),
+    Field("table_ini_override_mask"),
 )
 
 # `format` is unset: reading a table's OLE container still lives in core, and moving it

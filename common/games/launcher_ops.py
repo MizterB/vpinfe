@@ -50,8 +50,8 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
         # `lines`, `choices` and the bounds travel with the field because the control a
         # surface draws is decided from them - a field declared over three lines that
         # arrives without them renders as a one-line box.
-        "fields": [{"key": f.key, "label": f.label, "type": f.type,
-                    "default": f.default, "description": f.description, "path": f.path,
+        "fields": [{"key": f.key, **apps.field_words(launcher.app, f), "type": f.type,
+                    "default": f.default, "path": f.path,
                     "lines": f.lines, "choices": dict(f.choices),
                     "min": f.minimum, "max": f.maximum}
                    for f in launcher.fields()],
@@ -89,7 +89,7 @@ def listing() -> dict[str, Any]:
         "defaults": {app.id: getattr(launchers.default_for(app.id, held),
                                      "launcher_id", None)
                      for app in apps.all_apps()},
-        "apps": [{"id": app.id, "name": app.name,
+        "apps": [{"id": app.id, "name": apps.app_name(app.id),
                   "suffixes": list(app.claim.suffixes)}
                  for app in apps.all_apps()],
     }
@@ -172,8 +172,8 @@ def app_config(launcher_id: str, table: str = "",
     values = config.read(scope, _game_file(table), settings)
     return {
         "scopes": list(config.scopes()),
-        "groups": [{"key": g.key, "label": g.label,
-                    "settings": [_described_field(f) for f in g.settings]}
+        "groups": [{"key": g.key, **apps.group_words(found.app, g),
+                    "settings": [_described_field(found.app, f) for f in g.settings]}
                    for g in config.groups(settings)],
         "values": {key: {"value": one.value, "scope": one.scope,
                          "set_here": one.set_here, "in_effect": one.in_effect,
@@ -182,9 +182,9 @@ def app_config(launcher_id: str, table: str = "",
     }
 
 
-def _described_field(field: apps.Field) -> dict[str, Any]:
-    return {"key": field.key, "label": field.label, "type": field.type,
-            "default": field.default, "description": field.description,
+def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:
+    return {"key": field.key, **apps.field_words(app_id, field), "type": field.type,
+            "default": field.default,
             "choices": [list(pair) for pair in field.choices],
             "minimum": field.minimum, "maximum": field.maximum}
 

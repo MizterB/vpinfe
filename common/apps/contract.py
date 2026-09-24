@@ -8,7 +8,9 @@ Six capability groups. `claim` and `kinds` are declarations every app makes; `fo
 `launch`, `config` and `capability` are behavior, and None is a real answer for each.
 Consumers ask before they call.
 
-Nothing here takes or returns a VPinFE object.
+Nothing here takes or returns a VPinFE object, and nothing holds a word. An app's words
+are in `i18n/<language>.json` beside it, found by what the app declares: `name`,
+`field.<key>.label`, `field.<key>.description`, `group.<key>.label`.
 """
 
 from __future__ import annotations
@@ -21,7 +23,8 @@ from typing import Any, Protocol, runtime_checkable
 @dataclass(frozen=True)
 class Availability:
     available: bool
-    # Required for a no: "unavailable" alone leaves a person nothing to act on.
+    # A key in the app's own catalog, required for a no: "unavailable" alone leaves a
+    # person nothing to act on.
     reason: str = ""
 
 
@@ -31,7 +34,8 @@ class Field:
     minus the section so a generated editor looks like every settings page."""
 
     key: str
-    label: str
+    # Empty is looked up. Set, it is shown as written, for words the program supplies.
+    label: str = ""
     type: str = "string"
     default: str = ""
     description: str = ""
@@ -170,7 +174,7 @@ class ConfigGroup:
     group can span sections and a section can feed two groups."""
 
     key: str
-    label: str
+    label: str = ""
     settings: tuple[Field, ...] = ()
 
 
@@ -200,9 +204,9 @@ class ConfigValue:
 class Config(Protocol):
     """An app's own configuration, and where it keeps it.
 
-    `files` names them; copying one somewhere safe is core's, which owns moving files
-    for every kind already. Only the app knows which file its settings are in, and only
-    core should be deciding where a copy of one goes.
+    `files` names them by identity; copying one somewhere safe is core's, which owns
+    moving files for every kind already. Only the app knows which file its settings are
+    in, and only core should be deciding where a copy of one goes.
 
     `write` returns the keys it cleared instead of writing, for holding the launcher's
     own value.
@@ -242,7 +246,10 @@ class Kinds:
 class Capability(Protocol):
     """What this app can do on this machine right now, keyed by capability name. Probed
     from evidence: a version test that two builds eighteen months apart both satisfy
-    answers nothing."""
+    answers nothing.
+
+    Asked only once the program is there. Whether it is, core says for every field that
+    names a path."""
 
     def probe(self, settings: Mapping[str, Any]) -> Mapping[str, Availability]: ...
 
@@ -256,7 +263,8 @@ class App:
     settings surface, which is a different thing."""
 
     id: str
-    name: str
+    # Empty is looked up. Set, it is a product name.
+    name: str = ""
     claim: Claim = Claim()
     fields: tuple[Field, ...] = ()
     kinds: Kinds = Kinds()

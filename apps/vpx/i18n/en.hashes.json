@@ -1,0 +1,19 @@
+{
+  "field.bin_path.description": "e6fc88e82e80",
+  "field.ini_override.description": "c578363fdbb4",
+  "field.ini_override.label": "aae96f6d544b",
+  "field.ini_path.description": "5e69514ab7b4",
+  "field.ini_path.label": "71936ce9345a",
+  "field.log_delete_on_start.description": "275a0a99ad47",
+  "field.log_delete_on_start.label": "1db2f37baf27",
+  "field.table_ini_override_enabled.description": "bbc53691b687",
+  "field.table_ini_override_enabled.label": "3ac3ac428d53",
+  "field.table_ini_override_mask.description": "d911e59ead74",
+  "field.table_ini_override_mask.label": "fe20fafc114a",
+  "group.backglass.label": "25a5d8a7eb06",
+  "group.more.label": "54dbcb2ee714",
+  "group.play.label": "ebd7a537fafa",
+  "group.rom.label": "4426f84c2fa1",
+  "group.scoreview.label": "d427c1a4def4",
+  "no_plugins": "394a45e52f59"
+}

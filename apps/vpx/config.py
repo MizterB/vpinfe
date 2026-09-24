@@ -32,24 +32,23 @@ from .setting_types import CONTEXTUAL, TYPES
 # because they do not line up: the backglass DMD overlay keys sit with the B2S plugin
 # while the score view has a section of its own, so a group spans sections and a section
 # can feed two groups.
-GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    ("backglass", "Backglass", ("Backglass", "Plugin.B2S", "Plugin.B2SLegacy")),
+GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("backglass", ("Backglass", "Plugin.B2S", "Plugin.B2SLegacy")),
     # VPX's `[DMD]` and its dot-matrix plugins belong here: the window VPX called the
     # DMD is the one this project calls the score view, and translating its section
     # names into our words is the point of declaring groups at all.
-    ("scoreview", "Score View", ("ScoreView", "Plugin.ScoreView", "DMD",
-                                 "Plugin.FlexDMD", "Plugin.DMDUtil", "Plugin.AlphaDMD",
-                                 "Plugin.UpscaleDMD")),
-    ("rom", "ROM", ("Plugin.PinMAME", "Plugin.AltSound", "Plugin.Serum", "Plugin.VNI")),
-    ("play", "Playing", ("Player", "Standalone")),
+    ("scoreview", ("ScoreView", "Plugin.ScoreView", "DMD", "Plugin.FlexDMD",
+                   "Plugin.DMDUtil", "Plugin.AlphaDMD", "Plugin.UpscaleDMD")),
+    ("rom", ("Plugin.PinMAME", "Plugin.AltSound", "Plugin.Serum", "Plugin.VNI")),
+    ("play", ("Player", "Standalone")),
 )
 
 # Everything the groups above do not name. Not fifty groups named after fifty sections:
 # an editor over a thousand keys is a browser, and the way through it is search rather
 # than a rail nobody can hold in their head.
-REST = ("more", "More settings")
+REST = "more"
 
-_GROUPED = {section for _key, _label, sections in GROUPS for section in sections}
+_GROUPED = {section for _key, sections in GROUPS for section in sections}
 
 # Read but never offered. `[Version]` is what the program wrote about itself rather than
 # something to set; the rest is state the program keeps in the same file - key bindings
@@ -172,14 +171,14 @@ class VPXConfig:
             by_section.setdefault(one.section, []).append(_field(one))
 
         built: list[ConfigGroup] = []
-        for key, label, sections in GROUPS:
+        for key, sections in GROUPS:
             held = [f for section in sections for f in by_section.get(section, ())]
             if held:
-                built.append(ConfigGroup(key=key, label=label, settings=tuple(held)))
+                built.append(ConfigGroup(key=key, settings=tuple(held)))
         rest = [f for section, held in sorted(by_section.items())
                 if section not in _GROUPED for f in held]
         if rest:
-            built.append(ConfigGroup(key=REST[0], label=REST[1], settings=tuple(rest)))
+            built.append(ConfigGroup(key=REST, settings=tuple(rest)))
         return tuple(built)
 
     def read(self, scope: str, target: str,
@@ -259,14 +258,14 @@ class VPXConfig:
         return cleared
 
     def files(self, settings: Mapping[str, Any]) -> dict[str, str]:
-        """The files this launcher's settings live in, named for a person.
+        """The files this launcher's settings live in.
 
         The application layer only. A table's own file sits beside its game file and
         travels with it; this is the one that belongs to the launcher and would be lost
         with it.
         """
         found = _app_ini(settings)
-        return {"Application settings": str(found)} if found else {}
+        return {"application": str(found)} if found else {}
 
     def inherited_from_folder(self, target: str,
                               settings: Mapping[str, Any]) -> dict[str, str]:

@@ -16,8 +16,9 @@
 
 # The translation catalogs, and the hashes that tell a translator which of their
 # entries were written against English that has since moved. Shipped: without these
-# every label in the app renders as its own key.
+# every label in the app renders as its own key. An app keeps its own beside it.
 !common/i18n/catalogs/*.json
+!apps/*/i18n/*.json
 
 # The parity gate's committed master snapshot - see docs/compatibility-3.0.md
 !tests/fixtures/parity_baseline_master.json

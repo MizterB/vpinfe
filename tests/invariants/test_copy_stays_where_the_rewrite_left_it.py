@@ -1,13 +1,10 @@
-"""Ceilings over the whole catalog."""
+"""Ceilings over every owner's catalog."""
 
 from __future__ import annotations
 
-import json
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-CATALOG = ROOT / "common" / "i18n" / "catalogs" / "en.json"
+from tests.support.catalogs import served
 
 LABEL = 40
 PROSE = 160
@@ -27,7 +24,7 @@ RETIRED = ("manager ui", "managerui", "hubui")
 def _strings() -> dict[str, str]:
     """Every word a person reads, with a plural's forms under their own keys."""
     said: dict[str, str] = {}
-    for key, value in json.loads(CATALOG.read_text(encoding="utf-8")).items():
+    for key, value in served().items():
         if isinstance(value, str):
             said[key] = value
         elif isinstance(value, dict):

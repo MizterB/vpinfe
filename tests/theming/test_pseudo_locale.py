@@ -143,9 +143,9 @@ class PseudoLocaleTests(unittest.TestCase):
             | {"local", "dev"}
             # the product's own name, which About and Devices print
             | {"vpinfe"}
-            # a launcher is named by the config that declares it: "Visual Pinball",
-            # "Generic". A name somebody typed is theirs.
-            | {"visual", "pinball", "generic"}
+            # a product's name, which is also what a new launcher is called: "Visual
+            # Pinball". A name somebody typed is theirs.
+            | {"visual", "pinball"}
             # the name the bundled VPinPlay gives its Community list, in the rail
             | {"vpinplay"}
             # `Last Played` is a collection *name*, written into collections.json - it
