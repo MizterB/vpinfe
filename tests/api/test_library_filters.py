@@ -101,6 +101,15 @@ class LibraryFilterTests(TempTree):
         self.assertEqual("year", axes["year_range"]["field"])
         self.assertEqual("rating", axes["rating_or_higher"]["field"])
         self.assertEqual("", axes["year"]["field"])
+        self.assertEqual(("manufacturer", "none_of"),
+                         (axes["manufacturer_none_of"]["field"],
+                          axes["manufacturer_none_of"]["kind"]))
+
+    def test_none_of_offers_no_values_beside_its_field_s(self) -> None:
+        axes = self._axes()
+
+        self.assertIsNone(axes["manufacturer_none_of"]["values"])
+        self.assertTrue(axes["manufacturer"]["values"])
 
     def test_an_empty_library_reports_axes_with_no_values(self) -> None:
         """The axes exist whether or not anything is installed; only the choices are empty."""

@@ -222,7 +222,7 @@ class CollectionsApiTests(TempTree):
 
     def test_every_axis_the_registry_declares_survives_the_wire(self) -> None:
         samples = {"letter": ["C"], "choice": ["Bally"], "rating": "3", "flag": True,
-                   "range": {"from": 1990, "to": 1999}}
+                   "range": {"from": 1990, "to": 1999}, "none_of": ["Stern"]}
         for axis in cf.AXES:
             with self.subTest(axis=axis.name):
                 sent = True if axis.name == "rating_or_higher" else samples[axis.kind]
@@ -278,6 +278,18 @@ class CollectionsApiTests(TempTree):
         games = self.client.get("/collections/90s/games").json()["games"]
 
         self.assertEqual([GAME_ID], [one["id"] for one in games])
+
+    def test_none_of_a_manufacturer_leaves_those_games_out(self) -> None:
+        self.catalog[GAME_ID].meta_config["Info"]["Manufacturer"] = "Stern"
+        self.catalog[OTHER_ID].meta_config["Info"]["Manufacturer"] = "Bally"
+        self.client.post("/collections", json={
+            "name": "Not Stern", "filters": {"manufacturer_none_of": ["Stern"]}})
+
+        games = self.client.get("/collections/Not%20Stern/games").json()["games"]
+
+        self.assertEqual({"manufacturer_none_of": "Stern"},
+                         self._written("Not Stern")["filters"])
+        self.assertEqual([OTHER_ID], [one["id"] for one in games])
 
     def test_a_type_rule_reads_back_as_written_to_the_frontend_menu(self) -> None:
         self.client.post("/collections", json={"name": "EM Only",

@@ -54,6 +54,11 @@ FILTERS = (
     {"year_range": {"from": 1990, "to": 1995}},
     {"year_range": {"to": 1985}},
     {"year_range": {"from": 1996}},
+    {"manufacturer_none_of": "Bally"},
+    {"theme_none_of": "Space"},
+    {"game_type_none_of": "EM"},
+    {"year_none_of": "1995,1997"},
+    {"tags_none_of": "Needs Work"},
     {},
 )
 

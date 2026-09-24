@@ -37,5 +37,10 @@ def criteria_for(f: Any) -> dict:
             "rating": f.rating,
             "rating_or_higher": "true" if f.rating_or_higher else None,
             "played": f.played, "favorite": f.favorite, "tags": many_in(f.tags),
-            "year_range": range_in(f.year_range)}
+            "year_range": range_in(f.year_range),
+            "theme_none_of": many_in(f.theme_none_of),
+            "game_type_none_of": many_in(f.game_type_none_of),
+            "manufacturer_none_of": many_in(f.manufacturer_none_of),
+            "year_none_of": many_in(f.year_none_of),
+            "tags_none_of": many_in(f.tags_none_of)}
     return {name: value for name, value in said.items() if not is_unconstrained(value)}

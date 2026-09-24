@@ -191,6 +191,11 @@ def _resource_for(row: dict) -> dict:
             else is_truthy(raw["favorite"]),
             "tags": _many_out(raw.get("tags", "All")),
             "year_range": _range_out(raw.get("year_range")),
+            "theme_none_of": _many_out(raw.get("theme_none_of", "All")),
+            "game_type_none_of": _many_out(raw.get("game_type_none_of", "All")),
+            "manufacturer_none_of": _many_out(raw.get("manufacturer_none_of", "All")),
+            "year_none_of": _many_out(raw.get("year_none_of", "All")),
+            "tags_none_of": _many_out(raw.get("tags_none_of", "All")),
             "order_by": order["by"],
             "direction": order["direction"],
         }

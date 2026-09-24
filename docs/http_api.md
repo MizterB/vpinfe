@@ -798,6 +798,15 @@ absent, like `played`. The `tags` axis is table-scoped: a rule on it matches a g
 the tag, which brings in its default table, and a table carrying it, which brings in that
 table.
 
+*Is none of* is an axis for each choice field, named for it and naming it as its `field`:
+`theme_none_of`, `game_type_none_of`, `manufacturer_none_of`, `year_none_of` and
+`tags_none_of`. Each takes a list, as its field does, and leaves out a game holding any
+value in it; a game with no value on the field holds none of them, so it stays. Their
+`kind` is `none_of`, and they carry no values of their own, since the field's are the ones
+to offer. `tags_none_of` is table-scoped like `tags`: a game where neither it nor any of its
+tables carries one brings in its default table, and otherwise each table where neither it
+nor its game carries one comes in by itself.
+
 The `rating` axis carries its scale, `["1", "2", "3", "4", "5"]`, on every install rather
 than the ratings a library happens to hold: enumerating the ratings in use would offer a
 different scale to two libraries, and a shrinking one as ratings change. A rule asks for

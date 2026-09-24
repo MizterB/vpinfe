@@ -1688,6 +1688,11 @@ class CollectionFilters(ApiModel):
     favorite: bool | None = None
     tags: MultiValue = "All"
     year_range: YearRange | None = None
+    theme_none_of: MultiValue = "All"
+    game_type_none_of: MultiValue = "All"
+    manufacturer_none_of: MultiValue = "All"
+    year_none_of: MultiValue = "All"
+    tags_none_of: MultiValue = "All"
     order_by: str = DEFAULT_ORDER_BY
     direction: str = DEFAULT_DIRECTION
 

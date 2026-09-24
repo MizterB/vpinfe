@@ -39,6 +39,11 @@ AXIS_SNAPSHOT = {
     "favorite": ("game", "flag"),
     "tags": ("table", "choice"),
     "year_range": ("game", "range"),
+    "theme_none_of": ("game", "none_of"),
+    "game_type_none_of": ("game", "none_of"),
+    "manufacturer_none_of": ("game", "none_of"),
+    "year_none_of": ("game", "none_of"),
+    "tags_none_of": ("table", "none_of"),
 }
 
 
@@ -70,7 +75,10 @@ class RegistryShapeTests(unittest.TestCase):
     def test_an_axis_read_under_another_names_one_that_is_its_own(self) -> None:
         fields = {a.name: a.field for a in cf.AXES if a.field}
 
-        self.assertEqual({"rating_or_higher": "rating", "year_range": "year"}, fields)
+        self.assertEqual({"rating_or_higher": "rating", "year_range": "year",
+                          "theme_none_of": "theme", "game_type_none_of": "game_type",
+                          "manufacturer_none_of": "manufacturer", "year_none_of": "year",
+                          "tags_none_of": "tags"}, fields)
         for name in fields.values():
             self.assertEqual("", cf.AXES_BY_NAME[name].field)
 
@@ -183,6 +191,38 @@ class MatchingTests(unittest.TestCase):
     def test_a_range_leaves_year_meaning_a_set_of_years(self) -> None:
         self.assertFalse(cf.matches({"year": "1990,1999"}, self.afm))
         self.assertTrue(cf.matches({"year_range": {"from": 1990, "to": 1999}}, self.afm))
+
+    def test_none_of_leaves_out_a_game_holding_any_value_named(self) -> None:
+        self.assertFalse(cf.matches({"manufacturer_none_of": "Stern,Bally"}, self.afm))
+        self.assertTrue(cf.matches({"manufacturer_none_of": "Stern"}, self.afm))
+        self.assertFalse(cf.matches({"year_none_of": "1995"}, self.afm))
+        self.assertFalse(cf.matches({"game_type_none_of": "SS"}, self.afm))
+
+    def test_none_of_a_theme_leaves_out_a_game_with_it_among_others(self) -> None:
+        both = make_game(themes=["Aliens", "Space"])
+
+        self.assertFalse(cf.matches({"theme_none_of": "Space"}, both))
+        self.assertTrue(cf.matches({"theme_none_of": "Horror"}, both))
+
+    def test_a_game_with_no_value_on_the_field_holds_none_of_them(self) -> None:
+        self.assertTrue(cf.matches({"manufacturer_none_of": "Stern"}, make_game()))
+        self.assertTrue(cf.matches({"theme_none_of": "Horror"}, make_game()))
+
+    def test_none_of_sits_beside_its_field_and_all_asks_nothing(self) -> None:
+        self.assertTrue(cf.matches({"manufacturer": "Bally",
+                                    "manufacturer_none_of": "Stern"}, self.afm))
+        self.assertTrue(cf.matches({"manufacturer_none_of": "All"}, self.afm))
+
+    def test_none_of_a_tag_asks_the_table_in_hand_or_else_every_table(self) -> None:
+        game = make_game()
+        game.meta_config["tables"] = {"a": {"id": "a"},
+                                      "vr": {"id": "vr", "user": {"tags": ["VR"]}}}
+        rule = {"tags_none_of": "VR"}
+
+        self.assertFalse(cf.matches(rule, game), "a table it plays carries the tag")
+        self.assertTrue(cf.matches(rule, game, game.meta_config["tables"]["a"]))
+        self.assertFalse(cf.matches(rule, game, game.meta_config["tables"]["vr"]))
+        self.assertTrue(cf.table_sensitive(rule))
 
     def test_an_unknown_axis_is_ignored_here_and_caught_by_the_caller(self) -> None:
         """matches() is not where refusal happens - unknown_axes() is, before this runs."""

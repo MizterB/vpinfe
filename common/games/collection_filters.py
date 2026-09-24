@@ -146,6 +146,21 @@ def _match_played(criterion: object, game: GameRecord, table: dict) -> bool:
     return (game_last_run(game) > 0) == is_truthy(criterion)
 
 
+def _none_of(matcher: Callable) -> Callable:
+    """The opposite of a choice matcher: a game holding none of the values it names."""
+    def match(criterion: object, game: GameRecord, table: dict) -> bool:
+        return not matcher(criterion, game, table)
+    return match
+
+
+def _match_no_tag(criterion: object, game: GameRecord, table: dict) -> bool:
+    """With no table in hand this is the game with every one of its tables, so a game
+    is taken whole only when nothing it plays carries the tag."""
+    if table:
+        return not _match_tag(criterion, game, table)
+    return not (_values(criterion) & set(_carried_tags(game)))
+
+
 def _match_rating_or_higher(criterion: object, game: GameRecord, table: dict) -> bool:
     """Reads `rating` as a floor rather than a set. Declared as its own axis because
     that is how it is stored and how the UI presents it - a checkbox beside rating."""
@@ -245,6 +260,16 @@ AXES: tuple[FilterAxis, ...] = (
                values_of=_carried_tags, values_key="tags"),
     FilterAxis("year_range", GAME_SCOPE, "range",
                _match_year_range, field="year"),
+    FilterAxis("theme_none_of", GAME_SCOPE, "none_of",
+               _none_of(_match_theme), many=True, field="theme"),
+    FilterAxis("game_type_none_of", GAME_SCOPE, "none_of",
+               _none_of(_match_game_type), many=True, field="game_type"),
+    FilterAxis("manufacturer_none_of", GAME_SCOPE, "none_of",
+               _none_of(_match_manufacturer), many=True, field="manufacturer"),
+    FilterAxis("year_none_of", GAME_SCOPE, "none_of",
+               _none_of(_match_year), many=True, field="year"),
+    FilterAxis("tags_none_of", TABLE_SCOPE, "none_of",
+               _match_no_tag, many=True, field="tags"),
 )
 
 AXES_BY_NAME = {axis.name: axis for axis in AXES}

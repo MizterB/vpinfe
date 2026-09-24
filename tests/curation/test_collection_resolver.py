@@ -322,6 +322,27 @@ class ResolverTests(TempTree):
         self.assertEqual([("afm", "vr")],
                          self._ids(resolve("Bally VR", self.collections, self.games)))
 
+    def test_none_of_a_tag_leaves_out_only_the_table_carrying_it(self) -> None:
+        self._tag(self.afm, "a1", "VR")
+        self._rule("No VR", tags_none_of="VR")
+
+        self.assertEqual({("mm", "vpw"), ("afm", "vr"), ("taf", "t1")},
+                         set(self._ids(resolve("No VR", self.collections, self.games))),
+                         "the default carries it, so the game comes in by its other table")
+
+    def test_none_of_a_tag_the_game_carries_leaves_out_the_game(self) -> None:
+        self.afm.meta_config["User"]["Tags"] = ["VR"]
+        self._rule("No VR", tags_none_of="VR")
+
+        self.assertEqual({"mm", "taf"}, {gid for gid, _ in self._ids(
+            resolve("No VR", self.collections, self.games))})
+
+    def test_everything_except_one_manufacturer(self) -> None:
+        self._rule("Not Bally", manufacturer_none_of="Bally")
+
+        self.assertEqual([("mm", "vpw")],
+                         self._ids(resolve("Not Bally", self.collections, self.games)))
+
     def test_the_management_lens_holds_the_game_and_names_the_table(self) -> None:
         self._tag(self.afm, "vr", "VR")
         self._rule("VR", tags="VR")
