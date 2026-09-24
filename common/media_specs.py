@@ -43,9 +43,8 @@ class MediaSpec:
     # Which VPinMediaDB resolution bucket this kind is published under - "1k" for the
     # backglass and scoreview, the configured playfield resolution for the playfield.
     #
-    # Declared and never read: `vpsdb_media.py` hardcodes the same answers at its own
-    # call sites, so the two say the same thing in two places and only one is consulted.
-    # The value here is the correct one.
+    # Read by the automatic art fill. `vpsdb_media.py`'s downloader hardcodes the same
+    # answers at its own call sites, so a change here has to be made there too.
     asset_group: str | None = None
     # The token for tiers 1 and 2 - "(Wheel) Name.png". Video kinds share their
     # image counterpart's token; the extension family tells them apart.
@@ -106,6 +105,7 @@ MEDIA_SPECS = (
         attr="fss_image_path",
         payload_key="FSSImagePath",
         filename_template="fss.png",
+        asset_group="table_resolution",
         token="(FSS)",
     ),
     MediaSpec(

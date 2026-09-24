@@ -387,7 +387,7 @@ def _guess(report: dict) -> None:
     never fatal: the files are on disk whatever this finds."""
     import logging
 
-    from common.games import auto_match
+    from common.games import auto_match, media_fill
     from common.games.game import Game
     from common.games.game_metadata import load_game_meta
     from common.games.game_repository import refresh_game
@@ -398,6 +398,8 @@ def _guess(report: dict) -> None:
         game.meta_config = load_game_meta(game)
         report["vps_matched"] = auto_match.match_new([game])["matched"] > 0
         refresh_game(game_dir)
+        if report["vps_matched"]:
+            media_fill.request([game_dir])
     except Exception:
         logging.getLogger("vpinfe.common.uploads.upload_ops").exception(
             "Matching the new game failed after import")
@@ -408,13 +410,15 @@ def _associate(report: dict, vps_entry: dict) -> None:
     """Files are on disk; association failure is reported, not fatal."""
     import logging
 
+    from common.games import media_fill
     from common.games.game_metadata import MATCHED_ON_IMPORT
     from common.games.game_service import associate_vps_to_folder
 
     try:
-        associate_vps_to_folder(Path(report["game_dir"]), vps_entry, True,
+        associate_vps_to_folder(Path(report["game_dir"]), vps_entry, False,
                                 matched_by=MATCHED_ON_IMPORT)
         report["vps_associated"] = True
+        media_fill.request([report["game_dir"]])
     except Exception as exc:
         logging.getLogger("vpinfe.common.uploads.upload_ops").exception(
             "VPS association failed after import")

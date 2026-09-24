@@ -46,6 +46,9 @@ KIND_VPS_ROLLUP = "library.vps_rollup"
 # is a phone with one small web server, and two transfers into it would interleave
 # chunks of different files.
 KIND_DEVICE_SEND = "device.send"
+# Filling a new game's empty media slots from the online sources. One at a time: two
+# fills of the same game would both see the slot empty and both write it.
+KIND_MEDIA_FILL = "library.media_fill"
 
 # Finished jobs a client can still ask about. Small on purpose: this is a courtesy
 # for the caller who missed the last event, not a history feature.

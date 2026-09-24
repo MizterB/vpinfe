@@ -440,6 +440,12 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="true",
             legacy=(),
         ),
+        ConfigOption(
+            "get_art_for_new_games",
+            type="bool",
+            default="true",
+            legacy=(),
+        ),
         # Separate from `download_spreadsheet`: a machine can want current data for
         # matching without wanting its games rewritten.
         ConfigOption(

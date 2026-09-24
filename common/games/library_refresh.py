@@ -54,6 +54,7 @@ def refresh(reporter: JobReporter | None = None) -> dict:
     # next year must not arrive holding a year of upstream activity it was not around
     # for - and a read path that stamped would make asking the question change it.
     watching.note_games(game_identity.ensure_unique_ids(games))
+    _art_for(unseen)
 
     result = {"games": len(games), **{f"discovered_{k}": v for k, v in found.items()},
               **{f"enriched_{k}": v for k, v in read.items()},
@@ -73,8 +74,21 @@ def read_at_startup(games: list, unseen: list, reporter: JobReporter | None = No
 
     matched = auto_match.match_new(unseen)
     read = enrich(games, reporter)
+    _art_for(unseen)
     return {**{f"enriched_{k}": v for k, v in read.items()},
             **{f"new_{k}": v for k, v in matched.items()}}
+
+
+def _art_for(unseen: list) -> None:
+    """Hand the new games that are now matched to the art fill.
+
+    After the tables are read, not before: the fill writes the same .info files.
+    """
+    from common.games import media_fill
+    from common.games.game_metadata import effective_vps_id, normalize_meta
+
+    media_fill.request([game.full_path_game for game in unseen
+                        if effective_vps_id(normalize_meta(game.meta_config or {}))])
 
 
 def start_periodic(minutes: int) -> None:

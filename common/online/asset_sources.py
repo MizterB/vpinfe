@@ -47,6 +47,11 @@ class Source:
     def offers(self, kind: str, vps_id: str) -> list[Offer]:
         raise NotImplementedError
 
+    def reachable(self) -> bool:
+        """Whether asking now can get an answer. For a caller about to ask about many
+        games, so a source that is down costs one failed request rather than one each."""
+        return True
+
 
 @dataclass(frozen=True)
 class VPinMediaDB(Source):
@@ -67,6 +72,9 @@ class VPinMediaDB(Source):
                       url=item["url"], kind=kind, size=item.get("size", ""),
                       md5=item.get("md5", ""))
                 for item in found]
+
+    def reachable(self) -> bool:
+        return bool(_manifest())
 
 
 # Every source that ships. Which of them are asked is a setting; which exist is not.

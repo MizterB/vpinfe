@@ -153,6 +153,8 @@
   "config.updates.ask_where_new_games_go.label": "Àšķ Ŵĥèřè à Ñèŵ Ĝàɱè Ĝöèš",
   "config.updates.download_spreadsheet.description": "Ĥöŵ öƒţèñ ţö ƒèţçĥ ţĥè šþřèàđšĥèèţ. Ḿàţçĥîñĝ àñđ řèŀèàšè ŀîšţš řèàđ ţĥîš çöþý.",
   "config.updates.download_spreadsheet.label": "Đöŵñŀöàđ Šþřèàđšĥèèţ",
+  "config.updates.get_art_for_new_games.description": "Öñçè à ñèŵ ĝàɱè îš ɱàţçĥèđ, đöŵñŀöàđ ţĥè àřţ îţ îš ɱîššîñĝ, îñ ţĥè ķîñđš ţĥîš ŀîƀřàřý çöŀŀèçţš. Àřţ àŀřèàđý ţĥèřè îš ñèṽèř řèþŀàçèđ.",
+  "config.updates.get_art_for_new_games.label": "Ĝèţ Àřţ ƒöř Ñèŵ Ĝàɱèš",
   "config.updates.match_new_games.description": "Ŵĥèñ ṼÞîñƑÈ ƒîñđš à ñèŵ ĝàɱè, ɱàţçĥ îţ ţö ţĥè šþřèàđšĥèèţ ƒřöɱ îţš ƒöŀđèř ñàɱè",
   "config.updates.match_new_games.label": "Ḿàţçĥ Ñèŵ Ĝàɱèš",
   "config.updates.refresh_minutes.description": "Ĥöŵ öƒţèñ ţö řè-řèàđ ţĥè ŀîƀřàřý ƒřöɱ đîšķ. Îţ þîçķš ûþ ɱèđîà àñđ àššèţš, ñöţ ĵûšţ ţàƀŀèš. À řèàđ ŵàŀķš èṽèřý ĝàɱè ƒöŀđèř, šö îţ îš šŀöŵ öṽèř à ñèţŵöřķ šĥàřè.",
@@ -2249,6 +2251,7 @@
   "said.could_not_remove_it": "Çöûŀđ ñöţ řèɱöṽè îţ: {exc}",
   "said.could_not_save_it": "Çöûŀđ ñöţ šàṽè îţ: {exc}",
   "said.device_failed": "{name} - {error}",
+  "said.getting_art_for": "Ĝèţţîñĝ àřţ ƒöř {game}",
   "said.give_it_a_name": "Ĝîṽè îţ à ñàɱè",
   "said.guides": {
     "one": "{count} ĝûîđè",

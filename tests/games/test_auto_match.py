@@ -209,6 +209,9 @@ class FirstSightTests(TempTree):
                         patch("common.games.watching.note_games")):
             patcher.start()
             self.addCleanup(patcher.stop)
+        art = patch("common.games.media_fill.request")
+        self.art = art.start()
+        self.addCleanup(art.stop)
 
     def refresh(self) -> dict:
         games = [fake_game(folder, name, meta=_read(folder)
@@ -260,6 +263,12 @@ class FirstSightTests(TempTree):
         self.assertEqual(_read(self.folders[NEW])["Info"]["VPSId"], "")
         self.assertEqual((result["new_matched"], result["new_unmatched"]), (0, 2))
 
+    def test_the_new_games_now_matched_are_handed_to_the_art_fill(self) -> None:
+        self.refresh()
+
+        (folders,), _ = self.art.call_args
+        self.assertEqual([Path(str(folder)).name for folder in folders], [NEW])
+
 
 class ImportWithoutPickTests(TempTree):
     def imported(self, name: str) -> tuple[dict, Path]:
@@ -271,9 +280,20 @@ class ImportWithoutPickTests(TempTree):
                 patch.object(upload_ops, "select_plan_items", return_value=plan), \
                 patch.object(upload_ops, "_run", return_value={
                     "new_game": True, "game_dir": str(folder)}), \
-                patch("common.games.game_repository.refresh_game"):
+                patch("common.games.game_repository.refresh_game"), \
+                patch("common.games.media_fill.request") as self.art:
             report = upload_ops.execute("upload1", {})
         return report, folder
+
+    def test_a_matched_import_is_handed_to_the_art_fill(self) -> None:
+        _, folder = self.imported(NEW)
+
+        self.art.assert_called_once_with([folder])
+
+    def test_an_unmatched_one_is_not(self) -> None:
+        self.imported(UNKNOWN)
+
+        self.art.assert_not_called()
 
     def test_the_new_game_is_matched_from_its_folder_name(self) -> None:
         report, folder = self.imported(NEW)
@@ -286,6 +306,17 @@ class ImportWithoutPickTests(TempTree):
 
         self.assertFalse(report["vps_matched"])
         self.assertFalse((folder / f"{UNKNOWN}.info").exists())
+
+
+class ImportWithPickTests(TempTree):
+    def test_its_art_comes_from_the_fill_rather_than_inline(self) -> None:
+        report = {"game_dir": str(self.root / NEW)}
+        with patch.object(game_service, "associate_vps_to_folder") as associate, \
+                patch("common.games.media_fill.request") as art:
+            upload_ops._associate(report, _entry("fathom", "Fathom"))
+
+        self.assertFalse(associate.call_args.args[2])
+        art.assert_called_once_with([report["game_dir"]])
 
 
 if __name__ == "__main__":
