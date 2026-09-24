@@ -57,7 +57,7 @@
   "kind.media.help": "Playfield, backglass, wheel and the rest",
   "kind.media.none": "No artwork",
   "kind.roms.label": "ROMs",
-  "kind.roms.help": "The folder of ROM sets the old machine played from",
+  "kind.roms.help": "The folder of ROM sets the old computer played from",
   "kind.roms.none": "No ROMs",
   "kind.altdata.label": "Sound and color",
   "kind.altdata.help": "AltSound banks and color sets, in folders named for a ROM",
@@ -85,7 +85,7 @@
   "note.undeclared": "{system} has a database but the config does not declare it",
   "note.no_database": "{system} is declared but has no database at {path}",
   "note.tables_unreachable": "{system}: the tables are recorded at {path}, which is not reachable from here",
-  "note.remapped": "Reading {recorded} as {local} - the paths recorded here are the old machine's",
+  "note.remapped": "Reading {recorded} as {local} - the paths recorded here are the old computer's",
   "note.not_played": "Not brought in, because this build does not play them: {systems}",
   "note.entries_unnamed": {
     "one": "{file}: {count} entry has no name, so nothing can be matched to it",
