@@ -20,8 +20,8 @@ from common import events as core_events
 from common import i18n, install_identity, tokens
 from common.paths import CONFIG_DIR, bundled, get_ini_config
 
-from . import catalogs, contributions
-from .context import ExtensionContext
+from . import catalogs, contributions, services
+from .context import ExtensionApps, ExtensionContext
 from .contract import MANIFEST_NAME, Manifest, ManifestError, read_manifest
 from .store import ExtensionStore, get_extension_store
 
@@ -63,6 +63,7 @@ class Record:
     # (router, scope), collected at registration and mounted once by the API.
     routers: list[tuple[Any, str]] = field(default_factory=list)
     subscriptions: list[tuple[str, Any]] = field(default_factory=list)
+    apps: ExtensionApps | None = None
     files: Any = None
     actions: list[dict] = field(default_factory=list)
     surfaces: dict = field(default_factory=dict)
@@ -225,6 +226,7 @@ class Registry:
             record.state, record.reason = OFF, skip
             return self._remember(record)
 
+        context: ExtensionContext | None = None
         try:
             module = _import(record.manifest.name, directory)
             register = getattr(module, "register", None)
@@ -238,10 +240,13 @@ class Registry:
             context.open = False
         except Exception as exc:
             logger.exception("Extension %s did not load", record.name)
+            if context is not None:
+                _withdraw(record.name, context.events.registered, context.apps)
             return self._remember(_failed(record, _said(exc)))
 
         record.routers = list(context.routers)
         record.subscriptions = list(context.events.registered)
+        record.apps = context.apps
         record.files = context.files
         record.actions = list(context.ui.actions)
         record.community = list(context.ui.community_lists)
@@ -286,12 +291,8 @@ class Registry:
             record = self._records.get(str(name or "").strip())
             if record is None or record.state != LOADED:
                 return
-            for event, handler in record.subscriptions:
-                core_events.unsubscribe(event, handler)
+            _withdraw(record.name, record.subscriptions, record.apps)
             record.subscriptions = []
-            contributions.forget(record.name)
-            catalogs.forget(record.name)
-            tokens.forget(record.name)
             record.state, record.reason = state, reason
         logger.error("Extension %s %s: %s", name, state, reason)
 
@@ -307,6 +308,18 @@ class Registry:
         with self._lock:
             self._records[record.name] = record
         return record
+
+
+def _withdraw(name: str, subscriptions: list[tuple[str, Any]],
+              apps: ExtensionApps | None) -> None:
+    for event, handler in subscriptions:
+        core_events.unsubscribe(event, handler)
+    contributions.forget(name)
+    catalogs.forget(name)
+    tokens.forget(name)
+    services.forget(name)
+    if apps is not None:
+        apps.withdraw()
 
 
 def _said(exc: Exception) -> str:

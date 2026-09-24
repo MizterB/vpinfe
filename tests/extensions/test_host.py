@@ -13,9 +13,9 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
+from common import apps, i18n
 from common import events as core_events
-from common import i18n
-from common.extensions import contract, host, store
+from common.extensions import contract, host, provided_apps, services, store
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 
@@ -368,6 +368,64 @@ class FailureTests(HostCase):
             self.registry.disable("sample", "asked to")
 
         self.assertTrue(self.store.enabled("sample"))
+
+
+class WithdrawTests(HostCase):
+    """What an extension offered goes with it, whether it stops or never finished."""
+
+    OFFERS = ('def register(ctx):\n'
+              '    ctx.events.subscribe("game.selected", lambda **_: ctx.events.publish("heard"))\n'
+              '    ctx.apps.provide(id="fp", name="Future Pinball", suffixes=(".fpt",))\n'
+              '    ctx.serves.answer("offers.state", lambda: "somebody")\n')
+    MANIFEST = {"scopes": [provided_apps.APPS_PROVIDE], "events": ["heard"]}
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.addCleanup(apps.withdraw_all)
+        self.addCleanup(services.forget_all)
+
+    def heard(self) -> list[dict]:
+        heard: list[dict] = []
+        core_events.subscribe("offers.heard", lambda **payload: heard.append(payload))
+        core_events.emit("game.selected", game_id="abc")
+        return heard
+
+    def test_a_stopped_one_takes_back_its_app_and_its_answers(self) -> None:
+        self.registry.load(self.make("offers", self.MANIFEST, self.OFFERS))
+        self.assertEqual(apps.app_for("Big Bang Bar.fpt").id, "fp")
+        self.assertEqual(services.ask("offers.state"), "somebody")
+
+        with self.assertLogs(self.LOG, "ERROR"):
+            self.registry.disable("offers", "asked to")
+
+        self.assertIsNone(apps.app_for("Big Bang Bar.fpt"))
+        self.assertIsNone(services.ask("offers.state"))
+        self.assertEqual(self.heard(), [])
+
+    def test_its_apps_words_go_with_it(self) -> None:
+        directory = self.make("offers", self.MANIFEST, self.OFFERS)
+        (directory / "i18n").mkdir()
+        (directory / "i18n" / "en.json").write_text(
+            json.dumps({"app.fp.name": "Future Pinball"}), encoding="utf-8")
+        self.addCleanup(i18n.disown, "ext.offers")
+        self.addCleanup(i18n.disown, "app.fp")
+        self.registry.load(directory)
+        self.assertEqual(i18n.first_key("app.fp.name"), "app.fp.name")
+
+        with self.assertLogs(self.LOG, "ERROR"):
+            self.registry.disable("offers", "asked to")
+
+        self.assertEqual(i18n.first_key("app.fp.name"), "")
+
+    def test_a_register_that_raises_part_way_takes_back_what_it_had_offered(self) -> None:
+        body = self.OFFERS + '    raise RuntimeError("halfway")\n'
+        with self.assertLogs(self.LOG, "ERROR"):
+            record = self.registry.load(self.make("offers", self.MANIFEST, body))
+
+        self.assertEqual(record.state, host.FAILED)
+        self.assertIsNone(apps.app_for("Big Bang Bar.fpt"))
+        self.assertIsNone(services.ask("offers.state"))
+        self.assertEqual(self.heard(), [])
 
 
 if __name__ == "__main__":

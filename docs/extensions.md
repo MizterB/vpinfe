@@ -417,11 +417,14 @@ because the namespace is how "which extension did this?" stays answerable.
 ## When one breaks
 
 Reading the manifest, importing the package and calling `register` are each somebody
-else's code, and any of them failing costs one extension. Afterwards, an unhandled error
+else's code, and any of them failing costs one extension. A `register` that raises part
+way loses what it had offered by then, the same as below. Afterwards, an unhandled error
 out of one of its routes, or out of a handler it subscribed, takes that extension out:
 
 - its subscriptions are dropped, so it is told nothing more
 - its scopes go with it, so nothing holds a grant into something that is not running
+- the apps it provided, with their words, and the services it answered go too, so no
+  suffix stays claimed by it and core asks it nothing
 - its routes keep their paths and answer `501` naming the extension and the reason,
   because a `404` reads as a typo
 
