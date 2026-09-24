@@ -63,6 +63,61 @@ class ImportPlanTests(unittest.TestCase):
             self.assertIn("media", blocked_reasons(plan))
 
 
+class AddTablePlanTests(unittest.TestCase):
+    """A table dropped on a game to join the tables it has, not to replace one."""
+
+    def setUp(self) -> None:
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        held = TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.tmp = Path(held.name)
+        self.game_dir = self.tmp / "Foo (Bar 1999)"
+        self.game_dir.mkdir()
+        (self.game_dir / "Foo.vpx").write_bytes(b"x")
+
+    def _plan(self, names, add_table=True):
+        zip_path = self.tmp / "drop.zip"
+        make_zip(zip_path, names)
+        return build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
+                                 add_table=add_table)
+
+    def _names(self, plan):
+        from pathlib import Path
+        return {item.asset.kind: Path(item.destination).name for item in plan.items}
+
+    def test_the_table_is_added(self):
+        plan = self._plan(["Foo 1.2.vpx"])
+
+        self.assertEqual(plan_kinds_by_action(plan), {"table": "add_table"})
+
+    def test_one_the_game_holds_by_that_name_is_refused(self):
+        from common.i18n import t
+
+        plan = self._plan(["Foo.vpx"])
+
+        self.assertEqual(blocked_reasons(plan),
+                         {"table": t("error.games.game_already_file_name")})
+
+    def test_what_comes_with_it_is_named_for_it(self):
+        plan = self._plan(["Foo 1.2.vpx", "Foo 1.2.directb2s", "settings.ini",
+                           "Foo 1.2.vbs", "Foo 1.2.pov"])
+
+        self.assertEqual(self._names(plan), {
+            "table": "Foo 1.2.vpx", "backglass": "Foo 1.2.directb2s",
+            "ini": "Foo 1.2.ini", "script": "Foo 1.2.vbs", "pov": "Foo 1.2.pov"})
+
+    def test_a_replacing_drop_names_them_for_the_table_it_brings(self):
+        plan = self._plan(["Foo 1.2.vpx", "Other.directb2s"], add_table=False)
+
+        self.assertEqual(self._names(plan)["backglass"], "Foo 1.2.directb2s")
+
+    def test_without_a_table_they_are_named_for_the_game_s(self):
+        plan = self._plan(["Other.directb2s"])
+
+        self.assertEqual(self._names(plan), {"backglass": "Foo.directb2s"})
+
+
 class OnlyKindTests(unittest.TestCase):
     """A slot's Add or a drop on its cell brings that kind and nothing else."""
 

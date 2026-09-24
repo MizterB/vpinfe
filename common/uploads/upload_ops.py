@@ -287,6 +287,7 @@ def _built_plan(analysis: AnalysisResult, request: dict[str, Any]) -> ImportPlan
             rom_name=request.get("rom_name") or "",
             allow_new_game=request.get("allow_new_game", False),
             location_id=request.get("location_id") or "",
+            add_table=bool(request.get("add_table")),
         )
     except ValueError as exc:
         # Nowhere to put it. Something a person fixes - a share to mount, a location to

@@ -396,6 +396,11 @@ def _basename(arcname: str) -> str:
     return PurePosixPath(arcname).name
 
 
+def _stem(arcname: str) -> str:
+    """Lowercased: VPX matches a table's companions without regard to case."""
+    return PurePosixPath(arcname).stem.lower()
+
+
 # --- Detection -------------------------------------------------------------
 
 def _analyze_entries(
@@ -434,6 +439,20 @@ def _analyze_entries(
             claimed.add(e.path)
             assets.append(DetectedAsset("game_info", spec_for("game_info").label, (e,),
                                         size=e.size,
+                                        detail=_basename(e.arcname)))
+
+    # 1c. A table's own script, point of view and score view: beside a claimed .vpx and
+    # named for it. Any other .vbs is the player's, and placed as the table's it would
+    # replace the script inside the table.
+    tables = {(_parent(a.entries[0].arcname), _stem(a.entries[0].arcname))
+              for a in assets if a.kind == "table"}
+    by_suffix = {extension: kind for kind in ("script", "pov", "scv")
+                 for extension in spec_for(kind).extensions}
+    for e in list(unclaimed()):
+        kind = by_suffix.get(_suffix(e.arcname), "")
+        if kind and (_parent(e.arcname), _stem(e.arcname)) in tables:
+            claimed.add(e.path)
+            assets.append(DetectedAsset(kind, spec_for(kind).label, (e,), size=e.size,
                                         detail=_basename(e.arcname)))
 
     # 2. Backglass

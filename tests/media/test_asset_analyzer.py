@@ -260,6 +260,34 @@ class AssetAnalyzerTests(unittest.TestCase):
             self.assertEqual(source_path, session)
 
 
+class TableCompanionTests(unittest.TestCase):
+    """A table's script, point of view and score view, arriving beside it."""
+
+    def _analyzed(self, names):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as tmp:
+            zip_path = Path(tmp) / "bundle.zip"
+            make_zip(zip_path, names)
+            return analyze_path(zip_path)
+
+    def test_the_table_s_own_are_claimed_whatever_their_case(self):
+        result = self._analyzed(["Foo.vpx", "Foo.vbs", "foo.POV", "Foo.scv"])
+
+        self.assertEqual(kinds(result), ["pov", "script", "scv", "table"])
+
+    def test_one_named_for_something_else_is_not_the_table_s(self):
+        result = self._analyzed(["Foo.vpx", "core.vbs"])
+
+        self.assertEqual(kinds(result), ["table"])
+        self.assertEqual(result.unrecognized, ("core.vbs",))
+
+    def test_one_in_another_folder_is_not_the_table_s(self):
+        result = self._analyzed(["Foo.vpx", "extras/Foo.vbs"])
+
+        self.assertEqual(kinds(result), ["table"])
+
+
 class GameInfoDetectionTests(unittest.TestCase):
     def test_info_beside_vpx_is_claimed_and_parsed(self):
         import json

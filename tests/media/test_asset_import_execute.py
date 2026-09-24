@@ -191,6 +191,28 @@ class ImportExecuteTests(unittest.TestCase):
                 self.assertTrue((game_dir / "New.directb2s").exists())
                 self.assertFalse((game_dir / "Old.directb2s").exists())
 
+    def test_a_replacing_drop_s_backglass_follows_the_new_table(self):
+        """The old table's backglass is moved across to the new name first, so one
+        planned under the old name would be left there, belonging to nothing."""
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        with mock.patch.object(asset_import_service, "refresh_game"), \
+                TemporaryDirectory() as tmp:
+            game_dir = Path(tmp) / "Foo (Bar 1999)"
+            game_dir.mkdir()
+            (game_dir / "Old.vpx").write_bytes(b"old")
+            (game_dir / "Old.directb2s").write_bytes(b"old-b2s")
+            zip_path = Path(tmp) / "new.zip"
+            make_zip(zip_path, ["New.vpx", "New.directb2s"])
+
+            execute_import_plan(build_import_plan(analyze_path(zip_path),
+                                                  game_dir=game_dir), zip_path)
+
+            self.assertEqual(sorted(one.name for one in game_dir.iterdir()
+                                    if one.suffix != ".info"),
+                             ["New.directb2s", "New.vpx"])
+            self.assertEqual((game_dir / "New.directb2s").read_bytes(), b"x" * 16)
+
     def _replace_game(self, tmp, game_dir, info: dict, new_name: str, parsed):
         """Drop new_name onto an existing game, and hand back the resulting .info."""
         import json
@@ -284,6 +306,78 @@ class ImportExecuteTests(unittest.TestCase):
             plan = build_import_plan(analysis, allow_new_game=True, games_path=tmp)
             with self.assertRaises(ValueError):
                 execute_import_plan(plan, zip_path)
+
+
+class AddTableExecuteTests(unittest.TestCase):
+    """What adding a table to a game writes."""
+
+    def setUp(self) -> None:
+        import json
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        held = TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.tmp = Path(held.name)
+        self.game_dir = self.tmp / "Foo (Bar 1999)"
+        self.game_dir.mkdir()
+        (self.game_dir / "Foo.vpx").write_bytes(b"old")
+        (self.game_dir / "Foo.directb2s").write_bytes(b"old-b2s")
+        self.info = self.game_dir / "Foo (Bar 1999).info"
+        self.info.write_text(json.dumps({"tables": {"t-old": {"filename": "Foo.vpx"}}}))
+        for patched in (mock.patch.object(asset_import_service, "refresh_game"),
+                        mock.patch("common.games.library_enrichment.read_one",
+                                   return_value={"rom": "foo_12", "version": "1.2"})):
+            patched.start()
+            self.addCleanup(patched.stop)
+
+    def _added(self, names, declared=None):
+        import json
+        zip_path = self.tmp / "drop.zip"
+        make_zip(zip_path, names)
+        plan = build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
+                                 add_table=True)
+        report = execute_import_plan(plan, zip_path, declared=declared)
+        return report, json.loads(self.info.read_text())
+
+    def test_the_game_keeps_its_table_and_gains_one(self):
+        report, saved = self._added(["Foo 1.2.vpx", "Foo 1.2.directb2s"])
+
+        self.assertEqual((self.game_dir / "Foo.vpx").read_bytes(), b"old")
+        self.assertEqual((self.game_dir / "Foo.directb2s").read_bytes(), b"old-b2s")
+        self.assertTrue((self.game_dir / "Foo 1.2.directb2s").exists())
+        self.assertEqual(sorted(table_filenames(saved["tables"])),
+                         ["Foo 1.2.vpx", "Foo.vpx"])
+        self.assertEqual(entry_for_filename(saved["tables"], "Foo.vpx")[0], "t-old")
+
+    def test_the_report_names_the_new_table_described(self):
+        report, saved = self._added(["Foo 1.2.vpx"])
+        table_id, entry = entry_for_filename(saved["tables"], "Foo 1.2.vpx")
+
+        self.assertEqual(report["added_tables"], [table_id])
+        self.assertEqual(entry["rom"], "foo_12")
+
+    def test_a_file_that_arrived_since_the_plan_is_not_overwritten(self):
+        zip_path = self.tmp / "drop.zip"
+        make_zip(zip_path, ["Foo 1.2.vpx"])
+        plan = build_import_plan(analyze_path(zip_path), game_dir=self.game_dir,
+                                 add_table=True)
+        (self.game_dir / "Foo 1.2.vpx").write_bytes(b"theirs")
+
+        with self.assertRaises(ValueError):
+            execute_import_plan(plan, zip_path)
+        self.assertEqual((self.game_dir / "Foo 1.2.vpx").read_bytes(), b"theirs")
+
+    def test_each_declared_file_reports_where_it_went(self):
+        from pathlib import Path
+
+        from common.games.identity_claims import DeclaredIdentity
+        said = DeclaredIdentity(game_id="g1", host="user", confirmed_by="user")
+
+        report, _ = self._added(["Foo 1.2.vpx", "Foo 1.2.directb2s"],
+                                {"Foo 1.2.vpx": said, "Foo 1.2.directb2s": said})
+
+        self.assertEqual(sorted(Path(one).name for one in report["declared"]),
+                         ["Foo 1.2.directb2s", "Foo 1.2.vpx"])
 
 
 class TraversalGuardTests(unittest.TestCase):

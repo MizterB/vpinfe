@@ -722,17 +722,12 @@ def add_table_file(game_dir: Path, source: Path, table_id: str) -> dict:
 
     Answers with what landed: the table's filename, and the companions that came too.
     """
-    from common.games.info_file import MetaConfig
-
     landing = game_dir / source.name
     if landing.exists():
         raise FileExistsError(source.name)
 
     shutil.copy2(source, landing)
-    meta = MetaConfig(str(game_dir / f"{game_dir.name}.info"))
-    if not meta.add_contained_table(source.name, table_id):
-        landing.unlink(missing_ok=True)
-        raise ValueError(f"Could not record {source.name}")
+    rom = record_arrived_table(game_dir, landing, table_id)
 
     brought = []
     for one in companions_beside(source):
@@ -747,26 +742,38 @@ def add_table_file(game_dir: Path, source: Path, table_id: str) -> dict:
         except OSError as exc:
             logger.warning("%s did not come with %s: %s", one.name, source.name, exc)
 
-    # What the table says about itself, read out of it now rather than left for the
-    # sweep that enriches a whole library. A file that arrives unparsed has no ROM, no
-    # authors and no version until something else comes along, and anything keyed on the
-    # ROM - a ROM set, a sound bank, a color set - cannot be placed beside it meanwhile.
-    # The upload path parses on the spot for the same reason. Before the refresh, so the
-    # refresh sees a described table rather than a bare filename.
-    rom = ""
+    refresh_game(game_dir)
+    return {"table": source.name, "companions": brought, "rom": rom}
+
+
+def record_arrived_table(game_dir: Path, landing: Path, table_id: str) -> str:
+    """Record a game file that has just landed in its game's folder, under `table_id`,
+    and describe it from what it says about itself. Answers with the ROM it names.
+
+    Raises ValueError, having removed the file, where the game already holds one by that
+    name. Leaves the refresh to the caller.
+    """
+    from common.games.info_file import MetaConfig
+
+    meta = MetaConfig(str(game_dir / f"{game_dir.name}.info"))
+    if not meta.add_contained_table(landing.name, table_id):
+        landing.unlink(missing_ok=True)
+        raise ValueError(f"Could not record {landing.name}")
+
+    # Read now rather than left for the sweep that enriches a whole library: anything
+    # keyed on the ROM - a ROM set, a sound bank, a color set - cannot be placed beside a
+    # table that has not said which ROM it wants.
     try:
         from common.games.library_enrichment import read_one
 
         parsed = read_one(landing)
         if parsed:
-            meta.replace_table("", source.name, parsed)
-            rom = str(parsed.get("rom") or "").strip()
+            meta.replace_table("", landing.name, parsed)
+            return str(parsed.get("rom") or "").strip()
     except Exception:
-        logger.warning("Copied %s but could not read what it says about itself",
-                       source.name, exc_info=True)
-
-    refresh_game(game_dir)
-    return {"table": source.name, "companions": brought, "rom": rom}
+        logger.warning("Brought in %s but could not read what it says about itself",
+                       landing.name, exc_info=True)
+    return ""
 
 
 def sanitize_dir_name(name: str) -> str:

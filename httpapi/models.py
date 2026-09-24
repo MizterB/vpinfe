@@ -2332,6 +2332,7 @@ class ImportReport(ApiModel):
     blocked: list[BlockedAsset]
     vps_associated: bool | None = None
     vps_error: str | None = None
+    added_tables: list[str] = []
 
 
 class DeclaredIdentity(ApiModel):
@@ -2372,6 +2373,9 @@ class PlanRequest(ApiModel):
     # one marked for new games - and if that one cannot be written to, the import is
     # refused rather than quietly landing somewhere else.
     location_id: str = ""
+    # Needs `game_dir`. The drop's table is one more for that game rather than its
+    # replacement; a filename the game already has comes back blocked.
+    add_table: bool = False
 
 
 class ImportRequest(PlanRequest):

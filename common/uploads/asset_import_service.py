@@ -23,9 +23,11 @@ from common.games.game_service import (
     _find_vpx_file,
     _safe_upload_name,
     ensure_dir,
+    record_arrived_table,
     sanitize_dir_name,
 )
 from common.games.identity_claims import DeclaredIdentity
+from common.games.ids import new_id
 from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.media_service import IMAGE_EXTENSIONS, replace_media_file
 from common.games.vpx_parser import VPXParser
@@ -49,8 +51,8 @@ _MEDIA_FILENAMES = media_filename_map("table")
 class PlannedItem:
     asset: DetectedAsset
     destination: str        # absolute path (file target, or base dir for tree kinds)
-    action: str             # replace_vpx | replace_b2s | copy | zip_rom | extract_tree
-                            # | replace_media | apply_patch | write_info
+    action: str             # replace_vpx | add_table | replace_b2s | copy | zip_rom
+                            # | extract_tree | replace_media | apply_patch | write_info
     default_enabled: bool = True
 
 
@@ -141,6 +143,12 @@ def _sidecar_stem(assets: Iterable[DetectedAsset], base: Path, vpx_stem: str) ->
     return vpx_stem
 
 
+def _arriving_stem(assets: Iterable[DetectedAsset]) -> str:
+    """The name of the table a drop brings, or "" where it brings none."""
+    return next((Path(_basename(asset.entries[0].arcname)).stem
+                 for asset in assets if asset.kind == "table"), "")
+
+
 # Where each kind that lives in a folder of its own is placed. One rule, because there
 # are two ways in - something uploaded and something imported from another frontend -
 # and a second copy would be right until one of them changed. `{rom}` is filled from the
@@ -200,16 +208,20 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
 
     if kind == "table":
         dest = base / _safe_upload_name(_basename(asset.entries[0].arcname))
+        if game_kind_action == "add_table" and dest.exists():
+            return BlockedItem(asset, t("error.games.game_already_file_name"))
         return PlannedItem(asset, str(dest), game_kind_action)
     if kind == "game_info":
         # Always written as <folder>.info — the parser matches it by folder name.
         return PlannedItem(asset, str(base / f"{base.name}.info"), "write_info")
+    own = PurePosixPath(_basename(asset.entries[0].arcname))
+    stem = sidecar_stem or vpx_stem or own.stem
     if kind == "backglass":
-        stem = sidecar_stem or vpx_stem or Path(_basename(asset.entries[0].arcname)).stem
         return PlannedItem(asset, str(base / f"{stem}.directb2s"), "replace_b2s")
     if kind == "ini":
-        stem = sidecar_stem or vpx_stem or Path(_basename(asset.entries[0].arcname)).stem
         return PlannedItem(asset, str(base / f"{stem}.ini"), "copy")
+    if kind in ("script", "pov", "scv"):
+        return PlannedItem(asset, str(base / f"{stem}{own.suffix.lower()}"), "copy")
     # Which folder each of these lands in is asked of the registry, not repeated here:
     # an import from another frontend puts the same things in the same places, and two
     # copies of the rule would be right until one of them changed.
@@ -267,8 +279,12 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
                       game_row: dict | None = None, rom_name: str = "",
                       allow_new_game: bool = False,
                       games_path: str | None = None,
-                      location_id: str = "") -> ImportPlan:
-    """Route detected assets to destinations for an existing game or a new game bundle."""
+                      location_id: str = "", add_table: bool = False) -> ImportPlan:
+    """Route detected assets to destinations for an existing game or a new game bundle.
+
+    For an existing game, a table in the drop replaces the game's table, or with
+    `add_table` joins it as one more.
+    """
     items: list[PlannedItem] = []
     blocked: list[BlockedItem] = []
     new_bundle = analysis.has_game and allow_new_game
@@ -296,13 +312,12 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
             vpx_stem = _find_vpx_file(base).stem
         except (FileNotFoundError, OSError):
             vpx_stem = ""
-        # A table dropped onto an existing game replaces its .vpx (the "update table" case).
-        # New-game creation is handled by the new_bundle branch above.
-        sidecar_stem = _sidecar_stem(analysis.assets, base, vpx_stem)
+        sidecar_stem = (_arriving_stem(analysis.assets)
+                        or _sidecar_stem(analysis.assets, base, vpx_stem))
         for asset in analysis.assets:
             planned = _plan_asset(asset, base, vpx_stem, rom_name,
                                   analysis.source_name,
-                                  game_kind_action="replace_vpx",
+                                  game_kind_action="add_table" if add_table else "replace_vpx",
                                   sidecar_stem=sidecar_stem)
             if isinstance(planned, PlannedItem):
                 items.append(planned)
@@ -596,6 +611,17 @@ def _replace_vpx_from_file(source: AssetSource, asset: DetectedAsset,
     refresh_game(base)
 
 
+def _add_table_from_file(source: AssetSource, asset: DetectedAsset, base: Path,
+                         dest: Path) -> str:
+    """Bring a table in beside the game's others. Answers with its new id."""
+    if dest.exists():
+        raise ValueError(t("error.games.game_already_file_name"))
+    _extract_replace(source, asset.entries[0], dest)
+    table_id = new_id()
+    record_arrived_table(base, dest, table_id)
+    return table_id
+
+
 def _build_rom_zip(source: AssetSource, asset: DetectedAsset, dest: Path) -> None:
     ensure_dir(dest.parent)
     tmp = dest.with_name(f".{dest.name}.uploading")
@@ -727,6 +753,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
     source = open_source(Path(source_path))
     imported: list[str] = []
     media_kinds: list[str] = []
+    added: list[str] = []
     try:
         for item in plan.items:
             if progress_cb:
@@ -734,6 +761,8 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
             dest = Path(item.destination)
             if item.action == "replace_vpx":
                 _replace_vpx_from_file(source, item.asset, base)
+            elif item.action == "add_table":
+                added.append(_add_table_from_file(source, item.asset, base, dest))
             elif item.action == "replace_b2s":
                 _extract_replace(source, item.asset.entries[0], dest)
             elif item.action == "copy":
@@ -770,6 +799,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
         "new_game": bool(plan.new_game_dir_name),
         "media_kinds": media_kinds,
         "declared": declared_written,
+        "added_tables": added,
     }
 
 
@@ -804,5 +834,5 @@ def record_declared_identities(
             meta = MetaConfig(str(base / f"{base.name}.info"))
         meta.add_asset(named.destination, identity.host or "declared",
                        identity=identity)
-        written.append(item.destination)
+        written.append(named.destination)
     return written
