@@ -103,27 +103,33 @@ class VPSdb:
     # ----------------------------------------------------------------------
     # Game lookups
     def lookup_name(self, name: str, manufacturer: str, year: object) -> dict | None:
-        """Fuzzy search for a game by name, manufacturer, and year."""
+        """The entry closest to a name, manufacturer and year, or None past every gate.
+
+        Each of the three has to be at least 0.8 alike; of the entries that pass, the
+        highest sum wins, and a tie goes to the first in the catalog.
+        """
         if not all((name, manufacturer, year)):
             return None
 
+        best: dict | None = None
+        top = 0.0
         for game in self.data or []:
-            # Compare game names
-            if SequenceMatcher(None, name.lower(), game["name"].lower()).ratio() < 0.8:
+            named = SequenceMatcher(None, name.lower(), game["name"].lower()).ratio()
+            if named < 0.8:
                 continue
-
-            # Compare manufacturers
-            likeness = SequenceMatcher(
+            made = SequenceMatcher(
                 None, manufacturer.lower(), game["manufacturer"].lower()).ratio()
-            if likeness < 0.8:
+            if made < 0.8:
                 continue
+            dated = SequenceMatcher(None, str(year), str(game["year"])).ratio()
+            if dated < 0.8:
+                continue
+            if named + made + dated > top:
+                best, top = game, named + made + dated
 
-            # Compare year
-            if SequenceMatcher(None, str(year), str(game["year"])).ratio() >= 0.8:
-                return game
-
-        logger.debug("No match found for: %s", name)
-        return None
+        if best is None:
+            logger.debug("No match found for: %s", name)
+        return best
 
     def parse_game_name_from_dir(self, directory_name: str) -> dict[str, Any] | None:
         """
