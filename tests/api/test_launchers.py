@@ -86,6 +86,32 @@ class LauncherApiTests(unittest.TestCase):
 
         self.assertEqual([one["display_name"] for one in held], ["Second"])
 
+    def test_a_name_another_launcher_has_is_refused(self) -> None:
+        self._put("one", display_name="VPX")
+
+        refused = self._put("two", display_name=" vpx ")
+
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual(refused.json()["error"]["message"],
+                         "Another launcher is already called vpx.")
+        self.assertEqual(len(self.client.get("/launchers").json()["launchers"]), 1)
+
+    def test_whatever_app_it_runs(self) -> None:
+        self._put("one", display_name="Mine")
+
+        self.assertEqual(self._put("two", app="generic", display_name="MINE").status_code,
+                         400)
+
+    def test_a_launcher_keeps_its_own_name(self) -> None:
+        self._put("one", display_name="VPX")
+
+        self.assertEqual(self._put("one", display_name="VPX", enabled=True).status_code, 200)
+
+    def test_a_blank_name_is_its_app_s_and_that_is_checked_too(self) -> None:
+        self._put("one", display_name="Visual Pinball X")
+
+        self.assertEqual(self._put("two").status_code, 400)
+
     def test_the_default_is_named_rather_than_left_to_be_worked_out(self) -> None:
         """A client re-deriving "first enabled for this app" is a second place for the
         rule to be wrong."""

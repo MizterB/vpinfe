@@ -100,6 +100,14 @@ class SeedTests(unittest.TestCase):
         self.assertEqual([one.display_name for one in held],
                          [launcher_migration.SHIPPED_NAME, "Loud", "no-dmd"])
 
+    def test_a_profile_named_like_the_shipped_launcher_gets_the_next_name(self) -> None:
+        self._profile(f"{launcher_migration.SHIPPED_NAME.upper()}.ini")
+
+        self._seed()
+
+        self.assertEqual(self.store.launchers()[1].display_name,
+                         f"{launcher_migration.SHIPPED_NAME.upper()} 2")
+
     def test_a_profile_keeps_what_the_install_was_already_set_to(self) -> None:
         """A profile was a copy of the ini, not a different Visual Pinball. Dropping the
         environment would leave it launching differently in ways nobody asked for."""
@@ -217,14 +225,38 @@ class AssignmentTests(unittest.TestCase):
         self.assertEqual(made.value("bin_path"), "/opt/x/VPinballX")
         self.assertEqual(made.value("launch_env"), "X=1")
 
+    def _profile_launcher(self, name: str, file: str) -> None:
+        self.store.put(launchers.Launcher(
+            launcher_id="p1", app="vpx", display_name=name, owns_ini=True,
+            settings={launcher_migration.PROFILE_FILE:
+                      str(launcher_migration.PLUGIN_PROFILES_DIR / file)}))
+
     def test_a_plugin_profile_maps_to_the_launcher_seeding_made(self) -> None:
-        self.store.put(launchers.Launcher(launcher_id="p1", app="vpx",
-                                          display_name="no-dmd", owns_ini=True))
+        self._profile_launcher("no-dmd", "no-dmd.ini")
 
         self._run([_Game("quiet", {"plugin_profile": "no-dmd"})])
 
         self.assertEqual(self.store.mappings(), {"t-quiet": "p1"})
         self.assertEqual(len(self.store.launchers()), 2, "no second launcher for it")
+
+    def test_it_is_found_by_its_file_when_seeding_named_it_otherwise(self) -> None:
+        self._profile_launcher("Visual Pinball X 2", "Visual Pinball X.ini")
+
+        self._run([_Game("quiet", {"plugin_profile": "visual pinball x"})])
+
+        self.assertEqual(self.store.mappings(), {"t-quiet": "p1"})
+
+    def test_two_builds_with_one_file_name_get_two_names(self) -> None:
+        self._run([_Game("a", {"alt_launcher": "/opt/one/VPinballX_GL"}),
+                   _Game("b", {"alt_launcher": "/opt/two/VPinballX_GL"})])
+
+        self.assertEqual([one.display_name for one in self.store.launchers()[1:]],
+                         ["VPinballX_GL", "VPinballX_GL 2"])
+
+    def test_a_build_named_like_a_launcher_already_there_gets_the_next_name(self) -> None:
+        self._run([_Game("a", {"alt_launcher": "/opt/x/Visual Pinball X"})])
+
+        self.assertEqual(self.store.launchers()[1].display_name, "Visual Pinball X 2")
 
     def test_a_profile_with_no_launcher_is_reported_and_left_on_the_default(self) -> None:
         """The ini was deleted, or never existed. Falling back is right; doing it

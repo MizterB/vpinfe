@@ -210,5 +210,16 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(sorted(one.settings), sorted(f.key for f in VPX_FIELDS))
 
 
+class NameTests(unittest.TestCase):
+    def test_two_names_that_differ_only_in_case_and_spaces_are_one(self) -> None:
+        self.assertTrue(launchers.same_name(" Visual Pinball X", "visual pinball x "))
+
+    def test_a_free_name_is_kept(self) -> None:
+        self.assertEqual(launchers.free_name("VPX", ["Other"]), "VPX")
+
+    def test_a_taken_one_is_numbered_from_two(self) -> None:
+        self.assertEqual(launchers.free_name("VPX", ["vpx", "VPX 2"]), "VPX 3")
+
+
 if __name__ == "__main__":
     unittest.main()

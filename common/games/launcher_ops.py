@@ -115,6 +115,10 @@ def put(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
                     join=(', '.join(app.id for app in apps.all_apps()))))
 
     store = launchers.get_launcher_store()
+    name = str(body.get("display_name") or "").strip() or apps.app_name(app_id)
+    if any(launchers.same_name(name, one.display_name) for one in store.launchers()
+           if one.launcher_id != wanted):
+        raise service_errors.RefusedError(t("error.launchers.name_taken", name=name))
     enabled = bool(body.get("enabled", True))
     before = store.get(wanted)
     if before is not None and before.enabled and not enabled:
@@ -124,7 +128,7 @@ def put(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     written = store.put(launchers.Launcher(
         launcher_id=wanted,
         app=app_id,
-        display_name=str(body.get("display_name") or "").strip() or apps.app_name(app_id),
+        display_name=name,
         enabled=enabled,
         owns_ini=bool(body.get("owns_ini", False)),
         settings=dict(body.get("settings") or {}),

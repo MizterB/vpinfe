@@ -1950,6 +1950,7 @@
   "error.launchers.keeps_no_settings_file": "{app_name} keeps no settings file to copy.",
   "error.launchers.launcher_needs_id": "A launcher needs an id.",
   "error.launchers.name_least_one_setting": "Name at least one setting to write.",
+  "error.launchers.name_taken": "Another launcher is already called {name}.",
   "error.launchers.no_app_called_build": "No app called {app_id!r}. This build knows {join}.",
   "error.launchers.no_fallback": "Switched off, its tables would have no launcher left to run them.",
   "error.launchers.no_launcher": "No launcher {launcher_id}",

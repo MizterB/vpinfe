@@ -5,9 +5,16 @@ launcher exist on every cabinet under one name, and what lets a mapping mean the
 thing on both ends.
 """
 
+import json
+import os
 import unittest
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from common.games import launcher_copy
+import requests
+
+from common.games import launcher_copy, launchers
+from common.i18n import t
 
 
 class _Client:
@@ -132,6 +139,53 @@ class CopyTests(unittest.TestCase):
 
         self.assertIn("the launchers arrived", found[0].error)
         self.assertEqual(found[0].launchers, 1)
+
+
+class RefusedTests(unittest.TestCase):
+    """A device that already has a launcher by that name keeps it."""
+
+    def setUp(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.store = launchers.LauncherStore(os.path.join(tmp.name, "launchers.json"))
+        patcher = patch.object(launchers, "get_launcher_store", return_value=self.store)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.store.put(launchers.Launcher(launcher_id="here", app="vpx",
+                                          display_name="VPX"))
+
+    def _copy(self, launcher: dict) -> launcher_copy.Outcome:
+        return launcher_copy.copy_to([_device("me", "This One")], [launcher],
+                                     client_for=lambda _d: launcher_copy.LocalWrites())[0]
+
+    def test_a_different_launcher_under_a_name_in_use_is_refused_and_named(self) -> None:
+        found = self._copy(_launcher("there", "vpx"))
+
+        self.assertIn("vpx did not arrive", found.error)
+        self.assertIn(t("error.launchers.name_taken", name="vpx"), found.error)
+        self.assertIsNone(self.store.get("there"))
+
+    def test_the_same_launcher_arriving_again_updates_it(self) -> None:
+        found = self._copy(_launcher("here", "VPX", launch_env="X=1"))
+
+        self.assertTrue(found.ok, found.error)
+        self.assertEqual(self.store.get("here").value("launch_env"), "X=1")
+
+    def test_a_device_across_the_network_is_quoted_not_its_status(self) -> None:
+        answer = requests.Response()
+        answer.status_code = 400
+        answer._content = json.dumps(
+            {"error": {"message": "Another launcher is already called VPX."}}).encode()
+
+        class _Refusing(_Client):
+            def put_launcher(self, launcher_id, body):
+                raise requests.HTTPError("400 Client Error", response=answer)
+
+        found = launcher_copy.copy_to([_device("cab", "Cab")], [_launcher("a", "VPX")],
+                                      client_for=lambda _d: _Refusing())[0]
+
+        self.assertEqual(found.error,
+                         "VPX did not arrive: Another launcher is already called VPX.")
 
 
 class SaidTests(unittest.TestCase):

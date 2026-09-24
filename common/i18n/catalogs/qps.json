@@ -1950,6 +1950,7 @@
   "error.launchers.keeps_no_settings_file": "{app_name} ķèèþš ñö šèţţîñĝš ƒîŀè ţö çöþý.",
   "error.launchers.launcher_needs_id": "À ŀàûñçĥèř ñèèđš àñ îđ.",
   "error.launchers.name_least_one_setting": "Ñàɱè àţ ŀèàšţ öñè šèţţîñĝ ţö ŵřîţè.",
+  "error.launchers.name_taken": "Àñöţĥèř ŀàûñçĥèř îš àŀřèàđý çàŀŀèđ {name}.",
   "error.launchers.no_app_called_build": "Ñö àþþ çàŀŀèđ {app_id!r}. Ţĥîš ƀûîŀđ ķñöŵš {join}.",
   "error.launchers.no_fallback": "Šŵîţçĥèđ öƒƒ, îţš ţàƀŀèš ŵöûŀđ ĥàṽè ñö ŀàûñçĥèř ŀèƒţ ţö řûñ ţĥèɱ.",
   "error.launchers.no_launcher": "Ñö ŀàûñçĥèř {launcher_id}",

@@ -41,16 +41,9 @@ class LocalWrites:
     """
 
     def put_launcher(self, launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
-        from common.games import launchers
+        from common.games import launcher_ops
 
-        made = launchers.Launcher(
-            launcher_id=launcher_id,
-            app=str(body.get("app") or ""),
-            display_name=str(body.get("display_name") or ""),
-            enabled=bool(body.get("enabled", True)),
-            owns_ini=bool(body.get("owns_ini", False)),
-            settings=dict(body.get("settings") or {}))
-        return launchers.get_launcher_store().put(made).as_dict()
+        return launcher_ops.put(launcher_id, body)
 
     def put_launcher_mapping(self, table_id: str, launcher_id: str) -> dict[str, Any]:
         from common.games import launchers
@@ -134,7 +127,7 @@ def _send(device: dict[str, Any], sending: list[dict[str, Any]],
             logger.warning("Could not copy launcher %s to %s: %s",
                            one.get("display_name"), name, exc)
             return Outcome(device_id, name, launchers=sent,
-                           error=f"{one.get('display_name')} did not arrive: {exc}")
+                           error=f"{one.get('display_name')} did not arrive: {_reason(exc)}")
         sent += 1
 
     mapped = 0
@@ -148,6 +141,16 @@ def _send(device: dict[str, Any], sending: list[dict[str, Any]],
         mapped += 1
 
     return Outcome(device_id, name, launchers=sent, mappings=mapped)
+
+
+def _reason(exc: Exception) -> str:
+    """What the device said, where it answered with a reason."""
+    response = getattr(exc, "response", None)
+    try:
+        said = response.json()["error"]["message"] if response is not None else ""
+    except Exception:  # noqa: BLE001 - a response without a message
+        said = ""
+    return str(said or exc)
 
 
 def _body(launcher: dict[str, Any]) -> dict[str, Any]:

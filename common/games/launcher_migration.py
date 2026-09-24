@@ -34,6 +34,9 @@ SEEDED = "seeded-from-config"
 # person would call the thing that runs their tables.
 SHIPPED_NAME = "Visual Pinball X"
 
+# The field a launcher made from a profile keeps the profile's file in.
+PROFILE_FILE = "ini_override"
+
 
 def seed(store: launchers.LauncherStore, config: ConfigStore) -> bool:
     """Give an install its launchers, once. Returns whether it wrote anything.
@@ -46,7 +49,7 @@ def seed(store: launchers.LauncherStore, config: ConfigStore) -> bool:
 
     shipped = launchers.seeded_from(read_old_keys(config))
     found = [launchers.replace(shipped, display_name=SHIPPED_NAME)]
-    found += _from_profiles(shipped)
+    found += _from_profiles(shipped, [SHIPPED_NAME])
 
     store.save(found, {})
     store.mark_migration(SEEDED)
@@ -95,7 +98,8 @@ def read_old_keys(config: ConfigStore) -> dict[str, object]:
     return found
 
 
-def _from_profiles(shipped: launchers.Launcher) -> list[launchers.Launcher]:
+def _from_profiles(shipped: launchers.Launcher,
+                   taken: list[str]) -> list[launchers.Launcher]:
     """One launcher per plugin profile, each a copy of the shipped one pointed at its ini.
 
     A copy rather than a bare launcher because that is what a profile was: the same
@@ -112,12 +116,13 @@ def _from_profiles(shipped: launchers.Launcher) -> list[launchers.Launcher]:
     for path in sorted(PLUGIN_PROFILES_DIR.iterdir(), key=lambda p: p.name.lower()):
         if not path.is_file() or path.suffix.lower() != ".ini":
             continue
+        taken.append(launchers.free_name(path.stem, taken))
         found.append(launchers.replace(
             shipped,
             launcher_id=launchers.mint_launcher_id(),
-            display_name=path.stem,
+            display_name=taken[-1],
             owns_ini=True,
-            settings={**shipped.settings, "ini_override": str(path)},
+            settings={**shipped.settings, PROFILE_FILE: str(path)},
         ))
     return found
 
@@ -174,7 +179,7 @@ def migrate_assignments(store: launchers.LauncherStore,
         if alt:
             wanted = by_path.get(alt, "")
             if not wanted:
-                made = _for_binary(alt, shipped)
+                made = _for_binary(alt, shipped, [one.display_name for one in held])
                 held.append(made)
                 by_path[alt] = wanted = made.launcher_id
                 counts["launchers"] += 1
@@ -219,7 +224,8 @@ def _consume(game: Game, vpinfe: dict) -> None:
                          game.game_dir_name)
 
 
-def _for_binary(path: str, shipped: launchers.Launcher | None) -> launchers.Launcher:
+def _for_binary(path: str, shipped: launchers.Launcher | None,
+                taken: list[str]) -> launchers.Launcher:
     """A launcher for a binary a table named, copied from the shipped one.
 
     A copy because `alt_launcher` only ever replaced the program: everything else about
@@ -230,17 +236,17 @@ def _for_binary(path: str, shipped: launchers.Launcher | None) -> launchers.Laun
     return launchers.replace(
         base,
         launcher_id=launchers.mint_launcher_id(),
-        display_name=Path(path).stem or path,
+        display_name=launchers.free_name(Path(path).stem or path, taken),
         owns_ini=False,
         settings={**base.settings, "bin_path": path},
     )
 
 
 def _profile_launcher(name: str, held: Iterable[launchers.Launcher]) -> str:
-    """The launcher the seeding pass made from this profile, by the name it gave it."""
-    wanted = name.strip().lower()
+    """The launcher the seeding pass made from this profile, by the profile's file."""
+    wanted = str(PLUGIN_PROFILES_DIR / f"{name.strip()}.ini").casefold()
     found = next((one for one in held
-                  if one.display_name.strip().lower() == wanted), None)
+                  if str(one.settings.get(PROFILE_FILE) or "").casefold() == wanted), None)
     return found.launcher_id if found is not None else ""
 
 

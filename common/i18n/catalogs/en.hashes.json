@@ -1746,6 +1746,7 @@
   "error.launchers.keeps_no_settings_file": "65eac0c3603a",
   "error.launchers.launcher_needs_id": "2727bdbd98da",
   "error.launchers.name_least_one_setting": "33cb744f270f",
+  "error.launchers.name_taken": "25310bc3ab90",
   "error.launchers.no_app_called_build": "8aeccdf9c352",
   "error.launchers.no_fallback": "8a7d38705bb9",
   "error.launchers.no_launcher": "706af662ce21",

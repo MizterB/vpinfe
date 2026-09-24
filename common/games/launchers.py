@@ -60,6 +60,21 @@ def mint_launcher_id() -> str:
     return mint_id()
 
 
+def same_name(one: str, other: str) -> bool:
+    """Whether two launcher names read as one to somebody looking at a picker."""
+    return one.strip().casefold() == other.strip().casefold()
+
+
+def free_name(wanted: str, taken: Iterable[str]) -> str:
+    """`wanted`, or the first of `wanted 2`, `wanted 3`... that no name in `taken` is."""
+    held = list(taken)
+    found, count = wanted.strip(), 1
+    while any(same_name(found, one) for one in held):
+        count += 1
+        found = f"{wanted.strip()} {count}"
+    return found
+
+
 @dataclass(frozen=True)
 class Launcher:
     """One configured way of running an app.

@@ -195,8 +195,9 @@ async def _add(library: Library, state: dict[str, Any], redraw: Callable[[], Non
 
     made = model.mint_launcher_id()
     try:
+        name = model.free_name(app["name"], await _names(library))
         await run.io_bound(library.put_launcher, made,
-                           {"app": app["id"], "display_name": app["name"],
+                           {"app": app["id"], "display_name": name,
                             "enabled": True, "settings": {}})
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("said.could_not_add_it", exc=(exc)), type="negative")
@@ -217,15 +218,21 @@ async def duplicate(library: Library, state: dict[str, Any], redraw: Callable[[]
 
     made = model.mint_launcher_id()
     try:
+        name = model.free_name(t("console.launchers.copy_of", name=launcher["display_name"]),
+                               await _names(library))
         await run.io_bound(library.put_launcher, made,
                            {**launcher, "launcher_id": made, "owns_ini": False,
-                            "display_name": t("console.launchers.copy_of",
-                                              name=launcher["display_name"])})
+                            "display_name": name})
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("console.launchers.could_not_duplicate", exc=(exc)), type="negative")
         return
     state["launcher"] = made
     redraw()
+
+
+async def _names(library: Library) -> list[str]:
+    found = await offload.io(library.launchers)
+    return [str(one.get("display_name") or "") for one in found.get("launchers") or []]
 
 
 def copy_targets(known: list[dict], install_id: str) -> list[dict]:
