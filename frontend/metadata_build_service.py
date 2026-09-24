@@ -8,6 +8,7 @@ from collections.abc import Callable
 from queue import Queue
 from typing import TYPE_CHECKING, Any
 
+from common import jobs
 from common.i18n import t
 from frontend import game_state
 
@@ -52,6 +53,9 @@ def start_build(api: API, *, build_metadata_func: Callable[..., Any],
             # Re-derived rather than assigned: the view is a collection resolved to
             # entries, and the build has just replaced every game object behind it.
             game_state.rebuild_view(api)
+        except jobs.JobBusyError:
+            event_queue.put({"type": "buildmeta_error",
+                             "error": t("frontend.buildmeta.library_busy")})
         except Exception as exc:
             event_queue.put({"type": "buildmeta_error", "error": str(exc)})
             logger.exception("build_metadata failed")

@@ -3,16 +3,19 @@ from __future__ import annotations
 import configparser
 import json
 import os
+import threading
 import types
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from common import jobs
 from common.games import game_play_service, game_report_service
 from common.games.game_metadata import game_frontend_dof_event, set_game_rating
 from common.games.tables import entry_for_filename
 from common.host import real_dmd, system_actions
+from common.i18n import t
 from frontend import config_api, theme_api
 from tests.support.library import write_game
 
@@ -481,6 +484,62 @@ class PerTablePlayStatsTests(unittest.TestCase):
 
         self.assertEqual(config["User"]["StartCount"], 1)
         self.assertNotIn("tables", config)
+
+
+class BuildMetadataJobTests(unittest.TestCase):
+    """The main menu's Build Metadata, run as the library job."""
+
+    def setUp(self) -> None:
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
+        self.api = mock.Mock()
+        self.ended = threading.Event()
+        self.sent: list[dict] = []
+
+        def send(event: dict) -> None:
+            self.sent.append(event)
+            if event["type"] == "buildmeta_error":
+                self.ended.set()
+
+        self.api.send_event_all_windows_incself.side_effect = send
+        for patcher in (mock.patch("frontend.api.all_games", return_value=[]),
+                        mock.patch("frontend.game_state.rebuild_view",
+                                   side_effect=lambda api: self.ended.set())):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def build(self, scan: mock.Mock) -> dict:
+        from frontend.api import API
+
+        with mock.patch("common.games.metadata_service.build_metadata", scan):
+            API.build_metadata(self.api, download_media=False)
+            self.assertTrue(self.ended.wait(5))
+        return self.sent[-1]
+
+    def test_it_runs_as_the_library_job(self) -> None:
+        running: list[int] = []
+
+        def scan(**_kwargs: object) -> dict:
+            running.append(len(jobs.active(jobs.KIND_LIBRARY_SCAN)))
+            return {"found": 1, "not_found": 0}
+
+        self.build(mock.Mock(side_effect=scan))
+
+        self.assertEqual(running, [1])
+        self.assertEqual(self.sent[-1], {"type": "buildmeta_complete",
+                                         "result": {"found": 1, "not_found": 0}})
+
+    def test_a_busy_library_is_said_in_words(self) -> None:
+        release = threading.Event()
+        self.addCleanup(release.set)
+        jobs.submit(jobs.KIND_LIBRARY_SCAN, lambda job: release.wait(5))
+        scan = mock.Mock()
+
+        event = self.build(scan)
+
+        scan.assert_not_called()
+        self.assertEqual(event, {"type": "buildmeta_error",
+                                 "error": t("frontend.buildmeta.library_busy")})
 
 
 if __name__ == "__main__":

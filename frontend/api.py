@@ -770,12 +770,11 @@ class API:
         Returns:
             dict with success status and message
         """
-        from common.games.metadata_service import build_metadata
+        from common.games import game_service
 
         return metadata_build_service.start_build(
             self,
-            build_metadata_func=lambda **kwargs: build_metadata(iniconfig=self._ini_config,
-                    **kwargs),
+            build_metadata_func=game_service.build_metadata,
             all_games_func=all_games,
             download_media=download_media,
             update_all=update_all,
