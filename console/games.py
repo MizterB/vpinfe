@@ -132,6 +132,16 @@ COLUMNS = [
     # game, and it belongs with the game's other facts.
     grid.column("table_count", t("word.table_count"), type="numericColumn", group=t(_GAME),
                 help=t("console.games.how_many_vpx_files.help")),
+    grid.column("hidden", game_tables.FRONTEND, group=t(_GAME),
+                help=t("console.games.hidden_game.help"),
+                **{":valueFormatter":
+                   "params => params.value ? "
+                   + json.dumps(game_tables.HIDDEN_WORDS[0]) + " : ''",
+                   **grid.choice_filter(_two(game_tables.HIDDEN_WORDS), formatted=True)},
+                **renderers.drawable("state", states={True: {
+                    "label": game_tables.HIDDEN_WORDS[0],
+                    "why": t("console.game_tables.hidden_game.help"),
+                    "chip": "console-chip-warn"}})),
     grid.column("manufacturer", t("word.manufacturer"), group=t(_GAME),
                 help=t("help.who_made_it")),
     grid.column("year", t("word.year"), group=t(_GAME),
@@ -183,16 +193,16 @@ COLUMNS = [
 VIEW_SECTIONS = {views.builtin_id(_MEDIA): "media"}
 
 # A column that reports a problem, and the panel section that fixes it. Clicking the
-# word is the only thing to do with it, so the click lands where the match is made
-# rather than on Details and one more click.
-COLUMN_SECTIONS = {"vps_unmatched": "game_details"}
+# word is the only thing to do with it, so the click lands where it is fixed rather
+# than on Details and one more click.
+COLUMN_SECTIONS = {"vps_unmatched": "game_details", "hidden": "game_details"}
 
 GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     # Named for the workbench group it matches: a view and a panel
     # group about the same facts carry the same word, so crossing between the grid and
     # the panel is not a translation.
     "console.view.game": views.Preset(
-        columns=("name", "table_count", "manufacturer", "year", "game_type",
+        columns=("name", "table_count", "hidden", "manufacturer", "year", "game_type",
                  "themes", "vps_unmatched", "rating", "tags", "collections"),
         help=t("console.view.game.help")),
     # Media and Assets are built from what the library reports it has, so both are
@@ -1198,6 +1208,14 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         await act(library.set_default_table, row["game_id"], row["id"] if lock else "",
                   said=said, row=row)
 
+    async def set_hidden(row: dict[str, Any], *, hidden: bool) -> None:
+        def said(answer: Any) -> str:
+            return game_tables.hidden_said(str(row.get("game") or ""), row, answer,
+                                           hidden=hidden)
+
+        await act(library.set_table_hidden, row["game_id"], row["id"], hidden,
+                  said=said, row=row)
+
     async def act(what: Callable, *args: Any, said: str | Callable[[Any], str] = "",
                   row: dict[str, Any] | None = None, gone: bool = False) -> None:
         """Run one row-menu act, then put only what changed back on screen.
@@ -1275,11 +1293,13 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 ui.separator()
                 # Managed here, where every candidate for the game is visible at once.
                 if not row.get("default"):
-                    panel.menu_entry(
-                        t("word.make_default"),
-                        lambda r=row: act(library.set_default_table, r["game_id"],
-                                          r["id"], said=t("console.games.now_game_s_default"),
-                                          row=r))
+                    if not game_tables.why_not_default(row):
+                        panel.menu_entry(
+                            t("word.make_default"),
+                            lambda r=row: act(library.set_default_table, r["game_id"],
+                                              r["id"], said=game_tables.now_plays(
+                                                  str(r.get("game") or ""), r),
+                                              row=r))
                 elif locking := game_tables.lock_act(
                         row, [one for one in by_id.values()
                               if one.get("game_id") == row.get("game_id")]):
@@ -1289,11 +1309,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 hidden = bool(row.get("hidden"))
                 panel.menu_entry(
                     t("console.games.unhide") if hidden else t("console.games.hide"),
-                    lambda r=row, h=hidden: act(library.set_table_hidden, r["game_id"],
-                                                r["id"], not h,
-                                                said=t("console.games.now_offered") if h
-                                                else t("word.hidden"),
-                                                row=r))
+                    lambda r=row, h=hidden: set_hidden(r, hidden=not h))
                 # The script sidecar. VPX loads a `<table>.vbs` beside the .vpx in
                 # preference to the one inside it, so this is per table and belongs on
                 # the row rather than only on the panel that was carrying it.

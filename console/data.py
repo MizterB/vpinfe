@@ -299,6 +299,7 @@ class Library:
     def set_table_hidden(self, game_id: str, table_id: str, hidden: bool) -> dict:
         result = self._client.set_table_hidden(game_id, table_id, hidden)
         self._forget_tables(game_id)
+        self._forget_game(game_id)
         return result
 
     def set_game_rating(self, game_id: str, rating: int) -> None:
@@ -1266,6 +1267,7 @@ class Library:
                 # nobody reads a VPS id down a column. The id itself is one click away
                 # in the panel, which is where it can be checked against the catalog.
                 "vps_unmatched": not game.get("vps_id"),
+                "hidden": bool(game.get("hidden")),
                 "rating": game.get("rating") or 0,
                 "themes": list(game.get("themes") or []),
                 "tags": [*((game.get("user") or {}).get("tags") or []),

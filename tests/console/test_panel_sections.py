@@ -3,6 +3,8 @@
 import unittest
 from typing import Any
 
+from nicegui import ui
+
 from common.i18n import t
 from console import game_tables, workbench
 
@@ -94,6 +96,32 @@ class TableSectionTests(unittest.TestCase):
         entries = workbench._table_entries(_context()["tables"][0])
 
         self.assertNotIn(YOURS, _headings(entries))
+
+
+def _radio(table: dict[str, Any]) -> tuple[ui.element, str]:
+    """The radio a row draws, and its tooltip."""
+    with ui.card() as card:
+        workbench._default_mark(_context(), table, several=True)
+    radio, tip = card.default_slot.children
+    assert isinstance(tip, ui.tooltip)
+    return radio, tip.text
+
+
+class DefaultRadioTests(unittest.TestCase):
+    """The radio on each row of the game's Tables block."""
+
+    def test_a_hidden_row_s_radio_is_disabled_and_says_why(self) -> None:
+        radio, tip = _radio(_table("beta", hidden=True))
+
+        self.assertIn("opacity-30", radio.classes)
+        self.assertNotIn("cursor-pointer", radio.classes)
+        self.assertEqual(tip, t("console.game_tables.hidden_cannot_default"))
+
+    def test_an_offered_row_s_radio_makes_it_the_default(self) -> None:
+        radio, tip = _radio(_table("beta"))
+
+        self.assertIn("cursor-pointer", radio.classes)
+        self.assertEqual(tip, t("console.workbench.make_default"))
 
 
 class PlaySectionTests(unittest.TestCase):

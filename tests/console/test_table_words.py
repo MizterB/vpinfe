@@ -8,7 +8,7 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from console import game_tables, games
+from console import data, game_tables, games
 
 WORDS = game_tables.DEFAULT_WORDS
 
@@ -125,6 +125,113 @@ class DefaultCellTests(unittest.TestCase):
 def _default_column() -> dict[str, Any]:
     return next(column for column in games.TABLE_COLUMNS
                 if column.get("field") == "default_state")
+
+
+HIDDEN = _table("gamma", hidden=True)
+GONE = _table("delta", absent_since="2026-01-01T00:00:00Z")
+GAME = "Sample Game"
+
+
+class DefaultOfferTests(unittest.TestCase):
+    """Which tables the radio and the grid menu offer as the default."""
+
+    def test_an_offered_table_can_be(self) -> None:
+        self.assertEqual(game_tables.why_not_default(OTHER), "")
+
+    def test_a_hidden_table_cannot_and_says_why(self) -> None:
+        self.assertEqual(game_tables.why_not_default(HIDDEN),
+                         t("console.game_tables.hidden_cannot_default"))
+
+    def test_a_table_not_on_disk_cannot_and_says_why(self) -> None:
+        self.assertEqual(game_tables.why_not_default(GONE),
+                         t("console.workbench.not_disk_cannot_default"))
+
+
+class HiddenHintTests(unittest.TestCase):
+    def test_hiding_one_of_several_says_where_it_is_left_out(self) -> None:
+        self.assertEqual(game_tables.hidden_hint(OTHER, [AUTOMATIC, OTHER]),
+                         t("console.game_tables.hidden.help"))
+
+    def test_hiding_the_last_offered_table_says_the_game_goes_with_it(self) -> None:
+        self.assertEqual(game_tables.hidden_hint(AUTOMATIC, [AUTOMATIC, HIDDEN, GONE]),
+                         t("console.game_tables.hidden_last.help"))
+
+    def test_a_hidden_table_is_not_the_last_offered_one(self) -> None:
+        self.assertEqual(game_tables.hidden_hint(HIDDEN, [HIDDEN]),
+                         t("console.game_tables.hidden.help"))
+
+
+class HiddenSaidTests(unittest.TestCase):
+    """The notification once a table is hidden or offered again, from what the write
+    answered."""
+
+    def test_hiding_a_spare_table_says_only_that(self) -> None:
+        said = game_tables.hidden_said(GAME, OTHER, {"default": AUTOMATIC}, hidden=True)
+
+        self.assertEqual(said, game_tables.HIDDEN_WORDS[0])
+
+    def test_hiding_the_default_names_the_table_that_now_plays(self) -> None:
+        said = game_tables.hidden_said(GAME, AUTOMATIC, {"default": OTHER}, hidden=True)
+
+        self.assertEqual(said, t("console.game_tables.hidden_now_plays", game=GAME,
+                                 table=game_tables.table_name(OTHER)))
+
+    def test_hiding_a_locked_default_says_it_was_unlocked(self) -> None:
+        said = game_tables.hidden_said(GAME, LOCKED, {"default": OTHER}, hidden=True)
+
+        self.assertEqual(said, t("console.game_tables.hidden_unlocked_now_plays",
+                                 game=GAME, table=game_tables.table_name(OTHER)))
+
+    def test_hiding_the_last_table_says_the_frontend_leaves_the_game_out(self) -> None:
+        said = game_tables.hidden_said(GAME, AUTOMATIC, {"default": None}, hidden=True)
+
+        self.assertEqual(said, t("console.game_tables.hidden_none_left", game=GAME))
+
+    def test_offering_the_table_the_game_now_plays_says_so(self) -> None:
+        now = {**HIDDEN, "hidden": False, "default": True}
+
+        said = game_tables.hidden_said(GAME, HIDDEN, {"default": now}, hidden=False)
+
+        self.assertEqual(said, t("console.game_tables.offered_now_plays", game=GAME,
+                                 table=game_tables.table_name(now)))
+
+    def test_offering_one_that_leaves_the_default_says_only_that(self) -> None:
+        said = game_tables.hidden_said(GAME, HIDDEN, {"default": AUTOMATIC}, hidden=False)
+
+        self.assertEqual(said, game_tables.HIDDEN_WORDS[1])
+
+
+class HiddenGameColumnTests(unittest.TestCase):
+    """The Games grid column that finds the games the frontend leaves out."""
+
+    def setUp(self) -> None:
+        self.column = next(one for one in games.COLUMNS if one["field"] == "hidden")
+
+    def test_only_a_hidden_game_is_drawn(self) -> None:
+        states = self.column["cellRendererParams"]["states"]
+
+        self.assertEqual(list(states), [True])
+        self.assertEqual(states[True]["label"], game_tables.HIDDEN_WORDS[0])
+
+    def test_the_funnel_offers_the_pair_notable_first(self) -> None:
+        choices = self.column["filterParams"]["choices"]
+
+        self.assertEqual([one["label"] for one in choices],
+                         list(game_tables.HIDDEN_WORDS))
+        self.assertEqual([one["value"] for one in choices], [True, False])
+
+    def test_the_game_view_shows_it(self) -> None:
+        preset = games.GAME_VIEWS["console.view.game"]
+
+        self.assertIn("hidden", getattr(preset, "columns", ()))
+
+    def test_a_game_row_carries_the_flag(self) -> None:
+        library = data.Library.__new__(data.Library)
+        library.games = [{"id": "g1", "name": "A", "hidden": True},
+                         {"id": "g2", "name": "B"}]
+        library.media = {}
+
+        self.assertEqual([row["hidden"] for row in library.game_rows()], [True, False])
 
 
 if __name__ == "__main__":

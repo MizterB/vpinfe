@@ -345,6 +345,14 @@ def offerable(entry: dict) -> bool:
     return entry.get("hidden") is not True and not entry.get(ABSENT_SINCE_KEY)
 
 
+def all_hidden(entries: dict | None) -> bool:
+    """Whether a game offers none of its tables because it has hidden ones. A game whose
+    tables are all gone is missing them, which is not this."""
+    held = [entry for entry in rekey_by_id(entries).values() if isinstance(entry, dict)]
+    return (any(entry.get("hidden") is True for entry in held)
+            and not any(offerable(entry) for entry in held))
+
+
 def is_recorded(recorded: str, found_id: str, entry: dict) -> bool:
     """Whether this is the table recorded as the game's default. The record holds an id,
     or the filename a 2.x library named."""

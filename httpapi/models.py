@@ -661,6 +661,8 @@ class GameResource(ApiModel):
     rom: str
     version: str
     table_count: int = 0
+    # Its tables are hidden and none is left to offer, so no frontend lists it.
+    hidden: bool = False
     rating: int
     collections: list[str]
     # The folder on disk. Reported because it is the one thing a user can act on

@@ -84,6 +84,7 @@ def game_resource(row: dict, game_id: str) -> dict[str, Any]:
         # six from one that collapses one. `rom` and `version` above are read off the
         # default table; this is what says whether there was a choice to make.
         "table_count": int(row.get("table_count") or 0),
+        "hidden": bool(row.get("hidden")),
         "rating": row.get("rating", 0),
         "collections": row.get("collections") or [],
         "folder": str(row.get("game_dir", "") or ""),

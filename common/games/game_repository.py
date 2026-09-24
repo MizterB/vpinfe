@@ -39,7 +39,7 @@ from common.games.game_metadata import (
 )
 from common.games.game_parser import GameParser
 from common.games.info_migration import INFO_SCHEMA, schema_of
-from common.games.tables import table_entries
+from common.games.tables import all_hidden, table_entries
 from common.paths import COLLECTIONS_PATH, get_ini_config
 
 _LOCK = threading.Lock()
@@ -317,6 +317,7 @@ def game_to_row(game: Game,
         # the only thing that says so - which is what makes the by-table lens
         # discoverable, and what qualifies the values above read off the default.
         "table_count": len(table_entries(meta)),
+        "hidden": all_hidden(table_entries(meta)),
         "filehash": gf_value("file_hash"),
         "vbshash": gf_value("vbs_hash"),
         "detectnfozzy": gf_value("detect_nfozzy"),

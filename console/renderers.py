@@ -74,12 +74,14 @@ _ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt
            ".replace(/\"/g, '&quot;');")
 
 # A state as a chip where it is worth noticing and as a quiet word where it is not.
-# `params.states` maps each value to its label and, for the ones worth noticing, a tier
-# or a mark drawn before the word. `why` is the tooltip.
+# `params.states` maps each value to its label and, for the ones worth noticing, a tier,
+# a chip class or a mark drawn before the word. `why` is the tooltip.
 STATE = Renderer("state", "console.renderers.state", (
     "params => {" + _ESCAPE +
     " const one = (params.states || {})[params.value]; if (!one) return '';"
     " const tip = one.why ? ' title=\"' + esc(one.why) + '\"' : '';"
+    " if (one.chip) return '<span class=\"console-member-chip ' + esc(one.chip) + '\"'"
+    " + tip + '>' + esc(one.label) + '</span>';"
     " if (one.tier) return '<span class=\"console-member-chip console-tier console-tier--'"
     " + one.tier + '\"' + tip + '>' + esc(one.label) + '</span>';"
     " if (one.mark) return '<span' + tip + '><i class=\"material-icons console-cell-mark\">'"

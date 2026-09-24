@@ -148,6 +148,50 @@ def _version_and_author(table: dict[str, Any]) -> str:
     return JOIN.join(part for part in (version, author) if part)
 
 
+def offered(table: dict[str, Any]) -> bool:
+    """Whether the frontend can offer this table: not hidden, and its file not gone."""
+    return not table.get("hidden") and not table.get("absent_since")
+
+
+def why_not_default(table: dict[str, Any]) -> str:
+    """Why this table cannot be made its game's default, or "" where it can."""
+    if table.get("absent_since"):
+        return t("console.workbench.not_disk_cannot_default")
+    return t("console.game_tables.hidden_cannot_default") if table.get("hidden") else ""
+
+
+def hidden_hint(table: dict[str, Any], tables: list[dict[str, Any]]) -> str:
+    """What hiding this table does, `tables` being the whole game's."""
+    others = (row for row in tables if row.get("id") != table.get("id"))
+    if offered(table) and not any(offered(row) for row in others):
+        return t("console.game_tables.hidden_last.help")
+    return t("console.game_tables.hidden.help")
+
+
+def hidden_said(game: str, table: dict[str, Any], answer: dict[str, Any] | None, *,
+                hidden: bool) -> str:
+    """The notification once `table` is hidden or offered again. `table` is the row as it
+    was, and `answer` what the write returned: the table and the game's default after."""
+    now = (answer or {}).get("default")
+    if not hidden:
+        if now and now.get("id") == table.get("id"):
+            return t("console.game_tables.offered_now_plays", game=game, table=table_name(now))
+        return HIDDEN_WORDS[1]
+    if not now:
+        return t("console.game_tables.hidden_none_left", game=game)
+    if not table.get("default"):
+        return HIDDEN_WORDS[0]
+    key = ("console.game_tables.hidden_unlocked_now_plays"
+           if (table.get("default_kind") or "") == CHOSEN
+           else "console.game_tables.hidden_now_plays")
+    return t(key, game=game, table=table_name(now))
+
+
+def now_plays(game: str, table: dict[str, Any]) -> str:
+    """The notification once `table` is made its game's default."""
+    return t("console.game_tables.now_plays", game=game, table=table_name(table))
+
+
 def lock_act(table: dict[str, Any],
              tables: list[dict[str, Any]]) -> tuple[bool, str] | None:
     """What the default row offers - True to lock it, False to unlock it - and the words

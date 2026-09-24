@@ -3034,13 +3034,21 @@ def _hidden_row(context: dict[str, Any], table: dict[str, Any]) -> tuple[Any, An
     table_id = str(table.get("id") or "")
 
     async def hide(event: Any) -> None:
-        await _write(context, context["library"].set_table_hidden, context["game_id"],
-                     table_id, bool(event.value))
+        hidden = bool(event.value)
+        try:
+            answer = await run.io_bound(context["library"].set_table_hidden,
+                                        context["game_id"], table_id, hidden)
+        except Exception as exc:
+            ui.notify(t("console.workbench.could_not_save", exc=(exc)), type="negative")
+            return
+        ui.notify(game_tables.hidden_said(str(context["game"].get("name") or ""), table,
+                                          answer, hidden=hidden), type="positive")
+        await context["rebuild"]()
 
     # On is hidden, the direction the grid column and its filter read the same flag.
     return (t("word.hidden"),
             lambda: _switch(bool(table.get("hidden")), hide,
-                            hint=t("console.workbench.keep_table_frontend")))
+                            hint=game_tables.hidden_hint(table, context["tables"])))
 
 
 def _switch(value: bool, on_change: Callable[[Any], Any], *,
@@ -3473,6 +3481,9 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                 chips.append((game_tables.word_for(game_tables.FILE_WORDS, True),
                               "console-tier console-tier--warn",
                               t("console.workbench.not_disk_since", value=when.local(since))))
+            if table.get("hidden"):
+                chips.append((game_tables.HIDDEN_WORDS[0], "console-chip-warn",
+                              game_tables.hidden_hint(table, tables)))
             # On every row that has one, because which program plays a file is
             # exactly what separates a VPX build from a Future Pinball one - it
             # used to appear only where the game had a single table, which is when
@@ -3486,7 +3497,7 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                 # on every row rather than let a reader take meaning from absence -
                 # which is what a chip on the default alone asked them to do. A game
                 # has exactly one default, so the control that says so is a radio.
-                _default_mark(context, table, since=since, several=len(tables) > 1)
+                _default_mark(context, table, several=len(tables) > 1)
                 # The name and what qualifies it on one line, wrapping only when the
                 # line runs out - and wrapping onto the name's own left edge rather
                 # than the radio's, because they belong to the name. One unwrapped row
@@ -3824,12 +3835,9 @@ def _launch_button(context: dict[str, Any], table: dict[str, Any]) -> None:
 
 
 def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
-                  since: str, several: bool) -> None:
-    """Which table the game offers, and the way to change it.
-
-    Settable here rather than only reported. A gone table is shown unset and is not
-    offerable: the game cannot default to a file that is not there.
-    """
+                  several: bool) -> None:
+    """Which table the game offers, and the way to change it. A table that cannot be the
+    default is shown unset, with why."""
     chosen = bool(table.get("default"))
     mark = ui.icon("radio_button_checked" if chosen else "radio_button_unchecked") \
         .classes("console-default-mark")
@@ -3839,9 +3847,9 @@ def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
         mark.tooltip(game_tables.DEFAULT_WORDS[game_tables.DERIVED][1] if automatic
                      else t("console.workbench.table_game_offers"))
         return
-    if since:
+    if why := game_tables.why_not_default(table):
         mark.classes(add="opacity-30")
-        mark.tooltip(t("console.workbench.not_disk_cannot_default"))
+        mark.tooltip(why)
         return
     mark.classes(add="cursor-pointer")
     mark.tooltip(t("console.workbench.make_default"))
@@ -3882,7 +3890,8 @@ async def _make_default(context: dict[str, Any], table: dict[str, Any]) -> None:
     except Exception as exc:
         ui.notify(t("console.workbench.could_not_change", exc=(exc)), type="negative")
         return
-    ui.notify(t("console.workbench.default_changed"), type="positive")
+    ui.notify(game_tables.now_plays(str(context["game"].get("name") or ""), table),
+              type="positive")
     await context["rebuild"]()
 
 
