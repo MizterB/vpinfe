@@ -15,6 +15,7 @@ from common.i18n import t
 
 # How a row asks of its field. Held in the draft only; the wire never sees these.
 ANY_OF = "any_of"
+NONE_OF = "none_of"
 STARTS_WITH = "starts_with"
 BETWEEN = "between"
 BEFORE = "before"
@@ -26,6 +27,7 @@ NO = "no"
 
 OPERATOR_WORDS = {
     ANY_OF: "console.collection_rules.is_any_of",
+    NONE_OF: "console.collection_rules.is_none_of",
     STARTS_WITH: "console.collection_rules.starts_with",
     BETWEEN: "console.collection_rules.between",
     BEFORE: "console.collection_rules.before",
@@ -53,9 +55,11 @@ class Field:
     kind: str
     values: list[str] = field(default_factory=list)
     counts: dict[str, int] = field(default_factory=dict)
-    # The axis holding this field's range, and the one reading it as a floor.
+    # The axis holding this field's range, the one reading it as a floor, and the one
+    # holding what it leaves out.
     ranged: str = ""
     floored: str = ""
+    excluding: str = ""
 
     @property
     def askable(self) -> bool:
@@ -71,21 +75,24 @@ class Field:
             return [STARTS_WITH]
         if self.kind == "rating":
             return [AT_LEAST, EXACTLY] if self.floored else [EXACTLY]
-        return [BETWEEN, BEFORE, AFTER, ANY_OF] if self.ranged else [ANY_OF]
+        chosen = [BETWEEN, BEFORE, AFTER, ANY_OF] if self.ranged else [ANY_OF]
+        return [*chosen, NONE_OF] if self.excluding else chosen
 
 
 def fields(axes: list[dict[str, Any]]) -> list[Field]:
     """The fields a row can be about, in the registry's order."""
-    ranged = {str(one.get("field") or ""): str(one.get("name") or "") for one in axes
-              if one.get("field") and one.get("kind") == "range"}
-    floored = {str(one.get("field") or ""): str(one.get("name") or "") for one in axes
-               if one.get("field") and one.get("kind") == "rating"}
+    def under(kind: str) -> dict[str, str]:
+        return {str(one.get("field") or ""): str(one.get("name") or "") for one in axes
+                if one.get("field") and one.get("kind") == kind}
+
+    ranged, floored, excluding = under("range"), under("rating"), under("none_of")
     return [Field(name=str(one.get("name") or ""), label=str(one.get("label") or ""),
                   summary=str(one.get("summary") or ""), kind=str(one.get("kind") or ""),
                   values=[str(value) for value in one.get("values") or []],
                   counts=dict(one.get("counts") or {}),
                   ranged=ranged.get(str(one.get("name") or ""), ""),
-                  floored=floored.get(str(one.get("name") or ""), ""))
+                  floored=floored.get(str(one.get("name") or ""), ""),
+                  excluding=excluding.get(str(one.get("name") or ""), ""))
             for one in axes if not one.get("field")]
 
 
@@ -182,16 +189,17 @@ def rows_from(filters: dict[str, Any] | None, known: list[Field]) -> list[dict[s
                 rows.append({"field": one.name, "op": YES if said else NO, "value": None})
             continue
         named = _chosen(filters.get(one.name))
-        if not named:
-            continue
-        if one.kind == "rating":
+        if named and one.kind == "rating":
             floor = bool(one.floored and filters.get(one.floored))
             rows.append({"field": one.name, "op": AT_LEAST if floor else EXACTLY,
                          "value": named[0]})
-        else:
+        elif named:
             rows.append({"field": one.name,
                          "op": STARTS_WITH if one.kind == "letter" else ANY_OF,
                          "value": named})
+        left_out = _chosen(filters.get(one.excluding)) if one.excluding else []
+        if left_out:
+            rows.append({"field": one.name, "op": NONE_OF, "value": left_out})
     return rows
 
 
@@ -213,7 +221,7 @@ def complete(row: dict[str, Any]) -> bool:
     op, value = row.get("op"), row.get("value")
     if op in (YES, NO):
         return bool(row.get("field"))
-    if op in (ANY_OF, STARTS_WITH):
+    if op in (ANY_OF, NONE_OF, STARTS_WITH):
         return bool(_chosen(value))
     if op == BETWEEN:
         start, end = _ends(value)
@@ -239,6 +247,8 @@ def filters_from(rows: list[dict[str, Any]], known: list[Field]) -> dict[str, An
             said[one.name] = op == YES
         elif op in (ANY_OF, STARTS_WITH):
             said[one.name] = _chosen(value)
+        elif op == NONE_OF and one.excluding:
+            said[one.excluding] = _chosen(value)
         elif op in (AT_LEAST, EXACTLY):
             said[one.name] = _chosen(value)[0]
             if one.floored:
@@ -298,6 +308,9 @@ def _clause(row: dict[str, Any], named: dict[str, Field]) -> str:
                  values=_either(_chosen(value)))
     if op == ANY_OF:
         return t("console.collection_rules.axis_is", axis=one.label,
+                 values=_either(_chosen(value)))
+    if op == NONE_OF:
+        return t("console.collection_rules.axis_is_not", axis=one.label,
                  values=_either(_chosen(value)))
     if op in (AT_LEAST, EXACTLY):
         stars = t("console.stars.5", n=_chosen(value)[0])

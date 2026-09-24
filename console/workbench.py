@@ -5066,7 +5066,8 @@ def _kept_value(row: dict[str, Any], op: str) -> Any:
     """What a row keeps asking for when only how it asks changes."""
     before = row.get("op")
     kinds = ({collection_rules.AT_LEAST, collection_rules.EXACTLY},
-             {collection_rules.BEFORE, collection_rules.AFTER})
+             {collection_rules.BEFORE, collection_rules.AFTER},
+             {collection_rules.ANY_OF, collection_rules.NONE_OF})
     if any(before in pair and op in pair for pair in kinds):
         return row.get("value")
     return None
@@ -5078,7 +5079,7 @@ def _condition_value(context: dict[str, Any], field: collection_rules.Field,
     op, value = row.get("op"), row.get("value")
     if op in (collection_rules.YES, collection_rules.NO):
         return
-    if op in (collection_rules.ANY_OF, collection_rules.STARTS_WITH):
+    if op in (collection_rules.ANY_OF, collection_rules.NONE_OF, collection_rules.STARTS_WITH):
         _many_values(context, field, value, put)
         return
     if op in (collection_rules.AT_LEAST, collection_rules.EXACTLY):

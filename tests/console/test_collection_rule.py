@@ -17,7 +17,10 @@ AXES = [{"name": "letter", "kind": "letter", "label": "Letter"},
         {"name": "played", "kind": "flag", "label": "Played"},
         {"name": "favorite", "kind": "flag", "label": "Favorite"},
         {"name": "multiplayer", "kind": "flag", "label": "Multiplayer"},
-        {"name": "year_range", "kind": "range", "label": "Year", "field": "year"}]
+        {"name": "year_range", "kind": "range", "label": "Year", "field": "year"},
+        {"name": "manufacturer_none_of", "kind": "none_of", "label": "Manufacturer",
+         "field": "manufacturer"},
+        {"name": "year_none_of", "kind": "none_of", "label": "Year", "field": "year"}]
 FIELDS = rules.fields(AXES)
 
 
@@ -38,9 +41,9 @@ class Fields(unittest.TestCase):
         asked = {one.name: one.operators for one in FIELDS}
 
         self.assertEqual([rules.STARTS_WITH], asked["letter"])
-        self.assertEqual([rules.ANY_OF], asked["manufacturer"])
-        self.assertEqual([rules.BETWEEN, rules.BEFORE, rules.AFTER, rules.ANY_OF],
-                         asked["year"])
+        self.assertEqual([rules.ANY_OF, rules.NONE_OF], asked["manufacturer"])
+        self.assertEqual([rules.BETWEEN, rules.BEFORE, rules.AFTER, rules.ANY_OF,
+                          rules.NONE_OF], asked["year"])
         self.assertEqual([rules.AT_LEAST, rules.EXACTLY], asked["rating"])
         self.assertEqual([rules.YES, rules.NO], asked["played"])
 
@@ -73,7 +76,11 @@ class Rows(unittest.TestCase):
                         {"year": ["1995"]},
                         {"year_range": {"from": 1990, "to": 1999}},
                         {"year_range": {"to": 1979}},
-                        {"year_range": {"from": 1991}}):
+                        {"year_range": {"from": 1991}},
+                        {"manufacturer_none_of": ["Stern"]},
+                        {"manufacturer": ["Bally"], "manufacturer_none_of": ["Stern"]},
+                        {"year_range": {"from": 1990, "to": 1999},
+                         "year_none_of": ["1992"]}):
             with self.subTest(filters=filters):
                 self.assertEqual(filters, _round_trip(filters))
 
@@ -104,6 +111,32 @@ class Rows(unittest.TestCase):
 
     def test_a_flag_row_is_whole_once_it_has_a_field(self) -> None:
         self.assertTrue(rules.complete(rules.row_on(rules.by_name(FIELDS)["played"])))
+
+
+class NoneOf(unittest.TestCase):
+    def test_a_row_asking_none_of_is_stored_under_its_own_axis(self) -> None:
+        row = {"field": "manufacturer", "op": rules.NONE_OF, "value": ["Stern"]}
+
+        self.assertEqual({"manufacturer_none_of": ["Stern"]},
+                         rules.filters_from([row], FIELDS))
+
+    def test_its_axis_reads_back_as_that_row(self) -> None:
+        self.assertEqual([{"field": "manufacturer", "op": rules.NONE_OF,
+                           "value": ["Stern"]}],
+                         rules.rows_from({"manufacturer_none_of": "Stern"}, FIELDS))
+
+    def test_a_field_with_no_opposite_does_not_offer_it(self) -> None:
+        asked = {one.name: one.operators for one in FIELDS}
+
+        self.assertNotIn(rules.NONE_OF, asked["letter"])
+        self.assertNotIn(rules.NONE_OF, asked["rating"])
+
+    def test_it_is_said_as_not(self) -> None:
+        self.assertEqual("Every game where Manufacturer is not “Stern”",
+                         _said({"manufacturer_none_of": "Stern"}))
+        self.assertEqual("Every game where Manufacturer is not “Stern” or “Bally”",
+                         _said({"manufacturer_none_of": ["Stern", "Bally"]}))
+        self.assertEqual("Is none of", rules.operator_word(rules.NONE_OF))
 
 
 class RatingInTheSentence(unittest.TestCase):
