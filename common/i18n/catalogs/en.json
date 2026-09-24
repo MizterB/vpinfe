@@ -267,6 +267,7 @@
     "other": "{count} games taken out of “{name}”"
   },
   "console.api.api_answered": "The API answered {status_code}",
+  "console.app_settings.all_tables_only": "Works only for all tables",
   "console.app_settings.edits_go": "Edits go to",
   "console.app_settings.everything_plays": "Everything {launcher_name} plays",
   "console.app_settings.folder_1_table": "This folder - 1 table",
@@ -285,6 +286,7 @@
   "console.app_settings.settings": "Settings for “{launcher_name}”",
   "console.app_settings.table": "This table",
   "console.app_settings.table_no_launcher_configure": "This table has no launcher to configure.",
+  "console.app_settings.unused": "Unused",
   "console.assets.assets": "{value} of {len} assets",
   "console.assets.assets_missing": "{count} assets, {gaps} missing",
   "console.assets.correctly_named_files_nothing.help": "Correctly named files that nothing loads",
@@ -1903,6 +1905,7 @@
   "error.launch.no_table_named": "No table named {table} in this game",
   "error.launch.nothing_to_launch": "This game has nothing to launch",
   "error.launch.reference_unreachable": "This table lives at {path}, which is not reachable from here.",
+  "error.launchers.all_tables_only": "{app_name} reads {keys} for all tables at once, never for one.",
   "error.launchers.keeps_no_settings_file": "{app_name} keeps no settings file to copy.",
   "error.launchers.launcher_needs_id": "A launcher needs an id.",
   "error.launchers.name_least_one_setting": "Name at least one setting to write.",

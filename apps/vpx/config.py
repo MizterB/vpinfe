@@ -61,6 +61,24 @@ HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device")
 # several, one per plugin, and they arrive as plugins do.
 HIDDEN_PARTS = ("Priority",)
 
+ALL_TABLES_ONLY_SECTIONS = frozenset({"Input"})
+ALL_TABLES_ONLY = frozenset({
+    "Player.PlayfieldDisplay", "Player.PlayfieldFullScreen", "Player.PlayfieldWndX",
+    "Player.PlayfieldWndY", "Player.PlayfieldWidth", "Player.PlayfieldHeight",
+    "Player.PlayfieldFSWidth", "Player.PlayfieldFSHeight", "Player.PlayfieldRefreshRate",
+    "Player.PlayfieldColorDepth",
+    "Player.PlungerRetract", "Player.KeyboardNudgeMode", "Player.KeyboardNudgeStrength",
+    "Player.RumbleMode", "Player.HDRGlobalExposure", "Player.ShowFPS",
+    "Player.TouchOverlay", "Player.SecurityLevel",
+    "Player.NumberOfTimesToShowTouchMessage",
+    "Standalone.Haptics",
+})
+
+
+def _all_tables_only(qualified: str) -> bool:
+    return (qualified in ALL_TABLES_ONLY
+            or qualified.split(".", 1)[0] in ALL_TABLES_ONLY_SECTIONS)
+
 
 def _offered(qualified: str) -> bool:
     """Judged on the whole name rather than the section, because the file does not put
@@ -155,6 +173,10 @@ class VPXConfig:
     def scopes(self) -> tuple[str, ...]:
         return (SCOPE_LAUNCHER, SCOPE_FOLDER, SCOPE_ENTRY)
 
+    def scopes_for(self, qualified: str) -> tuple[str, ...]:
+        """The scopes one setting can be set at."""
+        return (SCOPE_LAUNCHER,) if _all_tables_only(qualified) else self.scopes()
+
     def groups(self, settings: Mapping[str, Any]) -> tuple[ConfigGroup, ...]:
         """What the file itself says every setting is.
 
@@ -203,7 +225,8 @@ class VPXConfig:
         for qualified in sorted(set(app.settings) | set(table.settings) | set(mine.settings)):
             if not _offered(qualified):
                 continue
-            from_table = table.value(qualified)
+            read_by_vpx = vini.Ini() if _all_tables_only(qualified) else table
+            from_table = read_by_vpx.value(qualified)
             from_app = app.value(qualified)
             if from_table is not None:
                 effective, source = from_table, table_scope
@@ -212,7 +235,7 @@ class VPXConfig:
             else:
                 effective, source = "", ""
             set_here = mine.value(qualified) is not None
-            fallback, fallback_scope = _without(scope, qualified, app, table,
+            fallback, fallback_scope = _without(scope, qualified, app, read_by_vpx,
                                                 table_scope)
             found[qualified] = ConfigValue(
                 value=effective, scope=source, set_here=set_here,
@@ -221,7 +244,7 @@ class VPXConfig:
                 # the one that answered are the same file, which is what a game folder
                 # named after its table makes of the two table-layer spellings.
                 in_effect=(not set_here or source == scope
-                           or _same(mine_path, winning)),
+                           or (read_by_vpx is table and _same(mine_path, winning))),
                 fallback=fallback, fallback_scope=fallback_scope)
         return found
 

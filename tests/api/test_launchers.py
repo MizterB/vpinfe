@@ -260,5 +260,55 @@ class ClearingTests(_TableCase):
                          ("2", "1", "launcher"))
 
 
+class AllTablesOnlyTests(_TableCase):
+    def setUp(self) -> None:
+        super().setUp()
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Input]\nNudgeSensorCount = 2\n\n"
+                           "[Player]\nShowFPS = 0\nFXAA = 1\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+    def _offered(self, scope: str) -> dict:
+        got = self.client.get(f"/launchers/l1/config?table=t1&scope={scope}")
+        self.assertEqual(got.status_code, 200, got.text)
+        return {f["key"]: f for g in got.json()["groups"] for f in g["settings"]}
+
+    def test_the_launcher_offers_it(self) -> None:
+        offered = self._offered("launcher")
+
+        self.assertEqual(offered["Player.ShowFPS"]["scopes"], ["launcher"])
+        self.assertEqual(offered["Player.FXAA"]["scopes"], ["launcher", "folder", "entry"])
+
+    def test_a_table_and_a_folder_do_not(self) -> None:
+        for scope in ("entry", "folder"):
+            with self.subTest(scope=scope):
+                offered = self._offered(scope)
+                self.assertNotIn("Player.ShowFPS", offered)
+                self.assertNotIn("Input.NudgeSensorCount", offered)
+                self.assertIn("Player.FXAA", offered)
+
+    def test_one_a_table_s_file_already_holds_is_still_listed(self) -> None:
+        pathlib.Path(self.beside).write_text("[Player]\nShowFPS = 1\n")
+
+        offered = self._offered("entry")
+
+        self.assertEqual(offered["Player.ShowFPS"]["scopes"], ["launcher"])
+
+    def test_writing_one_at_a_table_is_refused(self) -> None:
+        got = self._write(values={"Player.ShowFPS": "1"})
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertFalse(os.path.exists(self.beside))
+
+    def test_clearing_one_at_a_table_is_not(self) -> None:
+        pathlib.Path(self.beside).write_text("[Player]\nShowFPS = 1\nFXAA = 3\n")
+
+        got = self._write(values={"Player.ShowFPS": ""})
+
+        self.assertEqual(got.status_code, 200, got.text)
+        self.assertNotIn("ShowFPS", pathlib.Path(self.beside).read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

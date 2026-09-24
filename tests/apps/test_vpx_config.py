@@ -142,6 +142,65 @@ class LayerTests(_Case):
                 self.assertTrue(found.set_here)
 
 
+SENSORS = "Input.NudgeSensorCount"
+FPS = "Player.ShowFPS"
+
+
+class AllTablesOnlyTests(_Case):
+    def setUp(self) -> None:
+        super().setUp()
+        with self.app_ini.open("a") as ini:
+            ini.write("\n[Input]\n; Nudge Sensors: How many [Default: 0]\n"
+                      "NudgeSensorCount = 2\n"
+                      "\n[Player]\n; Show FPS: Draw the frame rate [Default: 0]\n"
+                      "ShowFPS = 0\n")
+
+    def test_only_the_launcher_offers_it(self) -> None:
+        self.assertEqual(self.config.scopes_for(SENSORS), (SCOPE_LAUNCHER,))
+        self.assertEqual(self.config.scopes_for(FPS), (SCOPE_LAUNCHER,))
+        self.assertEqual(self.config.scopes_for(KEY), self.config.scopes())
+
+    def test_the_input_section_is_the_rule_not_a_list_of_its_keys(self) -> None:
+        self.assertEqual(self.config.scopes_for("Input.SomethingLater"), (SCOPE_LAUNCHER,))
+
+    def test_a_table_s_value_is_not_the_one_in_force(self) -> None:
+        self.table_file("[Player]\nShowFPS = 1\n")
+
+        found = self.at(SCOPE_ENTRY, key=FPS)
+        self.assertEqual((found.value, found.scope), ("0", SCOPE_LAUNCHER))
+        self.assertTrue(found.set_here)
+        self.assertFalse(found.in_effect)
+        self.assertEqual((found.fallback, found.fallback_scope), ("0", SCOPE_LAUNCHER))
+
+    def test_nor_is_a_folder_s(self) -> None:
+        self.folder_file("[Input]\nNudgeSensorCount = 4\n")
+
+        found = self.at(SCOPE_FOLDER, key=SENSORS)
+        self.assertEqual((found.value, found.scope), ("2", SCOPE_LAUNCHER))
+        self.assertFalse(found.in_effect)
+        self.assertEqual(self.at(SCOPE_ENTRY, key=SENSORS).scope, SCOPE_LAUNCHER)
+
+    def test_a_folder_named_for_its_table_does_not_make_it_count(self) -> None:
+        solo = self.root / "Attack from Mars"
+        solo.mkdir()
+        table = solo / "Attack from Mars.vpx"
+        table.write_text("")
+        (solo / "Attack from Mars.ini").write_text("[Player]\nShowFPS = 1\n")
+
+        for scope in (SCOPE_FOLDER, SCOPE_ENTRY):
+            with self.subTest(scope=scope):
+                found = self.config.read(scope, str(table), self.settings)[FPS]
+                self.assertFalse(found.in_effect)
+
+    def test_at_the_launcher_it_is_what_it_always_was(self) -> None:
+        self.table_file("[Player]\nShowFPS = 1\n")
+
+        found = self.config.read(SCOPE_LAUNCHER, str(self.table), self.settings)[FPS]
+        self.assertEqual((found.value, found.scope), ("0", SCOPE_LAUNCHER))
+        self.assertTrue(found.set_here)
+        self.assertTrue(found.in_effect)
+
+
 class WriteTests(_Case):
     def test_writing_at_a_scope_creates_its_file(self) -> None:
         self.config.write(SCOPE_ENTRY, str(self.table), {KEY: "0"}, self.settings)

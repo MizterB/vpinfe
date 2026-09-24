@@ -209,7 +209,8 @@ def switch(value: bool, on_change: Callable[[Any], Any], *,
     return draw
 
 
-def state(text: str, level: str, *, beside: str = "") -> Callable[[], None]:
+def state(text: str, level: str, *, beside: str = "",
+          hint: str = "") -> Callable[[], None]:
     """A state the panel found and the user cannot set, as a chip.
 
     The counterpart of the switch: a switch is a setting, a chip is a finding, and the
@@ -221,7 +222,9 @@ def state(text: str, level: str, *, beside: str = "") -> Callable[[], None]:
             if beside:
                 ui.label(beside).classes("console-fact-value truncate min-w-0") \
                     .tooltip(beside)
-            ui.label(text).classes(f"console-tier console-tier--{level}")
+            chip = ui.label(text).classes(f"console-tier console-tier--{level}")
+            if hint:
+                chip.tooltip(hint)
 
     return draw
 

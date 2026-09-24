@@ -11,6 +11,7 @@ what a Visual Pinball launcher happens to hold.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -170,16 +171,30 @@ def app_config(launcher_id: str, table: str = "",
             t("error.launchers.no_scope_called_app", scope=(scope),
                     join=(', '.join(config.scopes()))))
     values = config.read(scope, _game_file(table), settings)
+    scopes_for = _scopes_for(config)
+
+    def shown(field: apps.Field) -> bool:
+        held = values.get(field.key)
+        return scope in scopes_for(field.key) or (held is not None and held.set_here)
+
+    groups = [(g, [f for f in g.settings if shown(f)]) for g in config.groups(settings)]
     return {
         "scopes": list(config.scopes()),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),
-                    "settings": [_described_field(found.app, f) for f in g.settings]}
-                   for g in config.groups(settings)],
+                    "settings": [{**_described_field(found.app, f),
+                                  "scopes": list(scopes_for(f.key))} for f in fields]}
+                   for g, fields in groups if fields],
         "values": {key: {"value": one.value, "scope": one.scope,
                          "set_here": one.set_here, "in_effect": one.in_effect,
                          "fallback": one.fallback, "fallback_scope": one.fallback_scope}
                    for key, one in values.items()},
     }
+
+
+def _scopes_for(config: Any) -> Callable[[str], tuple[str, ...]]:
+    """An app that does not say otherwise offers every setting at every scope."""
+    answer = getattr(config, "scopes_for", None)
+    return answer if answer is not None else (lambda _key: tuple(config.scopes()))
 
 
 def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:
@@ -222,6 +237,13 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     settings = _launcher_settings(found)
     table = _game_file(str(body.get("table") or ""))
     writing = {str(k): str(v) for k, v in values.items()}
+    scopes_for = _scopes_for(config)
+    refused = sorted(key for key, value in writing.items()
+                     if value != "" and scope not in scopes_for(key))
+    if refused:
+        raise service_errors.RefusedError(t(
+            "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
+            keys=(", ".join(refused))))
 
     # The two layers do not stack, so the write that gives a table its own file takes
     # the folder's other keys off it. Carrying them across is what keeps the table doing

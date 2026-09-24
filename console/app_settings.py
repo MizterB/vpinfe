@@ -187,7 +187,11 @@ def _control(library: Library, launcher_id: str, table_id: str, scope: str, fiel
     # the program will use, which for an untouched setting is its own default.
     return settings_page.control_for(
         option, settings_page.value_for(option, held.get("value")), save,
-        writable=not playing)
+        writable=not playing and _offered_here(field, scope))
+
+
+def _offered_here(field: dict, scope: str) -> bool:
+    return scope in field.get("scopes", (scope,))
 
 
 def _aside(library: Library, launcher_id: str, table_id: str, scope: str, field: dict,
@@ -195,7 +199,9 @@ def _aside(library: Library, launcher_id: str, table_id: str, scope: str, field:
            playing: bool = False) -> Callable[[], None] | None:
     from console import workbench
 
-    mark = workbench._config_mark(held, scope)
+    mark = (workbench._config_mark(held, scope) if _offered_here(field, scope)
+            else panel.state(t("console.app_settings.unused"), "warn",
+                             hint=t("console.app_settings.all_tables_only")))
     if mark is None:
         return None
 
