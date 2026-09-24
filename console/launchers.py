@@ -20,7 +20,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import path_checks
+from common import install_identity, path_checks
 from common.i18n import t
 from console import confirm, grid, offload, panel, verbs, views
 from console import dialog as frame
@@ -218,8 +218,15 @@ async def duplicate(library: Library, state: dict[str, Any], redraw: Callable[[]
     redraw()
 
 
+def copy_targets(known: list[dict], install_id: str) -> list[dict]:
+    return [one for one in known
+            if str(one.get("kind") or "vpinfe") == "vpinfe"
+            and install_identity.FRONTEND in (one.get("features") or ())
+            and str(one.get("device_id") or "") != install_id]
+
+
 async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -> None:
-    """Pick the machines, see what it will do, then do it.
+    """Pick the devices, see what it will do, then do it.
 
     A copy with no ongoing link, which the dialog says rather than leaving somebody to
     find out: edit a cabinet's launcher afterwards and the two diverge.
@@ -229,18 +236,13 @@ async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("console.launchers.could_not_read_devices", exc=(exc)), type="negative")
         return
-    # Only other VPinFE installs. A phone runs no launcher, and this install already has
-    # the launcher being copied.
-    mine = str(state.get("install_id") or "")
-    reachable = [one for one in known
-                 if str(one.get("kind") or "vpinfe") == "vpinfe"
-                 and str(one.get("device_id") or "") != mine]
+    reachable = copy_targets(known, str(state.get("install_id") or ""))
     if not reachable:
-        ui.notify(t("console.launchers.no_other_vpinfe_installs"), type="warning")
+        ui.notify(t("console.launchers.no_other_frontend"), type="warning")
         return
 
     picked: set[str] = set()
-    with frame.opened(t("console.launchers.copy_machines",
+    with frame.opened(t("console.launchers.copy_to_devices",
                         value=launcher["display_name"])) as box:
         ui.label(t("console.launchers.arrives_same_name_same")).classes("console-help px-3")
         with ui.column().classes("gap-1 px-3"):
@@ -259,7 +261,7 @@ async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -
     if not await box:
         return
     if not picked:
-        ui.notify(t("console.launchers.no_machines_picked"), type="warning")
+        ui.notify(t("console.launchers.no_devices_picked"), type="warning")
         return
     await _do_copy(library, launcher, [one for one in reachable
                                        if str(one.get("device_id")) in picked],
