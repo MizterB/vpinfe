@@ -155,6 +155,15 @@ def first_key(*keys: str) -> str:
     return next((key for key in keys if key in source), "")
 
 
+def literal_or(literal: str, *keys: str, fallback: str = "") -> tuple[str, str]:
+    """The words and the key they came from: `literal` as written with no key, else the
+    first of `keys` with an entry, else `fallback`."""
+    if literal:
+        return literal, ""
+    key = first_key(*keys)
+    return (t(key), key) if key else (fallback, "")
+
+
 class _Blanks(dict):
     """A parameter nobody passed renders as its own name, not a KeyError.
 

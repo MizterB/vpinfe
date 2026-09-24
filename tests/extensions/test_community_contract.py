@@ -16,8 +16,9 @@ class TheDeclaration(unittest.TestCase):
         self.ui = ExtensionUI("site", allowed=True)
 
     def test_a_list_is_recorded_as_data(self) -> None:
-        self.ui.community("tables", "Site", "/community/tables", columns=COLUMNS,
-                          views=[{"name": "Most played", "columns": ["name", "plays"],
+        self.ui.community("tables", "/community/tables", title="Site", columns=COLUMNS,
+                          views=[{"key": "plays", "name": "Most played",
+                                  "columns": ["name", "plays"],
                                   "sort": [{"field": "plays", "desc": True}]}],
                           relation={"field": "vpsId", "keys": "vps_entry"})
 
@@ -29,16 +30,22 @@ class TheDeclaration(unittest.TestCase):
 
     def test_a_kind_core_does_not_draw_is_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.community("tables", "Site", "/t",
+            self.ui.community("tables", "/t", title="Site",
                               columns=[{"field": "art", "header": "Art", "kind": "html"}])
 
     def test_a_view_on_a_column_it_does_not_have_is_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.community("tables", "Site", "/t", columns=COLUMNS,
-                              views=[{"name": "Top", "sort": [{"field": "rating"}]}])
+            self.ui.community("tables", "/t", title="Site", columns=COLUMNS,
+                              views=[{"key": "top", "sort": [{"field": "rating"}]}])
+
+    def test_a_view_with_no_key_is_refused(self) -> None:
+        """The key is what its words are found by, in the extension's catalog."""
+        with self.assertRaises(ContractError):
+            self.ui.community("tables", "/t", columns=COLUMNS,
+                              views=[{"name": "Top", "sort": [{"field": "plays"}]}])
 
     def test_a_line_under_the_first_column_is_kept(self) -> None:
-        self.ui.community("tables", "Site", "/t",
+        self.ui.community("tables", "/t", title="Site",
                           columns=[{**COLUMNS[0], "under": ["maker", "year"]}, *COLUMNS[1:]])
 
         self.assertEqual(["maker", "year"],
@@ -46,16 +53,16 @@ class TheDeclaration(unittest.TestCase):
 
     def test_a_line_under_any_other_column_is_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.community("tables", "Site", "/t",
+            self.ui.community("tables", "/t", title="Site",
                               columns=[COLUMNS[0], {**COLUMNS[1], "under": ["year"]}])
 
     def test_a_relation_by_anything_but_a_vps_id_is_refused(self) -> None:
         with self.assertRaises(ContractError):
-            self.ui.community("tables", "Site", "/t", columns=COLUMNS,
+            self.ui.community("tables", "/t", title="Site", columns=COLUMNS,
                               relation={"field": "name", "keys": "rom"})
 
     def test_a_tag_is_recorded_as_a_tag_would_be_stored(self) -> None:
-        self.ui.community("tables", "Site", "/t", columns=COLUMNS,
+        self.ui.community("tables", "/t", title="Site", columns=COLUMNS,
                           relation={"field": "vpsId", "keys": "vps_release"},
                           tag=" Weekly   Challenge ")
 
@@ -65,12 +72,11 @@ class TheDeclaration(unittest.TestCase):
         """The tag lands on what the list relates to, so without a relation it would
         land nowhere and say nothing about why."""
         with self.assertRaises(ContractError):
-            self.ui.community("tables", "Site", "/t", columns=COLUMNS, tag="Challenge")
+            self.ui.community("tables", "/t", title="Site", columns=COLUMNS, tag="Challenge")
 
     def test_it_needs_the_capability_to_draw(self) -> None:
         with self.assertRaises(ContractError):
-            ExtensionUI("site", allowed=False).community("tables", "Site", "/t",
-                                                         columns=COLUMNS)
+            ExtensionUI("site", allowed=False).community("tables", "/t", columns=COLUMNS)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from common import i18n
-from common.i18n import t
 
 from .contract import (
     App,
@@ -117,16 +116,7 @@ def app_name(app_id: str | None) -> str:
     found = get(wanted)
     if found is None:
         return wanted
-    return _resolved(found.name, f"app.{found.id}.name", fallback=found.id)[0]
-
-
-def _resolved(literal: str, *keys: str, fallback: str = "") -> tuple[str, str]:
-    """The words and the key they came from: `literal` as written with no key, else the
-    first of `keys` with an entry, else `fallback`."""
-    if literal:
-        return literal, ""
-    key = i18n.first_key(*keys)
-    return (t(key), key) if key else (fallback, "")
+    return i18n.literal_or(found.name, f"app.{found.id}.name", fallback=found.id)[0]
 
 
 def field_words(app_id: str, field: Field) -> dict[str, str]:
@@ -136,8 +126,8 @@ def field_words(app_id: str, field: Field) -> dict[str, str]:
     fields every launcher has.
     """
     def leaf(name: str, literal: str, fallback: str) -> tuple[str, str]:
-        return _resolved(literal, f"app.{app_id}.field.{field.key}.{name}",
-                         f"launcher.field.{field.key}.{name}", fallback=fallback)
+        return i18n.literal_or(literal, f"app.{app_id}.field.{field.key}.{name}",
+                               f"launcher.field.{field.key}.{name}", fallback=fallback)
 
     label, label_key = leaf("label", field.label, field.key)
     return {"label": label, "label_key": label_key,
@@ -145,8 +135,9 @@ def field_words(app_id: str, field: Field) -> dict[str, str]:
 
 
 def group_words(app_id: str, group: ConfigGroup) -> dict[str, str]:
-    label, label_key = _resolved(group.label, f"app.{app_id}.group.{group.key}.label",
-                                 fallback=group.key)
+    label, label_key = i18n.literal_or(group.label,
+                                       f"app.{app_id}.group.{group.key}.label",
+                                       fallback=group.key)
     return {"label": label, "label_key": label_key}
 
 

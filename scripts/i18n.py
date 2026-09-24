@@ -5,8 +5,9 @@ A translation is a copy of `en.json` with the values rewritten. This reports wha
 missing, what has gone stale because the English moved under it, and what nothing asks
 for any more. Nothing here edits a translation - the file is the translator's.
 
-Core's catalogs are one owner; each app's `i18n/` is another, and its keys are reported
-under the prefix the app serves them at. `--record` and `--pseudo` write every owner's.
+Core's catalogs are one owner; each app's and each bundled extension's `i18n/` is another,
+and its keys are reported under the prefix it is served at. `--record` and `--pseudo`
+write every owner's.
 """
 
 import argparse
@@ -37,6 +38,8 @@ def owners():
     yield "", CATALOGS
     for directory in sorted((ROOT / "apps").glob("*/i18n")):
         yield f"app.{directory.parent.name}.", directory
+    for directory in sorted((ROOT / "extensions").glob("*/i18n")):
+        yield f"ext.{directory.parent.name}.", directory
 
 
 def load(name, directory=CATALOGS):

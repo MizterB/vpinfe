@@ -13,6 +13,8 @@ which is a different thing with its own page.
 my-extension/
     extension.json
     __init__.py
+    i18n/
+        en.json
 ```
 
 The directory name is the extension's name, and the manifest has to agree: the name
@@ -47,9 +49,9 @@ def register(ctx):
 | key | what it is |
 |---|---|
 | `name` | Lowercase letters, digits and `_`, starting with a letter. Matches the directory, and is the Python package core imports - so it has to be a legal module name |
-| `display_name` | What to call it on screen. Defaults to `name` |
+| `display_name` | A product name, shown as written in every language. Left out, it is `name` in its own `i18n/`, and then the extension's `name` |
 | `version` | The extension's own version. Shown, never interpreted |
-| `description` | One line, shown beside it |
+| `description` | One line, shown beside it. Left out, it is `description` in its own `i18n/` |
 | `requires_platform` | The platform ABI it was built against. This build offers `1` |
 | `scopes` | Core scopes it asks to use, e.g. `games:read` |
 | `provides` | The actions it gates its own routes on. Core mints `ext:<name>:<action>` |
@@ -73,6 +75,7 @@ application, and that is the guarantee the model rests on.
 | on `ctx` | what it does |
 |---|---|
 | `ctx.name`, `ctx.manifest` | What this extension is and what it declared |
+| `ctx.t(key, **params)` | What its own `i18n/<language>.json` says for `key`, in the language now set |
 | `ctx.logger` | A logger in `vpinfe.ext.<name>` |
 | `ctx.config` | `get`, `set`, `all` over its own settings |
 | `ctx.events` | `subscribe` to a core event; `publish` one of its own |
@@ -83,9 +86,9 @@ application, and that is the guarantee the model rests on.
 | `ctx.games.launch_game(...)` | Start a game on this play host. Needs `launch:invoke`, which `games:write` does not grant |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
 | `ctx.entries` | `contribute(key, fetch)` — add something to every entry a theme is handed |
-| `ctx.tokens` | `offer(name, says, contexts, value)` — a name a user may write into a command. Offered as `<extension>.<name>` |
+| `ctx.tokens` | `offer(name, contexts, value)` - a name a user may write into a command. Offered as `<extension>.<name>` |
 | `ctx.catalogs` | `contribute(key, name, subject, link)` — say where a game, a table or a file is somewhere else |
-| `ctx.ui` | `action(...)` — offer a verb for the Console to draw; `community(...)` — a list shown under Community; `settings(base, label)` and `state(base, label)` — say where its settings and what it is holding can be read. All need `ui:mount` |
+| `ctx.ui` | `action(...)` - offer a verb for the Console to draw; `community(...)` - a list shown under Community; `settings(base)` and `state(base)` - say where its settings and what it is holding can be read. All need `ui:mount` |
 | `ctx.add_router(router, scope=...)` | Serve routes under `/api/v1/ext/<name>/` |
 
 `ctx.games` is not a second implementation of the HTTP API — it calls the API's own route
@@ -128,6 +131,34 @@ launch.
 Routers are collected during `register` and mounted once. One added afterwards would never
 be reachable, so it is refused rather than left to answer nothing.
 
+## Its words
+
+An extension keeps what it says in `i18n/en.json` beside its code, and a translation is the
+same file under the language's name, `i18n/de.json`. What it declares is found there by
+what it declared:
+
+| key | names |
+|---|---|
+| `name`, `description` | The extension, where the manifest leaves them out |
+| `action.<key>.label`, `action.<key>.description` | An action |
+| `settings.label`, `state.label` | Its settings and what it is holding. Left out, the Console uses its own |
+| `community.<key>.title` | A Community list |
+| `community.<key>.column.<field>.header`, `...help` | One of its columns |
+| `community.<key>.view.<key>.name`, `...help` | One of its views |
+| `token.<name>.says` | A name a command can use |
+| `app.<id>.name`, `app.<id>.field.<key>.label`, ... | An app it provides |
+
+Anything else is its own to ask for, `ctx.t("wizard.title")`, and `contract.words(name)`
+is the same for a module that is not handed `ctx`.
+
+A key the file does not have falls back to what the thing was declared by: an action to
+its key, a column to its field. A word handed over in code, `title="VPinPlay"`, is shown as
+written in every language, which is for a product name.
+
+The file is served under `ext.<name>.`, so an extension adds words and never changes one of
+core's. `scripts/i18n.py` reads a bundled extension's file along with core's, and
+`--record` and `--pseudo` write its hashes and pseudo-locale.
+
 ## Adding a way to play a table
 
 VPinFE plays Visual Pinball, and through the generic app anything a person can point at a
@@ -139,10 +170,22 @@ ctx.apps.provide(
     id="fp",
     name="Future Pinball",
     suffixes=(".fpt",),
-    fields=({"key": "bam_path", "label": "BAM folder", "path": "dir"},),
+    fields=({"key": "bam_path", "path": "dir"},),
     command=lambda entry, settings: ["/opt/fp", "--play", entry["table"]],
 )
 ```
+
+```json
+{
+  "app.fp.field.bam_path.label": "BAM folder",
+  "app.fp.field.bam_path.description": "Where BAM is installed, if it is"
+}
+```
+
+The app's words are in the extension's `i18n/en.json` under `app.<id>.`, keyed the way an
+app's own file is (see "An app's words" in `docs/conventions.md`). A field that file does
+not name takes core's words, so Program reads the same on every launcher. `name` is given
+here because Future Pinball is a product name.
 
 It is described in plain data because an extension cannot import the app contract — its
 one door is `common.extensions.contract`, which is what makes the import boundary
@@ -221,9 +264,11 @@ def player(values):
     profile = guest.get_active_profile()
     return profile.initials if profile else ""
 
-ctx.tokens.offer("player", "The initials of whoever is signed in to play",
-                 (ctx.tokens.TABLE,), player)
+ctx.tokens.offer("player", (ctx.tokens.TABLE,), player)
 ```
+
+What it stands for is `token.player.says` in the extension's `i18n/en.json`. A name with
+nothing saying what it stands for is refused.
 
 **The name carries the extension's id.** You declare `player`; a user writes
 `{vpinplay.player}`. The dotted half is built from the manifest rather than spelled here,
@@ -250,8 +295,14 @@ every action looks like the Console rather than like whoever wrote the extension
 keeps working if that extension later runs out of process, which a drawn page would not.
 
 ```python
-ctx.ui.action(key="import", label="Bring in a library", base="/wizard",
-              description="Convert a library from another frontend into game folders.")
+ctx.ui.action("import", "/wizard")
+```
+
+```json
+{
+  "action.import.label": "Bring in a library",
+  "action.import.description": "Convert a library from another frontend into game folders."
+}
 ```
 
 Two calls on the extension's own router, under `base`:
@@ -272,7 +323,8 @@ the outcome where it is not, with an optional `message` and `summary`. An action
 one call and a sentence should not have to wear a progress bar.
 
 `fields` are `{key, type, label, value, help}`, where type is `path`, `string` or `multi`
-(with `choices`). Both `check` and `run` receive `{"values": {…}}`.
+(with `choices`). Both `check` and `run` receive `{"values": {…}}`. The words in these
+answers are the extension's to look up, with `ctx.t`.
 
 `confirm` is the verb at the point of no return, and it is the action's own: a generic
 "Confirm" makes every action look like every other one. `notes` travel with the summary,
@@ -284,29 +336,37 @@ will not happen.
 A list an extension holds, shown under Community. Needs `ui:mount`.
 
 ```python
-ctx.ui.community("tables", "VPinPlay", "/community/tables",
-                 columns=[{"field": "name", "header": "Table",
-                           "under": ["manufacturer", "year"]},
-                          {"field": "plays", "header": "Plays", "kind": "number"}],
-                 views=[{"name": "Most Played", "columns": ["name", "plays"],
+ctx.ui.community("tables", "/community/tables", title="VPinPlay",
+                 columns=[{"field": "name", "under": ["manufacturer", "year"]},
+                          {"field": "plays", "kind": "number"}],
+                 views=[{"key": "most_played", "columns": ["name", "plays"],
                          "sort": [{"field": "plays", "desc": True}]}],
                  relation={"field": "vps_id", "keys": "vps_entry"})
 ```
 
+```json
+{
+  "community.tables.column.name.header": "Table",
+  "community.tables.column.plays.header": "Plays",
+  "community.tables.view.most_played.name": "Most Played"
+}
+```
+
 `base` is one of this extension's routes answering `{"rows": [...]}`. A column's `kind` is
 `text`, `number` or `date`, and the first column may name `under` - row fields drawn on the
-line beneath its value, as a game's maker and year are. A view names its columns and its
-sort. With a `relation`, core asks which rows this library holds and makes their name a
-link: `keys` is `vps_entry` for a link to the game, or `vps_release` for one to the table.
-It is all data: core draws the list with the grid every other page uses, and nothing of
-the extension's runs in the page.
+line beneath its value, as a game's maker and year are. A view has a `key`, which its
+words are found by, and names its columns and its sort. With a `relation`, core asks which
+rows this library holds and makes their name a link: `keys` is `vps_entry` for a link to
+the game, or `vps_release` for one to the table. It is all data: core draws the list with
+the grid every other page uses, and nothing of the extension's runs in the page.
 
 With `tag="Weekly Challenge"` as well, the list puts that tag on what this library holds
 from it: the game for a `vps_entry` relation, the table for a `vps_release` one, so a
 challenge naming one build of a machine tags that build and not the others. Core reads
 the list shortly after it starts and every 30 minutes after; a read that fails keeps the
 last good one. The tag is the extension's - nobody can rename, merge or remove it, or put
-it on by hand - and it goes when the extension stops. A tag needs a `relation`.
+it on by hand - and it goes when the extension stops. A tag needs a `relation`. It is
+written as given in every language: it is stored on games, which makes it data.
 
 ## Scopes and the gate
 

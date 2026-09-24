@@ -29,7 +29,7 @@ def add_to(entries: list[Any], context: str) -> None:
         with ui.element("div").classes("console-token-list"):
             for one in available:
                 ui.label("{" + one.name + "}").classes("console-token")
-                says = one.says
+                says = tokens.stands_for(one)
                 if one.after_only:
                     says += t("console.commands.after_finished")
                 ui.label(says).classes("console-help")

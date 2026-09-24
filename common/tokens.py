@@ -28,6 +28,8 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from common import i18n
+
 logger = logging.getLogger("vpinfe.common.tokens")
 
 # Where a command runs, which decides what there is to talk about. VPinFE starting has no
@@ -45,8 +47,10 @@ BARE = re.compile(r"\A" + _WORD + r"\Z")
 @dataclass(frozen=True)
 class Token:
     name: str
-    says: str
     contexts: frozenset[str]
+    # Empty is looked up: `token.<name>.says` for core's, the extension's own catalog for
+    # one it brings.
+    says: str = ""
     # Only means anything once something has finished.
     after_only: bool = False
     # Empty for core's own.
@@ -54,25 +58,31 @@ class Token:
 
 
 TOKENS: tuple[Token, ...] = (
-    Token("game_dir", "The folder the game is in", frozenset({TABLE})),
+    Token("game_dir", frozenset({TABLE})),
     # `table`, not `game_file`: the launchable artifact is a table everywhere else here.
-    Token("table", "The full path of the table being played", frozenset({TABLE})),
-    Token("table_stem", "The table's filename without its extension", frozenset({TABLE})),
-    Token("game_name", "What the game is called", frozenset({TABLE})),
-    Token("id", "The table's id", frozenset({TABLE})),
-    Token("key", "The app's own name for the entry, where it has one",
-          frozenset({TABLE})),
-    Token("rom", "The ROM the table declares, where it declares one", frozenset({TABLE})),
-    Token("launcher_bin", "The program this launcher runs", frozenset({TABLE})),
-    Token("launcher_ini", "The configuration file this launcher reads",
-          frozenset({TABLE})),
-    Token("location", "The folder the library found this game under",
-          frozenset({TABLE})),
-    Token("exit_code", "What the program exited with", frozenset({TABLE}),
-          after_only=True),
-    Token("duration", "How long it ran, in whole seconds", frozenset({TABLE}),
-          after_only=True),
+    Token("table", frozenset({TABLE})),
+    Token("table_stem", frozenset({TABLE})),
+    Token("game_name", frozenset({TABLE})),
+    Token("id", frozenset({TABLE})),
+    Token("key", frozenset({TABLE})),
+    Token("rom", frozenset({TABLE})),
+    Token("launcher_bin", frozenset({TABLE})),
+    Token("launcher_ini", frozenset({TABLE})),
+    Token("location", frozenset({TABLE})),
+    Token("exit_code", frozenset({TABLE}), after_only=True),
+    Token("duration", frozenset({TABLE}), after_only=True),
 )
+
+
+def _says_key(name: str, extension: str) -> str:
+    if not extension:
+        return f"token.{name}.says"
+    return f"ext.{extension}.token.{name.removeprefix(extension + '.')}.says"
+
+
+def stands_for(token: Token) -> str:
+    """What a token stands for, in the language now set."""
+    return i18n.literal_or(token.says, _says_key(token.name, token.extension))[0]
 
 
 @dataclass(frozen=True)
@@ -92,8 +102,8 @@ _lock = threading.RLock()
 _contributed: dict[str, Contributed] = {}
 
 
-def register(extension: str, name: str, says: str, contexts: frozenset[str],
-             value: Callable[[dict[str, str]], str], *,
+def register(extension: str, name: str, contexts: frozenset[str],
+             value: Callable[[dict[str, str]], str], *, says: str = "",
              after_only: bool = False) -> str:
     """Offer `{extension.name}` wherever a command in one of `contexts` is written.
 
@@ -107,7 +117,8 @@ def register(extension: str, name: str, says: str, contexts: frozenset[str],
         raise ValueError(f"{extension!r} is not an extension name")
     if not BARE.match(wanted):
         raise ValueError(f"{owner} offers {name!r}, which is not a name a command can use")
-    if not str(says or "").strip():
+    said = str(says or "").strip()
+    if not said and not i18n.first_key(_says_key(wanted, owner)):
         raise ValueError(f"{owner} offers {wanted!r} without saying what it stands for")
     stray = sorted(set(contexts) - CONTEXTS)
     if stray or not contexts:
@@ -116,7 +127,7 @@ def register(extension: str, name: str, says: str, contexts: frozenset[str],
     full = f"{owner}.{wanted}"
     with _lock:
         _contributed[full] = Contributed(
-            token=Token(full, str(says), frozenset(contexts), after_only, owner),
+            token=Token(full, frozenset(contexts), said, after_only, owner),
             value=value)
     logger.info("%s offers %r to commands", owner, "{" + full + "}")
     return full

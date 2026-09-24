@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from common import events as core_events
 
-from .contract import ContractError, Manifest
+from .contract import ContractError, Manifest, words
 from .games import ExtensionGames
 from .store import ExtensionStore
 
@@ -147,18 +147,23 @@ class ExtensionApps:
     read and dropped.
     """
 
-    def __init__(self, name: str, scopes: Iterable[str]) -> None:
+    def __init__(self, name: str, scopes: Iterable[str],
+                 directory: Path | None = None) -> None:
         self._name = name
         self._scopes = frozenset(scopes)
+        self._directory = directory
         self._mine: list[str] = []
 
     def provide(self, **described: Any) -> str:
         """Add an app, described in plain data. Answers with the id it took.
 
-        `id`, `name`, `suffixes`, and optionally `accepts_keys`, `companions`,
+        `id`, `suffixes`, and optionally `name`, `accepts_keys`, `companions`,
         `fields`, `kinds` and `command`. `command(entry, settings)` answers with a list
         of arguments, or with nothing to run the launcher's binary and arguments the way
         the generic app does.
+
+        Its words are the extension's `i18n/<language>.json` under `app.<id>.`, keyed as
+        an app's own file is. A `name` or a field's `label` given here is shown as written.
         """
         from . import provided_apps
 
@@ -166,11 +171,13 @@ class ExtensionApps:
             raise ContractError(
                 f"{self._name} provides an app, which needs "
                 f"{provided_apps.APPS_PROVIDE}, and its manifest does not declare it")
-        from common import apps
+        from common import apps, i18n
 
         built = provided_apps.build(self._name, described)
         apps.contribute(built)
         self._mine.append(built.id)
+        if self._directory is not None:
+            i18n.own(f"app.{built.id}", self._directory / "i18n", section=f"app.{built.id}")
         logger_for(self._name).info(
             "provides the %s app for %s", built.id,
             ", ".join(built.claim.suffixes) or "keyed entries")
@@ -191,12 +198,12 @@ class ExtensionApps:
         return tuple(dict.fromkeys(found))
 
     def names(self) -> tuple[str, ...]:
-        """What the apps here are called. For a source that says which program a system
-        used but not which files it holds - a database found in a folder named after the
-        program is often all there is."""
+        """The product names of the apps here. For a source that says which program a
+        system used but not which files it holds - a database found in a folder named
+        after the program is often all there is."""
         from common import apps
 
-        return tuple(one.name for one in apps.all_apps())
+        return tuple(one.name for one in apps.all_apps() if one.name)
 
     def plays(self, name: str) -> bool:
         """Whether anything here plays a file of this name, or this bare suffix."""
@@ -212,10 +219,11 @@ class ExtensionApps:
     def withdraw(self) -> None:
         """Take them all back. Called when the extension is unloaded, so a disabled
         extension does not leave a suffix claimed by something that is no longer here."""
-        from common import apps
+        from common import apps, i18n
 
         for app_id in self._mine:
             apps.withdraw(app_id)
+            i18n.disown(f"app.{app_id}")
         self._mine.clear()
 
 
@@ -240,6 +248,10 @@ class ExtensionUI:
     A form with no fields is pressed and happens. A form with fields is filled in first.
     A form naming a confirm gets a step showing what would happen before it runs. The
     run answers with a job where it is slow and with the outcome where it is not.
+
+    A word left out is looked up in the extension's own `i18n/<language>.json`:
+    `action.<key>.label`, `community.<key>.title`, `settings.label` and so on, as
+    `docs/extensions.md` lists them. One given is shown as written.
     """
 
     def __init__(self, name: str, allowed: bool) -> None:
@@ -247,12 +259,13 @@ class ExtensionUI:
         self._allowed = allowed
         self.actions: list[dict] = []
         self.community_lists: list[dict] = []
-        self.settings_label = "Settings"
+        self.settings_label = ""
         self.state_label = ""
         self.settings_base = ""
         self.state_base = ""
 
-    def action(self, key: str, label: str, base: str, description: str = "") -> None:
+    def action(self, key: str, base: str, *, label: str = "",
+               description: str = "") -> None:
         """A verb somebody can press, in the vocabulary the rest of the app uses."""
         if not self._allowed:
             raise ContractError(f"{self._name} offers an action, which needs the "
@@ -262,12 +275,12 @@ class ExtensionUI:
             raise ContractError(f"{self._name} offers an action with no key")
         self.actions.append({
             "key": wanted,
-            "label": str(label or "").strip() or wanted,
+            "label": str(label or "").strip(),
             "description": str(description or "").strip(),
             "base": str(base or "").strip(),
         })
 
-    def community(self, key: str, title: str, base: str, *, columns: list[dict],
+    def community(self, key: str, base: str, *, columns: list[dict], title: str = "",
                   views: list[dict] | None = None, relation: dict | None = None,
                   tag: str = "") -> None:
         """A list this extension holds, shown under Community.
@@ -275,7 +288,7 @@ class ExtensionUI:
         `base` is a route of this extension's answering `{"rows": [...]}`. A column is
         `{"field", "header", "kind"}` with `kind` one of `text`, `number`, `date`, and the
         first may name `under`: row fields drawn on the line beneath its value. A view is
-        `{"name", "columns", "sort": [{"field", "desc"}], "help"}`. `relation` is
+        `{"key", "name", "columns", "sort": [{"field", "desc"}], "help"}`. `relation` is
         `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`. `tag` is put on
         every game (`vps_entry`) or table (`vps_release`) of this library the list relates
         to, so it needs a `relation`.
@@ -296,8 +309,8 @@ class ExtensionUI:
         for view in views or []:
             named = set(view.get("columns") or []) | {str(one.get("field") or "")
                                                       for one in view.get("sort") or []}
-            if not str(view.get("name") or "").strip() or not named <= set(fields):
-                raise ContractError(f"{self._name} declares a view with no name or on a "
+            if not str(view.get("key") or "").strip() or not named <= set(fields):
+                raise ContractError(f"{self._name} declares a view with no key or on a "
                                     "column it does not have")
         if relation and (relation.get("field") not in fields
                          or relation.get("keys") not in RELATION_KEYS):
@@ -308,14 +321,15 @@ class ExtensionUI:
             raise ContractError(f"{self._name} derives a tag from a list that relates to "
                                 "nothing in the library")
         self.community_lists.append({
-            "key": wanted, "title": str(title or "").strip() or wanted,
+            "key": wanted, "title": str(title or "").strip(),
             "base": str(base or "").strip(),
-            "columns": [{"field": field, "header": str(one.get("header") or field),
+            "columns": [{"field": field, "header": str(one.get("header") or ""),
                          "kind": str(one.get("kind") or "text"),
                          "help": str(one.get("help") or ""),
                          "under": [str(name) for name in one.get("under") or []]}
                         for field, one in zip(fields, columns, strict=True)],
-            "views": [{"name": str(view["name"]).strip(),
+            "views": [{"key": str(view["key"]).strip(),
+                       "name": str(view.get("name") or "").strip(),
                        "columns": list(view.get("columns") or fields),
                        "sort": [{"field": str(one["field"]), "desc": bool(one.get("desc"))}
                                 for one in view.get("sort") or []],
@@ -324,7 +338,7 @@ class ExtensionUI:
             "tag": derived,
         })
 
-    def settings(self, base: str, label: str = "Settings") -> None:
+    def settings(self, base: str, label: str = "") -> None:
         """Say that this extension has settings, and where core may read and write them.
 
         Declared rather than drawn, like everything else here: the fields come back from
@@ -333,9 +347,9 @@ class ExtensionUI:
         """
         self._needs_ui("settings")
         self.settings_base = str(base or "").strip()
-        self.settings_label = str(label or "").strip() or "Settings"
+        self.settings_label = str(label or "").strip()
 
-    def state(self, base: str, label: str) -> None:
+    def state(self, base: str, label: str = "") -> None:
         """Say that this extension holds something worth showing, and where to read it.
 
         A list of rows, each a label, a line under it, and at most two things you can do
@@ -414,14 +428,15 @@ class ExtensionTokens:
     def __init__(self, name: str) -> None:
         self._name = name
 
-    def offer(self, name: str, says: str, contexts: Iterable[str],
-              value: Callable[[dict], str], *, after_only: bool = False) -> str:
-        """Answer with the full name, which is what a user types."""
+    def offer(self, name: str, contexts: Iterable[str], value: Callable[[dict], str], *,
+              says: str = "", after_only: bool = False) -> str:
+        """Answer with the full name, which is what a user types. What it stands for is
+        `says`, or `token.<name>.says` in the extension's own catalog."""
         from common import tokens
 
         try:
-            return tokens.register(self._name, name, says, frozenset(contexts), value,
-                                   after_only=after_only)
+            return tokens.register(self._name, name, frozenset(contexts), value,
+                                   says=says, after_only=after_only)
         except ValueError as exc:
             raise ContractError(str(exc)) from exc
 
@@ -454,7 +469,7 @@ class ExtensionContext:
     """What `register(ctx)` is given."""
 
     def __init__(self, manifest: Manifest, store: ExtensionStore,
-                 on_failure: Callable[[str], None]) -> None:
+                 on_failure: Callable[[str], None], directory: Path | None = None) -> None:
         self.name = manifest.name
         self.manifest = manifest
         self.logger = logger_for(manifest.name)
@@ -467,7 +482,7 @@ class ExtensionContext:
         self.catalogs = ExtensionCatalogs(manifest.name)
         self.tokens = ExtensionTokens(manifest.name)
         self.games = ExtensionGames(manifest.name, manifest.scopes, self.files)
-        self.apps = ExtensionApps(manifest.name, manifest.scopes)
+        self.apps = ExtensionApps(manifest.name, manifest.scopes, directory)
         self.serves = ExtensionServices(manifest.name)
         # Which program this is, for an extension that has to say so to somebody else.
         # Through the context rather than an import: the one module an extension may
@@ -479,6 +494,11 @@ class ExtensionContext:
         # Registration is a moment, not a phase: routers are mounted once, so one added
         # after `register` returned would never be reachable and silently answer nothing.
         self.open = True
+
+    def t(self, key: str, /, **params: Any) -> str:
+        """What this extension's `i18n/<language>.json` says for `key`, in the language
+        now set: a wizard's title, a field's label, a sentence a route answers with."""
+        return words(self.name)(key, **params)
 
     def scope(self, action: str) -> str:
         """The scope for one of this extension's own actions."""

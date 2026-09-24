@@ -14,7 +14,7 @@ import string
 import unittest
 from pathlib import Path
 
-from common import apps, i18n
+from common import apps, i18n, tokens
 from common.apps.contract import Availability, ConfigGroup, Field
 from common.config_schema import ConfigOption
 from common.games.asset_registry import ASSET_SPECS, AssetSpec
@@ -22,6 +22,7 @@ from common.games.collection_filters import AXES, FilterAxis
 from common.games.launchers import OWN_FIELDS
 from common.input_registry import InputAction, actions
 from common.media_specs import MEDIA_SPECS, MediaSpec
+from common.tokens import Token
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOGS = ROOT / "common" / "i18n" / "catalogs"
@@ -37,6 +38,7 @@ CONVERTED = {
     FilterAxis: {"label", "summary"},
     Field: {"label", "description"},
     ConfigGroup: {"label"},
+    Token: {"says"},
 }
 
 
@@ -77,6 +79,9 @@ class TestEveryRegistryResolves(unittest.TestCase):
         self.assertEqual([name for name, said in described
                           if not said["label_key"] or not said["description"]], [],
                          "a launcher field with no words of its own")
+
+    def test_tokens(self) -> None:
+        self._check([(one.name, tokens.stands_for(one)) for one in tokens.TOKENS])
 
     def test_app_names(self) -> None:
         self.assertEqual([app.id for app in apps.all_apps()

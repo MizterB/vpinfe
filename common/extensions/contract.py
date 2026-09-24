@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -56,6 +56,17 @@ class ContractError(RuntimeError):
     """An extension asked the context for something its manifest does not declare."""
 
 
+def words(name: str) -> Callable[..., str]:
+    """What the extension `name` says for a key in its `i18n/<language>.json`, in the
+    language now set. `ctx.t`, for a module that is not handed the context."""
+    from common.i18n import t
+
+    def said(key: str, /, **params: Any) -> str:
+        return t(f"ext.{name}.{key}", **params)
+
+    return said
+
+
 # What `register(ctx)` receives is built in `common/extensions/context.py` and described
 # in `docs/extensions.md`. Not declared here as a protocol: half of it would be, since
 # the config and event facades are defined in the module that imports this one, and a
@@ -65,8 +76,10 @@ class ContractError(RuntimeError):
 @dataclass(frozen=True)
 class Manifest:
     name: str
+    # Empty is looked up as `ext.<name>.name`. Set, it is a product name.
     display_name: str
     version: str
+    # Empty is looked up as `ext.<name>.description`.
     description: str
     requires_platform: int
     # Core scopes it asks to use. A consent declaration; the vocabulary that decides
@@ -152,7 +165,7 @@ def parse(raw: Any, *, source: str = "") -> Manifest:
 
     return Manifest(
         name=name,
-        display_name=str(raw.get("display_name") or name).strip(),
+        display_name=str(raw.get("display_name") or "").strip(),
         version=str(raw.get("version") or "").strip(),
         description=str(raw.get("description") or "").strip(),
         requires_platform=abi,

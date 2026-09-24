@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from common import events as core_events
-from common import install_identity, tokens
+from common import i18n, install_identity, tokens
 from common.paths import CONFIG_DIR, bundled, get_ini_config
 
 from . import catalogs, contributions
@@ -72,19 +72,70 @@ class Record:
     def running(self) -> bool:
         return self.state == LOADED
 
+    def said(self, literal: str, key: str, fallback: str = "") -> tuple[str, str]:
+        """Words it declared: `literal` as written, else `ext.<name>.<key>` from its own
+        catalog, else `fallback`. With the key they came from."""
+        return i18n.literal_or(literal, f"ext.{self.name}.{key}", fallback=fallback)
+
     @property
     def display_name(self) -> str:
-        return self.manifest.display_name if self.manifest else self.name
+        return self.said(self.manifest.display_name if self.manifest else "", "name",
+                         self.name)[0]
+
+    @property
+    def description(self) -> str:
+        return self.said(self.manifest.description if self.manifest else "",
+                         "description")[0]
+
+    def lists(self) -> list[dict]:
+        """Its Community lists, in the language now set."""
+        return [self._list(one) for one in self.community]
+
+    def _list(self, declared: dict) -> dict:
+        under = f"community.{declared['key']}"
+        return {
+            **declared,
+            "title": self.said(declared["title"], f"{under}.title", declared["key"])[0],
+            "columns": [{**one,
+                         "header": self.said(one["header"],
+                                             f"{under}.column.{one['field']}.header",
+                                             one["field"])[0],
+                         "help": self.said(one["help"],
+                                           f"{under}.column.{one['field']}.help")[0]}
+                        for one in declared["columns"]],
+            "views": [{**one,
+                       "name": self.said(one["name"], f"{under}.view.{one['key']}.name",
+                                         one["key"])[0],
+                       "help": self.said(one["help"], f"{under}.view.{one['key']}.help")[0]}
+                      for one in declared["views"]],
+        }
+
+    def _action(self, declared: dict) -> dict:
+        key = declared["key"]
+        label, label_key = self.said(declared["label"], f"action.{key}.label", key)
+        return {**declared, "label": label, "label_key": label_key,
+                "description": self.said(declared["description"],
+                                         f"action.{key}.description")[0]}
+
+    def _surfaces(self) -> dict:
+        found = dict(self.surfaces)
+        for which in ("settings", "state"):
+            found[f"{which}_label"] = self.said(str(found.get(f"{which}_label") or ""),
+                                                f"{which}.label")[0]
+        return found
 
     def as_dict(self) -> dict[str, Any]:
         found = self.manifest.as_dict() if self.manifest else {"name": self.name}
-        return {**found, "state": self.state, "reason": self.reason,
+        return {**found, "display_name": self.display_name,
+                "description": self.description,
+                "state": self.state, "reason": self.reason,
                 "routes": [scope for _router, scope in self.routers],
                 # Only while it is running: an action on an extension that is not
                 # there would draw a button that refuses.
-                "actions": list(self.actions) if self.running else [],
-                "surfaces": dict(self.surfaces) if self.running else {},
-                "community": list(self.community) if self.running else []}
+                "actions": ([self._action(one) for one in self.actions]
+                            if self.running else []),
+                "surfaces": self._surfaces() if self.running else {},
+                "community": self.lists() if self.running else []}
 
 
 class Registry:
@@ -167,6 +218,7 @@ class Registry:
             record.name = record.manifest.name
         except ManifestError as exc:
             return self._remember(_failed(record, str(exc)))
+        i18n.own(f"ext.{record.name}", directory / "i18n")
 
         skip = self._why_not(record.manifest)
         if skip:
@@ -181,7 +233,7 @@ class Registry:
             name = record.name
             context = ExtensionContext(
                 record.manifest, self._store,
-                on_failure=lambda why: self.disable(name, why))
+                on_failure=lambda why: self.disable(name, why), directory=directory)
             register(context)
             context.open = False
         except Exception as exc:

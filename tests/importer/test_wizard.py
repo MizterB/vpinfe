@@ -76,7 +76,7 @@ class DeclarationTests(WizardCase):
         found = self.client.get("/extensions").json()["extensions"][0]
         action = found["actions"][0]
 
-        self.assertEqual(sorted(action), ["base", "description", "key", "label"])
+        self.assertEqual(sorted(action), ["base", "description", "key", "label", "label_key"])
 
     def test_an_extension_that_is_not_running_offers_nothing(self) -> None:
         """A button that refuses is worse than no button."""
@@ -91,7 +91,7 @@ class DeclarationTests(WizardCase):
         from common.extensions.context import ExtensionUI
 
         with self.assertRaises(ContractError):
-            ExtensionUI("quiet", allowed=False).action("go", "Go", "/x")
+            ExtensionUI("quiet", allowed=False).action("go", "/x")
 
 
 class FormTests(WizardCase):

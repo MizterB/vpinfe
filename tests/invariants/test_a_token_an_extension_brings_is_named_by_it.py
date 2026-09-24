@@ -7,9 +7,12 @@ and no test here holds it.
 
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from common import tokens
+from common import i18n, tokens
 
 
 class CoreNamesAreBare(unittest.TestCase):
@@ -26,8 +29,8 @@ class ABroughtNameCarriesItsId(unittest.TestCase):
             tokens.forget(name)
 
     def offer(self, extension: str, name: str = "player", value: str = "CB", **kw) -> str:
-        return tokens.register(extension, name, "Says something",
-                               frozenset({tokens.TABLE}), lambda _base: value, **kw)
+        return tokens.register(extension, name, frozenset({tokens.TABLE}),
+                               lambda _base: value, says="Says something", **kw)
 
     def test_the_registry_builds_the_name(self) -> None:
         self.assertEqual(self.offer("one"), "one.player")
@@ -54,13 +57,25 @@ class ABroughtNameCarriesItsId(unittest.TestCase):
 
     def test_a_context_commands_do_not_run_in_is_refused(self) -> None:
         with self.assertRaises(ValueError):
-            tokens.register("one", "player", "Says", frozenset({"whenever"}),
-                            lambda _base: "")
+            tokens.register("one", "player", frozenset({"whenever"}),
+                            lambda _base: "", says="Says")
 
     def test_a_name_nobody_describes_is_refused(self) -> None:
         with self.assertRaises(ValueError):
-            tokens.register("one", "player", "  ", frozenset({tokens.TABLE}),
-                            lambda _base: "")
+            tokens.register("one", "player", frozenset({tokens.TABLE}),
+                            lambda _base: "", says="  ")
+
+    def test_a_name_its_own_catalog_describes_is_described(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "en.json").write_text(
+                json.dumps({"token.player.says": "Who is playing"}), encoding="utf-8")
+            i18n.own("ext.one", Path(folder))
+            self.addCleanup(i18n.disown, "ext.one")
+            full = tokens.register("one", "player", frozenset({tokens.TABLE}),
+                                   lambda _base: "")
+
+            (offered,) = [one for one in tokens.offered(tokens.TABLE) if one.name == full]
+            self.assertEqual(tokens.stands_for(offered), "Who is playing")
 
 
 class WhatHappensWhenItGoes(unittest.TestCase):
@@ -68,8 +83,8 @@ class WhatHappensWhenItGoes(unittest.TestCase):
         tokens.forget("one")
 
     def test_a_command_still_naming_it_refuses_by_that_name(self) -> None:
-        tokens.register("one", "player", "Says", frozenset({tokens.TABLE}),
-                        lambda _base: "CB")
+        tokens.register("one", "player", frozenset({tokens.TABLE}),
+                        lambda _base: "CB", says="Says")
         tokens.forget("one")
 
         with self.assertRaises(tokens.UnknownTokenError) as raised:
@@ -81,7 +96,7 @@ class WhatHappensWhenItGoes(unittest.TestCase):
         def broken(_base: dict) -> str:
             raise RuntimeError("no")
 
-        tokens.register("one", "player", "Says", frozenset({tokens.TABLE}), broken)
+        tokens.register("one", "player", frozenset({tokens.TABLE}), broken, says="Says")
 
         with self.assertLogs("vpinfe.common.tokens", level="ERROR"):
             self.assertEqual(tokens.contributed_values(tokens.TABLE, {})["one.player"],
@@ -94,8 +109,8 @@ class WhatWasTakenBeforeStands(unittest.TestCase):
 
     def test_a_captured_value_is_not_asked_again(self) -> None:
         """A table's closing commands are told what its opening ones were."""
-        tokens.register("one", "player", "Says", frozenset({tokens.TABLE}),
-                        lambda _base: "NOW")
+        tokens.register("one", "player", frozenset({tokens.TABLE}),
+                        lambda _base: "NOW", says="Says")
 
         self.assertEqual(
             tokens.filled(tokens.TABLE, {"one.player": "THEN"})["one.player"], "THEN")

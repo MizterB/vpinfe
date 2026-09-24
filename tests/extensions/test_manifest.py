@@ -42,8 +42,9 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(manifest.provides, ("read",))
         self.assertEqual(manifest.as_dict()["capabilities"], ["config:own"])
 
-    def test_the_display_name_falls_back_to_the_name(self) -> None:
-        self.assertEqual(contract.parse(_without("display_name")).display_name, "sample")
+    def test_a_display_name_left_out_stays_empty(self) -> None:
+        """So the extension's own catalog can answer it, in the language now set."""
+        self.assertEqual(contract.parse(_without("display_name")).display_name, "")
 
     def test_a_name_that_could_not_be_a_url_segment_is_refused(self) -> None:
         for bad in ("Sample", "two words", "9lives", "", "a/b"):

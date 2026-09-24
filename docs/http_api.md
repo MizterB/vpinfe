@@ -208,9 +208,10 @@ friends). Sub-resources are linked from `links` rather than assembled by the cli
 ### `label` and `label_key`
 
 A resource that carries a `label` carries a `label_key` beside it — the filter axes, the
-config schema, media and asset slots, actions, the upload plan, and a launcher's fields and
-settings groups. A label that is a program's own words, such as a Visual Pinball setting
-read out of its ini, has an empty `label_key`, because there is no key behind it.
+config schema, media and asset slots, actions (an install's and an extension's), the upload
+plan, and a launcher's fields and settings groups. A label that is a program's own words,
+such as a Visual Pinball setting read out of its ini, has an empty `label_key`, because
+there is no key behind it.
 
 `label` is the words themselves, in whatever language this install speaks. It is what a
 client that does nothing new keeps rendering, and it will not change *meaning*.

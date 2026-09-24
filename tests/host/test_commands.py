@@ -128,7 +128,7 @@ class OfferedTests(unittest.TestCase):
         can use."""
         for one in tokens.TOKENS:
             with self.subTest(token=one.name):
-                self.assertTrue(one.says.strip())
+                self.assertTrue(tokens.stands_for(one).strip())
 
     def test_a_surface_can_say_which_name_is_wrong_while_it_is_typed(self) -> None:
         self.assertEqual(

@@ -30,9 +30,10 @@ def register(ctx) -> None:
         return rows("releases")
 
     ctx.add_router(router, scope=ctx.scope("read"))
-    ctx.ui.community("machines", "Machines of the Month", "/machines", columns=COLUMNS,
+    ctx.ui.community("machines", "/machines", title="Machines of the Month",
+                     columns=COLUMNS,
                      relation={"field": "vps_id", "keys": "vps_entry"},
                      tag="Machine of the Month")
-    ctx.ui.community("releases", "Weekly Challenge", "/releases", columns=COLUMNS,
+    ctx.ui.community("releases", "/releases", title="Weekly Challenge", columns=COLUMNS,
                      relation={"field": "vps_id", "keys": "vps_release"},
                      tag="Weekly Challenge")

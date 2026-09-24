@@ -92,7 +92,6 @@ def build(name: str, described: dict) -> App:
     app_id = str(described.get("id") or "").strip()
     if not app_id:
         raise ValueError("an app needs an id")
-    label = str(described.get("name") or "").strip() or app_id
 
     suffixes = tuple(_suffix(one) for one in described.get("suffixes") or ())
     # What sits beside one of its tables and belongs to it. Its own list, because the
@@ -111,7 +110,7 @@ def build(name: str, described: dict) -> App:
     kinds = described.get("kinds")
     return App(
         id=app_id,
-        name=label,
+        name=str(described.get("name") or "").strip(),
         claim=Claim(suffixes=suffixes, accepts_keys=accepts_keys,
                     companions=companions),
         fields=fields,
@@ -136,7 +135,7 @@ def _field(field_type: Any, described: object) -> Any:
         raise ValueError("a field needs a key")
     return field_type(
         key=key,
-        label=str(described.get("label") or key),
+        label=str(described.get("label") or ""),
         type=str(described.get("type") or "string"),
         default=str(described.get("default") or ""),
         description=str(described.get("description") or ""),

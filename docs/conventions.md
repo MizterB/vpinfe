@@ -265,6 +265,10 @@ app can hold, so it adds words and never changes one of core's.
 `--record` and `--pseudo` write every owner's files, and the invariants hold each app's
 file to what the app declares, both ways.
 
+An extension keeps its words the same way, served under `ext.<name>.`, with an app it
+provides under `app.<id>.` in the same file. "Its words" in `docs/extensions.md` lists the
+keys.
+
 ## Logging
 
 Logs are read by one person trying to work out what happened, usually from the Logs page in

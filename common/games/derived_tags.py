@@ -82,7 +82,7 @@ def declared() -> list[dict[str, Any]]:
     for record in extensions.records():
         if not record.running:
             continue
-        for listing in record.community:
+        for listing in record.lists():
             relation = listing.get("relation") or {}
             if not listing.get("tag") or not relation:
                 continue
@@ -91,7 +91,7 @@ def declared() -> list[dict[str, Any]]:
             found.append({
                 "key": key, "extension": record.name,
                 "display_name": record.display_name, "list": listing["key"],
-                "title": listing.get("title") or listing["key"],
+                "title": listing["title"],
                 "base": listing.get("base") or "", "tag": listing["tag"],
                 "field": relation.get("field") or "", "keys": relation.get("keys") or "",
                 "ids": [str(one) for one in said.get("ids") or []],

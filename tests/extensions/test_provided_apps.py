@@ -11,10 +11,12 @@ makes the import boundary checkable - so nothing here asks it to.
 
 from __future__ import annotations
 
+import json
 import pathlib
+import tempfile
 import unittest
 
-from common import apps
+from common import apps, i18n
 from common.extensions import provided_apps
 from common.extensions.context import ExtensionApps
 from common.extensions.contract import ContractError
@@ -100,6 +102,44 @@ class ProvideTests(unittest.TestCase):
 
         self.assertIsNone(apps.app_for("Big Bang Bar.fpt"))
         self.assertEqual(self.apps.provided(), ())
+
+
+class WordsTests(unittest.TestCase):
+    """A provided app's words are in its extension's `i18n/`, under `app.<id>.`."""
+
+    def setUp(self) -> None:
+        apps.withdraw_all()
+        self.addCleanup(apps.withdraw_all)
+        self.addCleanup(i18n.disown, "app.fp")
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        directory = pathlib.Path(folder.name)
+        (directory / "i18n").mkdir()
+        (directory / "i18n" / "en.json").write_text(json.dumps({
+            "name": "Future Pinball connector",
+            "app.fp.name": "Future Pinball",
+            "app.fp.field.bin_path.description": "The Future Pinball program",
+        }), encoding="utf-8")
+        self.apps = ExtensionApps("future_pinball", SCOPES, directory)
+
+    def test_its_name_comes_from_the_extensions_catalog(self) -> None:
+        self.apps.provide(id="fp", suffixes=("fpt",))
+
+        self.assertEqual(apps.app_name("fp"), "Future Pinball")
+
+    def test_its_fields_are_worded_there_too(self) -> None:
+        self.apps.provide(id="fp", suffixes=("fpt",))
+        field = next(one for one in apps.get("fp").fields if one.key == "bin_path")
+
+        self.assertEqual(apps.field_words("fp", field)["description"],
+                         "The Future Pinball program")
+
+    def test_its_words_go_when_it_does(self) -> None:
+        self.apps.provide(id="fp", suffixes=("fpt",))
+
+        self.apps.withdraw()
+
+        self.assertEqual(i18n.first_key("app.fp.name"), "")
 
 
 class CommandTests(unittest.TestCase):

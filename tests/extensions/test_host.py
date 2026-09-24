@@ -14,6 +14,7 @@ import unittest.mock
 from pathlib import Path
 
 from common import events as core_events
+from common import i18n
 from common.extensions import contract, host, store
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
@@ -130,6 +131,98 @@ class LoadTests(HostCase):
 
         self.assertEqual(record.state, host.OFF)
         self.assertIn("overview", record.reason)
+
+
+class WordsTests(HostCase):
+    """What an extension says is looked up in its own `i18n/`, when it is read."""
+
+    OFFERS = ('def register(ctx):\n'
+              '    ctx.ui.action("sync", "/sync")\n'
+              '    ctx.ui.settings("/settings")\n'
+              '    ctx.ui.community("tables", "/t", columns=[{"field": "name"}],\n'
+              '                     views=[{"key": "top", "columns": ["name"]}])\n')
+
+    def worded(self, name: str, words: dict, manifest: dict | None = None,
+               body: str = "def register(ctx): pass\n") -> Path:
+        directory = self.make(name, manifest, body)
+        (directory / "i18n").mkdir()
+        (directory / "i18n" / "en.json").write_text(json.dumps(words), encoding="utf-8")
+        self.addCleanup(i18n.disown, f"ext.{name}")
+        return directory
+
+    def test_a_name_left_out_is_its_folder_name(self) -> None:
+        record = self.registry.load(self.make("plain", body="def register(ctx): pass\n"))
+
+        self.assertEqual(record.display_name, "plain")
+        self.assertEqual(record.as_dict()["description"], "")
+
+    def test_its_catalog_names_it(self) -> None:
+        record = self.registry.load(self.worded(
+            "named", {"name": "Named", "description": "Does one thing"}))
+
+        self.assertEqual(record.as_dict()["display_name"], "Named")
+        self.assertEqual(record.as_dict()["description"], "Does one thing")
+
+    def test_a_name_in_the_manifest_is_shown_as_written(self) -> None:
+        """A product name, which is the same in every language."""
+        record = self.registry.load(self.worded(
+            "branded", {"name": "Translated"}, {"display_name": "VPinThing"}))
+
+        self.assertEqual(record.display_name, "VPinThing")
+
+    def test_one_switched_off_is_still_named_by_its_catalog(self) -> None:
+        """It is still listed, and switching it back on is done by name."""
+        self.store.set_enabled("named", False)
+
+        record = self.registry.load(self.worded("named", {"name": "Named"}))
+
+        self.assertEqual(record.state, host.OFF)
+        self.assertEqual(record.display_name, "Named")
+
+    def test_what_it_offers_is_worded_by_its_catalog(self) -> None:
+        record = self.registry.load(self.worded("worded", {
+            "action.sync.label": "Sync now",
+            "action.sync.description": "Sends what was played",
+            "settings.label": "Account",
+            "community.tables.title": "Top tables",
+            "community.tables.column.name.header": "Table",
+            "community.tables.view.top.name": "Most played",
+        }, {"capabilities": ["ui:mount"]}, self.OFFERS))
+        found = record.as_dict()
+
+        self.assertEqual(found["actions"][0]["label"], "Sync now")
+        self.assertEqual(found["actions"][0]["label_key"], "ext.worded.action.sync.label")
+        self.assertEqual(found["actions"][0]["description"], "Sends what was played")
+        self.assertEqual(found["surfaces"]["settings_label"], "Account")
+        listing = found["community"][0]
+        self.assertEqual(listing["title"], "Top tables")
+        self.assertEqual(listing["columns"][0]["header"], "Table")
+        self.assertEqual(listing["views"][0]["name"], "Most played")
+
+    def test_what_its_catalog_leaves_out_is_called_by_its_key(self) -> None:
+        """The Console has its own word for a settings page with none."""
+        record = self.registry.load(self.worded(
+            "bare", {}, {"capabilities": ["ui:mount"]}, self.OFFERS))
+        found = record.as_dict()
+
+        self.assertEqual(found["actions"][0]["label"], "sync")
+        self.assertEqual(found["actions"][0]["label_key"], "")
+        self.assertEqual(found["surfaces"]["settings_label"], "")
+        listing = found["community"][0]
+        self.assertEqual(listing["title"], "tables")
+        self.assertEqual(listing["columns"][0]["header"], "name")
+        self.assertEqual(listing["views"][0]["name"], "top")
+
+    def test_it_reads_its_own_words_by_key(self) -> None:
+        directory = self.worded("speaker", {"greeting": "Hello, {who}"}, body=(
+            'from pathlib import Path\n'
+            'def register(ctx):\n'
+            '    Path(__file__).with_name("said.txt").write_text(ctx.t("greeting", who="Pat"))\n'))
+
+        self.registry.load(directory)
+
+        self.assertEqual((directory / "said.txt").read_text(), "Hello, Pat")
+        self.assertEqual(contract.words("speaker")("greeting", who="Sam"), "Hello, Sam")
 
 
 class ContextTests(HostCase):

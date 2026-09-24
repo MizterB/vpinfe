@@ -109,8 +109,8 @@ def register(ctx: Any) -> None:
             return ""
         return str(profile.initials or profile.user_id or "")
 
-    ctx.tokens.offer("player", "The initials of whoever is signed in to play",
-                     (ctx.tokens.TABLE,), _player)
+    ctx.tokens.offer("player", (ctx.tokens.TABLE,), _player,
+                     says="The initials of whoever is signed in to play")
     def _who() -> tuple[str, str, str, str]:
         """The four settings a sync needs, as this install has them."""
         return (str(ctx.config.get(ENDPOINT_KEY, "") or DEFAULT_ENDPOINT),
@@ -173,7 +173,7 @@ def register(ctx: Any) -> None:
     ctx.add_router(community.router(lambda: str(ctx.config.get(ENDPOINT_KEY, "")
                                                 or DEFAULT_ENDPOINT)),
                    scope=ctx.scope("read"))
-    ctx.ui.community("tables", "VPinPlay", "/community/tables",
+    ctx.ui.community("tables", "/community/tables", title="VPinPlay",
                      columns=community.COLUMNS, views=community.VIEWS,
                      relation=community.RELATION)
 
