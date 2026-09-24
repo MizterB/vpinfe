@@ -492,7 +492,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
         chosen = next((t for t in tables if t.get("id") == table_id), None)
         if chosen is not None:
             with title:
-                ui.label(_table_line(chosen)).classes("console-workbench-table") \
+                ui.label(_table_line(chosen, tables)).classes("console-workbench-table") \
                     .tooltip(str(chosen.get("filename") or ""))
         # `lens` is a table id or "" for the folder's shared files, and it resets per
         # game because a table id means nothing to the next one. `redraws` is how the
@@ -1450,16 +1450,18 @@ def _said_name(table: dict[str, Any], said: str) -> ui.element:
     return box
 
 
-def _table_line(table: dict[str, Any]) -> str:
-    """Which of a game's tables this is. One form, owned by `subject`.
+def _table_line(table: dict[str, Any], tables: list[dict[str, Any]] | None = None) -> str:
+    """Which of a game's tables this is, told apart from the rest of `tables`. One form,
+    owned by `subject`.
 
     The header is the one place a long filename cannot ellipse gracefully, so the
     fallback is trimmed from the end - where the part that separates two tables of a
     game sits.
     """
     said = game_tables.table_name(table)
-    return said if said != str(table.get("filename") or "") \
-        else _tail(said, 40)
+    if said == str(table.get("filename") or ""):
+        return _tail(said, 40)
+    return game_tables.name_among(table, tables or [])
 
 
 def _tail(name: str, limit: int) -> str:
@@ -3312,7 +3314,7 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
               else "console.workbench.record_goes_no_file")
     if not await confirm.ask(
             t("console.workbench.forget_table"), detail=t(detail),
-            lines=[game_tables.table_name(table)],
+            lines=[game_tables.name_among(table, context["tables"])],
             confirm=t("word.forget"), icon=verbs.FORGET):
         return
     try:
@@ -3362,14 +3364,14 @@ def _say_added(context: dict[str, Any], new: dict[str, Any], was: dict[str, Any]
                tables: list[dict[str, Any]]) -> None:
     """Name what arrived, and where the automatic default moved to it, offer the one it
     moved from back, locked."""
-    name = game_tables.table_name(new)
+    name = game_tables.name_among(new, tables)
     plays = next((one for one in tables if one.get("default")), None)
     if was is None or plays is None or plays.get("id") != new.get("id"):
         ui.notify(t("console.game_tables.added", table=name), type="positive")
         return
     state, game_id, library = context["state"], context["game_id"], context["library"]
     view = state.get("view")
-    kept = game_tables.table_name(was)
+    kept = game_tables.name_among(was, tables)
 
     async def keep() -> None:
         await offload.io(library.set_default_table, game_id, str(was.get("id") or ""))
@@ -3443,8 +3445,8 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
     holds places. This is the shape instead - a sub-table, a related collection with its
     own columns.
 
-    Version and author, never the filename - this is the block whose whole job is
-    telling them apart, and filenames cannot.
+    Version and author, and a filename only for what separates two rows that match on
+    both.
     """
     tables = context["tables"]
     showing = str(context.get("lens") or "")
@@ -3459,6 +3461,8 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
     arrived, at = context["state"].get("arrived_table") or ("", 0.0)
     if time.monotonic() - at > _ARRIVED_S:
         arrived = ""
+    usual = game_tables.usual_launcher(tables)
+    apart = game_tables.told_apart(tables)
     for table in tables:
         since = str(table.get("absent_since") or "")
         here = str(table.get("id") or "") == showing
@@ -3478,12 +3482,8 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
             if table.get("hidden"):
                 chips.append((game_tables.HIDDEN_WORDS[0], "console-chip-warn",
                               game_tables.hidden_hint(table, tables)))
-            # On every row that has one, because which program plays a file is
-            # exactly what separates a VPX build from a Future Pinball one - it
-            # used to appear only where the game had a single table, which is when
-            # it distinguishes nothing.
             launcher = str(table.get("launcher_name") or "")
-            if launcher:
+            if launcher and str(table.get("launcher") or "") != usual:
                 chips.append((launcher, "console-tier console-tier--off", ""))
 
             with ui.row().classes("items-start gap-2 w-full no-wrap"):
@@ -3501,6 +3501,10 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                                       "console-member-main"):
                     name = _said_name(table, game_tables.table_name(table)) \
                         .classes("console-member-name min-w-0")
+                    differs = apart.get(str(table.get("id") or ""))
+                    if differs:
+                        ui.label(differs).classes("console-cell-quiet truncate min-w-0") \
+                            .tooltip(str(table.get("filename") or ""))
                     # Which of them the panel beside this is about. Without it the block
                     # repeats the grid you are already looking at; with it, it is where
                     # you are - this game has two, you are on one, that one is default.

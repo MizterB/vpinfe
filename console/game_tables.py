@@ -6,12 +6,14 @@ which media file wins, and borrowing them would overload a vocabulary that is co
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
 from common.i18n import t
 
 JOIN = " · "
+_WORD = re.compile(r"[^\W_]+")
 
 # The groups a fact belongs to, spelled once: the panel draws them as headings and the
 # grid's built-in views are named for them, so crossing between the two is not a
@@ -123,16 +125,48 @@ def table_name(table: dict[str, Any]) -> str:
     back to. `authors` is a list on the wire
     and `author` a joined string in a grid row; both are read, because both call this.
     """
-    said = _version_and_author(table)
     # An entry with no file has no version or author either - nothing read one. What
     # names it is what its program calls it, or the file it points at.
-    if said:
-        return said
+    return _version_and_author(table) or _file_of(table)
+
+
+def told_apart(tables: list[dict[str, Any]]) -> dict[str, str]:
+    """By id, what to add after the name of each of `tables` that reads the same as
+    another: the run of its filename holding the words the rest do not all share."""
+    same: dict[str, list[dict[str, Any]]] = {}
+    for one in tables:
+        same.setdefault(table_name(one), []).append(one)
+    added: dict[str, str] = {}
+    for group in (group for group in same.values() if len(group) > 1):
+        stems = [os.path.splitext(_file_of(one))[0] for one in group]
+        shared = set.intersection(*({word.casefold() for word in _WORD.findall(stem)}
+                                    for stem in stems))
+        for one, stem in zip(group, stems, strict=True):
+            differ = [word for word in _WORD.finditer(stem)
+                      if word.group().casefold() not in shared]
+            if differ:
+                added[str(one.get("id") or "")] = stem[differ[0].start():differ[-1].end()]
+    return added
+
+
+def name_among(table: dict[str, Any], tables: list[dict[str, Any]]) -> str:
+    """`table_name`, and what `told_apart` adds to it among its game's `tables`."""
+    differs = told_apart(tables).get(str(table.get("id") or ""))
+    return JOIN.join((table_name(table), differs)) if differs else table_name(table)
+
+
+def _file_of(table: dict[str, Any]) -> str:
     # `reference` is a path string in a grid row and an object in the game's own read.
     reference = table.get("reference")
     path = str((reference.get("path") if isinstance(reference, dict) else reference) or "")
     return (str(table.get("filename") or "") or str(table.get("key") or "")
             or re.split(r"[\\/]", path)[-1])
+
+
+def usual_launcher(tables: list[dict[str, Any]]) -> str:
+    """The launcher a game plays with: its default table's, or "" with no default."""
+    default = next((one for one in tables if one.get("default")), None)
+    return str((default or {}).get("launcher") or "")
 
 
 def names_a_file(table: dict[str, Any]) -> bool:

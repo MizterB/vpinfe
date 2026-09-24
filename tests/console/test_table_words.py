@@ -258,5 +258,68 @@ class ReferenceNameTests(unittest.TestCase):
         self.assertEqual(game_tables.table_name(table), "Other Game.vpx")
 
 
+def _built(table_id: str, filename: str, version: str = "1.0") -> dict[str, Any]:
+    return {"id": table_id, "version": version, "authors": ["someone"],
+            "filename": filename}
+
+
+class ToldApartTests(unittest.TestCase):
+    """What a name gains where two of a game's tables would read the same."""
+
+    def test_a_name_no_other_row_shares_gains_nothing(self) -> None:
+        tables = [_built("a", "Game (Maker 1990).vpx", "1.0"),
+                  _built("b", "Game (Maker 1990) - mod.vpx", "1.1")]
+
+        self.assertEqual(game_tables.told_apart(tables), {})
+
+    def test_two_that_differ_at_the_tail_gain_the_tail(self) -> None:
+        tables = [_built("a", "Game (Maker 1990)12.vpx"),
+                  _built("b", "Game (Maker 1990)lw.vpx")]
+
+        self.assertEqual(game_tables.told_apart(tables), {"a": "12", "b": "lw"})
+
+    def test_the_run_between_the_first_and_last_word_that_differ_is_kept_whole(
+            self) -> None:
+        tables = [_built("a", "Game (Maker 1990) - someone (1) - VPF_101.vpx"),
+                  _built("b", "Game (Maker 1990) - another (1.6.1) - VPF_202.vpx")]
+
+        self.assertEqual(game_tables.told_apart(tables),
+                         {"a": "someone (1) - VPF_101",
+                          "b": "another (1.6.1) - VPF_202"})
+
+    def test_the_one_with_nothing_of_its_own_is_the_one_without_an_addition(
+            self) -> None:
+        tables = [_built("a", "Game (Maker 1990) - alt build.vpx"),
+                  _built("b", "Game (Maker 1990).vpx")]
+
+        self.assertEqual(game_tables.told_apart(tables), {"a": "alt build"})
+
+    def test_only_the_rows_that_collide_are_told_apart(self) -> None:
+        tables = [_built("a", "Game - one.vpx"), _built("b", "Game - two.vpx"),
+                  _built("c", "Game - three.vpx", "2.0")]
+
+        self.assertEqual(game_tables.told_apart(tables), {"a": "one", "b": "two"})
+
+    def test_a_name_said_on_its_own_carries_what_tells_it_apart(self) -> None:
+        """The Keep on an add's message and Forget's confirmation name one row."""
+        tables = [_built("a", "Game - one.vpx"), _built("b", "Game - two.vpx")]
+
+        self.assertEqual(game_tables.name_among(tables[0], tables),
+                         game_tables.JOIN.join((game_tables.table_name(tables[0]), "one")))
+        self.assertEqual(game_tables.name_among(tables[0], tables[:1]),
+                         game_tables.table_name(tables[0]))
+
+
+class UsualLauncherTests(unittest.TestCase):
+    def test_it_is_the_default_table_s(self) -> None:
+        tables = [{"id": "a", "launcher": "one"},
+                  {"id": "b", "launcher": "two", "default": True}]
+
+        self.assertEqual(game_tables.usual_launcher(tables), "two")
+
+    def test_a_game_with_no_default_has_none(self) -> None:
+        self.assertEqual(game_tables.usual_launcher([{"id": "a", "launcher": "one"}]), "")
+
+
 if __name__ == "__main__":
     unittest.main()
