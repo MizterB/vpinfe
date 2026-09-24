@@ -5366,9 +5366,8 @@ def _games_list(context: dict[str, Any], row: dict[str, Any],
     playable = sum(1 for one in kept if one.get("included") and not one.get("past_limit"))
     with ui.row().classes("items-center gap-2 w-full mt-2"):
         ui.label(t("console.workbench.games") if lens.get("error")
-                 else t("console.workbench.count_games_taken_out", count=playable,
-                        taken=len(excluded))
-                 if excluded else t("console.workbench.count_games", count=playable)) \
+                 else _games_heading(playable, sum(1 for one in kept if _is_hidden(one)),
+                                     len(excluded))) \
             .classes("console-card-title whitespace-nowrap")
         if live and int(row.get("count") or 0):
             with ui.element("span").classes("whitespace-nowrap"):
@@ -5466,6 +5465,26 @@ async def _reorder(context: dict[str, Any], members: list[dict], moved: Any) -> 
     await _written(context)
 
 
+def _games_heading(playable: int, hidden: int, taken: int) -> str:
+    if hidden and taken:
+        return t("console.workbench.count_games_hidden_taken_out", count=playable,
+                 hidden=hidden, taken=taken)
+    if hidden:
+        return t("console.workbench.count_games_hidden", count=playable, hidden=hidden)
+    if taken:
+        return t("console.workbench.count_games_taken_out", count=playable, taken=taken)
+    return t("console.workbench.count_games", count=playable)
+
+
+def _is_hidden(member: dict[str, Any]) -> bool:
+    return ((member.get("tables") or [{}])[0].get("origin") == "hidden"
+            and member.get("origin") != "excluded")
+
+
+def _locked_to(member: dict[str, Any]) -> str:
+    return str(member.get("ref_table") or "") if member.get("origin") == "named" else ""
+
+
 def _member_line(context: dict[str, Any], member: dict[str, Any], *,
                  arrange: bool = False, live: bool = True, smart: bool = False) -> None:
     origin = member.get("origin") or ""
@@ -5501,6 +5520,10 @@ def _member_line(context: dict[str, Any], member: dict[str, Any], *,
                     word, why = game_tables.GONE_WORDS
                     ui.label(word).tooltip(why) \
                         .classes("console-member-chip console-chip-warn")
+                elif _is_hidden(member):
+                    ui.label(t("word.hidden")) \
+                        .tooltip(t("console.workbench.hidden_row.help")) \
+                        .classes("console-member-chip console-chip-warn")
             said = game_tables.table_name(table) if table.get("id") and not gone else ""
             missing = table.get("origin") == "missing"
             if made or said or missing:
@@ -5531,7 +5554,7 @@ def _table_choice(context: dict[str, Any], member: dict[str, Any],
     this row plays."""
     with ui.row().classes("items-center gap-1 no-wrap grow min-w-0 "
                           "console-member-table-line") as line:
-        if table.get("origin") == "named":
+        if _locked_to(member):
             word, why = game_tables.LOCKED_WORDS
             ui.icon(verbs.LOCKED).classes("console-member-lock")
             ui.label(word).tooltip(why)
@@ -5563,7 +5586,7 @@ async def _fill_table_menu(context: dict[str, Any], member: dict[str, Any],
     forty requests on the loop - which `api.py` refuses outright.
     """
     game = str(member.get("game") or "")
-    locked = str(table.get("id") or "") if table.get("origin") == "named" else ""
+    locked = _locked_to(member)
     following = table.get("origin") == "default"
     try:
         choices = await offload.io(context["library"].tables_for, game)

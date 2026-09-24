@@ -140,6 +140,16 @@ def _missing(name: str) -> int:
                if _names_what_is_gone(ref, catalog))
 
 
+def _hidden(name: str) -> int:
+    store = get_collections_manager()
+    catalog = game_repository.catalog()
+    out = _kept_out(store.get_excluded_refs(name))
+    rows = (_member_row(ref["game"], "named", ref.get("table", ""), catalog, out)
+            for ref in store.get_member_refs(name))
+    return sum(1 for row in rows
+               if (row["tables"] or [{}])[0].get("origin") == "hidden")
+
+
 def _held(name: str) -> Holding | None:
     try:
         return holding(name, get_collections_manager(),
@@ -190,6 +200,7 @@ def _resource_for(row: dict) -> dict:
         "before_limit": before_limit,
         "game_wheels": wheels,
         "missing": _missing(name),
+        "hidden": _hidden(name),
         "game_count": row.get("game_count"),
         "added": len(held.added) if held else 0,
         "matched": len(held.matched) if held else 0,
@@ -377,8 +388,7 @@ def _matched(store: CollectionStore, criteria: dict) -> int:
 def _members(name: str, store: CollectionStore) -> dict:
     catalog = game_repository.catalog()
     excluded = store.get_excluded_refs(name)
-    out = ({r["game"] for r in excluded if not r.get("table")},
-           {r["table"] for r in excluded if r.get("table")})
+    out = _kept_out(excluded)
 
     named: list[dict] = []
     named_games = set()
@@ -417,6 +427,11 @@ def _members(name: str, store: CollectionStore) -> dict:
             "playable": sum(1 for one in members
                             if one["included"] and not one["past_limit"]),
             "members": members}
+
+
+def _kept_out(excluded: list[dict]) -> tuple[set, set]:
+    return ({r["game"] for r in excluded if not r.get("table")},
+            {r["table"] for r in excluded if r.get("table")})
 
 
 def _member_row(game_id: str, origin: str, named_table: str,

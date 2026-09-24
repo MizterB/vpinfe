@@ -691,6 +691,9 @@ contribute rows that are stored nowhere. The size is `count`, what it resolves t
 `before_limit` is what it would resolve to with its `limit` set aside: the same as `count`
 unless the limit cuts. `missing` counts the stored members naming a game this library no
 longer has, or a table its game no longer has - the rows `/members` reports as missing.
+`hidden` counts the stored members whose table is hidden, the rows whose table `/members`
+reports with `origin` `hidden`. A frontend leaves those out, and a member locked to that
+table does not fall back to the game's default.
 
 `game_wheels` is up to four wheel URLs of the games it hands out, in its own order and
 within its limit, skipping a game with no wheel - each one this API's own

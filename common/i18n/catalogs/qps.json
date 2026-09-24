@@ -359,6 +359,10 @@
   "console.collections.collections_of": "{value} öƒ {len} çöŀŀèçţîöñš",
   "console.collections.copy_of": "{name} çöþý",
   "console.collections.copy_of_n": "{name} çöþý {n}",
+  "console.collections.count_hidden": {
+    "one": "{count} ĥîđđèñ",
+    "other": "{count} ĥîđđèñ"
+  },
   "console.collections.count_missing": {
     "one": "{count} ɱîššîñĝ",
     "other": "{count} ɱîššîñĝ"
@@ -378,6 +382,7 @@
   "console.collections.games_stay": "Ţĥè ĝàɱèš šţàý îñ ţĥè ŀîƀřàřý.",
   "console.collections.games_stay_opens_all": "Ţĥè ĝàɱèš šţàý îñ ţĥè ŀîƀřàřý. Ţĥè çàƀîñèţ ŵîŀŀ öþèñ öñ Àŀŀ Ĝàɱèš îñšţèàđ.",
   "console.collections.hand_picked": "Ĥàñđ-þîçķèđ",
+  "console.collections.hidden.help": "Ĝàɱèš ŵĥöšè ţàƀŀè îš ĥîđđèñ, šö ţĥè çàƀîñèţ ŀèàṽèš ţĥèɱ öûţ",
   "console.collections.icon.help": "Šĥöŵñ ŵĥèñ þîçķîñĝ à çöŀŀèçţîöñ öñ ţĥè çàƀîñèţ",
   "console.collections.kind.help": "Ĥàñđ-þîçķèđ - ĥöŀđš ţĥè ĝàɱèš ýöû àđđ\nŠɱàřţ - ƒîŀŀš îţšèŀƒ ƒřöɱ îţš řûŀèš",
   "console.collections.limit": "Ŀîɱîţ",
@@ -1299,7 +1304,7 @@
   "console.view.answering": "Àñšŵèřîñĝ",
   "console.view.assets": "Àššèţš",
   "console.view.collections_everything.help": "Èṽèřý çöŀŀèçţîöñ, àš ţĥè çàƀîñèţ šĥöŵš îţ",
-  "console.view.collections_needs_attention.help": "Çöŀŀèçţîöñš ĥöŀđîñĝ ĝàɱèš ýöû ţööķ öûţ, öř ĝàɱèš ţĥè ŀîƀřàřý ñö ŀöñĝèř ĥàš",
+  "console.view.collections_needs_attention.help": "Çöŀŀèçţîöñš ŵîţĥ ĝàɱèš ţàķèñ öûţ, ĥîđđèñ öř ɱîššîñĝ",
   "console.view.everything": "Èṽèřýţĥîñĝ",
   "console.view.features.help": "Ŵĥàţ èàçĥ ţàƀŀè'š šçřîþţ ûšèš",
   "console.view.game_assets.help": "Ŵĥîçĥ šûþþöřţîñĝ ƒîŀèš èàçĥ ĝàɱè ĥöŀđš",
@@ -1434,6 +1439,14 @@
     "one": "{count} ĝàɱè",
     "other": "{count} ĝàɱèš"
   },
+  "console.workbench.count_games_hidden": {
+    "one": "{count} ĝàɱè · {hidden} ĥîđđèñ",
+    "other": "{count} ĝàɱèš · {hidden} ĥîđđèñ"
+  },
+  "console.workbench.count_games_hidden_taken_out": {
+    "one": "{count} ĝàɱè · {hidden} ĥîđđèñ · {taken} ţàķèñ öûţ",
+    "other": "{count} ĝàɱèš · {hidden} ĥîđđèñ · {taken} ţàķèñ öûţ"
+  },
   "console.workbench.count_games_taken_out": {
     "one": "{count} ĝàɱè · {taken} ţàķèñ öûţ",
     "other": "{count} ĝàɱèš · {taken} ţàķèñ öûţ"
@@ -1504,6 +1517,7 @@
   "console.workbench.held_matched": "Ɓý řûŀè",
   "console.workbench.held_taken_out": "Ţàķèñ öûţ",
   "console.workbench.hidden_guides": "Ĥîđđèñ ({count})",
+  "console.workbench.hidden_row.help": "Îţš ţàƀŀè îš ĥîđđèñ, šö ţĥè çàƀîñèţ ŀèàṽèš îţ öûţ",
   "console.workbench.hide": "Ĥîđè",
   "console.workbench.higher_priority": "Ĥîĝĥèř þřîöřîţý",
   "console.workbench.how_runs": "Ĥöŵ îţ řûñš",

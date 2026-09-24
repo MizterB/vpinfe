@@ -1755,6 +1755,7 @@ class CollectionResource(ApiModel):
     # Stored members naming a game this library does not have, or a table its game
     # does not.
     missing: int = 0
+    hidden: int = 0
     filters: CollectionFilters | None
     # The cap, and how the list is ordered. Both were settable and neither was reported,
     # so a client could apply a cap and have no way to see that one was in force.

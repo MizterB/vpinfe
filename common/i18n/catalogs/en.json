@@ -359,6 +359,10 @@
   "console.collections.collections_of": "{value} of {len} collections",
   "console.collections.copy_of": "{name} copy",
   "console.collections.copy_of_n": "{name} copy {n}",
+  "console.collections.count_hidden": {
+    "one": "{count} hidden",
+    "other": "{count} hidden"
+  },
   "console.collections.count_missing": {
     "one": "{count} missing",
     "other": "{count} missing"
@@ -378,6 +382,7 @@
   "console.collections.games_stay": "The games stay in the library.",
   "console.collections.games_stay_opens_all": "The games stay in the library. The cabinet will open on All Games instead.",
   "console.collections.hand_picked": "Hand-picked",
+  "console.collections.hidden.help": "Games whose table is hidden, so the cabinet leaves them out",
   "console.collections.icon.help": "Shown when picking a collection on the cabinet",
   "console.collections.kind.help": "Hand-picked - holds the games you add\nSmart - fills itself from its rules",
   "console.collections.limit": "Limit",
@@ -1299,7 +1304,7 @@
   "console.view.answering": "Answering",
   "console.view.assets": "Assets",
   "console.view.collections_everything.help": "Every collection, as the cabinet shows it",
-  "console.view.collections_needs_attention.help": "Collections holding games you took out, or games the library no longer has",
+  "console.view.collections_needs_attention.help": "Collections with games taken out, hidden or missing",
   "console.view.everything": "Everything",
   "console.view.features.help": "What each table's script uses",
   "console.view.game_assets.help": "Which supporting files each game holds",
@@ -1434,6 +1439,14 @@
     "one": "{count} game",
     "other": "{count} games"
   },
+  "console.workbench.count_games_hidden": {
+    "one": "{count} game · {hidden} hidden",
+    "other": "{count} games · {hidden} hidden"
+  },
+  "console.workbench.count_games_hidden_taken_out": {
+    "one": "{count} game · {hidden} hidden · {taken} taken out",
+    "other": "{count} games · {hidden} hidden · {taken} taken out"
+  },
   "console.workbench.count_games_taken_out": {
     "one": "{count} game · {taken} taken out",
     "other": "{count} games · {taken} taken out"
@@ -1504,6 +1517,7 @@
   "console.workbench.held_matched": "By rule",
   "console.workbench.held_taken_out": "Taken out",
   "console.workbench.hidden_guides": "Hidden ({count})",
+  "console.workbench.hidden_row.help": "Its table is hidden, so the cabinet leaves it out",
   "console.workbench.hide": "Hide",
   "console.workbench.higher_priority": "Higher priority",
   "console.workbench.how_runs": "How it runs",

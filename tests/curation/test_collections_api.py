@@ -847,6 +847,22 @@ class MemberTableTests(TempTree):
         self.assertEqual(2, held["missing"])
         self.assertEqual(held["missing"], len(reported))
 
+    def test_a_member_held_to_a_hidden_table_is_counted_hidden(self) -> None:
+        self.manager.add_member("Favorites", TABLED_ID, "tbl0000002")
+        tables = TABLED_INFO["tables"]
+        write_game(self.root, FOLDER, vpx=False, info={
+            **TABLED_INFO, "tables": {**tables, "tbl0000002": {**tables["tbl0000002"],
+                                                               "hidden": True}}})
+
+        held = self.client.get("/collections/Favorites").json()
+        members = self.client.get("/collections/Favorites/members").json()["members"]
+
+        self.assertEqual((1, 0), (held["hidden"], held["missing"]))
+        self.assertEqual(
+            [("named", "tbl0000002", "hidden")],
+            [(one["origin"], one["ref_table"], one["tables"][0]["origin"])
+             for one in members])
+
     def test_a_member_keeps_its_place_when_its_table_changes(self) -> None:
         """The reason this is a route and not remove-then-add: curated order is what a
         manual collection is for, and rebuilding the ref sends that row to the end."""

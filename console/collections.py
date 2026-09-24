@@ -70,8 +70,9 @@ _GAMES = (
     "params => {" + _ESCAPE +
     " const d = params.data || {};"
     " const said = esc(d.games_said || (params.value ?? ''));"
-    " return d.missing_said ? said + ' <span class=\"console-member-chip console-tier"
-    " console-tier--warn\">' + esc(d.missing_said) + '</span>' : said; }"
+    " const chip = text => text ? ' <span class=\"console-member-chip console-tier"
+    " console-tier--warn\">' + esc(text) + '</span>' : '';"
+    " return said + chip(d.missing_said) + chip(d.hidden_said); }"
 )
 
 COLUMNS = [
@@ -107,6 +108,8 @@ COLUMNS = [
                 help=t("console.collections.limit.help")),
     grid.column("missing", t("console.collections.missing"), **_NUMERIC,
                 help=t("console.collections.missing.help")),
+    grid.column("hidden", t("word.hidden"), **_NUMERIC,
+                help=t("console.collections.hidden.help")),
     grid.column("on_cabinet", t("console.collections.on_cabinet"),
                 help=t("console.collections.on_cabinet.help"),
                 **{":valueFormatter": "params => params.value ? '\u2713' : ''",
@@ -154,7 +157,8 @@ COLLECTION_VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("icon", "name", "kind", "count", "order"),
         help=t("console.view.collections_everything.help")),
     t("console.collections.needs_attention"): views.Preset(
-        columns=("icon", "name", "kind", "added", "matched", "excluded", "missing"),
+        columns=("icon", "name", "kind", "added", "matched", "excluded", "missing",
+                 "hidden"),
         filters={"attention": {"values": [True]}},
         help=t("console.view.collections_needs_attention.help")),
 }
@@ -173,6 +177,7 @@ def rows(collections: list[dict[str, Any]], opens_on: str = "",
         count = int(row.get("count") or 0)
         whole = int(row.get("before_limit") or 0)
         missing = int(row.get("missing") or 0)
+        hidden = int(row.get("hidden") or 0)
         excluded = int(row.get("excluded") or 0)
         built.append({
             "id": row.get("name") or "",
@@ -186,11 +191,14 @@ def rows(collections: list[dict[str, Any]], opens_on: str = "",
                            if whole > count else str(count)),
             "missing_said": (t("console.collections.count_missing", count=missing)
                              if missing else ""),
+            "hidden_said": (t("console.collections.count_hidden", count=hidden)
+                            if hidden else ""),
             "added": int(row.get("added") or 0),
             "matched": int(row.get("matched") or 0),
             "excluded": excluded,
             "missing": missing,
-            "attention": bool(missing or excluded),
+            "hidden": hidden,
+            "attention": bool(missing or hidden or excluded),
             "opens_on": bool(opens_on) and row.get("name") == opens_on,
             "on_cabinet": row.get("on_cabinet") is not False,
             "unsaved": row.get("name") in unsaved,

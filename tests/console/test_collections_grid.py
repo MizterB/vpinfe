@@ -13,6 +13,8 @@ _CUT = {"name": "Five Bally", "type": "filter", "count": 5, "before_limit": 21,
         "added": 0, "matched": 21, "excluded": 0, "missing": 0}
 _GONE = {"name": "Friday Night", "type": "manual", "count": 4, "before_limit": 4,
          "added": 4, "matched": 0, "excluded": 0, "missing": 1}
+_HIDDEN = {"name": "Tournament", "type": "manual", "count": 0, "before_limit": 0,
+           "added": 1, "matched": 0, "excluded": 0, "missing": 0, "hidden": 1}
 
 
 def _row(built: list[dict], name: str) -> dict:
@@ -25,7 +27,8 @@ def _column(field: str) -> dict:
 
 class TheRows(unittest.TestCase):
     def setUp(self) -> None:
-        self.built = collections.rows([_SMART, _CUT, _GONE], opens_on="Friday Night")
+        self.built = collections.rows([_SMART, _CUT, _GONE, _HIDDEN],
+                                      opens_on="Friday Night")
 
     def test_kind_holds_the_wire_s_token(self) -> None:
         self.assertEqual({"filter", "manual"}, {one["kind"] for one in self.built})
@@ -40,9 +43,18 @@ class TheRows(unittest.TestCase):
                          _row(self.built, "Friday Night")["missing_said"])
         self.assertEqual("", _row(self.built, "90s Bally")["missing_said"])
 
-    def test_needing_attention_is_a_game_taken_out_or_gone(self) -> None:
-        self.assertEqual({"90s Bally": True, "Five Bally": False, "Friday Night": True},
+    def test_a_hidden_table_carries_its_own_chip(self) -> None:
+        self.assertEqual(t("console.collections.count_hidden", count=1),
+                         _row(self.built, "Tournament")["hidden_said"])
+        self.assertEqual("", _row(self.built, "Friday Night")["hidden_said"])
+        self.assertIn("d.hidden_said", _column("count")[":cellRenderer"])
+
+    def test_needing_attention_is_a_game_taken_out_gone_or_hidden(self) -> None:
+        self.assertEqual({"90s Bally": True, "Five Bally": False, "Friday Night": True,
+                          "Tournament": True},
                          {one["name"]: one["attention"] for one in self.built})
+        preset = collections.COLLECTION_VIEWS[t("console.collections.needs_attention")]
+        self.assertIn("hidden", preset.columns)
 
     def test_only_the_collection_the_cabinet_opens_on_is_marked(self) -> None:
         self.assertEqual(["Friday Night"],
