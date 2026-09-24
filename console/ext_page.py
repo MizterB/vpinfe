@@ -38,10 +38,10 @@ def build(extension: dict, back: Any) -> None:
             ui.label(version).classes("console-help")
     if extension.get("description"):
         ui.label(str(extension["description"])).classes("console-help mb-2")
+    _actions(extension, name)
 
     if surfaces.get("settings"):
         _settings(name, surfaces)
-    _actions(extension, name)
     if surfaces.get("state"):
         _state(name, surfaces)
     _reach(extension)
@@ -116,16 +116,11 @@ def _actions(extension: dict, name: str) -> None:
     offered = list(extension.get("actions") or [])
     if not offered:
         return
-    ui.label(t("word.actions")).classes("console-group mt-4")
-    with ui.element("div").classes("console-card w-full"), \
-            ui.row().classes("items-center gap-2 w-full flex-wrap"):
+    with ui.element("div").classes("console-slot-actions"):
         for action in offered:
-            ui.button(str(action.get("label") or action.get("key") or ""),
-                      icon=verbs.RUN,
-                      on_click=lambda _e=None, action=action:
-                          ext_action.open_action(name, action)) \
-                .props("no-caps outline") \
-                .tooltip(str(action.get("description") or ""))
+            panel.action(str(action.get("label") or action.get("key") or ""),
+                         lambda _e=None, action=action: ext_action.open_action(name, action),
+                         icon=verbs.RUN, hint=str(action.get("description") or ""))()
 
 
 def _state(name: str, surfaces: dict) -> None:

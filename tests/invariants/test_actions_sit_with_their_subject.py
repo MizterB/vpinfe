@@ -17,9 +17,8 @@ REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 CONSOLE = REPO / "console"
 CATALOG = REPO / "common" / "i18n" / "catalogs" / "en.json"
 
-# `panel.py` is the ⋮ that opens a subject's verbs. `ext_page.py` names the list an
-# extension declares for itself, which VPinFE has no subject to hang on.
-ACTIONS_WORD_AT = {"panel.py", "ext_page.py"}
+# `panel.py` is the ⋮ that opens a subject's verbs.
+ACTIONS_WORD_AT = {"panel.py"}
 
 # Every subject with a panel ⋮, and the module whose `acts` its grid row menu draws.
 GRID_OF = {
@@ -33,7 +32,7 @@ GRID_OF = {
 
 # Direct `ui.button(` calls outside `panel.py`. A count that only comes down: lower it
 # when one moves to a constructor, never raise it.
-BUTTON_CEILING = 89
+BUTTON_CEILING = 88
 
 
 def _tree(path: pathlib.Path) -> ast.Module:
