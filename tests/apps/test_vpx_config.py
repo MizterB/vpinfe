@@ -241,6 +241,20 @@ class HeldForTableTests(_Case):
                          {"scope": SCOPE_FOLDER, "settings": 1, "point_of_view": True})
 
 
+class SharedWithGameTests(_Case):
+    """A table named after its folder has one file for itself and for its game, so what
+    it sets reaches the game's other tables."""
+
+    def test_the_table_named_after_its_folder_shares_it(self) -> None:
+        named = self.game / "Medieval Madness.vpx"
+        named.write_text("")
+
+        self.assertTrue(self.config.shared_with_game(str(named)))
+
+    def test_any_other_table_has_a_file_of_its_own(self) -> None:
+        self.assertFalse(self.config.shared_with_game(str(self.table)))
+
+
 SIZES_INI = """\
 [Player]
 ; Width: Width of the window [Default: 16384]

@@ -226,15 +226,17 @@ def app_config(launcher_id: str, table: str = "",
     found = launcher_or_refuse(launcher_id)
     config = _app_settings_surface(found)
     if config is None:
-        return {"groups": [], "values": {}, "scopes": []}
+        return {"groups": [], "values": {}, "scopes": [], "shared_with_game": False}
 
     settings = _launcher_settings(found)
     if scope not in config.scopes():
         raise service_errors.RefusedError(
             t("error.launchers.no_scope_called_app", scope=(scope),
                     join=(', '.join(config.scopes()))))
-    values = config.read(scope, _game_file(table), settings)
+    target = _game_file(table)
+    values = config.read(scope, target, settings)
     scopes_for = _scopes_for(config)
+    shares = getattr(config, "shared_with_game", None)
 
     def shown(field: apps.Field) -> bool:
         held = values.get(field.key)
@@ -244,6 +246,7 @@ def app_config(launcher_id: str, table: str = "",
     groups = [(g, [f for f in g.settings if shown(f)]) for g in config.groups(settings)]
     return {
         "scopes": list(config.scopes()),
+        "shared_with_game": bool(target and shares is not None and shares(target)),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),
                     "settings": [{**_described_field(found.app, f), "blank": blank(f.key),
                                   "scopes": list(scopes_for(f.key))} for f in fields]}

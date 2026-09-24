@@ -525,6 +525,10 @@ takes the folder's other values off it. `GET .../config/reaching?table=` says wh
 are, and `"seed": true` on that write carries them across, with the values being written
 winning over them. Once a table has a file of its own, nothing is reaching it.
 
+A table whose `.vpx` is named after its folder has one file for both scopes, so what it
+sets reaches the game's other tables that have no file of their own. `shared_with_game` is
+true for that table.
+
 At a table's scope an empty value removes the setting from that file. So does a value
 equal to what the launcher already gives, which VPX would drop itself the next time it
 saved, and those come back under `cleared` rather than `written`. The ones VPX keeps at a

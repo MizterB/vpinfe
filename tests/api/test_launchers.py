@@ -286,6 +286,22 @@ class BlankWordsTests(_TableCase):
         self.assertEqual(offered["Player.FXAA"]["blank"], "")
 
 
+class SharedWithGameTests(_TableCase):
+    def test_the_table_named_after_its_folder_says_its_file_is_the_game_s(self) -> None:
+        named = os.path.join(os.path.dirname(self.table), "Attack from Mars.vpx")
+        pathlib.Path(named).touch()
+
+        with patch("common.games.launcher_ops._game_file", return_value=named):
+            got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
+
+        self.assertIs(got.json()["shared_with_game"], True)
+
+    def test_another_table_s_file_is_its_own(self) -> None:
+        got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
+
+        self.assertIs(got.json()["shared_with_game"], False)
+
+
 class AllTablesOnlyTests(_TableCase):
     def setUp(self) -> None:
         super().setUp()

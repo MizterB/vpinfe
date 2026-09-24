@@ -316,6 +316,10 @@ class VPXConfig:
         is not the declared default."""
         return dict.fromkeys(FROM_THE_SCREEN, "from_the_screen")
 
+    def shared_with_game(self, target: str) -> bool:
+        """Whether this table's own settings file is also its game's."""
+        return _same(path_for(SCOPE_ENTRY, target, {}), path_for(SCOPE_FOLDER, target, {}))
+
     def held_for_table(self, target: str) -> dict[str, Any]:
         """What the one file VPX reads for this table sets: which scope that file is, how
         many settings it changes for the table, and whether it holds a camera."""
