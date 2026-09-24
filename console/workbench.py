@@ -1066,6 +1066,11 @@ async def _draw_launcher(container: ui.column, title: ui.column, library: Librar
             "redraws": [], "dock": None,
         }
 
+        def retitle(name: str) -> None:
+            title.clear()
+            _title(title, name, row.get("app_name") or "")
+
+        context["retitle"] = retitle
         context["rebuild"] = _rebuilds(
             context, f"launcher:{launcher_id}",
             lambda: build_launcher(container, title, library, launcher_id, state))
@@ -4306,20 +4311,35 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
     only_one = len(context.get("launchers") or []) <= 1
     is_default = context.get("defaults", {}).get(launcher["app"]) == launcher["launcher_id"]
 
-    async def write(**changes: Any) -> bool:
+    async def put(changes: dict[str, Any]) -> str:
+        """Empty when it saved, else why it did not."""
         try:
             await run.io_bound(library.put_launcher, launcher["launcher_id"],
                                {**launcher, **changes})
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.could_not_save", exc=(exc)), type="negative")
-            return False
-        recheck = context["state"].get("recheck_trouble")
-        if callable(recheck):
-            await recheck()
-        return True
+            return str(exc)
+        launcher.update(changes)
+        for after in ("recheck_trouble", "refresh_launchers"):
+            again = context["state"].get(after)
+            if callable(again):
+                await again()
+        return ""
 
-    async def rename(text: str) -> None:
-        await write(display_name=text.strip() or launcher["app_name"])
+    async def write(**changes: Any) -> bool:
+        refused = await put(changes)
+        if refused:
+            ui.notify(t("console.workbench.could_not_save", exc=refused), type="negative")
+        return not refused
+
+    async def rename(text: str) -> str:
+        wanted = text.strip() or launcher["app_name"]
+        if wanted == launcher["display_name"]:
+            return ""
+        refused = await put({"display_name": wanted})
+        retitle = context.get("retitle")
+        if not refused and callable(retitle):
+            retitle(wanted)
+        return refused
 
     async def flip(on: bool) -> None:
         if not on and not await _agreed_to_switch_off(library, launcher):
@@ -4336,7 +4356,7 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
     entries: list[tuple[Any, Any]] = [
         (HEADING, t("console.workbench.this_launcher")),
         (t("word.name"), panel.field(launcher["display_name"], rename,
-                             placeholder=launcher["app_name"])),
+                             placeholder=launcher["app_name"], refuses=True)),
         panel.note(t("console.workbench.what_call_way_running")),
         (t("word.runs"), launcher["app_name"]),
     ]

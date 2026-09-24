@@ -10,6 +10,7 @@ into an entry list as the second half of a pair.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -231,7 +232,8 @@ def state(text: str, level: str, *, beside: str = "",
 
 def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
           placeholder: str = "", disabled: bool = False,
-          status: Callable[[Any], Any] | None = None) -> Callable[[], None]:
+          status: Callable[[Any], Any] | None = None,
+          refuses: bool = False) -> Callable[[], None]:
     """Free text the user can set.
 
     Written when you leave it or when you press Enter, and `debounce=0` is what makes
@@ -246,7 +248,22 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
     `status` draws inside the control's own append slot rather than after it, which is
     where Quasar puts an input's state and where a reader already looks for one - a mark
     in the next grid column would read as a fact about the row, not about the value.
+
+    With `refuses`, a one-line field's `on_save` answers why it refused the value, or
+    empty when it saved, and the answer is the field's error.
     """
+    async def leave(control: ui.input) -> None:
+        said = on_save(control.value or "")
+        if inspect.isawaitable(said):
+            said = await said
+        if refuses:
+            if said:
+                control.props["error"] = True
+                control.props["error-message"] = str(said)
+            else:
+                control.props(remove="error error-message")
+            control.update()
+
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             control: ui.textarea | ui.input
@@ -261,7 +278,7 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                 control.value = value
                 control.props("dense borderless debounce=0") \
                     .classes("console-edit-field")
-                control.on("blur", lambda: on_save(control.value or ""))
+                control.on("blur", lambda: leave(control))
                 control.on("keydown.enter", lambda: control.run_method("blur"))
                 if status is not None:
                     with control.add_slot("append"):

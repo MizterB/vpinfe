@@ -183,6 +183,17 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
         # After the grid exists: the widgets sit above it and the behavior needs it.
         wire_views(table)
 
+        async def refresh_launchers() -> None:
+            again = await offload.io(library.launchers)
+            fresh_held = list(again.get("launchers") or [])
+            by_launcher.clear()
+            by_launcher.update({one["launcher_id"]: one for one in fresh_held})
+            grid.replace_rows(table, built, by_id,
+                              rows(fresh_held, dict(again.get("defaults") or {})),
+                              lambda _row: True)
+
+        state["refresh_launchers"] = refresh_launchers
+
 
 async def _add(library: Library, state: dict[str, Any], redraw: Callable[[], None],
                app: dict) -> None:
