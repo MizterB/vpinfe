@@ -4277,6 +4277,34 @@ def _as_option(field: Any) -> dict[str, Any]:
     return option
 
 
+async def _agreed_to_switch_off(library: Any, launcher: dict[str, Any]) -> bool:
+    try:
+        found = await offload.io(library.launcher_fallback, launcher["launcher_id"])
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("console.workbench.could_not_work", exc=(exc)), type="negative")
+        return False
+    if found.get("refused"):
+        ui.notify(found["refused"], type="warning")
+        return False
+    count = int(found.get("tables") or 0)
+    if not count:
+        return True
+    goes = list(found.get("fallbacks") or [])
+    lines: list[str] = []
+    if len(goes) == 1:
+        detail = t("console.workbench.switched_off_launch_with", count=count,
+                   fallback=goes[0]["display_name"])
+    else:
+        detail = t("console.workbench.switched_off_split", count=count)
+        lines = [t("console.workbench.count_launch_with", count=int(one["tables"]),
+                   name=one["display_name"]) for one in goes]
+    return await confirm.ask(
+        t("console.workbench.switch_off_name",
+          name=launcher.get("display_name") or launcher["app_name"]),
+        detail=detail, lines=lines, confirm=t("console.workbench.switch_off"),
+        icon=verbs.SWITCH_OFF, danger=False)
+
+
 async def _launcher_setup(context: dict[str, Any]) -> None:
     """What this launcher is, and what it runs. Its own fields, which are few - the
     program's settings are the sections after this one."""
@@ -4299,6 +4327,9 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
         await write(display_name=text.strip() or launcher["app_name"])
 
     async def flip(on: bool) -> None:
+        if not on and not await _agreed_to_switch_off(library, launcher):
+            await rebuild()
+            return
         if await write(enabled=on):
             await rebuild()
 

@@ -475,6 +475,9 @@ class Library:
     def delete_launcher(self, launcher_id: str) -> None:
         self._client.delete_launcher(launcher_id)
 
+    def launcher_fallback(self, launcher_id: str) -> dict:
+        return self._client.launcher_fallback(launcher_id)
+
     def assign_launcher(self, table_id: str, launcher_id: str) -> dict:
         return self._client.assign_launcher(table_id, launcher_id)
 

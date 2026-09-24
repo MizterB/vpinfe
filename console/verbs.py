@@ -32,6 +32,7 @@ SAVE = "save"
 MAKE_DEFAULT = "check_circle"
 SPLIT = "call_split"
 SHARE = "folder_shared"
+SWITCH_OFF = "toggle_off"
 
 # Binding a record to a catalog, and letting it go. The chain is this and nothing else -
 # a link that navigates is an anchor and carries no icon at all.

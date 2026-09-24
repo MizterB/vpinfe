@@ -1452,6 +1452,10 @@
     "one": "{count} game · {taken} taken out",
     "other": "{count} games · {taken} taken out"
   },
+  "console.workbench.count_launch_with": {
+    "one": "{count} launches with {name}",
+    "other": "{count} launch with {name}"
+  },
   "console.workbench.create_new_games": "Create new games here",
   "console.workbench.default": "Default - {default_name}",
   "console.workbench.default_changed": "Default changed",
@@ -1706,6 +1710,16 @@
   "console.workbench.source": "Source: {source_name}",
   "console.workbench.spreadsheet_differs": "The spreadsheet says something different",
   "console.workbench.start_from": "Start from",
+  "console.workbench.switch_off": "Switch off",
+  "console.workbench.switch_off_name": "Switch off “{name}”?",
+  "console.workbench.switched_off_launch_with": {
+    "one": "{count} table uses it. Switched off, it launches with {fallback}.",
+    "other": "{count} tables use it. Switched off, they launch with {fallback}."
+  },
+  "console.workbench.switched_off_split": {
+    "one": "{count} table uses it. Switched off:",
+    "other": "{count} tables use it. Switched off:"
+  },
   "console.workbench.switched_off_stays_configured": "Switched off it stays configured and keeps its tables, and they fall back to the default until it is switched on again",
   "console.workbench.table": "From this table",
   "console.workbench.table_2": "this table",
@@ -1910,12 +1924,12 @@
   "error.launch.nothing_to_launch": "This game has nothing to launch",
   "error.launch.reference_unreachable": "This table lives at {path}, which is not reachable from here.",
   "error.launchers.all_tables_only": "{app_name} reads {keys} for all tables at once, never for one.",
-  "error.launchers.fallback_has_no_program": "{name} has no program, so these tables would not start. Set its program first.",
+  "error.launchers.fallback_has_no_program": "Switched off, its tables would go to {name}, which has no program.",
   "error.launchers.keeps_no_settings_file": "{app_name} keeps no settings file to copy.",
   "error.launchers.launcher_needs_id": "A launcher needs an id.",
   "error.launchers.name_least_one_setting": "Name at least one setting to write.",
   "error.launchers.no_app_called_build": "No app called {app_id!r}. This build knows {join}.",
-  "error.launchers.no_fallback": "No other launcher plays these tables, so they would not start.",
+  "error.launchers.no_fallback": "Switched off, its tables would have no launcher left to run them.",
   "error.launchers.no_launcher": "No launcher {launcher_id}",
   "error.launchers.no_launcher_called": "No launcher called {launcher_id!r}.",
   "error.launchers.no_scope_called": "No scope called {scope!r}.",

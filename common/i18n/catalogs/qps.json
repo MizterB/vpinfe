@@ -1452,6 +1452,10 @@
     "one": "{count} ĝàɱè · {taken} ţàķèñ öûţ",
     "other": "{count} ĝàɱèš · {taken} ţàķèñ öûţ"
   },
+  "console.workbench.count_launch_with": {
+    "one": "{count} ŀàûñçĥèš ŵîţĥ {name}",
+    "other": "{count} ŀàûñçĥ ŵîţĥ {name}"
+  },
   "console.workbench.create_new_games": "Çřèàţè ñèŵ ĝàɱèš ĥèřè",
   "console.workbench.default": "Đèƒàûŀţ - {default_name}",
   "console.workbench.default_changed": "Đèƒàûŀţ çĥàñĝèđ",
@@ -1706,6 +1710,16 @@
   "console.workbench.source": "Šöûřçè: {source_name}",
   "console.workbench.spreadsheet_differs": "Ţĥè šþřèàđšĥèèţ šàýš šöɱèţĥîñĝ đîƒƒèřèñţ",
   "console.workbench.start_from": "Šţàřţ ƒřöɱ",
+  "console.workbench.switch_off": "Šŵîţçĥ öƒƒ",
+  "console.workbench.switch_off_name": "Šŵîţçĥ öƒƒ “{name}”?",
+  "console.workbench.switched_off_launch_with": {
+    "one": "{count} ţàƀŀè ûšèš îţ. Šŵîţçĥèđ öƒƒ, îţ ŀàûñçĥèš ŵîţĥ {fallback}.",
+    "other": "{count} ţàƀŀèš ûšè îţ. Šŵîţçĥèđ öƒƒ, ţĥèý ŀàûñçĥ ŵîţĥ {fallback}."
+  },
+  "console.workbench.switched_off_split": {
+    "one": "{count} ţàƀŀè ûšèš îţ. Šŵîţçĥèđ öƒƒ:",
+    "other": "{count} ţàƀŀèš ûšè îţ. Šŵîţçĥèđ öƒƒ:"
+  },
   "console.workbench.switched_off_stays_configured": "Šŵîţçĥèđ öƒƒ îţ šţàýš çöñƒîĝûřèđ àñđ ķèèþš îţš ţàƀŀèš, àñđ ţĥèý ƒàŀŀ ƀàçķ ţö ţĥè đèƒàûŀţ ûñţîŀ îţ îš šŵîţçĥèđ öñ àĝàîñ",
   "console.workbench.table": "Ƒřöɱ ţĥîš ţàƀŀè",
   "console.workbench.table_2": "ţĥîš ţàƀŀè",
@@ -1910,12 +1924,12 @@
   "error.launch.nothing_to_launch": "Ţĥîš ĝàɱè ĥàš ñöţĥîñĝ ţö ŀàûñçĥ",
   "error.launch.reference_unreachable": "Ţĥîš ţàƀŀè ŀîṽèš àţ {path}, ŵĥîçĥ îš ñöţ řèàçĥàƀŀè ƒřöɱ ĥèřè.",
   "error.launchers.all_tables_only": "{app_name} řèàđš {keys} ƒöř àŀŀ ţàƀŀèš àţ öñçè, ñèṽèř ƒöř öñè.",
-  "error.launchers.fallback_has_no_program": "{name} ĥàš ñö þřöĝřàɱ, šö ţĥèšè ţàƀŀèš ŵöûŀđ ñöţ šţàřţ. Šèţ îţš þřöĝřàɱ ƒîřšţ.",
+  "error.launchers.fallback_has_no_program": "Šŵîţçĥèđ öƒƒ, îţš ţàƀŀèš ŵöûŀđ ĝö ţö {name}, ŵĥîçĥ ĥàš ñö þřöĝřàɱ.",
   "error.launchers.keeps_no_settings_file": "{app_name} ķèèþš ñö šèţţîñĝš ƒîŀè ţö çöþý.",
   "error.launchers.launcher_needs_id": "À ŀàûñçĥèř ñèèđš àñ îđ.",
   "error.launchers.name_least_one_setting": "Ñàɱè àţ ŀèàšţ öñè šèţţîñĝ ţö ŵřîţè.",
   "error.launchers.no_app_called_build": "Ñö àþþ çàŀŀèđ {app_id!r}. Ţĥîš ƀûîŀđ ķñöŵš {join}.",
-  "error.launchers.no_fallback": "Ñö öţĥèř ŀàûñçĥèř þŀàýš ţĥèšè ţàƀŀèš, šö ţĥèý ŵöûŀđ ñöţ šţàřţ.",
+  "error.launchers.no_fallback": "Šŵîţçĥèđ öƒƒ, îţš ţàƀŀèš ŵöûŀđ ĥàṽè ñö ŀàûñçĥèř ŀèƒţ ţö řûñ ţĥèɱ.",
   "error.launchers.no_launcher": "Ñö ŀàûñçĥèř {launcher_id}",
   "error.launchers.no_launcher_called": "Ñö ŀàûñçĥèř çàŀŀèđ {launcher_id!r}.",
   "error.launchers.no_scope_called": "Ñö šçöþè çàŀŀèđ {scope!r}.",
