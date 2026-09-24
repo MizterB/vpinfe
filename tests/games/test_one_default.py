@@ -7,6 +7,7 @@ table is hidden, and the next newest sorts last by name.
 from __future__ import annotations
 
 from pathlib import Path
+from unittest import mock
 
 from common.games import collection_resolver, export_bundle, game_metadata, table_lens
 from common.games.collection_resolver import Entry
@@ -14,6 +15,7 @@ from common.games.game_parser import GameParser
 from common.games.tables import entry_filename
 from common.host import launch
 from frontend import game_state
+from httpapi.models import TableRowList
 from tests.support.library import TempTree, write_game
 
 FOLDER = "Example (Bally 1990)"
@@ -60,6 +62,24 @@ class OneDefaultTests(TempTree):
         rows = table_lens.table_rows(self.game, {"game_dir": str(self.folder)})
 
         self.assertEqual([r["filename"] for r in rows if r["default"]], [CHARLIE])
+
+    def test_the_rest_lens_flags_where_a_cleared_choice_goes(self) -> None:
+        """With a table chosen, the automatic pick is still named."""
+        self.game.meta_config["vpinfe"]["default_table"] = "tbl0000001"
+
+        rows = table_lens.table_rows(self.game, {"game_dir": str(self.folder)})
+
+        self.assertEqual([r["filename"] for r in rows if r["default"]], [ALPHA])
+        self.assertEqual([r["filename"] for r in rows if r["automatic"]], [CHARLIE])
+
+    def test_the_library_lens_says_where_a_cleared_choice_goes(self) -> None:
+        self.game.meta_config["vpinfe"]["default_table"] = "tbl0000001"
+
+        with mock.patch.object(table_lens.game_repository, "catalog",
+                               return_value={"Game00000001": self.game}):
+            listed = TableRowList.model_validate(table_lens.library_rows())
+
+        self.assertEqual([r.filename for r in listed.tables if r.automatic], [CHARLIE])
 
     def test_an_export_bundles_it(self) -> None:
         self.assertEqual(export_bundle.choose_table(self.folder), CHARLIE)

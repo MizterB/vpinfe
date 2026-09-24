@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import json
 import logging
+from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from functools import partial
@@ -755,6 +756,17 @@ _IN_PLAY = "console.games.library"
 
 _NEWER = "newer"
 
+# A lock is the exception, so it takes the mark. The value a game with one table holds
+# is in no filter choice and draws nothing.
+_DEFAULT_STATES = {
+    game_tables.CHOSEN: {"label": game_tables.DEFAULT_WORDS[game_tables.CHOSEN][0],
+                         "why": game_tables.DEFAULT_WORDS[game_tables.CHOSEN][1],
+                         "mark": verbs.LOCKED},
+    game_tables.DERIVED: {"label": game_tables.DEFAULT_WORDS[game_tables.DERIVED][0],
+                          "why": game_tables.DEFAULT_WORDS[game_tables.DERIVED][1]},
+}
+_ONLY_TABLE = "only"
+
 TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
@@ -780,13 +792,15 @@ TABLE_COLUMNS = [
     # status - and folded, a table that is both the default and hidden reads as only
     # one of them. Each of these sorts and filters on its own, which is what a list is
     # for. A summary column can be built later, deliberately, from these.
-    # Not a tick: a chosen default and a derived one are different facts.
+    # Not a tick: a locked default and an automatic one are different facts.
     grid.column("default_state", game_tables.DEFAULT_LABEL, group=t(_IN_PLAY),
                 help=t("console.games.table_frontend_offers.help"),
                 **grid.choice_filter(
-                    [{"value": word, "label": word}
-                     for word, _why in game_tables.DEFAULT_WORDS.values()]
-                    + [{"value": "", "label": t("console.games.not_default")}])),
+                    [{"value": kind, "label": word}
+                     for kind, (word, _why) in game_tables.DEFAULT_WORDS.items()]
+                    + [{"value": "", "label": t("console.games.not_default")}],
+                    formatted=True),
+                **renderers.drawable("state", states=_DEFAULT_STATES)),
     grid.column("rating", t("console.games.table_rating"), group=t(_TABLE),
                 help=t("console.games.rating_table_0_5.help"),
                 cellClass="console-stars-cell",
@@ -935,7 +949,11 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     `missing` rather than the API's `available`, so all three flags read the same way:
     true is the notable state and the tick means "this row is one of those". Sorting or
     filtering on a column where true means nothing is wrong is a trap.
+
+    `rows` holds every table of each game it covers: whether a game has a choice is
+    counted from them.
     """
+    held = Counter(str(row.get("game_id") or "") for row in rows)
     return [{**row,
              "missing": not row.get("available", True),
              # The file where there is one, and the name its program knows it by where
@@ -968,13 +986,13 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
              # null for all seven, and inventing False here would lose that.
              **{f"feature_{key}": (row.get("features") or {}).get(key)
                 for key in table_features.LABELS},
-             # The word, not the flag, and always one of the two on the table that is
-             # the default. Blanking it where a game has one table made "not
-             # applicable" a third state read from an empty cell - and a column that
-             # is sometimes populated cannot be sorted or filtered on.
-             "default_state": (game_tables.default_state(row.get("default_kind") or "")
-                               or ("", ""))[0]}
+             "default_state": _default_cell(row, held[str(row.get("game_id") or "")])}
             for row in rows]
+
+
+def _default_cell(row: dict[str, Any], held: int) -> str:
+    kind = str(row.get("default_kind") or "")
+    return _ONLY_TABLE if kind == game_tables.DERIVED and held < 2 else kind
 
 
 def _tables_said(built: list[dict[str, Any]], shown: int) -> str:
@@ -1171,7 +1189,15 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         await act(library.delete_script, row["game_id"], row["id"],
                   said=t("console.games.deleted_table_runs_own"), row=row)
 
-    async def act(what: Callable, *args: Any, said: str = "",
+    async def lock_default(row: dict[str, Any], *, lock: bool) -> None:
+        def said(after: Any) -> str:
+            return game_tables.lock_said(str(row.get("game") or ""), row,
+                                         (after or {}).get("tables") or [], lock=lock)
+
+        await act(library.set_default_table, row["game_id"], row["id"] if lock else "",
+                  said=said, row=row)
+
+    async def act(what: Callable, *args: Any, said: str | Callable[[Any], str] = "",
                   row: dict[str, Any] | None = None, gone: bool = False) -> None:
         """Run one row-menu act, then put only what changed back on screen.
 
@@ -1184,11 +1210,11 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         held it stops being the default in the same write.
         """
         try:
-            await run.io_bound(what, *args)
+            after = await run.io_bound(what, *args)
         except Exception as exc:
             ui.notify(t("said.could_not_do_that", exc=(exc)), type="negative")
             return
-        ui.notify(said, type="positive")
+        ui.notify(said(after) if callable(said) else said, type="positive")
         game_id = str((row or {}).get("game_id") or "")
         if row is None or not game_id:
             if rerender is not None:
@@ -1253,14 +1279,12 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                         lambda r=row: act(library.set_default_table, r["game_id"],
                                           r["id"], said=t("console.games.now_game_s_default"),
                                           row=r))
-                elif (row.get("default_kind") or "") == game_tables.CHOSEN:
-                    # The way back. Clearing the choice does not clear the default - it
-                    # becomes automatic, which is what the panel's chip then reads.
-                    panel.menu_entry(
-                        t("word.clear_choice"),
-                        lambda r=row: act(library.set_default_table, r["game_id"], "",
-                                          said=t("console.games.back_automatic_default"),
-                                          row=r))
+                elif locking := game_tables.lock_act(
+                        row, [one for one in by_id.values()
+                              if one.get("game_id") == row.get("game_id")]):
+                    lock, words = locking
+                    panel.menu_entry(words,
+                                     lambda r=row, lock=lock: lock_default(r, lock=lock))
                 hidden = bool(row.get("hidden"))
                 panel.menu_entry(
                     t("console.games.unhide") if hidden else t("console.games.hide"),

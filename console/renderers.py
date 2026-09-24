@@ -74,13 +74,17 @@ _ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt
            ".replace(/\"/g, '&quot;');")
 
 # A state as a chip where it is worth noticing and as a quiet word where it is not.
-# `params.states` maps each value to its label and, for the ones worth noticing, a tier.
+# `params.states` maps each value to its label and, for the ones worth noticing, a tier
+# or a mark drawn before the word. `why` is the tooltip.
 STATE = Renderer("state", "console.renderers.state", (
     "params => {" + _ESCAPE +
     " const one = (params.states || {})[params.value]; if (!one) return '';"
-    " return one.tier ? '<span class=\"console-member-chip console-tier console-tier--'"
-    " + one.tier + '\">' + esc(one.label) + '</span>'"
-    " : '<span class=\"console-cell-quiet\">' + esc(one.label) + '</span>'; }"
+    " const tip = one.why ? ' title=\"' + esc(one.why) + '\"' : '';"
+    " if (one.tier) return '<span class=\"console-member-chip console-tier console-tier--'"
+    " + one.tier + '\"' + tip + '>' + esc(one.label) + '</span>';"
+    " if (one.mark) return '<span' + tip + '><i class=\"material-icons console-cell-mark\">'"
+    " + esc(one.mark) + '</i> ' + esc(one.label) + '</span>';"
+    " return '<span class=\"console-cell-quiet\"' + tip + '>' + esc(one.label) + '</span>'; }"
 ))
 
 # The order chips are drawn in, which is also the order a list column sorts by.

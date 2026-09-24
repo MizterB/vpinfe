@@ -4,7 +4,7 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from console import game_tables, verbs, workbench
+from console import game_tables, workbench
 
 
 def _table(table_id: str, **extra: Any) -> dict[str, Any]:
@@ -120,39 +120,6 @@ class PlaySectionTests(unittest.TestCase):
 
         self.assertEqual(_headings(entries), [t("console.workbench.game_details"),
                                               t("console.workbench.table_details")])
-
-
-def _drawing(table: dict[str, Any], *, several: bool) -> str | None:
-    act = workbench.lock_act(table, several=several)
-    return act[0] if act else None
-
-
-class LockActTests(unittest.TestCase):
-    """The act on the default row of a game's Tables block."""
-
-    def test_an_automatic_default_is_offered_the_lock(self) -> None:
-        table = _table("alpha", default=True, default_kind=game_tables.DERIVED)
-
-        self.assertEqual(_drawing(table, several=True), verbs.LOCK)
-
-    def test_a_locked_default_is_offered_the_unlock(self) -> None:
-        table = _table("alpha", default=True, default_kind=game_tables.CHOSEN)
-
-        self.assertEqual(_drawing(table, several=True), verbs.UNLOCK)
-
-    def test_a_leftover_lock_can_be_cleared_with_one_table(self) -> None:
-        table = _table("alpha", default=True, default_kind=game_tables.CHOSEN)
-
-        self.assertEqual(_drawing(table, several=False), verbs.UNLOCK)
-
-    def test_one_table_has_nothing_to_lock_against(self) -> None:
-        table = _table("alpha", default=True, default_kind=game_tables.DERIVED)
-
-        self.assertIsNone(_drawing(table, several=False))
-
-    def test_a_table_that_is_not_the_default_has_no_lock(self) -> None:
-        """Its radio is the act: picking it makes it the default."""
-        self.assertIsNone(_drawing(_table("beta"), several=True))
 
 
 if __name__ == "__main__":

@@ -845,11 +845,12 @@ class Table(ApiModel):
     reference: TableReference | None = None
     default: bool
     # Why it is the default, not only that it is: `user` where somebody chose it,
-    # `auto` where the resolver picked one - a filename matching the folder, else first
-    # alphabetically, which `default_table` itself calls "deterministic rather than
-    # correct". Empty on a table that is not the default. A reader needs the two apart:
-    # a choice does not move, and a derived pick changes when a table is installed.
+    # `auto` where the resolver picked one, the newest added. Empty on a table that is
+    # not the default. A reader needs the two apart: a choice does not move, and a
+    # derived pick changes when a table is added.
     default_kind: str = ""
+    # The table the default is with no choice recorded: where clearing one moves it.
+    automatic: bool = False
     # Null on almost every table, and that is the honest answer rather than a gap:
     # nothing has looked, which is a different state from having looked and found
     # nothing. Only a matcher can produce the second, and there is no matcher.
@@ -1036,11 +1037,12 @@ class TableRow(ApiModel):
     derived_tags: list[str] = Field(default_factory=list)
     default: bool = False
     # Why it is the default, not only that it is: `user` where somebody chose it,
-    # `auto` where the resolver picked one - a filename matching the folder, else first
-    # alphabetically, which `default_table` itself calls "deterministic rather than
-    # correct". Empty on a table that is not the default. A reader needs the two apart:
-    # a choice does not move, and a derived pick changes when a table is installed.
+    # `auto` where the resolver picked one, the newest added. Empty on a table that is
+    # not the default. A reader needs the two apart: a choice does not move, and a
+    # derived pick changes when a table is added.
     default_kind: str = ""
+    # The table the default is with no choice recorded: where clearing one moves it.
+    automatic: bool = False
     hidden: bool = False
     available: bool = True
     absent_since: str | None = None

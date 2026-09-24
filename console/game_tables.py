@@ -66,17 +66,16 @@ def is_referenced(table: dict[str, Any] | None) -> bool:
     return str((table or {}).get("form") or "") == "referenced"
 
 
-# How a game's default was decided, said as a state rather than as an actor: "User"
-# named who acted. The pair differs in kind - a decision, or the absence of one - and
-# the second of each is what it costs the reader, which is the part they act on.
+# How a game's default was decided, said as what happens next rather than who acted.
+# Locked is the word a collection row held to one table wears, and means the same.
 CHOSEN = "user"
 DERIVED = "auto"
 
 DEFAULT_WORDS = {
-    CHOSEN: (t("word.chosen"),
-             t("console.game_tables.stays_table")),
+    CHOSEN: (t("console.game_tables.locked"),
+             t("console.game_tables.locked_default.help")),
     DERIVED: (t("console.game_tables.automatic"),
-              t("console.game_tables.may_move_library_changes")),
+              t("console.game_tables.automatic.help")),
 }
 
 # One name and one direction per fact, read by the column, the panel, the funnel and the
@@ -152,6 +151,27 @@ def _version_and_author(table: dict[str, Any]) -> str:
     return JOIN.join(part for part in (version, author) if part)
 
 
-def default_state(kind: str) -> tuple[str, str] | None:
-    """The word for how a default was decided, or None where this is not the default."""
-    return DEFAULT_WORDS.get(kind)
+def lock_act(table: dict[str, Any],
+             tables: list[dict[str, Any]]) -> tuple[bool, str] | None:
+    """What the default row offers - True to lock it, False to unlock it - and the words
+    for that, or None where it offers neither. `tables` is the whole game's."""
+    if not table.get("default"):
+        return None
+    if (table.get("default_kind") or "") == CHOSEN:
+        goes = next((row for row in tables if row.get("automatic")), None)
+        if goes and goes.get("id") != table.get("id"):
+            return False, t("console.game_tables.unlock_to", table=table_name(goes))
+        return False, t("console.game_tables.unlock")
+    return (True, t("console.game_tables.lock")) if len(tables) > 1 else None
+
+
+def lock_said(game: str, table: dict[str, Any], after: list[dict[str, Any]], *,
+              lock: bool) -> str:
+    """The notification once `table` is locked or unlocked, `after` being the game's
+    tables as the write left them."""
+    if lock:
+        return t("console.game_tables.locked_to", table=table_name(table))
+    now = next((row for row in after if row.get("default")), None)
+    if now and now.get("id") != table.get("id"):
+        return t("console.game_tables.unlocked_now_plays", game=game, table=table_name(now))
+    return t("console.game_tables.unlocked")

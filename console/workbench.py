@@ -3467,13 +3467,6 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                 chips.append((game_tables.word_for(game_tables.FILE_WORDS, True),
                               "console-tier console-tier--warn",
                               t("console.workbench.not_disk_since", value=when.local(since))))
-            elif table.get("default"):
-                # Qualifies *the default*, so it belongs only where there is one -
-                # the mark has already said which row that is, and "how was it
-                # decided" is not a question a non-default table answers.
-                say = game_tables.default_state(table.get("default_kind") or "")
-                if say:
-                    chips.append((say[0], "console-chip-quiet", say[1]))
             # On every row that has one, because which program plays a file is
             # exactly what separates a VPX build from a Future Pinball one - it
             # used to appear only where the game had a single table, which is when
@@ -3487,7 +3480,7 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                 # on every row rather than let a reader take meaning from absence -
                 # which is what a chip on the default alone asked them to do. A game
                 # has exactly one default, so the control that says so is a radio.
-                _default_mark(context, table, since=since)
+                _default_mark(context, table, since=since, several=len(tables) > 1)
                 # The name and what qualifies it on one line, wrapping only when the
                 # line runs out - and wrapping onto the name's own left edge rather
                 # than the radio's, because they belong to the name. One unwrapped row
@@ -3504,6 +3497,12 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                         name.classes(add="console-member-name--here")
                     if since:
                         name.classes(add="opacity-60")
+                    elif table.get("default") \
+                            and (table.get("default_kind") or "") == game_tables.CHOSEN:
+                        word, why = game_tables.DEFAULT_WORDS[game_tables.CHOSEN]
+                        with ui.row().classes("items-center gap-1 no-wrap console-cell-quiet"):
+                            ui.icon(verbs.LOCKED).classes("console-member-lock")
+                            ui.label(word).tooltip(why)
                     for text, tone, why in chips:
                         chip = ui.label(text).classes(f"console-member-chip {tone}")
                         if why:
@@ -3525,7 +3524,7 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                             .props("flat dense round size=sm color=warning") \
                             .tooltip(t("console.workbench.forget"))
                     if not since:
-                        _lock_button(context, table, several=len(tables) > 1)
+                        _lock_button(context, table, tables)
                         _release_button(context, table)
                         _launch_button(context, table)
             _release_line(table, held)
@@ -3819,7 +3818,7 @@ def _launch_button(context: dict[str, Any], table: dict[str, Any]) -> None:
 
 
 def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
-                  since: str) -> None:
+                  since: str, several: bool) -> None:
     """Which table the game offers, and the way to change it.
 
     Settable here rather than only reported. A gone table is shown unset and is not
@@ -3830,7 +3829,9 @@ def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
         .classes("console-default-mark")
     if chosen:
         mark.classes(add="console-default-mark--on")
-        mark.tooltip(t("console.workbench.table_game_offers"))
+        automatic = several and (table.get("default_kind") or "") == game_tables.DERIVED
+        mark.tooltip(game_tables.DEFAULT_WORDS[game_tables.DERIVED][1] if automatic
+                     else t("console.workbench.table_game_offers"))
         return
     if since:
         mark.classes(add="opacity-30")
@@ -3841,47 +3842,28 @@ def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
     mark.on("click", lambda t=table: _make_default(context, t))
 
 
-def lock_act(table: dict[str, Any], *, several: bool) -> tuple[str, str] | None:
-    """The drawing and tooltip of the act that locks this default or unlocks it, or
-    None where there is none."""
-    if not table.get("default"):
-        return None
-    if (table.get("default_kind") or "") == game_tables.CHOSEN:
-        return verbs.UNLOCK, t("console.workbench.unlock_picks_newest")
-    return (verbs.LOCK, t("console.workbench.lock_table")) if several else None
-
-
-def _lock_button(context: dict[str, Any], table: dict[str, Any], *,
-                 several: bool) -> None:
-    act = lock_act(table, several=several)
+def _lock_button(context: dict[str, Any], table: dict[str, Any],
+                 tables: list[dict[str, Any]]) -> None:
+    act = game_tables.lock_act(table, tables)
     if act is None:
         return
-    icon, hint = act
-    ui.button(icon=icon, on_click=lambda: _lock_default(context, table,
-                                                        lock=icon == verbs.LOCK)) \
+    lock, hint = act
+    ui.button(icon=verbs.LOCK if lock else verbs.UNLOCK,
+              on_click=lambda: _lock_default(context, table, lock=lock)) \
         .props("flat dense round size=sm").tooltip(hint)
 
 
 async def _lock_default(context: dict[str, Any], table: dict[str, Any], *,
                         lock: bool) -> None:
-    """Record this table as the game's choice, or clear the choice and say where the
-    default went."""
     try:
         after = await run.io_bound(context["library"].set_default_table, context["game_id"],
                                    str(table.get("id") or "") if lock else "")
     except Exception as exc:
         ui.notify(t("console.workbench.could_not_change", exc=(exc)), type="negative")
         return
-    if lock:
-        said = t("console.workbench.locked_to", table=game_tables.table_name(table))
-    else:
-        now: dict[str, Any] = next((row for row in (after or {}).get("tables") or []
-                                    if row.get("default")), {})
-        said = t("console.workbench.unlocked_now_plays",
-                 game=str(context["game"].get("name") or ""),
-                 table=game_tables.table_name(now)) \
-            if now and now.get("id") != table.get("id") else t("console.workbench.unlocked")
-    ui.notify(said, type="positive")
+    ui.notify(game_tables.lock_said(str(context["game"].get("name") or ""), table,
+                                    (after or {}).get("tables") or [], lock=lock),
+              type="positive")
     await context["rebuild"]()
 
 

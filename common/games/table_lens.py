@@ -188,6 +188,7 @@ def table_rows(game: Game, row: dict) -> list[dict]:
     # has since gone falls through to a derived pick, and calling that a choice would be
     # a lie.
     default_kind = "user" if tables.is_recorded(recorded, default_id, chosen) else "auto"
+    automatic = tables.entry_native_key(tables.default_entry(described, "", files or None)[1])
     hidden = hidden_tables(described)
 
     # Dependency context, once per request: the alias map and the rom listing are
@@ -281,6 +282,7 @@ def table_rows(game: Game, row: dict) -> list[dict]:
             # Empty on every table that is not the default: the kind is a fact about
             # the one that is, not a field every row carries a blank for.
             "default_kind": default_kind if native == default else "",
+            "automatic": bool(automatic) and native == automatic,
             "hidden": native in hidden or described_entry.get("hidden") is True,
             # The table's own rating, which this lens has to carry as well as the play
             # lens - tables are read here and would otherwise all look unrated.
@@ -420,6 +422,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "") -> dict[str, A
                 "derived_tags": table.get("derived_tags") or [],
                 "default": bool(table.get("default")),
                 "default_kind": str(table.get("default_kind") or ""),
+                "automatic": bool(table.get("automatic")),
                 "hidden": bool(table.get("hidden")),
                 "available": bool(table.get("available")),
                 "absent_since": table.get("absent_since"),
