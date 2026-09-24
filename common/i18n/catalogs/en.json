@@ -270,6 +270,7 @@
   "console.app_settings.all_tables_only": "Works only for all tables",
   "console.app_settings.edits_go": "Set for",
   "console.app_settings.folder_tables": "{scope} - {folder_tables} tables",
+  "console.app_settings.game_and_table": "{game} - {table}",
   "console.app_settings.giving_table_own_settings": "Giving this table its own settings stops the folder reaching it, so they are copied across and nothing it does changes. Everything else in the folder is unaffected.",
   "console.app_settings.keep_them": "Keep them",
   "console.app_settings.no_settings_show": "Nothing to set for {value}",
@@ -280,7 +281,11 @@
     "one": "1 setting currently reaches this table from its folder.",
     "other": "{count} settings currently reach this table from its folder."
   },
-  "console.app_settings.settings": "Settings for “{launcher_name}”",
+  "console.app_settings.settings": "{table}: {launcher_name} Settings",
+  "console.app_settings.shared_with_game": {
+    "one": "Changes here also apply to the other table, unless it has its own",
+    "other": "Changes here also apply to the other {count} tables, unless they have their own"
+  },
   "console.app_settings.table_no_launcher_configure": "This table has no launcher to configure.",
   "console.app_settings.unused": "Unused",
   "console.assets.assets": "{value} of {len} assets",

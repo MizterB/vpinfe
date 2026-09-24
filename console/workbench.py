@@ -3171,6 +3171,8 @@ async def _open_table_settings(context: dict[str, Any], table: dict[str, Any]) -
         # The id, not a path: where a game file sits is a fact about the machine that
         # holds it, and this Console may be reading another one.
         table_id=str(table.get("id") or ""),
+        game_name=str((context.get("game") or {}).get("name") or ""),
+        table_name=_table_line(table),
         folder_tables=len(context.get("tables") or []) or 1,
         on_done=context.get("rebuild"))
 

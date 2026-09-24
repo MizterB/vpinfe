@@ -14,7 +14,7 @@ from urllib.parse import parse_qs
 
 from common import path_checks
 from common.i18n import t
-from console import deeplink, page, settings, workbench
+from console import app_settings, deeplink, page, settings, workbench
 
 
 def _launcher(state: str, *, has_config: bool = True) -> dict:
@@ -128,6 +128,41 @@ class BlankValueTests(unittest.TestCase):
                  "default": "", "blank": "From the screen"}
 
         self.assertEqual(self._placeholder(dict(field)), "From the screen")
+
+
+class TableDialogTests(unittest.TestCase):
+    """The program's settings for one table, in the dialog over the workbench."""
+
+    def test_it_is_titled_for_the_table_not_the_launcher(self) -> None:
+        said = app_settings.title_for("Medieval Madness", "VPW 1.2", "Visual Pinball X", 1)
+
+        self.assertEqual(said, "Medieval Madness: Visual Pinball X Settings")
+
+    def test_a_game_of_several_tables_says_which(self) -> None:
+        said = app_settings.title_for("Medieval Madness", "VPW 1.2", "Visual Pinball X", 2)
+
+        self.assertEqual(said, "Medieval Madness - VPW 1.2: Visual Pinball X Settings")
+
+    def test_a_file_shared_with_the_game_says_who_else_reads_it(self) -> None:
+        note = app_settings.shared_note({"shared_with_game": True},
+                                        app_settings.SCOPE_ENTRY, 3)
+
+        self.assertIsNotNone(note)
+        self.assertIn("the other 2 tables", _said(note))
+
+    def test_nothing_is_said_where_the_file_is_the_table_s_alone(self) -> None:
+        self.assertIsNone(app_settings.shared_note({"shared_with_game": False},
+                                                   app_settings.SCOPE_ENTRY, 3))
+
+    def test_nor_where_the_game_has_no_other_table(self) -> None:
+        self.assertIsNone(app_settings.shared_note({"shared_with_game": True},
+                                                   app_settings.SCOPE_ENTRY, 1))
+
+
+def _said(entry) -> str:
+    with patch("console.panel.ui") as ui:
+        entry[1]()
+    return str(ui.label.call_args.args[0])
 
 
 class AddressTests(unittest.TestCase):

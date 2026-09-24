@@ -270,6 +270,7 @@
   "console.app_settings.all_tables_only": "Ŵöřķš öñŀý ƒöř àŀŀ ţàƀŀèš",
   "console.app_settings.edits_go": "Šèţ ƒöř",
   "console.app_settings.folder_tables": "{scope} - {folder_tables} ţàƀŀèš",
+  "console.app_settings.game_and_table": "{game} - {table}",
   "console.app_settings.giving_table_own_settings": "Ĝîṽîñĝ ţĥîš ţàƀŀè îţš öŵñ šèţţîñĝš šţöþš ţĥè ƒöŀđèř řèàçĥîñĝ îţ, šö ţĥèý àřè çöþîèđ àçřöšš àñđ ñöţĥîñĝ îţ đöèš çĥàñĝèš. Èṽèřýţĥîñĝ èŀšè îñ ţĥè ƒöŀđèř îš ûñàƒƒèçţèđ.",
   "console.app_settings.keep_them": "Ķèèþ ţĥèɱ",
   "console.app_settings.no_settings_show": "Ñöţĥîñĝ ţö šèţ ƒöř {value}",
@@ -280,7 +281,11 @@
     "one": "1 šèţţîñĝ çûřřèñţŀý řèàçĥèš ţĥîš ţàƀŀè ƒřöɱ îţš ƒöŀđèř.",
     "other": "{count} šèţţîñĝš çûřřèñţŀý řèàçĥ ţĥîš ţàƀŀè ƒřöɱ îţš ƒöŀđèř."
   },
-  "console.app_settings.settings": "Šèţţîñĝš ƒöř “{launcher_name}”",
+  "console.app_settings.settings": "{table}: {launcher_name} Šèţţîñĝš",
+  "console.app_settings.shared_with_game": {
+    "one": "Çĥàñĝèš ĥèřè àŀšö àþþŀý ţö ţĥè öţĥèř ţàƀŀè, ûñŀèšš îţ ĥàš îţš öŵñ",
+    "other": "Çĥàñĝèš ĥèřè àŀšö àþþŀý ţö ţĥè öţĥèř {count} ţàƀŀèš, ûñŀèšš ţĥèý ĥàṽè ţĥèîř öŵñ"
+  },
   "console.app_settings.table_no_launcher_configure": "Ţĥîš ţàƀŀè ĥàš ñö ŀàûñçĥèř ţö çöñƒîĝûřè.",
   "console.app_settings.unused": "Ûñûšèđ",
   "console.assets.assets": "{value} öƒ {len} àššèţš",

@@ -45,17 +45,35 @@ def scope_words(folder_tables: int) -> dict[str, str]:
     return words
 
 
+def title_for(game_name: str, table_name: str, launcher_name: str,
+              folder_tables: int) -> str:
+    """Named for the table being edited. The game names it, and the table is added where
+    the game has more than one."""
+    subject = (t("console.app_settings.game_and_table", game=game_name, table=table_name)
+               if folder_tables > 1 and table_name else game_name)
+    return t("console.app_settings.settings", table=subject, launcher_name=launcher_name)
+
+
+def shared_note(found: dict, scope: str, folder_tables: int) -> tuple[Any, Any] | None:
+    """Where this table's file is also its game's, what a value set for it reaches."""
+    if scope != SCOPE_ENTRY or folder_tables <= 1 or not found.get("shared_with_game"):
+        return None
+    return panel.intro(t("console.app_settings.shared_with_game", count=folder_tables - 1))
+
+
 async def open_for_table(library: Library, *, launcher_id: str, launcher_name: str,
-                         table_id: str, folder_tables: int = 1,
+                         table_id: str, game_name: str, table_name: str = "",
+                         folder_tables: int = 1,
                          on_done: Callable | None = None) -> None:
     if not launcher_id:
         ui.notify(t("console.app_settings.table_no_launcher_configure"), type="warning")
         return
 
-    state: dict[str, Any] = {"scope": SCOPE_ENTRY, "search": ""}
+    state: dict[str, Any] = {"scope": SCOPE_ENTRY, "search": "",
+                             "folder_tables": folder_tables}
     words = scope_words(folder_tables)
 
-    with frame.opened(t("console.app_settings.settings", launcher_name=launcher_name),
+    with frame.opened(title_for(game_name, table_name, launcher_name, folder_tables),
                       full=True) as dialog:
         # The picker before the settings, because it says where an edit will go and
         # that has to be readable before anything is edited rather than after.
@@ -105,8 +123,11 @@ async def _fill(library: Library, launcher_id: str, table_id: str, state: dict[s
     groups = found.get("groups") or []
     values = found.get("values") or {}
     playing = await offload.io(_playing, library)
+    entries: list[tuple[Any, Any]] = []
+    if (shared := shared_note(found, scope, int(state.get("folder_tables") or 1))):
+        entries.append(shared)
     if playing:
-        panel.facts(ui, [panel.note(t(PLAYING_NOTE))])
+        entries.append(panel.intro(t(PLAYING_NOTE)))
     wanted = state["search"]
     shown = 0
     for group in groups:
@@ -116,19 +137,21 @@ async def _fill(library: Library, launcher_id: str, table_id: str, state: dict[s
         if not rows:
             continue
         shown += len(rows)
-        panel.header(group["label"])
-        await _group_rows(library, launcher_id, table_id, scope, rows, values, draw,
-                          playing)
+        entries.append((panel.HEADING, group["label"]))
+        entries.extend(_group_rows(library, launcher_id, table_id, scope, rows, values,
+                                   draw, playing))
 
     if not shown:
-        panel.facts(ui, [panel.intro(
+        entries.append(panel.intro(
             t("console.app_settings.nothing_matches", value=(state['search'])) if wanted
-            else t("console.app_settings.no_settings_show", value=(words[scope])))])
+            else t("console.app_settings.no_settings_show", value=(words[scope]))))
+    with ui.column().classes("gap-0 console-form"):
+        panel.facts(ui, entries)
 
 
-async def _group_rows(library: Library, launcher_id: str, table_id: str, scope: str,
-                      rows: list[dict], values: dict, draw: Callable,
-                      playing: bool = False) -> None:
+def _group_rows(library: Library, launcher_id: str, table_id: str, scope: str,
+                rows: list[dict], values: dict, draw: Callable,
+                playing: bool = False) -> list[tuple[Any, Any]]:
     """One group's settings, with where each value comes from and the way off it."""
     entries: list[tuple[Any, Any]] = []
     for field in rows:
@@ -142,8 +165,7 @@ async def _group_rows(library: Library, launcher_id: str, table_id: str, scope: 
             entries.append((panel.ASIDE, aside))
         if field.get("description"):
             entries.append(panel.note(field["description"]))
-    with ui.column().classes("gap-0 console-form"):
-        panel.facts(ui, entries)
+    return entries
 
 
 def _control(library: Library, launcher_id: str, table_id: str, scope: str, field: dict,
