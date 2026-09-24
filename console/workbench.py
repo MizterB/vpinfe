@@ -2303,14 +2303,15 @@ async def _guides_block(context: dict[str, Any]) -> None:
             for one in shown:
                 _guide_row(*guide_words(one), arrange=len(shown) > 1,
                            act=_guide_act(context, one))
+        if hidden:
+            with ui.expansion(t("console.workbench.hidden_guides", count=len(hidden))) \
+                    .props("dense dense-toggle") \
+                    .classes("console-disclosure console-disclosure-rows pt-2"):
+                for one in hidden:
+                    _guide_row(*guide_words(one), act=_guide_act(context, one))
         with ui.element("div").classes("console-slot-actions px-3"):
             panel.action(t("console.workbench.add_guide"),
                          lambda: _add_guide(context), icon=verbs.ADD)()
-        if hidden:
-            with ui.expansion(t("console.workbench.hidden_guides", count=len(hidden))) \
-                    .props("dense dense-toggle").classes("console-disclosure px-3 w-full"):
-                for one in hidden:
-                    _guide_row(*guide_words(one), act=_guide_act(context, one))
     # Read at the drop by the page's listener, `guide_moved`.
     context["state"]["guide_move"] = context
     if len(shown) > 1:

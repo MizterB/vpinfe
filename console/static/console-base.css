@@ -1441,16 +1441,6 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
 }
 /* The header's own line, inside the rule with the name it belongs to. */
 .console-panel-note { margin-top: 4px; }
-/* Tight: this panel carries a lot and the default expansion chrome is mostly air. */
-.console-workbench .q-expansion-item {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  /* Vertical margin only. A horizontal margin on a w-full child overhangs by exactly
-     its own width, which is where the workbench's 6px of horizontal scroll came from; the
-     inset belongs on the container. */
-  margin: 4px 0;
-  background: var(--surface-lift);
-}
 .console-workbench { overflow-x: hidden !important; }
 /* No side gutter of its own: what it holds carries the shared one, and two would
    stack. Top and bottom are the exception - the section row sits directly above and
@@ -1460,26 +1450,8 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
    invisible while the region was a dark well and obvious the moment it became a lit one:
    a panel touching the wall reads as unfinished rather than as full-width. */
 .console-workbench-body { padding: 8px var(--panel-gutter); }
-.console-workbench .q-expansion-item .q-item {
-  min-height: 32px;
-  padding: 2px 10px;
-}
-.console-workbench .q-expansion-item .q-item__label {
-  color: var(--accent); font-size: var(--fs-caption);
-}
-.console-workbench .q-expansion-item__content { padding: 2px 0 6px; }
-/* nicegui puts a 16px flex gap on .nicegui-expansion-content, which double-spaced every
-   line inside a section: 22px rows on a 38px pitch. Same default as the drawer's, in a
-   different container - the rows carry their own spacing. */
-.console-workbench .nicegui-expansion-content {
-  /* Both of nicegui's defaults on this container: the 16px gap double-spaced the lines
-     and the 16px padding is the dead space above the first field and below the last. */
-  gap: 0 !important;
-  padding: 0 !important;
-}
 /* The panel toggles match: nav and workbench are the same control, same color. */
 .console-panel-header .q-icon { color: var(--ink-2); }
-.console-workbench .q-expansion-item__content .row { min-height: 22px; }
 .console-nav-title {
   /* .manager-title, sampled: --ink with --glow-cyan behind it at 20px/900. The white
      comes from the near-white glyph and the color from the halo, which is why a cyan
@@ -1931,6 +1903,15 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 .console-disclosure .q-item__section--main { flex: 0 0 auto; }
 .console-disclosure .q-item__section--side {
   padding-left: 4px; padding-right: 0; min-width: 0; color: var(--accent);
+}
+.console-disclosure .q-expansion-item__content { padding: 4px 0 0; }
+/* NiceGUI's own 16px gap and padding on the opened column; what it holds spaces itself. */
+.console-disclosure .nicegui-expansion-content { gap: 0 !important; padding: 0 !important; }
+/* Opening onto rows of a list: the rows span the list as their siblings do, and only the
+   words take the gutter the section's actions sit at. */
+.console-disclosure.console-disclosure-rows { align-self: stretch; }
+.console-disclosure.console-disclosure-rows .q-expansion-item__container > .q-item {
+  margin-left: 12px;
 }
 .console-token-list {
   display: grid;
