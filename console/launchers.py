@@ -40,9 +40,11 @@ DEFAULT_HINT = t("console.launchers.tables_name_no_launcher")
 STATE_READY = "word.ready"
 STATE_OFF = "console.launchers.switched_off"
 STATE_BROKEN = "console.launchers.cannot_run"
+STATE_NO_PROGRAM = "console.launchers.no_program"
 
 _STATE_CHOICES = [{"value": one, "label": one}
-                  for one in (t(STATE_READY), t(STATE_OFF), t(STATE_BROKEN))]
+                  for one in (t(STATE_READY), t(STATE_OFF), t(STATE_NO_PROGRAM),
+                              t(STATE_BROKEN))]
 
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("name", t("word.name"), 240, pinned="left",
@@ -75,12 +77,21 @@ def _broken(one: dict) -> Iterator[str]:
         yield f"{labels.get(key, key)}: {found.get('reason') or state}"
 
 
+def _names_no_program(one: dict) -> bool:
+    checks = one.get("checks") or {}
+    return any(field.get("path") == "exe"
+               and (checks.get(field["key"]) or {}).get("state") == path_checks.UNSET
+               for field in one.get("fields") or [])
+
+
 def state_of(one: dict) -> str:
     """The worse fact wins. Switched off is a choice somebody made; a program that is
     not there is a launcher that cannot run, and it is the one to say when a row is
     both."""
     if next(iter(_broken(one)), ""):
         return STATE_BROKEN
+    if _names_no_program(one):
+        return STATE_NO_PROGRAM
     return STATE_READY if one.get("enabled") else STATE_OFF
 
 

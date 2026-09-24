@@ -21,8 +21,8 @@ def _launcher(*, enabled: bool = True, **checks) -> dict:
         "app_name": "Visual Pinball X",
         "enabled": enabled,
         "settings": {"bin_path": "/opt/VPinballX"},
-        "fields": [{"key": "bin_path", "label": "Program"},
-                   {"key": "ini_path", "label": "Configuration File"}],
+        "fields": [{"key": "bin_path", "label": "Program", "path": "exe"},
+                   {"key": "ini_path", "label": "Configuration File", "path": "file"}],
         "checks": {key: {"state": state, "reason": reason}
                    for key, (state, reason) in checks.items()},
     }
@@ -39,6 +39,17 @@ class StateTests(unittest.TestCase):
             launchers.state_of(_launcher(bin_path=(path_checks.OK, ""),
                                          ini_path=(path_checks.UNSET, ""))),
             launchers.STATE_READY)
+
+    def test_a_launcher_naming_no_program_says_so(self) -> None:
+        self.assertEqual(
+            launchers.state_of(_launcher(bin_path=(path_checks.UNSET, ""),
+                                         ini_path=(path_checks.UNSET, ""))),
+            launchers.STATE_NO_PROGRAM)
+
+    def test_even_switched_off(self) -> None:
+        self.assertEqual(
+            launchers.state_of(_launcher(enabled=False, bin_path=(path_checks.UNSET, ""))),
+            launchers.STATE_NO_PROGRAM)
 
     def test_a_missing_program_cannot_run(self) -> None:
         self.assertEqual(
