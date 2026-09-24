@@ -47,6 +47,7 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
         "display_name": launcher.display_name,
         "enabled": launcher.enabled,
         "owns_ini": launcher.owns_ini,
+        "has_config": _app_settings_surface(launcher) is not None,
         "settings": {field.key: launcher.value(field.key)
                      for field in launcher.fields()},
         # `lines`, `choices` and the bounds travel with the field because the control a

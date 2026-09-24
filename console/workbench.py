@@ -3998,9 +3998,23 @@ def _program_is_there(context: dict[str, Any]) -> bool:
     read and nothing that could be written back meaningfully. Setup stays, because
     pointing it somewhere else is how the problem gets fixed.
     """
-    checks = (context.get("launcher") or {}).get("checks") or {}
-    state = str((checks.get("bin_path") or {}).get("state") or "")
-    return state == path_checks.OK
+    return _program_state(context.get("launcher") or {}) == path_checks.OK
+
+
+def _program_state(launcher: dict[str, Any]) -> str:
+    checks = launcher.get("checks") or {}
+    return str((checks.get("bin_path") or {}).get("state") or "")
+
+
+def _program_note(launcher: dict[str, Any]) -> str:
+    """Why its program's own settings are not shown, or "" where they are or it has
+    none to show."""
+    state = _program_state(launcher)
+    if not launcher.get("has_config") or state == path_checks.OK:
+        return ""
+    if state == path_checks.UNSET:
+        return t("console.workbench.set_program_see_settings", app=launcher["app_name"])
+    return t("console.workbench.not_at_that_path", app=launcher["app_name"])
 
 
 def _config_group_label(key: str) -> Callable[[dict[str, Any]], str]:
@@ -4335,9 +4349,8 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
     entries.append(panel.note(
         t("console.workbench.switched_off_stays_configured")))
 
-    if not _program_is_there(context):
-        entries.append(panel.note(
-            t("console.workbench.not_on_device_own_settings", value=(launcher['app_name']))))
+    if note := _program_note(launcher):
+        entries.append(panel.note(note))
     entries.append((HEADING, t("console.workbench.how_runs")))
     for field in launcher.get("fields") or []:
         entries.append((field["label"],
@@ -4361,7 +4374,8 @@ BACKUP_REASONS = {"manual": t("console.workbench.taken"),
 
 def _app_keeps_settings(context: dict[str, Any]) -> bool:
     """Whether there is a settings file to copy at all. `generic` keeps none."""
-    return bool(context.get("config_groups")) or _program_is_there(context)
+    return bool((context.get("launcher") or {}).get("has_config")) \
+        and (bool(context.get("config_groups")) or _program_is_there(context))
 
 
 def _backup_when(one: dict) -> str:

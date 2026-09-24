@@ -61,6 +61,15 @@ class LauncherApiTests(unittest.TestCase):
         self.assertIn("bin_path", keys)
         self.assertEqual(sorted(found["settings"]), sorted(keys))
 
+    def test_a_launcher_says_whether_its_app_keeps_settings_of_its_own(self) -> None:
+        self._put("vpx", display_name="VPX")
+        self._put("gen", app="generic", display_name="Generic")
+
+        held = {one["launcher_id"]: one["has_config"]
+                for one in self.client.get("/launchers").json()["launchers"]}
+
+        self.assertEqual(held, {"vpx": True, "gen": False})
+
     def test_the_caller_names_the_id(self) -> None:
         """A launcher copied from another machine is that launcher. Minting a new id here
         would break the mappings that came with it."""

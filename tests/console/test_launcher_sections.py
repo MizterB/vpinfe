@@ -15,9 +15,15 @@ from common.i18n import t
 from console import workbench
 
 
-def _context(state: str, groups=("backglass",)) -> dict:
+def _launcher(state: str, *, has_config: bool = True) -> dict:
+    return {"app_name": "Visual Pinball X", "has_config": has_config,
+            "fields": [{"key": "bin_path", "path": "exe"}],
+            "checks": {"bin_path": {"state": state}}}
+
+
+def _context(state: str, groups=("backglass",), *, has_config: bool = True) -> dict:
     return {
-        "launcher": {"checks": {"bin_path": {"state": state}}},
+        "launcher": _launcher(state, has_config=has_config),
         "config_groups": [SimpleNamespace(key=key, label=key.title(), settings=[1])
                           for key in groups],
     }
@@ -55,6 +61,31 @@ class RailTests(unittest.TestCase):
                                                     settings=[])]
 
         self.assertNotIn("launcher_backglass", _shown(context))
+
+    def test_an_app_with_no_settings_of_its_own_offers_no_copies(self) -> None:
+        shown = _shown(_context(path_checks.OK, groups=(), has_config=False))
+
+        self.assertEqual(shown, ["launcher_setup"])
+
+
+class ProgramNoteTests(unittest.TestCase):
+    def test_no_program_set_says_to_set_one(self) -> None:
+        self.assertEqual(workbench._program_note(_launcher(path_checks.UNSET)),
+                         t("console.workbench.set_program_see_settings",
+                           app="Visual Pinball X"))
+
+    def test_a_path_that_finds_nothing_says_so(self) -> None:
+        self.assertEqual(workbench._program_note(_launcher(path_checks.MISSING)),
+                         t("console.workbench.not_at_that_path", app="Visual Pinball X"))
+
+    def test_a_program_that_is_there_needs_no_note(self) -> None:
+        self.assertEqual(workbench._program_note(_launcher(path_checks.OK)), "")
+
+    def test_an_app_with_no_settings_of_its_own_gets_none(self) -> None:
+        for state in (path_checks.UNSET, path_checks.MISSING):
+            with self.subTest(state=state):
+                self.assertEqual(
+                    workbench._program_note(_launcher(state, has_config=False)), "")
 
 
 class PlayingTests(unittest.TestCase):

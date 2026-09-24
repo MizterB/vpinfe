@@ -125,7 +125,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/uploads/{id}/import` | Execute the plan. Takes `asset_kind` the same way |
 | GET | `/api/v1/filesystem/entries` | What is in one folder. With `kind`, the files that asset kind takes are listed beside the media (`backglass` lists `.directb2s`); `kind` is the registry's name or the asset lens's, so `alt_color` lists both Serum and VNI files. `archives=true` lists archives too. `/filesystem/file` still serves media only |
 | GET | `/api/v1/vps/search?q=&limit=` | VPSdb lookup |
-| GET | `/api/v1/launchers` | Every launcher this install has, the tables that deviate from the default, and the fields each launcher's app takes |
+| GET | `/api/v1/launchers` | Every launcher this install has, the tables that deviate from the default, and the fields each launcher's app takes. `has_config` says whether its app has settings of its own for `/config` to read |
 | PUT | `/api/v1/launchers/{id}` | Add or replace one. The whole launcher, so a partial write cannot leave one half-configured. Switching one off is refused when the tables it plays would land on a launcher with no program, or on none |
 | DELETE | `/api/v1/launchers/{id}` | Forget one. Tables pointed at it fall back to the default |
 | GET | `/api/v1/launchers/{id}/fallback` | What switching it off would do: `tables` it plays now, `fallbacks` naming where each group of them would go (`launcher_id` empty for nowhere) and whether that one `has_program`, and `refused`, the refusal a switch-off would get, or `""` |
