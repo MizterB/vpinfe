@@ -897,6 +897,7 @@
   "console.mediasource.save": "Šàṽè îţ àš",
   "console.mediasource.saved": "Šàṽèđ àš {chosen_extension}",
   "console.mediasource.saved_2": "{label} šàṽèđ ƒřöɱ {source_name}",
+  "console.mediasource.saved_where": "{message} {where}",
   "console.mediasource.search_another_game": "Šèàřçĥ àñöţĥèř ĝàɱè",
   "console.mediasource.start": "Šţàřţ ƒřöɱ",
   "console.mediasource.takes": "{label} ţàķèš {extensions}",

@@ -897,6 +897,7 @@
   "console.mediasource.save": "Save it as",
   "console.mediasource.saved": "Saved as {chosen_extension}",
   "console.mediasource.saved_2": "{label} saved from {source_name}",
+  "console.mediasource.saved_where": "{message} {where}",
   "console.mediasource.search_another_game": "Search another game",
   "console.mediasource.start": "Start from",
   "console.mediasource.takes": "{label} takes {extensions}",

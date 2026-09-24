@@ -6,7 +6,9 @@ from __future__ import annotations
 import mimetypes
 import unittest
 from types import SimpleNamespace
+from unittest import mock
 
+from common import i18n
 from common.games.collections_service import IMAGE_EXTENSIONS
 from common.media_specs import IMAGE_FAMILY
 from console import mediasource
@@ -96,6 +98,34 @@ class ACollectionTakingAGameWheel(unittest.TestCase):
                 named = mediasource._named_for("4 Queens", f"{served}; charset=binary")
                 self.assertTrue(named.startswith("4 Queens."))
                 self.assertIn(named[len("4 Queens"):], IMAGE_EXTENSIONS)
+
+
+def _slot(in_view: str, saved_for: str) -> mediasource._Slot:
+    slot = mediasource._Slot({"library": LIBRARY, "game_id": "game", "game": {},
+                              "lens": in_view},
+                             "wheel", "Wheel", _nothing, mediasource._media(LIBRARY, "wheel"))
+    slot.placed_at = {"table": saved_for, "label": f"{saved_for}.vpx"}
+    return slot
+
+
+class WhereItWent(unittest.TestCase):
+    def test_saved_for_the_table_in_view_names_the_table(self) -> None:
+        self.assertEqual("Wheel saved for Attack from Mars",
+                         _slot("Attack from Mars", "Attack from Mars").said_where("Wheel saved"))
+
+    def test_saved_for_every_table_while_one_is_in_view_says_so(self) -> None:
+        self.assertEqual(
+            "Wheel saved for every table in this game - not what this view is showing",
+            _slot("Attack from Mars", "").said_where("Wheel saved"))
+
+    def test_a_translation_orders_what_and_where(self) -> None:
+        self.addCleanup(i18n.set_language, i18n.language())
+        i18n.set_language("xx")
+        with mock.patch.dict(i18n._catalogs, {"xx": {
+                "console.mediasource.saved_where": "{where}: {message}"}}):
+            said = _slot("", "").said_where("Wheel saved")
+
+        self.assertEqual("for every table in this game: Wheel saved", said)
 
 
 if __name__ == "__main__":

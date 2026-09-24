@@ -570,9 +570,12 @@ class _Slot(_OneFile):
                 self._describe_placement()
 
     async def finish(self, message: str) -> None:
+        await super().finish(self.said_where(message))
+
+    def said_where(self, message: str) -> str:
         """Say where, including when "where" is not what the panel behind is showing.
 
-        A file saved for one build while the shared media is in view changes nothing
+        A file saved for one table while the shared media is in view changes nothing
         on screen. The write worked and the panel is right; without a word about it
         the pair reads as a failure.
         """
@@ -582,7 +585,7 @@ class _Slot(_OneFile):
                         table=(_trimmed_stem(str(chosen.get("label") or "")))))
         if self.destination != (self.table_id or ""):
             where = t("console.mediasource.not_what_view_showing", where=where)
-        await super().finish(f"{message} {where}")
+        return t("console.mediasource.saved_where", message=message, where=where)
 
     async def confirmed(self, filename: str) -> bool:
         """Ask before a write that deletes something, naming what goes.
