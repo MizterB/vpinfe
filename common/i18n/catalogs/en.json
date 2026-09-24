@@ -1856,6 +1856,7 @@
   "error.games.guide_not_an_address": "{url} is not a web address",
   "error.games.guide_twice": "{url} is in the list twice",
   "error.games.guide_without_address": "A guide needs an address to open",
+  "error.games.hidden_table_not_default": "A hidden table can't be the default",
   "error.games.invalid_game_path": "Invalid game path",
   "error.games.no_app_called_build": "No app called {app_id!r}. This build knows {join}.",
   "error.games.no_file": "There is no file there",

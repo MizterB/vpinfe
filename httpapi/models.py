@@ -1229,6 +1229,13 @@ class TableVisibility(ApiModel):
     hidden: bool
 
 
+class TableHidden(ApiModel):
+    """The table, and the one its game now offers first: null when it offers none."""
+
+    table: Table
+    default: Table | None = None
+
+
 class TableDefault(ApiModel):
     """Which table a game offers first. Empty clears the choice, which puts it back to
     being resolved from what is in the folder."""

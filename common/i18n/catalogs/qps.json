@@ -1856,6 +1856,7 @@
   "error.games.guide_not_an_address": "{url} îš ñöţ à ŵèƀ àđđřèšš",
   "error.games.guide_twice": "{url} îš îñ ţĥè ŀîšţ ţŵîçè",
   "error.games.guide_without_address": "À ĝûîđè ñèèđš àñ àđđřèšš ţö öþèñ",
+  "error.games.hidden_table_not_default": "À ĥîđđèñ ţàƀŀè çàñ'ţ ƀè ţĥè đèƒàûŀţ",
   "error.games.invalid_game_path": "Îñṽàŀîđ ĝàɱè þàţĥ",
   "error.games.no_app_called_build": "Ñö àþþ çàŀŀèđ {app_id!r}. Ţĥîš ƀûîŀđ ķñöŵš {join}.",
   "error.games.no_file": "Ţĥèřè îš ñö ƒîŀè ţĥèřè",

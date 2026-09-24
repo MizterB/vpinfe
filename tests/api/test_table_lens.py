@@ -118,6 +118,15 @@ class DefaultTests(_Lens):
                                    json={"table": "tbl0009999"})
         self.assertEqual(response.status_code, 404)
 
+    def test_a_hidden_table_cannot_be_the_default(self) -> None:
+        self.client.put(f"/games/{GAME_ID}/tables/tbl0000002/hidden", json={"hidden": True})
+
+        response = self.client.put(f"/games/{GAME_ID}/default_table",
+                                   json={"table": "tbl0000002"})
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertNotIn("default_table", self._info().get("vpinfe", {}))
+
 
 class HiddenTests(_Lens):
     def test_hiding_takes_it_out_of_play_without_touching_the_file(self) -> None:
@@ -125,7 +134,7 @@ class HiddenTests(_Lens):
                                    json={"hidden": True})
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertTrue(response.json()["hidden"])
+        self.assertTrue(response.json()["table"]["hidden"])
         self.assertTrue((self.folder / VR).is_file(), "the .vpx must stay on disk")
 
     def test_unhiding_puts_it_back(self) -> None:
@@ -133,13 +142,55 @@ class HiddenTests(_Lens):
         body = self.client.put(f"/games/{GAME_ID}/tables/tbl0000002/hidden",
                                json={"hidden": False}).json()
 
-        self.assertFalse(body["hidden"])
+        self.assertFalse(body["table"]["hidden"])
 
     def test_hiding_one_leaves_the_other_alone(self) -> None:
         self.client.put(f"/games/{GAME_ID}/tables/tbl0000002/hidden", json={"hidden": True})
         by_id = {row["id"]: row["hidden"] for row in self._rows()}
 
         self.assertEqual(by_id, {"tbl0000001": False, "tbl0000002": True})
+
+
+class HidingTheDefaultTests(_Lens):
+    def _hide(self, table: str) -> dict:
+        response = self.client.put(f"/games/{GAME_ID}/tables/{table}/hidden",
+                                   json={"hidden": True})
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()
+
+    def test_hiding_the_chosen_default_clears_the_choice(self) -> None:
+        self.client.put(f"/games/{GAME_ID}/default_table", json={"table": "tbl0000002"})
+
+        body = self._hide("tbl0000002")
+
+        self.assertNotIn("default_table", self._info()["vpinfe"])
+        self.assertEqual(body["default"]["id"], "tbl0000001")
+
+    def test_hiding_another_table_keeps_the_choice(self) -> None:
+        self.client.put(f"/games/{GAME_ID}/default_table", json={"table": "tbl0000002"})
+
+        body = self._hide("tbl0000001")
+
+        self.assertEqual(self._info()["vpinfe"]["default_table"], "tbl0000002")
+        self.assertEqual(body["default"]["id"], "tbl0000002")
+
+    def test_hiding_every_table_leaves_nothing_offered(self) -> None:
+        self._hide("tbl0000001")
+
+        self.assertIsNone(self._hide("tbl0000002")["default"])
+
+
+class HidingADefaultNamedByFileTests(_Lens):
+    """A 2.x library records the default by filename."""
+
+    info = {**INFO, "vpinfe": {"default_table": VR}}
+
+    def test_hiding_it_clears_the_choice(self) -> None:
+        response = self.client.put(f"/games/{GAME_ID}/tables/tbl0000002/hidden",
+                                   json={"hidden": True})
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertNotIn("default_table", self._info()["vpinfe"])
 
 
 class TableScriptTests(_Lens):

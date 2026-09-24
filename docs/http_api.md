@@ -111,6 +111,8 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/games/{id}/rating` | Rate a game, `{"rating": 0-5}`. `0` is unrated |
 | PUT | `/api/v1/games/{id}/tables/{table_id}/rating` | Rate one table, same body. Refines the game's rather than replacing it; returns the table |
 | PUT | `/api/v1/games/{id}/tables/{table_id}/tags` | One table's own tags, the whole set |
+| PUT | `/api/v1/games/{id}/tables/{table_id}/hidden` | Hide one table, or show it again, `{"hidden": bool}`. The file stays on disk. Answers with `table` and `default`, the table the game now offers first, or `null` when it offers none. Hiding the table chosen as the default clears the choice |
+| PUT | `/api/v1/games/{id}/default_table` | Which table the game offers first, `{"table": "<table id>"}`; empty clears the choice. A hidden table is refused |
 | POST | `/api/v1/games/{id}/tables/{table_id}/script` | Extract the table's script to a `<table>.vbs` beside it. **VPX then runs that instead of the one inside the .vpx.** Needs Visual Pinball on the machine called, like `/launch`; `501` where there is none |
 | DELETE | `/api/v1/games/{id}/tables/{table_id}/script` | Remove the sidecar, putting the table back on its own script. `404` if there is none |
 | POST | `/api/v1/uploads` | Begin an upload session → `{"id": ...}` |

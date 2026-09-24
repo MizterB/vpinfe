@@ -14,6 +14,7 @@ from typing import Any
 
 from common import apps, service_errors
 from common.games import derived_tags, game_lens, locations, table_lens, tables
+from common.games.collection_resolver import visible_entries
 from common.games.game import Game
 from common.games.game_metadata import (
     load_game_meta,
@@ -76,7 +77,17 @@ def set_hidden(game_id: str, table_id: str, hidden: bool) -> dict:
     filename = filename_or_refuse(game, table_id)
     MetaConfig(str(meta_file_path(game))).set_table_hidden(filename, bool(hidden))
     game = reread_game(game)
-    return row_or_refuse(game, table_id)
+    return {"table": row_or_refuse(game, table_id), "default": _offered_first(game)}
+
+
+def _offered_first(game: Game) -> dict | None:
+    """The row of the table this game offers first, or None when it offers none."""
+    offered = visible_entries(game)
+    wanted = offered[0].get(tables.TABLE_ID_KEY) if offered else ""
+    if not wanted:
+        return None
+    return next((row for row in table_lens.table_rows(game, game_to_row(game))
+                 if row.get("id") == wanted), None)
 
 
 def extract_script(game_id: str, table_id: str) -> dict:
@@ -179,6 +190,9 @@ def set_default(game_id: str, table_id: str) -> dict:
     game = game_lens.game_or_refuse(game_id)
     if table_id:
         filename_or_refuse(game, table_id)
+        if table_entries(load_game_meta(game))[table_id].get("hidden") is True:
+            raise service_errors.RefusedError(t("error.games.hidden_table_not_default"),
+                                              details={"table": table_id})
     try:
         MetaConfig(str(meta_file_path(game))).set_default_table(table_id)
     except ValueError as exc:

@@ -395,6 +395,10 @@ class MetaConfig:
         entry = self._entry_for(settings, filename)
         if hidden:
             entry["hidden"] = True
+            vpinfe = self.data.get(VPINFE_SECTION)
+            names = {entry[TABLE_ID_KEY], entry.get(TABLE_FILENAME_KEY)}
+            if isinstance(vpinfe, dict) and vpinfe.get(DEFAULT_TABLE_KEY) in names:
+                vpinfe.pop(DEFAULT_TABLE_KEY)
         else:
             entry.pop("hidden", None)
             # An entry that only ever carried `hidden` and a name came from a table we
@@ -414,6 +418,8 @@ class MetaConfig:
         wanted = str(table_id or "").strip()
         if wanted and wanted not in entries:
             raise ValueError(f"no table {wanted} in this game")
+        if wanted and entries[wanted].get("hidden") is True:
+            raise ValueError(f"table {wanted} is hidden")
         vpinfe = self.data.setdefault(VPINFE_SECTION, {})
         if wanted:
             vpinfe[DEFAULT_TABLE_KEY] = wanted

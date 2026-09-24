@@ -319,8 +319,9 @@ def delete_table_media(game_id: str, table_id: str, kind: str) -> models.MediaRe
             summary="Offer this table in the frontend, or stop offering it",
             dependencies=[requires(scopes.GAMES_WRITE)])
 def put_table_hidden(game_id: str, table_id: str,
-                     body: models.TableVisibility) -> models.Table:
-    return models.Table(**table_ops.set_hidden(game_id, table_id, body.hidden))
+                     body: models.TableVisibility) -> models.TableHidden:
+    return models.TableHidden.model_validate(
+        table_ops.set_hidden(game_id, table_id, body.hidden))
 
 
 @router.post("/{game_id}/tables/{table_id}/script",

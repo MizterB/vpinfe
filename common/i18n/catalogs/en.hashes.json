@@ -1685,6 +1685,7 @@
   "error.games.guide_not_an_address": "28db4ff11726",
   "error.games.guide_twice": "8b03c8dbe66a",
   "error.games.guide_without_address": "8fb15285bf47",
+  "error.games.hidden_table_not_default": "122a798bc74e",
   "error.games.invalid_game_path": "a235687391a6",
   "error.games.no_app_called_build": "8aeccdf9c352",
   "error.games.no_file": "7c9f05e3cff4",
