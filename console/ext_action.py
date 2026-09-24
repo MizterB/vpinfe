@@ -20,7 +20,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common.i18n import t
+from common.i18n import literal_or, t
 from console import dialog as frame
 from console import offload, panel, verbs
 from console.api import ApiClient
@@ -192,7 +192,7 @@ async def open_action(extension: str, action: dict) -> None:
             close.enable()
             heading.text = t("console.ext_action.what_happened") if job.get("state") == "done" \
                 else t("console.ext_action.not_finish")
-            _report(body, job)
+            _report(body, job, f"ext.{extension}.action.{action.get('key')}")
 
         step_now = {"found": step}
         draw(step)
@@ -269,9 +269,11 @@ def _wait() -> None:
     time.sleep(POLL_SECONDS)
 
 
-def _report(body: Any, job: dict) -> None:
+def _report(body: Any, job: dict, under: str) -> None:
     """What happened, once it has. The counts, and every game that did not come across -
-    an import that says only "done" leaves somebody to find the gaps themselves."""
+    an import that says only "done" leaves somebody to find the gaps themselves.
+
+    `under` is the action's own place in its extension's catalog."""
     body.clear()
     with body:
         if job.get("state") == "failed":
@@ -283,16 +285,17 @@ def _report(body: Any, job: dict) -> None:
         if compared:
             _compare(compared)
         elif result:
-            panel.facts(ui, [(str(key).replace("_", " ").capitalize(), str(value))
+            panel.facts(ui, [(literal_or("", f"{under}.result.{key}", fallback=str(key))[0],
+                              str(value))
                              for key, value in result.items()
                              if isinstance(value, (int, str))])
         held = list(result.get("already_here") or [])
         if held:
             panel.facts(ui, [(panel.HEADING, t("console.ext_action.already", len=len(held)))])
             for row in held[:20]:
-                ui.label(t("console.ext_action.matched",
-                           value=(row.get('name') or row.get('key')),
-                           value2=(row.get('how') or 'name'))).classes("console-help px-3")
+                name = row.get("name") or row.get("key")
+                ui.label(t("console.ext_action.matched", value=name, value2=row["how"])
+                         if row.get("how") else str(name)).classes("console-help px-3")
             if len(held) > 20:
                 ui.label(t("console.ext_action.more",
                         value=(len(held) - 20))).classes("console-help px-3")
@@ -301,8 +304,8 @@ def _report(body: Any, job: dict) -> None:
             panel.facts(ui, [(panel.HEADING,
                               t("console.ext_action.not_come_across", len=len(missed)))])
             for row in missed[:20]:
-                ui.label(f"{row.get('name') or row.get('key')} - {row['error']}") \
-                    .classes("console-help px-3")
+                ui.label(t("console.ext_action.missed", value=(row.get("name") or row.get("key")),
+                           error=row["error"])).classes("console-help px-3")
             if len(missed) > 20:
                 ui.label(t("console.ext_action.more",
                         value=(len(missed) - 20))).classes("console-help px-3")

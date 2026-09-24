@@ -141,6 +141,7 @@ what it declared:
 |---|---|
 | `name`, `description` | The extension, where the manifest leaves them out |
 | `action.<key>.label`, `action.<key>.description` | An action |
+| `action.<key>.result.<field>` | A count its run reports, beside the number |
 | `settings.label`, `state.label` | Its settings and what it is holding. Left out, the Console uses its own |
 | `community.<key>.title` | A Community list |
 | `community.<key>.column.<field>.header`, `...help` | One of its columns |
@@ -152,8 +153,8 @@ Anything else is its own to ask for, `ctx.t("wizard.title")`, and `contract.word
 is the same for a module that is not handed `ctx`.
 
 A key the file does not have falls back to what the thing was declared by: an action to
-its key, a column to its field. A word handed over in code, `title="VPinPlay"`, is shown as
-written in every language, which is for a product name.
+its key, a column or a count to its field. A word handed over in code, `title="VPinPlay"`,
+is shown as written in every language, which is for a product name.
 
 The file is served under `ext.<name>.`, so an extension adds words and never changes one of
 core's. `scripts/i18n.py` reads a bundled extension's file along with core's, and

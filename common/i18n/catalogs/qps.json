@@ -518,6 +518,7 @@
   "console.devices.why_not.updating_place_not_built": "Ûþđàţîñĝ îñ þŀàçè îš ñöţ ƀûîŀţ ƒöř ţĥîš þŀàţƒöřɱ.",
   "console.ext_action.already": "Àŀřèàđý ĥèřè ({len})",
   "console.ext_action.matched": "{value} - ɱàţçĥèđ ƀý {value2}",
+  "console.ext_action.missed": "{value} - {error}",
   "console.ext_action.more": "àñđ {value} ɱöřè",
   "console.ext_action.not_come_across": "Đîđ ñöţ çöɱè àçřöšš ({len})",
   "console.ext_action.not_finish": "Îţ đîđ ñöţ ƒîñîšĥ",

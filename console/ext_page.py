@@ -190,23 +190,24 @@ def _row(client: Any, base: str, row: dict, redraw: Callable[[], Awaitable[None]
 # What a scope or capability is called on screen. The wire says `games:write`; a person
 # reading a consent list should not have to work out what that lets somebody do.
 PLAINLY = {
-    "games:read": t("console.ext_page.read_library"),
-    "games:write": t("console.ext_page.add_change_games"),
-    "filesystem:read": t("console.ext_page.read_folders_point"),
-    "ui:mount": t("console.ext_page.add_page_console"),
-    "config:own": t("console.ext_page.keep_own_settings"),
-    "net:outbound": t("console.ext_page.reach_internet"),
-    "proc:spawn": t("console.ext_page.run_other_programs"),
-    "hardware:usb": t("console.ext_page.talk_usb_devices"),
-    "fs:read": t("console.ext_page.read_files"),
-    "fs:write": t("console.ext_page.write_files"),
+    "games:read": "console.ext_page.read_library",
+    "games:write": "console.ext_page.add_change_games",
+    "filesystem:read": "console.ext_page.read_folders_point",
+    "ui:mount": "console.ext_page.add_page_console",
+    "config:own": "console.ext_page.keep_own_settings",
+    "net:outbound": "console.ext_page.reach_internet",
+    "proc:spawn": "console.ext_page.run_other_programs",
+    "hardware:usb": "console.ext_page.talk_usb_devices",
+    "fs:read": "console.ext_page.read_files",
+    "fs:write": "console.ext_page.write_files",
 }
 
 
 def _plainly(name: str) -> str:
     """Its own name is the fallback, never a guess: an unknown scope shown as prose
     somebody invented is worse than one shown as it is."""
-    return PLAINLY.get(name, name)
+    key = PLAINLY.get(name)
+    return t(key) if key else name
 
 
 def _reach(extension: dict) -> None:

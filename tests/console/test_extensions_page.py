@@ -7,11 +7,17 @@ somebody set is not the word for something that broke.
 
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from nicegui import ui
+
+from common import i18n
 from common.extensions import host
-from console import sections
+from console import ext_action, ext_page, sections
 
 
 class StateWordTests(unittest.TestCase):
@@ -56,6 +62,57 @@ class FrontDoorTests(unittest.TestCase):
         actions = source[source.index("def _actions"):]
 
         self.assertIn("tooltip", actions)
+
+
+class LanguageTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.addCleanup(i18n.set_language, i18n.language())
+
+    def test_what_a_scope_allows_is_read_in_the_language_set(self) -> None:
+        english = ext_page._plainly("games:read")
+        i18n.set_language("qps")
+
+        self.assertNotEqual(english, ext_page._plainly("games:read"))
+
+    def test_a_scope_nobody_described_is_shown_as_it_is(self) -> None:
+        self.assertEqual("games:teleport", ext_page._plainly("games:teleport"))
+
+
+def _said(job: dict, under: str = "ext.sample.action.run") -> list[str]:
+    with ui.column() as body:
+        ext_action._report(body, job, under)
+    return [one.text for one in body.descendants() if isinstance(one, ui.label)]
+
+
+class ReportTests(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        (Path(folder.name) / "en.json").write_text(
+            json.dumps({"action.run.result.games": "Games made"}), encoding="utf-8")
+        i18n.own("ext.sample", Path(folder.name))
+        self.addCleanup(i18n.disown, "ext.sample")
+        self.addCleanup(i18n.set_language, i18n.language())
+
+    def test_a_count_is_titled_by_its_extension(self) -> None:
+        self.assertIn("Games made", _said({"state": "done", "result": {"games": 3}}))
+
+    def test_a_count_with_no_word_is_titled_by_its_field(self) -> None:
+        self.assertIn("games_skipped",
+                      _said({"state": "done", "result": {"games_skipped": 1}}))
+
+    def test_a_row_that_does_not_say_how_it_matched_is_named_alone(self) -> None:
+        said = _said({"state": "done",
+                      "result": {"already_here": [{"key": "k", "name": "Kiss"}]}})
+
+        self.assertIn("Kiss", said)
+
+    def test_a_row_that_did_not_come_across_is_worded_by_the_catalog(self) -> None:
+        with mock.patch.object(ext_action, "t", side_effect=lambda key, **_values: key):
+            said = _said({"state": "done",
+                          "result": {"rows": [{"name": "Kiss", "error": "no table"}]}})
+
+        self.assertIn("console.ext_action.missed", said)
 
 
 if __name__ == "__main__":

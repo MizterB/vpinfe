@@ -518,6 +518,7 @@
   "console.devices.why_not.updating_place_not_built": "Updating in place is not built for this platform.",
   "console.ext_action.already": "Already here ({len})",
   "console.ext_action.matched": "{value} - matched by {value2}",
+  "console.ext_action.missed": "{value} - {error}",
   "console.ext_action.more": "and {value} more",
   "console.ext_action.not_come_across": "Did not come across ({len})",
   "console.ext_action.not_finish": "It did not finish",
