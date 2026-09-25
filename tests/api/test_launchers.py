@@ -453,6 +453,19 @@ class SwitchingOffTests(unittest.TestCase):
 
         self.assertEqual(self._fallback("wide")["tables"], 2)
 
+    def test_the_list_counts_what_each_plays(self) -> None:
+        self.store.assign("t1", "plain")
+
+        self.assertEqual(self.client.get("/launchers").json()["tables"],
+                         {"wide": 2, "plain": 1})
+
+    def test_a_switched_off_one_plays_none(self) -> None:
+        self.store.assign("t1", "plain")
+        self._put("plain", display_name="VPX Plain", bin_path="/opt/plain", enabled=False)
+
+        self.assertEqual(self.client.get("/launchers").json()["tables"],
+                         {"wide": 3, "plain": 0})
+
     def test_one_pointed_at_a_launcher_that_is_not_the_default_is(self) -> None:
         self.store.assign("t1", "plain")
 

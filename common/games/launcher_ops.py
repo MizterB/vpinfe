@@ -11,6 +11,7 @@ what a Visual Pinball launcher happens to hold.
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from collections.abc import Callable, Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -89,12 +90,17 @@ def listing() -> dict[str, Any]:
     """
     store = launchers.get_launcher_store()
     held = store.launchers()
+    mappings = store.mappings()
+    plays = Counter(getattr(launchers.launcher_for_entry(app_id, table_id, held, mappings),
+                            "launcher_id", "")
+                    for app_id, table_id in _library_tables())
     return {
         "launchers": [_described(one) for one in held],
-        "mappings": store.mappings(),
+        "mappings": mappings,
         "defaults": {app.id: getattr(launchers.default_for(app.id, held),
                                      "launcher_id", None)
                      for app in apps.all_apps()},
+        "tables": {one.launcher_id: plays[one.launcher_id] for one in held},
         "apps": [{"id": app.id, "name": apps.app_name(app.id),
                   "suffixes": list(app.claim.suffixes)}
                  for app in apps.all_apps()],

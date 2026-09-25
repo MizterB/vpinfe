@@ -51,32 +51,52 @@ class StateTests(unittest.TestCase):
             launchers.state_of(_launcher(enabled=False, bin_path=(path_checks.UNSET, ""))),
             launchers.STATE_NO_PROGRAM)
 
-    def test_a_missing_program_cannot_run(self) -> None:
+    def test_a_program_not_at_its_path_is_missing(self) -> None:
         self.assertEqual(
             launchers.state_of(_launcher(bin_path=(path_checks.MISSING, "Not there"))),
-            launchers.STATE_BROKEN)
+            launchers.STATE_MISSING)
+
+    def test_a_settings_file_not_there_is_not_the_rows_state(self) -> None:
+        """Said at its field. The row's state is whether the program can start."""
+        self.assertEqual(
+            launchers.state_of(_launcher(bin_path=(path_checks.OK, ""),
+                                         ini_path=(path_checks.MISSING, "Not there"))),
+            launchers.STATE_READY)
 
     def test_a_switched_off_launcher_says_so(self) -> None:
         self.assertEqual(
             launchers.state_of(_launcher(enabled=False, bin_path=(path_checks.OK, ""))),
             launchers.STATE_OFF)
 
-    def test_a_broken_program_outranks_being_switched_off(self) -> None:
-        """Switched off is a choice somebody made. A program that is not there is a
-        launcher that cannot run, and it is the one to say when a row is both."""
+    def test_a_missing_program_outranks_being_switched_off(self) -> None:
+        """Switched off is a choice somebody made."""
         self.assertEqual(
             launchers.state_of(_launcher(enabled=False,
                                          bin_path=(path_checks.MISSING, "Not there"))),
-            launchers.STATE_BROKEN)
-
-    def test_the_reason_names_the_field_a_person_would_look_for(self) -> None:
-        said = list(launchers._broken(
-            _launcher(bin_path=(path_checks.MISSING, "Nothing is at that path"))))
-
-        self.assertEqual(said, ["Program: Nothing is at that path"])
+            launchers.STATE_MISSING)
 
 
 class RowTests(unittest.TestCase):
+    def test_a_ready_launcher_says_nothing(self) -> None:
+        rows = launchers.rows([_launcher(bin_path=(path_checks.OK, ""))], {})
+
+        self.assertEqual(rows[0]["state"], "")
+
+    def test_an_exception_is_said(self) -> None:
+        rows = launchers.rows([_launcher(bin_path=(path_checks.UNSET, ""))], {})
+
+        self.assertEqual(rows[0]["state"], "No Program")
+
+    def test_a_row_counts_the_tables_it_plays(self) -> None:
+        rows = launchers.rows([_launcher(bin_path=(path_checks.OK, ""))], {}, {"l1": 12})
+
+        self.assertEqual(rows[0]["tables"], 12)
+
+    def test_and_none_where_nothing_is_counted(self) -> None:
+        rows = launchers.rows([_launcher(bin_path=(path_checks.OK, ""))], {})
+
+        self.assertEqual(rows[0]["tables"], 0)
+
     def test_the_default_is_marked_on_the_one_it_applies_to(self) -> None:
         """A column that says the same thing on every row but one is a column about the
         exception."""

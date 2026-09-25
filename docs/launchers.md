@@ -79,3 +79,5 @@ A table assigned to a disabled launcher **falls back** to the default for its ap
 ## The Console
 
 Launchers is a subject under Frontend, beside Themes. Both are gated on the `frontend` feature, so an install without it shows neither. It is not a group in Settings, because Settings is label-and-value pairs and a launcher is an object to manage.
+
+The grid says how many tables each launcher plays (`tables` on `GET /launchers`, counted through `launcher_for_entry`), and a state only where one cannot play them: *No Program*, *Program Missing* or *Switched Off*. A ready launcher's state is blank.

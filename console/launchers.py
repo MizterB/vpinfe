@@ -7,15 +7,15 @@ and that is more inside one object than anything else in the Console holds. A se
 is how the Console shows what is inside one thing, and without one the seven fields
 somebody actually came to change sit at the top of a thousand-row scroll.
 
-The grid answers the one question a list of launchers has: which of these can actually
-run a table. It knows because each row carries what the disk made of the program it
-names.
+The grid answers how many tables each launcher plays, and says a state only on the ones
+that cannot play them. It knows because each row carries what the disk made of the
+program it names.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 from nicegui import run, ui
@@ -30,69 +30,62 @@ logger = logging.getLogger("vpinfe.console.launchers")
 
 SCOPE = "console.launchers.columns"
 
-STATE_READY = "word.ready"
+STATE_READY = ""
 STATE_OFF = "console.launchers.switched_off"
-STATE_BROKEN = "console.launchers.cannot_run"
+STATE_MISSING = "console.launchers.program_missing"
 STATE_NO_PROGRAM = "console.launchers.no_program"
 
 _STATE_CHOICES = [{"value": one, "label": one}
-                  for one in (t(STATE_READY), t(STATE_OFF), t(STATE_NO_PROGRAM),
-                              t(STATE_BROKEN))]
+                  for one in (t(STATE_NO_PROGRAM), t(STATE_MISSING), t(STATE_OFF))]
+
+_NUMERIC: dict[str, Any] = {"type": "numericColumn", "filter": "agNumberColumnFilter"}
 
 COLUMNS: list[dict[str, Any]] = [
-    grid.identifier("name", t("word.name"), 240, pinned="left"),
-    grid.column("app", t("word.runs"), 180,
-                help=t("console.launchers.program_behind_says_something.help")),
+    grid.identifier("name", t("word.name"), 240, pinned="left", subtitle="app"),
+    grid.column("tables", t("console.launchers.tables"),
+                help=t("console.launchers.tables.help"), **_NUMERIC),
     grid.column("state", t("word.state"), 150, **grid.choice_filter(_STATE_CHOICES),
                 help=t("console.launchers.ready_switched_program_cannot.help")),
     grid.column("default", t("word.default"), 110,
                 help=t("console.launchers.tables_name_no_launcher.help")),
+    grid.column("app", t("word.runs"), 180),
     grid.column("program", t("word.program"), 420,
                 help=t("console.launchers.executable_launcher_runs.help")),
 ]
 
 LAUNCHER_VIEWS: dict[str, list[str] | views.Preset] = {
     "console.view.overview": views.Preset(
-        columns=("name", "app", "state", "default", "program"),
+        columns=("name", "tables", "state", "default"),
         help=t("console.view.launchers.help")),
 }
 
 
-def _broken(one: dict) -> Iterator[str]:
-    """Every path this launcher names that the disk cannot answer for."""
+def _program_check(one: dict) -> str:
+    """What the disk made of the program it names, or "" where its app names none."""
     checks = one.get("checks") or {}
-    labels = {field["key"]: field["label"] for field in one.get("fields") or []}
-    for key, found in checks.items():
-        state = str(found.get("state") or "")
-        if state in ("", path_checks.OK, path_checks.UNSET):
-            continue
-        yield f"{labels.get(key, key)}: {found.get('reason') or state}"
-
-
-def _names_no_program(one: dict) -> bool:
-    checks = one.get("checks") or {}
-    return any(field.get("path") == "exe"
-               and (checks.get(field["key"]) or {}).get("state") == path_checks.UNSET
-               for field in one.get("fields") or [])
+    return next((str((checks.get(field["key"]) or {}).get("state") or "")
+                 for field in one.get("fields") or [] if field.get("path") == "exe"), "")
 
 
 def state_of(one: dict) -> str:
-    """The worse fact wins. Switched off is a choice somebody made; a program that is
-    not there is a launcher that cannot run, and it is the one to say when a row is
-    both."""
-    if next(iter(_broken(one)), ""):
-        return STATE_BROKEN
-    if _names_no_program(one):
+    """The worse fact wins. Switched off is a choice somebody made; a launcher with no
+    program to run is the one to say when a row is both."""
+    program = _program_check(one)
+    if program == path_checks.UNSET:
         return STATE_NO_PROGRAM
+    if program not in ("", path_checks.OK):
+        return STATE_MISSING
     return STATE_READY if one.get("enabled") else STATE_OFF
 
 
-def rows(held: list[dict], defaults: dict) -> list[dict[str, Any]]:
+def rows(held: list[dict], defaults: dict,
+         plays: dict[str, int] | None = None) -> list[dict[str, Any]]:
     return [{
         "id": one["launcher_id"],
         "name": one["display_name"],
+        "tables": int((plays or {}).get(one["launcher_id"]) or 0),
         "app": one["app_name"],
-        "state": t(state_of(one)),
+        "state": t(found) if (found := state_of(one)) else "",
         # Blank on every other row rather than "No": a column that says the same thing
         # everywhere but once is a column about the exception.
         "default": t("word.default") if defaults.get(one["app"]) ==
@@ -128,7 +121,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
 
     held = list(found.get("launchers") or [])
     apps_known = list(found.get("apps") or [])
-    built = rows(held, dict(found.get("defaults") or {}))
+    built = rows(held, dict(found.get("defaults") or {}), dict(found.get("tables") or {}))
     fields = [definition["field"] for definition in COLUMNS]
 
     with body:
@@ -182,7 +175,8 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
             by_launcher.clear()
             by_launcher.update({one["launcher_id"]: one for one in fresh_held})
             grid.replace_rows(table, built, by_id,
-                              rows(fresh_held, dict(again.get("defaults") or {})),
+                              rows(fresh_held, dict(again.get("defaults") or {}),
+                                   dict(again.get("tables") or {})),
                               lambda _row: True)
 
         state["refresh_launchers"] = refresh_launchers
