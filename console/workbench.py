@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from functools import partial
 from itertools import groupby
 from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
 from typing import Any
 from urllib.parse import urlencode, urlparse
 
@@ -79,7 +80,7 @@ from console import locations as locations_page
 from console import settings as settings_page
 from console import themes as themes_page
 from console.api import ApiError
-from console.data import Library, read_state, tag_source
+from console.data import Library, config_groups, read_state, tag_source
 
 logger = logging.getLogger("vpinfe.console.workbench")
 
@@ -720,13 +721,14 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
     if game is None:
         _blank(container, title, heading, t("console.page.not_library"))
         return
-    found = _same_file(await offload.io(library.files_of, "media" if media else "asset",
-                                        game_id), row)
+    files = await offload.io(library.files_of, "media" if media else "asset", game_id)
+    found = _same_file(files, row)
     if found is None:
         _blank(container, title, heading, t("console.page.no_longer_library"))
         return
     tables = await offload.io(library.tables_for, game_id)
     table_id = str(found.get("table") or "")
+    settings = None if media else await _file_settings(library, found, files, tables)
     container.clear()
     title.clear()
     with container:
@@ -741,6 +743,9 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
             context, f"file:{found.get('id')}",
             lambda: build_file(container, title, library, found, state, family),
             refresh_with="refresh_files")
+        if settings is not None:
+            context["file_settings"] = {**settings, "state": state,
+                                        "rebuild": context["rebuild"]}
         await _rail(context, "media_file" if media else "asset_file", state)
 
 
@@ -870,6 +875,66 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                         .classes("console-help")
                 _outside_lines(links)
         _asset_actions(context, kind, label, present, path, tier, detail)
+
+
+def _served(row: dict[str, Any], files: Sequence[dict[str, Any]],
+            tables: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The tables a file is the one used by: its own table, or each the game's file
+    serves that has no file of that kind of its own."""
+    if not row.get("present") or row.get("binding") not in ("table", "game"):
+        return []
+    if row.get("binding") == "table":
+        return [one for one in tables if one.get("id") == row.get("table")]
+    own = {one.get("table") for one in files
+           if one.get("kind") == row.get("kind") and one.get("binding") == "table"}
+    return [one for one in tables if one.get("id") not in own]
+
+
+async def _file_settings(library: Library, row: dict[str, Any],
+                         files: Sequence[dict[str, Any]],
+                         tables: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    """What a file's Settings section draws from: the program settings its table's
+    launcher ties to the file's kind, read at that table. None where it has none."""
+    served = _served(row, files, tables)
+    if len(served) != 1 or not served[0].get("launcher_app_configurable"):
+        return None
+    table, kind = served[0], str(row.get("kind") or "")
+    listing = await offload.io(_launchers_for_panel, library)
+    launcher = next((one for one in listing.get("launchers") or []
+                     if one["launcher_id"] == table.get("launcher")), None)
+    if (launcher is None or not launcher.get("has_config")
+            or _program_state(launcher) != path_checks.OK):
+        return None
+    table_id = str(table.get("id") or "")
+    try:
+        found = await offload.io(library.launcher_config, launcher["launcher_id"],
+                                 table_id, "entry")
+    except Exception:  # noqa: BLE001 - the file's panel draws without its settings
+        logger.debug("No settings for %s", table_id, exc_info=True)
+        return None
+    groups = config_groups(found)
+    tied = [SimpleNamespace(settings=group.settings,
+                            curated=[one for one in group.curated if kind in one.kinds])
+            for group in groups]
+    tied = [group for group in tied if group.curated]
+    if not tied:
+        return None
+    return {"library": library, "launcher": launcher, "config_groups": groups,
+            "config_values": dict(found.get("values") or {}), "config_scope": "entry",
+            "config_table": table_id, "tied": tied,
+            "playing": await offload.io(_playing, library)}
+
+
+async def _file_settings_block(context: dict[str, Any]) -> None:
+    inner = context["file_settings"]
+    values = await _config_values(inner)
+    shown = [block for group in inner["tied"] for block in curated_blocks(group, values)]
+    entries = await _setting_entries(
+        inner, [(heading.label, heading.note, fields) for heading, fields in shown],
+        curated=True, redraw_on={heading.enabled_by for heading, _ in shown},
+        pairs=[pair for heading, _ in shown for pair in heading.pairs])
+    with ui.column().classes("gap-0 console-form"):
+        _rows(ui, entries)
 
 
 # The kinds VPX finds by name, which a file can be placed as and removed from.
@@ -6481,6 +6546,9 @@ SECTIONS: tuple[Section, ...] = (
             _tag_games, subjects=frozenset({"tag"})),
     Section("asset_file", lambda _: t("word.file"), _asset_file_block,
             subjects=frozenset({"asset_file"})),
+    Section("asset_settings", lambda _: t("console.workbench.table_settings"),
+            _file_settings_block, subjects=frozenset({"asset_file"}),
+            shown=lambda context: "file_settings" in context),
     # A device, in reading order: what it is, what it is running, what it can be asked
     # for, what it has written down, and what it can be told to do. Its settings are not
     # here at all - they are a door in Details into that install's own Console, because a

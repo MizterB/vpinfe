@@ -198,6 +198,9 @@ class Heading:
     rivals: tuple[str, ...] = ()
     # Each pair's keys are two of `keys`.
     pairs: tuple[Pair, ...] = ()
+    # Core's asset kinds these settings are about. A file of one of them draws the
+    # heading too, at the table the file is for.
+    kinds: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -669,6 +669,90 @@ class TableSettingsTitleTests(unittest.TestCase):
         self.assertIsNone(app_settings.shared_note({"shared_with_game": True}, 1))
 
 
+class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
+    """A backglass file's panel has the settings of the one table it is the backglass of."""
+
+    TABLES = [{"id": "t1", "launcher": "l1", "launcher_app_configurable": True},
+              {"id": "t2", "launcher": "l1", "launcher_app_configurable": True}]
+    WIRE = {"groups": [{"key": "plugins", "label": "Plugins", "settings": [], "curated": [
+        {"key": "B2S", "label": "B2S", "keys": ["Plugin.B2S.Enable"], "kinds": ["backglass"]},
+        {"key": "PinMAME", "label": "PinMAME", "keys": ["Plugin.PinMAME.Enable"]}]}],
+        "values": {}}
+
+    def _file(self, binding: str = "table", table: str = "t1", *,
+              present: bool = True) -> dict:
+        return {"kind": "backglass", "binding": binding, "table": table, "present": present}
+
+    def _served(self, row: dict, *others: dict) -> list[str]:
+        return [one["id"] for one in workbench._served(row, [row, *others], self.TABLES)]
+
+    async def _settings(self, row: dict, tables=None, *, state: str = path_checks.OK,
+                        has_config: bool = True) -> tuple[dict | None, Mock]:
+        library = Mock()
+        library.launchers.return_value = {"launchers": [
+            {**_launcher(state, has_config=has_config), "launcher_id": "l1"}]}
+        library.launcher_config.return_value = self.WIRE
+        library.play_state.return_value = {}
+        self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock(
+            side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
+        found = await workbench._file_settings(library, row, [row], tables or self.TABLES[:1])
+        return found, library
+
+    def test_a_table_s_own_file_is_that_table_s(self) -> None:
+        self.assertEqual(self._served(self._file()), ["t1"])
+
+    def test_the_game_s_file_is_each_table_s_that_has_none_of_its_own(self) -> None:
+        shared = self._file("game", "")
+
+        self.assertEqual(self._served(shared), ["t1", "t2"])
+        self.assertEqual(self._served(shared, self._file(table="t2")), ["t1"])
+
+    def test_a_file_that_is_missing_or_serves_nothing_is_nobody_s(self) -> None:
+        self.assertEqual(self._served(self._file(present=False)), [])
+        self.assertEqual(self._served(self._file("orphaned", "")), [])
+
+    async def test_it_holds_only_the_headings_about_its_kind(self) -> None:
+        found, library = await self._settings(self._file())
+
+        assert found is not None
+        self.assertEqual([[h.key for h in g.curated] for g in found["tied"]], [["B2S"]])
+        self.assertEqual((found["config_scope"], found["config_table"]), ("entry", "t1"))
+        library.launcher_config.assert_called_once_with("l1", "t1", "entry")
+
+    async def test_a_file_several_tables_use_has_none(self) -> None:
+        found, library = await self._settings(self._file("game", ""), self.TABLES)
+
+        self.assertIsNone(found)
+        library.launcher_config.assert_not_called()
+
+    async def test_nor_where_the_launcher_cannot_show_them(self) -> None:
+        for state, has_config in ((path_checks.MISSING, True), (path_checks.OK, False)):
+            with self.subTest(state=state, has_config=has_config):
+                found, _ = await self._settings(self._file(), state=state,
+                                                has_config=has_config)
+                self.assertIsNone(found)
+
+    async def test_nor_where_no_heading_is_about_its_kind(self) -> None:
+        found, _ = await self._settings({**self._file(), "kind": "wheel"})
+
+        self.assertIsNone(found)
+
+    def test_it_follows_the_file_and_only_where_there_are_some(self) -> None:
+        keys = [s.key for s in workbench.sections_for("asset_file")]
+        section = next(s for s in workbench.sections_for("asset_file")
+                       if s.key == "asset_settings")
+
+        self.assertEqual(keys[keys.index("asset_file") + 1], "asset_settings")
+        assert section.shown is not None
+        self.assertFalse(section.shown({}))
+        self.assertTrue(section.shown({"file_settings": {}}))
+
+    def test_kinds_travel_with_their_heading(self) -> None:
+        groups = data.config_groups(self.WIRE)
+
+        self.assertEqual([h.kinds for h in groups[0].curated], [("backglass",), ()])
+
+
 class TableRailTests(unittest.TestCase):
     def test_a_table_s_settings_follow_the_table(self) -> None:
         keys = [s.key for s in workbench.sections_for("table")]

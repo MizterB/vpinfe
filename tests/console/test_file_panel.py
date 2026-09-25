@@ -68,10 +68,11 @@ class TheLineUnderIt(unittest.TestCase):
 
 class ItsOwnRail(unittest.TestCase):
     def test_a_file_is_answered_by_file_alone(self) -> None:
-        for subject in ("media_file", "asset_file"):
+        for subject, keys in (("media_file", ["media_file"]),
+                              ("asset_file", ["asset_file", "asset_settings"])):
             with self.subTest(subject=subject):
-                self.assertEqual([subject], [item.key
-                                             for item in workbench.sections_for(subject)])
+                self.assertEqual(keys, [item.key
+                                        for item in workbench.sections_for(subject)])
 
 
 class _Grid:

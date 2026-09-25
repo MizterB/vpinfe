@@ -55,6 +55,19 @@ CURATED: dict[str, tuple[Heading, ...]] = {
     ),
 }
 
+
+def _dmd(prefix: str) -> tuple[str, ...]:
+    return (f"{prefix}BackglassDMDOverlay", f"{prefix}BackglassDMDAutoPos",
+            *(f"{prefix}BackglassDMD{part}" for part in "XYWH"),
+            f"{prefix}ScoreViewDMDOverlay", f"{prefix}ScoreViewDMDAutoPos")
+
+
+def _dmd_pairs(plugin: str) -> tuple[Pair, ...]:
+    prefix = f"Plugin.{plugin}.BackglassDMD"
+    return (Pair("dmd_position", (f"{prefix}X", f"{prefix}Y")),
+            Pair("dmd_size", (f"{prefix}W", f"{prefix}H")))
+
+
 # The plugins the catalog has words for, and each one's rows after its Enable. A plugin
 # not named here shows Enable alone.
 PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
@@ -63,15 +76,9 @@ PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
     "FlexDMD": (),
     "RemoteControl": (),
     "WMP": (),
-    "B2S": ("Plugin.B2S.ShowGrill",
-            "Plugin.B2S.BackglassDMDOverlay", "Plugin.B2S.BackglassDMDAutoPos",
-            "Plugin.B2S.ScoreViewDMDOverlay", "Plugin.B2S.ScoreViewDMDAutoPos"),
+    "B2S": ("Plugin.B2S.ShowGrill", *_dmd("Plugin.B2S.")),
     "B2SLegacy": ("Plugin.B2SLegacy.B2SHideGrill", "Plugin.B2SLegacy.B2SHideB2SDMD",
-                  "Plugin.B2SLegacy.B2SHideDMD",
-                  "Plugin.B2SLegacy.BackglassDMDOverlay",
-                  "Plugin.B2SLegacy.BackglassDMDAutoPos",
-                  "Plugin.B2SLegacy.ScoreViewDMDOverlay",
-                  "Plugin.B2SLegacy.ScoreViewDMDAutoPos"),
+                  "Plugin.B2SLegacy.B2SHideDMD", *_dmd("Plugin.B2SLegacy.")),
     "ScoreView": ("Plugin.ScoreView.LayoutFolder",),
     "PinMAME": ("Plugin.PinMAME.Sound", "Plugin.PinMAME.PinMAMEPath"),
     "AltSound": ("Plugin.AltSound.Folder",),
@@ -88,6 +95,13 @@ NOT_PLUGINS = frozenset({"HelloScript", "HelloWorld", "Inspector"})
 
 # Plugins a table gets only one of while both are on.
 RIVALS: dict[str, tuple[str, ...]] = {"B2S": ("B2SLegacy",), "B2SLegacy": ("B2S",)}
+
+PLUGIN_PAIRS: dict[str, tuple[Pair, ...]] = {plugin: _dmd_pairs(plugin)
+                                             for plugin in ("B2S", "B2SLegacy")}
+
+# The asset kinds a plugin's settings are about.
+PLUGIN_KINDS: dict[str, tuple[str, ...]] = {"B2S": ("backglass",),
+                                            "B2SLegacy": ("backglass",)}
 
 # Keys of `[Player]` by the page of the program's menu that holds them. The view mode and
 # autofit sit on its Graphic page, and are here because they are about the screen.
@@ -197,7 +211,10 @@ def plugin_headings(offered: set[str],
                 label=said.name if said.name != plugin else "",
                 description=said.description if said.description != said.name else "",
                 rivals=tuple(f"Plugin.{other}.Enable" for other in RIVALS.get(plugin, ()))
-                if switched else ()))
+                if switched else (),
+                pairs=tuple(pair for pair in PLUGIN_PAIRS.get(plugin, ())
+                            if set(pair.keys) <= set(keys)),
+                kinds=PLUGIN_KINDS.get(plugin, ())))
     return tuple(sorted(found, key=lambda one: plugin_order(one.key, installed)))
 
 

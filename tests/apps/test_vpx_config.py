@@ -390,6 +390,29 @@ class AreaTests(_Case):
 
         self.assertEqual((heading.enabled_by, heading.rivals), ("", ()))
 
+    def test_a_backglass_renderer_is_about_the_backglass_and_pairs_its_dmd_box(self) -> None:
+        prefix = "Plugin.B2SLegacy.BackglassDMD"
+        heading, = areas.plugin_headings({"Plugin.B2SLegacy.Enable",
+                                          *(f"{prefix}{part}" for part in "XYWH")})
+
+        self.assertEqual(heading.kinds, ("backglass",))
+        self.assertEqual([(pair.key, pair.keys) for pair in heading.pairs],
+                         [("dmd_position", (f"{prefix}X", f"{prefix}Y")),
+                          ("dmd_size", (f"{prefix}W", f"{prefix}H"))])
+        self.assertTrue(all(areas.is_curated(f"{prefix}{part}") for part in "XYWH"))
+
+    def test_a_dmd_pair_the_file_holds_half_of_is_left_out(self) -> None:
+        heading, = areas.plugin_headings({"Plugin.B2S.Enable", "Plugin.B2S.BackglassDMDX",
+                                          "Plugin.B2S.BackglassDMDY",
+                                          "Plugin.B2S.BackglassDMDW"})
+
+        self.assertEqual([pair.key for pair in heading.pairs], ["dmd_position"])
+
+    def test_any_other_plugin_is_about_no_file(self) -> None:
+        heading, = areas.plugin_headings({"Plugin.PinMAME.Enable"})
+
+        self.assertEqual((heading.kinds, heading.pairs), ((), ()))
+
     def test_the_plugins_rows_follow_their_headings_each_in_the_file_s_order(self) -> None:
         self.assertEqual([f.key for f in self.groups[areas.PLUGINS].settings],
                          ["Plugin.FlexDMD.Enable", "Plugin.PinMAME.Enable",

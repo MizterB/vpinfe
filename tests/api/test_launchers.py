@@ -5,18 +5,22 @@ copied to a cabinet lands without being renumbered, and renumbering would break 
 mapping that travelled with it.
 """
 
+import asyncio
 import configparser
 import os
 import pathlib
 import unittest
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
 import httpapi
 from common.games import launcher_migration, launchers
+from console import app_settings, data, workbench
+from console.api import ApiClient
 
 
 def _client() -> TestClient:
@@ -477,6 +481,126 @@ class BackglassPluginAtATableTests(_TableCase):
                 file.read(self.beside)
                 self.assertEqual(file["Plugin.B2S"][key.rsplit(".", 1)[-1]], value)
 
+    def test_its_heading_is_about_the_backglass_and_pairs_the_dmd_box(self) -> None:
+        got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
+        plugins = {g["key"]: g for g in got.json()["groups"]}["plugins"]
+        b2s, = plugins["curated"]
+
+        self.assertEqual(b2s["kinds"], ["backglass"])
+        self.assertEqual([(p["label"], p["joiner"], p["keys"]) for p in b2s["pairs"]], [
+            ("DMD Position", ",", ["Plugin.B2S.BackglassDMDX", "Plugin.B2S.BackglassDMDY"]),
+            ("DMD Size", "×", ["Plugin.B2S.BackglassDMDW", "Plugin.B2S.BackglassDMDH"])])
+        self.assertTrue(set(self.VALUES) <= set(b2s["keys"]))
+
+
+class _Wire:
+    """The Console's HTTP session, answered by the API in this process."""
+
+    def __init__(self, client: TestClient, base: str) -> None:
+        self._client, self._base = client, base
+
+    def _send(self, method: str, url: str, **kwargs: Any) -> Any:
+        kwargs.pop("timeout", None)
+        response = self._client.request(method, url.removeprefix(self._base), **kwargs)
+        response.ok = response.is_success
+        return response
+
+    def get(self, url: str, **kwargs: Any) -> Any:
+        return self._send("GET", url, **kwargs)
+
+    def put(self, url: str, **kwargs: Any) -> Any:
+        return self._send("PUT", url, **kwargs)
+
+
+async def _off_the_loop(callback: Any, *args: Any, **kwargs: Any) -> Any:
+    return await asyncio.to_thread(callback, *args, **kwargs)
+
+
+class BackglassPanelTests(_TableCase, unittest.IsolatedAsyncioTestCase):
+    """The backglass file's Settings and the table's Settings are one value each: what
+    either writes, the other shows as the table's."""
+
+    BACKGLASS = {"kind": "backglass", "binding": "table", "table": "t1", "present": True}
+    TABLE = {"id": "t1", "launcher": "l1", "launcher_app_configurable": True}
+    X = "Plugin.B2S.BackglassDMDX"
+
+    def setUp(self) -> None:
+        super().setUp()
+        program = pathlib.Path(self.tmp.name, "vpx", "VPinballX_GL")
+        program.parent.mkdir()
+        program.touch(mode=0o755)
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n" + "".join(
+            f"{key.rsplit('.', 1)[-1]} = \n" for key in BackglassPluginAtATableTests.VALUES))
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": str(program), "ini_path": str(app_ini)}})
+        api = ApiClient("http://testserver")
+        api._session = _Wire(self.client, "http://testserver/api/v1")  # type: ignore[assignment]
+        self.library = data.Library(api)
+        self.enterContext(patch.object(workbench.run, "io_bound", new=_off_the_loop))
+
+    async def _panel(self) -> tuple[Any, Any]:
+        context = await workbench._file_settings(self.library, self.BACKGLASS,
+                                                 [self.BACKGLASS], [self.TABLE])
+        assert context is not None
+        context["rebuild"] = AsyncMock()
+        with patch.object(workbench, "ui"), patch.object(workbench, "_rows"), \
+                patch.object(workbench.settings_page, "control_for") as control_for, \
+                patch.object(workbench, "_marked") as marked:
+            await workbench._file_settings_block({"file_settings": context})
+        return control_for, marked
+
+    async def _at_the_table(self) -> dict[str, Any]:
+        return await asyncio.to_thread(self.library.launcher_config, "l1", "t1", "entry")
+
+    async def test_each_is_written_from_the_panel_and_read_back_by_the_table(self) -> None:
+        control_for, _ = await self._panel()
+        saves = {call.args[0]["key"]: call.args[2] for call in control_for.call_args_list}
+
+        for key, value in BackglassPluginAtATableTests.VALUES.items():
+            with self.subTest(key=key):
+                self.assertTrue(await saves[key](value))
+
+                held = (await self._at_the_table())["values"][key]
+                self.assertEqual((held["value"], held["set_here"]), (value, True))
+                file = configparser.ConfigParser(interpolation=None)
+                file.optionxform = str  # type: ignore[assignment,method-assign]
+                file.read(self.beside)
+                self.assertEqual(file["Plugin.B2S"][key.rsplit(".", 1)[-1]], value)
+
+    async def test_a_value_set_here_is_listed_in_the_table_s_settings(self) -> None:
+        control_for, _ = await self._panel()
+        save = next(call.args[2] for call in control_for.call_args_list
+                    if call.args[0]["key"] == self.X)
+
+        await save(120)
+
+        found = await self._at_the_table()
+        listed = app_settings.differences(data.config_groups(found), found["values"])
+        self.assertIn(self.X, [field.key for _, fields in listed for field in fields])
+
+    async def test_one_the_table_s_settings_wrote_is_the_table_s_here(self) -> None:
+        await asyncio.to_thread(self.library.write_launcher_config, "l1", {self.X: "120"},
+                                table="t1", scope="entry")
+
+        _, marked = await self._panel()
+
+        held = next(held for call in marked.call_args_list
+                    for _, held, field in call.args[0] if field.key == self.X)
+        self.assertEqual((held["value"], held["set_here"]), ("120", True))
+
+    async def test_clear_takes_it_back_to_all_tables(self) -> None:
+        await asyncio.to_thread(self.library.write_launcher_config, "l1", {self.X: "120"},
+                                table="t1", scope="entry")
+        _, marked = await self._panel()
+        clear = next(call.kwargs["clear"] for call in marked.call_args_list
+                     if self.X in [field.key for _, _, field in call.args[0]])
+
+        await clear()
+
+        self.assertFalse((await self._at_the_table())["values"][self.X]["set_here"])
+        self.assertNotIn("BackglassDMDX", pathlib.Path(self.beside).read_text())
+
 
 class SharedWithGameTests(_TableCase):
     def test_the_table_named_after_its_folder_says_its_file_is_the_game_s(self) -> None:
@@ -604,7 +728,7 @@ class CuratedTests(_TableCase):
             "key": "playfield", "label": "Playfield",
             "note": "Mechanical sounds - flippers, solenoids, the ball", "description": "",
             "keys": ["Player.PlaySound", "Player.Sound3D"], "enabled_by": "",
-            "rivals": [], "pairs": []}])
+            "rivals": [], "pairs": [], "kinds": []}])
         self.assertFalse(sound["summarized"])
 
     def test_a_heading_carries_its_pairs_with_their_words(self) -> None:

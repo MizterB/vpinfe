@@ -539,8 +539,12 @@ every member, and `curated` names the few a client draws first, under headings:
 - `pairs` names two of `keys` drawn as one row, each with a `key`, a `label`, a `note`,
   its two `keys` in order and a `joiner`, what stands between the two values. Each VPX
   window pairs its `WndX` and `WndY` as *Position*, joined by a comma, and its `Width` and
-  `Height` as *Size*, joined by a times sign. A pair is listed only where the scope shows
-  both of its keys.
+  `Height` as *Size*, joined by a times sign. B2S and B2SLegacy pair the DMD box drawn on
+  the backglass art the same way, `BackglassDMDX` and `Y` as *DMD Position* and `W` and
+  `H` as *DMD Size*. A pair is listed only where the scope shows both of its keys.
+- `kinds` names the asset kinds the heading's settings are about, empty for most. A file
+  of one of them draws the heading too, at the table it is the file for. B2S and
+  B2SLegacy are about `backglass`.
 - `summarized` is true for a group said as one line rather than listed, the point of view.
   `rows` names the ones it draws as rows of their own all the same: the view mode of each
   view the table starts in, by its `Player.BGSet`, then any other view mode the table sets.
