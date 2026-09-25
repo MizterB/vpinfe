@@ -2162,9 +2162,9 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 .console-fact-edit .q-textarea,
 .console-fact-edit .console-edit-combo { width: 100%; }
 /* A number is a few characters. Wider is an invitation to type something that is not
-   one. */
+   one. The spinner is drawn inside the input's own width, so it is added to them. */
 .console-fact-edit .q-field--dense input[type="number"] {
-  max-width: 6ch;
+  max-width: calc(6ch + 16px);
 }
 /* Empty, it says what the program does instead, and the words are not cropped. */
 .console-fact-edit .q-field--dense input[type="number"]:placeholder-shown {
