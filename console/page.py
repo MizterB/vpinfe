@@ -1075,12 +1075,15 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                   redraw, rescan=_rescan)
             elif view == "extensions":
                 chosen = str(state.get("extension") or "")
-                found = next((one for one in installed_extensions
+                # Not the rail's list: a switch may have changed one since the page
+                # loaded, and the rail keeps what it drew.
+                shown = state.get("extensions", installed_extensions)
+                found = next((one for one in shown
                               if str(one.get("name") or "") == chosen), None)
                 if found is not None:
                     ext_page.build(found, lambda: show_extension(""))
                 else:
-                    sections.extensions(installed_extensions, show_extension)
+                    sections.extensions(shown, show_extension)
             elif view == "devices":
                 devices_page.build(devices, library, state, show_device,
                                    probe=_probe_devices,
@@ -1170,6 +1173,12 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 render()
                 mark_system()
             asyncio.create_task(read_trouble_then_draw())
+            return
+        if state["view"] == "extensions":
+            async def read_extensions_then_draw() -> None:
+                state["extensions"] = await offload.io(ApiClient().extensions)
+                render()
+            asyncio.create_task(read_extensions_then_draw())
             return
         if state["view"] == "games" and not library.has_game_collections():
             async def read_game_collections_then_draw() -> None:

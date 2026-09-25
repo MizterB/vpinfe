@@ -120,6 +120,11 @@ class ApiClient:
         """Every extension this install looked at, running or not."""
         return list(self._get("/extensions").get("extensions") or [])
 
+    def set_extension_enabled(self, name: str, on: bool) -> dict:
+        """The extension as it stands after the switch."""
+        return self._put(f"/extensions/{quote(name, safe='')}/enabled",
+                         {"enabled": bool(on)})
+
     def games(self) -> list[dict]:
         return self._get("/games").get("games", [])
 

@@ -1,8 +1,8 @@
 """What the Extensions page says about an extension that is not running.
 
 The words are the whole of this page: the list itself is one card per row. What is worth
-pinning is that every state the host can reach has a word, and that the word for a switch
-somebody set is not the word for something that broke.
+pinning is that every state the host can reach is shown, by a word or by the switch, and
+that a switch somebody set does not read as something that broke.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from nicegui import ui
@@ -21,24 +22,20 @@ from console import ext_action, ext_page, sections
 
 
 class StateWordTests(unittest.TestCase):
-    def test_every_state_that_is_not_running_has_a_word(self) -> None:
+    def test_every_state_the_switch_cannot_show_has_a_word(self) -> None:
         """A state with no word draws no chip, so a stopped extension would look fine."""
         states = {value for name, value in vars(host).items()
                   if name.isupper() and isinstance(value, str)
                   and value in {"loaded", "failed", "disabled", "off"}}
 
-        self.assertEqual(states - {host.LOADED}, set(sections.STATE_WORDS))
+        self.assertEqual(states - {host.LOADED, host.OFF}, set(sections.STATE_WORDS))
 
     def test_running_draws_no_chip(self) -> None:
         """A badge on every row says nothing."""
         self.assertNotIn(host.LOADED, sections.STATE_WORDS)
 
-    def test_a_switch_somebody_set_reads_differently_from_a_fault(self) -> None:
-        self.assertNotEqual(sections.STATE_WORDS[host.OFF],
-                            sections.STATE_WORDS[host.DISABLED])
-
-    def test_only_a_state_that_costs_something_wears_the_warn_tone(self) -> None:
-        self.assertEqual(sections.QUIET_STATES, {host.OFF})
+    def test_off_draws_no_chip_beside_the_switch_that_says_it(self) -> None:
+        self.assertNotIn(host.OFF, sections.STATE_WORDS)
 
 
 class FrontDoorTests(unittest.TestCase):
@@ -64,24 +61,85 @@ class FrontDoorTests(unittest.TestCase):
         self.assertIn("tooltip", actions)
 
 
-def _card(found: dict) -> list[str]:
+def _drawn(found: dict) -> tuple[list[str], list[bool]]:
     with ui.column() as body:
         sections._extension_card(found)
-    return [one.text for one in body.descendants() if isinstance(one, ui.label)]
+    return ([one.text for one in body.descendants() if isinstance(one, ui.label)],
+            [bool(one.value) for one in body.descendants() if isinstance(one, ui.switch)])
+
+
+def _card(found: dict) -> list[str]:
+    return _drawn(found)[0]
+
+
+RUNNING = {"name": "sample", "state": host.LOADED, "enabled": True, "reason": "",
+           "reason_key": ""}
+SWITCHED_OFF = {**RUNNING, "state": host.OFF, "enabled": False, "reason": "Switched off",
+                "reason_key": host.SWITCHED_OFF}
 
 
 class CardTests(unittest.TestCase):
-    def test_one_switched_off_says_off_once(self) -> None:
-        said = _card({"name": "sample", "state": host.OFF, "reason": "Switched off",
-                      "reason_key": host.SWITCHED_OFF})
+    def test_one_switched_off_says_nothing_the_switch_does_not(self) -> None:
+        self.assertEqual(_drawn(SWITCHED_OFF), (["sample"], [False]))
 
-        self.assertEqual(said, ["sample", i18n.t("word.off")])
+    def test_one_switched_on_says_it_waits_for_the_next_start(self) -> None:
+        said, switches = _drawn({
+            **SWITCHED_OFF, "enabled": True,
+            "reason": i18n.t(host.STARTS_AT_RESTART),
+            "reason_key": host.STARTS_AT_RESTART})
+
+        self.assertIn(i18n.t(host.STARTS_AT_RESTART), said)
+        self.assertEqual(switches, [True])
 
     def test_one_off_for_another_reason_says_which(self) -> None:
-        said = _card({"name": "sample", "state": host.OFF, "reason": "Not for macOS",
-                      "reason_key": "extension.reason.not_for_platform"})
+        said, switches = _drawn({
+            **RUNNING, "state": host.OFF, "reason": "Not for macOS",
+            "reason_key": "extension.reason.not_for_platform"})
 
         self.assertIn("Not for macOS", said)
+        self.assertEqual(switches, [True])
+
+    def test_one_that_broke_wears_a_chip_and_keeps_its_switch_on(self) -> None:
+        said, switches = _drawn({**RUNNING, "state": host.DISABLED,
+                                 "reason": "It threw"})
+
+        self.assertEqual(said, ["sample", i18n.t("console.sections.stopped"), "It threw"])
+        self.assertEqual(switches, [True])
+
+
+class SwitchTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        # Outside the test's task, which has no page to draw into.
+        self.body = ui.column()
+
+    def draw(self, found: dict, answer: object) -> tuple[mock.Mock, mock.AsyncMock]:
+        switch = self.enterContext(mock.patch.object(sections.panel, "switch"))
+        io = self.enterContext(mock.patch.object(
+            sections.offload, "io",
+            new=mock.AsyncMock(**({"side_effect": answer} if isinstance(answer, Exception)
+                                  else {"return_value": answer}))))
+        with self.body:
+            sections._extension_card(found)
+        return switch, io
+
+    async def test_it_asks_the_api_and_draws_the_answer(self) -> None:
+        switch, io = self.draw(RUNNING, SWITCHED_OFF)
+
+        await switch.call_args.args[1](SimpleNamespace(value=False))
+
+        [asked] = io.await_args_list
+        self.assertEqual(asked.args[0].__name__, "set_extension_enabled")
+        self.assertEqual(asked.args[1:], ("sample", False))
+        self.assertFalse(switch.call_args.args[0])
+
+    async def test_a_refused_switch_goes_back(self) -> None:
+        notify = self.enterContext(mock.patch.object(sections.ui, "notify"))
+        switch, _io = self.draw(RUNNING, RuntimeError("Not allowed"))
+
+        await switch.call_args.args[1](SimpleNamespace(value=False))
+
+        notify.assert_called_once_with("Not allowed", type="negative")
+        self.assertEqual([one.args[0] for one in switch.call_args_list], [True, True])
 
 
 class LanguageTests(unittest.TestCase):

@@ -423,6 +423,12 @@ Whether an extension is switched off stays core's record, because core has to kn
 it loads anything - reading a file per extension to answer "what am I not loading" is
 worse than reading one. An extension switched off is not loaded at all.
 
+A person switches one on its card on the Console's Extensions page, or with
+`PUT /api/v1/extensions/{name}/enabled`, and either writes `extensions.json`. Off is at once:
+it goes the way a broken one does, below, and says it was switched off rather than that it
+broke. On waits for the next start, because routes mount once and one that was off never
+registered any. Until then it says it starts at the next restart.
+
 Settings are not beside an extension's code: one the build ships has no directory in the
 config dir, so they need a home that does not depend on where the code came from.
 
@@ -458,6 +464,6 @@ answer, not a fault, and changes nothing.
 - `common/extensions/context.py` - what `register(ctx)` is handed.
 - `common/extensions/host.py` - loading, the registry, and the kill switch.
 - `common/extensions/store.py` - `extensions.json`.
-- `httpapi/extensions.py` - the gate, the mount, and `GET /api/v1/extensions`.
+- `httpapi/extensions.py` - the gate, the mount, `GET /api/v1/extensions` and the switch.
 
 `tests/fixtures/extensions/sample/` is a worked example that uses all of it.

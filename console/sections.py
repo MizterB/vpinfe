@@ -16,7 +16,7 @@ from nicegui import run, ui
 from common.extensions.host import SWITCHED_OFF
 from common.i18n import t
 from common.media_specs import media_label_map
-from console import art_fill, panel, verbs
+from console import art_fill, offload, panel, verbs
 from console.data import Library
 
 # name, one-line description, predicate over (game, media entries).
@@ -398,14 +398,9 @@ def table_scripts(library: Library) -> None:
 
 # --- Extensions ------------------------------------------------------------------
 
-# What a state is called on screen. "Off" is the switch somebody set; "Stopped" is an
-# error taking one out, which is a different thing to be told and reads as one.
-STATE_WORDS = {"off": "word.off",
-               "failed": "console.sections.failed",
+# What a state the card's switch cannot show is called on screen.
+STATE_WORDS = {"failed": "console.sections.failed",
                "disabled": "console.sections.stopped"}
-# Off costs nothing - it is what was asked for. The other two are a feature that is not
-# there, which is what the warn tone is for.
-QUIET_STATES = frozenset({"off"})
 
 
 def extensions(installed: list[dict], open_one: Callable[..., Any] | None = None) -> None:
@@ -427,25 +422,46 @@ def _extension_card(found: dict, open_one: Callable[..., Any] | None = None) -> 
     is already installed it is a line of jargon in front of everybody who is not
     auditing. It is on the extension's own page, at the bottom, for whoever wants it.
     """
-    state = str(found.get("state") or "")
-    name = str(found.get("display_name") or found.get("name") or "")
-    version = str(found.get("version") or "")
-    with ui.element("div").classes("console-card w-full mb-2"):
-        with ui.row().classes("items-center gap-2 w-full"):
-            ui.label(" ".join(part for part in (name, version) if part)) \
-                .classes("console-setting")
-            if state in STATE_WORDS:
-                tone = ("console-chip-quiet" if state in QUIET_STATES
-                        else "console-chip-warn")
-                ui.label(t(STATE_WORDS[state])).classes(f"console-member-chip {tone}")
-        # What it is, then what happened to it. A card keeps its shape whatever state
-        # the extension is in, and the news is the line the chip points at.
-        news = ("" if found.get("reason_key") == SWITCHED_OFF
-                else str(found.get("reason") or ""))
-        for line in (str(found.get("description") or ""), news):
-            if line:
-                ui.label(line).classes("console-help")
-        _actions(found, open_one)
+    # A copy: the list handed in may be the one the rail was drawn from.
+    shown = dict(found)
+    card = ui.element("div").classes("console-card w-full mb-2")
+
+    async def flip(event: Any) -> None:
+        from console.api import ApiClient
+
+        try:
+            shown.update(await offload.io(ApiClient().set_extension_enabled,
+                                          str(shown.get("name") or ""),
+                                          bool(event.value)))
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(str(exc), type="negative")
+        # Either way: a refused switch has to go back to where it was.
+        draw()
+
+    def draw() -> None:
+        card.clear()
+        state = str(shown.get("state") or "")
+        name = str(shown.get("display_name") or shown.get("name") or "")
+        version = str(shown.get("version") or "")
+        with card:
+            with ui.row().classes("items-center gap-2 w-full no-wrap"):
+                ui.label(" ".join(part for part in (name, version) if part)) \
+                    .classes("console-setting min-w-0 truncate")
+                if state in STATE_WORDS:
+                    ui.label(t(STATE_WORDS[state])) \
+                        .classes("console-member-chip console-chip-warn")
+                ui.space()
+                panel.switch(bool(shown.get("enabled", True)), flip)()
+            # What it is, then what happened to it. A card keeps its shape whatever
+            # state the extension is in, and the news is the line the chip points at.
+            news = ("" if shown.get("reason_key") == SWITCHED_OFF
+                    else str(shown.get("reason") or ""))
+            for line in (str(shown.get("description") or ""), news):
+                if line:
+                    ui.label(line).classes("console-help")
+            _actions(shown, open_one)
+
+    draw()
 
 
 def _actions(found: dict, open_one: Callable[..., Any] | None = None) -> None:
