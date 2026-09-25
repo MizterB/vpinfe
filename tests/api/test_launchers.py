@@ -391,6 +391,25 @@ class NamedValuesTests(_TableCase):
         self.assertEqual(offered["Player.FXAA"]["named"], [])
 
 
+class ReportedValuesTests(_TableCase):
+    def test_a_window_s_display_carries_the_names_vpx_used(self) -> None:
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Player]\n; Display: Where [Default: '']\nPlayfieldDisplay =\n"
+                           "FXAA = 1\n")
+        log = pathlib.Path(self.tmp.name, "vpinball.log")
+        log.write_text('INFO [VPX::Window::Window@86] No display configured. '
+                       'Using display "Built-in Display".\n')
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+        with patch("apps.vpx.config.own_log", return_value=log):
+            got = self.client.get("/launchers/l1/config")
+
+        offered = {f["key"]: f for g in got.json()["groups"] for f in g["settings"]}
+        self.assertEqual(offered["Player.PlayfieldDisplay"]["reported"], ["Built-in Display"])
+        self.assertEqual(offered["Player.FXAA"]["reported"], [])
+
+
 class PointOfViewTests(_TableCase):
     def setUp(self) -> None:
         super().setUp()

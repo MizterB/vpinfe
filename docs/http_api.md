@@ -514,7 +514,10 @@ a blank value means rather than using the default it declares, `default` is empt
 `blank` says what it does instead: every window's size reads *From the screen*, and each
 view mode *The table's own*. `named` lists the values a number's app gives a meaning of
 their own, as `[value, label]` pairs in its words: Frame Limit's `-1` is *Match the
-Display* and its `0` *No Limit*, and any other value is a rate. A setting of `type`
+Display* and its `0` *No Limit*, and any other value is a rate. `reported` lists the
+values the program itself last said it used, the most recent first: each window's
+`Display` carries the display names from VPX's log, which is how VPX will match one, and
+is empty where the log names none. A setting of `type`
 `color` is `#RRGGBB` - its value, its fallback and its default - and is written the same
 way; VPinFE stores it as the number VPX keeps, red in its low byte.
 

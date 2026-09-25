@@ -263,6 +263,8 @@ def app_config(launcher_id: str, table: str = "",
 
     blank = _blank_words(found.app, config)
     named = _named_values(found.app, config)
+    reporting = getattr(config, "reported", None)
+    reported = dict(reporting()) if reporting is not None else {}
     held = getattr(config, "held_groups", None)
     declared = (*config.groups(settings),
                 *(held(target) if target and held is not None else ()))
@@ -286,6 +288,7 @@ def app_config(launcher_id: str, table: str = "",
                     "curated": _curated(found.app, g, {f.key for f in fields}),
                     "settings": [{**_described_field(found.app, f), "blank": blank(f.key),
                                   "named": named(f.key),
+                                  "reported": list(reported.get(f.key, ())),
                                   "scopes": list(scopes_for(f.key))} for f in fields]}
                    for g, fields in groups if fields],
         "values": {key: {"value": one.value, "scope": one.scope,

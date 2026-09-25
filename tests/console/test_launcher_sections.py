@@ -383,6 +383,61 @@ class NamedNumberTests(unittest.TestCase):
                          ["", "", "", ""])
 
 
+class ReportedNameTests(unittest.IsolatedAsyncioTestCase):
+    """A display is matched by its exact name, and a wrong one fails without a word."""
+
+    USED = ("External Display", "Built-in Display")
+    FIELD = SimpleNamespace(key="Player.PlayfieldDisplay", type="text", label="Display",
+                            default="", choices=(), blank="", reported=USED,
+                            scopes=("launcher", "entry"), help="", description="")
+
+    def test_it_is_picked_from_the_names_vpx_used_and_can_still_be_typed(self) -> None:
+        option = workbench._as_option(self.FIELD)
+        with patch.object(settings.panel, "combo") as combo:
+            settings.control_for(option, "Built-in Display", Mock(),
+                                 suggestions={workbench.REPORTED: dict(zip(self.USED, self.USED,
+                                                                           strict=True))})
+
+        self.assertEqual(combo.call_args.args[:2],
+                         ("Built-in Display", {"External Display": "External Display",
+                                               "Built-in Display": "Built-in Display"}))
+        self.assertFalse(combo.call_args.kwargs["clearable"])
+
+    def test_a_name_vpx_has_not_used_is_marked(self) -> None:
+        mark = workbench._unreported("Old Display", self.USED, "Visual Pinball X")
+
+        self.assertEqual(mark, {"state": "missing", "reason": t(
+            "console.workbench.display_not_used", app="Visual Pinball X")})
+
+    def test_nothing_is_marked_where_it_is_one_or_vpx_has_said_nothing(self) -> None:
+        self.assertEqual([workbench._unreported(value, used, "Visual Pinball X")
+                          for value, used in (("Built-in Display", self.USED),
+                                              ("", self.USED), ("Old Display", ()))],
+                         [None, None, None])
+
+    async def test_picking_one_draws_its_mark_again(self) -> None:
+        before = {self.FIELD.key: {"value": "Old Display", "scope": "launcher"}}
+        after = {self.FIELD.key: {"value": "Built-in Display", "scope": "launcher"}}
+        rebuild = AsyncMock()
+        context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
+                   "config_scope": "launcher", "rebuild": rebuild}
+        self.enterContext(patch.object(workbench, "ui"))
+        self.enterContext(patch.object(workbench, "_config_values",
+                                       new=AsyncMock(side_effect=[before, after])))
+        self.enterContext(patch.object(workbench, "_set_by_tables",
+                                       new=AsyncMock(return_value={})))
+        self.enterContext(patch.object(workbench.run, "io_bound",
+                                       new=AsyncMock(return_value={})))
+        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
+        await workbench._setting_entries(context, [("", "", [self.FIELD])])
+
+        self.assertEqual(control_for.call_args.kwargs["check"]["state"], "missing")
+        await control_for.call_args.args[2]("Built-in Display")
+        await asyncio.sleep(0)
+
+        rebuild.assert_awaited_once()
+
+
 class TableSettingsTitleTests(unittest.TestCase):
     """Every setting at one table, in the dialog Show Every Setting opens."""
 

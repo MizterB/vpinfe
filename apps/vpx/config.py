@@ -29,7 +29,7 @@ from common.apps.contract import (
     Heading,
 )
 
-from . import areas, plugins
+from . import areas, displays, plugins
 from . import ini as vini
 from .setting_types import CONTEXTUAL, LABELS, TYPES
 
@@ -60,6 +60,7 @@ FROM_THE_SCREEN = frozenset(f"{section}.{window}{mode}{side}" for section, windo
 # And a view's mode from the table, never by the mode it declares.
 FROM_THE_TABLE = areas.VIEW_MODES
 NAMED_VALUES = {"Player.MaxFramerate": (("-1", "match_the_display"), ("0", "no_limit"))}
+DISPLAYS = frozenset(f"{section}.{window}Display" for section, window in _WINDOWS)
 
 # The views a table starts in, by its View Mode. At 0 a flag inside the table picks
 # Full Single Screen or Desktop.
@@ -173,22 +174,35 @@ def own_file(bin_path: str = "") -> Path | None:
     Visual Pinball looks in its own version's folder, and which version a launcher runs
     is not known here, so the newest folder holding a file stands in for it.
     """
-    found: list[Path] = []
     base, old = _machine_folders()
-    if base is not None:
-        try:
-            folders = [one for one in base.iterdir()
-                       if one.is_dir() and _VERSION_FOLDER.fullmatch(one.name)]
-        except OSError:
-            folders = []
-        folders.sort(key=lambda one: tuple(int(part) for part in one.name.split(".")),
-                     reverse=True)
-        found += [folder / SETTINGS_FILE for folder in folders]
+    found = [folder / SETTINGS_FILE for folder in _version_folders(base)]
     program = Path(str(bin_path or "").strip())
     if program.name and not any(part.lower().endswith(".app") for part in program.parts):
         found.append(program.parent / SETTINGS_FILE)
     found += [folder / SETTINGS_FILE for folder in (base, old) if folder is not None]
     return next((one for one in found if one.is_file()), None)
+
+
+def own_log() -> Path | None:
+    """The log Visual Pinball writes, or None where there is none yet. It is in the
+    preferences folder whichever settings file VPX is given."""
+    base, old = _machine_folders()
+    found = [*_version_folders(base), *(one for one in (base, old) if one is not None)]
+    return next((one / displays.LOG_FILE for one in found
+                 if (one / displays.LOG_FILE).is_file()), None)
+
+
+def _version_folders(base: Path | None) -> list[Path]:
+    """Visual Pinball's per-version preferences folders, the newest first."""
+    if base is None:
+        return []
+    try:
+        folders = [one for one in base.iterdir()
+                   if one.is_dir() and _VERSION_FOLDER.fullmatch(one.name)]
+    except OSError:
+        return []
+    return sorted(folders, key=lambda one: tuple(int(part) for part in one.name.split(".")),
+                  reverse=True)
 
 
 def settings_file(settings: Mapping[str, Any]) -> Path | None:
@@ -464,6 +478,12 @@ class VPXConfig:
         """By key, the values the program gives a meaning of their own, each with the word
         for it in this app's catalog."""
         return dict(NAMED_VALUES)
+
+    def reported(self) -> dict[str, tuple[str, ...]]:
+        """By key, the values the program last reported it could use, the most recent
+        first. A key it has reported nothing for is left out."""
+        names = displays.reported_in(own_log())
+        return dict.fromkeys(DISPLAYS, names) if names else {}
 
     def summary_rows(self, group: str, values: Mapping[str, ConfigValue]) -> tuple[str, ...]:
         """Of a summarized group, the settings drawn as rows of their own: the mode of

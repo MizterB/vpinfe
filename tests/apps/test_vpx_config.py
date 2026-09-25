@@ -14,8 +14,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from apps.vpx import areas
-from apps.vpx.config import VPXConfig, own_file, settings_file
+from apps.vpx import areas, displays
+from apps.vpx.config import VPXConfig, own_file, own_log, settings_file
 from apps.vpx.setting_types import LABELS, TYPES
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
 
@@ -1128,6 +1128,72 @@ class OwnFileTests(unittest.TestCase):
 
         self.assertEqual(VPXConfig().left_empty({"ini_path": ""}), {"ini_path": str(own)})
         self.assertEqual(settings_file({"ini_path": ""}), own)
+
+    def test_the_log_is_the_newest_version_folder_s_whatever_settings_file_is_named(
+            self) -> None:
+        self._file("VPinballX", "10.8", "vpinball.log")
+        newest = self._file("VPinballX", "10.10", "vpinball.log")
+        self._file("elsewhere", "vpinball.log")
+
+        self.assertEqual(own_log(), newest)
+
+
+# As 10.8.1 writes them, a display named bare.
+LOG_10_8_1 = """\
+2026-07-22 10:01:49.339 INFO  [1] [VPX::Window::Window@86] No display configured. \
+Using display "Built-in Display".
+2026-09-05 12:09:42.540 INFO  [2] [VPX::Window::Window@290] Window #1 (960x540) was \
+created on display External Display [3840x2160 60Hz SDL_PIXELFORMAT_ARGB8888]
+"""
+# As later builds write them, with its position in the name.
+LOG_LATER = """\
+2026-09-24 18:00:00.000 WARN  [3] [VPX::Window::Window@88] The selected display \
+"External Display" is not available. Using display "Built-in Display [0, 0]" instead.
+2026-09-24 18:00:00.100 INFO  [3] [VPX::Window::Window@307] Window #0 (1920x1080) was \
+created on display Built-in Display [0, 0] [3456x2234 120Hz SDL_PIXELFORMAT_ARGB8888]
+"""
+
+
+class ReportedDisplayTests(unittest.TestCase):
+    """A display is matched by its exact name, which differs by build."""
+
+    def test_each_name_a_build_uses_is_read_as_it_wrote_it(self) -> None:
+        self.assertEqual(displays.reported(LOG_10_8_1), ("External Display", "Built-in Display"))
+        self.assertEqual(displays.reported(LOG_LATER), ("Built-in Display [0, 0]",))
+
+    def test_one_it_last_said_is_not_there_is_not_offered(self) -> None:
+        self.assertEqual(displays.reported(LOG_10_8_1 + LOG_LATER),
+                         ("Built-in Display [0, 0]", "Built-in Display"))
+
+    def test_every_display_setting_is_offered_them(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        log = Path(tmp.name, "vpinball.log")
+        log.write_text(LOG_10_8_1, encoding="utf-8")
+
+        with mock.patch("apps.vpx.config.own_log", return_value=log):
+            said = VPXConfig().reported()
+
+        self.assertEqual(set(said), {"Player.PlayfieldDisplay", "Backglass.BackglassDisplay",
+                                     "ScoreView.ScoreViewDisplay", "Topper.TopperDisplay",
+                                     "PlayerVR.PreviewDisplay"})
+        self.assertEqual(said["Topper.TopperDisplay"], ("External Display", "Built-in Display"))
+
+    def test_a_log_that_reports_none_offers_nothing(self) -> None:
+        with mock.patch("apps.vpx.config.own_log", return_value=None):
+            self.assertEqual(VPXConfig().reported(), {})
+
+    def test_a_log_is_read_again_once_it_changes(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        log = Path(tmp.name, "vpinball.log")
+        log.write_text(LOG_10_8_1, encoding="utf-8")
+        displays.reported_in(log)
+
+        log.write_text(LOG_10_8_1 + LOG_LATER, encoding="utf-8")
+
+        self.assertEqual(displays.reported_in(log),
+                         ("Built-in Display [0, 0]", "Built-in Display"))
         self.assertEqual(settings_file({"ini_path": "/cfg/other.ini"}),
                          Path("/cfg/other.ini"))
 

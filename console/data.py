@@ -123,6 +123,7 @@ def config_groups(found: dict[str, Any]) -> list:
             minimum=f.get("minimum"), maximum=f.get("maximum"),
             blank=f.get("blank", ""),
             named=tuple(tuple(pair) for pair in f.get("named") or ()),
+            reported=tuple(f.get("reported") or ()),
             per_table=bool(f.get("per_table")),
             scopes=tuple(f.get("scopes") or ()))
             for f in g["settings"]])

@@ -4186,6 +4186,7 @@ PLAYING_WHY = "console.workbench.read_only_playing.help"
 # A number writes on every keystroke, so its redraw waits until it loses focus: drawn
 # between two keys, the second lands nowhere.
 TYPED = ("int", "number")
+REPORTED = "reported"
 
 
 def _playing(library: Library) -> bool:
@@ -4337,7 +4338,9 @@ async def _setting_entries(context: dict[str, Any],
     their_own = await _set_by_tables(context) if scope == "launcher" and not table else {}
     groups = context.get("config_groups") or []
     clashing = conflicts(groups, values)
-    redraw_on = {*redraw_on, *rival_switches(groups)}
+    redraw_on = {*redraw_on, *rival_switches(groups),
+                 *(f.key for _, _, fields in blocks for f in fields
+                   if getattr(f, "reported", ()))}
     rows: dict[str, dict] = {}
     redraws: list[Callable[[], None]] = []
     shown = dict(values)
@@ -4414,9 +4417,12 @@ async def _setting_entries(context: dict[str, Any],
             offered = not table or scope in (getattr(field, "scopes", ()) or (scope,))
             option = _as_option(field)
             typed = option["type"] in TYPED
+            reported = getattr(field, "reported", ())
             control = settings_page.control_for(
                 option, settings_page.value_for(option, held.get("value")),
-                save(field.key, typed), writable=not playing and offered)
+                save(field.key, typed), writable=not playing and offered,
+                check=_unreported(held.get("value"), reported, app_name),
+                suggestions={REPORTED: dict(zip(reported, reported, strict=True))})
             entries.append((field.label, _marked(control, held, field, app_name, redraws,
                                                  on_leave=settle if typed else None)))
             entries.append((panel.ASIDE, _beside(
@@ -4443,6 +4449,16 @@ async def _set_by_tables(context: dict[str, Any]) -> Counter[str]:
         return Counter()
     return Counter(key for row in rows if row.get("launcher") == launcher_id
                    for key in row.get("launcher_settings_keys") or ())
+
+
+def _unreported(value: Any, reported: Sequence[str], app_name: str) -> dict[str, str] | None:
+    """The mark on a name the program has not reported using. None where it has reported
+    nothing, which says nothing either way."""
+    said = str(value or "")
+    if not reported or not said or said in reported:
+        return None
+    return {"state": "missing",
+            "reason": t("console.workbench.display_not_used", app=app_name)}
 
 
 def _conflict(rival: str) -> Callable[[], None]:
@@ -4662,6 +4678,8 @@ def _as_option(field: Any) -> dict[str, Any]:
                               "blank": getattr(field, "blank", "")}
     if named := getattr(field, "named", ()):
         option["named"] = {value: label for value, label in named}
+    if getattr(field, "reported", ()):
+        option.update(suggest=REPORTED, clearable=False)
     if field.choices:
         blank = option["blank"]
         option["choices"] = {**({"": blank} if blank else {}),

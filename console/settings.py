@@ -173,7 +173,7 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                 rerender()
 
         return panel.combo(str(value or ""), offered, save_suggested, disabled=off,
-                           status=state)
+                           status=state, clearable=option.get("clearable", True))
 
     if kind == "bool":
         # Through the declared type, not `bool()`. A setting nobody has stored answers

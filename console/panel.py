@@ -689,8 +689,9 @@ def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], 
 
 def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
           disabled: bool = False, status: Callable[[Any], Any] | None = None,
-          placeholder: str = "") -> Callable[[], None]:
-    """A list to pick from that can also be typed into.
+          placeholder: str = "", clearable: bool = True) -> Callable[[], None]:
+    """A list to pick from that can also be typed into. Not `clearable` where the row
+    has a Clear of its own.
 
     For a value something else can offer good answers to and still be wrong about - which
     installs are on the network, say. A closed select would leave a filtered network with
@@ -707,8 +708,8 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
         with ui.element("div").classes("console-fact-edit"):
             control = ui.select(offered, value=value or None, on_change=on_change,
                                 with_input=True, new_value_mode="add-unique")
-            control.props("dense borderless options-dense clearable clear-icon=close "
-                          "input-debounce=0")
+            control.props("dense borderless options-dense input-debounce=0"
+                          + (" clearable clear-icon=close" if clearable else ""))
             if placeholder:
                 control.props(f'placeholder="{placeholder}"')
             control.classes("console-edit-field console-edit-select console-edit-combo")

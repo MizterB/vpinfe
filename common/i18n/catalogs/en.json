@@ -1590,6 +1590,7 @@
   "console.workbench.details_changed": "Changed",
   "console.workbench.details_new": "New",
   "console.workbench.differs_filter": "Different from Default",
+  "console.workbench.display_not_used": "{app} has not used a display by this name",
   "console.workbench.dof_event": "DOF event",
   "console.workbench.drag_move_press_space": "Drag to move, or press Space and use the arrow keys",
   "console.workbench.drag_resize": "Drag to resize",
