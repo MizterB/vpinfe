@@ -21,6 +21,7 @@ from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
     art,
+    art_fill,
     collection_adds,
     confirm,
     deeplink,
@@ -577,6 +578,16 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                 if inspect.isawaitable(answer):
                     await answer
 
+    async def get_missing_art(games: list[dict[str, Any]]) -> None:
+        ids = [str(one["id"]) for one in games]
+
+        async def placed() -> None:
+            await run.io_bound(library.reread_media, ids)
+            await refresh_games(ids)
+
+        await art_fill.ask(ids, state, placed,
+                           name=str(games[0].get("name") or "") if len(games) == 1 else "")
+
     async def fill_bulk() -> None:
         chosen = list(selected)
         known = await collection_adds.read(library, narrowed_to())
@@ -590,6 +601,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             panel.menu_entry(t("console.games.auto_match"),
                              lambda: auto_match(chosen)) \
                 .tooltip(t("console.games.auto_match.help"))
+            panel.menu_entry(t("console.art_fill.get_missing"),
+                             lambda: get_missing_art(chosen))
             # Where the games you have already picked go. From here rather than only
             # from the device, because starting with the tables and choosing where they
             # land is a different job from managing what a phone holds.

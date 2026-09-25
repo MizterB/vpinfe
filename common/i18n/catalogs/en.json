@@ -312,6 +312,41 @@
   "console.app_settings.the_tables_own": "The table's own",
   "console.app_settings.unused": "Unused",
   "console.app_settings.window_row": "{window} {label}",
+  "console.art_fill.available": "{count} available",
+  "console.art_fill.could_not_get": {
+    "one": "Could not get 1 file",
+    "other": "Could not get {count} files"
+  },
+  "console.art_fill.could_not_read": "Could not read what is missing: {exc}",
+  "console.art_fill.could_not_start": "Could not get art: {exc}",
+  "console.art_fill.failed": "Getting art failed: {error}",
+  "console.art_fill.game_unmatched": "This game is not matched to VPS, so nothing can be looked up for it",
+  "console.art_fill.games": {
+    "one": "1 game",
+    "other": "{count} games"
+  },
+  "console.art_fill.get": {
+    "one": "Get 1",
+    "other": "Get {count}"
+  },
+  "console.art_fill.get_missing": "Get missing art...",
+  "console.art_fill.got": {
+    "one": "Got 1 file",
+    "other": "Got {count} files"
+  },
+  "console.art_fill.got_failed": "{got}, {failed} failed",
+  "console.art_fill.got_nothing": "No art found",
+  "console.art_fill.missing": "{count} missing",
+  "console.art_fill.no_sources": "No online sources are switched on",
+  "console.art_fill.none_available": "none available",
+  "console.art_fill.none_missing": "none missing",
+  "console.art_fill.title": "Get missing art from “{source}”",
+  "console.art_fill.title_several": "Get missing art",
+  "console.art_fill.unmatched": {
+    "one": "1 is not matched to VPS, so nothing can be looked up for it",
+    "other": "{count} are not matched to VPS, so nothing can be looked up for those"
+  },
+  "console.art_fill.unreachable": "{sources} could not be reached",
   "console.assets.assets": "{value} of {len} assets",
   "console.assets.assets_missing": "{count} assets, {gaps} missing",
   "console.assets.correctly_named_files_nothing.help": "Correctly named files that nothing loads",
@@ -2061,6 +2096,7 @@
   "error.locations.no_location_kind_called": "No location kind called {kind!r}. This build knows {join}.",
   "error.locations.none_locations_install": "None of those are locations this install has.",
   "error.locations.nothing_shadowed_path_may": "Nothing here is shadowed at that path. It may have been settled already.",
+  "error.media_fill.busy": "Art is already being fetched",
   "error.metrics.psutil_missing": "psutil is not installed, so this device cannot report its processor or memory.",
   "error.path.file_wants_folder": "That is a file, and this wants a folder",
   "error.path.folder_wants_file": "That is a folder, and this wants a file",

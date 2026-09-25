@@ -2150,11 +2150,13 @@ class MissingMediaKind(ApiModel):
 
 class MissingMedia(ApiModel):
     """Every kind the library keeps that an enabled source publishes. `unmatched`
-    games have no VPS match, so nothing can be looked up for them."""
+    games have no VPS match, so nothing can be looked up for them, and nothing is
+    counted available from a source in `unreachable`."""
 
     games: int = 0
     unmatched: int = 0
     sources: list[str] = []
+    unreachable: list[str] = []
     kinds: list[MissingMediaKind] = []
 
 

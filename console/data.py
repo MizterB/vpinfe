@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterable
 from typing import Any
 
 from common.games.asset_registry import ASSET_SPECS
@@ -686,10 +687,7 @@ class Library:
     def load_overview(self) -> None:
         """What the Overview draws from. Off the event loop."""
         self.load_tables()
-        if self._media_missing():
-            shared = self._shared_media()
-            for game_id in self._media_missing():
-                self.media[game_id] = shared[game_id]
+        self._read_missing_media()
         try:
             policy = self.library_policy()
         except Exception:  # noqa: BLE001 - a report that cannot read a preference still runs
@@ -702,6 +700,18 @@ class Library:
 
     def _media_missing(self) -> list[str]:
         return [game["id"] for game in self.games if game["id"] not in self.media]
+
+    def _read_missing_media(self) -> None:
+        if self._media_missing():
+            shared = self._shared_media()
+            for game_id in self._media_missing():
+                self.media[game_id] = shared[game_id]
+
+    def reread_media(self, game_ids: Iterable[str]) -> None:
+        """These games' media after a write across them, from one listing. Off the loop."""
+        for game_id in game_ids:
+            self.forget_media(game_id)
+        self._read_missing_media()
 
     def hidden_checks(self) -> set[str]:
         return self._hidden_checks or set()

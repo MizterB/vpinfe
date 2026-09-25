@@ -228,7 +228,18 @@ class AskedTests(_Library):
         self.assertEqual(rows["wheel"], (3, 2))
         self.assertEqual(rows["backglass"], (3, 1))
         self.assertEqual(rows["flyer"], (3, 0))
+        self.assertEqual(found["unreachable"], [])
         self.downloads.assert_not_called()
+
+    def test_a_source_that_cannot_be_reached_is_named_and_offers_nothing(self) -> None:
+        with patch.object(asset_sources, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load",
+                      return_value=None) as load:
+            found = media_fill.plan()
+
+        self.assertEqual(found["unreachable"], ["VPinMediaDB"])
+        self.assertEqual(self.rows(found)["wheel"], (3, 0))
+        self.assertEqual(load.call_count, 1)
 
     def test_the_plan_leaves_out_a_hidden_kind_and_a_slot_with_a_file(self) -> None:
         self.policy.set("hidden_media_kinds", ["backglass"])

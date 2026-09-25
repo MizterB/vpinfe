@@ -10,8 +10,9 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import jobs
+from common.i18n import t
 
-PLAN = {"games": 2, "unmatched": 1, "sources": ["VPinMediaDB"],
+PLAN = {"games": 2, "unmatched": 1, "sources": ["VPinMediaDB"], "unreachable": [],
         "kinds": [{"kind": "wheel", "missing": 2, "available": 1}]}
 
 
@@ -71,6 +72,7 @@ class MediaFillRouteTests(unittest.TestCase):
             response = self.client.post("/library/media/fill", json={})
 
         self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["error"]["message"], t("error.media_fill.busy"))
 
 
 if __name__ == "__main__":

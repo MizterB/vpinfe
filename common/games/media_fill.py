@@ -207,7 +207,8 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
     scope = _scope(game_ids)
     kinds = [kind for kind in _SPECS if kind in kept_kinds()]
     variant = MediaConfig.from_config(get_ini_config()).playfield_variant
-    enabled = asset_sources.enabled_ids()
+    enabled = asset_sources.sources(asset_sources.enabled_ids())
+    live = tuple(source.id for source in enabled if source.reachable())
     only = next(iter(scope)) if len(scope) == 1 else ""
     gaps: dict[str, list[str]] = {}
     for row in media_lens.listing(game=only)["media"] if scope else []:
@@ -224,10 +225,11 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
                 continue
             missing[kind] += 1
             asked = _asked_as(kind, variant)
-            if vps_id and asked and asset_sources.offers(asked, vps_id, enabled):
+            if vps_id and asked and live and asset_sources.offers(asked, vps_id, live):
                 available[kind] += 1
     return {"games": len(scope), "unmatched": unmatched,
-            "sources": [source.name for source in asset_sources.sources(enabled)],
+            "sources": [source.name for source in enabled],
+            "unreachable": [source.name for source in enabled if source.id not in live],
             "kinds": [{"kind": kind, "missing": missing[kind],
                        "available": available[kind]} for kind in kinds]}
 
@@ -239,7 +241,7 @@ def start(game_ids: Iterable[str] | None = None, kinds: Iterable[str] | None = N
     `game_ids` None is the whole library and `kinds` None every kept kind. A kind the
     library does not keep is never fetched. Raises BlockedError while a fill runs.
     """
-    from common.games import library_ops
+    from common import service_errors
 
     kept = kept_kinds()
     picked: dict[str, set[str]] = {}
@@ -256,7 +258,10 @@ def start(game_ids: Iterable[str] | None = None, kinds: Iterable[str] | None = N
         return _fill_games(targets, _reachable(), job.reporter(),
                            lambda: not shutdown.requested())
 
-    return library_ops.start(jobs.KIND_MEDIA_FILL, work)
+    try:
+        return jobs.submit(jobs.KIND_MEDIA_FILL, work)
+    except jobs.JobBusyError as exc:
+        raise service_errors.BlockedError(t("error.media_fill.busy")) from exc
 
 
 def request(folders: Iterable[str | Path]) -> None:

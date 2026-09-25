@@ -312,6 +312,41 @@
   "console.app_settings.the_tables_own": "Ţĥè ţàƀŀè'š öŵñ",
   "console.app_settings.unused": "Ûñûšèđ",
   "console.app_settings.window_row": "{window} {label}",
+  "console.art_fill.available": "{count} àṽàîŀàƀŀè",
+  "console.art_fill.could_not_get": {
+    "one": "Çöûŀđ ñöţ ĝèţ 1 ƒîŀè",
+    "other": "Çöûŀđ ñöţ ĝèţ {count} ƒîŀèš"
+  },
+  "console.art_fill.could_not_read": "Çöûŀđ ñöţ řèàđ ŵĥàţ îš ɱîššîñĝ: {exc}",
+  "console.art_fill.could_not_start": "Çöûŀđ ñöţ ĝèţ àřţ: {exc}",
+  "console.art_fill.failed": "Ĝèţţîñĝ àřţ ƒàîŀèđ: {error}",
+  "console.art_fill.game_unmatched": "Ţĥîš ĝàɱè îš ñöţ ɱàţçĥèđ ţö ṼÞŠ, šö ñöţĥîñĝ çàñ ƀè ŀööķèđ ûþ ƒöř îţ",
+  "console.art_fill.games": {
+    "one": "1 ĝàɱè",
+    "other": "{count} ĝàɱèš"
+  },
+  "console.art_fill.get": {
+    "one": "Ĝèţ 1",
+    "other": "Ĝèţ {count}"
+  },
+  "console.art_fill.get_missing": "Ĝèţ ɱîššîñĝ àřţ...",
+  "console.art_fill.got": {
+    "one": "Ĝöţ 1 ƒîŀè",
+    "other": "Ĝöţ {count} ƒîŀèš"
+  },
+  "console.art_fill.got_failed": "{got}, {failed} ƒàîŀèđ",
+  "console.art_fill.got_nothing": "Ñö àřţ ƒöûñđ",
+  "console.art_fill.missing": "{count} ɱîššîñĝ",
+  "console.art_fill.no_sources": "Ñö öñŀîñè šöûřçèš àřè šŵîţçĥèđ öñ",
+  "console.art_fill.none_available": "ñöñè àṽàîŀàƀŀè",
+  "console.art_fill.none_missing": "ñöñè ɱîššîñĝ",
+  "console.art_fill.title": "Ĝèţ ɱîššîñĝ àřţ ƒřöɱ “{source}”",
+  "console.art_fill.title_several": "Ĝèţ ɱîššîñĝ àřţ",
+  "console.art_fill.unmatched": {
+    "one": "1 îš ñöţ ɱàţçĥèđ ţö ṼÞŠ, šö ñöţĥîñĝ çàñ ƀè ŀööķèđ ûþ ƒöř îţ",
+    "other": "{count} àřè ñöţ ɱàţçĥèđ ţö ṼÞŠ, šö ñöţĥîñĝ çàñ ƀè ŀööķèđ ûþ ƒöř ţĥöšè"
+  },
+  "console.art_fill.unreachable": "{sources} çöûŀđ ñöţ ƀè řèàçĥèđ",
   "console.assets.assets": "{value} öƒ {len} àššèţš",
   "console.assets.assets_missing": "{count} àššèţš, {gaps} ɱîššîñĝ",
   "console.assets.correctly_named_files_nothing.help": "Çöřřèçţŀý ñàɱèđ ƒîŀèš ţĥàţ ñöţĥîñĝ ŀöàđš",
@@ -2061,6 +2096,7 @@
   "error.locations.no_location_kind_called": "Ñö ŀöçàţîöñ ķîñđ çàŀŀèđ {kind!r}. Ţĥîš ƀûîŀđ ķñöŵš {join}.",
   "error.locations.none_locations_install": "Ñöñè öƒ ţĥöšè àřè ŀöçàţîöñš ţĥîš îñšţàŀŀ ĥàš.",
   "error.locations.nothing_shadowed_path_may": "Ñöţĥîñĝ ĥèřè îš šĥàđöŵèđ àţ ţĥàţ þàţĥ. Îţ ɱàý ĥàṽè ƀèèñ šèţţŀèđ àŀřèàđý.",
+  "error.media_fill.busy": "Àřţ îš àŀřèàđý ƀèîñĝ ƒèţçĥèđ",
   "error.metrics.psutil_missing": "þšûţîŀ îš ñöţ îñšţàŀŀèđ, šö ţĥîš đèṽîçè çàññöţ řèþöřţ îţš þřöçèššöř öř ɱèɱöřý.",
   "error.path.file_wants_folder": "Ţĥàţ îš à ƒîŀè, àñđ ţĥîš ŵàñţš à ƒöŀđèř",
   "error.path.folder_wants_file": "Ţĥàţ îš à ƒöŀđèř, àñđ ţĥîš ŵàñţš à ƒîŀè",

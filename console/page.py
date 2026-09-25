@@ -605,9 +605,15 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         pct = int(job.get("pct") or 0)
         job_text.text = f"{said} {pct}%" if pct else said
 
-    # Idle until something starts it. `_rescan` turns it on; so does the
-    # first draw, once, in case a job was already running when this page opened.
+    # Idle until something starts it. `_rescan` turns it on, and so does anything
+    # holding `state["watch_jobs"]`; so does the first draw, once, in case a job was
+    # already running when this page opened.
     job_timer = ui.timer(2.0, _watch_jobs, active=True)
+
+    def watch_jobs() -> None:
+        job_timer.active = True
+
+    state["watch_jobs"] = watch_jobs
 
     async def _look_for_update() -> None:
         """Mark Devices with how many of them have an update, once per page load.

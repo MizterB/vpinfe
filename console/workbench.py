@@ -48,6 +48,7 @@ from common.media_specs import media_family, media_label_map
 from common.online import vps_kinds
 from console import (
     art,
+    art_fill,
     candidates,
     collection_adds,
     collection_rules,
@@ -1624,8 +1625,22 @@ async def _media_block(context: dict[str, Any]) -> None:
         if callable(saved):
             await saved()
 
+    async def placed() -> None:
+        library.forget_media(game_id)
+        await offload.io(library.media_for, game_id, None)
+        if not holder.is_deleted:
+            for redraw in context["redraws"]:
+                await redraw()
+
     context["redraws"].append(written)
     await draw()
+    if context["lens"]:
+        return
+    with ui.element("div").classes("console-slot-actions px-3"):
+        panel.action(t("console.art_fill.get_missing"),
+                     lambda: art_fill.ask([game_id], context["state"], placed,
+                                          name=str(context["game"].get("name") or "")),
+                     icon=verbs.FETCH)()
 
 
 def _preview(src: str, kind: str, label: str) -> None:
