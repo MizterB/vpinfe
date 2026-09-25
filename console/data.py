@@ -1276,6 +1276,7 @@ class Library:
                 # nobody reads a VPS id down a column. The id itself is one click away
                 # in the panel, which is where it can be checked against the catalog.
                 "vps_unmatched": not game.get("vps_id"),
+                "vps_matched_by": game_tables.how_matched(game),
                 "hidden": bool(game.get("hidden")),
                 "rating": game.get("rating") or 0,
                 "themes": list(game.get("themes") or []),

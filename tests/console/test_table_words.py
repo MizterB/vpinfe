@@ -321,5 +321,25 @@ class UsualLauncherTests(unittest.TestCase):
         self.assertEqual(game_tables.usual_launcher([{"id": "a", "launcher": "one"}]), "")
 
 
+class HowMatchedTests(unittest.TestCase):
+    def test_a_match_nobody_made_is_auto_matched(self) -> None:
+        self.assertEqual(game_tables.how_matched({"vps_id": "abc", "vps_matched_by": ""}),
+                         "auto")
+
+    def test_an_import_or_a_person_says_so(self) -> None:
+        for how in ("import", "user"):
+            with self.subTest(how=how):
+                self.assertEqual(game_tables.how_matched(
+                    {"vps_id": "abc", "vps_matched_by": how}), how)
+
+    def test_no_match_has_no_state_even_one_a_person_cleared(self) -> None:
+        self.assertEqual(game_tables.how_matched({"vps_id": "", "vps_matched_by": "user"}),
+                         "")
+
+    def test_each_state_has_its_word(self) -> None:
+        self.assertEqual(list(game_tables.HOW_MATCHED.values()),
+                         ["Auto-matched", "Matched on import", "Matched by you"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -96,6 +96,18 @@ LAUNCH_WORDS = (t("console.game_tables.blocked"), t("word.ready"))
 # half by a long way - a matched game is the ordinary case, and it is the unmatched one
 # that can look nothing up: no art, no release list, no update.
 VPS_WORDS = (t("console.game_tables.unmatched"), t("console.game_tables.matched"))
+# How the match in force was made, by the token `how_matched` gives a row.
+HOW_MATCHED = {"auto": t("console.game_tables.auto_matched"),
+               "import": t("console.game_tables.matched_on_import"),
+               "user": t("console.game_tables.matched_by_you")}
+
+
+def how_matched(game: dict[str, Any]) -> str:
+    """`auto`, `import` or `user` for the match in force, `""` where there is none."""
+    if not game.get("vps_id"):
+        return ""
+    return str(game.get("vps_matched_by") or "") or "auto"
+
 
 # The label, not the state - "Default" alone left a reader asking "default what?" on a
 # panel that also has a default launcher and a default view. Named here so the grid and

@@ -2022,11 +2022,19 @@ def release_match_gap(entry: str, bound: str, held: bool) -> tuple[str, str, str
 
 
 def _match(found: dict[str, Any], vps_id: str, declared: bool,
-           held: bool) -> list[tuple[Any, Any]]:
-    """The machine this game is matched to, drawn the way the picker drew it."""
+           held: bool, how: str = "") -> list[tuple[Any, Any]]:
+    """The machine this game is matched to, drawn the way the picker drew it, and how
+    the match was made."""
     if found.get("name"):
-        return [(FULL, lambda: vps_match.entry_row(found))]
+        return [(FULL, lambda: vps_match.entry_row(found, trailing=_how_matched(how)))]
     return _unmatched(game_match_gap(vps_id, declared, held))
+
+
+def _how_matched(how: str) -> Callable[[], None] | None:
+    if how not in game_tables.HOW_MATCHED:
+        return None
+    hint = t("console.game_tables.auto_matched.help") if how == "auto" else ""
+    return _state(game_tables.HOW_MATCHED[how], "on", hint=hint)
 
 
 def _unmatched(gap: tuple[str, str, str]) -> list[tuple[Any, Any]]:
@@ -2070,7 +2078,7 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
     vps_id = str(game.get("vps_id") or "")
     declared = (game.get("overrides") or {}).get("alt_vps_id", "") is None
     entries: list[tuple[Any, Any]] = [(HEADING, t("console.workbench.matched_to"))]
-    entries += _match(entry, vps_id, declared, held)
+    entries += _match(entry, vps_id, declared, held, game_tables.how_matched(game))
     entries.append((FULL, _change_match(lambda: _pick_a_match(context),
                                         matched=bool(vps_id) or declared)))
     if differs:

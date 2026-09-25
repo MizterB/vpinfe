@@ -166,6 +166,10 @@ COLUMNS = [
                    + json.dumps(game_tables.VPS_WORDS[0]) + " : ''",
                    **grid.choice_filter(_two(game_tables.VPS_WORDS),
                                         formatted=True)}),
+    grid.column("vps_matched_by", t("console.games.how_matched"), 160, group=t(_GAME),
+                help=t("console.games.how_matched.help"),
+                **grid.choice_filter([{"value": token, "label": word} for token, word
+                                      in game_tables.HOW_MATCHED.items()])),
     # No ROM or Version here: ROM is an asset (`asset_registry`), Version has no
     # game-level meaning, and both were the default table's shown as the game's.
     # Named for whose rating it is, because the tables grid has one too and "Rating"
@@ -548,10 +552,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         bulk_menu.clear()
         with bulk_menu:
             panel.menu_entry(t("console.games.rate_selected"), lambda: _rate(chosen))
-            # Walks the selection one picker at a time rather than matching them in a
-            # run. Nothing here can tell a right match from a wrong one - the ranker
-            # that would have was measured and retired - so a person decides every one,
-            # and Skip leaves a game exactly as it was.
+            # One picker at a time: a person decides every one, and Skip leaves a game
+            # exactly as it was.
             panel.menu_entry(t("console.games.match_vps"),
                              lambda: vps_match.walk(library, chosen))
             # Where the games you have already picked go. From here rather than only
