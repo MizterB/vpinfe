@@ -3411,6 +3411,29 @@ def _after_an_add(context: dict[str, Any]) -> Callable[[], Awaitable[None]]:
     return partial(_table_added, context, held, was)
 
 
+async def after_a_row_drop(library: Library, state: dict[str, Any], game_id: str,
+                           redraw: Callable[[], None]) -> Callable[[], Awaitable[None]]:
+    """What follows a table dropped on a game's row: what follows one dropped on its
+    panel, with the page put right in place of the panel where it shows another game."""
+    game = next((one for one in library.games if str(one.get("id")) == game_id), {})
+    tables = await offload.io(library.tables_for, game_id)
+
+    async def put_right() -> None:
+        shown = state.get("panel_rebuild")
+        if state.get("game") == game_id and callable(shown):
+            await shown()
+            return
+        refresh = state.get("refresh_game")
+        if state.get("view") in ("games", "tables") and callable(refresh):
+            await refresh(game_id)
+            return
+        redraw()
+
+    context = {"library": library, "game": game, "game_id": game_id, "tables": tables,
+               "state": state, "rebuild": put_right}
+    return _after_an_add(context)
+
+
 async def _table_added(context: dict[str, Any], held: set[str],
                        was: dict[str, Any] | None) -> None:
     try:
@@ -3432,9 +3455,10 @@ def _say_added(context: dict[str, Any], new: dict[str, Any], was: dict[str, Any]
     """Name what arrived, and where the automatic default moved to it, offer the one it
     moved from back, locked."""
     name = game_tables.name_among(new, tables)
+    game = str(context["game"].get("name") or "")
     plays = next((one for one in tables if one.get("default")), None)
     if was is None or plays is None or plays.get("id") != new.get("id"):
-        ui.notify(t("console.game_tables.added", table=name), type="positive")
+        ui.notify(t("console.game_tables.added", table=name, game=game), type="positive")
         return
     state, game_id, library = context["state"], context["game_id"], context["library"]
     view = state.get("view")
@@ -3450,8 +3474,7 @@ def _say_added(context: dict[str, Any], new: dict[str, Any], was: dict[str, Any]
         if callable(refresh):
             await refresh(game_id)
 
-    undo.offer(t("console.game_tables.added_now_plays", table=name,
-                 game=str(context["game"].get("name") or "")), keep,
+    undo.offer(t("console.game_tables.added_now_plays", table=name, game=game), keep,
                label=t("console.game_tables.keep", table=kept),
                done=t("console.game_tables.locked_to", table=kept))
 

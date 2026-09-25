@@ -1,4 +1,5 @@
-"""How a table reaches a game from Add a Table, and from a drop on the game's panel."""
+"""How a table reaches a game from Add a Table, and from a drop on the game's panel or
+its row."""
 
 from __future__ import annotations
 
@@ -6,7 +7,8 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from console import mediasource, uploads
+from common.i18n import t
+from console import import_dialog, mediasource, page, uploads, workbench
 
 
 async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
@@ -77,6 +79,97 @@ class Uploaded(unittest.IsolatedAsyncioTestCase):
         await asked["on_done"]()
 
         self.done.assert_awaited_once()
+
+
+class ADropOnAGamesRow(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.library = Mock(games=[{"id": "g-1", "name": "Some Game",
+                                    "folder": "/games/Some Game"}])
+        self.library.tables_for.return_value = [
+            {"id": "t-1", "version": "0.9", "authors": ["Someone"], "default": True}]
+        self.confirmed = AsyncMock()
+        self.said = Mock()
+        for patched in (patch("console.offload.run.io_bound", new=_now),
+                        patch.object(uploads, "analyzed",
+                                     new=AsyncMock(return_value={"has_game": True})),
+                        patch.object(uploads, "confirmed_import", new=self.confirmed),
+                        patch.object(workbench.ui, "notify", new=self.said)):
+            patched.start()
+            self.addCleanup(patched.stop)
+
+    async def _dropped(self, target: str = uploads.TARGET_GAME,
+                       media_kind: str = "") -> dict[str, Any]:
+        drop = uploads.Drop(target=target, row_id="g-1", media_kind=media_kind,
+                            upload_id="u-1", name="Other.vpx")
+        await page._took_a_drop(self.library, {"view": "games"}, Mock(), drop)
+        return self.confirmed.await_args.kwargs
+
+    async def test_it_joins_that_game_rather_than_replacing_its_table(self) -> None:
+        asked = await self._dropped()
+
+        self.assertTrue(asked["add_table"])
+        self.assertEqual(asked["game_dir"], "/games/Some Game")
+
+    async def test_a_drop_on_a_picture_adds_no_table(self) -> None:
+        asked = await self._dropped(target=uploads.TARGET_SLOT, media_kind="wheel")
+
+        self.assertFalse(asked["add_table"])
+
+    async def test_what_arrived_is_named_with_its_game(self) -> None:
+        asked = await self._dropped()
+        self.library.tables_for.return_value = [
+            {"id": "t-1", "version": "0.9", "authors": ["Someone"], "default": True},
+            {"id": "t-2", "version": "1.0", "authors": []}]
+
+        await asked["on_done"]()
+
+        self.said.assert_called_once_with(
+            t("console.game_tables.added", table="1.0", game="Some Game"), type="positive")
+
+
+class AnAddIsSaidOnce(unittest.IsolatedAsyncioTestCase):
+    async def _imported(self, report: dict[str, Any]) -> Mock:
+        library = Mock()
+        library.upload_import.return_value = report
+        said = Mock()
+        with patch("console.offload.run.io_bound", new=_now), \
+                patch.object(import_dialog.frame, "opened", return_value=_Confirmed()), \
+                patch.object(import_dialog.frame, "footer"), \
+                patch.object(import_dialog.frame, "cancel"), \
+                patch.object(import_dialog.frame, "answer"), \
+                patch.object(import_dialog, "ui") as drawn:
+            drawn.notify = said
+            await import_dialog.open_for(
+                library, "u-1", {"items": [{"index": 0}]}, source="Other.vpx")
+        return said
+
+    async def test_a_table_added_leaves_the_naming_to_the_add(self) -> None:
+        said = await self._imported({"imported": ["table"], "added_tables": ["t-2"]})
+
+        said.assert_not_called()
+
+    async def test_anything_else_is_counted(self) -> None:
+        said = await self._imported({"imported": ["backglass"], "added_tables": []})
+
+        said.assert_called_once_with(
+            t("console.import_dialog.imported_item", count=1), type="positive")
+
+
+class _Confirmed:
+    """The import dialog, answered Import."""
+
+    def __enter__(self) -> _Confirmed:
+        return self
+
+    def __exit__(self, *_exc: Any) -> None:
+        return None
+
+    def __await__(self) -> Any:
+        return _answered(True).__await__()
+
+
+async def _answered(value: Any) -> Any:
+    return value
 
 
 class ThePanelTakesTheDrop(unittest.TestCase):
