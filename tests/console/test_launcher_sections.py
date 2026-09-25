@@ -157,7 +157,7 @@ class AllSettingsTests(unittest.TestCase):
         self.assertEqual(workbench.section_title("Plugin.PUP", names),
                          t("console.workbench.plugin_section", name="Pin Up Player"))
         self.assertEqual(workbench.section_title("Plugin.HelloWorld", names),
-                         t("console.workbench.plugin_section", name="HelloWorld"))
+                         t("console.workbench.plugin_section", name="Hello World"))
 
 
 def _heading(key: str, *keys: str, enabled_by: str = "") -> SimpleNamespace:
@@ -1093,11 +1093,29 @@ class SettingNamesTests(unittest.TestCase):
 
     def test_or_by_its_section_where_no_heading_holds_it(self) -> None:
         names = workbench.setting_names([_group(
-            "plugins", _setting("Plugin.B2S.Enable", "Enable"),
-            _setting("Plugin.DOF.Enable", "Enable"))])
+            "displays", _setting("Player.PlayfieldWidth", "Width"),
+            _setting("Backglass.BackglassWidth", "Width"))])
 
-        self.assertEqual(names, {"Plugin.B2S.Enable": "B2S Enable",
-                                 "Plugin.DOF.Enable": "DOF Enable"})
+        self.assertEqual(names, {"Player.PlayfieldWidth": "Player Width",
+                                 "Backglass.BackglassWidth": "Backglass Width"})
+
+    def test_a_plugin_s_setting_is_led_by_its_plugin_as_a_table_s_settings_lead_it(
+            self) -> None:
+        names = workbench.setting_names([_group(
+            "plugins", _setting("Plugin.PUP.Enable", "Enable"),
+            _setting("Plugin.PUP.MainVol", "Main Volume"),
+            _setting("Plugin.DOF.Enable", "Enable"),
+            curated=[SimpleNamespace(key="PUP", label="Pin Up Player", note="",
+                                     keys=("Plugin.PUP.Enable", "Plugin.PUP.MainVol"),
+                                     enabled_by="Plugin.PUP.Enable")])])
+
+        self.assertEqual(names, {
+            "Plugin.PUP.Enable": t("console.app_settings.plugin_row",
+                                   plugin="Pin Up Player", label="Enable"),
+            "Plugin.PUP.MainVol": t("console.app_settings.plugin_row",
+                                    plugin="Pin Up Player", label="Main Volume"),
+            "Plugin.DOF.Enable": t("console.app_settings.plugin_row", plugin="DOF",
+                                   label="Enable")})
 
 
 class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):

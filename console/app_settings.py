@@ -237,9 +237,7 @@ def _add_picker(context: dict[str, Any], added: list[str],
 def _named(field: Any, group: Any, names: dict[str, str]) -> Any:
     section = workbench._section_of(field.key)
     if section.startswith(workbench.PLUGIN_SECTION):
-        plugin = section[len(workbench.PLUGIN_SECTION):]
-        label = t("console.app_settings.plugin_row", plugin=names.get(plugin, plugin),
-                  label=field.label)
+        label = workbench.plugin_row(section, field.label, names)
     elif (sum(one.label == field.label for one in group.settings) > 1
           and (window := _window_of(field.key, group))):
         label = t("console.app_settings.window_row", window=window, label=field.label)

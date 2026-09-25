@@ -586,7 +586,7 @@ def _field(one: vini.Setting) -> Field:
         label=one.label if one.label != one.key else LABELS.get(one.qualified, ""),
         type=_type_of(one),
         default="" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE else one.default,
-        description=one.description,
+        description="" if areas.is_plugin_switch(one.qualified) else one.description,
         choices=one.choices,
         minimum=one.minimum,
         maximum=one.maximum,

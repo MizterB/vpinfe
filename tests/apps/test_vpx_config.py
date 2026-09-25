@@ -813,6 +813,15 @@ class SchemaTests(_Case):
         self.assertEqual(labels["Plugin.PinMAME.PinMAMEPath"], "PinMAME Path")
         self.assertEqual(labels["Plugin.DMDUtil.ZeDMD"], "")
 
+    def test_a_plugin_s_switch_says_nothing_its_plugin_s_name_does_not(self) -> None:
+        self.app_ini.write_text(APP_INI + "\n[Plugin.PinMAME]\n"
+                                "; Enable: Enable PinMAME plugin [Default: 0]\nEnable = 1\n")
+        said = {f.key: f.description for g in self.config.groups(self.settings)
+                for f in g.settings}
+
+        self.assertEqual(said["Plugin.PinMAME.Enable"], "")
+        self.assertEqual(said["DMD.Profile1Legacy"], "Use the legacy renderer")
+
     def test_what_vpx_wrote_about_itself_is_not_offered_as_a_setting(self) -> None:
         offered = {f.key for g in self.config.groups(self.settings) for f in g.settings}
 

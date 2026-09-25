@@ -4460,19 +4460,30 @@ def _section_label(section: str, group_label: str) -> str:
 
 def setting_names(groups: Sequence[Any]) -> dict[str, str]:
     """What to call each of one program's settings away from its area, by key: its
-    label, led by the heading or section it sits under where another setting shares
-    the label."""
+    label, led by its plugin's name, or by the heading or section it sits under where
+    another setting shares the label."""
     fields = [(group, field) for group in groups for field in group.settings]
     shared = Counter(field.label for _group, field in fields)
+    plugins = _plugin_names(groups)
 
-    def where(group: Any, key: str) -> str:
+    def named(group: Any, field: Any) -> str:
+        section = _section_of(field.key)
+        if section.startswith(PLUGIN_SECTION):
+            return plugin_row(section, field.label, plugins)
+        if shared[field.label] < 2:
+            return field.label
         heading = next((one.label for one in getattr(group, "curated", ())
-                        if key in one.keys and one.label), "")
-        return heading or _section_label(_section_of(key), group.label)
+                        if field.key in one.keys and one.label), "")
+        return f"{heading or _section_label(section, group.label)} {field.label}"
 
-    return {field.key: (f"{where(group, field.key)} {field.label}"
-                        if shared[field.label] > 1 else field.label)
-            for group, field in fields}
+    return {field.key: named(group, field) for group, field in fields}
+
+
+def plugin_row(section: str, label: str, plugin_names: dict[str, str]) -> str:
+    """A plugin's setting away from its heading, led by the plugin's name: it is all
+    that tells one plugin's Enable from the next."""
+    return t("console.app_settings.plugin_row",
+             plugin=plugin_name(section[len(PLUGIN_SECTION):], plugin_names), label=label)
 
 
 # --- All Settings -------------------------------------------------------------------
@@ -4581,11 +4592,16 @@ def _plugin_names(groups: Sequence[Any]) -> dict[str, str]:
             if h.keys and h.keys[0].startswith(f"{PLUGIN_SECTION}{h.key}.")}
 
 
+def plugin_name(plugin: str, plugin_names: dict[str, str]) -> str:
+    """A plugin's name: the one its area heads its rows with, else its id in words."""
+    return plugin_names.get(plugin) or apps.humanized(plugin)
+
+
 def section_title(section: str, plugin_names: dict[str, str]) -> str:
     """A source section as All Settings heads it: the program's name for it, in words."""
     if section.startswith(PLUGIN_SECTION):
-        plugin = section[len(PLUGIN_SECTION):]
-        return t("console.workbench.plugin_section", name=plugin_names.get(plugin, plugin))
+        return t("console.workbench.plugin_section",
+                 name=plugin_name(section[len(PLUGIN_SECTION):], plugin_names))
     return apps.humanized(section).replace("\\", " - ")
 
 

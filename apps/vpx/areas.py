@@ -165,6 +165,12 @@ def plugin_of(qualified: str) -> str:
     return parts[1] if len(parts) > 2 and parts[0] == "Plugin" else ""
 
 
+def is_plugin_switch(qualified: str) -> bool:
+    """`Plugin.PinMAME.Enable`: the switch the program gives every plugin."""
+    plugin = plugin_of(qualified)
+    return bool(plugin) and qualified == f"Plugin.{plugin}.Enable"
+
+
 def plugin_headings(offered: set[str],
                     installed: Mapping[str, Plugin] | None = None) -> tuple[Heading, ...]:
     """One heading per plugin the file has, its Enable first and the switch for the
