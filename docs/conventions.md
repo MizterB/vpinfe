@@ -27,10 +27,12 @@ is what keeps them gone.
 
 The distinction that decides these: a camelCase name **a theme reads** is a contract and
 stays, because renaming it costs every theme a change. A camelCase name that never leaves
-Python is just old. So `gameDirName` is still a key in the contract 1 payload and always
-will be, and the attribute it is published from is `game.game_dir_name`. The key and the
-attribute are separate things — `frontend/game_state.py` maps one to the other, and
-`MediaSpec` carries both, as `attr` and `payload_key`.
+Python is just old. So `tableDirName` is still a key in the contract 1 payload and always
+will be, `gameDirName` is the same value in contract 2's, and the attribute both are
+published from is `game.game_dir_name`. The keys and the attribute are separate things —
+`frontend/game_state.py` maps the attribute to the contract 2 key, `_LEGACY_ROW_KEYS` in
+`frontend/theme_contract.py` gives contract 1 its spelling back, and `MediaSpec` carries
+an attribute and its key, as `attr` and `payload_key`.
 
 ### JavaScript
 

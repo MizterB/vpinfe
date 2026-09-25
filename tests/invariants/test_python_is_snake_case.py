@@ -6,9 +6,9 @@ camelCase "only in contexts where that's already the prevailing style", which wa
 argument for the 2.x names, and they are gone.
 
 The wire is a separate question and has its own gate. A published theme reads
-`gameDirName` off a contract 1 row and always will; `game_dir_name` is the attribute
-behind it. This checks what we *define*, never what we serve, so the two can differ
-without either one drifting.
+`tableDirName` off a contract 1 row and always will, and `gameDirName` off a contract 2
+row; `game_dir_name` is the attribute behind both. This checks what we *define*, never
+what we serve, so the two can differ without either one drifting.
 
 `ruff`'s `N` rules cover most of this and block in CI. They do not cover a PascalCase
 dataclass field - `BGImagePath` sat on `Game` for two years without a single finding -

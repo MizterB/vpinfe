@@ -367,7 +367,7 @@ describe("a paging action moves the way its name says", () => {
 function navigating(count = 3) {
   const { vpin, press, calls } = controller();
   vpin._capabilities.core_navigation = true;
-  vpin.tableData = Array.from({ length: count }, (_, i) => ({ gameDirName: `G${i}` }));
+  vpin.tableData = Array.from({ length: count }, (_, i) => ({ tableDirName: `G${i}` }));
   const moves = [];
   vpin.sendMessageToAllWindowsIncSelf = (m) => moves.push(m);
   return { vpin, press, calls, moves };

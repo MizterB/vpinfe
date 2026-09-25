@@ -35,9 +35,9 @@ class MediaSpec:
     kind: str
     # The attribute on a Game. Ours, so it is snake_case like everything else.
     attr: str
-    # What the same value is called in the contract 1 payload. Frozen: a published
-    # theme reads these off the row, so the two names are separate things that
-    # happen to carry the same path.
+    # What the same value is called on a theme's row, in contract 2's spelling; contract
+    # 1 gets its own through `_LEGACY_ROW_KEYS`. Frozen: a published theme reads these
+    # off the row, so the two names are separate things that carry the same path.
     payload_key: str
     filename_template: str
     # Which VPinMediaDB resolution bucket this kind is published under - "1k" for the
