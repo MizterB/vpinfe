@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from common import events, paths, service_errors, shutdown
+from common import paths, service_errors
 from common.atomic_write import write_atomic
 from common.games.game import GameRecord
 from common.games.game_metadata import game_tags as own_game_tags
@@ -22,18 +22,11 @@ from common.timestamps import utc_now_iso
 logger = logging.getLogger("vpinfe.common.games.derived_tags")
 
 SCHEMA = 1
-EVERY_SECONDS = 30 * 60
-RETRY_SECONDS = 60
-FIRST_SECONDS = 15
-
-Fetch = Callable[[str], dict]
 
 _lock = threading.RLock()
 _held: dict[str, dict[str, Any]] | None = None
 _indexed: tuple[Any, dict[str, set[str]], dict[str, set[str]]] | None = None
 _generation = 0
-_ticker: threading.Thread | None = None
-_stop = threading.Event()
 
 
 def _path() -> Path:
@@ -73,6 +66,10 @@ def forget() -> None:
         _generation += 1
 
 
+def list_key(extension: str, key: str) -> str:
+    return f"{extension}/{key}"
+
+
 def declared() -> list[dict[str, Any]]:
     """Every tagged list a running extension declares, with what its last read found."""
     from common import extensions
@@ -86,7 +83,7 @@ def declared() -> list[dict[str, Any]]:
             relation = listing.get("relation") or {}
             if not listing.get("tag") or not relation:
                 continue
-            key = f"{record.name}/{listing['key']}"
+            key = list_key(record.name, listing["key"])
             said = held.get(key) or {}
             found.append({
                 "key": key, "extension": record.name,
@@ -196,52 +193,3 @@ def record(key: str, ids: list[str]) -> bool:
 def failed(key: str, error: str) -> None:
     """A read that did not answer. The ids stay, and are said to be stale."""
     _changed(key, stale=True, error=error)
-
-
-def refresh(fetch: Fetch) -> bool:
-    """Read every tagged list once. `fetch` takes a path under the API root and answers
-    what that route did. True when any list's ids changed."""
-    changed = False
-    for one in declared():
-        try:
-            rows = (fetch(f"/ext/{one['extension']}{one['base']}") or {}).get("rows")
-            if not isinstance(rows, list):
-                raise ValueError("the list answered without rows")
-            ids = {str(row.get(one["field"]) or "").strip()
-                   for row in rows if isinstance(row, dict)} - {""}
-        except Exception as exc:
-            logger.warning("derived tags: could not read %s: %s", one["key"], exc)
-            failed(one["key"], str(exc) or type(exc).__name__)
-            continue
-        changed = record(one["key"], sorted(ids)) or changed
-    if changed:
-        events.emit(events.COLLECTIONS_CHANGED, path=str(_path()))
-    return changed
-
-
-def start_periodic(fetch: Fetch) -> None:
-    global _ticker
-    if _ticker is not None:
-        return
-    _stop.clear()
-
-    def _tick() -> None:
-        wait = FIRST_SECONDS
-        while not _stop.wait(wait):
-            if shutdown.requested():
-                return
-            try:
-                refresh(fetch)
-            except Exception:
-                logger.exception("derived tags: the read failed")
-            wait = (EVERY_SECONDS if all(one["read_at"] for one in declared())
-                    else RETRY_SECONDS)
-
-    _ticker = threading.Thread(target=_tick, daemon=True, name="derived-tags")
-    _ticker.start()
-
-
-def stop_periodic() -> None:
-    global _ticker
-    _stop.set()
-    _ticker = None

@@ -1,8 +1,8 @@
 """Tags an extension's Community list derives: where they land, what keeps them, and who
 may move them.
 
-A test extension holds two lists, one by machine and one by release, and each test says
-which ids are on them this week.
+A test extension holds two tagged lists, one by machine and one by release, and each test
+says which ids are on them this week.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 import httpapi
 from common import events, extensions, service_errors
 from common.extensions import host, store
-from common.games import derived_tags, library_ops
+from common.games import community_lists, derived_tags, library_ops
 from common.games.collection_resolver import resolve
 from common.games.collection_store import CollectionStore
 from common.games.game import Game
@@ -47,7 +47,8 @@ class DerivedTagCase(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
         for target, value in (("common.paths.DERIVED_TAGS_PATH", self.root / "derived.json"),
-                              ("common.paths.TAGS_PATH", self.root / "tags.json")):
+                              ("common.paths.TAGS_PATH", self.root / "tags.json"),
+                              ("common.paths.COMMUNITY_KEPT_DIR", self.root / "kept")):
             patcher = patch(target, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -72,9 +73,11 @@ class DerivedTagCase(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def week(self, machines: str = "", releases: str = "", fail: bool = False) -> None:
+    def week(self, machines: str = "", releases: str = "", fail: bool = False,
+             ratings: str = "") -> None:
         self.store.set_setting("challenge", "machines", machines)
         self.store.set_setting("challenge", "releases", releases)
+        self.store.set_setting("challenge", "ratings", ratings)
         self.store.set_setting("challenge", "fail", "yes" if fail else "")
 
     def fetch(self, path: str) -> dict:
@@ -83,7 +86,7 @@ class DerivedTagCase(unittest.TestCase):
         return answer.json()
 
     def read(self) -> bool:
-        return derived_tags.refresh(self.fetch)
+        return community_lists.refresh(self.fetch)
 
     def table(self, game: Game, key: str) -> dict:
         return table_entries(game.meta_config)[key]

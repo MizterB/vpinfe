@@ -122,7 +122,8 @@ class TheLastGoodRead(unittest.TestCase):
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
-        kept = patch.object(community, "KEPT", Path(folder.name))
+        self.kept = Path(folder.name)
+        kept = patch("common.paths.COMMUNITY_KEPT_DIR", self.kept)
         kept.start()
         self.addCleanup(kept.stop)
 
@@ -170,7 +171,7 @@ class TheLastGoodRead(unittest.TestCase):
         self.assertEqual((["AFM"], ["TAF"]),
                          tuple([one["name"] for one in community.kept("site", key)["rows"]]
                                for key in ("tables", "../tables")))
-        self.assertEqual(["site"], [one.name for one in community.KEPT.iterdir()])
+        self.assertEqual(["site"], [one.name for one in self.kept.iterdir()])
 
 
 if __name__ == "__main__":

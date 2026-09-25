@@ -365,11 +365,11 @@ start_manager_ui(port=http_port, bind=http_bind)
 reconfigure_app_logging()
 
 try:
-    from common.games import derived_tags
+    from common.games import community_lists
     from console.api import ApiClient
-    derived_tags.start_periodic(lambda path: ApiClient().ext_get(path))
+    community_lists.start_periodic(lambda path: ApiClient().ext_get(path))
 except Exception:
-    logger.exception("Could not start reading the tags extensions derive")
+    logger.exception("Could not start reading the Community lists that tag or rank")
 
 # Start the WebSocket bridge
 ws_bridge.start()

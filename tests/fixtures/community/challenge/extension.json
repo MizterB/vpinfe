@@ -2,7 +2,7 @@
   "name": "challenge",
   "display_name": "Challenge",
   "version": "1.0.0",
-  "description": "Two Community lists that derive tags, one by machine and one by release.",
+  "description": "Two Community lists that derive tags, one by machine and one by release, and one that ranks.",
   "requires_platform": 1,
   "scopes": ["games:read"],
   "provides": ["read"],

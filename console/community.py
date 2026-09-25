@@ -1,29 +1,20 @@
 from __future__ import annotations
 
-import json
-import logging
 from collections.abc import Callable, Sequence
-from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 from nicegui import ui
 
-from common import paths
-from common.atomic_write import write_atomic
+from common.games.community_lists import keep, kept
 from common.i18n import t
-from common.timestamps import utc_now_iso
 from console import collection_rules, deeplink, grid, offload, panel, tag_chips, verbs, views, when
 from console.api import ApiClient, ApiError
 from console.data import Library, read_state, sources_of
-
-logger = logging.getLogger("vpinfe.console.community")
 
 PREFIX = "community:"
 ICON = "extension"
 HELD = "held"
 UNDER = "under_said"
-KEPT = paths.CONFIG_DIR / "cache" / "community"
 
 _KIND = {"number": {"type": "numericColumn", "filter": "agNumberColumnFilter"},
          "text": {}, "date": {}}
@@ -135,27 +126,6 @@ def _address(mine: dict[str, Any], relation: dict[str, Any]) -> str:
     return "/console?" + deeplink.query({"view": "games", "game": game})
 
 
-def _kept_at(extension: str, key: str) -> Path:
-    return KEPT / extension / f"{quote(key, safe='')}.json"
-
-
-def kept(extension: str, key: str) -> dict[str, Any]:
-    """The last good read of a list, with `rows` None when there is none."""
-    nothing = {"rows": None, "read_at": "", "stale": False, "error": ""}
-    try:
-        said = json.loads(_kept_at(extension, key).read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return nothing
-    except (OSError, ValueError):
-        logger.warning("Could not read the kept copy of %s/%s", extension, key,
-                       exc_info=True)
-        return nothing
-    found = said.get("rows") if isinstance(said, dict) else None
-    if not isinstance(found, list):
-        return nothing
-    return {**nothing, "rows": found, "read_at": str(said.get("read_at") or "")}
-
-
 def read(extension: str, key: str, fetch: Callable[[], dict]) -> dict[str, Any]:
     """Read a list and keep it. A read that fails answers with the last good one, said
     to be stale, and with `rows` None when there is none."""
@@ -163,14 +133,7 @@ def read(extension: str, key: str, fetch: Callable[[], dict]) -> dict[str, Any]:
         found = [one for one in (fetch() or {}).get("rows") or [] if isinstance(one, dict)]
     except (ApiError, OSError) as exc:
         return {**kept(extension, key), "stale": True, "error": str(exc)}
-    said = {"rows": found, "read_at": utc_now_iso()}
-    path = _kept_at(extension, key)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        write_atomic(path, lambda handle: json.dump(said, handle, ensure_ascii=False))
-    except OSError:
-        logger.warning("Could not keep %s/%s", extension, key, exc_info=True)
-    return {**said, "stale": False, "error": ""}
+    return keep(extension, key, found)
 
 
 def collection_for(collections: Sequence[dict[str, Any]], tag: str) -> str:
