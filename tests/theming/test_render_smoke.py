@@ -120,9 +120,11 @@ class RenderSmokeTests(TempTree):
 
     def test_a_secondary_window_renders_too(self) -> None:
         """Blank backglass and scoreview is the break the next session found."""
-        data, _browser, failed = self._drive("backglass")
-        self.assertEqual(data.get("rendered"), str(len(GAMES)))
-        self.assertEqual(failed, [])
+        for window in ("backglass", "scoreview"):
+            with self.subTest(window=window):
+                data, _browser, failed = self._drive(window)
+                self.assertEqual(data.get("rendered"), str(len(GAMES)))
+                self.assertEqual(failed, [])
 
     def test_moving_the_wheel_moves_it(self) -> None:
         async def run(instance: LiveInstance):

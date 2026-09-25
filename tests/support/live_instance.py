@@ -33,6 +33,9 @@ HARNESS_THEME = REPO_ROOT / "tests" / "fixtures" / "theme-harness"
 _PORT_TAKEN = "address already in use"
 _START_ATTEMPTS = 3
 
+# A window's monitor is set in `windows.<name>`, except where the section is spelled apart.
+_WINDOW_SECTIONS = {"scoreview": "windows.score_view"}
+
 
 class LiveInstance:
     """Start `main.py --headless`, wait for it to serve, and stop it afterwards."""
@@ -131,7 +134,8 @@ class LiveInstance:
         # A window with no screen assigned gets no API instance, which is right on a
         # desktop with one monitor and wrong for a test that wants to open all three.
         for index, window in enumerate(self.windows):
-            cfg_set(store, f"windows.{window}", "screen_id", index)
+            section = _WINDOW_SECTIONS.get(window, f"windows.{window}")
+            cfg_set(store, section, "screen_id", index)
         cfg_set(store, "network", "theme_assets_port", self.ports["assets"])
         cfg_set(store, "network", "http_port", self.ports["manager"])
         cfg_set(store, "network", "ws_port", self.ports["ws"])
