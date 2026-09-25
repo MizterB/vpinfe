@@ -568,8 +568,20 @@ class CuratedTests(_TableCase):
         self.assertEqual(sound["curated"], [{
             "key": "playfield", "label": "Playfield",
             "note": "Mechanical sounds - flippers, solenoids, the ball", "description": "",
-            "keys": ["Player.PlaySound", "Player.Sound3D"], "enabled_by": ""}])
+            "keys": ["Player.PlaySound", "Player.Sound3D"], "enabled_by": "",
+            "rivals": []}])
         self.assertFalse(sound["summarized"])
+
+    def test_a_plugin_heading_names_the_rival_switches_the_file_has(self) -> None:
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n\n[Plugin.B2SLegacy]\nEnable = 0\n")
+        both = {h["key"]: h["rivals"] for h in self._groups("launcher")["plugins"]["curated"]}
+        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n")
+        alone = {h["key"]: h["rivals"] for h in self._groups("launcher")["plugins"]["curated"]}
+
+        self.assertEqual(both, {"B2S": ["Plugin.B2SLegacy.Enable"],
+                                "B2SLegacy": ["Plugin.B2S.Enable"]})
+        self.assertEqual(alone, {"B2S": []})
 
     def test_a_plugin_heading_is_switched_by_its_enable(self) -> None:
         plugins = self._groups("launcher")["plugins"]

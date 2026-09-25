@@ -183,6 +183,9 @@ class Heading:
     # The program's own words for what the heading names, as `Field` carries them.
     label: str = ""
     description: str = ""
+    # Other headings' switches: while this one's and a rival's are both on, the program
+    # uses only one of them.
+    rivals: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

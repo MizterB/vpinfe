@@ -1519,6 +1519,8 @@
   "console.workbench.cleared_match": "You cleared the match, so VPinFE leaves this game unmatched",
   "console.workbench.collections": "Collections",
   "console.workbench.commands": "Commands",
+  "console.workbench.conflict": "Conflict",
+  "console.workbench.conflict_hint": "{rival} is on too, and a table uses only one of them. Switch one off.",
   "console.workbench.control": "Control",
   "console.workbench.convert": "Convert",
   "console.workbench.convert_detail": {

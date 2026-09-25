@@ -320,15 +320,18 @@ def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:
 
 def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict[str, Any]]:
     """The group's curated headings, holding only rows this scope shows."""
+    switches = {one.enabled_by for one in group.curated if one.enabled_by in shown}
     found = []
     for heading in group.curated:
         keys = [key for key in heading.keys if key in shown]
         if keys:
+            switched = heading.enabled_by in keys
             found.append({"key": heading.key, **apps.heading_words(app_id, group.key,
                                                                    heading),
                           "keys": keys,
-                          "enabled_by": heading.enabled_by if heading.enabled_by in keys
-                          else ""})
+                          "enabled_by": heading.enabled_by if switched else "",
+                          "rivals": [key for key in heading.rivals if key in switches]
+                          if switched else []})
     return found
 
 

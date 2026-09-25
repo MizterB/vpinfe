@@ -374,6 +374,19 @@ class AreaTests(_Case):
         pinmame = headings[1]
         self.assertEqual(pinmame.keys, ("Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath"))
         self.assertEqual(pinmame.enabled_by, "Plugin.PinMAME.Enable")
+        self.assertEqual(pinmame.rivals, ())
+
+    def test_each_backglass_renderer_names_the_other_as_its_rival(self) -> None:
+        headings = {h.key: h for h in areas.plugin_headings(
+            {"Plugin.B2S.Enable", "Plugin.B2SLegacy.Enable", "Plugin.B2SLegacy.B2SHideDMD"})}
+
+        self.assertEqual(headings["B2S"].rivals, ("Plugin.B2SLegacy.Enable",))
+        self.assertEqual(headings["B2SLegacy"].rivals, ("Plugin.B2S.Enable",))
+
+    def test_a_heading_with_no_switch_has_no_rival(self) -> None:
+        heading, = areas.plugin_headings({"Plugin.B2S.ShowGrill"})
+
+        self.assertEqual((heading.enabled_by, heading.rivals), ("", ()))
 
     def test_the_plugins_rows_follow_their_headings_each_in_the_file_s_order(self) -> None:
         self.assertEqual([f.key for f in self.groups[areas.PLUGINS].settings],

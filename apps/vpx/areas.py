@@ -86,6 +86,9 @@ PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
 # Plugins for writing plugins. In the rest.
 NOT_PLUGINS = frozenset({"HelloScript", "HelloWorld", "Inspector"})
 
+# Plugins a table gets only one of while both are on.
+RIVALS: dict[str, tuple[str, ...]] = {"B2S": ("B2SLegacy",), "B2SLegacy": ("B2S",)}
+
 # Keys of `[Player]` by the page of the program's menu that holds them. The view mode and
 # autofit sit on its Graphic page, and are here because they are about the screen.
 _DISPLAYS = frozenset({
@@ -188,10 +191,13 @@ def plugin_headings(offered: set[str],
                      if key in offered)
         if keys:
             said = (installed or {}).get(plugin, Plugin(plugin))
+            switched = keys[0] == enable
             found.append(Heading(
-                plugin, keys, enabled_by=enable if keys[0] == enable else "",
+                plugin, keys, enabled_by=enable if switched else "",
                 label=said.name if said.name != plugin else "",
-                description=said.description if said.description != said.name else ""))
+                description=said.description if said.description != said.name else "",
+                rivals=tuple(f"Plugin.{other}.Enable" for other in RIVALS.get(plugin, ()))
+                if switched else ()))
     return tuple(sorted(found, key=lambda one: plugin_order(one.key, installed)))
 
 

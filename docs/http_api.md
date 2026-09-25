@@ -526,6 +526,9 @@ every member, and `curated` names the few a client draws first, under headings:
   change nothing. Each plugin is a heading switched by its `Enable`, taking its name and
   description from the `plugin.cfg` the installed program has for it, in order of that
   name. A plugin the file names and the program does not have is in `more`.
+- `rivals` names other headings' switches, where the heading has one: while its switch
+  and a rival are both on, the program uses only one of them. B2S and B2SLegacy are each
+  other's. A rival is listed only where it is itself a heading's switch at this scope.
 - `summarized` is true for a group said as one line rather than listed, the point of view.
   `rows` names the ones it draws as rows of their own all the same: the view mode of each
   view the table starts in, by its `Player.BGSet`, then any other view mode the table sets.

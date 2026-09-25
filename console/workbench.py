@@ -4242,6 +4242,25 @@ def curated_blocks(group: Any, values: dict[str, Any]) -> list[tuple[Any, list[A
     return found
 
 
+def conflicts(groups: Sequence[Any], values: dict[str, Any]) -> dict[str, str]:
+    """Each switch that is on while a rival of it is too, and that rival's name."""
+    headings = [one for group in groups for one in getattr(group, "curated", ())
+                if one.enabled_by]
+    fields = {f.key: f for group in groups for f in group.settings}
+    names = {one.enabled_by: one.label or apps.humanized(one.key) for one in headings}
+
+    def on(key: str) -> bool:
+        return key in fields and _is_on(fields[key], values.get(key) or {})
+
+    return {one.enabled_by: names.get(rival, rival) for one in headings
+            if on(one.enabled_by) for rival in getattr(one, "rivals", ()) if on(rival)}
+
+
+def rival_switches(groups: Sequence[Any]) -> set[str]:
+    return {key for group in groups for one in getattr(group, "curated", ())
+            if getattr(one, "rivals", ()) for key in (one.enabled_by, *one.rivals)}
+
+
 def curated_keys(group: Any) -> set[str]:
     held = {f.key for f in group.settings}
     return {key for heading in group.curated for key in heading.keys if key in held}
@@ -4316,6 +4335,9 @@ async def _setting_entries(context: dict[str, Any],
     scope = str(context.get("config_scope") or "launcher")
     table = str(context.get("config_table") or "")
     their_own = await _set_by_tables(context) if scope == "launcher" and not table else {}
+    groups = context.get("config_groups") or []
+    clashing = conflicts(groups, values)
+    redraw_on = {*redraw_on, *rival_switches(groups)}
     rows: dict[str, dict] = {}
     redraws: list[Callable[[], None]] = []
     shown = dict(values)
@@ -4396,8 +4418,9 @@ async def _setting_entries(context: dict[str, Any],
             entries.append((panel.ASIDE, _beside(
                 partial(_mark_for, held, scope, field, offered), held, field, clear,
                 app_name, playing, redraws, context.get("config_more"),
-                _tables_of_their_own(launcher, field.key, their_own[field.key])
-                if their_own.get(field.key) else None)))
+                _in_turn(_conflict(clashing[field.key]) if field.key in clashing else None,
+                         _tables_of_their_own(launcher, field.key, their_own[field.key])
+                         if their_own.get(field.key) else None))))
             if said := (getattr(field, "help", "") if curated else "") or field.description:
                 entries.append(panel.note(said))
     return entries
@@ -4416,6 +4439,22 @@ async def _set_by_tables(context: dict[str, Any]) -> Counter[str]:
         return Counter()
     return Counter(key for row in rows if row.get("launcher") == launcher_id
                    for key in row.get("launcher_settings_keys") or ())
+
+
+def _conflict(rival: str) -> Callable[[], None]:
+    return panel.state(t("console.workbench.conflict"), "warn",
+                       hint=t("console.workbench.conflict_hint", rival=rival))
+
+
+def _in_turn(*draws: Callable[[], None] | None) -> Callable[[], None] | None:
+    kept = [one for one in draws if one is not None]
+    if not kept:
+        return None
+
+    def draw() -> None:
+        for one in kept:
+            one()
+    return draw
 
 
 def _tables_of_their_own(launcher: dict[str, Any], key: str,

@@ -160,9 +160,50 @@ class AllSettingsTests(unittest.TestCase):
                          t("console.workbench.plugin_section", name="Hello World"))
 
 
-def _heading(key: str, *keys: str, enabled_by: str = "") -> SimpleNamespace:
-    return SimpleNamespace(key=key, label=key.title(), note="", keys=keys,
-                           enabled_by=enabled_by)
+def _heading(key: str, *keys: str, enabled_by: str = "",
+             rivals: tuple[str, ...] = (), label: str = "") -> SimpleNamespace:
+    return SimpleNamespace(key=key, label=label or key.title(), note="", keys=keys,
+                           enabled_by=enabled_by, rivals=rivals)
+
+
+class ConflictTests(unittest.TestCase):
+    RENDERERS = [_group(
+        "plugins",
+        _setting("Plugin.B2S.Enable", "Enable", default="1"),
+        _setting("Plugin.B2SLegacy.Enable", "Enable", default="0"),
+        _setting("Plugin.DOF.Enable", "Enable", default="1"),
+        curated=[_heading("B2S", "Plugin.B2S.Enable", enabled_by="Plugin.B2S.Enable",
+                          rivals=("Plugin.B2SLegacy.Enable",)),
+                 _heading("B2SLegacy", "Plugin.B2SLegacy.Enable", label="B2S Legacy",
+                          enabled_by="Plugin.B2SLegacy.Enable",
+                          rivals=("Plugin.B2S.Enable",)),
+                 _heading("DOF", "Plugin.DOF.Enable", enabled_by="Plugin.DOF.Enable")])]
+
+    def test_two_rivals_on_each_name_the_other(self) -> None:
+        both = workbench.conflicts(self.RENDERERS, {"Plugin.B2SLegacy.Enable": {"value": "1"}})
+
+        self.assertEqual(both, {"Plugin.B2S.Enable": "B2S Legacy",
+                                "Plugin.B2SLegacy.Enable": "B2S"})
+
+    def test_a_rival_off_is_no_conflict(self) -> None:
+        self.assertEqual(workbench.conflicts(self.RENDERERS, {}), {})
+        self.assertEqual(workbench.conflicts(self.RENDERERS, {
+            "Plugin.B2S.Enable": {"value": "0"},
+            "Plugin.B2SLegacy.Enable": {"value": "1"}}), {})
+
+    def test_either_switch_redraws_the_other(self) -> None:
+        self.assertEqual(workbench.rival_switches(self.RENDERERS),
+                         {"Plugin.B2S.Enable", "Plugin.B2SLegacy.Enable"})
+
+    def test_rivals_travel_with_their_heading(self) -> None:
+        groups = data.config_groups({"groups": [{
+            "key": "plugins", "label": "Plugins", "settings": [], "curated": [
+                {"key": "B2S", "label": "B2S", "keys": ["Plugin.B2S.Enable"],
+                 "enabled_by": "Plugin.B2S.Enable", "rivals": ["Plugin.B2SLegacy.Enable"]},
+                {"key": "DOF", "label": "DOF", "keys": ["Plugin.DOF.Enable"]}]}]})
+
+        self.assertEqual([h.rivals for h in groups[0].curated],
+                         [("Plugin.B2SLegacy.Enable",), ()])
 
 
 class CuratedAreaTests(unittest.TestCase):

@@ -1348,6 +1348,8 @@
   "console.workbench.cleared_match": "71e00340af7b",
   "console.workbench.collections": "135af27a14a4",
   "console.workbench.commands": "a771b9660dc8",
+  "console.workbench.conflict": "50468d81c1ed",
+  "console.workbench.conflict_hint": "98c7466731f9",
   "console.workbench.control": "976c63285a51",
   "console.workbench.convert": "c44ae508df9b",
   "console.workbench.convert_detail": "5f15eba8325f",

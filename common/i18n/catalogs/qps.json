@@ -1519,6 +1519,8 @@
   "console.workbench.cleared_match": "Ýöû çŀèàřèđ ţĥè ɱàţçĥ, šö ṼÞîñƑÈ ŀèàṽèš ţĥîš ĝàɱè ûñɱàţçĥèđ",
   "console.workbench.collections": "Çöŀŀèçţîöñš",
   "console.workbench.commands": "Çöɱɱàñđš",
+  "console.workbench.conflict": "Çöñƒŀîçţ",
+  "console.workbench.conflict_hint": "{rival} îš öñ ţöö, àñđ à ţàƀŀè ûšèš öñŀý öñè öƒ ţĥèɱ. Šŵîţçĥ öñè öƒƒ.",
   "console.workbench.control": "Çöñţřöŀ",
   "console.workbench.convert": "Çöñṽèřţ",
   "console.workbench.convert_detail": {
