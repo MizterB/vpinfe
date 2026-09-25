@@ -4580,7 +4580,7 @@ def _is_on(field: Any, held: dict[str, Any]) -> bool:
 
 def _area_search(context: dict[str, Any]) -> None:
     """Any setting, found from any area: what is typed here carries on in All Settings."""
-    with ui.row().classes("w-full pb-2"):
+    with ui.row().classes("console-section-bar"):
         search = panel.search(t("console.app_settings.search_settings")) \
             .props("debounce=250")
 
@@ -4913,7 +4913,7 @@ async def _all_settings(context: dict[str, Any]) -> None:
     if wanted.get("area") not in areas:
         wanted["area"] = ""
 
-    with ui.row().classes("items-center gap-x-4 gap-y-2 w-full pb-2"):
+    with ui.row().classes("items-center gap-x-4 gap-y-2 console-section-bar"):
         search = panel.search(t("console.app_settings.search_settings")) \
             .props("debounce=250")
         search.value = wanted.get("query") or ""

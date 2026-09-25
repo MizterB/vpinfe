@@ -1483,6 +1483,9 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
    invisible while the region was a dark well and obvious the moment it became a lit one:
    a panel touching the wall reads as unfinished rather than as full-width. */
 .console-workbench-body { padding: 8px var(--panel-gutter); }
+/* A section's search and filters. They act on the whole section, so no group heading
+   goes over them. */
+.console-section-bar { width: 100%; padding-bottom: 0.5rem; }
 /* The panel toggles match: nav and workbench are the same control, same color. */
 .console-panel-header .q-icon { color: var(--ink-2); }
 .console-nav-title {

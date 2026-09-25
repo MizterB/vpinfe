@@ -549,7 +549,9 @@ grouping takes group headings; a short one does not.
 **Every group in a section is headed, or none is.** Once any group under a rail row takes a
 heading, the first takes one too: content left unnamed above the first rule reads as a stray
 rather than as the start of the section. A section that is one group needs no heading,
-since the lit row names it, and never one that only says the row again.
+since the lit row names it, and never one that only says the row again. A search or filter
+that acts on the whole section is not a group: it goes above the first heading, in a
+`console-section-bar`.
 
 **One implementation, in `console/panel.py`.** The fact list and one constructor per kind of
 value live there, and every surface renders through it. Reaching for `ui.switch` or

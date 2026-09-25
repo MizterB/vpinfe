@@ -14,12 +14,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
+from apps.vpx.setting_types import TYPES
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import game_info, write_game
 from tests.support.live_instance import LiveInstance
 
 PICKED = "Hand Picked"
 SMART = "Smart Bally"
+VPX = "vpx-drive"
 
 # Where each rail lives, and the address that puts a subject under it. None selects the
 # first row of that view's list, LAST its last.
@@ -33,6 +35,7 @@ VIEWS = (
     ("locations", None),
     ("locations", LAST),
     ("launchers", None),
+    ("launchers", f"launcher={VPX}"),
     ("devices", None),
     ("media", None),
     ("assets", None),
@@ -51,7 +54,8 @@ PICK = """(last => {
   return true;
 })(%s)"""
 # Opens every row in turn. A page's own name (`panel.header`, Settings) is the page, not a
-# group, so it is set aside before either question is asked.
+# group, and a section bar is the whole section's; both are set aside before either
+# question is asked.
 AUDIT = """(async () => {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const HEAD = '.console-fact-heading, .console-card-title,'
@@ -75,8 +79,8 @@ AUDIT = """(async () => {
     const area = work();
     if (!area) { problems.push([name, 'opened onto nothing']); continue; }
     opened.push(name);
-    const page = area.querySelector('.console-panel-heading');
-    const outside = el => !(page && page.contains(el));
+    const aside = [...area.querySelectorAll('.console-panel-heading, .console-section-bar')];
+    const outside = el => !aside.some(a => a.contains(el));
     const heads = [...area.querySelectorAll(HEAD)].filter(shown).filter(outside);
     const first = [...area.querySelectorAll('*')].filter(outside).find(content);
     headings[name] = heads.length;
@@ -90,6 +94,24 @@ AUDIT = """(async () => {
 })()"""
 
 
+def _vpx_install(root: Path) -> dict[str, str]:
+    defaults = {"bool": "0", "int": "0", "number": "1.0", "string": "''",
+                "choice": "0, 0='One', 1='Two'"}
+    sections: dict[str, list[str]] = {}
+    for qualified, kind in TYPES.items():
+        section, key = qualified.rsplit(".", 1)
+        value = defaults[kind].split(",")[0].strip("'")
+        sections.setdefault(section, []).append(
+            f"; {key}: {key} [Default: {defaults[kind]}]\n{key} = {value}")
+    ini = root / "VPinballX.ini"
+    ini.write_text("".join(f"[{name}]\n" + "\n".join(lines) + "\n\n"
+                           for name, lines in sections.items()))
+    program = root / "VPinballX_BGFX"
+    program.write_text("#!/bin/sh\nexit 0\n")
+    program.chmod(0o755)
+    return {"bin_path": str(program), "ini_path": str(ini)}
+
+
 class SectionHeadingsDrive(unittest.TestCase):
     seen: dict = {}
 
@@ -97,7 +119,8 @@ class SectionHeadingsDrive(unittest.TestCase):
     def setUpClass(cls) -> None:
         if not chromium_path():
             raise unittest.SkipTest("no Chromium on this machine")
-        with TemporaryDirectory() as tmp, TemporaryDirectory() as second:
+        with TemporaryDirectory() as tmp, TemporaryDirectory() as second, \
+                TemporaryDirectory() as program:
             tables = {"t-a1": {"id": "t-a1", "filename": "Alpha 1.vpx", "version": "1"},
                       "t-a2": {"id": "t-a2", "filename": "Alpha 2.vpx", "version": "2"}}
             info = game_info("Alpha", vps_id="", game_id="alpha", tables=tables,
@@ -113,18 +136,23 @@ class SectionHeadingsDrive(unittest.TestCase):
             write_game(Path(tmp), "Bravo", info=bravo)
             write_game(Path(second), "Bravo", info=bravo)
             with LiveInstance(Path(tmp)) as instance:
-                cls.seen = asyncio.run(cls._drive(instance, second))
+                cls.seen = asyncio.run(cls._drive(instance, second,
+                                                  _vpx_install(Path(program))))
 
     @classmethod
-    async def _drive(cls, instance: LiveInstance, second: str) -> dict:
+    async def _drive(cls, instance: LiveInstance, second: str,
+                     vpx: dict[str, str]) -> dict:
         instance.wait_for_api()
         instance.post("/api/v1/collections", {"name": PICKED, "games": ["alpha", "bravo"]})
         instance.post("/api/v1/collections",
                       {"name": SMART, "filters": {"manufacturer": ["Bally"]}})
-        urllib.request.urlopen(urllib.request.Request(
-            instance.console_url("/api/v1/locations/second"),
-            data=json.dumps({"path": second, "kind": "root"}).encode(), method="PUT",
-            headers={"Content-Type": "application/json"}), timeout=10).close()
+        for path, body in (("locations/second", {"path": second, "kind": "root"}),
+                           (f"launchers/{VPX}", {"app": "vpx", "enabled": True,
+                                                 "display_name": "Drive", "settings": vpx})):
+            urllib.request.urlopen(urllib.request.Request(
+                instance.console_url(f"/api/v1/{path}"),
+                data=json.dumps(body).encode(), method="PUT",
+                headers={"Content-Type": "application/json"}), timeout=10).close()
         seen: dict = {}
         async with BrowserSession(chromium_path()) as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
@@ -150,6 +178,11 @@ class SectionHeadingsDrive(unittest.TestCase):
     def test_a_shadowed_location_draws_its_second_group(self) -> None:
         self.assertEqual(self.seen["view=locations (last row)"]["headings"],
                          {"Details": 2})
+
+    def test_a_vpx_install_opens_each_area_of_its_settings(self) -> None:
+        self.assertEqual(self.seen[f"view=launchers&launcher={VPX}"]["opened"],
+                         ["Details", "Displays", "Sound", "Graphics", "Plugins",
+                          "All Settings", "Settings file"])
 
     def test_a_headed_section_opens_with_a_heading(self) -> None:
         problems = {query: found["problems"] for query, found in self.seen.items()
