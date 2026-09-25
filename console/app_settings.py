@@ -156,12 +156,14 @@ def _group_rows(library: Library, launcher_id: str, table_id: str, scope: str,
                 rows: list[dict], values: dict, draw: Callable, app_name: str,
                 playing: bool = False) -> list[tuple[Any, Any]]:
     """One group's settings, with where each value comes from and the way off it."""
+    from console import workbench
+
     entries: list[tuple[Any, Any]] = []
     for field in rows:
         held = values.get(field["key"]) or {}
-        entries.append((field["label"],
-                        _control(library, launcher_id, table_id, scope, field,
-                                 held, draw, playing)))
+        entries.append((field["label"], workbench._marked(
+            _control(library, launcher_id, table_id, scope, field, held, draw, playing),
+            held, _Field(field), app_name)))
         aside = _aside(library, launcher_id, table_id, scope, field, held, draw,
                        app_name, playing)
         if aside is not None:
@@ -222,10 +224,11 @@ def _aside(library: Library, launcher_id: str, table_id: str, scope: str, field:
            playing: bool = False) -> Callable[[], None] | None:
     from console import workbench
 
-    mark = (workbench._config_mark(held, scope) if _offered_here(field, scope)
+    mark = (workbench._config_mark(held, scope, _Field(field))
+            if _offered_here(field, scope)
             else panel.state(t("console.app_settings.unused"), "warn",
                              hint=t("console.app_settings.all_tables_only")))
-    if mark is None:
+    if mark is None and not held.get("set_here"):
         return None
 
     async def wipe() -> None:
@@ -237,20 +240,26 @@ def _aside(library: Library, launcher_id: str, table_id: str, scope: str, field:
             return
         await draw()
 
-    class _Field:
-        type = field.get("type", "")
-        choices = tuple(tuple(pair) for pair in field.get("choices") or ())
-        default = field.get("default", "")
-
     def drawn() -> None:
         with ui.row().classes("items-center gap-2 no-wrap"):
-            mark()
+            if mark is not None:
+                mark()
             if held.get("set_here"):
                 panel.action(t("word.clear"), wipe, icon=verbs.CLEAR, inline=True,
-                        enabled=not playing,
+                             enabled=not playing,
                              hint=(t(workbench.PLAYING_NOTE) if playing
-                                   else workbench._clear_hint(held, _Field, app_name)))()
+                                   else workbench._clear_hint(held, _Field(field),
+                                                              app_name)))()
     return drawn
+
+
+class _Field:
+    """A setting off the wire, read the way the workbench reads a field."""
+
+    def __init__(self, field: dict) -> None:
+        self.type = field.get("type", "")
+        self.choices = tuple(tuple(pair) for pair in field.get("choices") or ())
+        self.default = field.get("default", "")
 
 
 def _as_text(value: Any) -> str:

@@ -921,8 +921,8 @@ body::before {
   transform: rotate(45deg) scale(0.82);
 }
 
-/* A table that names its own launcher. Amber where the one it names is switched off,
-   so its tables play another. */
+/* Chosen here rather than followed: a table that names its own launcher, a setting this
+   scope sets. Amber where the choice is not the one in force. */
 .console-named-mark { color: var(--accent); margin-right: 4px; }
 .console-named-mark--off { color: var(--warm); }
 

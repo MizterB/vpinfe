@@ -1606,6 +1606,8 @@
     "one": "Hand-picked · {count} game",
     "other": "Hand-picked · {count} games"
   },
+  "console.workbench.has_its_own": "{whose} has its own: {value}",
+  "console.workbench.has_its_own_whose": "{whose} has its own",
   "console.workbench.hash": "Hash",
   "console.workbench.held_added": "Added",
   "console.workbench.held_matched": "By rule",
@@ -1752,6 +1754,7 @@
   "console.workbench.rules": "Rules",
   "console.workbench.run": "Will run",
   "console.workbench.runs_with_other": "Runs with {app} - {own}'s settings, ROM and start-up check don't apply",
+  "console.workbench.same_as_default": "Same as {app}'s default",
   "console.workbench.same_game_library_twice": "The same game is in your library twice. Nothing here has been changed and nothing is lost - one of the two answers for it, and these are the others. Removing this location is the answer when the whole of it is a second view of one library.",
   "console.workbench.save_rules": "Save Rules",
   "console.workbench.saved_for_this_table": "Saved for this table",

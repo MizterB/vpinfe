@@ -1606,6 +1606,8 @@
     "one": "Ĥàñđ-þîçķèđ · {count} ĝàɱè",
     "other": "Ĥàñđ-þîçķèđ · {count} ĝàɱèš"
   },
+  "console.workbench.has_its_own": "{whose} ĥàš îţš öŵñ: {value}",
+  "console.workbench.has_its_own_whose": "{whose} ĥàš îţš öŵñ",
   "console.workbench.hash": "Ĥàšĥ",
   "console.workbench.held_added": "Àđđèđ",
   "console.workbench.held_matched": "Ɓý řûŀè",
@@ -1752,6 +1754,7 @@
   "console.workbench.rules": "Řûŀèš",
   "console.workbench.run": "Ŵîŀŀ řûñ",
   "console.workbench.runs_with_other": "Řûñš ŵîţĥ {app} - {own}'š šèţţîñĝš, ŘÖḾ àñđ šţàřţ-ûþ çĥèçķ đöñ'ţ àþþŀý",
+  "console.workbench.same_as_default": "Šàɱè àš {app}'š đèƒàûŀţ",
   "console.workbench.same_game_library_twice": "Ţĥè šàɱè ĝàɱè îš îñ ýöûř ŀîƀřàřý ţŵîçè. Ñöţĥîñĝ ĥèřè ĥàš ƀèèñ çĥàñĝèđ àñđ ñöţĥîñĝ îš ŀöšţ - öñè öƒ ţĥè ţŵö àñšŵèřš ƒöř îţ, àñđ ţĥèšè àřè ţĥè öţĥèřš. Řèɱöṽîñĝ ţĥîš ŀöçàţîöñ îš ţĥè àñšŵèř ŵĥèñ ţĥè ŵĥöŀè öƒ îţ îš à šèçöñđ ṽîèŵ öƒ öñè ŀîƀřàřý.",
   "console.workbench.save_rules": "Šàṽè Řûŀèš",
   "console.workbench.saved_for_this_table": "Šàṽèđ ƒöř ţĥîš ţàƀŀè",

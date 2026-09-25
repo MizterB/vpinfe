@@ -9,6 +9,7 @@ either way.
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from common.i18n import t
 from console import app_settings, workbench
@@ -85,28 +86,66 @@ class SwitchedOffTests(unittest.TestCase):
 
 
 class MarkTests(unittest.TestCase):
+    """The word beside a value. Set here is the dot's to say, so a word is only ever an
+    exception."""
+
     def test_a_value_nobody_has_touched_is_not_marked(self) -> None:
         """Unmarked is the untouched one, so a mark always means somebody did
         something. On 98% of rows a mark would say nothing."""
         self.assertIsNone(workbench._config_mark(
-            {"set_here": False, "in_effect": True, "scope": ""}, "launcher"))
+            {"set_here": False, "in_effect": True, "scope": ""}, "launcher", _Bool))
 
-    def test_a_value_set_at_this_scope_says_so(self) -> None:
-        self.assertIsNotNone(workbench._config_mark(
-            {"set_here": True, "in_effect": True, "scope": "launcher"}, "launcher"))
+    def test_a_value_set_at_this_scope_takes_no_word(self) -> None:
+        self.assertIsNone(workbench._config_mark(
+            {"set_here": True, "in_effect": True, "scope": "launcher"}, "launcher",
+            _Bool))
 
-    def test_a_value_from_another_layer_names_that_layer(self) -> None:
-        self.assertIn("folder", workbench.CAME_FROM["folder"].lower())
-        self.assertIsNotNone(workbench._config_mark(
-            {"set_here": False, "in_effect": True, "scope": "folder"}, "entry"))
+    def test_at_a_table_following_all_tables_is_silent(self) -> None:
+        self.assertIsNone(workbench._config_mark(
+            {"set_here": False, "in_effect": True, "scope": "launcher"}, "entry", _Bool))
 
-    def test_a_shadowed_value_is_the_loud_one(self) -> None:
+    def test_a_value_from_this_game_names_it_at_a_table(self) -> None:
+        with patch.object(workbench.panel, "state") as chip:
+            workbench._config_mark(
+                {"set_here": False, "in_effect": True, "scope": "folder"}, "entry", _Bool)
+
+        self.assertEqual(chip.call_args.args[0], "This Game")
+
+    def test_a_shadowed_value_is_the_loud_one_and_says_what_answers(self) -> None:
         """Somebody wrote it and another layer answers over it. Invisible on the row
         otherwise, and the bug report we would get."""
-        mark = workbench._config_mark(
-            {"set_here": True, "in_effect": False, "scope": "launcher"}, "folder")
+        with patch.object(workbench.panel, "state") as chip:
+            workbench._config_mark(
+                {"set_here": True, "in_effect": False, "scope": "entry", "value": "0"},
+                "folder", _Bool)
 
-        self.assertIsNotNone(mark)
+        self.assertEqual(chip.call_args.args[:2], ("Overridden", "warn"))
+        self.assertEqual(chip.call_args.kwargs["hint"], "This Table has its own: Off")
+
+
+class WhoseValueTests(unittest.TestCase):
+    """What hovering a value says."""
+
+    def whose(self, **held: object) -> str:
+        return workbench._whose_value(held, _Bool, "Visual Pinball X")
+
+    def test_nobody_set_it(self) -> None:
+        self.assertEqual(self.whose(), "Visual Pinball X's default")
+
+    def test_set_here(self) -> None:
+        self.assertEqual(self.whose(set_here=True, in_effect=True, scope="launcher",
+                                    value="0"), "Set here")
+
+    def test_set_here_to_the_default_is_still_set_here_and_says_so(self) -> None:
+        """It is in the file, and it will not follow a later default."""
+        for value in ("1", "1.0"):
+            with self.subTest(value=value):
+                self.assertEqual(self.whose(set_here=True, in_effect=True,
+                                            scope="launcher", value=value),
+                                 "Same as Visual Pinball X's default")
+
+    def test_followed_from_another_scope(self) -> None:
+        self.assertEqual(self.whose(scope="launcher", value="0"), "All Tables")
 
     def test_no_word_on_screen_is_the_wire_s(self) -> None:
         said = " ".join(workbench.CAME_FROM.values()).lower()

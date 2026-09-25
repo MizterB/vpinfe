@@ -4099,21 +4099,56 @@ CAME_FROM = {
 }
 
 
-def _config_mark(held: dict, scope: str) -> Callable[[], None] | None:
-    """The one thing worth saying about where this value comes from.
-
-    Four states and only three of them draw. Set-here-and-shadowed is the one that has
-    to be loud: it is a value somebody wrote that another layer is answering over, and
-    it is invisible on the row otherwise.
-    """
+def _config_mark(held: dict, scope: str, field: Any) -> Callable[[], None] | None:
+    """The word beside a value, where it is an exception: Overridden, or a scope other
+    than this one and All Tables. Set here is the dot's to say (`_marked`)."""
     if held.get("set_here") and not held.get("in_effect"):
-        return panel.state(t("console.workbench.not_effect"), "warn")
-    if held.get("set_here"):
-        return panel.state(t("console.workbench.set_2"), "on")
+        return panel.state(t("console.workbench.not_effect"), "warn",
+                           hint=_whose_value(held, field, ""))
     came = held.get("scope") or ""
-    if came and came != scope:
+    if not held.get("set_here") and came not in ("", scope, "launcher"):
         return panel.state(t(CAME_FROM.get(came, "console.workbench.inherited")), "off")
     return None
+
+
+def _marked(control: Callable[[], None], held: dict, field: Any,
+            app_name: str) -> Callable[[], None]:
+    """A value, with a dot before it where this scope sets it, and whose it is on
+    hover."""
+    def draw() -> None:
+        with ui.row().classes("items-center gap-1 no-wrap console-field-row") as row:
+            if held.get("set_here"):
+                dot = ui.element("span").classes(
+                    "console-mark console-mark--full console-named-mark")
+                if not held.get("in_effect", True):
+                    dot.classes("console-named-mark--off")
+            control()
+        row.tooltip(_whose_value(held, field, app_name))
+    return draw
+
+
+def _whose_value(held: dict, field: Any, app_name: str) -> str:
+    whose = t(CAME_FROM.get(held.get("scope") or "", "console.workbench.inherited"))
+    if held.get("set_here") and not held.get("in_effect", True):
+        if said := _said_value(field, held.get("value") or ""):
+            return t("console.workbench.has_its_own", whose=whose, value=said)
+        return t("console.workbench.has_its_own_whose", whose=whose)
+    if held.get("set_here"):
+        if _same_value(field, held.get("value") or "", str(field.default or "")):
+            return t("console.workbench.same_as_default", app=app_name)
+        return t("console.workbench.set_2")
+    if held.get("scope"):
+        return whose
+    return t("console.workbench.app_default", app=app_name)
+
+
+def _same_value(field: Any, one: str, other: str) -> bool:
+    if _said_value(field, one) == _said_value(field, other):
+        return True
+    try:
+        return float(one) == float(other)
+    except ValueError:
+        return False
 
 
 def _said_value(field: Any, value: str) -> str:
@@ -4144,7 +4179,7 @@ def _clear_hint(held: dict, field: Any, app_name: str) -> str:
     return t("console.workbench.back_to_whose", whose=whose)
 
 
-def _beside(mark: Callable[[], None], held: dict, field: Any, clear: Callable,
+def _beside(mark: Callable[[], None] | None, held: dict, field: Any, clear: Callable,
             app_name: str, playing: bool = False) -> Callable[[], None]:
     """The mark, and where it is somebody's own value, the way back off it.
 
@@ -4154,7 +4189,8 @@ def _beside(mark: Callable[[], None], held: dict, field: Any, clear: Callable,
     """
     def draw() -> None:
         with ui.row().classes("items-center gap-2 no-wrap"):
-            mark()
+            if mark is not None:
+                mark()
             if held.get("set_here"):
                 panel.action(t("word.clear"), lambda: _run(clear, field.key),
                              icon=verbs.CLEAR, inline=True,
@@ -4318,6 +4354,7 @@ async def _setting_entries(context: dict[str, Any],
     entries: list[tuple[Any, Any]] = []
     if playing:
         entries.append(panel.note(t(PLAYING_NOTE), hint=t(PLAYING_WHY)))
+    app_name = str(launcher.get("app_name") or "")
     for title, lede, fields in blocks:
         if title:
             entries.append((HEADING, title))
@@ -4326,16 +4363,14 @@ async def _setting_entries(context: dict[str, Any],
         for field in fields:
             held = values.get(field.key) or {}
             option = _as_option(field)
-            entries.append((field.label,
-                            settings_page.control_for(
-                                option,
-                                settings_page.value_for(option, held.get("value")),
-                                await save(field.key), writable=not playing)))
-            mark = _config_mark(held, scope)
-            if mark is not None:
+            control = settings_page.control_for(
+                option, settings_page.value_for(option, held.get("value")),
+                await save(field.key), writable=not playing)
+            entries.append((field.label, _marked(control, held, field, app_name)))
+            mark = _config_mark(held, scope, field)
+            if mark is not None or held.get("set_here"):
                 entries.append((panel.ASIDE,
-                                _beside(mark, held, field, clear,
-                                        str(launcher.get("app_name") or ""), playing)))
+                                _beside(mark, held, field, clear, app_name, playing)))
             if said := (getattr(field, "help", "") if curated else "") or field.description:
                 entries.append(panel.note(said))
     return entries
