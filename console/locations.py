@@ -138,7 +138,6 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
             describe()
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.locations.search_locations"))
-            picked: list[dict[str, Any]] = []
             with bar.bottom, panel.bar_end():
                 count = ui.label(t("console.locations.location", count=len(built))) \
                     .classes("text-xs console-label")
@@ -146,7 +145,8 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                     .tooltip(t("console.locations.actions_selected_locations"))
                 with bulk, ui.menu():
                     ui.menu_item(t("console.locations.remove_selected"),
-                                 lambda: _remove_many(picked, library, rerender)) \
+                                 lambda: _remove_many(grid.selection(table), library,
+                                                      rerender)) \
                         .classes("console-menu-item console-menu-danger")
                 bulk.set_visibility(False)
                 panel.add_action(
@@ -163,7 +163,6 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
         grid.on_row_focus(SCOPE,
                           lambda event: on_select(by_id.get(grid.focused_row(event))))
         def on_selected(rows_selected: list[dict[str, Any]]) -> None:
-            picked[:] = rows_selected
             bulk.set_visibility(bool(rows_selected))
             count.text = (t("console.locations.selected",
                             len=(len(rows_selected)), len2=(len(built)))
@@ -181,9 +180,9 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                             acts(library, state, location, rerender))
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table = grid.build(COLUMNS, built, SCOPE, on_select_rows=on_selected,
-                               on_context=fill, view_of=showing)
-            menu = ui.context_menu()
+            table: ui.aggrid = grid.build(COLUMNS, built, SCOPE, on_select_rows=on_selected,
+                                          on_context=fill, view_of=showing)
+            menu: ui.context_menu = ui.context_menu()
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))

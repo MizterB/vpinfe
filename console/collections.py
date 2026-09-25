@@ -277,7 +277,8 @@ def build(collections: list[dict[str, Any]], library: Any,
                 .tooltip(t("console.collections.actions_selected_collections"))
             with bulk, ui.menu():
                 ui.menu_item(t("console.collections.delete_selected"),
-                             lambda: _ask_delete_many(picked, library, act)) \
+                             lambda: _ask_delete_many(grid.selection(table), library,
+                                                      act)) \
                     .classes("console-menu-item console-menu-danger")
             bulk.set_visibility(False)
             panel.add_action([(t("console.collections.new_collection"),
@@ -315,8 +316,9 @@ def build(collections: list[dict[str, Any]], library: Any,
         _fill(None, col_id=col_id, pinned=bool(entry.get("pinned")))
 
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-        table = grid.build(COLUMNS, built, SCOPE, on_selected, on_context,
-                           on_header_context, html_fields=["icon"], view_of=showing)
+        table: ui.aggrid = grid.build(COLUMNS, built, SCOPE, on_selected, on_context,
+                                      on_header_context, html_fields=["icon"],
+                                      view_of=showing)
         menu = ui.context_menu()
     table.options["rowDragManaged"] = True
     table.options[":rowDragText"] = "params => params.rowNode.data.name"

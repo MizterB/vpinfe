@@ -574,6 +574,70 @@ def for_grid(columns: list[dict[str, Any]]) -> list[dict[str, Any]]:
 ROW_SELECTION = {"mode": "multiRow", "checkboxes": True, "headerCheckbox": True,
                  "enableClickSelection": False, "selectAll": "filtered"}
 
+# A socket message over a megabyte is dropped without a word, so a selection is sent as
+# its row ids, in parts. Characters, not bytes: a part stays under the cap even at
+# three bytes a character.
+SELECTION_PART_CHARS = 100_000
+_SEND_SELECTION = """() => {
+  const grid = getElement(%(id)d);
+  if (!grid || !grid.api) return;
+  const turn = window.__hubSelectionTurn = (window.__hubSelectionTurn || 0) + 1;
+  const parts = [[]];
+  let size = 0;
+  for (const node of grid.api.getSelectedNodes()) {
+    if (size + node.id.length > %(chars)d && parts[parts.length - 1].length) {
+      parts.push([]);
+      size = 0;
+    }
+    parts[parts.length - 1].push(node.id);
+    size += node.id.length + 3;
+  }
+  parts.forEach((ids, at) => emit({turn, at, of: parts.length, ids}));
+}"""
+
+
+class Selection:
+    """The ids a grid has selected, gathered from the parts they arrive in, and read
+    against `held`, the rows the grid was built from."""
+
+    def __init__(self, held: list[dict[str, Any]]) -> None:
+        self.held = held
+        self.ids: list[str] = []
+        self._turn = 0
+        self._parts: dict[int, list[str]] = {}
+
+    def take(self, part: Any) -> bool:
+        """Keep one part. True once every part of its turn is here; a part of a turn
+        older than the newest seen is dropped."""
+        if not isinstance(part, dict):
+            return False
+        turn, at, of, ids = (part.get(key) for key in ("turn", "at", "of", "ids"))
+        if not (isinstance(turn, int) and isinstance(at, int) and isinstance(of, int)
+                and isinstance(ids, list)) or turn < self._turn:
+            return False
+        if turn > self._turn:
+            self._turn, self._parts = turn, {}
+        self._parts[at] = [str(row_id) for row_id in ids]
+        if len(self._parts) < of:
+            return False
+        self.ids = [row_id for index in range(of) for row_id in self._parts.get(index, ())]
+        self._parts = {}
+        return True
+
+    def rows(self) -> list[dict[str, Any]]:
+        """The selected rows as held now, in the order they were picked."""
+        by_id = {str(row["id"]): row for row in self.held}
+        return [by_id[row_id] for row_id in self.ids if row_id in by_id]
+
+
+_SELECTIONS: weakref.WeakKeyDictionary[Any, Selection] = weakref.WeakKeyDictionary()
+
+
+def selection(table: Any) -> list[dict[str, Any]]:
+    """What a bulk action on `table` acts on: its selected rows as the grid holds them."""
+    chosen = _SELECTIONS.get(table)
+    return chosen.rows() if chosen is not None else []
+
 
 def base_row_px(columns: list[dict[str, Any]]) -> int:
     """The row height the grid's own cells need, before any drawing asks for more."""
@@ -670,16 +734,19 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
     _restore(grid, scope, columns, view_of)
     _save_on_change(grid, scope, view_of)
     if on_select_rows is not None:
-        async def changed() -> None:
-            rows = await grid.get_selected_rows()
+        chosen = _SELECTIONS[grid] = Selection(rows)
+
+        async def changed(event: Any) -> None:
+            if not chosen.take(event.args):
+                return
             # The count only; the focused row owns which game is on screen.
-            result = on_select_rows(rows)
+            result = on_select_rows(chosen.rows())
             if inspect.isawaitable(result):
                 await result
 
-        # Queried, not read off rowSelected: that payload can fail to serialize and its
-        # `selected` field arrives undefined.
-        grid.on("selectionChanged", changed)
+        # Not `get_selected_rows()`: whole rows pass the socket's cap at a few hundred.
+        grid.on("selectionChanged", changed, js_handler=_SEND_SELECTION % {
+            "id": grid.id, "chars": SELECTION_PART_CHARS})
     if on_context is not None:
         # Only `data`: the full payload can fail to serialize and is then never sent.
         grid.on("cellContextMenu",

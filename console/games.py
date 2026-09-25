@@ -589,7 +589,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                            name=str(games[0].get("name") or "") if len(games) == 1 else "")
 
     async def fill_bulk() -> None:
-        chosen = list(selected)
+        chosen = grid.selection(table)
         known = await collection_adds.read(library, narrowed_to())
         bulk_menu.clear()
         with bulk_menu:
@@ -1282,7 +1282,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 await answer
 
     async def fill_bulk() -> None:
-        chosen = list(selected)
+        chosen = grid.selection(table)
         known = await collection_adds.read(library)
         bulk_menu.clear()
         with bulk_menu:

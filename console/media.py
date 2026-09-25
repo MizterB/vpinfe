@@ -183,7 +183,7 @@ def build(found: list[dict[str, Any]], library: Any,
                 panel.refresh(rescan, t("console.media.read_library_disk_pick"))
 
         async def get_missing_art() -> None:
-            picked = list(selected)
+            picked = grid.selection(table)
             ids = list(dict.fromkeys(str(row["game_id"]) for row in picked))
 
             def placed() -> None:
