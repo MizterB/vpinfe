@@ -441,7 +441,7 @@ def _analyze_entries(
                                         size=e.size,
                                         detail=_basename(e.arcname)))
 
-    # 1c. A table's own script, point of view and score view: beside a claimed .vpx and
+    # 1c. A table's own script, point of view and score view: beside a claimed table and
     # named for it. Any other .vbs is the player's, and placed as the table's it would
     # replace the script inside the table.
     tables = {(_parent(a.entries[0].arcname), _stem(a.entries[0].arcname))
