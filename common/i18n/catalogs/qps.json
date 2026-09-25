@@ -269,10 +269,13 @@
     "other": "{count} ĝàɱèš ţàķèñ öûţ öƒ “{name}”"
   },
   "console.api.api_answered": "Ţĥè ÀÞÎ àñšŵèřèđ {status_code}",
+  "console.app_settings.add_a_setting": "Àđđ à Šèţţîñĝ",
   "console.app_settings.all_tables_only": "Ŵöřķš öñŀý ƒöř àŀŀ ţàƀŀèš",
   "console.app_settings.camera": "Çàɱèřà",
   "console.app_settings.camera.help": "Àđĵûšţ îţ îñ Ṽîšûàŀ Þîñƀàŀŀ ŵĥîŀè ţĥè ţàƀŀè řûñš, ƒřöɱ îţš ɱèñû'š Þöîñţ Öƒ Ṽîèŵ þàĝè",
   "console.app_settings.camera_reset.help": "Ɓàçķ ţö îţš àûţĥöř'š çàɱèřà",
+  "console.app_settings.commonly_set_per_table": "Çöɱɱöñŀý Šèţ þèř Ţàƀŀè",
+  "console.app_settings.everything_else": "Èṽèřýţĥîñĝ Èŀšè",
   "console.app_settings.for_this_table": "{app} ƒöř Ţĥîš Ţàƀŀè",
   "console.app_settings.game_and_table": "{game} - {table}",
   "console.app_settings.now_same_all_tables": "Ñöŵ ţĥè šàɱè àš àŀŀ ţàƀŀèš",

@@ -546,6 +546,50 @@ class GamePicker(ui.select):
             option["held"] = option["disable"] = game in self.held
 
 
+class SettingPicker(ui.select):
+    """One setting, typed into, each option with its area under it and a heading above
+    the option in `headings` that starts a run.
+
+    A heading is an option of its own with an empty label, so anything typed filters it
+    out: a heading left above a filtered list would claim a run that is no longer whole."""
+
+    HEADING = "heading:"
+    SLOT = """
+        <q-item-label v-if="props.opt.heading" header class="console-menu-header">
+          {{ props.opt.heading }}</q-item-label>
+        <q-item v-else v-bind="props.itemProps">
+          <q-item-section>
+            <q-item-label>{{ props.opt.label }}</q-item-label>
+            <q-item-label caption v-if="props.opt.area" class="console-cell-made">
+              {{ props.opt.area }}</q-item-label>
+          </q-item-section>
+        </q-item>
+    """
+
+    def __init__(self, options: dict[str, str], *, areas: dict[str, str],
+                 headings: dict[str, str], label: str) -> None:
+        # Before `super().__init__`, which builds the payload for the first time.
+        self.areas = dict(areas)
+        self.headings = {}
+        listed: dict[str, str] = {}
+        for key, text in options.items():
+            if key in headings:
+                listed[self.HEADING + key] = ""
+                self.headings[self.HEADING + key] = headings[key]
+            listed[key] = text
+        super().__init__(listed, with_input=True, label=label)
+        self.add_slot("option", self.SLOT)
+
+    def _update_options(self) -> None:
+        super()._update_options()
+        for option in self._props["options"]:
+            key = str(self._values[option["value"]])
+            if key in self.headings:
+                option.update(heading=self.headings[key], disable=True)
+            else:
+                option["area"] = self.areas.get(key, "")
+
+
 def hint(control: Any, said: str) -> None:
     """A line under a field. The field must carry `bottom-slots`."""
     if said:

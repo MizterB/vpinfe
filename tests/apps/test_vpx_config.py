@@ -551,6 +551,12 @@ class ViewModeTests(_Case):
         self.assertEqual(field.default, "")
         self.assertEqual(self.config.blank_words()[CAB_MODE], "the_tables_own")
 
+    def test_a_view_mode_is_offered_first_at_a_table(self) -> None:
+        field = next(f for g in self.config.groups(self.settings) for f in g.settings
+                     if f.key == CAB_MODE)
+
+        self.assertTrue(field.per_table)
+
     def test_each_view_s_heading_leads_with_its_mode(self) -> None:
         headings = areas.view_headings({CAB_MODE, "TableOverride.ViewCabFOV",
                                         "TableOverride.ViewDTFOV"})

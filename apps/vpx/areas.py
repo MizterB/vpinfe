@@ -195,4 +195,4 @@ def is_curated(qualified: str) -> bool:
 PER_TABLE = frozenset({
     "TableOverride.Difficulty", "TableOverride.Exposure", "TableOverride.ToneMapper",
     "Player.OverrideTableEmissionScale", "Player.EmissionScale",
-})
+}) | VIEW_MODES

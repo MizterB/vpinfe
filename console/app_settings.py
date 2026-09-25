@@ -7,8 +7,9 @@ table, is one step further: Show Every Setting.
 
 from __future__ import annotations
 
+import json
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from functools import partial
 from types import SimpleNamespace
 from typing import Any
@@ -21,6 +22,24 @@ from console import offload, panel, verbs, workbench
 from console.data import config_groups
 
 SCOPE_ENTRY = "entry"
+ADDED = "added_settings"
+ADDED_NOW = "added_setting_now"
+
+_SHOW_ADDED = """
+(() => {
+  let tries = 0;
+  const show = () => {
+    const label = [...document.querySelectorAll('.console-workbench-body .console-fact-label')]
+      .find(el => el.textContent.trim() === %s);
+    const value = label && label.nextElementSibling;
+    if (!value) { if (++tries < 40) setTimeout(show, 25); return; }
+    value.scrollIntoView({block: 'center'});
+    (value.querySelector('input:not(.hidden), textarea')
+      || value.querySelector('[tabindex="0"]'))?.focus();
+  };
+  show();
+})()
+"""
 
 
 def title_for(game_name: str, table_name: str, launcher_name: str,
@@ -53,6 +72,8 @@ async def section(context: dict[str, Any]) -> None:
         panel.facts(ui, entries)
     ui.run_javascript(workbench._KEEP_SCROLL
                       % f"settings:{table.get('id') or ''}".replace("'", "\\'"))
+    if said := context["state"].pop(ADDED_NOW, None):
+        ui.run_javascript(_SHOW_ADDED % json.dumps(said))
 
 
 def _runs(context: dict[str, Any], table: dict[str, Any]) -> dict[str, Any] | None:
@@ -81,8 +102,9 @@ async def _program_entries(context: dict[str, Any],
     values = dict(found.get("values") or {})
     if shared := shared_note(found, len(context.get("tables") or []) or 1):
         entries.append(shared)
-    blocks = differences(groups, values)
-    view = point_of_view(groups, values)
+    added = _added(context["state"], table_id)
+    blocks = differences(groups, values, added)
+    view = point_of_view(groups, values, added)
     options = table_options(groups, values)
     if not blocks and view is None and options is None:
         entries.append(panel.intro(t("console.app_settings.same_as_all_tables")))
@@ -101,17 +123,21 @@ async def _program_entries(context: dict[str, Any],
         entries += _camera_entries(view, remove, inner["playing"])
     if options is not None:
         entries += _option_entries(options, values, remove, inner["playing"])
+    if offered := addable(groups, values, added):
+        entries.append((panel.FULL, partial(_add_picker, context, added, offered)))
     entries.append((panel.FULL, panel.action(
         t("console.app_settings.show_every_setting"),
         partial(_every_setting, context, table, inner), icon=verbs.DRILL)))
     return entries
 
 
-def differences(groups: Sequence[Any], values: dict[str, Any]) -> list[tuple[str, list[Any]]]:
-    """What this table's file sets and what reaches it from its game's, by area: the rows
-    an area curates first, in its order, then the rest in the program's. A plugin's rows
-    lead with the plugin's name, which is all that tells five Enables apart, and a row
-    whose label another setting in its area shares leads with its window's."""
+def differences(groups: Sequence[Any], values: dict[str, Any],
+                added: Collection[str] = ()) -> list[tuple[str, list[Any]]]:
+    """What this table's file sets, what reaches it from its game's and what was just
+    added, by area: the rows an area curates first, in its order, then the rest in the
+    program's. A plugin's rows lead with the plugin's name, which is all that tells five
+    Enables apart, and a row whose label another setting in its area shares leads with
+    its window's."""
     names = workbench._plugin_names(groups)
     found = []
     for group in groups:
@@ -120,7 +146,7 @@ def differences(groups: Sequence[Any], values: dict[str, Any]) -> list[tuple[str
         order = {key: at for at, key in
                  enumerate(key for heading in group.curated for key in heading.keys)}
         fields = sorted((field for field in group.settings
-                         if _differs(values.get(field.key) or {})),
+                         if _differs(values.get(field.key) or {}) or field.key in added),
                         key=lambda field: order.get(field.key, len(order)))
         if fields:
             found.append((group.label, [_named(field, group, names) for field in fields]))
@@ -129,6 +155,71 @@ def differences(groups: Sequence[Any], values: dict[str, Any]) -> list[tuple[str
 
 def _differs(held: dict[str, Any]) -> bool:
     return bool(held.get("set_here")) or held.get("scope") == "folder"
+
+
+def _shown(group: Any, values: dict[str, Any], added: Collection[str]) -> bool:
+    return any(_differs(values.get(field.key) or {}) or field.key in added
+               for field in group.settings)
+
+
+def _added(state: dict[str, Any], table_id: str) -> list[str]:
+    """The settings Add a Setting drew at this table, forgotten when another is open."""
+    held = state.get(ADDED) or {}
+    if held.get("table") != table_id:
+        held = state[ADDED] = {"table": table_id, "keys": []}
+    return list(held["keys"])
+
+
+def addable(groups: Sequence[Any], values: dict[str, Any],
+            added: Collection[str]) -> list[tuple[Any, str]]:
+    """What this table could be given a value of its own for and is not showing yet, each
+    with its area: the settings commonly set per table first, then the rest. Of the point
+    of view, only the view modes it would draw."""
+    names = workbench._plugin_names(groups)
+    first: list[tuple[Any, str]] = []
+    rest: list[tuple[Any, str]] = []
+    for group in groups:
+        if getattr(group, "read_only", False) or (
+                group.summarized and _shown(group, values, added)):
+            continue
+        for field in group.settings:
+            if (field.key in added or _differs(values.get(field.key) or {})
+                    or SCOPE_ENTRY not in (field.scopes or (SCOPE_ENTRY,))
+                    or (group.summarized and field.key not in group.rows)):
+                continue
+            (first if field.per_table else rest).append(
+                (_named(field, group, names), str(group.label)))
+    return first + rest
+
+
+def _add_picker(context: dict[str, Any], added: list[str],
+                offered: list[tuple[Any, str]]) -> None:
+    """Picking one draws its row, with the value the table uses now, and focuses it."""
+    headings = {}
+    lead = offered[0][0]
+    rest = next((field.key for field, _area in offered if not field.per_table), None)
+    if lead.per_table:
+        headings[lead.key] = t("console.app_settings.commonly_set_per_table")
+        if rest is not None:
+            headings[rest] = t("console.app_settings.everything_else")
+    labels = {field.key: str(field.label) for field, _area in offered}
+    picker = panel.SettingPicker(
+        labels, areas={field.key: area for field, area in offered}, headings=headings,
+        label=t("console.app_settings.add_a_setting")) \
+        .props('dense outlined options-dense input-debounce=0 hide-selected fill-input '
+               'popup-content-class="console-picker-popup"') \
+        .classes("w-full mt-2")
+
+    async def pick() -> None:
+        key = str(picker.value or "")
+        if key not in labels:
+            return
+        context["state"][ADDED]["keys"] = [*added, key]
+        context["state"][ADDED_NOW] = labels[key]
+        await context["rebuild"]()
+
+    picker.on_value_change(pick)
+    ui.run_javascript(workbench._ADD_BOX % (picker.id, "false"))
 
 
 def _named(field: Any, group: Any, names: dict[str, str]) -> Any:
@@ -163,13 +254,13 @@ def _window_of(key: str, group: Any) -> str:
     return ""
 
 
-def point_of_view(groups: Sequence[Any], values: dict[str, Any]) -> SimpleNamespace | None:
-    """A summarized group, where anything in it differs at this table: the rows it draws,
-    each named by its heading where they share a label, and the headings the rest is
-    saved under."""
+def point_of_view(groups: Sequence[Any], values: dict[str, Any],
+                  added: Collection[str] = ()) -> SimpleNamespace | None:
+    """A summarized group, where anything in it differs at this table or was just added:
+    the rows it draws, each named by its heading where they share a label, and the
+    headings the rest is saved under."""
     group = next((one for one in groups if one.summarized), None)
-    if group is None or not any(_differs(values.get(field.key) or {})
-                                for field in group.settings):
+    if group is None or not _shown(group, values, added):
         return None
     fields = {field.key: field for field in group.settings}
     drawn = [key for key in getattr(group, "rows", ()) if key in fields]

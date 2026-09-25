@@ -358,9 +358,11 @@ class LaunchReportTests(unittest.TestCase):
         self.assertEqual(address["table"], ["t1"])
 
 
-def _field(key: str, label: str = "") -> SimpleNamespace:
+def _field(key: str, label: str = "", *, per_table: bool = False,
+           scopes: tuple[str, ...] = ("entry",)) -> SimpleNamespace:
     return SimpleNamespace(key=key, label=label or key.rsplit(".", 1)[-1], type="text",
-                           default="", description="", choices=(), scopes=("entry",))
+                           default="", description="", choices=(), scopes=scopes,
+                           per_table=per_table)
 
 
 class DifferencesTests(unittest.TestCase):
@@ -527,6 +529,86 @@ class TableOptionsTests(unittest.TestCase):
 
     def test_and_absent_without_one(self) -> None:
         self.assertIsNone(app_settings.table_options([self.GROUP], {}))
+
+
+class AddASettingTests(unittest.TestCase):
+    SET = DifferencesTests.SET
+    SOUND = _group("sound", _field("Player.A"), _field("Player.B", per_table=True))
+    GRAPHICS = _group("graphics", _field("Player.C", per_table=True), _field("Player.D"))
+
+    def _offered(self, groups, values=None, added=()) -> list[tuple[str, str]]:
+        return [(str(field.label), area)
+                for field, area in app_settings.addable(groups, values or {}, added)]
+
+    def test_those_commonly_set_per_table_come_first_each_with_its_area(self) -> None:
+        self.assertEqual(self._offered([self.SOUND, self.GRAPHICS]),
+                         [("B", "Sound"), ("C", "Graphics"), ("A", "Sound"),
+                          ("D", "Graphics")])
+
+    def test_one_the_table_already_shows_is_not_offered(self) -> None:
+        offered = self._offered([self.SOUND, self.GRAPHICS],
+                                {"Player.A": self.SET, "Player.B": DifferencesTests.GAME},
+                                added=["Player.C"])
+
+        self.assertEqual(offered, [("D", "Graphics")])
+
+    def test_one_kept_for_all_tables_alone_is_not_offered(self) -> None:
+        group = _group("sound", _field("Player.A"),
+                       _field("Player.ShowFPS", scopes=("launcher",)))
+
+        self.assertEqual(self._offered([group]), [("A", "Sound")])
+
+    def test_nor_are_the_table_s_options(self) -> None:
+        self.assertEqual(self._offered([TableOptionsTests.GROUP]), [])
+
+    def test_of_the_point_of_view_only_the_view_modes_it_draws(self) -> None:
+        group = SimpleNamespace(**{**vars(PointOfViewTests.GROUP),
+                                   "rows": (PointOfViewTests.MODE.key,)})
+
+        self.assertEqual(self._offered([group]), [("Cabinet View mode", "Point of View")])
+
+    def test_and_none_of_it_once_its_rows_are_drawn(self) -> None:
+        values = {PointOfViewTests.CAB.key: self.SET}
+
+        self.assertEqual(self._offered([PointOfViewTests.GROUP], values), [])
+
+    def test_an_added_setting_is_listed_among_the_differences(self) -> None:
+        found = app_settings.differences([self.SOUND], {}, added=["Player.B"])
+
+        self.assertEqual([(area, [f.key for f in fields]) for area, fields in found],
+                         [("Sound", ["Player.B"])])
+
+    def test_an_added_view_mode_draws_the_point_of_view(self) -> None:
+        view = app_settings.point_of_view([PointOfViewTests.GROUP], {},
+                                          added=[PointOfViewTests.MODE.key])
+
+        assert view is not None
+        self.assertEqual((len(view.rows), view.views, view.own), (2, [], []))
+
+    def test_what_was_added_is_forgotten_when_another_table_is_open(self) -> None:
+        state: dict[str, Any] = {}
+        app_settings._added(state, "t1")
+        state[app_settings.ADDED]["keys"] = ["Player.A"]
+
+        self.assertEqual(app_settings._added(state, "t1"), ["Player.A"])
+        self.assertEqual(app_settings._added(state, "t2"), [])
+
+    def _headings(self, offered: list) -> list[str]:
+        with patch.object(app_settings.panel, "SettingPicker") as picker, \
+                patch.object(app_settings.ui, "run_javascript"):
+            app_settings._add_picker({"state": {}}, [], offered)
+        return list(picker.call_args.kwargs["headings"].values())
+
+    def test_a_heading_starts_each_run(self) -> None:
+        offered = app_settings.addable([self.SOUND, self.GRAPHICS], {}, ())
+
+        self.assertEqual(self._headings(offered),
+                         ["Commonly Set per Table", "Everything Else"])
+
+    def test_and_none_where_nothing_is_commonly_set_per_table(self) -> None:
+        offered = app_settings.addable([_group("sound", _field("Player.A"))], {}, ())
+
+        self.assertEqual(self._headings(offered), [])
 
 
 class RedrawTests(unittest.TestCase):

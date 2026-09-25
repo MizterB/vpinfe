@@ -269,10 +269,13 @@
     "other": "{count} games taken out of “{name}”"
   },
   "console.api.api_answered": "The API answered {status_code}",
+  "console.app_settings.add_a_setting": "Add a Setting",
   "console.app_settings.all_tables_only": "Works only for all tables",
   "console.app_settings.camera": "Camera",
   "console.app_settings.camera.help": "Adjust it in Visual Pinball while the table runs, from its menu's Point Of View page",
   "console.app_settings.camera_reset.help": "Back to its author's camera",
+  "console.app_settings.commonly_set_per_table": "Commonly Set per Table",
+  "console.app_settings.everything_else": "Everything Else",
   "console.app_settings.for_this_table": "{app} for This Table",
   "console.app_settings.game_and_table": "{game} - {table}",
   "console.app_settings.now_same_all_tables": "Now the same as all tables",

@@ -5,6 +5,7 @@ copied to a cabinet lands without being renumbered, and renumbering would break 
 mapping that travelled with it.
 """
 
+import configparser
 import os
 import pathlib
 import unittest
@@ -419,6 +420,36 @@ class PointOfViewTests(_TableCase):
         got = self.client.get("/launchers/l1/config")
 
         self.assertNotIn("table_options", [g["key"] for g in got.json()["groups"]])
+
+
+class BackglassPluginAtATableTests(_TableCase):
+    VALUES = {"Plugin.B2S.ShowGrill": "1", "Plugin.B2S.BackglassDMDX": "120",
+              "Plugin.B2S.BackglassDMDY": "40", "Plugin.B2S.BackglassDMDW": "512",
+              "Plugin.B2S.BackglassDMDH": "128", "Plugin.B2S.BackglassDMDAutoPos": "0",
+              "Plugin.B2S.ScoreViewDMDAutoPos": "0"}
+
+    def setUp(self) -> None:
+        super().setUp()
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Plugin.B2S]\nEnable = 1\n"
+                           + "".join(f"{key.rsplit('.', 1)[-1]} = \n" for key in self.VALUES))
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+    def test_each_is_written_to_the_table_s_file_and_read_back_from_it(self) -> None:
+        for key, value in self.VALUES.items():
+            with self.subTest(key=key):
+                written = self._write(values={key: value})
+                self.assertEqual(written.status_code, 200, written.text)
+
+                got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
+                held = got.json()["values"][key]
+                self.assertEqual((held["value"], held["set_here"]), (value, True))
+
+                file = configparser.ConfigParser(interpolation=None)
+                file.optionxform = str  # type: ignore[assignment,method-assign]
+                file.read(self.beside)
+                self.assertEqual(file["Plugin.B2S"][key.rsplit(".", 1)[-1]], value)
 
 
 class SharedWithGameTests(_TableCase):
