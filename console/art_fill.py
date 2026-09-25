@@ -87,6 +87,39 @@ async def confirm_slots(rows: list[dict[str, Any]], state: dict[str, Any],
     await get(lambda: ApiClient().fill_media(slots=slots), state, then)
 
 
+async def confirm_kind(game_ids: list[str], kind: str, state: dict[str, Any],
+                       then: Callable[[], Any]) -> None:
+    """Get one kind for these games, asked as a plain question with no choices."""
+    try:
+        found = await offload.io(ApiClient().missing_media, game_ids)
+    except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
+        ui.notify(t("console.art_fill.could_not_read", exc=exc), type="warning")
+        return
+    if not found.get("sources"):
+        ui.notify(t("console.art_fill.no_sources"), type="warning")
+        return
+    label = media_label_map().get(kind, kind)
+    row: dict[str, Any] = next(
+        (one for one in found.get("kinds") or [] if one.get("kind") == kind), {})
+    missing, available = int(row.get("missing") or 0), int(row.get("available") or 0)
+    games, unmatched = int(found.get("games") or 0), int(found.get("unmatched") or 0)
+    unreachable = ([t("console.art_fill.unreachable", sources=", ".join(found["unreachable"]))]
+                   if found.get("unreachable") else [])
+    if not available:
+        said = (unreachable or (_unmatched(games, unmatched) if unmatched == games else [])
+                or [t("console.art_fill.none_for_kind", kind=label)])
+        ui.notify(said[0], type="warning" if unreachable else "info")
+        return
+    question = (t("console.art_fill.ask_kind", kind=label, count=available)
+                if available == missing
+                else t("console.art_fill.ask_kind_of", kind=label, count=available,
+                       missing=missing))
+    if await confirm.ask(question, lines=_unmatched(games, unmatched) + unreachable,
+                         confirm=t("console.art_fill.get_art"), icon=verbs.FETCH,
+                         danger=False):
+        await get(lambda: ApiClient().fill_media(game_ids, [kind]), state, then)
+
+
 def _unmatched(games: int, unmatched: int) -> list[str]:
     if not unmatched:
         return []

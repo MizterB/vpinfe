@@ -312,6 +312,14 @@
   "console.app_settings.the_tables_own": "Ţĥè ţàƀŀè'š öŵñ",
   "console.app_settings.unused": "Ûñûšèđ",
   "console.app_settings.window_row": "{window} {label}",
+  "console.art_fill.ask_kind": {
+    "one": "Ĝèţ {kind} àřţ ƒöř 1 ĝàɱè?",
+    "other": "Ĝèţ {kind} àřţ ƒöř {count} ĝàɱèš?"
+  },
+  "console.art_fill.ask_kind_of": {
+    "one": "Ĝèţ {kind} àřţ ƒöř 1 öƒ {missing} ĝàɱèš?",
+    "other": "Ĝèţ {kind} àřţ ƒöř {count} öƒ {missing} ĝàɱèš?"
+  },
   "console.art_fill.ask_slots": {
     "one": "Ĝèţ àřţ ƒöř 1 ɱîššîñĝ ƒîŀè?",
     "other": "Ĝèţ àřţ ƒöř {count} ɱîššîñĝ ƒîŀèš?"
@@ -344,6 +352,7 @@
   "console.art_fill.missing": "{count} ɱîššîñĝ",
   "console.art_fill.no_sources": "Ñö öñŀîñè šöûřçèš àřè šŵîţçĥèđ öñ",
   "console.art_fill.none_available": "ñöñè àṽàîŀàƀŀè",
+  "console.art_fill.none_for_kind": "Ñö šöûřçè ĥàš {kind} àřţ ƒöř ţĥèšè ĝàɱèš",
   "console.art_fill.none_missing": "ñöñè ɱîššîñĝ",
   "console.art_fill.nothing_missing": "Ñöţĥîñĝ šèŀèçţèđ îš ɱîššîñĝ",
   "console.art_fill.title": "Ĝèţ ɱîššîñĝ àřţ ƒřöɱ “{source}”",

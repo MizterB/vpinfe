@@ -312,6 +312,14 @@
   "console.app_settings.the_tables_own": "The table's own",
   "console.app_settings.unused": "Unused",
   "console.app_settings.window_row": "{window} {label}",
+  "console.art_fill.ask_kind": {
+    "one": "Get {kind} art for 1 game?",
+    "other": "Get {kind} art for {count} games?"
+  },
+  "console.art_fill.ask_kind_of": {
+    "one": "Get {kind} art for 1 of {missing} games?",
+    "other": "Get {kind} art for {count} of {missing} games?"
+  },
   "console.art_fill.ask_slots": {
     "one": "Get art for 1 missing file?",
     "other": "Get art for {count} missing files?"
@@ -344,6 +352,7 @@
   "console.art_fill.missing": "{count} missing",
   "console.art_fill.no_sources": "No online sources are switched on",
   "console.art_fill.none_available": "none available",
+  "console.art_fill.none_for_kind": "No source has {kind} art for these games",
   "console.art_fill.none_missing": "none missing",
   "console.art_fill.nothing_missing": "Nothing selected is missing",
   "console.art_fill.title": "Get missing art from “{source}”",

@@ -99,5 +99,63 @@ class SlotTests(unittest.TestCase):
         self.assertEqual(notify.call_args.args[0], "Nothing selected is missing")
 
 
+def _plan(missing: int, available: int, *, unmatched: int = 0,
+          unreachable: tuple[str, ...] = ()) -> dict:
+    return {"games": missing, "unmatched": unmatched, "sources": ["VPinMediaDB"],
+            "unreachable": list(unreachable),
+            "kinds": [{"kind": "playfield", "missing": missing, "available": available},
+                      {"kind": "wheel", "missing": 1, "available": 1}]}
+
+
+class KindTests(unittest.TestCase):
+    """An Overview finding: one kind for its games, asked plainly."""
+
+    def _confirm(self, plan: dict, answer: bool = True) -> tuple[mock.Mock, ...]:
+        with mock.patch.object(art_fill.offload, "io",
+                               mock.AsyncMock(return_value=plan)), \
+                mock.patch.object(art_fill.confirm, "ask",
+                                  mock.AsyncMock(return_value=answer)) as ask, \
+                mock.patch.object(art_fill, "get", mock.AsyncMock()) as get, \
+                mock.patch.object(art_fill, "ApiClient") as client, \
+                mock.patch.object(art_fill.ui, "notify") as notify:
+            asyncio.run(art_fill.confirm_kind(["g1", "g2"], "playfield", {},
+                                              lambda: None))
+            if get.await_args:
+                get.await_args.args[0]()
+        return ask, get, client, notify
+
+    def test_it_gets_that_kind_for_those_games(self) -> None:
+        ask, _get, client, _notify = self._confirm(_plan(2, 2))
+
+        self.assertEqual(ask.await_args.args[0], "Get Playfield art for 2 games?")
+        client.return_value.fill_media.assert_called_once_with(["g1", "g2"], ["playfield"])
+
+    def test_the_question_counts_what_a_source_has(self) -> None:
+        ask, *_ = self._confirm(_plan(2, 1, unmatched=1))
+
+        self.assertEqual(ask.await_args.args[0], "Get Playfield art for 1 of 2 games?")
+        self.assertEqual(ask.await_args.kwargs["lines"],
+                         ["1 is not matched to VPS, so nothing can be looked up for it"])
+
+    def test_cancelled_fetches_nothing(self) -> None:
+        _ask, get, *_ = self._confirm(_plan(2, 2), answer=False)
+
+        get.assert_not_awaited()
+
+    def test_nothing_to_get_says_why_and_asks_nothing(self) -> None:
+        cases = ((_plan(2, 0), "No source has Playfield art for these games"),
+                 (_plan(2, 0, unmatched=2),
+                  "2 are not matched to VPS, so nothing can be looked up for those"),
+                 (_plan(2, 0, unreachable=("VPinMediaDB",)),
+                  "VPinMediaDB could not be reached"))
+        for plan, said in cases:
+            with self.subTest(said=said):
+                ask, get, _client, notify = self._confirm(plan)
+
+                ask.assert_not_awaited()
+                get.assert_not_awaited()
+                self.assertEqual(notify.call_args.args[0], said)
+
+
 if __name__ == "__main__":
     unittest.main()

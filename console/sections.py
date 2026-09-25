@@ -16,7 +16,7 @@ from nicegui import run, ui
 from common.extensions.host import SWITCHED_OFF
 from common.i18n import t
 from common.media_specs import media_label_map
-from console import verbs
+from console import art_fill, panel, verbs
 from console.data import Library
 
 # name, one-line description, predicate over (game, media entries).
@@ -42,6 +42,9 @@ CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
      t("console.sections.sorting_filtering_year_place"),
      lambda g, m, x: not g.get("year")),
 )
+
+# The checks a source can answer, and the kind each one fetches.
+FILLS = {"no_playfield": "playfield", "no_backglass": "backglass"}
 
 
 def rollups(library: Library) -> dict[str, dict[str, Any]]:
@@ -109,8 +112,15 @@ def _bar(fraction: float) -> None:
 # --- Overview --------------------------------------------------------------------
 
 def overview(library: Library, registry: list[dict], discovery: dict,
-             go: Callable[[str], None]) -> None:
+             go: Callable[[str], None], state: dict[str, Any]) -> None:
     found = findings(library)
+
+    def placed(game_ids: list[str]) -> None:
+        for game_id in game_ids:
+            library.forget_media(game_id)
+        if state.get("view") == "overview":
+            go("overview")
+
     total_slots = sum(len(entries) for entries in library.media.values())
     present = sum(1 for entries in library.media.values()
                   for entry in entries.values() if entry.get("present"))
@@ -167,10 +177,14 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                     # The sentence is the finding. Without it a count is a puzzle.
                     ui.label(description).classes("console-help")
                 ui.label(f"{len(games)}").classes("text-sm opacity-70 shrink-0")
-                ui.button(t("console.sections.show"),
-                    icon=verbs.GO, on_click=lambda k=key: go("games")) \
-                    .props("flat dense no-caps size=sm").classes("shrink-0") \
-                    .set_enabled(bool(games))
+                if key in FILLS:
+                    ids = [str(game["id"]) for game in games]
+                    panel.action(t("console.art_fill.get_art"),
+                                 lambda ids=ids, kind=FILLS[key]: art_fill.confirm_kind(
+                                     ids, kind, state, lambda: placed(ids)),
+                                 icon=verbs.FETCH, enabled=bool(games))()
+                panel.action(t("console.sections.show"), lambda: go("games"),
+                             icon=verbs.GO, enabled=bool(games))()
 
     metadata(library.metadata_state(), _metadata_action(library))
     table_scripts(library)

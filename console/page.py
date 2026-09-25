@@ -1045,7 +1045,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             page_header()
             view = state["view"]
             if view == "overview":
-                sections.overview(library, devices, discovery, go)
+                sections.overview(library, devices, discovery, go, state)
             elif view == "games":
                 games.build(library.game_rows(), library.kinds_present(), library,
                             show_game, state, redraw, rescan=_rescan)
