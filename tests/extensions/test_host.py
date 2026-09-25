@@ -167,7 +167,7 @@ class LoadTests(HostCase):
 
         self.assertEqual(record.state, host.OFF)
         self.assertEqual(record.reason,
-                         "This install does not do Device Management, Overview")
+                         "This device does not do Device Management, Overview")
 
     def test_the_names_follow_the_language_set(self) -> None:
         directory = self.make("elsewhere", {"platforms": ["windows"]},
