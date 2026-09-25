@@ -12,6 +12,7 @@ change made through any window visible from all of them.
 from __future__ import annotations
 
 import configparser
+import json
 import sys
 import threading
 import unittest
@@ -33,6 +34,11 @@ def _game(title, created=0):
         game_dir_name=title, full_path_game=f"/g/{title}",
         full_path_vpx_file=f"/g/{title}/{title}.vpx", creation_time=created,
         pup_pack_exists=False, alt_color_exists=False, alt_sound_exists=False)
+
+
+def _rows(payload: str) -> list:
+    loaded = json.loads(payload)
+    return loaded if isinstance(loaded, list) else loaded["entries"]
 
 
 def _ini():
@@ -115,6 +121,37 @@ class SharedViewTests(unittest.TestCase):
                 window.get_tables()
 
         self.assertEqual(len(refreshes), 1)
+
+    def test_a_window_asking_during_the_refresh_gets_the_refreshed_list(self) -> None:
+        for window in self.windows.values():
+            window.get_tables()
+        shorter = self.games[:2]
+        refreshing, finish = threading.Event(), threading.Event()
+
+        def slow_reload():
+            refreshing.set()
+            finish.wait(timeout=10)
+            return shorter
+
+        answers = {}
+
+        def ask(name):
+            answers[name] = _rows(self.windows[name].get_tables())
+
+        self.library.mark_stale()
+        with patch.object(self.library, "reload", side_effect=slow_reload):
+            playfield = threading.Thread(target=ask, args=("playfield",))
+            playfield.start()
+            self.assertTrue(refreshing.wait(timeout=10))
+            backglass = threading.Thread(target=ask, args=("backglass",))
+            backglass.start()
+            backglass.join(timeout=0.3)
+            finish.set()
+            playfield.join(timeout=10)
+            backglass.join(timeout=10)
+
+        self.assertEqual(len(answers["playfield"]), len(shorter))
+        self.assertEqual(answers["backglass"], answers["playfield"])
 
     def test_a_window_built_without_one_gets_its_own(self) -> None:
         """A gamepad diagnostic or a test builds an API on its own; it must not reach

@@ -159,7 +159,7 @@ class LibraryResolver:
             if not self._stale:
                 return
             self._stale = False
-        refresh()
+            refresh()
 
     # -- derivation ----------------------------------------------------------
 
