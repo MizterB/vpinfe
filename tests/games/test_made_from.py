@@ -68,8 +68,8 @@ class MadeFrom(_PatchedGame):
         self.assertEqual({"file": BASE, "table_id": BASE_ID, "available": True},
                          rows[MADE]["source"]["base"])
         self.assertIsNone(rows[BASE]["source"])
-        self.assertEqual(BASE_ID, TableSource.model_validate(
-            rows[MADE]["source"]).base.table_id)
+        base = TableSource.model_validate(rows[MADE]["source"]).base
+        self.assertEqual(BASE_ID, base.table_id if base else "")
 
     def test_a_base_gone_from_disk_keeps_its_record_and_is_not_there(self) -> None:
         (self.folder / BASE).unlink()
