@@ -8,9 +8,12 @@ each row needs, and that nothing belonging to another game is touched.
 
 from __future__ import annotations
 
+import asyncio
 import unittest
+from types import SimpleNamespace
 
-from console.games import in_place, row_transaction
+from console import grid, stars
+from console.games import add_index, row_transaction
 
 
 def _showing(*pairs):
@@ -19,6 +22,14 @@ def _showing(*pairs):
 
 def _fresh(*pairs):
     return [{"id": row_id, "game_id": game} for row_id, game in pairs]
+
+
+class _Grid:
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, dict]] = []
+
+    def run_grid_method(self, name: str, transaction: dict) -> None:
+        self.sent.append((name, transaction))
 
 
 class RowTransactionTests(unittest.TestCase):
@@ -72,7 +83,10 @@ class InPlaceTests(unittest.TestCase):
     def _apply(self, fresh):
         showing = {row["id"]: row for row in self.BUILT}
         transaction = row_transaction(showing, "gb", fresh)
-        return transaction, in_place(list(self.BUILT), "gb", transaction)
+        built = list(self.BUILT)
+        add_index(built, "gb", transaction)
+        grid.transact(_Grid(), built, transaction)
+        return transaction, built
 
     def test_an_added_row_follows_its_game_s_rows(self) -> None:
         transaction, built = self._apply(_fresh(("b1", "gb"), ("b2", "gb"), ("b3", "gb")))
@@ -91,6 +105,57 @@ class InPlaceTests(unittest.TestCase):
 
         self.assertEqual(transaction["addIndex"], 2)
         self.assertEqual([row["id"] for row in built], ["a1", "b2", "b3", "c1"])
+
+
+class TransactTests(unittest.TestCase):
+    """The rows a grid holds, which a selection is read against, follow its screen."""
+
+    def setUp(self) -> None:
+        self.held = [{"id": "a", "v": 1}, {"id": "b", "v": 1}, {"id": "c", "v": 1}]
+        self.by_id = {row["id"]: row for row in self.held}
+        self.screen = _Grid()
+
+    def test_an_edited_row_is_held_as_edited(self) -> None:
+        grid.transact(self.screen, self.held, {"update": [{"id": "b", "v": 2}]}, self.by_id)
+
+        self.assertEqual([row["v"] for row in self.held], [1, 2, 1])
+        self.assertIs(self.by_id["b"], self.held[1])
+
+    def test_a_removed_row_is_not_held(self) -> None:
+        grid.transact(self.screen, self.held, {"remove": [{"id": "a"}]}, self.by_id)
+
+        self.assertEqual([row["id"] for row in self.held], ["b", "c"])
+        self.assertNotIn("a", self.by_id)
+
+    def test_an_add_goes_where_the_screen_puts_it(self) -> None:
+        grid.transact(self.screen, self.held, {"add": [{"id": "d"}], "addIndex": 1})
+        grid.transact(self.screen, self.held, {"add": [{"id": "e"}]})
+
+        self.assertEqual([row["id"] for row in self.held], ["a", "d", "b", "c", "e"])
+
+    def test_the_screen_is_sent_the_same_transaction(self) -> None:
+        transaction = {"update": [{"id": "c", "v": 3}]}
+        grid.transact(self.screen, self.held, transaction)
+
+        self.assertEqual(self.screen.sent, [("applyTransaction", transaction)])
+
+
+class RatingTests(unittest.TestCase):
+    def test_a_rated_row_is_held_with_its_rating(self) -> None:
+        held = [{"id": "g1", "rating": 0}, {"id": "g2", "rating": 4}]
+        by_id = {row["id"]: row for row in held}
+        screen = _Grid()
+
+        class _Client:
+            def rate(self, game_id: str, value: int) -> None:
+                pass
+
+        rate = stars.rating_handler(held, by_id, lambda: screen, _Client)
+        asyncio.run(rate(SimpleNamespace(args={"game": "g1", "value": 3})))
+
+        self.assertEqual([row["rating"] for row in held], [3, 4])
+        self.assertEqual(by_id["g1"]["rating"], 3)
+        self.assertEqual(screen.sent[0][1], {"update": [{"id": "g1", "rating": 3}]})
 
 
 if __name__ == "__main__":

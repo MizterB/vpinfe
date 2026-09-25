@@ -466,10 +466,8 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
         menu = ui.context_menu()
 
         def keep_current() -> None:
-            fresh = [when.said(row, "last_seen") for row in built]
-            built[:] = fresh
-            by_id.update({row["id"]: row for row in fresh})
-            table.run_grid_method("applyTransaction", {"update": fresh})
+            grid.transact(table, built,
+                          {"update": [when.said(row, "last_seen") for row in built]}, by_id)
 
         # Inside the wrapper, so it goes when the grid does.
         ui.timer(60, keep_current)

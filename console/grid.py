@@ -407,21 +407,38 @@ async def focus_row(table: Any, row_id: str, column: str) -> bool:
         return False
 
 
+def transact(table: Any, held: list[dict[str, Any]], transaction: dict[str, Any],
+             by_id: dict[str, Any] | None = None) -> None:
+    """Apply `transaction` to the grid and to `held`, the list the grid was built from,
+    the way AG Grid applies it: remove, update in place, then add at `addIndex` or last.
+
+    A selection is read against `held`, so a row changed on screen and not there is a
+    row a bulk action acts on as it was. `by_id`, given, follows as well.
+    """
+    gone = {entry["id"] for entry in transaction.get("remove", ())}
+    fresh = {row["id"]: row for row in transaction.get("update", ())}
+    added = list(transaction.get("add", ()))
+    kept = [fresh.get(row["id"], row) for row in held if row["id"] not in gone]
+    at = transaction.get("addIndex")
+    at = len(kept) if at is None else max(0, min(int(at), len(kept)))
+    held[:] = kept[:at] + added + kept[at:]
+    if by_id is not None:
+        for row_id in gone:
+            by_id.pop(row_id, None)
+        by_id.update({row["id"]: row for row in [*fresh.values(), *added]})
+    table.run_grid_method("applyTransaction", transaction)
+
+
 def replace_rows(table: Any, held: list[dict[str, Any]], by_id: dict[str, Any],
                  fresh: list[dict[str, Any]], belongs: Callable[[dict], bool]) -> None:
     """Swap the rows `belongs` picks for `fresh` in one transaction, so what stayed keeps
     its place, focus and selection while what was added or went away does."""
-    old = [row for row in held if belongs(row)]
-    old_ids = {row["id"] for row in old}
-    fresh_ids = {row["id"] for row in fresh}
-    held[:] = [row for row in held if not belongs(row)] + fresh
-    for row in old:
-        by_id.pop(row["id"], None)
-    by_id.update({row["id"]: row for row in fresh})
-    table.run_grid_method("applyTransaction", {
-        "remove": [{"id": row["id"]} for row in old if row["id"] not in fresh_ids],
-        "update": [row for row in fresh if row["id"] in old_ids],
-        "add": [row for row in fresh if row["id"] not in old_ids]})
+    old_ids = [row["id"] for row in held if belongs(row)]
+    was, fresh_ids = set(old_ids), {row["id"] for row in fresh}
+    transact(table, held, {
+        "remove": [{"id": row_id} for row_id in old_ids if row_id not in fresh_ids],
+        "update": [row for row in fresh if row["id"] in was],
+        "add": [row for row in fresh if row["id"] not in was]}, by_id)
 
 
 def two_line(header: str) -> str:

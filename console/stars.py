@@ -14,6 +14,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common.i18n import t
+from console import grid
 
 MOST = 5
 # The character *is* the control. In a tooltip it measures zero and cannot be clicked,
@@ -82,7 +83,8 @@ def draw(value: int, on_pick: Callable[[int], Any]) -> Callable[[], None]:
     return build
 
 
-def rating_handler(rows_by_id: dict[str, Any], grid_of: Callable[[], Any],
+def rating_handler(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
+                   grid_of: Callable[[], Any],
                    client_factory: Callable[[], Any]) -> Callable[[Any], Any]:
     """One handler for both grids: write it, then repaint only the row that changed - a
     whole-grid refresh costs the scroll position and the selection for one number.
@@ -106,7 +108,7 @@ def rating_handler(rows_by_id: dict[str, Any], grid_of: Callable[[], Any],
             return
         row = rows_by_id.get(table_id or game_id)
         if row is not None:
-            row["rating"] = value
-            grid_of().run_grid_method("applyTransaction", {"update": [row]})
+            grid.transact(grid_of(), held, {"update": [{**row, "rating": value}]},
+                          rows_by_id)
 
     return rate

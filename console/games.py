@@ -536,7 +536,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             mediaview.open_viewer(art.media(game_id, kind, version=version), kind,
                                   media_label_map().get(kind, kind))
 
-    rate_row = stars.rating_handler(by_id, lambda: table, ApiClient)
+    rate_row = stars.rating_handler(rows, by_id, lambda: table, ApiClient)
 
     grid.on_row_focus(SCOPE, focused)
     state["media_zoom"] = zoom_media
@@ -696,14 +696,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                       if row.get("id") == game_id), None)
         if fresh is None:
             return
-        by_id[game_id] = fresh
-        # In place, so the row keeps its position under whatever sort is on. The list
-        # `rows` was built from is what the count reads, and it holds the same dicts.
-        for index, held in enumerate(rows):
-            if held.get("id") == game_id:
-                rows[index] = fresh
-                break
-        table.run_grid_method("applyTransaction", {"update": [fresh]})
+        grid.transact(table, rows, {"update": [fresh]}, by_id)
 
     state["refresh_game"] = refresh_game
 
@@ -717,9 +710,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         wanted = set(ids)
         fresh = [row for row in await offload.io(library.game_rows)
                  if row.get("id") in wanted]
-        by_id.update({row["id"]: row for row in fresh})
-        rows[:] = [by_id.get(row["id"], row) for row in rows]
-        table.run_grid_method("applyTransaction", {"update": fresh})
+        grid.transact(table, rows, {"update": fresh}, by_id)
         if state.get("game") in wanted and state.get("section") == "collections":
             answer = on_select(by_id.get(str(state["game"])))
             if inspect.isawaitable(answer):
@@ -1051,19 +1042,15 @@ def row_transaction(showing: dict[str, dict[str, Any]], game_id: str,
     return transaction
 
 
-def in_place(built: list[dict[str, Any]], game_id: str,
-             transaction: dict[str, Any]) -> list[dict[str, Any]]:
-    """`built` once `transaction` has been applied to the grid, with the transaction's
-    `addIndex` set so what arrived follows its game's rows. Without it an unsorted grid
-    puts an add after the last row of all."""
+def add_index(built: list[dict[str, Any]], game_id: str,
+              transaction: dict[str, Any]) -> None:
+    """Set the transaction's `addIndex` so what arrived follows its game's rows. Without
+    it an unsorted grid puts an add after the last row of all."""
+    if not transaction.get("add"):
+        return
     at = next((index for index, row in enumerate(built) if row.get("game_id") == game_id),
               len(built))
-    stays = [row for row in built if row.get("game_id") != game_id]
-    changed = list(transaction.get("update", ()))
-    arrived = list(transaction.get("add", ()))
-    if arrived:
-        transaction["addIndex"] = at + len(changed)
-    return stays[:at] + changed + arrived + stays[at:]
+    transaction["addIndex"] = at + len(transaction.get("update", ()))
 
 
 def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1244,7 +1231,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     # rather than selection, so arrowing down the list is a sweep and the checkboxes
     # stay whatever a bulk action left them.
     by_id = {row["id"]: row for row in built}
-    rate_row = stars.rating_handler(by_id, lambda: table, ApiClient)
+    rate_row = stars.rating_handler(built, by_id, lambda: table, ApiClient)
 
     def focused(event: Any) -> Any:
         row = by_id.get(grid.focused_row(event))
@@ -1338,16 +1325,17 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         row needs is decided by comparing what came back with what is showing, so this
         answers for an add, an edit and a removal without being told which it was.
         """
+        # From the by-file lens, which is what the grid was built from. The game's own
+        # sub-resource describes a table and not where it sits in a library, so it
+        # carries no game name, manufacturer, year or resolved rom: patching from it
+        # blanks four columns on exactly the rows just acted on.
         rows_now = await offload.io(library.load_tables)
         fresh = table_rows([item for item in rows_now
                             if item.get("game_id") == game_id])
         transaction = row_transaction(by_id, game_id, fresh)
-        for entry in transaction.get("remove", ()):
-            by_id.pop(entry["id"], None)
-        by_id.update({row["id"]: row for row in fresh})
-        built[:] = in_place(built, game_id, transaction)
+        add_index(built, game_id, transaction)
         if transaction:
-            table.run_grid_method("applyTransaction", transaction)
+            grid.transact(table, built, transaction, by_id)
 
     async def open_table(table_id: str) -> None:
         """Focus a table's row, which opens it in the panel; a row a filter hides is
@@ -1388,16 +1376,11 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                   said=said, row=row)
 
     async def act(what: Callable, *args: Any, said: str | Callable[[Any], str] = "",
-                  row: dict[str, Any] | None = None, gone: bool = False) -> None:
+                  row: dict[str, Any] | None = None) -> None:
         """Run one row-menu act, then put only what changed back on screen.
 
-        Rebuilding the page was the whole answer here, and it reads as the grid
-        flashing: scroll position, focus and the open panel all go, for a write that
-        touched one game's rows. `getRowId` is already the row's id, so selection
-        survives a refresh - which is exactly what a transaction needs.
-
-        The whole game's rows, not the one acted on: a default moves, so the row that
-        held it stops being the default in the same write.
+        Rebuilding the page reads as the grid flashing: scroll position, focus and the
+        open panel all go, for a write that touched one game's rows.
         """
         try:
             after = await run.io_bound(what, *args)
@@ -1411,22 +1394,10 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 rerender()
             return
 
-        # From the by-file lens, which is what the grid was built from. The game's own
-        # sub-resource describes a table and not where it sits in a library, so it
-        # carries no game name, manufacturer, year or resolved rom - patching from it
-        # blanked four columns on exactly the rows that had just been acted on.
-        rows_now = await offload.io(library.load_tables)
-        fresh = table_rows([item for item in rows_now
-                            if item.get("game_id") == game_id])
-        if gone:
-            table.run_grid_method("applyTransaction", {"remove": [{"id": row["id"]}]})
-            by_id.pop(row["id"], None)
-        by_id.update({item["id"]: item for item in fresh})
-        if fresh:
-            table.run_grid_method("applyTransaction", {"update": fresh})
+        await refresh_game(game_id)
         # The panel is about one of these rows and would otherwise still show what the
         # write changed. `on_select` redraws the workbench alone, not the page.
-        answer = on_select(None if gone else by_id.get(row["id"]))
+        answer = on_select(by_id.get(row["id"]))
         if inspect.isawaitable(answer):
             await answer
 
@@ -1504,7 +1475,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                         t("console.games.forget_table"),
                         lambda r=row: act(library.forget_table, r["game_id"], r["id"],
                                           said=t("console.games.record_dropped"),
-                                          row=r, gone=True))
+                                          row=r))
                 if known is not None:
                     ui.separator()
                     collection_adds.draw(offer([row], _table_label(row)), known, menu.close)

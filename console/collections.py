@@ -442,11 +442,10 @@ def build(collections: list[dict[str, Any]], library: Any,
     state["refresh_collections"] = reread
 
     def mark_unsaved(names: set[str]) -> None:
-        changed = [row for row in built if row["unsaved"] != (row["id"] in names)]
-        for row in changed:
-            row["unsaved"] = row["id"] in names
+        changed = [{**row, "unsaved": row["id"] in names} for row in built
+                   if row["unsaved"] != (row["id"] in names)]
         if changed:
-            table.run_grid_method("applyTransaction", {"update": changed})
+            grid.transact(table, built, {"update": changed}, by_id)
             # The name is unchanged, so the grid would not redraw the cell carrying it.
             table.run_grid_method("refreshCells", {"force": True, "columns": ["name"]})
 
