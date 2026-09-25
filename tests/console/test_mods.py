@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import unittest
+from functools import partial
 from typing import Any
+from unittest.mock import Mock, patch
+from urllib.parse import parse_qs, urlparse
 
-from console import game_tables
+from console import game_tables, workbench
 from console.workbench import in_lineage
+
+
+async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
+    return callback(*args, **kwargs)
 
 
 def _mod(parent: str = "", **said: Any) -> dict[str, Any]:
@@ -65,6 +72,61 @@ class Lineage(unittest.TestCase):
         releases = [_release("x"), _release("one", _mod("two")),
                     _release("two", _mod("one"))]
         self.assertEqual([("x", False), ("one", False), ("two", True)], _order(releases))
+
+
+class Line(unittest.TestCase):
+    def setUp(self) -> None:
+        self.ui = self.enterContext(patch.object(workbench, "ui"))
+        self.link = self.enterContext(patch.object(workbench.panel, "link"))
+        self.out = self.enterContext(patch.object(workbench.panel, "out"))
+
+    def _said(self) -> list[str]:
+        return [one.args[0] for one in self.ui.label.call_args_list]
+
+    def test_a_base_the_library_holds_opens_that_table_in_its_own_game(self) -> None:
+        workbench._based_on(_mod("p", version="1.2", authors=["VPW"], game="Other Game",
+                                 game_id="g2", table_id="t9"))
+
+        self.assertEqual(("Mod of Other Game · 1.2 · VPW",), self.link.call_args.args)
+        self.assertEqual({"view": ["tables"], "game": ["g2"], "table": ["t9"]},
+                         parse_qs(urlparse(self.link.call_args.kwargs["to"]).query))
+        self.out.assert_not_called()
+        self.assertEqual([], self._said())
+
+    def test_a_base_it_does_not_hold_is_missing_and_found_on_vps(self) -> None:
+        workbench._based_on(_mod("p", version="1.2", authors=["VPW"],
+                                 url="https://vps.example/?game=m"))
+
+        self.assertEqual(["Mod of 1.2 · VPW", game_tables.GONE_WORDS[0]], self._said())
+        self.assertEqual("https://vps.example/?game=m", self.out.call_args.kwargs["to"])
+        self.link.assert_not_called()
+
+    def test_a_mod_with_no_link_has_nowhere_to_go(self) -> None:
+        workbench._based_on(_mod(note="FSS MOD"))
+
+        self.assertEqual(["Mod · FSS MOD"], self._said())
+        self.link.assert_not_called()
+        self.out.assert_not_called()
+
+    def test_a_release_that_is_no_mod_draws_nothing(self) -> None:
+        workbench._based_on(None)
+
+        self.ui.row.assert_not_called()
+
+
+class MatchGroup(unittest.IsolatedAsyncioTestCase):
+    async def test_a_table_matched_to_a_mod_says_what_it_is_a_mod_of(self) -> None:
+        mod = _mod("p", version="1.2")
+        library = Mock()
+        library.vps_releases.return_value = [{"vps_file_id": "r-1", "version": "1.3"}]
+        context = {"library": library, "game": {"vps_id": "e-1"}}
+        with patch("console.offload.run.io_bound", new=_now):
+            rows = await workbench._release_match(
+                context, {"source": {"vps_file_id": "r-1", "mod_of": mod}})
+
+        drawn = [one.args for _, one in rows
+                 if isinstance(one, partial) and one.func is workbench._based_on]
+        self.assertEqual([(mod,)], drawn)
 
 
 if __name__ == "__main__":

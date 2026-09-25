@@ -41,7 +41,7 @@ FRONTEND = t("console.game_tables.frontend")
 
 # A collection's row held to one table, and what that costs, said on the word.
 LOCKED_WORDS = (t("console.game_tables.locked"), t("console.game_tables.locked.help"))
-# A collection's row naming a game or a table the library no longer has.
+# A row naming a game or a table the library does not hold.
 GONE_WORDS = (t("console.game_tables.missing"), t("console.game_tables.not_library"))
 
 

@@ -1988,6 +1988,8 @@ async def _release_match(context: dict[str, Any],
         release = {"version": source.get("version"), "authors": source.get("authors")}
     if release is not None:
         rows.append((FULL, partial(_release_shown, release)))
+        if source.get("mod_of"):
+            rows.append((FULL, partial(_based_on, source["mod_of"])))
     else:
         held = await offload.io(context["library"].vps_catalog_held)
         rows += _unmatched(release_match_gap(entry, bound, held))
@@ -3709,6 +3711,29 @@ def _release_line(table: dict[str, Any], held: bool = True) -> None:
     with ui.row().classes("items-center gap-2 w-full no-wrap console-member-table-line"):
         ui.label(told or t("console.workbench.table_spreadsheet_no_longer")) \
             .classes("console-help truncate")
+    _based_on(source.get("mod_of"), "console-member-table-line")
+
+
+def _based_on(mod: dict[str, Any] | None, classes: str = "") -> None:
+    """What a table's release is a mod of, one level up: the way to that table where the
+    library holds it, in whichever game, and Missing with the way to VPS where not."""
+    line = game_tables.mod_line(mod)
+    if not mod or not line:
+        return
+    with ui.row().classes(f"items-center gap-2 w-full no-wrap min-w-0 {classes}"):
+        if mod.get("table_id"):
+            panel.link(line, to="/console?" + deeplink.query(
+                {"view": "tables", "game": str(mod.get("game_id") or ""),
+                 "table": str(mod["table_id"])}))()
+            return
+        ui.label(line).classes("console-help truncate min-w-0")
+        if not mod.get("vps_file_id"):
+            return
+        word, why = game_tables.GONE_WORDS
+        ui.label(word).tooltip(why) \
+            .classes("console-member-chip console-tier console-tier--off")
+        if mod.get("url"):
+            panel.out(to=str(mod["url"]), hint=t("console.vps_match.open_in_vps"))()
 
 
 def _release_button(context: dict[str, Any], table: dict[str, Any]) -> None:
