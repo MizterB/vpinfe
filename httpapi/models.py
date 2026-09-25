@@ -2133,6 +2133,45 @@ class AutoMatchResult(ApiModel):
     yours: int = 0
 
 
+class MissingMediaRequest(ApiModel):
+    """No `game_ids` is the whole library."""
+
+    game_ids: list[str] | None = None
+
+
+class MissingMediaKind(ApiModel):
+    """`missing` counts the games with no file of this kind, and `available` those of
+    them an enabled source publishes one for."""
+
+    kind: str
+    missing: int = 0
+    available: int = 0
+
+
+class MissingMedia(ApiModel):
+    """Every kind the library keeps that an enabled source publishes. `unmatched`
+    games have no VPS match, so nothing can be looked up for them."""
+
+    games: int = 0
+    unmatched: int = 0
+    sources: list[str] = []
+    kinds: list[MissingMediaKind] = []
+
+
+class GameKind(ApiModel):
+    game_id: str
+    kind: str
+
+
+class MediaFillRequest(ApiModel):
+    """`slots` names exact game and kind pairs, and when sent the other two are not
+    read. No `game_ids` is the whole library, and no `kinds` every kept kind."""
+
+    game_ids: list[str] | None = None
+    kinds: list[str] | None = None
+    slots: list[GameKind] = []
+
+
 class ScanRequest(ApiModel):
     """Absent body means both default to true, which is what the Manager UI's own
     scan does."""

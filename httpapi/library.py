@@ -13,7 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, Response
 
 from common import jobs as job_registry
-from common.games import collection_ops, game_service, library_ops, owned
+from common.games import collection_ops, game_service, library_ops, media_fill, owned
 
 from . import jobs as jobs_api
 from . import models, scopes
@@ -113,6 +113,21 @@ def auto_match(payload: models.AutoMatchRequest) -> models.AutoMatchResult:
     """Done when it answers: it reads the catalog on disk, never the network. A match a
     person made, or a no-match they declared, is left as it is."""
     return models.AutoMatchResult(**library_ops.auto_match(payload.game_ids))
+
+
+@router.post("/media/missing", summary="What getting missing art would fetch",
+             dependencies=[requires(scopes.GAMES_READ)])
+def missing_media(payload: models.MissingMediaRequest) -> models.MissingMedia:
+    """A read, posted because a selection of ids does not fit in a query string."""
+    return models.MissingMedia(**media_fill.plan(payload.game_ids))
+
+
+@router.post("/media/fill", summary="Get missing art", status_code=202,
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def fill_media(response: Response, payload: models.MediaFillRequest) -> models.JobResource:
+    """Accepted, not done. Fills gaps only: a file already there is never replaced."""
+    slots = [(slot.game_id, slot.kind) for slot in payload.slots]
+    return _accepted(response, media_fill.start(payload.game_ids, payload.kinds, slots))
 
 
 @router.get("/policy", summary="What this library collects",

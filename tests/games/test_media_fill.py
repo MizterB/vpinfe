@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common import i18n, jobs, timestamps
+from common import i18n, jobs, service_errors, timestamps
 from common.games import asset_origin, library_policy, media_fill, media_placement
 from common.online import asset_sources, vpsdb_sync
 from tests.support.library import TempTree, fake_game, game_info, write_game
@@ -191,6 +191,108 @@ class FillTests(_Library):
 
         self.assertTrue(self.placed())
         self.assertEqual(self.placed(other), {})
+
+
+class AskedTests(_Library):
+    """Getting missing art because someone asked, for the games and kinds they picked."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
+        self.other = self.game(OTHER, "eightball")
+        self.loose = self.game("Loose Ends", "")
+
+    def id_of(self, folder: Path) -> str:
+        return next(game_id for game_id, game in self.games.items()
+                    if Path(str(getattr(game, "full_path_game", ""))) == folder)
+
+    def ran(self, job: jobs.Job) -> dict:
+        deadline = time.monotonic() + 10
+        while job.state == jobs.RUNNING:
+            self.assertLess(time.monotonic(), deadline, "the fill never finished")
+            time.sleep(0.02)
+        self.assertIsNone(job.error)
+        return job.result if isinstance(job.result, dict) else {}
+
+    @staticmethod
+    def rows(found: dict) -> dict[str, tuple[int, int]]:
+        return {row["kind"]: (row["missing"], row["available"]) for row in found["kinds"]}
+
+    def test_the_plan_counts_what_is_missing_and_what_can_be_had(self) -> None:
+        found = media_fill.plan()
+
+        self.assertEqual((found["games"], found["unmatched"]), (3, 1))
+        self.assertEqual(found["sources"], ["VPinMediaDB"])
+        rows = self.rows(found)
+        self.assertEqual(rows["wheel"], (3, 2))
+        self.assertEqual(rows["backglass"], (3, 1))
+        self.assertEqual(rows["flyer"], (3, 0))
+        self.downloads.assert_not_called()
+
+    def test_the_plan_leaves_out_a_hidden_kind_and_a_slot_with_a_file(self) -> None:
+        self.policy.set("hidden_media_kinds", ["backglass"])
+        held = self.game("Held", "fathom", **{"wheel.png": b"mine"})
+
+        found = media_fill.plan([self.id_of(held), self.id_of(self.other)])
+
+        self.assertEqual((found["games"], found["unmatched"]), (2, 0))
+        rows = self.rows(found)
+        self.assertNotIn("backglass", rows)
+        self.assertEqual(rows["wheel"], (1, 1))
+
+    def test_a_game_the_library_does_not_hold_is_left_out(self) -> None:
+        found = media_fill.plan(["gone"])
+
+        self.assertEqual(found["games"], 0)
+        self.assertEqual({counts for counts in self.rows(found).values()}, {(0, 0)})
+
+    def test_only_the_kinds_asked_are_fetched(self) -> None:
+        result = self.ran(media_fill.start([self.id_of(self.folder)], ["wheel"]))
+
+        self.assertEqual(self.placed(), {WHEEL: _url("wheel.png")})
+        self.assertEqual(self.placed(self.other), {})
+        self.assertEqual(result["filled"], 1)
+
+    def test_no_games_named_is_the_whole_library(self) -> None:
+        result = self.ran(media_fill.start(kinds=["wheel"]))
+
+        self.assertIn(WHEEL, self.placed())
+        self.assertIn(f"(Wheel) {OTHER}.png", self.placed(self.other))
+        self.assertEqual((result["games"], result["unmatched"]), (3, 1))
+
+    def test_a_hidden_kind_is_never_fetched_even_when_asked(self) -> None:
+        self.policy.set("hidden_media_kinds", ["wheel"])
+
+        self.ran(media_fill.start([self.id_of(self.folder)], ["wheel", "backglass"]))
+        self.ran(media_fill.start(slots=[(self.id_of(self.other), "wheel")]))
+
+        self.assertEqual(set(self.placed()), {f"(Backglass) {FOLDER}.png"})
+        self.assertEqual(self.placed(self.other), {})
+
+    def test_a_slot_fetches_that_one_kind(self) -> None:
+        self.ran(media_fill.start(slots=[(self.id_of(self.folder), "backglass")]))
+
+        self.assertEqual(set(self.placed()), {f"(Backglass) {FOLDER}.png"})
+
+    def test_the_size_the_display_is_set_to_is_the_one_fetched(self) -> None:
+        self.config.read_dict({"media": {"playfield_resolution": "1k"}})
+
+        self.ran(media_fill.start([self.id_of(self.folder)], ["playfield"]))
+
+        self.assertEqual(self.placed(), {f"(Playfield) {FOLDER}.png": _url("table-1k.png")})
+
+    def test_a_file_already_there_is_not_replaced(self) -> None:
+        held = self.game("Held", "fathom", **{"wheel.png": b"mine"})
+
+        self.ran(media_fill.start([self.id_of(held)], ["wheel"]))
+
+        self.assertEqual(self.placed(held), {"wheel.png": "mine"})
+        self.downloads.assert_not_called()
+
+    def test_it_will_not_run_beside_another_fill(self) -> None:
+        with jobs.track(jobs.KIND_MEDIA_FILL), self.assertRaises(service_errors.BlockedError):
+            media_fill.start()
 
 
 def _md5(data: bytes) -> str:

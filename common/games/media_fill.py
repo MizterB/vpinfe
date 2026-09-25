@@ -1,4 +1,4 @@
-"""Getting a newly matched game the art it has no file for, without anyone asking.
+"""Getting a game the art it has no file for, and keeping the art we fetched current.
 
 A slot is filled only when nothing serves it. What counts as wanted is Kinds and the
 online sources that are on; the size is the one the display settings name.
@@ -81,17 +81,17 @@ def _size(kind: str, media: MediaConfig) -> str:
             "table_video_resolution": media.playfield_video_resolution}.get(group, group)
 
 
-def _gaps(game_id: str) -> list[str]:
-    """The kinds with no file serving the game's tables.
+def _is_gap(row: dict[str, Any]) -> bool:
+    """No file serves the game's tables, and no set someone chose answers the slot."""
+    return (not row["table"] and not row["present"]
+            and not str(row.get("standing_in") or "").startswith("set:"))
 
-    A slot an active set answers is not a gap: someone chose that set, and a file named
-    for the folder would outrank it.
-    """
+
+def _gaps(game_id: str) -> list[str]:
     from common.games import media_lens
 
     return [row["kind"] for row in media_lens.listing(game=game_id)["media"]
-            if not row["table"] and not row["present"]
-            and not str(row.get("standing_in") or "").startswith("set:")]
+            if _is_gap(row)]
 
 
 def _fetch(game_id: str, kind: str, asked: str, vps_id: str, size: str,
@@ -119,34 +119,36 @@ def _folders_to_games() -> dict[str, tuple[str, Any]]:
             for game_id, game in game_repository.catalog().items()}
 
 
-def _fill(folders: list[str], wanted: set[str], live: tuple[str, ...],
-          reporter: JobReporter | None, proceed: Callable[[], bool]) -> dict[str, int]:
+# A game, and the kinds to fill for it.
+Target = tuple[str, Any, set[str]]
+
+
+def _fill_games(targets: list[Target], live: tuple[str, ...],
+                reporter: JobReporter | None,
+                proceed: Callable[[], bool]) -> dict[str, int]:
+    """Fetch each target's gaps. `filled` and `failed` count files; `unmatched` counts
+    games with no VPS id, which nothing can be looked up for."""
     from common.games import game_repository, media_service
 
-    counts = {"games": len(folders), "filled": 0, "unmatched": 0, "failed": 0}
-    if not folders or not wanted or not live:
+    counts = {"games": len(targets), "filled": 0, "unmatched": 0, "failed": 0}
+    if not targets or not live:
         return counts
     media = MediaConfig.from_config(get_ini_config())
-    games = _folders_to_games()
-    for index, folder in enumerate(folders):
+    for index, (game_id, game, wanted) in enumerate(targets):
         if not proceed():
             break
-        found = games.get(str(Path(folder).resolve()))
-        if found is None:
-            continue
-        game_id, game = found
         name = str(game.game_dir_name or "")
         if reporter:
-            reporter.progress(index, len(folders), t("said.getting_art_for", game=name))
+            reporter.progress(index, len(targets), t("said.getting_art_for", game=name))
         vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
         if not vps_id:
             counts["unmatched"] += 1
             continue
         placed = 0
         try:
-            gaps = _gaps(game_id)
+            gaps = _gaps(game_id) if wanted else []
         except Exception:
-            logger.exception("Art for new games: could not read what %s has", name)
+            logger.exception("Getting art: could not read what %s has", name)
             continue
         for kind in gaps:
             asked = _asked_as(kind, media.playfield_variant) if kind in wanted else None
@@ -157,8 +159,7 @@ def _fill(folders: list[str], wanted: set[str], live: tuple[str, ...],
                     placed += 1
             except Exception as exc:
                 counts["failed"] += 1
-                logger.warning("Art for new games: could not get %s for %s: %s",
-                               kind, name, exc)
+                logger.warning("Getting art: could not get %s for %s: %s", kind, name, exc)
         if placed:
             counts["filled"] += placed
             media_service.invalidate_media_cache()
@@ -166,16 +167,96 @@ def _fill(folders: list[str], wanted: set[str], live: tuple[str, ...],
     return counts
 
 
+def _fill(folders: list[str], wanted: set[str], live: tuple[str, ...],
+          reporter: JobReporter | None, proceed: Callable[[], bool]) -> dict[str, int]:
+    games = _folders_to_games()
+    found = [games.get(str(Path(folder).resolve())) for folder in folders]
+    return _fill_games([(game_id, game, wanted) for game_id, game in filter(None, found)],
+                       live, reporter, proceed)
+
+
 def fill(folders: Iterable[str | Path], kinds: Iterable[str] | None = None,
          reporter: JobReporter | None = None) -> dict[str, int]:
     """Fetch what each game in `folders` is missing, of `kinds` or else the kept kinds.
-
-    Never replaces a file. `filled` and `failed` count files; `unmatched` counts games
-    with no VPS id, which nothing can be looked up for.
-    """
-    wanted = kept_kinds() if kinds is None else set(kinds)
+    Never replaces a file, and never fetches a kind the library does not keep."""
+    wanted = kept_kinds() if kinds is None else kept_kinds() & set(kinds)
     return _fill([str(folder) for folder in folders], wanted, _reachable(), reporter,
                  lambda: True)
+
+
+def _scope(game_ids: Iterable[str] | None) -> dict[str, Any]:
+    """The library's games named by `game_ids`, or all of them. Ids it does not hold
+    are left out."""
+    from common.games import game_repository
+
+    held = game_repository.catalog()
+    if game_ids is None:
+        return dict(held)
+    return {one: held[one] for one in dict.fromkeys(game_ids) if one in held}
+
+
+def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
+    """What getting missing art for these games would do, fetching nothing.
+
+    Per kind the library keeps: how many games have no file for it, and how many of
+    those an enabled source has one for. Reads the catalog index, never a file.
+    """
+    from common.games import media_lens
+    from common.online import asset_sources
+
+    scope = _scope(game_ids)
+    kinds = [kind for kind in _SPECS if kind in kept_kinds()]
+    variant = MediaConfig.from_config(get_ini_config()).playfield_variant
+    enabled = asset_sources.enabled_ids()
+    only = next(iter(scope)) if len(scope) == 1 else ""
+    gaps: dict[str, list[str]] = {}
+    for row in media_lens.listing(game=only)["media"] if scope else []:
+        if row["game_id"] in scope and _is_gap(row):
+            gaps.setdefault(row["game_id"], []).append(row["kind"])
+    missing = dict.fromkeys(kinds, 0)
+    available = dict.fromkeys(kinds, 0)
+    unmatched = 0
+    for game_id, game in scope.items():
+        vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
+        unmatched += not vps_id
+        for kind in gaps.get(game_id, []):
+            if kind not in missing:
+                continue
+            missing[kind] += 1
+            asked = _asked_as(kind, variant)
+            if vps_id and asked and asset_sources.offers(asked, vps_id, enabled):
+                available[kind] += 1
+    return {"games": len(scope), "unmatched": unmatched,
+            "sources": [source.name for source in asset_sources.sources(enabled)],
+            "kinds": [{"kind": kind, "missing": missing[kind],
+                       "available": available[kind]} for kind in kinds]}
+
+
+def start(game_ids: Iterable[str] | None = None, kinds: Iterable[str] | None = None,
+          slots: Iterable[tuple[str, str]] = ()) -> jobs.Job:
+    """Get missing art as a job: these games' gaps of `kinds`, or exactly `slots`.
+
+    `game_ids` None is the whole library and `kinds` None every kept kind. A kind the
+    library does not keep is never fetched. Raises BlockedError while a fill runs.
+    """
+    from common.games import library_ops
+
+    kept = kept_kinds()
+    picked: dict[str, set[str]] = {}
+    for game_id, kind in slots:
+        picked.setdefault(game_id, set()).add(kind)
+    if picked:
+        targets = [(game_id, game, picked[game_id] & kept)
+                   for game_id, game in _scope(picked).items()]
+    else:
+        chosen = kept if kinds is None else kept & set(kinds)
+        targets = [(game_id, game, chosen) for game_id, game in _scope(game_ids).items()]
+
+    def work(job: jobs.Job) -> dict[str, int]:
+        return _fill_games(targets, _reachable(), job.reporter(),
+                           lambda: not shutdown.requested())
+
+    return library_ops.start(jobs.KIND_MEDIA_FILL, work)
 
 
 def request(folders: Iterable[str | Path]) -> None:

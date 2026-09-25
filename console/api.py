@@ -940,6 +940,17 @@ class ApiClient:
         """Match these games again from their folder names. A person's matches stay."""
         return self._post("/library/auto_match", {"game_ids": game_ids})
 
+    def missing_media(self, game_ids: list[str] | None = None) -> dict:
+        """Per kept kind, how many of these games have no file and how many can get one."""
+        return self._post("/library/media/missing", {"game_ids": game_ids})
+
+    def fill_media(self, game_ids: list[str] | None = None, kinds: list[str] | None = None,
+                   slots: tuple[tuple[str, str], ...] = ()) -> dict:
+        """Get missing art. Returns the job to watch."""
+        return self._post("/library/media/fill", {
+            "game_ids": game_ids, "kinds": kinds,
+            "slots": [{"game_id": game_id, "kind": kind} for game_id, kind in slots]})
+
     def set_table_overrides(self, game_id: str, table_id: str, changes: dict) -> dict:
         """What the user says about one file. Same patch shape as the game's."""
         return self._put(f"/games/{game_id}/tables/{table_id}/overrides", changes)
