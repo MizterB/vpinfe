@@ -494,17 +494,18 @@ class BuildMetadataJobTests(unittest.TestCase):
         self.addCleanup(jobs.reset_for_tests)
         self.api = mock.Mock()
         self.ended = threading.Event()
+        self.rebuilt = threading.Event()
         self.sent: list[dict] = []
 
         def send(event: dict) -> None:
             self.sent.append(event)
-            if event["type"] == "buildmeta_error":
+            if event["type"] in ("buildmeta_complete", "buildmeta_error"):
                 self.ended.set()
 
         self.api.send_event_all_windows_incself.side_effect = send
         for patcher in (mock.patch("frontend.api.all_games", return_value=[]),
                         mock.patch("frontend.game_state.rebuild_view",
-                                   side_effect=lambda api: self.ended.set())):
+                                   side_effect=lambda api: self.rebuilt.set())):
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -525,6 +526,7 @@ class BuildMetadataJobTests(unittest.TestCase):
 
         self.build(mock.Mock(side_effect=scan))
 
+        self.assertTrue(self.rebuilt.wait(5))
         self.assertEqual(running, [1])
         self.assertEqual(self.sent[-1], {"type": "buildmeta_complete",
                                          "result": {"found": 1, "not_found": 0}})

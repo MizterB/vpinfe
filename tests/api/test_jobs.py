@@ -160,6 +160,21 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(jobs.get(job.id).state, jobs.FAILED)
         self.assertEqual(jobs.get(job.id).error, "worker died")
 
+    def test_a_job_outlived_by_a_reset_frees_only_its_own_slot(self) -> None:
+        release = threading.Event()
+        first = jobs.submit("test.kind", lambda job: release.wait(5))
+        jobs.reset_for_tests()
+
+        with jobs.track("test.kind") as second:
+            release.set()
+            for _ in range(500):
+                if first.finished_at is not None:
+                    break
+                threading.Event().wait(0.01)
+
+            self.assertIsNotNone(first.finished_at)
+            self.assertEqual(jobs.active("test.kind"), [second])
+
     def test_an_unknown_id_is_none_rather_than_an_error(self) -> None:
         self.assertIsNone(jobs.get("nope"))
 

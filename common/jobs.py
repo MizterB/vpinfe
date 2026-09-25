@@ -158,7 +158,8 @@ _history: list[Job] = []
 
 def _finish(job: Job, error: BaseException | None) -> None:
     with _lock:
-        _active.pop(job.kind, None)
+        if _active.get(job.kind) is job:
+            del _active[job.kind]
         job.finished_at = time.time()
         if error is None:
             job.state = DONE
