@@ -1495,15 +1495,15 @@ If `override` is present, themes that position or scale BG/DMD content based on 
 Returns an HTTP URL for a table's image. `kind` can be `"playfield"`, `"bg"`, `"dmd"`, `"wheel"`, or `"cab"`. Returns a fallback `/core/images/file_missing.png` URL if the file doesn't exist or `index` is outside the list, never `null`.
 
 #### getVideoURL(index, kind)
-Returns an HTTP URL for a table's video. `kind` can be `"playfield"`, `"bg"`, or `"dmd"`. Returns a fallback `/core/images/file_missing.png` URL if no video exists. See [Video Support](#video-support).
+Returns an HTTP URL for a table's video. `kind` can be `"playfield"`, `"bg"`, or `"dmd"`. Returns a fallback `/core/images/file_missing.png` URL if no video exists or `index` is outside the list, never `null`. See [Video Support](#video-support).
 
 #### getMediaURL(index, kind)
-Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"bg"`, and `"dmd"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame.
+Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"bg"`, and `"dmd"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
 
 Kind names are snake_case, the same strings the payload and `/api/v1` use. The spellings earlier builds accepted — `table`, `table_video`, `fss`, `realdmd`, `realdmd-color`, `rulecard`, `audiolaunch`, `rulesheet` — still work.
 
 #### getMedia(index, kind)
-Returns the same priority-aware selection with metadata: `{ url, kind, priority, path }`. Real DMD selections also include `variant` with `"color"` or `"standard"`.
+Returns the same priority-aware selection with metadata: `{ url, kind, priority, path }`. Real DMD selections also include `variant` with `"color"` or `"standard"`. When there is nothing to show, including for an `index` outside the list, `kind` is `"missing"` and `url` is `/core/images/file_missing.png`.
 
 #### getAudioURL(index)
 Returns an HTTP URL for a game's audio file, or `null` if no audio exists. See [Audio Support](#audio-support).

@@ -108,6 +108,26 @@ describe("an index with no row still gets an image", () => {
 
     assert.equal(vpin.getImageURL(0, "wheel"), "/core/images/file_missing.png");
   });
+
+  test("a video asked for outside the list is the missing-media image too", () => {
+    const vpin = coreWithLibrary();
+
+    for (const index of [ROWS.length, -1]) {
+      assert.equal(vpin.getVideoURL(index, "bg"), "/core/images/file_missing.png",
+        `index ${index} of ${ROWS.length}`);
+    }
+  });
+
+  test("a media lookup outside the list answers missing, with the image to show", () => {
+    const vpin = coreWithLibrary();
+
+    for (const kind of ["bg", "real_dmd", "wheel"]) {
+      const media = vpin.getMedia(ROWS.length, kind);
+      assert.equal(media.kind, "missing", kind);
+      assert.equal(media.url, "/core/images/file_missing.png", kind);
+      assert.equal(vpin.getMediaURL(ROWS.length, kind), "/core/images/file_missing.png");
+    }
+  });
 });
 
 describe("image versus video is the user's preference, and it is honoured", () => {

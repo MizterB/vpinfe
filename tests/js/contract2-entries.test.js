@@ -106,6 +106,13 @@ describe("media is named, and the URL follows from the name", () => {
     assert.equal(vpin.getMedia(0, "topper").kind, "missing");
   });
 
+  test("a video the entry lacks is the missing-media image, never null", async () => {
+    const vpin = await coreWithEntries();
+    assert.ok(!vpin.entries[0].media.includes("backglass_video"), "the fixture moved");
+
+    assert.equal(vpin.getVideoURL(0, "bg"), "/core/images/file_missing.png");
+  });
+
   test("image versus video is still the user's preference", async () => {
     const vpin = await coreWithEntries();
     const entry = vpin.entries[0];

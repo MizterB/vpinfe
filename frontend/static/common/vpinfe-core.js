@@ -168,7 +168,7 @@ class ContractTwoReader {
   imageURL(entry, kind) { return this.url(entry, kind) || MISSING_MEDIA_URL; }
   // Contract 2 names kinds; it never locates files, so there is no path to hand back.
   path()                { return null; }
-  videoURL(entry, kind) { return this.url(entry, VIDEO_KIND[kind] || kind); }
+  videoURL(entry, kind) { return this.url(entry, VIDEO_KIND[kind] || kind) || MISSING_MEDIA_URL; }
   audioURL(entry)       { return this.url(entry, "audio"); }
   logo(entry)           { return entry.game?.manufacturer_logo || null; }
   vpsId(entry)          { return String(entry.game?.vps_id || "").trim(); }
@@ -950,7 +950,7 @@ class VPinFECore {
 
   getMedia(index, kind) {
     const item = this.tableData[index];
-    if (!item) return { url: null, kind: null, priority: null, path: null };
+    if (!item) return { url: MISSING_MEDIA_URL, kind: "missing", priority: null, path: null };
 
     const canonical = this.#canonicalKind(kind);
     if (canonical === "real_dmd") {
@@ -1176,7 +1176,7 @@ class VPinFECore {
   // The URL of a game's video, by media kind
   getVideoURL(index, kind) {
     const item = this.tableData[index];
-    return item ? this._reader.videoURL(item, this.#canonicalKind(kind)) : null;
+    return item ? this._reader.videoURL(item, this.#canonicalKind(kind)) : MISSING_MEDIA_URL;
   }
 
   // The list, under the name that describes what is in it. At contract 2 the items are
