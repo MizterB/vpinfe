@@ -162,6 +162,12 @@ def collection_for(collections: Sequence[dict[str, Any]], tag: str) -> str:
                 "")
 
 
+def collection_ordered_by(collections: Sequence[dict[str, Any]], order_by: str) -> str:
+    """The smart collection in this order, or ""."""
+    return next((str(one.get("name") or "") for one in collections
+                 if one.get("type") == "filter" and one.get("order_by") == order_by), "")
+
+
 def free_name(wanted: str, collections: Sequence[dict[str, Any]]) -> str:
     taken = {str(one.get("name") or "").casefold() for one in collections}
     name, number = wanted, 2
@@ -175,17 +181,29 @@ def _collection_address(name: str) -> str:
     return "/console?" + deeplink.query({"view": "collections", "collection": name})
 
 
-async def _make_collection(library: Library, title: str, tag: str) -> None:
+async def _make_collection(library: Library, title: str, filters: dict[str, Any]) -> None:
     collections = await offload.io(library.load_collections)
     try:
         made = await offload.io(library.create_collection, free_name(title, collections),
-                                {"tags": [tag]})
+                                filters)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
         ui.notify(t("said.could_not_do_that", exc=exc), type="negative")
         return
     name = str(made.get("name") or "")
     ui.notify(t("console.collections.created", strip=name), type="positive")
     ui.navigate.to(_collection_address(name))
+
+
+def _collection_action(library: Library, existing: str, title: str,
+                       filters: dict[str, Any]) -> None:
+    if existing:
+        panel.action(t("console.community.open_collection"),
+                     lambda: ui.navigate.to(_collection_address(existing)),
+                     icon=verbs.GO, hint=existing)()
+    else:
+        panel.action(t("console.community.make_collection"),
+                     lambda: _make_collection(library, title, filters),
+                     icon=verbs.CREATE)()
 
 
 def _tag_chip(said: dict[str, Any], library: Library) -> None:
@@ -213,12 +231,14 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     key = str(declared.get("key") or "")
     said = str(extension.get("display_name") or name)
     tagging, existing = {}, ""
+    ranked = rankings.views_of(declared)
+    collections = await offload.io(library.load_collections) \
+        if declared.get("tag") or ranked else []
     if declared.get("tag"):
         await offload.io(library.read_tags)
         tagging = sources_of(library.tag_looks(), name, key)
         if tagging:
-            existing = collection_for(await offload.io(library.load_collections),
-                                      str(tagging["tag"]))
+            existing = collection_for(collections, str(tagging["tag"]))
     route = f"/ext/{name}{declared.get('base') or ''}"
 
     def fetch() -> dict:
@@ -263,16 +283,24 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                 library, scope, presets(declared), fields, shown, bar=bar)
             describe()
             with bar.top, panel.bar_end():
-                if existing:
-                    panel.action(t("console.community.open_collection"),
-                                 lambda: ui.navigate.to(_collection_address(existing)),
-                                 icon=verbs.GO, hint=existing)()
-                elif tagging:
-                    panel.action(t("console.community.make_collection"),
-                                 lambda: _make_collection(
-                                     library, str(declared.get("title") or ""),
-                                     str(tagging["tag"])),
-                                 icon=verbs.CREATE)()
+                for view in ranked:
+                    order_by = rankings.token(name, key, view["key"])
+                    with ui.row().classes("items-center gap-2 no-wrap") \
+                            .bind_visibility_from(_picker, "value",
+                                                  value=views.builtin_id(view["key"])):
+                        _collection_action(
+                            library, collection_ordered_by(collections, order_by),
+                            ranked_label({"title": declared.get("title"),
+                                          "name": view.get("name")}),
+                            {"order_by": order_by})
+                if tagging:
+                    ranked_ids = {views.builtin_id(view["key"]) for view in ranked}
+                    with ui.row().classes("items-center gap-2 no-wrap") \
+                            .bind_visibility_from(_picker, "value",
+                                                  backward=lambda on: on not in ranked_ids):
+                        _collection_action(library, existing,
+                                           str(declared.get("title") or ""),
+                                           {"tags": [str(tagging["tag"])]})
                 search = panel.search(t("console.community.search"))
             with bar.bottom, panel.bar_end():
                 if tagging:

@@ -65,6 +65,17 @@ class RankedOrders(unittest.TestCase):
 
         self.assertEqual({}, community.ranked_orders([{**LOADED, "community": [loose]}]))
 
+    def test_the_smart_collection_in_a_view_s_order_is_the_one_it_opens(self) -> None:
+        collections = [{"name": "Mine", "type": "manual", "order_by": "site/tables/plays"},
+                       {"name": "Titles", "type": "filter", "order_by": "title"},
+                       {"name": "Site: Most played", "type": "filter",
+                        "order_by": "site/tables/plays"}]
+
+        self.assertEqual("Site: Most played",
+                         community.collection_ordered_by(collections, "site/tables/plays"))
+        self.assertEqual("", community.collection_ordered_by(collections[:2],
+                                                              "site/tables/plays"))
+
     def test_a_stored_order_no_running_extension_offers_names_the_extension(self) -> None:
         self.assertEqual("Site, not running",
                          community.ranked_label({"extension": "site", "display_name": "Site",
