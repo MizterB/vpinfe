@@ -240,16 +240,10 @@ if (!window.__consoleDnd) {
 """
 
 
-def install(on_drop: Callable[[Drop], Any]) -> Callable[[Any], None]:
-    """Make the whole page a drop target, and return what the page listens to
-    `console_dnd` with.
-
-    The document rather than a zone element: every grid in the Console is a place a file
-    could sensibly be dropped, and a zone would be one more region to find and aim at.
-    Where the pointer was still decides what the drop meant.
-    """
+def install() -> None:
+    """Make the whole document a drop target, every grid in it. A drop arrives on
+    `console_dnd`, which the page hears with a `listener`."""
     ui.run_javascript(_DND_SCRIPT)
-    return listener(on_drop)
 
 
 def listener(on_arrival: Callable[[Drop], Any]) -> Callable[[Any], None]:

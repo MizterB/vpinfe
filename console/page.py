@@ -413,6 +413,20 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # changed, so a pane collapsed the moment the header it was subtracting went away.
     ui.query(".nicegui-content").classes("p-0 gap-0 h-screen")
 
+    ui.on("hub_window_px", lambda event: on_window_width(int(event.args or 0)))
+    ui.on("hub_member_moved", lambda event: workbench.member_moved(state, event.args))
+    ui.on(row_drag.DRAGGED, lambda: row_drag.dragging(library, state))
+    ui.on(row_drag.DROPPED,
+          lambda event: row_drag.dropped(library, state, event.args))
+    ui.on("hub_guide_moved", lambda event: workbench.guide_moved(state, event.args))
+    ui.on("hub_dock_px", lambda event: state.__setitem__("dock_px", int(event.args))
+          if event.args else None)
+    ui.on("hub_row_focus", grid.row_focused)
+    ui.on("hub_media_zoom", lambda event: games.media_zoomed(state, event))
+    ui.on("hub_rate", lambda event: games.rated(state, event))
+    ui.on("console_dnd", uploads.listener(lambda drop: _took_a_drop(library, state, redraw,
+                                                                     drop)))
+
     # The shell first, then wait for the browser to have it, and only then read
     # anything. Reading first meant a page function that took two seconds to return, and
     # nicegui abandons a response that is not ready in three - which surfaced as a
@@ -431,7 +445,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         return
     loading.delete()
 
-    library = loaded["library"]
+    library: Library = loaded["library"]
     discovery = loaded["discovery"]
     devices = loaded["devices"]
     installed_extensions = loaded["extensions"]
@@ -495,18 +509,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         wants_rail = width < NAV_NARROW_PX
         if wants_rail != state["mini"] and wants_rail != state.get("nav_by_hand"):
             set_mini(wants_rail)
-
-    ui.on("hub_window_px", lambda event: on_window_width(int(event.args or 0)))
-    ui.on("hub_member_moved", lambda event: workbench.member_moved(state, event.args))
-    ui.on(row_drag.DRAGGED, lambda: row_drag.dragging(library, state))
-    ui.on(row_drag.DROPPED,
-          lambda event: row_drag.dropped(library, state, event.args))
-    ui.on("hub_guide_moved", lambda event: workbench.guide_moved(state, event.args))
-    ui.on("hub_dock_px", lambda event: state.__setitem__("dock_px", int(event.args))
-          if event.args else None)
-    ui.on("hub_row_focus", grid.row_focused)
-    ui.on("hub_media_zoom", lambda event: games.media_zoomed(state, event))
-    ui.on("hub_rate", lambda event: games.rated(state, event))
 
     def toggle_mini() -> None:
         """The nav's own control. Setting it by hand takes it out of Full's care: an
@@ -1218,10 +1220,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             return
         render()
 
-    # Installed once the library and the redraw both exist. What a drop means comes from
-    # where it landed, so this is one handler for every grid rather than a zone per page.
-    ui.on("console_dnd", uploads.install(lambda drop: _took_a_drop(library, state, redraw,
-                                                                    drop)))
+    uploads.install()
     row_drag.install()
 
     ui.run_javascript(_NAV_CLICK)

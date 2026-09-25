@@ -234,6 +234,19 @@ async def remote_page(screen: str = "") -> None:
     # by then the page has been sent, and the pad had no behavior at all.
     ui.add_body_html(f"<script>{_HOLD_SCRIPT % {'renew': RENEW_MS}}</script>")
 
+    # Once per page, not once per draw. Registered inside the screen that uses them, a
+    # handler would be added again on every redraw and one thumb would send N presses.
+    async def held(event: Any) -> None:
+        await _say(client_for_target, str((event.args or {}).get("action") or ""),
+                   "press")
+
+    async def let_go(event: Any) -> None:
+        await _say(client_for_target, str((event.args or {}).get("action") or ""),
+                   "release")
+
+    ui.on("remote_press", held)
+    ui.on("remote_release", let_go)
+
     with ui.column().classes("w-full h-full items-center justify-center gap-3") as loading:
         ui.spinner(size="lg").classes("text-primary")
         ui.label(t("console.remote.loading")).classes("text-sm opacity-60")
@@ -374,19 +387,6 @@ async def remote_page(screen: str = "") -> None:
         listening.cancel()
 
     page.on_delete(gone)
-
-    # Once per page, not once per draw. Registered inside the screen that uses them, a
-    # handler would be added again on every redraw and one thumb would send N presses.
-    async def held(event: Any) -> None:
-        await _say(client_for_target, str((event.args or {}).get("action") or ""),
-                   "press")
-
-    async def let_go(event: Any) -> None:
-        await _say(client_for_target, str((event.args or {}).get("action") or ""),
-                   "release")
-
-    ui.on("remote_press", held)
-    ui.on("remote_release", let_go)
 
     state["reread"] = reread
 

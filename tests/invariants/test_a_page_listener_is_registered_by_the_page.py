@@ -1,5 +1,5 @@
-"""A page-level listener is registered by the page function itself, never from a handler
-or a helper."""
+"""A page-level listener is registered by the page function itself, before it waits for
+the browser to connect, never from a handler or a helper."""
 
 from __future__ import annotations
 
@@ -34,14 +34,34 @@ def _is_page(node: ast.AST) -> bool:
     return False
 
 
+def _sent_at(page: ast.AST) -> int | None:
+    """The line of the page's own `await ....connected()`, which sends the page."""
+    lines = []
+    waiting = list(ast.iter_child_nodes(page))
+    while waiting:
+        node = waiting.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        if isinstance(node, ast.Await) and isinstance(node.value, ast.Call) \
+           and isinstance(node.value.func, ast.Attribute) \
+           and node.value.func.attr == "connected":
+            lines.append(node.lineno)
+        waiting.extend(ast.iter_child_nodes(node))
+    return min(lines, default=None)
+
+
 class _Registrations(ast.NodeVisitor):
-    """Each registration, and whether the function it sits directly in is a page."""
+    """Each registration, and whether it is its page's own: directly in the page
+    function, and ahead of the page being sent."""
 
     def __init__(self) -> None:
         self.enclosing: list[ast.AST] = []
+        self.sent: dict[ast.AST, int | None] = {}
         self.found: list[tuple[int, str, bool]] = []
 
     def _inside(self, node: ast.AST) -> None:
+        if _is_page(node):
+            self.sent[node] = _sent_at(node)
         self.enclosing.append(node)
         self.generic_visit(node)
         self.enclosing.pop()
@@ -59,7 +79,9 @@ class _Registrations(ast.NodeVisitor):
         if _registers(node):
             inner = self.enclosing[-1] if self.enclosing else None
             name = "<module>" if inner is None else getattr(inner, "name", "<lambda>")
-            self.found.append((node.lineno, name, inner is not None and _is_page(inner)))
+            sent = self.sent.get(inner) if inner is not None else None
+            own = inner in self.sent and (sent is None or node.lineno < sent)
+            self.found.append((node.lineno, name, own))
         self.generic_visit(node)
 
 
@@ -88,7 +110,8 @@ class PageListeners(unittest.TestCase):
         late = [f"{where}:{line} in {name}" for where, line, name, by_page in self.found
                 if not by_page and (where, name) not in LATE_TODAY]
 
-        self.assertEqual(late, [], "register it in the page function, reach it through state")
+        self.assertEqual(late, [], "register it in the page function before it awaits "
+                                   "connected(), and reach it through state")
 
     def test_the_named_ones_are_still_there(self) -> None:
         still = {(where, name) for where, _line, name, by_page in self.found if not by_page}
@@ -114,6 +137,18 @@ class PageListeners(unittest.TestCase):
         self.assertEqual([(name, by_page) for _line, name, by_page in _registrations(tree)],
                          [("page", True), ("page", True), ("later", False),
                           ("page", True), ("<lambda>", False), ("helper", False)])
+
+    def test_one_after_the_page_is_sent_is_refused(self) -> None:
+        tree = ast.parse('@ui.page("/x")\n'
+                         'async def page():\n'
+                         '    async def elsewhere():\n'
+                         '        await ui.context.client.connected()\n'
+                         '    ui.on("a", go)\n'
+                         '    await ui.context.client.connected()\n'
+                         '    ui.on("b", go)\n')
+
+        self.assertEqual([(name, by_page) for _line, name, by_page in _registrations(tree)],
+                         [("page", True), ("page", False)])
 
 
 if __name__ == "__main__":
