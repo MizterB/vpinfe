@@ -80,6 +80,18 @@ class TheRows(unittest.TestCase):
                           "Friday Night": "Custom Order"},
                          {one["name"]: one["order"] for one in collections.rows(orders)})
 
+    def test_a_ranked_order_reads_as_its_community_page_and_view(self) -> None:
+        ranked = {"extension": "site", "display_name": "Site", "title": "Site Tables",
+                  "name": "Top Rated", "offered": True}
+        orders = [{**_SMART, "order_by": "site/tables/top", "direction": "asc",
+                   "ranking": ranked},
+                  {**_CUT, "order_by": "site/tables/top", "direction": "asc",
+                   "ranking": {**ranked, "title": "", "name": "", "offered": False}}]
+
+        self.assertEqual({"90s Bally": "Site Tables: Top Rated",
+                          "Five Bally": "Site, not running"},
+                         {one["name"]: one["order"] for one in collections.rows(orders)})
+
 
 class TheColumns(unittest.TestCase):
     def test_kind_filters_on_the_token_and_shows_the_word(self) -> None:

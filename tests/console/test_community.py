@@ -48,6 +48,29 @@ class TheNav(unittest.TestCase):
                          community.find("community:site:tables", [LOADED]))
 
 
+class RankedOrders(unittest.TestCase):
+    RANKED = {**DECLARED, "views": [{**DECLARED["views"][0], "ranks": True},
+                                    {"key": "all", "name": "All", "columns": ["name"],
+                                     "sort": [], "help": ""}]}
+
+    def test_each_ranked_view_is_named_for_its_page_and_itself(self) -> None:
+        offered = community.ranked_orders([{**LOADED, "community": [self.RANKED]},
+                                           {**LOADED, "name": "off", "state": "failed",
+                                            "community": [self.RANKED]}])
+
+        self.assertEqual({"site/tables/plays": "Site: Most played"}, offered)
+
+    def test_a_list_that_relates_to_nothing_offers_no_order(self) -> None:
+        loose = {**self.RANKED, "relation": None}
+
+        self.assertEqual({}, community.ranked_orders([{**LOADED, "community": [loose]}]))
+
+    def test_a_stored_order_no_running_extension_offers_names_the_extension(self) -> None:
+        self.assertEqual("Site, not running",
+                         community.ranked_label({"extension": "site", "display_name": "Site",
+                                                 "offered": False}))
+
+
 class TheGrid(unittest.TestCase):
     def test_the_first_column_is_scanned_by_and_in_library_follows(self) -> None:
         shown = community.columns(DECLARED)

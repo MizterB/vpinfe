@@ -298,8 +298,9 @@ class OverTheApi(RankedCase):
         self.assertEqual(200, paged.status_code)
         said = paged.json()
         self.assertEqual(TOP_RATED_TOKEN, said["order_by"])
-        self.assertEqual(("challenge", False),
-                         (said["ranking"]["extension"], said["ranking"]["offered"]))
+        self.assertEqual(("challenge", "Challenge", False),
+                         tuple(said["ranking"][key]
+                               for key in ("extension", "display_name", "offered")))
 
 
 if __name__ == "__main__":

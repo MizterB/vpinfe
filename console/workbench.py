@@ -6116,11 +6116,10 @@ def _draft_bar(context: dict[str, Any]) -> None:
 def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
     row = _ordered(context, row)
     by, direction = row.get("order_by") or DEFAULT_ORDER_BY, row.get("direction")
-    orders = {token: t(key) for token, key in SORT_LABELS.items()}
-    if not _is_dynamic(row) and not _rules_drafted(context):
-        orders = {MANUAL_ORDER: t("order.by.manual"), **orders}
+    orders = _orders(context, row, by)
     if by not in orders:
         by, direction = DEFAULT_ORDER_BY, DEFAULT_DIRECTION
+    ranking = _ranking(context, by)
 
     async def ordered(event: Any) -> None:
         if event.value == by:
@@ -6147,9 +6146,31 @@ def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
                           on_change=turned) \
                     .props("dense borderless options-dense") \
                     .classes("console-edit-field console-edit-select")
+            if ranking:
+                ui.label(read_state(ranking) if ranking.get("offered")
+                         else t("console.workbench.ranked_off")) \
+                    .classes("console-order-label")
         with ui.row().classes("items-center gap-2 no-wrap ml-auto"):
             ui.label(t("console.workbench.show_at_most")).classes("console-order-label")
             _limit_box(context, row)
+
+
+def _orders(context: dict[str, Any], row: dict[str, Any], by: str) -> dict[str, str]:
+    """The order menu. A stored ranked order is in it whether or not it is offered."""
+    orders = {token: t(key) for token, key in SORT_LABELS.items()}
+    if not _is_dynamic(row) and not _rules_drafted(context):
+        orders = {MANUAL_ORDER: t("order.by.manual"), **orders}
+    orders |= context["state"].get("ranked_orders") or {}
+    ranking = _ranking(context, by)
+    if ranking and by not in orders:
+        orders[by] = community.ranked_label(ranking)
+    return orders
+
+
+def _ranking(context: dict[str, Any], by: str) -> dict[str, Any] | None:
+    """The stored collection's ranked view, when `by` is the order it is stored in."""
+    stored = _collection(context)
+    return stored.get("ranking") if stored.get("order_by") == by else None
 
 
 def _limit_box(context: dict[str, Any], row: dict[str, Any]) -> None:

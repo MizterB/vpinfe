@@ -19,7 +19,7 @@ from nicegui import run, ui
 
 from common.games.collection_store import DIRECTION_WORDS, MANUAL_ORDER, SORT_LABELS
 from common.i18n import t
-from console import art, collection_adds, confirm, grid, offload, panel, verbs, views
+from console import art, collection_adds, community, confirm, grid, offload, panel, verbs, views
 from console.games import view_control
 
 logger = logging.getLogger("vpinfe.console.collections")
@@ -231,6 +231,8 @@ def _order_line(row: dict[str, Any]) -> str:
         return t("order.by.manual")
     if not by:
         return ""
+    if row.get("ranking"):
+        return community.ranked_label(row["ranking"])
     field = t(SORT_LABELS[by]) if by in SORT_LABELS else by
     way = DIRECTION_WORDS.get(by, {}).get(row.get("direction") or "")
     return t("console.collections.ordered", by=field, direction=t(way)) if way else field

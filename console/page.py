@@ -455,7 +455,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
     state: dict[str, Any] = {"view": landing_view, "device": None, "mini": False,
                              "workbench": True, "settings_page": "",
-                             "collection": None, "trouble": loaded["trouble"]}
+                             "collection": None, "trouble": loaded["trouble"],
+                             "ranked_orders": community_page.ranked_orders(
+                                 installed_extensions)}
     # Before anything is built, so the first render is the place asked for rather than
     # the front door followed by a jump.
     deeplink.apply(state, {"view": view, "game": game, "table": table,

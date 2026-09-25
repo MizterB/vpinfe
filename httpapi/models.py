@@ -1825,9 +1825,11 @@ class CollectionRanking(ApiModel):
     """The ranked view of a Community list a collection is ordered by. `title` is the
     list's and `name` the view's, in the language now set. `read_at` is when the list
     was last read. `offered` is false when no running extension offers the view, and
-    then the collection is in title order and only `extension` is known."""
+    then the collection is in title order and only `extension` and `display_name` are
+    known."""
 
     extension: str
+    display_name: str
     list: str
     view: str
     title: str

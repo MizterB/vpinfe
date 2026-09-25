@@ -5,6 +5,7 @@ from typing import Any
 
 from nicegui import ui
 
+from common.games import rankings
 from common.games.community_lists import keep, kept
 from common.i18n import t
 from console import collection_rules, deeplink, grid, offload, panel, tag_chips, verbs, views, when
@@ -46,6 +47,23 @@ def find(view: str, extensions: Sequence[dict[str, Any]]) -> tuple[dict, dict] |
     return next(((one, declared) for one, declared in lists(extensions)
                  if view_key(str(one.get("name") or ""), str(declared.get("key") or ""))
                  == view), None)
+
+
+def ranked_orders(extensions: Sequence[dict[str, Any]]) -> dict[str, str]:
+    """The order a collection stores for each ranked view, and what the menu calls it."""
+    return {rankings.token(str(one.get("name") or ""), str(declared.get("key") or ""),
+                           str(view.get("key") or "")):
+            ranked_label({"title": declared.get("title"), "name": view.get("name")})
+            for one, declared in lists(extensions) for view in rankings.views_of(declared)}
+
+
+def ranked_label(ranking: dict[str, Any]) -> str:
+    """A collection's `ranking` as the order menu and the grid name it."""
+    if ranking.get("offered", True):
+        return t("order.by.ranked", title=str(ranking.get("title") or ""),
+                 name=str(ranking.get("name") or ""))
+    return t("order.by.ranked_off", extension=str(ranking.get("display_name")
+                                                  or ranking.get("extension") or ""))
 
 
 def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:

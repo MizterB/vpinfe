@@ -292,5 +292,42 @@ class DraftedOrder(unittest.TestCase):
                                            stored))
 
 
+class RankedOrder(unittest.TestCase):
+    OFFERED = {"site/tables/top": "Site: Top Rated"}
+
+    def context(self, stored: dict) -> dict:
+        return {"collection": stored, "draft": {}, "fields": FIELDS,
+                "state": {"ranked_orders": self.OFFERED}}
+
+    def test_the_menu_offers_each_ranked_view_after_the_fields(self) -> None:
+        from console.workbench import _orders
+
+        stored = {"type": "filter", "order_by": "title"}
+        offered = _orders(self.context(stored), stored, "title")
+
+        self.assertEqual("Site: Top Rated", offered["site/tables/top"])
+        self.assertEqual("site/tables/top", list(offered)[-1])
+
+    def test_a_ranked_order_whose_extension_stopped_stays_in_the_menu(self) -> None:
+        from console.workbench import _orders
+
+        gone = "other/tables/top"
+        stored = {"type": "filter", "order_by": gone,
+                  "ranking": {"extension": "other", "display_name": "Other",
+                              "offered": False}}
+
+        self.assertEqual("Other, not running",
+                         _orders(self.context(stored), stored, gone)[gone])
+
+    def test_the_age_belongs_to_the_stored_order_only(self) -> None:
+        from console.workbench import _ranking
+
+        stored = {"order_by": "site/tables/top", "ranking": {"offered": True}}
+
+        self.assertEqual({"offered": True},
+                         _ranking(self.context(stored), "site/tables/top"))
+        self.assertIsNone(_ranking(self.context(stored), "other/tables/top"))
+
+
 if __name__ == "__main__":
     unittest.main()

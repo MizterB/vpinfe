@@ -93,13 +93,18 @@ def described(order_by: str) -> dict[str, Any] | None:
     """What a collection's resource says about its ranked order, or None for any other."""
     if not is_token(order_by):
         return None
+    from common import extensions
     from common.games.community_lists import kept
 
+    extension = order_by.split("/", 1)[0]
+    record = extensions.registry().get(extension)
+    display_name = record.display_name if record is not None else extension
     one = next((one for one in offered() if one["order_by"] == order_by), None)
     if one is None:
-        return {"extension": order_by.split("/", 1)[0], "list": "", "view": "", "title": "",
-                "name": "", "read_at": "", "offered": False}
+        return {"extension": extension, "display_name": display_name, "list": "",
+                "view": "", "title": "", "name": "", "read_at": "", "offered": False}
     return {**{key: one[key] for key in ("extension", "list", "view", "title", "name")},
+            "display_name": display_name,
             "read_at": kept(one["extension"], one["list"])["read_at"], "offered": True}
 
 
