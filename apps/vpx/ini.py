@@ -229,7 +229,9 @@ def written(ini: Ini, changes: dict[str, str],
     for section, rows in appended.items():
         at = _section_end(lines, section)
         if at is None:
-            lines.extend(["", f"[{section}]", *rows])
+            if lines and lines[-1].strip():
+                lines.append("")
+            lines.extend([f"[{section}]", *rows])
             continue
         lines[at:at] = rows
 

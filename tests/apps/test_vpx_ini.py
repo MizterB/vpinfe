@@ -222,6 +222,18 @@ class WriteTests(unittest.TestCase):
         self.assertIn(("Plugin.B2SLegacy", "B2SHideB2SDMD"), placed(out))
         self.assertEqual(out.count("[Plugin.B2SLegacy]"), 1)
 
+    def test_a_new_file_starts_with_its_first_section(self) -> None:
+        out = vini.written(vini.parse(""), {"Plugin.B2S.ShowGrill": "1"})
+
+        self.assertEqual(out, "[Plugin.B2S]\nShowGrill = 1\n")
+
+    def test_a_new_section_follows_one_blank_line(self) -> None:
+        for held in ("[Player]\nFXAA = 1\n", "[Player]\nFXAA = 1\n\n"):
+            with self.subTest(held=held):
+                out = vini.written(vini.parse(held), {"Plugin.B2S.ShowGrill": "1"})
+
+                self.assertEqual(out, "[Player]\nFXAA = 1\n\n[Plugin.B2S]\nShowGrill = 1\n")
+
     def test_a_key_with_dots_of_its_own_stays_in_its_section(self) -> None:
         out = vini.written(vini.parse(""), {"Backglass.Priority.PUP": "2"})
 
