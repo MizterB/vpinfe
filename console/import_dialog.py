@@ -140,7 +140,7 @@ async def _pick(library: Any, reason: str, offered: list[dict[str, Any]],
 async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
                    source: str = "", game_dir: str = "", rom_name: str = "",
                    allow_new_game: bool = False, media_kind: str = "",
-                   location_id: str = "", asset_kind: str = "",
+                   location_id: str = "", asset_kind: str = "", add_table: bool = False,
                    declared: dict | None = None,
                    on_done: Callable[[dict], Any] | None = None) -> None:
     """Show the plan and, if it is confirmed, run it.
@@ -219,7 +219,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
         report = await offload.io(
             library.upload_import, upload_id, game_dir=game_dir, rom_name=rom_name,
             allow_new_game=allow_new_game, media_kind=media_kind,
-            location_id=location_id, asset_kind=asset_kind,
+            location_id=location_id, asset_kind=asset_kind, add_table=add_table,
             vps_id=str(named["vps_id"] or ""),
             new_game_dir_name=(str(named["folder"]) if new_folder else None),
             selected=wanted, declared=declared)

@@ -585,6 +585,13 @@ class Library:
         self._forget_after_a_table_write(game_id)
         return result
 
+    def import_table_file(self, game_id: str, file_path: str) -> dict:
+        """Copy a file in as one more table, with what sits beside it under its name."""
+        result = self._client.import_table_file(game_id, file_path)
+        self._forget_after_a_table_write(game_id)
+        self.forget_media(game_id)
+        return result
+
     def contain_table(self, game_id: str, table_id: str) -> dict:
         """Copy a referenced file in. A file arrived in the folder, so the media the
         game resolves can have changed with it."""

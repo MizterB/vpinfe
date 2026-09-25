@@ -889,6 +889,8 @@
   "console.mediasource.could_not_use_image": "Could not use that image: {exc}",
   "console.mediasource.drop_file": "Drop a file here",
   "console.mediasource.drop_files": "Drop files or a folder here",
+  "console.mediasource.drop_table": "Drop a table here",
+  "console.mediasource.drop_table.help": "Its backglass, INI, script and point of view can come along",
   "console.mediasource.every_table_game": "for every table in this game",
   "console.mediasource.extension_follows_file_choose": "The extension follows the file you choose",
   "console.mediasource.fetching": "Fetching from {source_name}...",

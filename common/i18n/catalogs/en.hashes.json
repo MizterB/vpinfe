@@ -778,6 +778,8 @@
   "console.mediasource.could_not_use_image": "ce9d224cc330",
   "console.mediasource.drop_file": "f8d9b37763ea",
   "console.mediasource.drop_files": "d510f2fb247b",
+  "console.mediasource.drop_table": "64b774c09f3d",
+  "console.mediasource.drop_table.help": "a8aef008d53d",
   "console.mediasource.every_table_game": "14858b379ab2",
   "console.mediasource.extension_follows_file_choose": "c8b419fd6121",
   "console.mediasource.fetching": "3b362a194c02",

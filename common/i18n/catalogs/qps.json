@@ -889,6 +889,8 @@
   "console.mediasource.could_not_use_image": "Çöûŀđ ñöţ ûšè ţĥàţ îɱàĝè: {exc}",
   "console.mediasource.drop_file": "Đřöþ à ƒîŀè ĥèřè",
   "console.mediasource.drop_files": "Đřöþ ƒîŀèš öř à ƒöŀđèř ĥèřè",
+  "console.mediasource.drop_table": "Đřöþ à ţàƀŀè ĥèřè",
+  "console.mediasource.drop_table.help": "Îţš ƀàçķĝŀàšš, ÎÑÎ, šçřîþţ àñđ þöîñţ öƒ ṽîèŵ çàñ çöɱè àŀöñĝ",
   "console.mediasource.every_table_game": "ƒöř èṽèřý ţàƀŀè îñ ţĥîš ĝàɱè",
   "console.mediasource.extension_follows_file_choose": "Ţĥè èẋţèñšîöñ ƒöŀŀöŵš ţĥè ƒîŀè ýöû çĥööšè",
   "console.mediasource.fetching": "Ƒèţçĥîñĝ ƒřöɱ {source_name}...",

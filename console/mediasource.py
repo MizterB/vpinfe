@@ -838,6 +838,7 @@ class _Folder(_Sources):
         self.glyph = specs[0].icon
         # The kind an import is held to, or "" for whatever the drop brought.
         self.narrows_to = kind
+        self.adds_table = False
         self._busy = False
 
     def title(self) -> str:
@@ -897,7 +898,8 @@ class _Folder(_Sources):
                 await uploads.confirmed_import(
                     self.library, upload_id, analysis, source=source,
                     on_done=self._imported, game_id=self.game_id,
-                    game_dir=self.game_dir, asset_kind=self.narrows_to)
+                    game_dir=self.game_dir, asset_kind=self.narrows_to,
+                    add_table=self.adds_table)
         finally:
             self._busy = False
 
@@ -905,7 +907,8 @@ class _Folder(_Sources):
         return await uploads.analyzed(self.library, upload_id)
 
     async def _imported(self) -> None:
-        self.dialog.close()
+        if self.dialog is not None:
+            self.dialog.close()
         await self.done()
 
 
@@ -937,13 +940,13 @@ class _Table(_Folder):
     """A table for a game: taken from the device as a copy or where it is, or an ID its
     launcher starts it from."""
 
-    uploads = False
     keyed = True
 
     def __init__(self, context: dict[str, Any], done: Callable) -> None:
         super().__init__(context, "table", t("asset.kind.table.label"), done)
         self.game_name = str(context["game"].get("name") or "")
         self.narrows_to = ""
+        self.adds_table = True
         self.copies = True
 
     def title(self) -> str:
@@ -968,6 +971,19 @@ class _Table(_Folder):
         candidates.row("", item["name"], _size(item.get("size_bytes")), "",
                        lambda: self._chosen(item["path"]), family="", glyph=self.glyph,
                        line=True)
+
+    def zone(self, card: Any) -> None:
+        heard = uploads.listener(self.arrived)
+        ui.label(t("console.mediasource.drop_table")).classes("console-help")
+        ui.label(t("console.mediasource.drop_table.help")).classes("console-help")
+        with ui.row().classes("items-center justify-center gap-2"):
+            panel.action(t("console.mediasource.choose_files"), heard,
+                         icon=verbs.FROM_FILE,
+                         js="() => window.__consoleChoose(false, emit)")()
+            panel.action(t("console.mediasource.choose_folder"), heard,
+                         icon=verbs.FROM_FOLDER,
+                         js="() => window.__consoleChoose(true, emit)")()
+        card.on("drop", heard, js_handler=_MANY)
 
     async def host_tab(self, body: ui.column) -> None:
         body.clear()
@@ -1016,22 +1032,13 @@ class _Table(_Folder):
             await self._chosen(said)
 
     async def _chosen(self, path: str) -> None:
-        # Not through the import: it treats a table for a game that has one as an update,
-        # and deletes the file already there.
+        adds = (self.library.import_table_file if self.copies
+                else self.library.add_referenced_table)
         try:
-            made = await offload.io(self.library.add_referenced_table, self.game_id, path)
+            await offload.io(adds, self.game_id, path)
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.could_not_add_it", exc=exc), type="negative")
             return
-        if self.copies:
-            try:
-                await offload.io(self.library.contain_table, self.game_id,
-                                 str(made.get("id") or ""))
-            except Exception as exc:  # noqa: BLE001
-                await offload.io(self.library.forget_table, self.game_id,
-                                 str(made.get("id") or ""))
-                ui.notify(t("said.could_not_add_it", exc=exc), type="negative")
-                return
         await self._imported()
 
     async def keyed_tab(self, body: ui.column) -> None:

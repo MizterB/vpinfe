@@ -789,7 +789,7 @@ class ApiClient:
     def upload_plan(self, upload_id: str, *, game_dir: str = "", rom_name: str = "",
                     allow_new_game: bool = False, vps_id: str = "",
                     media_kind: str = "", location_id: str = "",
-                    asset_kind: str = "") -> dict:
+                    asset_kind: str = "", add_table: bool = False) -> dict:
         """Where each of those files would go. Nothing is written by asking."""
         path = f"/uploads/{upload_id}/plan"
         _refuse_the_event_loop(path)
@@ -798,7 +798,7 @@ class ApiClient:
             json={"game_dir": game_dir, "rom_name": rom_name,
                   "allow_new_game": allow_new_game, "vps_id": vps_id,
                   "media_kind": media_kind, "location_id": location_id,
-                  "asset_kind": asset_kind},
+                  "asset_kind": asset_kind, "add_table": add_table},
             timeout=_TIMEOUT)
         self._answered(response)
         return response.json()
@@ -806,7 +806,7 @@ class ApiClient:
     def upload_import(self, upload_id: str, *, game_dir: str = "", rom_name: str = "",
                       allow_new_game: bool = False, vps_id: str = "",
                       media_kind: str = "", location_id: str = "",
-                      asset_kind: str = "",
+                      asset_kind: str = "", add_table: bool = False,
                       new_game_dir_name: str | None = None,
                       selected: list[int] | None = None,
                       declared: dict | None = None) -> dict:
@@ -817,7 +817,7 @@ class ApiClient:
             "game_dir": game_dir, "rom_name": rom_name,
             "allow_new_game": allow_new_game, "vps_id": vps_id,
             "media_kind": media_kind, "location_id": location_id,
-            "asset_kind": asset_kind,
+            "asset_kind": asset_kind, "add_table": add_table,
         }
         if new_game_dir_name is not None:
             body["new_game_dir_name"] = new_game_dir_name
@@ -967,6 +967,15 @@ class ApiClient:
         _refuse_the_event_loop(path)
         response = self._session.post(f"{self._base}{path}",
                                       json={"path": file_path}, timeout=_TIMEOUT)
+        self._answered(response)
+        return response.json()
+
+    def import_table_file(self, game_id: str, file_path: str) -> dict:
+        """Copy a file on this machine into the game folder, as one more table."""
+        path = f"/games/{game_id}/tables/import"
+        _refuse_the_event_loop(path)
+        response = self._session.post(f"{self._base}{path}",
+                                      json={"path": file_path}, timeout=_IMPORT_TIMEOUT)
         self._answered(response)
         return response.json()
 
