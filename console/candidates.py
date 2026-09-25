@@ -39,7 +39,8 @@ def _peek(src: str, family: str) -> None:
 
 
 def _body(src: str, name: str, meta: str, tag: str, family: str, glyph: str,
-          small: bool = False, line: bool = False, peek: str = "") -> None:
+          small: bool = False, line: bool = False, peek: str = "",
+          more: tuple[str, ...] = ()) -> None:
     """The picture and the words, which both shapes draw the same way."""
     frame = "console-source-thumb" + (" console-source-thumb--small" if small else "")
     if line:
@@ -50,6 +51,8 @@ def _body(src: str, name: str, meta: str, tag: str, family: str, glyph: str,
         ui.label(name).classes("console-source-name")
         if meta:
             ui.label(meta).classes("console-help")
+        for said in more:
+            ui.label(said).classes("console-help")
         if tag:
             ui.label(tag).classes("console-source-tag")
 
@@ -90,7 +93,8 @@ def row(src: str, name: str, meta: str, tag: str, take: Callable, *,
 
 def choice(src: str, name: str, meta: str, pick: Callable | None = None, *,
            family: str = "image", glyph: str = "", chosen: bool = False,
-           trailing: Callable[[], None] | None = None, entry: bool = False) -> Any:
+           trailing: Callable[[], None] | None = None, entry: bool = False,
+           more: tuple[str, ...] = ()) -> Any:
     """A row whose target is the whole row, with no button on it.
 
     For the lists you scan rather than compare: forty candidates with forty buttons is
@@ -102,7 +106,8 @@ def choice(src: str, name: str, meta: str, pick: Callable | None = None, *,
     `pick` absent draws the row without making it a target, for showing one on its own.
     `chosen` lights it. `trailing` puts one control at the end, for an act about that
     row rather than about the list. `entry` takes the grid's two-line type, for a row
-    naming the same kind of thing a grid row names.
+    naming the same kind of thing a grid row names. `more` is lines under `meta`, as
+    quiet as it is.
     """
     classes = "items-center gap-3 w-full no-wrap console-source-row"
     if pick is not None:
@@ -113,7 +118,7 @@ def choice(src: str, name: str, meta: str, pick: Callable | None = None, *,
         classes += " console-source-row--entry"
     element = ui.row().classes(classes)
     with element:
-        _body(src, name, meta, "", family, glyph, small=True)
+        _body(src, name, meta, "", family, glyph, small=True, more=more)
         if trailing is not None:
             trailing()
     if pick is not None:

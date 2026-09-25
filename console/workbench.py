@@ -3874,8 +3874,8 @@ async def _pick_a_release(context: dict[str, Any], table: dict[str, Any]) -> Non
                 ui.label(t("console.workbench.vps_lists_no_tables") if held
                          else t("console.workbench.vps_not_downloaded")) \
                     .classes("console-help")
-            for item in releases:
-                _release_row(item, box, bound)
+            for item, under in in_lineage(releases):
+                _release_row(item, box, bound, under)
         with frame.footer():
             if bound:
                 frame.aside(t("word.clear"), lambda: box.submit(""), icon=verbs.CLEAR)
@@ -3897,6 +3897,8 @@ def _yours(table: dict[str, Any]) -> None:
     said = str(table.get("version") or "")
     made_by = ", ".join(str(name) for name in (table.get("authors") or [])[:4])
     told = " \u00b7 ".join(part for part in (said, made_by) if part)
+    if table.get("filename"):
+        ui.label(str(table["filename"])).classes("console-slot-file")
     ui.label(t("console.workbench.file_says", told=(told)) if told
              else t("console.workbench.file_records_no_version")) \
         .classes("console-help")
@@ -3914,15 +3916,58 @@ def _release_words(release: dict[str, Any]) -> tuple[str, str]:
     return name, " \u00b7 ".join(part for part in meta if part)
 
 
-def _release_row(release: dict[str, Any], dialog: Any, bound: str) -> None:
+def _release_row(release: dict[str, Any], dialog: Any, bound: str,
+                 under: bool = False) -> None:
     """One build, with its picture - VPS has one for 95% of them, against 39% of the
     machines they belong to, so here the art is the ordinary case and not the exception."""
     said = str(release.get("vps_file_id") or "")
     name, meta = _release_words(release)
     if said == bound:
         name = f"{name}  \u2713"
-    candidates.choice(str(release.get("img_url") or ""), name, meta,
-                      lambda: dialog.submit(said), glyph=icons.TABLES)
+    row = candidates.choice(str(release.get("img_url") or ""), name, meta,
+                            lambda: dialog.submit(said), glyph=icons.TABLES,
+                            more=_mod_words(release))
+    if under:
+        row.classes("console-source-row--under")
+
+
+def _mod_words(release: dict[str, Any]) -> tuple[str, ...]:
+    """What a mod is a mod of, and VPS's note on it where that line does not carry it."""
+    mod = release.get("mod_of")
+    if not mod:
+        return ()
+    line = game_tables.mod_line(mod)
+    note = str(release.get("comment") or "").strip()
+    return (line, note) if note and mod.get("vps_file_id") else (line,)
+
+
+def in_lineage(releases: list[dict[str, Any]]) -> list[tuple[dict[str, Any], bool]]:
+    """`releases` with each mod straight after the one it is based on, and whether it
+    sits under one. One step in however deep the chain; a mod of a release not in the
+    list keeps its place, and a loop of links is placed where its first member is."""
+    listed = {str(one.get("vps_file_id") or "") for one in releases} - {""}
+    under: dict[str, list[dict[str, Any]]] = {}
+    for one in releases:
+        parent = str((one.get("mod_of") or {}).get("vps_file_id") or "")
+        if parent in listed:
+            under.setdefault(parent, []).append(one)
+    placed: set[int] = set()
+    ordered: list[tuple[dict[str, Any], bool]] = []
+
+    def place(one: dict[str, Any], nested: bool) -> None:
+        if id(one) in placed:
+            return
+        placed.add(id(one))
+        ordered.append((one, nested))
+        for mod in under.get(str(one.get("vps_file_id") or ""), []):
+            place(mod, True)
+
+    for one in releases:
+        if str((one.get("mod_of") or {}).get("vps_file_id") or "") not in listed:
+            place(one, False)
+    for one in releases:
+        place(one, False)
+    return ordered
 
 
 def _release_shown(release: dict[str, Any]) -> None:

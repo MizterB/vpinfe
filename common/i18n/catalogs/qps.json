@@ -656,6 +656,8 @@
   "console.game_tables.matched_by_you": "Ḿàţçĥèđ ƀý ýöû",
   "console.game_tables.matched_on_import": "Ḿàţçĥèđ öñ îɱþöřţ",
   "console.game_tables.missing": "Ḿîššîñĝ",
+  "console.game_tables.mod_noted": "Ḿöđ · {note}",
+  "console.game_tables.mod_of": "Ḿöđ öƒ {told}",
   "console.game_tables.not_library": "Ñöţ îñ ţĥîš ŀîƀřàřý",
   "console.game_tables.now_plays": "{game} ñöŵ þŀàýš {table}.",
   "console.game_tables.offered": "Öƒƒèřèđ",

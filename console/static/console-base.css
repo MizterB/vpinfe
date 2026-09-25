@@ -2715,6 +2715,9 @@ a.console-tag:hover { background: var(--wash-hover); }
 }
 /* Offered and already true, so not a choice: shown, the way a menu shows In It. */
 .console-source-row--held { opacity: 0.55; }
+/* A mod under the release it is based on. One step however deep: a deeper chain
+   stepping further in leaves no room for the words by the third. */
+.console-source-row--under { margin-left: 32px; width: calc(100% - 32px); }
 /* The one decision every way in feeds, so it sits above them rather than inside one.
    Set off by a rule, because it is a different kind of thing from a tab. */
 .console-destination {

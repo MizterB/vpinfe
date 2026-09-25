@@ -656,6 +656,8 @@
   "console.game_tables.matched_by_you": "Matched by you",
   "console.game_tables.matched_on_import": "Matched on import",
   "console.game_tables.missing": "Missing",
+  "console.game_tables.mod_noted": "Mod · {note}",
+  "console.game_tables.mod_of": "Mod of {told}",
   "console.game_tables.not_library": "Not in this library",
   "console.game_tables.now_plays": "{game} now plays {table}.",
   "console.game_tables.offered": "Offered",

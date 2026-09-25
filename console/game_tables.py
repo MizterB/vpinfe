@@ -109,6 +109,32 @@ def how_matched(game: dict[str, Any]) -> str:
     return str(game.get("vps_matched_by") or "") or "auto"
 
 
+def mod_of_said(mod: dict[str, Any] | None) -> str:
+    """What a mod is based on, `""` for a release that is not one.
+
+    The release VPS links it to, with its game only where that is another; VPS's note
+    where there is no link; Unknown where there is neither.
+    """
+    if not mod:
+        return ""
+    if mod.get("vps_file_id"):
+        made_by = ", ".join(str(name) for name in (mod.get("authors") or [])[:3])
+        told = JOIN.join(part for part in (str(mod.get("game") or ""),
+                                           str(mod.get("version") or ""), made_by) if part)
+        return told or t("console.workbench.no_version_given")
+    return str(mod.get("note") or "") or t("word.unknown")
+
+
+def mod_line(mod: dict[str, Any] | None) -> str:
+    """`mod_of_said` as a line of its own. VPS's note follows Mod rather than Mod of,
+    because it describes the mod far more often than it names what the mod is of."""
+    if not mod:
+        return ""
+    if not mod.get("vps_file_id") and mod.get("note"):
+        return t("console.game_tables.mod_noted", note=mod_of_said(mod))
+    return t("console.game_tables.mod_of", told=mod_of_said(mod))
+
+
 # The label, not the state - "Default" alone left a reader asking "default what?" on a
 # panel that also has a default launcher and a default view. Named here so the grid and
 # the workbench cannot answer it differently.
