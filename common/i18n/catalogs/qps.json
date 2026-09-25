@@ -1948,7 +1948,10 @@
   "console.workbench.wheel.help": "Šĥöŵñ ŵĥèñ þîçķîñĝ à çöŀŀèçţîöñ îñ ţĥè ƒřöñţèñđ",
   "console.workbench.where_rom_managed": "Ŵĥèřè à řöɱ îš ɱàñàĝèđ",
   "console.workbench.which_table_plays": "Ŵĥîçĥ Ţàƀŀè Þŀàýš",
-  "console.workbench.writes_to_tables": "Çĥàñĝèš ĥèřè àþþŀý ţö àŀŀ {count} ţàƀŀèš ţĥàţ ûšè ţĥîš ƒîŀè",
+  "console.workbench.writes_to_tables": {
+    "one": "Çĥàñĝèš ĥèřè àþþŀý ţö ţĥè 1 ţàƀŀè ţĥàţ ûšèš ţĥîš ƒîŀè",
+    "other": "Çĥàñĝèš ĥèřè àþþŀý ţö ţĥè {count} ţàƀŀèš ţĥàţ ûšè ţĥîš ƒîŀè"
+  },
   "console.workbench.your_rating": "Ýöûř řàţîñĝ",
   "console.workbench.yours": "Ýöûřš",
   "date.am": "ÀḾ",

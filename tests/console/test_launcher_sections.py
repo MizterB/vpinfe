@@ -780,7 +780,7 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
             await workbench._file_settings_block({"file_settings": found})
 
         intro.assert_called_once_with(
-            "Changes here apply to all 2 tables that use this file", hint="t1\nt2")
+            "Changes here apply to the 2 tables that use this file", hint="t1\nt2")
         self.assertEqual(rows.call_args.args[1], [intro.return_value])
 
     async def test_nor_where_the_launcher_cannot_show_them(self) -> None:

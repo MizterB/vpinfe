@@ -1948,7 +1948,10 @@
   "console.workbench.wheel.help": "Shown when picking a collection in the frontend",
   "console.workbench.where_rom_managed": "Where a rom is managed",
   "console.workbench.which_table_plays": "Which Table Plays",
-  "console.workbench.writes_to_tables": "Changes here apply to all {count} tables that use this file",
+  "console.workbench.writes_to_tables": {
+    "one": "Changes here apply to the 1 table that uses this file",
+    "other": "Changes here apply to the {count} tables that use this file"
+  },
   "console.workbench.your_rating": "Your rating",
   "console.workbench.yours": "Yours",
   "date.am": "AM",
