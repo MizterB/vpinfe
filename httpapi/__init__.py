@@ -24,6 +24,7 @@ from . import (
     events,
     extensions,
     filesystem,
+    frontend,
     games,
     input,
     instance,
@@ -123,6 +124,7 @@ def create_api_app() -> FastAPI:
     api.include_router(about.router)
     api.include_router(manufacturers.router)
     api.include_router(play.router)
+    api.include_router(frontend.router)
     api.include_router(input.router)
     api.include_router(games.router)
     api.include_router(tables.router)
@@ -140,6 +142,7 @@ def create_api_app() -> FastAPI:
     instance.mint_identity()
     core_capabilities.declare_core()
     play.declare_snapshots()
+    frontend.declare_snapshots()
     events.attach()
     auth.assert_every_route_declares_a_scope(api)
     return api

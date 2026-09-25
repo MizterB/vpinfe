@@ -18,6 +18,7 @@ import json
 import logging
 import socket
 import threading
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -47,10 +48,23 @@ class DeviceChannel:
         self._thread: threading.Thread | None = None
         self._server: websockets.Server | None = None
         self._stop_event = threading.Event()
+        self._windows_changed: Callable[[int], None] | None = None
 
     def register_api(self, window_name: str, api_instance: API) -> None:
         """Register an API instance for a window name."""
         self._api_instances[window_name] = api_instance
+
+    def on_windows_changed(self, callback: Callable[[int], None]) -> None:
+        """Be told how many windows are connected, each time one connects or goes."""
+        self._windows_changed = callback
+
+    def _report_windows(self) -> None:
+        if self._windows_changed is None:
+            return
+        try:
+            self._windows_changed(len(self._connections))
+        except Exception:
+            logger.exception("A windows-changed callback failed")
 
     def is_window_connected(self, window_name: str) -> bool:
         """Return whether a frontend window currently has an active websocket."""
@@ -154,6 +168,7 @@ class DeviceChannel:
 
         logger.info("Window '%s' connected", window_name)
         self._connections[window_name] = websocket
+        self._report_windows()
 
         try:
             async for raw_message in websocket:
@@ -177,6 +192,7 @@ class DeviceChannel:
         finally:
             if self._connections.get(window_name) is websocket:
                 del self._connections[window_name]
+                self._report_windows()
 
     async def _dispatch(self, window_name: str, websocket: ServerConnection,
                         data: dict[str, Any]) -> None:

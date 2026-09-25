@@ -29,7 +29,7 @@ from common.games.collections_service import (
 )
 from common.games.game_metadata import game_rating, normalize_meta, set_game_rating
 from common.games.game_repository import all_games
-from common.host import launch, launch_state
+from common.host import frontend_state, launch, launch_state
 from common.host.display_service import monitors_as_dicts
 from frontend import (
     config_api,
@@ -442,6 +442,8 @@ class API:
         # library were each serializing an identical answer.
         self.js_game_dict_data = self.library.payload(
             self._theme_contract(), collection=public_name(self.current_collection))
+        if not self.entries:
+            frontend_state.showing(public_name(self.current_collection))
         return self.js_game_dict_data
 
     def get_initial_table_index(self) -> int:
@@ -695,6 +697,11 @@ class API:
             logger.debug("Ignoring game selection for invalid index: %s", index)
             return {"success": False, "reason": "invalid_index"}
         game = entry.game
+        if game is None:
+            frontend_state.showing(public_name(self.current_collection))
+        else:
+            frontend_state.showing(public_name(self.current_collection),
+                                   game_identity.game_id(game), game.game_dir_name)
 
         # Where they are heading, for anything that can usefully get ahead of them. A
         # subscriber that does not care ignores it, the way every subscriber already

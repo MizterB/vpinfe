@@ -369,6 +369,38 @@ class PlayStopped(ApiModel):
     game_name: str | None
 
 
+# --- Frontend --------------------------------------------------------------
+
+class FrontendGameLinks(ApiModel):
+    self_: str = Field(alias="self")
+
+
+class FrontendGame(ApiModel):
+    """A reference, as the event stream names a game: follow `links.self` for the rest.
+    No links when the game has no id to address it by."""
+
+    id: str
+    name: str
+    links: FrontendGameLinks | None = None
+
+
+class FrontendState(ApiModel):
+    """Also the `state` of the `frontend.state_changed` event. `collection` is "" for
+    the whole library, and `game` is null when nothing is on the wheel."""
+
+    running: bool
+    collection: str
+    game: FrontendGame | None
+
+
+class ShowCollectionRequest(ApiModel):
+    name: str = ""
+
+
+class MoveWheelRequest(ApiModel):
+    id: str
+
+
 # --- Games -----------------------------------------------------------------
 
 class AssetFileBinding(ApiModel):

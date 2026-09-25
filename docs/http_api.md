@@ -44,6 +44,9 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/events` | Subscribe to the event stream (SSE). `?events=` filters by name |
 | GET | `/api/v1/play/state` | What this play host is doing. The snapshot you take once; `play.state_changed` on the stream is how you hear about it after that |
 | POST | `/api/v1/play/stop` | Close the table this play host is running. `stopped` is false when there was nothing to close, which is an answer rather than a failure |
+| GET | `/api/v1/frontend/state` | What the frontend is showing: whether it is up, its collection and the game on the wheel. `frontend.state_changed` on the stream carries the same after every change |
+| PUT | `/api/v1/frontend/collection` | Show a collection on the frontend, `""` being the whole library. 202, and the switch arrives as the next `frontend.state_changed`. 409 when the frontend is not running |
+| PUT | `/api/v1/frontend/game` | Move the frontend's wheel to a game. 202; 409 when the frontend is not running, 404 when the collection on screen does not hold that game |
 | POST | `/api/v1/input/actions` | Press, hold or release an input action on this install — the door a remote drives the frontend through |
 | GET | `/api/v1/update` | Whether a newer build is published, and whether this install can take it. `update_supported` is the second question, and `support_reason` says which case it is |
 | POST | `/api/v1/update` | Stage the published build and go down to take it. 501 when this install cannot replace itself, 409 when a table is running and `stop_table` was not set |
@@ -575,6 +578,38 @@ Two producers at once isn't decided. A phone and a cabinet flipper holding oppos
 directions is last-press-wins because that's what the dispatch already does, not because
 anyone chose it. The expiry stops a lost release becoming a runaway; it doesn't arbitrate.
 
+## Frontend
+
+`GET /api/v1/frontend/state` is what this device's frontend is showing:
+
+```
+{"running": true, "collection": "Friday Night",
+ "game": {"id": "a1b2c3d4e5f6", "name": "Medieval Madness",
+          "links": {"self": "/api/v1/games/a1b2c3d4e5f6"}}}
+```
+
+- `running` is whether a frontend window is up. When none is, the rest is empty.
+- `collection` is `""` for the whole library, as everywhere a collection leaves core. The
+  frontend's own filter menu narrows the whole library without naming a collection, so it
+  is `""` then too.
+- `game` is the one on the wheel, a reference like the event stream's, and null when
+  nothing is: an empty collection, or a wheel that has not reported yet.
+
+The state is what the frontend reports. It holds for any theme that moves its wheel with
+core's `TableIndexUpdate`, which every published theme does; a theme that keeps its
+position to itself is not reported, and nothing here guesses.
+
+`PUT /api/v1/frontend/collection` with `{"name": ...}` and `PUT /api/v1/frontend/game`
+with `{"id": ...}` ask the frontend to switch. Both answer 202 with no body. The windows
+apply it the way they apply core's own collection picker, and the result is the next
+`frontend.state_changed` - read that rather than assuming the switch happened, since a
+theme that handles its own messages may not follow. Both carry `input:act`, because
+switching what is on screen is acting as the player; the read carries `play:read`.
+
+`game.selected` stays beside it for a different reader. It fires as the wheel stops and is
+how in-process handlers - DOF, an extension's data - hear about it. `frontend.state_changed`
+carries the whole state, so a client that missed one is right again after the next.
+
 ## Event stream
 
 `GET /api/v1/events` is the internal bus (`common/events.py`) on the wire, as Server-Sent
@@ -601,6 +636,7 @@ What's on it, each alongside the `install_id` described below:
 | `game.changed` | `{"game": {"id", "name", "links"}}` — a game's metadata was rewritten, so anything holding it is stale |
 | `collections.changed` | `{}` — the collections were edited; re-read them |
 | `play.state_changed` | `{"state": {"launching", "game_name", "source"}}` |
+| `frontend.state_changed` | `{"state": {"running", "collection", "game"}}`, `game` a reference like the others or null. The same as `GET /frontend/state` |
 | `job.progress` | `{"job_id", "pct", "message"}` |
 | `job.done` | `{"job_id"}` |
 | `job.failed` | `{"job_id", "error"}` |
@@ -641,7 +677,8 @@ launch. The frontend uses it to ignore its own; everything else can treat the st
 about the machine regardless of who caused it.
 
 On connect the stream sends a `stream.hello` frame, then the current value of any
-state-carrying event it's declared for — today `play.state_changed`. So a client that
+state-carrying event it's declared for — today `play.state_changed` and
+`frontend.state_changed`. So a client that
 connects mid-launch knows it, without a separate call to `/play/state` and without waiting
 for the launch to end. An event whose payload doesn't describe the whole state has no
 snapshot; there's nothing honest to send.

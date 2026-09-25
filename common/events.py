@@ -37,6 +37,10 @@ GAME_SELECTED = "game.selected"
 # is still correct after the next.
 PLAY_STATE_CHANGED = "play.state_changed"
 
+# What the frontend is showing changed: whether it is up, its collection, the game on
+# the wheel. Carries the whole state, like play.state_changed.
+FRONTEND_STATE_CHANGED = "frontend.state_changed"
+
 # Something is starting, stopping or restarting. Announced after it is confirmed, so a
 # surface that did not ask can say what is about to happen. Subscribers only - a
 # confirmation is asked for on the surface that asked, not on this.

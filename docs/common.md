@@ -85,6 +85,7 @@ to 2.x still finds them.
 - `peripherals.py`: DOF and real-DMD, driven by game lifecycle events. Each device is its own handler, so a new one is a new subscriber rather than an edit.
 - `real_dmd.py`: which image a game shows on a real DMD panel, sent on a worker thread.
 - `launch.py`, `launch_state.py`: starting a game - resolving what to launch it with, building the command, running it and recording the play - and whether a launch was requested from outside the frontend.
+- `frontend_state.py`: what the frontend is showing, as it last reported, and the door a request to switch its collection or move its wheel goes through. The frontend registers what answers it.
 - `display_service.py`, `system_actions.py`, `vpx_log.py`.
 
 Three cross-package edges are deliberate: `games` reads VPSdb through `online`

@@ -1878,6 +1878,8 @@
   "error.filesystem.not_media_file": "Ţĥàţ îš ñöţ à ɱèđîà ƒîŀè",
   "error.filesystem.nothing_there": "Ñöţĥîñĝ îš ţĥèřè",
   "error.filesystem.path_cannot_read": "Ţĥàţ þàţĥ çàññöţ ƀè řèàđ",
+  "error.frontend.not_on_screen": "Ţĥè çöŀŀèçţîöñ öñ šçřèèñ đöèš ñöţ ĥöŀđ {game_id}",
+  "error.frontend.not_running": "Ţĥè ƒřöñţèñđ îš ñöţ řûññîñĝ",
   "error.games.already_folder_name": "Ţĥèřè îš àŀřèàđý à ƒöŀđèř ƀý ţĥàţ ñàɱè",
   "error.games.could_not_bring": "Çöûŀđ ñöţ ƀřîñĝ îţ îñ: {exc}",
   "error.games.could_not_copy": "Çöûŀđ ñöţ çöþý îţ îñ: {exc}",

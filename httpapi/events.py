@@ -71,12 +71,22 @@ def _game_event(game: Any = None, table_id: str | None = None, **_: Any) -> dict
     if game is None:
         return {"game": None}
 
-    game_id = game_identity.game_id(game)
-    reference = {"id": game_id, "name": game.game_dir_name}
     table = {"id": table_id} if table_id else None
+    return {"game": _game_reference(game_identity.game_id(game), game.game_dir_name),
+            "table": table}
+
+
+def _game_reference(game_id: str, name: str) -> dict:
+    reference: dict[str, Any] = {"id": game_id, "name": name}
     if game_id:
         reference["links"] = {"self": f"/api/v1/games/{game_id}"}
-    return {"game": reference, "table": table}
+    return reference
+
+
+def frontend_event(state: dict) -> dict:
+    """`frontend.state_changed`, and the snapshot and read that answer the same."""
+    game = state.get("game")
+    return {"state": state | {"game": game and _game_reference(game["id"], game["name"])}}
 
 
 def _job_event(**payload: Any) -> dict:
@@ -129,6 +139,7 @@ STREAMED_EVENTS: dict[str, Callable[..., dict]] = {
     events.GAME_CHANGED: _game_event,
     events.COLLECTIONS_CHANGED: _collections_event,
     events.PLAY_STATE_CHANGED: _as_published,
+    events.FRONTEND_STATE_CHANGED: frontend_event,
     events.LIFECYCLE_ACTING: _lifecycle_event,
     events.JOB_PROGRESS: _job_event,
     events.JOB_DONE: _job_event,
