@@ -132,6 +132,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/launchers` | Every launcher this install has, the tables that deviate from the default, and the fields each launcher's app takes. `has_config` says whether its app has settings of its own for `/config` to read |
 | PUT | `/api/v1/launchers/{id}` | Add or replace one. The whole launcher, so a partial write cannot leave one half-configured. A name another launcher on the install has is refused, whatever its app, compared ignoring case and the spaces around it; a blank name is the app's. Switching one off is refused when the tables it plays would land on a launcher with no program, or on none |
 | DELETE | `/api/v1/launchers/{id}` | Forget one. Tables pointed at it fall back to the default |
+| POST | `/api/v1/launchers/{id}/default` | Make it the default for its app, by moving it to the front of the list. A switched-off launcher is refused |
 | GET | `/api/v1/launchers/{id}/fallback` | What switching it off would do: `tables` it plays now, `fallbacks` naming where each group of them would go (`launcher_id` empty for nowhere) and whether that one `has_program`, and `refused`, the refusal a switch-off would get, or `""` |
 | GET | `/api/v1/launchers/{id}/config` | The settings of the program it runs, and every value as it stands at one `scope` - `launcher` (the default), `folder` or `entry`. `table=` names the table for the last two |
 | PUT | `/api/v1/launchers/{id}/config` | Set values at one scope, `{"scope", "table", "values", "seed"}` → `{"written", "cleared"}` |

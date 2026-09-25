@@ -96,6 +96,14 @@ def restore_config_backup(launcher_id: str, name: str) -> dict[str, Any]:
     return launcher_ops.restore_backup(launcher_id, name)
 
 
+@router.post("/{launcher_id}/default", summary="Make it the default for its app",
+             dependencies=[requires(scopes.CONFIG_WRITE)])
+def make_launcher_default(launcher_id: str) -> dict[str, Any]:
+    """The launcher its app's tables use unless they name another. It moves to the front
+    of the list, since the default is the first one switched on."""
+    return launcher_ops.make_default(launcher_id)
+
+
 @router.delete("/{launcher_id}", summary="Forget a launcher",
                dependencies=[requires(scopes.CONFIG_WRITE)])
 def delete_launcher(launcher_id: str) -> dict[str, Any]:

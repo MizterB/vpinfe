@@ -30,13 +30,6 @@ logger = logging.getLogger("vpinfe.console.launchers")
 
 SCOPE = "console.launchers.columns"
 
-# Said once over the list rather than under each row. What a launcher is for, in the
-# words somebody would use before they know the word.
-
-# Why a row is the default, where that is not obvious. Only on the one it applies to -
-# a note on every row would say nothing.
-DEFAULT_HINT = t("console.launchers.tables_name_no_launcher")
-
 STATE_READY = "word.ready"
 STATE_OFF = "console.launchers.switched_off"
 STATE_BROKEN = "console.launchers.cannot_run"

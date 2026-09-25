@@ -1,8 +1,8 @@
 """Launchers: the store, and the one function that says which one plays a table.
 
 The resolution order is the part worth pinning. It is what the grid's column and the
-launch path both read, and them disagreeing is the bug the override mask has today -
-what will actually happen at launch is not visible anywhere before it happens.
+launch path both read, and them disagreeing means what will actually happen at launch
+is not visible anywhere before it happens.
 """
 
 import json
@@ -67,6 +67,21 @@ class StoreTests(unittest.TestCase):
 
     def test_removing_something_that_is_not_there_says_so(self) -> None:
         self.assertFalse(self.store.remove("nope"))
+
+    def test_to_front_keeps_the_rest_in_order_and_their_mappings(self) -> None:
+        for one in "abc":
+            self.store.put(_launcher(one))
+        self.store.assign("table-1", "b")
+
+        self.assertTrue(self.store.to_front("c"))
+
+        self.assertEqual([one.launcher_id for one in self.store.launchers()],
+                         ["c", "a", "b"])
+        self.assertEqual(self.store.mappings(), {"table-1": "b"})
+
+    def test_to_front_of_something_that_is_not_there_says_so(self) -> None:
+        self.store.put(_launcher("a"))
+        self.assertFalse(self.store.to_front("nope"))
 
     def test_clearing_an_assignment_drops_the_row(self) -> None:
         """An absent mapping already means "the default", so a blank one would be a

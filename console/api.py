@@ -762,6 +762,9 @@ class ApiClient:
     def launcher_fallback(self, launcher_id: str) -> dict:
         return dict(self._get(f"/launchers/{launcher_id}/fallback") or {})
 
+    def make_launcher_default(self, launcher_id: str) -> dict:
+        return dict(self._post(f"/launchers/{launcher_id}/default", {}) or {})
+
     def assign_launcher(self, table_id: str, launcher_id: str) -> dict:
         """Point a table at one, or clear it back to the default with an empty id."""
         return dict(self._put(f"/launchers/mappings/{table_id}",

@@ -16,31 +16,34 @@ class Setup:
     """A launcher's Setup section drawn with its writes caught, and its controls' saves
     in hand."""
 
-    def __init__(self, *, refused: str = "") -> None:
-        self.launcher = dict(LAUNCHER)
+    def __init__(self, *, refused: str = "", default: bool = False,
+                 enabled: bool = True) -> None:
+        self.launcher = {**LAUNCHER, "enabled": enabled}
         self.recheck, self.refresh, self.retitle = AsyncMock(), AsyncMock(), Mock()
         self.put = AsyncMock(side_effect=RuntimeError(refused) if refused else None)
+        self.rebuild = AsyncMock()
         self.context: dict[str, Any] = {
             "library": Mock(), "launcher": self.launcher,
-            "launchers": [self.launcher, {}], "defaults": {}, "rebuild": AsyncMock(),
+            "launchers": [self.launcher, {}],
+            "defaults": {"vpx": "wide" if default else "other"}, "rebuild": self.rebuild,
             "retitle": self.retitle,
             "state": {"recheck_trouble": self.recheck, "refresh_launchers": self.refresh}}
 
     async def __aenter__(self) -> Setup:
         self._patches = [patch.object(workbench, "ui"), patch.object(workbench, "_rows"),
-                         patch.object(workbench.run, "io_bound", new=self.put)]
-        for one in self._patches:
-            one.start()
-        field = patch.object(workbench.panel, "field").start()
-        switch = patch.object(workbench.panel, "switch").start()
-        self._patches += [field, switch]
+                         patch.object(workbench.run, "io_bound", new=self.put),
+                         patch.object(workbench.panel, "field"),
+                         patch.object(workbench.panel, "switch")]
+        _, _, _, field, switch = [one.start() for one in self._patches]
         await workbench._launcher_setup(self.context)
         self.rename = field.call_args.args[1]
-        self.flip = switch.call_args.args[1]
+        self.default, self.enabled = switch.call_args_list[:2]
+        self.flip = self.enabled.args[1]
         return self
 
     async def __aexit__(self, *_exc: object) -> None:
-        patch.stopall()
+        for one in self._patches:
+            one.stop()
 
     def sent(self) -> list[dict[str, Any]]:
         return [one.args[2] for one in self.put.await_args_list]
@@ -88,6 +91,29 @@ class Rename(unittest.IsolatedAsyncioTestCase):
         async with Setup() as setup:
             await setup.rename("  ")
         self.assertEqual(setup.sent()[0]["display_name"], "Visual Pinball X")
+
+
+class Default(unittest.IsolatedAsyncioTestCase):
+    async def test_turning_it_on_makes_it_the_default(self) -> None:
+        async with Setup() as setup:
+            await setup.default.args[1](Mock(value=True))
+        self.assertEqual(setup.put.await_args.args,
+                         (setup.context["library"].make_launcher_default, "wide"))
+        setup.refresh.assert_awaited_once()
+        setup.rebuild.assert_awaited_once()
+
+    async def test_the_default_cannot_be_turned_off(self) -> None:
+        """Nothing says which launcher would take over."""
+        async with Setup(default=True) as setup:
+            pass
+        self.assertIs(setup.default.args[0], True)
+        self.assertIs(setup.default.kwargs["disabled"], True)
+
+    async def test_a_switched_off_one_cannot_be_made_the_default(self) -> None:
+        async with Setup(enabled=False) as setup:
+            pass
+        self.assertIs(setup.default.kwargs["disabled"], True)
+        self.assertTrue(setup.default.kwargs["hint"])
 
 
 if __name__ == "__main__":

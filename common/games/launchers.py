@@ -207,6 +207,19 @@ class LauncherStore:
             self._write(found, mappings)
             return launcher
 
+    def to_front(self, launcher_id: str) -> bool:
+        """Move one to the head of the list, which makes it its app's default while it
+        is switched on. False where there is no such launcher."""
+        wanted = (launcher_id or "").strip()
+        with self._lock:
+            held, mappings = self._load()
+            found = [one for one in held if one.launcher_id == wanted]
+            if not found:
+                return False
+            self._write(found + [one for one in held if one.launcher_id != wanted],
+                        mappings)
+            return True
+
     def remove(self, launcher_id: str) -> bool:
         """Forget a launcher and every mapping to it.
 

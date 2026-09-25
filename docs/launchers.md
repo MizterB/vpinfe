@@ -58,7 +58,7 @@ Two functions in `common/games/launchers.py`, and the second is the one that dec
 - `launcher_for_entry(app_id, table_id, launchers, mappings)` - what the entry names, then the default for its app. By app rather than by filename, because an entry with no file has no suffix to resolve through.
 - `launcher_for_table(filename, table_id, launchers, mappings)` - for callers holding a name off a directory listing. It resolves the app from the suffix and delegates.
 
-The default for an app is the first enabled launcher wrapping it, so the file's order answers "which is the default".
+The default for an app is the first enabled launcher wrapping it, so the file's order answers "which is the default". Making one the default, from its **Default** switch or `POST /launchers/{id}/default`, moves it to the front (`LauncherStore.to_front`). A switched-off launcher cannot be made the default, and the default's own switch cannot be turned off: another launcher is made the default instead.
 
 One path, so the grid's effective-launcher column and the launch path cannot disagree.
 

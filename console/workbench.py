@@ -4362,6 +4362,17 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
         if await write(enabled=on):
             await rebuild()
 
+    async def make_default(on: bool) -> None:
+        if on and not is_default:
+            try:
+                await run.io_bound(library.make_launcher_default, launcher["launcher_id"])
+            except Exception as exc:  # noqa: BLE001
+                ui.notify(t("console.workbench.could_not_save", exc=exc), type="negative")
+            again = context["state"].get("refresh_launchers")
+            if callable(again):
+                await again()
+        await rebuild()
+
     def save_field(key: str) -> Callable[[Any], Any]:
         async def save(value: Any) -> bool:
             return await write(settings={**launcher["settings"], key: value})
@@ -4373,9 +4384,14 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
                              placeholder=launcher["app_name"], refuses=True)),
         panel.note(t("console.workbench.what_call_way_running")),
         (t("word.runs"), launcher["app_name"]),
+        (t("word.default"), panel.switch(
+            is_default, lambda e: make_default(bool(e.value)),
+            disabled=is_default or not launcher["enabled"],
+            hint=(t("console.workbench.default_another") if is_default
+                  else "" if launcher["enabled"]
+                  else t("console.workbench.default_needs_on")))),
+        panel.note(t("console.workbench.default_help", app=launcher["app_name"])),
     ]
-    if is_default:
-        entries.append(panel.note(launchers_page.DEFAULT_HINT))
     entries.append((t("console.workbench.enabled"), panel.switch(
         launcher["enabled"], lambda e: flip(bool(e.value)), disabled=only_one,
         hint=t("console.workbench.launcher_install") if only_one else "")))

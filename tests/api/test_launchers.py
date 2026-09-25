@@ -70,6 +70,29 @@ class LauncherApiTests(unittest.TestCase):
 
         self.assertEqual(held, {"vpx": True, "gen": False})
 
+    def test_making_one_the_default_moves_it_to_the_front(self) -> None:
+        self._put("first", display_name="VPX")
+        self._put("gen", app="generic", display_name="Generic")
+        self._put("wide", display_name="VPX (4K)")
+
+        got = self.client.post("/launchers/wide/default")
+
+        self.assertEqual(got.status_code, 200, got.text)
+        body = self.client.get("/launchers").json()
+        self.assertEqual(body["defaults"]["vpx"], "wide")
+        self.assertEqual([one["launcher_id"] for one in body["launchers"]],
+                         ["wide", "first", "gen"])
+
+    def test_a_switched_off_one_cannot_be_the_default(self) -> None:
+        self._put("first", display_name="VPX")
+        self._put("off", display_name="VPX (4K)", enabled=False)
+
+        got = self.client.post("/launchers/off/default")
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertIn("switched off", got.json()["error"]["message"])
+        self.assertEqual(self.client.get("/launchers").json()["defaults"]["vpx"], "first")
+
     def test_the_caller_names_the_id(self) -> None:
         """A launcher copied from another machine is that launcher. Minting a new id here
         would break the mappings that came with it."""

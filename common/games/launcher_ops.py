@@ -398,6 +398,17 @@ def restore_backup(launcher_id: str, name: str) -> dict[str, Any]:
             "safety_copy": _as_backup(safety) if safety else None}
 
 
+def make_default(launcher_id: str) -> dict[str, Any]:
+    """Make it the launcher its app's tables use unless they name another."""
+    found = launcher_or_refuse(launcher_id)
+    if not found.enabled:
+        raise service_errors.RefusedError(
+            t("error.launchers.default_switched_off", name=found.display_name))
+    store = launchers.get_launcher_store()
+    store.to_front(found.launcher_id)
+    return {"launcher_id": found.launcher_id, "app": found.app}
+
+
 def forget(launcher_id: str) -> dict[str, Any]:
     """Its mappings go with it. A table pointing at a launcher that was deleted is not a
     state anybody chose, so it goes back to the default."""
