@@ -27,10 +27,9 @@ GOES_AWAY = frozenset({
     (lifecycle.SYSTEM, lifecycle.STOP), (lifecycle.SYSTEM, lifecycle.RESTART),
 })
 
-# Why an action is not offered, in the words a person reads. The fact is what is answered;
-# the sentence for it belongs to whatever is showing it, but a caller with no surface of
-# its own still needs one.
-NOT_WIRED = "Nothing on this device performs that."
+# Why an action is not offered: the key is answered beside the words, so a surface with a
+# language of its own can say it in that one.
+NOT_WIRED = "error.actions.nothing_performs_that"
 
 
 def _describe(scope: str, action: str) -> dict:
@@ -39,7 +38,8 @@ def _describe(scope: str, action: str) -> dict:
             "label": lifecycle.label(scope, action),
             "label_key": f"action.{scope}.{action}",
             "available": performable,
-            "reason": "" if performable else NOT_WIRED}
+            "reason": "" if performable else t(NOT_WIRED),
+            "reason_key": "" if performable else NOT_WIRED}
 
 
 def listing() -> dict:
@@ -57,7 +57,7 @@ def check(scope: str, action: str) -> tuple[str, str]:
             t("error.actions.not_something_vpinfe_does", action=(action), scope=(scope)))
     if not lifecycle.performable(scope, action):
         raise service_errors.UnavailableError(
-            NOT_WIRED, details={"scope": scope, "action": action})
+            t(NOT_WIRED), details={"scope": scope, "action": action})
     return scope, action
 
 

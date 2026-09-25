@@ -141,6 +141,7 @@ class Action(ApiModel):
     label_key: str = ""
     available: bool = True
     reason: str = ""
+    reason_key: str = ""
 
 
 class ActionList(ApiModel):

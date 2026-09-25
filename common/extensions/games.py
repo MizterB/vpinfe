@@ -18,6 +18,8 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from common.i18n import t
+
 from .contract import ContractError
 
 if TYPE_CHECKING:
@@ -101,7 +103,7 @@ class ExtensionGames:
         wanted = Path(str(path or "")).expanduser().resolve()
         self._inside_declared(wanted)
         if not wanted.is_file():
-            raise FileNotFoundError(f"there is no file at {wanted}")
+            raise FileNotFoundError(t("error.games.no_file_at", path=wanted))
         return wanted
 
     def _inside_declared(self, wanted: Path) -> None:
@@ -127,7 +129,7 @@ class ExtensionGames:
 
         found = game_identity.ensure_unique_ids(all_games()).get(str(game_id or ""))
         if found is None:
-            raise LookupError(f"No game with id {game_id}")
+            raise LookupError(t("error.games.no_game_id", game_id=game_id))
         return found
 
     # -- reading --------------------------------------------------------------
@@ -201,7 +203,9 @@ class ExtensionGames:
         made = next((game for game in all_games()
                      if Path(str(game.full_path_game)).resolve() == folder.resolve()), None)
         if made is None:
-            raise LookupError(f"Created {folder}, but this device does not read it")
+            logger.warning("%s created %s, which is not among the games this device reads",
+                           self._name, folder)
+            raise LookupError(t("error.games.created_device_not_read"))
         return game_identity.ensure_id(made)
 
     def add_table(self, game_id: str, path: str | Path) -> dict:
@@ -258,7 +262,7 @@ class ExtensionGames:
 
         source = Path(str(path or "")).expanduser().resolve()
         if not source.exists():
-            raise FileNotFoundError(f"there is nothing at {source}")
+            raise FileNotFoundError(t("error.games.nothing_at", path=source))
         self._inside_declared(source)
 
         game_dir = Path(self.folder(game_id))

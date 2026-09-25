@@ -13,6 +13,7 @@ from unittest.mock import patch
 import httpapi
 from common import lifecycle
 from common.host import action_ops
+from common.i18n import t
 from tests.support.library import TempTree
 
 try:
@@ -56,7 +57,8 @@ class ActionsApiTests(TempTree):
                      if (a["scope"], a["action"]) == ("system", "restart"))
 
         self.assertFalse(found["available"])
-        self.assertTrue(found["reason"].strip())
+        self.assertEqual(found["reason"], t(found["reason_key"]))
+        self.assertNotEqual(found["reason"], found["reason_key"])
 
     def test_performing_one_goes_through_the_lifecycle_scope(self) -> None:
         done = self._offer("frontend", "restart")

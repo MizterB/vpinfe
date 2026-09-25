@@ -89,7 +89,7 @@ def _item_name(item: PlannedItem) -> str:
     entries = [one for one in item.asset.entries if not one.is_dir]
     if len(entries) == 1:
         return PurePosixPath(entries[0].arcname).name
-    return f"{len(entries)} files"
+    return t("asset.analysis.files", count=len(entries))
 
 
 def _replaces(plan: ImportPlan, item: PlannedItem) -> str:
@@ -101,21 +101,22 @@ def _replaces(plan: ImportPlan, item: PlannedItem) -> str:
     """
     if item.action == "write_info":
         if plan.new_game_dir_name:
-            return "adopts bundle metadata"
+            return t("asset.plan.adopts_info")
         base = Path(plan.game_dir)
         if (base / f"{base.name}.info").exists():
-            return "merges into existing metadata - fills gaps only, backup kept"
-        return "adopts bundle metadata"
+            return t("asset.plan.merges_info")
+        return t("asset.plan.adopts_info")
     if plan.new_game_dir_name:
         return ""   # a folder that does not exist yet has nothing to replace
     base = Path(plan.game_dir)
     if item.action == "replace_vpx":
         replaced = replaced_table(base)
-        return f"replaces {replaced.name}" if replaced else ""
+        return t("asset.plan.replaces_named", name=replaced.name) if replaced else ""
     if item.action == "replace_media":
-        return "replaces current" if Path(item.destination).exists() else "slot is empty"
+        return t("asset.plan.replaces_current" if Path(item.destination).exists()
+                 else "asset.plan.slot_empty")
     if item.action in {"replace_b2s", "copy"} and Path(item.destination).exists():
-        return "replaces existing file"
+        return t("asset.plan.replaces_file")
     return ""
 
 
