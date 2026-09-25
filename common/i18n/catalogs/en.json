@@ -1998,6 +1998,7 @@
   "error.launchers.default_has_no_program": "{name} has no program. Set one to make it the default.",
   "error.launchers.default_switched_off": "{name} is switched off. Switch it on to make it the default.",
   "error.launchers.fallback_has_no_program": "Switched off, its tables would go to {name}, which has no program.",
+  "error.launchers.game_file_read_only": "A game's own settings file is read, never written. Set each table's instead.",
   "error.launchers.keeps_no_settings_file": "{app_name} keeps no settings file to copy.",
   "error.launchers.launcher_needs_id": "A launcher needs an id.",
   "error.launchers.name_least_one_setting": "Name at least one setting to write.",

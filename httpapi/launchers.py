@@ -56,15 +56,6 @@ def launcher_config(launcher_id: str, table: str = "",
     return launcher_ops.app_config(launcher_id, table, scope)
 
 
-@router.get("/{launcher_id}/config/reaching",
-            summary="What a folder currently gives one of its tables",
-            dependencies=[requires(scopes.CONFIG_READ)])
-def folder_settings_reaching(launcher_id: str, table: str = "") -> dict[str, Any]:
-    """Asked before a table is given settings of its own: the two layers do not stack, so
-    what the folder is giving it has to be shown before that happens."""
-    return launcher_ops.reaching_from_folder(launcher_id, table)
-
-
 @router.put("/{launcher_id}/config", summary="Set values on the app it runs",
             dependencies=[requires(scopes.CONFIG_WRITE)])
 def write_launcher_config(launcher_id: str,

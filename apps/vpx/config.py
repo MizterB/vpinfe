@@ -392,20 +392,6 @@ class VPXConfig:
         found = own_file(str(settings.get("bin_path") or ""))
         return {"ini_path": str(found)} if found else {}
 
-    def inherited_from_folder(self, target: str,
-                              settings: Mapping[str, Any]) -> dict[str, str]:
-        """What a folder file is currently giving this table, for the confirm that has
-        to be shown before a table file takes it off them."""
-        beside_the_table = table_layer(target)
-        if beside_the_table is not None and beside_the_table.suffix:
-            beside = Path(target).with_suffix(".ini")
-            if beside.is_file():
-                return {}
-        folder = path_for(SCOPE_FOLDER, target, settings)
-        if folder is None or not folder.is_file():
-            return {}
-        return {q: one.value for q, one in _read(folder).settings.items()}
-
     def blank_words(self) -> dict[str, str]:
         """By key, the word in this app's catalog for what a blank value does, where that
         is not the declared default."""

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, i18n, path_checks, service_errors
-from common.apps.contract import SCOPE_LAUNCHER
+from common.apps.contract import SCOPE_FOLDER, SCOPE_LAUNCHER
 from common.games import config_backups, game_repository, launchers, tables
 from common.games.config_backups import Backup
 from common.games.table_identity import find_table_by_id
@@ -329,21 +329,6 @@ def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict
     return found
 
 
-def reaching_from_folder(launcher_id: str, table: str = "") -> dict[str, Any]:
-    """Asked before a table is given settings of its own.
-
-    The two layers do not stack, so a table with its own file stops receiving the
-    folder's other keys. What they are has to be shown before that happens, not
-    discovered afterwards.
-    """
-    found = launcher_or_refuse(launcher_id)
-    config = _app_settings_surface(found)
-    reaching = getattr(config, "inherited_from_folder", None)
-    if config is None or reaching is None:
-        return {"reaching": {}}
-    return {"reaching": reaching(_game_file(table), _launcher_settings(found))}
-
-
 def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Values at one scope. The app writes them into its own file in place, and names
     under `cleared` the ones it cleared instead, for holding the launcher's own value."""
@@ -356,6 +341,8 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     scope = str(body.get("scope") or "launcher")
     if scope not in config.scopes():
         raise service_errors.RefusedError(t("error.launchers.no_scope_called", scope=(scope)))
+    if scope == SCOPE_FOLDER:
+        raise service_errors.RefusedError(t("error.launchers.game_file_read_only"))
     values = body.get("values") or {}
     if not isinstance(values, dict) or not values:
         raise service_errors.RefusedError(t("error.launchers.name_least_one_setting"))
@@ -370,17 +357,6 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
             "error.launchers.one_table_only" if scope == SCOPE_LAUNCHER
             else "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
             keys=(", ".join(refused))))
-
-    # The two layers do not stack, so the write that gives a table its own file takes
-    # the folder's other keys off it. Carrying them across is what keeps the table doing
-    # what it did a moment ago. Asked for rather than always done, because a caller has
-    # to have told whoever is doing this what it is about to happen - and after that
-    # first write there is nothing left reaching, so it stops mattering.
-    if body.get("seed"):
-        reaching = getattr(config, "inherited_from_folder", None)
-        if reaching is not None:
-            # Under, not over: the value being set is the reason for the write.
-            writing = {**reaching(table, settings), **writing}
 
     cleared = config.write(scope, table, writing, settings)
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}

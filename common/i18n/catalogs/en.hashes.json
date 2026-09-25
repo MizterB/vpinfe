@@ -1776,6 +1776,7 @@
   "error.launchers.default_has_no_program": "3e92ec696689",
   "error.launchers.default_switched_off": "d48f71a0f0f5",
   "error.launchers.fallback_has_no_program": "e14e00b3d744",
+  "error.launchers.game_file_read_only": "3286ce4cd602",
   "error.launchers.keeps_no_settings_file": "65eac0c3603a",
   "error.launchers.launcher_needs_id": "2727bdbd98da",
   "error.launchers.name_least_one_setting": "33cb744f270f",

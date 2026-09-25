@@ -295,60 +295,38 @@ class _TableCase(unittest.TestCase):
                                json={"scope": "entry", "table": "t1", **body})
 
 
-class TableFileSeedingTests(_TableCase):
-    """The two settings layers do not stack, so the write that gives a table its own
-    file takes the folder's other keys off it. Carrying them across on that first write
-    is what keeps the table doing what it did a moment ago."""
+class GameFileTests(_TableCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.game_file = pathlib.Path(os.path.dirname(self.table), "Attack from Mars.ini")
 
-    def test_a_folder_says_what_it_is_giving_a_table_with_no_file_of_its_own(self) -> None:
-        got = self.client.get("/launchers/l1/config/reaching?table=t1")
-
-        self.assertEqual(got.json()["reaching"],
-                         {"Player.BallTrail": "1", "Player.FXAA": "3"})
-
-    def test_the_first_write_carries_them_across_when_it_is_asked_to(self) -> None:
-        self._write(values={"Backglass.BackglassWndX": "137"}, seed=True)
-
-        written = pathlib.Path(self.beside).read_text()
-        self.assertIn("BallTrail = 1", written)
-        self.assertIn("FXAA = 3", written)
-        self.assertIn("BackglassWndX = 137", written)
-
-    def test_and_the_value_being_set_wins_over_what_it_carried(self) -> None:
-        """The write is the reason any of this is happening."""
-        self._write(values={"Player.FXAA": "0"}, seed=True)
-
-        self.assertIn("FXAA = 0", pathlib.Path(self.beside).read_text())
-
-    def test_without_asking_it_writes_only_what_it_was_given(self) -> None:
-        """Which is what takes the other two off the table - so nothing does this
-        silently."""
+    def test_a_table_s_first_value_of_its_own_is_all_its_file_holds(self) -> None:
         self._write(values={"Backglass.BackglassWndX": "137"})
 
-        written = pathlib.Path(self.beside).read_text()
-        self.assertNotIn("BallTrail", written)
-        self.assertIn("BackglassWndX = 137", written)
+        self.assertEqual(pathlib.Path(self.beside).read_text(),
+                         "[Backglass]\nBackglassWndX = 137\n")
 
-    def test_a_carried_value_the_launcher_already_has_is_left_to_it(self) -> None:
-        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
-        app_ini.write_text("[Player]\nBallTrail = 1\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
-            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+    def test_a_write_to_the_game_s_file_is_refused(self) -> None:
+        before = self.game_file.read_text()
 
-        got = self._write(values={"Backglass.BackglassWndX": "137"}, seed=True)
+        got = self._write(scope="folder", values={"Player.FXAA": "0"})
 
-        self.assertEqual(got.status_code, 200, got.text)
-        self.assertEqual(got.json(), {"written": ["Backglass.BackglassWndX", "Player.FXAA"],
-                                      "cleared": ["Player.BallTrail"]})
-        self.assertNotIn("BallTrail", pathlib.Path(self.beside).read_text())
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertEqual(self.game_file.read_text(), before)
 
-    def test_a_table_that_already_has_a_file_has_nothing_left_reaching_it(self) -> None:
-        """So the second write cannot re-seed from a folder it no longer reads."""
-        self._write(values={"Backglass.BackglassWndX": "137"}, seed=True)
+    def test_and_where_the_game_has_none_none_is_made(self) -> None:
+        self.game_file.unlink()
 
-        got = self.client.get("/launchers/l1/config/reaching?table=t1")
+        got = self._write(scope="folder", values={"Player.FXAA": "0"})
 
-        self.assertEqual(got.json()["reaching"], {})
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertFalse(self.game_file.exists())
+
+    def test_the_game_s_file_is_still_read_where_it_reaches_a_table(self) -> None:
+        got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
+
+        held = got.json()["values"]["Player.FXAA"]
+        self.assertEqual((held["value"], held["scope"]), ("3", "folder"))
 
 
 class ClearingTests(_TableCase):

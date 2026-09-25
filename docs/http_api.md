@@ -135,8 +135,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/launchers/{id}/default` | Make it the default for its app, by moving it to the front of the list. A switched-off launcher, or one with no program, is refused |
 | GET | `/api/v1/launchers/{id}/fallback` | What switching it off would do: `tables` it plays now, `fallbacks` naming where each group of them would go (`launcher_id` empty for nowhere) and whether that one `has_program`, and `refused`, the refusal a switch-off would get, or `""` |
 | GET | `/api/v1/launchers/{id}/config` | The settings of the program it runs, and every value as it stands at one `scope` - `launcher` (the default), `folder` or `entry`. `table=` names the table for the last two |
-| PUT | `/api/v1/launchers/{id}/config` | Set values at one scope, `{"scope", "table", "values", "seed"}` → `{"written", "cleared"}` |
-| GET | `/api/v1/launchers/{id}/config/reaching?table=` | What the folder's settings file gives a table that has no file of its own |
+| PUT | `/api/v1/launchers/{id}/config` | Set values at one scope, `{"scope", "table", "values"}` → `{"written", "cleared"}`. `launcher` or `entry`: a write at `folder` is refused |
 | GET | `/api/v1/launchers/{id}/config/backups` | Copies of the program's own settings file, newest first. `files` names what a copy takes and `kept_in` says where the copies are |
 | POST | `/api/v1/launchers/{id}/config/backups` | Take a copy now. `{"label": "..."}` is optional |
 | POST | `/api/v1/launchers/{id}/config/backups/{name}/restore` | Put a copy back. What is there now is copied first, and comes back as `safety_copy` |
@@ -554,10 +553,10 @@ see which one is in force:
   both empty where that is VPX's own default. `app_name` is whose default that is.
 
 **The two table files do not stack.** VPX reads a table's own file where there is one and
-the folder's where there is not, never both. So the write that gives a table its own file
-takes the folder's other values off it. `GET .../config/reaching?table=` says what they
-are, and `"seed": true` on that write carries them across, with the values being written
-winning over them. Once a table has a file of its own, nothing is reaching it.
+the folder's where there is not, never both. The folder's file is read and never written:
+VPinFE makes no file in a game's folder, and one made by hand or by another program shows
+as the `folder` scope where it reaches a table. So a table's first value of its own
+creates its file with that value alone, and the folder's file stops reaching it.
 
 A table whose `.vpx` is named after its folder has one file for both scopes, so what it
 sets reaches the game's other tables that have no file of their own. `shared_with_game` is

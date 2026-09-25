@@ -1998,6 +1998,7 @@
   "error.launchers.default_has_no_program": "{name} ĥàš ñö þřöĝřàɱ. Šèţ öñè ţö ɱàķè îţ ţĥè đèƒàûŀţ.",
   "error.launchers.default_switched_off": "{name} îš šŵîţçĥèđ öƒƒ. Šŵîţçĥ îţ öñ ţö ɱàķè îţ ţĥè đèƒàûŀţ.",
   "error.launchers.fallback_has_no_program": "Šŵîţçĥèđ öƒƒ, îţš ţàƀŀèš ŵöûŀđ ĝö ţö {name}, ŵĥîçĥ ĥàš ñö þřöĝřàɱ.",
+  "error.launchers.game_file_read_only": "À ĝàɱè'š öŵñ šèţţîñĝš ƒîŀè îš řèàđ, ñèṽèř ŵřîţţèñ. Šèţ èàçĥ ţàƀŀè'š îñšţèàđ.",
   "error.launchers.keeps_no_settings_file": "{app_name} ķèèþš ñö šèţţîñĝš ƒîŀè ţö çöþý.",
   "error.launchers.launcher_needs_id": "À ŀàûñçĥèř ñèèđš àñ îđ.",
   "error.launchers.name_least_one_setting": "Ñàɱè àţ ŀèàšţ öñè šèţţîñĝ ţö ŵřîţè.",

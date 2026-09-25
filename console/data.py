@@ -470,18 +470,14 @@ class Library:
     def restore_config_backup(self, launcher_id: str, name: str) -> dict:
         return self._client.restore_config_backup(launcher_id, name)
 
-    def folder_settings_reaching(self, launcher_id: str, table: str) -> dict:
-        return self._client.folder_settings_reaching(launcher_id, table)
-
     def launcher_config(self, launcher_id: str, table: str = "",
                         scope: str = "launcher") -> dict:
         return self._client.launcher_config(launcher_id, table, scope)
 
     def write_launcher_config(self, launcher_id: str, values: dict, *,
-                              table: str = "", scope: str = "launcher",
-                              seed: bool = False) -> dict:
+                              table: str = "", scope: str = "launcher") -> dict:
         return self._client.write_launcher_config(launcher_id, values,
-                                                  table=table, scope=scope, seed=seed)
+                                                  table=table, scope=scope)
 
     def put_launcher(self, launcher_id: str, body: dict) -> dict:
         return self._client.put_launcher(launcher_id, body)

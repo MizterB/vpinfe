@@ -895,19 +895,10 @@ class ApiClient:
         return dict(self._post(
             f"/launchers/{launcher_id}/config/backups/{name}/restore", {}) or {})
 
-    def folder_settings_reaching(self, launcher_id: str, table: str) -> dict:
-        """What a folder currently gives this table, for the confirm shown before a
-        table takes settings of its own."""
-        return dict((self._get(
-            f"/launchers/{launcher_id}/config/reaching?table={table}") or {}
-        ).get("reaching") or {})
-
     def write_launcher_config(self, launcher_id: str, values: dict, *,
-                              table: str = "", scope: str = "launcher",
-                              seed: bool = False) -> dict:
+                              table: str = "", scope: str = "launcher") -> dict:
         return dict(self._put(f"/launchers/{launcher_id}/config",
-                              {"values": values, "table": table, "scope": scope,
-                               "seed": seed}) or {})
+                              {"values": values, "table": table, "scope": scope}) or {})
 
     def config_schema(self) -> list[dict]:
         """Every setting this install has, sectioned. Read from the install rather than

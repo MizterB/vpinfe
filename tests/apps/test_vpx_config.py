@@ -694,35 +694,6 @@ class TypeTests(_Case):
         self.assertTrue(_offered("Input.JoyCustom1"))
 
 
-class SeedingTests(_Case):
-    def test_what_a_folder_would_stop_supplying_is_reportable(self) -> None:
-        """Shown in the confirm before a table file takes it off them, so the effective
-        values are unchanged at the moment one is created."""
-        self.folder_file("[Backglass]\nBackglassOutput = 0\nGrillHeight = 200\n")
-
-        self.assertEqual(sorted(self.config.inherited_from_folder(
-            str(self.table), self.settings)),
-            ["Backglass.BackglassOutput", "Backglass.GrillHeight"])
-
-    def test_a_table_that_already_has_its_own_file_inherits_nothing(self) -> None:
-        self.folder_file("[Backglass]\nBackglassOutput = 0\n")
-        self.table_file("[Backglass]\nGrillHeight = 200\n")
-
-        self.assertEqual(self.config.inherited_from_folder(
-            str(self.table), self.settings), {})
-
-    def test_a_carried_value_the_application_already_has_is_left_to_it(self) -> None:
-        self.folder_file("[DMD]\nProfile1Legacy = 1\n")
-        carried = self.config.inherited_from_folder(str(self.table), self.settings)
-
-        self.config.write(SCOPE_ENTRY, str(self.table),
-                          {**carried, "Backglass.GrillHeight": "200"}, self.settings)
-
-        written = (self.game / "MM (VPW 1.2).ini").read_text()
-        self.assertIn("GrillHeight = 200", written)
-        self.assertNotIn("Profile1Legacy", written)
-
-
 class WritingLikeTheProgramTests(_Case):
     """A table layer is not written the way the application layer is, and the difference
     is the program's, not ours.
