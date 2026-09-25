@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import Mock
 
-from console import games, views
+from console import data, games, views
 
 
 class TableUpdateTests(unittest.TestCase):
@@ -31,6 +32,23 @@ class TableUpdateTests(unittest.TestCase):
         self.assertEqual({"update": {"values": [games._NEWER]}}, view.filters)
         self.assertIn(games._NEWER, [choice["value"]
                                      for choice in column["filterParams"]["choices"]])
+
+
+class MatchingAReleaseTests(unittest.TestCase):
+    def test_the_tables_are_read_again_with_what_the_match_changed(self) -> None:
+        client = Mock()
+        client.all_tables.return_value = []
+        client.tables.return_value = []
+        client.games.return_value = []
+        library = data.Library(client)
+        library.load_tables()
+        library.tables_for("game")
+
+        library.set_table_source("game", "t1", "release01")
+        library.load_tables()
+        library.tables_for("game")
+
+        self.assertEqual((2, 2), (client.all_tables.call_count, client.tables.call_count))
 
 
 if __name__ == "__main__":

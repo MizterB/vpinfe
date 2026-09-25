@@ -1162,6 +1162,7 @@ class Library:
 
     def set_table_source(self, game_id: str, table_id: str, vps_file_id: str) -> None:
         self._client.set_table_source(game_id, table_id, vps_file_id)
+        self._forget_tables(game_id)
         self._forget_games()
 
     def set_asset_source(self, game_id: str, path: str, vps_file_id: str) -> None:
