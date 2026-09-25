@@ -105,8 +105,9 @@ Next you must tell VPinFE where your tables are, and how to run them.
    located (e.g., `/home/user/tables/`)
 2. Your **launcher**, under Frontend - Launchers. It ships with one called Visual Pinball
    X; point its **Program** at your VPinball executable (e.g.,
-   `/home/user/vpinball/build/VPinballX_BGFX`) and its **Configuration File** at your
-   `VPinballX.ini` (e.g., `~/.vpinball/VPinballX.ini`).
+   `/home/user/vpinball/build/VPinballX_BGFX`). Leave its **Settings File** empty to use
+   Visual Pinball's own `VPinballX.ini`, or point it at another one to start your tables
+   with that instead.
 
 A launcher is one way of running a table. Most installs need only the one, and it is
 what every table uses unless it names another. Duplicate it if you want a second way to
@@ -313,7 +314,7 @@ Logging behavior:
 - **Log Verbosity**: debug/info/warning/error/critical
 - **Console Logging**: enables console log output
 
-The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard config directory and starts a fresh log file on each launch. The VPinball Log card can enable **Clear the Log on Launch** on your launcher, which deletes `vpinball.log` before each frontend table launch. VPinFE resolves that log path from the launcher's **Configuration File** by using the directory that contains `VPinballX.ini`.
+The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard config directory and starts a fresh log file on each launch. The VPinball Log card can enable **Clear the Log on Launch** on your launcher, which deletes `vpinball.log` before each frontend table launch. VPinFE finds that log in the directory that holds the launcher's **Settings File**, or Visual Pinball's own `VPinballX.ini` where it names none.
 
 #### Media section
 
@@ -634,7 +635,7 @@ Modes:
 Remote table launch behavior:
 
 - Uses the launcher the table names, or the default one under Frontend - Launchers
-- Applies the launcher's **Override File** and its masked per-table override when configured
+- Starts the table with the launcher's **Settings File**, where it names one other than Visual Pinball's own
 - Applies the launcher's **Environment** overrides
 - Stops DOF and libdmdutil before launching
 - Restarts DOF after the launched process exits

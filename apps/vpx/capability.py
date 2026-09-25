@@ -13,6 +13,8 @@ from typing import Any
 
 from common.apps.contract import Availability
 
+from .config import settings_file
+
 PLUGINS = "plugins"
 PER_TABLE_SETTINGS = "per_table_settings"
 
@@ -46,8 +48,8 @@ class VPXCapability:
         if directory is not None and (directory / "plugins").is_dir():
             return Availability(True)
 
-        ini_path = str(settings.get("ini_path") or "").strip()
-        if ini_path and _declares_a_plugin(Path(ini_path)):
+        ini_path = settings_file(settings)
+        if ini_path is not None and _declares_a_plugin(ini_path):
             return Availability(True)
 
         return Availability(False, "no_plugins")

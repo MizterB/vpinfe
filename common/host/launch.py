@@ -299,7 +299,7 @@ def launch_game(game: Game, ini_config: ConfigStore, *, source: str,
                          key=tables.entry_key(entry))
 
     delete_vpinball_log_on_start_if_configured(
-        launcher.value("log_delete_on_start"), str(launcher.value("ini_path") or ""))
+        launcher.value("log_delete_on_start"), str(launcher.in_effect("ini_path") or ""))
 
     started_at = None
     # Outside everything, including our own hooks. What a person writes here sets the

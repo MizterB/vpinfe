@@ -28,19 +28,20 @@ Extensions contribute apps through `contribute()`, and `withdraw()` takes one ba
 
 A launcher is an object the user creates, names, duplicates, removes and switches off, rather than one of a fixed set of settings the install has. Nothing in the tree has a dynamically named config section and `config_schema` has no concept of one.
 
-Seven keys left `general` and became fields on the launcher, shedding the app's name:
+Seven keys left `general` and became four fields on the launcher, shedding the app's name:
 
 | was | is |
 |---|---|
 | `general.vpx_bin_path` | `bin_path` |
-| `general.vpx_ini_path` | `ini_path` |
+| `general.vpx_ini_path` | `ini_path`, where no override was set |
+| `general.global_ini_override` | `ini_path` |
 | `general.vpx_launch_env` | `launch_env` |
 | `general.vpx_log_delete_on_start` | `log_delete_on_start` |
-| `general.global_ini_override` | `ini_override` |
-| `general.global_game_ini_override_enabled` | `table_ini_override_enabled` |
-| `general.global_game_ini_override_mask` | `table_ini_override_mask` |
+| `general.global_game_ini_override_enabled`, `general.global_game_ini_override_mask` | retired: each table's `{stem}.{mask}.ini` became its `{stem}.ini`, where it had none |
 
 A second launcher's fields are then the same names, which is what lets its editor be generated from the app's settings schema instead of hand-written per app. A 2.x config is migrated once rather than carrying seven permanent key aliases.
+
+`ini_path` is the **Settings File**: the `VPinballX.ini` a table starts with and the one the Console's settings change. One that is not Visual Pinball's own is passed as `-ini`. Empty means Visual Pinball's own, which VPinFE finds where the program keeps it: the newest version folder under its preferences folder (`~/.local/share/VPinballX/10.8/` on Linux, `~/Library/Application Support/VPinballX/10.8/` on macOS, `%APPDATA%\VPinballX\10.8\` on Windows), then beside the program, then the layouts from before version folders.
 
 `owns_ini` records whether VPinFE created the file `ini_path` names.
 

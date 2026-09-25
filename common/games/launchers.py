@@ -105,6 +105,17 @@ class Launcher:
         declared = next((f for f in self.fields() if f.key == key), None)
         return declared.default if declared is not None else ""
 
+    def in_effect(self, key: str) -> Any:
+        """One setting as the program will see it: an empty one is what the app says it
+        stands for on this machine, such as Visual Pinball's own settings file."""
+        found = self.value(key)
+        if found not in ("", None):
+            return found
+        left_empty = getattr(getattr(apps.get(self.app), "config", None), "left_empty", None)
+        if not callable(left_empty):
+            return found
+        return left_empty({f.key: self.value(f.key) for f in self.fields()}).get(key, found)
+
     def fields(self) -> tuple[apps.Field, ...]:
         """What configuring this launcher takes: what its app declares, and what every
         launcher has whatever it wraps."""
@@ -327,8 +338,7 @@ def launcher_for_entry(app_id: str, table_id: str, launchers: Iterable[Launcher]
     resolve through - a key says nothing about whose it is, so the entry declares it.
 
     One function, so the grid's effective-launcher column and the launch path can never
-    disagree - that divergence is the bug the override mask has today, where what will
-    actually happen at launch is not visible anywhere before it happens.
+    disagree.
 
     A table naming a launcher that is switched off falls back rather than refusing, and
     the caller is expected to say so: the fallback is honest, and silence about it is
@@ -376,7 +386,7 @@ def default_value(key: str, app_id: str = "vpx") -> str:
     a missing launcher is right: nothing is configured, which is what the caller is
     usually about to report."""
     found = default_launcher(app_id)
-    return str(found.value(key) or "") if found is not None else ""
+    return str(found.in_effect(key) or "") if found is not None else ""
 
 
 def replace_settings(launcher: Launcher, **values: Any) -> Launcher:

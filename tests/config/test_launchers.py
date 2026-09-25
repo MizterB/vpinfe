@@ -8,7 +8,9 @@ what will actually happen at launch is not visible anywhere before it happens.
 import json
 import os
 import unittest
+from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from apps.vpx import FIELDS as VPX_FIELDS
 from common.games import launchers
@@ -184,9 +186,6 @@ class SeedTests(unittest.TestCase):
         "ini_path": "/home/cab/.vpinball/VPinballX.ini",
         "launch_env": "SDL_VIDEODRIVER=wayland",
         "log_delete_on_start": True,
-        "ini_override": "",
-        "table_ini_override_enabled": True,
-        "table_ini_override_mask": "{table}.ini",
     }
 
     def test_the_values_arrive_as_one_launcher(self) -> None:
@@ -194,7 +193,7 @@ class SeedTests(unittest.TestCase):
 
         self.assertEqual(one.app, "vpx")
         self.assertEqual(one.value("bin_path"), "/usr/bin/VPinballX_GL")
-        self.assertEqual(one.value("table_ini_override_mask"), "{table}.ini")
+        self.assertEqual(one.value("ini_path"), "/home/cab/.vpinball/VPinballX.ini")
         self.assertIs(one.value("log_delete_on_start"), True)
 
     def test_it_does_not_claim_to_own_visual_pinballs_own_ini(self) -> None:
@@ -208,6 +207,26 @@ class SeedTests(unittest.TestCase):
         one = launchers.seeded_from(self.VALUES)
 
         self.assertEqual(sorted(one.settings), sorted(f.key for f in VPX_FIELDS))
+
+
+class InEffectTests(unittest.TestCase):
+    def test_an_empty_settings_file_is_visual_pinballs_own(self) -> None:
+        one = launchers.Launcher(launcher_id="a", app="vpx", settings={"ini_path": ""})
+
+        with patch("apps.vpx.config.own_file", return_value=Path("/prefs/VPinballX.ini")):
+            self.assertEqual(one.in_effect("ini_path"), "/prefs/VPinballX.ini")
+            self.assertEqual(one.value("ini_path"), "")
+
+    def test_a_set_one_is_itself(self) -> None:
+        one = launchers.Launcher(launcher_id="a", app="vpx",
+                                 settings={"ini_path": "/cfg/other.ini"})
+
+        self.assertEqual(one.in_effect("ini_path"), "/cfg/other.ini")
+
+    def test_an_app_with_nothing_to_say_leaves_it_empty(self) -> None:
+        one = launchers.Launcher(launcher_id="a", app="generic", settings={})
+
+        self.assertEqual(one.in_effect("bin_path"), "")
 
 
 class NameTests(unittest.TestCase):

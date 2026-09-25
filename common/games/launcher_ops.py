@@ -40,6 +40,9 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
     Visual Pinball launcher happens to hold - which is the whole point of the app
     declaring them.
     """
+    settings = _launcher_settings(launcher)
+    left_empty = getattr(_app_settings_surface(launcher), "left_empty", None)
+    blanks = left_empty(settings) if callable(left_empty) else {}
     return {
         "launcher_id": launcher.launcher_id,
         "app": launcher.app,
@@ -48,15 +51,15 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
         "enabled": launcher.enabled,
         "owns_ini": launcher.owns_ini,
         "has_config": _app_settings_surface(launcher) is not None,
-        "settings": {field.key: launcher.value(field.key)
-                     for field in launcher.fields()},
+        "settings": settings,
         # `lines`, `choices` and the bounds travel with the field because the control a
         # surface draws is decided from them - a field declared over three lines that
         # arrives without them renders as a one-line box.
         "fields": [{"key": f.key, **apps.field_words(launcher.app, f), "type": f.type,
                     "default": f.default, "path": f.path,
                     "lines": f.lines, "choices": dict(f.choices),
-                    "min": f.minimum, "max": f.maximum}
+                    "min": f.minimum, "max": f.maximum,
+                    "blank": blanks.get(f.key, "")}
                    for f in launcher.fields()],
         # Asked on every read, never stored: a launcher pointing at a program that has
         # been uninstalled otherwise looks exactly like one that works.

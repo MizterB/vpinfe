@@ -221,7 +221,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
             if await save(text) and rerender is not None:
                 rerender()
 
-        return panel.field(str(value or ""), save_path, disabled=off, status=state)
+        return panel.field(str(value or ""), save_path, disabled=off, status=state,
+                           placeholder=blank)
     return panel.field(str(value or ""), lambda text: save(text), disabled=off)
 
 

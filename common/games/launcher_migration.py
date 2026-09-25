@@ -35,7 +35,7 @@ SEEDED = "seeded-from-config"
 SHIPPED_NAME = "Visual Pinball X"
 
 # The field a launcher made from a profile keeps the profile's file in.
-PROFILE_FILE = "ini_override"
+PROFILE_FILE = "ini_path"
 
 
 def seed(store: launchers.LauncherStore, config: ConfigStore) -> bool:
@@ -47,7 +47,7 @@ def seed(store: launchers.LauncherStore, config: ConfigStore) -> bool:
     if SEEDED in store.migrations():
         return False
 
-    shipped = launchers.seeded_from(read_old_keys(config))
+    shipped = launchers.seeded_from(_kept(read_old_keys(config)))
     found = [launchers.replace(shipped, display_name=SHIPPED_NAME)]
     found += _from_profiles(shipped, [SHIPPED_NAME])
 
@@ -82,6 +82,15 @@ _OLD_SPELLINGS = {
     "global_game_ini_override_enabled": "globaltableinioverrideenabled",
     "global_game_ini_override_mask": "globaltableinioverridemask",
 }
+
+
+def _kept(old: dict[str, object]) -> dict[str, object]:
+    """What a launcher holds of the seven: the override was the file Visual Pinball
+    started with, so it is the Settings File where one was set."""
+    kept = {key: old.get(key, "") for key in ("bin_path", "launch_env",
+                                               "log_delete_on_start")}
+    kept["ini_path"] = old.get("ini_override") or old.get("ini_path") or ""
+    return kept
 
 
 def read_old_keys(config: ConfigStore) -> dict[str, object]:
@@ -248,6 +257,53 @@ def _profile_launcher(name: str, held: Iterable[launchers.Launcher]) -> str:
     found = next((one for one in held
                   if str(one.settings.get(PROFILE_FILE) or "").casefold() == wanted), None)
     return found.launcher_id if found is not None else ""
+
+
+PATTERN_RETIRED = "table-pattern-to-table-ini"
+
+
+def retire_table_pattern(store: launchers.LauncherStore, config: ConfigStore,
+                         games: Iterable[Game]) -> int:
+    """Where 2.x started each table with `{stem}.{mask}.ini`, make that file the
+    table's `{stem}.ini`, which Visual Pinball reads unaided. Returns how many moved.
+
+    A table that already has a `{stem}.ini` keeps both, and the log names it: which of
+    the two somebody meant is not something to guess by overwriting one.
+    """
+    if PATTERN_RETIRED in store.migrations():
+        return 0
+    old = read_old_keys(config)
+    mask = str(old.get("table_ini_override_mask") or "").strip()
+    moved = 0
+    if old.get("table_ini_override_enabled") and mask:
+        for game in games or []:
+            game_dir = str(getattr(game, "full_path_game", "") or "")
+            meta = getattr(game, "meta_config", None)
+            for entry in tables.table_entries(meta if isinstance(meta, dict) else {}).values():
+                table = tables.entry_file(game_dir, entry)
+                if table and _to_table_ini(Path(table), mask):
+                    moved += 1
+    store.mark_migration(PATTERN_RETIRED)
+    if moved:
+        logger.info("Renamed %d per-table pattern file(s) to the table's own", moved)
+    return moved
+
+
+def _to_table_ini(table: Path, mask: str) -> bool:
+    masked = table.with_name(f"{table.stem}.{mask}.ini")
+    if not masked.is_file():
+        return False
+    own = table.with_suffix(".ini")
+    if own.exists():
+        logger.warning("Left %s beside %s, which already has a settings file of its own",
+                       masked, own.name)
+        return False
+    try:
+        masked.rename(own)
+    except OSError:
+        logger.exception("Could not rename %s to %s", masked, own.name)
+        return False
+    return True
 
 
 def ensure_seeded(config: ConfigStore) -> None:

@@ -82,7 +82,7 @@ def _derived_launcher_keys(row: dict) -> dict:
     if found is None:
         return {"altlauncher": "", "pluginprofile": ""}
     return {"altlauncher": str(found.value("bin_path") or ""),
-            "pluginprofile": str(found.value("ini_override") or "")}
+            "pluginprofile": str(found.value("ini_path") or "")}
 
 
 # What contract 1 calls each top-level row key. These are served identically at both

@@ -68,11 +68,11 @@ class CopyTests(unittest.TestCase):
     def test_the_settings_travel(self) -> None:
         launcher_copy.copy_to(
             [_device("cab", "Cab")],
-            [_launcher("a", "VPX", ini_override="/cfg/quiet.ini")],
+            [_launcher("a", "VPX", ini_path="/cfg/quiet.ini")],
             client_for=self._client_for)
 
         body = self.clients["cab"].launchers[0][1]
-        self.assertEqual(body["settings"]["ini_override"], "/cfg/quiet.ini")
+        self.assertEqual(body["settings"]["ini_path"], "/cfg/quiet.ini")
         self.assertEqual(body["display_name"], "VPX")
 
     def test_the_copy_does_not_claim_to_own_an_ini(self) -> None:

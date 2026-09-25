@@ -25,7 +25,7 @@ def _config(**settings: str) -> configparser.ConfigParser:
 def _launcher(**settings: str):
     fields = tuple(SimpleNamespace(key=key) for key in settings)
     return SimpleNamespace(display_name="Visual Pinball", fields=lambda: fields,
-                           value=settings.get)
+                           value=settings.get, in_effect=settings.get)
 
 
 def _game():

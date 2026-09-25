@@ -12,6 +12,8 @@ invisible otherwise and is the bug report we would get.
 from __future__ import annotations
 
 import os
+import re
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -97,13 +99,54 @@ def _offered(qualified: str) -> bool:
     return not any(part in parts for part in HIDDEN_PARTS)
 
 
-def _app_ini(settings: Mapping[str, Any]) -> Path | None:
-    """The application layer. An override wins, because that is what it is for."""
-    for key in ("ini_override", "ini_path"):
-        named = str(settings.get(key) or "").strip()
-        if named:
-            return Path(named).expanduser()
-    return None
+SETTINGS_FILE = "VPinballX.ini"
+_VERSION_FOLDER = re.compile(r"(\d+)\.(\d+)")
+
+
+def _machine_folders() -> tuple[Path | None, Path | None]:
+    """Visual Pinball's preferences folder as SDL names it per platform, and the folder
+    the standalone build used before that."""
+    if sys.platform == "win32":
+        roaming = os.environ.get("APPDATA", "")
+        return (Path(roaming) / "VPinballX" if roaming else None), None
+    old = Path.home() / ".vpinball"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "VPinballX", old
+    shared = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(shared) / "VPinballX", old
+
+
+def own_file(bin_path: str = "") -> Path | None:
+    """The settings file Visual Pinball uses when it is not given one, or None where
+    there is none yet.
+
+    Visual Pinball looks in its own version's folder, and which version a launcher runs
+    is not known here, so the newest folder holding a file stands in for it.
+    """
+    found: list[Path] = []
+    base, old = _machine_folders()
+    if base is not None:
+        try:
+            folders = [one for one in base.iterdir()
+                       if one.is_dir() and _VERSION_FOLDER.fullmatch(one.name)]
+        except OSError:
+            folders = []
+        folders.sort(key=lambda one: tuple(int(part) for part in one.name.split(".")),
+                     reverse=True)
+        found += [folder / SETTINGS_FILE for folder in folders]
+    program = Path(str(bin_path or "").strip())
+    if program.name and not any(part.lower().endswith(".app") for part in program.parts):
+        found.append(program.parent / SETTINGS_FILE)
+    found += [folder / SETTINGS_FILE for folder in (base, old) if folder is not None]
+    return next((one for one in found if one.is_file()), None)
+
+
+def settings_file(settings: Mapping[str, Any]) -> Path | None:
+    """The application layer: the launcher's Settings File, or Visual Pinball's own."""
+    named = str(settings.get("ini_path") or "").strip()
+    if named:
+        return Path(named).expanduser()
+    return own_file(str(settings.get("bin_path") or ""))
 
 
 def table_layer(table: str) -> Path | None:
@@ -133,7 +176,7 @@ def table_layer(table: str) -> Path | None:
 def path_for(scope: str, target: str, settings: Mapping[str, Any]) -> Path | None:
     """The file a scope writes to, whether or not it exists yet."""
     if scope == SCOPE_LAUNCHER:
-        return _app_ini(settings)
+        return settings_file(settings)
     game_file = Path(str(target or "").strip())
     if not game_file.name:
         return None
@@ -192,7 +235,7 @@ class VPXConfig:
         what each value means, into a comment above it. A setting a later build adds
         appears without this file changing.
         """
-        schema = _read(_app_ini(settings))
+        schema = _read(settings_file(settings))
         by_section: dict[str, list[Field]] = {}
         for one in schema.settings.values():
             if not _offered(one.qualified):
@@ -217,7 +260,7 @@ class VPXConfig:
         `value` is what VPX will use, never what this scope happens to hold - you should
         not be shown a number that is not the one in force.
         """
-        app = _read(_app_ini(settings))
+        app = _read(settings_file(settings))
         table = _read(table_layer(target)) if target else vini.Ini()
         mine_path = path_for(scope, target, settings)
         mine = _read(mine_path)
@@ -294,8 +337,13 @@ class VPXConfig:
         travels with it; this is the one that belongs to the launcher and would be lost
         with it.
         """
-        found = _app_ini(settings)
+        found = settings_file(settings)
         return {"application": str(found)} if found else {}
+
+    def left_empty(self, settings: Mapping[str, Any]) -> dict[str, str]:
+        """By launcher field, what an empty one stands for on this machine."""
+        found = own_file(str(settings.get("bin_path") or ""))
+        return {"ini_path": str(found)} if found else {}
 
     def inherited_from_folder(self, target: str,
                               settings: Mapping[str, Any]) -> dict[str, str]:
@@ -339,7 +387,7 @@ def _inherited(scope: str, values: Mapping[str, str],
     excepted."""
     if scope == SCOPE_LAUNCHER:
         return frozenset()
-    app = _read(_app_ini(settings))
+    app = _read(settings_file(settings))
     return frozenset(key for key, value in values.items()
                      if str(value) != "" and key not in CONTEXTUAL
                      and _alike(key, _given(app, key), str(value)))

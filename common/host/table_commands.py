@@ -69,7 +69,7 @@ def _values(game: Game, playing: apps.Entry, launcher: Launcher | None) -> dict[
         "key": str(playing.key or ""),
         "rom": str(entry.get("rom") or ""),
         "launcher_bin": str(settings.get("bin_path") or ""),
-        "launcher_ini": str(settings.get("ini_path") or ""),
+        "launcher_ini": str((launcher.in_effect("ini_path") if launcher else "") or ""),
         "location": str(getattr(game, "location_id", "") or ""),
     }
     return tokens.filled(tokens.TABLE, built)

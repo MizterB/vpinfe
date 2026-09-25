@@ -209,11 +209,7 @@ def render_panel(tab=None):
 
         held = launchers.default_launcher()
         vpxbin = str((held.value('bin_path') if held else '') or '').strip()
-        global_ini_override = str((held.value('ini_override') if held else '') or '').strip()
-        tableini_enabled = _as_bool(held.value('table_ini_override_enabled')
-                                    if held else False)
-        tableini_mask = str((held.value('table_ini_override_mask') if held else '')
-                            or '').strip()
+        settings_file = str((held.value('ini_path') if held else '') or '').strip()
         launch_env = str((held.value('launch_env') if held else '') or '').strip()
 
         from common import apps
@@ -221,12 +217,7 @@ def render_panel(tab=None):
         app = apps.get(held.app if held else '') or apps.default_app()
         command = app.launch.command(
             apps.Entry(table=sample_vpx),
-            {
-                'bin_path': vpxbin or '<no launcher configured>',
-                'ini_override': global_ini_override,
-                'table_ini_override_enabled': tableini_enabled,
-                'table_ini_override_mask': tableini_mask,
-            },
+            {'bin_path': vpxbin or '<no launcher configured>', 'ini_path': settings_file},
         )
         env_line = launch_env if launch_env else '(none)'
         return shlex.join(command), env_line

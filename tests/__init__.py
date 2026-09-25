@@ -35,6 +35,13 @@ if not os.environ.get("VPINFE_CONFIG_DIR", "").strip():
     os.environ["VPINFE_CONFIG_DIR"] = _TEST_CONFIG_DIR
     atexit.register(shutil.rmtree, _TEST_CONFIG_DIR, ignore_errors=True)
 
+# Nor against the machine's own VPinballX.ini, which an empty Settings File stands for:
+# a launcher-scope write would change it. Assigned, not a started patch, which any
+# test's `patch.stopall()` would lift.
+from apps.vpx import config as _vpx_config  # noqa: E402
+
+_vpx_config._machine_folders = lambda: (None, None)  # type: ignore[attr-defined]
+
 # Nothing in the suite may power the machine off, restart it, or replace the test
 # process with a new one.
 #

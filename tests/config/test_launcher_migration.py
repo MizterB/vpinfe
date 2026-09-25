@@ -8,6 +8,7 @@ it already had rather than a bare copy of Visual Pinball.
 import configparser
 import os
 import unittest
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -69,19 +70,22 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(one.value("bin_path"), "/opt/vpinball/VPinballX_GL")
         self.assertEqual(one.value("ini_path"), "/home/cab/VPinballX.ini")
         self.assertIs(one.value("log_delete_on_start"), True)
-        self.assertEqual(one.value("table_ini_override_mask"), "windows")
+        self.assertNotIn("table_ini_override_mask", one.settings)
 
     def test_a_3x_file_seeds_from_the_current_spellings(self) -> None:
         parser = configparser.ConfigParser()
         parser.add_section("general")
         parser.set("general", "vpx_bin_path", "/usr/bin/VPinballX_BGFX")
+        parser.set("general", "vpx_ini_path", "/cfg/VPinballX.ini")
         parser.set("general", "global_ini_override", "/cfg/other.ini")
 
         self._seed(parser)
 
         one = self.store.launchers()[0]
         self.assertEqual(one.value("bin_path"), "/usr/bin/VPinballX_BGFX")
-        self.assertEqual(one.value("ini_override"), "/cfg/other.ini")
+        self.assertEqual(one.value("ini_path"), "/cfg/other.ini",
+                         "the override was the file Visual Pinball started with")
+        self.assertNotIn("ini_override", one.settings)
 
     def test_an_install_with_nothing_configured_still_gets_one(self) -> None:
         """A launcher with no binary is something a person can fix from the Console. No
@@ -118,7 +122,7 @@ class SeedTests(unittest.TestCase):
         profile = self.store.launchers()[1]
         self.assertEqual(profile.value("bin_path"), "/usr/bin/VPinballX_GL")
         self.assertEqual(profile.value("launch_env"), "SDL_VIDEODRIVER=wayland")
-        self.assertTrue(profile.value("ini_override").endswith("no-dmd.ini"))
+        self.assertTrue(profile.value("ini_path").endswith("no-dmd.ini"))
 
     def test_only_the_profiles_are_claimed_as_ours_to_delete(self) -> None:
         """Removing a launcher offers to delete the ini it owns. The shipped one points
@@ -313,6 +317,69 @@ class AssignmentTests(unittest.TestCase):
         self._run([_Game("vr", {"alt_launcher": "/opt/x/VPinballX"})])
 
         self.assertEqual(self.store.mappings(), {})
+
+
+class TablePatternTests(unittest.TestCase):
+    """A 2.x per-table `{stem}.{mask}.ini` becomes the table's own `{stem}.ini`."""
+
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.store = launchers.LauncherStore(
+            os.path.join(self.tmp.name, "launchers.json"))
+        self.game_dir = Path(self.tmp.name) / "Example (Maker 1990)"
+        self.game_dir.mkdir()
+        (self.game_dir / "Example.vpx").write_text("", encoding="utf-8")
+
+    def _game(self) -> _Game:
+        game = _Game("Example (Maker 1990)", {},
+                     {"t-example": {"filename": "Example.vpx"}})
+        game.full_path_game = str(self.game_dir)  # type: ignore[attr-defined]
+        return game
+
+    def _run(self, enabled: str = "true", mask: str = "windows") -> int:
+        return launcher_migration.retire_table_pattern(
+            self.store,
+            _config(globaltableinioverrideenabled=enabled, globaltableinioverridemask=mask),
+            [self._game()])
+
+    def _file(self, name: str, text: str) -> Path:
+        path = self.game_dir / name
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_the_patterned_file_becomes_the_tables_own(self) -> None:
+        self._file("Example.windows.ini", "[Player]\nBallSize = 52\n")
+
+        self.assertEqual(self._run(), 1)
+
+        self.assertFalse((self.game_dir / "Example.windows.ini").exists())
+        self.assertIn("BallSize", (self.game_dir / "Example.ini").read_text(encoding="utf-8"))
+
+    def test_a_table_with_its_own_keeps_both_and_says_so(self) -> None:
+        self._file("Example.windows.ini", "[Player]\nmasked = 1\n")
+        self._file("Example.ini", "[Player]\nown = 1\n")
+
+        with self.assertLogs("vpinfe.common.games.launcher_migration", "WARNING"):
+            self.assertEqual(self._run(), 0)
+
+        self.assertTrue((self.game_dir / "Example.windows.ini").exists())
+        self.assertIn("own", (self.game_dir / "Example.ini").read_text(encoding="utf-8"))
+
+    def test_nothing_moves_where_the_pattern_was_off(self) -> None:
+        self._file("Example.windows.ini", "[Player]\n")
+
+        self.assertEqual(self._run(enabled="false"), 0)
+
+        self.assertFalse((self.game_dir / "Example.ini").exists())
+
+    def test_it_runs_once(self) -> None:
+        self._run()
+        self._file("Example.windows.ini", "[Player]\n")
+
+        self.assertEqual(self._run(), 0)
+
+        self.assertFalse((self.game_dir / "Example.ini").exists())
 
 
 if __name__ == "__main__":

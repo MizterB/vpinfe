@@ -10,8 +10,9 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
-from apps.vpx.config import VPXConfig
+from apps.vpx.config import VPXConfig, own_file, settings_file
 from apps.vpx.setting_types import TYPES
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
 
@@ -548,6 +549,56 @@ class WritingLikeTheProgramTests(_Case):
         self.config.write("launcher", str(self.table), {KEY: "1"}, self.settings)
 
         self.assertIn("BackglassOutput = 1", self.app_ini.read_text())
+
+
+class OwnFileTests(unittest.TestCase):
+    """An empty Settings File is the one Visual Pinball reads when given none."""
+
+    def setUp(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        patcher = mock.patch("apps.vpx.config._machine_folders",
+                             return_value=(self.root / "VPinballX", self.root / ".vpinball"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _file(self, *parts: str) -> Path:
+        path = self.root.joinpath(*parts)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[Player]\n", encoding="utf-8")
+        return path
+
+    def test_the_newest_version_folder_wins(self) -> None:
+        self._file("VPinballX", "10.8", "VPinballX.ini")
+        newest = self._file("VPinballX", "10.10", "VPinballX.ini")
+        self._file("VPinballX", "VPinballX.ini")
+
+        self.assertEqual(own_file(), newest)
+
+    def test_one_beside_the_program_comes_before_the_old_layouts(self) -> None:
+        beside = self._file("opt", "vpinball", "VPinballX.ini")
+        self._file("VPinballX", "VPinballX.ini")
+
+        self.assertEqual(own_file(str(self.root / "opt" / "vpinball" / "VPinballX_GL")),
+                         beside)
+
+    def test_the_old_layouts_are_still_found(self) -> None:
+        standalone = self._file(".vpinball", "VPinballX.ini")
+
+        self.assertEqual(own_file(), standalone)
+
+    def test_none_where_there_is_none_yet(self) -> None:
+        self.assertIsNone(own_file("/opt/vpinball/VPinballX_GL"))
+        self.assertEqual(VPXConfig().left_empty({"bin_path": ""}), {})
+
+    def test_an_empty_field_says_which_it_is(self) -> None:
+        own = self._file("VPinballX", "10.8", "VPinballX.ini")
+
+        self.assertEqual(VPXConfig().left_empty({"ini_path": ""}), {"ini_path": str(own)})
+        self.assertEqual(settings_file({"ini_path": ""}), own)
+        self.assertEqual(settings_file({"ini_path": "/cfg/other.ini"}),
+                         Path("/cfg/other.ini"))
 
 
 if __name__ == "__main__":

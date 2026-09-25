@@ -258,9 +258,10 @@ try:
     # After the ids, because a launcher assignment is recorded against a table and a
     # table has no id until the line above has run. One-time, marked so it never runs
     # twice, and it only writes the games that carried an override.
-    from common.games.launcher_migration import migrate_assignments
+    from common.games.launcher_migration import migrate_assignments, retire_table_pattern
     from common.games.launchers import get_launcher_store
     migrate_assignments(get_launcher_store(), games)
+    retire_table_pattern(get_launcher_store(), config_store, games)
 except Exception:
     logger.exception("Id backfill failed; games or tables without an id are not addressable")
 

@@ -39,6 +39,13 @@ class BootstrapTests(unittest.TestCase):
                             f"assert depends on whose machine they run on. {self.USE}")
 
 
+    def test_visual_pinballs_own_settings_are_out_of_reach(self) -> None:
+        from apps.vpx import config
+        self.assertEqual(config._machine_folders(), (None, None),
+                         "a launcher with an empty Settings File would read and write "
+                         f"this machine's real VPinballX.ini. {self.USE}")
+
+
 def _resolve_config_dir_without_override() -> Path:
     """Where a real install would keep its config on this machine."""
     return Path(user_config_dir("vpinfe", "vpinfe"))

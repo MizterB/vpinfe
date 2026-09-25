@@ -19,7 +19,7 @@ import unittest
 from dataclasses import fields
 from pathlib import Path
 
-from apps.vpx.launch import VPXLaunch, masked_tableini_path, resolve_tableini_override
+from apps.vpx.launch import VPXLaunch
 from common.apps.contract import Entry
 from common.games import (
     archive_service,
@@ -75,11 +75,6 @@ class TheLaunchableArtifactIsATable(unittest.TestCase):
         named_game = [f.name for f in fields(Entry)
                       if f.name.startswith("game") and f.name != "game_dir"]
         self.assertEqual(named_game, [])
-
-        for func in (masked_tableini_path, resolve_tableini_override):
-            with self.subTest(func=func.__name__):
-                self.assertEqual([p for p in _parameters(func)
-                                  if p.startswith("game")], [])
 
 
 class TheFolderIsAGame(unittest.TestCase):
