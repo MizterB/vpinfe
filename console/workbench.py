@@ -4055,16 +4055,26 @@ def _config_mark(held: dict, scope: str, field: Any) -> Callable[[], None] | Non
 
 def _marked(control: Callable[[], None], held: dict, field: Any, app_name: str,
             redraws: list[Callable[[], None]] | None = None, *,
-            on_leave: Callable[[], Any] | None = None) -> Callable[[], None]:
-    """A value, with a dot before it where this scope sets it, and whose it is on
-    hover. Each draw adds to `redraws` what brings the dot and the hover up to `held`
-    without drawing the control again. `on_leave` runs when focus leaves the value."""
+            on_leave: Callable[[], Any] | None = None,
+            clear: Callable[[], Awaitable[None]] | None = None,
+            playing: bool = False) -> Callable[[], None]:
+    """A value, with a dot before it where this scope sets it, whose it is on hover, and
+    `clear` at the line's end while this scope sets it. Each draw adds to `redraws` what
+    brings the dot, the hover and Clear up to `held` without drawing the control again.
+    `on_leave` runs when focus leaves the value.
+
+    Clear only where there is something to clear: on an untouched row it would be a
+    control that does nothing, and a column of inert verbs teaches people to stop reading
+    them.
+    """
     def draw() -> None:
-        with ui.row().classes("items-center gap-1 no-wrap console-field-row") as row:
-            dot = ui.element("span").classes(
-                "console-mark console-mark--full console-named-mark")
-            control()
-            whose = ui.tooltip("")
+        with ui.row().classes("items-center gap-1 no-wrap console-field-line"):
+            with ui.row().classes("items-center gap-1 no-wrap console-field-row") as row:
+                dot = ui.element("span").classes(
+                    "console-mark console-mark--full console-named-mark")
+                control()
+                whose = ui.tooltip("")
+            end = ui.element("div").classes("console-row-action")
         if on_leave is not None:
             row.on("focusout", on_leave)
 
@@ -4074,6 +4084,13 @@ def _marked(control: Callable[[], None], held: dict, field: Any, app_name: str,
             dot.classes(add="console-named-mark--off" if off else None,
                         remove=None if off else "console-named-mark--off")
             whose.text = _whose_value(held, field, app_name)
+            end.clear()
+            if clear is not None and held.get("set_here"):
+                with end:
+                    panel.icon_action(t("word.clear"), clear, icon=verbs.CLEAR,
+                                      enabled=not playing,
+                                      hint=t(PLAYING_NOTE) if playing
+                                      else _clear_hint(held, field, app_name))()
 
         show()
         if redraws is not None:
@@ -4134,19 +4151,12 @@ def _clear_hint(held: dict, field: Any, app_name: str) -> str:
 
 
 def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field: Any,
-            clear: Callable[[str], Callable[[], Awaitable[None]]], app_name: str,
-            playing: bool = False,
             redraws: list[Callable[[], None]] | None = None,
             more: Callable[[dict, Any], Callable[[], None] | None] | None = None,
             beyond: Callable[[], None] | None = None,
             ) -> Callable[[], None]:
-    """The mark, where it is somebody's own value the way back off it and whatever
-    `more` offers for it, then `beyond` whoever's value it is. Drawn as a panel ASIDE,
-    whose cell it hides while it holds none of them.
-
-    Clear only where there is something to clear. Almost every setting in this program is
-    untouched, so on every row it would be a control that does nothing, and a row of
-    inert verbs teaches people to stop reading them.
+    """The mark, whatever `more` offers for somebody's own value, then `beyond` whoever's
+    value it is. Drawn as a panel ASIDE, whose cell it hides while it holds none of them.
     """
     def draw() -> None:
         cell = ui.context.slot.parent
@@ -4155,21 +4165,15 @@ def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field:
         def fill() -> None:
             box.clear()
             mark = mark_of()
+            verb = more(held, field) if more is not None and held.get("set_here") else None
             with box:
                 if mark is not None:
                     mark()
-                if held.get("set_here"):
-                    panel.action(t("word.clear"), clear(field.key),
-                                 icon=verbs.CLEAR, inline=True,
-                                 enabled=not playing,
-                                 hint=t(PLAYING_NOTE) if playing
-                                 else _clear_hint(held, field, app_name))()
-                    if more is not None and (verb := more(held, field)) is not None:
-                        verb()
+                if verb is not None:
+                    verb()
                 if beyond is not None:
                     beyond()
-            cell.set_visibility(mark is not None or bool(held.get("set_here"))
-                                or beyond is not None)
+            cell.set_visibility(mark is not None or verb is not None or beyond is not None)
 
         fill()
         if redraws is not None:
@@ -4424,10 +4428,11 @@ async def _setting_entries(context: dict[str, Any],
                 check=_unreported(held.get("value"), reported, app_name),
                 suggestions={REPORTED: dict(zip(reported, reported, strict=True))})
             entries.append((field.label, _marked(control, held, field, app_name, redraws,
-                                                 on_leave=settle if typed else None)))
+                                                 on_leave=settle if typed else None,
+                                                 clear=clear(field.key), playing=playing)))
             entries.append((panel.ASIDE, _beside(
-                partial(_mark_for, held, scope, field, offered), held, field, clear,
-                app_name, playing, redraws, context.get("config_more"),
+                partial(_mark_for, held, scope, field, offered), held, field,
+                redraws, context.get("config_more"),
                 _in_turn(_conflict(clashing[field.key]) if field.key in clashing else None,
                          _tables_of_their_own(launcher, field.key, their_own[field.key])
                          if their_own.get(field.key) else None))))

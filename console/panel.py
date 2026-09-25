@@ -865,6 +865,21 @@ def action(label: str,
     return draw
 
 
+def icon_action(label: str, on_click: Callable[[], Any], *, icon: str, hint: str = "",
+                enabled: bool = True) -> Callable[[], None]:
+    """A verb drawn as its icon alone, for one repeated down a column of rows. `label` is
+    its name to a screen reader, and `hint` what it says on hover."""
+    def draw() -> None:
+        control = ui.button(icon=icon, on_click=on_click).props("flat dense round size=sm")
+        control.props["aria-label"] = label
+        if not enabled:
+            control.disable()
+        if hint:
+            control.tooltip(hint)
+
+    return draw
+
+
 def menu_entry(label: str, on_click: Callable[..., Any] | None = None, *,
                mark: Callable[[], Any] | None = None,
                trail: Callable[[], Any] | None = None,

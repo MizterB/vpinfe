@@ -438,6 +438,71 @@ class ReportedNameTests(unittest.IsolatedAsyncioTestCase):
         rebuild.assert_awaited_once()
 
 
+class ClearTests(unittest.IsolatedAsyncioTestCase):
+    """Clear is on the value's own line, and only where this scope sets the value."""
+
+    FIELD = SimpleNamespace(key="Player.BGSet", type="text", label="View Mode", default="",
+                            description="", choices=(("0", "Desktop"), ("2", "Floating")),
+                            scopes=("launcher", "entry"), help="")
+    SET = {"set_here": True, "in_effect": True, "scope": "entry", "value": "0",
+           "fallback_scope": "launcher", "fallback": "2"}
+
+    def _drawn(self, held: dict, playing: bool = False) -> tuple[Mock, Mock]:
+        wipe = AsyncMock()
+        with patch.object(workbench, "ui"), \
+                patch.object(workbench.panel, "icon_action") as icon_action, \
+                patch.object(workbench.panel, "action") as action:
+            workbench._marked(Mock(), dict(held), self.FIELD, "Visual Pinball X",
+                              clear=wipe, playing=playing)()
+            workbench._beside(lambda: None, dict(held), self.FIELD)()
+        self.wipe = wipe
+        return icon_action, action
+
+    def test_it_is_drawn_on_the_value_s_line_and_not_under_it(self) -> None:
+        icon_action, action = self._drawn(self.SET)
+
+        self.assertEqual(icon_action.call_args.args, (t("word.clear"), self.wipe))
+        self.assertEqual(icon_action.call_args.kwargs["icon"], workbench.verbs.CLEAR)
+        action.assert_not_called()
+
+    def test_its_hover_says_what_it_goes_back_to(self) -> None:
+        icon_action, _ = self._drawn(self.SET)
+
+        self.assertEqual(icon_action.call_args.kwargs["hint"], "Back to Floating - All Tables")
+        self.assertTrue(icon_action.call_args.kwargs["enabled"])
+
+    def test_while_a_table_is_playing_it_is_off_and_says_why(self) -> None:
+        icon_action, _ = self._drawn(self.SET, playing=True)
+
+        self.assertFalse(icon_action.call_args.kwargs["enabled"])
+        self.assertEqual(icon_action.call_args.kwargs["hint"],
+                         t(workbench.PLAYING_NOTE))
+
+    def test_a_value_this_scope_does_not_set_has_none(self) -> None:
+        icon_action, action = self._drawn({**self.SET, "set_here": False})
+
+        icon_action.assert_not_called()
+        action.assert_not_called()
+
+    async def test_each_row_s_clear_empties_its_own_key(self) -> None:
+        library = Mock()
+        context = {"library": library, "launcher": {"launcher_id": "probe"},
+                   "config_scope": "entry", "config_table": "t1", "rebuild": AsyncMock()}
+        self.enterContext(patch.object(workbench, "ui"))
+        self.enterContext(patch.object(workbench, "_config_values",
+                                       new=AsyncMock(return_value={})))
+        self.enterContext(patch.object(workbench.settings_page, "control_for"))
+        self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock()))
+        marked = self.enterContext(patch.object(workbench, "_marked"))
+        await workbench._setting_entries(context, [("", "", [self.FIELD])])
+
+        await marked.call_args.kwargs["clear"]()
+
+        workbench.run.io_bound.assert_awaited_once_with(
+            library.write_launcher_config, "probe", {"Player.BGSet": ""}, table="t1",
+            scope="entry")
+
+
 class TableSettingsTitleTests(unittest.TestCase):
     """Every setting at one table, in the dialog Show Every Setting opens."""
 
@@ -917,13 +982,11 @@ class SetForAllTests(unittest.TestCase):
 
         self.assertEqual(cut, [{"id": "b"}])
 
-    def test_a_row_draws_it_beside_clear(self) -> None:
+    def test_a_row_draws_it_on_the_line_under_its_value(self) -> None:
         verb = Mock()
         more = Mock(return_value=verb)
-        with patch.object(workbench, "ui"), \
-                patch.object(workbench.panel, "action", return_value=Mock()):
-            workbench._beside(lambda: None, dict(self.SET), self.FIELD, Mock(), "VPX",
-                              more=more)()
+        with patch.object(workbench, "ui"):
+            workbench._beside(lambda: None, dict(self.SET), self.FIELD, more=more)()
 
         more.assert_called_once()
         verb.assert_called_once_with()
@@ -1319,7 +1382,7 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
         await workbench._setting_entries(
             context, [("", "", [_field("Player.PlayMusic", scopes=("launcher", "entry")),
                                 _field("Player.FXAA", scopes=("launcher", "entry"))])])
-        return [call.args[8] for call in beside.call_args_list]
+        return [call.args[5] for call in beside.call_args_list]
 
     async def test_a_row_for_all_tables_carries_it_where_a_table_sets_its_own(
             self) -> None:

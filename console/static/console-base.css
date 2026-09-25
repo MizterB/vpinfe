@@ -763,6 +763,14 @@ body::before {
   display: flex; flex-direction: column;
 }
 .console-field-row > .console-fact-edit { flex: 1 1 auto; min-width: 0; }
+.console-field-line > .console-field-row { flex: 1 1 auto; min-width: 0; }
+/* Held open on a row with nothing to clear too. */
+.console-field-line > .console-row-action { min-width: var(--target-inline); justify-content: center; }
+.console-field-line > .console-row-action .q-btn {
+  width: var(--target-inline); height: var(--target-inline);
+  min-width: var(--target-inline); min-height: var(--target-inline);
+}
+.console-field-line > .console-row-action .q-icon { font-size: var(--icon-row); }
 .console-dialog-title {
   font-size: var(--fs-body); font-weight: 600; color: var(--ink); line-height: 1.35;
   padding: 0 12px 6px;
@@ -1158,7 +1166,10 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
 @media (hover: hover) and (pointer: fine) {
   .console-row-action { opacity: 0; }
   .console-member-row:hover .console-row-action,
-  .console-member-row:focus-within .console-row-action { opacity: 1; }
+  .console-member-row:focus-within .console-row-action,
+  .console-field-line:hover .console-row-action,
+  .console-field-line:focus-within .console-row-action,
+  .console-fact-label:hover + .console-field-line .console-row-action { opacity: 1; }
   /* A row in a state somebody has to act on keeps its action visible. Hover-revealing
      it is right where the row is mostly read and the act is occasional; it is wrong
      where the row exists in order to be acted on, which is what these states are. */
@@ -1584,11 +1595,10 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-action--inline.q-btn {
   font-weight: 400;
   padding: 3px 8px !important;
-  /* Hugs the chip it sits beside rather than taking the pointer floor every other
-     control clears. The exception is deliberate and it is the only one: this verb is a
-     second control on a row that already has a value, and a box half again the height
-     of the state it changes reads as the row's subject. A finger gets the floor back,
-     below. */
+  /* Hugs the chip it sits beside rather than taking the pointer floor. The exception is
+     deliberate: this verb is a second control on a row that already has a value, and a
+     box half again the height of the state it changes reads as the row's subject. A
+     finger gets the floor back, below. */
   min-height: var(--target-inline);
   line-height: 1;
 }
