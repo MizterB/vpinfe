@@ -387,6 +387,37 @@ class DifferencesTests(unittest.TestCase):
 
         self.assertEqual(found[0][1][0].label, "B2S Legacy: Enable")
 
+    DISPLAYS = _group(
+        "displays",
+        _field("Player.PlayfieldFullScreen", "Display Mode"),
+        _field("Player.PlayfieldWidth", "Width"),
+        _field("Backglass.BackglassFullScreen", "Display Mode"),
+        _field("Backglass.BackglassWidth", "Width"),
+        _field("Backglass.BackglassFSWidth", "Width"),
+        _field("Player.BGSet", "View Mode"),
+        curated=(SimpleNamespace(key="playfield", label="Playfield",
+                                 keys=("Player.PlayfieldFullScreen", "Player.PlayfieldWidth")),
+                 SimpleNamespace(key="backglass", label="Backglass",
+                                 keys=("Backglass.BackglassFullScreen",
+                                       "Backglass.BackglassWidth")),
+                 SimpleNamespace(key="cabinet", label="Cabinet", keys=("Player.BGSet",))))
+
+    def _labels(self, *keys: str) -> list[str]:
+        found = app_settings.differences([self.DISPLAYS], dict.fromkeys(keys, self.SET))
+        return [field.label for field in found[0][1]]
+
+    def test_a_row_several_windows_share_names_its_window(self) -> None:
+        """Even alone: under Displays, Display Mode on its own says nothing about which
+        window."""
+        self.assertEqual(self._labels("Backglass.BackglassFullScreen"),
+                         ["Backglass Display Mode"])
+
+    def test_a_label_nothing_else_in_the_area_shares_is_the_program_s(self) -> None:
+        self.assertEqual(self._labels("Player.BGSet"), ["View Mode"])
+
+    def test_a_window_s_row_it_does_not_curate_goes_with_its_window(self) -> None:
+        self.assertEqual(self._labels("Backglass.BackglassFSWidth"), ["Backglass Width"])
+
     def test_the_camera_is_not_listed_setting_by_setting(self) -> None:
         view = _field("TableOverride.ViewCabMode")
 

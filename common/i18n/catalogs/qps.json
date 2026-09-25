@@ -285,6 +285,7 @@
   },
   "console.app_settings.show_every_setting": "Šĥöŵ Èṽèřý Šèţţîñĝ",
   "console.app_settings.unused": "Ûñûšèđ",
+  "console.app_settings.window_row": "{window} {label}",
   "console.assets.assets": "{value} öƒ {len} àššèţš",
   "console.assets.assets_missing": "{count} àššèţš, {gaps} ɱîššîñĝ",
   "console.assets.correctly_named_files_nothing.help": "Çöřřèçţŀý ñàɱèđ ƒîŀèš ţĥàţ ñöţĥîñĝ ŀöàđš",

@@ -7,6 +7,7 @@ table, is one step further: Show Every Setting.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from functools import partial
 from types import SimpleNamespace
@@ -100,7 +101,8 @@ async def _program_entries(context: dict[str, Any],
 def differences(groups: Sequence[Any], values: dict[str, Any]) -> list[tuple[str, list[Any]]]:
     """What this table's file sets and what reaches it from its game's, by area: the rows
     an area curates first, in its order, then the rest in the program's. A plugin's rows
-    lead with the plugin's name, which is all that tells five Enables apart."""
+    lead with the plugin's name, which is all that tells five Enables apart, and a row
+    whose label another setting in its area shares leads with its window's."""
     names = workbench._plugin_names(groups)
     found = []
     for group in groups:
@@ -112,7 +114,7 @@ def differences(groups: Sequence[Any], values: dict[str, Any]) -> list[tuple[str
                          if _differs(values.get(field.key) or {})),
                         key=lambda field: order.get(field.key, len(order)))
         if fields:
-            found.append((group.label, [_named(field, names) for field in fields]))
+            found.append((group.label, [_named(field, group, names) for field in fields]))
     return found
 
 
@@ -120,14 +122,36 @@ def _differs(held: dict[str, Any]) -> bool:
     return bool(held.get("set_here")) or held.get("scope") == "folder"
 
 
-def _named(field: Any, names: dict[str, str]) -> Any:
+def _named(field: Any, group: Any, names: dict[str, str]) -> Any:
     section = workbench._section_of(field.key)
-    if not section.startswith(workbench.PLUGIN_SECTION):
+    if section.startswith(workbench.PLUGIN_SECTION):
+        plugin = section[len(workbench.PLUGIN_SECTION):]
+        label = t("console.app_settings.plugin_row", plugin=names.get(plugin, plugin),
+                  label=field.label)
+    elif (sum(one.label == field.label for one in group.settings) > 1
+          and (window := _window_of(field.key, group))):
+        label = t("console.app_settings.window_row", window=window, label=field.label)
+    else:
         return field
-    plugin = section[len(workbench.PLUGIN_SECTION):]
-    return SimpleNamespace(**{**vars(field), "label": t(
-        "console.app_settings.plugin_row", plugin=names.get(plugin, plugin),
-        label=field.label)})
+    return SimpleNamespace(**{**vars(field), "label": label})
+
+
+def _window_of(key: str, group: Any) -> str:
+    """The curated heading a setting is drawn under, or the one whose keys its own
+    continues: `BackglassFSWidth` goes with the heading of `BackglassOutput` and
+    `BackglassDisplay`."""
+    held = next((heading for heading in group.curated if key in heading.keys), None)
+    if held is not None:
+        return str(held.label)
+    name = key.rsplit(".", 1)[-1]
+    for heading in group.curated:
+        names = [one.rsplit(".", 1)[-1] for one in heading.keys]
+        stem = os.path.commonprefix(names)
+        if (len(names) > 1 and stem and name.startswith(stem)
+                and {workbench._section_of(one) for one in heading.keys}
+                == {workbench._section_of(key)}):
+            return str(heading.label)
+    return ""
 
 
 def _camera(groups: Sequence[Any], values: dict[str, Any]) -> list[tuple[Any, Any]]:
