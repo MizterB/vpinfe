@@ -1123,17 +1123,19 @@ def _settings_cell(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def setting_their_own(rows: list[dict[str, Any]], launcher_id: str,
-                      key: str) -> dict[str, Any] | None:
-    """A filter on the launcher's tables that set `key` for themselves, as an address
-    asks for one. None where it names no launcher a table uses, or no setting."""
+                      keys: str) -> dict[str, Any] | None:
+    """A filter on the launcher's tables that set any of `keys`, comma separated, for
+    themselves, as an address asks for one. None where it names no launcher a table
+    uses, or no setting."""
     name = next((str(row.get("launcher_name") or "") for row in rows
                  if launcher_id and row.get("launcher") == launcher_id), "")
-    if not name or not key:
+    wanted = [key for key in keys.split(",") if key]
+    if not name or not wanted:
         return None
     return {"launcher": {"filterType": "text", "operator": "OR", "conditions": [
                 {"filterType": "text", "type": "equals", "filter": said}
                 for said in (name, f"{SET_HERE_MARK}{name}")]},
-            OWN_SETTINGS_COLUMN: {"values": [key]}}
+            OWN_SETTINGS_COLUMN: {"values": wanted}}
 
 
 def _default_cell(row: dict[str, Any], held: int) -> str:

@@ -1749,6 +1749,7 @@
   "console.workbench.other_programs": "Other Programs",
   "console.workbench.own_game_now": "It is its own game now",
   "console.workbench.page_buttons": "Page Buttons",
+  "console.workbench.part_said": "{label}: {said}",
   "console.workbench.past_limit": "Not shown in the frontend - limit {limit}",
   "console.workbench.path_table_file": "/path/to/the/table file",
   "console.workbench.place_of_total": "{place} of {total}",

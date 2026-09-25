@@ -112,7 +112,11 @@ def config_groups(found: dict[str, Any]) -> list:
             key=h["key"], label=h["label"],
             note=h.get("note") or h.get("description", ""),
             keys=tuple(h["keys"]), enabled_by=h.get("enabled_by", ""),
-            rivals=tuple(h.get("rivals") or ()))
+            rivals=tuple(h.get("rivals") or ()),
+            pairs=tuple(SimpleNamespace(
+                key=p["key"], label=p["label"], note=p.get("note", ""),
+                joiner=p.get("joiner", ""), keys=tuple(p["keys"]))
+                for p in h.get("pairs") or ()))
             for h in g.get("curated") or ()],
         settings=[SimpleNamespace(
             key=f["key"], label=f["label"], type=f["type"],

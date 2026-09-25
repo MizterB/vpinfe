@@ -1018,21 +1018,22 @@ def _package_strings(app_id: str) -> set[str]:
 _FIELD_WORD = re.compile(r"field\.(.+)\.(label|description|help)")
 _CHOICE_WORD = re.compile(r"field\.(.+)\.choice\.[^.]+\.help")
 _GROUP_WORD = re.compile(r"group\.([^.]+)\.label")
-_HEADING_WORD = re.compile(r"group\.([^.]+)\.heading\.([^.]+)\.(label|note)")
+_HEADING_WORD = re.compile(r"group\.([^.]+)\.(?:heading\.([^.]+)\.(?:label|note)"
+                           r"|pair\.([^.]+)\.(?:label|note|joiner))")
 
 
 def _asked_for(key: str, named: set[str]) -> bool:
     """Whether the key is one the contract's lookups can form from something the app
     names: a reason itself, a field's words or a choice's, a group's label, or a heading's
-    words."""
+    words or a pair's."""
     if key in named:
         return True
     found = (_CHOICE_WORD.fullmatch(key) or _FIELD_WORD.fullmatch(key)
              or _GROUP_WORD.fullmatch(key))
     if found is not None:
         return found[1] in named
-    heading = _HEADING_WORD.fullmatch(key)
-    return heading is not None and heading[1] in named and heading[2] in named
+    under = _HEADING_WORD.fullmatch(key)
+    return under is not None and under[1] in named and (under[2] or under[3]) in named
 
 
 def _reasons(app_id: str) -> list[str]:

@@ -536,6 +536,11 @@ every member, and `curated` names the few a client draws first, under headings:
 - `rivals` names other headings' switches, where the heading has one: while its switch
   and a rival are both on, the program uses only one of them. B2S and B2SLegacy are each
   other's. A rival is listed only where it is itself a heading's switch at this scope.
+- `pairs` names two of `keys` drawn as one row, each with a `key`, a `label`, a `note`,
+  its two `keys` in order and a `joiner`, what stands between the two values. Each VPX
+  window pairs its `WndX` and `WndY` as *Position*, joined by a comma, and its `Width` and
+  `Height` as *Size*, joined by a times sign. A pair is listed only where the scope shows
+  both of its keys.
 - `summarized` is true for a group said as one line rather than listed, the point of view.
   `rows` names the ones it draws as rows of their own all the same: the view mode of each
   view the table starts in, by its `Player.BGSet`, then any other view mode the table sets.

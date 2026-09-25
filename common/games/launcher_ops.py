@@ -345,7 +345,11 @@ def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict
                           "keys": keys,
                           "enabled_by": heading.enabled_by if switched else "",
                           "rivals": [key for key in heading.rivals if key in switches]
-                          if switched else []})
+                          if switched else [],
+                          "pairs": [{"key": pair.key,
+                                     **apps.pair_words(app_id, group.key, pair),
+                                     "keys": list(pair.keys)}
+                                    for pair in heading.pairs if set(pair.keys) <= shown]})
     return found
 
 

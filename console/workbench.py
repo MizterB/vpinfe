@@ -4041,27 +4041,35 @@ CAME_FROM = {
 }
 
 
-def _config_mark(held: dict, scope: str, field: Any) -> Callable[[], None] | None:
+def _config_mark(held: dict, scope: str, field: Any,
+                 paired: bool = False) -> Callable[[], None] | None:
     """The word beside a value, where it is an exception: Overridden, or a scope other
-    than this one and All Tables. Set here is the dot's to say (`_marked`)."""
+    than this one and All Tables. Set here is the dot's to say (`_marked`). One of a
+    `paired` two names itself in the hover."""
     if held.get("set_here") and not held.get("in_effect"):
+        said = _whose_value(held, field, "")
         return panel.state(t("console.workbench.not_effect"), "warn",
-                           hint=_whose_value(held, field, ""))
+                           hint=t("console.workbench.part_said", label=field.label,
+                                  said=said) if paired else said)
     came = held.get("scope") or ""
     if not held.get("set_here") and came not in ("", scope, "launcher"):
         return panel.state(t(CAME_FROM.get(came, "console.workbench.inherited")), "off")
     return None
 
 
-def _marked(control: Callable[[], None], held: dict, field: Any, app_name: str,
-            redraws: list[Callable[[], None]] | None = None, *,
+Part = tuple[Callable[[], None], dict, Any]
+
+
+def _marked(parts: Sequence[Part], app_name: str,
+            redraws: list[Callable[[], None]] | None = None, *, joiner: str = "",
             on_leave: Callable[[], Any] | None = None,
             clear: Callable[[], Awaitable[None]] | None = None,
             playing: bool = False) -> Callable[[], None]:
-    """A value, with a dot before it where this scope sets it, whose it is on hover, and
-    `clear` at the line's end while this scope sets it. Each draw adds to `redraws` what
-    brings the dot, the hover and Clear up to `held` without drawing the control again.
-    `on_leave` runs when focus leaves the value.
+    """One value, or a pair with `joiner` between them, as `(control, held, field)`: a
+    dot before it where this scope sets any of them, whose each is on hover, and `clear`
+    at the line's end while this scope sets any of them. Each draw adds to `redraws`
+    what brings the dot, the hover and Clear up to each `held` without drawing the
+    controls again. `on_leave` runs when focus leaves the line.
 
     Clear only where there is something to clear: on an untouched row it would be a
     control that does nothing, and a column of inert verbs teaches people to stop reading
@@ -4072,30 +4080,61 @@ def _marked(control: Callable[[], None], held: dict, field: Any, app_name: str,
             with ui.row().classes("items-center gap-1 no-wrap console-field-row") as row:
                 dot = ui.element("span").classes(
                     "console-mark console-mark--full console-named-mark")
-                control()
+                if len(parts) == 1:
+                    parts[0][0]()
+                else:
+                    _pair(parts, joiner)
                 whose = ui.tooltip("")
             end = ui.element("div").classes("console-row-action")
         if on_leave is not None:
             row.on("focusout", on_leave)
 
         def show() -> None:
-            dot.set_visibility(bool(held.get("set_here")))
-            off = bool(held.get("set_here")) and not held.get("in_effect", True)
+            held_here = [held for _, held, _ in parts if held.get("set_here")]
+            dot.set_visibility(bool(held_here))
+            off = bool(held_here) and not any(held.get("in_effect", True)
+                                              for held in held_here)
             dot.classes(add="console-named-mark--off" if off else None,
                         remove=None if off else "console-named-mark--off")
-            whose.text = _whose_value(held, field, app_name)
+            whose.text = _each_said(
+                [(field, _whose_value(held, field, app_name)) for _, held, field in parts],
+                len(parts))
             end.clear()
-            if clear is not None and held.get("set_here"):
+            if clear is not None and held_here:
                 with end:
                     panel.icon_action(t("word.clear"), clear, icon=verbs.CLEAR,
                                       enabled=not playing,
-                                      hint=t(PLAYING_NOTE) if playing
-                                      else _clear_hint(held, field, app_name))()
+                                      hint=t(PLAYING_NOTE) if playing else _each_said(
+                                          [(field, _clear_hint(held, field, app_name))
+                                           for _, held, field in parts
+                                           if held.get("set_here")], len(parts)))()
 
         show()
         if redraws is not None:
             redraws.append(show)
     return draw
+
+
+def _pair(parts: Sequence[Part], joiner: str) -> None:
+    """Each part's control, named by its label for a screen reader, with `joiner` before
+    the second."""
+    with ui.element("div").classes("console-field-pair"):
+        for index, (control, _, field) in enumerate(parts):
+            with ui.element("div").classes("console-field-part") as named:
+                if index and joiner:
+                    ui.label(joiner).classes("console-cell-join").props("aria-hidden=true")
+                control()
+            named.props["role"] = "group"
+            named.props["aria-label"] = field.label
+
+
+def _each_said(said: Sequence[tuple[Any, str]], of: int) -> str:
+    """What the parts of a row of `of` say: once where each of them says the same, else a
+    line per part led by its name."""
+    if len(said) == of and len({words for _, words in said}) == 1:
+        return said[0][1]
+    return "\n".join(t("console.workbench.part_said", label=field.label, said=words)
+                     for field, words in said)
 
 
 def _whose_value(held: dict, field: Any, app_name: str) -> str:
@@ -4210,7 +4249,8 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
     shown = curated_blocks(group, await _config_values(context))
     entries = await _setting_entries(
         context, [(heading.label, heading.note, fields) for heading, fields in shown],
-        curated=True, redraw_on={h.enabled_by for h in group.curated if h.enabled_by})
+        curated=True, redraw_on={h.enabled_by for h in group.curated if h.enabled_by},
+        pairs=[pair for heading, _ in shown for pair in heading.pairs])
     if rest := len(group.settings) - len(curated_keys(group)):
         entries.append((FULL, panel.action(
             t("console.workbench.more_in_all_settings", count=rest),
@@ -4307,11 +4347,12 @@ async def _config_values(context: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-def _mark_for(held: dict, scope: str, field: Any, offered: bool) -> Callable[[], None] | None:
+def _mark_for(held: dict, scope: str, field: Any, offered: bool,
+              paired: bool = False) -> Callable[[], None] | None:
     """`_config_mark`, or Unused where this scope holds a value the program never reads
     at it."""
     if offered:
-        return _config_mark(held, scope, field)
+        return _config_mark(held, scope, field, paired)
     if not held.get("set_here") or held.get("in_effect"):
         return None
     return panel.state(t("console.app_settings.unused"), "warn",
@@ -4321,10 +4362,12 @@ def _mark_for(held: dict, scope: str, field: Any, offered: bool) -> Callable[[],
 async def _setting_entries(context: dict[str, Any],
                            blocks: Sequence[tuple[str, str, Sequence[Any]]], *,
                            curated: bool = False, sub: bool = False,
-                           redraw_on: Collection[str] = ()) -> list[tuple[Any, Any]]:
+                           redraw_on: Collection[str] = (),
+                           pairs: Sequence[Any] = ()) -> list[tuple[Any, Any]]:
     """Settings as fact rows, block by block: its heading where it has one - a
     sub-heading with `sub` - the line under that, then its rows. A curated row's line is
-    the app's help where it has one; the program's description otherwise.
+    the app's help where it has one; the program's description otherwise. Two rows of a
+    block that `pairs` names are one row, under the pair's label and note.
 
     A write marks every row again in place, so a control keeps its focus. The panel is
     redrawn instead where a setting in `redraw_on` was written, or where the write changed
@@ -4339,7 +4382,7 @@ async def _setting_entries(context: dict[str, Any],
     values = await _config_values(context)
     scope = str(context.get("config_scope") or "launcher")
     table = str(context.get("config_table") or "")
-    their_own = await _set_by_tables(context) if scope == "launcher" and not table else {}
+    their_own = await _set_by_tables(context) if scope == "launcher" and not table else []
     groups = context.get("config_groups") or []
     clashing = conflicts(groups, values)
     redraw_on = {*redraw_on, *rival_switches(groups),
@@ -4356,13 +4399,15 @@ async def _setting_entries(context: dict[str, Any],
             pending["rebuild"] = False
             await context["rebuild"]()
 
-    def clear(key: str) -> Callable[[], Awaitable[None]]:
+    def clear(keys: Sequence[str]) -> Callable[[], Awaitable[None]]:
         async def wipe() -> None:
             try:
                 async with in_turn:
                     await run.io_bound(library.write_launcher_config,
-                                       launcher["launcher_id"], {key: ""}, table=table,
-                                       scope=scope)
+                                       launcher["launcher_id"],
+                                       {key: "" for key in keys
+                                        if rows[key].get("set_here")},
+                                       table=table, scope=scope)
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_clear_it", exc=(exc)), type="negative")
                 return
@@ -4405,10 +4450,28 @@ async def _setting_entries(context: dict[str, Any],
         return write
 
     playing = bool(context.get("playing"))
+    app_name = str(launcher.get("app_name") or "")
+
+    def offered(field: Any) -> bool:
+        return not table or scope in (getattr(field, "scopes", ()) or (scope,))
+
+    def part(field: Any) -> Part:
+        held = rows.setdefault(field.key, dict(values.get(field.key) or {}))
+        option = _as_option(field)
+        reported = getattr(field, "reported", ())
+        return settings_page.control_for(
+            option, settings_page.value_for(option, held.get("value")),
+            save(field.key, option["type"] in TYPED), writable=not playing and offered(field),
+            check=_unreported(held.get("value"), reported, app_name),
+            suggestions={REPORTED: dict(zip(reported, reported, strict=True))}), held, field
+
+    def marks(parts: Sequence[Part]) -> Callable[[], None] | None:
+        return _in_turn(*(_mark_for(held, scope, field, offered(field), len(parts) > 1)
+                          for _, held, field in parts))
+
     entries: list[tuple[Any, Any]] = []
     if playing:
         entries.append(panel.note(t(PLAYING_NOTE), hint=t(PLAYING_WHY)))
-    app_name = str(launcher.get("app_name") or "")
     for title, lede, fields in blocks:
         if title and sub:
             entries.append((FULL, partial(_subheading, title)))
@@ -4416,27 +4479,32 @@ async def _setting_entries(context: dict[str, Any],
             entries.append((HEADING, title))
         if lede:
             entries.append(panel.lede(lede))
+        in_block = {field.key: field for field in fields}
+        rows_of = [(pair, [in_block[key] for key in pair.keys]) for pair in pairs
+                   if all(key in in_block for key in pair.keys)]
+        paired = {pair.keys[0]: (pair, both) for pair, both in rows_of}
+        taken = {key for pair, _ in rows_of for key in pair.keys[1:]}
         for field in fields:
-            held = rows.setdefault(field.key, dict(values.get(field.key) or {}))
-            offered = not table or scope in (getattr(field, "scopes", ()) or (scope,))
-            option = _as_option(field)
-            typed = option["type"] in TYPED
-            reported = getattr(field, "reported", ())
-            control = settings_page.control_for(
-                option, settings_page.value_for(option, held.get("value")),
-                save(field.key, typed), writable=not playing and offered,
-                check=_unreported(held.get("value"), reported, app_name),
-                suggestions={REPORTED: dict(zip(reported, reported, strict=True))})
-            entries.append((field.label, _marked(control, held, field, app_name, redraws,
-                                                 on_leave=settle if typed else None,
-                                                 clear=clear(field.key), playing=playing)))
+            if field.key in taken:
+                continue
+            pair, members = paired.get(field.key, (None, [field]))
+            parts = [part(one) for one in members]
+            keys = [one.key for one in members]
+            owned = _tables_setting(their_own, keys)
+            entries.append((pair.label if pair else field.label, _marked(
+                parts, app_name, redraws, joiner=pair.joiner if pair else "",
+                on_leave=settle if any(_as_option(one)["type"] in TYPED for one in members)
+                else None, clear=clear(keys), playing=playing)))
             entries.append((panel.ASIDE, _beside(
-                partial(_mark_for, held, scope, field, offered), held, field,
-                redraws, context.get("config_more"),
-                _in_turn(_conflict(clashing[field.key]) if field.key in clashing else None,
-                         _tables_of_their_own(launcher, field.key, their_own[field.key])
-                         if their_own.get(field.key) else None))))
-            if said := (getattr(field, "help", "") if curated else "") or field.description:
+                partial(marks, parts), parts[0][1], field, redraws,
+                None if pair else context.get("config_more"),
+                _in_turn(*(_conflict(clashing[key]) for key in keys if key in clashing),
+                         _tables_of_their_own(launcher, keys, owned) if owned else None))))
+            if pair:
+                said = pair.note
+            else:
+                said = (getattr(field, "help", "") if curated else "") or field.description
+            if said:
                 entries.append(panel.note(said))
     return entries
 
@@ -4445,15 +4513,21 @@ def _whose(values: dict[str, Any], key: str) -> str:
     return str((values.get(key) or {}).get("scope") or "")
 
 
-async def _set_by_tables(context: dict[str, Any]) -> Counter[str]:
-    """How many of the launcher's tables set each setting for themselves."""
+async def _set_by_tables(context: dict[str, Any]) -> list[frozenset[str]]:
+    """What each of the launcher's tables sets for itself, one set per table that sets
+    anything."""
     launcher_id = context["launcher"]["launcher_id"]
     try:
         rows = await offload.io(context["library"].load_tables)
     except Exception:  # noqa: BLE001 - a row that cannot say how many still draws
-        return Counter()
-    return Counter(key for row in rows if row.get("launcher") == launcher_id
-                   for key in row.get("launcher_settings_keys") or ())
+        return []
+    return [frozenset(keys) for row in rows if row.get("launcher") == launcher_id
+            if (keys := row.get("launcher_settings_keys"))]
+
+
+def _tables_setting(their_own: Sequence[frozenset[str]], keys: Collection[str]) -> int:
+    """How many tables set any of `keys` for themselves."""
+    return sum(1 for held in their_own if not held.isdisjoint(keys))
 
 
 def _unreported(value: Any, reported: Sequence[str], app_name: str) -> dict[str, str] | None:
@@ -4482,13 +4556,14 @@ def _in_turn(*draws: Callable[[], None] | None) -> Callable[[], None] | None:
     return draw
 
 
-def _tables_of_their_own(launcher: dict[str, Any], key: str,
+def _tables_of_their_own(launcher: dict[str, Any], keys: Sequence[str],
                          count: int) -> Callable[[], None]:
-    """The link to the Tables grid on the tables that answer over this setting."""
+    """The link to the Tables grid on the tables that answer over any of these
+    settings."""
     return panel.link(t("console.workbench.tables_set_their_own", count=count),
                       to="/console?" + deeplink.query({
                           "view": "tables", "launcher": launcher["launcher_id"],
-                          "sets": key}))
+                          "sets": ",".join(keys)}))
 
 
 def _moved(before: dict[str, Any], after: dict[str, Any], written: str) -> bool:

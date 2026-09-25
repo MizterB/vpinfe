@@ -604,8 +604,18 @@ class CuratedTests(_TableCase):
             "key": "playfield", "label": "Playfield",
             "note": "Mechanical sounds - flippers, solenoids, the ball", "description": "",
             "keys": ["Player.PlaySound", "Player.Sound3D"], "enabled_by": "",
-            "rivals": []}])
+            "rivals": [], "pairs": []}])
         self.assertFalse(sound["summarized"])
+
+    def test_a_heading_carries_its_pairs_with_their_words(self) -> None:
+        pathlib.Path(self.tmp.name, "VPinballX.ini").write_text(
+            "[Player]\nPlayfieldWndX = 0\nPlayfieldWndY = 0\nPlayfieldWidth = 0\n")
+
+        playfield, = self._groups("launcher")["displays"]["curated"]
+
+        self.assertEqual(playfield["pairs"], [{
+            "key": "position", "label": "Position", "note": "On the display it opens on",
+            "joiner": ",", "keys": ["Player.PlayfieldWndX", "Player.PlayfieldWndY"]}])
 
     def test_a_plugin_heading_names_the_rival_switches_the_file_has(self) -> None:
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")

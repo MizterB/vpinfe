@@ -771,6 +771,10 @@ body::before {
   min-width: var(--target-inline); min-height: var(--target-inline);
 }
 .console-field-line > .console-row-action .q-icon { font-size: var(--icon-row); }
+/* Two values of one setting. Where the column cannot hold both, the second goes under
+   the first, never over it. */
+.console-field-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.console-field-part { display: flex; align-items: center; gap: 4px; }
 .console-dialog-title {
   font-size: var(--fs-body); font-weight: 600; color: var(--ink); line-height: 1.35;
   padding: 0 12px 6px;

@@ -25,14 +25,16 @@ from .contract import (
     Field,
     Heading,
     Kinds,
+    Pair,
     Parsed,
     Session,
 )
 
 __all__ = [
     "App", "Availability", "Claim", "ConfigGroup", "Entry", "Field", "Heading", "Kinds",
-    "Parsed", "Session", "all_apps", "app_for", "app_name", "default_app", "field_help",
-    "field_words", "get", "group_words", "heading_words", "strip_suffix", "table_suffixes",
+    "Pair", "Parsed", "Session", "all_apps", "app_for", "app_name", "default_app",
+    "field_help", "field_words", "get", "group_words", "heading_words", "pair_words",
+    "strip_suffix", "table_suffixes",
 ]
 
 _built_in_apps: tuple[App, ...] = ()
@@ -177,6 +179,15 @@ def heading_words(app_id: str, group: str, heading: Heading) -> dict[str, str]:
                                      fallback=humanized(heading.key))[0],
             "note": i18n.literal_or("", f"{base}.note")[0],
             "description": heading.description}
+
+
+def pair_words(app_id: str, group: str, pair: Pair) -> dict[str, str]:
+    """`label`, `note` and `joiner` - what stands between its two numbers - for one pair
+    of a group's curated rows."""
+    base = f"app.{app_id}.group.{group}.pair.{pair.key}"
+    return {"label": i18n.literal_or("", f"{base}.label", fallback=humanized(pair.key))[0],
+            "note": i18n.literal_or("", f"{base}.note")[0],
+            "joiner": i18n.literal_or("", f"{base}.joiner")[0]}
 
 
 def table_suffixes() -> tuple[str, ...]:

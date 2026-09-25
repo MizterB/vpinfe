@@ -402,6 +402,22 @@ class AreaTests(_Case):
         self.assertEqual(playfield.keys, ("Player.PlaySound",))
         self.assertNotIn("backglass", [h.key for h in self.groups[areas.SOUND].curated])
 
+    def test_a_window_s_position_and_size_are_each_a_pair(self) -> None:
+        topper = next(h for h in areas.CURATED[areas.DISPLAYS] if h.key == "topper")
+
+        self.assertEqual([(pair.key, pair.keys) for pair in topper.pairs],
+                         [("position", ("Topper.TopperWndX", "Topper.TopperWndY")),
+                          ("size", ("Topper.TopperWidth", "Topper.TopperHeight"))])
+
+    def test_a_pair_the_file_holds_half_of_is_left_out(self) -> None:
+        self.app_ini.write_text("[Topper]\nTopperWndX = 0\nTopperWndY = 0\n"
+                                "TopperWidth = 0\n")
+        displays = {g.key: g for g in self.config.groups(self.settings)}[areas.DISPLAYS]
+        topper = next(h for h in displays.curated if h.key == "topper")
+
+        self.assertEqual([pair.key for pair in topper.pairs], ["position"])
+        self.assertIn("Topper.TopperWidth", topper.keys)
+
     def test_the_point_of_view_is_summarized(self) -> None:
         self.assertTrue(self.groups[areas.POINT_OF_VIEW].summarized)
         self.assertEqual(self.members(areas.POINT_OF_VIEW), {"TableOverride.ViewCabFOV"})
@@ -579,6 +595,18 @@ class CuratedTests(unittest.TestCase):
         named += [f"group.{areas.PLUGINS}.heading.{plugin}.label"
                   for plugin in areas.PLUGIN_ROWS]
         self.assertEqual([key for key in named if key not in self.words], [])
+
+    def test_every_pair_is_two_rows_of_its_heading_with_a_label_and_a_joiner(self) -> None:
+        pairs = [(area, one, pair) for area, headings in areas.CURATED.items()
+                 for one in headings for pair in one.pairs]
+
+        self.assertTrue(pairs)
+        self.assertEqual([pair.keys for _, one, pair in pairs
+                          if len(set(pair.keys)) != 2 or not set(pair.keys) <= set(one.keys)],
+                         [])
+        self.assertEqual([f"group.{area}.pair.{pair.key}.{word}" for area, _, pair in pairs
+                          for word in ("label", "joiner")
+                          if f"group.{area}.pair.{pair.key}.{word}" not in self.words], [])
 
 
 class SharedWithGameTests(_Case):

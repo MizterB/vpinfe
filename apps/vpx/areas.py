@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from common.apps.contract import Heading
+from common.apps.contract import Heading, Pair
 
 from .plugins import Plugin
 
@@ -24,20 +24,20 @@ REST = "more"
 AREAS = (DISPLAYS, SOUND, GRAPHICS, PLUGINS)
 
 
-def _window(name: str) -> tuple[str, ...]:
-    return tuple(f"{name}.{name}{part}" for part in
-                 ("Output", "Display", "FullScreen", "WndX", "WndY", "Width", "Height"))
+def _window(key: str, prefix: str, parts: tuple[str, ...]) -> Heading:
+    return Heading(key, tuple(f"{prefix}{part}" for part in
+                              (*parts, "WndX", "WndY", "Width", "Height")),
+                   pairs=(Pair("position", (f"{prefix}WndX", f"{prefix}WndY")),
+                          Pair("size", (f"{prefix}Width", f"{prefix}Height"))))
 
 
 CURATED: dict[str, tuple[Heading, ...]] = {
     DISPLAYS: (
         # The playfield always shows, so it has no output mode.
-        Heading("playfield", ("Player.PlayfieldDisplay", "Player.PlayfieldFullScreen",
-                              "Player.PlayfieldWndX", "Player.PlayfieldWndY",
-                              "Player.PlayfieldWidth", "Player.PlayfieldHeight")),
-        Heading("backglass", _window("Backglass")),
-        Heading("scoreview", _window("ScoreView")),
-        Heading("topper", _window("Topper")),
+        _window("playfield", "Player.Playfield", ("Display", "FullScreen")),
+        _window("backglass", "Backglass.Backglass", ("Output", "Display", "FullScreen")),
+        _window("scoreview", "ScoreView.ScoreView", ("Output", "Display", "FullScreen")),
+        _window("topper", "Topper.Topper", ("Output", "Display", "FullScreen")),
         Heading("cabinet", ("Player.BGSet", "Player.CabinetAutofitMode",
                             "Player.CabinetAutofitPos", "Player.ScreenWidth",
                             "Player.ScreenHeight", "Player.ScreenInclination")),

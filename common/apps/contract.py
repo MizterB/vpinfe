@@ -11,7 +11,8 @@ Consumers ask before they call.
 Nothing here takes or returns a VPinFE object, and nothing holds a word. An app's words
 are in `i18n/<language>.json` beside it, found by what the app declares: `name`,
 `field.<key>.label`, `field.<key>.description`, `field.<key>.help`, `group.<key>.label`,
-and `group.<key>.heading.<heading>.label` and `.note`.
+`group.<key>.heading.<heading>.label` and `.note`, and `group.<key>.pair.<pair>.label`,
+`.note` and `.joiner`.
 """
 
 from __future__ import annotations
@@ -172,6 +173,15 @@ SCOPE_ENTRY = "entry"
 
 
 @dataclass(frozen=True)
+class Pair:
+    """Two of a heading's rows drawn as one, in this order: an X and a Y, a width and a
+    height."""
+
+    key: str
+    keys: tuple[str, str]
+
+
+@dataclass(frozen=True)
 class Heading:
     """Curated rows under one sub-heading of a group. An empty key draws no heading."""
 
@@ -186,6 +196,8 @@ class Heading:
     # Other headings' switches: while this one's and a rival's are both on, the program
     # uses only one of them.
     rivals: tuple[str, ...] = ()
+    # Each pair's keys are two of `keys`.
+    pairs: tuple[Pair, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import unittest
-from collections import Counter
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -161,9 +160,9 @@ class AllSettingsTests(unittest.TestCase):
 
 
 def _heading(key: str, *keys: str, enabled_by: str = "",
-             rivals: tuple[str, ...] = (), label: str = "") -> SimpleNamespace:
+             rivals: tuple[str, ...] = (), label: str = "", pairs=()) -> SimpleNamespace:
     return SimpleNamespace(key=key, label=label or key.title(), note="", keys=keys,
-                           enabled_by=enabled_by, rivals=rivals)
+                           enabled_by=enabled_by, rivals=rivals, pairs=tuple(pairs))
 
 
 class ConflictTests(unittest.TestCase):
@@ -452,7 +451,7 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(workbench, "ui"), \
                 patch.object(workbench.panel, "icon_action") as icon_action, \
                 patch.object(workbench.panel, "action") as action:
-            workbench._marked(Mock(), dict(held), self.FIELD, "Visual Pinball X",
+            workbench._marked([(Mock(), dict(held), self.FIELD)], "Visual Pinball X",
                               clear=wipe, playing=playing)()
             workbench._beside(lambda: None, dict(held), self.FIELD)()
         self.wipe = wipe
@@ -490,7 +489,7 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
                    "config_scope": "entry", "config_table": "t1", "rebuild": AsyncMock()}
         self.enterContext(patch.object(workbench, "ui"))
         self.enterContext(patch.object(workbench, "_config_values",
-                                       new=AsyncMock(return_value={})))
+                                       new=AsyncMock(return_value={"Player.BGSet": self.SET})))
         self.enterContext(patch.object(workbench.settings_page, "control_for"))
         self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock()))
         marked = self.enterContext(patch.object(workbench, "_marked"))
@@ -501,6 +500,147 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
         workbench.run.io_bound.assert_awaited_once_with(
             library.write_launcher_config, "probe", {"Player.BGSet": ""}, table="t1",
             scope="entry")
+
+
+class PairTests(unittest.IsolatedAsyncioTestCase):
+    """Two numbers of one kind are one row: one dot and one Clear for both, and a mark
+    for each."""
+
+    APP = "Visual Pinball X"
+    WIDTH = SimpleNamespace(key="Player.PlayfieldWidth", type="int", label="Width", default="",
+                            description="", choices=(), scopes=("launcher",), help="")
+    HEIGHT = SimpleNamespace(**{**vars(WIDTH), "key": "Player.PlayfieldHeight",
+                                "label": "Height"})
+    SIZE = SimpleNamespace(key="size", label="Size", note="", joiner="×",
+                           keys=("Player.PlayfieldWidth", "Player.PlayfieldHeight"))
+    SET = {"set_here": True, "in_effect": True, "scope": "launcher", "value": "960"}
+    UNSET = {"set_here": False, "in_effect": True, "scope": "", "value": ""}
+
+    async def _entries(self, values: dict, fields=None, size=None) -> tuple[list, Mock, Mock]:
+        library = Mock()
+        context = {"library": library, "launcher": {"launcher_id": "probe", "app_name": self.APP},
+                   "config_scope": "launcher", "config_table": "", "rebuild": AsyncMock()}
+        self.enterContext(patch.object(workbench, "ui"))
+        self.enterContext(patch.object(workbench, "_config_values",
+                                       new=AsyncMock(return_value=values)))
+        self.enterContext(patch.object(workbench, "_set_by_tables",
+                                       new=AsyncMock(return_value=[])))
+        self.enterContext(patch.object(workbench.settings_page, "control_for"))
+        self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock()))
+        marked = self.enterContext(patch.object(workbench, "_marked"))
+        entries = await workbench._setting_entries(
+            context, [("Playfield", "", fields or [self.WIDTH, self.HEIGHT])],
+            pairs=[size or self.SIZE])
+        return entries, marked, library
+
+    def _drawn(self, width: dict, height: dict) -> tuple[Mock, Mock]:
+        with patch.object(workbench, "ui") as ui, \
+                patch.object(workbench.panel, "icon_action") as icon_action:
+            workbench._marked([(Mock(), dict(width), self.WIDTH),
+                               (Mock(), dict(height), self.HEIGHT)],
+                              self.APP, joiner="×", clear=AsyncMock())()
+        return ui, icon_action
+
+    def _part(self, field: SimpleNamespace, said: str) -> str:
+        return t("console.workbench.part_said", label=field.label, said=said)
+
+    async def test_its_two_rows_are_one_under_the_pair_s_label(self) -> None:
+        entries, marked, _ = await self._entries({})
+
+        self.assertEqual([label for label, _ in entries if isinstance(label, str)], ["Size"])
+        self.assertEqual([field for _, _, field in marked.call_args.args[0]],
+                         [self.WIDTH, self.HEIGHT])
+        self.assertEqual(marked.call_args.kwargs["joiner"], "×")
+
+    async def test_the_pair_s_note_is_the_one_under_it(self) -> None:
+        note = self.enterContext(patch.object(workbench.panel, "note"))
+        await self._entries({}, size=SimpleNamespace(**{**vars(self.SIZE), "note": "Wide"}))
+
+        note.assert_called_once_with("Wide")
+
+    async def test_a_block_holding_one_of_the_two_draws_it_alone(self) -> None:
+        entries, marked, _ = await self._entries({}, fields=[self.WIDTH])
+
+        self.assertEqual([label for label, _ in entries if isinstance(label, str)], ["Width"])
+        self.assertEqual(len(marked.call_args.args[0]), 1)
+
+    async def test_clear_empties_only_the_numbers_set_here(self) -> None:
+        for height, written in ((self.UNSET, {"Player.PlayfieldWidth": ""}),
+                                (self.SET, {"Player.PlayfieldWidth": "",
+                                            "Player.PlayfieldHeight": ""})):
+            with self.subTest(height=height["set_here"]):
+                _, marked, library = await self._entries(
+                    {"Player.PlayfieldWidth": self.SET, "Player.PlayfieldHeight": height})
+
+                await marked.call_args.kwargs["clear"]()
+
+                workbench.run.io_bound.assert_awaited_once_with(
+                    library.write_launcher_config, "probe", written, table="",
+                    scope="launcher")
+
+    def test_the_dot_shows_where_either_is_set_here(self) -> None:
+        for width, height, shown in ((self.SET, self.UNSET, True),
+                                     (self.UNSET, self.SET, True),
+                                     (self.UNSET, self.UNSET, False)):
+            with self.subTest(width=width["set_here"], height=height["set_here"]):
+                ui, _ = self._drawn(width, height)
+                dot = ui.element.return_value.classes.return_value
+
+                self.assertEqual(dot.set_visibility.call_args.args, (shown,))
+
+    def test_its_hover_says_whose_once_where_both_agree(self) -> None:
+        ui, _ = self._drawn(self.SET, self.SET)
+
+        self.assertEqual(ui.tooltip.return_value.text, t("console.workbench.set_2"))
+
+    def test_its_hover_says_whose_each_is_where_they_differ(self) -> None:
+        ui, _ = self._drawn(self.SET, self.UNSET)
+
+        self.assertEqual(ui.tooltip.return_value.text, "\n".join((
+            self._part(self.WIDTH, t("console.workbench.set_2")),
+            self._part(self.HEIGHT, t("console.workbench.app_default", app=self.APP)))))
+
+    def test_clear_s_hover_names_the_number_it_clears_where_it_is_one(self) -> None:
+        back = t("console.workbench.back_to_whose",
+                 whose=t("console.workbench.app_default", app=self.APP))
+
+        _, one = self._drawn(self.SET, self.UNSET)
+        _, both = self._drawn(self.SET, self.SET)
+        _, none = self._drawn(self.UNSET, self.UNSET)
+
+        self.assertEqual(one.call_args.kwargs["hint"], self._part(self.WIDTH, back))
+        self.assertEqual(both.call_args.kwargs["hint"], back)
+        none.assert_not_called()
+
+    def test_overridden_names_the_number_it_is_about(self) -> None:
+        held = {**self.SET, "in_effect": False}
+        with patch.object(workbench.panel, "state") as state:
+            workbench._config_mark(held, "launcher", self.WIDTH)
+            alone = state.call_args.kwargs["hint"]
+            workbench._config_mark(held, "launcher", self.WIDTH, paired=True)
+
+        self.assertEqual(state.call_args.kwargs["hint"], self._part(self.WIDTH, alone))
+
+    def test_each_number_is_named_and_the_joiner_stands_between_them(self) -> None:
+        with patch.object(workbench, "ui") as ui:
+            workbench._pair([(Mock(), {}, self.WIDTH), (Mock(), {}, self.HEIGHT)], "×")
+        named = ui.element.return_value.classes.return_value.__enter__.return_value
+
+        self.assertEqual([call.args for call in named.props.__setitem__.call_args_list],
+                         [("role", "group"), ("aria-label", "Width"),
+                          ("role", "group"), ("aria-label", "Height")])
+        ui.label.assert_called_once_with("×")
+
+    def test_pairs_travel_with_their_heading(self) -> None:
+        groups = data.config_groups({"groups": [{
+            "key": "displays", "label": "Displays", "settings": [], "curated": [
+                {"key": "playfield", "label": "Playfield", "keys": list(self.SIZE.keys),
+                 "pairs": [{"key": "size", "label": "Size", "note": "", "joiner": "×",
+                            "keys": list(self.SIZE.keys)}]},
+                {"key": "cabinet", "label": "Cabinet", "keys": ["Player.BGSet"]}]}]})
+
+        self.assertEqual([[vars(pair) for pair in h.pairs] for h in groups[0].curated],
+                         [[vars(self.SIZE)], []])
 
 
 class TableSettingsTitleTests(unittest.TestCase):
@@ -1352,21 +1492,42 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(workbench.offload, "io",
                                        new=AsyncMock(side_effect=lambda call: call())))
 
-        counted = await workbench._set_by_tables(
+        held = await workbench._set_by_tables(
             {"library": library, "launcher": {"launcher_id": "vpx"}})
 
-        self.assertEqual(counted, {"Player.PlayMusic": 2, "Player.FXAA": 1})
+        self.assertEqual([workbench._tables_setting(held, [key])
+                          for key in ("Player.PlayMusic", "Player.FXAA", "Player.ShowFPS")],
+                         [2, 1, 0])
+
+    def test_a_table_setting_both_of_a_pair_counts_once(self) -> None:
+        held = [frozenset({"Player.PlayfieldWidth", "Player.PlayfieldHeight"}),
+                frozenset({"Player.PlayfieldHeight"}), frozenset({"Player.FXAA"})]
+
+        self.assertEqual(workbench._tables_setting(
+            held, ["Player.PlayfieldWidth", "Player.PlayfieldHeight"]), 2)
 
     def test_its_link_goes_to_the_tables_grid_on_them(self) -> None:
         for count, said in ((1, "1 table sets its own"), (4, "4 tables set their own")):
             with self.subTest(count=count), patch("console.panel.ui") as ui:
-                workbench._tables_of_their_own({"launcher_id": "vpx"}, "Player.PlayMusic",
+                workbench._tables_of_their_own({"launcher_id": "vpx"}, ["Player.PlayMusic"],
                                                count)()
                 address = parse_qs(ui.link.call_args.kwargs["target"].split("?", 1)[1])
 
                 self.assertEqual(ui.link.call_args.args[0], said)
                 self.assertEqual(address, {"view": ["tables"], "launcher": ["vpx"],
                                            "sets": ["Player.PlayMusic"]})
+
+    def test_a_pair_s_link_asks_for_tables_setting_either(self) -> None:
+        with patch("console.panel.ui") as ui:
+            workbench._tables_of_their_own(
+                {"launcher_id": "vpx"}, ["Player.PlayfieldWndX", "Player.PlayfieldWndY"], 2)()
+        address = parse_qs(ui.link.call_args.kwargs["target"].split("?", 1)[1])
+        arriving = games.setting_their_own(
+            [{"launcher": "vpx", "launcher_name": "Visual Pinball X"}], "vpx",
+            address["sets"][0])
+
+        self.assertEqual(arriving[games.OWN_SETTINGS_COLUMN],
+                         {"values": ["Player.PlayfieldWndX", "Player.PlayfieldWndY"]})
 
     async def _beyond(self, scope: str, table: str = "") -> list[object]:
         context = {"library": Mock(), "launcher": {"launcher_id": "vpx"},
@@ -1377,7 +1538,7 @@ class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(workbench.settings_page, "control_for"))
         self.counted = self.enterContext(patch.object(
             workbench, "_set_by_tables",
-            new=AsyncMock(return_value=Counter({"Player.PlayMusic": 2}))))
+            new=AsyncMock(return_value=[frozenset({"Player.PlayMusic"})] * 2)))
         beside = self.enterContext(patch.object(workbench, "_beside"))
         await workbench._setting_entries(
             context, [("", "", [_field("Player.PlayMusic", scopes=("launcher", "entry")),
