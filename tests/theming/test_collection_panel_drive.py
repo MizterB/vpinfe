@@ -163,12 +163,11 @@ class CollectionPanelDrive(unittest.TestCase):
                 " return bar ? [bar.scrollWidth, bar.clientWidth] : null; })()")
 
             await browser.navigate(instance.console_url("/console?view=tables"))
-            await browser.wait_for("!!document.querySelector("
-                                   + json.dumps(ALPHA_CELL + " .console-cell-built") + ")",
-                                   timeout=90.0)
-            seen["cell_parts"] = await browser.evaluate(
-                PARTS % (json.dumps(".console-cell-named"),
-                         "document.querySelector(" + json.dumps(ALPHA_CELL) + ")"))
+            seen["cell_parts"] = await browser.wait_for(
+                "(parts => parts && parts[0] ? parts : null)("
+                + PARTS % (json.dumps(".console-cell-named"),
+                           "document.querySelector(" + json.dumps(ALPHA_CELL) + ")") + ")",
+                timeout=90.0)
 
             await browser.navigate(instance.console_url(
                 f"/console?view=collections&collection={quote(OTHER)}"))
