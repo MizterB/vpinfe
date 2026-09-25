@@ -30,7 +30,7 @@ GOES_AWAY = frozenset({
 # Why an action is not offered, in the words a person reads. The fact is what is answered;
 # the sentence for it belongs to whatever is showing it, but a caller with no surface of
 # its own still needs one.
-NOT_WIRED = "Nothing on this install performs that."
+NOT_WIRED = "Nothing on this device performs that."
 
 
 def _describe(scope: str, action: str) -> dict:
@@ -54,7 +54,7 @@ def check(scope: str, action: str) -> tuple[str, str]:
     scope, action = scope.strip().lower(), action.strip().lower()
     if (scope, action) not in lifecycle.offered():
         raise service_errors.RefusedError(
-            t("error.actions.not_something_install_get", action=(action), scope=(scope)))
+            t("error.actions.not_something_vpinfe_does", action=(action), scope=(scope)))
     if not lifecycle.performable(scope, action):
         raise service_errors.UnavailableError(
             NOT_WIRED, details={"scope": scope, "action": action})

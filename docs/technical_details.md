@@ -164,9 +164,9 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `id` | string |  | Written by VPinFE on first start. Installs are told apart by this, so changing it makes this a different install. |
+| `id` | string |  | Written by VPinFE on first start. Devices are told apart by this, so changing it makes this a different device. |
 | `display_name` | string |  | What to call this device where one is listed. Defaults to its hostname. Nothing is addressed by it, so renaming is safe. |
-| `features` | list | `library,frontend,devices` | What this install is for. Each one you add appears in the Console. Leave it empty and System is still here to come back and set it. |
+| `features` | list | `library,frontend,devices` | What this device is for. Each one you add appears in the Console. Leave it empty and System is still here to come back and set it. |
 | `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Takes effect after a restart. Your library's own words - table names and the rest - are never translated. |
 
 ### `vpsdb`
@@ -203,9 +203,9 @@ Runtime state written by VPinFE, not shown as a setting.
 | `theme_assets_port` | int | `8000` | Theme Server Port |
 | `theme_assets_bind` | string | `127.0.0.1` | Which address to serve theme packages and table media on. The default answers this device only. Opening it wider shares read access to your table library. |
 | `ws_port` | int | `8002` | Port the frontend windows and the theme talk to VPinFE over. Loopback only. |
-| `http_port` | int | `8001` | Port this install answers on: the HTTP API, the Console, and the remote and mobile pages |
-| `library_url` | string |  | Which install this one reads its library from. Empty means it holds its own. Installs on your network are offered; type an address for one that is not. |
-| `verify_shared_library` | bool | `false` | On startup, check that the library this install reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |
+| `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Console, and the remote and mobile pages |
+| `library_url` | string |  | Which device this one reads its library from. Empty means it holds its own. Devices on your network are offered; type an address for one that is not. |
+| `verify_shared_library` | bool | `false` | On startup, check that the library this device reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |
 | `http_bind` | string | `0.0.0.0` | Which address to serve on. The default answers every interface - set 127.0.0.1 to reach it only from this device. |
 
 ### `dof`

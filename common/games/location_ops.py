@@ -96,7 +96,7 @@ def reorder(order: object) -> dict[str, Any]:
     if not isinstance(order, list) or not order:
         raise service_errors.RefusedError(t("error.locations.name_locations_order_want"))
     if not locations.get_location_store().reorder([str(one) for one in order]):
-        raise service_errors.NotFoundError(t("error.locations.none_locations_install"))
+        raise service_errors.NotFoundError(t("error.locations.none_locations_device"))
     return listing()
 
 

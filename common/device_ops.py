@@ -37,7 +37,7 @@ def mobile_or_refuse(device_id: str) -> Device:
     found = device_or_refuse(device_id)
     if found.kind != device_registry.KIND_VPX_MOBILE:
         raise service_errors.RefusedError(
-            t("error.devices.vpinfe_install_not_device",
+            t("error.devices.runs_vpinfe_not_mobile",
               value=(found.display_name or device_id)))
     if not found.address or not found.port:
         raise service_errors.RefusedError(

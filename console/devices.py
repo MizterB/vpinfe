@@ -179,7 +179,7 @@ async def _confirm_forget(library: Any, device: dict[str, Any],
     name = device_label(device)
     if not await confirm.ask(
             t("console.devices.forget", name=(name)),
-            detail=t("console.devices.removes_install_s_entry"),
+            detail=t("console.devices.removes_entry_here"),
             confirm=t("word.forget"), icon=verbs.FORGET):
         return
     try:
@@ -216,7 +216,7 @@ def _software_rows(device: dict[str, Any], is_local: bool, client: Any,
     latest = str(update.get("latest_version") or t("console.devices.newer_build"))
     if not update.get("update_supported"):
         reason = t(WHY_NOT.get(str(update.get("support_reason") or ""),
-                               "console.devices.install_cannot_update_itself"))
+                               "console.devices.device_cannot_update_itself"))
         rows.append((t("word.version"), panel.state(t("console.devices.available",
                 latest=(latest)), "warn",
                                             beside=current)))
@@ -306,13 +306,13 @@ COLUMNS: list[dict[str, Any]] = [
     # A column has to be declared to be sorted on, and this one is a fact about the row
     # rather than anything to read.
     grid.column("self", t("console.devices.device_2"), hide=True,
-                help=t("console.devices.whether_install_reading_console.help")),
+                help=t("console.devices.whether_device_reading_console.help")),
     grid.identifier("name", t("word.name"), 200, pinned="left",
                 help=t("console.devices.what_device_calls_itself.help")),
     grid.column("kind", t("word.kind"), 120, **grid.choice_filter(_KIND_CHOICES),
-                help=t("console.devices.vpinfe_install_answers_itself.help")),
+                help=t("console.devices.vpinfe_or_vpx_mobile.help")),
     grid.column("state", t("word.state"), 140, **grid.choice_filter(_STATE_CHOICES),
-                help=t("console.devices.whether_answered_install_last.help")),
+                help=t("console.devices.whether_answered_last_asked.help")),
     grid.column("what", t("word.running"), 160,
                 help=t("console.devices.what_answered_vpinfe_install.help")),
     grid.column("address", t("console.devices.address"), 150,
@@ -321,7 +321,7 @@ COLUMNS: list[dict[str, Any]] = [
                 help=t("console.devices.last_known_announced_install.help"),
                 **when.cell("last_seen")),
     grid.column("features", t("console.devices.features"), 150,
-                help=t("console.devices.what_install_curating_library.help")),
+                help=t("console.devices.what_device_is_for.help")),
 ]
 
 # `self` is out: it is a sort key, not a column somebody picks.
@@ -338,7 +338,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         sort=(_SELF_FIRST,
               {"colId": "state", "sort": "asc", "sortIndex": 1},
               {"colId": "name", "sort": "asc", "sortIndex": 2}),
-        help=t("console.devices.every_device_install_met.help")),
+        help=t("console.devices.every_device_known_here.help")),
     "console.view.answering": views.Preset(
         columns=("name", "kind", "what", "address", "features"),
         sort=(_SELF_FIRST, {"colId": "name", "sort": "asc", "sortIndex": 1}),
@@ -692,7 +692,7 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
                              disabled=library is None)),
     ]
     if not is_local(context):
-        rows_out.append(panel.note(t("console.devices.name_belongs_install_can")))
+        rows_out.append(panel.note(t("console.devices.name_belongs_device_can")))
     rows_out.append((t("word.kind"),
             KIND_LABELS.get(str(device.get("kind") or "vpinfe"),
                                              "VPinFE")))
@@ -783,7 +783,7 @@ async def action_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     if not offered:
         return [panel.intro(t("console.devices.device_offers_nothing"))]
 
-    rows_out: list[tuple[Any, Any]] = [panel.intro(t("console.devices.happen_device_not_install"))]
+    rows_out: list[tuple[Any, Any]] = [panel.intro(t("console.devices.happen_on_this_device"))]
     for entry in offered:
         rows_out.append(("", _action_control(context, entry)))
         if not entry.get("available") and entry.get("reason"):
@@ -880,5 +880,5 @@ def entry_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     ]
     if is_local(context) or library is None:
         out.append(panel.note(
-            t("console.devices.install_reading_console_entry")))
+            t("console.devices.device_reading_console_entry")))
     return out

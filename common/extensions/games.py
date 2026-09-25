@@ -201,7 +201,7 @@ class ExtensionGames:
         made = next((game for game in all_games()
                      if Path(str(game.full_path_game)).resolve() == folder.resolve()), None)
         if made is None:
-            raise LookupError(f"Created {folder} but this install does not read it")
+            raise LookupError(f"Created {folder}, but this device does not read it")
         return game_identity.ensure_id(made)
 
     def add_table(self, game_id: str, path: str | Path) -> dict:

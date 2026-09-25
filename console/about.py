@@ -69,7 +69,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
             body.clear()
             with body:
-                panel.facts(ui, [panel.intro(t("console.about.could_not_read_install", exc=(exc)))])
+                panel.facts(ui, [panel.intro(t("console.about.could_not_read_device", exc=(exc)))])
             return
         held["text"] = str(found.get("text") or "")
         _draw(body, found.get("groups") or [], held, load)

@@ -54,7 +54,7 @@ def put_values(values: dict[str, dict[str, Any]] = Body(...)) -> models.ConfigVa
         return models.ConfigValues.model_validate(config_service.set_values(values))
     except config_service.UnknownSettingsError as exc:
         raise InvalidRequestError(
-            t("error.config.not_settings_install_get",
+            t("error.config.no_such_settings",
               keys=", ".join(exc.keys))) from exc
     except config_service.ReadOnlySettingsError as exc:
         raise InvalidRequestError(

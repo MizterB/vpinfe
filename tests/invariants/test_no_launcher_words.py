@@ -1,4 +1,4 @@
-"""An install with no launcher is one state, and every surface says it in the same words."""
+"""A device with no launcher is one state, and every surface says it in the same words."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from tests.support.catalogs import served
 
 CATALOG = served()
 
-SAID = "This install has no launcher"
+SAID = "This device has no launcher"
 
 SAYS_IT = (
-    "console.workbench.following_default_install_no",
-    "console.workbench.install_no_launchers_yet",
+    "console.workbench.device_no_launcher",
+    "console.workbench.device_no_launcher_add",
     "error.capabilities.no_launcher",
     "error.features.no_launcher",
     "error.launch.no_launcher_configured",
@@ -21,7 +21,7 @@ SAYS_IT = (
 )
 
 # The Launchers list's own empty state, "No launchers yet", is a list with nothing in it
-# rather than a sentence about the install, and is not one of these.
+# rather than a sentence about the device, and is not one of these.
 RETIRED = ("launcher configured", "no launcher yet", "has no launchers")
 
 

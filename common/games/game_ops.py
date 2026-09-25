@@ -78,7 +78,7 @@ def create(name: str, location_id: str = "") -> dict:
         # The folder and its record are on disk and the library did not pick them up.
         # Saying so beats a 500: what was asked for happened, and what is wrong is that the
         # location it landed in is not one this install reads.
-        raise service_errors.BlockedError(t("error.games.created_install_not_read"),
+        raise service_errors.BlockedError(t("error.games.created_device_not_read"),
                                           details={"path": str(folder)})
     return game_lens.detail(game_identity.game_id(made))
 

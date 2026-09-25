@@ -1071,7 +1071,7 @@ async def _draw_location(container: ui.column, title: ui.column, library: Librar
                 if one.get("location_id") == location_id), None)
     if row is None:
         _blank(container, title, t("console.page.location"),
-               t("console.page.no_longer_install"))
+               t("console.page.not_found"))
         return
 
     container.clear()
@@ -1117,7 +1117,7 @@ async def _draw_launcher(container: ui.column, title: ui.column, library: Librar
     row = next((one for one in held if one.get("launcher_id") == launcher_id), None)
     if row is None:
         _blank(container, title, t("console.page.launcher"),
-               t("console.page.no_longer_install_2"))
+               t("console.page.not_found"))
         return
 
     groups = await offload.io(library.launcher_config_groups, launcher_id)
@@ -3236,7 +3236,7 @@ def _launcher_notes(context: dict[str, Any], table: dict[str, Any]) -> list[tupl
     listing = context.get("launchers") or {}
     held = listing.get("launchers") or []
     if not held:
-        return [panel.note(t("console.workbench.following_default_install_no"))]
+        return [panel.note(t("console.workbench.device_no_launcher_add"))]
     runs = next((one for one in held if one["launcher_id"] == table.get("launcher")), None)
     own: dict[str, Any] = next((one for one in listing.get("apps") or []
                 if one.get("id") == table.get("app")), {})
@@ -3284,7 +3284,7 @@ def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[
                     else t("console.workbench.chosen_here"))
         if not held:
             field.disable()
-            field.tooltip(t("console.workbench.install_no_launchers_yet"))
+            field.tooltip(t("console.workbench.device_no_launcher"))
 
         async def changed() -> None:
             try:
@@ -4976,7 +4976,7 @@ async def _launcher_details(context: dict[str, Any]) -> None:
     ]
     entries.append((t("console.workbench.enabled"), panel.switch(
         launcher["enabled"], lambda e: flip(bool(e.value)), disabled=only_one,
-        hint=t("console.workbench.launcher_install") if only_one else "")))
+        hint=t("console.workbench.only_launcher") if only_one else "")))
     if goes_to := _switched_off_goes_to(launcher, context.get("launchers") or []):
         entries.append(panel.note(
             t("console.workbench.switched_off_stays_configured", default=goes_to)))
@@ -5054,7 +5054,7 @@ async def _config_backups(context: dict[str, Any]) -> None:
     entries.append(panel.note(
         t("console.workbench.kept",
                 value=(found.get('kept_in') or
-                        t("console.workbench.install_s_configuration_folder")))))
+                        t("console.workbench.vpinfe_configuration_folder")))))
     _rows(ui, entries)
 
 

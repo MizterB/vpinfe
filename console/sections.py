@@ -141,7 +141,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
             ui.label(t("console.sections.findings_across_library")).classes("text-xs opacity-60")
         with _card(t("console.sections.devices")):
             ui.label(str(len(registry))).classes("console-kpi")
-            ui.label(t("console.sections.known_install")).classes("text-xs opacity-60")
+            ui.label(t("console.sections.known_here")).classes("text-xs opacity-60")
         with _card(t("console.sections.build")):
             ui.label(str(discovery.get("vpinfe_version") or "?")).classes("console-kpi")
             ui.label(t("console.sections.no_update_endpoint_yet")).classes("text-xs opacity-60")
@@ -412,7 +412,7 @@ def extensions(installed: list[dict], open_one: Callable[..., Any] | None = None
     if not installed:
         with ui.element("div").classes("console-card w-full"):
             ui.label(t("console.sections.nothing_installed")).classes("console-setting")
-            ui.label(t("console.sections.extension_adds_feature_install")).classes("console-help")
+            ui.label(t("console.sections.extension_adds_feature")).classes("console-help")
         return
 
     for found in installed:

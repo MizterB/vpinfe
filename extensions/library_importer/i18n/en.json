@@ -14,7 +14,7 @@
   "wizard.source.source_type.label": "Coming from",
   "wizard.source.source_type.help": "Which frontend the library belongs to",
   "wizard.source.auto": "Work it out",
-  "wizard.source.path.label": "Install folder",
+  "wizard.source.path.label": "Folder",
   "wizard.source.path.help": "Its database and its artwork are read from here",
   "wizard.sources.title": "Reading it as {source}",
   "wizard.sources.help": "Where each kind of thing lives. Anything left empty is not imported.",
@@ -86,7 +86,7 @@
   "note.no_database": "{system} is declared but has no database at {path}",
   "note.tables_unreachable": "{system}: the tables are recorded at {path}, which is not reachable from here",
   "note.remapped": "Reading {recorded} as {local} - the paths recorded here are the old computer's",
-  "note.not_played": "Not brought in, because this install does not play them: {systems}",
+  "note.not_played": "Not brought in, because this device does not play them: {systems}",
   "note.entries_unnamed": {
     "one": "{file}: {count} entry has no name, so nothing can be matched to it",
     "other": "{file}: {count} entries have no name, so nothing can be matched to them"

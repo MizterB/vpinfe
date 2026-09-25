@@ -172,7 +172,7 @@ async def _draw(viewport: Any, held: dict[str, Any]) -> None:
         if not held["records"]:
             panel.facts(ui, [panel.intro(
                 t("console.logs.nothing_matches") if held["level"] or held["contains"]
-                else t("console.logs.install_written_nothing_yet"))])
+                else t("console.logs.nothing_logged_yet"))])
             return
         if held["digest"]:
             _digest(held["records"])

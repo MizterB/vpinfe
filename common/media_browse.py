@@ -106,7 +106,7 @@ def within_roots(raw: str) -> Path:
     allowed = [Path(item["path"]) for item in roots()] + _extension_roots()
     if not any(path == root or root in path.parents for root in allowed):
         raise service_errors.RefusedError(
-            t("error.filesystem.folder_not_one_install"),
+            t("error.filesystem.folder_vpinfe_may_not_read"),
             details={"path": raw, "allowed": [str(root) for root in allowed]})
     return path
 

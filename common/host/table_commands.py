@@ -137,7 +137,7 @@ def _run(text: str, around: Around, *, required: bool,
             t("error.table_commands.launcher_command_failed",
               launcher_name=launcher.display_name, exc=exc)
             if launcher is not None
-            else t("error.table_commands.install_command_failed", exc=exc)) from exc
+            else t("error.table_commands.every_table_command_failed", exc=exc)) from exc
     around.ran = around.ran or outcome.ran
 
 

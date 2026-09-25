@@ -607,7 +607,7 @@ def pages_for_features(features: Any) -> list[tuple[str, DevicePage]]:
 FEATURE_NOTES = {
     install_identity.LIBRARY: "console.settings.feature.curate_game_library",
     install_identity.FRONTEND: "console.settings.feature.launch_games",
-    install_identity.DEVICES: "console.settings.feature.manage_other_vpinfe_installs",
+    install_identity.DEVICES: "console.settings.feature.manage_other_devices",
     install_identity.OVERVIEW: "console.settings.feature.add_front_page_summarising"
 }
 
@@ -752,7 +752,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  for one in options}
     entries: list[tuple[Any, Any]] = []
     if not writable:
-        entries.append(panel.intro(t("console.settings.read_install")))
+        entries.append(panel.intro(t("console.settings.read_only_device")))
 
     names_groups = any(option.get("group") for option in options)
     heading = ""
@@ -1033,7 +1033,7 @@ async def _identity_page(library: Library, reported: str,
         (t("word.name"), panel.field(str(held.get("display_name") or ""),
                                                  rename,
                              placeholder=reported)),
-        panel.note(t("console.settings.what_install_called_where")),
+        panel.note(t("console.settings.what_device_called_where")),
     ]
     if language is not None:
         entries.append((language.label or humanize(language.key),
@@ -1044,7 +1044,7 @@ async def _identity_page(library: Library, reported: str,
             entries.append(panel.note(language.description))
     entries += [
         (panel.HEADING, t("console.settings.features")),
-        panel.intro(t("console.settings.what_install_each_one")),
+        panel.intro(t("console.settings.what_device_each_one")),
     ]
     for name in install_identity.FEATURES:
         entries.append((t(install_identity.LABELS[name]),

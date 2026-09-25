@@ -602,7 +602,7 @@ def take_published(*, stop_table: bool = False) -> dict:
     context = get_install_context()
     if not context["supported"]:
         raise service_errors.UnavailableError(
-            t("error.instance.install_cannot_replace_itself"),
+            t("error.instance.device_cannot_update_itself"),
             details={"support_reason": context["reason"]})
 
     playing = launch_state.current()

@@ -395,7 +395,7 @@ def acts(library: Library, state: dict[str, Any], launcher: dict, count: int,
     offered.append(panel.Verb(
         t("word.remove"),
         None if count <= 1 else (lambda: remove(library, state, redraw, launcher)),
-        danger=True, hint=t("console.workbench.launcher_install")))
+        danger=True, hint=t("console.workbench.only_launcher")))
     return offered
 
 
