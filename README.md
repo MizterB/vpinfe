@@ -52,11 +52,11 @@ you much - two builds eighteen months apart both answer to it. If you run a nigh
 take a current one.
 
 Older builds still run tables. VPinFE does not check the version; it looks at the
-install you point it at and offers what is actually there. Per-table settings work on
+program you point it at and offers what is actually there. Per-table settings work on
 10.8.0, and the plugin settings only appear where the build has plugins - they are read
 out of your `VPinballX.ini` rather than assumed.
 
-The install is the same for all platforms you need to download the right release for it.  Currently there are two different builds available for each platform:
+Installing is the same for all platforms - you need to download the right release for it.  Currently there are two different builds available for each platform:
 
 - A slim build (has slim in its name) is for people who already have chrome installed locally on there machine. (Recommend bundle)
 - A fat build (no slim in its name and larger binary) that bundles chromium with VPinfe
@@ -109,7 +109,7 @@ Next you must tell VPinFE where your tables are, and how to run them.
    Visual Pinball's own `VPinballX.ini`, or point it at another one to start your tables
    with that instead.
 
-A launcher is one way of running a table. Most installs need only the one, and it is
+A launcher is one way of running a table. Most people need only the one, and it is
 what every table uses unless it names another. Duplicate it if you want a second way to
 run the same program - pointed at a different ini, say.
 
@@ -121,7 +121,7 @@ NiceGUI ready to go on http://localhost:8001, and http://192.168.1.228:8001
 
 Put that URL in a browser and you land in the Console.  The ManagerUI is still there at `/manager` — it has a few things the Console hasn't grown yet.
 
-By default VPinFE keeps `vpinfe.ini`, `themes/`, caches, and logs in the OS config directory (`~/.config/vpinfe` on Linux, `~/Library/Application Support/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe` on Windows). To keep everything somewhere else — a portable install, or separate config profiles — set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the whole config directory at `DIR`; the environment variable wins if you set both.
+By default VPinFE keeps `vpinfe.ini`, `themes/`, caches, and logs in the OS config directory (`~/.config/vpinfe` on Linux, `~/Library/Application Support/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe` on Windows). To keep everything somewhere else — a portable copy, or separate config profiles — set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the whole config directory at `DIR`; the environment variable wins if you set both.
 
 ### Enabling the shutdown feature
 
