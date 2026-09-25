@@ -1999,6 +1999,7 @@
   "error.launchers.no_settings_own_write": "{app_name} has no settings of its own to write.",
   "error.launchers.no_table_called": "No table called {wanted!r}.",
   "error.launchers.nothing_copy_yet_file": "Nothing to copy yet: the file this launcher names is not there.",
+  "error.launchers.one_table_only": "{app_name} reads {keys} for one table at a time, never for all.",
   "error.locations.folder_no_longer_library": "That folder is no longer in the library.",
   "error.locations.location_needs_id": "A location needs an id.",
   "error.locations.location_needs_path": "A location needs a path.",

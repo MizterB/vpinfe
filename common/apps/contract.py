@@ -10,7 +10,8 @@ Consumers ask before they call.
 
 Nothing here takes or returns a VPinFE object, and nothing holds a word. An app's words
 are in `i18n/<language>.json` beside it, found by what the app declares: `name`,
-`field.<key>.label`, `field.<key>.description`, `group.<key>.label`.
+`field.<key>.label`, `field.<key>.description`, `field.<key>.help`, `group.<key>.label`,
+and `group.<key>.heading.<heading>.label` and `.note`.
 """
 
 from __future__ import annotations
@@ -49,6 +50,8 @@ class Field:
     # guessed from the key: `bin_path` and `ini_path` end the same way and want
     # different answers.
     path: str = ""
+    # Commonly set for one table rather than for all of them, so offered first there.
+    per_table: bool = False
 
 
 @dataclass(frozen=True)
@@ -169,13 +172,31 @@ SCOPE_ENTRY = "entry"
 
 
 @dataclass(frozen=True)
+class Heading:
+    """Curated rows under one sub-heading of a group. An empty key draws no heading."""
+
+    key: str = ""
+    keys: tuple[str, ...] = ()
+    # One of `keys`, a switch: while it is off, the heading's other rows change nothing
+    # and are not drawn.
+    enabled_by: str = ""
+
+
+@dataclass(frozen=True)
 class ConfigGroup:
     """Declared rather than derived from the sections an app's file happens to have: a
-    group can span sections and a section can feed two groups."""
+    group can span sections and a section can feed two groups.
+
+    `settings` is every member. `curated` names the few drawn first; the rest are found
+    by search.
+    """
 
     key: str
     label: str = ""
     settings: tuple[Field, ...] = ()
+    curated: tuple[Heading, ...] = ()
+    # Said as one line - whether anything in it is set - and never listed key by key.
+    summarized: bool = False
 
 
 @dataclass(frozen=True)

@@ -1999,6 +1999,7 @@
   "error.launchers.no_settings_own_write": "{app_name} ĥàš ñö šèţţîñĝš öƒ îţš öŵñ ţö ŵřîţè.",
   "error.launchers.no_table_called": "Ñö ţàƀŀè çàŀŀèđ {wanted!r}.",
   "error.launchers.nothing_copy_yet_file": "Ñöţĥîñĝ ţö çöþý ýèţ: ţĥè ƒîŀè ţĥîš ŀàûñçĥèř ñàɱèš îš ñöţ ţĥèřè.",
+  "error.launchers.one_table_only": "{app_name} řèàđš {keys} ƒöř öñè ţàƀŀè àţ à ţîɱè, ñèṽèř ƒöř àŀŀ.",
   "error.locations.folder_no_longer_library": "Ţĥàţ ƒöŀđèř îš ñö ŀöñĝèř îñ ţĥè ŀîƀřàřý.",
   "error.locations.location_needs_id": "À ŀöçàţîöñ ñèèđš àñ îđ.",
   "error.locations.location_needs_path": "À ŀöçàţîöñ ñèèđš à þàţĥ.",

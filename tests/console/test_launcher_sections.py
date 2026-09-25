@@ -23,7 +23,7 @@ def _launcher(state: str, *, has_config: bool = True) -> dict:
             "checks": {"bin_path": {"state": state}}}
 
 
-def _context(state: str, groups=("backglass",), *, has_config: bool = True) -> dict:
+def _context(state: str, groups=("displays",), *, has_config: bool = True) -> dict:
     return {
         "launcher": _launcher(state, has_config=has_config),
         "config_groups": [SimpleNamespace(key=key, label=key.title(), settings=[1])
@@ -40,7 +40,7 @@ class RailTests(unittest.TestCase):
     def test_a_working_launcher_offers_the_groups_its_app_declares(self) -> None:
         shown = _shown(_context(path_checks.OK))
 
-        self.assertIn("launcher_backglass", shown)
+        self.assertIn("launcher_displays", shown)
         self.assertIn("launcher_setup", shown)
         self.assertIn("launcher_backups", shown)
 
@@ -52,17 +52,17 @@ class RailTests(unittest.TestCase):
     def test_a_group_the_app_does_not_declare_is_absent_rather_than_empty(self) -> None:
         """An install without the plugin architecture shows fewer sections, not empty
         ones - and that follows from what the app answered rather than a version test."""
-        shown = _shown(_context(path_checks.OK, groups=("backglass",)))
+        shown = _shown(_context(path_checks.OK, groups=("displays",)))
 
-        self.assertNotIn("launcher_rom", shown)
-        self.assertNotIn("launcher_scoreview", shown)
+        self.assertNotIn("launcher_plugins", shown)
+        self.assertNotIn("launcher_sound", shown)
 
     def test_a_group_declared_with_nothing_in_it_is_also_absent(self) -> None:
         context = _context(path_checks.OK)
-        context["config_groups"] = [SimpleNamespace(key="backglass", label="Backglass",
+        context["config_groups"] = [SimpleNamespace(key="displays", label="Displays",
                                                     settings=[])]
 
-        self.assertNotIn("launcher_backglass", _shown(context))
+        self.assertNotIn("launcher_displays", _shown(context))
 
     def test_an_app_with_no_settings_of_its_own_offers_no_copies(self) -> None:
         shown = _shown(_context(path_checks.OK, groups=(), has_config=False))

@@ -11,6 +11,7 @@ implementations.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from common import i18n
@@ -22,15 +23,16 @@ from .contract import (
     ConfigGroup,
     Entry,
     Field,
+    Heading,
     Kinds,
     Parsed,
     Session,
 )
 
 __all__ = [
-    "App", "Availability", "Claim", "ConfigGroup", "Entry", "Field", "Kinds", "Parsed",
-    "Session", "all_apps", "app_for", "app_name", "default_app", "field_words", "get",
-    "group_words", "strip_suffix", "table_suffixes",
+    "App", "Availability", "Claim", "ConfigGroup", "Entry", "Field", "Heading", "Kinds",
+    "Parsed", "Session", "all_apps", "app_for", "app_name", "default_app", "field_help",
+    "field_words", "get", "group_words", "heading_words", "strip_suffix", "table_suffixes",
 ]
 
 _built_in_apps: tuple[App, ...] = ()
@@ -129,9 +131,26 @@ def field_words(app_id: str, field: Field) -> dict[str, str]:
         return i18n.literal_or(literal, f"app.{app_id}.field.{field.key}.{name}",
                                f"launcher.field.{field.key}.{name}", fallback=fallback)
 
-    label, label_key = leaf("label", field.label, field.key)
+    label, label_key = leaf("label", field.label, _humanized(field.key))
     return {"label": label, "label_key": label_key,
             "description": leaf("description", field.description, "")[0]}
+
+
+def field_help(app_id: str, field: Field) -> str:
+    """What a setting is for, in the app's catalog's words, or "" where it says nothing.
+    Beside `description`, which is the program's own."""
+    return i18n.literal_or("", f"app.{app_id}.field.{field.key}.help")[0]
+
+
+# A capital after a small letter, or before a capital and a small letter, starts a word:
+# `B2SHideGrill` reads `B2S Hide Grill`, and `PIN2DMD` is left whole.
+_WORD_START = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+
+
+def _humanized(key: str) -> str:
+    """A key nobody gave words to, as near to words as it goes: its last part, split
+    where its capitals start words."""
+    return _WORD_START.sub(" ", key.rsplit(".", 1)[-1])
 
 
 def group_words(app_id: str, group: ConfigGroup) -> dict[str, str]:
@@ -139,6 +158,13 @@ def group_words(app_id: str, group: ConfigGroup) -> dict[str, str]:
                                        f"app.{app_id}.group.{group.key}.label",
                                        fallback=group.key)
     return {"label": label, "label_key": label_key}
+
+
+def heading_words(app_id: str, group: str, heading: str) -> dict[str, str]:
+    """`label` and `note` for one heading of a group's curated rows."""
+    base = f"app.{app_id}.group.{group}.heading.{heading}"
+    return {"label": i18n.literal_or("", f"{base}.label", fallback=_humanized(heading))[0],
+            "note": i18n.literal_or("", f"{base}.note")[0]}
 
 
 def table_suffixes() -> tuple[str, ...]:

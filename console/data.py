@@ -434,13 +434,19 @@ class Library:
 
         found = self._client.launcher_config(launcher_id, table, scope)
         return [SimpleNamespace(
-            key=g["key"], label=g["label"],
+            key=g["key"], label=g["label"], summarized=bool(g.get("summarized")),
+            curated=[SimpleNamespace(
+                key=h["key"], label=h["label"], note=h.get("note", ""),
+                keys=tuple(h["keys"]), enabled_by=h.get("enabled_by", ""))
+                for h in g.get("curated") or ()],
             settings=[SimpleNamespace(
                 key=f["key"], label=f["label"], type=f["type"],
                 default=f["default"], description=f["description"],
+                help=f.get("help", ""),
                 choices=tuple(tuple(pair) for pair in f.get("choices") or ()),
                 minimum=f.get("minimum"), maximum=f.get("maximum"),
-                blank=f.get("blank", ""))
+                blank=f.get("blank", ""), per_table=bool(f.get("per_table")),
+                scopes=tuple(f.get("scopes") or ()))
                 for f in g["settings"]])
             for g in found.get("groups") or []]
 

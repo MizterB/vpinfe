@@ -12,6 +12,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from apps.vpx import areas
 from apps.vpx.config import VPXConfig, own_file, settings_file
 from apps.vpx.setting_types import TYPES
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
@@ -242,6 +243,163 @@ class HeldForTableTests(_Case):
                          {"scope": SCOPE_FOLDER, "settings": 1, "point_of_view": True})
 
 
+AREAS_INI = """\
+[Player]
+; Enable Playfield: Mechanical sounds [Default: 1]
+PlaySound = 1
+; Show FPS: Performance overlay [Default: 0]
+ShowFPS = 0
+; Screen Width: Physical width [Default: 95.9]
+ScreenWidth = 95.9
+; Mass: Flipper mass [Default: 1]
+FlipperPhysicsMass0 = 1
+; Day/Night: Ambient light level [Default: 1]
+EmissionScale = 1
+
+[Topper]
+; Output Mode: Where it goes [Default: 'Disabled', 0='Disabled', 1='Floating']
+TopperOutput = 0
+
+[TableOverride]
+; Difficulty: Overall difficulty [Default: 1]
+Difficulty = 1
+; FOV: Field of view [Default: 45]
+ViewCabFOV = 45
+
+[Plugin.PinMAME]
+Enable = 1
+PinMAMEPath =
+Cheat = 0
+
+[Plugin.FlexDMD]
+Enable = 0
+
+[Plugin.HelloWorld]
+Enable = 0
+
+[DefaultProps\\Bumper]
+; Radius: How big [Default: 45]
+Radius = 45
+
+[CVEdit]
+; Keyword Color: Keywords [Default: 0]
+Keyword = 0
+"""
+
+
+class AreaTests(_Case):
+    """The groups are the pages of the program's own settings menu."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.app_ini.write_text(AREAS_INI)
+        self.groups = {g.key: g for g in self.config.groups(self.settings)}
+
+    def members(self, area: str) -> set[str]:
+        return {f.key for f in self.groups[area].settings}
+
+    def test_the_areas_come_in_the_order_of_the_program_s_menu(self) -> None:
+        self.assertEqual(list(self.groups), [areas.DISPLAYS, areas.SOUND, areas.GRAPHICS,
+                                             areas.PLUGINS, areas.POINT_OF_VIEW, areas.REST])
+
+    def test_each_setting_is_on_its_page(self) -> None:
+        self.assertEqual(self.members(areas.DISPLAYS),
+                         {"Player.ScreenWidth", "Topper.TopperOutput"})
+        self.assertEqual(self.members(areas.SOUND), {"Player.PlaySound"})
+        self.assertEqual(self.members(areas.GRAPHICS), {"Player.ShowFPS"})
+
+    def test_the_table_editor_s_settings_are_left_out(self) -> None:
+        offered = {f.key for g in self.groups.values() for f in g.settings}
+
+        for key in ("DefaultProps\\Bumper.Radius", "CVEdit.Keyword",
+                    "Player.FlipperPhysicsMass0"):
+            with self.subTest(key=key):
+                self.assertNotIn(key, offered)
+
+    def test_a_plugin_for_writing_plugins_is_in_the_rest(self) -> None:
+        self.assertIn("Plugin.HelloWorld.Enable", self.members(areas.REST))
+        self.assertNotIn("Plugin.HelloWorld.Enable", self.members(areas.PLUGINS))
+
+    def test_each_plugin_is_a_heading_with_its_switch_first(self) -> None:
+        headings = self.groups[areas.PLUGINS].curated
+
+        self.assertEqual([h.key for h in headings], ["FlexDMD", "PinMAME"])
+        pinmame = headings[1]
+        self.assertEqual(pinmame.keys, ("Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath"))
+        self.assertEqual(pinmame.enabled_by, "Plugin.PinMAME.Enable")
+
+    def test_a_curated_row_the_file_lacks_is_left_out(self) -> None:
+        playfield = next(h for h in self.groups[areas.SOUND].curated
+                         if h.key == "playfield")
+
+        self.assertEqual(playfield.keys, ("Player.PlaySound",))
+        self.assertNotIn("backglass", [h.key for h in self.groups[areas.SOUND].curated])
+
+    def test_the_point_of_view_is_summarized(self) -> None:
+        self.assertTrue(self.groups[areas.POINT_OF_VIEW].summarized)
+        self.assertEqual(self.members(areas.POINT_OF_VIEW), {"TableOverride.ViewCabFOV"})
+
+    def test_a_curated_row_a_table_can_hold_is_offered_first_there(self) -> None:
+        fields = {f.key: f for g in self.groups.values() for f in g.settings}
+
+        self.assertTrue(fields["Player.PlaySound"].per_table)
+        self.assertTrue(fields["TableOverride.Difficulty"].per_table)
+        self.assertFalse(fields["Player.ShowFPS"].per_table)
+        self.assertFalse(fields["Plugin.PinMAME.Cheat"].per_table)
+
+
+class TableOnlyTests(_Case):
+    def test_what_the_program_keeps_per_table_is_not_offered_for_all(self) -> None:
+        for key in ("TableOverride.Difficulty", "TableOverride.ViewCabFOV",
+                    "TableOption.Anything", "Player.EmissionScale"):
+            with self.subTest(key=key):
+                self.assertEqual(self.config.scopes_for(key), (SCOPE_FOLDER, SCOPE_ENTRY))
+
+    def test_a_plugin_s_switch_is_offered_everywhere_though_its_paths_are_not(self) -> None:
+        self.assertEqual(self.config.scopes_for("Plugin.PinMAME.Enable"),
+                         self.config.scopes())
+        self.assertEqual(self.config.scopes_for("Plugin.PinMAME.PinMAMEPath"),
+                         (SCOPE_LAUNCHER,))
+        self.assertEqual(self.config.scopes_for("Plugin.DMDUtil.Enable"),
+                         self.config.scopes())
+        self.assertEqual(self.config.scopes_for("Plugin.DMDUtil.ZeDMD"), (SCOPE_LAUNCHER,))
+
+
+class CuratedTests(unittest.TestCase):
+    """The curated rows are named here, so each has to be one the program declares, and
+    the words for each have to be in the catalog."""
+
+    def setUp(self) -> None:
+        import json
+
+        self.words = json.loads((Path(areas.__file__).parent / "i18n" / "en.json")
+                                .read_text(encoding="utf-8"))
+        self.curated = [key for headings in areas.CURATED.values() for one in headings
+                        for key in one.keys]
+        self.plugin_rows = [key for keys in areas.PLUGIN_ROWS.values() for key in keys]
+
+    def test_every_curated_row_is_one_the_program_declares(self) -> None:
+        self.assertEqual([key for key in self.curated + self.plugin_rows
+                          if key not in TYPES], [])
+
+    def test_every_curated_row_is_in_its_own_area(self) -> None:
+        for area, headings in areas.CURATED.items():
+            for key in (key for one in headings for key in one.keys):
+                with self.subTest(key=key):
+                    self.assertEqual(areas.area_of(key), area)
+
+    def test_a_plugin_row_has_words_the_program_does_not_give_it(self) -> None:
+        self.assertEqual([key for key in self.plugin_rows
+                          if f"field.{key}.label" not in self.words], [])
+
+    def test_every_heading_has_a_label(self) -> None:
+        named = [f"group.{area}.heading.{one.key}.label"
+                 for area, headings in areas.CURATED.items() for one in headings if one.key]
+        named += [f"group.{areas.PLUGINS}.heading.{plugin}.label"
+                  for plugin in areas.PLUGIN_ROWS]
+        self.assertEqual([key for key in named if key not in self.words], [])
+
+
 class SharedWithGameTests(_Case):
     """A table named after its folder has one file for itself and for its game, so what
     it sets reaches the game's other tables."""
@@ -326,24 +484,20 @@ class WriteTests(_Case):
 
 
 class SchemaTests(_Case):
-    def test_vpx_section_names_are_translated_into_this_project_s_words(self) -> None:
-        """The window VPX calls the DMD is the one this project calls the score view,
-        and a group is where that translation happens."""
-        keys = {g.key for g in self.config.groups(self.settings)}
+    def test_a_section_the_areas_do_not_name_is_in_the_rest(self) -> None:
+        keys = [g.key for g in self.config.groups(self.settings)]
 
-        self.assertIn("scoreview", keys)
-        self.assertNotIn("dmd", keys)
+        self.assertEqual(keys, [areas.DISPLAYS, areas.REST])
 
     def test_the_groups_come_from_the_file_rather_than_from_here(self) -> None:
         groups = {g.key: g for g in self.config.groups(self.settings)}
 
-        self.assertIn("backglass", groups)
-        keys = {f.key for f in groups["backglass"].settings}
+        keys = {f.key for f in groups[areas.DISPLAYS].settings}
         self.assertEqual(keys, {KEY, "Backglass.GrillHeight"})
 
     def test_a_setting_carries_what_the_comment_said(self) -> None:
         groups = {g.key: g for g in self.config.groups(self.settings)}
-        one = next(f for f in groups["backglass"].settings if f.key == KEY)
+        one = next(f for f in groups[areas.DISPLAYS].settings if f.key == KEY)
 
         self.assertEqual(one.label, "Output Mode")
         self.assertEqual(one.type, "choice")

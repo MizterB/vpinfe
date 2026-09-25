@@ -89,8 +89,8 @@ class TestEveryRegistryResolves(unittest.TestCase):
                           if apps.app_name(app.id) == app.id], [])
 
     def test_app_setting_groups(self) -> None:
-        from apps.vpx import config
-        keys = [key for key, _ in config.GROUPS] + [config.REST]
+        from apps.vpx import areas
+        keys = [*areas.AREAS, areas.POINT_OF_VIEW, areas.REST]
         self.assertEqual([key for key in keys
                           if not apps.group_words("vpx", ConfigGroup(key))["label_key"]],
                          [])
@@ -1015,6 +1015,23 @@ def _package_strings(app_id: str) -> set[str]:
             if isinstance(node, ast.Constant) and isinstance(node.value, str)}
 
 
+_FIELD_WORD = re.compile(r"field\.(.+)\.(label|description|help)")
+_GROUP_WORD = re.compile(r"group\.([^.]+)\.label")
+_HEADING_WORD = re.compile(r"group\.([^.]+)\.heading\.([^.]+)\.(label|note)")
+
+
+def _asked_for(key: str, named: set[str]) -> bool:
+    """Whether the key is one the contract's lookups can form from something the app
+    names: a reason itself, a field's words, a group's label, or a heading's words."""
+    if key in named:
+        return True
+    found = _FIELD_WORD.fullmatch(key) or _GROUP_WORD.fullmatch(key)
+    if found is not None:
+        return found[1] in named
+    heading = _HEADING_WORD.fullmatch(key)
+    return heading is not None and heading[1] in named and heading[2] in named
+
+
 def _reasons(app_id: str) -> list[str]:
     """Every reason an app writes into an `Availability`, by position or by name."""
     found = []
@@ -1053,14 +1070,9 @@ class TestEachAppKeepsItsOwnWords(unittest.TestCase):
 
     def test_no_entry_is_one_the_app_cannot_ask_for(self) -> None:
         for app in self.built_in:
-            fields = {f.key for f in app.fields}
-            said = _package_strings(app.id)
+            named = {f.key for f in app.fields} | _package_strings(app.id)
             spare = [key for key in _file(APPS / app.id / "i18n")
-                     if key != "name" and key not in said
-                     and not any(key in (f"field.{f}.label", f"field.{f}.description")
-                                 for f in fields)
-                     and not (key.startswith("group.") and key.endswith(".label")
-                              and key[len("group."):-len(".label")] in said)]
+                     if key != "name" and not _asked_for(key, named)]
             with self.subTest(app=app.id):
                 self.assertEqual(spare, [], "nothing asks for these")
 

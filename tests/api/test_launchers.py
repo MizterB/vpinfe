@@ -449,6 +449,91 @@ class AllTablesOnlyTests(_TableCase):
         self.assertNotIn("ShowFPS", pathlib.Path(self.beside).read_text())
 
 
+class TableOnlyTests(_TableCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        self.app_ini.write_text("[Player]\nFXAA = 1\n\n"
+                                "[TableOverride]\nDifficulty =\nViewCabFOV =\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(self.app_ini)}})
+
+    def _groups(self, scope: str) -> dict:
+        got = self.client.get(f"/launchers/l1/config?table=t1&scope={scope}")
+        self.assertEqual(got.status_code, 200, got.text)
+        return {g["key"]: g for g in got.json()["groups"]}
+
+    def test_a_table_offers_it_and_the_launcher_does_not(self) -> None:
+        at_launcher = {f["key"] for g in self._groups("launcher").values()
+                       for f in g["settings"]}
+        at_table = {f["key"] for g in self._groups("entry").values() for f in g["settings"]}
+
+        self.assertNotIn("TableOverride.Difficulty", at_launcher)
+        self.assertIn("TableOverride.Difficulty", at_table)
+
+    def test_writing_one_at_the_launcher_is_refused_in_its_own_words(self) -> None:
+        got = self.client.put("/launchers/l1/config", json={
+            "scope": "launcher", "values": {"TableOverride.Difficulty": "2"}})
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertIn("one table at a time", got.text)
+        self.assertNotIn("Difficulty = 2", self.app_ini.read_text())
+
+    def test_the_point_of_view_is_one_summarized_group_at_a_table(self) -> None:
+        groups = self._groups("entry")
+
+        self.assertTrue(groups["point_of_view"]["summarized"])
+        self.assertEqual([f["key"] for f in groups["point_of_view"]["settings"]],
+                         ["TableOverride.ViewCabFOV"])
+        self.assertNotIn("point_of_view", self._groups("launcher"))
+
+
+class CuratedTests(_TableCase):
+    def setUp(self) -> None:
+        super().setUp()
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Player]\nPlaySound = 1\nSound3D = 0\nShowFPS = 0\n\n"
+                           "[Plugin.PinMAME]\nEnable = 1\nPinMAMEPath =\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+    def _groups(self, scope: str) -> dict:
+        got = self.client.get(f"/launchers/l1/config?table=t1&scope={scope}")
+        self.assertEqual(got.status_code, 200, got.text)
+        return {g["key"]: g for g in got.json()["groups"]}
+
+    def test_a_heading_carries_its_words_and_rows(self) -> None:
+        sound = self._groups("launcher")["sound"]
+
+        self.assertEqual(sound["curated"], [{
+            "key": "playfield", "label": "Playfield",
+            "note": "Mechanical sounds - flippers, solenoids, the ball",
+            "keys": ["Player.PlaySound", "Player.Sound3D"], "enabled_by": ""}])
+        self.assertFalse(sound["summarized"])
+
+    def test_a_plugin_heading_is_switched_by_its_enable(self) -> None:
+        plugins = self._groups("launcher")["plugins"]
+
+        self.assertEqual(plugins["curated"][0]["keys"],
+                         ["Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath"])
+        self.assertEqual(plugins["curated"][0]["enabled_by"], "Plugin.PinMAME.Enable")
+
+    def test_a_heading_holds_only_rows_the_scope_offers(self) -> None:
+        plugins = self._groups("entry")["plugins"]
+
+        self.assertEqual(plugins["curated"][0]["keys"], ["Plugin.PinMAME.Enable"])
+
+    def test_a_setting_carries_a_help_line_and_whether_a_table_sets_it(self) -> None:
+        settings = {f["key"]: f for g in self._groups("launcher").values()
+                    for f in g["settings"]}
+
+        self.assertEqual(settings["Player.Sound3D"]["help"],
+                         "How playfield sound is spread across speakers")
+        self.assertTrue(settings["Player.Sound3D"]["per_table"])
+        self.assertFalse(settings["Player.ShowFPS"]["per_table"])
+        self.assertEqual(settings["Plugin.PinMAME.PinMAMEPath"]["label"], "PinMAME Path")
+
+
 class SwitchingOffTests(unittest.TestCase):
     """Three tables, all played by the first of two VPX launchers."""
 

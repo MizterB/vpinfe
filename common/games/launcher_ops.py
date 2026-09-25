@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, i18n, path_checks, service_errors
+from common.apps.contract import SCOPE_LAUNCHER
 from common.games import config_backups, game_repository, launchers, tables
 from common.games.config_backups import Backup
 from common.games.table_identity import find_table_by_id
@@ -266,6 +267,8 @@ def app_config(launcher_id: str, table: str = "",
         "scopes": list(config.scopes()),
         "shared_with_game": bool(target and shares is not None and shares(target)),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),
+                    "summarized": g.summarized,
+                    "curated": _curated(found.app, g, {f.key for f in fields}),
                     "settings": [{**_described_field(found.app, f), "blank": blank(f.key),
                                   "scopes": list(scopes_for(f.key))} for f in fields]}
                    for g, fields in groups if fields],
@@ -292,10 +295,26 @@ def _blank_words(app_id: str, config: Any) -> Callable[[str], str]:
 
 
 def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:
-    return {"key": field.key, **apps.field_words(app_id, field), "type": field.type,
+    return {"key": field.key, **apps.field_words(app_id, field),
+            "help": apps.field_help(app_id, field), "type": field.type,
             "default": field.default,
             "choices": [list(pair) for pair in field.choices],
-            "minimum": field.minimum, "maximum": field.maximum}
+            "minimum": field.minimum, "maximum": field.maximum,
+            "per_table": field.per_table}
+
+
+def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict[str, Any]]:
+    """The group's curated headings, holding only rows this scope shows."""
+    found = []
+    for heading in group.curated:
+        keys = [key for key in heading.keys if key in shown]
+        if keys:
+            found.append({"key": heading.key, **apps.heading_words(app_id, group.key,
+                                                                   heading.key),
+                          "keys": keys,
+                          "enabled_by": heading.enabled_by if heading.enabled_by in keys
+                          else ""})
+    return found
 
 
 def reaching_from_folder(launcher_id: str, table: str = "") -> dict[str, Any]:
@@ -336,7 +355,8 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
                      if value != "" and scope not in scopes_for(key))
     if refused:
         raise service_errors.RefusedError(t(
-            "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
+            "error.launchers.one_table_only" if scope == SCOPE_LAUNCHER
+            else "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
             keys=(", ".join(refused))))
 
     # The two layers do not stack, so the write that gives a table its own file takes

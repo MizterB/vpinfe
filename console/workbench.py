@@ -4020,7 +4020,7 @@ async def _device_control(context: dict[str, Any]) -> None:
 # The app's declared groups, as rail sections. Fixed rather than read at import: a
 # section key has to be stable for `section=` in an address to mean one thing, and the
 # groups an app declares are its own vocabulary rather than this file's.
-CONFIG_GROUP_KEYS = ("backglass", "scoreview", "rom", "play", "more")
+CONFIG_GROUP_KEYS = ("displays", "sound", "graphics", "plugins", "more")
 
 
 def _launcher_config_sections() -> tuple[Section, ...]:

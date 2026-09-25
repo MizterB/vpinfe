@@ -132,6 +132,8 @@ async def _fill(library: Library, launcher_id: str, table_id: str, state: dict[s
     wanted = state["search"]
     shown = 0
     for group in groups:
+        if group.get("summarized"):
+            continue
         rows = [f for f in group["settings"]
                 if not wanted or wanted in f["label"].lower()
                 or wanted in f["key"].lower()]

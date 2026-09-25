@@ -25,44 +25,30 @@ from common.apps.contract import (
     ConfigGroup,
     ConfigValue,
     Field,
+    Heading,
 )
 
+from . import areas
 from . import ini as vini
 from .setting_types import CONTEXTUAL, TYPES
 
-# Which sections feed which group. Declared rather than derived from section names,
-# because they do not line up: the backglass DMD overlay keys sit with the B2S plugin
-# while the score view has a section of its own, so a group spans sections and a section
-# can feed two groups.
-GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("backglass", ("Backglass", "Plugin.B2S", "Plugin.B2SLegacy")),
-    # VPX's `[DMD]` and its dot-matrix plugins belong here: the window VPX called the
-    # DMD is the one this project calls the score view, and translating its section
-    # names into our words is the point of declaring groups at all.
-    ("scoreview", ("ScoreView", "Plugin.ScoreView", "DMD", "Plugin.FlexDMD",
-                   "Plugin.DMDUtil", "Plugin.AlphaDMD", "Plugin.UpscaleDMD")),
-    ("rom", ("Plugin.PinMAME", "Plugin.AltSound", "Plugin.Serum", "Plugin.VNI")),
-    ("play", ("Player", "Standalone")),
-)
-
-# Everything the groups above do not name. Not fifty groups named after fifty sections:
-# an editor over a thousand keys is a browser, and the way through it is search rather
-# than a rail nobody can hold in their head.
-REST = "more"
-
-_GROUPED = {section for _key, sections in GROUPS for section in sections}
+REST = areas.REST
 
 # Read but never offered. `[Version]` is what the program wrote about itself rather than
 # something to set; the rest is state the program keeps in the same file - key bindings
 # written per device as somebody binds them, and the order plugins render in, worked out
 # when they load. None of it is a setting, and a page of raw input bindings in a
 # settings editor is noise somebody has to read past.
-HIDDEN_SECTIONS = frozenset({"Version", "RecentDir", "TableOverride"})
+HIDDEN_SECTIONS = frozenset({"Version", "RecentDir"})
 HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device")
 # A trailing part rather than a whole section: `[Backglass.Priority.PUP]` is one of
 # several, one per plugin, and they arrive as plugins do.
 HIDDEN_PARTS = ("Priority",)
-POINT_OF_VIEW = "TableOverride.View"
+# The table editor's: default properties for new parts, its script editor's colors, and
+# the physics sets its physics dialog keeps. Nothing a table plays with.
+EDITOR_SECTIONS = ("DefaultProps\\", "CVEdit")
+EDITOR_PHYSICS = re.compile(r"Player\.(FlipperPhysics|TablePhysics|PhysicsSetName).*\d")
+POINT_OF_VIEW = areas.POINT_OF_VIEW_KEYS
 
 # VPX sizes a window left blank from its screen, never by the 16384 it declares.
 _WINDOWS = (("Player", "Playfield"), ("Backglass", "Backglass"), ("ScoreView", "ScoreView"),
@@ -70,23 +56,61 @@ _WINDOWS = (("Player", "Playfield"), ("Backglass", "Backglass"), ("ScoreView", "
 FROM_THE_SCREEN = frozenset(f"{section}.{window}{mode}{side}" for section, window in _WINDOWS
                             for mode in ("", "FS") for side in ("Width", "Height"))
 
+# What the program keeps for all tables only: the pages of its own menu that save
+# globally (input, plunger, nudge and tilt, cabinet, stereo), and the items any page
+# writes straight to the global file. The playfield window is read from the global file
+# alone, whatever its page saves.
 ALL_TABLES_ONLY_SECTIONS = frozenset({"Input"})
+ALL_TABLES_ONLY_PREFIXES = ("Player.Stereo3D", "Player.Anaglyph", "Controller.DOF",
+                            "Plugin.DMDUtil.")
+_SAVED_DIRECTLY = ("FullScreen", "FSWidth", "FSHeight", "RefreshRate", "ColorDepth")
 ALL_TABLES_ONLY = frozenset({
-    "Player.PlayfieldDisplay", "Player.PlayfieldFullScreen", "Player.PlayfieldWndX",
-    "Player.PlayfieldWndY", "Player.PlayfieldWidth", "Player.PlayfieldHeight",
-    "Player.PlayfieldFSWidth", "Player.PlayfieldFSHeight", "Player.PlayfieldRefreshRate",
-    "Player.PlayfieldColorDepth",
-    "Player.PlungerRetract", "Player.KeyboardNudgeMode", "Player.KeyboardNudgeStrength",
-    "Player.RumbleMode", "Player.HDRGlobalExposure", "Player.ShowFPS",
-    "Player.TouchOverlay", "Player.SecurityLevel",
+    "Player.PlayfieldDisplay", "Player.PlayfieldWndX", "Player.PlayfieldWndY",
+    "Player.PlayfieldWidth", "Player.PlayfieldHeight",
+    *(f"{section}.{window}{part}" for section, window in
+      (("Player", "Playfield"), ("Backglass", "Backglass"), ("ScoreView", "ScoreView"),
+       ("Topper", "Topper")) for part in _SAVED_DIRECTLY),
+    "Player.PlungerRetract", "Player.PlungerLinearSensor",
+    "Player.KeyboardNudgeMode", "Player.KeyboardNudgeStrength", "Player.NudgeStrength",
+    "Player.EnableLegacyNudge", "Player.LegacyNudgeStrength", "Player.NudgeFilter0",
+    "Player.NudgeFilter1", "Player.NudgeOrientation0", "Player.NudgeOrientation1",
+    "Player.PlumbInertia", "Player.PlumbThresholdAngle", "Player.SimulatedPlumb",
+    "Player.RumbleMode",
+    "Player.ScreenWidth", "Player.ScreenHeight", "Player.ScreenInclination",
+    "Player.LockbarWidth", "Player.LockbarHeight",
+    "Player.ScreenPlayerX", "Player.ScreenPlayerY", "Player.ScreenPlayerZ",
+    "Player.GfxBackend", "Player.MaxPrerenderedFrames", "Player.AAFactor",
+    "Player.MSAASamples", "Player.DisableAO", "Player.DynamicAO", "Player.MaxTexDimension",
+    "Player.PFReflection", "Player.AlphaRampAccuracy", "Player.HDRGlobalExposure",
+    "Player.CompressTextures", "Player.UseNVidiaAPI", "Player.SoftwareVertexProcessing",
+    "Player.ShowFPS", "Player.TouchOverlay", "Player.SecurityLevel",
     "Player.NumberOfTimesToShowTouchMessage",
+    "Controller.ForceDisableB2S",
+    "Plugin.ScoreView.LayoutFolder", "Plugin.PinMAME.PinMAMEPath",
+    "Plugin.AltSound.Folder", "Plugin.Serum.SerumPath", "Plugin.VNI.VniPath",
+    "Plugin.PUP.PUPFolder", "Plugin.UpscaleDMD.UpscaleMode",
     "Standalone.Haptics",
 })
 
+# What it keeps for one table only. The comment above `[TableOverride]` in the file says
+# its keys are not meant for the application's; `[TableOption]` is whatever a table's
+# script offers.
+TABLE_ONLY_SECTIONS = frozenset({"TableOverride", "TableOption"})
+TABLE_ONLY = frozenset({"Player.OverrideTableEmissionScale", "Player.EmissionScale"})
+
 
 def _all_tables_only(qualified: str) -> bool:
+    # A plugin's switch is read from the table's settings when a table starts.
+    if qualified.startswith("Plugin.") and qualified.endswith(".Enable"):
+        return False
     return (qualified in ALL_TABLES_ONLY
-            or qualified.split(".", 1)[0] in ALL_TABLES_ONLY_SECTIONS)
+            or qualified.split(".", 1)[0] in ALL_TABLES_ONLY_SECTIONS
+            or qualified.startswith(ALL_TABLES_ONLY_PREFIXES))
+
+
+def _table_only(qualified: str) -> bool:
+    return (qualified in TABLE_ONLY
+            or qualified.split(".", 1)[0] in TABLE_ONLY_SECTIONS)
 
 
 def _offered(qualified: str) -> bool:
@@ -95,6 +119,8 @@ def _offered(qualified: str) -> bool:
     that says it is a binding is the key and not the heading above it."""
     parts = qualified.split(".")
     if parts[0] in HIDDEN_SECTIONS or qualified.startswith(HIDDEN_PREFIXES):
+        return False
+    if qualified.startswith(EDITOR_SECTIONS) or EDITOR_PHYSICS.fullmatch(qualified):
         return False
     return not any(part in parts for part in HIDDEN_PARTS)
 
@@ -225,33 +251,31 @@ class VPXConfig:
 
     def scopes_for(self, qualified: str) -> tuple[str, ...]:
         """The scopes one setting can be set at."""
-        return (SCOPE_LAUNCHER,) if _all_tables_only(qualified) else self.scopes()
+        if _all_tables_only(qualified):
+            return (SCOPE_LAUNCHER,)
+        if _table_only(qualified):
+            return (SCOPE_FOLDER, SCOPE_ENTRY)
+        return self.scopes()
 
     def groups(self, settings: Mapping[str, Any]) -> tuple[ConfigGroup, ...]:
-        """What the file itself says every setting is.
+        """What the file itself says every setting is, by area.
 
         Read from the application ini rather than declared here: VPX writes each
         setting's label, description, default and - where the answers are a closed set -
         what each value means, into a comment above it. A setting a later build adds
-        appears without this file changing.
+        appears without this file changing, in the rest if no area names it.
         """
         schema = _read(settings_file(settings))
-        by_section: dict[str, list[Field]] = {}
+        by_area: dict[str, list[Field]] = {}
         for one in schema.settings.values():
-            if not _offered(one.qualified):
-                continue
-            by_section.setdefault(one.section, []).append(_field(one))
-
-        built: list[ConfigGroup] = []
-        for key, sections in GROUPS:
-            held = [f for section in sections for f in by_section.get(section, ())]
-            if held:
-                built.append(ConfigGroup(key=key, settings=tuple(held)))
-        rest = [f for section, held in sorted(by_section.items())
-                if section not in _GROUPED for f in held]
-        if rest:
-            built.append(ConfigGroup(key=REST, settings=tuple(rest)))
-        return tuple(built)
+            if _offered(one.qualified):
+                by_area.setdefault(areas.area_of(one.qualified), []).append(_field(one))
+        offered = {f.key for held in by_area.values() for f in held}
+        return tuple(
+            ConfigGroup(key=key, settings=tuple(by_area[key]),
+                        curated=_curated(key, offered),
+                        summarized=key == areas.POINT_OF_VIEW)
+            for key in (*areas.AREAS, areas.POINT_OF_VIEW, REST) if by_area.get(key))
 
     def read(self, scope: str, target: str,
              settings: Mapping[str, Any]) -> dict[str, ConfigValue]:
@@ -376,9 +400,19 @@ class VPXConfig:
         setting = [q for q in held.settings if held.value(q) is not None]
         return {
             "scope": _scope_of(winning, target, {}),
-            "settings": sum(1 for q in setting if _offered(q) and not _all_tables_only(q)),
+            "settings": sum(1 for q in setting if _offered(q) and not _all_tables_only(q)
+                            and not q.startswith(POINT_OF_VIEW)),
             "point_of_view": any(q.startswith(POINT_OF_VIEW) for q in setting),
         }
+
+
+def _curated(area: str, offered: set[str]) -> tuple[Heading, ...]:
+    """An area's curated rows that this file has, under their headings."""
+    if area == areas.PLUGINS:
+        return areas.plugin_headings(offered)
+    kept = (Heading(one.key, tuple(key for key in one.keys if key in offered),
+                    one.enabled_by) for one in areas.CURATED.get(area, ()))
+    return tuple(one for one in kept if one.keys)
 
 
 def _inherited(scope: str, values: Mapping[str, str],
@@ -476,11 +510,15 @@ def _field(one: vini.Setting) -> Field:
     is only unique inside its section - `Width` is in eight of them."""
     return Field(
         key=one.qualified,
-        label=one.label,
+        # The file gives the key where the program has no label, and the catalog has
+        # the words for those.
+        label="" if one.label == one.key else one.label,
         type=_type_of(one),
         default="" if one.qualified in FROM_THE_SCREEN else one.default,
         description=one.description,
         choices=one.choices,
         minimum=one.minimum,
         maximum=one.maximum,
+        per_table=one.qualified in areas.PER_TABLE or (
+            areas.is_curated(one.qualified) and not _all_tables_only(one.qualified)),
     )
