@@ -859,6 +859,18 @@ _SETTINGS_DRAWN: dict[str, Any] = {
                    " return n(nodeA) - n(nodeB) || String(a).localeCompare(String(b)); }",
 }
 
+# Whether a table's release is a mod, which the filter keeps, drawn as what it is a mod of.
+_MOD = "mod"
+_MOD_DRAWN: dict[str, Any] = {
+    ":valueFormatter": "params => (params.data || {}).mod_of_said || ''",
+    ":comparator": "(a, b, nodeA, nodeB, descending) => {"
+                   " const said = node => ((node && node.data) || {}).mod_of_said || '';"
+                   " const x = said(nodeA), y = said(nodeB);"
+                   " if (!x || !y) { if (x === y) return 0; const last = x ? -1 : 1;"
+                   "  return descending ? -last : last; }"
+                   " return x.localeCompare(y); }",
+}
+
 # Which settings those are, by key.
 OWN_SETTINGS_COLUMN = "own_settings"
 
@@ -879,6 +891,12 @@ TABLE_COLUMNS = [
                 **grid.choice_filter([
                     {"value": _NEWER, "label": t("console.games.newer_on_vps")},
                     {"value": "", "label": t("console.games.no_newer_version")}])),
+    grid.column("mod_of", t("console.games.mod_of"), 200, group=t(_TABLE),
+                help=t("console.games.mod_of.help"),
+                **{**grid.choice_filter([
+                    {"value": _MOD, "label": t("console.games.mod")},
+                    {"value": "", "label": t("console.games.no_mod_known")}],
+                    formatted=True), **_MOD_DRAWN}),
     grid.column("author", t("word.author"), 160, group=t(_TABLE),
                 help=t("console.games.built_table_several_names.help")),
     grid.column("rom", t("console.games.rom"), 110, group=t(_TABLE),
@@ -1080,6 +1098,7 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
              "author": ", ".join(row.get("authors") or []),
              "on_vps": str((row.get("source") or {}).get("version") or ""),
              "update": _NEWER if row.get("update_available") else "",
+             **_mod_cell((row.get("source") or {}).get("mod_of")),
              "tags": [*((row.get("user") or {}).get("tags") or []),
                       *(row.get("derived_tags") or [])],
              "said": game_tables.made(row),
@@ -1101,6 +1120,11 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 for key in table_features.LABELS},
              "default_state": _default_cell(row, held[str(row.get("game_id") or "")])}
             for row in rows]
+
+
+def _mod_cell(mod: dict[str, Any] | None) -> dict[str, Any]:
+    said = game_tables.mod_of_said(mod)
+    return {"mod_of": _MOD if said else "", "mod_of_said": said}
 
 
 def _settings_cell(row: dict[str, Any]) -> dict[str, Any]:
