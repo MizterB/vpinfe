@@ -4336,6 +4336,14 @@ def _switched_off_goes_to(launcher: dict[str, Any], held: list[dict[str, Any]]) 
     return str(found.get("display_name") or found.get("app_name") or "") if found else ""
 
 
+def _why_not_the_default(launcher: dict[str, Any]) -> str:
+    """Why the Default switch cannot make it the default, or "" where it can."""
+    state = launchers_page.state_of(launcher)
+    if state == launchers_page.STATE_NO_PROGRAM:
+        return t("console.workbench.default_needs_program", name=launcher["display_name"])
+    return "" if launcher.get("enabled") else t("console.workbench.default_needs_on")
+
+
 async def _launcher_setup(context: dict[str, Any]) -> None:
     """What this launcher is, and what it runs. Its own fields, which are few - the
     program's settings are the sections after this one."""
@@ -4344,6 +4352,7 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
     rebuild = context["rebuild"]
     only_one = len(context.get("launchers") or []) <= 1
     is_default = context.get("defaults", {}).get(launcher["app"]) == launcher["launcher_id"]
+    refused_default = _why_not_the_default(launcher)
 
     async def put(changes: dict[str, Any]) -> str:
         """Empty when it saved, else why it did not."""
@@ -4406,10 +4415,8 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
         (t("word.runs"), launcher["app_name"]),
         (t("word.default"), panel.switch(
             is_default, lambda e: make_default(bool(e.value)),
-            disabled=is_default or not launcher["enabled"],
-            hint=(t("console.workbench.default_another") if is_default
-                  else "" if launcher["enabled"]
-                  else t("console.workbench.default_needs_on")))),
+            disabled=is_default or bool(refused_default),
+            hint=t("console.workbench.default_another") if is_default else refused_default)),
         panel.note(t("console.workbench.default_help", app=launcher["app_name"])),
     ]
     entries.append((t("console.workbench.enabled"), panel.switch(

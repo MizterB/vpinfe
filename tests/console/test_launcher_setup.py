@@ -17,8 +17,10 @@ class Setup:
     in hand."""
 
     def __init__(self, *, refused: str = "", default: bool = False,
-                 enabled: bool = True) -> None:
-        self.launcher = {**LAUNCHER, "enabled": enabled}
+                 enabled: bool = True, program: str = "ok") -> None:
+        self.launcher = {**LAUNCHER, "enabled": enabled,
+                         "fields": [{"key": "bin_path", "path": "exe", "label": "Program"}],
+                         "checks": {"bin_path": {"state": program}}}
         self.recheck, self.refresh, self.retitle = AsyncMock(), AsyncMock(), Mock()
         self.put = AsyncMock(side_effect=RuntimeError(refused) if refused else None)
         self.rebuild = AsyncMock()
@@ -33,8 +35,9 @@ class Setup:
         self._patches = [patch.object(workbench, "ui"), patch.object(workbench, "_rows"),
                          patch.object(workbench.run, "io_bound", new=self.put),
                          patch.object(workbench.panel, "field"),
-                         patch.object(workbench.panel, "switch")]
-        _, _, _, field, switch = [one.start() for one in self._patches]
+                         patch.object(workbench.panel, "switch"),
+                         patch.object(workbench.settings_page, "control_for")]
+        _, _, _, field, switch, _ = [one.start() for one in self._patches]
         await workbench._launcher_setup(self.context)
         self.rename = field.call_args.args[1]
         self.default, self.enabled = switch.call_args_list[:2]
@@ -114,6 +117,13 @@ class Default(unittest.IsolatedAsyncioTestCase):
             pass
         self.assertIs(setup.default.kwargs["disabled"], True)
         self.assertTrue(setup.default.kwargs["hint"])
+
+    async def test_one_with_no_program_cannot_be_made_the_default(self) -> None:
+        """Said over switched off: switching it on would still leave nothing to run."""
+        async with Setup(enabled=False, program="unset") as setup:
+            pass
+        self.assertIs(setup.default.kwargs["disabled"], True)
+        self.assertEqual(setup.default.kwargs["hint"], "“VPX (4K)” has no program")
 
 
 if __name__ == "__main__":

@@ -410,6 +410,9 @@ def restore_backup(launcher_id: str, name: str) -> dict[str, Any]:
 def make_default(launcher_id: str) -> dict[str, Any]:
     """Make it the launcher its app's tables use unless they name another."""
     found = launcher_or_refuse(launcher_id)
+    if not _has_program(found):
+        raise service_errors.RefusedError(
+            t("error.launchers.default_has_no_program", name=found.display_name))
     if not found.enabled:
         raise service_errors.RefusedError(
             t("error.launchers.default_switched_off", name=found.display_name))

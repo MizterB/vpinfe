@@ -89,7 +89,7 @@ class LauncherApiTests(unittest.TestCase):
     def test_making_one_the_default_moves_it_to_the_front(self) -> None:
         self._put("first", display_name="VPX")
         self._put("gen", app="generic", display_name="Generic")
-        self._put("wide", display_name="VPX (4K)")
+        self._put("wide", display_name="VPX (4K)", settings={"bin_path": "/opt/vpx"})
 
         got = self.client.post("/launchers/wide/default")
 
@@ -101,12 +101,25 @@ class LauncherApiTests(unittest.TestCase):
 
     def test_a_switched_off_one_cannot_be_the_default(self) -> None:
         self._put("first", display_name="VPX")
-        self._put("off", display_name="VPX (4K)", enabled=False)
+        self._put("off", display_name="VPX (4K)", enabled=False,
+                  settings={"bin_path": "/opt/vpx"})
 
         got = self.client.post("/launchers/off/default")
 
         self.assertEqual(got.status_code, 400, got.text)
         self.assertIn("switched off", got.json()["error"]["message"])
+        self.assertEqual(self.client.get("/launchers").json()["defaults"]["vpx"], "first")
+
+    def test_one_with_no_program_cannot_be_the_default(self) -> None:
+        """Tables that name no launcher would go to one that cannot start them."""
+        self._put("first", display_name="VPX", settings={"bin_path": "/opt/vpx"})
+        self._put("bare", display_name="VPX (4K)")
+
+        got = self.client.post("/launchers/bare/default")
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertEqual(got.json()["error"]["message"],
+                         "VPX (4K) has no program. Set one to make it the default.")
         self.assertEqual(self.client.get("/launchers").json()["defaults"]["vpx"], "first")
 
     def test_the_caller_names_the_id(self) -> None:
