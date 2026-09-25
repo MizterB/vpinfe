@@ -94,6 +94,21 @@ def rows(held: list[dict], defaults: dict,
     } for one in held]
 
 
+def launcher_offer(held: list[dict], app: str, named: str = "") -> list[dict[str, Any]]:
+    """What a table of `app` may be pointed at, in order: that app's launchers, then
+    every other program's. A switched-off one is left out unless the table names it,
+    since picking it would change nothing that happens."""
+    shown = [one for one in held if one.get("enabled") or one["launcher_id"] == named]
+    ordered = ([one for one in shown if one.get("app") == app]
+               + [one for one in shown if one.get("app") != app])
+    return [{"id": one["launcher_id"], "name": one["display_name"],
+             "other": one.get("app") != app,
+             "mark": (t(STATE_OFF) if not one.get("enabled")
+                      else t("word.default") if one.get("app") == app and one.get("is_default")
+                      else "")}
+            for one in ordered]
+
+
 def build(library: Library, state: dict[str, Any],
           on_select: Callable[[dict | None], Any],
           redraw: Callable[[], None]) -> None:

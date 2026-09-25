@@ -921,6 +921,11 @@ body::before {
   transform: rotate(45deg) scale(0.82);
 }
 
+/* A table that names its own launcher. Amber where the one it names is switched off,
+   so its tables play another. */
+.console-named-mark { color: var(--accent); margin-right: 4px; }
+.console-named-mark--off { color: var(--warm); }
+
 /* The table line doubles as the control that changes which table this member names.
    The caret is the only added ink and it waits for a hover, so a list of forty rows
    reads as text; on touch, where there is no hover, it is simply always there. */

@@ -484,7 +484,12 @@ class Library:
         return self._client.make_launcher_default(launcher_id)
 
     def assign_launcher(self, table_id: str, launcher_id: str) -> dict:
-        return self._client.assign_launcher(table_id, launcher_id)
+        """Every game's tables are read again: the table id does not say which game
+        holds it."""
+        result = self._client.assign_launcher(table_id, launcher_id)
+        self.tables.clear()
+        self._table_rows = None
+        return result
 
     def put_config(self, changes: dict) -> dict:
         self._kept = None

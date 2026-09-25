@@ -480,7 +480,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
     # Off the loop and once, beside the tables: every table row offers the same list, so
     # asking per row would be one blocking HTTP call per table - and the Console consumes
     # its own process, so a blocking call here does not just cost time, it deadlocks.
-    held_launchers = await offload.io(_launchers_for_panel, library)
+    launcher_listing = await offload.io(_launchers_for_panel, library)
     await offload.io(library.media_for, game_id, None)
 
     container.clear()
@@ -506,7 +506,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
         # the game and the panel answers for shared files; under Tables it is one file
         # and the panel answers for that.
         context = {"library": library, "game": game, "game_id": game_id,
-                   "tables": tables, "launchers": held_launchers, "state": state,
+                   "tables": tables, "launchers": launcher_listing, "state": state,
                    "lens": table_id, "redraws": [], "slot": state["slot"]}
 
         # The subject has to survive a rebuild. Left off, every rail click fell
@@ -1869,6 +1869,7 @@ async def _table_block(context: dict[str, Any]) -> None:
             ui.label(t("console.workbench.no_table_selected")).classes("console-help")
             return
         _rows(ui, _table_entries(chosen, context, match, links))
+    ui.run_javascript(_KEEP_SCROLL % f"table:{chosen.get('id') or ''}".replace("'", "\\'"))
 
 
 async def _release_match(context: dict[str, Any],
@@ -3125,7 +3126,7 @@ def _table_override_rows(context: dict[str, Any], table: dict[str, Any],
 
     return [
         (t("console.workbench.launcher_2"), _launcher_pick(context, table)),
-        panel_note_for_launcher(table),
+        *_launcher_notes(context, table),
         *_program_settings_row(context, table),
         (t("console.workbench.clear_nvram_exit"), nvram),
     ]
@@ -3206,14 +3207,20 @@ async def _open_table_settings(context: dict[str, Any], table: dict[str, Any]) -
         on_done=context.get("rebuild"))
 
 
-def panel_note_for_launcher(table: dict[str, Any]) -> tuple[Any, Any]:
-    """Said once under the control rather than inside it: what following means, and what
-    it currently resolves to, so the empty choice is not a blank with no consequence."""
-    name = str(table.get("launcher_name") or "")
-    if table.get("launcher_set_here"):
-        return panel.note(t("console.workbench.table_names_own_clear"))
-    return panel.note(t("console.workbench.following_default", name=(name)) if name
-                      else t("console.workbench.following_default_install_no"))
+def _launcher_notes(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """What the picker cannot say itself: that there is nothing to pick, or that the
+    program playing this table does without what the table's own app knows about it."""
+    listing = context.get("launchers") or {}
+    held = listing.get("launchers") or []
+    if not held:
+        return [panel.note(t("console.workbench.following_default_install_no"))]
+    runs = next((one for one in held if one["launcher_id"] == table.get("launcher")), None)
+    own: dict[str, Any] = next((one for one in listing.get("apps") or []
+                if one.get("id") == table.get("app")), {})
+    if runs is None or runs.get("app") == table.get("app") or not own.get("has_config"):
+        return []
+    return [panel.note(t("console.workbench.runs_with_other",
+                         app=runs.get("app_name") or "", own=own.get("name") or ""))]
 
 
 def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[], None]:
@@ -3222,22 +3229,36 @@ def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[
     A picker, not a path. A free-text field asks somebody to type a binary that nothing
     validates, and every other table would have to be told about it separately.
 
-    Empty is the default rather than a fourth state - an absent mapping already means
-    "whichever is the default", and offering a blank as well as a default would be two
-    spellings of one thing.
+    It shows the launcher that plays the table. One the table chose carries a dot and a
+    Clear, and clearing is how it goes back to the default.
     """
     table_id = str(table.get("id") or "")
-    held = context.get("launchers") or []
-    default_name = next((one["display_name"] for one in held
-                         if one.get("is_default")), "")
-    options = {"": t("console.workbench.default", default_name=(default_name)) if default_name
-            else t("word.default")}
-    options.update({one["launcher_id"]: one["display_name"] for one in held})
-    current = str(table.get("launcher") or "") if table.get("launcher_set_here") else ""
+    listing = context.get("launchers") or {}
+    held = listing.get("launchers") or []
+    known = {one["launcher_id"]: one for one in held}
+    named = str((listing.get("mappings") or {}).get(table_id) or "")
+    named = named if named in known else ""
+    offer = launchers_page.launcher_offer(held, str(table.get("app") or ""), named)
+    current = named or str(table.get("launcher") or "")
 
     def draw() -> None:
-        field = ui.select(options, value=current).props("dense outlined") \
+        field = panel.MarkedSelect(
+            {one["id"]: one["name"] for one in offer},
+            value=current if any(one["id"] == current for one in offer) else None,
+            marks={one["id"]: one["mark"] for one in offer},
+            heading=t("console.workbench.other_programs"),
+            heading_at=next((one["id"] for one in offer if one["other"]), None)) \
+            .props("dense outlined" + (" clearable" if named else "")) \
             .classes("w-full min-w-0")
+        if named:
+            off = not known[named].get("enabled")
+            with field.add_slot("prepend"):
+                ui.element("span").classes(
+                    "console-mark console-mark--full console-named-mark"
+                    + (" console-named-mark--off" if off else "")).tooltip(
+                    t("console.workbench.named_off", name=known[named]["display_name"],
+                      fallback=str(table.get("launcher_name") or "")) if off
+                    else t("console.workbench.chosen_here"))
         if not held:
             field.disable()
             field.tooltip(t("console.workbench.install_no_launchers_yet"))
@@ -3250,30 +3271,29 @@ def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[
                 ui.notify(t("console.workbench.could_not_point_launcher", exc=(exc)),
                           type="negative")
                 return
-            # The select already shows the choice, and the dot saying a table names its
-            # own launcher is the grid's column rather than anything in here.
-            await context["saved"]()
+            await (context.get("rebuild") or context["saved"])()
 
         field.on_value_change(changed)
 
     return draw
 
 
-def _launchers_for_panel(library: Library) -> list[dict[str, Any]]:
-    """This install's launchers, with the default marked. Runs off the event loop.
+def _launchers_for_panel(library: Library) -> dict[str, Any]:
+    """This install's launchers with the default marked, beside what each table names
+    and what each app has. Runs off the event loop.
 
-    An empty list where the read fails: the panel is about a table, and a launcher list
-    that would not load is a disabled picker with a reason rather than a panel that does
-    not draw.
+    Empty where the read fails: the panel is about a table, and a launcher list that
+    would not load is a disabled picker with a reason rather than a panel that does not
+    draw.
     """
     try:
         found = library.launchers()
     except Exception:
         logger.exception("Could not read the launchers for the table panel")
-        return []
+        return {}
     defaults = set((found.get("defaults") or {}).values())
-    return [{**one, "is_default": one["launcher_id"] in defaults}
-            for one in (found.get("launchers") or [])]
+    return {**found, "launchers": [{**one, "is_default": one["launcher_id"] in defaults}
+                                   for one in (found.get("launchers") or [])]}
 
 
 # Named for the thing, not for the .info key. PinMAME is left out: it is not a script

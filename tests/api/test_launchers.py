@@ -79,6 +79,13 @@ class LauncherApiTests(unittest.TestCase):
 
         self.assertEqual(paths, [("bin_path", "Program"), ("ini_path", "Settings File")])
 
+    def test_an_app_says_whether_it_has_settings_of_its_own(self) -> None:
+        """What a table played by another program is told it gives up."""
+        held = {one["id"]: one["has_config"]
+                for one in self.client.get("/launchers").json()["apps"]}
+
+        self.assertEqual((held["vpx"], held["generic"]), (True, False))
+
     def test_making_one_the_default_moves_it_to_the_front(self) -> None:
         self._put("first", display_name="VPX")
         self._put("gen", app="generic", display_name="Generic")

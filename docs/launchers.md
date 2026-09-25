@@ -51,6 +51,8 @@ A second launcher's fields are then the same names, which is what lets its edito
 
 A table pointed at a specific launcher is recorded in `launchers.json` under `MAPPINGS_KEY`, not in the table's `.info`.
 
+A table's **Launcher** picker shows the launcher that plays it. It lists the table's own app's launchers first, its default marked *Default*, then *Other Programs* (`launchers.launcher_offer` in the Console). A switched-off launcher is left out unless the table names it. A table that chose its own carries a dot, amber where the one it chose is switched off, and **Clear** takes it back to the default. One played by another program's launcher says what it gives up, where its own app has settings: *Runs with Generic - Visual Pinball X's settings, ROM and start-up check don't apply*.
+
 ## Resolution
 
 Two functions in `common/games/launchers.py`, and the second is the one that decides.

@@ -476,6 +476,41 @@ class CountedSelect(ui.select):
             option["count"] = self.counts.get(str(option.get("label") or ""))
 
 
+class MarkedSelect(ui.select):
+    """One from a list, each option with a word in its trailing slot where `marks` has
+    one, and `heading` above the option `heading_at`, where the list changes kind."""
+
+    SLOT = """
+        <q-item-label v-if="props.opt.heading" header class="console-menu-header">
+          {{ props.opt.heading }}</q-item-label>
+        <q-item v-bind="props.itemProps">
+          <q-item-section>
+            <q-item-label>{{ props.opt.label }}</q-item-label>
+          </q-item-section>
+          <q-item-section side v-if="props.opt.mark">
+            <q-item-label caption>{{ props.opt.mark }}</q-item-label>
+          </q-item-section>
+        </q-item>
+    """
+
+    def __init__(self, options: dict[str, str], *, value: str | None,
+                 marks: dict[str, str] | None = None, heading: str = "",
+                 heading_at: str | None = None) -> None:
+        # Before `super().__init__`, which builds the payload for the first time.
+        self.marks = dict(marks or {})
+        self.heading = heading
+        self.heading_at = heading_at
+        super().__init__(options, value=value)
+        self.add_slot("option", self.SLOT)
+
+    def _update_options(self) -> None:
+        super()._update_options()
+        for option in self._props["options"]:
+            chosen = self._values[option["value"]]
+            option["mark"] = self.marks.get(chosen, "")
+            option["heading"] = self.heading if chosen == self.heading_at else ""
+
+
 class GamePicker(ui.select):
     """One game from the library, typed into, each option with its maker and year. A
     game in `held` is ticked and cannot be picked."""
