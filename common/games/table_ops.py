@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, service_errors
-from common.games import derived_tags, game_lens, locations, table_lens, tables
+from common.games import derived_tags, game_lens, locations, mods, table_lens, tables
 from common.games.collection_resolver import visible_entries
 from common.games.game import Game
 from common.games.game_metadata import (
@@ -39,7 +39,9 @@ TABLE_OVERRIDES = ("alt_launcher", "plugin_profile", "delete_nvram_on_close")
 
 
 def _game_tables(game: Game) -> list[dict]:
-    return table_lens.table_rows(game, game_to_row(game), launcher_settings=True)
+    rows = table_lens.table_rows(game, game_to_row(game), launcher_settings=True)
+    mods.hold((row.get("source") or {}).get("mod_of") for row in rows)
+    return rows
 
 
 def rows_of(game_id: str) -> dict:

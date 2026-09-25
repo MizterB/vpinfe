@@ -47,6 +47,8 @@ logger = logging.getLogger("vpinfe.common.games.game_service")
 
 VPSDB_JSON_PATH = VPINFE_INI_PATH.parent / "vpsdb.json"
 _vpsdb_cache: list[dict] | None = None
+_release_index: dict[str, tuple[dict, dict]] = {}
+_release_index_of: list[dict] | None = None
 
 
 def _fresh_config() -> ConfigStore:
@@ -178,20 +180,32 @@ def load_vpsdb() -> list[dict]:
 _NOT_A_WORD = re.compile(r"\W+", re.UNICODE)
 
 
-def find_vps_release(vps_file_id: str) -> dict:
-    """One build of one machine, by its own id, across the whole catalog.
+def _releases_by_id() -> dict[str, tuple[dict, dict]]:
+    """Every release in the catalog by its id, with the entry it is listed under.
 
-    Scanned rather than indexed: this answers a single table's "which build am I" on a
-    page draw, not a sweep. Build an index here the day something asks it per row.
+    Keyed on the list `load_vpsdb` returns, not on a flag: a reload hands back a new
+    list, and so does a test standing in its own catalog, and either rebuilds this.
     """
-    wanted = (vps_file_id or "").strip()
-    if not wanted:
-        return {}
-    for entry in load_vpsdb():
-        for release in (entry.get("tableFiles") or []):
-            if str(release.get("id") or "") == wanted:
-                return release
-    return {}
+    global _release_index, _release_index_of
+    catalog = load_vpsdb()
+    if catalog is not _release_index_of:
+        index: dict[str, tuple[dict, dict]] = {}
+        for entry in catalog:
+            for release in (entry.get("tableFiles") or []):
+                if release.get("id"):
+                    index.setdefault(str(release["id"]), (release, entry))
+        _release_index, _release_index_of = index, catalog
+    return _release_index
+
+
+def find_vps_release_and_entry(vps_file_id: str) -> tuple[dict, dict]:
+    """One build of one machine and the machine it belongs to, or two empty dicts."""
+    return _releases_by_id().get((vps_file_id or "").strip(), ({}, {}))
+
+
+def find_vps_release(vps_file_id: str) -> dict:
+    """One build of one machine, by its own id, across the whole catalog."""
+    return find_vps_release_and_entry(vps_file_id)[0]
 
 
 def matched_vps_entry(game: GameRecord) -> dict:

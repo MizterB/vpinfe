@@ -792,6 +792,27 @@ class TablePlayRecord(ApiModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class ModOf(ApiModel):
+    """The release a mod is based on, as VPS records it.
+
+    `vps_file_id` is empty where VPS does not say which release: tagged `MOD` with no
+    link, or a link the catalog cannot find. `note` is then VPS's own comment, and empty
+    too where VPS has none, which is a mod of something unknown. `game` is the machine's
+    name only where it is another machine than the mod's. `url` is that machine's VPS page.
+    `game_id` and `table_id` are the table in this library matched to that release, empty
+    where there is none.
+    """
+
+    vps_file_id: str = ""
+    version: str = ""
+    authors: list[str] = []
+    game: str = ""
+    url: str = ""
+    note: str = ""
+    game_id: str = ""
+    table_id: str = ""
+
+
 class TableSource(ApiModel):
     """Which upstream release a table is, and what established that.
 
@@ -812,6 +833,8 @@ class TableSource(ApiModel):
     # row. Empty where the id names nothing the catalog still holds.
     version: str = ""
     authors: list[str] = []
+    # Null where the release is not a mod, or the catalog no longer holds it.
+    mod_of: ModOf | None = None
 
 
 class TableSourceRequest(ApiModel):
@@ -2675,6 +2698,7 @@ class VpsRelease(ApiModel):
     img_url: str = ""
     updated_at: str = ""
     url: str = ""
+    mod_of: ModOf | None = None
 
 
 class VpsReleases(ApiModel):

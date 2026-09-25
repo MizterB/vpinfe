@@ -20,6 +20,7 @@ from common.games import (
     game_repository,
     launchers,
     library_discovery,
+    mods,
     tables,
 )
 from common.games.game import Game
@@ -153,6 +154,7 @@ def _named_source(described_entry: dict) -> dict | None:
     if release:
         source["version"] = str(release.get("version") or "")
         source["authors"] = [str(name) for name in (release.get("authors") or [])]
+        source["mod_of"] = mods.mod_of(str(source["vps_file_id"]))
     return source
 
 
@@ -471,4 +473,5 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "") -> dict[str, A
                                 (item["filename"] or item["key"]).lower()))
     total = len(found)
     window = found[offset:offset + limit] if limit else found[offset:]
+    mods.hold((row.get("source") or {}).get("mod_of") for row in window)
     return {"total": total, "offset": offset, "count": len(window), "tables": window}

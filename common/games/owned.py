@@ -10,10 +10,21 @@ from common.games.tables import table_entries, table_id
 
 def owned(vps_ids: Iterable[Any]) -> dict[str, Any]:
     wanted = {str(one or "").strip() for one in vps_ids} - {""}
-    found: dict[str, dict[str, str]] = {}
     if not wanted:
-        return {"owned": found, "other_versions": {}}
+        return {"owned": {}, "other_versions": {}}
     games = list(game_repository.all_games())
+    found = _held(wanted, games)
+    return {"owned": found, "other_versions": _other_versions(wanted - set(found), games)}
+
+
+def held(vps_ids: Iterable[Any]) -> dict[str, dict[str, str]]:
+    """`owned` without the search for other versions of what is missing."""
+    wanted = {str(one or "").strip() for one in vps_ids} - {""}
+    return _held(wanted, list(game_repository.all_games())) if wanted else {}
+
+
+def _held(wanted: set[str], games: list[Any]) -> dict[str, dict[str, str]]:
+    found: dict[str, dict[str, str]] = {}
     for game in games:
         game_id = game_identity.game_id(game)
         name = game_title(game)
@@ -25,7 +36,7 @@ def owned(vps_ids: Iterable[Any]) -> dict[str, Any]:
             release = str((source or {}).get("vps_file_id") or "").strip()
             if release in wanted and release not in found:
                 found[release] = {"game_id": game_id, "table_id": str(key), "name": name}
-    return {"owned": found, "other_versions": _other_versions(wanted - set(found), games)}
+    return found
 
 
 def _other_versions(missing: set[str], games: list[Any]) -> dict[str, dict[str, str]]:

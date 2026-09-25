@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from common import service_errors, timestamps
+from common.games import mods
 from common.i18n import t
 from common.online import vps_kinds, vpsdb_sync
 from common.paths import get_ini_config
@@ -55,7 +56,7 @@ def entry(vps_id: str) -> dict[str, Any]:
     return _resource(_entry_or_refuse(vps_id))
 
 
-def _release(release: dict) -> dict:
+def _release(release: dict, entry: dict) -> dict:
     """One build of a machine, in what somebody would recognize their own copy by.
 
     Version and authors, because that is what a `.vpx` carries and so what a person can
@@ -75,6 +76,7 @@ def _release(release: dict) -> dict:
         "img_url": str(release.get("imgUrl") or ""),
         "updated_at": _as_iso(release.get("updatedAt")),
         "url": next((link for link in urls if link), ""),
+        "mod_of": mods.based_on(release, entry),
     }
 
 
@@ -99,7 +101,9 @@ def releases(vps_id: str, listed_as: str = "tableFiles") -> dict[str, Any]:
             details={"listed_as": listed_as,
                      "known": ["tableFiles", *sorted(vps_kinds.BY_LISTING)]})
     found = _entry_or_refuse(vps_id)
-    return {"releases": [_release(one) for one in (found.get(listed_as) or [])]}
+    listed = [_release(one, found) for one in (found.get(listed_as) or [])]
+    mods.hold(one["mod_of"] for one in listed)
+    return {"releases": listed}
 
 
 def search(term: str = "", limit: int = 20) -> dict[str, Any]:
