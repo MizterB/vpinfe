@@ -699,13 +699,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="500",
             aliases=("thumbcachemaxmb",),
         ),
-        ConfigOption(
-            "asset_sources",
-            type="list",
-            default="",
-            # Moved to library.json with the two kind lists, for the same reason.
-            internal=True,
-        ),
     ),
     *in_section(
         "install",

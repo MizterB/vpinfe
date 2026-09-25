@@ -74,7 +74,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/jobs/{id}` | One job — state, last progress, outcome, and `result` where the work produced one. Not on the listing: a result can be a row per game |
 | GET | `/api/v1/library/entries` | The play lens over the whole library |
 | GET | `/api/v1/library/filters` | Every filter axis, with the values this library holds |
-| GET | `/api/v1/library/policy` | What this library collects — hidden media kinds, hidden asset kinds, and which catalogs are searched. The library's answer, so every install reading one library gets the same one. Empty means everything |
+| GET | `/api/v1/library/policy` | What this library collects — hidden media kinds, hidden asset kinds, the catalogs switched off (`hidden_sources`), and hidden checks. The library's answer, so every install reading one library gets the same one. Each list names what is off, so empty means everything |
 | PUT | `/api/v1/library/policy` | Change it. A patch: an absent key is left alone, a key sent empty is stored empty |
 | GET | `/api/v1/library/tags` | Every tag - carried by games or tables, or only written down - with how many carry it, its description and its color. A tag an extension's Community list puts on names that list in `sources`, with when it was last read and whether that read is `stale`; it cannot be renamed, merged or removed |
 | PUT | `/api/v1/library/tags/{tag}` | Describe a tag and pick its color, writing it down if nothing has. `color` is one of `red orange amber green teal blue purple pink gray`; empty goes back to the one derived from its name |

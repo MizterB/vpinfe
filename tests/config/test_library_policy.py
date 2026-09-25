@@ -1,6 +1,6 @@
 """What a library collects, which is the library's answer and not a machine's.
 
-These three lived in each install's config file. One machine, no problem; two devices
+The kind lists lived in each install's config file. One machine, no problem; two devices
 reading one library and there were two answers to a question about one set of files, and
 only the library's ever did anything.
 """
@@ -32,11 +32,10 @@ class LibraryPolicyTests(TempTree):
         self.policy = LibraryPolicy(self.root / "library.json")
 
     def test_a_library_nobody_has_narrowed_collects_everything(self) -> None:
-        """Empty in all three, so a kind added in a later version arrives switched on."""
+        """Empty in all of them, so a kind added in a later version arrives switched on."""
         self.assertEqual(self.policy.values(),
                          {"hidden_media_kinds": [], "hidden_asset_kinds": [],
-                      "hidden_checks": [],
-                          "asset_sources": []})
+                          "hidden_sources": [], "hidden_checks": []})
 
     def test_what_is_set_is_what_is_read_back(self) -> None:
         self.policy.set("hidden_media_kinds", ["loading", "audio"])
@@ -45,10 +44,10 @@ class LibraryPolicyTests(TempTree):
 
     def test_setting_one_leaves_the_others(self) -> None:
         self.policy.set("hidden_media_kinds", ["loading"])
-        self.policy.set("asset_sources", ["vpuniverse"])
+        self.policy.set("hidden_sources", ["vpuniverse"])
 
         self.assertEqual(self.policy.get("hidden_media_kinds"), ["loading"])
-        self.assertEqual(self.policy.get("asset_sources"), ["vpuniverse"])
+        self.assertEqual(self.policy.get("hidden_sources"), ["vpuniverse"])
 
     def test_clearing_one_is_an_answer_rather_than_a_missing_one(self) -> None:
         """Empty means everything, so storing empty is how "collect it all" is said."""
@@ -68,13 +67,13 @@ class LibraryPolicyTests(TempTree):
             self.policy.set("game_root_dir", "/tables")
 
     def test_it_survives_being_reopened(self) -> None:
-        self.policy.set("asset_sources", ["vpsdb"])
+        self.policy.set("hidden_sources", ["vpsdb"])
 
-        self.assertEqual(LibraryPolicy(self.policy.path).get("asset_sources"),
+        self.assertEqual(LibraryPolicy(self.policy.path).get("hidden_sources"),
                          ["vpsdb"])
 
     def test_the_file_carries_its_own_schema(self) -> None:
-        self.policy.set("asset_sources", ["vpsdb"])
+        self.policy.set("hidden_sources", ["vpsdb"])
 
         payload = json.loads(self.policy.path.read_text(encoding="utf-8"))
         self.assertEqual(payload[SCHEMA_KEY], SCHEMA)
@@ -84,7 +83,7 @@ class LibraryPolicyTests(TempTree):
         self.policy.path.write_text("{ not json", encoding="utf-8")
 
         with self.assertLogs("vpinfe.common.games.library_policy", level="WARNING"):
-            self.assertEqual(self.policy.get("asset_sources"), [])
+            self.assertEqual(self.policy.get("hidden_sources"), [])
 
 
 class AdoptionTests(TempTree):
@@ -95,14 +94,12 @@ class AdoptionTests(TempTree):
         self.policy = LibraryPolicy(self.root / "library.json")
         self.config = _config({
             ("general", "hidden_media_kinds"): "loading,audio",
-            ("media", "asset_sources"): "vpuniverse",
         })
 
     def test_what_the_config_held_moves_across(self) -> None:
         self.assertTrue(self.policy.adopt_from_config(self.config))
 
         self.assertEqual(self.policy.get("hidden_media_kinds"), ["loading", "audio"])
-        self.assertEqual(self.policy.get("asset_sources"), ["vpuniverse"])
 
     def test_a_config_that_narrowed_nothing_adopts_nothing(self) -> None:
         empty = LibraryPolicy(self.root / "other.json")
@@ -110,7 +107,7 @@ class AdoptionTests(TempTree):
         self.assertTrue(empty.adopt_from_config(_config({})))
         self.assertEqual(empty.values(), {"hidden_media_kinds": [],
                                           "hidden_asset_kinds": [],
-                                          "asset_sources": [],
+                                          "hidden_sources": [],
                                           "hidden_checks": []})
 
     def test_it_runs_once_and_never_undoes_a_later_change(self) -> None:

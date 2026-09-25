@@ -1,16 +1,17 @@
 """What this library collects, which belongs to the library and not to a machine.
 
-Which media kinds and asset kinds are worth having, and which online catalogs are
-searched for artwork: three answers about one library, shared by every device reading
-it. They lived in each install's config file, which is one answer per machine - so two
-installs on one library had two answers, and only the library's did anything.
+Which media kinds and asset kinds are worth having, which online catalogs are searched
+for artwork, and which checks stay quiet: answers about one library, shared by every
+device reading it. They lived in each install's config file, which is one answer per
+machine - so two installs on one library had two answers, and only the library's did
+anything.
 
 Follows `common/games/collection_store.py`: a small JSON file, written whole and
 atomically, carrying its own schema version. Owned by the library, like the games.
 
-Empty means everything, in all three. A kind or a source added in a later version
-arrives switched on rather than silently absent, which is what an install upgrading
-into a longer registry needs.
+Each list holds what is switched off, so empty means everything. A kind or a source
+added in a later version arrives switched on rather than silently absent, which is what
+an install upgrading into a longer registry needs.
 """
 
 from __future__ import annotations
@@ -37,13 +38,13 @@ SCHEMA_KEY = "schema"
 MIGRATES_FROM: dict[str, tuple[str, str]] = {
     "hidden_media_kinds": ("general", "hidden_media_kinds"),
     "hidden_asset_kinds": ("general", "hidden_asset_kinds"),
-    "asset_sources": ("media", "asset_sources"),
 }
 
 # Answers this file holds that never lived in a config, so they have no prior home to
 # migrate from. `hidden_checks` is which library checks stay quiet: a gap is a fact about
-# the files, so two installs reading one library report the same gaps.
-OWN_KEYS = ("hidden_checks",)
+# the files, so two installs reading one library report the same gaps. `hidden_sources`
+# is which online catalogs are not asked for artwork.
+OWN_KEYS = ("hidden_sources", "hidden_checks")
 
 KEYS = tuple(MIGRATES_FROM) + OWN_KEYS
 

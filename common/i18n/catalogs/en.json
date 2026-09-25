@@ -96,8 +96,6 @@
   "config.install.language.label": "Language",
   "config.logger.level.label": "Log Verbosity",
   "config.logger.terminal.label": "Log to Terminal",
-  "config.media.asset_sources.description": "Which online catalogs are searched for artwork. Empty means all of them. Names come from the sources list this install reports.",
-  "config.media.asset_sources.label": "Online Artwork Sources",
   "config.media.browse_dirs.description": "Extra folders you can pick artwork from by hand. Your game library is always available; anywhere else has to be listed here first.",
   "config.media.browse_dirs.label": "Browsable Media Folders",
   "config.media.default_missing_image.label": "Default Missing Media Image",

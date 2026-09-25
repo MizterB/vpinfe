@@ -96,8 +96,6 @@
   "config.install.language.label": "Ŀàñĝûàĝè",
   "config.logger.level.label": "Ŀöĝ Ṽèřƀöšîţý",
   "config.logger.terminal.label": "Ŀöĝ ţö Ţèřɱîñàŀ",
-  "config.media.asset_sources.description": "Ŵĥîçĥ öñŀîñè çàţàŀöĝš àřè šèàřçĥèđ ƒöř àřţŵöřķ. Èɱþţý ɱèàñš àŀŀ öƒ ţĥèɱ. Ñàɱèš çöɱè ƒřöɱ ţĥè šöûřçèš ŀîšţ ţĥîš îñšţàŀŀ řèþöřţš.",
-  "config.media.asset_sources.label": "Öñŀîñè Àřţŵöřķ Šöûřçèš",
   "config.media.browse_dirs.description": "Èẋţřà ƒöŀđèřš ýöû çàñ þîçķ àřţŵöřķ ƒřöɱ ƀý ĥàñđ. Ýöûř ĝàɱè ŀîƀřàřý îš àŀŵàýš àṽàîŀàƀŀè; àñýŵĥèřè èŀšè ĥàš ţö ƀè ŀîšţèđ ĥèřè ƒîřšţ.",
   "config.media.browse_dirs.label": "Ɓřöŵšàƀŀè Ḿèđîà Ƒöŀđèřš",
   "config.media.default_missing_image.label": "Đèƒàûŀţ Ḿîššîñĝ Ḿèđîà Îɱàĝè",

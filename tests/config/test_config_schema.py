@@ -99,7 +99,7 @@ class SchemaShapeTests(unittest.TestCase):
         Runtime state that happens to live in the config file: a last-played pointer, a
         cache marker. Nobody sets these, so nothing should offer them.
 
-        A setting that moved house: the three library-policy lists are the library's
+        A setting that moved house: the two kind lists are the library's
         rather than this install's and live in library.json now. They stay declared so a
         value still in somebody's config keeps resolving and the one-time adoption can
         read it, and internal so no page offers a second place to answer the question.
@@ -114,7 +114,6 @@ class SchemaShapeTests(unittest.TestCase):
                                     ("install", "id"),
                                     ("general", "hidden_media_kinds"),
                                     ("general", "hidden_asset_kinds"),
-                                    ("media", "asset_sources"),
                                     # `locations.json` holds this now, for the same
                                     # reason and on the same terms.
                                     ("general", "game_root_dir"),

@@ -60,7 +60,6 @@
     "terminal": "true"
   },
   "media": {
-    "asset_sources": "",
     "browse_dirs": "",
     "default_missing_image": "",
     "playfield_resolution": "4k",

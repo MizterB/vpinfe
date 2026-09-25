@@ -203,15 +203,11 @@ class MediaConfig:
     realdmd_media_priority: str = "color"
     playfield_media_rotation: str = "auto"
     wheelset: str = ""
-    asset_sources: tuple[str, ...] = ()
 
     @classmethod
     def from_config(cls, source: Any) -> MediaConfig:
         return cls(
             wheelset=cfg_get(source, "Media", "wheelset", "").strip(),
-            # Canonical section, not the "Media" alias the rest of these carry: this
-            # one is new in 3.0 and never lived anywhere else.
-            asset_sources=tuple(cfg_list(source, "media", "asset_sources")),
             playfield_variant=(cfg_get(source, "Media", "playfieldvariant", "table").strip().lower()
                             or "table"),
             playfield_resolution=(

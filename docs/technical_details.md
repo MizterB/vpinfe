@@ -158,7 +158,6 @@ Runtime state written by VPinFE, not shown as a setting.
 | `wheelset` | string |  | Which wheel art set to use, as a folder under a game's medias/wheels/. The name logo shows each game's own logo instead. A theme can override this. |
 | `default_missing_image` | string |  | Default Missing Media Image |
 | `thumb_cache_max_mb` | int | `500` | Thumbnail Cache Max (MB) |
-| `asset_sources` | list |  | Which online catalogs are searched for artwork. Empty means all of them. Names come from the sources list this install reports. |
 
 ### `install`
 

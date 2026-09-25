@@ -100,20 +100,16 @@ _MANIFEST: dict | None = None
 
 
 def enabled_ids() -> tuple[str, ...]:
-    """The sources the owner wants asked. Empty means all of them."""
-    from common.config_access import MediaConfig
-    from common.paths import get_ini_config
+    """The sources the library's owner has not switched off. Empty asks none."""
+    from common.games.library_policy import get_library_policy
 
-    return MediaConfig.from_config(get_ini_config()).asset_sources
+    off = {name.lower() for name in get_library_policy().get("hidden_sources")}
+    return tuple(source.id for source in BUILT_IN if source.id.lower() not in off)
 
 
 def sources(enabled: tuple[str, ...] | None = None) -> list[Source]:
-    """The sources to ask, in the order they were declared.
-
-    An empty setting means all of them: a fresh install should find artwork without
-    anyone having to discover a list first.
-    """
-    if not enabled:
+    """The sources to ask, in the order they were declared. None means all of them."""
+    if enabled is None:
         return list(BUILT_IN)
     wanted = {name.strip().lower() for name in enabled if name.strip()}
     return [source for source in BUILT_IN if source.id.lower() in wanted]

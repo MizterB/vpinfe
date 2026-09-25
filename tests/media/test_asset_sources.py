@@ -1,7 +1,7 @@
 """The online catalogs, behind one interface.
 
 VPinMediaDB was the first and is not the shape of the feature, so what is asserted
-here is the registry's behaviour rather than any one source's: a source declares what
+here is the registry's behavior rather than any one source's: a source declares what
 it can serve, a disabled one is not asked, and one that is down costs its own results
 and nothing else.
 """
@@ -12,8 +12,10 @@ import unittest
 from dataclasses import dataclass, field
 from unittest.mock import patch
 
+from common.games import library_policy
 from common.online import asset_sources
 from common.online.asset_sources import Offer, Source
+from tests.support.library import TempTree
 
 
 @dataclass(frozen=True)
@@ -61,20 +63,46 @@ class RegistryTests(unittest.TestCase):
             found = asset_sources.offers("wheel", "vps-1")
         self.assertEqual([offer.source for offer in found], ["works"])
 
-    def test_nothing_configured_means_every_source(self) -> None:
-        """A fresh install should find artwork without discovering a list first."""
-        with self._with(_Fake(id="one"), _Fake(id="two")):
-            self.assertEqual([s.id for s in asset_sources.sources(())], ["one", "two"])
-
     def test_only_the_configured_sources_are_asked(self) -> None:
         with self._with(_Fake(id="one"), _Fake(id="two")):
             found = asset_sources.offers("wheel", "vps-1", ("two",))
         self.assertEqual([offer.source for offer in found], ["two"])
 
-    def test_a_configured_name_that_is_not_a_source_is_ignored(self) -> None:
-        """A typo in the setting should not silently disable everything."""
-        with self._with(_Fake(id="one")):
-            self.assertEqual(asset_sources.sources(("nonesuch",)), [])
+
+class SwitchedOffTests(TempTree):
+    """Settings > Online Sources, which the library policy holds as what is off."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.policy = library_policy.reset_for_tests(self.root / "library.json")
+        self.addCleanup(library_policy.reset_for_tests)
+        sources = patch.object(asset_sources, "BUILT_IN",
+                               (_Fake(id="one"), _Fake(id="two")))
+        sources.start()
+        self.addCleanup(sources.stop)
+
+    def test_nothing_switched_off_asks_every_source(self) -> None:
+        """A fresh install should find artwork without discovering a list first."""
+        self.assertEqual(asset_sources.enabled_ids(), ("one", "two"))
+
+    def test_one_switched_off_is_not_asked(self) -> None:
+        self.policy.set("hidden_sources", ["one"])
+
+        found = asset_sources.offers("wheel", "vps-1", asset_sources.enabled_ids())
+        self.assertEqual([offer.source for offer in found], ["two"])
+
+    def test_every_source_switched_off_asks_none(self) -> None:
+        self.policy.set("hidden_sources", ["one", "two"])
+
+        with patch.object(_Fake, "offers") as asked:
+            found = asset_sources.offers("wheel", "vps-1", asset_sources.enabled_ids())
+        self.assertEqual(found, [])
+        asked.assert_not_called()
+
+    def test_a_name_that_is_not_a_source_switches_nothing_off(self) -> None:
+        self.policy.set("hidden_sources", ["nonesuch"])
+
+        self.assertEqual(asset_sources.enabled_ids(), ("one", "two"))
 
 
 class UrlTests(unittest.TestCase):

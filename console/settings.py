@@ -257,8 +257,7 @@ def _saver(source: Any, section: str, key: str) -> Callable[[Any], Any]:
 
 
 def _kind_page(library: Library, rerender: Callable[[], None], note: str,
-               section: str, key: str, items: Callable[[Any], dict[str, str]],
-               mode: str) -> None:
+               section: str, key: str, items: Callable[[Any], dict[str, str]]) -> None:
     """A switch per thing, over one list in the config.
 
     Not a schema page. What it switches is a *list*, and the switches themselves come
@@ -267,8 +266,7 @@ def _kind_page(library: Library, rerender: Callable[[], None], note: str,
     """
     body = ui.column().classes("w-full gap-0")
     ui.timer(0.01,
-             lambda: _fill_kinds(library, rerender, body, note, section, key, items,
-                                 mode),
+             lambda: _fill_kinds(library, rerender, body, note, section, key, items),
              once=True)
 
 
@@ -282,7 +280,7 @@ def _listed(value: Any) -> set[str]:
 
 async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any, note: str,
                       section: str, key: str,
-                      items: Callable[[Any], dict[str, str]], mode: str) -> list:
+                      items: Callable[[Any], dict[str, str]]) -> list:
     """The switches, drawn into `body` - or returned when `body` is None, for a page that
     orders them among its own settings rather than beside them."""
     try:
@@ -298,19 +296,11 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
             panel.facts(ui, said)
         return said
 
-    stored = _listed(policy.get(key))
-    # An `enabled` list reads empty as everything, so what is on is the whole set until
-    # somebody turns one off.
-    on = (set(known) - stored) if mode == "hidden" else (stored or set(known))
+    on = set(known) - _listed(policy.get(key))
 
     async def flip(name: str, wanted_on: bool) -> None:
         after = (on | {name}) if wanted_on else (on - {name})
-        if mode == "hidden":
-            store = sorted(set(known) - after)
-        else:
-            # Everything on stores nothing, which is what keeps a source added later
-            # switched on rather than quietly excluded.
-            store = [] if after >= set(known) else sorted(after)
+        store = sorted(set(known) - after)
         try:
             await run.io_bound(library.put_library_policy, {key: store})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
@@ -339,8 +329,8 @@ async def _kind_rows(library: Library, rerender: Callable[[], None],
     found = KIND_PAGES.get(page)
     if found is None:
         return []
-    note, _section, name, items, mode = found
-    return await _fill_kinds(library, rerender, None, note, "", name, items, mode)
+    note, _section, name, items = found
+    return await _fill_kinds(library, rerender, None, note, "", name, items)
 
 
 async def _vps_foot(library: Library, rerender: Callable[[], None]) -> list[tuple[Any, Any]]:
@@ -462,21 +452,19 @@ def page_head(key: str) -> None:
 # and the switches themselves come from the two registries - which `common/` may not
 # import, because nothing in it may reach up into a domain package. The Console may, so the
 # rendering lives on this side of that line.
-# key -> (note, config section, config key, what to switch, how the list reads).
-# `hidden` stores what is off; `enabled` stores what is on and reads empty as all - the
-# shape `asset_sources` already ships with. Both leave an empty list meaning "everything",
-# so a kind or a source added in a later version arrives switched on either way.
-KIND_PAGES: dict[str, tuple[str, str, str, Callable[[Any], dict[str, str]], str]] = {
+# key -> (note, config section, config key, what to switch). Each list stores what is
+# off, so a kind or a source added in a later version arrives switched on.
+KIND_PAGES: dict[str, tuple[str, str, str, Callable[[Any], dict[str, str]]]] = {
     "media_kinds": (KEPT_NOTE, "", "hidden_media_kinds",
-                    lambda _: dict(media_label_map()), "hidden"),
+                    lambda _: dict(media_label_map())),
     "asset_kinds": (KEPT_NOTE, "", "hidden_asset_kinds",
                     lambda _: {spec.kind: spec.label for spec in ASSET_SPECS
-                               if spec.kind not in ALWAYS_KEPT}, "hidden"),
-    "media_sources": (SOURCES_NOTE, "", "asset_sources",
+                               if spec.kind not in ALWAYS_KEPT}),
+    "media_sources": (SOURCES_NOTE, "", "hidden_sources",
                       lambda library: {s["id"]: s["name"]
-                                       for s in library.media_sources()}, "enabled"),
+                                       for s in library.media_sources()}),
     "library_checks": (CHECKS_NOTE, "", "hidden_checks",
-                       lambda _: _check_labels(), "hidden"),
+                       lambda _: _check_labels()),
 }
 
 
@@ -739,8 +727,8 @@ def build_library_page(library: Library, rerender: Callable[[], None], key: str,
     if found is None:
         panel.facts(ui, [panel.intro(t("console.settings.not_built_yet"))])
         return
-    note, _section, name, items, mode = found
-    _kind_page(library, rerender, note, "", name, items, mode)
+    note, _section, name, items = found
+    _kind_page(library, rerender, note, "", name, items)
 
 
 def section_rows(source: Any, section: str, options: list[dict], values: dict,
