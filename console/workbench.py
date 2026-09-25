@@ -1295,6 +1295,8 @@ async def _rail(context: dict[str, Any], subject: str,
     with ui.element("div").classes("w-full grow min-h-0 console-sections") as sections:
         if subject == "collection":
             sections._props[row_drag.TARGET] = context["collection"]["name"]
+        if subject in ("game", "table"):
+            mediasource.take_table_drops(sections, context, _after_an_add(context))
         # The rows are their own region so they can scroll without taking the work with
         # them. A rail longer than the panel is the ordinary case for a device, and one
         # that moves what you are reading is the wrong half to move.
@@ -3347,11 +3349,15 @@ _ARRIVED_S = 5.0
 
 
 def _add_table(context: dict[str, Any]) -> None:
-    """Open the ways a table joins this game, remembering what it held before so what
+    mediasource.open_table_sources(context, _after_an_add(context))
+
+
+def _after_an_add(context: dict[str, Any]) -> Callable[[], Awaitable[None]]:
+    """What follows a table joining this game, remembering what it held before so what
     arrived can be told from what was there."""
     held = {str(one.get("id") or "") for one in context["tables"]}
     was = next((one for one in context["tables"] if one.get("default")), None)
-    mediasource.open_table_sources(context, partial(_table_added, context, held, was))
+    return partial(_table_added, context, held, was)
 
 
 async def _table_added(context: dict[str, Any], held: set[str],

@@ -71,6 +71,28 @@ class Uploaded(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(asked["add_table"])
         self.assertEqual(asked["game_dir"], "/games/Some Game")
 
+    async def test_a_drop_on_the_panel_finishes_with_no_dialog_to_close(self) -> None:
+        asked = await self._dropped()
+
+        await asked["on_done"]()
+
+        self.done.assert_awaited_once()
+
+
+class ThePanelTakesTheDrop(unittest.TestCase):
+    def test_it_is_marked_so_the_page_leaves_it_alone(self) -> None:
+        element = Mock(_props={})
+
+        with patch.object(uploads, "listener"):
+            mediasource.take_table_drops(element, _context(Mock()), AsyncMock())
+
+        self.assertIn(uploads.OWN_DROP, element._props)
+        self.assertEqual({"dragover", "dragleave", "drop"},
+                         {one.args[0] for one in element.on.call_args_list})
+
+    def test_the_page_script_names_the_same_mark(self) -> None:
+        self.assertIn(f"[{uploads.OWN_DROP}]", uploads._DND_SCRIPT)
+
 
 if __name__ == "__main__":
     unittest.main()

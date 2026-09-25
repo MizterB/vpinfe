@@ -33,6 +33,8 @@ logger = logging.getLogger("vpinfe.console.uploads")
 TARGET_LIBRARY = "library"
 TARGET_GAME = "game"
 TARGET_SLOT = "slot"
+# On a panel's element that takes drops itself. `_DND_SCRIPT` spells it too.
+OWN_DROP = "data-drop-own"
 
 
 @dataclass(frozen=True)
@@ -153,6 +155,10 @@ if (!window.__consoleDnd) {
   // page: a dialog that takes a drop takes it itself.
   function landed(target) {
     if (target.closest && target.closest('.q-dialog')) return null;
+    // A panel with a place that takes drops refuses one anywhere else on it: a drop on
+    // its header read as the page's would make a new game.
+    const pane = target.closest ? target.closest('.console-workbench') : null;
+    if (pane && pane.querySelector('[data-drop-own]')) return null;
     const cell = target.closest ? target.closest('.ag-cell') : null;
     const row = target.closest ? target.closest('.ag-row') : null;
     if (!row) return {target: 'library'};
@@ -209,6 +215,13 @@ if (!window.__consoleDnd) {
     }
     document.body.classList.add('console-dropping');
     highlight(where, event);
+  });
+  // A place that takes its own drop stops the page's dragover, so a row lit on the way
+  // there is put out as the pointer enters it.
+  document.addEventListener('dragenter', (event) => {
+    if (landed(event.target)) return;
+    document.body.classList.remove('console-dropping');
+    clear();
   });
   document.addEventListener('dragleave', (event) => {
     if (event.relatedTarget) return;
