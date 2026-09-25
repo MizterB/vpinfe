@@ -310,6 +310,7 @@ class DeviceProbe(ApiModel):
     state: str
     what: str = ""
     reason: str = ""
+    reason_key: str = ""
     features: list[str] = Field(default_factory=list)
     install_id: str = ""
     display_name: str = ""

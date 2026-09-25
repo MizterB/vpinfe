@@ -11,8 +11,12 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
+import requests
+
 import httpapi
+from common import device_client
 from common import device_registry as registry_module
+from common.i18n import t
 from tests.support.library import TempTree
 
 try:
@@ -234,6 +238,8 @@ class DeviceRegistryApiTests(TempTree):
         probe = self.client.post("/devices/probe").json()["probes"][0]
 
         self.assertEqual(probe["state"], "unreachable")
+        self.assertEqual(probe["reason"], t(probe["reason_key"]))
+        self.assertNotIn("HTTPConnectionPool", probe["reason"])
 
     def test_a_device_that_never_answered_has_no_reachable_time_from_a_probe(self) -> None:
         """It has one from announcing - that is the push half - but a failed probe must
@@ -254,6 +260,46 @@ class DeviceRegistryApiTests(TempTree):
 
         device = self.client.get(f"/devices/{CAB['device_id']}").json()
         self.assertEqual(device["port"], 8001)
+
+
+class _Failing:
+    def __init__(self, exc: Exception) -> None:
+        self.exc = exc
+
+    def probe(self) -> dict:
+        raise self.exc
+
+
+class ProbeReasonTests(unittest.TestCase):
+    """What failed, said as what a person can do something about."""
+
+    def _reason(self, exc: Exception) -> str:
+        found = device_client.probe(_Failing(exc))  # type: ignore[arg-type]
+        self.assertEqual(found["state"], device_client.UNREACHABLE)
+        self.assertEqual(found["reason"], t(found["reason_key"]))
+        return str(found["reason_key"])
+
+    def test_a_machine_with_nothing_on_its_port_is_told_apart(self) -> None:
+        try:
+            requests.get("http://127.0.0.1:1/api/v1", timeout=1)
+        except requests.ConnectionError as exc:
+            self.assertEqual(self._reason(exc), "device.reason.refused")
+        else:  # pragma: no cover
+            self.skipTest("something answers on port 1 here")
+
+    def test_no_answer_in_time(self) -> None:
+        self.assertEqual(self._reason(requests.ConnectTimeout("slow")),
+                         "device.reason.timed_out")
+
+    def test_an_answer_that_cannot_be_read(self) -> None:
+        self.assertEqual(self._reason(requests.HTTPError("500")),
+                         "device.reason.unreadable")
+        self.assertEqual(self._reason(ValueError("Invalid JSON")),
+                         "device.reason.unreadable")
+
+    def test_anything_else_could_not_be_reached(self) -> None:
+        self.assertEqual(self._reason(requests.ConnectionError("no route")),
+                         "device.reason.unreachable")
 
 
 if __name__ == "__main__":

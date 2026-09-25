@@ -87,7 +87,7 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/devices` | Record a device (idempotent). For a phone, or a machine mDNS cannot reach. `port` is declared by the caller — the address is read off the socket, which never says what that machine listens on |
 | GET | `/api/v1/devices/discovered` | Installs announcing themselves on this network right now. Announcements, not records: nothing here has been decided about |
 | GET | `/api/v1/devices/{id}` | One device |
-| POST | `/api/v1/devices/probe` | Ask every device whether it is there, and record the ones that answer. `unaskable` means there was nothing to dial, which is not the same as down |
+| POST | `/api/v1/devices/probe` | Ask every device whether it is there, and record the ones that answer. `unaskable` means there was nothing to dial, which is not the same as down. One that did not answer carries `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
 | DELETE | `/api/v1/devices/{id}` | Forget one |
 | GET | `/api/v1/actions` | What this install can be asked to do to itself. Every pair the build has, with `available` saying which are wired up here. One that is not carries `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
 | POST | `/api/v1/actions` | Do one. `{"scope","action","reason"}`. One that takes this process or the machine down answers before it goes, so `performed` means the work was handed over |

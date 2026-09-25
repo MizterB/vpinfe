@@ -18,6 +18,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn
 
+from common.i18n import t
+
 if TYPE_CHECKING:
     from common.config_store import ConfigStore
 
@@ -131,9 +133,41 @@ ANSWERING = "answering"
 UNREACHABLE = "unreachable"
 UNASKABLE = "unaskable"
 
-# What a 404 from an install actually means, in the words a person reads. Not an error
-# on either side: it answers everything it knows about and does not know about this.
-TOO_OLD = "That install is running a build without this."
+# What a 404 from an install actually means. Not an error on either side: it answers
+# everything it knows about and does not know about this.
+TOO_OLD = "error.devices.older_vpinfe"
+
+
+def _chain(exc: BaseException) -> list[BaseException]:
+    """The exception and everything it wraps, followed through `reason` and `args` as
+    well as `__cause__`, which is where requests keeps the socket's own error."""
+    found: list[BaseException] = []
+    waiting: list[object] = [exc]
+    while waiting:
+        one = waiting.pop()
+        if not isinstance(one, BaseException) or any(one is seen for seen in found):
+            continue
+        found.append(one)
+        waiting.extend([one.__cause__, one.__context__, getattr(one, "reason", None),
+                        *one.args])
+    return found
+
+
+def _why_not(exc: Exception) -> str:
+    """The catalog key for why a device did not answer."""
+    import requests
+
+    if isinstance(exc, requests.Timeout):
+        return "device.reason.timed_out"
+    if any(isinstance(one, ConnectionRefusedError) for one in _chain(exc)):
+        return "device.reason.refused"
+    if isinstance(exc, (requests.HTTPError, ValueError)):
+        return "device.reason.unreadable"
+    return "device.reason.unreachable"
+
+
+def _not_answering(state: str, key: str) -> dict[str, Any]:
+    return {"state": state, "what": "", "reason": t(key), "reason_key": key}
 
 
 def probe(client: LocalDevice | RemoteDevice | MobileDevice | None) -> dict[str, Any]:
@@ -144,12 +178,12 @@ def probe(client: LocalDevice | RemoteDevice | MobileDevice | None) -> dict[str,
     fact of answering for a phone, which is all VPX Mobile's file listing proves.
     """
     if client is None:
-        return {"state": UNASKABLE, "what": "",
-                "reason": "This device has not said which port it answers on."}
+        return _not_answering(UNASKABLE, "device.reason.no_port")
     try:
         return client.probe()
     except Exception as exc:  # noqa: BLE001 - not answering is an answer
-        return {"state": UNREACHABLE, "what": "", "reason": str(exc)}
+        logger.debug("No answer from %s: %s", getattr(client, "base_url", ""), exc)
+        return _not_answering(UNREACHABLE, _why_not(exc))
 
 
 
@@ -226,7 +260,7 @@ class RemoteDevice:
             said = http_client.get_json(self._url("/actions")) or {}
         except Exception as exc:
             if _absent(exc):
-                raise TooOldError(TOO_OLD) from exc
+                raise TooOldError(t(TOO_OLD)) from exc
             raise
         return list(said.get("actions") or [])
 
@@ -243,7 +277,7 @@ class RemoteDevice:
             return dict(http_client.get_json(f"{self._url('/logs')}?{query}") or {})
         except Exception as exc:
             if _absent(exc):
-                raise TooOldError(TOO_OLD) from exc
+                raise TooOldError(t(TOO_OLD)) from exc
             raise
 
     def update_check(self) -> dict[str, Any]:
