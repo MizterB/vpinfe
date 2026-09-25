@@ -25,6 +25,7 @@ from common.games import (
 )
 from common.games.game import Game
 from common.games.game_metadata import (
+    holds_base,
     table_play_record,
     table_rating,
     table_source,
@@ -376,7 +377,25 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False) -> lis
             entry["available"], bool((chain or {}).get("declared")),
             (chain or {}).get("installed"))
         entries.append(entry)
+    _name_bases(entries)
     return entries
+
+
+def _name_bases(entries: list[dict]) -> None:
+    """Each patched table's base as the table of its game recorded as those bytes, one
+    on disk first, and whether that file is there."""
+    for entry in entries:
+        base = (entry.get("source") or {}).get("base")
+        if not isinstance(base, dict):
+            continue
+        held = sorted((one for one in entries if one is not entry
+                       and holds_base(base, one["filename"], one["file_hash"])),
+                      key=lambda one: not one["available"])
+        entry["source"]["base"] = {
+            "file": str(base.get("file") or ""),
+            "table_id": str(held[0]["id"]) if held else "",
+            "available": bool(held and held[0]["available"]),
+        }
 
 
 # -- the library seen by launchable file -------------------------------------------

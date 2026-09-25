@@ -710,6 +710,29 @@ def table_source(entry: dict[str, Any] | None) -> dict[str, Any]:
     return dict(found) if isinstance(found, dict) else {}
 
 
+def holds_base(base: dict[str, Any], filename: str, file_hash: str) -> bool:
+    """Whether the table called `filename`, hashed `file_hash`, is the file a patched
+    table's `base` says its patch was applied to.
+
+    By hash where both sides have one, and by name only where either was never read: a
+    name alone takes a newer file of the same name for the base.
+    """
+    digest = str(base.get("hash") or "")
+    if digest and file_hash:
+        return file_hash == digest
+    return bool(filename) and filename == str(base.get("file") or "")
+
+
+def made_from(entries: dict | None, filename: str) -> list[str]:
+    """The tables in `entries` a patch made from the one called `filename`, by filename."""
+    _found, own = entry_for_filename(entries, filename)
+    held = str(own.get("file_hash") or "")
+    return sorted(entry_filename(one) for one in (entries or {}).values()
+                  if isinstance(one, dict) and one is not own
+                  and isinstance(base := table_source(one).get("base"), dict)
+                  and holds_base(base, filename, held))
+
+
 def set_table_source(game: Game, filename: str, vps_file_id: str) -> dict[str, Any]:
     """Record that somebody says this table is that release, or take it back.
 

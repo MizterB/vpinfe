@@ -2645,6 +2645,7 @@ def _table_entries(table: dict[str, Any],
             (t("word.version"), table.get("version") or "-"),
             (t("word.author"), ", ".join(table.get("authors") or []) or "-"),
             (t("console.workbench.hash"), table.get("file_hash") or "-"),
+            *_made_from(table, context),
         ]
     entries += _outside(links)
 
@@ -2679,6 +2680,40 @@ def _table_entries(table: dict[str, Any],
         entries.append(_launcher_report(context, table))
         entries += [(FULL, _play_action(context, table))]
     return entries
+
+
+def _made_from(table: dict[str, Any],
+               context: dict[str, Any] | None) -> list[tuple[Any, Any]]:
+    """The file a patch made this table from: the way to that table while it is on disk,
+    Replaced where another file has its name, and Missing where nothing does."""
+    base = (table.get("source") or {}).get("base") or {}
+    if not base.get("file"):
+        return []
+    tables = (context or {}).get("tables") or []
+    held = next((one for one in tables if base.get("available")
+                 and str(one.get("id") or "") == str(base.get("table_id") or "")), None)
+    if context is not None and held is not None:
+        table_id = str(held["id"])
+        return [(t("console.workbench.made_from"), panel.link(
+            game_tables.name_among(held, tables), to=_table_address(context, table_id),
+            on_click=partial(_go_to_table, context, table_id)))]
+    if base.get("available"):
+        return [(t("console.workbench.made_from"), str(base["file"]))]
+    named = any(one.get("available") and one.get("filename") == base["file"]
+                and str(one.get("id") or "") != str(base.get("table_id") or "")
+                for one in tables if one is not table)
+    word, why = ((t("console.workbench.replaced"), t("console.workbench.another_file_name"))
+                 if named else (game_tables.word_for(game_tables.FILE_WORDS, True), ""))
+
+    def gone() -> None:
+        with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
+            ui.label(str(base["file"])).classes("truncate min-w-0")
+            chip = ui.label(word) \
+                .classes("console-member-chip console-tier console-tier--warn")
+            if why:
+                chip.tooltip(why)
+
+    return [(t("console.workbench.made_from"), gone)]
 
 
 _state = panel.state
@@ -3159,6 +3194,9 @@ def _faults(context: dict[str, Any], table: dict[str, Any],
                            panel.action(t("word.forget"),
                                         partial(_forget_table, context, table),
                                         icon=verbs.FORGET)))
+    base = (table.get("source") or {}).get("base") or {}
+    if table.get("available") and base.get("file") and not base.get("available"):
+        faults.append((t("console.workbench.made_from_gone"), None))
     if pinmame.get("effective") and pinmame.get("installed") is False:
         opens = _add_opener(context, "rom")
         faults.append((t("console.workbench.rom_not_installed", value=(pinmame['effective'])),
@@ -3425,9 +3463,12 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
     detail = ("console.workbench.forget_keyed" if game_tables.is_keyed(table)
               else "console.workbench.forget_reference" if game_tables.is_referenced(table)
               else "console.workbench.record_goes_no_file")
+    made = game_tables.made_from_it_line(
+        [game_tables.name_among(one, context["tables"])
+         for one in game_tables.made_from_it(table, context["tables"])])
     if not await confirm.ask(
             t("console.workbench.forget_table"), detail=t(detail),
-            lines=[game_tables.name_among(table, context["tables"])],
+            lines=[game_tables.name_among(table, context["tables"]), *([made] if made else [])],
             confirm=t("word.forget"), icon=verbs.FORGET):
         return
     try:

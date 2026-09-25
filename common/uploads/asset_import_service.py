@@ -573,6 +573,14 @@ def _extract_replace(source: AssetSource, entry: SourceEntry, dest: Path) -> Non
     os.replace(tmp, dest)
 
 
+def replaced_table(game_dir: Path) -> Path | None:
+    """The table a `replace_vpx` item deletes: the one the game plays by default."""
+    try:
+        return _find_vpx_file(game_dir)
+    except FileNotFoundError:
+        return None
+
+
 def _replace_vpx_from_file(source: AssetSource, asset: DetectedAsset,
                            base: Path) -> None:
     entry = asset.entries[0]
@@ -580,10 +588,7 @@ def _replace_vpx_from_file(source: AssetSource, asset: DetectedAsset,
     if not safe.lower().endswith(".vpx"):
         raise ValueError("Only .vpx files can update the table file")
     new_vpx = base / safe
-    try:
-        old_vpx = _find_vpx_file(base)
-    except FileNotFoundError:
-        old_vpx = None
+    old_vpx = replaced_table(base)
     old_b2s = _find_directb2s_file(base, old_vpx.stem) if old_vpx else None
     old_ini = _find_ini_file(base, old_vpx.stem) if old_vpx else None
 

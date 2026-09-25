@@ -267,6 +267,11 @@ def _draw_row(item: dict[str, Any], plan: dict[str, Any], chosen: dict[int, bool
             if item.get("replaces"):
                 said += f" · {item['replaces']}"
             ui.label(said).classes("console-member-table truncate")
+            made = game_tables.made_from_it_line(list(item.get("made_from_it") or []))
+            if made:
+                with ui.row().classes("items-center gap-1 no-wrap min-w-0"):
+                    ui.icon("error_outline").classes("console-attention-icon")
+                    ui.label(made).classes("console-member-table truncate")
         ui.label(_size(int(item.get("size") or 0))) \
             .classes("console-member-qualifier")
 

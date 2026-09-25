@@ -15,6 +15,8 @@ from typing import IO, Any
 from common import media_browse, service_errors
 from common.games import identity_claims
 from common.games.asset_registry import spec_for
+from common.games.game_metadata import made_from
+from common.games.table_lens import table_settings
 from common.i18n import t
 from common.uploads import upload_session_service
 from common.uploads.asset_analyzer_service import (
@@ -32,6 +34,7 @@ from common.uploads.asset_import_service import (
     execute_import_plan,
     find_vps_entry,
     only_kind,
+    replaced_table,
     select_plan_items,
     vps_folder_name,
 )
@@ -107,19 +110,22 @@ def _replaces(plan: ImportPlan, item: PlannedItem) -> str:
         return ""   # a folder that does not exist yet has nothing to replace
     base = Path(plan.game_dir)
     if item.action == "replace_vpx":
-        # Which suffixes are tables is the registry's answer, not a constant here - an app
-        # this build gains claims its own, and a glob would not know.
-        from common import apps
-
-        wanted = tuple(apps.table_suffixes())
-        existing = sorted(one for one in base.iterdir()
-                          if one.is_file() and one.suffix.lower() in wanted)
-        return f"replaces {existing[0].name}" if existing else ""
+        replaced = replaced_table(base)
+        return f"replaces {replaced.name}" if replaced else ""
     if item.action == "replace_media":
         return "replaces current" if Path(item.destination).exists() else "slot is empty"
     if item.action in {"replace_b2s", "copy"} and Path(item.destination).exists():
         return "replaces existing file"
     return ""
+
+
+def _made_from_replaced(plan: ImportPlan, item: PlannedItem) -> list[str]:
+    """The tables a patch made from the file this item deletes, by filename."""
+    if item.action != "replace_vpx" or plan.new_game_dir_name:
+        return []
+    game_dir = Path(plan.game_dir)
+    replaced = replaced_table(game_dir)
+    return made_from(table_settings(game_dir), replaced.name) if replaced else []
 
 
 def _plan_to_dict(plan: ImportPlan) -> dict:
@@ -144,6 +150,7 @@ def _plan_to_dict(plan: ImportPlan) -> dict:
                 # them out and would have to ask anyway.
                 "name": _item_name(item),
                 "replaces": _replaces(plan, item),
+                "made_from_it": _made_from_replaced(plan, item),
             }
             for index, item in enumerate(plan.items)
         ],

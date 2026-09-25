@@ -813,6 +813,19 @@ class ModOf(ApiModel):
     table_id: str = ""
 
 
+class MadeFrom(ApiModel):
+    """The file a patch was applied to, to make this table.
+
+    `table_id` is the game's table recorded as those exact bytes, whether or not its file
+    is still there, and empty where the game has none. `available` is whether that file
+    is on disk.
+    """
+
+    file: str = ""
+    table_id: str = ""
+    available: bool = False
+
+
 class TableSource(ApiModel):
     """Which upstream release a table is, and what established that.
 
@@ -820,10 +833,6 @@ class TableSource(ApiModel):
     person picked from a list, `declared` where whatever delivered the bytes said which
     record it fetched, `construction` where we built the file ourselves. Anything that
     inferred an identity sends nothing and the file stays unclaimed.
-
-    A patched file also stores what it was built from. That is not published here: no
-    consumer reads it, and a field carrying null on every table is one a reader is
-    invited to trust as a discriminator.
     """
 
     vps_file_id: str = ""
@@ -835,6 +844,8 @@ class TableSource(ApiModel):
     authors: list[str] = []
     # Null where the release is not a mod, or the catalog no longer holds it.
     mod_of: ModOf | None = None
+    # Null on every table but one this install made by applying a patch.
+    base: MadeFrom | None = None
 
 
 class TableSourceRequest(ApiModel):
@@ -2432,6 +2443,8 @@ class PlanItem(ApiModel):
     # here because it is a question about the install's disk, which a client cannot see -
     # and it is the question somebody is really answering when they confirm.
     replaces: str = ""
+    # The tables in the folder a patch made from the file this replaces, by filename.
+    made_from_it: list[str] = []
 
 
 class ImportPlanResource(ApiModel):

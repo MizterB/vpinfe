@@ -135,6 +135,18 @@ def mod_line(mod: dict[str, Any] | None) -> str:
     return t("console.game_tables.mod_of", told=mod_of_said(mod))
 
 
+def made_from_it(table: dict[str, Any], tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The tables in `tables` a patch made from `table`."""
+    own = str(table.get("id") or "")
+    return [one for one in tables if own and one is not table
+            and str(((one.get("source") or {}).get("base") or {}).get("table_id") or "") == own]
+
+
+def made_from_it_line(names: list[str]) -> str:
+    """Those tables named, as the line said before their base goes, or `""` for none."""
+    return t("console.game_tables.made_from_it", names=", ".join(names)) if names else ""
+
+
 # The label, not the state - "Default" alone left a reader asking "default what?" on a
 # panel that also has a default launcher and a default view. Named here so the grid and
 # the workbench cannot answer it differently.
