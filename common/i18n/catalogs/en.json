@@ -275,9 +275,23 @@
   "console.app_settings.camera.help": "Adjust it in Visual Pinball while the table runs, from its menu's Point Of View page",
   "console.app_settings.camera_reset.help": "Back to its author's camera",
   "console.app_settings.commonly_set_per_table": "Commonly Set per Table",
+  "console.app_settings.copied_from_game": {
+    "one": "Copied 1 setting",
+    "other": "Copied {count} settings"
+  },
+  "console.app_settings.copy_from_game": "Copy the Game's Settings Here",
+  "console.app_settings.copy_from_game.help": "What this table already sets stays as it is",
   "console.app_settings.everything_else": "Everything Else",
   "console.app_settings.for_this_table": "{app} for This Table",
+  "console.app_settings.from_game": {
+    "one": "1 of this game's settings does not reach this table, which has its own file",
+    "other": "{count} of this game's settings do not reach this table, which has its own file"
+  },
   "console.app_settings.game_and_table": "{game} - {table}",
+  "console.app_settings.no_longer_reads_game": {
+    "one": "{tables} no longer reads this game's own settings",
+    "other": "{tables} no longer read this game's own settings"
+  },
   "console.app_settings.now_same_all_tables": "Now the same as all tables",
   "console.app_settings.option_reset.help": "Back to the table's default",
   "console.app_settings.plugin_row": "{plugin}: {label}",
@@ -286,6 +300,9 @@
   "console.app_settings.saved_for_this_game": "Saved for this game",
   "console.app_settings.saved_in_views": "{saved} ({views})",
   "console.app_settings.search_settings": "Search settings",
+  "console.app_settings.set_for_all": "Set for All {count} Tables",
+  "console.app_settings.set_for_all.help": "Each of this game's tables gets this value as its own",
+  "console.app_settings.set_for_all_done": "Set for all {count} tables",
   "console.app_settings.settings": "{table}: {launcher_name} Settings",
   "console.app_settings.shared_with_game": {
     "one": "Changes here also apply to the other table, unless it has its own",

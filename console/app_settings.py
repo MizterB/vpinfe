@@ -100,20 +100,31 @@ async def _program_entries(context: dict[str, Any],
 
     groups = config_groups(found)
     values = dict(found.get("values") or {})
-    if shared := shared_note(found, len(context.get("tables") or []) or 1):
-        entries.append(shared)
-    added = _added(context["state"], table_id)
-    blocks = differences(groups, values, added)
-    view = point_of_view(groups, values, added)
-    options = table_options(groups, values)
-    if not blocks and view is None and options is None:
-        entries.append(panel.intro(t("console.app_settings.same_as_all_tables")))
     inner: dict[str, Any] = {
         "library": library, "launcher": launcher, "config_groups": groups,
         "config_values": values, "config_scope": SCOPE_ENTRY, "config_table": table_id,
         "playing": await offload.io(workbench._playing, library),
         "state": context["state"], "rebuild": context["rebuild"],
     }
+    if shared := shared_note(found, len(context.get("tables") or []) or 1):
+        entries.append(shared)
+    if reach := dict(found.get("from_game") or {}):
+        entries += _from_game_entries(inner, reach)
+    if others := _others(context, table, launcher):
+        try:
+            others = await offload.io(_read_all, library, others)
+        except Exception:  # noqa: BLE001 - without them the page offers no Set for All
+            others = []
+    if others:
+        inner["config_more"] = _for_all(inner, others, bool(found.get("shared_with_game")),
+                                        list(context.get("tables") or []),
+                                        _for_every_table(groups))
+    added = _added(context["state"], table_id)
+    blocks = differences(groups, values, added)
+    view = point_of_view(groups, values, added)
+    options = table_options(groups, values)
+    if not blocks and view is None and options is None:
+        entries.append(panel.intro(t("console.app_settings.same_as_all_tables")))
     if view is not None:
         blocks.append((view.label, view.rows))
     entries += await workbench._setting_entries(
@@ -387,3 +398,139 @@ async def _every_setting(context: dict[str, Any], table: dict[str, Any],
 
     dialog.on("hide", lambda: context["rebuild"]())
     dialog.open()
+
+
+def _from_game_entries(inner: dict[str, Any], reach: dict[str, str]) -> list[tuple[Any, Any]]:
+    """How many of the game's own settings this table's file keeps from reaching it, and
+    Copy the Game's Settings Here."""
+    playing = bool(inner["playing"])
+    return [panel.intro(t("console.app_settings.from_game", count=len(reach))),
+            (panel.FULL, panel.action(
+                t("console.app_settings.copy_from_game"),
+                partial(_copy_from_game, inner, reach), icon=verbs.COPY,
+                enabled=not playing,
+                hint=t(workbench.PLAYING_NOTE) if playing
+                else t("console.app_settings.copy_from_game.help")))]
+
+
+async def _copy_from_game(inner: dict[str, Any], reach: dict[str, str]) -> None:
+    try:
+        await offload.io(inner["library"].write_launcher_config,
+                         inner["launcher"]["launcher_id"], reach,
+                         table=inner["config_table"], scope=SCOPE_ENTRY)
+    except Exception as exc:  # noqa: BLE001 - said, never raised into the page
+        ui.notify(t("said.could_not_save_it", exc=exc), type="negative")
+        return
+    ui.notify(t("console.app_settings.copied_from_game", count=len(reach)), type="positive")
+    await inner["rebuild"]()
+
+
+def _others(context: dict[str, Any], table: dict[str, Any],
+            launcher: dict[str, Any]) -> list[dict[str, Any]]:
+    """The game's other tables that run on the same program, each with its launcher."""
+    found = []
+    for other in context.get("tables") or []:
+        runs = _runs(context, other)
+        if (other.get("id") != table.get("id") and runs is not None
+                and runs.get("has_config") and runs.get("app") == launcher.get("app")):
+            found.append({"table": other, "launcher_id": runs["launcher_id"]})
+    return found
+
+
+def _read_all(library: Any, others: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for one in others:
+        _read_settings(library, one)
+    return others
+
+
+def _read_settings(library: Any, one: dict[str, Any]) -> None:
+    """Another table's settings as they stand, whether its file is also the game's, and
+    whether the game's file is the one it reads."""
+    found = library.launcher_config(one["launcher_id"], str(one["table"].get("id") or ""),
+                                    SCOPE_ENTRY)
+    one["values"] = dict(found.get("values") or {})
+    one["shares"] = bool(found.get("shared_with_game"))
+    one["reads_game"] = any((held or {}).get("scope") == "folder"
+                            for held in one["values"].values())
+
+
+def _for_every_table(groups: Sequence[Any]) -> frozenset[str]:
+    """What Set for All offers: whatever one table can hold, but the camera and the table
+    options."""
+    found: set[str] = set()
+    for group in groups:
+        if getattr(group, "read_only", False):
+            continue
+        drawn = set(getattr(group, "rows", ())) if group.summarized else None
+        found.update(field.key for field in group.settings
+                     if (drawn is None or field.key in drawn)
+                     and SCOPE_ENTRY in (field.scopes or (SCOPE_ENTRY,)))
+    return frozenset(found)
+
+
+def already_uses(other: dict[str, Any], field: Any, value: str, shares_here: bool) -> bool:
+    """Whether another of the game's tables uses this value: it reads this table's file,
+    which is also the game's, or has the value already."""
+    if shares_here and other.get("reads_game"):
+        return True
+    held = (other.get("values") or {}).get(field.key) or {}
+    return workbench._same_value(field, str(held.get("value") or ""), value)
+
+
+def _for_all(inner: dict[str, Any], others: list[dict[str, Any]], shares_here: bool,
+             tables: list[dict[str, Any]],
+             offered: frozenset[str]) -> Callable[[dict, Any], Callable[[], None] | None]:
+    """Set for All N Tables, beside a value this table sets itself that another of its
+    game's tables does not use."""
+    count = len(others) + 1
+
+    def verb(held: dict, field: Any) -> Callable[[], None] | None:
+        value = str(held.get("value") or "")
+        if (field.key not in offered or not held.get("set_here")
+                or not held.get("in_effect", True)
+                or all(already_uses(one, field, value, shares_here) for one in others)):
+            return None
+        playing = bool(inner.get("playing"))
+        return panel.action(
+            t("console.app_settings.set_for_all", count=count),
+            partial(_set_for_all, inner, others, field, value, shares_here, tables),
+            icon=verbs.SHARE, inline=True, enabled=not playing,
+            hint=t(workbench.PLAYING_NOTE) if playing
+            else t("console.app_settings.set_for_all.help"))
+    return verb
+
+
+def write_for_all(library: Any, others: list[dict[str, Any]], field: Any, value: str,
+                  shares_here: bool) -> list[dict[str, Any]]:
+    """Writes the value into each other table's own file, the one whose file is also the
+    game's first, and none that uses it by then. Returns the tables written that read the
+    game's file before, and no longer do."""
+    cut = []
+    for one in sorted(others, key=lambda one: not one.get("shares")):
+        _read_settings(library, one)
+        if already_uses(one, field, value, shares_here):
+            continue
+        library.write_launcher_config(one["launcher_id"], {field.key: value},
+                                      table=str(one["table"].get("id") or ""),
+                                      scope=SCOPE_ENTRY)
+        if one["reads_game"]:
+            cut.append(one["table"])
+        _read_settings(library, one)
+    return cut
+
+
+async def _set_for_all(inner: dict[str, Any], others: list[dict[str, Any]], field: Any,
+                       value: str, shares_here: bool, tables: list[dict[str, Any]]) -> None:
+    try:
+        cut = await offload.io(write_for_all, inner["library"], others, field, value,
+                               shares_here)
+    except Exception as exc:  # noqa: BLE001 - said, never raised into the page
+        ui.notify(t("said.could_not_save_it", exc=exc), type="negative")
+    else:
+        ui.notify(t("console.app_settings.set_for_all_done", count=len(others) + 1),
+                  type="positive")
+        if cut:
+            ui.notify(t("console.app_settings.no_longer_reads_game", count=len(cut),
+                        tables=", ".join(workbench._table_line(one, tables) for one in cut)),
+                      type="warning")
+    await inner["rebuild"]()

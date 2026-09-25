@@ -275,9 +275,23 @@
   "console.app_settings.camera.help": "Àđĵûšţ îţ îñ Ṽîšûàŀ Þîñƀàŀŀ ŵĥîŀè ţĥè ţàƀŀè řûñš, ƒřöɱ îţš ɱèñû'š Þöîñţ Öƒ Ṽîèŵ þàĝè",
   "console.app_settings.camera_reset.help": "Ɓàçķ ţö îţš àûţĥöř'š çàɱèřà",
   "console.app_settings.commonly_set_per_table": "Çöɱɱöñŀý Šèţ þèř Ţàƀŀè",
+  "console.app_settings.copied_from_game": {
+    "one": "Çöþîèđ 1 šèţţîñĝ",
+    "other": "Çöþîèđ {count} šèţţîñĝš"
+  },
+  "console.app_settings.copy_from_game": "Çöþý ţĥè Ĝàɱè'š Šèţţîñĝš Ĥèřè",
+  "console.app_settings.copy_from_game.help": "Ŵĥàţ ţĥîš ţàƀŀè àŀřèàđý šèţš šţàýš àš îţ îš",
   "console.app_settings.everything_else": "Èṽèřýţĥîñĝ Èŀšè",
   "console.app_settings.for_this_table": "{app} ƒöř Ţĥîš Ţàƀŀè",
+  "console.app_settings.from_game": {
+    "one": "1 öƒ ţĥîš ĝàɱè'š šèţţîñĝš đöèš ñöţ řèàçĥ ţĥîš ţàƀŀè, ŵĥîçĥ ĥàš îţš öŵñ ƒîŀè",
+    "other": "{count} öƒ ţĥîš ĝàɱè'š šèţţîñĝš đö ñöţ řèàçĥ ţĥîš ţàƀŀè, ŵĥîçĥ ĥàš îţš öŵñ ƒîŀè"
+  },
   "console.app_settings.game_and_table": "{game} - {table}",
+  "console.app_settings.no_longer_reads_game": {
+    "one": "{tables} ñö ŀöñĝèř řèàđš ţĥîš ĝàɱè'š öŵñ šèţţîñĝš",
+    "other": "{tables} ñö ŀöñĝèř řèàđ ţĥîš ĝàɱè'š öŵñ šèţţîñĝš"
+  },
   "console.app_settings.now_same_all_tables": "Ñöŵ ţĥè šàɱè àš àŀŀ ţàƀŀèš",
   "console.app_settings.option_reset.help": "Ɓàçķ ţö ţĥè ţàƀŀè'š đèƒàûŀţ",
   "console.app_settings.plugin_row": "{plugin}: {label}",
@@ -286,6 +300,9 @@
   "console.app_settings.saved_for_this_game": "Šàṽèđ ƒöř ţĥîš ĝàɱè",
   "console.app_settings.saved_in_views": "{saved} ({views})",
   "console.app_settings.search_settings": "Šèàřçĥ šèţţîñĝš",
+  "console.app_settings.set_for_all": "Šèţ ƒöř Àŀŀ {count} Ţàƀŀèš",
+  "console.app_settings.set_for_all.help": "Èàçĥ öƒ ţĥîš ĝàɱè'š ţàƀŀèš ĝèţš ţĥîš ṽàŀûè àš îţš öŵñ",
+  "console.app_settings.set_for_all_done": "Šèţ ƒöř àŀŀ {count} ţàƀŀèš",
   "console.app_settings.settings": "{table}: {launcher_name} Šèţţîñĝš",
   "console.app_settings.shared_with_game": {
     "one": "Çĥàñĝèš ĥèřè àŀšö àþþŀý ţö ţĥè öţĥèř ţàƀŀè, ûñŀèšš îţ ĥàš îţš öŵñ",

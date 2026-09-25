@@ -556,7 +556,11 @@ see which one is in force:
 the folder's where there is not, never both. The folder's file is read and never written:
 VPinFE makes no file in a game's folder, and one made by hand or by another program shows
 as the `folder` scope where it reaches a table. So a table's first value of its own
-creates its file with that value alone, and the folder's file stops reaching it.
+creates its file with that value alone, and the folder's file stops reaching it. At the
+`entry` scope, `from_game` is by key what the folder's file sets that the table's own does
+not, where the table has one and the value would change what the table uses. Written to
+the `entry` scope, they give the table the folder's values in its own file. It is empty at
+any other scope.
 
 A table whose `.vpx` is named after its folder has one file for both scopes, so what it
 sets reaches the game's other tables that have no file of their own. `shared_with_game` is

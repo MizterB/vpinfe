@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, i18n, path_checks, service_errors
-from common.apps.contract import SCOPE_FOLDER, SCOPE_LAUNCHER
+from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
 from common.games import config_backups, game_repository, launchers, tables
 from common.games.config_backups import Backup
 from common.games.table_identity import find_table_by_id
@@ -244,7 +244,7 @@ def app_config(launcher_id: str, table: str = "",
     config = _app_settings_surface(found)
     if config is None:
         return {"groups": [], "values": {}, "scopes": [], "shared_with_game": False,
-                "app_name": apps.app_name(found.app)}
+                "from_game": {}, "app_name": apps.app_name(found.app)}
 
     settings = _launcher_settings(found)
     if scope not in config.scopes():
@@ -255,6 +255,7 @@ def app_config(launcher_id: str, table: str = "",
     values = config.read(scope, target, settings)
     scopes_for = _scopes_for(config)
     shares = getattr(config, "shared_with_game", None)
+    reach = getattr(config, "from_game", None)
 
     def shown(field: apps.Field) -> bool:
         held = values.get(field.key)
@@ -276,6 +277,8 @@ def app_config(launcher_id: str, table: str = "",
         "app_name": apps.app_name(found.app),
         "scopes": list(config.scopes()),
         "shared_with_game": bool(target and shares is not None and shares(target)),
+        "from_game": (dict(reach(target, settings))
+                      if scope == SCOPE_ENTRY and target and reach is not None else {}),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),
                     "summarized": g.summarized, "rows": drawn(g, fields),
                     "read_only": g.read_only,

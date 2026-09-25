@@ -328,6 +328,19 @@ class GameFileTests(_TableCase):
         held = got.json()["values"]["Player.FXAA"]
         self.assertEqual((held["value"], held["scope"]), ("3", "folder"))
 
+    def test_what_it_sets_that_a_table_with_its_own_file_does_not_read(self) -> None:
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Player]\nFXAA = 1\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+        pathlib.Path(self.beside).write_text("[Player]\nFXAA = 2\n")
+
+        at_table = self.client.get("/launchers/l1/config?table=t1&scope=entry").json()
+        at_launcher = self.client.get("/launchers/l1/config?table=t1&scope=launcher").json()
+
+        self.assertEqual(at_table["from_game"], {"Player.BallTrail": "1"})
+        self.assertEqual(at_launcher["from_game"], {})
+
 
 class ClearingTests(_TableCase):
     def test_a_table_s_own_value_says_what_clearing_it_leaves(self) -> None:

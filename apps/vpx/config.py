@@ -208,6 +208,11 @@ def table_layer(table: str) -> Path | None:
     beside = game_file.with_suffix(".ini")
     if beside.is_file():
         return beside
+    return _game_layer(game_file)
+
+
+def _game_layer(game_file: Path) -> Path | None:
+    """`<folder>.ini` beside a table, matched without regard to case."""
     folder = game_file.parent
     wanted = f"{folder.name}.ini".lower()
     try:
@@ -428,6 +433,23 @@ class VPXConfig:
     def shared_with_game(self, target: str) -> bool:
         """Whether this table's own settings file is also its game's."""
         return _same(path_for(SCOPE_ENTRY, target, {}), path_for(SCOPE_FOLDER, target, {}))
+
+    def from_game(self, target: str, settings: Mapping[str, Any]) -> dict[str, str]:
+        """By key, what the game's own file sets that does not reach this table because
+        the table has a file of its own: each value the table's file does not hold, that
+        can be set for one table and would change what it uses."""
+        own = path_for(SCOPE_ENTRY, target, settings)
+        if own is None or not own.is_file():
+            return {}
+        game = _game_layer(own)
+        if game is None or _same(own, game):
+            return {}
+        mine, theirs = _read(own), _read(game)
+        app = _read(settings_file(settings))
+        return {key: value for key in sorted(theirs.settings)
+                if (value := theirs.value(key)) is not None and mine.value(key) is None
+                and _offered(key) and SCOPE_ENTRY in self.scopes_for(key)
+                and not _alike(key, _given(app, key), value)}
 
     def held_for_table(self, target: str) -> dict[str, Any]:
         """What the one file VPX reads for this table sets: which scope that file is, how

@@ -4135,9 +4135,12 @@ def _clear_hint(held: dict, field: Any, app_name: str) -> str:
 def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field: Any,
             clear: Callable[[str], Callable[[], Awaitable[None]]], app_name: str,
             playing: bool = False,
-            redraws: list[Callable[[], None]] | None = None) -> Callable[[], None]:
-    """The mark, and where it is somebody's own value, the way back off it. Drawn as a
-    panel ASIDE, whose cell it hides while it holds neither.
+            redraws: list[Callable[[], None]] | None = None,
+            more: Callable[[dict, Any], Callable[[], None] | None] | None = None,
+            ) -> Callable[[], None]:
+    """The mark, and where it is somebody's own value, the way back off it and whatever
+    `more` offers for it. Drawn as a panel ASIDE, whose cell it hides while it holds
+    neither.
 
     Clear only where there is something to clear. Almost every setting in this program is
     untouched, so on every row it would be a control that does nothing, and a row of
@@ -4159,6 +4162,8 @@ def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field:
                                  enabled=not playing,
                                  hint=t(PLAYING_NOTE) if playing
                                  else _clear_hint(held, field, app_name))()
+                    if more is not None and (verb := more(held, field)) is not None:
+                        verb()
             cell.set_visibility(mark is not None or bool(held.get("set_here")))
 
         fill()
@@ -4381,7 +4386,7 @@ async def _setting_entries(context: dict[str, Any],
                                                  on_leave=settle if typed else None)))
             entries.append((panel.ASIDE, _beside(
                 partial(_mark_for, held, scope, field, offered), held, field, clear,
-                app_name, playing, redraws)))
+                app_name, playing, redraws, context.get("config_more"))))
             if said := (getattr(field, "help", "") if curated else "") or field.description:
                 entries.append(panel.note(said))
     return entries

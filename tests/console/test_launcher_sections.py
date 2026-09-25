@@ -611,6 +611,144 @@ class AddASettingTests(unittest.TestCase):
         self.assertEqual(self._headings(offered), [])
 
 
+def _other(table_id: str, value: str = "1", *, scope: str = "entry",
+           shares: bool = False) -> dict:
+    return {"table": {"id": table_id}, "launcher_id": "l1", "shares": shares,
+            "reads_game": scope == "folder",
+            "values": {"Player.X": {"value": value, "scope": scope}}}
+
+
+class _Game:
+    """The game's tables as the API answers for them. A write lands in the written
+    table's own file, and where that file is also the game's, in what the tables reading
+    it get."""
+
+    def __init__(self, *others: dict) -> None:
+        self.held = {one["table"]["id"]: dict(one) for one in others}
+        self.written: list[str] = []
+
+    def launcher_config(self, _launcher: str, table: str, _scope: str) -> dict:
+        one = self.held[table]
+        return {"values": one["values"], "shared_with_game": one["shares"]}
+
+    def write_launcher_config(self, _launcher: str, values: dict, *, table: str,
+                              scope: str) -> dict:
+        self.written.append(f"{table}@{scope}")
+        self.held[table]["values"] = {"Player.X": {"value": values["Player.X"],
+                                                   "scope": "entry"}}
+        if self.held[table]["shares"]:
+            for one in self.held.values():
+                if one["values"]["Player.X"]["scope"] == "folder":
+                    one["values"] = {"Player.X": {"value": values["Player.X"],
+                                                  "scope": "folder"}}
+        return {}
+
+
+class SetForAllTests(unittest.TestCase):
+    """Set for All N Tables, beside a value one of a game's tables sets itself."""
+
+    SET = {"set_here": True, "in_effect": True, "scope": "entry", "value": "2"}
+    FIELD = _field("Player.X")
+
+    def _verb(self, *others: dict, offered=frozenset({"Player.X"})):
+        return app_settings._for_all({"playing": False}, list(others), False, [], offered)
+
+    def test_it_is_offered_where_another_table_does_not_use_the_value(self) -> None:
+        self.assertIsNotNone(self._verb(_other("b", "2"), _other("c", "1"))(
+            self.SET, self.FIELD))
+
+    def test_and_not_where_every_other_table_does(self) -> None:
+        self.assertIsNone(self._verb(_other("b", "2"))(self.SET, self.FIELD))
+
+    def test_nor_beside_a_value_the_table_does_not_set_itself(self) -> None:
+        held = {**self.SET, "set_here": False, "scope": "launcher"}
+
+        self.assertIsNone(self._verb(_other("b", "1"))(held, self.FIELD))
+
+    def test_nor_on_the_camera(self) -> None:
+        camera = _field("TableOverride.ViewCabFOV")
+
+        self.assertIsNone(self._verb(_other("b", "1"))(self.SET, camera))
+
+    def test_the_camera_and_the_table_options_are_one_table_s_own(self) -> None:
+        view = SimpleNamespace(summarized=True, rows=["TableOverride.ViewCabMode"],
+                               settings=[_field("TableOverride.ViewCabMode"),
+                                         _field("TableOverride.ViewCabFOV")])
+        options = SimpleNamespace(summarized=False, read_only=True,
+                                  settings=[_field("TableOption.Volume")])
+        sound = SimpleNamespace(summarized=False, settings=[
+            _field("Player.X"), _field("Player.Stereo3D", scopes=("launcher",))])
+
+        self.assertEqual(app_settings._for_every_table([sound, view, options]),
+                         {"Player.X", "TableOverride.ViewCabMode"})
+
+    def test_a_table_reading_this_table_s_file_uses_what_it_sets(self) -> None:
+        other = _other("b", "1", scope="folder")
+
+        self.assertTrue(app_settings.already_uses(other, self.FIELD, "2", True))
+        self.assertFalse(app_settings.already_uses(other, self.FIELD, "2", False))
+
+    def test_each_table_not_using_it_gets_it_in_its_own_file(self) -> None:
+        game = _Game(_other("b", "1"), _other("c", "2"))
+
+        cut = app_settings.write_for_all(game, [_other("b", "1"), _other("c", "2")],
+                                         self.FIELD, "2", False)
+
+        self.assertEqual((game.written, cut), (["b@entry"], []))
+
+    def test_the_table_whose_file_is_the_game_s_goes_first(self) -> None:
+        """So a table reading that file has the value from it, not a file of its own."""
+        others = [_other("b", "1", scope="folder"), _other("a", "1", shares=True)]
+        game = _Game(*others)
+
+        cut = app_settings.write_for_all(game, others, self.FIELD, "2", False)
+
+        self.assertEqual((game.written, cut), (["a@entry"], []))
+
+    def test_a_table_that_stops_reading_the_game_s_file_is_named(self) -> None:
+        others = [_other("b", "1", scope="folder")]
+
+        cut = app_settings.write_for_all(_Game(*others), others, self.FIELD, "2", False)
+
+        self.assertEqual(cut, [{"id": "b"}])
+
+    def test_a_row_draws_it_beside_clear(self) -> None:
+        verb = Mock()
+        more = Mock(return_value=verb)
+        with patch.object(workbench, "ui"), \
+                patch.object(workbench.panel, "action", return_value=Mock()):
+            workbench._beside(lambda: None, dict(self.SET), self.FIELD, Mock(), "VPX",
+                              more=more)()
+
+        more.assert_called_once()
+        verb.assert_called_once_with()
+
+
+class CopyFromGameTests(unittest.IsolatedAsyncioTestCase):
+    """Where a table's own file keeps the game's from reaching it."""
+
+    REACH = {"Player.X": "1", "Player.Y": "2"}
+
+    def test_it_says_how_many_do_not_reach_the_table(self) -> None:
+        entries = app_settings._from_game_entries({"playing": False}, self.REACH)
+
+        self.assertEqual(_said(entries[0]), "2 of this game's settings do not reach "
+                                            "this table, which has its own file")
+
+    async def test_copying_writes_them_at_the_table_s_own_scope(self) -> None:
+        inner = {"library": Mock(), "launcher": {"launcher_id": "l1"},
+                 "config_table": "t1", "rebuild": AsyncMock()}
+        io = self.enterContext(patch.object(app_settings.offload, "io",
+                                            new=AsyncMock(return_value={})))
+        self.enterContext(patch.object(app_settings, "ui"))
+
+        await app_settings._copy_from_game(inner, self.REACH)
+
+        io.assert_awaited_once_with(inner["library"].write_launcher_config, "l1",
+                                    self.REACH, table="t1", scope="entry")
+        inner["rebuild"].assert_awaited_once()
+
+
 class RedrawTests(unittest.TestCase):
     """Whether a write can be marked in place or the panel has to be drawn again."""
 
