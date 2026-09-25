@@ -136,61 +136,136 @@ class TestRegistriesHoldNoWords(unittest.TestCase):
                           "ConfigGroup(label='ROM')"])
 
 
-# Modules whose return values and reasons are words a surface shows: a path's verdict,
-# what an enabled feature is missing, and why discovery calls a capability unavailable.
-SPEAKS_TO_A_SURFACE = ("common/path_checks.py", "common/feature_checks.py",
-                       "common/host/metrics.py", "common/host/pinmame_catalog.py",
-                       "httpapi/capabilities.py", "httpapi/core_capabilities.py")
+# Modules whose words a surface shows, and which ways out each is read for.
+EVERY_WAY = frozenset({"return", "reason", "raise"})
+SPEAKS_TO_A_SURFACE = {
+    "common/path_checks.py": EVERY_WAY,
+    "common/feature_checks.py": EVERY_WAY,
+    "common/host/metrics.py": EVERY_WAY,
+    "common/host/pinmame_catalog.py": EVERY_WAY,
+    "common/host/action_ops.py": EVERY_WAY,
+    "common/extensions/games.py": EVERY_WAY,
+    "common/uploads/upload_ops.py": EVERY_WAY,
+    "httpapi/capabilities.py": EVERY_WAY,
+    "httpapi/core_capabilities.py": EVERY_WAY,
+    "common/device_client.py": frozenset({"reason", "raise"}),
+}
+
+# Said to whoever wrote the calling code, which has a bug to fix rather than a person
+# something to do.
+SAID_TO_A_DEVELOPER = {"AttributeError", "ContractError", "NotThisDeviceError",
+                       "TypeError", "ValueError"}
 
 
-def _pieces(node: ast.expr) -> list[ast.expr]:
-    """A value split through tuples, conditionals and joins."""
+def _pieces(node: ast.expr, held: dict[str, ast.expr]) -> list[ast.expr]:
+    """A value split through tuples, conditionals and joins, and a module constant read
+    through its name where it holds words rather than a code."""
     if isinstance(node, ast.Tuple):
-        return [piece for one in node.elts for piece in _pieces(one)]
+        return [piece for one in node.elts for piece in _pieces(one, held)]
     if isinstance(node, ast.IfExp):
-        return _pieces(node.body) + _pieces(node.orelse)
+        return _pieces(node.body, held) + _pieces(node.orelse, held)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return _pieces(node.left) + _pieces(node.right)
+        return _pieces(node.left, held) + _pieces(node.right, held)
+    constant = held.get(node.id) if isinstance(node, ast.Name) else None
+    if isinstance(constant, ast.Constant) and _words(constant.value):
+        return [ast.copy_location(ast.Constant(constant.value), node)]
     return [node]
 
 
-def _handed_back(path: Path) -> list[tuple[str, ast.expr]]:
-    """Each value a module returns or gives as a `reason`, and which of the two it was."""
+def _names_reason(target: ast.expr) -> bool:
+    if isinstance(target, ast.Subscript):
+        return isinstance(target.slice, ast.Constant) and target.slice.value == "reason"
+    return getattr(target, "id", None) == "reason"
+
+
+def _handed_back(source: str) -> list[tuple[str, ast.expr]]:
+    """Each value a module returns, gives as a `reason` or raises with, and which."""
+    tree = ast.parse(source)
+    held = _constants(tree)
     found: list[tuple[str, ast.expr]] = []
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+
+    def add(kind: str, value: ast.expr) -> None:
+        found.extend((kind, one) for one in _pieces(value, held))
+
+    for node in ast.walk(tree):
         if isinstance(node, ast.Return) and node.value is not None:
-            found += [("return", one) for one in _pieces(node.value)]
+            add("return", node.value)
         elif isinstance(node, ast.keyword) and node.arg == "reason":
-            found += [("reason", one) for one in _pieces(node.value)]
+            add("reason", node.value)
+        elif isinstance(node, ast.Dict):
+            for key, value in zip(node.keys, node.values, strict=True):
+                if isinstance(key, ast.Constant) and key.value == "reason":
+                    add("reason", value)
+        elif isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) \
+                and node.exc.args and _named(node.exc.func) not in SAID_TO_A_DEVELOPER:
+            add("raise", node.exc.args[0])
         elif isinstance(node, ast.Assign):
             for target in node.targets:
                 pairs = (list(zip(target.elts, node.value.elts, strict=True))
                          if isinstance(target, ast.Tuple)
                          and isinstance(node.value, ast.Tuple)
                          else [(target, node.value)])
-                found += [("reason", one) for held, value in pairs
-                          if getattr(held, "id", None) == "reason"
-                          for one in _pieces(value)]
+                for at, value in pairs:
+                    if _names_reason(at):
+                        add("reason", value)
     return found
+
+
+def _not_looked_up(kind: str, one: ast.expr) -> bool:
+    if isinstance(one, ast.JoinedStr):
+        return True
+    if isinstance(one, ast.Constant) and isinstance(one.value, str):
+        said = one.value.strip()
+        return bool(said) and said not in SOURCE
+    return kind == "reason" and isinstance(one, ast.Call) and _named(one.func) == "str"
+
+
+def _source_of(name: str) -> str:
+    return (ROOT / name).read_text(encoding="utf-8")
 
 
 class TestWhatAModuleHandsBackIsLookedUp(unittest.TestCase):
 
     def test_no_word_handed_back_is_written_in_place(self) -> None:
-        offenders = [f"{name}:{one.lineno} {ast.unparse(one)[:60]}"
-                     for name in SPEAKS_TO_A_SURFACE
-                     for _, one in _handed_back(ROOT / name)
-                     if isinstance(one, ast.JoinedStr)
-                     or (isinstance(one, ast.Constant) and isinstance(one.value, str)
-                         and one.value.strip())]
+        offenders = [f"{name}:{one.lineno} {kind} {ast.unparse(one)[:60]}"
+                     for name, ways in SPEAKS_TO_A_SURFACE.items()
+                     for kind, one in _handed_back(_source_of(name))
+                     if kind in ways and _not_looked_up(kind, one)]
         self.assertEqual(offenders, [], "the catalog owns these words now")
 
-    def test_it_found_the_returns_and_the_reasons(self) -> None:
+    def test_it_found_each_way_out(self) -> None:
         """An empty sweep passes and measures nothing, which reads the same as clean."""
-        kinds = [kind for name in SPEAKS_TO_A_SURFACE
-                 for kind, _ in _handed_back(ROOT / name)]
+        kinds = [kind for name, ways in SPEAKS_TO_A_SURFACE.items()
+                 for kind, _ in _handed_back(_source_of(name)) if kind in ways]
         self.assertGreater(kinds.count("return"), 5)
         self.assertGreater(kinds.count("reason"), 5)
+        self.assertGreater(kinds.count("raise"), 5)
+
+    def test_each_road_is_read(self) -> None:
+        source = ('NOT_WIRED = "Nothing performs that."\n'
+                  'KEY = "error.actions.nothing_performs_that"\n'
+                  "def listing():\n"
+                  '    return {"reason": NOT_WIRED, "reason_key": KEY, "what": "VPinFE"}\n'
+                  "def probe(exc):\n"
+                  '    return {"state": "unreachable", "reason": str(exc)}\n'
+                  "def game(game_id):\n"
+                  '    raise LookupError(f"No game with id {game_id}")\n'
+                  "def check():\n"
+                  "    raise UnavailableError(NOT_WIRED)\n"
+                  "def contract():\n"
+                  '    raise ContractError("not inside a folder it declared")\n'
+                  "def row(found):\n"
+                  '    found["reason"] = "Copied"\n'
+                  "    return t(KEY)\n")
+
+        said = sorted(f"{kind} {ast.unparse(one)}" for kind, one in _handed_back(source)
+                      if _not_looked_up(kind, one))
+
+        self.assertEqual(said, ["raise 'Nothing performs that.'",
+                                "raise f'No game with id {game_id}'",
+                                "reason 'Copied'",
+                                "reason 'Nothing performs that.'",
+                                "reason str(exc)"])
 
 
 # The display positions a string reaches a person through. Kept beside the check rather

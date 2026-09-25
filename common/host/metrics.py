@@ -139,31 +139,31 @@ def gpu() -> dict[str, Any]:
     are different answers.
     """
     if not gpu_supported():
-        return {"available": False,
-                "reason": f"nvtop does not run on {platform.system()}.", "gpus": []}
+        return _no_gpu(reason=t("error.metrics.nvtop_not_here", system=platform.system()))
     found = shutil.which("nvtop")
     if not found:
-        return {"available": False, "reason": "nvtop is not installed.", "gpus": []}
+        return _no_gpu(reason=t("error.metrics.nvtop_missing"))
 
     try:
         done = subprocess.run([found, "-s"], capture_output=True, text=True,
                               timeout=3, check=False)
     except subprocess.TimeoutExpired:
-        return {"available": False, "reason": "nvtop timed out.", "gpus": []}
+        return _no_gpu(reason=t("error.metrics.nvtop_timed_out"))
     except Exception as exc:  # noqa: BLE001 - a probe must not take the page with it
-        return {"available": False, "reason": f"nvtop failed: {exc}", "gpus": []}
+        return _no_gpu(reason=t("error.metrics.nvtop_failed", exc=exc))
 
     text = (done.stdout or "").strip()
     if done.returncode != 0 or not text:
-        said = (done.stderr or text or "nvtop returned nothing.").strip()
-        return {"available": False, "reason": said, "gpus": []}
+        said = (done.stderr or text).strip()
+        return _no_gpu(reason=t("error.metrics.nvtop_failed", exc=said) if said
+                       else t("error.metrics.nvtop_said_nothing"))
 
     try:
         cards = json.loads(text)
     except json.JSONDecodeError as exc:
-        return {"available": False, "reason": f"Could not read nvtop: {exc}", "gpus": []}
+        return _no_gpu(reason=t("error.metrics.nvtop_unreadable", exc=exc))
     if not isinstance(cards, list) or not cards:
-        return {"available": False, "reason": "nvtop reported no cards.", "gpus": []}
+        return _no_gpu(reason=t("error.metrics.nvtop_no_cards"))
 
     # Per card, not aggregated. Two cards averaged is a number describing neither, and a
     # machine with a second card is exactly the machine somebody is looking at this for.
@@ -172,9 +172,12 @@ def gpu() -> dict[str, Any]:
          **{key: card.get(key) for key, _label in GPU_FIELDS}}
         for index, card in enumerate(cards, start=1) if isinstance(card, dict)]
     if not found_cards:
-        return {"available": False, "reason": "nvtop reported nothing usable.",
-                "gpus": []}
+        return _no_gpu(reason=t("error.metrics.nvtop_nothing_usable"))
     return {"available": True, "reason": "", "gpus": found_cards}
+
+
+def _no_gpu(*, reason: str) -> dict[str, Any]:
+    return {"available": False, "reason": reason, "gpus": []}
 
 
 def _disks(paths: Iterable[str]) -> list[dict[str, Any]]:
