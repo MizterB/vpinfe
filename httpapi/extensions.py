@@ -15,9 +15,9 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from common import extensions
 from common.i18n import t
 
-from . import scopes
+from . import models, scopes
 from .auth import requires
-from .errors import FeatureUnavailableError
+from .errors import FeatureUnavailableError, NotFoundError
 
 logger = logging.getLogger("vpinfe.httpapi.extensions")
 
@@ -31,6 +31,15 @@ router = APIRouter(prefix="/extensions", tags=["extensions"])
 def list_extensions() -> dict:
     """Every extension this install looked at, running or not."""
     return {"extensions": [record.as_dict() for record in extensions.records()]}
+
+
+@router.put("/{name}/enabled", summary="Switch an extension on or off",
+            dependencies=[requires(scopes.CONFIG_WRITE)])
+def put_extension_enabled(name: str, body: models.ExtensionSwitch) -> dict:
+    record = extensions.switch(name, body.enabled)
+    if record is None:
+        raise NotFoundError(t("error.extensions.no_extension_named", name=name))
+    return record.as_dict()
 
 
 def _running(name: str) -> Any:

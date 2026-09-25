@@ -121,6 +121,48 @@ class ListingTests(SeamCase):
         self.assertEqual(sample["reason_key"], "extension.reason.switched_off")
 
 
+class SwitchTests(SeamCase):
+    def switch(self, client: TestClient, name: str, on: bool):
+        with self.assertLogs("vpinfe.common.extensions", "INFO"):
+            return client.put(f"/extensions/{name}/enabled", json={"enabled": on})
+
+    def test_off_answers_with_the_extension_and_its_routes_refuse_at_once(self) -> None:
+        client = self.client()
+
+        found = self.switch(client, "sample", False)
+
+        self.assertEqual(found.status_code, 200)
+        self.assertEqual((found.json()["state"], found.json()["enabled"]), ("off", False))
+        self.assertEqual(found.json()["reason_key"], host.SWITCHED_OFF)
+        self.assertFalse(self.store.enabled("sample"))
+        self.assertEqual(client.get("/ext/sample/hello").status_code, 501)
+        self.assertEqual(client.get("/ext/bystander/hello").status_code, 200)
+
+    def test_on_is_written_and_waits_for_the_next_start(self) -> None:
+        self.store.set_enabled("sample", False)
+        client = self.client()
+
+        found = self.switch(client, "sample", True)
+
+        self.assertEqual(found.status_code, 200)
+        self.assertEqual((found.json()["state"], found.json()["enabled"]), ("off", True))
+        self.assertEqual(found.json()["reason_key"], host.STARTS_AT_RESTART)
+        self.assertTrue(self.store.enabled("sample"))
+
+    def test_a_name_nothing_answers_to_is_a_404(self) -> None:
+        found = self.client().put("/extensions/nothing/enabled", json={"enabled": False})
+
+        self.assertEqual(found.status_code, 404)
+        self.assertIn("nothing", found.json()["error"]["message"])
+
+    def test_the_switch_is_gated_on_writing_config(self) -> None:
+        api = httpapi.create_api_app()
+
+        gated = {path: auth.route_scope(route) for path, route in auth.iter_api_routes(api)}
+
+        self.assertEqual(gated["/extensions/{name}/enabled"], scopes.CONFIG_WRITE)
+
+
 class FailureTests(SeamCase):
     def test_a_route_that_throws_disables_that_extension_and_leaves_core_running(self):
         client = self.client()

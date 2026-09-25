@@ -417,6 +417,107 @@ class FailureTests(HostCase):
         self.assertTrue(self.store.enabled("sample"))
 
 
+class SwitchTests(HostCase):
+    def heard(self) -> list[dict]:
+        heard: list[dict] = []
+        core_events.subscribe("sample.noticed", lambda **payload: heard.append(payload))
+        core_events.emit("game.selected", game_id="abc")
+        return heard
+
+    def test_off_takes_it_out_now_and_writes_it_down(self) -> None:
+        self.load()
+
+        with self.assertLogs(self.LOG, "INFO"):
+            record = self.registry.switch("sample", False)
+
+        self.assertIs(record, self.registry.get("sample"))
+        self.assertEqual((record.state, record.why), (host.OFF, host.SWITCHED_OFF))
+        self.assertFalse(record.enabled)
+        self.assertFalse(self.store.enabled("sample"))
+        self.assertNotIn("ext:sample:read", self.registry.granted_scopes())
+        self.assertEqual(self.heard(), [])
+        self.assertTrue(self.registry.running("bystander"))
+
+    def test_off_is_not_reported_as_a_fault(self) -> None:
+        self.load()
+
+        with self.assertLogs(self.LOG, "INFO") as said:
+            self.registry.switch("sample", False)
+
+        self.assertEqual([line for line in said.records if line.levelno > logging.INFO],
+                         [])
+
+    def test_on_writes_it_down_and_waits_for_the_next_start(self) -> None:
+        self.store.set_enabled("sample", False)
+        self.load()
+
+        with self.assertLogs(self.LOG, "INFO"):
+            record = self.registry.switch("sample", True)
+
+        self.assertTrue(self.store.enabled("sample"))
+        self.assertTrue(record.enabled)
+        self.assertEqual((record.state, record.why), (host.OFF, host.STARTS_AT_RESTART))
+        self.assertEqual(record.as_dict()["reason"], "Starts at the next restart")
+        self.assertNotIn("ext:sample:read", self.registry.granted_scopes())
+
+        again = host.Registry(self.store)
+        self.addCleanup(again.clear)
+        again.load_from(FIXTURES)
+        self.assertTrue(again.running("sample"))
+
+    def test_off_again_before_the_restart_says_switched_off(self) -> None:
+        self.store.set_enabled("sample", False)
+        self.load()
+
+        with self.assertLogs(self.LOG, "INFO"):
+            self.registry.switch("sample", True)
+            record = self.registry.switch("sample", False)
+
+        self.assertEqual(record.why, host.SWITCHED_OFF)
+
+    def test_one_this_device_cannot_run_keeps_saying_why(self) -> None:
+        other = "windows" if host.this_platform() != "windows" else "linux"
+        self.registry.load(self.make("elsewhere", {"platforms": [other]},
+                                     "def register(ctx): pass\n"))
+
+        with self.assertLogs(self.LOG, "INFO"):
+            self.assertEqual(self.registry.switch("elsewhere", False).why,
+                             host.SWITCHED_OFF)
+            record = self.registry.switch("elsewhere", True)
+
+        self.assertEqual(record.why, "extension.reason.not_for_platform")
+
+    def test_switching_off_one_a_fault_stopped_reads_as_switched_off(self) -> None:
+        self.load()
+        with self.assertLogs(self.LOG, "ERROR"):
+            self.registry.disable("sample", "asked to")
+
+        with self.assertLogs(self.LOG, "INFO"):
+            record = self.registry.switch("sample", False)
+
+        self.assertEqual((record.state, record.why), (host.OFF, host.SWITCHED_OFF))
+
+    def test_on_leaves_a_running_one_running(self) -> None:
+        self.load()
+
+        with self.assertLogs(self.LOG, "INFO"):
+            record = self.registry.switch("sample", True)
+
+        self.assertEqual(record.state, host.LOADED)
+        self.assertIn("ext:sample:read", self.registry.granted_scopes())
+
+    def test_a_name_nothing_answers_to_is_not_written(self) -> None:
+        self.assertIsNone(self.registry.switch("nothing", False))
+        self.assertTrue(self.store.enabled("nothing"))
+
+    def test_the_listing_says_what_the_switch_is_set_to(self) -> None:
+        self.store.set_enabled("sample", False)
+        self.load()
+
+        self.assertFalse(self.registry.get("sample").as_dict()["enabled"])
+        self.assertTrue(self.registry.get("bystander").as_dict()["enabled"])
+
+
 class WithdrawTests(HostCase):
     """What an extension offered goes with it, whether it stops or never finished."""
 

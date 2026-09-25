@@ -48,6 +48,7 @@ __all__ = [
     "Record", "Registry", "clear", "disable", "get_extension_store", "granted_scopes",
     "load_from", "load_installed", "logger_for", "mounted", "parse", "read_manifest",
     "read_roots", "hand_over", "records", "refuse", "registry", "running", "set_registry",
+    "switch",
 ]
 
 logger = logging.getLogger("vpinfe.common.extensions")
@@ -111,6 +112,10 @@ def mounted() -> list[tuple[Record, Any, str]]:
 
 def read_roots() -> tuple[str, ...]:
     return registry().read_roots()
+
+
+def switch(name: str, on: bool) -> Record | None:
+    return registry().switch(name, on)
 
 
 def disable(name: str, why: str, **values: str) -> None:

@@ -44,6 +44,8 @@ DISABLED = "disabled"
 # Switched off by the user, or not for this machine.
 OFF = "off"
 SWITCHED_OFF = "extension.reason.switched_off"
+# Switched on since this run started.
+STARTS_AT_RESTART = "extension.reason.starts_at_restart"
 
 _PLATFORMS = {"linux": "linux", "win32": "windows", "darwin": "macos"}
 PLATFORM_NAMES = {"linux": "extension.platform.linux",
@@ -66,6 +68,8 @@ class Record:
     name: str
     directory: Path
     manifest: Manifest | None = None
+    # What the person set, which is not whether it is running.
+    enabled: bool = True
     state: str = FAILED
     why: str = ""
     why_values: dict[str, str | tuple[str, ...]] = field(default_factory=dict)
@@ -147,7 +151,7 @@ class Record:
     def as_dict(self) -> dict[str, Any]:
         found = self.manifest.as_dict() if self.manifest else {"name": self.name}
         return {**found, "display_name": self.display_name,
-                "description": self.description,
+                "description": self.description, "enabled": self.enabled,
                 "state": self.state, "reason": self.reason, "reason_key": self.why,
                 "routes": [scope for _router, scope in self.routers],
                 # Only while it is running: an action on an extension that is not
@@ -232,7 +236,8 @@ class Registry:
 
     def load(self, directory: Path | str) -> Record:
         directory = Path(directory)
-        record = Record(name=directory.name, directory=directory)
+        record = Record(name=directory.name, directory=directory,
+                        enabled=self._store.enabled(directory.name))
         try:
             record.manifest = _read_manifest(directory)
             record.name = record.manifest.name
@@ -242,7 +247,8 @@ class Registry:
             return self._remember(record)
         i18n.own(f"ext.{record.name}", directory / "i18n")
 
-        why, values = self._why_not(record.manifest)
+        why, values = ((SWITCHED_OFF, {}) if not record.enabled
+                       else _cannot_run(record.manifest))
         if why:
             record.became(OFF, why, **values)
             return self._remember(record)
@@ -283,19 +289,27 @@ class Registry:
         logger.info("Extension %s %s loaded", record.name, record.manifest.version)
         return self._remember(record)
 
-    def _why_not(self, manifest: Manifest) -> tuple[str, dict[str, str | tuple[str, ...]]]:
-        if not self._store.enabled(manifest.name):
-            return SWITCHED_OFF, {}
-        platform = this_platform()
-        if manifest.platforms and platform not in manifest.platforms:
-            return "extension.reason.not_for_platform", {
-                "platform": (PLATFORM_NAMES.get(platform, platform),)}
-        missing = [name for name in install_identity.FEATURES
-                   if name in manifest.requires_features and name not in _features()]
-        if missing:
-            return "extension.reason.lacks_features", {
-                "features": tuple(install_identity.LABELS[name] for name in missing)}
-        return "", {}
+    # -- the switch ----------------------------------------------------------
+
+    def switch(self, name: str, on: bool) -> Record | None:
+        """Written to `extensions.json`. None when there is no such extension."""
+        with self._lock:
+            record = self._records.get(str(name or "").strip())
+            if record is None:
+                return None
+            self._store.set_enabled(record.name, on)
+            record.enabled = on
+            logger.info("Extension %s switched %s", record.name, "on" if on else "off")
+            # A refused manifest is refused at every start, whatever the switch says.
+            if record.manifest is None:
+                return record
+            if not on:
+                if not self._take_out(record.name, OFF, SWITCHED_OFF):
+                    record.became(OFF, SWITCHED_OFF)
+            elif record.state == OFF:
+                why, values = _cannot_run(record.manifest)
+                record.became(OFF, why or STARTS_AT_RESTART, **values)
+            return record
 
     # -- the kill switch -----------------------------------------------------
 
@@ -311,14 +325,20 @@ class Registry:
         self._stop(name, FAILED, why, **values)
 
     def _stop(self, name: str, state: str, why: str, **values: str) -> None:
+        if self._take_out(name, state, why, **values):
+            logger.error("Extension %s %s: %s", name, state,
+                         i18n.t_source(why, **values))
+
+    def _take_out(self, name: str, state: str, why: str, **values: str) -> bool:
+        """Withdraw a running one and record why. False when it was not running."""
         with self._lock:
             record = self._records.get(str(name or "").strip())
             if record is None or record.state != LOADED:
-                return
+                return False
             _withdraw(record.name, record.subscriptions, record.apps)
             record.subscriptions = []
             record.became(state, why, **values)
-        logger.error("Extension %s %s: %s", name, state, i18n.t_source(why, **values))
+        return True
 
     def clear(self) -> None:
         """Forget everything loaded, unsubscribing as it goes. For tests."""
@@ -344,6 +364,20 @@ def _withdraw(name: str, subscriptions: list[tuple[str, Any]],
     services.forget(name)
     if apps is not None:
         apps.withdraw()
+
+
+def _cannot_run(manifest: Manifest) -> tuple[str, dict[str, str | tuple[str, ...]]]:
+    """Why this device cannot run it whatever the switch says, or `""`."""
+    platform = this_platform()
+    if manifest.platforms and platform not in manifest.platforms:
+        return "extension.reason.not_for_platform", {
+            "platform": (PLATFORM_NAMES.get(platform, platform),)}
+    missing = [name for name in install_identity.FEATURES
+               if name in manifest.requires_features and name not in _features()]
+    if missing:
+        return "extension.reason.lacks_features", {
+            "features": tuple(install_identity.LABELS[name] for name in missing)}
+    return "", {}
 
 
 def _features() -> tuple[str, ...]:

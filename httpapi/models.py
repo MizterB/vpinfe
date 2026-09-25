@@ -1324,6 +1324,10 @@ class TableVisibility(ApiModel):
     hidden: bool
 
 
+class ExtensionSwitch(ApiModel):
+    enabled: bool
+
+
 class TableHidden(ApiModel):
     """The table, and the one its game now offers first: null when it offers none."""
 
