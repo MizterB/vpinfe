@@ -5,6 +5,7 @@ from typing import Any
 
 from nicegui import ui
 
+from common.extensions.host import SWITCHED_OFF
 from common.games import rankings
 from common.games.community_lists import keep, kept
 from common.i18n import t
@@ -218,6 +219,30 @@ def _said_age(age: Any, state: dict[str, Any]) -> None:
             ui.tooltip(str(state["error"]))
 
 
+def as_it_stands(extension: dict[str, Any]) -> dict[str, Any]:
+    """The extension as the API has it now, or as given when the API cannot say."""
+    name = str(extension.get("name") or "")
+    try:
+        found = ApiClient().extensions()
+    except (ApiError, OSError):
+        return extension
+    return next((one for one in found if str(one.get("name") or "") == name), extension)
+
+
+def _why(extension: dict[str, Any]) -> str:
+    return str(extension.get("reason") or "") or t("extension.reason.none_recorded")
+
+
+def not_running(extension: dict[str, Any]) -> None:
+    """Drawn in Refresh's place."""
+    off = str(extension.get("state") or "") == "off"
+    chip = ui.label(t("word.off") if off else t("console.community.stopped")) \
+        .classes("console-member-chip "
+                 + ("console-chip-quiet" if off else "console-chip-warn"))
+    if extension.get("reason_key") != SWITCHED_OFF:
+        chip.tooltip(_why(extension))
+
+
 def build(extension: dict[str, Any], declared: dict[str, Any], library: Library) -> None:
     body = ui.column().classes("w-full grow min-h-0 gap-0")
     ui.timer(0.01, lambda: _fill(extension, declared, library, body), once=True)
@@ -244,8 +269,12 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     def fetch() -> dict:
         return ApiClient().ext_get(route)
 
+    now = await offload.io(as_it_stands, extension)
+    stopped = str(now.get("state") or "") != "loaded"
     state = await offload.io(kept, name, key)
-    reading = state["rows"] is None
+    reading = state["rows"] is None and not stopped
+    if stopped:
+        state = {**state, "stale": True}
     if reading:
         body.clear()
         with body, ui.row().classes("w-full justify-center py-8"):
@@ -254,8 +283,10 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
     if state["rows"] is None:
         body.clear()
         with body:
-            panel.facts(ui, [panel.intro(t("console.community.could_not_read", name=said,
-                                           exc=state["error"]))])
+            panel.facts(ui, [panel.intro(
+                t("console.community.not_running", name=said, reason=_why(now))
+                if stopped else t("console.community.could_not_read", name=said,
+                                  exc=state["error"]))])
             if tagging:
                 with ui.row().classes("items-center gap-2 px-3"):
                     _tag_chip(tagging, library)
@@ -309,8 +340,11 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
                 _said_age(age, state)
                 count = ui.label(t("console.community.rows", count=len(built))) \
                     .classes("text-xs console-label")
-                again = panel.refresh(lambda: read_again(asked=True),
-                                      t("console.community.read_again", name=said))
+                if stopped:
+                    not_running(now)
+                else:
+                    again = panel.refresh(lambda: read_again(asked=True),
+                                          t("console.community.read_again", name=said))
 
         async def on_header_context(col_id: str | None) -> None:
             await grid.header_menu(menu, table, shown, col_id)
@@ -345,5 +379,5 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
             ui.notify(t("console.community.could_not_read", name=said, exc=fresh["error"]),
                       type="negative")
 
-    if not reading:
+    if not reading and not stopped:
         await read_again()

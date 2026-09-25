@@ -499,6 +499,7 @@
   "console.community.in_library.help": "Ţĥè ĝàɱè îţ îš, ŵĥèřè ýöû ĥàṽè îţ",
   "console.community.make_collection": "Ḿàķè à Çöŀŀèçţîöñ",
   "console.community.not_held": "Ñöţ îñ ýöûř ŀîƀřàřý",
+  "console.community.not_running": "{name} îš ñöţ řûññîñĝ: {reason}",
   "console.community.open_collection": "Öþèñ Çöŀŀèçţîöñ",
   "console.community.other_version": "Đîƒƒèřèñţ ṽèřšîöñ - ýöû ĥàṽè {version}",
   "console.community.other_version_unknown": "Đîƒƒèřèñţ ṽèřšîöñ",
@@ -512,6 +513,7 @@
     "other": "{shown} öƒ {count} řöŵš"
   },
   "console.community.search": "Šèàřçĥ",
+  "console.community.stopped": "Šţöþþèđ",
   "console.community.yours": "Îñ Ýöûř Ŀîƀřàřý",
   "console.community.yours.help": "Öñŀý ŵĥàţ ýöû ĥàṽè",
   "console.data.console_read_d_games": "çöñšöŀè: řèàđ %đ ĝàɱèš îñ %.2ƒš",

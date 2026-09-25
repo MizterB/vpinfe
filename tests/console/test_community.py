@@ -6,10 +6,15 @@ import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import Mock, patch
+
+from nicegui import ui
 
 from common import install_identity
-from console import community, page, views
+from common.extensions import host
+from common.i18n import t
+from console import community, page, verbs, views
 from console.api import ApiError
 from console.data import read_state
 
@@ -206,6 +211,86 @@ class TheLastGoodRead(unittest.TestCase):
                          tuple([one["name"] for one in community.kept("site", key)["rows"]]
                                for key in ("tables", "../tables")))
         self.assertEqual(["site"], [one.name for one in self.kept.iterdir()])
+
+
+PLAIN = {"key": "tables", "title": "Site", "base": "/community/tables",
+         "columns": [{"field": "name", "header": "Table", "kind": "text"}]}
+KEPT = {"rows": [{"name": "AFM"}], "read_at": "2026-09-25T10:00:00+00:00", "stale": False,
+        "error": ""}
+SWITCHED_OFF = {**LOADED, "state": host.OFF, "reason": "Switched off",
+                "reason_key": host.SWITCHED_OFF}
+
+
+async def _here(callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    return callback(*args, **kwargs)
+
+
+class ItsExtensionNotRunning(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        # Outside the test's task, which has no page to draw into.
+        self.body = ui.column()
+
+    async def fill(self, now: dict, kept: dict) -> tuple[list[str], list[str], Mock]:
+        read = self.enterContext(patch.object(community, "read", return_value=kept))
+        self.enterContext(patch.object(community.offload, "io", new=_here))
+        self.enterContext(patch.object(community, "as_it_stands", return_value=now))
+        self.enterContext(patch.object(community, "kept", return_value=kept))
+        self.enterContext(patch("console.games.view_control",
+                                return_value=(Mock(), Mock(), Mock(), Mock())))
+        # The grid talks to a browser, which a unit test does not have.
+        self.enterContext(patch.object(community.grid, "build",
+                                       return_value=Mock(is_deleted=False)))
+        self.enterContext(patch.object(community.grid, "replace_rows"))
+        await community._fill(LOADED, PLAIN, Mock(), self.body)
+        drawn = list(self.body.descendants())
+        return ([str(getattr(one, "text", "")) for one in drawn],
+                [str(one.props.get("icon")) for one in drawn if isinstance(one, ui.button)],
+                read)
+
+    async def test_switched_off_it_shows_what_was_kept_and_offers_no_read(self) -> None:
+        said, icons, read = await self.fill(SWITCHED_OFF, KEPT)
+
+        read.assert_not_called()
+        self.assertNotIn(verbs.REFRESH, icons)
+        self.assertIn(t("word.off"), said)
+        self.assertTrue(any(one.startswith("Last good read") for one in said))
+
+    async def test_stopped_it_says_so_with_its_reason(self) -> None:
+        said, icons, read = await self.fill(
+            {**LOADED, "state": host.DISABLED, "reason": "It threw",
+             "reason_key": "extension.reason.failed_serving"}, KEPT)
+
+        read.assert_not_called()
+        self.assertNotIn(verbs.REFRESH, icons)
+        self.assertIn(t("console.community.stopped"), said)
+        self.assertIn("It threw", said)
+
+    async def test_with_nothing_kept_it_says_the_extension_is_not_running(self) -> None:
+        said, _icons, read = await self.fill(SWITCHED_OFF, {**KEPT, "rows": None})
+
+        read.assert_not_called()
+        self.assertIn(t("console.community.not_running", name="site",
+                        reason="Switched off"), said)
+
+    async def test_running_it_reads_again_and_offers_refresh(self) -> None:
+        _said, icons, read = await self.fill(LOADED, KEPT)
+
+        read.assert_called_once()
+        self.assertIn(verbs.REFRESH, icons)
+
+
+class AsItStands(unittest.TestCase):
+    def test_the_api_s_answer_wins_over_what_the_rail_read(self) -> None:
+        with patch.object(community, "ApiClient") as client:
+            client.return_value.extensions.return_value = [SWITCHED_OFF]
+
+            self.assertEqual(SWITCHED_OFF, community.as_it_stands(LOADED))
+
+    def test_when_the_api_cannot_say_it_is_taken_as_given(self) -> None:
+        with patch.object(community, "ApiClient") as client:
+            client.return_value.extensions.side_effect = ApiError("down")
+
+            self.assertEqual(LOADED, community.as_it_stands(LOADED))
 
 
 if __name__ == "__main__":

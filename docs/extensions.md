@@ -369,7 +369,10 @@ the grid every other page uses, and nothing of the extension's runs in the page.
 Core keeps the last good read of each list on disk. The page draws it at once, with how old
 it is, and asks the route again behind it; a read that fails leaves the last good list on
 screen, said to be stale. The route is asked on every visit and on Refresh, so it answers
-with the whole list as it is now rather than holding a copy of its own.
+with the whole list as it is now rather than holding a copy of its own. The rail is read
+when the Console loads, so a list can still be opened after its extension is switched off
+or stops; then the route is not asked at all, and in place of Refresh the page says Off, or
+Stopped with the reason.
 
 With `tag="Weekly Challenge"` as well, the list puts that tag on what this library holds
 from it: the game for a `vps_entry` relation, the table for a `vps_release` one, so a
