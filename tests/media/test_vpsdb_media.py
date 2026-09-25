@@ -115,7 +115,7 @@ class RemoteVocabularyTests(unittest.TestCase):
         "realdmd_color": "https://example.invalid/realdmd-color.png",
     }
 
-    def _fetched(self) -> set[str]:
+    def _fetched(self, kinds: set[str] | None = None) -> set[str]:
         with TemporaryDirectory() as tmp:
             game = fake_game(tmp, bg_image_path=None, dmd_image_path=None,
                              wheel_image_path=None, cab_image_path=None,
@@ -127,7 +127,7 @@ class RemoteVocabularyTests(unittest.TestCase):
                                     playfieldresolution="1k",
                                     playfieldvideoresolution="1k")
             with mock.patch.object(dl, "download_media_file") as fetch:
-                dl.download_media_for_game(game, "vps-1")
+                dl.download_media_for_game(game, "vps-1", kinds=kinds)
             return {Path(call.args[2]).name for call in fetch.call_args_list}
 
     def test_every_kind_the_manifest_offers_is_fetched(self) -> None:
@@ -136,6 +136,21 @@ class RemoteVocabularyTests(unittest.TestCase):
             {"bg.png", "dmd.png", "wheel.png", "cab.png", "flyer.png", "audio.mp3",
              "realdmd.png", "realdmd-color.png", "table.png", "dmd.mp4", "table.mp4"},
         )
+
+    def test_a_kind_left_out_is_never_fetched(self) -> None:
+        self.assertEqual(self._fetched({"wheel", "playfield"}),
+                         {"wheel.png", "table.png"})
+
+    def test_the_match_download_asks_for_the_kinds_the_library_keeps(self) -> None:
+        from common.online.vpsdb import VPSdb
+
+        vps = VPSdb.__new__(VPSdb)
+        vps._media_downloader = mock.Mock()
+        with mock.patch("common.games.media_fill.kept_kinds", return_value={"wheel"}):
+            vps.download_media_for_game(mock.Mock(), "vps-1")
+        self.assertEqual(
+            vps._media_downloader.download_media_for_game.call_args.kwargs["kinds"],
+            {"wheel"})
 
     def test_the_manifests_words_are_pinned_against_a_rename_of_ours(self) -> None:
         """The whole mapping, so changing one of our kind names fails here and says

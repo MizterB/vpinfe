@@ -183,6 +183,9 @@ class VPSdb:
 
     def download_media_for_game(self, game: Game, id: str,
                                meta_config: MetaConfig | None = None) -> None:
-        """Download all associated media for a given game."""
-        self._media_downloader.download_media_for_game(game, id, meta_config)
+        """Fetch the art the game has no file for, of the kinds the library keeps."""
+        from common.games import media_fill
+
+        self._media_downloader.download_media_for_game(game, id, meta_config,
+                                                       kinds=media_fill.kept_kinds())
 
