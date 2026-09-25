@@ -726,7 +726,7 @@ def swatch(color: str, on_pick: Callable[[str], Any], *,
     """A color the user can set, drawn as itself, `#RRGGBB` on hover."""
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            button = ui.button().props("flat round dense")
+            button = ui.button().props("flat round dense").classes("console-swatch")
             with button:
                 dot = ui.element("span").classes("console-tag-dot") \
                     .style(f"background: {color}")
