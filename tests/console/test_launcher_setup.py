@@ -1,4 +1,4 @@
-"""What a launcher's Setup section does after it writes."""
+"""What a launcher's Details section does after it writes."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ LAUNCHER = {"launcher_id": "wide", "display_name": "VPX (4K)", "app_name": "Visu
             "app": "vpx", "enabled": True, "settings": {}, "fields": []}
 
 
-class Setup:
-    """A launcher's Setup section drawn with its writes caught, and its controls' saves
+class Details:
+    """A launcher's Details section drawn with its writes caught, and its controls' saves
     in hand."""
 
     def __init__(self, *, refused: str = "", default: bool = False,
@@ -31,14 +31,14 @@ class Setup:
             "retitle": self.retitle,
             "state": {"recheck_trouble": self.recheck, "refresh_launchers": self.refresh}}
 
-    async def __aenter__(self) -> Setup:
+    async def __aenter__(self) -> Details:
         self._patches = [patch.object(workbench, "ui"), patch.object(workbench, "_rows"),
                          patch.object(workbench.run, "io_bound", new=self.put),
                          patch.object(workbench.panel, "field"),
                          patch.object(workbench.panel, "switch"),
                          patch.object(workbench.settings_page, "control_for")]
         _, _, _, field, switch, _ = [one.start() for one in self._patches]
-        await workbench._launcher_setup(self.context)
+        await workbench._launcher_details(self.context)
         self.rename = field.call_args.args[1]
         self.default, self.enabled = switch.call_args_list[:2]
         self.flip = self.enabled.args[1]
@@ -54,51 +54,51 @@ class Setup:
 
 class TroubleRecheck(unittest.IsolatedAsyncioTestCase):
     async def test_a_saved_change_rechecks_the_badge(self) -> None:
-        async with Setup() as setup:
+        async with Details() as setup:
             await setup.rename("Wide")
         setup.recheck.assert_awaited_once()
 
     async def test_a_refused_one_does_not(self) -> None:
-        async with Setup(refused="refused") as setup:
+        async with Details(refused="refused") as setup:
             await setup.rename("Wide")
         setup.recheck.assert_not_awaited()
 
 
 class Rename(unittest.IsolatedAsyncioTestCase):
     async def test_the_next_write_carries_the_new_name(self) -> None:
-        async with Setup() as setup:
+        async with Details() as setup:
             await setup.rename("Wide")
             await setup.flip(Mock(value=True))
         self.assertEqual([one["display_name"] for one in setup.sent()], ["Wide", "Wide"])
 
     async def test_the_grid_and_the_title_follow_it(self) -> None:
-        async with Setup() as setup:
+        async with Details() as setup:
             await setup.rename("Wide")
         setup.refresh.assert_awaited_once()
         setup.retitle.assert_called_once_with("Wide")
 
     async def test_a_refusal_is_the_fields_to_say(self) -> None:
         taken = "Another launcher is already called Wide."
-        async with Setup(refused=taken) as setup:
+        async with Details(refused=taken) as setup:
             said = await setup.rename("Wide")
         self.assertEqual(said, taken)
         self.assertEqual(setup.launcher["display_name"], "VPX (4K)")
         setup.retitle.assert_not_called()
 
     async def test_the_same_name_writes_nothing(self) -> None:
-        async with Setup() as setup:
+        async with Details() as setup:
             self.assertEqual(await setup.rename(" VPX (4K) "), "")
         setup.put.assert_not_awaited()
 
     async def test_blank_is_the_programs_name(self) -> None:
-        async with Setup() as setup:
+        async with Details() as setup:
             await setup.rename("  ")
         self.assertEqual(setup.sent()[0]["display_name"], "Visual Pinball X")
 
 
 class Default(unittest.IsolatedAsyncioTestCase):
     async def test_turning_it_on_makes_it_the_default(self) -> None:
-        async with Setup() as setup:
+        async with Details() as setup:
             await setup.default.args[1](Mock(value=True))
         self.assertEqual(setup.put.await_args.args,
                          (setup.context["library"].make_launcher_default, "wide"))
@@ -107,20 +107,20 @@ class Default(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_default_cannot_be_turned_off(self) -> None:
         """Nothing says which launcher would take over."""
-        async with Setup(default=True) as setup:
+        async with Details(default=True) as setup:
             pass
         self.assertIs(setup.default.args[0], True)
         self.assertIs(setup.default.kwargs["disabled"], True)
 
     async def test_a_switched_off_one_cannot_be_made_the_default(self) -> None:
-        async with Setup(enabled=False) as setup:
+        async with Details(enabled=False) as setup:
             pass
         self.assertIs(setup.default.kwargs["disabled"], True)
         self.assertTrue(setup.default.kwargs["hint"])
 
     async def test_one_with_no_program_cannot_be_made_the_default(self) -> None:
         """Said over switched off: switching it on would still leave nothing to run."""
-        async with Setup(enabled=False, program="unset") as setup:
+        async with Details(enabled=False, program="unset") as setup:
             pass
         self.assertIs(setup.default.kwargs["disabled"], True)
         self.assertEqual(setup.default.kwargs["hint"], "“VPX (4K)” has no program")

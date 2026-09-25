@@ -1,7 +1,7 @@
 """Which sections a launcher's rail offers, and when.
 
 Offering a settings editor for a program that is not on this machine is a form of
-lying: there is nothing to read it out of and nothing a write could mean. Setup
+lying: there is nothing to read it out of and nothing a write could mean. Details
 stays, because pointing the launcher somewhere else is how it gets fixed.
 """
 
@@ -41,19 +41,19 @@ class RailTests(unittest.TestCase):
         shown = _shown(_context(path_checks.OK))
 
         self.assertIn("launcher_displays", shown)
-        self.assertIn("launcher_setup", shown)
+        self.assertIn("launcher_details", shown)
         self.assertIn("launcher_backups", shown)
 
     def test_every_setting_is_in_all_settings_after_the_areas(self) -> None:
         shown = _shown(_context(path_checks.OK, groups=("displays", "plugins", "more")))
 
-        self.assertEqual(shown, ["launcher_setup", "launcher_displays", "launcher_plugins",
+        self.assertEqual(shown, ["launcher_details", "launcher_displays", "launcher_plugins",
                                  "launcher_all", "launcher_backups"])
 
     def test_a_program_that_is_not_there_leaves_only_what_can_fix_it(self) -> None:
         shown = _shown(_context(path_checks.MISSING))
 
-        self.assertEqual(shown, ["launcher_setup", "launcher_backups"])
+        self.assertEqual(shown, ["launcher_details", "launcher_backups"])
 
     def test_a_group_the_app_does_not_declare_is_absent_rather_than_empty(self) -> None:
         """An install without the plugin architecture shows fewer sections, not empty
@@ -73,7 +73,7 @@ class RailTests(unittest.TestCase):
     def test_an_app_with_no_settings_of_its_own_offers_no_copies(self) -> None:
         shown = _shown(_context(path_checks.OK, groups=(), has_config=False))
 
-        self.assertEqual(shown, ["launcher_setup"])
+        self.assertEqual(shown, ["launcher_details"])
 
 
 def _setting(key: str, label: str = "", *, default: str = "",
@@ -154,6 +154,59 @@ class AllSettingsTests(unittest.TestCase):
                          t("console.workbench.plugin_section", name="Pin Up Player"))
         self.assertEqual(workbench.section_title("Plugin.HelloWorld", names),
                          t("console.workbench.plugin_section", name="HelloWorld"))
+
+
+def _heading(key: str, *keys: str, enabled_by: str = "") -> SimpleNamespace:
+    return SimpleNamespace(key=key, label=key.title(), note="", keys=keys,
+                           enabled_by=enabled_by)
+
+
+class CuratedAreaTests(unittest.TestCase):
+    PLUGINS = _group(
+        "plugins",
+        _setting("Plugin.PinMAME.Enable", "Enable", default="0"),
+        _setting("Plugin.PinMAME.PinMAMEPath", "PinMAME Path"),
+        _setting("Plugin.PinMAME.Cheat", "Cheat"),
+        _setting("Plugin.DOF.Enable", "Enable", default="1"),
+        curated=[_heading("PinMAME", "Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath",
+                          enabled_by="Plugin.PinMAME.Enable"),
+                 _heading("DOF", "Plugin.DOF.Enable", enabled_by="Plugin.DOF.Enable"),
+                 _heading("Serum", "Plugin.Serum.Enable", enabled_by="Plugin.Serum.Enable")])
+
+    def _drawn(self, values: dict) -> list[tuple[str, list[str]]]:
+        return [(heading.key, [f.key for f in fields])
+                for heading, fields in workbench.curated_blocks(self.PLUGINS, values)]
+
+    def test_a_switch_that_is_off_draws_alone(self) -> None:
+        self.assertEqual(self._drawn({}), [("PinMAME", ["Plugin.PinMAME.Enable"]),
+                                           ("DOF", ["Plugin.DOF.Enable"])])
+
+    def test_switched_on_its_rows_follow_it_in_the_heading_s_order(self) -> None:
+        drawn = self._drawn({"Plugin.PinMAME.Enable": {"value": "1"}})
+
+        self.assertEqual(drawn[0], ("PinMAME", ["Plugin.PinMAME.Enable",
+                                                "Plugin.PinMAME.PinMAMEPath"]))
+
+    def test_a_value_turned_off_over_a_default_of_on_hides_the_rest(self) -> None:
+        group = _group("plugins", _setting("Plugin.B2S.Enable", default="1"),
+                       _setting("Plugin.B2S.ShowGrill"),
+                       curated=[_heading("B2S", "Plugin.B2S.Enable", "Plugin.B2S.ShowGrill",
+                                         enabled_by="Plugin.B2S.Enable")])
+
+        on = workbench.curated_blocks(group, {})
+        off = workbench.curated_blocks(group, {"Plugin.B2S.Enable": {"value": "0"}})
+
+        self.assertEqual([f.key for f in on[0][1]], ["Plugin.B2S.Enable",
+                                                     "Plugin.B2S.ShowGrill"])
+        self.assertEqual([f.key for f in off[0][1]], ["Plugin.B2S.Enable"])
+
+    def test_a_heading_whose_settings_the_file_does_not_have_is_left_out(self) -> None:
+        self.assertNotIn("Serum", [key for key, _ in self._drawn({})])
+
+    def test_a_row_a_switch_hides_is_still_curated_and_not_one_of_the_rest(self) -> None:
+        self.assertEqual(workbench.curated_keys(self.PLUGINS),
+                         {"Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath",
+                          "Plugin.DOF.Enable"})
 
 
 class ProgramNoteTests(unittest.TestCase):

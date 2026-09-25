@@ -16,9 +16,10 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from dataclasses import dataclass
 from functools import partial
+from itertools import groupby
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import urlencode, urlparse
@@ -3942,7 +3943,7 @@ def _rows(target: Any, entries: Sequence[tuple[Any, Any]]) -> None:
     registry has already settled and turn `RAR Tool Path` into `Rar Tool Path`.
     """
     panel.facts(target, [(entry[0] if entry[0] in (panel.HEADING, panel.FULL,
-                                                   panel.ASIDE)
+                                                   panel.ASIDE, panel.LEDE)
                           else field_label(str(entry[0])), entry[1])
                          for entry in entries])
 
@@ -4046,12 +4047,8 @@ def _config_group_shown(key: str) -> Callable[[dict[str, Any]], bool]:
 
 
 def _program_is_there(context: dict[str, Any]) -> bool:
-    """Whether the program this launcher names is on this machine.
-
-    Its own settings are read out of its own files, so without it there is nothing to
-    read and nothing that could be written back meaningfully. Setup stays, because
-    pointing it somewhere else is how the problem gets fixed.
-    """
+    """Whether the program this launcher names is on this machine, which is where its
+    settings are read from. Details stays without it, to point it somewhere else."""
     return _program_state(context.get("launcher") or {}) == path_checks.OK
 
 
@@ -4189,17 +4186,79 @@ def _playing(library: Library) -> bool:
 
 
 async def _config_rows(context: dict[str, Any], group: Any) -> None:
-    """One group of the program's own settings, at the launcher scope."""
+    """One area of the program's own settings, at the launcher scope: the rows the app
+    curates for it under their headings, then the way to the rest."""
+    if not group.curated:
+        await _every_row(context, group)
+        return
+    _area_search(context)
+    shown = curated_blocks(group, await _config_values(context))
+    entries = await _setting_entries(
+        context, [(heading.label, heading.note, fields) for heading, fields in shown],
+        curated=True, redraw_on={h.enabled_by for h in group.curated if h.enabled_by})
+    if rest := len(group.settings) - len(curated_keys(group)):
+        entries.append((FULL, panel.action(
+            t("console.workbench.more_in_all_settings", count=rest),
+            lambda: _open_all_settings(context, area=group.key), icon=verbs.DRILL)))
+    with ui.column().classes("gap-0 console-form"):
+        _rows(ui, entries)
+
+
+async def _every_row(context: dict[str, Any], group: Any) -> None:
+    """An area the app curates nothing for, whole."""
     # A heading per source section. Labels are the program's and are not unique - five
     # plugins each call their switch `Enable`, and two of the five say nothing else
     # about themselves. The section is the only thing that tells them apart, and it is
     # what the program groups them by too.
     titled = len({_section_of(f.key) for f in group.settings}) > 1
-    entries = await _setting_entries(
-        context, group.settings,
-        lambda section: _section_label(section, group.label) if titled else "")
+    blocks = [(_section_label(section, group.label) if titled else "", "", list(fields))
+              for section, fields in groupby(group.settings, lambda f: _section_of(f.key))]
     with ui.column().classes("gap-0 console-form"):
-        _rows(ui, entries)
+        _rows(ui, await _setting_entries(context, blocks))
+
+
+def curated_blocks(group: Any, values: dict[str, Any]) -> list[tuple[Any, list[Any]]]:
+    """Each curated heading with the rows it draws: all of them while its switch is on,
+    the switch alone while it is off."""
+    by_key = {f.key: f for f in group.settings}
+    found = []
+    for heading in group.curated:
+        fields = [by_key[key] for key in heading.keys if key in by_key]
+        switch = by_key.get(heading.enabled_by)
+        if switch is not None and not _is_on(switch, values.get(switch.key) or {}):
+            fields = [switch]
+        if fields:
+            found.append((heading, fields))
+    return found
+
+
+def curated_keys(group: Any) -> set[str]:
+    held = {f.key for f in group.settings}
+    return {key for heading in group.curated for key in heading.keys if key in held}
+
+
+def _is_on(field: Any, held: dict[str, Any]) -> bool:
+    value = str(held.get("value") or field.default or "").strip().lower()
+    return value not in ("", "0", "false", "off", "no")
+
+
+def _area_search(context: dict[str, Any]) -> None:
+    """Any setting, found from any area: what is typed here carries on in All Settings."""
+    with ui.row().classes("w-full pb-2"):
+        search = panel.search(t("console.app_settings.search_settings")) \
+            .props("debounce=250")
+
+    def find(typed: Any) -> None:
+        if said := str(typed or "").strip():
+            _open_all_settings(context, query=said, focus=True)
+
+    search.on_value_change(lambda e: find(e.value))
+
+
+def _open_all_settings(context: dict[str, Any], **wanted: Any) -> None:
+    """All Settings on what was asked for, and nothing an earlier visit narrowed it to."""
+    context["state"]["all_settings"] = wanted
+    _choose(context, "launcher_all")
 
 
 async def _config_values(context: dict[str, Any]) -> dict[str, Any]:
@@ -4212,10 +4271,14 @@ async def _config_values(context: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-async def _setting_entries(context: dict[str, Any], fields: Sequence[Any],
-                           title_of: Callable[[str], str]) -> list[tuple[Any, Any]]:
-    """Settings as fact rows, with a heading where the source section changes and
-    `title_of` gives it a name.
+async def _setting_entries(context: dict[str, Any],
+                           blocks: Sequence[tuple[str, str, Sequence[Any]]], *,
+                           curated: bool = False,
+                           redraw_on: Collection[str] = ()) -> list[tuple[Any, Any]]:
+    """Settings as fact rows, block by block: its heading where it has one, the line
+    under that, then its rows. A curated row's line is the app's help where it has one;
+    the program's description otherwise. A setting in `redraw_on` redraws the panel
+    once written.
 
     The value shown is always the one the program will use, never what this scope
     happens to hold: you should not be looking at a number that is not in force.
@@ -4246,6 +4309,8 @@ async def _setting_entries(context: dict[str, Any], fields: Sequence[Any],
                 ui.notify(t("said.could_not_save_it", exc=(exc)), type="negative")
                 return False
             context.pop("config_values", None)
+            if key in redraw_on:
+                asyncio.create_task(context["rebuild"]())
             return True
         return write
 
@@ -4253,27 +4318,26 @@ async def _setting_entries(context: dict[str, Any], fields: Sequence[Any],
     entries: list[tuple[Any, Any]] = []
     if playing:
         entries.append(panel.note(t(PLAYING_NOTE), hint=t(PLAYING_WHY)))
-    seen: str | None = None
-    for field in fields:
-        section = _section_of(field.key)
-        if section != seen:
-            seen = section
-            if title := title_of(section):
-                entries.append((HEADING, title))
-        held = values.get(field.key) or {}
-        option = _as_option(field)
-        entries.append((field.label,
-                        settings_page.control_for(
-                            option,
-                            settings_page.value_for(option, held.get("value")),
-                            await save(field.key), writable=not playing)))
-        mark = _config_mark(held, scope)
-        if mark is not None:
-            entries.append((panel.ASIDE,
-                            _beside(mark, held, field, clear,
-                                    str(launcher.get("app_name") or ""), playing)))
-        if field.description:
-            entries.append(panel.note(field.description))
+    for title, lede, fields in blocks:
+        if title:
+            entries.append((HEADING, title))
+        if lede:
+            entries.append(panel.lede(lede))
+        for field in fields:
+            held = values.get(field.key) or {}
+            option = _as_option(field)
+            entries.append((field.label,
+                            settings_page.control_for(
+                                option,
+                                settings_page.value_for(option, held.get("value")),
+                                await save(field.key), writable=not playing)))
+            mark = _config_mark(held, scope)
+            if mark is not None:
+                entries.append((panel.ASIDE,
+                                _beside(mark, held, field, clear,
+                                        str(launcher.get("app_name") or ""), playing)))
+            if said := (getattr(field, "help", "") if curated else "") or field.description:
+                entries.append(panel.note(said))
     return entries
 
 
@@ -4324,6 +4388,8 @@ async def _all_settings(context: dict[str, Any]) -> None:
         search = panel.search(t("console.app_settings.search_settings")) \
             .props("debounce=250")
         search.value = wanted.get("query") or ""
+        if wanted.pop("focus", False):
+            search.props("autofocus")
         area = ui.select(areas, value=wanted["area"]) \
             .props("dense outlined options-dense").classes("w-40")
         set_here = ui.checkbox(t("console.workbench.set_here_filter"),
@@ -4336,8 +4402,8 @@ async def _all_settings(context: dict[str, Any]) -> None:
 
     async def draw() -> None:
         found = found_settings(groups, await _config_values(context), wanted)
-        entries = await _setting_entries(context, [f for _, fields in found for f in fields],
-                                         lambda section: section_title(section, names))
+        entries = await _setting_entries(
+            context, [(section_title(section, names), "", fields) for section, fields in found])
         results.clear()
         with results, ui.column().classes("gap-0 console-form"):
             _rows(ui, entries if found else [panel.intro(
@@ -4472,7 +4538,7 @@ def _why_not_the_default(launcher: dict[str, Any]) -> str:
     return "" if launcher.get("enabled") else t("console.workbench.default_needs_on")
 
 
-async def _launcher_setup(context: dict[str, Any]) -> None:
+async def _launcher_details(context: dict[str, Any]) -> None:
     """What this launcher is, and what it runs. Its own fields, which are few - the
     program's settings are the sections after this one."""
     library = context["library"]
@@ -6111,7 +6177,7 @@ SECTIONS: tuple[Section, ...] = (
             subjects=frozenset({"location"})),
     # A launcher, in reading order: what it is and what it runs, then the program's own
     # settings grouped as the app declares them, then the copies kept of its file.
-    Section("launcher_setup", lambda _: t("console.workbench.setup"), _launcher_setup,
+    Section("launcher_details", lambda _: t("console.workbench.details"), _launcher_details,
             subjects=frozenset({"launcher"})),
     *_launcher_config_sections(),
     Section("launcher_all", lambda _: t("console.workbench.all_settings"), _all_settings,
