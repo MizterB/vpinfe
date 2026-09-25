@@ -153,7 +153,7 @@ class WhoseValueTests(unittest.TestCase):
         self.assertNotIn("scope", said)
 
 
-class UnusedTests(unittest.TestCase):
+class IgnoredTests(unittest.TestCase):
     """A value a table's file holds that the program reads only for all tables."""
 
     def test_it_is_marked_ignored_and_says_where_it_works(self) -> None:
@@ -169,7 +169,7 @@ class UnusedTests(unittest.TestCase):
             {"set_here": False, "in_effect": True, "scope": "launcher"}, "entry", _Bool,
             offered=False))
 
-    def test_one_the_program_reads_at_table_start_is_not_unused(self) -> None:
+    def test_one_the_program_reads_at_table_start_is_not_ignored(self) -> None:
         """Kept for all tables, and still read from the table's file when it starts."""
         self.assertIsNone(workbench._mark_for(
             {"set_here": True, "in_effect": True, "scope": "entry"}, "entry", _Bool,
