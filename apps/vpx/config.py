@@ -447,10 +447,15 @@ class VPXConfig:
                      if str(value) == "" or key in cleared]
                     if scope != SCOPE_LAUNCHER else [])
             keep = {key: value for key, value in values.items() if key not in drop}
-            if keep or path.is_file() or _folder_answers(scope, target, cleared, values):
+            held = _read(path)
+            text = vini.written(held, keep, remove=drop)
+            answers = _folder_answers(scope, target, cleared, values)
+            if (scope != SCOPE_LAUNCHER and held.settings and not answers
+                    and not vini.parse(text).settings):
+                path.unlink(missing_ok=True)
+            elif keep or path.is_file() or answers:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(vini.written(_read(path), keep, remove=drop),
-                                encoding="utf-8")
+                path.write_text(text, encoding="utf-8")
         return cleared
 
     def files(self, settings: Mapping[str, Any]) -> dict[str, str]:
@@ -600,11 +605,15 @@ def _alike(key: str, one: str | None, two: str | None) -> bool:
 
 def _folder_answers(scope: str, target: str, cleared: frozenset[str],
                     values: Mapping[str, str]) -> bool:
-    """Whether a table with no file of its own gets a cleared key from its folder's
-    file, set to something else."""
+    """Whether the game's file sets a cleared key to something else, so the table needs
+    a file of its own, empty or not, for the application's value to reach it."""
     if scope != SCOPE_ENTRY or not cleared:
         return False
-    answering = _read(table_layer(target))
+    game_file = Path(str(target).strip())
+    game = _game_layer(game_file)
+    if _same(game, game_file.with_suffix(".ini")):
+        return False
+    answering = _read(game)
     return any(answering.value(key) is not None
                and not _alike(key, answering.value(key), values[key]) for key in cleared)
 

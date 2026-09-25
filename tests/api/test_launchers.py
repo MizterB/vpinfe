@@ -605,7 +605,7 @@ class BackglassPanelTests(_BackglassPanel):
         await clear()
 
         self.assertFalse((await self._at_the_table())["values"][self.X]["set_here"])
-        self.assertNotIn("BackglassDMDX", pathlib.Path(self.beside).read_text())
+        self.assertFalse(os.path.exists(self.beside))
 
 
 class SharedBackglassPanelTests(_BackglassPanel):

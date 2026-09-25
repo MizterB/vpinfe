@@ -40,6 +40,7 @@ KEY = "Backglass.BackglassOutput"
 # Not contextual, where `KEY` is: the program keeps a contextual table value even when
 # it matches the application's, so a rule about matching values needs an ordinary one.
 PLAIN = "DMD.Profile1Legacy"
+GRILL = "Backglass.GrillHeight"
 
 
 class _Case(unittest.TestCase):
@@ -1043,7 +1044,7 @@ class WritingLikeTheProgramTests(_Case):
     def test_clearing_at_a_table_removes_the_key(self) -> None:
         """Rather than blanking it. Both read the same on the way back in, and the
         program deletes a blank one the next time it saves."""
-        self.config.write("entry", str(self.table), {KEY: "0"}, self.settings)
+        self.config.write("entry", str(self.table), {KEY: "0", PLAIN: "0"}, self.settings)
         self.config.write("entry", str(self.table), {KEY: ""}, self.settings)
 
         written = (self.game / "MM (VPW 1.2).ini").read_text()
@@ -1062,7 +1063,7 @@ class WritingLikeTheProgramTests(_Case):
                                     self.settings)
 
         self.assertEqual(cleared, {PLAIN})
-        self.assertNotIn("Profile1Legacy", (self.game / "MM (VPW 1.2).ini").read_text())
+        self.assertFalse((self.game / "MM (VPW 1.2).ini").exists())
         found = self.at(SCOPE_ENTRY, key=PLAIN)
         self.assertEqual((found.value, found.scope, found.set_here),
                          ("1", SCOPE_LAUNCHER, False))
@@ -1076,7 +1077,7 @@ class WritingLikeTheProgramTests(_Case):
                                     self.settings)
 
         self.assertEqual(cleared, {PLAIN})
-        self.assertNotIn("Profile1Legacy", (self.game / "MM (VPW 1.2).ini").read_text())
+        self.assertFalse((self.game / "MM (VPW 1.2).ini").exists())
 
     def test_a_number_matches_however_it_is_spelled(self) -> None:
         self.app_ini.write_text(
@@ -1106,8 +1107,7 @@ class WritingLikeTheProgramTests(_Case):
                                     self.settings)
 
         self.assertEqual(cleared, {PLAIN})
-        self.assertNotIn("Profile1Legacy",
-                         (self.game / "Medieval Madness.ini").read_text())
+        self.assertFalse((self.game / "Medieval Madness.ini").exists())
 
     def test_with_nothing_to_clear_no_file_is_made(self) -> None:
         """A table file stops a folder file reaching the table, one made later included."""
@@ -1122,6 +1122,44 @@ class WritingLikeTheProgramTests(_Case):
 
         found = self.at(SCOPE_ENTRY, key=PLAIN)
         self.assertEqual((found.value, found.scope), ("1", SCOPE_LAUNCHER))
+
+    def test_clearing_a_table_s_last_key_gives_the_game_s_file_back(self) -> None:
+        self.folder_file("[DMD]\nProfile1Legacy = 0\n")
+        self.table_file("[Backglass]\nGrillHeight = 200\n")
+        self.assertEqual(self.at(SCOPE_ENTRY, key=PLAIN).scope, SCOPE_LAUNCHER)
+
+        self.config.write(SCOPE_ENTRY, str(self.table), {GRILL: ""}, self.settings)
+
+        self.assertFalse((self.game / "MM (VPW 1.2).ini").exists())
+        found = self.at(SCOPE_ENTRY, key=PLAIN)
+        self.assertEqual((found.value, found.scope), ("0", SCOPE_FOLDER))
+
+    def test_a_file_with_another_key_left_is_written_not_removed(self) -> None:
+        self.table_file("[Backglass]\nGrillHeight = 200\n\n[DMD]\nProfile1Legacy = 0\n")
+
+        self.config.write(SCOPE_ENTRY, str(self.table), {GRILL: ""}, self.settings)
+
+        written = (self.game / "MM (VPW 1.2).ini").read_text()
+        self.assertIn("Profile1Legacy = 0", written)
+        self.assertNotIn("GrillHeight", written)
+
+    def test_an_emptied_file_is_kept_where_the_game_s_would_answer_instead(self) -> None:
+        self.folder_file("[DMD]\nProfile1Legacy = 0\n")
+        self.table_file("[DMD]\nProfile1Legacy = 0\n")
+
+        self.config.write(SCOPE_ENTRY, str(self.table), {PLAIN: "1"}, self.settings)
+
+        self.assertTrue((self.game / "MM (VPW 1.2).ini").is_file())
+        found = self.at(SCOPE_ENTRY, key=PLAIN)
+        self.assertEqual((found.value, found.scope), ("1", SCOPE_LAUNCHER))
+
+    def test_a_table_file_that_held_no_key_already_is_left(self) -> None:
+        self.folder_file("[DMD]\nProfile1Legacy = 0\n")
+        self.table_file("")
+
+        self.config.write(SCOPE_ENTRY, str(self.table), {GRILL: ""}, self.settings)
+
+        self.assertTrue((self.game / "MM (VPW 1.2).ini").is_file())
 
     def test_a_different_value_is_written_at_a_table(self) -> None:
         self.config.write("entry", str(self.table), {PLAIN: "0"}, self.settings)
