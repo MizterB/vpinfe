@@ -122,6 +122,25 @@ class LauncherApiTests(unittest.TestCase):
                          "VPX (4K) has no program. Set one to make it the default.")
         self.assertEqual(self.client.get("/launchers").json()["defaults"]["vpx"], "first")
 
+    def test_a_table_says_when_it_falls_back(self) -> None:
+        """Set here and in effect, set here and switched off, and following the default
+        are three different things to a reader."""
+        from common.games import table_lens
+
+        self._put("first", display_name="VPX", settings={"bin_path": "/opt/vpx"})
+        self._put("wide", display_name="VPX (4K)", settings={"bin_path": "/opt/vpx"})
+        self._put("off", display_name="VPX (old)", enabled=False)
+        self.store.save(self.store.launchers(), {"t-wide": "wide", "t-off": "off"})
+
+        said = {table: (found["launcher"], found["launcher_set_here"],
+                        found["launcher_falls_back"])
+                for table in ("t-wide", "t-off", "t-follows")
+                for found in [table_lens.launcher_of("vpx", table)]}
+
+        self.assertEqual(said, {"t-wide": ("wide", True, False),
+                                "t-off": ("first", True, True),
+                                "t-follows": ("first", False, False)})
+
     def test_the_caller_names_the_id(self) -> None:
         """A launcher copied from another machine is that launcher. Minting a new id here
         would break the mappings that came with it."""

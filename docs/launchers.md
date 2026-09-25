@@ -71,7 +71,7 @@ Disabling is non-destructive: it hides a launcher from pickers, and tables alrea
 A table assigned to a disabled launcher **falls back** to the default for its app rather than refusing to launch. The fallback is honest and silence about it is what turns a configuration choice into a mystery, so it is said in three places:
 
 1. At the transition, a confirm dialog naming the impact, count first: *"Switch off “VPX (4K)”? 4 tables use it. Switched off, they launch with Visual Pinball X."* A launcher no table uses goes off without asking. Where its tables would go to a launcher with no program, or to none, switching it off is refused and the switch stays on: *"Switched off, its tables would go to Visual Pinball X, which has no program."* `GET /api/v1/launchers/{id}/fallback` answers the same question without switching anything. Making a launcher with no program the default is the other way to send tables to nothing, and it is refused the same way: its **Default** switch is disabled, *“VPX (4K)” has no program*.
-2. While the state persists, a mark on the row: not *set here and in effect*, not *following the default*, but *set here and overridden*.
+2. While the state persists, a mark on the row: not *set here and in effect*, not *following the default*, but *set here and overridden*. The Launcher column's dot, which says a table chose its own, turns amber beside the name of the launcher that plays it instead, and the table's picker marks it the same way. A table row carries it as `launcher_falls_back`.
 3. At launch, a log record saying which table, which launcher it asked for, why that did not happen, and what ran instead.
 
 ## The API

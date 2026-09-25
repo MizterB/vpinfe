@@ -818,6 +818,25 @@ _DEFAULT_STATES = {
 }
 _ONLY_TABLE = "only"
 
+# Marks the tables that were deliberately pointed somewhere, so a reader can see what
+# changing the default will and will not move. Only on those: a mark on every row would
+# say nothing, and following the default is the ordinary case.
+SET_HERE_MARK = "● "
+
+# The mark drawn as the picker's dot: the accent, or amber where the table falls back.
+_LAUNCHER_CELL = (
+    "params => {" + renderers._ESCAPE +
+    f" const mark = {json.dumps(SET_HERE_MARK)}; const said = String(params.value || '');"
+    " if (!said.startsWith(mark)) return esc(said);"
+    " const off = (params.data || {}).launcher_falls_back;"
+    f" const tip = off ? {json.dumps(t('console.games.launcher_falls_back'))}"
+    f" : {json.dumps(t('console.workbench.chosen_here'))};"
+    " return '<span class=\"console-mark console-mark--full console-named-mark'"
+    " + (off ? ' console-named-mark--off' : '') + '\" title=\"' + esc(tip) + '\"></span>'"
+    " + esc(said.slice(mark.length)); }"
+)
+_LAUNCHER_DRAWN: dict[str, Any] = {":cellRenderer": _LAUNCHER_CELL}
+
 TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
@@ -837,7 +856,8 @@ TABLE_COLUMNS = [
     grid.column("rom", t("console.games.rom"), 110, group=t(_TABLE),
                 help=t("console.games.pinmame_rom_table_resolves.help")),
     grid.column("launcher", t("console.games.launcher"), group=t(_TABLE),
-                help=t("console.games.launcher_plays_file_dot.help")),
+                help=t("console.games.launcher_plays_file_dot.help"),
+                **_LAUNCHER_DRAWN),
     # One column per fact rather than one word folding three together. "Status" cannot
     # stay one column anyway - has an update, missing its rom and the rest are all
     # status - and folded, a table that is both the default and hidden reads as only
@@ -944,12 +964,6 @@ def _table_label(row: dict[str, Any]) -> str:
     return f"{game}{game_tables.JOIN}{said}" if game and said else (game or said)
 
 
-# Marks the tables that were deliberately pointed somewhere, so a reader can see what
-# changing the default will and will not move. Only on those: a mark on every row would
-# say nothing, and following the default is the ordinary case.
-SET_HERE_MARK = "\u25cf "
-
-
 def _launcher_word(row: dict[str, Any]) -> str:
     """What plays this table, marked where the table chose it rather than inherited it."""
     name = str(row.get("launcher_name") or "")
@@ -1046,6 +1060,7 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
              # answer is one fact - what plays this table - and which of the two it is
              # only matters as a qualifier on it.
              "launcher": _launcher_word(row),
+             "launcher_falls_back": bool(row.get("launcher_falls_back")),
              # One field per feature: a grid column reads a field, and the payload's
              # nested dict would have every column reaching into the same object.
              # `.get` rather than a default of False - a table nobody parsed answers

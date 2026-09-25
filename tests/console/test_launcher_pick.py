@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from common.i18n import t
-from console import launchers, workbench
+from console import games, launchers, workbench
 
 
 def _one(launcher_id: str, app: str = "vpx", *, enabled: bool = True,
@@ -66,6 +66,23 @@ class NoteTests(unittest.TestCase):
     def test_an_install_with_none_says_so(self) -> None:
         self.assertEqual(self._said({"app": "vpx"}, {}),
                          [t("console.workbench.following_default_install_no")])
+
+
+class GridRowTests(unittest.TestCase):
+    """The grid's dot says what the picker's does."""
+
+    def test_a_table_that_falls_back_says_so_beside_the_one_that_plays_it(self) -> None:
+        (row,) = games.table_rows([{"id": "t", "launcher_name": "VPX",
+                                    "launcher_set_here": True,
+                                    "launcher_falls_back": True}])
+
+        self.assertEqual((row["launcher"], row["launcher_falls_back"]),
+                         (f"{games.SET_HERE_MARK}VPX", True))
+
+    def test_a_table_that_follows_the_default_carries_neither(self) -> None:
+        (row,) = games.table_rows([{"id": "t", "launcher_name": "VPX"}])
+
+        self.assertEqual((row["launcher"], row["launcher_falls_back"]), ("VPX", False))
 
 
 if __name__ == "__main__":

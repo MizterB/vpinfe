@@ -635,6 +635,7 @@
   "console.games.how_matched.help": "How the match was made: from the folder name, on import, or by you",
   "console.games.launch": "Launch",
   "console.games.launcher": "Launcher",
+  "console.games.launcher_falls_back": "The launcher chosen for this table is switched off",
   "console.games.launcher_plays_file_dot.help": "Which launcher plays this file",
   "console.games.launching": "Launching {get}",
   "console.games.library": "In this library",

@@ -58,13 +58,16 @@ def launcher_of(app_id: str, table_id: str) -> dict:
     store = launchers.get_launcher_store()
     found = launchers.launcher_for_entry(app_id, table_id, store.launchers(),
                                          store.mappings())
+    named = store.mapped(table_id)
     return {
         "launcher": found.launcher_id if found else "",
         "launcher_name": found.display_name if found else "",
         # Set here against follows, which is the thing a mask can never show: a reader
         # can see which tables were deliberately pointed somewhere, and therefore what
         # changing the default will and will not move.
-        "launcher_set_here": bool(store.mapped(table_id)),
+        "launcher_set_here": bool(named),
+        # Set here and not in effect: the one it names is switched off or gone.
+        "launcher_falls_back": bool(named) and (found is None or found.launcher_id != named),
         # Whether the program it runs has settings of its own to offer. `generic` has
         # none - it knows a program and arguments and nothing about what that program
         # stores - so the row that leads to them is simply absent rather than opening
@@ -449,11 +452,12 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "") -> dict[str, A
                 "absent_since": table.get("absent_since"),
                 "app": table.get("app") or "",
                 "app_name": table.get("app_name") or "",
-                # The same three the games lens carries, so the two cannot describe one
+                # The same four the games lens carries, so the two cannot describe one
                 # table differently.
                 "launcher": table.get("launcher") or "",
                 "launcher_name": table.get("launcher_name") or "",
                 "launcher_set_here": bool(table.get("launcher_set_here")),
+                "launcher_falls_back": bool(table.get("launcher_falls_back")),
             })
 
     found.sort(key=lambda item: (item["game"].lower(),

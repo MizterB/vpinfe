@@ -863,11 +863,12 @@ class Table(ApiModel):
     app: str
     # What to call that app on screen. Ids are for the wire.
     app_name: str = ""
-    # The same three the row lens carries, so the two cannot describe one table
+    # The same four the row lens carries, so the two cannot describe one table
     # differently. Resolved, not read off the assignment.
     launcher: str = ""
     launcher_name: str = ""
     launcher_set_here: bool = False
+    launcher_falls_back: bool = False
     # Whether the program that launcher runs has settings of its own. A launcher whose
     # app has none opens onto nothing, so the row that leads there is simply absent.
     launcher_app_configurable: bool = False
@@ -1101,6 +1102,8 @@ class TableRow(ApiModel):
     # mask can never show - which tables were deliberately pointed somewhere, and so
     # what changing the default will and will not move.
     launcher_set_here: bool = False
+    # Set here and not in effect: the one it names is switched off or gone.
+    launcher_falls_back: bool = False
     # What to call the app on screen. Ids are for the wire.
     app_name: str = ""
 
