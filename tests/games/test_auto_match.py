@@ -276,6 +276,62 @@ class FirstSightTests(TempTree):
         self.assertEqual([Path(str(folder)).name for folder in folders], [NEW])
 
 
+STALE = "Fathom (Bally 1981)"
+PICKED = "Fathom (Bally 1981) (mine)"
+RIGHT = "Fathom Deluxe (Bally 1983)"
+
+
+class MatchAgainTests(TempTree):
+    """Auto-match over a stale guess, a right one, a person's pick, a declared no-match
+    and a folder the catalog has nothing for."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        _offline(self, [_entry("fathom", "Fathom"),
+                        _entry("chosen", "Fathom Deluxe", year=1983)])
+        self.folders = {
+            STALE: write_game(self.root, STALE, info=game_info(vps_id="wrong")),
+            RIGHT: write_game(self.root, RIGHT, info=game_info(vps_id="chosen")),
+            PICKED: write_game(self.root, PICKED, info=game_info(
+                vps_id="chosen", vpinfe={VPS_MATCHED_BY_KEY: MATCHED_BY_USER})),
+            DECLARED: write_game(self.root, DECLARED, info=game_info(
+                vps_id="", vpinfe={"alt_vpsid": None})),
+            UNKNOWN: write_game(self.root, UNKNOWN, info=game_info(vps_id="")),
+        }
+
+    def match_again(self) -> tuple[dict, list]:
+        games = [fake_game(folder, name, meta=_read(folder))
+                 for name, folder in self.folders.items()]
+        return auto_match.match_again(games)
+
+    def test_a_stale_guess_is_guessed_again(self) -> None:
+        self.match_again()
+
+        saved = _read(self.folders[STALE])
+        self.assertEqual(saved["Info"]["VPSId"], "fathom")
+        self.assertEqual(vps_matched_by(saved), "")
+
+    def test_a_person_s_match_and_a_declared_no_match_stay(self) -> None:
+        self.match_again()
+
+        self.assertEqual(_read(self.folders[PICKED])["Info"]["VPSId"], "chosen")
+        self.assertIsNone(_read(self.folders[DECLARED])["vpinfe"]["alt_vpsid"])
+
+    def test_the_counts_say_what_moved_and_what_waits(self) -> None:
+        counts, moved = self.match_again()
+
+        self.assertEqual(counts, {"games": 5, "changed": 1, "unmatched": 1, "yours": 2})
+        self.assertEqual([game.game_dir_name for game in moved], [STALE])
+
+    def test_nothing_found_leaves_the_match_it_had(self) -> None:
+        _offline(self, [])
+
+        counts, _ = self.match_again()
+
+        self.assertEqual(_read(self.folders[STALE])["Info"]["VPSId"], "wrong")
+        self.assertEqual(counts["changed"], 0)
+
+
 class ImportWithoutPickTests(TempTree):
     def imported(self, name: str) -> tuple[dict, Path]:
         _offline(self, [_entry("fathom", "Fathom")])

@@ -20,6 +20,7 @@ from common.games.game_metadata import (
     normalize_meta,
     persist_game_meta,
     record_vps_match,
+    vps_matched_by,
 )
 from common.games.info_file import GUIDES_KEY, guides_from_vps, info_from_vps
 from common.online.vpsdb import guess
@@ -73,3 +74,34 @@ def match_new(games: Iterable[Any], catalog: list[dict] | None = None) -> dict[s
     return {"games": len(games),
             "matched": sum(1 for meta in metas if effective_vps_id(meta)),
             "unmatched": sum(1 for meta in metas if unmatched(meta))}
+
+
+def match_again(games: Iterable[Any],
+                catalog: list[dict] | None = None) -> tuple[dict[str, int], list[Any]]:
+    """Guess each of `games` again, except where a person made the match or declared none.
+
+    A guess that finds nothing leaves the match as it was. Answers the counts - `changed`
+    the games whose match moved, `unmatched` those still without one, `yours` those left
+    alone for a person's match - and the games that moved.
+    """
+    games = list(games)
+    held = game_service.load_vpsdb() if catalog is None else catalog
+    moved: list[Any] = []
+    yours = 0
+    for game in games:
+        meta = normalize_meta(game.meta_config or {})
+        if vps_matched_by(meta):
+            yours += 1
+            continue
+        entry = guess(held, str(game.game_dir_name or ""))
+        if entry is None or str(entry.get("id") or "") == effective_vps_id(meta):
+            continue
+        try:
+            adopt_guess(game, entry)
+        except Exception:
+            logger.exception("Could not write the match for %s", game.game_dir_name)
+            continue
+        moved.append(game)
+    waiting = sum(1 for game in games if unmatched(normalize_meta(game.meta_config or {})))
+    return ({"games": len(games), "changed": len(moved), "unmatched": waiting,
+             "yours": yours}, moved)

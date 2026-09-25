@@ -542,6 +542,12 @@ class Library:
         self._client.declare_no_match(game_id)
         self.load()
 
+    def auto_match(self, game_ids: list[str]) -> dict:
+        result = self._client.auto_match(game_ids)
+        if result.get("changed"):
+            self.load()
+        return result
+
     def set_table_overrides(self, game_id: str, table_id: str, changes: dict) -> dict:
         result = self._client.set_table_overrides(game_id, table_id, changes)
         self._forget_tables(game_id)

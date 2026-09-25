@@ -7,7 +7,7 @@ folders, so it is what you call after copying a table in by hand.
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from starlette.testclient import TestClient
 
@@ -35,6 +35,37 @@ class LibraryRefreshTests(unittest.TestCase):
         refused rather than left to interleave writes with the first."""
         with jobs.track(jobs.KIND_LIBRARY_SCAN):
             response = self.client.post("/library/refresh")
+
+        self.assertEqual(response.status_code, 409)
+
+
+class AutoMatchRouteTests(unittest.TestCase):
+    def setUp(self) -> None:
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+        self.game = MagicMock(full_path_game="/library/Fathom (Bally 1981)")
+        catalog = patch("common.games.game_repository.catalog",
+                        return_value={"g1": self.game})
+        catalog.start()
+        self.addCleanup(catalog.stop)
+
+    def test_it_answers_the_counts_for_the_games_it_holds(self) -> None:
+        counts = {"games": 1, "changed": 1, "unmatched": 0, "yours": 0}
+        with patch("common.games.auto_match.match_again",
+                   return_value=(counts, [self.game])) as ran, \
+                patch("common.games.game_repository.refresh_game") as reread:
+            response = self.client.post("/library/auto_match",
+                                        json={"game_ids": ["g1", "gone"]})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), counts)
+        self.assertEqual(ran.call_args[0][0], [self.game])
+        reread.assert_called_once()
+
+    def test_it_will_not_run_beside_a_scan(self) -> None:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN):
+            response = self.client.post("/library/auto_match", json={"game_ids": ["g1"]})
 
         self.assertEqual(response.status_code, 409)
 

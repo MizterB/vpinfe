@@ -358,6 +358,21 @@ def media_columns(kinds: list[str]) -> list[dict[str, Any]]:
             for kind, header in headers.items()]
 
 
+def auto_match_outcome(result: dict[str, Any]) -> tuple[str, bool]:
+    """What Auto-match says when it is done, and whether any match moved."""
+    moved = int(result.get("changed") or 0)
+    waiting = int(result.get("unmatched") or 0)
+    if moved and waiting:
+        return t("console.games.auto_matched_some",
+                 matched=t("console.games.auto_matched", count=moved),
+                 waiting=t("console.games.still_need_match", count=waiting)), True
+    if moved:
+        return t("console.games.auto_matched", count=moved), True
+    if waiting:
+        return t("console.games.still_need_match", count=waiting), False
+    return t("console.vps_match.nothing_changed"), False
+
+
 async def _rate(games: list[dict[str, Any]]) -> None:
     """Set a rating on every game passed in.
 
@@ -546,6 +561,22 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             then=partial(refresh_games, [str(one["id"]) for one in games]),
             narrowed=narrowed_to())
 
+    async def auto_match(games: list[dict[str, Any]]) -> None:
+        ids = [str(one["id"]) for one in games]
+        try:
+            result = await offload.io(library.auto_match, ids)
+        except Exception as exc:  # noqa: BLE001 - said, and the grid is as it was
+            ui.notify(t("console.games.could_not_auto_match", exc=exc), type="warning")
+            return
+        said, moved = auto_match_outcome(result)
+        ui.notify(said, type="positive" if moved else "info")
+        if moved:
+            await refresh_games(ids)
+            if state.get("game") in ids:
+                answer = on_select(by_id.get(str(state["game"])))
+                if inspect.isawaitable(answer):
+                    await answer
+
     async def fill_bulk() -> None:
         chosen = list(selected)
         known = await collection_adds.read(library, narrowed_to())
@@ -556,6 +587,9 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             # exactly as it was.
             panel.menu_entry(t("console.games.match_vps"),
                              lambda: vps_match.walk(library, chosen))
+            panel.menu_entry(t("console.games.auto_match"),
+                             lambda: auto_match(chosen)) \
+                .tooltip(t("console.games.auto_match.help"))
             # Where the games you have already picked go. From here rather than only
             # from the device, because starting with the tables and choosing where they
             # land is a different job from managing what a phone holds.

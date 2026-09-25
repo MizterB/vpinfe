@@ -601,11 +601,19 @@
   "console.games.actions_selected_tables": "Actions for the selected tables",
   "console.games.alt_color": "Alt Color",
   "console.games.altsound": "AltSound",
+  "console.games.auto_match": "Auto-match",
+  "console.games.auto_match.help": "Each game is matched again from its folder name. Matches you picked stay.",
+  "console.games.auto_matched": {
+    "one": "Matched 1 game",
+    "other": "Matched {count} games"
+  },
+  "console.games.auto_matched_some": "{matched}. {waiting}.",
   "console.games.b2s": "B2S",
   "console.games.blank_where_game_matched.help": "Blank where the game is matched to a VPS entry",
   "console.games.built_table_several_names.help": "Who built this table",
   "console.games.collections.help": "The collections this game is in, added or by rule",
   "console.games.columns_saving_view": "Columns, and saving this view",
+  "console.games.could_not_auto_match": "Could not auto-match: {exc}",
   "console.games.delete_script": "Delete script",
   "console.games.delete_script_beside_table": "Delete the script beside this table?",
   "console.games.delete_view": "Delete view",
@@ -667,6 +675,10 @@
   "console.games.send_device": "Send to device...",
   "console.games.show_as": "Show {group} As",
   "console.games.solid_state_electro_mechanical.help": "Solid state, electro-mechanical, mechanical, or an original",
+  "console.games.still_need_match": {
+    "one": "1 still needs a match",
+    "other": "{count} still need a match"
+  },
   "console.games.table": "Table",
   "console.games.table_frontend_offers.help": "Which table the frontend offers when it can show only one\nLocked - stays on this table if you add another\nAutomatic - the newest table you added",
   "console.games.table_goes_back_script": "The table goes back to the script inside its .vpx. Anything the sidecar held - a patch, an edit - goes with it.",

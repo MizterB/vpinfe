@@ -2107,6 +2107,20 @@ class FilterAxisList(ApiModel):
     axes: list[FilterAxis]
 
 
+class AutoMatchRequest(ApiModel):
+    game_ids: list[str]
+
+
+class AutoMatchResult(ApiModel):
+    """`changed` counts the games whose match moved, `unmatched` those still without one,
+    and `yours` those left as they were because a person made or cleared their match."""
+
+    games: int = 0
+    changed: int = 0
+    unmatched: int = 0
+    yours: int = 0
+
+
 class ScanRequest(ApiModel):
     """Absent body means both default to true, which is what the Manager UI's own
     scan does."""

@@ -80,6 +80,7 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/library/tags/{tag}` | Describe a tag and pick its color, writing it down if nothing has. `color` is one of `red orange amber green teal blue purple pink gray`; empty goes back to the one derived from its name |
 | POST | `/api/v1/library/owned` | Which of `{"ids": [...]}` - VPS entry or release ids - this library holds: an entry with its game, a release with its table. A release this library holds another version of comes back under `other_versions`, with that table's `version` and the release's `url` |
 | POST | `/api/v1/library/scan` | Rebuild game metadata from VPSdb. Returns `202` and a job; optional `{"download_media": bool, "update_all": bool}` |
+| POST | `/api/v1/library/auto_match` | Match `{"game_ids": [...]}` again from their folder names, off the catalog on disk. A match a person made or cleared stays. Answers `games`, `changed`, `unmatched` and `yours`; `409` while a scan runs |
 | GET | `/api/v1/devices` | The devices this install knows about |
 | PUT | `/api/v1/devices` | Record a device (idempotent). For a phone, or a machine mDNS cannot reach. `port` is declared by the caller — the address is read off the socket, which never says what that machine listens on |
 | GET | `/api/v1/devices/discovered` | Installs announcing themselves on this network right now. Announcements, not records: nothing here has been decided about |

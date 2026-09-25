@@ -942,6 +942,10 @@ class ApiClient:
         """Say this game is in no catalog."""
         self._delete(f"/games/{game_id}/vps_match")
 
+    def auto_match(self, game_ids: list[str]) -> dict:
+        """Match these games again from their folder names. A person's matches stay."""
+        return self._post("/library/auto_match", {"game_ids": game_ids})
+
     def set_table_overrides(self, game_id: str, table_id: str, changes: dict) -> dict:
         """What the user says about one file. Same patch shape as the game's."""
         return self._put(f"/games/{game_id}/tables/{table_id}/overrides", changes)

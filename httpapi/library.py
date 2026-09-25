@@ -107,6 +107,14 @@ def scan(response: Response,
     return _accepted(response, library_ops.scan(options.model_dump()))
 
 
+@router.post("/auto_match", summary="Match games again from their folder names",
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def auto_match(payload: models.AutoMatchRequest) -> models.AutoMatchResult:
+    """Done when it answers: it reads the catalog on disk, never the network. A match a
+    person made, or a no-match they declared, is left as it is."""
+    return models.AutoMatchResult(**library_ops.auto_match(payload.game_ids))
+
+
 @router.get("/policy", summary="What this library collects",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_policy() -> models.LibraryPolicy:

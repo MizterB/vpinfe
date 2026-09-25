@@ -176,6 +176,29 @@ def refresh() -> job_registry.Job:
                  lambda job: run_refresh(job.reporter()))
 
 
+def auto_match(game_ids: Iterable[str]) -> dict[str, int]:
+    """Match the games named again from their folder names, leaving a person's matches.
+
+    On the caller's thread, under the scan's job kind: it writes a .info for every game
+    whose match moves. Ids the library does not hold are left out of the counts.
+    """
+    from pathlib import Path
+
+    from common.games import auto_match as matching
+    from common.games import game_repository
+
+    held = game_repository.catalog()
+    games = [held[one] for one in dict.fromkeys(game_ids) if one in held]
+    try:
+        with job_registry.track(job_registry.KIND_LIBRARY_SCAN):
+            counts, moved = matching.match_again(games)
+    except job_registry.JobBusyError as exc:
+        raise service_errors.BlockedError(str(exc)) from exc
+    for game in moved:
+        game_repository.refresh_game(Path(str(game.full_path_game)))
+    return counts
+
+
 def recount_vps_state() -> job_registry.Job:
     """Its own job kind: read-only, so it may run beside a scan."""
     return start(job_registry.KIND_VPS_ROLLUP,
