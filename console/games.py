@@ -197,6 +197,9 @@ VIEW_SECTIONS = {views.builtin_id(_MEDIA): "media"}
 # than on Details and one more click.
 COLUMN_SECTIONS = {"vps_unmatched": "game_details", "hidden": "game_details"}
 
+# The grid on its Unmatched filter, as `state["arriving"]`.
+UNMATCHED = {"vps_unmatched": {"values": [True]}}
+
 GAME_VIEWS: dict[str, list[str] | views.Preset] = {
     # Named for the workbench group it matches: a view and a panel
     # group about the same facts carry the same word, so crossing between the grid and
@@ -447,9 +450,12 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                                         lambda value: value == views.builtin_id(_MEDIA))
 
         narrowed = str(state.get("collection") or "")
+        # Taken once: a filter a link asked for is not put back on every redraw after.
+        arriving = state.pop("arriving", None) \
+            or ({"collections": {"values": [narrowed]}} if narrowed else None)
         wire_views, view_picker, showing, describe = view_control(
             library, SCOPE, presets, all_fields, columns, bar=bar, annotate=annotate,
-            arriving={"collections": {"values": [narrowed]}} if narrowed else None)
+            arriving=arriving)
         describe()
         with bar.top, panel.bar_end():
             search = panel.search(t("console.games.search_games"))

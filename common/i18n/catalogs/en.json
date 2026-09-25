@@ -972,7 +972,19 @@
   "console.page.library_date": "The library is up to date",
   "console.page.loading_console": "Loading the Console",
   "console.page.location": "Location",
+  "console.page.matched_new_games": {
+    "one": "Matched 1 new game",
+    "other": "Matched {count} new games"
+  },
+  "console.page.matched_some_new_games": {
+    "one": "Matched {matched} of {total} new games. 1 needs a match.",
+    "other": "Matched {matched} of {total} new games. {count} need a match."
+  },
   "console.page.media": "Media",
+  "console.page.new_games_need_match": {
+    "one": "1 new game needs a match",
+    "other": "{count} new games need a match"
+  },
   "console.page.next_game": "Next game",
   "console.page.no_longer_install": "No longer in this install",
   "console.page.no_longer_install_2": "No longer on this install",
@@ -992,8 +1004,10 @@
   "console.page.select_table": "Select a table",
   "console.page.select_tag": "Select a tag",
   "console.page.select_theme": "Select a theme",
+  "console.page.show": "Show",
   "console.page.show_hide_navigation": "Show or hide the navigation",
   "console.page.show_hide_workbench": "Show or hide the workbench",
+  "console.page.show_unmatched": "Show Unmatched",
   "console.page.table_details": "Table",
   "console.page.tag": "Tag",
   "console.page.theme": "Theme",

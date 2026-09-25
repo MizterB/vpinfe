@@ -58,7 +58,8 @@ def refresh(reporter: JobReporter | None = None) -> dict:
 
     result = {"games": len(games), **{f"discovered_{k}": v for k, v in found.items()},
               **{f"enriched_{k}": v for k, v in read.items()},
-              **{f"new_{k}": v for k, v in matched.items()}}
+              **{f"new_{k}": v for k, v in matched.items()},
+              "new_unmatched_ids": _waiting(unseen)}
     if reporter:
         reporter.progress(4, 4, "Done")
     logger.info("Library refresh: %s games, %s tables found, %s read, %s of %s new "
@@ -77,6 +78,16 @@ def read_at_startup(games: list, unseen: list, reporter: JobReporter | None = No
     _art_for(unseen)
     return {**{f"enriched_{k}": v for k, v in read.items()},
             **{f"new_{k}": v for k, v in matched.items()}}
+
+
+def _waiting(unseen: list) -> list[str]:
+    """The ids of the new games still waiting for a match. Asked once ids are given out."""
+    from common.games import auto_match, game_identity
+    from common.games.game_metadata import normalize_meta
+
+    return [game_identity.game_id(game) for game in unseen
+            if auto_match.unmatched(normalize_meta(game.meta_config or {}))
+            and game_identity.game_id(game)]
 
 
 def _art_for(unseen: list) -> None:

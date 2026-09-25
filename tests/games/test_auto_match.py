@@ -254,6 +254,12 @@ class FirstSightTests(TempTree):
         self.assertEqual((result["new_games"], result["new_matched"],
                           result["new_unmatched"]), (3, 1, 1))
 
+    def test_the_result_names_the_new_games_waiting_for_a_match(self) -> None:
+        result = self.refresh()
+
+        self.assertEqual(result["new_unmatched_ids"],
+                         [_read(self.folders[UNKNOWN])["vpinfe"]["game_id"]])
+
     def test_switched_off_nothing_is_matched(self) -> None:
         config = configparser.ConfigParser()
         config["updates"] = {"match_new_games": "false"}

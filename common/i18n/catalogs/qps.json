@@ -972,7 +972,19 @@
   "console.page.library_date": "Ţĥè ŀîƀřàřý îš ûþ ţö đàţè",
   "console.page.loading_console": "Ŀöàđîñĝ ţĥè Çöñšöŀè",
   "console.page.location": "Ŀöçàţîöñ",
+  "console.page.matched_new_games": {
+    "one": "Ḿàţçĥèđ 1 ñèŵ ĝàɱè",
+    "other": "Ḿàţçĥèđ {count} ñèŵ ĝàɱèš"
+  },
+  "console.page.matched_some_new_games": {
+    "one": "Ḿàţçĥèđ {matched} öƒ {total} ñèŵ ĝàɱèš. 1 ñèèđš à ɱàţçĥ.",
+    "other": "Ḿàţçĥèđ {matched} öƒ {total} ñèŵ ĝàɱèš. {count} ñèèđ à ɱàţçĥ."
+  },
   "console.page.media": "Ḿèđîà",
+  "console.page.new_games_need_match": {
+    "one": "1 ñèŵ ĝàɱè ñèèđš à ɱàţçĥ",
+    "other": "{count} ñèŵ ĝàɱèš ñèèđ à ɱàţçĥ"
+  },
   "console.page.next_game": "Ñèẋţ ĝàɱè",
   "console.page.no_longer_install": "Ñö ŀöñĝèř îñ ţĥîš îñšţàŀŀ",
   "console.page.no_longer_install_2": "Ñö ŀöñĝèř öñ ţĥîš îñšţàŀŀ",
@@ -992,8 +1004,10 @@
   "console.page.select_table": "Šèŀèçţ à ţàƀŀè",
   "console.page.select_tag": "Šèŀèçţ à ţàĝ",
   "console.page.select_theme": "Šèŀèçţ à ţĥèɱè",
+  "console.page.show": "Šĥöŵ",
   "console.page.show_hide_navigation": "Šĥöŵ öř ĥîđè ţĥè ñàṽîĝàţîöñ",
   "console.page.show_hide_workbench": "Šĥöŵ öř ĥîđè ţĥè ŵöřķƀèñçĥ",
+  "console.page.show_unmatched": "Šĥöŵ Ûñɱàţçĥèđ",
   "console.page.table_details": "Ţàƀŀè",
   "console.page.tag": "Ţàĝ",
   "console.page.theme": "Ţĥèɱè",

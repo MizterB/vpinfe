@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 from nicegui import run, ui
@@ -28,6 +29,7 @@ from console import (
     sections,
     tageditor,
     theme,
+    undo,
     uploads,
     verbs,
     views,
@@ -698,9 +700,34 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                         value=(found.get('error') or t("console.page.no_reason_given"))),
                           type="negative")
             else:
-                ui.notify(t("console.page.library_date"), type="positive")
+                await run.io_bound(library.refresh_after_import)
+                said, waiting = read_outcome(found.get("result") or {})
+                if not waiting:
+                    ui.notify(said, type="positive")
+                elif len(waiting) == 1:
+                    undo.act(said, t("console.page.show"),
+                             partial(_open_to_match, waiting[0]))
+                else:
+                    undo.act(said, t("console.page.show_unmatched"), _show_unmatched)
                 redraw()
             return
+
+    async def _open_to_match(game_id: str) -> None:
+        """The game's Game Details, whose first row is its match."""
+        if not await may_leave(state, "games"):
+            return
+        leave_for(state, "games")
+        state["section"] = "game_details"
+        if not library.has_game_collections():
+            await run.io_bound(library.load_game_collections)
+        render()
+        await show_game({"id": game_id})
+
+    async def _show_unmatched() -> None:
+        if not await may_leave(state, "games"):
+            return
+        state["arriving"] = games.UNMATCHED
+        go("games")
 
 
     splitter = ui.splitter(reverse=True, limits=(WORKBENCH_MIN_PX, WORKBENCH_MAX_PX),
@@ -1381,6 +1408,21 @@ def _nav_item(key: str, label: str, icon: str, state: dict[str, Any], render: Ca
     destinations[key] = row
     if held is not None and nested:
         held.append(row)
+
+
+def read_outcome(result: dict[str, Any]) -> tuple[str, list[str]]:
+    """What a finished read of the library says, and the new games waiting for a match."""
+    waiting = [str(one) for one in result.get("new_unmatched_ids") or () if one]
+    total = int(result.get("new_games") or 0)
+    matched = int(result.get("new_matched") or 0)
+    if waiting and matched:
+        return t("console.page.matched_some_new_games", count=len(waiting),
+                 matched=matched, total=total), waiting
+    if waiting:
+        return t("console.page.new_games_need_match", count=len(waiting)), waiting
+    if matched:
+        return t("console.page.matched_new_games", count=matched), []
+    return t("console.page.library_date"), []
 
 
 async def _read_the_library() -> dict | None:
