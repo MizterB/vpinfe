@@ -425,11 +425,12 @@ class DescribedSelect(ui.select):
         </q-item>
     """
 
-    def __init__(self, options: Any, *, value: Any, label: str,
-                 describes: dict[str, str] | None = None) -> None:
+    def __init__(self, options: Any, *, value: Any, label: str | None = None,
+                 describes: dict[str, str] | None = None,
+                 on_change: Callable[[Any], Any] | None = None) -> None:
         # Before `super().__init__`, which builds the payload for the first time.
         self.describes: dict[str, str] = dict(describes or {})
-        super().__init__(options, value=value, label=label)
+        super().__init__(options, value=value, label=label, on_change=on_change)
         self.add_slot("option", self.SLOT)
 
     def _update_options(self) -> None:
@@ -598,8 +599,10 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
 
 
 def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
-           disabled: bool = False) -> Callable[[], None]:
-    """A list to pick from, where the reader already knows what the names mean.
+           disabled: bool = False,
+           describes: dict[str, str] | None = None) -> Callable[[], None]:
+    """A list to pick from, where the reader already knows what the names mean, or
+    `describes` says, by label, on each option.
 
     Where the label of each option is itself the thing being decided, the set goes on
     screen whole as radios instead - a closed control makes the reader open it to
@@ -607,7 +610,10 @@ def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
     """
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            control = ui.select(options, value=value, on_change=on_change) \
+            control = (DescribedSelect(options, value=value, describes=describes,
+                                       on_change=on_change)
+                       if describes else
+                       ui.select(options, value=value, on_change=on_change)) \
                 .props("dense borderless options-dense") \
                 .classes("console-edit-field console-edit-select")
             if disabled:

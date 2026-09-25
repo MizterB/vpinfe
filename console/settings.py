@@ -190,7 +190,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         if named and not isinstance(choices, dict):
             choices = {value: named.get(value, value) for value in choices}
         return panel.select(choices if isinstance(choices, dict) else list(choices),
-                            str(value or ""), lambda e: save(e.value), disabled=off)
+                            str(value or ""), lambda e: save(e.value), disabled=off,
+                            describes=option.get("describes"))
     blank = str(option.get("blank") or "")
     if kind == "int":
         return panel.number(

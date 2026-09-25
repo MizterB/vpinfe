@@ -112,6 +112,31 @@ _GRAPHICS = frozenset({
 })
 _WINDOW_SECTIONS = frozenset({"Backglass", "ScoreView", "Topper"})
 POINT_OF_VIEW_KEYS = "TableOverride.View"
+TABLE_OPTIONS = "table_options"
+TABLE_OPTION_KEYS = "TableOption."
+
+# Each view a table keeps a camera for, and how its keys spell it.
+VIEWS = (("desktop", "DT"), ("fss", "FSS"), ("cabinet", "Cab"))
+
+
+def view_mode(code: str) -> str:
+    return f"{POINT_OF_VIEW_KEYS}{code}Mode"
+
+
+VIEW_MODES = frozenset(view_mode(code) for _view, code in VIEWS)
+
+
+def view_headings(offered: set[str]) -> tuple[Heading, ...]:
+    """One heading per view, its view mode first, then its camera."""
+    found = []
+    for view, code in VIEWS:
+        mode = view_mode(code)
+        camera = sorted(key for key in offered
+                        if key.startswith(f"{POINT_OF_VIEW_KEYS}{code}") and key != mode)
+        keys = ((mode,) if mode in offered else ()) + tuple(camera)
+        if keys:
+            found.append(Heading(view, keys))
+    return tuple(found)
 
 
 def area_of(qualified: str) -> str:

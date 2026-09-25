@@ -261,13 +261,24 @@ def app_config(launcher_id: str, table: str = "",
         return scope in scopes_for(field.key) or (held is not None and held.set_here)
 
     blank = _blank_words(found.app, config)
-    groups = [(g, [f for f in g.settings if shown(f)]) for g in config.groups(settings)]
+    held = getattr(config, "held_groups", None)
+    declared = (*config.groups(settings),
+                *(held(target) if target and held is not None else ()))
+    groups = [(g, [f for f in g.settings if shown(f)]) for g in declared]
+    rows = getattr(config, "summary_rows", None)
+
+    def drawn(group: apps.ConfigGroup, fields: list[apps.Field]) -> list[str]:
+        keys = {f.key for f in fields}
+        named = rows(group.key, values) if group.summarized and rows is not None else ()
+        return [key for key in named if key in keys]
+
     return {
         "app_name": apps.app_name(found.app),
         "scopes": list(config.scopes()),
         "shared_with_game": bool(target and shares is not None and shares(target)),
         "groups": [{"key": g.key, **apps.group_words(found.app, g),
-                    "summarized": g.summarized,
+                    "summarized": g.summarized, "rows": drawn(g, fields),
+                    "read_only": g.read_only,
                     "curated": _curated(found.app, g, {f.key for f in fields}),
                     "settings": [{**_described_field(found.app, f), "blank": blank(f.key),
                                   "scopes": list(scopes_for(f.key))} for f in fields]}
@@ -299,6 +310,7 @@ def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:
             "help": apps.field_help(app_id, field), "type": field.type,
             "default": field.default,
             "choices": [list(pair) for pair in field.choices],
+            "choice_help": apps.choice_help(app_id, field),
             "minimum": field.minimum, "maximum": field.maximum,
             "per_table": field.per_table}
 

@@ -265,6 +265,18 @@ class BlankValueTests(unittest.TestCase):
 
         self.assertEqual(self._placeholder(workbench._as_option(field)), "From the screen")
 
+    def test_a_choice_s_blank_is_an_option_named_by_it(self) -> None:
+        field = SimpleNamespace(key="TableOverride.ViewCabMode", type="int",
+                                label="View mode", default="", blank="The table's own",
+                                choices=(("0", "Legacy"), ("2", "Window")),
+                                choice_help={"2": "The screen as a window"})
+
+        option = workbench._as_option(field)
+
+        self.assertEqual(option["choices"],
+                         {"": "The table's own", "0": "Legacy", "2": "Window"})
+        self.assertEqual(option["describes"], {"Window": "The screen as a window"})
+
     def test_a_field_as_the_wire_sends_it_says_so_too(self) -> None:
         field = {"key": "Player.PlayfieldWidth", "type": "int", "label": "Width",
                  "default": "", "blank": "From the screen"}
@@ -425,23 +437,96 @@ class DifferencesTests(unittest.TestCase):
             [_group("point_of_view", view, summarized=True)], {view.key: self.SET}), [])
 
 
-class CameraTests(unittest.TestCase):
-    VIEW = _field("TableOverride.ViewCabMode")
-    GROUPS = [_group("point_of_view", VIEW, summarized=True)]
+class PointOfViewTests(unittest.TestCase):
+    MODE = _field("TableOverride.ViewCabMode", "View mode")
+    DESKTOP_MODE = _field("TableOverride.ViewDTMode", "View mode")
+    CAB = _field("TableOverride.ViewCabPlayerX")
+    DESKTOP = _field("TableOverride.ViewDTPlayerX")
+    GROUP = SimpleNamespace(
+        key="point_of_view", label="Point of View", summarized=True, read_only=False,
+        settings=[MODE, DESKTOP_MODE, CAB, DESKTOP], rows=(MODE.key, DESKTOP_MODE.key),
+        curated=[SimpleNamespace(key="cabinet", label="Cabinet", keys=(MODE.key, CAB.key)),
+                 SimpleNamespace(key="desktop", label="Desktop",
+                                 keys=(DESKTOP_MODE.key, DESKTOP.key))])
 
-    def test_one_saved_for_the_table_is_one_row(self) -> None:
-        rows = app_settings._camera(self.GROUPS, {self.VIEW.key: DifferencesTests.SET})
+    def _view(self, **values: dict) -> SimpleNamespace | None:
+        return app_settings.point_of_view([self.GROUP], values)
 
-        self.assertEqual(rows[1], ("Camera", "Saved for this table"))
-        self.assertEqual(len(rows), 2)
+    def test_its_rows_are_each_named_by_their_view(self) -> None:
+        view = self._view(**{self.CAB.key: DifferencesTests.SET})
 
-    def test_one_from_the_game_says_so(self) -> None:
-        rows = app_settings._camera(self.GROUPS, {self.VIEW.key: DifferencesTests.GAME})
+        self.assertEqual([row.label for row in view.rows],
+                         ["Cabinet View mode", "Desktop View mode"])
 
-        self.assertEqual(rows[1:], [("Camera", "Saved for this game")])
+    def test_the_camera_is_named_by_the_views_it_is_saved_in(self) -> None:
+        view = self._view(**{self.CAB.key: DifferencesTests.SET})
+
+        self.assertEqual((view.views, view.own), (["Cabinet"], [self.CAB.key]))
+        self.assertEqual(app_settings.camera_said(view), "Saved for this table (Cabinet)")
+
+    def test_one_from_the_game_says_so_and_is_not_the_table_s_to_reset(self) -> None:
+        view = self._view(**{self.DESKTOP.key: DifferencesTests.GAME})
+
+        self.assertEqual(view.own, [])
+        self.assertEqual(app_settings.camera_said(view), "Saved for this game (Desktop)")
+
+    def test_a_view_mode_alone_leaves_the_camera_the_table_s_own(self) -> None:
+        view = self._view(**{self.MODE.key: DifferencesTests.SET})
+
+        self.assertEqual((view.views, view.own, view.reaching), ([], [], False))
+        self.assertEqual(app_settings.camera_said(view), "The table's own")
+
+    def test_and_absent_when_nothing_in_it_differs(self) -> None:
+        self.assertIsNone(self._view(**{self.CAB.key: DifferencesTests.ALL}))
+
+    def test_reset_takes_the_camera_off_and_leaves_the_view_modes(self) -> None:
+        view = self._view(**{self.CAB.key: DifferencesTests.SET,
+                             self.MODE.key: DifferencesTests.SET})
+        remove = Mock()
+
+        with patch.object(app_settings.panel, "action") as action:
+            entries = app_settings._camera_entries(view, remove, playing=False)
+        action.call_args.args[1]()
+
+        self.assertIn(app_settings.panel.ASIDE, [label for label, _draw in entries])
+        remove.assert_called_once_with([self.CAB.key])
+
+    def test_no_reset_where_the_table_does_not_hold_it(self) -> None:
+        view = self._view(**{self.DESKTOP.key: DifferencesTests.GAME})
+
+        with patch.object(app_settings.panel, "action") as action:
+            app_settings._camera_entries(view, Mock(), playing=False)
+
+        action.assert_not_called()
+
+
+class TableOptionsTests(unittest.TestCase):
+    SPEED = _field("TableOption.Ball_Speed", "Ball Speed")
+    LIGHTS = _field("TableOption.Lights", "Lights")
+    GROUP = SimpleNamespace(key="table_options", label="Table Options", summarized=False,
+                            read_only=True, settings=[SPEED, LIGHTS], curated=[], rows=())
+
+    def _resets(self, values: dict) -> list[str]:
+        options = app_settings.table_options([self.GROUP], values)
+        with patch.object(app_settings.panel, "action") as action:
+            app_settings._option_entries(options, values, Mock(), playing=False)
+        return [call.args[0] for call in action.call_args_list]
+
+    def test_each_one_the_table_holds_has_reset_and_two_have_reset_all(self) -> None:
+        values = {self.SPEED.key: DifferencesTests.SET, self.LIGHTS.key: DifferencesTests.SET}
+
+        self.assertEqual(self._resets(values), ["Reset", "Reset", "Reset All"])
+
+    def test_one_alone_has_no_reset_all(self) -> None:
+        self.assertEqual(self._resets({self.SPEED.key: DifferencesTests.SET}), ["Reset"])
+
+    def test_they_are_not_listed_among_the_differences(self) -> None:
+        values = {self.SPEED.key: DifferencesTests.SET}
+
+        self.assertEqual(app_settings.differences([self.GROUP], values), [])
 
     def test_and_absent_without_one(self) -> None:
-        self.assertEqual(app_settings._camera(self.GROUPS, {}), [])
+        self.assertIsNone(app_settings.table_options([self.GROUP], {}))
 
 
 class RedrawTests(unittest.TestCase):

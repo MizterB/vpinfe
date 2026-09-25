@@ -489,10 +489,96 @@ class WindowSizeTests(_Case):
         self.assertNotIn("Player.MaxTexDimension", self.config.blank_words())
 
     def test_every_window_s_four_sizes_are_settings_vpx_declares(self) -> None:
-        named = self.config.blank_words()
+        named = [key for key, word in self.config.blank_words().items()
+                 if word == "from_the_screen"]
 
         self.assertEqual(len(named), 20)
         self.assertEqual([key for key in named if key not in TYPES], [])
+
+
+VIEWS_INI = """\
+[Player]
+; View Mode: Which camera setup to use [Default: 0, 0='Desktop', 1='Cabinet', 2='FSS']
+BGSet = 0
+
+[TableOverride]
+; View mode: How the view projects [Default: 2, 0='Legacy', 1='Camera', 2='Window']
+ViewCabMode =
+; Field of view: How wide [Default: 55]
+ViewCabFOV =
+"""
+
+DESKTOP_MODE = areas.view_mode("DT")
+FSS_MODE = areas.view_mode("FSS")
+CAB_MODE = areas.view_mode("Cab")
+
+
+class ViewModeTests(_Case):
+    def setUp(self) -> None:
+        super().setUp()
+        self.app_ini.write_text(VIEWS_INI)
+
+    def rows(self, text: str = "") -> tuple[str, ...]:
+        if text:
+            self.table_file(text)
+        values = self.config.read(SCOPE_ENTRY, str(self.table), self.settings)
+        return self.config.summary_rows(areas.POINT_OF_VIEW, values)
+
+    def test_a_cabinet_table_draws_the_cabinet_s(self) -> None:
+        self.assertEqual(self.rows("[Player]\nBGSet = 1\n"), (CAB_MODE,))
+
+    def test_one_left_to_the_program_draws_desktop_and_full_single_screen(self) -> None:
+        self.assertEqual(self.rows(), (DESKTOP_MODE, FSS_MODE))
+
+    def test_a_forced_desktop_table_draws_desktop_alone(self) -> None:
+        self.assertEqual(self.rows("[Player]\nBGSet = 2\n"), (DESKTOP_MODE,))
+
+    def test_forced_desktop_still_draws_a_full_single_screen_mode_the_table_sets(self) -> None:
+        self.assertEqual(self.rows("[Player]\nBGSet = 2\n[TableOverride]\nViewFSSMode = 1\n"),
+                         (DESKTOP_MODE, FSS_MODE))
+
+    def test_another_view_s_mode_the_table_sets_follows(self) -> None:
+        self.assertEqual(self.rows("[Player]\nBGSet = 1\n[TableOverride]\nViewDTMode = 0\n"),
+                         (CAB_MODE, DESKTOP_MODE))
+
+    def test_another_area_draws_none(self) -> None:
+        self.assertEqual(self.config.summary_rows(areas.DISPLAYS, {}), ())
+
+    def test_a_view_mode_s_default_is_the_table_s_own(self) -> None:
+        field = next(f for g in self.config.groups(self.settings) for f in g.settings
+                     if f.key == CAB_MODE)
+
+        self.assertEqual(field.default, "")
+        self.assertEqual(self.config.blank_words()[CAB_MODE], "the_tables_own")
+
+    def test_each_view_s_heading_leads_with_its_mode(self) -> None:
+        headings = areas.view_headings({CAB_MODE, "TableOverride.ViewCabFOV",
+                                        "TableOverride.ViewDTFOV"})
+
+        self.assertEqual([(one.key, one.keys) for one in headings],
+                         [("desktop", ("TableOverride.ViewDTFOV",)),
+                          ("cabinet", (CAB_MODE, "TableOverride.ViewCabFOV"))])
+
+
+class TableOptionTests(_Case):
+    """Table options are declared by the table's script, so they are listed as the
+    table's file holds them."""
+
+    def test_a_table_s_options_are_a_group_of_their_own(self) -> None:
+        self.table_file("[TableOption]\nBall_Speed = 2\nLights = 1\nBlank =\n")
+
+        groups = self.config.held_groups(str(self.table))
+
+        self.assertEqual([(g.key, g.read_only) for g in groups],
+                         [(areas.TABLE_OPTIONS, True)])
+        self.assertEqual([(f.key, f.label) for f in groups[0].settings],
+                         [("TableOption.Ball_Speed", "Ball Speed"),
+                          ("TableOption.Lights", "Lights")])
+
+    def test_a_table_without_them_has_none(self) -> None:
+        self.table_file("[Backglass]\nBackglassOutput = 0\n")
+
+        self.assertEqual(self.config.held_groups(str(self.table)), ())
 
 
 class WriteTests(_Case):

@@ -142,6 +142,15 @@ def field_help(app_id: str, field: Field) -> str:
     return i18n.literal_or("", f"app.{app_id}.field.{field.key}.help")[0]
 
 
+def choice_help(app_id: str, field: Field) -> dict[str, str]:
+    """By stored value, what each of a setting's choices does, where the app's catalog
+    says."""
+    found = {value: i18n.literal_or(
+        "", f"app.{app_id}.field.{field.key}.choice.{value}.help")[0]
+        for value, _label in field.choices}
+    return {value: said for value, said in found.items() if said}
+
+
 # A capital after a small letter, or before a capital and a small letter, starts a word:
 # `B2SHideGrill` reads `B2S Hide Grill`, and `PIN2DMD` is left whole.
 _WORD_START = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")

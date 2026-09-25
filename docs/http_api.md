@@ -512,21 +512,30 @@ The settings in `groups` are read from VPX's own file rather than declared here,
 setting a later VPX adds appears without VPinFE changing. They are named `Section.Key`
 (`Player.FXAA`), because a key is only unique inside its section. Where VPX works out what
 a blank value means rather than using the default it declares, `default` is empty and
-`blank` says what it does instead: every window's size reads *From the screen*.
+`blank` says what it does instead: every window's size reads *From the screen*, and each
+view mode *The table's own*.
 
 **The groups are the pages of VPX's own settings menu**: `displays`, `sound`, `graphics`
-and `plugins`, then `point_of_view` at a table and `more` for everything else. The table
-editor's own settings are left out. Each group's `settings` is every member, and `curated`
-names the few a client draws first, under headings:
+and `plugins`, then `point_of_view` and `table_options` at a table and `more` for
+everything else. The table editor's own settings are left out. Each group's `settings` is
+every member, and `curated` names the few a client draws first, under headings:
 
 - a heading has a `key`, a `label` and a `note`, and `keys` in the order drawn. An empty
   `key` draws no heading.
 - `enabled_by` names one of `keys`, a switch: while it is off the heading's other rows
   change nothing. Each plugin is a heading switched by its `Enable`.
 - `summarized` is true for a group said as one line rather than listed, the point of view.
+  `rows` names the ones it draws as rows of their own all the same: the view mode of each
+  view the table starts in, by its `Player.BGSet`, then any other view mode the table sets.
+- `read_only` is true for a group listed as the file holds it, each removable and none
+  edited. `table_options` is one: the options a table's file holds under `[TableOption]`,
+  which the table's script declares while it runs, so VPX's file says nothing of their
+  range or meaning. It appears only at a table whose file holds one.
 
 A setting carries `help`, a line of VPinFE's saying what it is for, beside VPX's own
 `description`. `per_table` marks one commonly set for one table rather than all of them.
+One with `choices` carries `choice_help`, a line saying what a choice does, by its value,
+for each that has one.
 
 **A setting is offered at the scopes VPX keeps it at**, listed in its `scopes`. The input,
 plunger, nudge, cabinet and stereo settings, and the ones VPX's menu writes straight to its

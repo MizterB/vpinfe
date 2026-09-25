@@ -383,6 +383,44 @@ class BlankWordsTests(_TableCase):
         self.assertEqual(offered["Player.FXAA"]["blank"], "")
 
 
+class PointOfViewTests(_TableCase):
+    def setUp(self) -> None:
+        super().setUp()
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text(
+            "[Player]\n; View Mode: Which setup [Default: 0, 0='Desktop', 1='Cabinet']\n"
+            "BGSet = 1\n[TableOverride]\n"
+            "; View mode: How [Default: 2, 0='Legacy', 1='Camera', 2='Window']\n"
+            "ViewCabMode =\n; Field of view: How wide [Default: 55]\nViewCabFOV =\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+        pathlib.Path(self.beside).write_text("[TableOverride]\nViewCabFOV = 50\n"
+                                            "[TableOption]\nBall_Speed = 2\n")
+
+    def _groups(self) -> dict:
+        got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
+        return {g["key"]: g for g in got.json()["groups"]}
+
+    def test_a_table_s_view_mode_is_a_row_of_its_own(self) -> None:
+        view = self._groups()["point_of_view"]
+
+        self.assertEqual(view["rows"], ["TableOverride.ViewCabMode"])
+        mode = next(f for f in view["settings"] if f["key"] == "TableOverride.ViewCabMode")
+        self.assertEqual(mode["blank"], "The table's own")
+        self.assertEqual(sorted(mode["choice_help"]), ["0", "1", "2"])
+
+    def test_its_table_options_are_listed_as_its_file_holds_them(self) -> None:
+        options = self._groups()["table_options"]
+
+        self.assertIs(options["read_only"], True)
+        self.assertEqual([f["label"] for f in options["settings"]], ["Ball Speed"])
+
+    def test_all_tables_have_no_table_options(self) -> None:
+        got = self.client.get("/launchers/l1/config")
+
+        self.assertNotIn("table_options", [g["key"] for g in got.json()["groups"]])
+
+
 class SharedWithGameTests(_TableCase):
     def test_the_table_named_after_its_folder_says_its_file_is_the_game_s(self) -> None:
         named = os.path.join(os.path.dirname(self.table), "Attack from Mars.vpx")

@@ -4428,9 +4428,10 @@ def _all_settings_shown(context: dict[str, Any]) -> bool:
 
 
 def _listed_groups(context: dict[str, Any]) -> list[Any]:
-    """The groups whose settings are rows. A summarized one is a table's alone."""
+    """The groups whose settings are rows. A summarized or read-only one is a table's
+    alone."""
     return [g for g in context.get("config_groups") or []
-            if not getattr(g, "summarized", False)]
+            if not getattr(g, "summarized", False) and not getattr(g, "read_only", False)]
 
 
 async def _all_settings(context: dict[str, Any]) -> None:
@@ -4544,8 +4545,13 @@ def _as_option(field: Any) -> dict[str, Any]:
                               "label": field.label, "default": field.default,
                               "blank": getattr(field, "blank", "")}
     if field.choices:
-        option["choices"] = {value: label for value, label in field.choices}
+        blank = option["blank"]
+        option["choices"] = {**({"": blank} if blank else {}),
+                             **{value: label for value, label in field.choices}}
         option["type"] = "choice"
+        said = getattr(field, "choice_help", None) or {}
+        option["describes"] = {label: said[value] for value, label in field.choices
+                               if said.get(value)}
     return option
 
 

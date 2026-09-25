@@ -197,6 +197,9 @@ class ConfigGroup:
     curated: tuple[Heading, ...] = ()
     # Said as one line - whether anything in it is set - and never listed key by key.
     summarized: bool = False
+    # Listed as the file holds them, each removable, never edited: settings whose range
+    # and meaning only something outside the program's own ini declares.
+    read_only: bool = False
 
 
 @dataclass(frozen=True)

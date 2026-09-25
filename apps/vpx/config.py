@@ -55,6 +55,13 @@ _WINDOWS = (("Player", "Playfield"), ("Backglass", "Backglass"), ("ScoreView", "
             ("Topper", "Topper"), ("PlayerVR", "Preview"))
 FROM_THE_SCREEN = frozenset(f"{section}.{window}{mode}{side}" for section, window in _WINDOWS
                             for mode in ("", "FS") for side in ("Width", "Height"))
+# And a view's mode from the table, never by the mode it declares.
+FROM_THE_TABLE = areas.VIEW_MODES
+
+# The views a table starts in, by its View Mode. At 0 a flag inside the table picks
+# Full Single Screen or Desktop.
+_VIEWS_AT = {"0": ("DT", "FSS"), "1": ("Cab",), "2": ("DT",)}
+BGSET = "Player.BGSet"
 
 # What the program keeps for all tables only: the pages of its own menu that save
 # globally (input, plunger, nudge and tilt, cabinet, stereo), and the items any page
@@ -402,7 +409,35 @@ class VPXConfig:
     def blank_words(self) -> dict[str, str]:
         """By key, the word in this app's catalog for what a blank value does, where that
         is not the declared default."""
-        return dict.fromkeys(FROM_THE_SCREEN, "from_the_screen")
+        return {**dict.fromkeys(FROM_THE_SCREEN, "from_the_screen"),
+                **dict.fromkeys(FROM_THE_TABLE, "the_tables_own")}
+
+    def summary_rows(self, group: str, values: Mapping[str, ConfigValue]) -> tuple[str, ...]:
+        """Of a summarized group, the settings drawn as rows of their own: the mode of
+        each view the table starts in, then any other its settings name."""
+        if group != areas.POINT_OF_VIEW:
+            return ()
+        held = values.get(BGSET)
+        views = _VIEWS_AT.get((held.value if held else "") or "0",
+                              tuple(code for _view, code in areas.VIEWS))
+        used = [areas.view_mode(code) for code in views]
+        named = [areas.view_mode(code) for _view, code in areas.VIEWS
+                 if (one := values.get(areas.view_mode(code))) is not None
+                 and one.set_here and areas.view_mode(code) not in used]
+        return tuple(used + named)
+
+    def held_groups(self, target: str) -> tuple[ConfigGroup, ...]:
+        """The table options a table's settings hold. The table's script declares them
+        while it runs, so this ini says nothing of their range or meaning."""
+        held = _read(table_layer(target))
+        options = tuple(
+            Field(key=qualified, label=qualified[len(areas.TABLE_OPTION_KEYS):]
+                  .replace("_", " ").strip(), type="text")
+            for qualified in sorted(held.settings)
+            if qualified.startswith(areas.TABLE_OPTION_KEYS)
+            and held.value(qualified) is not None)
+        return ((ConfigGroup(key=areas.TABLE_OPTIONS, settings=options, read_only=True),)
+                if options else ())
 
     def shared_with_game(self, target: str) -> bool:
         """Whether this table's own settings file is also its game's."""
@@ -426,6 +461,8 @@ def _curated(area: str, offered: set[str]) -> tuple[Heading, ...]:
     """An area's curated rows that this file has, under their headings."""
     if area == areas.PLUGINS:
         return areas.plugin_headings(offered)
+    if area == areas.POINT_OF_VIEW:
+        return areas.view_headings(offered)
     kept = (Heading(one.key, tuple(key for key in one.keys if key in offered),
                     one.enabled_by) for one in areas.CURATED.get(area, ()))
     return tuple(one for one in kept if one.keys)
@@ -530,7 +567,7 @@ def _field(one: vini.Setting) -> Field:
         # the words for those.
         label="" if one.label == one.key else one.label,
         type=_type_of(one),
-        default="" if one.qualified in FROM_THE_SCREEN else one.default,
+        default="" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE else one.default,
         description=one.description,
         choices=one.choices,
         minimum=one.minimum,
