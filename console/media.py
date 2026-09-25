@@ -11,19 +11,15 @@ bulk action is given - which is why filling gaps in bulk has had nowhere to live
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from typing import Any
 
-from nicegui import run, ui
+from nicegui import ui
 
 from common.i18n import t
 from common.media_specs import media_label_map
-from console import confirm, grid, media_ownership, offload, panel, verbs, views
-from console.api import ApiClient
+from console import art_fill, grid, media_ownership, offload, panel, verbs, views
 from console.games import view_control
-
-logger = logging.getLogger("vpinfe.console.media")
 
 SCOPE = "console.media.columns"
 
@@ -147,63 +143,6 @@ VIEWS: dict[str, list[str] | views.Preset] = {
 }
 
 
-async def fill(picked: list[dict[str, Any]], library: Any,
-               after: Callable[[], Any]) -> None:
-    """Fetch art for every selected slot that has none.
-
-    One call per slot, because the API fills one slot. A slot no catalog publishes is
-    not a failure - a search that comes back empty is a real answer - so it is counted
-    and reported rather than raised, and one slot's failure does not end the run.
-    """
-    wanted = [row for row in picked if not row.get("present")]
-    if not wanted:
-        ui.notify(t("console.media.all_file_select_missing"),
-                  type="warning")
-        return
-    unmatched = sum(1 for row in wanted if not row.get("vps_id"))
-    if not await confirm.ask(
-            t("console.media.look_art_missing", len=(len(wanted))),
-            detail=t("console.media.anything_found_copied_game"),
-            lines=([t("console.media.not_matched_vps_nothing", unmatched=(unmatched))]
-                    if unmatched else []),
-            confirm=t("console.media.get_art"), icon=verbs.FETCH, danger=False):
-        return
-
-    filled = empty = failed = 0
-    for row in wanted:
-        if not row.get("vps_id"):
-            empty += 1
-            continue
-        try:
-            offers = await offload.io(ApiClient().media_offers,
-                                        row["vps_id"], row["kind"])
-            if not offers:
-                empty += 1
-                continue
-            offer = offers[0]
-            await run.io_bound(library.fetch_media, row["game_id"],
-                               row.get("table") or "", row["kind"],
-                               offer["source"], row["vps_id"], offer.get("size") or "")
-            filled += 1
-        except Exception as exc:
-            logger.warning("media: could not fill %s for %s: %s",
-                           row["kind"], row["game_id"], exc)
-            failed += 1
-
-    if empty and failed:
-        said = t("console.media.filled_empty_failed", filled=(filled), empty=(empty),
-                 failed=(failed))
-    elif empty:
-        said = t("console.media.filled_empty", filled=(filled), empty=(empty))
-    elif failed:
-        said = t("console.media.filled_failed", filled=(filled), failed=(failed))
-    else:
-        said = t("console.media.filled", filled=(filled))
-    ui.notify(said, type="positive" if filled else "warning")
-    if filled:
-        await after()
-
-
 def build(found: list[dict[str, Any]], library: Any,
           on_select: Callable[[dict | None], Any],
           state: dict[str, Any] | None = None,
@@ -243,16 +182,25 @@ def build(found: list[dict[str, Any]], library: Any,
             if rescan is not None:
                 panel.refresh(rescan, t("console.media.read_library_disk_pick"))
 
-        async def refill() -> None:
-            for game_id in {row["game_id"] for row in selected}:
-                library.forget_media(game_id)
-            if rerender:
-                rerender()
+        async def get_missing_art() -> None:
+            picked = list(selected)
+            ids = list(dict.fromkeys(str(row["game_id"]) for row in picked))
+
+            def placed() -> None:
+                for game_id in ids:
+                    library.forget_media(game_id)
+                if rerender:
+                    rerender()
+
+            if len(picked) < on_screen["rows"]:
+                await art_fill.confirm_slots(picked, state, placed)
+                return
+            await art_fill.ask(ids, state, placed,
+                               name=str(picked[0].get("game") or "") if len(ids) == 1 else "")
 
         with actions:
             with ui.menu():
-                ui.menu_item(t("console.media.get_art_selected"),
-                             lambda: fill(list(selected), library, refill)) \
+                ui.menu_item(t("console.art_fill.get_missing"), get_missing_art) \
                     .classes("console-menu-item")
                 ui.separator()
                 ui.menu_item(t("word.clear_selection"),

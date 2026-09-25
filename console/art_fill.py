@@ -13,10 +13,11 @@ from typing import Any, Literal
 
 from nicegui import ui
 
+from common.games import media_fill
 from common.i18n import t
 from common.media_specs import media_label_map
+from console import confirm, offload, remembered, verbs
 from console import dialog as frame
-from console import offload, remembered, verbs
 from console.api import ApiClient
 
 TICKS = "art_fill.kinds"
@@ -69,6 +70,30 @@ async def ask(game_ids: list[str] | None, state: dict[str, Any],
         await get(lambda: ApiClient().fill_media(game_ids, kinds), state, then)
 
 
+async def confirm_slots(rows: list[dict[str, Any]], state: dict[str, Any],
+                        then: Callable[[], Any]) -> None:
+    """Get art for exactly these media rows, the ones among them that have no file."""
+    gaps = [row for row in rows if media_fill.is_gap(row)]
+    if not gaps:
+        ui.notify(t("console.art_fill.nothing_missing"), type="info")
+        return
+    games = {str(row["game_id"]): bool(row.get("vps_id")) for row in gaps}
+    if not await confirm.ask(
+            t("console.art_fill.ask_slots", count=len(gaps)),
+            lines=_unmatched(len(games), sum(not matched for matched in games.values())),
+            confirm=t("console.art_fill.get_art"), icon=verbs.FETCH, danger=False):
+        return
+    slots = tuple((str(row["game_id"]), str(row["kind"])) for row in gaps)
+    await get(lambda: ApiClient().fill_media(slots=slots), state, then)
+
+
+def _unmatched(games: int, unmatched: int) -> list[str]:
+    if not unmatched:
+        return []
+    return [t("console.art_fill.game_unmatched") if games == 1
+            else t("console.art_fill.unmatched", count=unmatched)]
+
+
 async def _choose(found: dict[str, Any], name: str) -> list[str]:
     rows = list(found.get("kinds") or [])
     held = dict(remembered.get(TICKS) or {})
@@ -94,10 +119,8 @@ async def _choose(found: dict[str, Any], name: str) -> list[str]:
             for row in rows:
                 _kind_row(row, labels.get(str(row["kind"]), str(row["kind"])), chosen,
                           recount)
-        if unmatched:
-            ui.label(t("console.art_fill.game_unmatched") if games == 1
-                     else t("console.art_fill.unmatched", count=unmatched)) \
-                .classes("console-help px-3")
+        for line in _unmatched(games, unmatched):
+            ui.label(line).classes("console-help px-3")
         if found.get("unreachable"):
             ui.label(t("console.art_fill.unreachable",
                        sources=", ".join(found["unreachable"]))) \

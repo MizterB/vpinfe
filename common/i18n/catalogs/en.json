@@ -312,6 +312,10 @@
   "console.app_settings.the_tables_own": "The table's own",
   "console.app_settings.unused": "Unused",
   "console.app_settings.window_row": "{window} {label}",
+  "console.art_fill.ask_slots": {
+    "one": "Get art for 1 missing file?",
+    "other": "Get art for {count} missing files?"
+  },
   "console.art_fill.available": "{count} available",
   "console.art_fill.could_not_get": {
     "one": "Could not get 1 file",
@@ -329,6 +333,7 @@
     "one": "Get 1",
     "other": "Get {count}"
   },
+  "console.art_fill.get_art": "Get art",
   "console.art_fill.get_missing": "Get missing art...",
   "console.art_fill.got": {
     "one": "Got 1 file",
@@ -340,6 +345,7 @@
   "console.art_fill.no_sources": "No online sources are switched on",
   "console.art_fill.none_available": "none available",
   "console.art_fill.none_missing": "none missing",
+  "console.art_fill.nothing_missing": "Nothing selected is missing",
   "console.art_fill.title": "Get missing art from “{source}”",
   "console.art_fill.title_several": "Get missing art",
   "console.art_fill.unmatched": {
@@ -898,26 +904,16 @@
   "console.logs.where_file_reading_rest": "Where this file is, for reading the rest of it",
   "console.logs.wrap_long_lines": "Wrap long lines",
   "console.media.actions_selected_media": "Actions for the selected media",
-  "console.media.all_file_select_missing": "Those all have a file. Select missing ones to fill.",
-  "console.media.anything_found_copied_game": "Anything found is copied into the game folder, named for the table or shared by all of them, whichever the row is.",
   "console.media.art_left_behind_table.help": "Art left behind when a table was renamed, replaced or deleted",
   "console.media.art_not_filter_one.help": "The art you do not have. Filter to one kind and you have the shopping list for it - select the rows and fetch them from the catalogs in one go.",
   "console.media.covered": "Covered by",
   "console.media.every_row_nothing_hidden.help": "Every row, nothing hidden. The way out of any other view, and where you build a filter of your own worth saving.",
   "console.media.files_nothing_loads_because.help": "Files nothing loads, because something more specific wins",
-  "console.media.filled": "Filled {filled}",
-  "console.media.filled_empty": "Filled {filled}, nothing published for {empty}",
-  "console.media.filled_empty_failed": "Filled {filled}, nothing published for {empty}, {failed} failed",
-  "console.media.filled_failed": "Filled {filled}, {failed} failed",
   "console.media.game_folder_file_belongs.help": "The game folder this file belongs to",
-  "console.media.get_art": "Get art",
-  "console.media.get_art_selected": "Get art for selected",
   "console.media.how_many_game_s.help": "How many of this game's tables load this file\n0 - nothing loads it\nBlank - no file to load",
-  "console.media.look_art_missing": "Look for art for {len} missing?",
   "console.media.match": "Match",
   "console.media.media": "{value} of {len} media",
   "console.media.media_missing": "{count} media, {gaps} missing",
-  "console.media.not_matched_vps_nothing": "{unmatched} are not matched to VPS, so nothing can be looked up for those",
   "console.media.put_file_far_anything.help": "Who put the file here, as far as anything recorded it\nUnknown - nothing recorded it\nBlank - there is no file",
   "console.media.read_library_disk_pick": "Read the library from disk again and pick up anything added, changed or removed - tables, media and assets",
   "console.media.search_media": "Search media",

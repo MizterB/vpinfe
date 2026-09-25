@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import unittest
+from unittest import mock
 
+from console import art_fill
 from console.art_fill import outcome, remember, ticked
 
 KINDS = [{"kind": "wheel", "missing": 12, "available": 9},
@@ -44,6 +47,56 @@ class OutcomeTests(unittest.TestCase):
 
     def test_nothing_found_is_not_a_failure(self) -> None:
         self.assertEqual(outcome({"games": 3, "filled": 0}), ("No art found", "info"))
+
+
+def _row(game: str, kind: str, *, present: bool = False, table: str = "",
+         standing_in: str = "", vps_id: str = "vps1") -> dict:
+    return {"game_id": game, "kind": kind, "present": present, "table": table,
+            "standing_in": standing_in, "vps_id": vps_id}
+
+
+class SlotTests(unittest.TestCase):
+    """A Media grid selection: only its rows with no file are asked for."""
+
+    def _confirm(self, rows: list[dict], answer: bool = True) -> tuple[mock.Mock, ...]:
+        with mock.patch.object(art_fill.confirm, "ask",
+                               mock.AsyncMock(return_value=answer)) as ask, \
+                mock.patch.object(art_fill, "get", mock.AsyncMock()) as get, \
+                mock.patch.object(art_fill, "ApiClient") as client, \
+                mock.patch.object(art_fill.ui, "notify") as notify:
+            asyncio.run(art_fill.confirm_slots(rows, {}, lambda: None))
+            if get.await_args:
+                get.await_args.args[0]()
+        return ask, get, client, notify
+
+    def test_only_the_rows_with_no_file_are_fetched(self) -> None:
+        rows = [_row("g1", "wheel"), _row("g1", "backglass", present=True),
+                _row("g2", "wheel"), _row("g2", "topper", standing_in="set:Classic"),
+                _row("g2", "flyer", present=True, table="t1")]
+
+        ask, _get, client, _notify = self._confirm(rows)
+
+        self.assertEqual(ask.await_args.args[0], "Get art for 2 missing files?")
+        client.return_value.fill_media.assert_called_once_with(
+            slots=(("g1", "wheel"), ("g2", "wheel")))
+
+    def test_a_game_with_no_match_is_named(self) -> None:
+        ask, *_ = self._confirm([_row("g1", "wheel", vps_id=""), _row("g2", "wheel")])
+
+        self.assertEqual(ask.await_args.kwargs["lines"],
+                         ["1 is not matched to VPS, so nothing can be looked up for it"])
+
+    def test_cancelled_fetches_nothing(self) -> None:
+        _ask, get, *_ = self._confirm([_row("g1", "wheel")], answer=False)
+
+        get.assert_not_awaited()
+
+    def test_nothing_missing_asks_nothing(self) -> None:
+        ask, get, _client, notify = self._confirm([_row("g1", "wheel", present=True)])
+
+        ask.assert_not_awaited()
+        get.assert_not_awaited()
+        self.assertEqual(notify.call_args.args[0], "Nothing selected is missing")
 
 
 if __name__ == "__main__":

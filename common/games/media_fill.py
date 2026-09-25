@@ -81,9 +81,10 @@ def _size(kind: str, media: MediaConfig) -> str:
             "table_video_resolution": media.playfield_video_resolution}.get(group, group)
 
 
-def _is_gap(row: dict[str, Any]) -> bool:
-    """No file serves the game's tables, and no set someone chose answers the slot."""
-    return (not row["table"] and not row["present"]
+def is_gap(row: dict[str, Any]) -> bool:
+    """A media row the fill would fetch for: no file serves the game's tables, and no
+    set someone chose answers the slot."""
+    return (not row.get("table") and not row.get("present")
             and not str(row.get("standing_in") or "").startswith("set:"))
 
 
@@ -91,7 +92,7 @@ def _gaps(game_id: str) -> list[str]:
     from common.games import media_lens
 
     return [row["kind"] for row in media_lens.listing(game=game_id)["media"]
-            if _is_gap(row)]
+            if is_gap(row)]
 
 
 def _fetch(game_id: str, kind: str, asked: str, vps_id: str, size: str,
@@ -212,7 +213,7 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
     only = next(iter(scope)) if len(scope) == 1 else ""
     gaps: dict[str, list[str]] = {}
     for row in media_lens.listing(game=only)["media"] if scope else []:
-        if row["game_id"] in scope and _is_gap(row):
+        if row["game_id"] in scope and is_gap(row):
             gaps.setdefault(row["game_id"], []).append(row["kind"])
     missing = dict.fromkeys(kinds, 0)
     available = dict.fromkeys(kinds, 0)
