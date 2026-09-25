@@ -1671,6 +1671,7 @@
     "one": "{count} ĝàɱè ɱàţçĥèš",
     "other": "{count} ĝàɱèš ɱàţçĥ"
   },
+  "console.workbench.get_version": "Ĝèţ {version}",
   "console.workbench.gets_new_id_joins": "Îţ ĝèţš à ñèŵ îđ àñđ ĵöîñš ţĥè ŀîƀřàřý ƀèšîđè ţĥè öñè ţĥàţ îš àñšŵèřîñĝ ñöŵ. Àñýţĥîñĝ ţĥàţ ñàɱèđ ţĥè šĥàřèđ îđ ķèèþš þöîñţîñĝ àţ ţĥàţ öñè. Ñöţĥîñĝ îš ɱöṽèđ öř đèŀèţèđ.",
   "console.workbench.give_all_tables": "Ĝîṽè ţö àŀŀ ţàƀŀèš",
   "console.workbench.guide_address": "Àđđřèšš",
@@ -1752,6 +1753,7 @@
   "console.workbench.more_in_all_settings": "{count} ɱöřè îñ Àŀŀ Šèţţîñĝš",
   "console.workbench.named_off": "{name} îš šŵîţçĥèđ öƒƒ, šö ţĥîš ţàƀŀè þŀàýš {fallback}",
   "console.workbench.new_games": "Ñèŵ ĝàɱèš",
+  "console.workbench.newer_on_vps": "ṼÞŠ ŀîšţš {theirs}, ñèŵèř ţĥàñ ţĥîš ƒîŀè'š {ours}",
   "console.workbench.newest_first_copy_settings": "Ţĥè ñèŵèšţ îš ƒîřšţ. À çöþý öƒ ţĥè šèţţîñĝš àš ţĥèý àřè ñöŵ îš ţàķèñ ƀèƒöřè àñý öƒ ţĥèšè řèþŀàçèš ţĥèɱ.",
   "console.workbench.no": "Ñö {lower} ƒöř ţĥîš {value}",
   "console.workbench.no_copies_put_back": "Ñö çöþîèš ţö þûţ ƀàçķ ýèţ",

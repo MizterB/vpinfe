@@ -2383,17 +2383,18 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
    groups the two without a rule between them. */
 .console-fact-aside { grid-column: 2; padding: 0; margin-top: -8px; min-width: 0; }
 
-/* What is wrong with this thing, before anything merely true about it. Amber, which is
-   already the exception color here - not red: none of these is an error, they are
-   things to go and fix. */
+/* What is wrong with this thing, before anything merely true about it: one block per
+   finding, ending in the act that fixes it. Amber, which is already the exception color
+   here - not red: none of these is an error, they are things to go and fix. */
 .console-attention {
-  display: flex; align-items: flex-start; gap: 8px; min-width: 0;
+  display: flex; align-items: center; gap: 8px; min-width: 0;
   border: 1px solid var(--notice-edge);
   background: var(--notice-wash);
   border-radius: 6px; padding: 6px 10px;
 }
 .console-attention-icon { color: var(--tier-table); font-size: var(--icon-mark); flex: 0 0 auto; }
 .console-attention-line { font-size: var(--fs-body); color: var(--ink); }
+.console-attention > .q-btn, .console-attention > .console-link { flex: 0 0 auto; }
 /* One detail against its replacement. The old value is struck rather than merely dim:
    it is not a lesser version of the new one, it is the wrong machine's. */
 .console-diff-field {

@@ -873,6 +873,21 @@ to Yes/No.
 State chips are not media tiers. `console/media_ownership.py` answers "whose file is this", and its amber
 means the exception worth spotting in a map of twenty.
 
+### A finding leads the panel, with its fix
+
+What is wrong with a subject comes before anything merely true about it: one
+`.console-attention` block per finding, at the top of the section it belongs to, ending in
+the act that fixes it. *Add* for a ROM that is not installed, *Forget* for a file that is
+gone, a link to the newer release for a table with an update.
+
+- **Only faults.** Hidden, not the default, a slot left empty: those are choices or
+  coverage, and a block that fires on them teaches everyone to skip it.
+- **A finding nothing here can fix still shows, with no action.** A location that is away
+  is fixed by bringing it back, not by a button.
+- **Once per panel.** A game's panel carries its tables' findings, each named where there
+  is more than one table; a table's panel carries its own, and the game's section above it
+  does not repeat them.
+
 ### Marks, and what color one is
 
 **A binary fact is a tick; a fact with more answers is a shaped circle.** Presence is a

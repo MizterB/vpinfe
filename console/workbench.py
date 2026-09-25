@@ -1933,8 +1933,11 @@ async def _game_block(context: dict[str, Any]) -> None:
                if found.get("name") else [])
     held = bool(found) or not vps_id or await offload.io(library.vps_catalog_held)
     links = await offload.io(library.outside_links, context["game_id"])
+    # Under Tables the table's own section leads with them, and saying each twice on
+    # one panel is what teaches a reader to skip the block.
+    findings = [] if context["lens"] else await _findings(context, context["tables"])
     with ui.column().classes("gap-0 console-form"):
-        _rows(ui, _game_entries(context, found, differs, held, links))
+        _rows(ui, findings + _game_entries(context, found, differs, held, links))
         _tables_block(context, held)
 
 
@@ -1946,11 +1949,12 @@ async def _table_block(context: dict[str, Any]) -> None:
     links = (await offload.io(context["library"].outside_links, context["game_id"],
                               str(chosen.get("id") or ""))
              if chosen is not None and chosen.get("id") else [])
+    findings = await _findings(context, [chosen]) if chosen is not None else []
     with ui.column().classes("gap-0 console-form"):
         if chosen is None:
             ui.label(t("console.workbench.no_table_selected")).classes("console-help")
             return
-        _rows(ui, _table_entries(chosen, context, match, links))
+        _rows(ui, _table_entries(chosen, context, match, links, findings))
     ui.run_javascript(_KEEP_SCROLL % f"table:{chosen.get('id') or ''}".replace("'", "\\'"))
 
 
@@ -2575,7 +2579,8 @@ def _guide_row(name: str, address: str, said: str, *, arrange: bool = False,
 def _table_entries(table: dict[str, Any],
                    context: dict[str, Any] | None = None,
                    match: Sequence[tuple[Any, Any]] = (),
-                   links: Sequence[dict[str, Any]] = ()) -> list[tuple[Any, Any]]:
+                   links: Sequence[dict[str, Any]] = (),
+                   findings: Sequence[tuple[Any, Any]] = ()) -> list[tuple[Any, Any]]:
     """One table's own facts.
 
     The rom is the one it resolves to with any alias followed, which is the one that
@@ -2594,9 +2599,7 @@ def _table_entries(table: dict[str, Any],
     # grid. Each group carries the actions that work on it.
     features = table.get("features") or {}
 
-    entries: list[tuple[Any, Any]] = []
-    if context is not None:
-        entries += _attention(table)
+    entries: list[tuple[Any, Any]] = [*findings]
     entries += match
 
     # What this file is. "Filename" rather than the group's own word, which named the
@@ -3092,55 +3095,100 @@ def _with_add(context: dict[str, Any], kind: str, chip: Callable[[], Any]) -> An
 
 
 def _add_action(context: dict[str, Any], kind: str) -> None:
+    opens = _add_opener(context, kind)
+    if opens is not None:
+        panel.action(t("word.add"), opens, icon=verbs.ADD, inline=True)()
+
+
+def _add_opener(context: dict[str, Any], kind: str) -> Callable[[], None] | None:
     label = _asset_name(kind)
     done = context["rebuild"]
     if kind == "readme":
-        opens = partial(mediasource.open_notes_sources, context, label, done)
-    elif kind in _WHOLE_FOLDER or kind == "rom":
-        opens = partial(mediasource.open_folder_sources, context, kind, label, done)
-    elif kind in _PLACEABLE:
-        opens = partial(mediasource.open_asset_sources, context, kind, label, done)
-    else:
-        return
-    panel.action(t("word.add"), opens, icon=verbs.ADD, inline=True)()
+        return partial(mediasource.open_notes_sources, context, label, done)
+    if kind in _WHOLE_FOLDER or kind == "rom":
+        return partial(mediasource.open_folder_sources, context, kind, label, done)
+    if kind in _PLACEABLE:
+        return partial(mediasource.open_asset_sources, context, kind, label, done)
+    return None
 
 
-def _attention(table: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """What is wrong with this table, before anything that is merely true about it.
+async def _findings(context: dict[str, Any],
+                    tables: Sequence[dict[str, Any]]) -> list[tuple[Any, Any]]:
+    """What is wrong with these tables, before anything that is merely true about them:
+    one alert per finding, ending in the act that fixes it where the panel has one.
 
-    A workbench leads with the thing you would act on. Only real faults: hidden and
-    not-default are choices somebody made, not problems, and listing them here would
-    teach the block to be ignored.
+    Only real faults. Hidden and not-default are choices somebody made, not problems,
+    and listing them here would teach the block to be ignored.
     """
+    releases: dict[str, dict[str, Any]] = {}
+    entry_url = ""
+    if any(table.get("update_available") for table in tables):
+        vps_id = str(context["game"].get("vps_id") or "")
+        releases = {str(one.get("vps_file_id") or ""): one
+                    for one in await offload.io(_releases_of, context, vps_id)}
+        entry = await offload.io(context["library"].vps_entry, vps_id) if vps_id else {}
+        entry_url = str((entry or {}).get("url") or "")
+    named = len(context["tables"]) > 1
+    entries: list[tuple[Any, Any]] = []
+    for table in tables:
+        said = game_tables.name_among(table, context["tables"]) if named else ""
+        entries += [(FULL, _alert(line, act, said))
+                    for line, act in _faults(context, table, releases, entry_url)]
+    return entries
+
+
+def _faults(context: dict[str, Any], table: dict[str, Any],
+            releases: dict[str, dict[str, Any]],
+            entry_url: str) -> list[tuple[str, Callable[[], None] | None]]:
     pinmame = (table.get("dependencies") or {}).get("pinmame") or {}
     flex = (table.get("dependencies") or {}).get("flexdmd") or {}
-    faults = []
+    faults: list[tuple[str, Callable[[], None] | None]] = []
     if not table.get("available"):
         # Three ways a thing can be unavailable and they are not the same fault. A file
         # that is gone is a deletion; a file somewhere else is a location that is away,
         # and nothing here is lost; something with no file at all has nothing to play
         # it. The same sentence for all three would send somebody to the wrong fix.
         if game_tables.is_referenced(table):
-            faults.append(t("console.workbench.place_table_lives_not"))
+            faults.append((t("console.workbench.place_table_lives_not"), None))
         elif game_tables.is_keyed(table):
-            faults.append(t("console.workbench.nothing_device_can_play"))
+            faults.append((t("console.workbench.nothing_device_can_play"), None))
         else:
-            faults.append(t("console.workbench.file_not_disk"))
+            faults.append((t("console.workbench.file_not_disk"),
+                           panel.action(t("word.forget"),
+                                        partial(_forget_table, context, table),
+                                        icon=verbs.FORGET)))
     if pinmame.get("effective") and pinmame.get("installed") is False:
-        faults.append(t("console.workbench.rom_not_installed", value=(pinmame['effective'])))
+        opens = _add_opener(context, "rom")
+        faults.append((t("console.workbench.rom_not_installed", value=(pinmame['effective'])),
+                       panel.action(t("word.add"), opens, icon=verbs.ADD) if opens else None))
     if flex.get("detected") and not flex.get("installed"):
-        faults.append(t("console.workbench.script_uses_flexdmd_not"))
-    if not faults:
-        return []
+        faults.append((t("console.workbench.script_uses_flexdmd_not"), None))
+    if table.get("update_available"):
+        source = table.get("source") or {}
+        theirs = str(source.get("version") or "")
+        release = releases.get(str(source.get("vps_file_id") or "")) or {}
+        to = str(release.get("url") or "") or entry_url
+        faults.append((t("console.workbench.newer_on_vps", theirs=theirs,
+                         ours=str(table.get("version") or "")),
+                       panel.link_out(t("console.workbench.get_version", version=theirs),
+                                      to=to) if to else None))
+    return faults
 
+
+def _alert(line: str, act: Callable[[], None] | None, said: str = "") -> Callable[[], None]:
+    """One finding, and the table it is about where the panel holds more than one."""
     def draw() -> None:
         with ui.element("div").classes("console-attention"):
             ui.icon("error_outline").classes("console-attention-icon")
-            with ui.column().classes("gap-0 min-w-0"):
-                for fault in faults:
-                    ui.label(fault).classes("console-attention-line")
+            with ui.column().classes("gap-0 min-w-0 grow"):
+                ui.label(line).classes("console-attention-line")
+                if said:
+                    ui.label(said).classes("console-member-table truncate max-w-full") \
+                        .tooltip(said)
+            if act is not None:
+                act()
 
-    return [(FULL, draw)]
+    return draw
 
 
 def _hidden_row(context: dict[str, Any], table: dict[str, Any]) -> tuple[Any, Any]:
@@ -3891,8 +3939,8 @@ def _release_shown(release: dict[str, Any]) -> None:
 
 
 def _releases_of(context: dict[str, Any], vps_id: str) -> list[dict[str, Any]]:
-    """The entry's builds, for the picker only - this blocks, so it belongs on a worker
-    thread and never in a draw."""
+    """The entry's builds. This blocks, so it belongs on a worker thread and never in a
+    draw."""
     if not vps_id:
         return []
     try:

@@ -1671,6 +1671,7 @@
     "one": "{count} game matches",
     "other": "{count} games match"
   },
+  "console.workbench.get_version": "Get {version}",
   "console.workbench.gets_new_id_joins": "It gets a new id and joins the library beside the one that is answering now. Anything that named the shared id keeps pointing at that one. Nothing is moved or deleted.",
   "console.workbench.give_all_tables": "Give to all tables",
   "console.workbench.guide_address": "Address",
@@ -1752,6 +1753,7 @@
   "console.workbench.more_in_all_settings": "{count} more in All Settings",
   "console.workbench.named_off": "{name} is switched off, so this table plays {fallback}",
   "console.workbench.new_games": "New games",
+  "console.workbench.newer_on_vps": "VPS lists {theirs}, newer than this file's {ours}",
   "console.workbench.newest_first_copy_settings": "The newest is first. A copy of the settings as they are now is taken before any of these replaces them.",
   "console.workbench.no": "No {lower} for this {value}",
   "console.workbench.no_copies_put_back": "No copies to put back yet",
