@@ -74,6 +74,39 @@ class TheDeclaration(unittest.TestCase):
         with self.assertRaises(ContractError):
             self.ui.community("tables", "/t", title="Site", columns=COLUMNS, tag="Challenge")
 
+    def test_a_view_ranks_by_numbers_and_dates(self) -> None:
+        self.ui.community("scores", "/t", title="Site",
+                          columns=[*COLUMNS, {"field": "set", "kind": "date"}],
+                          views=[{"key": "top", "ranks": True,
+                                  "sort": [{"field": "plays", "desc": True},
+                                           {"field": "set"}]},
+                                 {"key": "all", "sort": [{"field": "name"}]}],
+                          relation={"field": "vpsId", "keys": "vps_release"})
+
+        self.assertEqual([True, False],
+                         [one["ranks"] for one in self.ui.community_lists[0]["views"]])
+
+    def test_a_ranked_view_sorting_on_text_is_refused(self) -> None:
+        """A ranking is a number a game has; a name sorts but ranks nothing."""
+        with self.assertRaises(ContractError):
+            self.ui.community("tables", "/t", title="Site", columns=COLUMNS,
+                              views=[{"key": "top", "ranks": True,
+                                      "sort": [{"field": "plays", "desc": True},
+                                               {"field": "name"}]}],
+                              relation={"field": "vpsId", "keys": "vps_entry"})
+
+    def test_a_ranked_view_with_no_sort_is_refused(self) -> None:
+        with self.assertRaises(ContractError):
+            self.ui.community("tables", "/t", title="Site", columns=COLUMNS,
+                              views=[{"key": "top", "ranks": True}],
+                              relation={"field": "vpsId", "keys": "vps_entry"})
+
+    def test_a_ranked_view_of_a_list_that_relates_to_nothing_is_refused(self) -> None:
+        with self.assertRaises(ContractError):
+            self.ui.community("tables", "/t", title="Site", columns=COLUMNS,
+                              views=[{"key": "top", "ranks": True,
+                                      "sort": [{"field": "plays", "desc": True}]}])
+
     def test_it_needs_the_capability_to_draw(self) -> None:
         with self.assertRaises(ContractError):
             ExtensionUI("site", allowed=False).community("tables", "/t", columns=COLUMNS)

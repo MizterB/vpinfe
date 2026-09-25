@@ -37,7 +37,7 @@ _SHOWN = ["name", "rating", "ratings", "plays", "hours", "players", "last_played
 
 
 def _view(field: str, *then: str) -> dict[str, Any]:
-    return {"key": field, "columns": _SHOWN,
+    return {"key": field, "columns": _SHOWN, "ranks": True,
             "sort": [{"field": one, "desc": True} for one in (field, *then)]}
 
 

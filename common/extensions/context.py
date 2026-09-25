@@ -228,6 +228,7 @@ class ExtensionApps:
 
 
 COLUMN_KINDS = frozenset({"text", "number", "date"})
+RANKING_KINDS = frozenset({"number", "date"})
 RELATION_KEYS = frozenset({"vps_entry", "vps_release"})
 
 
@@ -288,10 +289,12 @@ class ExtensionUI:
         `base` is a route of this extension's answering `{"rows": [...]}`. A column is
         `{"field", "header", "kind"}` with `kind` one of `text`, `number`, `date`, and the
         first may name `under`: row fields drawn on the line beneath its value. A view is
-        `{"key", "name", "columns", "sort": [{"field", "desc"}], "help"}`. `relation` is
-        `{"field", "keys"}`, `keys` being `vps_entry` or `vps_release`. `tag` is put on
-        every game (`vps_entry`) or table (`vps_release`) of this library the list relates
-        to, so it needs a `relation`.
+        `{"key", "name", "columns", "sort": [{"field", "desc"}], "help", "ranks"}`, and one
+        that `ranks` is offered as an order for a collection, so it needs a `relation` and
+        a sort on number or date columns only. `relation` is `{"field", "keys"}`, `keys`
+        being `vps_entry` or `vps_release`. `tag` is put on every game (`vps_entry`) or
+        table (`vps_release`) of this library the list relates to, so it needs a
+        `relation`.
         """
         self._needs_ui("a community list")
         wanted = str(key or "").strip()
@@ -320,6 +323,18 @@ class ExtensionUI:
         if derived and not relation:
             raise ContractError(f"{self._name} derives a tag from a list that relates to "
                                 "nothing in the library")
+        measured = {field for field, one in zip(fields, columns, strict=True)
+                    if str((one or {}).get("kind") or "text") in RANKING_KINDS}
+        for view in views or []:
+            if not view.get("ranks"):
+                continue
+            sorted_on = {str(one.get("field") or "") for one in view.get("sort") or []}
+            if not sorted_on or not sorted_on <= measured:
+                raise ContractError(f"{self._name} ranks by a view that sorts on nothing, "
+                                    "or on a column that is not a number or a date")
+            if not relation:
+                raise ContractError(f"{self._name} ranks by a view of a list that relates "
+                                    "to nothing in the library")
         self.community_lists.append({
             "key": wanted, "title": str(title or "").strip(),
             "base": str(base or "").strip(),
@@ -333,7 +348,8 @@ class ExtensionUI:
                        "columns": list(view.get("columns") or fields),
                        "sort": [{"field": str(one["field"]), "desc": bool(one.get("desc"))}
                                 for one in view.get("sort") or []],
-                       "help": str(view.get("help") or "")} for view in views or []],
+                       "help": str(view.get("help") or ""),
+                       "ranks": bool(view.get("ranks"))} for view in views or []],
             "relation": dict(relation) if relation else None,
             "tag": derived,
         })

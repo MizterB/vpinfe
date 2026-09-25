@@ -107,6 +107,14 @@ class TheDeclaration(unittest.TestCase):
                          (said["key"], said["title"], said["relation"]["keys"],
                           said["views"][0]["name"]))
 
+    def test_every_view_ranks(self) -> None:
+        registry = host.Registry()
+        self.addCleanup(registry.clear)
+        (said,) = registry.load(host.BUNDLED_DIR / "vpinplay").lists()
+
+        self.assertEqual(["rating", "plays", "hours", "last_played", "players"],
+                         [one["key"] for one in said["views"] if one["ranks"]])
+
 
 if __name__ == "__main__":
     unittest.main()
