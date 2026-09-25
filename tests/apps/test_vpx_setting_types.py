@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import ModuleType
 
 from apps.vpx.setting_types import TYPES
@@ -60,17 +61,54 @@ class ParseTests(unittest.TestCase):
             script.parsed('PropColor(Player, Tint, "Tint"s, ""s, 0x000000);')
 
 
+class PluginTests(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        plugin = self.root / "pinmame"
+        plugin.mkdir()
+        (plugin / "plugin.cfg").write_text('[configuration]\nid = "PinMAME"\n')
+        (plugin / "plugin.cpp").write_text(
+            'MSGPI_STRING_VAL_SETTING(pathProp, "PinMAMEPath", "PinMAME Path",\n'
+            '   "Folder that contains PinMAME subfolders", true, "", 1024);\n'
+            'MSGPI_BOOL_VAL_SETTING(zeProp, "ZeDMD", "ZeDMD", "", true, false);\n'
+            'MSGPI_INT_VAL_SETTING(portProp, "Port", PORT_LABEL, "", true, 0, 9, 0);\n')
+
+    def test_each_setting_lands_in_its_plugin_s_section(self) -> None:
+        types, _labels = script.from_plugins(self.root)
+
+        self.assertEqual(types, {"Plugin.PinMAME.Enable": "bool",
+                                 "Plugin.PinMAME.PinMAMEPath": "string",
+                                 "Plugin.PinMAME.ZeDMD": "bool",
+                                 "Plugin.PinMAME.Port": "int"})
+
+    def test_a_label_is_kept_where_it_is_not_the_key(self) -> None:
+        _types, labels = script.from_plugins(self.root)
+
+        self.assertEqual(labels, {"Plugin.PinMAME.PinMAMEPath": "PinMAME Path"})
+
+
 class CombinedTests(unittest.TestCase):
     def test_the_later_build_answers_for_a_setting_both_declare(self) -> None:
-        types, contextual = script.combined([
+        types, contextual, _labels = script.combined([
             ({"DefaultProps\\Flasher.AddBlend": "bool", "Player.PlayMusic": "bool"},
-             {"DefaultProps\\Flasher.AddBlend"}),
-            ({"DefaultProps\\Flasher.AddBlend": "choice"}, set()),
+             {"DefaultProps\\Flasher.AddBlend"}, {}),
+            ({"DefaultProps\\Flasher.AddBlend": "choice"}, set(), {}),
         ])
 
         self.assertEqual(types, {"DefaultProps\\Flasher.AddBlend": "choice",
                                  "Player.PlayMusic": "bool"})
         self.assertEqual(contextual, set())
+
+    def test_a_label_the_later_build_no_longer_gives_is_gone(self) -> None:
+        _types, _contextual, labels = script.combined([
+            ({"Plugin.B2S.ShowGrill": "bool", "Plugin.B2S.Old": "bool"}, set(),
+             {"Plugin.B2S.ShowGrill": "Show Grill", "Plugin.B2S.Old": "Old Switch"}),
+            ({"Plugin.B2S.ShowGrill": "bool"}, set(), {}),
+        ])
+
+        self.assertEqual(labels, {"Plugin.B2S.Old": "Old Switch"})
 
 
 class MapTests(unittest.TestCase):

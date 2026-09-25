@@ -14,7 +14,7 @@ from unittest import mock
 
 from apps.vpx import areas
 from apps.vpx.config import VPXConfig, own_file, settings_file
-from apps.vpx.setting_types import TYPES
+from apps.vpx.setting_types import LABELS, TYPES
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
 
 APP_INI = """\
@@ -551,9 +551,12 @@ class CuratedTests(unittest.TestCase):
                 with self.subTest(key=key):
                     self.assertEqual(areas.area_of(key), area)
 
-    def test_a_plugin_row_has_words_the_program_does_not_give_it(self) -> None:
-        self.assertEqual([key for key in self.plugin_rows
-                          if f"field.{key}.label" not in self.words], [])
+    def test_a_plugin_row_has_words_from_its_plugin_or_the_catalog(self) -> None:
+        self.assertEqual([key for key in self.plugin_rows if key not in LABELS
+                          and f"field.{key}.label" not in self.words], [])
+
+    def test_the_catalog_does_not_name_a_setting_its_plugin_names(self) -> None:
+        self.assertEqual([key for key in LABELS if f"field.{key}.label" in self.words], [])
 
     def test_every_heading_has_a_label(self) -> None:
         named = [f"group.{area}.heading.{one.key}.label"
@@ -800,6 +803,15 @@ class SchemaTests(_Case):
         self.assertEqual(one.label, "Output Mode")
         self.assertEqual(one.type, "choice")
         self.assertEqual(one.choices, (("0", "Disabled"), ("1", "Floating")))
+
+    def test_a_plugin_setting_written_bare_takes_the_label_its_plugin_declares(self) -> None:
+        self.app_ini.write_text(APP_INI + "\n[Plugin.PinMAME]\nPinMAMEPath = \n"
+                                "\n[Plugin.DMDUtil]\nZeDMD = 0\n")
+        labels = {f.key: f.label for g in self.config.groups(self.settings)
+                  for f in g.settings}
+
+        self.assertEqual(labels["Plugin.PinMAME.PinMAMEPath"], "PinMAME Path")
+        self.assertEqual(labels["Plugin.DMDUtil.ZeDMD"], "")
 
     def test_what_vpx_wrote_about_itself_is_not_offered_as_a_setting(self) -> None:
         offered = {f.key for g in self.config.groups(self.settings) for f in g.settings}

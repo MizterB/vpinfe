@@ -30,7 +30,7 @@ from common.apps.contract import (
 
 from . import areas, plugins
 from . import ini as vini
-from .setting_types import CONTEXTUAL, TYPES
+from .setting_types import CONTEXTUAL, LABELS, TYPES
 
 REST = areas.REST
 
@@ -581,9 +581,9 @@ def _field(one: vini.Setting) -> Field:
     is only unique inside its section - `Width` is in eight of them."""
     return Field(
         key=one.qualified,
-        # The file gives the key where the program has no label, and the catalog has
-        # the words for those.
-        label="" if one.label == one.key else one.label,
+        # The file gives the key where it has no label. A plugin's declaration may have
+        # one, and the catalog has the words for the rest.
+        label=one.label if one.label != one.key else LABELS.get(one.qualified, ""),
         type=_type_of(one),
         default="" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE else one.default,
         description=one.description,
