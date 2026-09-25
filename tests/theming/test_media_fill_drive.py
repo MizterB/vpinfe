@@ -1,0 +1,189 @@
+"""A Media fill, in a real browser: the search, the view and the selection are all still
+there when it has placed something.
+
+Slow: serves a bare page holding the Media grid over a stand-in library, and drives it
+in a real browser. The fill itself is stood in for, so nothing is fetched.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+import json
+import sys
+import unittest
+from collections.abc import Callable
+from typing import Any
+
+from common.i18n import t
+from tests.support.browser_session import BrowserSession
+from tests.theming.test_grid_selection_drive import API, HEADER_BOX, _heard, drive_page
+
+SEARCH = "Alpha"
+FILLED = "alpha1:wheel:"
+
+
+def _gaps() -> list[dict]:
+    """Ten games, each missing a wheel and a backglass: half of them match `SEARCH`."""
+    return [{"id": f"{name.lower()}{n}:{kind}:", "game_id": f"{name.lower()}{n}",
+             "game": f"{name} {n}", "kind": kind, "label": kind, "present": False}
+            for name in (SEARCH, "Beta") for n in range(1, 6)
+            for kind in ("wheel", "backglass")]
+
+
+class _Library:
+    def __init__(self) -> None:
+        self.found = _gaps()
+
+    def preferences(self, _key: str) -> dict:
+        return {}
+
+    def put_preferences(self, _key: str, _value: dict) -> None:
+        pass
+
+    def forget_media(self, _game_id: str) -> None:
+        pass
+
+    def load_media_rows(self) -> list[dict]:
+        return self.found
+
+    def media_rows(self) -> list[dict]:
+        return list(self.found)
+
+
+def serve(port: int) -> None:
+    """The Media page, drawn again by `rerender` as the Console draws it."""
+    from nicegui import app, ui
+
+    from console import api, art_fill, grid, media
+
+    api.local_base_url = lambda: "http://127.0.0.1:9"
+    library = _Library()
+    heard: dict = {"asked": [], "placed": False, "drawn": 0}
+
+    async def fill(game_ids: list[str] | None, state: dict[str, Any],
+                   then: Callable[[], Any], name: str = "") -> None:
+        heard["asked"] = list(game_ids or [])
+        library.found = [{**row, "id": "alpha1:wheel:wheel.png", "present": True,
+                          "path": "wheel.png"} if row["id"] == FILLED else row
+                         for row in library.found]
+        answer = then()
+        if inspect.isawaitable(answer):
+            await answer
+        heard["placed"] = True
+
+    async def fill_slots(rows: list[dict[str, Any]], state: dict[str, Any],
+                         then: Callable[[], Any]) -> None:
+        await fill([str(row["game_id"]) for row in rows], state, then)
+
+    art_fill.ask = fill
+    art_fill.confirm_slots = fill_slots
+
+    @ui.page("/")
+    async def page() -> None:
+        grid.install_filters()
+        box = ui.element("div").classes("w-full h-[700px] flex flex-col")
+
+        def draw() -> None:
+            heard["drawn"] += 1
+            box.clear()
+            with box:
+                media.build(library.media_rows(), library, lambda _row: None, {}, draw)
+
+        # After the browser is there, as the Console draws it: a view put on a grid
+        # before then is lost.
+        await ui.context.client.connected()
+        draw()
+
+    @app.get("/heard")
+    def said() -> dict:
+        return heard
+
+    ui.run(port=port, show=False, reload=False, title="Media fill drive")
+
+
+class MediaFillDrive(unittest.TestCase):
+    seen: dict = {}
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.seen = drive_page("tests.theming.test_media_fill_drive", cls._drive)
+
+    @classmethod
+    async def _drive(cls, binary: str, port: int) -> dict:
+        grid_id = ("document.querySelector('.ag-root-wrapper')"
+                   ".closest('.nicegui-aggrid').id")
+        search = f"input[placeholder={json.dumps(t('console.media.search_media'))}]"
+
+        async def looking() -> dict:
+            return await browser.evaluate(
+                "({grid: " + grid_id + ","
+                " search: document.querySelector(" + json.dumps(search) + ").value,"
+                " quick: " + API + ".getGridOption('quickFilterText') || '',"
+                " shown: " + API + ".getDisplayedRowCount(),"
+                " filters: " + API + ".getFilterModel(),"
+                " selected: " + API + ".getSelectedNodes().map(n => n.id).sort(),"
+                " count: [...document.querySelectorAll('.console-grid-bar .console-label')]"
+                ".map(el => el.textContent.trim())})")
+
+        async with BrowserSession(binary) as browser:
+            await browser.navigate(f"http://127.0.0.1:{port}/")
+            await browser.wait_for(API + ".getDisplayedRowCount() === 20", timeout=60.0)
+            await browser.click(search)
+            await browser.send("Input.insertText", {"text": SEARCH})
+            await browser.wait_for(API + ".getDisplayedRowCount() === 10")
+            await browser.click(HEADER_BOX)
+            await browser.wait_for(API + ".getSelectedNodes().length === 10")
+            await browser.wait_for(
+                "[...document.querySelectorAll('.console-grid-bar .console-label')]"
+                ".some(el => el.textContent.trim() === "
+                f"{json.dumps(t('console.media.selected', picked=10, value=10))})")
+            before = await looking()
+            await browser.evaluate(
+                "[...document.querySelectorAll('.console-grid-bar .q-btn')]"
+                ".find(b => b.textContent.includes('more_vert'))"
+                ".setAttribute('data-drive', 'actions')")
+            await browser.click("[data-drive=actions]")
+            await browser.wait_for("!!document.querySelector('.console-menu-item')")
+            await browser.click(".console-menu-item")
+            for _ in range(100):
+                if (await asyncio.to_thread(_heard, port))["placed"]:
+                    break
+                await asyncio.sleep(0.1)
+            await asyncio.sleep(1.0)
+            return {"before": before, "after": await looking(),
+                    "heard": await asyncio.to_thread(_heard, port)}
+
+    def test_the_fill_ran_on_the_games_selected(self) -> None:
+        self.assertTrue(self.seen["heard"]["placed"])
+        self.assertEqual(self.seen["heard"]["asked"], [f"alpha{n}" for n in range(1, 6)])
+
+    def test_the_page_is_not_drawn_again(self) -> None:
+        self.assertEqual(self.seen["heard"]["drawn"], 1)
+        self.assertEqual(self.seen["after"]["grid"], self.seen["before"]["grid"])
+
+    def test_the_search_is_still_applied(self) -> None:
+        self.assertEqual(self.seen["after"]["search"], SEARCH)
+        self.assertEqual(self.seen["after"]["quick"], SEARCH)
+
+    def test_the_view_still_filters(self) -> None:
+        self.assertTrue(self.seen["before"]["filters"])
+        self.assertEqual(self.seen["after"]["filters"], self.seen["before"]["filters"])
+
+    def test_the_filled_row_leaves_the_missing_view(self) -> None:
+        self.assertEqual(self.seen["after"]["shown"], 9)
+
+    def test_every_row_still_there_is_still_selected(self) -> None:
+        self.assertEqual(self.seen["after"]["selected"],
+                         [one for one in self.seen["before"]["selected"] if one != FILLED])
+
+    def test_the_count_says_what_is_selected(self) -> None:
+        self.assertIn(t("console.media.selected", picked=9, value=9),
+                      self.seen["after"]["count"])
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["serve"]:
+        serve(int(sys.argv[2]))
+    else:
+        unittest.main()

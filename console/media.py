@@ -143,6 +143,20 @@ VIEWS: dict[str, list[str] | views.Preset] = {
 }
 
 
+async def refill(library: Any, table: Any, built: list[dict[str, Any]],
+                 by_id: dict[str, Any], game_ids: list[str]) -> None:
+    """Read these games' rows again and swap them in place: the search, the view and
+    the rest of the selection stay as they were."""
+    for game_id in game_ids:
+        library.forget_media(game_id)
+    await offload.io(library.load_media_rows)
+    if table.is_deleted:
+        return
+    wanted = set(game_ids)
+    fresh = rows([row for row in library.media_rows() if str(row["game_id"]) in wanted])
+    grid.replace_rows(table, built, by_id, fresh, lambda row: str(row["game_id"]) in wanted)
+
+
 def build(found: list[dict[str, Any]], library: Any,
           on_select: Callable[[dict | None], Any],
           state: dict[str, Any] | None = None,
@@ -151,7 +165,6 @@ def build(found: list[dict[str, Any]], library: Any,
     """The media lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
     built = rows(found)
-    gaps = sum(1 for row in built if not row.get("present"))
     selected: list[dict[str, Any]] = []
 
     # What is on screen, which on this page is rarely the whole library: the point of
@@ -164,7 +177,8 @@ def build(found: list[dict[str, Any]], library: Any,
         if picked:
             return t("console.media.selected", picked=(picked), value=(on_screen['rows']))
         if on_screen["rows"] == len(built):
-            return t("console.media.media_missing", count=(len(built)), gaps=(gaps))
+            return t("console.media.media_missing", count=(len(built)),
+                     gaps=(sum(1 for row in built if not row.get("present"))))
         return t("console.media.media", value=(on_screen['rows']), len=(len(built)))
 
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
@@ -186,11 +200,8 @@ def build(found: list[dict[str, Any]], library: Any,
             picked = grid.selection(table)
             ids = list(dict.fromkeys(str(row["game_id"]) for row in picked))
 
-            def placed() -> None:
-                for game_id in ids:
-                    library.forget_media(game_id)
-                if rerender:
-                    rerender()
+            def placed() -> Any:
+                return refill(library, table, built, by_id, ids)
 
             if len(picked) < on_screen["rows"]:
                 await art_fill.confirm_slots(picked, state, placed)

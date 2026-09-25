@@ -16,6 +16,7 @@ import sys
 import time
 import unittest
 import urllib.request
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -67,44 +68,49 @@ def _heard(port: int) -> dict:
         return json.loads(answer.read())
 
 
+def wait_for_page(port: int, page: subprocess.Popen, log: Path) -> None:
+    """Until the page answers on `/heard`."""
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        if page.poll() is not None:
+            raise AssertionError(f"the page exited:\n{log.read_text()}")
+        try:
+            _heard(port)
+            return
+        except OSError:
+            time.sleep(0.2)
+    raise AssertionError(f"the page never served:\n{log.read_text()}")
+
+
+def drive_page(module: str, drive: Callable[[str, int], Awaitable[dict]]) -> dict:
+    """Serve `module`'s page, run `drive(browser binary, port)` against it, and stop it."""
+    binary = chromium_path()
+    if not binary:
+        raise unittest.SkipTest("no Chromium on this machine")
+    port = free_port()
+    with TemporaryDirectory() as config:
+        log = Path(config) / "page.log"
+        with log.open("w") as out:
+            page = subprocess.Popen([sys.executable, "-m", module, "serve", str(port)],
+                                    cwd=REPO, stdout=out, stderr=subprocess.STDOUT,
+                                    env={**os.environ, "VPINFE_CONFIG_DIR": config})
+        try:
+            wait_for_page(port, page, log)
+            return asyncio.run(drive(binary, port))
+        finally:
+            page.terminate()
+            page.wait(timeout=10)
+
+
 class SelectionDrive(unittest.TestCase):
     seen: dict = {}
 
     @classmethod
     def setUpClass(cls) -> None:
-        if not chromium_path():
-            raise unittest.SkipTest("no Chromium on this machine")
-        port = free_port()
-        with TemporaryDirectory() as config:
-            log = Path(config) / "page.log"
-            with log.open("w") as out:
-                page = subprocess.Popen(
-                    [sys.executable, "-m", "tests.theming.test_grid_selection_drive",
-                     "serve", str(port)],
-                    cwd=REPO, stdout=out, stderr=subprocess.STDOUT,
-                    env={**os.environ, "VPINFE_CONFIG_DIR": config})
-            try:
-                cls._wait_for_page(port, page, log)
-                cls.seen = asyncio.run(cls._drive(port))
-            finally:
-                page.terminate()
-                page.wait(timeout=10)
-
-    @staticmethod
-    def _wait_for_page(port: int, page: subprocess.Popen, log: Path) -> None:
-        deadline = time.monotonic() + 60
-        while time.monotonic() < deadline:
-            if page.poll() is not None:
-                raise AssertionError(f"the page exited:\n{log.read_text()}")
-            try:
-                _heard(port)
-                return
-            except OSError:
-                time.sleep(0.2)
-        raise AssertionError(f"the page never served:\n{log.read_text()}")
+        cls.seen = drive_page("tests.theming.test_grid_selection_drive", cls._drive)
 
     @classmethod
-    async def _drive(cls, port: int) -> dict:
+    async def _drive(cls, binary: str, port: int) -> dict:
         seen: dict = {}
 
         async def settled(calls: int) -> dict:
@@ -115,7 +121,7 @@ class SelectionDrive(unittest.TestCase):
                 await asyncio.sleep(0.1)
             return heard
 
-        async with BrowserSession(chromium_path()) as browser:
+        async with BrowserSession(binary) as browser:
             await browser.navigate(f"http://127.0.0.1:{port}/")
             await browser.wait_for(API + f".getDisplayedRowCount() === {ROWS}", timeout=60.0)
             await browser.click(HEADER_BOX)
