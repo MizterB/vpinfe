@@ -5404,6 +5404,7 @@ async def _collection_details(context: dict[str, Any]) -> None:
                 lines=3)),
         (HEADING, t("console.workbench.in_the_frontend")),
         (t("console.workbench.show_in_frontend"), _in_frontend_switch(context, row)),
+        (t("console.workbench.open_on_this"), _opens_on_switch(context, row)),
         (t("console.workbench.page_buttons"), _page_buttons(context, row, size)),
         (FULL, partial(_image_slot, context, row)),
     ]
@@ -5479,6 +5480,31 @@ def _in_frontend_switch(context: dict[str, Any], row: dict[str, Any]) -> Callabl
             await _patch(context, {"in_frontend": bool(event.value)})
 
     return panel.switch(shown, changed, hint=t("console.workbench.show_in_frontend.help"))
+
+
+def _opens_on_switch(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
+    """Whether the frontend opens on this collection, written to the one setting there
+    is for it: on here is off wherever it was."""
+    name = str(row.get("name") or "")
+    behavior = (context.get("settings") or {}).get("behavior") or {}
+    now = str(behavior.get("startup_collection") or "").strip()
+    here = bool(name) and now == name
+
+    async def changed(event: Any) -> None:
+        if bool(event.value) == here:
+            return
+        try:
+            await run.io_bound(context["library"].put_config, {"behavior": {
+                "startup_collection": name if event.value else ""}})
+        except Exception as exc:
+            ui.notify(t("console.workbench.could_not_save", exc=(exc)), type="negative")
+            return
+        await _written(context)
+
+    hint = (t("console.workbench.open_on_this.here") if here
+            else t("console.workbench.open_on_this.elsewhere", name=now) if now
+            else t("console.workbench.open_on_this.everything"))
+    return panel.switch(here, changed, hint=hint)
 
 
 _PAGE_BY_GROUP = {"letter": "console.workbench.by_letter",
