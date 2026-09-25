@@ -16,19 +16,21 @@ Three screens, and they read as a sequence: what is happening, pick something, d
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import threading
 from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
-from nicegui import run, ui
+from nicegui import background_tasks, run, ui
 
-from common import device_registry, install_identity
+from common import device_registry, events, install_identity
 from common.config_access import NetworkConfig
 from common.i18n import t
 from common.labels import humanize
 from console import game_tables, offload, stars, theme, verbs
-from console.api import ApiClient, local_base_url
+from console.api import ApiClient, ApiError, local_base_url
 
 logger = logging.getLogger("vpinfe.console.remote")
 
@@ -121,18 +123,88 @@ def _read_here() -> dict[str, Any]:
 
 
 def _read_target(client: ApiClient) -> dict[str, Any]:
-    """What the chosen machine is doing and what it can play.
+    """What the chosen machine is doing and what it can play, and the collection its
+    frontend is showing where it is up, which is the one the phone opens on.
 
     Asked of the target rather than of this install, because that is the machine the
     launch is going to. Two installs can hold different libraries, and a list read from
     the wrong one offers games whose ids the target has never heard of.
     """
-    return {
+    showing = _frontend_of(client)
+    read: dict[str, Any] = {
         "play": client.play_state(),
         "games": offered_games(client.library_entries()),
         "jobs": client.jobs(),
         "collections": client.collections(),
+        "frontend": showing,
     }
+    if mirroring(showing):
+        read.update(_narrowed_to(client, str((showing or {}).get("collection") or "")))
+    return read
+
+
+def _frontend_of(client: ApiClient) -> dict[str, Any] | None:
+    """None where the target cannot say, and the Remote then does without a mirror."""
+    try:
+        return client.frontend_state()
+    except ApiError as exc:
+        logger.info("remote: the target did not say what its frontend shows: %s", exc)
+        return None
+
+
+def _narrowed_to(client: ApiClient, collection: str) -> dict[str, Any]:
+    """The phone's collection and the ids of the games in it; None for the whole library."""
+    ids = ({one["id"] for one in offered_games(client.collection_entries(collection))}
+           if collection else None)
+    return {"collection": collection, "collection_ids": ids}
+
+
+# Both carry the whole state, so a phone that missed one is right after the next.
+FOLLOWED = (events.FRONTEND_STATE_CHANGED, events.PLAY_STATE_CHANGED)
+
+RECONNECT_SECONDS = 5.0
+
+
+def _follow(base_url: str, stop: threading.Event,
+            heard: Callable[[str, dict], None]) -> None:
+    """Hand the target's changes to `heard` until `stop` is set.
+
+    Every connection opens with the target's current state, so reconnecting after a drop
+    also repairs whatever was missed while it was down.
+    """
+    while not stop.is_set():
+        try:
+            for name, payload in ApiClient(base_url or None).follow(FOLLOWED, stop):
+                heard(name, payload)
+        except Exception as exc:
+            logger.info("remote: stopped hearing from %s: %s", base_url, exc)
+        stop.wait(RECONNECT_SECONDS)
+
+
+def mirroring(showing: dict[str, Any] | None) -> bool:
+    return bool((showing or {}).get("running"))
+
+
+def frontend_closed(showing: dict[str, Any] | None) -> bool:
+    """Closed, as against unknown: a target too old to say is not a closed frontend."""
+    return showing is not None and not showing.get("running")
+
+
+def wheel_id(showing: dict[str, Any] | None) -> str:
+    return str(((showing or {}).get("game") or {}).get("id") or "")
+
+
+def on_the_wheel(showing: dict[str, Any] | None,
+                 games: list[dict[str, Any]]) -> dict[str, Any]:
+    """The game on the wheel as the list holds it, or as the frontend named it where the
+    list does not; nothing where the wheel is empty."""
+    game_id = wheel_id(showing)
+    if not game_id:
+        return {}
+    for game in games:
+        if game.get("id") == game_id:
+            return game
+    return {"id": game_id, "name": str(((showing or {}).get("game") or {}).get("name") or "")}
 
 
 @ui.page("/remote", title=t("console.remote.vpinfe_remote"), reconnect_timeout=300)
@@ -181,7 +253,8 @@ async def remote_page(screen: str = "") -> None:
         "screen": screen if screen in {key for key, *_ in SCREENS} else NOW,
         "target": aimable[0] if aimable else {},
         "play": {}, "games": [], "jobs": [], "collections": [],
-        "find": "", "collection": "",
+        "find": "", "collection": "", "collection_ids": None,
+        "frontend": None, "rows": {}, "relist": None,
     }
 
     def client_for_target() -> ApiClient:
@@ -200,17 +273,107 @@ async def remote_page(screen: str = "") -> None:
             logger.info("remote: %s did not answer: %s",
                         target_name(state["target"]), exc)
             state.update({"play": {}, "games": [], "jobs": [], "collections": [],
-                          "reachable": False})
+                          "frontend": None, "reachable": False})
+        follow()
+
+    def draw_strip() -> None:
+        strip.clear()
+        with strip:
+            _strip(state, client_for_target, redraw)
 
     def redraw() -> None:
-        """Both, always. The bar says which screen you are on, so a redraw that rebuilt
-        only the screen left the mark behind on the one you came from."""
+        """All of it, always. The bar says which screen you are on, so a redraw that
+        rebuilt only the screen left the mark behind on the one you came from."""
         body.clear()
         tabs.clear()
+        state["relist"] = None
+        draw_strip()
         with body:
             _screen(state, client_for_target, redraw)
         with tabs:
             _tabs(state, redraw)
+
+    # The target's changes arrive on a thread of the follower's own and are applied here,
+    # on the loop, in the order they were sent. Each carries the follower that heard it,
+    # so a change still in flight from a target the phone has moved off is dropped.
+    loop = asyncio.get_running_loop()
+    page = ui.context.client
+    arriving: asyncio.Queue[tuple[threading.Event, str, dict]] = asyncio.Queue()
+    following: list[threading.Event] = []
+
+    def unfollow() -> None:
+        while following:
+            following.pop().set()
+
+    def follow() -> None:
+        """Hear the chosen target, where it said what its frontend shows. One that could
+        not say is too old to stream the event either, and refuses the subscription."""
+        unfollow()
+        # A read can outlast the page: a thread started for a closed tab is never stopped.
+        if state.get("frontend") is None or page.is_deleted:
+            return
+        stop = threading.Event()
+        following.append(stop)
+
+        def heard(name: str, payload: dict) -> None:
+            loop.call_soon_threadsafe(arriving.put_nowait, (stop, name, payload))
+
+        threading.Thread(target=_follow, name="remote-follow", daemon=True,
+                         args=(base_url_of(state["target"], local_device_id), stop,
+                               heard)).start()
+
+    async def adopt(showing: dict[str, Any]) -> bool:
+        """Take the frontend's collection as the phone's, where it has moved."""
+        name = str(showing.get("collection") or "")
+        if not mirroring(showing) or name == state["collection"]:
+            return False
+        try:
+            state.update(await offload.io(_narrowed_to, client_for_target(), name))
+        except Exception as exc:
+            logger.info("remote: could not read %s from %s: %s", name,
+                        target_name(state["target"]), exc)
+            return False
+        return True
+
+    async def changed(name: str, payload: dict) -> None:
+        said = payload.get("state")
+        if not isinstance(said, dict):
+            return
+        if name == events.PLAY_STATE_CHANGED:
+            was_playing = bool((state.get("play") or {}).get("launching"))
+            state["play"] = said
+            if was_playing != bool(said.get("launching")):
+                redraw()
+            return
+        was = state.get("frontend")
+        state["frontend"] = said
+        switched = await adopt(said)
+        if mirroring(was) != mirroring(said):
+            redraw()
+            return
+        if switched and state.get("relist"):
+            state["relist"]()
+        else:
+            _mark_here(state["rows"], wheel_id(was), wheel_id(said))
+        draw_strip()
+
+    async def listen() -> None:
+        while True:
+            stop, name, payload = await arriving.get()
+            if stop not in following:
+                continue
+            try:
+                await changed(name, payload)
+            except Exception:
+                logger.exception("remote: could not apply %s", name)
+
+    listening = background_tasks.create(listen(), name="remote-listen")
+
+    def gone() -> None:
+        unfollow()
+        listening.cancel()
+
+    page.on_delete(gone)
 
     # Once per page, not once per draw. Registered inside the screen that uses them, a
     # handler would be added again on every redraw and one thumb would send N presses.
@@ -230,7 +393,8 @@ async def remote_page(screen: str = "") -> None:
     async def aim(device: dict[str, Any]) -> None:
         """A different machine is a different library, a different state and a different
         base URL, so everything below the header is read again."""
-        state.update({"target": device, "find": "", "collection": ""})
+        state.update({"target": device, "find": "", "collection": "",
+                      "collection_ids": None})
         await reread()
         redraw()
 
@@ -239,6 +403,7 @@ async def remote_page(screen: str = "") -> None:
     # element belongs to whatever slot was open when it was made.
     with ui.column().classes("w-full h-full gap-0 remote-shell no-wrap"):
         _header(state, aimable, aim)
+        strip = ui.column().classes("w-full gap-0")
         body = ui.column().classes(
             "w-full grow min-h-0 gap-0 overflow-auto remote-body")
         tabs = ui.row().classes("w-full items-stretch gap-0 remote-tabs no-wrap")
@@ -274,6 +439,36 @@ def _header(state: dict[str, Any], aimable: list[dict[str, Any]],
             # administers, and there is nothing here for a remote to drive.
             ui.label(t("console.remote.nothing_drive")) \
                 .classes("remote-target-name truncate")
+
+
+def _strip(state: dict[str, Any], client_for_target: Callable[[], Any],
+           redraw: Callable[[], None]) -> None:
+    """The game on the frontend's wheel, with Launch, above every screen.
+
+    Drawn only while the frontend is up and no table is: during a game the screen is
+    showing the game, and Now already says so.
+    """
+    if not mirroring(state.get("frontend")) or state.get("reachable") is False \
+            or (state.get("play") or {}).get("launching"):
+        return
+    game = on_the_wheel(state.get("frontend"), state.get("games") or [])
+
+    def open_sheet(_event: Any = None) -> None:
+        _game_sheet(game, state, client_for_target, redraw)
+
+    with ui.row().classes("w-full items-center gap-3 no-wrap remote-strip"):
+        with ui.column().classes("grow min-w-0 gap-0") as said:
+            ui.label(t("console.remote.on_the_wheel")).classes("console-card-title")
+            if not game:
+                ui.label(t("console.remote.nothing_on_the_wheel")).classes("remote-empty")
+                return
+            ui.label(str(game.get("name") or "")).classes("remote-headline")
+            made = game_tables.made(game)
+            if made:
+                ui.label(made).classes("remote-note truncate")
+        said.on("click", open_sheet).classes("cursor-pointer")
+        _launch_button(game, state, client_for_target, redraw,
+                       cls="remote-action remote-action--primary remote-action--beside")
 
 
 def _tabs(state: dict[str, Any], redraw: Callable[[], None]) -> None:
@@ -355,6 +550,9 @@ def _now(state: dict[str, Any],
         if play.get("launching"):
             _playing(play, state, client_for_target, redraw)
         else:
+            if frontend_closed(state.get("frontend")):
+                with ui.column().classes("w-full gap-1 console-card"):
+                    ui.label(t("console.remote.frontend_closed")).classes("remote-empty")
             _idle(state, redraw)
         _running_jobs(state)
 
@@ -491,44 +689,71 @@ def _play(state: dict[str, Any],
 
     The search field is first because the library is longer than a screen, and a list
     longer than a screen is typed into rather than scrolled.
+
+    Where the frontend is up, the collection is the one it is showing, both ways.
     """
+    # Not redraw(): a field rebuilt under the cursor drops the focus mid-word.
     async def typed(event: Any) -> None:
         state["find"] = str(event.value or "")
-        redraw()
+        listed()
 
     async def narrow(event: Any) -> None:
-        state["collection"] = str(event.value or "")
-        state["collection_ids"] = None
-        if state["collection"]:
+        name = str(event.value or "")
+        # Taken before anything is awaited, so the frontend's own report of this switch
+        # finds the phone already on it rather than switching it a second time.
+        state["collection"] = name
+        showing = state.get("frontend")
+        if mirroring(showing) and name != str((showing or {}).get("collection") or ""):
             try:
-                found = await offload.io(client_for_target().collection_entries,
-                                           state["collection"])
-                state["collection_ids"] = {one["id"] for one in offered_games(found)}
+                await run.io_bound(client_for_target().show_on_frontend, name)
             except Exception as exc:
                 ui.notify(str(exc), type="negative")
-        redraw()
+        try:
+            state.update(await offload.io(_narrowed_to, client_for_target(), name))
+        except Exception as exc:
+            state["collection_ids"] = None
+            ui.notify(str(exc), type="negative")
+        listed()
+
+    def picked() -> None:
+        picker.clear()
+        named = frontend_collections(state.get("collections") or [],
+                                    state.get("collection") or "")
+        if not named:
+            return
+        with picker:
+            ui.select({"": t("console.remote.all_games")} | {name: name for name in named},
+                      value=state.get("collection") or "", on_change=narrow) \
+                .props("dense outlined options-dense").classes("w-full")
+
+    def listed() -> None:
+        listing.clear()
+        with listing:
+            _game_list(in_collection(matching(state.get("games") or [],
+                                              state.get("find") or ""),
+                                     state.get("collection_ids")),
+                       state, client_for_target, redraw)
+
+    def relist() -> None:
+        picked()
+        listed()
 
     with ui.column().classes("w-full gap-2 p-3"):
         ui.input(placeholder=t("console.remote.find_game"), value=state.get("find") or "",
                  on_change=typed) \
             .props("dense outlined clearable inputmode=search").classes("w-full")
-        named = frontend_collections(state.get("collections") or [],
-                                    state.get("collection") or "")
-        if named:
-            ui.select({"": t("console.remote.all_games")} | {name: name for name in named},
-                      value=state.get("collection") or "", on_change=narrow) \
-                .props("dense outlined options-dense").classes("w-full")
-
-    found = in_collection(matching(state.get("games") or [],
-                                   state.get("find") or ""),
-                          state.get("collection_ids"))
-    _game_list(found, state, client_for_target, redraw)
+        picker = ui.column().classes("w-full gap-0")
+    listing = ui.column().classes("w-full gap-0")
+    state["relist"] = relist
+    relist()
 
 
 def _game_list(found: list[dict[str, Any]], state: dict[str, Any],
                client_for_target: Callable[[], Any], redraw: Callable[[], None]) -> None:
+    state["rows"] = {}
     if not found:
-        return _nothing(t("console.remote.nothing_name"))
+        return _nothing(t("console.remote.nothing_name") if state.get("find")
+                        else t("console.remote.nothing_in_collection"))
     with ui.column().classes("w-full gap-0"):
         for game in found[:SHOWN_AT_ONCE]:
             _game_row(game, state, client_for_target, redraw)
@@ -541,16 +766,28 @@ def _game_list(found: list[dict[str, Any]], state: dict[str, Any],
 
 def _game_row(game: dict[str, Any], state: dict[str, Any], client_for_target: Callable[[], Any],
               redraw: Callable[[], None]) -> None:
-    """One game, and a tap opens it rather than starting it.
+    """One game. Where the frontend is up, a tap moves the wheel to it; a tap on the one
+    already there, or one the wheel refuses, opens it instead.
 
     Never tap-to-launch. A mis-tap that opens a sheet costs a tap to undo; a mis-tap
     that starts a table takes the machine away from whoever is on it.
     """
-    def open_sheet(_event: Any=None) -> None:
+    game_id = str(game.get("id") or "")
+
+    async def tapped(_event: Any = None) -> None:
+        showing = state.get("frontend")
+        if mirroring(showing) and game_id != wheel_id(showing):
+            try:
+                await run.io_bound(client_for_target().move_wheel, game_id)
+                return
+            except Exception as exc:
+                logger.info("remote: the wheel did not move to %s: %s", game_id, exc)
         _game_sheet(game, state, client_for_target, redraw)
 
-    with ui.row().on("click", open_sheet) \
-            .classes("w-full items-center gap-2 no-wrap remote-row"):
+    here = game_id == wheel_id(state.get("frontend"))
+    with ui.row().on("click", tapped) \
+            .classes("w-full items-center gap-2 no-wrap remote-row"
+                     + (" remote-row--here" if here else "")) as row:
         with ui.column().classes("grow min-w-0 gap-0"):
             ui.label(str(game.get("name") or "")).classes("remote-row-name truncate")
             made = game_tables.made(game)
@@ -558,6 +795,15 @@ def _game_row(game: dict[str, Any], state: dict[str, Any], client_for_target: Ca
                 ui.label(made).classes("remote-note truncate")
         if (game.get("user") or {}).get("favorite"):
             ui.icon("favorite").classes("remote-row-mark")
+    state["rows"][game_id] = row
+
+
+def _mark_here(rows: dict[str, Any], was: str, now: str) -> None:
+    """Move the wheel's mark between rows without rebuilding the list under a thumb."""
+    if was != now and was in rows:
+        rows[was].classes(remove="remote-row--here")
+    if now in rows:
+        rows[now].classes(add="remote-row--here")
 
 
 def _game_sheet(game: dict[str, Any], state: dict[str, Any], client_for_target: Callable[[], Any],
@@ -605,18 +851,29 @@ def _game_sheet(game: dict[str, Any], state: dict[str, Any], client_for_target: 
             .props("no-caps flat").classes("remote-action")
 
         _add_to_collection(game, state, sheet, write)
-
-        async def launch() -> None:
-            if await write(client_for_target().launch, game["id"]):
-                sheet.close()
-                state["screen"] = NOW
-                state["play"] = await offload.io(client_for_target().play_state)
-                redraw()
-
-        ui.button(t("console.remote.launch"), icon="play_arrow", on_click=launch) \
-            .props("no-caps unelevated color=primary") \
-            .classes("remote-action remote-action--primary")
+        _launch_button(game, state, client_for_target, redraw,
+                       cls="remote-action remote-action--primary", then=sheet.close)
     sheet.open()
+
+
+def _launch_button(game: dict[str, Any], state: dict[str, Any],
+                   client_for_target: Callable[[], Any], redraw: Callable[[], None], *,
+                   cls: str, then: Callable[[], Any] = lambda: None) -> None:
+    """Launch, at the foot of the sheet and beside the game on the wheel alike. Once it
+    has started, Now is where the table is quit from."""
+    async def launch() -> None:
+        try:
+            await run.io_bound(client_for_target().launch, game["id"])
+        except Exception as exc:
+            ui.notify(str(exc), type="negative")
+            return
+        then()
+        state["screen"] = NOW
+        state["play"] = await offload.io(client_for_target().play_state)
+        redraw()
+
+    ui.button(t("console.remote.launch"), icon="play_arrow", on_click=launch) \
+        .props("no-caps unelevated color=primary").classes(cls)
 
 
 def _add_to_collection(game: dict[str, Any], state: dict[str, Any], sheet: Any,
@@ -739,6 +996,10 @@ def _control(state: dict[str, Any],
         # Honest, and not a guess: the frontend stops listening for the length of a
         # launch, so every button here would do nothing and report success.
         return _playing_instead(play, state, client_for_target, redraw)
+    if frontend_closed(state.get("frontend")):
+        # The same reason: a press goes to the windows alone, so with none up every
+        # button here reports success and nothing hears it.
+        return _nothing(t("console.remote.frontend_closed"))
 
     with ui.column().classes("w-full items-center gap-4 p-3"):
         _pad(client_for_target)

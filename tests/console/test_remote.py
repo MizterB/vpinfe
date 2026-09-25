@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import unittest
 
 from console import remote
+from console.api import _lines, read_frames
+from httpapi import events
 
 
 def _device(device_id: str, **rest) -> dict:
@@ -174,3 +177,67 @@ class FollowsTheCabinetTests(unittest.TestCase):
 
         self.assertEqual(remote.frontend_collections(collections, "Kept off"),
                          ["Shown", "Kept off"])
+
+
+class FollowsTheFrontendTests(unittest.TestCase):
+    SHOWING = {"running": True, "collection": "Mine",
+               "game": {"id": "g1", "name": "Medieval Madness"}}
+
+    def test_a_target_that_cannot_say_is_not_a_closed_frontend(self) -> None:
+        """None is an install too old to report its frontend. Saying "closed" there
+        would take the pad away from a phone that drives it fine."""
+        self.assertFalse(remote.frontend_closed(None))
+        self.assertFalse(remote.mirroring(None))
+        self.assertTrue(remote.frontend_closed({"running": False}))
+        self.assertTrue(remote.mirroring(self.SHOWING))
+
+    def test_the_game_on_the_wheel_is_the_one_the_list_holds(self) -> None:
+        games = [{"id": "g1", "name": "Medieval Madness", "year": "1997"}]
+
+        self.assertEqual(remote.on_the_wheel(self.SHOWING, games), games[0])
+
+    def test_a_game_the_list_does_not_hold_is_still_named(self) -> None:
+        """The wheel can sit on a game the phone has filtered out; the strip still
+        says what the screen shows."""
+        self.assertEqual(remote.on_the_wheel(self.SHOWING, []),
+                         {"id": "g1", "name": "Medieval Madness"})
+
+    def test_an_empty_wheel_has_nothing_on_it(self) -> None:
+        empty = self.SHOWING | {"game": None}
+
+        self.assertEqual(remote.on_the_wheel(empty, [{"id": "g1"}]), {})
+        self.assertEqual(remote.wheel_id(empty), "")
+        self.assertEqual(remote.wheel_id(None), "")
+
+
+class ReadsTheEventStreamTests(unittest.TestCase):
+    """The reader is held to the frames the install writes, not to a copy of them."""
+
+    def _stream(self) -> list[str]:
+        state = {"state": {"running": True, "collection": "Mine", "game": None}}
+        return [f"retry: {events.RETRY_MS}\n\n",
+                events._frame(events.HELLO_EVENT, json.dumps({"seq": 3, "resumed": False})),
+                ": keepalive\n\n",
+                events._frame("frontend.state_changed", json.dumps(state), 4),
+                events._frame("frontend.state_changed", "not json", 5)]
+
+    def _read(self, chunks: list[bytes]) -> list[tuple[str, dict]]:
+        return list(read_frames(_lines(chunks)))
+
+    def test_every_frame_the_install_writes_is_read(self) -> None:
+        found = self._read(["".join(self._stream()).encode()])
+
+        self.assertEqual([name for name, _ in found],
+                         [events.HELLO_EVENT, "frontend.state_changed"])
+        self.assertEqual(found[1][1]["state"]["collection"], "Mine")
+
+    def test_a_frame_split_anywhere_reads_the_same(self) -> None:
+        whole = "".join(self._stream()).encode()
+        one_byte_at_a_time = [whole[at:at + 1] for at in range(len(whole))]
+
+        self.assertEqual(self._read(one_byte_at_a_time), self._read([whole]))
+
+    def test_a_carriage_return_does_not_reach_the_name(self) -> None:
+        crlf = "".join(self._stream()).replace("\n", "\r\n").encode()
+
+        self.assertEqual(self._read([crlf]), self._read(["".join(self._stream()).encode()]))

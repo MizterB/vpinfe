@@ -163,6 +163,16 @@
 .remote-row:active { background: var(--surface-hover); }
 .remote-row-name { font-size: var(--fs-body); color: var(--ink); }
 .remote-row-mark { color: var(--accent); font-size: var(--icon-mark); }
+/* The row on the wheel: the accent and a rule at the leading edge, as the current tab. */
+.remote-row--here { box-shadow: inset 3px 0 0 0 var(--accent); }
+.remote-row--here .remote-row-name { color: var(--accent); }
+/* A band of the header rather than a card of the screen: it stays put under a scroll. */
+.remote-strip {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+}
+.remote-action--beside.q-btn { width: auto; flex: none; padding: 0 16px; }
 /* The sheet a row opens. Square at the foot because it is against the edge of the
    screen, rounded at the top because that is the edge it came up from. */
 .remote-sheet {

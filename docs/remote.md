@@ -9,8 +9,20 @@ The Console at `/console` is desk-first and organized as a workbench, a grid bes
 `console/remote.py` defines them in `SCREENS`, and `?screen=` links to one directly.
 
 - **Now** - what is playing, on which target, how long, plus any running job and anything wanting attention. Quit table. When nothing is playing it shows the last game played with its rating control.
-- **Play** - a search field, collection as a select, and a row that opens a sheet whose primary button is Launch. A row does not launch on tap.
+- **Play** - a search field, collection as a select, and the games in it. With the frontend up, a tap moves the wheel to that game, and a tap on the game already there opens its sheet. With no frontend to move, a tap opens the sheet. The sheet's primary button is Launch. A row does not launch on tap.
 - **Control** - a mode bar and a held D-pad over the input seam: select, back, the three overlays, quit.
+
+## Following the frontend
+
+While the target's frontend is up, the phone and the screen show the same collection and the same game.
+
+- The Remote opens on the collection the frontend is showing, and a collection picked on the phone switches the frontend.
+- A switch or a wheel move at the screen reaches the phone over the target's event stream. Each open page follows `frontend.state_changed` and `play.state_changed` on a thread of its own, because a read that waits for the next event would otherwise hold the Console's event loop. The thread stops when the page goes.
+- The game on the wheel sits under the header on every screen, with Launch. It is not drawn while a table is up.
+- With the frontend closed, Now says so and Control draws no pad. A press goes to the frontend's windows and nowhere else, so with none up every button would report success and nothing would hear it.
+- A target too old to report its frontend answers `GET /frontend/state` with 404. The Remote then follows nothing and behaves as it did before.
+
+A tap moves the wheel and waits for the frontend to say it moved, rather than marking the row at once. A theme that does not act on the move leaves the phone showing what the screen shows.
 
 ## Targets
 
@@ -39,6 +51,8 @@ Every one of these already existed for the Console and the API; Remote adds none
 | Search, collections | `GET /games`, `GET /collections` |
 | Lifecycle actions | `GET`/`POST /actions` |
 | Jobs, live | `GET /jobs`, `GET /events` |
+| What the frontend shows | `GET /frontend/state`, and `GET /events?events=frontend.state_changed,play.state_changed` |
+| Switch the frontend, move the wheel | `PUT /frontend/collection`, `PUT /frontend/game` |
 | Targets | `GET /devices`, `POST /devices/probe` |
 | Rate, favorite | `PUT /games/{id}/rating`, `/favorite` |
 | Add to collection | `PUT /collections/{name}/games/{game_id}` |

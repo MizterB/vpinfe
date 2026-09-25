@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import threading
+from collections.abc import Iterable, Iterator
+from itertools import takewhile
 from typing import Any
 from urllib.parse import quote, urlencode
 
@@ -19,6 +23,9 @@ _TIMEOUT = 15
 # An import copies files, which is disk work rather than a question - a pup pack is
 # gigabytes and the default would give up on it partway through.
 _IMPORT_TIMEOUT = 900
+# Three of the event stream's 15-second keepalives. An install that goes away without
+# closing the connection is otherwise waited on forever.
+_FOLLOW_TIMEOUT = 45
 
 
 def local_base_url() -> str:
@@ -1114,6 +1121,45 @@ class ApiClient:
         is up, not just while it is starting."""
         return self._get("/play/state")
 
+    def frontend_state(self) -> dict | None:
+        """What the frontend is showing: `running`, the `collection` ("" is the whole
+        library) and the `game` on the wheel. None from an install too old to say, which
+        is a different answer from a frontend that is closed."""
+        _refuse_the_event_loop("/frontend/state")
+        response = self._session.get(f"{self._base}/frontend/state", timeout=_TIMEOUT)
+        if response.status_code == 404:
+            return None
+        self._answered(response)
+        return response.json()
+
+    def show_on_frontend(self, collection: str) -> None:
+        """Ask the frontend to show a collection, "" being the whole library. The change
+        arrives as the next `frontend.state_changed`, not as this call's answer."""
+        self._put_empty("/frontend/collection", {"name": collection})
+
+    def move_wheel(self, game_id: str) -> None:
+        """Ask the wheel to move to a game in the collection on screen."""
+        self._put_empty("/frontend/game", {"id": game_id})
+
+    def follow(self, names: Iterable[str],
+               stop: threading.Event) -> Iterator[tuple[str, dict]]:
+        """The install's events as they happen, until `stop` is set or the stream ends.
+
+        Blocks between events for as long as it is followed, so it belongs on a thread
+        of its own and never in the shared pool. `stop` is seen at the next line the
+        install sends, which a keepalive makes at most 15 seconds away.
+        """
+        _refuse_the_event_loop("/events")
+        response = self._session.get(f"{self._base}/events",
+                                     params={"events": ",".join(names)}, stream=True,
+                                     timeout=(_TIMEOUT, _FOLLOW_TIMEOUT))
+        with response:
+            self._answered(response)
+            # No chunk size: with one, a frame waits until that many bytes have arrived,
+            # and a frame is usually smaller.
+            lines = _lines(response.iter_content(chunk_size=None))
+            yield from read_frames(takewhile(lambda _line: not stop.is_set(), lines))
+
     def job(self, job_id: str) -> dict:
         """One run of slow work, for watching a particular one to its end."""
         return self._get(f"/jobs/{job_id}")
@@ -1137,6 +1183,42 @@ class ApiClient:
         in here.
         """
         return self._get("/devices").get("devices", [])
+
+
+def _lines(chunks: Iterable[bytes]) -> Iterator[str]:
+    """Text lines out of bytes that arrive split wherever the network split them."""
+    held = b""
+    for chunk in chunks:
+        *whole, held = (held + chunk).split(b"\n")
+        for line in whole:
+            yield line.rstrip(b"\r").decode("utf-8", "replace")
+
+
+def read_frames(lines: Iterable[str]) -> Iterator[tuple[str, dict]]:
+    """An event stream's frames as (event name, payload).
+
+    A comment, a frame without a name and a payload that is not a JSON object are passed
+    over rather than raised: the stream is the install's, and one frame this end cannot
+    read is no reason to stop hearing the next.
+    """
+    name = ""
+    data: list[str] = []
+    for line in lines:
+        if not line:
+            if name and data:
+                try:
+                    payload = json.loads("\n".join(data))
+                except ValueError:
+                    payload = None
+                if isinstance(payload, dict):
+                    yield name, payload
+            name, data = "", []
+            continue
+        field, _, value = line.partition(":")
+        if field == "event":
+            name = value.removeprefix(" ")
+        elif field == "data":
+            data.append(value.removeprefix(" "))
 
 
 def _refuse_the_event_loop(path: str) -> None:
