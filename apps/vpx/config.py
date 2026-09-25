@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import threading
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -241,13 +242,19 @@ def path_for(scope: str, target: str, settings: Mapping[str, Any]) -> Path | Non
     return None
 
 
+# A file is rewritten in place, so a read in the middle of a write finds it empty.
+_FILES = threading.RLock()
+
+
 def _read(path: Path | None) -> vini.Ini:
     if path is None or not path.is_file():
         return vini.Ini()
     try:
-        return vini.parse(path.read_text(encoding="utf-8", errors="replace"))
+        with _FILES:
+            text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return vini.Ini()
+    return vini.parse(text)
 
 
 _STORED_COLOR = re.compile(r"-?\d+")
@@ -417,18 +424,19 @@ class VPXConfig:
         path = path_for(scope, target, settings)
         if path is None:
             raise ValueError(f"There is no {scope} file to write.")
-        colors = _colors(_read(settings_file(settings)))
-        values = {key: stored_color(str(value)) if key in colors else value
-                  for key, value in values.items()}
-        cleared = _inherited(scope, values, settings)
-        drop = ([key for key, value in values.items()
-                 if str(value) == "" or key in cleared]
-                if scope != SCOPE_LAUNCHER else [])
-        keep = {key: value for key, value in values.items() if key not in drop}
-        if keep or path.is_file() or _folder_answers(scope, target, cleared, values):
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(vini.written(_read(path), keep, remove=drop),
-                            encoding="utf-8")
+        with _FILES:
+            colors = _colors(_read(settings_file(settings)))
+            values = {key: stored_color(str(value)) if key in colors else value
+                      for key, value in values.items()}
+            cleared = _inherited(scope, values, settings)
+            drop = ([key for key, value in values.items()
+                     if str(value) == "" or key in cleared]
+                    if scope != SCOPE_LAUNCHER else [])
+            keep = {key: value for key, value in values.items() if key not in drop}
+            if keep or path.is_file() or _folder_answers(scope, target, cleared, values):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(vini.written(_read(path), keep, remove=drop),
+                                encoding="utf-8")
         return cleared
 
     def files(self, settings: Mapping[str, Any]) -> dict[str, str]:

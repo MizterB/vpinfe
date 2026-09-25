@@ -957,6 +957,21 @@ class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event, "focusout")
         rebuild.assert_awaited_once()
 
+    async def test_a_number_s_writes_land_in_the_order_it_was_typed(self) -> None:
+        landed: list[str] = []
+
+        async def slower_first(_write, _launcher, values, **_kw) -> dict:
+            said = values["Player.SoundVolume"]
+            await asyncio.sleep(0.03 / len(said))
+            landed.append(said)
+            return {}
+
+        _, _, save, _ = await self._drawn("int")
+        with patch.object(workbench.run, "io_bound", new=slower_first):
+            await asyncio.gather(save(4), save(40), save(409))
+
+        self.assertEqual(landed, ["4", "40", "409"])
+
     async def test_a_switch_is_drawn_again_at_once(self) -> None:
         _, rebuild, save, _ = await self._drawn("bool")
 

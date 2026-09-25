@@ -7,6 +7,8 @@ of two spellings exists. They do not stack, and the shadowing that follows is wh
 
 from __future__ import annotations
 
+import threading
+import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -825,6 +827,33 @@ class WriteTests(_Case):
     def test_a_scope_with_nowhere_to_write_says_so(self) -> None:
         with self.assertRaises(ValueError):
             self.config.write(SCOPE_ENTRY, "", {KEY: "0"}, self.settings)
+
+    def test_two_writes_at_once_both_land_and_the_file_keeps_the_rest(self) -> None:
+        from apps.vpx import config as vpx_config
+
+        real = vpx_config.vini.written
+        both_started = threading.Barrier(2)
+
+        def slowly(*args, **kwargs):
+            time.sleep(0.1)
+            return real(*args, **kwargs)
+
+        def write(key: str, value: str) -> None:
+            both_started.wait()
+            self.config.write(SCOPE_LAUNCHER, "", {key: value}, self.settings)
+
+        with mock.patch.object(vpx_config.vini, "written", slowly):
+            writers = [threading.Thread(target=write, args=pair)
+                       for pair in ((KEY, "0"), (PLAIN, "0"))]
+            for one in writers:
+                one.start()
+            for one in writers:
+                one.join()
+
+        text = self.app_ini.read_text()
+        self.assertIn("BackglassOutput = 0", text)
+        self.assertIn("Profile1Legacy = 0", text)
+        self.assertIn("GrillHeight = 180", text)
 
     def test_a_plugin_setting_goes_under_its_plugin_at_every_scope(self) -> None:
         from apps.vpx import ini as vini

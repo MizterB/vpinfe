@@ -4342,6 +4342,7 @@ async def _setting_entries(context: dict[str, Any],
     redraws: list[Callable[[], None]] = []
     shown = dict(values)
     pending = {"rebuild": False}
+    in_turn = asyncio.Lock()
 
     async def settle() -> None:
         if pending["rebuild"]:
@@ -4351,8 +4352,10 @@ async def _setting_entries(context: dict[str, Any],
     def clear(key: str) -> Callable[[], Awaitable[None]]:
         async def wipe() -> None:
             try:
-                await run.io_bound(library.write_launcher_config, launcher["launcher_id"],
-                                   {key: ""}, table=table, scope=scope)
+                async with in_turn:
+                    await run.io_bound(library.write_launcher_config,
+                                       launcher["launcher_id"], {key: ""}, table=table,
+                                       scope=scope)
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_clear_it", exc=(exc)), type="negative")
                 return
@@ -4363,9 +4366,10 @@ async def _setting_entries(context: dict[str, Any],
     def save(key: str, typed: bool) -> Callable[[Any], Awaitable[bool]]:
         async def write(value: Any) -> bool:
             try:
-                wrote = await run.io_bound(
-                    library.write_launcher_config, launcher["launcher_id"],
-                    {key: _as_text(value)}, table=table, scope=scope)
+                async with in_turn:
+                    wrote = await run.io_bound(
+                        library.write_launcher_config, launcher["launcher_id"],
+                        {key: _as_text(value)}, table=table, scope=scope)
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_save_it", exc=(exc)), type="negative")
                 return False
