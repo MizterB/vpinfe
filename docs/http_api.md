@@ -127,10 +127,12 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/uploads/{id}` | Session summary → `{"file_count", "total_bytes"}` |
 | DELETE | `/api/v1/uploads/{id}` | Abort a session |
 | GET | `/api/v1/uploads/{id}/analysis` | Analyze what was uploaded |
-| POST | `/api/v1/uploads/{id}/plan` | Build an import plan. `asset_kind`, the asset lens's name for a kind (`pup_pack`, `alt_color`, `backglass`...), plans only that kind, and everything else the upload holds comes back under `blocked`. `add_table` with `game_dir` makes a table in the upload one more for that game instead of replacing its table; one with a filename the game already has comes back under `blocked` |
+| POST | `/api/v1/uploads/{id}/plan` | Build an import plan. `asset_kind`, the asset lens's name for a kind (`pup_pack`, `alt_color`, `backglass`...), plans only that kind, and everything else the upload holds comes back under `blocked`. `add_table` with `game_dir` makes a table in the upload one more for that game instead of replacing its table; one with a filename the game already has comes back under `blocked`. An item's `replaces` says what it would replace, and where that is a table, `made_from_it` names the game's tables a patch made from it, by filename |
 | POST | `/api/v1/uploads/{id}/import` | Execute the plan. Takes `asset_kind` and `add_table` the same way. `added_tables` lists the ids of the tables it added |
 | GET | `/api/v1/filesystem/entries` | What is in one folder. With `kind`, the files that asset kind takes are listed beside the media (`backglass` lists `.directb2s`); `kind` is the registry's name or the asset lens's, so `alt_color` lists both Serum and VNI files. `archives=true` lists archives too. `/filesystem/file` still serves media only |
 | GET | `/api/v1/vps/search?q=&limit=` | VPSdb lookup |
+| GET | `/api/v1/vps/entry/{id}` | One VPSdb entry, in the shape a search result has |
+| GET | `/api/v1/vps/entry/{id}/releases?listed_as=` | The releases VPSdb lists for one entry, in the order it holds them. `listed_as` picks the list: `tableFiles` by default, or another such as `b2sFiles`. Each release carries `mod_of`, what it is a mod of, or `null` where it is not one - see [Which release a table is](#which-release-a-table-is) |
 | GET | `/api/v1/launchers` | Every launcher this install has, the tables that deviate from the default, and the fields each launcher's app takes. `has_config` says whether its app has settings of its own for `/config` to read. `tables` is how many tables each one plays, by launcher id: the ones that name it and, for a default, the ones that fall to it. Each of `apps` lists its `fields`, so a client can ask for a new launcher's paths before one exists, and its own `has_config` |
 | PUT | `/api/v1/launchers/{id}` | Add or replace one. The whole launcher, so a partial write cannot leave one half-configured. A name another launcher on the install has is refused, whatever its app, compared ignoring case and the spaces around it; a blank name is the app's. Switching one off is refused when the tables it plays would land on a launcher with no program, or on none |
 | DELETE | `/api/v1/launchers/{id}` | Forget one. Tables pointed at it fall back to the default |
@@ -1045,6 +1047,42 @@ Migration runs on read, in memory, and never writes — the stamp reaches disk o
 write. A section written by a *newer* VPinFE is left exactly as it is: downgrading someone's
 data because they ran an older build once is worse than not understanding it. A version we
 don't recognize is never a reason to refuse to read a file.
+
+## Which release a table is
+
+A table's `source`, on a game's tables and on `/tables`, says which VPS release the file is.
+It is `null` where nothing has said.
+
+| Field | What it holds |
+|---|---|
+| `vps_file_id` | The release. Empty on a table a patch made that nothing has matched |
+| `confirmed_by` | Who said so: `user` where a person picked it, `declared` where whatever delivered the file named the record it fetched. Nothing that guessed writes one |
+| `version`, `authors` | The release as the catalog lists it now, empty where the catalog no longer holds it |
+| `mod_of` | What the release is a mod of, or `null` where it is not one |
+| `base` | The file a patch was applied to, to make this table, or `null` on a table no patch made |
+
+A release is a mod where VPS links it to the release it is based on (`parentId`) or tags it
+`MOD`. `mod_of` has the same shape here and on each release from
+`/vps/entry/{id}/releases`:
+
+- `vps_file_id`, `version` and `authors` name the release it is based on. `vps_file_id` is
+  empty where VPS does not say which: a mod tagged with no link, or a link the catalog
+  cannot find.
+- `note` is then VPS's own comment on the mod, and empty where it has none, which makes it
+  a mod of something unknown.
+- `game` is the name of the base's game only where that is another game than the mod's,
+  and `url` is that game's VPS page.
+- `game_id` and `table_id` are the table in this library matched to the base, empty where
+  there is none.
+
+`base` is on a table this install made by applying a patch:
+
+- `file` is the name of the file the patch was applied to.
+- `table_id` is the game's table recorded as those exact bytes, whether or not its file is
+  still there, and empty where the game has none. It is found by the hash taken when the
+  patch was applied, so a newer file of the same name is not it.
+- `available` is whether that file is on disk. The patch fits those bytes only, so without
+  them the next version of the patch has nothing to apply to.
 
 ## Adding routes
 

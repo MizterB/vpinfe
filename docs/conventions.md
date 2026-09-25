@@ -394,6 +394,9 @@ reading both had to invert twice.
 - **Version** - an update to a release by the same authors. VPS keeps the release's `id`
   across versions, even a major rework, and records only the current one. A table on screen
   is your file of a table release at one version.
+- **Mod** - a release VPS links to the release it is based on, or tags `MOD`. On screen it
+  is *Mod* and *Mod of*, which VPS and file names already use. Not *parent*, *child* or
+  *fork*, and not *Original*, which VPS uses as the manufacturer of an original design.
 - **Build** - a build of a program: VPinFE's own ("This build", "a newer build") or an
   app's, and the verb. Never a table.
 - **Playfield** — the main screen, and the media shown on it. Not "table": the playfield is
