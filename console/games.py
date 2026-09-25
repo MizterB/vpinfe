@@ -496,7 +496,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
 
     def said() -> str:
         if selected:
-            return t("console.games.selected", len=len(selected), len2=len(rows))
+            return t("console.games.selected", len=len(selected), len2=shown["rows"])
         if shown["rows"] != len(rows):
             return t("console.games.games_of", value=shown["rows"], len=len(rows))
         return t("console.games.games", len=len(rows))
@@ -1250,7 +1250,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
     def said() -> str:
         if selected:
-            return t("console.games.selected", len=len(selected), len2=len(built))
+            return t("console.games.selected", len=len(selected), len2=displayed["rows"])
         return _tables_said(built, displayed["rows"])
 
     def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
