@@ -1297,9 +1297,9 @@ class VPinFECore {
       // round trip to know where the wheel is sitting.
       this.groupBy = payload.group_by || "";
     }
+    const maxIndex = Math.max(0, this.tableData.length - 1);
+    if (this._currentTableIndex > maxIndex) this._currentTableIndex = maxIndex;
     if (this.isController()) {
-      const maxIndex = Math.max(0, this.tableData.length - 1);
-      if (this._currentTableIndex > maxIndex) this._currentTableIndex = maxIndex;
       if (this.tableData.length > 0) {
         if (!this._initialGameRestored) {
           this._initialGameRestored = true;

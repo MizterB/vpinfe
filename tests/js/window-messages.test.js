@@ -77,8 +77,9 @@ describe("a data change the backend raised carries the wheel position", () => {
   const rows = (...names) => JSON.stringify(names.map(name => ({ gameDirName: name })));
 
   /** A core holding `before`, handed `after` by the refresh this message triggers. */
-  const refreshWith = async (spelling, before, after, { index, at = 0 } = {}) => {
-    const { vpin } = newCore({ windowName: "table" });
+  const refreshWith = async (spelling, before, after,
+                             { index, at = 0, windowName = "table" } = {}) => {
+    const { vpin } = newCore({ windowName });
     let payload = before;
     vpin.call = (method) => Promise.resolve(method === "get_tables" ? payload : null);
     await vpin.getTableData();
@@ -113,6 +114,17 @@ describe("a data change the backend raised carries the wheel position", () => {
 
     assert.equal(message.index, 1);
   });
+
+  for (const windowName of ["table", "bg", "dmd"]) {
+    test(`the ${windowName} window stays inside a list that shrank under it`, async () => {
+      const { message, vpin } = await refreshWith(
+        "TableDataChange", rows("Alpha", "Beta", "Gamma"), rows("Alpha", "Beta"),
+        { at: 2, windowName });
+
+      assert.equal(message.index, 1);
+      assert.equal(vpin.getCurrentTableIndex(), 1);
+    });
+  }
 
   test("an unrelated message is left alone", async () => {
     const { vpin } = newCore({ windowName: "table" });
