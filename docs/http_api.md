@@ -694,7 +694,7 @@ What's on it, each alongside the `install_id` described below:
 | `table.launching` / `table.launched` / `table.exited` | `{"game": {"id", "name", "links"}, "table": {"id"}}` — which game, and which of its builds launched. `table` is null when the launch didn't come from the wheel, and the whole payload is `{"game": null}` when there is no game at all |
 | `game.selected` | `{"game": {"id", "name", "links"}, "table": null}` — the wheel stops on a game, so there is no table to name |
 | `game.changed` | `{"game": {"id", "name", "links"}}` — a game's metadata was rewritten, so anything holding it is stale |
-| `collections.changed` | `{}` — the collections were edited; re-read them |
+| `collections.changed` | `{}` — the collections were edited, or a read of a Community list moved a ranked order; re-read them |
 | `play.state_changed` | `{"state": {"launching", "game_name", "source"}}` |
 | `frontend.state_changed` | `{"state": {"running", "collection", "game"}}`, `game` a reference like the others or null. The same as `GET /frontend/state` |
 | `job.progress` | `{"job_id", "pct", "message"}` |
@@ -853,6 +853,21 @@ saving a rule changes the rule and nothing else. The one exception is a collecti
 the direction the block names or else `asc`. Its members keep their stored order, so
 clearing the criteria and asking for `manual` again brings the arrangement back. The cap
 changes only through `limit` and `clear_limit`.
+
+A ranked view of a Community list is an order too, `order_by` being
+`{extension}/{list}/{view}`: `vpinplay/tables/rating`. The view says which way each of its
+fields runs, so the `direction` stored with it is always `asc`, and asking for `desc` beside
+it, or on its own while it is stored, is a `400`. The games the view ranks come first in its
+order and the rest follow in title order, so a limit fills from ranked games first. Setting
+or creating a collection with an order nothing offers is a `400` whose `details.choices`
+names the ones that are: the built-in orders, each ranked view of a running extension, and
+`manual`. A collection already in the order of an extension that has stopped keeps it, and
+resolves in title order until the extension runs again.
+
+`ranking` says which view orders a collection, and is null in any other order: `extension`
+and its `display_name`, `list` and `view`, the `title` and `name` the Community page shows
+them by, and `read_at`, when that list was last read well. `offered` is false while no
+running extension offers the view, and then only `extension` and `display_name` are known.
 
 A cap is `limit`, and lifting one needs `clear_limit: true` rather than a null: absent and
 null are the same thing over JSON, so there would otherwise be no way to say it.

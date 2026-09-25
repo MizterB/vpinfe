@@ -344,9 +344,9 @@ A list an extension holds, shown under Community. Needs `ui:mount`.
 ```python
 ctx.ui.community("tables", "/community/tables", title="VPinPlay",
                  columns=[{"field": "name", "under": ["manufacturer", "year"]},
-                          {"field": "plays", "kind": "number"}],
+                          {"field": "plays", "kind": "number"}, {"field": "vps_id"}],
                  views=[{"key": "most_played", "columns": ["name", "plays"],
-                         "sort": [{"field": "plays", "desc": True}]}],
+                         "sort": [{"field": "plays", "desc": True}], "ranks": True}],
                  relation={"field": "vps_id", "keys": "vps_entry"})
 ```
 
@@ -378,6 +378,17 @@ the list shortly after it starts and every 30 minutes after; a read that fails k
 last good one. The tag is the extension's - nobody can rename, merge or remove it, or put
 it on by hand - and it goes when the extension stops. A tag needs a `relation`. It is
 written as given in every language: it is stored on games, which makes it data.
+
+A view with `"ranks": True` is offered as an order for a collection, named for the list's
+`title` and the view's name: *VPinPlay: Most Played*. It puts this library's games in the
+view's sort, one field after another, each in its own direction, and there is no reversing
+it. A game the list does not rank follows in title order, so the order never drops one,
+and a collection's limit fills from the ranked games first. A ranked view sorts on `number`
+or `date` columns only, and its list needs a `relation`; anything else is refused at
+registration. A list of ratings, a leaderboard's scores and a challenge's dates all declare
+it the same way. The order is read with the tags, on the same schedule, and moves on its
+own from the last good read. While the extension is stopped, a collection in its order
+keeps it and shows its games in title order until it runs again.
 
 ## Scopes and the gate
 
