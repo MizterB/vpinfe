@@ -21,12 +21,22 @@ class AListColumn(unittest.TestCase):
         self.assertEqual({"drawn": "chips", "looks": renderers.TAG_LOOKS},
                          self.column["cellRendererParams"])
         self.assertEqual(grid.LIST_FILTER, self.column[":filter"])
-        self.assertEqual(grid.LIST_COMPARATOR, self.column[":comparator"])
+        self.assertEqual(grid.list_comparator(renderers.TAG_LOOKS), self.column[":comparator"])
 
     def test_the_drawing_the_sort_and_the_filter_share_one_order(self) -> None:
-        for js in (renderers.CHIPS.js, grid.LIST_COMPARATOR, grid._CHOICE_FILTER_JS):
+        for js in (renderers.CHIPS.js, self.column[":comparator"], grid._CHOICE_FILTER_JS):
             with self.subTest(js=js[:40]):
                 self.assertIn(renderers.ORDER, js)
+
+    def test_the_drawing_the_sort_the_filter_and_a_search_read_a_look_s_label(self) -> None:
+        said = renderers.named(renderers.TAG_LOOKS)
+        for js in (self.column[":comparator"], self.column[":getQuickFilterText"],
+                   self.column[":valueFormatter"]):
+            with self.subTest(js=js[:40]):
+                self.assertIn(said, js)
+        for js in (renderers.CHIPS.js, grid._CHOICE_FILTER_JS):
+            with self.subTest(js=js[:40]):
+                self.assertIn("look.label || value", js)
 
     def test_the_filter_takes_its_words_and_looks_from_the_column(self) -> None:
         params = self.column["filterParams"]

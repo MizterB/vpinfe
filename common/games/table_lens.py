@@ -95,6 +95,7 @@ def launcher_settings_held(app_id: str, target: str) -> dict:
         "launcher_settings_here": count if scope == "entry" else 0,
         "launcher_settings_from_folder": count if scope == "folder" else 0,
         "launcher_point_of_view": bool(held.get("point_of_view")),
+        "launcher_settings_keys": [str(key) for key in held.get("keys") or ()],
     }
 
 
@@ -463,6 +464,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "") -> dict[str, A
                 "launcher_settings_from_folder":
                     int(table.get("launcher_settings_from_folder") or 0),
                 "launcher_point_of_view": bool(table.get("launcher_point_of_view")),
+                "launcher_settings_keys": list(table.get("launcher_settings_keys") or []),
             })
 
     found.sort(key=lambda item: (item["game"].lower(),

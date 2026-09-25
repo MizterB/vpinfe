@@ -94,17 +94,31 @@ ORDER = ("(a, b) => String(a).localeCompare(String(b), undefined,"
          " {numeric: true, sensitivity: 'base'})"
          " || (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0)")
 
-# Where a chip takes its looks from, by name: `value => {chip, dot, mark, tip}`. A column
-# naming none draws the word alone.
+# Where a chip takes its looks from, by name: `value => {chip, dot, mark, tip, label}`.
+# A column naming none draws the value alone, and so does a look without a `label`.
 TAG_LOOKS = "tags"
 COLLECTION_LOOKS = "collections"
+SETTING_LOOKS = "settings"
 _COLLECTION_LOOKS_DATA = "__vpinfeCollectionLooks"
 _COLLECTION_LOOK = (
     f"name => ((window.{_COLLECTION_LOOKS_DATA} || {{}})[name] || {{}}).smart"
     f" ? {{mark: {json.dumps(verbs.SMART)},"
     f" tip: {json.dumps(t('console.collections.smart.help'))}}} : {{}}"
 )
-LOOKS = {TAG_LOOKS: tag_chips.LOOK, COLLECTION_LOOKS: _COLLECTION_LOOK}
+_SETTING_NAMES_DATA = "__vpinfeSettingNames"
+_SETTING_LOOK = (
+    f"key => {{ const name = (window.{_SETTING_NAMES_DATA} || {{}})[key];"
+    " return name ? {label: name} : {}; }"
+)
+LOOKS = {TAG_LOOKS: tag_chips.LOOK, COLLECTION_LOOKS: _COLLECTION_LOOK,
+         SETTING_LOOKS: _SETTING_LOOK}
+
+
+def named(looks: str) -> str:
+    """`value => what its chip says`, for the column whose chips take their looks from
+    `looks`."""
+    return (f"(value => (((window.__vpinfeChipLooks || {{}})[{json.dumps(looks)}]"
+            " || (() => ({})))(value) || {}).label || value)")
 
 # The mark a chip carries, drawn in the chip and in the filter's leading slot alike.
 MARK_CLASS = "material-icons console-tag-mark"
@@ -115,14 +129,15 @@ CHIPS = Renderer("chips", "console.renderers.chips", (
     f" const order = {ORDER};"
     " const held = params.list ? (params.data || {})[params.list] : params.value;"
     " const looks = (window.__vpinfeChipLooks || {})[params.looks] || (() => ({}));"
+    " const said = value => (looks(value) || {}).label || value;"
     f" return '<span class=\"{tag_chips.BOX}\">' + (Array.isArray(held) ? [...held] : [])"
-    ".sort(order).map(value => {"
+    ".sort((a, b) => order(said(a), said(b))).map(value => {"
     "  const look = looks(value) || {};"
     "  const tip = look.tip ? ' title=\"' + esc(look.tip) + '\"' : '';"
     "  const dot = look.dot ? '<span class=\"' + look.dot + '\"></span>' : '';"
     f"  const mark = look.mark ? '<i class=\"{MARK_CLASS}\">' + look.mark + '</i>' : '';"
     f"  return '<span class=\"' + (look.chip || '{tag_chips.CHIP}') + '\"' + tip + '>'"
-    " + dot + mark + esc(value) + '</span>'; }).join('') + '</span>'; }"
+    " + dot + mark + esc(look.label || value) + '</span>'; }).join('') + '</span>'; }"
 ))
 
 REGISTRY: dict[str, Renderer] = {one.name: one
@@ -146,6 +161,12 @@ def install_collection_looks(smart: set[str], on: ui.element | None = None) -> N
     held = {name: {"smart": True} for name in sorted(smart)}
     code = f"window.{_COLLECTION_LOOKS_DATA} = {json.dumps(held)};"
     (on.client if on is not None else ui.context.client).run_javascript(code)
+
+
+def install_setting_names(names: dict[str, str]) -> None:
+    """What a setting's chip says, by its key."""
+    code = f"window.{_SETTING_NAMES_DATA} = {json.dumps(dict(sorted(names.items())))};"
+    ui.context.client.run_javascript(code)
 
 
 def drawable(default: str, *others: str, **params: Any) -> dict[str, Any]:

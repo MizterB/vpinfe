@@ -203,11 +203,12 @@ if (!window.HubListFilter) {
       this.params.api.forEachNode(node => {
         for (const value of this.buckets(node)) if (value !== '') seen.add(value);
       });
-      return [...[...seen].sort(__ORDER__).map(value => {
-        const look = looks(value) || {};
-        return {value: value, label: value, mark: look.dot || '', glyph: look.mark || '',
-                glyphClass: __MARK_CLASS__, tip: look.tip || ''};
-      }), {value: '', label: (this.params.words || {}).none || ''}];
+      return [...[...seen].map(value => [value, looks(value) || {}])
+        .sort(([a, x], [b, y]) => (__ORDER__)(x.label || a, y.label || b))
+        .map(([value, look]) => ({
+          value: value, label: look.label || value, mark: look.dot || '',
+          glyph: look.mark || '', glyphClass: __MARK_CLASS__, tip: look.tip || ''})),
+        {value: '', label: (this.params.words || {}).none || ''}];
     }
     draw(choices) {
       super.draw(choices);
@@ -293,21 +294,23 @@ def choice_filter(choices: list[dict[str, Any]], *,
 
 LIST_FILTER = "window.HubListFilter"
 
-# The grid turns a descending result round itself, so an empty row answers the other way
-# round there to stay last.
-LIST_COMPARATOR = (
-    "(a, b, nodeA, nodeB, descending) => {"
-    f" const order = {renderers.ORDER};"
-    " const drawn = v => (Array.isArray(v) ? [...v] : []).sort(order);"
-    " const x = drawn(a), y = drawn(b);"
-    " if (!x.length || !y.length) {"
-    "  if (x.length === y.length) return 0;"
-    "  const last = x.length ? -1 : 1;"
-    "  return descending ? -last : last; }"
-    " for (let i = 0; i < Math.min(x.length, y.length); i++) {"
-    "  const said = order(x[i], y[i]); if (said) return said; }"
-    " return x.length - y.length; }"
-)
+def list_comparator(looks: str = "") -> str:
+    """Sorts a list column by what its chips say, first chip first. The grid turns a
+    descending result round itself, so an empty row answers the other way round there
+    to stay last."""
+    return (
+        "(a, b, nodeA, nodeB, descending) => {"
+        f" const order = {renderers.ORDER}; const said = {renderers.named(looks)};"
+        " const drawn = v => (Array.isArray(v) ? v : []).map(said).sort(order);"
+        " const x = drawn(a), y = drawn(b);"
+        " if (!x.length || !y.length) {"
+        "  if (x.length === y.length) return 0;"
+        "  const last = x.length ? -1 : 1;"
+        "  return descending ? -last : last; }"
+        " for (let i = 0; i < Math.min(x.length, y.length); i++) {"
+        "  const first = order(x[i], y[i]); if (first) return first; }"
+        " return x.length - y.length; }"
+    )
 
 _LIST_WORDS = {"none": t("word.none"), "any": t("console.grid.any_of"),
                "all": t("console.grid.all_of"), "search": _FILTER_THIS_LIST}
@@ -319,15 +322,19 @@ def list_column(field: str, header: str, width: int = 0, help: str = "", *,
     values the rows hold, sorted by the first chip as drawn.
 
     `looks` names where a chip takes its looks from, one of `renderers.LOOKS`; empty
-    draws the word alone.
+    draws the word alone. A look's `label` is what the chip, the filter, the sort and a
+    search read in place of the value, which is what the filter keeps.
     """
+    said = renderers.named(looks)
     return column(field, header, width, help,
                   **renderers.drawable("chips", looks=looks),
                   **{":filter": LIST_FILTER,
                      "filterParams": {"looks": looks, "words": _LIST_WORDS},
-                     ":comparator": LIST_COMPARATOR,
-                     ":getQuickFilterText": "params => (params.value || []).join(' ')",
-                     ":valueFormatter": "params => (params.value || []).join(', ')"},
+                     ":comparator": list_comparator(looks),
+                     ":getQuickFilterText":
+                         f"params => (params.value || []).map({said}).join(' ')",
+                     ":valueFormatter":
+                         f"params => (params.value || []).map({said}).join(', ')"},
                   **extra)
 
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from collections import Counter
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -16,7 +17,7 @@ from urllib.parse import parse_qs
 
 from common import path_checks
 from common.i18n import t
-from console import app_settings, data, deeplink, games, page, settings, workbench
+from console import app_settings, data, deeplink, games, page, renderers, settings, workbench
 
 
 def _launcher(state: str, *, has_config: bool = True) -> dict:
@@ -984,6 +985,213 @@ class AddressTests(unittest.TestCase):
             page.leave_for(state, "games")
 
         self.assertFalse(state["launcher"])
+
+    def test_the_tables_grid_carries_a_launcher_and_a_setting(self) -> None:
+        address = parse_qs(deeplink.query({"view": "tables", "launcher": "vpx",
+                                           "sets": "Player.PlayMusic"}))
+
+        self.assertEqual((address["launcher"], address["sets"]),
+                         (["vpx"], ["Player.PlayMusic"]))
+
+    def test_a_setting_is_read_back_as_written(self) -> None:
+        state: dict = {"view": "tables"}
+
+        deeplink.apply(state, {"view": "tables", "launcher": "vpx",
+                               "sets": "Player.PlayMusic"}, views=["tables"], sections=[])
+
+        self.assertEqual((state["launcher"], state["sets"]), ("vpx", "Player.PlayMusic"))
+
+    def test_a_setting_is_noise_anywhere_else(self) -> None:
+        address = parse_qs(deeplink.query({"view": "games", "sets": "Player.PlayMusic"}))
+
+        self.assertNotIn("sets", address)
+
+    def test_leaving_the_grid_lets_go_of_a_setting(self) -> None:
+        state = {"view": "tables", "sets": "Player.PlayMusic", "game": "", "table": ""}
+
+        with patch.object(page.remembered, "put"):
+            page.leave_for(state, "games")
+
+        self.assertFalse(state["sets"])
+
+
+class OwnSettingsColumnTests(unittest.TestCase):
+    """Which settings a table sets differently, and the grid arriving on the tables of one
+    launcher that set one."""
+
+    ROW = {"id": "t", "launcher": "vpx", "launcher_name": "Visual Pinball X",
+           "launcher_app_configurable": True}
+
+    def _own(self, **row: object) -> list[str]:
+        (built,) = games.table_rows([{**self.ROW, **row}])
+        return built[games.OWN_SETTINGS_COLUMN]
+
+    def test_a_row_holds_the_settings_by_key(self) -> None:
+        self.assertEqual(self._own(launcher_settings_keys=["Player.PlayMusic"]),
+                         ["Player.PlayMusic"])
+
+    def test_a_program_that_keeps_no_settings_holds_none(self) -> None:
+        self.assertEqual(self._own(launcher_app_configurable=False,
+                                   launcher_settings_keys=["Player.PlayMusic"]), [])
+
+    def test_it_is_a_list_column_named_by_setting_in_no_view(self) -> None:
+        column = next(one for one in games.TABLE_COLUMNS
+                      if one["field"] == games.OWN_SETTINGS_COLUMN)
+
+        self.assertEqual(column["filterParams"]["looks"], renderers.SETTING_LOOKS)
+        self.assertIn(renderers.SETTING_LOOKS, renderers.LOOKS)
+        for name, preset in games.TABLE_VIEWS.items():
+            with self.subTest(view=name):
+                self.assertNotIn(games.OWN_SETTINGS_COLUMN,
+                                 getattr(preset, "columns", preset))
+
+    def test_an_address_arrives_on_the_launcher_s_tables_that_set_it(self) -> None:
+        self.assertEqual(
+            games.setting_their_own([self.ROW], "vpx", "Player.PlayMusic"),
+            {"launcher": {"filterType": "text", "operator": "OR", "conditions": [
+                {"filterType": "text", "type": "equals", "filter": "Visual Pinball X"},
+                {"filterType": "text", "type": "equals",
+                 "filter": f"{games.SET_HERE_MARK}Visual Pinball X"}]},
+             games.OWN_SETTINGS_COLUMN: {"values": ["Player.PlayMusic"]}})
+
+    def test_one_naming_no_launcher_a_table_uses_or_no_setting_asks_for_nothing(
+            self) -> None:
+        for launcher, key in (("other", "Player.PlayMusic"), ("vpx", ""),
+                              ("", "Player.PlayMusic")):
+            with self.subTest(launcher=launcher, key=key):
+                self.assertIsNone(games.setting_their_own([self.ROW], launcher, key))
+
+
+class SettingNamesTests(unittest.TestCase):
+    """What a setting is called on a grid, away from the area that explains it."""
+
+    def test_a_label_no_other_setting_has_is_its_name(self) -> None:
+        self.assertEqual(
+            workbench.setting_names([_group("sound", _setting("Player.MusicVolume",
+                                                              "Volume"))]),
+            {"Player.MusicVolume": "Volume"})
+
+    def test_a_shared_label_is_led_by_its_heading(self) -> None:
+        names = workbench.setting_names([_group(
+            "displays", _setting("Player.PlayfieldWidth", "Width"),
+            _setting("Backglass.BackglassWidth", "Width"),
+            curated=[_heading("playfield", "Player.PlayfieldWidth"),
+                     _heading("backglass", "Backglass.BackglassWidth")])])
+
+        self.assertEqual(names, {"Player.PlayfieldWidth": "Playfield Width",
+                                 "Backglass.BackglassWidth": "Backglass Width"})
+
+    def test_or_by_its_section_where_no_heading_holds_it(self) -> None:
+        names = workbench.setting_names([_group(
+            "plugins", _setting("Plugin.B2S.Enable", "Enable"),
+            _setting("Plugin.DOF.Enable", "Enable"))])
+
+        self.assertEqual(names, {"Plugin.B2S.Enable": "B2S Enable",
+                                 "Plugin.DOF.Enable": "DOF Enable"})
+
+
+class TablesSetTheirOwnTests(unittest.IsolatedAsyncioTestCase):
+    """A launcher's row says how many of its tables answer over it, and goes to them."""
+
+    async def test_it_counts_the_launcher_s_tables_by_setting(self) -> None:
+        library = Mock()
+        library.load_tables.return_value = [
+            {"launcher": "vpx", "launcher_settings_keys": ["Player.PlayMusic", "Player.FXAA"]},
+            {"launcher": "vpx", "launcher_settings_keys": ["Player.PlayMusic"]},
+            {"launcher": "other", "launcher_settings_keys": ["Player.PlayMusic"]},
+            {"launcher": "vpx"}]
+        self.enterContext(patch.object(workbench.offload, "io",
+                                       new=AsyncMock(side_effect=lambda call: call())))
+
+        counted = await workbench._set_by_tables(
+            {"library": library, "launcher": {"launcher_id": "vpx"}})
+
+        self.assertEqual(counted, {"Player.PlayMusic": 2, "Player.FXAA": 1})
+
+    def test_its_link_goes_to_the_tables_grid_on_them(self) -> None:
+        for count, said in ((1, "1 table sets its own"), (4, "4 tables set their own")):
+            with self.subTest(count=count), patch("console.panel.ui") as ui:
+                workbench._tables_of_their_own({"launcher_id": "vpx"}, "Player.PlayMusic",
+                                               count)()
+                address = parse_qs(ui.link.call_args.kwargs["target"].split("?", 1)[1])
+
+                self.assertEqual(ui.link.call_args.args[0], said)
+                self.assertEqual(address, {"view": ["tables"], "launcher": ["vpx"],
+                                           "sets": ["Player.PlayMusic"]})
+
+    async def _beyond(self, scope: str, table: str = "") -> list[object]:
+        context = {"library": Mock(), "launcher": {"launcher_id": "vpx"},
+                   "config_scope": scope, "config_table": table, "rebuild": AsyncMock()}
+        self.enterContext(patch.object(workbench, "ui"))
+        self.enterContext(patch.object(workbench, "_config_values",
+                                       new=AsyncMock(return_value={})))
+        self.enterContext(patch.object(workbench.settings_page, "control_for"))
+        self.counted = self.enterContext(patch.object(
+            workbench, "_set_by_tables",
+            new=AsyncMock(return_value=Counter({"Player.PlayMusic": 2}))))
+        beside = self.enterContext(patch.object(workbench, "_beside"))
+        await workbench._setting_entries(
+            context, [("", "", [_field("Player.PlayMusic", scopes=("launcher", "entry")),
+                                _field("Player.FXAA", scopes=("launcher", "entry"))])])
+        return [call.args[8] for call in beside.call_args_list]
+
+    async def test_a_row_for_all_tables_carries_it_where_a_table_sets_its_own(
+            self) -> None:
+        link, none = await self._beyond("launcher")
+
+        self.assertIsNotNone(link)
+        self.assertIsNone(none)
+
+    async def test_a_table_s_rows_do_not_ask(self) -> None:
+        self.assertEqual(await self._beyond("entry", "t1"), [None, None])
+        self.counted.assert_not_awaited()
+
+
+class SettingGroupsTests(unittest.TestCase):
+    """The names a grid gives settings come from one read per launcher that plays a table."""
+
+    GROUPS = {"groups": [{"key": "sound", "label": "Sound", "settings": [
+        {"key": "Player.PlayMusic", "label": "Music", "type": "bool", "default": "",
+         "description": ""}]}]}
+
+    def _library(self, *answers: object) -> tuple[data.Library, Mock]:
+        client = Mock()
+        client.all_tables.return_value = [
+            {"app": "vpx", "launcher": "a", "launcher_app_configurable": True},
+            {"app": "vpx", "launcher": "b", "launcher_app_configurable": True},
+            {"app": "other", "launcher": "c", "launcher_app_configurable": False}]
+        client.launcher_config.side_effect = answers
+        return data.Library(client), client
+
+    def _read(self, client: Mock) -> list[str]:
+        return [call.args[0] for call in client.launcher_config.call_args_list]
+
+    def test_one_read_per_launcher_of_a_program_that_keeps_settings(self) -> None:
+        library, client = self._library(self.GROUPS, self.GROUPS)
+
+        library.load_tables()
+
+        self.assertEqual(self._read(client), ["a", "b"])
+        self.assertEqual([one.key for one in library.setting_groups()["b"]], ["sound"])
+
+    def test_a_launcher_that_cannot_say_leaves_the_others_named(self) -> None:
+        library, client = self._library(RuntimeError("gone"), self.GROUPS)
+
+        library.load_tables()
+
+        self.assertEqual(library.setting_groups()["a"], [])
+        self.assertEqual([one.key for one in library.setting_groups()["b"]], ["sound"])
+
+    def test_the_table_list_read_again_does_not_read_them_again(self) -> None:
+        library, client = self._library(RuntimeError("gone"), self.GROUPS)
+        library.load_tables()
+
+        library.write_launcher_config("a", {"Player.PlayMusic": "1"}, table="t1",
+                                      scope="entry")
+        library.load_tables()
+
+        self.assertEqual(client.all_tables.call_count, 2)
+        self.assertEqual(self._read(client), ["a", "b"])
 
 
 if __name__ == "__main__":

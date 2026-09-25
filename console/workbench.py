@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import time
+from collections import Counter
 from collections.abc import Awaitable, Callable, Collection, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -4137,10 +4138,11 @@ def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field:
             playing: bool = False,
             redraws: list[Callable[[], None]] | None = None,
             more: Callable[[dict, Any], Callable[[], None] | None] | None = None,
+            beyond: Callable[[], None] | None = None,
             ) -> Callable[[], None]:
-    """The mark, and where it is somebody's own value, the way back off it and whatever
-    `more` offers for it. Drawn as a panel ASIDE, whose cell it hides while it holds
-    neither.
+    """The mark, where it is somebody's own value the way back off it and whatever
+    `more` offers for it, then `beyond` whoever's value it is. Drawn as a panel ASIDE,
+    whose cell it hides while it holds none of them.
 
     Clear only where there is something to clear. Almost every setting in this program is
     untouched, so on every row it would be a control that does nothing, and a row of
@@ -4164,7 +4166,10 @@ def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field:
                                  else _clear_hint(held, field, app_name))()
                     if more is not None and (verb := more(held, field)) is not None:
                         verb()
-            cell.set_visibility(mark is not None or bool(held.get("set_here")))
+                if beyond is not None:
+                    beyond()
+            cell.set_visibility(mark is not None or bool(held.get("set_here"))
+                                or beyond is not None)
 
         fill()
         if redraws is not None:
@@ -4310,6 +4315,7 @@ async def _setting_entries(context: dict[str, Any],
     values = await _config_values(context)
     scope = str(context.get("config_scope") or "launcher")
     table = str(context.get("config_table") or "")
+    their_own = await _set_by_tables(context) if scope == "launcher" and not table else {}
     rows: dict[str, dict] = {}
     redraws: list[Callable[[], None]] = []
     shown = dict(values)
@@ -4389,7 +4395,9 @@ async def _setting_entries(context: dict[str, Any],
                                                  on_leave=settle if typed else None)))
             entries.append((panel.ASIDE, _beside(
                 partial(_mark_for, held, scope, field, offered), held, field, clear,
-                app_name, playing, redraws, context.get("config_more"))))
+                app_name, playing, redraws, context.get("config_more"),
+                _tables_of_their_own(launcher, field.key, their_own[field.key])
+                if their_own.get(field.key) else None)))
             if said := (getattr(field, "help", "") if curated else "") or field.description:
                 entries.append(panel.note(said))
     return entries
@@ -4397,6 +4405,26 @@ async def _setting_entries(context: dict[str, Any],
 
 def _whose(values: dict[str, Any], key: str) -> str:
     return str((values.get(key) or {}).get("scope") or "")
+
+
+async def _set_by_tables(context: dict[str, Any]) -> Counter[str]:
+    """How many of the launcher's tables set each setting for themselves."""
+    launcher_id = context["launcher"]["launcher_id"]
+    try:
+        rows = await offload.io(context["library"].load_tables)
+    except Exception:  # noqa: BLE001 - a row that cannot say how many still draws
+        return Counter()
+    return Counter(key for row in rows if row.get("launcher") == launcher_id
+                   for key in row.get("launcher_settings_keys") or ())
+
+
+def _tables_of_their_own(launcher: dict[str, Any], key: str,
+                         count: int) -> Callable[[], None]:
+    """The link to the Tables grid on the tables that answer over this setting."""
+    return panel.link(t("console.workbench.tables_set_their_own", count=count),
+                      to="/console?" + deeplink.query({
+                          "view": "tables", "launcher": launcher["launcher_id"],
+                          "sets": key}))
 
 
 def _moved(before: dict[str, Any], after: dict[str, Any], written: str) -> bool:
@@ -4428,6 +4456,23 @@ def _section_label(section: str, group_label: str) -> str:
     # capitals inside a name and gives back something worse than it was handed.
     said = said.replace("\\", " - ")
     return group_label if said.lower() == group_label.lower() else said
+
+
+def setting_names(groups: Sequence[Any]) -> dict[str, str]:
+    """What to call each of one program's settings away from its area, by key: its
+    label, led by the heading or section it sits under where another setting shares
+    the label."""
+    fields = [(group, field) for group in groups for field in group.settings]
+    shared = Counter(field.label for _group, field in fields)
+
+    def where(group: Any, key: str) -> str:
+        heading = next((one.label for one in getattr(group, "curated", ())
+                        if key in one.keys and one.label), "")
+        return heading or _section_label(_section_of(key), group.label)
+
+    return {field.key: (f"{where(group, field.key)} {field.label}"
+                        if shared[field.label] > 1 else field.label)
+            for group, field in fields}
 
 
 # --- All Settings -------------------------------------------------------------------

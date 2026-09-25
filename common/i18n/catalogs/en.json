@@ -671,6 +671,8 @@
   "console.games.not_recorded": "Not recorded",
   "console.games.on_vps": "On VPS",
   "console.games.on_vps.help": "The version VPS lists for the release this table is matched to",
+  "console.games.own_settings": "Own Settings",
+  "console.games.own_settings.help": "Which settings this table sets differently from all tables",
   "console.games.pinmame_rom_table_resolves.help": "The PinMAME ROM this table resolves to",
   "console.games.rate_game_s": {
     "one": "Rate {count} game",
@@ -1839,6 +1841,10 @@
   "console.workbench.table_spreadsheet_no_longer": "A table the spreadsheet no longer lists",
   "console.workbench.tables": "Tables",
   "console.workbench.tables_2": "Tables ({count})",
+  "console.workbench.tables_set_their_own": {
+    "one": "1 table sets its own",
+    "other": "{count} tables set their own"
+  },
   "console.workbench.tags": "Tags",
   "console.workbench.take_rules_away": "Remove the rules from “{name}”?",
   "console.workbench.taken": "Taken by you",

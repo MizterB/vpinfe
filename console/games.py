@@ -854,8 +854,11 @@ _SETTINGS_DRAWN: dict[str, Any] = {
                    " return n(nodeA) - n(nodeB) || String(a).localeCompare(String(b)); }",
 }
 
+# Which settings those are, by key.
+OWN_SETTINGS_COLUMN = "own_settings"
+
 # A column whose answer a panel section holds, so focusing it opens there.
-TABLE_COLUMN_SECTIONS = {"settings": "table_settings"}
+TABLE_COLUMN_SECTIONS = {"settings": "table_settings", OWN_SETTINGS_COLUMN: "table_settings"}
 
 TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
@@ -882,6 +885,9 @@ TABLE_COLUMNS = [
                 help=t("console.games.settings.help"),
                 **{**grid.choice_filter(_SETTINGS_CHOICES, formatted=True),
                    **_SETTINGS_DRAWN}),
+    grid.list_column(OWN_SETTINGS_COLUMN, t("console.games.own_settings"), 240, group=t(_TABLE),
+                     help=t("console.games.own_settings.help"),
+                     looks=renderers.SETTING_LOOKS),
     # One column per fact rather than one word folding three together. "Status" cannot
     # stay one column anyway - has an update, missing its rom and the rest are all
     # status - and folded, a table that is both the default and hidden reads as only
@@ -1111,7 +1117,23 @@ def _settings_cell(row: dict[str, Any]) -> dict[str, Any]:
                                    scope=_GAME_SCOPE)
     else:
         kind, said = "", ""
-    return {"settings": kind, "settings_said": said, "settings_count": here or from_game}
+    return {"settings": kind, "settings_said": said, "settings_count": here or from_game,
+            OWN_SETTINGS_COLUMN: list(row.get("launcher_settings_keys") or []) if configurable
+            else []}
+
+
+def setting_their_own(rows: list[dict[str, Any]], launcher_id: str,
+                      key: str) -> dict[str, Any] | None:
+    """A filter on the launcher's tables that set `key` for themselves, as an address
+    asks for one. None where it names no launcher a table uses, or no setting."""
+    name = next((str(row.get("launcher_name") or "") for row in rows
+                 if launcher_id and row.get("launcher") == launcher_id), "")
+    if not name or not key:
+        return None
+    return {"launcher": {"filterType": "text", "operator": "OR", "conditions": [
+                {"filterType": "text", "type": "equals", "filter": said}
+                for said in (name, f"{SET_HERE_MARK}{name}")]},
+            OWN_SETTINGS_COLUMN: {"values": [key]}}
 
 
 def _default_cell(row: dict[str, Any], held: int) -> str:
@@ -1139,7 +1161,13 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     """
     state = state if state is not None else {}
     tag_chips.install(library.tag_looks())
+    renderers.install_setting_names(
+        {key: said for groups in library.setting_groups().values()
+         for key, said in workbench.setting_names(groups).items()})
     built = table_rows(rows)
+    # Taken once, as the Games grid takes its own.
+    arriving = setting_their_own(rows, str(state.pop("launcher", None) or ""),
+                                 str(state.pop("sets", None) or ""))
     table_columns = TABLE_COLUMNS + table_asset_columns(list(TABLE_ASSET_KEYS))
     fields = [definition["field"] for definition in table_columns]
 
@@ -1182,7 +1210,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
         wire_views, view_picker, showing, describe = view_control(
             library, f"{SCOPE}.tables", presets, fields, table_columns, bar=bar,
-            annotate=annotate)
+            annotate=annotate, arriving=arriving)
         describe()
         with bar.top, panel.bar_end():
             search = panel.search(t("console.games.search_tables"))

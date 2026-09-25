@@ -877,6 +877,8 @@ class Table(ApiModel):
     launcher_settings_here: int = 0
     launcher_settings_from_folder: int = 0
     launcher_point_of_view: bool = False
+    # Which settings that file changes, by the program's own key, the camera left out.
+    launcher_settings_keys: list[str] = Field(default_factory=list)
     filename: str
     # `contained` for something in the game's folder, `referenced` for a file elsewhere
     # that it points at, `keyed` for something with no file at all that its app finds by
@@ -1109,6 +1111,7 @@ class TableRow(ApiModel):
     launcher_settings_here: int = 0
     launcher_settings_from_folder: int = 0
     launcher_point_of_view: bool = False
+    launcher_settings_keys: list[str] = Field(default_factory=list)
     # What to call the app on screen. Ids are for the wire.
     app_name: str = ""
 

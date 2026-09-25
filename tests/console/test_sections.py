@@ -1,3 +1,4 @@
+import inspect
 import unittest
 from urllib.parse import parse_qs
 
@@ -70,6 +71,15 @@ class AddressTests(unittest.TestCase):
 
         self.assertEqual(workbench.chosen_section(state, "game"),
                          workbench.DEFAULT_SECTION["game"])
+
+    def test_the_page_reads_every_name_an_address_writes(self) -> None:
+        """A name the page takes no parameter for is dropped before `apply` sees it."""
+        from console import page
+
+        taken = set(inspect.signature(page.console_page).parameters)
+
+        self.assertEqual([name for name, _value in deeplink._FIELDS if name not in taken],
+                         [])
 
 
 class CollectionAddressTests(unittest.TestCase):

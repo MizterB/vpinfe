@@ -151,6 +151,8 @@ class Library:
         # The by-file lens, read on first use rather than at load: most sessions never
         # switch to it, and it is a second walk of every folder.
         self._table_rows: list[dict[str, Any]] | None = None
+        # Each launcher's settings as its settings file declares them, by launcher id.
+        self._setting_groups: dict[str, list] = {}
         # The by-file lenses over media and assets, read the same way and for the same
         # reason.
         self._media_rows: list[dict[str, Any]] | None = None
@@ -900,10 +902,27 @@ class Library:
         self._client.set_collection_order(name, games)
 
     def load_tables(self) -> list[dict[str, Any]]:
-        """Read the by-file lens. Off the event loop, once per session."""
+        """Read the by-file lens. Off the event loop, once per session, and with it the
+        settings of each launcher that plays one of them and keeps some, once each."""
         if self._table_rows is None:
             self._table_rows = self._client.all_tables()
+            self._load_setting_groups(self._table_rows)
         return self._table_rows
+
+    def _load_setting_groups(self, rows: list[dict[str, Any]]) -> None:
+        for launcher in dict.fromkeys(str(row.get("launcher") or "") for row in rows
+                                      if row.get("launcher_app_configurable")):
+            if not launcher or launcher in self._setting_groups:
+                continue
+            try:
+                self._setting_groups[launcher] = self.launcher_config_groups(launcher)
+            except Exception:  # noqa: BLE001 - one launcher that cannot say is not all
+                self._setting_groups[launcher] = []
+
+    def setting_groups(self) -> dict[str, list]:
+        """Each launcher's settings, by id, as far as `load_tables` has read them: none
+        for one that could not say."""
+        return dict(self._setting_groups)
 
     def load_media_rows(self) -> list[dict[str, Any]]:
         """Read the media lens. Off the event loop, once per session.
