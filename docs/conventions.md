@@ -445,7 +445,10 @@ until then the chain reports `required: null`.
   `launcher.<id>` section. User data, and what a table names when it plays differently
   from the rest. One app, as many launchers as somebody wants.
 - **Install** — one VPinFE installation: its files, its config, its `install_id`. It
-  survives restarts, and it is what an install is addressed as.
+  survives restarts, and it is what an install is addressed as. The word is internal:
+  code, config sections and the wire keep it, and a screen never shows it. On screen the
+  computer VPinFE runs on is *this device* and another one is a *device*. The verb stays
+  (*Install* a theme, *Could not install*), and VPX's own folder is *VPX's folder*.
 - **VPinFE** — VPinFE running. What a lifecycle request starts, stops or restarts, as
   against the `frontend` it opens and the `system` it runs on. The install is still there
   when VPinFE is not. Never "app" for this: that word belongs to the thing that plays a
@@ -478,7 +481,9 @@ until then the chain reports `required: null`.
 
 A catalog string that says *cabinet*, *machine* or *build* fails
 `tests/invariants/test_screen_words.py` unless its key is listed there with what the word
-names in it.
+names in it. One that says *install* as a noun fails `tests/invariants/test_install_word.py`:
+the verb passes when it reads as one (*Install unar from your package manager.*, *Could not
+install*), and anything else is listed there with why.
 
 A game is not permanently one `.vpx`; say "table" when the file is what is meant.
 
