@@ -44,6 +44,12 @@ class RailTests(unittest.TestCase):
         self.assertIn("launcher_setup", shown)
         self.assertIn("launcher_backups", shown)
 
+    def test_every_setting_is_in_all_settings_after_the_areas(self) -> None:
+        shown = _shown(_context(path_checks.OK, groups=("displays", "plugins", "more")))
+
+        self.assertEqual(shown, ["launcher_setup", "launcher_displays", "launcher_plugins",
+                                 "launcher_all", "launcher_backups"])
+
     def test_a_program_that_is_not_there_leaves_only_what_can_fix_it(self) -> None:
         shown = _shown(_context(path_checks.MISSING))
 
@@ -68,6 +74,86 @@ class RailTests(unittest.TestCase):
         shown = _shown(_context(path_checks.OK, groups=(), has_config=False))
 
         self.assertEqual(shown, ["launcher_setup"])
+
+
+def _setting(key: str, label: str = "", *, default: str = "",
+             description: str = "") -> SimpleNamespace:
+    return SimpleNamespace(key=key, label=label or key.rsplit(".", 1)[-1],
+                           default=default, description=description, help="")
+
+
+def _group(key: str, *settings: SimpleNamespace, curated=()) -> SimpleNamespace:
+    return SimpleNamespace(key=key, label=key.title(), settings=list(settings),
+                           curated=list(curated))
+
+
+class AllSettingsTests(unittest.TestCase):
+    GROUPS = [
+        _group("displays", _setting("Player.PlayfieldFullScreen", "Display Mode"),
+               _setting("Backglass.BackglassOutput", "Output Mode", default="0")),
+        _group("plugins", _setting("Plugin.PinMAME.Enable", "Enable"),
+               _setting("Plugin.PinMAME.PinMAMEPath", "PinMAME Path",
+                        description="Where the ROMs live")),
+        _group("more", _setting("Player.BallTrail", "Ball Trail", default="1"),
+               _setting("DMD.Profile1Legacy", "Legacy")),
+    ]
+
+    def _found(self, values: dict | None = None, **wanted) -> list[tuple[str, list[str]]]:
+        return [(section, [f.key for f in fields]) for section, fields in
+                workbench.found_settings(self.GROUPS, values or {}, wanted)]
+
+    def test_everything_under_its_section_in_the_order_the_areas_reach_it(self) -> None:
+        self.assertEqual(self._found(), [
+            ("Player", ["Player.PlayfieldFullScreen", "Player.BallTrail"]),
+            ("Backglass", ["Backglass.BackglassOutput"]),
+            ("Plugin.PinMAME", ["Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath"]),
+            ("DMD", ["DMD.Profile1Legacy"]),
+        ])
+
+    def test_the_key_typed_from_the_file_finds_its_row(self) -> None:
+        self.assertEqual(self._found(query="fullscreen"),
+                         [("Player", ["Player.PlayfieldFullScreen"])])
+
+    def test_every_word_has_to_be_somewhere_in_label_key_or_description(self) -> None:
+        self.assertEqual(self._found(query="pinmame roms"),
+                         [("Plugin.PinMAME", ["Plugin.PinMAME.PinMAMEPath"])])
+        self.assertEqual(self._found(query="pinmame trail"), [])
+
+    def test_one_area(self) -> None:
+        self.assertEqual(self._found(area="more"), [
+            ("Player", ["Player.BallTrail"]), ("DMD", ["DMD.Profile1Legacy"])])
+
+    def test_set_here_is_what_this_launcher_s_file_holds(self) -> None:
+        values = {"Player.BallTrail": {"value": "1", "set_here": True},
+                  "Backglass.BackglassOutput": {"value": "1", "set_here": False}}
+
+        self.assertEqual(self._found(values, set_here=True),
+                         [("Player", ["Player.BallTrail"])])
+
+    def test_different_from_default_is_about_the_value_not_where_it_is_set(self) -> None:
+        values = {"Player.BallTrail": {"value": "1.0", "set_here": True},
+                  "Backglass.BackglassOutput": {"value": "1", "set_here": False},
+                  "Player.PlayfieldFullScreen": {"value": "", "set_here": False}}
+
+        self.assertEqual(self._found(values, differs=True),
+                         [("Backglass", ["Backglass.BackglassOutput"])])
+
+    def test_a_section_reads_as_words(self) -> None:
+        self.assertEqual(workbench.section_title("ScoreView", {}), "Score View")
+        self.assertEqual(workbench.section_title("DMD", {}), "DMD")
+
+    def test_a_plugin_takes_the_name_its_area_gives_it(self) -> None:
+        names = workbench._plugin_names([_group("plugins", curated=[
+            SimpleNamespace(key="PUP", label="Pin Up Player",
+                            keys=("Plugin.PUP.Enable",)),
+            SimpleNamespace(key="playfield", label="Playfield", keys=("Player.PlaySound",)),
+        ])])
+
+        self.assertEqual(names, {"PUP": "Pin Up Player"})
+        self.assertEqual(workbench.section_title("Plugin.PUP", names),
+                         t("console.workbench.plugin_section", name="Pin Up Player"))
+        self.assertEqual(workbench.section_title("Plugin.HelloWorld", names),
+                         t("console.workbench.plugin_section", name="HelloWorld"))
 
 
 class ProgramNoteTests(unittest.TestCase):

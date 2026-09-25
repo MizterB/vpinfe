@@ -328,6 +328,11 @@ class AreaTests(_Case):
         self.assertEqual(pinmame.keys, ("Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath"))
         self.assertEqual(pinmame.enabled_by, "Plugin.PinMAME.Enable")
 
+    def test_the_plugins_rows_follow_their_headings_each_in_the_file_s_order(self) -> None:
+        self.assertEqual([f.key for f in self.groups[areas.PLUGINS].settings],
+                         ["Plugin.FlexDMD.Enable", "Plugin.PinMAME.Enable",
+                          "Plugin.PinMAME.PinMAMEPath", "Plugin.PinMAME.Cheat"])
+
     def test_a_curated_row_the_file_lacks_is_left_out(self) -> None:
         playfield = next(h for h in self.groups[areas.SOUND].curated
                          if h.key == "playfield")

@@ -25,7 +25,7 @@ from urllib.parse import urlencode, urlparse
 
 from nicegui import run, ui
 
-from common import config_schema, icons, path_checks, tokens
+from common import apps, config_schema, icons, path_checks, tokens
 from common.games import asset_registry, tag_registry
 from common.games.asset_registry import ALWAYS_KEPT as _ALWAYS_KEPT
 from common.games.asset_resolver import VPX_ASSET_KINDS
@@ -4020,7 +4020,7 @@ async def _device_control(context: dict[str, Any]) -> None:
 # The app's declared groups, as rail sections. Fixed rather than read at import: a
 # section key has to be stable for `section=` in an address to mean one thing, and the
 # groups an app declares are its own vocabulary rather than this file's.
-CONFIG_GROUP_KEYS = ("displays", "sound", "graphics", "plugins", "more")
+CONFIG_GROUP_KEYS = ("displays", "sound", "graphics", "plugins")
 
 
 def _launcher_config_sections() -> tuple[Section, ...]:
@@ -4189,18 +4189,40 @@ def _playing(library: Library) -> bool:
 
 
 async def _config_rows(context: dict[str, Any], group: Any) -> None:
-    """One group of the program's own settings, at the launcher scope.
+    """One group of the program's own settings, at the launcher scope."""
+    # A heading per source section. Labels are the program's and are not unique - five
+    # plugins each call their switch `Enable`, and two of the five say nothing else
+    # about themselves. The section is the only thing that tells them apart, and it is
+    # what the program groups them by too.
+    titled = len({_section_of(f.key) for f in group.settings}) > 1
+    entries = await _setting_entries(
+        context, group.settings,
+        lambda section: _section_label(section, group.label) if titled else "")
+    with ui.column().classes("gap-0 console-form"):
+        _rows(ui, entries)
+
+
+async def _config_values(context: dict[str, Any]) -> dict[str, Any]:
+    """Every value as it stands at the launcher, read once per draw."""
+    values: dict[str, Any] = context.setdefault("config_values", {})
+    if not values:
+        values.update(await run.io_bound(
+            context["library"].launcher_config_values,
+            context["launcher"]["launcher_id"]) or {})
+    return values
+
+
+async def _setting_entries(context: dict[str, Any], fields: Sequence[Any],
+                           title_of: Callable[[str], str]) -> list[tuple[Any, Any]]:
+    """Settings as fact rows, with a heading where the source section changes and
+    `title_of` gives it a name.
 
     The value shown is always the one the program will use, never what this scope
     happens to hold: you should not be looking at a number that is not in force.
     """
     library = context["library"]
     launcher = context["launcher"]
-    values = context.setdefault("config_values", {})
-    if not values:
-        values.update(await run.io_bound(
-            library.launcher_config_values, launcher["launcher_id"]))
-
+    values = await _config_values(context)
     scope = context.get("config_scope") or "launcher"
 
     async def clear(key: str) -> Callable[[], Any]:
@@ -4231,17 +4253,13 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
     entries: list[tuple[Any, Any]] = []
     if playing:
         entries.append(panel.note(t(PLAYING_NOTE), hint=t(PLAYING_WHY)))
-    seen = ""
-    sections = {_section_of(f.key) for f in group.settings}
-    for field in group.settings:
-        # A heading per source section. Labels are the program's and are not unique -
-        # five plugins each call their switch `Enable`, and two of the five say nothing
-        # else about themselves. The section is the only thing that tells them apart,
-        # and it is what the program groups them by too.
+    seen: str | None = None
+    for field in fields:
         section = _section_of(field.key)
-        if section != seen and len(sections) > 1:
+        if section != seen:
             seen = section
-            entries.append((HEADING, _section_label(section, group.label)))
+            if title := title_of(section):
+                entries.append((HEADING, title))
         held = values.get(field.key) or {}
         option = _as_option(field)
         entries.append((field.label,
@@ -4256,8 +4274,7 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
                                     str(launcher.get("app_name") or ""), playing)))
         if field.description:
             entries.append(panel.note(field.description))
-    with ui.column().classes("gap-0 console-form"):
-        _rows(ui, entries)
+    return entries
 
 
 def _section_of(qualified: str) -> str:
@@ -4276,6 +4293,117 @@ def _section_label(section: str, group_label: str) -> str:
     # capitals inside a name and gives back something worse than it was handed.
     said = said.replace("\\", " - ")
     return group_label if said.lower() == group_label.lower() else said
+
+
+# --- All Settings -------------------------------------------------------------------
+
+PLUGIN_SECTION = "Plugin."
+
+
+def _all_settings_shown(context: dict[str, Any]) -> bool:
+    return _program_is_there(context) and any(g.settings for g in _listed_groups(context))
+
+
+def _listed_groups(context: dict[str, Any]) -> list[Any]:
+    """The groups whose settings are rows. A summarized one is a table's alone."""
+    return [g for g in context.get("config_groups") or []
+            if not getattr(g, "summarized", False)]
+
+
+async def _all_settings(context: dict[str, Any]) -> None:
+    """Every setting the program keeps, in its own words, found by typing or narrowed
+    to what is set here, what differs from its default, or one area."""
+    wanted: dict[str, Any] = context["state"].setdefault("all_settings", {})
+    groups = _listed_groups(context)
+    names = _plugin_names(groups)
+    areas = {"": t("console.workbench.every_area"), **{g.key: g.label for g in groups}}
+    if wanted.get("area") not in areas:
+        wanted["area"] = ""
+
+    with ui.row().classes("items-center gap-x-4 gap-y-2 w-full pb-2"):
+        search = panel.search(t("console.app_settings.search_settings")) \
+            .props("debounce=250")
+        search.value = wanted.get("query") or ""
+        area = ui.select(areas, value=wanted["area"]) \
+            .props("dense outlined options-dense").classes("w-40")
+        set_here = ui.checkbox(t("console.workbench.set_here_filter"),
+                               value=bool(wanted.get("set_here"))) \
+            .props("dense").classes("whitespace-nowrap")
+        differs = ui.checkbox(t("console.workbench.differs_filter"),
+                              value=bool(wanted.get("differs"))) \
+            .props("dense").classes("whitespace-nowrap")
+    results = ui.column().classes("gap-0 w-full")
+
+    async def draw() -> None:
+        found = found_settings(groups, await _config_values(context), wanted)
+        entries = await _setting_entries(context, [f for _, fields in found for f in fields],
+                                         lambda section: section_title(section, names))
+        results.clear()
+        with results, ui.column().classes("gap-0 console-form"):
+            _rows(ui, entries if found else [panel.intro(
+                t("console.workbench.no_setting_matches"))])
+
+    async def narrow(key: str, value: Any) -> None:
+        wanted[key] = value or ("" if key in ("query", "area") else False)
+        await draw()
+
+    search.on_value_change(lambda e: narrow("query", e.value))
+    area.on_value_change(lambda e: narrow("area", e.value))
+    set_here.on_value_change(lambda e: narrow("set_here", e.value))
+    differs.on_value_change(lambda e: narrow("differs", e.value))
+    await draw()
+
+
+def found_settings(groups: Sequence[Any], values: dict[str, Any],
+                   wanted: dict[str, Any]) -> list[tuple[str, list[Any]]]:
+    """What All Settings lists: each setting under its source section, the sections in
+    the order the areas first reach them."""
+    terms = str(wanted.get("query") or "").lower().split()
+    found: dict[str, list[Any]] = {}
+    for group in groups:
+        if wanted.get("area") and group.key != wanted["area"]:
+            continue
+        for field in group.settings:
+            held = values.get(field.key) or {}
+            if wanted.get("set_here") and not held.get("set_here"):
+                continue
+            if wanted.get("differs") and not differs_from_default(field, held):
+                continue
+            if terms and not _says_all(field, terms):
+                continue
+            found.setdefault(_section_of(field.key), []).append(field)
+    return list(found.items())
+
+
+def _says_all(field: Any, terms: Sequence[str]) -> bool:
+    said = " ".join((field.label, field.key, field.description,
+                     getattr(field, "help", ""))).lower()
+    return all(term in said for term in terms)
+
+
+def differs_from_default(field: Any, held: dict[str, Any]) -> bool:
+    value = str(held.get("value") or "")
+    if not value:
+        return False
+    default = str(field.default or "")
+    try:
+        return float(value) != float(default)
+    except ValueError:
+        return value != default
+
+
+def _plugin_names(groups: Sequence[Any]) -> dict[str, str]:
+    """A plugin's name where an area heads its rows with one, by plugin id."""
+    return {h.key: h.label for g in groups for h in getattr(g, "curated", ())
+            if h.keys and h.keys[0].startswith(f"{PLUGIN_SECTION}{h.key}.")}
+
+
+def section_title(section: str, plugin_names: dict[str, str]) -> str:
+    """A source section as All Settings heads it: the program's name for it, in words."""
+    if section.startswith(PLUGIN_SECTION):
+        plugin = section[len(PLUGIN_SECTION):]
+        return t("console.workbench.plugin_section", name=plugin_names.get(plugin, plugin))
+    return apps.humanized(section).replace("\\", " - ")
 
 
 def _as_text(value: Any) -> str:
@@ -5986,6 +6114,8 @@ SECTIONS: tuple[Section, ...] = (
     Section("launcher_setup", lambda _: t("console.workbench.setup"), _launcher_setup,
             subjects=frozenset({"launcher"})),
     *_launcher_config_sections(),
+    Section("launcher_all", lambda _: t("console.workbench.all_settings"), _all_settings,
+            subjects=frozenset({"launcher"}), shown=_all_settings_shown),
     Section("launcher_backups", lambda _: t("console.workbench.settings_file"),
             _config_backups, subjects=frozenset({"launcher"}), shown=_app_keeps_settings),
     Section("collection_details", lambda _: t("console.workbench.details"),

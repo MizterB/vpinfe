@@ -131,7 +131,7 @@ def field_words(app_id: str, field: Field) -> dict[str, str]:
         return i18n.literal_or(literal, f"app.{app_id}.field.{field.key}.{name}",
                                f"launcher.field.{field.key}.{name}", fallback=fallback)
 
-    label, label_key = leaf("label", field.label, _humanized(field.key))
+    label, label_key = leaf("label", field.label, humanized(field.key))
     return {"label": label, "label_key": label_key,
             "description": leaf("description", field.description, "")[0]}
 
@@ -147,7 +147,7 @@ def field_help(app_id: str, field: Field) -> str:
 _WORD_START = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
-def _humanized(key: str) -> str:
+def humanized(key: str) -> str:
     """A key nobody gave words to, as near to words as it goes: its last part, split
     where its capitals start words."""
     return _WORD_START.sub(" ", key.rsplit(".", 1)[-1])
@@ -163,7 +163,7 @@ def group_words(app_id: str, group: ConfigGroup) -> dict[str, str]:
 def heading_words(app_id: str, group: str, heading: str) -> dict[str, str]:
     """`label` and `note` for one heading of a group's curated rows."""
     base = f"app.{app_id}.group.{group}.heading.{heading}"
-    return {"label": i18n.literal_or("", f"{base}.label", fallback=_humanized(heading))[0],
+    return {"label": i18n.literal_or("", f"{base}.label", fallback=humanized(heading))[0],
             "note": i18n.literal_or("", f"{base}.note")[0]}
 
 

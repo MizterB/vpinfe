@@ -271,6 +271,8 @@ class VPXConfig:
             if _offered(one.qualified):
                 by_area.setdefault(areas.area_of(one.qualified), []).append(_field(one))
         offered = {f.key for held in by_area.values() for f in held}
+        by_area.get(areas.PLUGINS, []).sort(
+            key=lambda f: (areas.plugin_of(f.key) or "").lower())
         return tuple(
             ConfigGroup(key=key, settings=tuple(by_area[key]),
                         curated=_curated(key, offered),
