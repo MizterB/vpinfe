@@ -134,7 +134,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                 writable: bool = True, rerender: Callable[[], None] | None = None,
                 check: dict | None = None,
                 suggestions: dict[str, Any] | None = None,
-                section_values: dict[str, Any] | None = None) -> Callable[[], None]:
+                section_values: dict[str, Any] | None = None,
+                varies: bool = False) -> Callable[[], None]:
     """The control a declared value's type asks for.
 
     Driven by the declaration, never by the key's name: something added to the schema -
@@ -144,6 +145,9 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     built from a section and a key, because the same grammar now draws two things that
     are stored quite differently: a setting goes to a config section, and a launcher
     field goes to a launcher.
+
+    `varies` draws it holding no value at all, not even the words for a blank one: it
+    stands for several values that differ.
     """
     editor = EDITORS.get(str(option.get("editor") or ""))
     if editor is not None:
@@ -151,6 +155,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                       writable=writable, rerender=rerender)
 
     kind = option.get("type")
+    if varies:
+        value, option = None, {**option, "blank": ""}
     off = not writable
     found = check or {}
     state = panel.value_state(str(found.get("state") or ""),
@@ -179,7 +185,7 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         # Through the declared type, not `bool()`. A setting nobody has stored answers
         # with its declared default, and that is the string "false" - which is a
         # perfectly true string, and drew every untouched switch as on.
-        return panel.switch(bool(value_for(option, value)),
+        return panel.switch(None if varies else bool(value_for(option, value)),
                             lambda e: save(bool(e.value)), disabled=off)
     if kind == "choice" and option.get("choices"):
         # Passed through when it is already a mapping. A theme names its choices

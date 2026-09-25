@@ -335,6 +335,25 @@ class BlankValueTests(unittest.TestCase):
         self.assertEqual(self._placeholder(dict(field)), "From the screen")
 
 
+class VariesControlTests(unittest.TestCase):
+    """A control standing for several values that differ holds none of them."""
+
+    def test_a_switch_is_neither_on_nor_off(self) -> None:
+        with patch.object(settings.panel, "switch") as switch:
+            settings.control_for({"key": "k", "type": "bool", "default": "1"}, True,
+                                 lambda _v: True, varies=True)
+
+        self.assertIsNone(switch.call_args.args[0])
+
+    def test_a_number_is_blank_without_the_words_for_a_blank(self) -> None:
+        with patch.object(settings.panel, "number") as number:
+            settings.control_for({"key": "k", "type": "int", "blank": "From the screen"},
+                                 120, lambda _v: True, varies=True)
+
+        self.assertEqual((number.call_args.args[0], number.call_args.kwargs["placeholder"]),
+                         (None, ""))
+
+
 class ColorControlTests(unittest.TestCase):
     OPTION = {"key": "Alpha.Profile4Color", "type": "color", "label": "Color",
               "default": "#FF2315"}
@@ -687,10 +706,11 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
         return [one["id"] for one in workbench._served(row, [row, *others], self.TABLES)]
 
     async def _settings(self, row: dict, tables=None, *, state: str = path_checks.OK,
-                        has_config: bool = True) -> tuple[dict | None, Mock]:
+                        has_config: bool = True,
+                        others=()) -> tuple[dict | None, Mock]:
         library = Mock()
         library.launchers.return_value = {"launchers": [
-            {**_launcher(state, has_config=has_config), "launcher_id": "l1"}]}
+            {**_launcher(state, has_config=has_config), "launcher_id": "l1"}, *others]}
         library.launcher_config.return_value = self.WIRE
         library.play_state.return_value = {}
         self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock(
@@ -719,11 +739,49 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((found["config_scope"], found["config_table"]), ("entry", "t1"))
         library.launcher_config.assert_called_once_with("l1", "t1", "entry")
 
-    async def test_a_file_several_tables_use_has_none(self) -> None:
+    async def test_a_file_several_tables_use_is_read_and_written_at_each(self) -> None:
         found, library = await self._settings(self._file("game", ""), self.TABLES)
 
+        assert found is not None
+        self.assertEqual([(one["table"]["id"], one["launcher_id"]) for one in found["shared"]],
+                         [("t1", "l1"), ("t2", "l1")])
+        self.assertEqual(found["config_values"], {})
+        self.assertEqual((found["config_read"].func, found["config_write"].func),
+                         (app_settings.as_one, app_settings.write_shared))
+
+    async def test_nor_where_the_tables_run_different_programs(self) -> None:
+        other = {**_launcher(path_checks.OK), "launcher_id": "l2", "app": "fp"}
+        tables = [self.TABLES[0], {**self.TABLES[1], "launcher": "l2"}]
+
+        found, _ = await self._settings(self._file("game", ""), tables, others=[other])
+
         self.assertIsNone(found)
-        library.launcher_config.assert_not_called()
+
+    async def test_nor_where_one_of_them_cannot_be_read(self) -> None:
+        for table in ({**self.TABLES[1], "launcher": "gone"},
+                      {**self.TABLES[1], "launcher_app_configurable": False}):
+            with self.subTest(table=table):
+                found, _ = await self._settings(self._file("game", ""),
+                                                [self.TABLES[0], table])
+                self.assertIsNone(found)
+
+    async def test_a_shared_file_says_how_many_tables_it_writes_to(self) -> None:
+        found, _ = await self._settings(self._file("game", ""), self.TABLES)
+        assert found is not None
+        tables = [{**one, "filename": f"{one['id']}.vpx"} for one in self.TABLES]
+        found.update(tables=tables, shared=[{**one, "table": table}
+                                            for one, table in zip(found["shared"], tables,
+                                                                  strict=True)])
+
+        with patch.object(workbench, "_config_values", AsyncMock(return_value={})), \
+                patch.object(workbench, "_setting_entries", AsyncMock(return_value=[])), \
+                patch.object(workbench, "_rows") as rows, patch.object(workbench, "ui"), \
+                patch.object(workbench.panel, "intro") as intro:
+            await workbench._file_settings_block({"file_settings": found})
+
+        intro.assert_called_once_with(
+            "Changes here apply to all 2 tables that use this file", hint="t1\nt2")
+        self.assertEqual(rows.call_args.args[1], [intro.return_value])
 
     async def test_nor_where_the_launcher_cannot_show_them(self) -> None:
         for state, has_config in ((path_checks.MISSING, True), (path_checks.OK, False)):
@@ -1214,6 +1272,76 @@ class SetForAllTests(unittest.TestCase):
 
         more.assert_called_once()
         verb.assert_called_once_with()
+
+
+class _Tables:
+    """Each table's settings as the API answers for them, and what was written where."""
+
+    def __init__(self, **values: dict) -> None:
+        self.values = values
+        self.written: list[tuple[str, dict]] = []
+
+    def launcher_config(self, _launcher: str, table: str, _scope: str) -> dict:
+        return {"values": self.values[table], "shared_with_game": False}
+
+    def write_launcher_config(self, _launcher: str, values: dict, *, table: str,
+                              scope: str) -> dict:
+        self.written.append((table, values))
+        return {}
+
+
+class SharedFileTests(unittest.TestCase):
+    """The settings of every table one file is used by, as one row a setting."""
+
+    KEY = "Plugin.B2S.BackglassDMDX"
+    GROUPS = [_group("plugins", _setting(KEY, default="0"))]
+
+    def _targets(self, tables: _Tables) -> list[dict]:
+        return [{"table": {"id": table}, "launcher_id": "l1"} for table in tables.values]
+
+    def _as_one(self, **held: dict) -> dict:
+        tables = _Tables(**{table: {self.KEY: one} for table, one in held.items()})
+        return app_settings.as_one(tables, self._targets(tables), self.GROUPS)[self.KEY]
+
+    def test_where_the_tables_differ_it_varies_and_holds_no_value(self) -> None:
+        held = self._as_one(a={"value": "120", "set_here": True},
+                            b={"value": "60", "set_here": True})
+
+        self.assertEqual((held["varies"], held["value"]), (True, ""))
+        self.assertEqual([(table["id"], value) for table, value in held["each"]],
+                         [("a", "120"), ("b", "60")])
+
+    def test_a_blank_is_the_default_it_stands_for(self) -> None:
+        held = self._as_one(a={"value": ""}, b={"value": "0", "set_here": True})
+
+        self.assertNotIn("varies", held)
+
+    def test_it_is_set_here_where_any_of_them_sets_it(self) -> None:
+        held = self._as_one(a={"value": "0", "scope": "launcher"},
+                            b={"value": "0", "scope": "entry", "set_here": True,
+                               "in_effect": False})
+
+        self.assertEqual((held["set_here"], held["in_effect"], held["scope"]),
+                         (True, False, "entry"))
+
+    def test_a_blank_is_written_only_where_a_table_sets_one(self) -> None:
+        tables = _Tables(a={self.KEY: {"value": "120", "set_here": True}},
+                         b={self.KEY: {"value": "0"}})
+
+        app_settings.write_shared(tables, self._targets(tables), self.GROUPS, {self.KEY: ""})
+
+        self.assertEqual(tables.written, [("a", {self.KEY: ""})])
+
+    def test_a_varying_switch_draws_the_rows_under_it(self) -> None:
+        switch = _setting("Plugin.B2S.Enable", default="0")
+        group = _group("plugins", switch, _setting(self.KEY), curated=[
+            _heading("B2S", "Plugin.B2S.Enable", self.KEY, enabled_by="Plugin.B2S.Enable")])
+
+        shown = workbench.curated_blocks(group, {"Plugin.B2S.Enable": {"value": "",
+                                                                      "varies": True}})
+
+        self.assertEqual([field.key for field in shown[0][1]],
+                         ["Plugin.B2S.Enable", self.KEY])
 
 
 class CopyFromGameTests(unittest.IsolatedAsyncioTestCase):

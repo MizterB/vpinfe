@@ -518,6 +518,51 @@ def write_for_all(library: Any, others: list[dict[str, Any]], field: Any, value:
     return cut
 
 
+def as_one(library: Any, targets: list[dict[str, Any]],
+           groups: Sequence[Any]) -> dict[str, dict[str, Any]]:
+    """Each setting as several tables hold it, in one `held`: set where any of them sets
+    it, in effect where each that sets it has it in effect, with `each` table's value in
+    use and `varies` where those differ, holding no value of its own then."""
+    for one in targets:
+        _read_settings(library, one)
+    fields = {field.key: field for group in groups for field in group.settings}
+    found = {}
+    for key in dict.fromkeys(key for one in targets for key in one["values"]):
+        field = fields.get(key)
+        default = str(getattr(field, "default", "") or "")
+        held = [(one["table"], (one["values"].get(key) or {})) for one in targets]
+        setting = [one for _, one in held if one.get("set_here")]
+        merged = dict(setting[0] if setting else held[0][1])
+        each = [(table, str(one.get("value") or "") or default) for table, one in held]
+        merged.update(set_here=bool(setting),
+                      in_effect=all(one.get("in_effect", True) for one in setting),
+                      each=each)
+        if any(not workbench._same_value(field, each[0][1], value) for _, value in each):
+            merged.update(varies=True, value="")
+        found[key] = merged
+    return found
+
+
+def write_shared(library: Any, targets: list[dict[str, Any]], groups: Sequence[Any],
+                 values: dict[str, str]) -> dict[str, Any]:
+    """Values written at each of several tables: a value to each not using it yet, as Set
+    for All does, and a blank to each that sets one. Returns under `cut` the tables
+    written that read the game's file before, and no longer do."""
+    fields = {field.key: field for group in groups for field in group.settings}
+    cut = [table for key, value in values.items() if value != ""
+           for table in write_for_all(library, targets, fields[key], value, False)]
+    blank = [key for key, value in values.items() if value == ""]
+    for one in targets if blank else []:
+        _read_settings(library, one)
+        held = {key: "" for key in blank
+                if (one["values"].get(key) or {}).get("set_here")}
+        if held:
+            library.write_launcher_config(one["launcher_id"], held,
+                                          table=str(one["table"].get("id") or ""),
+                                          scope=SCOPE_ENTRY)
+    return {"cut": cut}
+
+
 async def _set_for_all(inner: dict[str, Any], others: list[dict[str, Any]], field: Any,
                        value: str, shares_here: bool, tables: list[dict[str, Any]]) -> None:
     try:

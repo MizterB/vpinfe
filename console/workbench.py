@@ -894,19 +894,22 @@ def _served(row: dict[str, Any], files: Sequence[dict[str, Any]],
 async def _file_settings(library: Library, row: dict[str, Any],
                          files: Sequence[dict[str, Any]],
                          tables: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
-    """What a file's Settings section draws from: the program settings its table's
-    launcher ties to the file's kind, read at that table. None where it has none."""
+    """What a file's Settings section draws from: the program settings its tables'
+    launchers tie to the file's kind, read at each table it is the one used by. None
+    where it has none, or where one of those tables runs another program or cannot be
+    read."""
     served = _served(row, files, tables)
-    if len(served) != 1 or not served[0].get("launcher_app_configurable"):
+    if not served or not all(one.get("launcher_app_configurable") for one in served):
         return None
-    table, kind = served[0], str(row.get("kind") or "")
+    kind = str(row.get("kind") or "")
     listing = await offload.io(_launchers_for_panel, library)
-    launcher = next((one for one in listing.get("launchers") or []
-                     if one["launcher_id"] == table.get("launcher")), None)
-    if (launcher is None or not launcher.get("has_config")
-            or _program_state(launcher) != path_checks.OK):
+    held = {one["launcher_id"]: one for one in listing.get("launchers") or []}
+    runs = [launcher for table in served
+            if (launcher := held.get(table.get("launcher"))) is not None
+            and launcher.get("has_config") and _program_state(launcher) == path_checks.OK]
+    if len(runs) != len(served) or len({one.get("app") for one in runs}) != 1:
         return None
-    table_id = str(table.get("id") or "")
+    launcher, table_id = runs[0], str(served[0].get("id") or "")
     try:
         found = await offload.io(library.launcher_config, launcher["launcher_id"],
                                  table_id, "entry")
@@ -920,10 +923,19 @@ async def _file_settings(library: Library, row: dict[str, Any],
     tied = [group for group in tied if group.curated]
     if not tied:
         return None
-    return {"library": library, "launcher": launcher, "config_groups": groups,
-            "config_values": dict(found.get("values") or {}), "config_scope": "entry",
-            "config_table": table_id, "tied": tied,
-            "playing": await offload.io(_playing, library)}
+    settings = {"library": library, "launcher": launcher, "config_groups": groups,
+                "config_values": dict(found.get("values") or {}), "config_scope": "entry",
+                "config_table": table_id, "tied": tied, "tables": list(tables),
+                "playing": await offload.io(_playing, library)}
+    if len(served) > 1:
+        from console import app_settings
+        shared = [{"table": table, "launcher_id": one["launcher_id"]}
+                  for table, one in zip(served, runs, strict=True)]
+        settings.update(
+            config_values={}, shared=shared,
+            config_read=partial(app_settings.as_one, library, shared, groups),
+            config_write=partial(app_settings.write_shared, library, shared, groups))
+    return settings
 
 
 async def _file_settings_block(context: dict[str, Any]) -> None:
@@ -934,6 +946,10 @@ async def _file_settings_block(context: dict[str, Any]) -> None:
         inner, [(heading.label, heading.note, fields) for heading, fields in shown],
         curated=True, redraw_on={heading.enabled_by for heading, _ in shown},
         pairs=[pair for heading, _ in shown for pair in heading.pairs])
+    if shared := inner.get("shared"):
+        entries.insert(0, panel.intro(
+            t("console.workbench.writes_to_tables", count=len(shared)),
+            hint="\n".join(_table_line(one["table"], inner["tables"]) for one in shared)))
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, entries)
 
@@ -4322,6 +4338,21 @@ def _config_mark(held: dict, scope: str, field: Any,
 Part = tuple[Callable[[], None], dict, Any]
 
 
+def _varies(parts: Sequence[Part], tables: Sequence[dict[str, Any]], app_name: str,
+            joiner: str = "") -> Callable[[], None] | None:
+    """Varies, where the tables a row is written to use different values for it, with
+    each table's on hover: a pair's two parts joined by `joiner`."""
+    if not any(held.get("varies") for _, held, _ in parts):
+        return None
+    each = [held.get("each") or [] for _, held, _ in parts]
+    lines = [t("console.workbench.part_said", label=_table_line(table, list(tables)),
+               said=joiner.join(_said_value(field, used[index][1])
+                                or t("console.workbench.app_default", app=app_name)
+                                for used, (_, _, field) in zip(each, parts, strict=True)))
+             for index, (table, _) in enumerate(each[0])]
+    return panel.state(t("console.workbench.varies"), "off", hint="\n".join(lines))
+
+
 def _marked(parts: Sequence[Part], app_name: str,
             redraws: list[Callable[[], None]] | None = None, *, joiner: str = "",
             on_leave: Callable[[], Any] | None = None,
@@ -4406,7 +4437,8 @@ def _whose_value(held: dict, field: Any, app_name: str) -> str:
             return t("console.workbench.has_its_own", whose=whose, value=said)
         return t("console.workbench.has_its_own_whose", whose=whose)
     if held.get("set_here"):
-        if _same_value(field, held.get("value") or "", str(field.default or "")):
+        if not held.get("varies") and _same_value(field, held.get("value") or "",
+                                                  str(field.default or "")):
             return t("console.workbench.same_as_default", app=app_name)
         return t("console.workbench.set_2")
     if held.get("scope"):
@@ -4535,14 +4567,15 @@ async def _every_row(context: dict[str, Any], group: Any) -> None:
 
 
 def curated_blocks(group: Any, values: dict[str, Any]) -> list[tuple[Any, list[Any]]]:
-    """Each curated heading with the rows it draws: all of them while its switch is on,
-    the switch alone while it is off."""
+    """Each curated heading with the rows it draws: all of them while its switch is on
+    anywhere, the switch alone while it is off."""
     by_key = {f.key: f for f in group.settings}
     found = []
     for heading in group.curated:
         fields = [by_key[key] for key in heading.keys if key in by_key]
         switch = by_key.get(heading.enabled_by)
-        if switch is not None and not _is_on(switch, values.get(switch.key) or {}):
+        held = values.get(heading.enabled_by) or {}
+        if switch is not None and not held.get("varies") and not _is_on(switch, held):
             fields = [switch]
         if fields:
             found.append((heading, fields))
@@ -4599,9 +4632,11 @@ def _open_all_settings(context: dict[str, Any], **wanted: Any) -> None:
 
 async def _config_values(context: dict[str, Any]) -> dict[str, Any]:
     """Every value as it stands at the context's scope - the launcher's unless it names
-    a table - read once per draw."""
+    a table, or as its `config_read` reads them - read once per draw."""
     values: dict[str, Any] = context.setdefault("config_values", {})
-    if not values:
+    if not values and (read := context.get("config_read")) is not None:
+        values.update(await run.io_bound(read) or {})
+    elif not values:
         values.update(await run.io_bound(
             context["library"].launcher_config_values,
             context["launcher"]["launcher_id"], str(context.get("config_table") or ""),
@@ -4661,15 +4696,17 @@ async def _setting_entries(context: dict[str, Any],
             pending["rebuild"] = False
             await context["rebuild"]()
 
+    def written(values: dict[str, str]) -> Awaitable[Any]:
+        if (write := context.get("config_write")) is not None:
+            return run.io_bound(write, values)
+        return run.io_bound(library.write_launcher_config, launcher["launcher_id"], values,
+                            table=table, scope=scope)
+
     def clear(keys: Sequence[str]) -> Callable[[], Awaitable[None]]:
         async def wipe() -> None:
             try:
                 async with in_turn:
-                    await run.io_bound(library.write_launcher_config,
-                                       launcher["launcher_id"],
-                                       {key: "" for key in keys
-                                        if rows[key].get("set_here")},
-                                       table=table, scope=scope)
+                    await written({key: "" for key in keys if rows[key].get("set_here")})
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_clear_it", exc=(exc)), type="negative")
                 return
@@ -4681,14 +4718,16 @@ async def _setting_entries(context: dict[str, Any],
         async def write(value: Any) -> bool:
             try:
                 async with in_turn:
-                    wrote = await run.io_bound(
-                        library.write_launcher_config, launcher["launcher_id"],
-                        {key: _as_text(value)}, table=table, scope=scope)
+                    wrote = await written({key: _as_text(value)})
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_save_it", exc=(exc)), type="negative")
                 return False
             if table and key in ((wrote or {}).get("cleared") or ()):
                 ui.notify(t("console.app_settings.now_same_all_tables"), type="positive")
+            if cut := (wrote or {}).get("cut"):
+                ui.notify(t("console.app_settings.no_longer_reads_game", count=len(cut),
+                            tables=", ".join(_table_line(one, context.get("tables"))
+                                             for one in cut)), type="warning")
             context.pop("config_values", None)
             try:
                 fresh = await _config_values(context)
@@ -4725,10 +4764,13 @@ async def _setting_entries(context: dict[str, Any],
             option, settings_page.value_for(option, held.get("value")),
             save(field.key, option["type"] in TYPED), writable=not playing and offered(field),
             check=_unreported(held.get("value"), reported, app_name),
-            suggestions={REPORTED: dict(zip(reported, reported, strict=True))}), held, field
+            suggestions={REPORTED: dict(zip(reported, reported, strict=True))},
+            varies=bool(held.get("varies"))), held, field
 
-    def marks(parts: Sequence[Part]) -> Callable[[], None] | None:
-        return _in_turn(*(_mark_for(held, scope, field, offered(field), len(parts) > 1)
+    def marks(parts: Sequence[Part], joiner: str = "") -> Callable[[], None] | None:
+        return _in_turn(_varies(parts, context.get("tables") or [], app_name, joiner),
+                        *(None if held.get("varies")
+                          else _mark_for(held, scope, field, offered(field), len(parts) > 1)
                           for _, held, field in parts))
 
     entries: list[tuple[Any, Any]] = []
@@ -4758,7 +4800,8 @@ async def _setting_entries(context: dict[str, Any],
                 on_leave=settle if any(_as_option(one)["type"] in TYPED for one in members)
                 else None, clear=clear(keys), playing=playing)))
             entries.append((panel.ASIDE, _beside(
-                partial(marks, parts), parts[0][1], field, redraws,
+                partial(marks, parts, pair.joiner if pair else ""), parts[0][1], field,
+                redraws,
                 None if pair else context.get("config_more"),
                 _in_turn(*(_conflict(clashing[key]) for key in keys if key in clashing),
                          _tables_of_their_own(launcher, keys, owned) if owned else None))))

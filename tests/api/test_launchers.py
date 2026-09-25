@@ -516,12 +516,13 @@ async def _off_the_loop(callback: Any, *args: Any, **kwargs: Any) -> Any:
     return await asyncio.to_thread(callback, *args, **kwargs)
 
 
-class BackglassPanelTests(_TableCase, unittest.IsolatedAsyncioTestCase):
-    """The backglass file's Settings and the table's Settings are one value each: what
-    either writes, the other shows as the table's."""
+class _BackglassPanel(_TableCase, unittest.IsolatedAsyncioTestCase):
+    """A backglass file's Settings, over a launcher whose program is there, read and
+    written through the Console's own client."""
 
     BACKGLASS = {"kind": "backglass", "binding": "table", "table": "t1", "present": True}
-    TABLE = {"id": "t1", "launcher": "l1", "launcher_app_configurable": True}
+    TABLES = [{"id": "t1", "launcher": "l1", "launcher_app_configurable": True,
+               "filename": "afm.vpx"}]
     X = "Plugin.B2S.BackglassDMDX"
 
     def setUp(self) -> None:
@@ -541,7 +542,7 @@ class BackglassPanelTests(_TableCase, unittest.IsolatedAsyncioTestCase):
 
     async def _panel(self) -> tuple[Any, Any]:
         context = await workbench._file_settings(self.library, self.BACKGLASS,
-                                                 [self.BACKGLASS], [self.TABLE])
+                                                 [self.BACKGLASS], self.TABLES)
         assert context is not None
         context["rebuild"] = AsyncMock()
         with patch.object(workbench, "ui"), patch.object(workbench, "_rows"), \
@@ -549,6 +550,11 @@ class BackglassPanelTests(_TableCase, unittest.IsolatedAsyncioTestCase):
                 patch.object(workbench, "_marked") as marked:
             await workbench._file_settings_block({"file_settings": context})
         return control_for, marked
+
+
+class BackglassPanelTests(_BackglassPanel):
+    """The backglass file's Settings and the table's Settings are one value each: what
+    either writes, the other shows as the table's."""
 
     async def _at_the_table(self) -> dict[str, Any]:
         return await asyncio.to_thread(self.library.launcher_config, "l1", "t1", "entry")
@@ -600,6 +606,112 @@ class BackglassPanelTests(_TableCase, unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse((await self._at_the_table())["values"][self.X]["set_here"])
         self.assertNotIn("BackglassDMDX", pathlib.Path(self.beside).read_text())
+
+
+class SharedBackglassPanelTests(_BackglassPanel):
+    """The game's backglass, used by two tables: one row a setting, written to both."""
+
+    BACKGLASS = {"kind": "backglass", "binding": "game", "table": "", "present": True}
+    TABLES = [*_BackglassPanel.TABLES,
+              {"id": "t2", "launcher": "l1", "launcher_app_configurable": True,
+               "filename": "afm2.vpx"}]
+    Y = "Plugin.B2S.BackglassDMDY"
+
+    def setUp(self) -> None:
+        super().setUp()
+        second = pathlib.Path(self.table).with_name("afm2.vpx")
+        second.touch()
+        self.own = {"t1": pathlib.Path(self.beside), "t2": second.with_suffix(".ini")}
+        self.enterContext(patch("common.games.launcher_ops._game_file",
+                                side_effect={"t1": self.table, "t2": str(second)}.get))
+        self.notify = self.enterContext(patch.object(workbench.ui, "notify"))
+
+    async def _set_at(self, table: str, **values: str) -> None:
+        await asyncio.to_thread(self.library.write_launcher_config, "l1",
+                                {getattr(self, key): value for key, value in values.items()},
+                                table=table, scope="entry")
+
+    def _in_file(self, table: str) -> str:
+        file = configparser.ConfigParser(interpolation=None)
+        file.optionxform = str  # type: ignore[assignment,method-assign]
+        file.read(self.own[table])
+        return file["Plugin.B2S"].get("BackglassDMDX", "") if file.has_section(
+            "Plugin.B2S") else ""
+
+    @staticmethod
+    def _row(control_for: Any, marked: Any, key: str) -> tuple[Any, Any]:
+        control = next(call for call in control_for.call_args_list
+                       if call.args[0]["key"] == key)
+        parts = next(call.args[0] for call in marked.call_args_list
+                     if key in [field.key for _, _, field in call.args[0]])
+        return control, parts
+
+    async def test_where_they_differ_the_row_reads_varies(self) -> None:
+        await self._set_at("t1", X="120", Y="40")
+        await self._set_at("t2", X="60", Y="40")
+
+        control_for, marked = await self._panel()
+
+        control, parts = self._row(control_for, marked, self.X)
+        self.assertIs(control.kwargs["varies"], True)
+        self.assertIs(self._row(control_for, marked, self.Y)[0].kwargs["varies"], False)
+        with patch.object(workbench.panel, "state") as state:
+            workbench._varies(parts, self.TABLES, "VPX", ",")
+        self.assertEqual(state.call_args.args[0], "Varies")
+        self.assertEqual(state.call_args.kwargs["hint"].splitlines(),
+                         ["afm: 120,40", "afm2: 60,40"])
+
+    async def test_where_they_agree_it_holds_their_value(self) -> None:
+        await self._set_at("t1", X="120")
+        await self._set_at("t2", X="120")
+
+        control_for, marked = await self._panel()
+
+        control, parts = self._row(control_for, marked, self.X)
+        self.assertEqual((control.args[1], control.kwargs["varies"]), (120, False))
+        self.assertIsNone(workbench._varies(parts, self.TABLES, "VPX", ","))
+
+    async def test_a_value_set_here_is_written_to_both_tables(self) -> None:
+        await self._set_at("t1", X="120")
+        await self._set_at("t2", X="60")
+        control_for, marked = await self._panel()
+
+        self.assertTrue(await self._row(control_for, marked, self.X)[0].args[2](200))
+
+        self.assertEqual([self._in_file(one) for one in ("t1", "t2")], ["200", "200"])
+
+    async def test_clear_clears_it_at_both(self) -> None:
+        await self._set_at("t1", X="120")
+        await self._set_at("t2", X="60")
+        _, marked = await self._panel()
+        clear = next(call.kwargs["clear"] for call in marked.call_args_list
+                     if self.X in [field.key for _, _, field in call.args[0]])
+
+        await clear()
+
+        self.assertEqual([self._in_file(one) for one in ("t1", "t2")], ["", ""])
+
+    async def test_clear_gives_a_table_that_did_not_set_it_no_file(self) -> None:
+        await self._set_at("t1", X="120")
+        _, marked = await self._panel()
+        clear = next(call.kwargs["clear"] for call in marked.call_args_list
+                     if self.X in [field.key for _, _, field in call.args[0]])
+
+        await clear()
+
+        self.assertEqual(self._in_file("t1"), "")
+        self.assertFalse(self.own["t2"].exists())
+
+    async def test_the_tables_that_stop_reading_the_game_s_file_are_named(self) -> None:
+        control_for, marked = await self._panel()
+
+        await self._row(control_for, marked, self.X)[0].args[2](200)
+
+        self.assertEqual([self._in_file(one) for one in ("t1", "t2")], ["200", "200"])
+        said = [call for call in self.notify.call_args_list
+                if call.kwargs.get("type") == "warning"]
+        self.assertEqual([call.args[0] for call in said],
+                         ["afm, afm2 no longer read this game's own settings"])
 
 
 class SharedWithGameTests(_TableCase):

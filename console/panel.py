@@ -194,9 +194,10 @@ def _rail_row(key: str, label: str, open_now: bool,
     row.on("click", lambda: on_pick(key))
 
 
-def switch(value: bool, on_change: Callable[[Any], Any], *,
+def switch(value: bool | None, on_change: Callable[[Any], Any], *,
            disabled: bool = False, hint: str = "") -> Callable[[], None]:
-    """Every binary value the user can set, drawn the same way."""
+    """Every binary value the user can set, drawn the same way. None draws it neither
+    on nor off, and a click from there turns it on."""
     def draw() -> None:
         # Green, the same token a present chip takes: on means the same thing whether
         # the panel found it or the user set it, and the shape already says which.
