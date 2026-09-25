@@ -70,6 +70,15 @@ class LauncherApiTests(unittest.TestCase):
 
         self.assertEqual(held, {"vpx": True, "gen": False})
 
+    def test_an_app_lists_the_paths_a_new_launcher_of_it_is_asked_for(self) -> None:
+        """What Add asks, before there is a launcher to read its fields from."""
+        vpx = next(one for one in self.client.get("/launchers").json()["apps"]
+                   if one["id"] == "vpx")
+
+        paths = [(one["key"], one["label"]) for one in vpx["fields"] if one["path"]]
+
+        self.assertEqual(paths, [("bin_path", "Program"), ("ini_path", "Settings File")])
+
     def test_making_one_the_default_moves_it_to_the_front(self) -> None:
         self._put("first", display_name="VPX")
         self._put("gen", app="generic", display_name="Generic")

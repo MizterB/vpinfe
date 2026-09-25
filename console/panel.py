@@ -308,7 +308,7 @@ def bar_end() -> Any:
     return ui.row().classes("items-center gap-2 no-wrap min-w-0 console-bar-end")
 
 
-def add_action(choices: Any, *, empty: bool) -> Any:
+def add_action(choices: Any, *, empty: bool, heading: str = "") -> Any:
     """The verb that fills a page, from one choice or several.
 
     Several collapse into one `+` with a menu rather than a row of identical glyphs:
@@ -331,6 +331,8 @@ def add_action(choices: Any, *, empty: bool) -> Any:
     button = ui.button(icon="add").props("flat dense round size=sm") \
         .classes("shrink-0 console-action")
     with button, ui.menu():
+        if heading:
+            ui.item_label(heading).props("header").classes("console-menu-header")
         for label, act in items:
             ui.menu_item(label, act).classes("console-menu-item")
     return button

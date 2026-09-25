@@ -102,7 +102,9 @@ def listing() -> dict[str, Any]:
                      for app in apps.all_apps()},
         "tables": {one.launcher_id: plays[one.launcher_id] for one in held},
         "apps": [{"id": app.id, "name": apps.app_name(app.id),
-                  "suffixes": list(app.claim.suffixes)}
+                  "suffixes": list(app.claim.suffixes),
+                  "fields": [{"key": f.key, **apps.field_words(app.id, f), "path": f.path}
+                             for f in app.fields]}
                  for app in apps.all_apps()],
     }
 

@@ -3,7 +3,7 @@
 How a table gets played. Two nouns, and the difference between them is the whole model.
 
 - **App** - the program that plays a table, and how to talk to it: which suffixes it claims, how to build a launch command, what its ini means, how to parse a table, how to resolve a ROM. Code, in `common/apps/`.
-- **Launcher** - a configured wrapper around an app: an id, a display name, the app it wraps, an enabled flag, and values for that app's settings. User data, in `launchers.json`. No two launchers on an install share a name, whatever their app, compared ignoring case (`launchers.same_name`); Add, Duplicate and the 2.x migration take the next free one (`launchers.free_name`).
+- **Launcher** - a configured wrapper around an app: an id, a display name, the app it wraps, an enabled flag, and values for that app's settings. User data, in `launchers.json`. No two launchers on an install share a name, whatever their app, compared ignoring case (`launchers.same_name`); Add and Duplicate ask for the name first; Add left blank, Duplicate's offer and the 2.x migration take the next free one (`launchers.free_name`).
 
 A table names a launcher; a launcher names an app. An install ships one launcher wrapping `vpx`, seeded from the configuration it already had.
 

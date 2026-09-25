@@ -63,11 +63,13 @@ def answer(label: str, on_click: Callable[[], Any], *, icon: str,
         .props("no-caps" + (" color=negative" if danger else ""))
 
 
-def focus(box: ui.dialog, control: Any) -> None:
-    """The caret in `control` once the dialog is up. Quasar's autofocus does not land
-    in a dialog, and anything earlier than `show` is overridden by its own focus."""
+def focus(box: ui.dialog, control: Any, *, select: bool = False) -> None:
+    """The caret in `control` once the dialog is up, or with `select` its text selected
+    so typing replaces it. Quasar's autofocus does not land in a dialog, and anything
+    earlier than `show` is overridden by its own focus."""
+    then = ";requestAnimationFrame(() => field.select())" if select else ""
     box.on("show", lambda: ui.run_javascript(
-        f"document.getElementById('c{control.id}').focus()"))
+        f"(field => {{field.focus(){then}}})(document.getElementById('c{control.id}'))"))
 
 
 def enter_presses(button: ui.button) -> None:

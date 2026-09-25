@@ -15,7 +15,7 @@ program it names.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from nicegui import run, ui
@@ -107,6 +107,7 @@ def build(library: Library, state: dict[str, Any],
 
 async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[dict | None], Any],
                 redraw: Callable[[], None], body: Any) -> None:
+    state["show_launcher"] = on_select
     try:
         found = await offload.io(library.launchers)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -137,10 +138,10 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                 ui.label(t("console.launchers.launcher", count=len(built))) \
                     .classes("text-xs console-label")
                 panel.add_action(
-                    [(t("console.launchers.add", value=(one['name'])),
+                    [(t("console.launchers.add", app=one["name"]),
                       (lambda a=one: _add(library, state, redraw, a)))
                      for one in apps_known],
-                    empty=not built)
+                    empty=not built, heading=t("console.launchers.new_launcher"))
 
         if not built:
             panel.facts(ui, [panel.intro(
@@ -184,48 +185,108 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
 
 async def _add(library: Library, state: dict[str, Any], redraw: Callable[[], None],
                app: dict) -> None:
-    """A new launcher for an app, with nothing filled in.
+    """A new launcher for an app: its name, and the paths the app declares.
 
     Nothing copied from an existing one: Add is for a second program, and Duplicate is
     the action for a second way of running the same one.
     """
     from common.games import launchers as model
 
+    names = await _names(library)
+    asked = [one for one in app.get("fields") or [] if one.get("path")]
     made = model.mint_launcher_id()
-    try:
-        name = model.free_name(app["name"], await _names(library))
-        await run.io_bound(library.put_launcher, made,
-                           {"app": app["id"], "display_name": name,
-                            "enabled": True, "settings": {}})
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_add_it", exc=(exc)), type="negative")
-        return
-    state["launcher"] = made
-    redraw()
+
+    async def write(name: str, settings: dict[str, str]) -> None:
+        await run.io_bound(library.put_launcher, made, {
+            "app": app["id"], "enabled": True, "settings": settings,
+            "display_name": name or model.free_name(app["name"], names)})
+
+    if await ask_name(t("console.launchers.new_title", app=app["name"]), t("word.add"),
+                      names, write, asked=asked,
+                      placeholder=t("console.launchers.name_example", app=app["name"])):
+        await _open(state, redraw, made)
 
 
 async def duplicate(library: Library, state: dict[str, Any], redraw: Callable[[], None],
                      launcher: dict) -> None:
     """A copy, which is the case this feature exists for: change one thing - usually the
-    configuration file - and you have a second way of running the same program.
+    Settings File - and you have a second way of running the same program.
 
     The copy does not claim to own an ini. It points at whatever the original did, and
     only a file VPinFE made is one VPinFE offers to delete.
     """
     from common.games import launchers as model
 
+    names = await _names(library)
     made = model.mint_launcher_id()
-    try:
-        name = model.free_name(t("console.launchers.copy_of", name=launcher["display_name"]),
-                               await _names(library))
+    offered = model.free_name(t("console.launchers.copy_of", name=launcher["display_name"]),
+                              names)
+
+    async def write(name: str, _settings: dict[str, str]) -> None:
         await run.io_bound(library.put_launcher, made,
                            {**launcher, "launcher_id": made, "owns_ini": False,
-                            "display_name": name})
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.launchers.could_not_duplicate", exc=(exc)), type="negative")
-        return
+                            "display_name": name or offered})
+
+    if await ask_name(t("console.launchers.duplicate_title", name=launcher["display_name"]),
+                      t("console.workbench.duplicate"), names, write, named=offered,
+                      icon=verbs.DUPLICATE):
+        await _open(state, redraw, made)
+
+
+async def _open(state: dict[str, Any], redraw: Callable[[], None], made: str) -> None:
+    """The grid drawn again with it, and it in the workbench."""
     state["launcher"] = made
     redraw()
+    show = state.get("show_launcher")
+    if callable(show):
+        await show({"id": made})
+
+
+async def ask_name(title: str, answer: str, names: list[str],
+                   write: Callable[[str, dict[str, str]], Awaitable[None]], *,
+                   named: str = "", asked: list[dict] | None = None,
+                   placeholder: str = "", icon: str = verbs.CREATE) -> bool:
+    """Name a launcher, and fill the path fields `asked` lists, before it exists.
+
+    True once `write` took it. A name already in use, or any refusal from `write`, is
+    said on the Name field and the dialog stays open.
+    """
+    from common.games import launchers as model
+
+    fields: dict[str, Any] = {}
+
+    def draw(key: str, value: str = "", hint: str = "") -> Callable[[], None]:
+        def drawn() -> None:
+            fields[key] = frame.field(value, placeholder=hint)
+        return drawn
+
+    def refused(why: str) -> None:
+        fields["name"].props["error"] = bool(why)
+        fields["name"].props["error-message"] = why
+
+    async def keep() -> None:
+        name = " ".join(str(fields["name"].value or "").split())
+        if any(model.same_name(name, one) for one in names):
+            refused(t("error.launchers.name_taken", name=name))
+            return
+        try:
+            await write(name, {one["key"]: str(fields[one["key"]].value or "").strip()
+                               for one in asked or ()})
+        except Exception as exc:  # noqa: BLE001 - said where it can be put right
+            refused(str(exc))
+            return
+        box.submit(True)
+
+    with frame.opened(title) as box:
+        panel.facts(ui, [(t("word.name"), draw("name", named, placeholder))]
+                    + [(one["label"], draw(one["key"])) for one in asked or ()])
+        with frame.footer():
+            frame.cancel(lambda: box.submit(False))
+            go = frame.answer(answer, keep, icon=icon)
+    fields["name"].on_value_change(lambda: refused(""))
+    frame.focus(box, fields["name"], select=bool(named))
+    frame.enter_presses(go)
+    return bool(await box)
 
 
 async def _names(library: Library) -> list[str]:
