@@ -748,6 +748,57 @@ def swatch(color: str, on_pick: Callable[[str], Any], *,
     return draw
 
 
+def named_as(value: Any, named: dict[str, str]) -> str:
+    """Of `named`, the one `value` is as a number; "" for any other."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    return next((one for one in named if float(one) == number), "")
+
+
+def named_number(value: Any, named: dict[str, str], on_pick: Callable[[Any], Any], *,
+                 disabled: bool = False, whole: bool = True,
+                 low: Any = None, high: Any = None) -> Callable[[], None]:
+    """A number some of whose values have names: the names and Custom to pick from, and
+    the number itself beside Custom."""
+    said = named_as(value, named)
+
+    async def call(chosen: Any) -> None:
+        answer = on_pick(chosen)
+        if inspect.isawaitable(answer):
+            await answer
+
+    def draw() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            picker = ui.select({**named, "": t("word.custom")}, value=said) \
+                .props("dense borderless options-dense") \
+                .classes("console-edit-field console-edit-select")
+            box = ui.number(value=None if said else value, format="%d" if whole else None,
+                            min=low, max=high) \
+                .props("dense borderless").classes("console-edit-field console-edit-narrow")
+            box.set_visibility(not said)
+
+            async def picked(event: Any) -> None:
+                box.set_visibility(not event.value)
+                if event.value:
+                    await call(event.value)
+                else:
+                    box.run_method("focus")
+
+            async def typed(event: Any) -> None:
+                if event.value is not None:
+                    await call(int(event.value) if whole else float(event.value))
+
+            picker.on_value_change(picked)
+            box.on_value_change(typed)
+            if disabled:
+                picker.disable()
+                box.disable()
+
+    return draw
+
+
 def number(value: Any, on_change: Callable[[Any], Any], *,
            disabled: bool = False, whole: bool = True,
            low: Any = None, high: Any = None, step: Any = None,

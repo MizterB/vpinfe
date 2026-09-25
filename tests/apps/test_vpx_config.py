@@ -671,6 +671,13 @@ class WindowSizeTests(_Case):
         self.assertEqual(len(named), 20)
         self.assertEqual([key for key in named if key not in TYPES], [])
 
+    def test_a_named_value_belongs_to_a_number_vpx_declares(self) -> None:
+        named = self.config.named_values()
+
+        self.assertEqual(named["Player.MaxFramerate"],
+                         (("-1", "match_the_display"), ("0", "no_limit")))
+        self.assertEqual({TYPES.get(key) for key in named}, {"number"})
+
 
 COLORS_INI = """\
 [Alpha]

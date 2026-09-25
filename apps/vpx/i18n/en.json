@@ -113,6 +113,8 @@
   "group.sound.heading.playfield.note": "Mechanical sounds - flippers, solenoids, the ball",
   "group.sound.label": "Sound",
   "group.table_options.label": "Table Options",
+  "match_the_display": "Match the Display",
+  "no_limit": "No Limit",
   "no_plugins": "This build has no plugins beside it.",
   "the_tables_own": "The table's own"
 }

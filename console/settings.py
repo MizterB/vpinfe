@@ -195,6 +195,10 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     if kind == "color":
         return panel.swatch(str(value or ""), save, disabled=off)
     blank = str(option.get("blank") or "")
+    if kind in ("int", "number") and option.get("named"):
+        return panel.named_number(value, option["named"], save, disabled=off,
+                                  whole=kind == "int", low=option.get("min"),
+                                  high=option.get("max"))
     if kind == "int":
         return panel.number(
             value, lambda e: save("" if e.value is None else int(e.value)), disabled=off,

@@ -375,6 +375,22 @@ class BlankWordsTests(_TableCase):
         self.assertEqual(offered["Player.FXAA"]["blank"], "")
 
 
+class NamedValuesTests(_TableCase):
+    def test_frame_limit_s_minus_one_and_zero_are_named_in_the_app_s_words(self) -> None:
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Player]\n; Limit Framerate:  [Default: -1.0 in -1.0 .. 1000.0]:\n"
+                           "MaxFramerate =\nFXAA = 1\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+        got = self.client.get("/launchers/l1/config")
+
+        offered = {f["key"]: f for g in got.json()["groups"] for f in g["settings"]}
+        self.assertEqual(offered["Player.MaxFramerate"]["named"],
+                         [["-1", "Match the Display"], ["0", "No Limit"]])
+        self.assertEqual(offered["Player.FXAA"]["named"], [])
+
+
 class PointOfViewTests(_TableCase):
     def setUp(self) -> None:
         super().setUp()

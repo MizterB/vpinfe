@@ -2237,6 +2237,9 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
    a 1100px box says the answer might be a sentence. The floor is for the caret and the
    longest name the set happens to hold, not a target. */
 .console-edit-select { flex: 0 1 auto; min-width: var(--select-min); }
+/* Beside the number it stands for, a select gives up its floor: the two are one value
+   and fit where one does. */
+.console-edit-select:has(+ .console-edit-narrow:not(.hidden)) { min-width: 0; }
 /* Except where the list holds addresses. The rule above is for a closed set of named
    things, where a wide box says the answer might be a sentence; a URL is exactly the
    answer that needs the room, and it can also be typed. */

@@ -58,6 +58,7 @@ FROM_THE_SCREEN = frozenset(f"{section}.{window}{mode}{side}" for section, windo
                             for mode in ("", "FS") for side in ("Width", "Height"))
 # And a view's mode from the table, never by the mode it declares.
 FROM_THE_TABLE = areas.VIEW_MODES
+NAMED_VALUES = {"Player.MaxFramerate": (("-1", "match_the_display"), ("0", "no_limit"))}
 
 # The views a table starts in, by its View Mode. At 0 a flag inside the table picks
 # Full Single Screen or Desktop.
@@ -450,6 +451,11 @@ class VPXConfig:
         is not the declared default."""
         return {**dict.fromkeys(FROM_THE_SCREEN, "from_the_screen"),
                 **dict.fromkeys(FROM_THE_TABLE, "the_tables_own")}
+
+    def named_values(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        """By key, the values the program gives a meaning of their own, each with the word
+        for it in this app's catalog."""
+        return dict(NAMED_VALUES)
 
     def summary_rows(self, group: str, values: Mapping[str, ConfigValue]) -> tuple[str, ...]:
         """Of a summarized group, the settings drawn as rows of their own: the mode of

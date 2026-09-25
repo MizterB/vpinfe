@@ -262,6 +262,7 @@ def app_config(launcher_id: str, table: str = "",
         return scope in scopes_for(field.key) or (held is not None and held.set_here)
 
     blank = _blank_words(found.app, config)
+    named = _named_values(found.app, config)
     held = getattr(config, "held_groups", None)
     declared = (*config.groups(settings),
                 *(held(target) if target and held is not None else ()))
@@ -284,6 +285,7 @@ def app_config(launcher_id: str, table: str = "",
                     "read_only": g.read_only,
                     "curated": _curated(found.app, g, {f.key for f in fields}),
                     "settings": [{**_described_field(found.app, f), "blank": blank(f.key),
+                                  "named": named(f.key),
                                   "scopes": list(scopes_for(f.key))} for f in fields]}
                    for g, fields in groups if fields],
         "values": {key: {"value": one.value, "scope": one.scope,
@@ -306,6 +308,15 @@ def _blank_words(app_id: str, config: Any) -> Callable[[str], str]:
     words = dict(naming()) if naming is not None else {}
     return lambda key: (i18n.literal_or("", f"app.{app_id}.{words[key]}")[0]
                         if key in words else "")
+
+
+def _named_values(app_id: str, config: Any) -> Callable[[str], list[list[str]]]:
+    """The values a setting's app gives a meaning of their own, each `[value, label]` in
+    the app's words. An app that does not say names none."""
+    naming = getattr(config, "named_values", None)
+    named = dict(naming()) if naming is not None else {}
+    return lambda key: [[value, i18n.literal_or("", f"app.{app_id}.{word}")[0]]
+                        for value, word in named.get(key, ())]
 
 
 def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:

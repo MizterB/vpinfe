@@ -4656,6 +4656,8 @@ def _as_option(field: Any) -> dict[str, Any]:
     option: dict[str, Any] = {"key": field.key, "type": field.type,
                               "label": field.label, "default": field.default,
                               "blank": getattr(field, "blank", "")}
+    if named := getattr(field, "named", ()):
+        option["named"] = {value: label for value, label in named}
     if field.choices:
         blank = option["blank"]
         option["choices"] = {**({"": blank} if blank else {}),

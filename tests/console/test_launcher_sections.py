@@ -17,7 +17,7 @@ from urllib.parse import parse_qs
 
 from common import path_checks
 from common.i18n import t
-from console import app_settings, data, deeplink, games, page, renderers, settings, workbench
+from console import app_settings, data, deeplink, games, page, panel, renderers, settings, workbench
 
 
 def _launcher(state: str, *, has_config: bool = True) -> dict:
@@ -353,6 +353,34 @@ class ColorControlTests(unittest.TestCase):
             settings.control_for(self.OPTION, "#E34236", lambda _v: True, writable=False)
 
         self.assertTrue(swatch.call_args.kwargs["disabled"])
+
+
+class NamedNumberTests(unittest.TestCase):
+    FIELD = SimpleNamespace(key="Player.MaxFramerate", type="number", label="Limit Framerate",
+                            default="-1.0", choices=(),
+                            named=(("-1", "Match the Display"), ("0", "No Limit")))
+
+    def test_a_number_with_named_values_picks_among_them(self) -> None:
+        save = Mock()
+        option = workbench._as_option(self.FIELD)
+        with patch.object(settings.panel, "named_number") as named:
+            settings.control_for(option, settings.value_for(option, ""), save)
+
+        self.assertEqual(named.call_args.args,
+                         (-1.0, {"-1": "Match the Display", "0": "No Limit"}, save))
+        self.assertFalse(named.call_args.kwargs["whole"])
+
+    def test_a_stored_value_is_named_by_its_number_not_its_spelling(self) -> None:
+        named = dict(self.FIELD.named)
+
+        self.assertEqual([panel.named_as(one, named) for one in (-1.0, "-1", "0.0", 0)],
+                         ["-1", "-1", "0", "0"])
+
+    def test_any_other_value_is_custom(self) -> None:
+        named = dict(self.FIELD.named)
+
+        self.assertEqual([panel.named_as(one, named) for one in (60.0, "", None, "x")],
+                         ["", "", "", ""])
 
 
 class TableSettingsTitleTests(unittest.TestCase):
