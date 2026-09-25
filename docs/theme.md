@@ -1492,7 +1492,7 @@ If `override` is present, themes that position or scale BG/DMD content based on 
 | `setAudioOptions` | `options` | — | Sets runtime audio options. Supported keys: `maxVolume`/`max_volume`/`volume`, `fadeDuration`/`fade_duration_ms`/`fadeMs`, `loop`. |
 
 #### getImageURL(index, kind)
-Returns an HTTP URL for a table's image. `kind` can be `"playfield"`, `"bg"`, `"dmd"`, `"wheel"`, or `"cab"`. Returns a fallback `/core/images/file_missing.png` URL if the file doesn't exist.
+Returns an HTTP URL for a table's image. `kind` can be `"playfield"`, `"bg"`, `"dmd"`, `"wheel"`, or `"cab"`. Returns a fallback `/core/images/file_missing.png` URL if the file doesn't exist or `index` is outside the list, never `null`.
 
 #### getVideoURL(index, kind)
 Returns an HTTP URL for a table's video. `kind` can be `"playfield"`, `"bg"`, or `"dmd"`. Returns a fallback `/core/images/file_missing.png` URL if no video exists. See [Video Support](#video-support).

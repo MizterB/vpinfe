@@ -74,7 +74,8 @@ describe("a theme declaring nothing keeps every 2.x name", () => {
     const { vpin } = await coreAtContract(1, { get_theme_assets_port: 8000 });
     vpin.tableData = [{ TableImagePath: "/lib/Game (M 1990)/medias/table.png" }];
 
-    assert.notEqual(vpin.getImageURL(0, "table"), null);
+    const url = vpin.getImageURL(0, "table");
+    assert.ok(url.endsWith("table.png"), `expected the playfield, got ${url}`);
   });
 });
 

@@ -92,6 +92,24 @@ describe("the URL builder handles every layout the scan produces", () => {
   });
 });
 
+describe("an index with no row still gets an image", () => {
+  test("outside the list, the answer is the missing-media image and never null", () => {
+    const vpin = coreWithLibrary();
+
+    for (const index of [ROWS.length, ROWS.length + 3, -1]) {
+      assert.equal(vpin.getImageURL(index, "bg"), "/core/images/file_missing.png",
+        `index ${index} of ${ROWS.length}`);
+    }
+  });
+
+  test("an empty list answers the same way", () => {
+    const vpin = coreWithLibrary();
+    vpin.tableData = [];
+
+    assert.equal(vpin.getImageURL(0, "wheel"), "/core/images/file_missing.png");
+  });
+});
+
 describe("image versus video is the user's preference, and it is honoured", () => {
   test("video wins by default when both exist", () => {
     const vpin = coreWithLibrary();

@@ -930,7 +930,7 @@ class VPinFECore {
 
   getImageURL(index, kind) {
     const item = this.tableData[index];
-    return item ? this._reader.imageURL(item, this.#canonicalKind(kind)) : null;
+    return item ? this._reader.imageURL(item, this.#canonicalKind(kind)) : MISSING_MEDIA_URL;
   }
 
   getMediaURL(index, kind) {
