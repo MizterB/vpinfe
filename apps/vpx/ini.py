@@ -210,13 +210,11 @@ def written(ini: Ini, changes: dict[str, str],
 
     `remove` takes a key out rather than blanking it, which is what the program does to
     a table's settings when it has no value for one. Blanking reads the same on the way
-    back in, and leaves a stub the program deletes the next time it saves.
+    back in, and leaves a stub the program deletes the next time it saves. A section it
+    leaves without a key goes too, heading and all.
     """
     lines = list(ini.lines)
     appended: dict[str, list[str]] = {}
-
-    dropped = [ini.settings[q].line for q in remove
-               if q in ini.settings and 0 <= ini.settings[q].line < len(lines)]
 
     for qualified, value in changes.items():
         found = ini.settings.get(qualified)
@@ -226,6 +224,12 @@ def written(ini: Ini, changes: dict[str, str],
         section, key = section_and_key(qualified)
         appended.setdefault(section, []).append(f"{key} = {value}")
 
+    dropped = {ini.settings[q].line for q in remove
+               if q in ini.settings and 0 <= ini.settings[q].line < len(lines)}
+    # The parse's line numbers, so this runs before an append moves any of them.
+    for line in sorted(_emptied(lines, dropped, keep=set(appended)), reverse=True):
+        del lines[line]
+
     for section, rows in appended.items():
         at = _section_end(lines, section)
         if at is None:
@@ -234,11 +238,33 @@ def written(ini: Ini, changes: dict[str, str],
             lines.extend([f"[{section}]", *rows])
             continue
         lines[at:at] = rows
-
-    # Last, by line number descending, so removing one does not move the next.
-    for at in sorted(dropped, reverse=True):
-        del lines[at]
     return "\n".join(lines) + "\n"
+
+
+def _emptied(lines: list[str], dropped: set[int], keep: set[str]) -> set[int]:
+    """Those lines, each section they leave without a key but not one in `keep`, and
+    the blank lines above whatever that takes off the end of the file."""
+    gone = set(dropped)
+    headings = [(n, found.group(1).strip()) for n, raw in enumerate(lines)
+                if (found := _SECTION.match(raw.strip()))]
+    for index, (start, name) in enumerate(headings):
+        end = headings[index + 1][0] if index + 1 < len(headings) else len(lines)
+        body = range(start + 1, end)
+        if (name in keep or not gone.intersection(body)
+                or any(_holds_key(lines[n]) for n in body if n not in gone)):
+            continue
+        gone.update(range(start, end))
+    last = len(lines) - 1
+    if last in gone:
+        while last >= 0 and (last in gone or not lines[last].strip()):
+            gone.add(last)
+            last -= 1
+    return gone
+
+
+def _holds_key(raw: str) -> bool:
+    stripped = raw.strip()
+    return bool(stripped) and not stripped.startswith(";") and _KEY.match(raw) is not None
 
 
 def section_and_key(qualified: str) -> tuple[str, str]:

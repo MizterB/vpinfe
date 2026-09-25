@@ -244,6 +244,48 @@ class WriteTests(unittest.TestCase):
 
         self.assertEqual(placed(out), {("DefaultProps\\Ball", "Mass")})
 
+    def test_removing_a_section_s_last_key_takes_its_heading(self) -> None:
+        held = vini.parse("[Player]\nBGSet = 1\n\n[Plugin.B2SLegacy]\nB2SHideGrill = 1\n")
+
+        out = vini.written(held, {}, remove=["Plugin.B2SLegacy.B2SHideGrill"])
+
+        self.assertEqual(out, "[Player]\nBGSet = 1\n")
+
+    def test_a_key_added_then_removed_gives_the_file_back(self) -> None:
+        held = "[Player]\nBGSet = 1\n"
+        for key in ("Plugin.B2SLegacy.B2SHideGrill", "Player.FXAA"):
+            with self.subTest(key=key):
+                added = vini.written(vini.parse(held), {key: "1"})
+
+                self.assertEqual(vini.written(vini.parse(added), {}, remove=[key]), held)
+
+    def test_a_section_between_two_leaves_one_blank_line_between_them(self) -> None:
+        held = vini.parse("[A]\nx = 1\n\n[B]\ny = 1\n\n[C]\nz = 1\n")
+
+        self.assertEqual(vini.written(held, {}, remove=["B.y"]), "[A]\nx = 1\n\n[C]\nz = 1\n")
+
+    def test_a_section_with_a_key_left_keeps_its_heading(self) -> None:
+        held = vini.parse("[Plugin.B2SLegacy]\nB2SHideGrill = 1\nB2SHideDMD = 1\n")
+
+        out = vini.written(held, {}, remove=["Plugin.B2SLegacy.B2SHideGrill"])
+
+        self.assertEqual(out, "[Plugin.B2SLegacy]\nB2SHideDMD = 1\n")
+
+    def test_a_section_a_key_is_added_to_keeps_its_heading(self) -> None:
+        out = vini.written(vini.parse("[B]\ny = 1\n"), {"B.w": "3"}, remove=["B.y"])
+
+        self.assertEqual(out, "[B]\nw = 3\n")
+
+    def test_adding_one_key_and_removing_another_removes_the_one_named(self) -> None:
+        held = vini.parse("[Player]\nBGSet = 1\n\n"
+                          "[Plugin.B2SLegacy]\nB2SHideGrill = 1\nB2SHideDMD = 1\n")
+
+        out = vini.written(held, {"Player.FXAA": "1"},
+                           remove=["Plugin.B2SLegacy.B2SHideGrill"])
+
+        self.assertEqual(placed(out), {("Player", "BGSet"), ("Player", "FXAA"),
+                                       ("Plugin.B2SLegacy", "B2SHideDMD")})
+
     def test_nothing_else_moves(self) -> None:
         before = SAMPLE.splitlines()
         after = vini.written(self.ini, {"Editor.EnableLog": "0"}).splitlines()

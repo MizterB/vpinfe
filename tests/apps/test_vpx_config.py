@@ -875,6 +875,16 @@ class WriteTests(_Case):
         self.assertIn("BackglassOutput = 0", text)
         self.assertIn("; Output Mode: Where it goes", text)
 
+    def test_a_value_set_and_cleared_at_a_table_gives_its_file_back(self) -> None:
+        held = "[Backglass]\nBackglassOutput = 0\n"
+        self.table_file(held)
+        grill = "Plugin.B2SLegacy.B2SHideGrill"
+
+        self.config.write(SCOPE_ENTRY, str(self.table), {grill: "1"}, self.settings)
+        self.config.write(SCOPE_ENTRY, str(self.table), {grill: ""}, self.settings)
+
+        self.assertEqual((self.game / "MM (VPW 1.2).ini").read_text(), held)
+
     def test_a_scope_with_nowhere_to_write_says_so(self) -> None:
         with self.assertRaises(ValueError):
             self.config.write(SCOPE_ENTRY, "", {KEY: "0"}, self.settings)
