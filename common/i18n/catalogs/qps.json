@@ -650,6 +650,7 @@
   "console.games.game_this_table.help": "Ţĥè ĝàɱè ţĥîš ţàƀŀè îš öƒ",
   "console.games.games": "{len} ĝàɱèš",
   "console.games.games_of": "{value} öƒ {len} ĝàɱèš",
+  "console.games.has_settings_own": "Ĥàš Šèţţîñĝš öƒ Îţš Öŵñ",
   "console.games.hidden_game.help": "Ĥîđđèñ ŵĥèřè ţĥè ĝàɱè ĥàš ñö ţàƀŀè ŀèƒţ ţö öƒƒèř",
   "console.games.hide": "Ĥîđè",
   "console.games.how_many_vpx_files.help": "Ĥöŵ ɱàñý ţàƀŀè ƒîŀèš ţĥîš ĝàɱè ƒöŀđèř ĥöŀđš",
@@ -687,6 +688,7 @@
   "console.games.rename_view": "Ñàɱè àñđ đèšçřîþţîöñ…",
   "console.games.revert": "Řèṽèřţ",
   "console.games.rom": "ŘÖḾ",
+  "console.games.same_as_all_tables": "Šàɱè àš Àŀŀ Ţàƀŀèš",
   "console.games.save": "Šàṽè àš…",
   "console.games.save_view": "Šàṽè ţĥîš ṽîèŵ àš",
   "console.games.saved_columns_library_no": "\"{name}\" ŵàš šàṽèđ ŵîţĥ çöŀûɱñš ţĥîš ŀîƀřàřý ñö ŀöñĝèř ĥàš, šö ţĥè ĝřîđ îš ûñçĥàñĝèđ",
@@ -696,6 +698,16 @@
   "console.games.select_single_game_launch": "Šèŀèçţ à šîñĝŀè ĝàɱè ţö ŀàûñçĥ",
   "console.games.selected": "{len} öƒ {len2} šèŀèçţèđ",
   "console.games.send_device": "Šèñđ ţö đèṽîçè...",
+  "console.games.settings.help": "Ŵĥàţ ţĥîš ţàƀŀè šèţš đîƒƒèřèñţŀý ƒřöɱ àŀŀ ţàƀŀèš, îţšèŀƒ öř ţĥřöûĝĥ îţš ĝàɱè",
+  "console.games.settings_from": "Ƒřöɱ {scope}",
+  "console.games.settings_from_game": {
+    "one": "1 ƒřöɱ {scope}",
+    "other": "{count} ƒřöɱ {scope}"
+  },
+  "console.games.settings_own": {
+    "one": "1 öƒ îţš öŵñ",
+    "other": "{count} öƒ îţš öŵñ"
+  },
   "console.games.show_as": "Šĥöŵ {group} Àš",
   "console.games.solid_state_electro_mechanical.help": "Šöŀîđ šţàţè, èŀèçţřö-ɱèçĥàñîçàŀ, ɱèçĥàñîçàŀ, öř àñ öřîĝîñàŀ",
   "console.games.still_need_match": {

@@ -272,10 +272,17 @@ class OwnSettingsTests(_Lens):
         self.assertEqual(self._held(), {"tbl0000001": (2, 0, True),
                                         "tbl0000002": (0, 2, True)})
 
-    def test_the_library_wide_list_reads_no_settings_file(self) -> None:
-        (self.folder / f"{FOLDER}.ini").write_text("[Backglass]\nBackglassOutput = 0\n")
+    def test_the_library_wide_list_counts_them_as_the_game_s_tables_do(self) -> None:
+        (self.folder / f"{FOLDER}.ini").write_text(
+            "[Backglass]\nBackglassOutput = 0\n[TableOverride]\nViewCabMode = 1\n")
 
-        self.assertNotIn("launcher_settings_here", self._rows()[0])
+        self.assertEqual({one["id"]: (one["launcher_settings_here"],
+                                      one["launcher_settings_from_folder"],
+                                      one["launcher_point_of_view"],
+                                      one["launcher_app_configurable"])
+                          for one in self._rows()},
+                         {"tbl0000001": (2, 0, True, True),
+                          "tbl0000002": (0, 2, True, True)})
 
 
 class TableFeatureTests(_Lens):

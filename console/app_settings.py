@@ -105,6 +105,7 @@ async def _program_entries(context: dict[str, Any],
         "config_values": values, "config_scope": SCOPE_ENTRY, "config_table": table_id,
         "playing": await offload.io(workbench._playing, library),
         "state": context["state"], "rebuild": context["rebuild"],
+        "saved": context.get("saved"),
     }
     if shared := shared_note(found, len(context.get("tables") or []) or 1):
         entries.append(shared)

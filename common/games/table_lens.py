@@ -411,7 +411,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "") -> dict[str, A
         meta = getattr(entry, "meta_config", {}) or {}
         declared = meta.get("Info")
         info = declared if isinstance(declared, dict) else {}
-        for table in table_rows(entry, row):
+        for table in table_rows(entry, row, launcher_settings=True):
             if not table.get("id"):
                 continue
             found.append({
@@ -452,12 +452,17 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "") -> dict[str, A
                 "absent_since": table.get("absent_since"),
                 "app": table.get("app") or "",
                 "app_name": table.get("app_name") or "",
-                # The same four the games lens carries, so the two cannot describe one
-                # table differently.
+                # What the games lens carries about the launcher, so the two cannot
+                # describe one table differently.
                 "launcher": table.get("launcher") or "",
                 "launcher_name": table.get("launcher_name") or "",
                 "launcher_set_here": bool(table.get("launcher_set_here")),
                 "launcher_falls_back": bool(table.get("launcher_falls_back")),
+                "launcher_app_configurable": bool(table.get("launcher_app_configurable")),
+                "launcher_settings_here": int(table.get("launcher_settings_here") or 0),
+                "launcher_settings_from_folder":
+                    int(table.get("launcher_settings_from_folder") or 0),
+                "launcher_point_of_view": bool(table.get("launcher_point_of_view")),
             })
 
     found.sort(key=lambda item: (item["game"].lower(),

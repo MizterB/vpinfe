@@ -476,8 +476,14 @@ class Library:
 
     def write_launcher_config(self, launcher_id: str, values: dict, *,
                               table: str = "", scope: str = "launcher") -> dict:
-        return self._client.write_launcher_config(launcher_id, values,
-                                                  table=table, scope=scope)
+        """At a table, every game's tables are read again, as `assign_launcher` does:
+        each carries how many settings it has of its own."""
+        result = self._client.write_launcher_config(launcher_id, values,
+                                                    table=table, scope=scope)
+        if table:
+            self.tables.clear()
+            self._table_rows = None
+        return result
 
     def put_launcher(self, launcher_id: str, body: dict) -> dict:
         return self._client.put_launcher(launcher_id, body)

@@ -650,6 +650,7 @@
   "console.games.game_this_table.help": "The game this table is of",
   "console.games.games": "{len} games",
   "console.games.games_of": "{value} of {len} games",
+  "console.games.has_settings_own": "Has Settings of Its Own",
   "console.games.hidden_game.help": "Hidden where the game has no table left to offer",
   "console.games.hide": "Hide",
   "console.games.how_many_vpx_files.help": "How many table files this game folder holds",
@@ -687,6 +688,7 @@
   "console.games.rename_view": "Name and description…",
   "console.games.revert": "Revert",
   "console.games.rom": "ROM",
+  "console.games.same_as_all_tables": "Same as All Tables",
   "console.games.save": "Save as…",
   "console.games.save_view": "Save this view as",
   "console.games.saved_columns_library_no": "\"{name}\" was saved with columns this library no longer has, so the grid is unchanged",
@@ -696,6 +698,16 @@
   "console.games.select_single_game_launch": "Select a single game to launch",
   "console.games.selected": "{len} of {len2} selected",
   "console.games.send_device": "Send to device...",
+  "console.games.settings.help": "What this table sets differently from all tables, itself or through its game",
+  "console.games.settings_from": "From {scope}",
+  "console.games.settings_from_game": {
+    "one": "1 from {scope}",
+    "other": "{count} from {scope}"
+  },
+  "console.games.settings_own": {
+    "one": "1 of its own",
+    "other": "{count} of its own"
+  },
   "console.games.show_as": "Show {group} As",
   "console.games.solid_state_electro_mechanical.help": "Solid state, electro-mechanical, mechanical, or an original",
   "console.games.still_need_match": {

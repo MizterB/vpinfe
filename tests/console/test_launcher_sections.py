@@ -16,7 +16,7 @@ from urllib.parse import parse_qs
 
 from common import path_checks
 from common.i18n import t
-from console import app_settings, deeplink, page, settings, workbench
+from console import app_settings, data, deeplink, games, page, settings, workbench
 
 
 def _launcher(state: str, *, has_config: bool = True) -> dict:
@@ -356,6 +356,57 @@ class LaunchReportTests(unittest.TestCase):
 
         self.assertEqual(address["section"], ["table_settings"])
         self.assertEqual(address["table"], ["t1"])
+
+
+class SettingsColumnTests(unittest.TestCase):
+    """The Tables grid's Settings column, which says of every table what Launch says of
+    one."""
+
+    ROW = {"id": "t", "launcher_name": "Visual Pinball X", "launcher_app_configurable": True}
+
+    def _cell(self, **row: object) -> tuple[str, str, int]:
+        (built,) = games.table_rows([{**self.ROW, **row}])
+        return built["settings"], built["settings_said"], built["settings_count"]
+
+    def test_a_camera_alone_is_named(self) -> None:
+        self.assertEqual(self._cell(launcher_settings_here=1, launcher_point_of_view=True),
+                         ("point_of_view", "Point of View", 1))
+
+    def test_beside_other_settings_it_counts_as_one(self) -> None:
+        self.assertEqual(self._cell(launcher_settings_here=3, launcher_point_of_view=True),
+                         ("own", "3 of its own", 3))
+
+    def test_one_is_said_as_one(self) -> None:
+        self.assertEqual(self._cell(launcher_settings_here=1), ("own", "1 of its own", 1))
+
+    def test_values_from_the_game_s_file_say_so(self) -> None:
+        self.assertEqual(self._cell(launcher_settings_from_folder=2),
+                         ("from_game", "2 from This Game", 2))
+
+    def test_a_table_as_all_tables_play_is_blank(self) -> None:
+        self.assertEqual(self._cell(), ("", "", 0))
+
+    def test_a_program_that_keeps_no_settings_counts_none(self) -> None:
+        self.assertEqual(self._cell(launcher_app_configurable=False,
+                                    launcher_settings_here=3), ("", "", 0))
+
+    def test_its_filter_offers_each_kind_a_cell_holds(self) -> None:
+        column = next(one for one in games.TABLE_COLUMNS if one["field"] == "settings")
+        choices = column["filterParams"]["choices"]
+
+        self.assertEqual([one["value"] for one in choices],
+                         ["own", "point_of_view", "from_game", ""])
+        self.assertEqual(choices[0]["label"], "Has Settings of Its Own")
+
+    def test_the_launch_view_shows_it_after_the_launcher(self) -> None:
+        shown = games.TABLE_VIEWS["console.game_tables.launch"].columns
+
+        self.assertEqual(shown[shown.index("launcher") + 1], "settings")
+
+    def test_focusing_it_opens_the_table_s_settings(self) -> None:
+        section = games.TABLE_COLUMN_SECTIONS["settings"]
+
+        self.assertIn(section, [s.key for s in workbench.sections_for("table")])
 
 
 def _field(key: str, label: str = "", *, per_table: bool = False,
@@ -814,6 +865,89 @@ class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
 
         rebuild.assert_awaited_once()
+
+
+class GridBehindTests(unittest.IsolatedAsyncioTestCase):
+    """The grid behind a table counts the settings it has of its own, and a write marked
+    in place puts its row right where that count moved."""
+
+    async def _saved_after(self, before: dict, after: dict) -> AsyncMock:
+        field = SimpleNamespace(key="Player.PlayMusic", type="bool", label="Row", default="",
+                                choices=(), blank="", scopes=("launcher", "entry"), help="",
+                                description="")
+        saved, rebuild = AsyncMock(), AsyncMock()
+        context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
+                   "config_scope": "entry", "config_table": "table",
+                   "rebuild": rebuild, "saved": saved}
+        self.enterContext(patch.object(workbench, "ui"))
+        self.enterContext(patch.object(workbench, "_config_values",
+                                       new=AsyncMock(side_effect=[before, after])))
+        self.enterContext(patch.object(workbench.run, "io_bound",
+                                       new=AsyncMock(return_value={})))
+        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
+        await workbench._setting_entries(context, [("", "", [field])])
+
+        await control_for.call_args.args[2](True)
+        await asyncio.sleep(0)
+
+        rebuild.assert_not_awaited()
+        return saved
+
+    async def test_a_setting_that_becomes_the_table_s_own(self) -> None:
+        saved = await self._saved_after(
+            {"Player.PlayMusic": {"value": "0", "scope": ""}},
+            {"Player.PlayMusic": {"value": "1", "scope": "entry"}})
+
+        saved.assert_awaited_once()
+
+    async def test_one_that_stops_being_it(self) -> None:
+        saved = await self._saved_after(
+            {"Player.PlayMusic": {"value": "0", "scope": "entry"}},
+            {"Player.PlayMusic": {"value": "1", "scope": "launcher"}})
+
+        saved.assert_awaited_once()
+
+    async def test_a_value_changed_where_the_table_already_sets_it_leaves_the_row(
+            self) -> None:
+        saved = await self._saved_after(
+            {"Player.PlayMusic": {"value": "0", "scope": "entry"}},
+            {"Player.PlayMusic": {"value": "1", "scope": "entry"}})
+
+        saved.assert_not_awaited()
+
+
+class TableWriteReadsAgainTests(unittest.TestCase):
+    """Each table the Console read carries how many settings it has of its own."""
+
+    def _library(self) -> tuple[data.Library, Mock]:
+        client = Mock()
+        client.all_tables.return_value = []
+        client.tables.return_value = []
+        library = data.Library(client)
+        library.load_tables()
+        library.tables_for("game")
+        return library, client
+
+    def test_a_write_at_a_table_reads_them_again(self) -> None:
+        library, client = self._library()
+
+        library.write_launcher_config("probe", {"Player.PlayMusic": "1"}, table="t1",
+                                      scope="entry")
+        library.load_tables()
+        library.tables_for("game")
+
+        self.assertEqual(2, client.all_tables.call_count)
+        self.assertEqual(2, client.tables.call_count)
+
+    def test_a_write_for_all_tables_does_not(self) -> None:
+        library, client = self._library()
+
+        library.write_launcher_config("probe", {"Player.PlayMusic": "1"})
+        library.load_tables()
+        library.tables_for("game")
+
+        self.assertEqual(1, client.all_tables.call_count)
+        self.assertEqual(1, client.tables.call_count)
 
 
 def _said(entry) -> str:

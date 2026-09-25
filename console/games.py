@@ -837,6 +837,26 @@ _LAUNCHER_CELL = (
 )
 _LAUNCHER_DRAWN: dict[str, Any] = {":cellRenderer": _LAUNCHER_CELL}
 
+# What a table's settings file changes for it, by kind. The cell holds the kind, which a
+# filter and a saved view keep, and draws `settings_said`.
+_OWN_SETTINGS, _POINT_OF_VIEW, _FROM_GAME = "own", "point_of_view", "from_game"
+_GAME_SCOPE = t("console.workbench.folder")
+_SETTINGS_CHOICES = [
+    {"value": _OWN_SETTINGS, "label": t("console.games.has_settings_own")},
+    {"value": _POINT_OF_VIEW, "label": t("asset.kind.pov.label")},
+    {"value": _FROM_GAME, "label": t("console.games.settings_from", scope=_GAME_SCOPE)},
+    {"value": "", "label": t("console.games.same_as_all_tables")},
+]
+_SETTINGS_DRAWN: dict[str, Any] = {
+    ":valueFormatter": "params => (params.data || {}).settings_said || ''",
+    ":comparator": "(a, b, nodeA, nodeB) => {"
+                   " const n = node => ((node && node.data) || {}).settings_count || 0;"
+                   " return n(nodeA) - n(nodeB) || String(a).localeCompare(String(b)); }",
+}
+
+# A column whose answer a panel section holds, so focusing it opens there.
+TABLE_COLUMN_SECTIONS = {"settings": "table_settings"}
+
 TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
@@ -858,6 +878,10 @@ TABLE_COLUMNS = [
     grid.column("launcher", t("console.games.launcher"), group=t(_TABLE),
                 help=t("console.games.launcher_plays_file_dot.help"),
                 **_LAUNCHER_DRAWN),
+    grid.column("settings", t("console.workbench.table_settings"), 155, group=t(_TABLE),
+                help=t("console.games.settings.help"),
+                **{**grid.choice_filter(_SETTINGS_CHOICES, formatted=True),
+                   **_SETTINGS_DRAWN}),
     # One column per fact rather than one word folding three together. "Status" cannot
     # stay one column anyway - has an update, missing its rom and the rest are all
     # status - and folded, a table that is both the default and hidden reads as only
@@ -938,8 +962,8 @@ TABLE_VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("game", "rating", "default_state", "hidden", "filename"),
         help=t("console.view.table_file.help")),
     "console.game_tables.launch": views.Preset(
-        columns=("game", "filename", "launcher", "rom", "default_state", "hidden",
-                 "missing"),
+        columns=("game", "filename", "launcher", "settings", "rom", "default_state",
+                 "hidden", "missing"),
         help=t("console.view.launch.help")),
     # Its own view, not seven more columns on Play: this is a matrix, the same shape as
     # Media on the games grid, and Play stays a list somebody can read across.
@@ -1061,6 +1085,7 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
              # only matters as a qualifier on it.
              "launcher": _launcher_word(row),
              "launcher_falls_back": bool(row.get("launcher_falls_back")),
+             **_settings_cell(row),
              # One field per feature: a grid column reads a field, and the payload's
              # nested dict would have every column reaching into the same object.
              # `.get` rather than a default of False - a table nobody parsed answers
@@ -1069,6 +1094,24 @@ def table_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 for key in table_features.LABELS},
              "default_state": _default_cell(row, held[str(row.get("game_id") or "")])}
             for row in rows]
+
+
+def _settings_cell(row: dict[str, Any]) -> dict[str, Any]:
+    """What the table's settings file changes for it: the kind, its words, and how many.
+    None where the launcher playing it runs a program that keeps no settings."""
+    configurable = bool(row.get("launcher_app_configurable"))
+    here = int(row.get("launcher_settings_here") or 0) if configurable else 0
+    from_game = int(row.get("launcher_settings_from_folder") or 0) if configurable else 0
+    if here == 1 and row.get("launcher_point_of_view"):
+        kind, said = _POINT_OF_VIEW, t("asset.kind.pov.label")
+    elif here:
+        kind, said = _OWN_SETTINGS, t("console.games.settings_own", count=here)
+    elif from_game:
+        kind, said = _FROM_GAME, t("console.games.settings_from_game", count=from_game,
+                                   scope=_GAME_SCOPE)
+    else:
+        kind, said = "", ""
+    return {"settings": kind, "settings_said": said, "settings_count": here or from_game}
 
 
 def _default_cell(row: dict[str, Any], held: int) -> str:
@@ -1160,8 +1203,14 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     by_id = {row["id"]: row for row in built}
     rate_row = stars.rating_handler(by_id, lambda: table, ApiClient)
 
-    grid.on_row_focus(f"{SCOPE}.tables",
-                      lambda event: on_select(by_id.get(grid.focused_row(event))))
+    def focused(event: Any) -> Any:
+        row = by_id.get(grid.focused_row(event))
+        section = TABLE_COLUMN_SECTIONS.get(grid.focused_column(event))
+        if row and section and state.get("section") != workbench.COLLAPSED:
+            state["section"] = section
+        return on_select(row)
+
+    grid.on_row_focus(f"{SCOPE}.tables", focused)
     state["rate"] = rate_row
     ui.run_javascript(stars.CLICK_JS)
 

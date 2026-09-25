@@ -4353,6 +4353,9 @@ async def _setting_entries(context: dict[str, Any],
             elif not fresh or key in redraw_on or _moved(shown, fresh, key):
                 asyncio.create_task(context["rebuild"]())
                 return True
+            saved = context.get("saved")
+            if callable(saved) and _whose(shown, key) != _whose(fresh, key):
+                asyncio.create_task(saved())
             shown.update(fresh)
             for other, held in rows.items():
                 held.clear()
@@ -4390,6 +4393,10 @@ async def _setting_entries(context: dict[str, Any],
             if said := (getattr(field, "help", "") if curated else "") or field.description:
                 entries.append(panel.note(said))
     return entries
+
+
+def _whose(values: dict[str, Any], key: str) -> str:
+    return str((values.get(key) or {}).get("scope") or "")
 
 
 def _moved(before: dict[str, Any], after: dict[str, Any], written: str) -> bool:

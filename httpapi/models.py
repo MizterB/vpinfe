@@ -1104,6 +1104,11 @@ class TableRow(ApiModel):
     launcher_set_here: bool = False
     # Set here and not in effect: the one it names is switched off or gone.
     launcher_falls_back: bool = False
+    # As one game's tables carry them: `Table` says what each means.
+    launcher_app_configurable: bool = False
+    launcher_settings_here: int = 0
+    launcher_settings_from_folder: int = 0
+    launcher_point_of_view: bool = False
     # What to call the app on screen. Ids are for the wire.
     app_name: str = ""
 
