@@ -15,6 +15,16 @@ from common.http_client import get_bytes, get_json, get_text
 logger = logging.getLogger("vpinfe.common.online.vpsdb_cache")
 
 
+def is_newer(version: str, held: str) -> bool:
+    """Whether the published `version` is past the `held` one."""
+    if not held:
+        return True
+    try:
+        return int(version) > int(held)
+    except ValueError:
+        return version != held
+
+
 class VPSDatabaseCache:
     """The VPS database on disk, refreshed when it is stale rather than on every read."""
 
@@ -48,25 +58,22 @@ class VPSDatabaseCache:
             return None
 
     def _update_if_needed(self, version: str) -> None:
-        if not self.iniconfig.config.has_section("vpsdb"):
-            self.iniconfig.config.add_section("VPSdb")
-            self.download_db()
-        else:
-            current = cfg_get(self.iniconfig, "vpsdb", "last")
-            if current < version:
-                self.download_db()
-            else:
-                logger.info("VPSdb currently at latest revision.")
+        current = (cfg_get(self.iniconfig, "vpsdb", "last", "") or "").strip()
+        if self.path.exists() and not is_newer(version, current):
+            logger.info("VPSdb currently at latest revision.")
+            return
+        if self.download_db():
+            cfg_set(self.iniconfig, "vpsdb", "last", version)
+            self.iniconfig.save()
 
-        cfg_set(self.iniconfig, "vpsdb", "last", version)
-        self.iniconfig.save()
-
-    def download_db(self) -> None:
+    def download_db(self) -> bool:
         try:
             self.path.write_bytes(get_bytes(self.db_url))
-            logger.info("Successfully downloaded vpsdb.json from VPSdb")
         except requests.RequestException as exc:
             logger.warning("Failed to download vpsdb.json: %s", exc)
+            return False
+        logger.info("Successfully downloaded vpsdb.json from VPSdb")
+        return True
 
     def load_local(self) -> list[dict]:
         if not self.path.exists():

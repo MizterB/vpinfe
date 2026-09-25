@@ -244,5 +244,40 @@ class VpsCacheTests(unittest.TestCase):
             with mock.patch.object(cache, "fetch_last_update", return_value=None):
                 self.assertEqual(cache.ensure_current(), [{"id": "vps-1", "name": "Example"}])
 
+    def _cache(self, tmp: str, held: str | None = None) -> VPSDatabaseCache:
+        ini = _FakeIni()
+        if held is not None:
+            ini.config.read_dict({"vpsdb": {"last": held}})
+        (Path(tmp) / "vpsdb.json").write_text("[]", encoding="utf-8")
+        return VPSDatabaseCache(Path(tmp), ini, db_url="https://example.invalid/db.json",
+                                last_update_url="https://example.invalid/last.json")
+
+    def test_a_failed_download_leaves_the_held_version(self) -> None:
+        import requests
+
+        with TemporaryDirectory() as tmp:
+            cache = self._cache(tmp, held="1000")
+            with mock.patch("common.online.vpsdb_cache.get_bytes",
+                            side_effect=requests.ConnectionError("offline")):
+                cache._update_if_needed("2000")
+            self.assertEqual(cache.iniconfig.config.get("vpsdb", "last"), "1000")
+            self.assertFalse(cache.iniconfig.saved)
+
+    def test_versions_compare_as_numbers(self) -> None:
+        with TemporaryDirectory() as tmp:
+            cache = self._cache(tmp, held="999")
+            with mock.patch("common.online.vpsdb_cache.get_bytes",
+                            return_value=b"[]") as fetched:
+                cache._update_if_needed("1000")
+            fetched.assert_called_once()
+            self.assertEqual(cache.iniconfig.config.get("vpsdb", "last"), "1000")
+
+    def test_the_held_version_is_not_downloaded_again(self) -> None:
+        with TemporaryDirectory() as tmp:
+            cache = self._cache(tmp, held="1000")
+            with mock.patch("common.online.vpsdb_cache.get_bytes") as fetched:
+                cache._update_if_needed("1000")
+            fetched.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()
