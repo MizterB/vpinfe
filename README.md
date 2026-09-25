@@ -211,6 +211,16 @@ VPinFE will try to automatch your tables to VPSID's, but in the event it can't y
 
 Click on the unmatched tables button and walkthtough the dialogs.  Once comleted the table will show in your tables list.
 
+### Art
+
+VPinFE gets art for your games from [VPinMediaDB](https://github.com/superhac/vpinmediadb), and never replaces art you chose.
+
+- **New games** get the art they are missing as soon as they are matched.  The switch is **Get Art for New Games**, under **Settings > Library > Automatic** in the Console.
+- **Art VPinFE downloaded** stays current.  When VPinMediaDB replaces a file, the copy VPinFE downloaded for you is replaced too.  Art you added or changed is never touched.  The switch is **Update Downloaded Art**, on the same page.
+- **Get missing art...** fills the gaps whenever you ask, in the kinds you pick.  It is in a game's **Media** section and in the **Games** and **Media** bulk menus.  On the **Overview**, **Get art** sits beside a missing playfield or backglass.
+
+Only the kinds your library collects are fetched, and the playfield comes in the variant and resolution you set.  Both are under **Settings > Library > Media**.
+
 ## ManagerUI Guide
 
 When VPinFE starts for the first time it opens the ManagerUI on the **Configuration** page. On later runs it remembers the last page you had open. The ManagerUI header also includes:
@@ -407,7 +417,7 @@ Header actions:
 Build Metadata options:
 
 - **Update All Tables** reparses tables even if `.info` already exists
-- **Download Media** downloads media from VPinMediaDB while building metadata
+- **Download Media** downloads media from VPinMediaDB while building metadata, in the kinds your library collects
 
 When a matching `https://pinballprimer.github.io/` tutorial exists in VPSdb, VPinFE also writes `Info.PinballPrimerTut` into the table's `.info` file during metadata generation.
 
