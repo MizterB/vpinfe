@@ -4646,7 +4646,7 @@ async def _config_values(context: dict[str, Any]) -> dict[str, Any]:
 
 def _mark_for(held: dict, scope: str, field: Any, offered: bool,
               paired: bool = False) -> Callable[[], None] | None:
-    """`_config_mark`, or Unused where this scope holds a value the program never reads
+    """`_config_mark`, or Ignored where this scope holds a value the program never reads
     at it."""
     if offered:
         return _config_mark(held, scope, field, paired)

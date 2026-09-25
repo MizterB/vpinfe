@@ -156,12 +156,12 @@ class WhoseValueTests(unittest.TestCase):
 class UnusedTests(unittest.TestCase):
     """A value a table's file holds that the program reads only for all tables."""
 
-    def test_it_is_marked_unused_and_says_where_it_works(self) -> None:
+    def test_it_is_marked_ignored_and_says_where_it_works(self) -> None:
         with patch.object(workbench.panel, "state") as chip:
             workbench._mark_for({"set_here": True, "in_effect": False, "scope": "entry"},
                                 "entry", _Bool, offered=False)
 
-        self.assertEqual(chip.call_args.args[:2], ("Unused", "warn"))
+        self.assertEqual(chip.call_args.args[:2], ("Ignored", "warn"))
         self.assertEqual(chip.call_args.kwargs["hint"], "Works only for all tables")
 
     def test_one_the_table_does_not_hold_takes_no_mark(self) -> None:
