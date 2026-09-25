@@ -551,6 +551,13 @@ def for_grid(columns: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for column in columns]
 
 
+# Clicking a cell takes focus and nothing else. Click-selection in multiRow mode
+# *replaces* the set, so a cell click would clear every checkbox a bulk action is about
+# to read.
+ROW_SELECTION = {"mode": "multiRow", "checkboxes": True, "headerCheckbox": True,
+                 "enableClickSelection": False, "selectAll": "filtered"}
+
+
 def base_row_px(columns: list[dict[str, Any]]) -> int:
     """The row height the grid's own cells need, before any drawing asks for more."""
     classes = " ".join(str(definition.get("cellClass") or "") for definition in columns)
@@ -590,11 +597,7 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
         # Which grid a cell belongs to, for a column drawn by name.
         "context": {"scope": scope},
         "defaultColDef": DEFAULT_COL_DEF,
-        # Clicking a cell takes focus and nothing else. Click-selection in multiRow
-        # mode *replaces* the set, so a cell click would clear every checkbox a bulk
-        # action is about to read.
-        "rowSelection": {"mode": "multiRow", "checkboxes": True,
-                         "headerCheckbox": True, "enableClickSelection": False},
+        "rowSelection": dict(ROW_SELECTION),
         # The ":" prefix marks this as JavaScript. Without it AG Grid calls a string and
         # the grid dies as an empty table rather than an error.
         ":getRowId": "params => params.data.id",
