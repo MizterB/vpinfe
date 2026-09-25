@@ -721,6 +721,33 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
     return draw
 
 
+def swatch(color: str, on_pick: Callable[[str], Any], *,
+           disabled: bool = False) -> Callable[[], None]:
+    """A color the user can set, drawn as itself, `#RRGGBB` on hover."""
+    def draw() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            button = ui.button().props("flat round dense")
+            with button:
+                dot = ui.element("span").classes("console-tag-dot") \
+                    .style(f"background: {color}")
+                tip = ui.tooltip(color)
+
+                async def pick(event: Any) -> None:
+                    chosen = str(event.color or "").upper()
+                    dot.style(f"background: {chosen}")
+                    tip.text = chosen
+                    said = on_pick(chosen)
+                    if inspect.isawaitable(said):
+                        await said
+
+                if not disabled:
+                    ui.color_picker(on_pick=pick).set_color(color)
+            if disabled:
+                button.disable()
+
+    return draw
+
+
 def number(value: Any, on_change: Callable[[Any], Any], *,
            disabled: bool = False, whole: bool = True,
            low: Any = None, high: Any = None, step: Any = None,

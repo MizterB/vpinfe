@@ -336,6 +336,25 @@ class BlankValueTests(unittest.TestCase):
         self.assertEqual(self._placeholder(dict(field)), "From the screen")
 
 
+class ColorControlTests(unittest.TestCase):
+    OPTION = {"key": "Alpha.Profile4Color", "type": "color", "label": "Color",
+              "default": "#FF2315"}
+
+    def test_a_color_is_a_swatch_of_itself_that_saves_what_is_picked(self) -> None:
+        save = Mock()
+        with patch.object(settings.panel, "swatch") as swatch:
+            settings.control_for(self.OPTION, "#E34236", save)
+
+        self.assertEqual(swatch.call_args.args, ("#E34236", save))
+        self.assertFalse(swatch.call_args.kwargs["disabled"])
+
+    def test_a_color_that_cannot_be_written_here_cannot_be_picked(self) -> None:
+        with patch.object(settings.panel, "swatch") as swatch:
+            settings.control_for(self.OPTION, "#E34236", lambda _v: True, writable=False)
+
+        self.assertTrue(swatch.call_args.kwargs["disabled"])
+
+
 class TableSettingsTitleTests(unittest.TestCase):
     """Every setting at one table, in the dialog Show Every Setting opens."""
 

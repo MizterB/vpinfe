@@ -672,6 +672,44 @@ class WindowSizeTests(_Case):
         self.assertEqual([key for key in named if key not in TYPES], [])
 
 
+COLORS_INI = """\
+[Alpha]
+; Color: Color of lit segments [Default: 0X001523FF in 0X00000000 .. 0X00FFFFFF]
+Profile4Color = 255
+"""
+COLOR = "Alpha.Profile4Color"
+
+
+class ColorTests(_Case):
+    def setUp(self) -> None:
+        super().setUp()
+        self.app_ini.write_text(COLORS_INI)
+
+    def value(self) -> str:
+        return self.config.read(SCOPE_LAUNCHER, "", self.settings)[COLOR].value
+
+    def test_a_color_is_said_as_rrggbb_red_in_the_program_s_low_byte(self) -> None:
+        field = next(f for g in self.config.groups(self.settings) for f in g.settings
+                     if f.key == COLOR)
+
+        self.assertEqual((field.type, field.default), ("color", "#FF2315"))
+        self.assertEqual(self.value(), "#FF0000")
+
+    def test_a_color_written_as_rrggbb_is_stored_as_the_program_s_number(self) -> None:
+        self.config.write(SCOPE_LAUNCHER, "", {COLOR: "#00FF80"}, self.settings)
+
+        self.assertIn("Profile4Color = 8453888", self.app_ini.read_text())
+        self.assertEqual(self.value(), "#00FF80")
+
+    def test_a_stored_color_is_read_as_the_program_reads_it(self) -> None:
+        for stored, read in (("0X00FF0000", "#000000"), ("16711680 ", "#0000FF"),
+                             ("red", "")):
+            with self.subTest(stored=stored):
+                self.app_ini.write_text(COLORS_INI.replace("= 255", f"= {stored}"))
+
+                self.assertEqual(self.value(), read)
+
+
 VIEWS_INI = """\
 [Player]
 ; View Mode: Which camera setup to use [Default: 0, 0='Desktop', 1='Cabinet', 2='FSS']

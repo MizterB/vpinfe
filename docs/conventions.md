@@ -566,6 +566,7 @@ A panel that shows facts uses the same control for the same kind of value, every
 | A list to pick from | a select |
 | A state the user cannot set | a chip |
 | Free text the user can set | a field, with a resting edge so it does not read as text |
+| A color the user can set | a swatch of it that opens a picker, its `#RRGGBB` on hover |
 
 Mixing them — a checkbox here, a text state and a button there — makes the reader work out
 three times what one convention says once.

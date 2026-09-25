@@ -512,7 +512,9 @@ setting a later VPX adds appears without VPinFE changing. They are named `Sectio
 (`Player.FXAA`), because a key is only unique inside its section. Where VPX works out what
 a blank value means rather than using the default it declares, `default` is empty and
 `blank` says what it does instead: every window's size reads *From the screen*, and each
-view mode *The table's own*.
+view mode *The table's own*. A setting of `type` `color` is `#RRGGBB` - its value, its
+fallback and its default - and is written the same way; VPinFE stores it as the number
+VPX keeps, red in its low byte.
 
 **The groups are the pages of VPX's own settings menu**: `displays`, `sound`, `graphics`
 and `plugins`, then `point_of_view` and `table_options` at a table and `more` for

@@ -192,6 +192,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         return panel.select(choices if isinstance(choices, dict) else list(choices),
                             str(value or ""), lambda e: save(e.value), disabled=off,
                             describes=option.get("describes"))
+    if kind == "color":
+        return panel.swatch(str(value or ""), save, disabled=off)
     blank = str(option.get("blank") or "")
     if kind == "int":
         return panel.number(

@@ -249,6 +249,42 @@ def _read(path: Path | None) -> vini.Ini:
         return vini.Ini()
 
 
+_STORED_COLOR = re.compile(r"-?\d+")
+_WEB_COLOR = re.compile(r"#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})")
+
+
+def _as_web(color: int) -> str:
+    return f"#{color & 0xFF:02X}{color >> 8 & 0xFF:02X}{color >> 16 & 0xFF:02X}"
+
+
+def web_color(stored: str) -> str:
+    """`#RRGGBB` for a color as the file holds it, read as the program reads it; "" for
+    one the program cannot read, which leaves it the default."""
+    found = _STORED_COLOR.match(stored.strip())
+    return _as_web(int(found.group())) if found else ""
+
+
+def stored_color(written: str) -> str:
+    """The number the program stores for `#RRGGBB`; anything else as it came."""
+    found = _WEB_COLOR.fullmatch(written.strip())
+    if found is None:
+        return written
+    red, green, blue = (int(part, 16) for part in found.groups())
+    return str(red | green << 8 | blue << 16)
+
+
+def _default_color(said: str) -> str:
+    try:
+        return _as_web(int(said, 16))
+    except ValueError:
+        return ""
+
+
+def _colors(app: vini.Ini) -> frozenset[str]:
+    return frozenset(key for key, one in app.settings.items()
+                     if _type_of(one) == vini.KIND_COLOR)
+
+
 def _type_of(one: vini.Setting) -> str:
     """What the program says it is, and what the file implies only where it has not said.
 
@@ -328,6 +364,7 @@ class VPXConfig:
         # same file and the two scopes coincide.
         winning = table_layer(target) if target else None
         table_scope = _scope_of(winning, target, settings)
+        colors = _colors(app)
 
         found: dict[str, ConfigValue] = {}
         for qualified in sorted(set(app.settings) | set(table.settings) | set(mine.settings)):
@@ -345,6 +382,8 @@ class VPXConfig:
             set_here = mine.value(qualified) is not None
             fallback, fallback_scope = _without(scope, qualified, app, read_by_vpx,
                                                 table_scope)
+            if qualified in colors:
+                effective, fallback = web_color(effective), web_color(fallback)
             found[qualified] = ConfigValue(
                 value=effective, scope=source, set_here=set_here,
                 # Three ways it is the one in force: nothing is set here to be
@@ -377,6 +416,9 @@ class VPXConfig:
         path = path_for(scope, target, settings)
         if path is None:
             raise ValueError(f"There is no {scope} file to write.")
+        colors = _colors(_read(settings_file(settings)))
+        values = {key: stored_color(str(value)) if key in colors else value
+                  for key, value in values.items()}
         cleared = _inherited(scope, values, settings)
         drop = ([key for key, value in values.items()
                  if str(value) == "" or key in cleared]
@@ -585,7 +627,9 @@ def _field(one: vini.Setting) -> Field:
         # one, and the catalog has the words for the rest.
         label=one.label if one.label != one.key else LABELS.get(one.qualified, ""),
         type=_type_of(one),
-        default="" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE else one.default,
+        default=("" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE
+                 else _default_color(one.default) if _type_of(one) == vini.KIND_COLOR
+                 else one.default),
         description="" if areas.is_plugin_switch(one.qualified) else one.description,
         choices=one.choices,
         minimum=one.minimum,
