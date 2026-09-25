@@ -342,9 +342,7 @@ def build(collections: list[dict[str, Any]], library: Any,
                 ui.separator()
                 ui.menu_item(
                     t("word.unpin") if pinned else t("word.pin_left"),
-                    lambda c=col_id, p=pinned: table.run_grid_method(
-                        "applyColumnState",
-                        {"state": [{"colId": c, "pinned": None if p else "left"}]})) \
+                    lambda c=col_id, p=pinned: grid.pin(table, c, None if p else "left")) \
                     .classes("console-menu-item")
                 ui.menu_item(t("word.hide_column"),
                              lambda c=col_id: table.run_grid_method(

@@ -626,10 +626,6 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         entry = next((c for c in current if c.get("colId") == col_id), {})
         _fill_menu(col_id=col_id, pinned=bool(entry.get("pinned")))
 
-    async def set_pinned(col_id: str, pinned: str | None) -> None:
-        table.run_grid_method("applyColumnState",
-                              {"state": [{"colId": col_id, "pinned": pinned}]})
-
     async def hide_column(col_id: str) -> None:
         table.run_grid_method("setColumnsVisible", [col_id], False)
 
@@ -653,10 +649,11 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                 # One entry that says what it will do, rather than two where one is
                 # always a no-op.
                 if pinned:
-                    ui.menu_item(t("word.unpin"), lambda: set_pinned(col_id, None)) \
+                    ui.menu_item(t("word.unpin"), lambda: grid.pin(table, col_id, None)) \
                         .classes("console-menu-item")
                 else:
-                    ui.menu_item(t("word.pin_left"), lambda: set_pinned(col_id, "left")) \
+                    ui.menu_item(t("word.pin_left"),
+                                 lambda: grid.pin(table, col_id, "left")) \
                         .classes("console-menu-item")
                 ui.menu_item(t("word.hide_column"), lambda: hide_column(col_id)) \
                     .classes("console-menu-item")
@@ -1447,9 +1444,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 # always a no-op.
                 ui.menu_item(
                     t("word.unpin") if pinned else t("word.pin_left"),
-                    lambda c=col_id, p=pinned: table.run_grid_method(
-                        "applyColumnState",
-                        {"state": [{"colId": c, "pinned": None if p else "left"}]})) \
+                    lambda c=col_id, p=pinned: grid.pin(table, c, None if p else "left")) \
                     .classes("console-menu-item")
                 ui.menu_item(t("word.hide_column"),
                              lambda c=col_id: table.run_grid_method(

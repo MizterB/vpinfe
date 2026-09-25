@@ -11,7 +11,7 @@ import inspect
 import json
 import logging
 import weakref
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from nicegui import run, ui
@@ -38,6 +38,17 @@ DEFAULT_COL_DEF: dict[str, Any] = {
 # it is stored against the built-in's definition. See console/views.py.
 _SAVE_EVENTS = ("columnMoved", "columnResized", "columnPinned")
 _LAYOUT_FIELDS = ("colId", "width", "flex", "pinned")
+# Emits only a person's own gestures, the events whose AG Grid source starts `ui`.
+_BY_A_PERSON = ("e => { if (String(e.source || '').startsWith('ui'))"
+                " emit({colId: e.colId, pinned: e.pinned}); }")
+
+# AG Grid's id for the checkbox column it adds, and the pin `build` gives it.
+SELECTION_COLUMN = "ag-Grid-SelectionColumn"
+_SELECTION_PIN = "left"
+# Each grid's pins as the person set them, for the view showing.
+_PINS: weakref.WeakKeyDictionary[Any, dict[str, str | None]] = weakref.WeakKeyDictionary()
+_SAVERS: weakref.WeakKeyDictionary[Any, Callable[[dict[str, Any]], Awaitable[None]]] = \
+    weakref.WeakKeyDictionary()
 
 
 # Chrome measured at 50px, plus the 8px gap the theme puts between a header and its
@@ -720,7 +731,7 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
         # the grid dies as an empty table rather than an error.
         ":getRowId": "params => params.data.id",
         # The checkbox belongs to the row, so it stays with the row's left edge.
-        "selectionColumnDef": {"pinned": "left"},
+        "selectionColumnDef": {"pinned": _SELECTION_PIN},
         # The workbench follows the focused row, and focus is not selection: arrowing
         # must not disturb the checkboxes a bulk action reads.
         #
@@ -882,15 +893,21 @@ def column_menu(menu: Any, table: Any, columns: list[dict[str, Any]],
     ui.separator()
     # One entry that says what it will do, rather than two where one is always a no-op.
     ui.menu_item(t("word.unpin") if pinned else t("word.pin_left"),
-                 lambda: table.run_grid_method(
-                     "applyColumnState",
-                     {"state": [{"colId": col_id,
-                                 "pinned": None if pinned else "left"}]})) \
+                 lambda: pin(table, col_id, None if pinned else "left")) \
         .classes("console-menu-item")
     ui.menu_item(t("word.hide_column"),
                  lambda: table.run_grid_method("setColumnsVisible", [col_id], False)) \
         .classes("console-menu-item")
     return True
+
+
+async def pin(table: Any, col_id: str, pinned: str | None) -> None:
+    """Pin a column, or unpin it with None, and save that as the person's layout."""
+    table.run_grid_method("applyColumnState",
+                          {"state": [{"colId": col_id, "pinned": pinned}]})
+    saver = _SAVERS.get(table)
+    if saver is not None:
+        await saver({"colId": col_id, "pinned": pinned})
 
 
 def layout_scope(scope: str, view_of: Callable[[], str] | None) -> str:
@@ -923,6 +940,10 @@ async def apply_layout(grid: ui.aggrid, scope: str, columns: list[dict[str, Any]
     # carries `hide`, which would override the view.
     saved = {entry["colId"]: {k: entry[k] for k in _LAYOUT_FIELDS if k in entry}
              for entry in (stored or []) if entry.get("colId")}
+    _PINS[grid] = {SELECTION_COLUMN: _SELECTION_PIN,
+                   **{definition["field"]: definition.get("pinned") for definition in columns},
+                   **{col_id: entry["pinned"] for col_id, entry in saved.items()
+                      if "pinned" in entry}}
     # Every column this grid has gets a definite width, not only the ones with one
     # stored: a view with no geometry of its own must go back to the definitions rather
     # than keep the last view's. `defaultState: {"width": None}` reads as if it would do
@@ -955,19 +976,25 @@ def _save_on_change(grid: ui.aggrid, scope: str,
                     view_of: Callable[[], str] | None) -> None:
     from console.api import ApiClient
 
-    async def save() -> None:
+    async def save(done: dict[str, Any]) -> None:
+        """Keep the layout, `done` being the column the person just pinned, if any."""
         where = layout_scope(scope, view_of)
+        pins = _PINS.setdefault(grid, {})
+        if done.get("colId") and "pinned" in done:
+            pins[str(done["colId"])] = done["pinned"]
         try:
             state = await grid.run_grid_method("getColumnState")
             # Stripped to the layout: storing `hide` or `sort` would make a built-in
             # drift, which is the one thing it must never do.
             layout = [{k: entry[k] for k in _LAYOUT_FIELDS if k in entry}
+                      | ({"pinned": pins[entry["colId"]]} if entry.get("colId") in pins
+                         else {})
                       for entry in (state or [])]
             await run.io_bound(ApiClient().put_preferences, where, {"columns": layout})
         except TimeoutError:
-            # The browser did not answer in time. This fires on every resize and sort,
-            # so a busy moment is ordinary and the next one saves - a stack trace for it
-            # is what teaches somebody to stop reading the log.
+            # The browser did not answer in time. This fires on every resize, so a busy
+            # moment is ordinary and the next one saves - a stack trace for it is what
+            # teaches somebody to stop reading the log.
             logger.debug("console: the grid did not answer in time; layout for %s not "
                          "saved this time", where)
         except Exception:
@@ -975,7 +1002,9 @@ def _save_on_change(grid: ui.aggrid, scope: str,
             # never take down the grid the user is working in.
             logger.warning("console: could not save column state for %s", where, exc_info=True)
 
+    _SAVERS[grid] = save
     for event in _SAVE_EVENTS:
         # A resize fires per pixel. nicegui's own throttle, so no timer outlives the
         # element; trailing_events keeps the final width.
-        grid.on(event, save, args=[], throttle=0.6, trailing_events=True)
+        grid.on(event, lambda said: save(said.args or {}), throttle=0.6,
+                trailing_events=True, js_handler=_BY_A_PERSON)
