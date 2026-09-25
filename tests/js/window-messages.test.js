@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { loadCore, newCore, REPO_ROOT } from "./support/load-core.js";
+import { fixture, loadCore, newCore, REPO_ROOT } from "./support/load-core.js";
 import { codeFor } from "./support/browser.js";
 
 const { context } = loadCore();
@@ -74,7 +74,9 @@ describe("a data change the backend raised carries the wheel position", () => {
   // And the number alone is not enough. The refresh re-derives order and membership, so
   // a session that just ended moves its game up a LastRun wheel: what has to survive is
   // the game the player was standing on, not the slot it happened to be in.
-  const rows = (...names) => JSON.stringify(names.map(name => ({ gameDirName: name })));
+  const BUILT = fixture("theme_payload.json").contract1;
+  const ROW = { Alpha: BUILT[0], Beta: BUILT[1], Gamma: BUILT[2] };
+  const rows = (...names) => JSON.stringify(names.map(name => ROW[name]));
 
   /** A core holding `before`, handed `after` by the refresh this message triggers. */
   const refreshWith = async (spelling, before, after,

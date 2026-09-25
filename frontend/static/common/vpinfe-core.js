@@ -538,7 +538,7 @@ class ContractOneReader {
   logo(game)           { return game.ManufacturerLogoPath || null; }
   vpsId(game)          { return String(game?.meta?.Info?.VPSId || "").trim(); }
   // Contract 1 is one row per game and carries no id, so the folder is the name it has.
-  identity(game)       { return String(game.gameDirName || ""); }
+  identity(game)       { return String(game.tableDirName || ""); }
 
   imageVideo(game, kind, priority) {
     const image = this.field(game, MEDIA_PATH_FIELDS[kind]);
