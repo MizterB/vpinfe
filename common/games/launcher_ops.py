@@ -325,7 +325,7 @@ def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict
         keys = [key for key in heading.keys if key in shown]
         if keys:
             found.append({"key": heading.key, **apps.heading_words(app_id, group.key,
-                                                                   heading.key),
+                                                                   heading),
                           "keys": keys,
                           "enabled_by": heading.enabled_by if heading.enabled_by in keys
                           else ""})

@@ -28,7 +28,7 @@ from common.apps.contract import (
     Heading,
 )
 
-from . import areas
+from . import areas, plugins
 from . import ini as vini
 from .setting_types import CONTEXTUAL, TYPES
 
@@ -40,7 +40,8 @@ REST = areas.REST
 # when they load. None of it is a setting, and a page of raw input bindings in a
 # settings editor is noise somebody has to read past.
 HIDDEN_SECTIONS = frozenset({"Version", "RecentDir"})
-HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device")
+# `Plugin.vpx` is the program itself, and turning it off stops the program.
+HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device", "Plugin.vpx.")
 # A trailing part rather than a whole section: `[Backglass.Priority.PUP]` is one of
 # several, one per plugin, and they arrive as plugins do.
 HIDDEN_PARTS = ("Priority",)
@@ -292,16 +293,21 @@ class VPXConfig:
         appears without this file changing, in the rest if no area names it.
         """
         schema = _read(settings_file(settings))
+        installed = plugins.installed(str(settings.get("bin_path") or ""))
         by_area: dict[str, list[Field]] = {}
         for one in schema.settings.values():
             if _offered(one.qualified):
-                by_area.setdefault(areas.area_of(one.qualified), []).append(_field(one))
+                area = areas.area_of(one.qualified)
+                if (area == areas.PLUGINS and installed is not None
+                        and areas.plugin_of(one.qualified) not in installed):
+                    area = REST
+                by_area.setdefault(area, []).append(_field(one))
         offered = {f.key for held in by_area.values() for f in held}
         by_area.get(areas.PLUGINS, []).sort(
-            key=lambda f: (areas.plugin_of(f.key) or "").lower())
+            key=lambda f: areas.plugin_order(areas.plugin_of(f.key), installed))
         return tuple(
             ConfigGroup(key=key, settings=tuple(by_area[key]),
-                        curated=_curated(key, offered),
+                        curated=_curated(key, offered, installed),
                         summarized=key == areas.POINT_OF_VIEW)
             for key in (*areas.AREAS, areas.POINT_OF_VIEW, REST) if by_area.get(key))
 
@@ -468,10 +474,11 @@ class VPXConfig:
         }
 
 
-def _curated(area: str, offered: set[str]) -> tuple[Heading, ...]:
+def _curated(area: str, offered: set[str],
+             installed: Mapping[str, plugins.Plugin] | None) -> tuple[Heading, ...]:
     """An area's curated rows that this file has, under their headings."""
     if area == areas.PLUGINS:
-        return areas.plugin_headings(offered)
+        return areas.plugin_headings(offered, installed)
     if area == areas.POINT_OF_VIEW:
         return areas.view_headings(offered)
     kept = (Heading(one.key, tuple(key for key in one.keys if key in offered),

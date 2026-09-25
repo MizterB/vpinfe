@@ -520,9 +520,12 @@ everything else. The table editor's own settings are left out. Each group's `set
 every member, and `curated` names the few a client draws first, under headings:
 
 - a heading has a `key`, a `label` and a `note`, and `keys` in the order drawn. An empty
-  `key` draws no heading.
+  `key` draws no heading. `description` is the program's own line about what the heading
+  names, beside VPinFE's `note`, and is empty where it has none.
 - `enabled_by` names one of `keys`, a switch: while it is off the heading's other rows
-  change nothing. Each plugin is a heading switched by its `Enable`.
+  change nothing. Each plugin is a heading switched by its `Enable`, taking its name and
+  description from the `plugin.cfg` the installed program has for it, in order of that
+  name. A plugin the file names and the program does not have is in `more`.
 - `summarized` is true for a group said as one line rather than listed, the point of view.
   `rows` names the ones it draws as rows of their own all the same: the view mode of each
   view the table starts in, by its `Player.BGSet`, then any other view mode the table sets.

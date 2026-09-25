@@ -567,7 +567,7 @@ class CuratedTests(_TableCase):
 
         self.assertEqual(sound["curated"], [{
             "key": "playfield", "label": "Playfield",
-            "note": "Mechanical sounds - flippers, solenoids, the ball",
+            "note": "Mechanical sounds - flippers, solenoids, the ball", "description": "",
             "keys": ["Player.PlaySound", "Player.Sound3D"], "enabled_by": ""}])
         self.assertFalse(sound["summarized"])
 
@@ -577,6 +577,22 @@ class CuratedTests(_TableCase):
         self.assertEqual(plugins["curated"][0]["keys"],
                          ["Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath"])
         self.assertEqual(plugins["curated"][0]["enabled_by"], "Plugin.PinMAME.Enable")
+
+    def test_a_plugin_heading_has_the_program_s_words_before_the_catalog_s(self) -> None:
+        program = pathlib.Path(self.tmp.name, "vpx", "VPinballX_GL")
+        manifest = program.parent / "plugins" / "pinmame" / "plugin.cfg"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text('[configuration]\nid = "PinMAME"\nname = "Pinball MAME"\n'
+                            'description = "Plays ROMs"\n')
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": str(program),
+            "ini_path": str(pathlib.Path(self.tmp.name, "VPinballX.ini"))}})
+
+        heading = self._groups("launcher")["plugins"]["curated"][0]
+
+        self.assertEqual((heading["label"], heading["description"]),
+                         ("Pinball MAME", "Plays ROMs"))
+        self.assertEqual(heading["note"], "Runs the original game's ROM")
 
     def test_a_heading_holds_only_rows_the_scope_offers(self) -> None:
         plugins = self._groups("entry")["plugins"]

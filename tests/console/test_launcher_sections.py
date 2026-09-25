@@ -207,6 +207,16 @@ class CuratedAreaTests(unittest.TestCase):
     def test_a_heading_whose_settings_the_file_does_not_have_is_left_out(self) -> None:
         self.assertNotIn("Serum", [key for key, _ in self._drawn({})])
 
+    def test_a_heading_vpinfe_says_nothing_about_has_the_program_s_line(self) -> None:
+        groups = data.config_groups({"groups": [{
+            "key": "plugins", "label": "Plugins", "settings": [], "curated": [
+                {"key": "WMP", "label": "WMP", "note": "", "description": "WMP audio",
+                 "keys": ["Plugin.WMP.Enable"]},
+                {"key": "DOF", "label": "DOF", "note": "Drives toys",
+                 "description": "Direct Output Framework", "keys": ["Plugin.DOF.Enable"]}]}]})
+
+        self.assertEqual([h.note for h in groups[0].curated], ["WMP audio", "Drives toys"])
+
     def test_a_row_a_switch_hides_is_still_curated_and_not_one_of_the_rest(self) -> None:
         self.assertEqual(workbench.curated_keys(self.PLUGINS),
                          {"Plugin.PinMAME.Enable", "Plugin.PinMAME.PinMAMEPath",

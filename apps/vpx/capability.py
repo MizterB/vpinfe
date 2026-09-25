@@ -13,22 +13,11 @@ from typing import Any
 
 from common.apps.contract import Availability
 
+from . import plugins
 from .config import settings_file
 
 PLUGINS = "plugins"
 PER_TABLE_SETTINGS = "per_table_settings"
-
-
-def _program_dir(bin_path: str) -> Path | None:
-    binary = Path(str(bin_path or "").strip())
-    if not binary.name:
-        return None
-    # A macOS pick is `VPinballX.app`, a directory, and the plugins sit beside the
-    # bundle rather than beside the executable inside it.
-    for candidate in (binary, *binary.parents):
-        if candidate.suffix.lower() == ".app":
-            return candidate.parent
-    return binary.parent
 
 
 class VPXCapability:
@@ -42,10 +31,10 @@ class VPXCapability:
 
     def _plugins(self, bin_path: str, settings: Mapping[str, Any]) -> Availability:
         """The plugin architecture postdates 10.8.0, where B2S is built in and there are
-        no plugin sections at all. Evidence is a `plugins/` directory beside the program,
+        no plugin sections at all. Evidence is the folder the program loads plugins from,
         or the ini already carrying one."""
-        directory = _program_dir(bin_path)
-        if directory is not None and (directory / "plugins").is_dir():
+        directory = plugins.folder(bin_path)
+        if directory is not None and directory.is_dir():
             return Availability(True)
 
         ini_path = settings_file(settings)

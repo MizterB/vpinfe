@@ -169,11 +169,14 @@ def group_words(app_id: str, group: ConfigGroup) -> dict[str, str]:
     return {"label": label, "label_key": label_key}
 
 
-def heading_words(app_id: str, group: str, heading: str) -> dict[str, str]:
-    """`label` and `note` for one heading of a group's curated rows."""
-    base = f"app.{app_id}.group.{group}.heading.{heading}"
-    return {"label": i18n.literal_or("", f"{base}.label", fallback=humanized(heading))[0],
-            "note": i18n.literal_or("", f"{base}.note")[0]}
+def heading_words(app_id: str, group: str, heading: Heading) -> dict[str, str]:
+    """`label`, `note` and `description` for one heading of a group's curated rows. The
+    note is the app's catalog's, beside the program's own description."""
+    base = f"app.{app_id}.group.{group}.heading.{heading.key}"
+    return {"label": i18n.literal_or(heading.label, f"{base}.label",
+                                     fallback=humanized(heading.key))[0],
+            "note": i18n.literal_or("", f"{base}.note")[0],
+            "description": heading.description}
 
 
 def table_suffixes() -> tuple[str, ...]:

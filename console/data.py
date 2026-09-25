@@ -109,7 +109,8 @@ def config_groups(found: dict[str, Any]) -> list:
         key=g["key"], label=g["label"], summarized=bool(g.get("summarized")),
         rows=tuple(g.get("rows") or ()), read_only=bool(g.get("read_only")),
         curated=[SimpleNamespace(
-            key=h["key"], label=h["label"], note=h.get("note", ""),
+            key=h["key"], label=h["label"],
+            note=h.get("note") or h.get("description", ""),
             keys=tuple(h["keys"]), enabled_by=h.get("enabled_by", ""))
             for h in g.get("curated") or ()],
         settings=[SimpleNamespace(

@@ -180,6 +180,9 @@ class Heading:
     # One of `keys`, a switch: while it is off, the heading's other rows change nothing
     # and are not drawn.
     enabled_by: str = ""
+    # The program's own words for what the heading names, as `Field` carries them.
+    label: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)

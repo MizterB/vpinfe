@@ -400,6 +400,117 @@ class AreaTests(_Case):
         self.assertFalse(fields["Plugin.PinMAME.Cheat"].per_table)
 
 
+INSTALLED_INI = """\
+[Plugin.vpx]
+Enable = 1
+
+[Plugin.Serum]
+Enable = 1
+SerumPath =
+
+[Plugin.PinMAME]
+Enable = 1
+
+[Plugin.UpscaleDMD]
+Enable = 0
+
+[Plugin.FlexDMD]
+Enable = 1
+"""
+
+MANIFESTS = {
+    "serum": ("Serum", "Serum", "Serum DMD Colorization"),
+    "pinmame": ("PinMAME", "PinMAME", "PinMAME"),
+    "upscaledmd": ("UpscaleDMD", "DMD Upscaler", "Upscale DMD output"),
+}
+
+
+class InstalledPluginTests(_Case):
+    """The program's plugins, as the `plugin.cfg` each one ships with says them."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.app_ini.write_text(INSTALLED_INI)
+        bundle = self.root / "VPinballX_BGFX.app" / "Contents"
+        for folder, (plugin, name, description) in MANIFESTS.items():
+            (bundle / "PlugIns" / folder).mkdir(parents=True)
+            (bundle / "PlugIns" / folder / "plugin.cfg").write_text(
+                f'[configuration]\nid = "{plugin}"\nname = "{name}"\n'
+                f'description = "{description}"\n')
+        self.settings["bin_path"] = str(bundle / "MacOS" / "VPinballX_BGFX")
+        self.groups = {g.key: g for g in self.config.groups(self.settings)}
+        self.headings = {h.key: h for h in self.groups[areas.PLUGINS].curated}
+
+    def test_a_plugin_is_named_and_described_as_the_program_says(self) -> None:
+        upscaler = self.headings["UpscaleDMD"]
+
+        self.assertEqual((upscaler.label, upscaler.description),
+                         ("DMD Upscaler", "Upscale DMD output"))
+
+    def test_a_name_that_is_only_the_id_leaves_the_words_to_the_catalog(self) -> None:
+        self.assertEqual(self.headings["Serum"].label, "")
+        self.assertEqual(self.headings["Serum"].description, "Serum DMD Colorization")
+
+    def test_a_description_that_is_only_the_name_says_nothing(self) -> None:
+        self.assertEqual(self.headings["PinMAME"].description, "")
+
+    def test_the_plugins_sort_by_that_name(self) -> None:
+        self.assertEqual(list(self.headings), ["UpscaleDMD", "PinMAME", "Serum"])
+        self.assertEqual([f.key for f in self.groups[areas.PLUGINS].settings],
+                         ["Plugin.UpscaleDMD.Enable", "Plugin.PinMAME.Enable",
+                          "Plugin.Serum.Enable", "Plugin.Serum.SerumPath"])
+
+    def test_a_plugin_the_program_does_not_have_is_in_the_rest(self) -> None:
+        self.assertIn("Plugin.FlexDMD.Enable",
+                      {f.key for f in self.groups[areas.REST].settings})
+        self.assertNotIn("FlexDMD", self.headings)
+
+    def test_the_program_s_own_entry_is_not_offered(self) -> None:
+        """Turning it off stops the program, which is why the program never offers it."""
+        offered = {f.key for g in self.groups.values() for f in g.settings}
+
+        self.assertNotIn("Plugin.vpx.Enable", offered)
+
+    def test_without_the_program_the_file_decides_alone(self) -> None:
+        self.settings["bin_path"] = str(self.root / "elsewhere" / "VPinballX_BGFX")
+        groups = {g.key: g for g in self.config.groups(self.settings)}
+
+        self.assertEqual([h.key for h in groups[areas.PLUGINS].curated],
+                         ["FlexDMD", "PinMAME", "Serum", "UpscaleDMD"])
+        self.assertEqual({h.label for h in groups[areas.PLUGINS].curated}, {""})
+
+
+class PluginFolderTests(unittest.TestCase):
+    def test_on_macos_the_plugins_are_inside_the_bundle(self) -> None:
+        from apps.vpx.plugins import folder
+
+        for picked in ("/Applications/VPinballX_BGFX.app",
+                       "/Applications/VPinballX_BGFX.app/Contents/MacOS/VPinballX_BGFX"):
+            with self.subTest(picked=picked):
+                self.assertEqual(folder(picked),
+                                 Path("/Applications/VPinballX_BGFX.app/Contents/PlugIns"))
+
+    def test_elsewhere_they_are_beside_the_program(self) -> None:
+        from apps.vpx.plugins import folder
+
+        self.assertEqual(folder("/opt/vpinball/VPinballX_GL"),
+                         Path("/opt/vpinball/plugins"))
+        self.assertIsNone(folder(""))
+
+    def test_the_program_has_plugins_where_that_folder_is(self) -> None:
+        from apps.vpx.capability import PLUGINS, VPXCapability
+
+        with TemporaryDirectory() as tmp:
+            program = Path(tmp) / "VPinballX_BGFX.app" / "Contents" / "MacOS" / "VPinballX"
+            settings = {"bin_path": str(program), "ini_path": str(Path(tmp) / "none.ini")}
+            before = VPXCapability().probe(settings)
+            (program.parents[1] / "PlugIns").mkdir(parents=True)
+            after = VPXCapability().probe(settings)
+
+        self.assertFalse(before[PLUGINS].available)
+        self.assertTrue(after[PLUGINS].available)
+
+
 class TableOnlyTests(_Case):
     def test_what_the_program_keeps_per_table_is_not_offered_for_all(self) -> None:
         for key in ("TableOverride.Difficulty", "TableOverride.ViewCabFOV",

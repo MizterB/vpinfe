@@ -7,7 +7,11 @@ and a few of them as its curated rows; the rest are found by search.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from common.apps.contract import Heading
+
+from .plugins import Plugin
 
 DISPLAYS = "displays"
 SOUND = "sound"
@@ -52,7 +56,7 @@ CURATED: dict[str, tuple[Heading, ...]] = {
 }
 
 # The plugins the catalog has words for, and each one's rows after its Enable. A plugin
-# not named here shows Enable alone, under its id.
+# not named here shows Enable alone.
 PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
     "AlphaDMD": (),
     "DOF": (),
@@ -79,8 +83,8 @@ PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
     "UpscaleDMD": ("Plugin.UpscaleDMD.UpscaleMode",),
 }
 
-# Plugins for writing plugins, and the program's own entry among them. In the rest.
-NOT_PLUGINS = frozenset({"HelloScript", "HelloWorld", "Inspector", "vpx"})
+# Plugins for writing plugins. In the rest.
+NOT_PLUGINS = frozenset({"HelloScript", "HelloWorld", "Inspector"})
 
 # Keys of `[Player]` by the page of the program's menu that holds them. The view mode and
 # autofit sit on its Graphic page, and are here because they are about the screen.
@@ -161,23 +165,34 @@ def plugin_of(qualified: str) -> str:
     return parts[1] if len(parts) > 2 and parts[0] == "Plugin" else ""
 
 
-def plugin_headings(offered: set[str]) -> tuple[Heading, ...]:
-    """One heading per plugin the file has, by name, its Enable first and the switch for
-    the rest."""
+def plugin_headings(offered: set[str],
+                    installed: Mapping[str, Plugin] | None = None) -> tuple[Heading, ...]:
+    """One heading per plugin the file has, its Enable first and the switch for the
+    rest, in the program's words for it where the program has them."""
     found: list[Heading] = []
     seen: set[str] = set()
     for qualified in offered:
         plugin = plugin_of(qualified)
-        if not plugin or plugin in seen or area_of(qualified) != PLUGINS:
+        if (not plugin or plugin in seen or area_of(qualified) != PLUGINS
+                or (installed is not None and plugin not in installed)):
             continue
         seen.add(plugin)
         enable = f"Plugin.{plugin}.Enable"
         keys = tuple(key for key in (enable, *PLUGIN_ROWS.get(plugin, ()))
                      if key in offered)
         if keys:
-            found.append(Heading(plugin, keys,
-                                 enabled_by=enable if keys[0] == enable else ""))
-    return tuple(sorted(found, key=lambda one: one.key.lower()))
+            said = (installed or {}).get(plugin, Plugin(plugin))
+            found.append(Heading(
+                plugin, keys, enabled_by=enable if keys[0] == enable else "",
+                label=said.name if said.name != plugin else "",
+                description=said.description if said.description != said.name else ""))
+    return tuple(sorted(found, key=lambda one: plugin_order(one.key, installed)))
+
+
+def plugin_order(plugin: str, installed: Mapping[str, Plugin] | None) -> str:
+    """Where a plugin sorts: by the program's name for it, else by its id."""
+    said = (installed or {}).get(plugin)
+    return ((said.name if said else "") or plugin).lower()
 
 
 _CURATED_KEYS = frozenset({key for headings in CURATED.values() for heading in headings
