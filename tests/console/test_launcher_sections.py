@@ -7,9 +7,11 @@ stays, because pointing the launcher somewhere else is how it gets fixed.
 
 from __future__ import annotations
 
+import asyncio
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import parse_qs
 
 from common import path_checks
@@ -82,9 +84,10 @@ def _setting(key: str, label: str = "", *, default: str = "",
                            default=default, description=description, help="")
 
 
-def _group(key: str, *settings: SimpleNamespace, curated=()) -> SimpleNamespace:
+def _group(key: str, *settings: SimpleNamespace, curated=(),
+           summarized: bool = False) -> SimpleNamespace:
     return SimpleNamespace(key=key, label=key.title(), settings=list(settings),
-                           curated=list(curated))
+                           curated=list(curated), summarized=summarized)
 
 
 class AllSettingsTests(unittest.TestCase):
@@ -262,15 +265,15 @@ class BlankValueTests(unittest.TestCase):
 
         self.assertEqual(self._placeholder(workbench._as_option(field)), "From the screen")
 
-    def test_the_table_dialog_s_field_says_so_too(self) -> None:
+    def test_a_field_as_the_wire_sends_it_says_so_too(self) -> None:
         field = {"key": "Player.PlayfieldWidth", "type": "int", "label": "Width",
                  "default": "", "blank": "From the screen"}
 
         self.assertEqual(self._placeholder(dict(field)), "From the screen")
 
 
-class TableDialogTests(unittest.TestCase):
-    """The program's settings for one table, in the dialog over the workbench."""
+class TableSettingsTitleTests(unittest.TestCase):
+    """Every setting at one table, in the dialog Show Every Setting opens."""
 
     def test_it_is_titled_for_the_table_not_the_launcher(self) -> None:
         said = app_settings.title_for("Medieval Madness", "VPW 1.2", "Visual Pinball X", 1)
@@ -283,50 +286,198 @@ class TableDialogTests(unittest.TestCase):
         self.assertEqual(said, "Medieval Madness - VPW 1.2: Visual Pinball X Settings")
 
     def test_a_file_shared_with_the_game_says_who_else_reads_it(self) -> None:
-        note = app_settings.shared_note({"shared_with_game": True},
-                                        app_settings.SCOPE_ENTRY, 3)
+        note = app_settings.shared_note({"shared_with_game": True}, 3)
 
         self.assertIsNotNone(note)
         self.assertIn("the other 2 tables", _said(note))
 
     def test_nothing_is_said_where_the_file_is_the_table_s_alone(self) -> None:
-        self.assertIsNone(app_settings.shared_note({"shared_with_game": False},
-                                                   app_settings.SCOPE_ENTRY, 3))
+        self.assertIsNone(app_settings.shared_note({"shared_with_game": False}, 3))
 
     def test_nor_where_the_game_has_no_other_table(self) -> None:
-        self.assertIsNone(app_settings.shared_note({"shared_with_game": True},
-                                                   app_settings.SCOPE_ENTRY, 1))
+        self.assertIsNone(app_settings.shared_note({"shared_with_game": True}, 1))
 
 
-class TableRowTests(unittest.TestCase):
-    """The row under a table's launcher that leads to the program's settings for it."""
+class TableRailTests(unittest.TestCase):
+    def test_a_table_s_settings_follow_the_table(self) -> None:
+        keys = [s.key for s in workbench.sections_for("table")]
+
+        self.assertEqual(keys[keys.index("table_details") + 1], "table_settings")
+
+    def test_a_game_has_none(self) -> None:
+        self.assertNotIn("table_settings", [s.key for s in workbench.sections_for("game")])
+
+
+class LaunchReportTests(unittest.TestCase):
+    """The Launch group's one line about the launcher, which leads to Settings."""
 
     TABLE = {"launcher_name": "Visual Pinball X", "launcher_app_configurable": True}
 
-    def _state(self, table: dict) -> str:
-        rows = workbench._program_settings_row({}, {**self.TABLE, **table})
-        with patch.object(workbench, "ui"), \
-                patch.object(workbench.panel, "state") as state:
-            rows[0][1]()
-        return str(state.call_args.args[0])
+    def _report(self, **table: object) -> tuple[str, str]:
+        context = {"state": {"view": "games", "game": "g1", "table": "t1"}}
+        with patch.object(workbench.panel, "link") as link:
+            label, _draw = workbench._launcher_report(context, {**self.TABLE, **table})
+        self.assertEqual(label, "Launcher")
+        return str(link.call_args.args[0]), str(link.call_args.kwargs["to"])
+
+    def test_its_own_settings_are_counted(self) -> None:
+        self.assertEqual(self._report(launcher_settings_here=3)[0],
+                         "Visual Pinball X · 3 settings of its own")
+
+    def test_one_is_said_as_one(self) -> None:
+        self.assertEqual(self._report(launcher_settings_here=1)[0],
+                         "Visual Pinball X · 1 setting of its own")
 
     def test_values_the_game_s_file_gives_it_are_counted(self) -> None:
-        self.assertEqual(self._state({"launcher_settings_from_folder": 3}),
-                         "From This Game - 3 changed")
+        self.assertEqual(self._report(launcher_settings_from_folder=2)[0],
+                         "Visual Pinball X · 2 settings from This Game")
 
-    def test_its_own_values_are_said_over_the_game_s(self) -> None:
-        self.assertEqual(self._state({"launcher_settings_here": 2,
-                                      "launcher_settings_from_folder": 3}),
-                         t("console.workbench.set_changed", changed=2))
+    def test_with_none_it_is_the_launcher_alone(self) -> None:
+        self.assertEqual(self._report()[0], "Visual Pinball X")
 
-    def test_a_camera_saved_for_the_table_is_a_row_of_its_own(self) -> None:
-        rows = workbench._program_settings_row(
-            {}, {**self.TABLE, "launcher_point_of_view": True})
+    def test_a_program_that_keeps_no_settings_counts_none(self) -> None:
+        self.assertEqual(self._report(launcher_app_configurable=False,
+                                      launcher_settings_here=3)[0], "Visual Pinball X")
 
-        self.assertEqual(rows[1], ("Point of View", "Saved for this table"))
+    def test_it_leads_to_the_table_s_settings(self) -> None:
+        address = parse_qs(self._report()[1].split("?", 1)[1])
+
+        self.assertEqual(address["section"], ["table_settings"])
+        self.assertEqual(address["table"], ["t1"])
+
+
+def _field(key: str, label: str = "") -> SimpleNamespace:
+    return SimpleNamespace(key=key, label=label or key.rsplit(".", 1)[-1], type="text",
+                           default="", description="", choices=(), scopes=("entry",))
+
+
+class DifferencesTests(unittest.TestCase):
+    """What a table's Settings list under the program: its differences and nothing else."""
+
+    SET = {"set_here": True, "in_effect": True, "scope": "entry", "value": "1"}
+    GAME = {"set_here": False, "in_effect": True, "scope": "folder", "value": "1"}
+    ALL = {"set_here": False, "in_effect": True, "scope": "launcher", "value": "1"}
+
+    def test_only_its_own_values_and_the_game_s_are_listed(self) -> None:
+        groups = [_group("sound", _field("Player.A"), _field("Player.B"),
+                         _field("Player.C"), _field("Player.D"))]
+        values = {"Player.A": self.SET, "Player.B": self.GAME, "Player.C": self.ALL}
+
+        found = app_settings.differences(groups, values)
+
+        self.assertEqual([(area, [f.key for f in fields]) for area, fields in found],
+                         [("Sound", ["Player.A", "Player.B"])])
+
+    def test_an_area_s_curated_rows_come_first(self) -> None:
+        fields = [_field("Player.A"), _field("Player.B"), _field("Player.C")]
+        curated = (SimpleNamespace(key="", label="", keys=("Player.C", "Player.B")),)
+        values = {key: self.SET for key in ("Player.A", "Player.B", "Player.C")}
+
+        found = app_settings.differences([_group("sound", *fields, curated=curated)], values)
+
+        self.assertEqual([f.key for f in found[0][1]], ["Player.C", "Player.B", "Player.A"])
+
+    def test_a_plugin_s_row_leads_with_the_plugin_s_name(self) -> None:
+        enable = _field("Plugin.B2SLegacy.Enable", "Enable")
+        curated = (SimpleNamespace(key="B2SLegacy", label="B2S Legacy",
+                                   keys=("Plugin.B2SLegacy.Enable",)),)
+
+        found = app_settings.differences([_group("plugins", enable, curated=curated)],
+                                         {enable.key: self.SET})
+
+        self.assertEqual(found[0][1][0].label, "B2S Legacy: Enable")
+
+    def test_the_camera_is_not_listed_setting_by_setting(self) -> None:
+        view = _field("TableOverride.ViewCabMode")
+
+        self.assertEqual(app_settings.differences(
+            [_group("point_of_view", view, summarized=True)], {view.key: self.SET}), [])
+
+
+class CameraTests(unittest.TestCase):
+    VIEW = _field("TableOverride.ViewCabMode")
+    GROUPS = [_group("point_of_view", VIEW, summarized=True)]
+
+    def test_one_saved_for_the_table_is_one_row(self) -> None:
+        rows = app_settings._camera(self.GROUPS, {self.VIEW.key: DifferencesTests.SET})
+
+        self.assertEqual(rows[1], ("Camera", "Saved for this table"))
+        self.assertEqual(len(rows), 2)
+
+    def test_one_from_the_game_says_so(self) -> None:
+        rows = app_settings._camera(self.GROUPS, {self.VIEW.key: DifferencesTests.GAME})
+
+        self.assertEqual(rows[1:], [("Camera", "Saved for this game")])
 
     def test_and_absent_without_one(self) -> None:
-        self.assertEqual(len(workbench._program_settings_row({}, self.TABLE)), 1)
+        self.assertEqual(app_settings._camera(self.GROUPS, {}), [])
+
+
+class RedrawTests(unittest.TestCase):
+    """Whether a write can be marked in place or the panel has to be drawn again."""
+
+    GAME_CAMERA = {"TableOverride.ViewCabFOV": {"value": "30", "scope": "folder"},
+                   "Player.SoundVolume": {"value": "40", "scope": "folder"}}
+
+    def test_a_write_that_changes_only_itself_is_marked_in_place(self) -> None:
+        after = {**self.GAME_CAMERA, "Player.SoundVolume": {"value": "45", "scope": "entry"}}
+
+        self.assertFalse(workbench._moved(self.GAME_CAMERA, after, "Player.SoundVolume"))
+
+    def test_a_table_s_first_file_takes_the_game_s_values_off_every_setting(self) -> None:
+        """The camera is not a row, and it stops reaching the table all the same."""
+        after = {"TableOverride.ViewCabFOV": {"value": "", "scope": ""},
+                 "Player.SoundVolume": {"value": "45", "scope": "entry"}}
+
+        self.assertTrue(workbench._moved(self.GAME_CAMERA, after, "Player.SoundVolume"))
+
+
+class TypedRedrawTests(unittest.IsolatedAsyncioTestCase):
+    """A number writes on every key, so the redraw its first write calls for waits until
+    focus leaves it: drawn between two keys, the second has nowhere to go."""
+
+    AFTER = {"TableOverride.ViewCabFOV": {"value": "", "scope": ""},
+             "Player.SoundVolume": {"value": "4", "scope": "entry"},
+             "Player.PlayMusic": {"value": "1", "scope": ""}}
+
+    async def _drawn(self, kind: str) -> tuple[list, AsyncMock, Any, Any]:
+        key = "Player.SoundVolume" if kind == "int" else "Player.PlayMusic"
+        field = SimpleNamespace(key=key, type=kind, label="Row", default="", choices=(),
+                                blank="", scopes=("launcher", "entry"), help="",
+                                description="")
+        rebuild = AsyncMock()
+        context = {"library": Mock(), "launcher": {"launcher_id": "probe"},
+                   "config_scope": "entry", "config_table": "table", "rebuild": rebuild}
+        values = AsyncMock(side_effect=[dict(RedrawTests.GAME_CAMERA), dict(self.AFTER)])
+        ui = self.enterContext(patch.object(workbench, "ui"))
+        self.enterContext(patch.object(workbench, "_config_values", new=values))
+        self.enterContext(patch.object(workbench.run, "io_bound",
+                                       new=AsyncMock(return_value={})))
+        control_for = self.enterContext(patch.object(workbench.settings_page, "control_for"))
+        entries = await workbench._setting_entries(context, [("", "", [field])])
+        return entries, rebuild, control_for.call_args.args[2], ui
+
+    async def test_a_number_is_drawn_again_once_focus_leaves_it(self) -> None:
+        entries, rebuild, save, ui = await self._drawn("int")
+        entries[0][1]()
+        row = ui.row.return_value.classes.return_value.__enter__.return_value
+        event, leave = row.on.call_args.args
+
+        await save(4)
+        await asyncio.sleep(0)
+        rebuild.assert_not_awaited()
+        await leave()
+
+        self.assertEqual(event, "focusout")
+        rebuild.assert_awaited_once()
+
+    async def test_a_switch_is_drawn_again_at_once(self) -> None:
+        _, rebuild, save, _ = await self._drawn("bool")
+
+        await save(True)
+        await asyncio.sleep(0)
+
+        rebuild.assert_awaited_once()
 
 
 def _said(entry) -> str:

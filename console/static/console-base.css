@@ -1936,6 +1936,8 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 }
 
 .console-group { padding: 10px 8px 4px; }
+/* A group inside a facts list names the rows under it, so it starts in their column. */
+.console-fact-full > .console-group { padding: 10px 0 0; }
 /* A heading that can carry a corner mark. The gutter is reserved on every one of them
    for the same reason the rows reserve theirs. The mark sits on the caption's own line
    and in the rows' column: the heading has no row margin, so matching the rows below

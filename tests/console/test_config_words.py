@@ -11,8 +11,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from common.i18n import t
-from console import app_settings, workbench
+from console import workbench
 
 
 class _Bool:
@@ -154,20 +153,21 @@ class WhoseValueTests(unittest.TestCase):
         self.assertNotIn("scope", said)
 
 
-class ScopeWordTests(unittest.TestCase):
-    """Where an edit goes and where a value came from, in one set of words."""
+class UnusedTests(unittest.TestCase):
+    """A value a table's file holds that the program reads only for all tables."""
 
-    def test_the_picker_says_what_the_marks_say(self) -> None:
-        self.assertEqual(app_settings.scope_words(1),
-                         {scope: t(key) for scope, key in workbench.CAME_FROM.items()})
+    def test_it_is_marked_unused_and_says_where_it_works(self) -> None:
+        with patch.object(workbench.panel, "state") as chip:
+            workbench._mark_for({"set_here": True, "in_effect": False, "scope": "entry"},
+                                "entry", _Bool, offered=False)
 
-    def test_they_are_the_three_a_person_says(self) -> None:
-        self.assertEqual(sorted(app_settings.scope_words(1).values()),
-                         ["All Tables", "This Game", "This Table"])
+        self.assertEqual(chip.call_args.args[:2], ("Unused", "warn"))
+        self.assertEqual(chip.call_args.kwargs["hint"], "Works only for all tables")
 
-    def test_a_game_of_several_tables_says_how_many(self) -> None:
-        self.assertEqual(app_settings.scope_words(3)[app_settings.SCOPE_FOLDER],
-                         "This Game - 3 tables")
+    def test_one_the_table_does_not_hold_takes_no_mark(self) -> None:
+        self.assertIsNone(workbench._mark_for(
+            {"set_here": False, "in_effect": True, "scope": "launcher"}, "entry", _Bool,
+            offered=False))
 
 
 if __name__ == "__main__":

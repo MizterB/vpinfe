@@ -52,9 +52,6 @@ BUDGET = {
     "import_dialog.py": (2, "the per-item tick in the import confirmation and the "
                             "destination picker's do-not-ask-again - a choice over a list "
                             "and a one-off promise, neither of them a fact row"),
-    "app_settings.py": (1, "the scope picker in the dialog's toolbar, which is not a "
-                           "fact row - it says where edits go rather than holding a "
-                           "value of its own"),
     "dialog.py": (2, "the one-line and the several-line field every dialog asks with - "
                      "the panel's own, in the frame dialogs share, answering nothing until "
                      "the dialog does"),

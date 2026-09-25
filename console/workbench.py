@@ -1873,6 +1873,12 @@ async def _table_block(context: dict[str, Any]) -> None:
     ui.run_javascript(_KEEP_SCROLL % f"table:{chosen.get('id') or ''}".replace("'", "\\'"))
 
 
+async def _table_settings(context: dict[str, Any]) -> None:
+    from console import app_settings
+
+    await app_settings.section(context)
+
+
 async def _release_match(context: dict[str, Any],
                          table: dict[str, Any]) -> list[tuple[Any, Any]]:
     """Which build of the machine this file is, as the table's Match group."""
@@ -2506,7 +2512,6 @@ def _table_entries(table: dict[str, Any],
     # Grouped by what a fact is about, one vocabulary shared with the views and the
     # grid. Each group carries the actions that work on it.
     features = table.get("features") or {}
-    overrides = (table.get("overrides") or {}) if context else {}
 
     entries: list[tuple[Any, Any]] = []
     if context is not None:
@@ -2585,7 +2590,7 @@ def _table_entries(table: dict[str, Any],
         entries.append((t("console.workbench.rom"), _rom_state(pinmame, rom, context=context)))
     if context is not None:
         entries.append(_hidden_row(context, table))
-        entries += _table_override_rows(context, table, overrides)
+        entries.append(_launcher_report(context, table))
         entries += [(FULL, _play_action(context, table))]
     return entries
 
@@ -3107,15 +3112,10 @@ def _play_action(context: dict[str, Any], table: dict[str, Any]) -> Callable[[],
     return draw
 
 
-def _table_override_rows(context: dict[str, Any], table: dict[str, Any],
-                         overrides: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """What the user says about this file. None of these has a discovered value - each
-    falls back to a setting that applies everywhere - so empty is the revert."""
-
-    def save(key: str) -> Callable[[Any], Awaitable[None]]:
-        async def write(value: Any) -> None:
-            await _save_overrides(context, {key: value}, table=True)
-        return write
+def launcher_rows(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """Which launcher plays this table and what it does after. Neither has a discovered
+    value - each falls back to what applies everywhere - so empty is the revert."""
+    overrides = table.get("overrides") or {}
 
     async def toggle(event: Any) -> None:
         await _save_overrides(context, {"delete_nvram_on_close": bool(event.value)},
@@ -3128,84 +3128,25 @@ def _table_override_rows(context: dict[str, Any], table: dict[str, Any],
     return [
         (t("console.workbench.launcher_2"), _launcher_pick(context, table)),
         *_launcher_notes(context, table),
-        *_program_settings_row(context, table),
         (t("console.workbench.clear_nvram_exit"), nvram),
     ]
 
 
-# What the scope selector calls each layer. The user thinks "the DMD off for this one
-# table" or "hide the grill on everything" - never in filenames, which appear in a
-# tooltip and in the log and nowhere else.
-SCOPE_WORDS = {
-    "launcher": "console.workbench.scope.everything_launcher_plays",
-    "folder": "console.workbench.scope.folder",
-    "entry": "console.workbench.scope.table"
-}
-
-
-def _program_settings_row(context: dict[str, Any],
-                          table: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """The way into the program's own settings for one table, under the launcher that
-    plays it so the two read as one idea.
-
-    Only where the app that launcher wraps has settings of its own. `generic` does not:
-    it knows a program and arguments and nothing about what that program stores.
-    """
+def _launcher_report(context: dict[str, Any], table: dict[str, Any]) -> tuple[Any, Any]:
+    """The launcher in one line, and a way to its settings."""
     name = str(table.get("launcher_name") or "")
-    if not name or not table.get("launcher_app_configurable"):
-        return []
-    changed = int(table.get("launcher_settings_here") or 0)
+    own = int(table.get("launcher_settings_here") or 0)
     from_game = int(table.get("launcher_settings_from_folder") or 0)
-    said = (t("console.workbench.set_changed", changed=(changed)) if changed
-            else t("console.workbench.folder_changed", scope=t(CAME_FROM["folder"]),
-                   changed=from_game) if from_game
-            else t("console.workbench.following", name=(name)))
-
-    # An async handler rather than a lambda that returns one: the panel hands what it
-    # is given straight to the button, and a coroutine nobody awaits is a click that
-    # does nothing and says nothing.
-    async def open_them() -> None:
-        try:
-            await _open_table_settings(context, table)
-        except Exception as exc:  # noqa: BLE001 - a dead button says nothing at all
-            logger.exception("Could not open the app settings")
-            ui.notify(t("console.workbench.could_not_open_settings", exc=(exc)), type="negative")
-
-    def draw() -> None:
-        with ui.row().classes("items-center gap-2"):
-            panel.state(said, "on" if changed else "off")()
-            ui.button(t("console.workbench.edit") if changed
-                    else t("console.workbench.set_table"), icon=verbs.EDIT,
-                      on_click=open_them) \
-                .props("flat dense no-caps size=sm").classes("console-action--inline")
-
-    rows: list[tuple[Any, Any]] = [(t("console.workbench.name_settings", name=name), draw)]
-    if table.get("launcher_point_of_view"):
-        rows.append((t("console.workbench.point_of_view"),
-                     t("console.workbench.saved_for_this_table")))
-    return rows
-
-
-async def _open_table_settings(context: dict[str, Any], table: dict[str, Any]) -> None:
-    """The program's settings, scoped to this table, in a dialog over the workbench.
-
-    One component and two ways in: the launcher's rail opens it fixed to the launcher,
-    and this opens it defaulting to the table. The scope arrives already correct because
-    of where you came from, which is what stops the picker being something to touch.
-    """
-    from console import app_settings
-
-    await app_settings.open_for_table(
-        context["library"],
-        launcher_id=str(table.get("launcher") or ""),
-        launcher_name=str(table.get("launcher_name") or ""),
-        # The id, not a path: where a game file sits is a fact about the machine that
-        # holds it, and this Console may be reading another one.
-        table_id=str(table.get("id") or ""),
-        game_name=str((context.get("game") or {}).get("name") or ""),
-        table_name=_table_line(table),
-        folder_tables=len(context.get("tables") or []) or 1,
-        on_done=context.get("rebuild"))
+    configurable = bool(table.get("launcher_app_configurable"))
+    said = (t("console.workbench.launcher_own", name=name, count=own)
+            if name and configurable and own
+            else t("console.workbench.launcher_from_game", name=name, count=from_game,
+                   scope=t(CAME_FROM["folder"]))
+            if name and configurable and from_game
+            else name or "-")
+    to = "/console?" + deeplink.query({**context["state"], "section": "table_settings"})
+    return (t("console.workbench.launcher_2"),
+            panel.link(said, to=to, on_click=partial(_choose, context, "table_settings")))
 
 
 def _launcher_notes(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -4111,19 +4052,31 @@ def _config_mark(held: dict, scope: str, field: Any) -> Callable[[], None] | Non
     return None
 
 
-def _marked(control: Callable[[], None], held: dict, field: Any,
-            app_name: str) -> Callable[[], None]:
+def _marked(control: Callable[[], None], held: dict, field: Any, app_name: str,
+            redraws: list[Callable[[], None]] | None = None, *,
+            on_leave: Callable[[], Any] | None = None) -> Callable[[], None]:
     """A value, with a dot before it where this scope sets it, and whose it is on
-    hover."""
+    hover. Each draw adds to `redraws` what brings the dot and the hover up to `held`
+    without drawing the control again. `on_leave` runs when focus leaves the value."""
     def draw() -> None:
         with ui.row().classes("items-center gap-1 no-wrap console-field-row") as row:
-            if held.get("set_here"):
-                dot = ui.element("span").classes(
-                    "console-mark console-mark--full console-named-mark")
-                if not held.get("in_effect", True):
-                    dot.classes("console-named-mark--off")
+            dot = ui.element("span").classes(
+                "console-mark console-mark--full console-named-mark")
             control()
-        row.tooltip(_whose_value(held, field, app_name))
+            whose = ui.tooltip("")
+        if on_leave is not None:
+            row.on("focusout", on_leave)
+
+        def show() -> None:
+            dot.set_visibility(bool(held.get("set_here")))
+            off = bool(held.get("set_here")) and not held.get("in_effect", True)
+            dot.classes(add="console-named-mark--off" if off else None,
+                        remove=None if off else "console-named-mark--off")
+            whose.text = _whose_value(held, field, app_name)
+
+        show()
+        if redraws is not None:
+            redraws.append(show)
     return draw
 
 
@@ -4179,32 +4132,39 @@ def _clear_hint(held: dict, field: Any, app_name: str) -> str:
     return t("console.workbench.back_to_whose", whose=whose)
 
 
-def _beside(mark: Callable[[], None] | None, held: dict, field: Any, clear: Callable,
-            app_name: str, playing: bool = False) -> Callable[[], None]:
-    """The mark, and where it is somebody's own value, the way back off it.
+def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field: Any,
+            clear: Callable[[str], Callable[[], Awaitable[None]]], app_name: str,
+            playing: bool = False,
+            redraws: list[Callable[[], None]] | None = None) -> Callable[[], None]:
+    """The mark, and where it is somebody's own value, the way back off it. Drawn as a
+    panel ASIDE, whose cell it hides while it holds neither.
 
     Clear only where there is something to clear. Almost every setting in this program is
     untouched, so on every row it would be a control that does nothing, and a row of
     inert verbs teaches people to stop reading them.
     """
     def draw() -> None:
-        with ui.row().classes("items-center gap-2 no-wrap"):
-            if mark is not None:
-                mark()
-            if held.get("set_here"):
-                panel.action(t("word.clear"), lambda: _run(clear, field.key),
-                             icon=verbs.CLEAR, inline=True,
-                             enabled=not playing,
-                             hint=t(PLAYING_NOTE) if playing
-                             else _clear_hint(held, field, app_name))()
+        cell = ui.context.slot.parent
+        box = ui.row().classes("items-center gap-2 no-wrap")
+
+        def fill() -> None:
+            box.clear()
+            mark = mark_of()
+            with box:
+                if mark is not None:
+                    mark()
+                if held.get("set_here"):
+                    panel.action(t("word.clear"), clear(field.key),
+                                 icon=verbs.CLEAR, inline=True,
+                                 enabled=not playing,
+                                 hint=t(PLAYING_NOTE) if playing
+                                 else _clear_hint(held, field, app_name))()
+            cell.set_visibility(mark is not None or bool(held.get("set_here")))
+
+        fill()
+        if redraws is not None:
+            redraws.append(fill)
     return draw
-
-
-def _run(clear: Callable, key: str) -> Any:
-    """`clear` builds the handler for one key, and a button wants the handler."""
-    async def go() -> None:
-        (await clear(key))()
-    return go
 
 
 # Said once over the group rather than on every row. The program rewrites both layers
@@ -4212,6 +4172,10 @@ def _run(clear: Callable, key: str) -> Any:
 # is one of two writers and the last one wins.
 PLAYING_NOTE = "console.workbench.read_only_playing"
 PLAYING_WHY = "console.workbench.read_only_playing.help"
+
+# A number writes on every keystroke, so its redraw waits until it loses focus: drawn
+# between two keys, the second lands nowhere.
+TYPED = ("int", "number")
 
 
 def _playing(library: Library) -> bool:
@@ -4298,23 +4262,40 @@ def _open_all_settings(context: dict[str, Any], **wanted: Any) -> None:
 
 
 async def _config_values(context: dict[str, Any]) -> dict[str, Any]:
-    """Every value as it stands at the launcher, read once per draw."""
+    """Every value as it stands at the context's scope - the launcher's unless it names
+    a table - read once per draw."""
     values: dict[str, Any] = context.setdefault("config_values", {})
     if not values:
         values.update(await run.io_bound(
             context["library"].launcher_config_values,
-            context["launcher"]["launcher_id"]) or {})
+            context["launcher"]["launcher_id"], str(context.get("config_table") or ""),
+            str(context.get("config_scope") or "launcher")) or {})
     return values
+
+
+def _mark_for(held: dict, scope: str, field: Any, offered: bool) -> Callable[[], None] | None:
+    """`_config_mark`, or Unused where this scope holds a value the program never reads
+    at it."""
+    if offered:
+        return _config_mark(held, scope, field)
+    if not held.get("set_here"):
+        return None
+    return panel.state(t("console.app_settings.unused"), "warn",
+                       hint=t("console.app_settings.all_tables_only"))
 
 
 async def _setting_entries(context: dict[str, Any],
                            blocks: Sequence[tuple[str, str, Sequence[Any]]], *,
-                           curated: bool = False,
+                           curated: bool = False, sub: bool = False,
                            redraw_on: Collection[str] = ()) -> list[tuple[Any, Any]]:
-    """Settings as fact rows, block by block: its heading where it has one, the line
-    under that, then its rows. A curated row's line is the app's help where it has one;
-    the program's description otherwise. A setting in `redraw_on` redraws the panel
-    once written.
+    """Settings as fact rows, block by block: its heading where it has one - a
+    sub-heading with `sub` - the line under that, then its rows. A curated row's line is
+    the app's help where it has one; the program's description otherwise.
+
+    A write marks every row again in place, so a control keeps its focus. The panel is
+    redrawn instead where a setting in `redraw_on` was written, or where the write changed
+    another setting's value or whose it is - drawn or not, since a table's first file of
+    its own changes what it lists. For a number, that waits until it loses focus.
 
     The value shown is always the one the program will use, never what this scope
     happens to hold: you should not be looking at a number that is not in force.
@@ -4322,13 +4303,23 @@ async def _setting_entries(context: dict[str, Any],
     library = context["library"]
     launcher = context["launcher"]
     values = await _config_values(context)
-    scope = context.get("config_scope") or "launcher"
+    scope = str(context.get("config_scope") or "launcher")
+    table = str(context.get("config_table") or "")
+    rows: dict[str, dict] = {}
+    redraws: list[Callable[[], None]] = []
+    shown = dict(values)
+    pending = {"rebuild": False}
 
-    async def clear(key: str) -> Callable[[], Any]:
+    async def settle() -> None:
+        if pending["rebuild"]:
+            pending["rebuild"] = False
+            await context["rebuild"]()
+
+    def clear(key: str) -> Callable[[], Awaitable[None]]:
         async def wipe() -> None:
             try:
-                await run.io_bound(library.write_launcher_config,
-                                   launcher["launcher_id"], {key: ""})
+                await run.io_bound(library.write_launcher_config, launcher["launcher_id"],
+                                   {key: ""}, table=table, scope=scope)
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_clear_it", exc=(exc)), type="negative")
                 return
@@ -4336,17 +4327,33 @@ async def _setting_entries(context: dict[str, Any],
             await context["rebuild"]()
         return wipe
 
-    async def save(key: str) -> Callable[[Any], Any]:
+    def save(key: str, typed: bool) -> Callable[[Any], Awaitable[bool]]:
         async def write(value: Any) -> bool:
             try:
-                await run.io_bound(library.write_launcher_config,
-                                   launcher["launcher_id"], {key: _as_text(value)})
+                wrote = await run.io_bound(
+                    library.write_launcher_config, launcher["launcher_id"],
+                    {key: _as_text(value)}, table=table, scope=scope)
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_save_it", exc=(exc)), type="negative")
                 return False
+            if table and key in ((wrote or {}).get("cleared") or ()):
+                ui.notify(t("console.app_settings.now_same_all_tables"), type="positive")
             context.pop("config_values", None)
-            if key in redraw_on:
+            try:
+                fresh = await _config_values(context)
+            except Exception:  # noqa: BLE001
+                fresh = {}
+            if fresh and typed and (key in redraw_on or _moved(shown, fresh, key)):
+                pending["rebuild"] = True
+            elif not fresh or key in redraw_on or _moved(shown, fresh, key):
                 asyncio.create_task(context["rebuild"]())
+                return True
+            shown.update(fresh)
+            for other, held in rows.items():
+                held.clear()
+                held.update(fresh.get(other) or {})
+            for redraw in redraws:
+                redraw()
             return True
         return write
 
@@ -4356,24 +4363,41 @@ async def _setting_entries(context: dict[str, Any],
         entries.append(panel.note(t(PLAYING_NOTE), hint=t(PLAYING_WHY)))
     app_name = str(launcher.get("app_name") or "")
     for title, lede, fields in blocks:
-        if title:
+        if title and sub:
+            entries.append((FULL, partial(_subheading, title)))
+        elif title:
             entries.append((HEADING, title))
         if lede:
             entries.append(panel.lede(lede))
         for field in fields:
-            held = values.get(field.key) or {}
+            held = rows.setdefault(field.key, dict(values.get(field.key) or {}))
+            offered = not table or scope in (getattr(field, "scopes", ()) or (scope,))
             option = _as_option(field)
+            typed = option["type"] in TYPED
             control = settings_page.control_for(
                 option, settings_page.value_for(option, held.get("value")),
-                await save(field.key), writable=not playing)
-            entries.append((field.label, _marked(control, held, field, app_name)))
-            mark = _config_mark(held, scope, field)
-            if mark is not None or held.get("set_here"):
-                entries.append((panel.ASIDE,
-                                _beside(mark, held, field, clear, app_name, playing)))
+                save(field.key, typed), writable=not playing and offered)
+            entries.append((field.label, _marked(control, held, field, app_name, redraws,
+                                                 on_leave=settle if typed else None)))
+            entries.append((panel.ASIDE, _beside(
+                partial(_mark_for, held, scope, field, offered), held, field, clear,
+                app_name, playing, redraws)))
             if said := (getattr(field, "help", "") if curated else "") or field.description:
                 entries.append(panel.note(said))
     return entries
+
+
+def _moved(before: dict[str, Any], after: dict[str, Any], written: str) -> bool:
+    """Whether a setting other than the one written has a different value now, or has it
+    from another scope."""
+    def said(held: Any) -> tuple[Any, Any]:
+        return (held or {}).get("value"), (held or {}).get("scope")
+    return any(said(before.get(key)) != said(after.get(key))
+               for key in before.keys() | after.keys() if key != written)
+
+
+def _subheading(title: str) -> None:
+    ui.label(title).classes("console-group")
 
 
 def _section_of(qualified: str) -> str:
@@ -6200,6 +6224,8 @@ SECTIONS: tuple[Section, ...] = (
     Section("game_details", _game_label, _game_block),
     Section("table_details", lambda _: t("console.workbench.table_details"), _table_block,
             subjects=frozenset({"table"})),
+    Section("table_settings", lambda _: t("console.workbench.table_settings"),
+            _table_settings, subjects=frozenset({"table"})),
     Section("play", lambda _: game_tables.PLAY, _play_block),
     Section("collections", lambda _: t("console.workbench.collections"),
             _collections_block),
