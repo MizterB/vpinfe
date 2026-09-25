@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 import httpapi
 from common import events, extensions, service_errors
 from common.extensions import host, store
-from common.games import community_lists, derived_tags, library_ops
+from common.games import community_lists, derived_tags, library_ops, rankings
 from common.games.collection_resolver import resolve
 from common.games.collection_store import CollectionStore
 from common.games.game import Game
@@ -52,8 +52,9 @@ class DerivedTagCase(unittest.TestCase):
             patcher = patch(target, value)
             patcher.start()
             self.addCleanup(patcher.stop)
-        derived_tags.forget()
-        self.addCleanup(derived_tags.forget)
+        for held in (derived_tags, rankings):
+            held.forget()
+            self.addCleanup(held.forget)
 
         self.store = store.ExtensionStore(self.root / "extensions.json")
         self.registry = host.Registry(self.store)
@@ -74,10 +75,11 @@ class DerivedTagCase(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def week(self, machines: str = "", releases: str = "", fail: bool = False,
-             ratings: str = "") -> None:
+             ratings: str = "", builds: str = "") -> None:
         self.store.set_setting("challenge", "machines", machines)
         self.store.set_setting("challenge", "releases", releases)
         self.store.set_setting("challenge", "ratings", ratings)
+        self.store.set_setting("challenge", "builds", builds)
         self.store.set_setting("challenge", "fail", "yes" if fail else "")
 
     def fetch(self, path: str) -> dict:

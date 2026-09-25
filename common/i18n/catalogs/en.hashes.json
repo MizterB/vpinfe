@@ -1738,6 +1738,7 @@
   "error.collections.nothing_pages": "df49dbd5fbd5",
   "error.collections.order_must_list_exactly": "40ae497c28ef",
   "error.collections.order_must_name_every": "5b6f84915c9f",
+  "error.collections.ranking_one_direction": "5cf6da30b8ce",
   "error.collections.rules_or_no_rules": "dd1f79e9943a",
   "error.collections.unknown_game_ids": "bce3a9db3d08",
   "error.config.could_not_write_settings": "3db12692c706",

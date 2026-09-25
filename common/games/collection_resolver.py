@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from common import collation
-from common.games import collection_filters
+from common.games import collection_filters, rankings
 from common.games.collection_store import MANUAL_ORDER, CollectionStore
 from common.games.game import GameRecord, ScannedGame
 from common.games.game_identity import game_id
@@ -193,9 +193,14 @@ def _ordered(entries: list, order_by: str, descending: bool = False) -> list:
     The tiebreak does not turn around with the field. Two games level on rating stay in
     title order in a descending list, which is the sort `frontend.game_state.apply_sort`
     has always applied - reversing the finished list would order them Z to A instead.
+
+    `descending` is set aside for a ranked view.
     """
-    key = _primary_key(order_by)
     entries.sort(key=_tiebreak)
+    if rankings.is_token(order_by):
+        entries.sort(key=rankings.rank_key(order_by))
+        return entries
+    key = _primary_key(order_by)
     entries.sort(key=lambda entry: key(entry.game), reverse=descending)
     return entries
 
@@ -211,9 +216,11 @@ def order_games(games: list, order_by: str, descending: bool = False) -> list:
     """
     if order_by == MANUAL_ORDER:
         return games
-    key = _primary_key(order_by)
     games.sort(key=lambda game: collation.sort_key(game_title(game)))
-    games.sort(key=key, reverse=descending)
+    if rankings.is_token(order_by):
+        games.sort(key=rankings.rank_key(order_by))
+        return games
+    games.sort(key=_primary_key(order_by), reverse=descending)
     return games
 
 

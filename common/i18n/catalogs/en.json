@@ -2002,6 +2002,7 @@
   "error.collections.nothing_pages": "Nothing pages by {wanted_paging}",
   "error.collections.order_must_list_exactly": "An order must list exactly the collection's members",
   "error.collections.order_must_name_every": "An order must name every collection exactly once",
+  "error.collections.ranking_one_direction": "{by} is ranked, and only runs from the top",
   "error.collections.rules_or_no_rules": "Send the rules or ask for none, not both",
   "error.collections.unknown_game_ids": "Unknown game ids",
   "error.config.could_not_write_settings": "Could not write the settings file: {exc}",

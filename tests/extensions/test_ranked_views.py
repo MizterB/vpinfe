@@ -1,13 +1,26 @@
-"""A ranked view of a Community list: the order it puts what it relates to in, and the
-read that keeps that order current."""
+"""A ranked view of a Community list: the order it puts what it relates to in, the read
+that keeps that order current, and a collection ordered by it."""
 
 from __future__ import annotations
 
+import configparser
+import json
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from common import events
 from common.games import community_lists, rankings
-from tests.extensions.test_derived_tags import DerivedTagCase
+from common.games.collection_resolver import resolve, resolve_games
+from common.games.collection_store import CollectionStore
+from common.games.game_identity import game_id
+from frontend import game_state
+from frontend.api import API
+from frontend.library_resolver import LibraryResolver
+from tests.extensions.test_derived_tags import DerivedTagCase, _game
+
+TOP_RATED_TOKEN = "challenge/ratings/top"
+BY_BUILD = "challenge/builds/top"
 
 LISTING = {"columns": [{"field": "id", "kind": "text"},
                        {"field": "rating", "kind": "number"},
@@ -128,6 +141,165 @@ class TheRead(DerivedTagCase):
                               {"vps_id": "mm-entry", "rating": 9.0}])
 
         self.assertEqual(1, len(heard))
+
+
+class RankedCase(DerivedTagCase):
+    """Four games: two the list rates, one it holds with no rating, one it does not hold."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.bk = _game("bk", "Black Knight", "bk-entry", {"vpw": "bk-vpw"}, default="vpw")
+        self.cv = _game("cv", "Cirqus Voltaire", "cv-entry", {"vpw": "cv-vpw"},
+                        default="vpw")
+        self.games.extend([self.cv, self.bk])
+        self.week(ratings="afm-entry=8.1,mm-entry=9,bk-entry=")
+        self.read()
+        self.collections = CollectionStore(str(self.root / "collections.json"))
+        self.order("Top Rated", TOP_RATED_TOKEN)
+
+    def order(self, name: str, by: str) -> None:
+        self.collections.add_collection(name)
+        self.collections.make_filter_collection(name, {}, order={"by": by})
+
+    def ids(self, name: str = "Top Rated") -> list[str]:
+        return [game_id(entry.game) for entry in resolve(name, self.collections, self.games)]
+
+
+class InACollection(RankedCase):
+    def test_rated_games_lead_in_the_view_s_order_and_the_rest_follow_by_title(self) -> None:
+        self.assertEqual(["mm", "afm", "bk", "cv"], self.ids())
+
+    def test_a_limit_fills_from_rated_games_first(self) -> None:
+        self.collections.set_limit("Top Rated", 2)
+
+        self.assertEqual(["mm", "afm"], self.ids())
+
+    def test_a_direction_stored_beside_it_does_not_turn_it_around(self) -> None:
+        self.collections.set_order("Top Rated", TOP_RATED_TOKEN, "desc")
+
+        self.assertEqual(["mm", "afm", "bk", "cv"], self.ids())
+
+    def test_the_management_lens_holds_the_same_order(self) -> None:
+        self.assertEqual(["mm", "afm", "bk", "cv"],
+                         [game_id(one) for one in
+                          resolve_games("Top Rated", self.collections, self.games)])
+
+    def test_the_next_read_moves_it(self) -> None:
+        self.week(ratings="afm-entry=9.5,mm-entry=9")
+        self.read()
+
+        self.assertEqual(["afm", "mm", "bk", "cv"], self.ids())
+
+    def test_a_stopped_extension_leaves_it_in_title_order(self) -> None:
+        self.registry.disable("challenge", "switched off")
+
+        self.assertEqual(["afm", "bk", "cv", "mm"], self.ids())
+
+    def test_a_view_by_release_ranks_the_table_the_collection_shows(self) -> None:
+        """The newer build of Attack from Mars tops the list, and the collection shows
+        its default, the older one, which the list does not rank."""
+        self.week(builds="afm-1-3=9,mm-vpw=8,bk-vpw=7")
+        self.read()
+        self.order("Builds", BY_BUILD)
+
+        self.assertEqual(["mm", "bk", "afm", "cv"], self.ids("Builds"))
+        self.assertEqual(["mm", "bk", "afm", "cv"],
+                         [game_id(one) for one in
+                          resolve_games("Builds", self.collections, self.games)])
+
+    def test_the_frontend_is_handed_it_in_that_order(self) -> None:
+        with patch("frontend.library_resolver.get_collections_manager",
+                   lambda: self.collections):
+            ini = SimpleNamespace(config=configparser.ConfigParser(), save=lambda: None)
+            ini.config.add_section("general")
+            api = API.__new__(API)
+            api._ini_config = ini
+            api.library = LibraryResolver(ini, games=list(self.games))
+            game_state.apply_collection(api, "Top Rated")
+
+            said = json.loads(api.library.payload(game_state.CURRENT_CONTRACT,
+                                                  collection="Top Rated"))
+
+        self.assertEqual(["mm", "afm", "bk", "cv"],
+                         [one["game"]["id"] for one in said["entries"]])
+        self.assertEqual("", said["group_by"])
+
+
+class OverTheApi(RankedCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.collections.save()
+        for target in ("common.games.collection_ops.get_collections_manager",
+                       "common.games.collections_service.get_collections_manager"):
+            patcher = patch(target, lambda: self.collections)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = patch("common.games.game_repository.catalog",
+                        lambda: {game_id(one): one for one in self.games})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_collection_says_which_view_orders_it_and_how_old_the_read_is(self) -> None:
+        said = self.client.get("/collections/Top%20Rated").json()
+
+        self.assertEqual((TOP_RATED_TOKEN, "asc"), (said["order_by"], said["direction"]))
+        ranking = said["ranking"]
+        self.assertEqual(("challenge", "ratings", "top", "Ratings", "Top Rated", True),
+                         tuple(ranking[key] for key in ("extension", "list", "view",
+                                                        "title", "name", "offered")))
+        self.assertEqual(community_lists.kept("challenge", "ratings")["read_at"],
+                         ranking["read_at"])
+
+    def test_a_collection_in_a_built_in_order_has_no_ranking(self) -> None:
+        self.client.patch("/collections/Top%20Rated", json={"order_by": "title"})
+
+        self.assertIsNone(self.client.get("/collections/Top%20Rated").json()["ranking"])
+
+    def test_one_is_made_ordered_by_a_view(self) -> None:
+        made = self.client.post("/collections", json={
+            "name": "Builds", "filters": {"order_by": BY_BUILD}})
+
+        self.assertEqual(201, made.status_code)
+        self.assertEqual((BY_BUILD, "asc"),
+                         (made.json()["order_by"], made.json()["direction"]))
+
+    def test_a_ranked_order_run_from_the_bottom_is_refused(self) -> None:
+        for sent in ({"direction": "desc"},
+                     {"order_by": TOP_RATED_TOKEN, "direction": "desc"}):
+            with self.subTest(sent=sent):
+                refused = self.client.patch("/collections/Top%20Rated", json=sent)
+
+                self.assertEqual(400, refused.status_code)
+        made = self.client.post("/collections", json={
+            "name": "Bottom", "filters": {"order_by": BY_BUILD, "direction": "desc"}})
+        self.assertEqual(400, made.status_code)
+
+    def test_moving_from_a_descending_order_to_a_ranked_one_runs_from_the_top(self) -> None:
+        self.client.patch("/collections/Top%20Rated",
+                          json={"order_by": "rating", "direction": "desc"})
+
+        said = self.client.patch("/collections/Top%20Rated",
+                                 json={"order_by": TOP_RATED_TOKEN}).json()
+
+        self.assertEqual((TOP_RATED_TOKEN, "asc"), (said["order_by"], said["direction"]))
+
+    def test_a_view_nobody_offers_is_refused_and_the_offered_ones_are_named(self) -> None:
+        refused = self.client.patch("/collections/Top%20Rated",
+                                    json={"order_by": "challenge/ratings/bottom"})
+
+        self.assertEqual(400, refused.status_code)
+        self.assertIn(BY_BUILD, refused.json()["error"]["details"]["choices"])
+
+    def test_a_stopped_extension_s_order_stays_and_says_so(self) -> None:
+        self.registry.disable("challenge", "switched off")
+
+        paged = self.client.patch("/collections/Top%20Rated", json={"paging_group": "count"})
+
+        self.assertEqual(200, paged.status_code)
+        said = paged.json()
+        self.assertEqual(TOP_RATED_TOKEN, said["order_by"])
+        self.assertEqual(("challenge", False),
+                         (said["ranking"]["extension"], said["ranking"]["offered"]))
 
 
 if __name__ == "__main__":

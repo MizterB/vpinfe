@@ -71,6 +71,8 @@ def _keep(extension: str, key: str,
     except OSError:
         logger.warning("Could not keep %s/%s", extension, key, exc_info=True)
         return {**said, "stale": False, "error": ""}, False
+    if ranked:
+        rankings.forget()
     moved = any(rankings.ranks(before, listing, view) != rankings.ranks(rows, listing, view)
                 for view in ranked)
     return {**said, "stale": False, "error": ""}, moved

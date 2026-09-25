@@ -26,6 +26,7 @@ from common.games import (
     game_identity,
     game_lens,
     game_repository,
+    rankings,
     sized_media,
     table_lens,
 )
@@ -47,10 +48,12 @@ from common.games.collection_store import (
     BUILTIN_ALL,
     DEFAULT_DIRECTION,
     MANUAL_ORDER,
+    ORDER_ALIASES,
     PAGING_GROUPS,
     SORT_LABELS,
     CollectionStore,
     DuplicateMemberError,
+    normalize_direction,
     normalize_paging_group,
 )
 from common.games.collections_service import (
@@ -222,6 +225,7 @@ def _resource_for(row: dict) -> dict:
         "limit": get_collections_manager().get_limit(name),
         "order_by": order["by"],
         "direction": order["direction"],
+        "ranking": rankings.described(order["by"]),
         "paging_group": order.get("paging_group") or "",
         "links": _links(name),
     }
@@ -551,10 +555,33 @@ def _write_criteria(manager: CollectionStore, name: str, criteria: dict,
                     order: dict) -> None:
     """Store a criteria block and the order it carries. One writer for create and patch,
     so the two cannot disagree about which keys a block holds."""
-    if order.get("by") == MANUAL_ORDER:
+    by = order.get("by") or ""
+    if by == MANUAL_ORDER:
         raise service_errors.BlockedError(
             t("error.collections.filter_collection_no_arrangement", name=(name)))
+    if by:
+        _orderable_or_refuse(ORDER_ALIASES.get(by, by))
+    ordered_by = by or manager.get_order(name)["by"]
+    if order and rankings.is_token(ordered_by):
+        order = {**order, "direction": _one_way(ordered_by, order.get("direction"))}
     manager.make_filter_collection(name, criteria, order=order)
+
+
+def _orderable_or_refuse(by: str) -> None:
+    """For an order being set, never for one already stored."""
+    offered = [one["order_by"] for one in rankings.offered()]
+    if by in SORT_LABELS or by == MANUAL_ORDER or by in offered:
+        return
+    raise service_errors.RefusedError(
+        t("error.collections.nothing_ordered", by=(by)),
+        details={"choices": [*SORT_LABELS, *offered, MANUAL_ORDER]})
+
+
+def _one_way(by: str, direction: str | None) -> str:
+    if direction and normalize_direction(direction) != rankings.DIRECTION:
+        raise service_errors.RefusedError(t("error.collections.ranking_one_direction",
+                                            by=(by)))
+    return rankings.DIRECTION
 
 
 def create(name: str, games: Iterable[str] = (), description: str = "",
@@ -820,10 +847,10 @@ def _set_order_fields(manager: CollectionStore, name: str, order_by: str | None,
                       paging_group: str | None) -> None:
     order = manager.get_order(name)
     by = order_by or order["by"]
-    if by not in SORT_LABELS and by != MANUAL_ORDER:
-        raise service_errors.RefusedError(
-            t("error.collections.nothing_ordered", by=(by)),
-            details={"choices": [*SORT_LABELS, MANUAL_ORDER]})
+    if order_by:
+        _orderable_or_refuse(order_by)
+    if rankings.is_token(by):
+        direction = _one_way(by, direction)
     # Refused rather than normalized away. `normalize_paging_group` answers None for
     # anything it cannot read, which would turn a typo into "follow the player" and report
     # success - the same silent-accept order_by was fixed for.

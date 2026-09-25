@@ -1821,6 +1821,21 @@ class LibraryGameCollections(ApiModel):
     games: list[GameCollections]
 
 
+class CollectionRanking(ApiModel):
+    """The ranked view of a Community list a collection is ordered by. `title` is the
+    list's and `name` the view's, in the language now set. `read_at` is when the list
+    was last read. `offered` is false when no running extension offers the view, and
+    then the collection is in title order and only `extension` is known."""
+
+    extension: str
+    list: str
+    view: str
+    title: str
+    name: str
+    read_at: str
+    offered: bool
+
+
 class CollectionResource(ApiModel):
     """`type` is derived, not stored: `filter` where the collection carries criteria,
     `manual` where it does not. The two are not kinds - a collection may hold criteria,
@@ -1868,6 +1883,8 @@ class CollectionResource(ApiModel):
     limit: int | None = None
     order_by: str = ""
     direction: str = ""
+    # Null unless `order_by` names a ranked view.
+    ranking: CollectionRanking | None = None
     # Which boundary the frontend pages between. Empty means the collection says
     # nothing and the player's own setting decides. Settable in the store since paging
     # was built and on no wire model until now, so the Manager UI had a control for it
