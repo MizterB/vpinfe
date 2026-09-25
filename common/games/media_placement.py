@@ -133,8 +133,7 @@ def retier(game_dir: str | Path, kind: str, from_stem: str, to_stem: str) -> Pat
 def record_origin(game_dir: str | Path, path: Path, host: str = "user",
                   md5: str = "") -> None:
     """Note who placed the file, so the surface can say so later. `md5` is the
-    publisher's own hash, and it is what later decides whether the file may be
-    overwritten - `vpsdb_media.is_ours` compares hashes, never ledger presence.
+    publisher's own hash: while the file still matches it, the file is ours to update.
     """
     game_dir = Path(game_dir)
     info = game_dir / f"{game_dir.name}.info"

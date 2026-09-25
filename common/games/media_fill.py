@@ -56,8 +56,8 @@ def _reachable() -> tuple[str, ...]:
         if source.reachable():
             live.append(source.id)
         else:
-            logger.warning("Art for new games: %s could not be reached, so nothing "
-                           "is fetched from it this time", source.name)
+            logger.warning("%s could not be reached, so nothing is fetched from it "
+                           "this time", source.name)
     return tuple(live)
 
 
@@ -231,6 +231,111 @@ def _work(job: jobs.Job) -> dict[str, int]:
                 return totals
         for key, value in _fill(batch, wanted, live, reporter, _proceed).items():
             totals[key] += value
+
+
+def update_enabled() -> bool:
+    return cfg_bool(get_ini_config(), "updates", "update_downloaded_art", True)
+
+
+def _update_game(game_id: str, game: Any, wanted: set[str], live: tuple[str, ...],
+                 media: MediaConfig) -> tuple[int, int]:
+    """Replace this game's stale art. Answers (updated, failed).
+
+    Files are hashed only where the recorded hash is gone from the catalog.
+    """
+    from common.games import asset_origin, media_lens, media_placement
+    from common.online import asset_sources
+    from common.online.vpsdb_media import file_md5, replace_file
+
+    vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
+    game_dir = Path(str(game.full_path_game))
+    recorded = {path: source for path, source in asset_origin.sources(game_dir).items()
+                if source.get("hash") and source.get("host") in live}
+    if not vps_id or not recorded:
+        return 0, 0
+    hosts = tuple({str(source["host"]) for source in recorded.values()})
+    published = {offer.md5 for kind in _SPECS
+                 for offer in asset_sources.offers(kind, vps_id, hosts)}
+    gone = {path for path, source in recorded.items() if source["hash"] not in published}
+    if not gone:
+        return 0, 0
+    updated = failed = 0
+    for row in media_lens.listing(game=game_id)["media"]:
+        path = row.get("path") or ""
+        kind = row["kind"]
+        asked = _asked_as(kind, media.playfield_variant) if kind in wanted else None
+        if path not in gone or not row["present"] or asked is None:
+            continue
+        gone.discard(path)
+        host, held = str(recorded[path]["host"]), str(recorded[path]["hash"])
+        mine = asset_sources.offers(asked, vps_id, (host,))
+        if not mine or file_md5(game_dir / path) != held:
+            continue
+        size = _size(asked, media)
+        offer = next((one for one in mine if one.size == size), mine[0])
+        try:
+            replace_file(offer.url, game_dir / path)
+        except Exception as exc:
+            failed += 1
+            logger.warning("Updating art: could not replace %s for %s: %s", kind,
+                           game.game_dir_name, exc)
+            continue
+        media_placement.record_origin(game_dir, game_dir / path, host, offer.md5)
+        updated += 1
+    return updated, failed
+
+
+def update_downloaded(reporter: JobReporter | None = None,
+                      proceed: Callable[[], bool] = lambda: True) -> dict[str, int]:
+    """Replace art we downloaded that the catalog has since replaced.
+
+    Only a file whose recorded hash still matches it, of a kind the library keeps, from
+    a source that is on. `updated` and `failed` count files.
+    """
+    from common.games import game_repository, media_service
+    from common.online import asset_sources
+
+    counts = {"games": 0, "updated": 0, "failed": 0}
+    asset_sources.refresh()
+    live = _reachable()
+    wanted = kept_kinds()
+    if not live or not wanted:
+        return counts
+    media = MediaConfig.from_config(get_ini_config())
+    games = list(game_repository.catalog().items())
+    for index, (game_id, game) in enumerate(games):
+        if not proceed():
+            break
+        name = str(game.game_dir_name or "")
+        if reporter:
+            reporter.progress(index, len(games), t("said.updating_art_for", game=name))
+        try:
+            updated, failed = _update_game(game_id, game, wanted, live, media)
+        except Exception:
+            logger.exception("Updating art: could not read what %s has", name)
+            continue
+        counts["games"] += 1
+        counts["failed"] += failed
+        if updated:
+            counts["updated"] += updated
+            media_service.invalidate_media_cache()
+            game_repository.refresh_game(Path(str(game.full_path_game)))
+    logger.info("Updating art: %s file(s) replaced across %s game(s), %s failed",
+                counts["updated"], counts["games"], counts["failed"])
+    return counts
+
+
+def start_update() -> bool:
+    """Run `update_downloaded` as a job. False when a fill holds the job kind."""
+    def work(job: jobs.Job) -> dict[str, int]:
+        return update_downloaded(job.reporter(),
+                                 lambda: update_enabled() and not shutdown.requested())
+
+    try:
+        jobs.submit(jobs.KIND_MEDIA_FILL, work)
+    except jobs.JobBusyError:
+        return False
+    return True
 
 
 def reset_for_tests() -> None:

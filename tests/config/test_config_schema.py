@@ -109,6 +109,7 @@ class SchemaShapeTests(unittest.TestCase):
         self.assertEqual(internal, {("vpsdb", "last"), ("vpsdb", "checked"),
                                     ("themes", "last_read"),
                                     ("vpsdb", "games_updated_to"),
+                                    ("vpsdb", "art_checked"),
                                     ("state", "last_table"),
                                     ("pinmame_score_parser", "roms_update_sha"),
                                     ("install", "id"),

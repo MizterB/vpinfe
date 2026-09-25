@@ -7,7 +7,7 @@ import re
 from difflib import SequenceMatcher
 from typing import Any
 
-from common.config_access import MediaConfig
+from common.config_access import MediaConfig, cfg_bool
 from common.config_store import ConfigStore
 from common.games.game import Game
 from common.games.info_file import MetaConfig
@@ -123,6 +123,8 @@ class VPSdb:
             playfieldvariant=self.playfieldvariant,
             playfieldresolution=self.playfieldresolution,
             playfieldvideoresolution=self.playfieldvideoresolution,
+            update_downloaded=cfg_bool(self._vpinfe_config_store, "updates",
+                                       "update_downloaded_art", True),
         )
 
     def _write_manufacturer_reference(self) -> None:

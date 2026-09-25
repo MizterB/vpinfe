@@ -10,6 +10,7 @@ from pathlib import Path
 
 import requests
 
+from common.games import asset_origin
 from common.games.game import Game
 from common.games.info_file import MetaConfig
 from common.http_client import download_file
@@ -87,16 +88,55 @@ def published_url(media_index: dict | None, vps_id: str, kind: str,
     return pick["url"], pick["md5"]
 
 
+def went_stale(local_md5: str, recorded_md5: str, published: Collection[str]) -> bool:
+    """Placed by us, unchanged since, and no longer among the `published` hashes."""
+    return bool(recorded_md5) and local_md5 == recorded_md5 and recorded_md5 not in published
+
+
+def published_md5s(entry: dict | None) -> set[str]:
+    """Every hash an entry carries, of any kind and size."""
+    found: set[str] = set()
+    for bucket in (entry or {}, *((entry or {}).get(size) for size in MANIFEST_SIZES)):
+        if isinstance(bucket, dict):
+            found |= {str(value) for key, value in bucket.items()
+                      if key.endswith("_md5") and value}
+    return found
+
+
+def file_md5(path: str | Path) -> str:
+    """The file's own hash, or "" when it cannot be read."""
+    try:
+        with open(path, "rb") as handle:
+            digest = hashlib.md5()
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+            return digest.hexdigest()
+    except OSError:
+        logger.debug("Could not hash %s", path, exc_info=True)
+        return ""
+
+
+def replace_file(url: str, target: Path) -> None:
+    """Download over `target`, which stays as it was if the download raises."""
+    partial = target.with_name(f"{target.name}.part")
+    try:
+        download_file(url, partial)
+        os.replace(partial, target)
+    finally:
+        partial.unlink(missing_ok=True)
+
+
 class VPSMediaDownloader:
     """Downloads a game's media from VPinMediaDB."""
 
     def __init__(
             self, media_index: dict | None, *, playfieldvariant: str, playfieldresolution: str,
-            playfieldvideoresolution: str) -> None:
+            playfieldvideoresolution: str, update_downloaded: bool = False) -> None:
         self.media_index = media_index or {}
         self.playfieldvariant = playfieldvariant
         self.playfieldresolution = playfieldresolution
         self.playfieldvideoresolution = playfieldvideoresolution
+        self.update_downloaded = update_downloaded
 
     def file_exists(self, path: str | None) -> bool:
         return bool(path and os.path.exists(path))
@@ -109,34 +149,21 @@ class VPSMediaDownloader:
         except requests.RequestException as exc:
             logger.warning("Failed to download %s for table %s: %s", filename, game_id, exc)
 
-    def local_md5(self, path: str) -> str:
-        """The file's own hash, or "" when it cannot be read."""
+    def replace_media_file(self, game_id: str, url: str, filename: str) -> bool:
         try:
-            with open(path, "rb") as handle:
-                digest = hashlib.md5()
-                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                    digest.update(chunk)
-                return digest.hexdigest()
-        except OSError:
-            logger.debug("Could not hash %s", path, exc_info=True)
-            return ""
-
-    def is_ours(self, path: str, remote_md5: str) -> bool:
-        """Whether a file on disk is the one vpinmediadb publishes.
-
-        Decided by comparing hashes, not by whether we have a ledger entry for it.
-        Absence proves nothing - a copied game folder, a regenerated .info or media
-        fetched with another tool all leave vpinmediadb art with no record - and
-        treating "no entry" as "the user's" would freeze that art forever with no
-        way for anyone to notice.
-
-        No remote hash means we cannot prove ownership, so the answer is no.
-        """
-        return bool(remote_md5) and self.local_md5(path) == remote_md5
+            replace_file(url, Path(filename))
+        except (requests.RequestException, OSError) as exc:
+            logger.warning("Failed to update %s for table %s: %s", filename, game_id, exc)
+            return False
+        logger.info("Updated %s from VPinMediaDB", filename)
+        return True
 
     def download_media(self, game_id: str, metadata: dict | None, key: str,
-                       filename: str | None,
-                       default_filename: str) -> tuple[str, str] | None:
+                       filename: str | None, default_filename: str,
+                       recorded_md5: str = "",
+                       published: Collection[str] = ()) -> tuple[str, str] | None:
+        """Fill the slot, or replace art we placed that went stale; None for anything
+        declined, so nothing declined is recorded as ours."""
         if not metadata or key not in metadata:
             return None
 
@@ -146,13 +173,17 @@ class VPSMediaDownloader:
             actual_path = default_filename
 
         if actual_path:
-            if not self.is_ours(actual_path, remote_md5):
-                # Either the user's own artwork, or a newer copy of ours they replaced.
-                # Both mean hands off, and neither should be recorded as ours.
-                logger.debug("Leaving %s alone: not the file vpinmediadb publishes", actual_path)
+            local_md5 = file_md5(actual_path)
+            if remote_md5 and local_md5 == remote_md5:
+                return actual_path, remote_md5
+            if not (self.update_downloaded and remote_md5
+                    and went_stale(local_md5, recorded_md5, set(published) | {remote_md5})):
+                logger.debug("Leaving %s alone: not the file vpinmediadb publishes",
+                             actual_path)
                 return None
-            # Ours and already current - the hashes match, so there is nothing to fetch.
-            return actual_path, remote_md5
+            if self.replace_media_file(game_id, metadata[key], actual_path):
+                return actual_path, remote_md5
+            return None
 
         self.download_media_file(game_id, metadata[key], default_filename)
         if self.file_exists(default_filename):
@@ -171,6 +202,8 @@ class VPSMediaDownloader:
         game_dir = str(game.full_path_game or "")
         medias_dir = os.path.join(game_dir, "medias")
         os.makedirs(medias_dir, exist_ok=True)
+        recorded = asset_origin.sources(game_dir) if self.update_downloaded else {}
+        published = published_md5s(game_media)
 
         def record(result: tuple[str, str] | None) -> None:
             """Only files we actually placed. download_media returns None for anything
@@ -186,7 +219,11 @@ class VPSMediaDownloader:
             if kinds is not None and kind not in kinds:
                 return
             default_filename = str(default_media_path(game_dir, kind, self.playfieldvariant))
-            record(self.download_media(game_id, metadata, key, filename, default_filename))
+            on_disk = filename if filename and self.file_exists(filename) else default_filename
+            held = recorded.get(asset_origin.path_of(game_dir, Path(on_disk))) or {}
+            record(self.download_media(game_id, metadata, key, filename, default_filename,
+                                       recorded_md5=str(held.get("hash", "") or ""),
+                                       published=published))
 
         process("backglass", game_media.get("1k"), REMOTE_KEYS["backglass"],
                 game.bg_image_path)

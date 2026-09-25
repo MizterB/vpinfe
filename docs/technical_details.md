@@ -101,6 +101,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `match_new_games` | bool | `true` | When VPinFE finds a new game, match it to the spreadsheet from its folder name |
 | `get_art_for_new_games` | bool | `true` | Once a new game is matched, download the art it is missing, in the kinds this library collects. Art already there is never replaced. |
+| `update_downloaded_art` | bool | `true` | When VPinMediaDB replaces art VPinFE downloaded for you. Art you added or changed is never touched. |
 | `update_game_details` | choice (never, daily, weekly, monthly) | `never` | How often to copy name, year, type, themes and guides from the spreadsheet onto matched games |
 | `refresh_minutes` | int | `0` | How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
 | `ask_where_new_games_go` | bool | `true` | On, an import that could go to more than one place asks which. Off, it goes to the place marked for new games. Never asked when there is only one. |
@@ -177,6 +178,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `last` | string |  |  |
 | `checked` | string |  |  |
 | `games_updated_to` | string |  |  |
+| `art_checked` | string |  |  |
 
 ### `state`
 

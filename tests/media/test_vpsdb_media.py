@@ -6,6 +6,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+import requests
+
 from common.online.vpsdb_cache import VPSDatabaseCache
 from common.online.vpsdb_media import (
     REMOTE_KEYS,
@@ -25,12 +27,10 @@ THEIRS = b"\x89PNG a wheel someone drew themselves"
 
 
 class OwnershipTests(unittest.TestCase):
-    """Whether a media file may be overwritten is decided by comparing its hash to the
-    one vpinmediadb publishes, never by whether we happen to have a ledger entry.
+    """A file identical to what vpinmediadb publishes is its file, ledger entry or not.
 
-    Absence proves nothing. vpinmediadb artwork loses its entry whenever a table folder
-    is copied, an .info is regenerated, or the media came from another tool - and
-    reading "no entry" as "the user's" would freeze that art with nobody able to tell.
+    vpinmediadb artwork loses its entry whenever a table folder is copied, an .info is
+    regenerated, or the media came from another tool.
     """
 
     def _downloader(self, remote_md5: str):
@@ -87,6 +87,95 @@ class OwnershipTests(unittest.TestCase):
                 dl.download_media("vps-1", dl.media_index["vps-1"], "wheel",
                                   str(wheel), str(wheel))
             self.assertTrue(fetch.called)
+
+
+OLD = b"\x89PNG the wheel vpinmediadb used to publish"
+
+
+class UpdateDownloadedTests(unittest.TestCase):
+    """Art we placed is replaced when the catalog replaces it, and nothing else is."""
+
+    def _run(self, on_disk: bytes, recorded: str, *, update: bool = True,
+             published: tuple[str, ...] = (), fails: bool = False):
+        """Returns (result, bytes on disk after)."""
+        with TemporaryDirectory() as tmp:
+            wheel = Path(tmp) / "wheel.png"
+            wheel.write_bytes(on_disk)
+            dl = VPSMediaDownloader(
+                {"vps-1": {"wheel": "https://example.invalid/wheel.png",
+                           "wheel_md5": _md5(OURS)}},
+                playfieldvariant="table", playfieldresolution="1k",
+                playfieldvideoresolution="1k", update_downloaded=update)
+
+            def fetch(url, dest):
+                if fails:
+                    raise requests.ConnectionError("offline")
+                Path(dest).write_bytes(OURS)
+
+            with mock.patch("common.online.vpsdb_media.download_file", side_effect=fetch):
+                result = dl.download_media("vps-1", dl.media_index["vps-1"], "wheel",
+                                           str(wheel), str(wheel), recorded_md5=recorded,
+                                           published=published)
+            leftovers = sorted(path.name for path in Path(tmp).iterdir())
+            self.assertEqual(leftovers, ["wheel.png"])
+            return result, wheel.read_bytes()
+
+    def test_ours_and_current_is_kept(self) -> None:
+        result, on_disk = self._run(OURS, _md5(OURS))
+        self.assertEqual(result[1], _md5(OURS))
+        self.assertEqual(on_disk, OURS)
+
+    def test_ours_and_stale_is_replaced(self) -> None:
+        result, on_disk = self._run(OLD, _md5(OLD))
+        self.assertEqual(on_disk, OURS)
+        self.assertEqual(result[1], _md5(OURS), "the new hash is what gets recorded")
+
+    def test_art_edited_since_it_was_recorded_is_left(self) -> None:
+        result, on_disk = self._run(THEIRS, _md5(OLD))
+        self.assertIsNone(result)
+        self.assertEqual(on_disk, THEIRS)
+
+    def test_art_with_no_ledger_entry_is_left(self) -> None:
+        result, on_disk = self._run(OLD, "")
+        self.assertIsNone(result)
+        self.assertEqual(on_disk, OLD)
+
+    def test_the_switch_off_leaves_stale_art(self) -> None:
+        result, on_disk = self._run(OLD, _md5(OLD), update=False)
+        self.assertIsNone(result)
+        self.assertEqual(on_disk, OLD)
+
+    def test_art_the_catalog_still_publishes_at_another_size_is_left(self) -> None:
+        result, on_disk = self._run(OLD, _md5(OLD), published=(_md5(OLD),))
+        self.assertIsNone(result)
+        self.assertEqual(on_disk, OLD)
+
+    def test_a_failed_replacement_keeps_the_file(self) -> None:
+        result, on_disk = self._run(OLD, _md5(OLD), fails=True)
+        self.assertIsNone(result)
+        self.assertEqual(on_disk, OLD)
+
+    def test_the_game_download_reads_the_recorded_hash(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Cactus Canyon (Bally 1998)"
+            (root / "medias").mkdir(parents=True)
+            (root / "medias" / "wheel.png").write_bytes(OLD)
+            (root / f"{root.name}.info").write_text(json.dumps({"assets": {
+                "medias/wheel.png": {"source": {"host": "vpinmediadb",
+                                                "hash": _md5(OLD)}}}}), encoding="utf-8")
+            dl = VPSMediaDownloader(
+                {"vps-1": {"wheel": "https://example.invalid/wheel.png",
+                           "wheel_md5": _md5(OURS)}},
+                playfieldvariant="table", playfieldresolution="1k",
+                playfieldvideoresolution="1k", update_downloaded=True)
+            meta = mock.Mock()
+            with mock.patch("common.online.vpsdb_media.download_file",
+                            side_effect=lambda url, dest: Path(dest).write_bytes(OURS)):
+                dl.download_media_for_game(_game_at(root), "vps-1", meta)
+
+            self.assertEqual((root / "medias" / "wheel.png").read_bytes(), OURS)
+            meta.add_asset.assert_called_once_with(
+                str(root / "medias" / "wheel.png"), "vpinmediadb", _md5(OURS))
 
 
 class RemoteVocabularyTests(unittest.TestCase):
@@ -178,23 +267,24 @@ class RemoteVocabularyTests(unittest.TestCase):
                          "https://example.invalid/table4k.png")
 
 
+def _game_at(root: Path):
+    """Enough of a Game for download_media_for_game. Every media path points at the
+    canonical name; only the wheel exists on disk in these tests."""
+    paths = {"bg_image_path": "bg.png", "dmd_image_path": "dmd.png",
+             "wheel_image_path": "wheel.png", "cab_image_path": "cab.png",
+             "real_dmd_image_path": "realdmd.png",
+             "real_dmd_color_image_path": "realdmd-color.png",
+             "flyer_image_path": "flyer.png", "playfield_image_path": "table.png",
+             "dmd_video_path": "dmd.mp4", "playfield_video_path": "table.mp4",
+             "audio_path": "audio.mp3"}
+    game = fake_game(root, root.name)
+    for attr, name in paths.items():
+        setattr(game, attr, str(root / "medias" / name))
+    return game
+
+
 class RecordingTests(unittest.TestCase):
     """What reaches the assets ledger, going through the real recording path."""
-
-    def _game(self, root: Path):
-        """Enough of a Game for download_media_for_game. Every media path points at
-        the canonical name; only the wheel exists on disk in these tests."""
-        paths = {"bg_image_path": "bg.png", "dmd_image_path": "dmd.png",
-                 "wheel_image_path": "wheel.png", "cab_image_path": "cab.png",
-                 "real_dmd_image_path": "realdmd.png",
-                 "real_dmd_color_image_path": "realdmd-color.png",
-                 "flyer_image_path": "flyer.png", "playfield_image_path": "table.png",
-                 "dmd_video_path": "dmd.mp4", "playfield_video_path": "table.mp4",
-                 "audio_path": "audio.mp3"}
-        game = fake_game(root, root.name)
-        for attr, name in paths.items():
-            setattr(game, attr, str(root / "medias" / name))
-        return game
 
     def _downloader(self, remote_md5: str):
         return VPSMediaDownloader(
@@ -212,7 +302,7 @@ class RecordingTests(unittest.TestCase):
             dl = self._downloader(_md5(OURS))
             meta = mock.Mock()
             with mock.patch.object(dl, "download_media_file"):
-                dl.download_media_for_game(self._game(root), "vps-1", meta)
+                dl.download_media_for_game(_game_at(root), "vps-1", meta)
 
             meta.add_asset.assert_not_called()
 
@@ -226,7 +316,7 @@ class RecordingTests(unittest.TestCase):
             dl = self._downloader(_md5(OURS))
             meta = mock.Mock()
             with mock.patch.object(dl, "download_media_file"):
-                dl.download_media_for_game(self._game(root), "vps-1", meta)
+                dl.download_media_for_game(_game_at(root), "vps-1", meta)
 
             meta.add_asset.assert_called_once_with(
                 str(root / "medias" / "wheel.png"), "vpinmediadb", _md5(OURS))

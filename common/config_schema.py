@@ -446,6 +446,12 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="true",
             legacy=(),
         ),
+        ConfigOption(
+            "update_downloaded_art",
+            type="bool",
+            default="true",
+            legacy=(),
+        ),
         # Separate from `download_spreadsheet`: a machine can want current data for
         # matching without wanting its games rewritten.
         ConfigOption(
@@ -750,6 +756,13 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         # The spreadsheet version the games were last brought up to.
         ConfigOption(
             "games_updated_to",
+            type="string",
+            default="",
+            internal=True,
+        ),
+        # When downloaded art was last compared with VPinMediaDB.
+        ConfigOption(
+            "art_checked",
             type="string",
             default="",
             internal=True,

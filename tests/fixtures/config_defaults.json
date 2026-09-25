@@ -119,6 +119,7 @@
     "get_art_for_new_games": "true",
     "match_new_games": "true",
     "refresh_minutes": "0",
+    "update_downloaded_art": "true",
     "update_game_details": "never"
   },
   "vpinplay": {
@@ -129,6 +130,7 @@
     "user_id": ""
   },
   "vpsdb": {
+    "art_checked": "",
     "checked": "",
     "games_updated_to": "",
     "last": ""
