@@ -44,17 +44,20 @@ def serve(port: int) -> None:
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     rows = _rows()
-    heard: dict = {"ids": [], "calls": 0}
+    heard: dict = {"ids": [], "calls": 0, "hidden": 0}
 
     @ui.page("/")
     def page() -> None:
+        built: dict = {}
+
         def picked(chosen: list[dict]) -> None:
             heard["ids"] = [row["id"] for row in chosen]
+            heard["hidden"] = grid.hidden_count(built["table"])
             heard["calls"] += 1
 
         with ui.element("div").classes("w-full h-[600px] flex flex-col"):
-            grid.build([grid.identifier("name", "Name")], rows, "drive.selection",
-                       on_select_rows=picked)
+            built["table"] = grid.build([grid.identifier("name", "Name")], rows,
+                                        "drive.selection", on_select_rows=picked)
 
     @app.get("/heard")
     def said() -> dict:
@@ -136,6 +139,13 @@ class SelectionDrive(unittest.TestCase):
                 "n => out.push(n.id)); return out; })()")
             await browser.click(HEADER_BOX)
             seen["filtered"] = (await settled(3))["ids"]
+            await browser.evaluate(API + ".setGridOption('quickFilterText', 'Row 2')")
+            seen["searched_away"] = await settled(4)
+            seen["shown_away"] = await browser.evaluate(
+                "(() => { const out = []; " + API + ".forEachNodeAfterFilter("
+                "n => out.push(n.id)); return out; })()")
+            await browser.evaluate(API + ".setGridOption('quickFilterText', '')")
+            seen["searched_back"] = await settled(5)
         return seen
 
     def test_the_ids_alone_pass_the_socket_s_cap(self) -> None:
@@ -152,6 +162,18 @@ class SelectionDrive(unittest.TestCase):
     def test_select_all_under_a_filter_takes_the_rows_on_screen(self) -> None:
         self.assertTrue(0 < len(self.seen["shown"]) < ROWS)
         self.assertEqual(self.seen["filtered"], self.seen["shown"])
+
+    def test_a_search_that_hides_the_ticks_keeps_them_and_counts_them(self) -> None:
+        away = self.seen["searched_away"]
+        off_screen = set(self.seen["filtered"]) - set(self.seen["shown_away"])
+        self.assertTrue(0 < len(off_screen) < len(self.seen["filtered"]))
+        self.assertEqual(away["ids"], self.seen["filtered"])
+        self.assertEqual(away["hidden"], len(off_screen))
+
+    def test_clearing_the_search_shows_them_again(self) -> None:
+        back = self.seen["searched_back"]
+        self.assertEqual(back["ids"], self.seen["filtered"])
+        self.assertEqual(back["hidden"], 0)
 
 
 if __name__ == "__main__":

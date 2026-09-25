@@ -164,8 +164,9 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                           lambda event: on_select(by_id.get(grid.focused_row(event))))
         def on_selected(rows_selected: list[dict[str, Any]]) -> None:
             bulk.set_visibility(bool(rows_selected))
-            count.text = (t("console.locations.selected",
-                            len=(len(rows_selected)), len2=(len(built)))
+            count.text = (grid.selection_said(table, len(rows_selected), t(
+                              "console.locations.selected",
+                              len=(len(rows_selected)), len2=(len(built))))
                           if rows_selected
                           else t("console.locations.location", count=len(built)))
 

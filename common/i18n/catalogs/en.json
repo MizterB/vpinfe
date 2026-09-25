@@ -789,6 +789,7 @@
   "console.grid.all_of": "All of",
   "console.grid.any_of": "Any of",
   "console.grid.filter_this_list": "Filter this list",
+  "console.grid.selected_hidden": "{count} selected, {hidden} hidden",
   "console.import_dialog.always_use_one_not": "Always use this one, do not ask again",
   "console.import_dialog.could_not_import": "Could not import it: {exc}",
   "console.import_dialog.could_not_remember": "Could not remember that: {exc}",

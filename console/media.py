@@ -175,7 +175,8 @@ def build(found: list[dict[str, Any]], library: Any,
 
     def said(picked: int) -> str:
         if picked:
-            return t("console.media.selected", picked=(picked), value=(on_screen['rows']))
+            return grid.selection_said(table, picked, t(
+                "console.media.selected", picked=(picked), value=(on_screen['rows'])))
         if on_screen["rows"] == len(built):
             return t("console.media.media_missing", count=(len(built)),
                      gaps=(sum(1 for row in built if not row.get("present"))))
@@ -203,7 +204,7 @@ def build(found: list[dict[str, Any]], library: Any,
             def placed() -> Any:
                 return refill(library, table, built, by_id, ids)
 
-            if len(picked) < on_screen["rows"]:
+            if grid.hidden_count(table) or len(picked) < on_screen["rows"]:
                 await art_fill.confirm_slots(picked, state, placed)
                 return
             await art_fill.ask(ids, state, placed,

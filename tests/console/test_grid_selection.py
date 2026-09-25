@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import unittest
 from types import SimpleNamespace
+from typing import Any
 
+from common.i18n import t
 from console import grid, stars
 from console.games import add_index, row_transaction
 
@@ -55,14 +57,64 @@ class PartsTests(unittest.TestCase):
 
     def test_a_malformed_part_changes_nothing(self) -> None:
         self.chosen.take(_part(1, 0, 1, "a"))
-        for junk in (None, [], {"turn": 3}, {"turn": "3", "at": 0, "of": 1, "ids": []},
-                     {"turn": 3, "at": 0, "of": 1, "ids": "a"}):
+        junks: tuple[object, ...] = (None, [], {"turn": 3},
+                                     {"turn": "3", "at": 0, "of": 1, "ids": []},
+                                     {"turn": 3, "at": 0, "of": 1, "ids": "a"})
+        for junk in junks:
             self.assertFalse(self.chosen.take(junk))
 
         self.assertEqual(self.chosen.ids, ["a"])
 
     def test_a_grid_without_a_selection_has_none(self) -> None:
         self.assertEqual(grid.selection(_Grid()), [])
+
+
+class HiddenTests(unittest.TestCase):
+    """A tick a search hides stays selected, and the bar counts it apart."""
+
+    def setUp(self) -> None:
+        self.table = _Grid()
+        self.chosen = grid._SELECTIONS[self.table] = grid.Selection(
+            [{"id": n} for n in "abcde"])
+
+    def test_a_complete_turn_says_how_many_are_hidden(self) -> None:
+        self.chosen.take({**_part(1, 0, 2, "a", "b"), "hidden": 1})
+        self.assertEqual(grid.hidden_count(self.table), 0)
+
+        self.chosen.take({**_part(1, 1, 2, "c"), "hidden": 1})
+        self.assertEqual(grid.hidden_count(self.table), 1)
+
+    def test_hidden_ticks_are_still_acted_on(self) -> None:
+        self.chosen.take({**_part(1, 0, 1, "a", "b", "c"), "hidden": 2})
+
+        self.assertEqual([row["id"] for row in grid.selection(self.table)], ["a", "b", "c"])
+
+    def test_a_search_changes_the_count_without_a_new_selection(self) -> None:
+        self.chosen.take({**_part(1, 0, 1, "a", "b"), "hidden": 0})
+
+        self.assertTrue(self.chosen.hide({"hidden": 2}))
+        self.assertFalse(self.chosen.hide({"hidden": 2}))
+        self.assertEqual(self.chosen.ids, ["a", "b"])
+
+    def test_a_malformed_count_changes_nothing(self) -> None:
+        self.chosen.hide({"hidden": 1})
+        junks: tuple[object, ...] = (None, [], {}, {"hidden": -1}, {"hidden": "2"})
+        for junk in junks:
+            self.assertFalse(self.chosen.hide(junk))
+
+        self.assertEqual(self.chosen.hidden, 1)
+
+    def test_the_bar_says_plain_while_nothing_is_hidden(self) -> None:
+        self.assertEqual(grid.selection_said(self.table, 3, "3 of 9"), "3 of 9")
+
+    def test_the_bar_says_how_many_are_hidden(self) -> None:
+        self.chosen.hide({"hidden": 2})
+
+        self.assertEqual(grid.selection_said(self.table, 5, "5 of 3"),
+                         t("console.grid.selected_hidden", count=5, hidden=2))
+
+    def test_a_grid_without_a_selection_hides_none(self) -> None:
+        self.assertEqual(grid.hidden_count(_Grid()), 0)
 
 
 class ReadAtActionTimeTests(unittest.TestCase):
@@ -90,12 +142,12 @@ class ReadAtActionTimeTests(unittest.TestCase):
         self.assertEqual(chosen.rows(), [{"id": "g2"}])
 
     def test_a_table_refreshed_with_its_game_resolves_as_refreshed(self) -> None:
-        held = [{"id": "t1", "game_id": "g", "hidden": False},
-                {"id": "t9", "game_id": "h", "hidden": False}]
+        held: list[dict[str, Any]] = [{"id": "t1", "game_id": "g", "hidden": False},
+                                      {"id": "t9", "game_id": "h", "hidden": False}]
         chosen = self._ticked(held, "t1", "t9")
         fresh = [{"id": "t1", "game_id": "g", "hidden": True}]
 
-        transaction = row_transaction({row["id"]: row for row in held}, "g", fresh)
+        transaction = row_transaction({str(row["id"]): row for row in held}, "g", fresh)
         add_index(held, "g", transaction)
         grid.transact(_Grid(), held, transaction)
 

@@ -679,6 +679,10 @@ answers.
   its description, how it draws, and saving or deleting it. `more_vert` is what you can do
   to the rows you have selected, and it appears only when some are. The same glyph for
   both is how a reader learns that neither is worth reading.
+- **The count is what the selection's actions act on.** A tick that a search, a filter or
+  a view hides stays ticked, because ticking across several searches is how a selection
+  gets built, and the count says so: *5 selected, 2 hidden*. With none hidden it counts
+  against the rows on screen: *3 of 9 selected*.
 - **A setting that changes how the view draws lives in the view menu**, not on the bar.
   Ticks against thumbnails is the case: it is chosen once and left, so a click's depth
   costs nothing and the bar keeps the width.

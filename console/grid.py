@@ -578,13 +578,20 @@ ROW_SELECTION = {"mode": "multiRow", "checkboxes": True, "headerCheckbox": True,
 # its row ids, in parts. Characters, not bytes: a part stays under the cap even at
 # three bytes a character.
 SELECTION_PART_CHARS = 100_000
+_COUNT_HIDDEN = """
+  const picked = grid.api.getSelectedNodes();
+  const shown = new Set();
+  if (picked.length) grid.api.forEachNodeAfterFilter(node => shown.add(node.id));
+  const hidden = grid.__hubHidden = picked.filter(node => !shown.has(node.id)).length;
+"""
 _SEND_SELECTION = """() => {
   const grid = getElement(%(id)d);
   if (!grid || !grid.api) return;
+  %(count)s
   const turn = window.__hubSelectionTurn = (window.__hubSelectionTurn || 0) + 1;
   const parts = [[]];
   let size = 0;
-  for (const node of grid.api.getSelectedNodes()) {
+  for (const node of picked) {
     if (size + node.id.length > %(chars)d && parts[parts.length - 1].length) {
       parts.push([]);
       size = 0;
@@ -592,7 +599,14 @@ _SEND_SELECTION = """() => {
     parts[parts.length - 1].push(node.id);
     size += node.id.length + 3;
   }
-  parts.forEach((ids, at) => emit({turn, at, of: parts.length, ids}));
+  parts.forEach((ids, at) => emit({turn, at, of: parts.length, ids, hidden}));
+}"""
+_SEND_HIDDEN = """() => {
+  const grid = getElement(%(id)d);
+  if (!grid || !grid.api) return;
+  const was = grid.__hubHidden || 0;
+  %(count)s
+  if (hidden !== was) emit({hidden});
 }"""
 
 
@@ -603,6 +617,7 @@ class Selection:
     def __init__(self, held: list[dict[str, Any]]) -> None:
         self.held = held
         self.ids: list[str] = []
+        self.hidden = 0
         self._turn = 0
         self._parts: dict[int, list[str]] = {}
 
@@ -622,6 +637,16 @@ class Selection:
             return False
         self.ids = [row_id for index in range(of) for row_id in self._parts.get(index, ())]
         self._parts = {}
+        self.hide(part)
+        return True
+
+    def hide(self, said: Any) -> bool:
+        """Keep how many of the selection the rows on screen leave out. True if that
+        changed."""
+        hidden = said.get("hidden") if isinstance(said, dict) else None
+        if not isinstance(hidden, int) or hidden < 0 or hidden == self.hidden:
+            return False
+        self.hidden = hidden
         return True
 
     def rows(self) -> list[dict[str, Any]]:
@@ -637,6 +662,18 @@ def selection(table: Any) -> list[dict[str, Any]]:
     """What a bulk action on `table` acts on: its selected rows as the grid holds them."""
     chosen = _SELECTIONS.get(table)
     return chosen.rows() if chosen is not None else []
+
+
+def hidden_count(table: Any) -> int:
+    """How many of `table`'s selected rows a search, a filter or a view leaves out."""
+    chosen = _SELECTIONS.get(table)
+    return chosen.hidden if chosen is not None else 0
+
+
+def selection_said(table: Any, picked: int, plain: str) -> str:
+    """The bar's count of a selection: `plain` while every selected row is on screen."""
+    hidden = hidden_count(table)
+    return t("console.grid.selected_hidden", count=picked, hidden=hidden) if hidden else plain
 
 
 def base_row_px(columns: list[dict[str, Any]]) -> int:
@@ -736,17 +773,25 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
     if on_select_rows is not None:
         chosen = _SELECTIONS[grid] = Selection(rows)
 
-        async def changed(event: Any) -> None:
-            if not chosen.take(event.args):
-                return
+        async def said() -> None:
             # The count only; the focused row owns which game is on screen.
             result = on_select_rows(chosen.rows())
             if inspect.isawaitable(result):
                 await result
 
+        async def changed(event: Any) -> None:
+            if chosen.take(event.args):
+                await said()
+
+        async def narrowed(event: Any) -> None:
+            if chosen.hide(event.args):
+                await said()
+
         # Not `get_selected_rows()`: whole rows pass the socket's cap at a few hundred.
         grid.on("selectionChanged", changed, js_handler=_SEND_SELECTION % {
-            "id": grid.id, "chars": SELECTION_PART_CHARS})
+            "id": grid.id, "chars": SELECTION_PART_CHARS, "count": _COUNT_HIDDEN})
+        grid.on("modelUpdated", narrowed, js_handler=_SEND_HIDDEN % {
+            "id": grid.id, "count": _COUNT_HIDDEN})
     if on_context is not None:
         # Only `data`: the full payload can fail to serialize and is then never sent.
         grid.on("cellContextMenu",

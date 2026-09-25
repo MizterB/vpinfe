@@ -294,7 +294,8 @@ def build(collections: list[dict[str, Any]], library: Any,
 
     def said() -> str:
         if picked:
-            return t("console.collections.selected", len=len(picked), len2=shown["rows"])
+            return grid.selection_said(table, len(picked), t(
+                "console.collections.selected", len=len(picked), len2=shown["rows"]))
         if shown["rows"] != len(built):
             return t("console.collections.collections_of", value=shown["rows"],
                      len=len(built))
