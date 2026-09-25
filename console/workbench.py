@@ -4426,9 +4426,9 @@ async def _launcher_setup(context: dict[str, Any]) -> None:
         entries.append(panel.note(
             t("console.workbench.switched_off_stays_configured", default=goes_to)))
 
+    entries.append((HEADING, t("word.program")))
     if note := _program_note(launcher):
         entries.append(panel.note(note))
-    entries.append((HEADING, t("word.program")))
     for field in launcher.get("fields") or []:
         if field["key"] == COMMANDS_FROM:
             entries.append((HEADING, t("console.workbench.commands")))
