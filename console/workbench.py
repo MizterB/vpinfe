@@ -4278,7 +4278,7 @@ def _mark_for(held: dict, scope: str, field: Any, offered: bool) -> Callable[[],
     at it."""
     if offered:
         return _config_mark(held, scope, field)
-    if not held.get("set_here"):
+    if not held.get("set_here") or held.get("in_effect"):
         return None
     return panel.state(t("console.app_settings.unused"), "warn",
                        hint=t("console.app_settings.all_tables_only"))

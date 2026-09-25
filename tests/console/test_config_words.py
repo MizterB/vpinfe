@@ -169,6 +169,12 @@ class UnusedTests(unittest.TestCase):
             {"set_here": False, "in_effect": True, "scope": "launcher"}, "entry", _Bool,
             offered=False))
 
+    def test_one_the_program_reads_at_table_start_is_not_unused(self) -> None:
+        """Kept for all tables, and still read from the table's file when it starts."""
+        self.assertIsNone(workbench._mark_for(
+            {"set_here": True, "in_effect": True, "scope": "entry"}, "entry", _Bool,
+            offered=False))
+
 
 if __name__ == "__main__":
     unittest.main()

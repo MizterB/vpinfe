@@ -204,6 +204,47 @@ class AllTablesOnlyTests(_Case):
         self.assertTrue(found.in_effect)
 
 
+class ReadAtTableStartTests(_Case):
+    """Kept for all tables, and still read through a table's settings when it starts."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        with self.app_ini.open("a") as ini:
+            ini.write("\n[Player]\n; Anti-Aliasing: Supersampling [Default: 1]\n"
+                      "AAFactor = 1\n; Full Screen: [Default: 0]\nPlayfieldFullScreen = 0\n"
+                      "\n[ScoreView]\n; Full Screen: [Default: 0]\nScoreViewFullScreen = 0\n")
+
+    def test_it_is_still_offered_only_for_all_tables(self) -> None:
+        self.assertEqual(self.config.scopes_for(AA), (SCOPE_LAUNCHER,))
+
+    def test_a_table_s_value_is_the_one_in_force(self) -> None:
+        self.table_file("[Player]\nAAFactor = 2\n[ScoreView]\nScoreViewFullScreen = 1\n")
+
+        for key, value in ((AA, "2"), ("ScoreView.ScoreViewFullScreen", "1")):
+            with self.subTest(key=key):
+                found = self.at(SCOPE_ENTRY, key=key)
+                self.assertEqual((found.value, found.scope), (value, SCOPE_ENTRY))
+                self.assertTrue(found.set_here)
+                self.assertTrue(found.in_effect)
+                self.assertEqual((found.fallback, found.fallback_scope),
+                                 ("0" if key != AA else "1", SCOPE_LAUNCHER))
+
+    def test_the_playfield_window_s_is_not(self) -> None:
+        self.table_file("[Player]\nPlayfieldFullScreen = 1\n")
+
+        found = self.at(SCOPE_ENTRY, key="Player.PlayfieldFullScreen")
+        self.assertEqual((found.value, found.scope), ("0", SCOPE_LAUNCHER))
+        self.assertFalse(found.in_effect)
+
+    def test_it_counts_among_the_table_s_own(self) -> None:
+        self.table_file("[Player]\nAAFactor = 2\nPlayfieldFullScreen = 1\n")
+
+        self.assertEqual(self.config.held_for_table(str(self.table))["settings"], 1)
+
+
+AA = "Player.AAFactor"
+
+
 CAMERA = "[TableOverride]\nViewCabMode = 1\nViewCabFOV = 55\nViewCabLayback = 0\n"
 
 

@@ -92,6 +92,16 @@ ALL_TABLES_ONLY = frozenset({
     "Standalone.Haptics",
 })
 
+# Of those, what a table starting still reads through the table's settings, so a value
+# already in its file is the one in force there. Only the playfield window is built from
+# the application's alone.
+READ_AT_TABLE_START = frozenset({
+    *(f"{window}.{window}{part}" for window in ("Backglass", "ScoreView", "Topper")
+      for part in _SAVED_DIRECTLY),
+    "Player.AAFactor", "Player.PFReflection", "Player.MSAASamples", "Player.DisableAO",
+    "Player.DynamicAO", "Player.MaxTexDimension", "Player.CompressTextures",
+})
+
 # What it keeps for one table only. The comment above `[TableOverride]` in the file says
 # its keys are not meant for the application's; `[TableOption]` is whatever a table's
 # script offers.
@@ -106,6 +116,10 @@ def _all_tables_only(qualified: str) -> bool:
     return (qualified in ALL_TABLES_ONLY
             or qualified.split(".", 1)[0] in ALL_TABLES_ONLY_SECTIONS
             or qualified.startswith(ALL_TABLES_ONLY_PREFIXES))
+
+
+def _read_at_table(qualified: str) -> bool:
+    return not _all_tables_only(qualified) or qualified in READ_AT_TABLE_START
 
 
 def _table_only(qualified: str) -> bool:
@@ -301,7 +315,7 @@ class VPXConfig:
         for qualified in sorted(set(app.settings) | set(table.settings) | set(mine.settings)):
             if not _offered(qualified):
                 continue
-            read_by_vpx = vini.Ini() if _all_tables_only(qualified) else table
+            read_by_vpx = table if _read_at_table(qualified) else vini.Ini()
             from_table = read_by_vpx.value(qualified)
             from_app = app.value(qualified)
             if from_table is not None:
@@ -402,7 +416,7 @@ class VPXConfig:
         setting = [q for q in held.settings if held.value(q) is not None]
         return {
             "scope": _scope_of(winning, target, {}),
-            "settings": sum(1 for q in setting if _offered(q) and not _all_tables_only(q)
+            "settings": sum(1 for q in setting if _offered(q) and _read_at_table(q)
                             and not q.startswith(POINT_OF_VIEW)),
             "point_of_view": any(q.startswith(POINT_OF_VIEW) for q in setting),
         }
