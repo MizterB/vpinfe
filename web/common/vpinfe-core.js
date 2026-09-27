@@ -1127,7 +1127,12 @@ class VPinFECore {
       const action = this.#actionForKeyboardEvent(e);
       if (!action) return;
 
-      if (action === "joyexit") this.call("close_app");
+      if (action === "joyexit") {
+        if (this.tutorialUP) this.#showtutorial();
+        else if (this.collectionMenuUP) this.#showcollectionmenu();
+        else if (this.menuUP) this.#showmenu();
+        else this.call("close_app");
+      }
       else if (action === "joymenu") this.#showmenu();
       else if (action === "joycollectionmenu") this.#showcollectionmenu();
       else if (action === "joytutorial") this.#showtutorial();
