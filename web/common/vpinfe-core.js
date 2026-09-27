@@ -1114,6 +1114,13 @@ class VPinFECore {
     return null;
   }
 
+  #closeOverlayOrQuit() {
+    if (this.tutorialUP) this.#showtutorial();
+    else if (this.collectionMenuUP) this.#showcollectionmenu();
+    else if (this.menuUP) this.#showmenu();
+    else this.call("close_app");
+  }
+
   // Keybaord input processing to handlers
   async #onKeyDown(e) {
     if (!this.frontendInputEnabled) return;
@@ -1130,12 +1137,7 @@ class VPinFECore {
         this._lastRepeatAt[action] = now;
       }
 
-      if (action === "joyexit") {
-        if (this.tutorialUP) this.#showtutorial();
-        else if (this.collectionMenuUP) this.#showcollectionmenu();
-        else if (this.menuUP) this.#showmenu();
-        else this.call("close_app");
-      }
+      if (action === "joyexit") this.#closeOverlayOrQuit();
       else if (action === "joymenu") this.#showmenu();
       else if (action === "joycollectionmenu") this.#showcollectionmenu();
       else if (action === "joytutorial") this.#showtutorial();
@@ -1267,7 +1269,7 @@ async #onButtonPressed(buttonIndex, gamepadIndex) {
   for (const action of actions) {
     //this.call("console_out", `Button action: ${action}, windowName: ${this._windowName}`);
     if (action === "joyexit" && this._windowName == "table") {
-      this.call("close_app");
+      this.#closeOverlayOrQuit();
     }
     else if (action === "joymenu" && this._windowName == "table") {
       this.#showmenu();
