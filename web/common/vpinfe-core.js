@@ -58,7 +58,7 @@ class VPinFECore {
       joypagedown: ['pagedown'],
       joyselect: ['enter'],
       joymenu: ['m'],
-      joyback: [],
+      joyback: ['b'],
       joytutorial: ['t'],
       joyexit: ['escape', 'q'],
       joycollectionmenu: ['c'],
