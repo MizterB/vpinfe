@@ -68,7 +68,7 @@ class VPinFECore {
     // every one of those used to become a full wheel move. Deliberate presses are never
     // throttled; only the automatic repeat is.
     this.minRepeatIntervalMs = 150;
-    this._lastRepeatAt = 0;
+    this._lastRepeatAt = {};
     this.gamepadEnabled = true;
     this.frontendInputEnabled = true;
     this._launchInputSuppressedByLifecycle = false;
@@ -1126,8 +1126,8 @@ class VPinFECore {
 
       if (e.repeat) {
         const now = Date.now();
-        if (now - this._lastRepeatAt < this.minRepeatIntervalMs) return;
-        this._lastRepeatAt = now;
+        if (now - (this._lastRepeatAt[action] || 0) < this.minRepeatIntervalMs) return;
+        this._lastRepeatAt[action] = now;
       }
 
       if (action === "joyexit") {
