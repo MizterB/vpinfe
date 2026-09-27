@@ -1117,15 +1117,18 @@ class VPinFECore {
   // Keybaord input processing to handlers
   async #onKeyDown(e) {
     if (!this.frontendInputEnabled) return;
-    if (e.repeat) {
-      const now = Date.now();
-      if (now - this._lastRepeatAt < this.minRepeatIntervalMs) return;
-      this._lastRepeatAt = now;
-    }
 
     if (this._windowName == "table") {
       const action = this.#actionForKeyboardEvent(e);
       if (!action) return;
+
+      e.preventDefault();
+
+      if (e.repeat) {
+        const now = Date.now();
+        if (now - this._lastRepeatAt < this.minRepeatIntervalMs) return;
+        this._lastRepeatAt = now;
+      }
 
       if (action === "joyexit") {
         if (this.tutorialUP) this.#showtutorial();
