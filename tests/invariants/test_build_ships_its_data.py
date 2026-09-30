@@ -17,6 +17,7 @@ import subprocess
 import unittest
 
 from tests.support import trees
+from tests.support.project import project_files
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 SPEC = REPO / "packaging" / "vpinfe.spec"
@@ -68,16 +69,14 @@ def _unshipped(paths: list[str], roots: set[str]) -> list[str]:
 def _static_dirs_in_tree() -> set[str]:
     """Every directory named `static` that holds a file we ship."""
     found = set()
-    for path in REPO.rglob("static"):
-        if not path.is_dir():
-            continue
-        relative = path.relative_to(REPO).as_posix()
-        if relative.startswith((".", "third-party/", "third_party/", "chromium/", "web/")):
-            continue
-        if "node_modules" in relative or "__pycache__" in relative:
-            continue
-        found.add(relative)
-    return found
+    for path in project_files("*"):
+        parts = path.relative_to(REPO).parts
+        found.update("/".join(parts[:depth]) for depth, part in enumerate(parts[:-1], 1)
+                     if part == "static")
+    return {relative for relative in found
+            if not relative.startswith((".", "third-party/", "third_party/", "chromium/",
+                                        "web/"))
+            and "node_modules" not in relative}
 
 
 class BuildDataTests(unittest.TestCase):

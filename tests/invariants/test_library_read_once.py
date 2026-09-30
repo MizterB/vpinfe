@@ -15,6 +15,7 @@ from unittest import mock
 
 from common.games.game_parser import GameParser
 from tests.support import library_loader, trees
+from tests.support.project import project_files
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -76,9 +77,9 @@ class LibraryIsReadOnceTests(unittest.TestCase):
         rather than left to review.
         """
         offenders = []
-        for path in sorted(REPO_ROOT.rglob("*.py")):
-            if any(part in {".venv", ".claude", "build", "third_party"}
-                   for part in path.parts):
+        for path in project_files("*.py"):
+            if any(part in {"build", "third_party"}
+                   for part in path.relative_to(REPO_ROOT).parts):
                 continue
             tree = trees.tree_for(path)
             for node in ast.walk(tree):
@@ -107,7 +108,7 @@ class LoaderPatchSitesTests(unittest.TestCase):
     def test_the_sites_are_every_module_that_imported_it(self) -> None:
         """So a sixth importer fails here rather than as an intermittent somewhere else."""
         importers = set()
-        for path in sorted(REPO_ROOT.glob("*/**/*.py")):
+        for path in project_files("*.py"):
             rel = path.relative_to(REPO_ROOT)
             if rel.parts[0] not in {"common", "frontend", "httpapi", "managerui"}:
                 continue

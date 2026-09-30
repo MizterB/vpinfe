@@ -28,6 +28,7 @@ from common.games import (
     game_service,
     media_service,
 )
+from tests.support.project import project_files
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -38,14 +39,13 @@ RETIRED = {
     "vpx_game_path": "vpx_path",
 }
 
-SKIP_PARTS = {".venv", ".claude", "build", "third_party", "chromium", "__pycache__",
-              "tests"}
+SKIP_PARTS = {"build", "third_party", "chromium", "tests"}
 SKIP_PREFIXES = ("managerui/maps/", "frontend/static/themes/")
 
 
 def _source_files():
     for pattern in ("*.py", "*.js"):
-        for path in sorted(REPO_ROOT.rglob(pattern)):
+        for path in project_files(pattern):
             rel = path.relative_to(REPO_ROOT).as_posix()
             if any(part in SKIP_PARTS for part in rel.split("/")):
                 continue

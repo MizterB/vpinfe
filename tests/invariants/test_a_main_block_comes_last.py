@@ -11,10 +11,10 @@ import unittest
 from pathlib import Path
 
 from tests.support import trees
+from tests.support.project import project_files
 
 REPO = Path(__file__).resolve().parent.parent.parent
-SKIP_DIRS = {".venv", ".claude", "build", "third_party", "chromium", "web", "node_modules",
-             "__pycache__"}
+SKIP_DIRS = {"build", "third_party", "chromium", "web", "node_modules"}
 
 
 def _is_main_block(node: ast.stmt) -> bool:
@@ -33,7 +33,7 @@ def main_blocks_out_of_place(tree: ast.Module) -> list[int]:
 
 
 def _python_files() -> list[Path]:
-    return [path for path in sorted(REPO.rglob("*.py"))
+    return [path for path in project_files("*.py")
             if not any(part in SKIP_DIRS for part in path.relative_to(REPO).parts)]
 
 

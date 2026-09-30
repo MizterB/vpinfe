@@ -17,8 +17,9 @@ from pathlib import Path
 
 from common import config_schema
 from tests.support import trees
+from tests.support.project import project_files
 
-REPO = Path(__file__).resolve().parent.parent.parent
+REPO =Path(__file__).resolve().parent.parent.parent
 READERS = {"cfg_get", "cfg_bool", "cfg_int", "cfg_list", "cfg_set"}
 
 # Sections whose keys are declared elsewhere and resolved at runtime, so a literal here
@@ -28,10 +29,9 @@ GENERATED_SECTIONS = {"input"}
 
 def _call_sites():
     """(file, line, section, key) for every reader called with both names literal."""
-    for path in sorted(REPO.rglob("*.py")):
+    for path in project_files("*.py"):
         rel = path.relative_to(REPO).as_posix()
-        if rel.startswith((".venv/", ".claude/", "tests/", "third_party/",
-                           "managerui/maps/")):
+        if rel.startswith(("tests/", "third_party/", "managerui/maps/")):
             continue
         try:
             tree = trees.tree_for(path)
@@ -73,10 +73,10 @@ def _raw_reads():
     spelling; a parser resolves neither, so it answers about the one name it is handed
     and reports a setting that is on as off.
     """
-    for path in sorted(REPO.rglob("*.py")):
+    for path in project_files("*.py"):
         rel = path.relative_to(REPO).as_posix()
-        if rel.startswith((".venv/", ".claude/", "tests/", "third_party/",
-                           "managerui/maps/")) or rel in OWNS_THE_OLD_NAMES:
+        if rel.startswith(("tests/", "third_party/", "managerui/maps/")) \
+                or rel in OWNS_THE_OLD_NAMES:
             continue
         try:
             tree = trees.tree_for(path)
@@ -101,10 +101,10 @@ def _raw_reads():
 
 def _store_reads():
     """(file, line, section, key) for every store accessor called with both names literal."""
-    for path in sorted(REPO.rglob("*.py")):
+    for path in project_files("*.py"):
         rel = path.relative_to(REPO).as_posix()
-        if rel.startswith((".venv/", ".claude/", "tests/", "third_party/",
-                           "managerui/maps/")) or rel in OWNS_THE_OLD_NAMES:
+        if rel.startswith(("tests/", "third_party/", "managerui/maps/")) \
+                or rel in OWNS_THE_OLD_NAMES:
             continue
         try:
             tree = trees.tree_for(path)

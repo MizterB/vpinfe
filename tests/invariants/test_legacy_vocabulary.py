@@ -19,6 +19,8 @@ import re
 import unittest
 from pathlib import Path
 
+from tests.support.project import project_files
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Modules whose job is translating between vocabularies, or which declare the old names
@@ -78,17 +80,13 @@ NOT_THE_ACTION = {
     "common/labels.py": {"dmd"},
 }
 
-# `.claude` holds agent worktrees - a whole second checkout of this repo, at whatever
-# revision that agent started from. Scanning it reports every name the branch has ever
-# renamed, against files nobody here is editing.
-SKIP_PARTS = {".venv", ".claude", "build", "third_party", "chromium", "__pycache__",
-              "tests"}
+SKIP_PARTS = {"build", "third_party", "chromium", "tests"}
 SKIP_PREFIXES = ("managerui/maps/", "frontend/static/themes/")
 
 
 def _source_files():
     for pattern in ("*.py", "*.js"):
-        for path in sorted(REPO_ROOT.rglob(pattern)):
+        for path in project_files(pattern):
             # Posix, always: the allowlists below are written with forward slashes, and
             # str() on a Windows path gives backslashes - so every translator missed its
             # entry there and each legitimate alias was reported as an offender.

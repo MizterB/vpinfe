@@ -17,12 +17,12 @@ import unittest
 from pathlib import Path
 
 from tests.support import trees
+from tests.support.project import project_files
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Our own packages, plus the vendored drop we do not lint or own.
-SKIP_DIRS = {".venv", ".claude", "build", "third_party", "chromium", "web", "tests",
-             "__pycache__"}
+SKIP_DIRS = {"build", "third_party", "chromium", "web", "tests"}
 VENDORED = {"managerui/maps"}
 
 # Modules that only exist on one platform, imported inside the branch that needs them.
@@ -38,7 +38,7 @@ PLATFORM_ONLY = {
 
 
 def _source_files():
-    for path in sorted(REPO_ROOT.rglob("*.py")):
+    for path in project_files("*.py"):
         rel = path.relative_to(REPO_ROOT)
         if any(part in SKIP_DIRS for part in rel.parts):
             continue

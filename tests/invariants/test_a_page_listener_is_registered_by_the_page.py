@@ -8,9 +8,10 @@ import unittest
 from pathlib import Path
 
 from tests.support import trees
+from tests.support.project import project_files
 
 ROOT = Path(__file__).resolve().parents[2]
-NOT_SOURCE = {"tests", ".venv", ".git", "node_modules"}
+NOT_SOURCE = {"tests", "node_modules"}
 
 LATE_TODAY = frozenset({("managerui/pages/dnd_drop_zone.py", "create_drop_zone")})
 
@@ -95,9 +96,9 @@ def _registrations(tree: ast.AST) -> list[tuple[int, str, bool]]:
 
 def _tree() -> list[tuple[str, int, str, bool]]:
     found = []
-    for path in sorted(ROOT.rglob("*.py")):
+    for path in project_files("*.py"):
         where = path.relative_to(ROOT)
-        if where.parts[0] in NOT_SOURCE or "__pycache__" in where.parts:
+        if where.parts[0] in NOT_SOURCE:
             continue
         tree = trees.tree_for(path)
         found += [(str(where), *one) for one in _registrations(tree)]

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from frontend import theme_windows
 from tests.support import trees
+from tests.support.project import project_files
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -25,13 +26,12 @@ SCRIPT_COMPARISON = re.compile(
     rf"""([\w.$]+)\s*[!=]==?\s*["'](?:{_NAME})["']"""
     rf"""|["'](?:{_NAME})["']\s*[!=]==?\s*([\w.$]+)""")
 
-SKIP_PARTS = {".venv", ".claude", "build", "third_party", "chromium", "__pycache__",
-              "node_modules", "tests"}
+SKIP_PARTS = {"build", "third_party", "chromium", "node_modules", "tests"}
 
 
 def _files(*patterns: str):
     for pattern in patterns:
-        for path in sorted(REPO_ROOT.rglob(pattern)):
+        for path in project_files(pattern):
             rel = path.relative_to(REPO_ROOT).as_posix()
             if not any(part in SKIP_PARTS for part in rel.split("/")):
                 yield path, rel

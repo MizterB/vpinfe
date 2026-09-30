@@ -8,11 +8,11 @@ import unittest
 from pathlib import Path
 
 from tests.support import trees
+from tests.support.project import project_files
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 OWNER = "console/game_tables.py"
-SKIP_PARTS = {".venv", ".claude", "build", "third_party", "chromium", "__pycache__",
-              "tests"}
+SKIP_PARTS = {"build", "third_party", "chromium", "tests"}
 PAIR = {"manufacturer", "year"}
 
 
@@ -35,7 +35,7 @@ def _joins(tree: ast.AST) -> list[int]:
 class MakerAndYearAreJoinedOnce(unittest.TestCase):
     def test_nothing_but_the_formatter_joins_them(self) -> None:
         offenders = []
-        for path in sorted(REPO_ROOT.rglob("*.py")):
+        for path in project_files("*.py"):
             rel = path.relative_to(REPO_ROOT).as_posix()
             if rel == OWNER or any(part in SKIP_PARTS for part in rel.split("/")):
                 continue
