@@ -7,6 +7,7 @@ on the answer before anything else reads it.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from platformdirs import user_config_dir
@@ -22,7 +23,19 @@ def _resolve_config_dir() -> Path:
     override = os.environ.get("VPINFE_CONFIG_DIR", "").strip()
     if override:
         return Path(override).expanduser()
+    if _unbootstrapped_test_run():
+        raise RuntimeError(
+            "This is a unittest run that skipped tests/__init__.py, so it would use the "
+            "real config folder. Run: python -m unittest discover -t . -s tests"
+            " (or: python -m tests)")
     return Path(user_config_dir("vpinfe", "vpinfe"))
+
+
+def _unbootstrapped_test_run() -> bool:
+    """A `python -m unittest` run that never imported tests/, which sets the override."""
+    main = sys.modules.get("__main__")
+    entry = getattr(getattr(main, "__spec__", None), "name", "")
+    return entry == "unittest.__main__" and "tests" not in sys.modules
 
 
 # Where the app itself lives, as opposed to the user's config. Bundled assets sit
