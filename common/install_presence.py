@@ -8,6 +8,7 @@ they are written together.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from common import device_registry, discovery, install_identity
 from common.config_access import NetworkConfig
@@ -28,12 +29,15 @@ def record_self() -> None:
     """
     try:
         config = get_ini_config()
-        get_device_registry().record(
-            install_identity.install_id(config),
-            kind=device_registry.KIND_VPINFE,
-            display_name=install_identity.display_name(config),
-            features=install_identity.features(config),
-        )
+        registry = get_device_registry()
+        # Filed only when the id came from the folder this registry sits in.
+        if _folder(registry.path) == _folder(config.configfilepath):
+            registry.record(
+                install_identity.install_id(config),
+                kind=device_registry.KIND_VPINFE,
+                display_name=install_identity.display_name(config),
+                features=install_identity.features(config),
+            )
     except Exception as exc:
         # A registry that cannot be written must not stop the API starting: the entry is
         # a label, and the install is identified with or without it.
@@ -42,6 +46,10 @@ def record_self() -> None:
     # The announcement carries the same two facts, so it is refreshed with them rather
     # than left saying what this install used to be called until the next restart.
     discovery.refresh(config)
+
+
+def _folder(path: Path | str) -> Path:
+    return Path(path).resolve().parent
 
 
 def announce_on_the_network() -> None:
