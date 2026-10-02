@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from common.apps.contract import App, Claim, Field, Kinds
 
+from .buttons import VPXButtons
 from .capability import VPXCapability
 from .capture import VPXCapture
 from .config import VPXConfig
@@ -45,4 +46,5 @@ VPX = App(
     capability=VPXCapability(),
     capture=VPXCapture(),
     pause=VPXPause(),
+    buttons=VPXButtons(),
 )

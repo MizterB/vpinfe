@@ -14,8 +14,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from common import config_schema, input_registry
+from common import apps, config_schema, input_registry
 from common.config_access import ConfigSource, cfg_get
+from common.games import launchers
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.frontend.input_api")
@@ -58,6 +59,31 @@ def _say_what_collides(bound: dict[str, list[str]]) -> None:
             "%s is bound to %s. Only %s gets it - the rest do nothing. "
             "Change it under Settings, Input.",
             input_registry.describe(binding), ", ".join(names), names[0])
+
+
+def apply_cabinet_defaults(config: ConfigSource) -> dict[str, list[str]]:
+    """Put this machine's cabinet buttons on the actions nobody has changed, and save.
+
+    Returns the actions that changed, with what each holds now; nothing when there is no
+    launcher to ask, or its app wires no cabinet. Setup's Controls step calls this once it
+    knows the install is a cabinet: until then a desktop keeps the keyboard layout.
+    """
+    launcher = launchers.default_launcher()
+    app = apps.get(launcher.app) if launcher is not None else None
+    if launcher is None or app is None or app.buttons is None:
+        return {}
+    settings = {declared.key: launcher.value(declared.key) for declared in launcher.fields()}
+    changed = input_registry.cabinet_bindings(
+        input_registry.bound(config), app.buttons.keys(settings))
+    if not changed:
+        return {}
+    parser = _parser(config)
+    if not parser.has_section(input_registry.SECTION):
+        parser.add_section(input_registry.SECTION)
+    for name, bindings in changed.items():
+        parser.set(input_registry.SECTION, name, ",".join(bindings))
+    config.save()
+    return changed
 
 
 def get_paging_config(config: ConfigSource) -> tuple[str, int]:

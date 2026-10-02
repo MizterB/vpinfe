@@ -129,6 +129,14 @@ const CAPABILITIES = {
     config: ["preload.enabled"],
     describe: "Core fetches the media on either side of the selection once it settles.",
   },
+  core_hold_ring: {
+    // On by default: a hold that shows nothing is a key that appears to do nothing for
+    // a second and a half. Styled by `.vpinfe-hold`, which a theme restyles; this is for
+    // one that draws its own.
+    default: true,
+    config: ["hold_ring.enabled"],
+    describe: "Core draws a ring while a key or button with a hold is kept down.",
+  },
 };
 
 // Read a possibly-dotted key out of a theme's config.
@@ -340,27 +348,56 @@ function downToken(selector) {
 }
 
 
-// Every action and what is bound to it, sorted into the three shapes dispatch uses: a
-// key, a pad button, and a chord. Pure, so what a binding *means* can be checked without
-// standing up a core - which is the half that used to be untestable.
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// The hold a single-input binding asks for: `key:Escape@hold:1500` -> its input and its
+// length, or null for a binding that is not held. A hold of nothing is no hold.
+function parseHold(binding) {
+  const found = /^(.*)@hold:(\d+)$/.exec(binding);
+  if (!found) return null;
+  const ms = Number(found[2]);
+  return ms > 0 ? { input: found[1].trim(), ms } : null;
+}
+
+// Every action and what is bound to it, sorted into the shapes dispatch uses: a key, a
+// pad button, a chord, and a hold on a key or a button. Pure, so what a binding *means*
+// can be checked without standing up a core - which is the half that used to be
+// untestable.
+//
+// `pad:standard/button:<n>` is a button of the standard layout and is kept apart from
+// `pad:<index>/button:<n>`: dispatch fires it only for a pad the browser reports as
+// `mapping: "standard"`, where a numbered one fires for any pad. Holds list the actions in
+// the order they were declared, which is the order a key's one hold is chosen in.
 function buildBindingMaps(bindings) {
   const keys = {}, buttons = {}, chords = [];
+  const keyHolds = {}, standard = {}, buttonHolds = {};
   for (const [action, list] of Object.entries(bindings || {})) {
     for (const binding of list || []) {
       if (typeof binding !== "string") continue;
       const chord = parseChordBinding(action, binding);
       if (chord) { chords.push(chord); continue; }
-      if (binding.startsWith("key:") && !binding.includes("@")
-          && !binding.includes("+")) {
-        (keys[action] ||= []).push(binding.slice(4).trim().toLowerCase());
-      } else if (binding.startsWith("pad:") && binding.includes("/button:")
-                 && !binding.includes("@") && !binding.includes("chord(")) {
+      const hold = parseHold(binding);
+      const plain = hold ? hold.input : binding;
+      if (plain.startsWith("key:") && !plain.includes("@") && !plain.includes("+")) {
+        const token = plain.slice(4).trim().toLowerCase();
+        if (hold) (keyHolds[action] ||= []).push({ token, ms: hold.ms });
+        else (keys[action] ||= []).push(token);
+      } else if (plain.startsWith("pad:") && plain.includes("/button:")
+                 && !plain.includes("@") && !plain.includes("chord(")) {
         // An axis is still the binding grammar's next phase, not this one.
-        (buttons[binding.split("/button:").pop().trim()] ||= []).push(action);
+        const [pad, button] = plain.slice(4).split("/button:").map(one => one.trim());
+        const onStandard = pad === "standard";
+        if (hold) {
+          (buttonHolds[button] ||= []).push({ action, ms: hold.ms, standard: onStandard });
+        } else if (onStandard) {
+          (standard[button] ||= []).push(action);
+        } else {
+          (buttons[button] ||= []).push(action);
+        }
       }
     }
   }
-  return {keys, buttons, chords,
+  return {keys, buttons, chords, keyHolds, standard, buttonHolds,
           members: new Set(chords.flatMap(one => one.members))};
 }
 
@@ -698,19 +735,26 @@ class VPinFECore {
 
     // Gamepad mapping
     this.joyButtonMap = {}
+    // Standard-layout buttons, which fire for a pad that reports itself as standard only.
+    this.standardButtonMap = {}
+    // A button's hold, whichever pad it is on: [{action, ms, standard}] by button.
+    this.joyHoldMap = {}
     this.keyActionMap = {
       previous: ['arrowleft', 'shiftleft'],
       next: ['arrowright', 'shiftright'],
       page_previous: ['pageup', 'arrowup'],
       page_next: ['pagedown', 'arrowdown'],
       select: ['enter'],
-      back: ['keyb'],
+      back: ['escape', 'keyb'],
       menu: ['keym'],
       collection_menu: ['keyc'],
       tutorial: ['keyt'],
-      exit: ['escape', 'keyq'],
+      exit: ['keyq'],
       take_picture: [],
     };
+    this.keyHoldMap = { exit: [{ token: 'escape', ms: 1500 }] };
+    // An input with a hold, from the moment it goes down until it is let go.
+    this._pending = new Map();
     this.previousButtonStates = {};
     // Held input repeats here, not wherever the press came from. A press acts once;
     // holding starts repeating after the delay and speeds up to the floor, so one
@@ -941,9 +985,9 @@ class VPinFECore {
     // A window that loses focus mid-hold never sees the keyup, and the wheel would keep
     // travelling behind whatever took the focus. The same failure the install guards a
     // network press against by expiring it.
-    window.addEventListener('blur', () => this.#endHold());
+    window.addEventListener('blur', () => this.#loseFocus());
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) this.#endHold();
+      if (document.hidden) this.#loseFocus();
     });
 
     // Connect to WebSocket bridge
@@ -2725,7 +2769,8 @@ class VPinFECore {
     if (!e.repeat) this.#noteDown(token);
 
     const action = this.#actionForKeyboardEvent(e);
-    if (!action) { this.#reconsiderChords(); return; }
+    const hold = this.#holdForKeyboardEvent(e);
+    if (!action && !hold) { this.#reconsiderChords(); return; }
 
     // A bound key belongs to us. Without this the arrows also scroll the theme's page
     // and Space activates whatever the browser thinks is focused.
@@ -2735,6 +2780,13 @@ class VPinFECore {
     // no ramp, and it is the one producer a flipper and a phone cannot match - so it is
     // ignored and the hold below does the repeating instead.
     if (e.repeat) return;
+
+    // A key with a hold says nothing until it is let go or the hold is reached.
+    if (hold) {
+      this.#awaitHold(token, action ? [action] : [], hold);
+      this.#reconsiderChords();
+      return;
+    }
 
     this.#dispatchAction(action);
     // A chord's members must not also walk the wheel for the length of the hold: what
@@ -2748,7 +2800,94 @@ class VPinFECore {
   #onKeyUp(e) {
     const token = downToken("key:" + (e.code || e.key || ""));
     this.#endHold(this.#actionForKeyboardEvent(e));
+    this.#releaseInput(token);
     this.#inputUp(token);
+  }
+
+  // --- Holds --------------------------------------------------------------------
+  //
+  // An input with a hold has one press and one hold, and cannot say which until it is
+  // let go: released early it is the press, kept down for the hold's length it is the
+  // hold and only the hold. So it fires nothing on the way down. An input with no hold
+  // never comes through here.
+
+  // The key's one hold, whatever its length. The first action declared with one wins,
+  // and the rest are never heard.
+  #holdForKeyboardEvent(e) {
+    const tokens = this.#eventKeyboardTokens(e);
+    for (const [action, holds] of Object.entries(this.keyHoldMap || {})) {
+      const found = holds.find(one => tokens.has(one.token));
+      if (found) return { action, ms: found.ms };
+    }
+    return null;
+  }
+
+  #awaitHold(id, press, hold) {
+    this.#cancelHold(id);
+    const waiting = { press, hold, fired: false, timer: null };
+    waiting.timer = setTimeout(() => {
+      waiting.timer = null;
+      waiting.fired = true;
+      this.#hideHoldRing();
+      if (this.frontendInputEnabled) this.#dispatchAction(hold.action);
+    }, hold.ms);
+    this._pending.set(id, waiting);
+    this.#showHoldRing(hold.ms);
+  }
+
+  // The input came back up: the press if the hold was not reached, nothing if it was.
+  #releaseInput(id) {
+    const waiting = this._pending.get(id);
+    if (!waiting) return;
+    this.#cancelHold(id);
+    if (waiting.fired || !this.frontendInputEnabled) return;
+    for (const action of waiting.press) this.#dispatchAction(action);
+  }
+
+  #cancelHold(id) {
+    const waiting = this._pending.get(id);
+    if (!waiting) return;
+    if (waiting.timer) clearTimeout(waiting.timer);
+    this._pending.delete(id);
+    this.#hideHoldRing();
+  }
+
+  // A window that loses focus never sees the release, so what was waiting on one is
+  // dropped without firing: neither the press nor the hold was asked for.
+  #loseFocus() {
+    this.#endHold();
+    for (const id of [...this._pending.keys()]) this.#cancelHold(id);
+  }
+
+  // The ring that fills while a hold is kept down. Core draws it so every theme has one;
+  // `.vpinfe-hold` is what a theme restyles, and `hold_ring.enabled` false is for one
+  // that draws its own. Only the element comes and goes: the fill is the stylesheet's.
+  #showHoldRing(ms) {
+    if (!this.enabled("core_hold_ring")) return;
+    this.#hideHoldRing();
+    const ring = document.createElement("div");
+    ring.className = "vpinfe-hold";
+    ring.setAttribute("style", `--vpinfe-hold-ms: ${ms}ms`);
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 40 40");
+    svg.setAttribute("aria-hidden", "true");
+    for (const part of ["track", "fill"]) {
+      const circle = document.createElementNS(SVG_NS, "circle");
+      circle.setAttribute("class", `vpinfe-hold-${part}`);
+      for (const [name, value] of [["cx", 20], ["cy", 20], ["r", 16], ["pathLength", 100]]) {
+        circle.setAttribute(name, String(value));
+      }
+      svg.appendChild(circle);
+    }
+    ring.appendChild(svg);
+    document.body.appendChild(ring);
+    this._holdRing = ring;
+  }
+
+  #hideHoldRing() {
+    if (!this._holdRing) return;
+    this._holdRing.remove();
+    this._holdRing = null;
   }
 
   // A press acts once and then, if it is still down after the delay, keeps going.
@@ -2906,22 +3045,19 @@ class VPinFECore {
     }
     // Core owns select and back for as long as it is holding a list. It has to: the
     // theme has no way to pop a stack it does not know about, so handing back either
-    // action would strand the player inside the picker.
-    else if (!this.atRoot && (action === "select" || action === "back")) {
+    // action would strand the player inside the picker. Not while an overlay is up: that
+    // is what the action is for then, and the overlay's own handler closes it.
+    else if (!overlay && !this.atRoot && (action === "select" || action === "back")) {
       if (action === "select") this.selectCurrent();
       else this.popList();
     }
-    // Back at the root leaves, through the same path exit takes - so it honours Confirm
-    // Before Exit rather than becoming a second way out that never asks. Contract 2 only:
-    // below it, back is the theme's own action and taking it would break every theme
-    // that handles it.
-    //
-    // Only while navigating. A dialog and a text field both mean back for dismiss, and
-    // quitting VPinFE because someone backed out of a field is not a near miss.
+    // Back with nothing to go back from does nothing, and the theme is not handed it:
+    // leaving is exit's. Contract 2 only - below it back is the theme's own action - and
+    // only while navigating, because a dialog and a text field both mean back for dismiss.
     else if (action === "back" && this.inputMode === "navigation"
              && this.contract >= CURRENT_CONTRACT
              && this.enabled("core_navigation") && !overlay && this.isController()) {
-      this.#leave();
+      return;
     }
     else this.#triggerInputAction(action);
   }
@@ -3143,10 +3279,15 @@ class VPinFECore {
   // One call, one shape: every action and what is bound to it. The keyboard map and the
   // gamepad map used to arrive separately, with a table translating key* to joy* - which
   // existed only because a stored value could not name its own input.
-  const {keys, buttons, chords, members} =
+  const {keys, buttons, chords, members, keyHolds, standard, buttonHolds} =
     buildBindingMaps(await this.call("get_bindings") || {});
-  if (Object.keys(keys).length) this.keyActionMap = keys;
+  if (Object.keys(keys).length) {
+    this.keyActionMap = keys;
+    this.keyHoldMap = keyHolds;
+  }
   this.joyButtonMap = buttons;
+  this.standardButtonMap = standard;
+  this.joyHoldMap = buttonHolds;
   this.chordBindings = chords;
   // Which single inputs belong to some chord. Held so a key press does not walk every
   // chord to find out it belongs to none.
@@ -3160,23 +3301,45 @@ class VPinFECore {
   // does, so joyButtonMap is already built by the time this runs.
 }
 
-async #onButtonPressed(buttonIndex, gamepadIndex) {
+  // What a button does as a plain press, on a pad that is or is not in the standard layout.
+  // A numbered binding fires for any pad; a standard one only for a pad that says it is.
+  #padPresses(buttonIndex, standard) {
+    const key = buttonIndex.toString();
+    const actions = [...(this.joyButtonMap[key] || []),
+                     ...(standard ? this.standardButtonMap[key] || [] : [])];
+    return [...new Set(actions)];
+  }
+
+  // The button's one hold, in the order the bindings were declared.
+  #padHold(buttonIndex, standard) {
+    return (this.joyHoldMap[buttonIndex.toString()] || [])
+      .find(one => standard || !one.standard) || null;
+  }
+
+  async #onButtonPressed(buttonIndex, gamepadIndex, standard = false) {
+    const presses = this.#padPresses(buttonIndex, standard);
     if (!this.frontendInputEnabled) {
-      for (const action of this.joyButtonMap[buttonIndex.toString()] || []) {
-        this.#inPlay(action);
-      }
+      for (const action of presses) this.#inPlay(action);
+      return;
+    }
+
+    // A button with a hold waits to be let go, as a key does.
+    const hold = this.#padHold(buttonIndex, standard);
+    if (hold) {
+      this.#awaitHold(`pad:${gamepadIndex}:${buttonIndex}`, presses, hold);
+      this.#reconsiderChords();
       return;
     }
 
     // Every action bound to this button. The branching is #dispatchAction's, shared with
     // the keyboard so the two cannot drift apart again.
-    for (const action of this.joyButtonMap[buttonIndex.toString()] || []) {
+    for (const action of presses) {
       this.#dispatchAction(action);
     }
     this.#reconsiderChords();
     const token = "pad:" + buttonIndex;
     if (this.#heldByChord(token)) return;
-    for (const action of this.joyButtonMap[buttonIndex.toString()] || []) {
+    for (const action of presses) {
       this.#startHold(action, token);
     }
   }
@@ -3186,6 +3349,7 @@ async #onButtonPressed(buttonIndex, gamepadIndex) {
     for (let i = 0; i < gamepads.length; i++) {
       const gp = gamepads[i];
       if (!gp) continue;
+      const standard = gp.mapping === "standard";
 
       if (!this.previousButtonStates[i]) {
         this.previousButtonStates[i] = new Array(gp.buttons.length).fill(false);
@@ -3202,15 +3366,16 @@ async #onButtonPressed(buttonIndex, gamepadIndex) {
           if (isPressed) {
             this.#noteDown("pad:" + index);
           } else {
+            this.#releaseInput(`pad:${i}:${index}`);
             this.#inputUp("pad:" + index);
-            for (const action of this.joyButtonMap[index.toString()] || []) {
+            for (const action of this.#padPresses(index, standard)) {
               this.#endHold(action);
             }
           }
         }
         if (isPressed && !wasPressed
             && (this.frontendInputEnabled || this._launchInputSuppressedByLifecycle)) {
-          this.#onButtonPressed(index, i); // new press
+          this.#onButtonPressed(index, i, standard); // new press
         }
         this.previousButtonStates[i][index] = isPressed;
       });

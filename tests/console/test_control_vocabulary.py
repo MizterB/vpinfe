@@ -239,7 +239,7 @@ class BindingsAreNotTypedIn(unittest.TestCase):
         held = {"key:Escape": ["back", "exit"]}
 
         self.assertEqual(
-            binding_editor._owner("key:Escape", held, {"key": "back"}), "Exit")
+            binding_editor._owner("key:Escape", held, {"key": "back"}), "Quit")
         self.assertEqual(
             binding_editor._owner("key:Escape", held, {"key": "exit"}), "Back")
         self.assertEqual(
@@ -275,6 +275,45 @@ class AHoldCanBeSetRatherThanPerformed(unittest.TestCase):
         from common import input_registry
 
         self.assertEqual(input_registry.hold_ms("key:a"), 0)
+
+
+class AnyKeyCanBeCaptured(unittest.TestCase):
+    """A tap of Esc could not be bound: capture treated it as the way out. The cabinet's
+    Exit button is Esc on Visual Pinball's layout, so that button could give nothing."""
+
+    def test_escape_is_not_special_to_the_capture(self) -> None:
+        self.assertNotIn("'Escape'", binding_editor._CAPTURE_JS)
+        self.assertNotIn('"Escape"', binding_editor._CAPTURE_JS)
+
+    def test_every_key_down_is_bound_by_its_code(self) -> None:
+        self.assertIn("arrived('key:' + e.code)", binding_editor._CAPTURE_JS)
+
+    def test_the_way_out_is_a_button(self) -> None:
+        self.assertIn("document.createElement('button')", binding_editor._CAPTURE_JS)
+        self.assertIn("cancel.addEventListener('click', () => stop(''))",
+                      binding_editor._CAPTURE_JS)
+
+    def test_the_way_out_is_drawn_like_the_consoles_other_buttons(self) -> None:
+        """A bare q-btn is drawn in capitals, which no other Console button is."""
+        for marker in ("q-btn--no-uppercase", "q-btn__content", "console-action"):
+            self.assertIn(marker, binding_editor._CAPTURE_JS)
+
+    def test_every_word_it_shows_is_the_catalogs(self) -> None:
+        script = binding_editor.capture_js("Back")
+
+        for words in ("Press the key or button for Back", "Cancel", "Holding 1 input",
+                      "Holding 2 inputs", "Held. Let go to keep it."):
+            self.assertIn(words, script)
+        self.assertNotIn("%(", script)
+        self.assertNotIn("' inputs'", script)
+
+    def test_the_prompt_no_longer_promises_that_esc_cancels(self) -> None:
+        from common import i18n
+
+        words = i18n.t("console.binding_editor.press_key_or_button_for", label="Back")
+
+        self.assertNotIn("Esc", words)
+        self.assertEqual(words, "Press the key or button for Back")
 
 
 class RawControlsAreDeclared(unittest.TestCase):

@@ -362,6 +362,20 @@ class Pause(Protocol):
     def key(self, settings: Mapping[str, Any]) -> str: ...
 
 
+# --- cabinet buttons ----------------------------------------------------------------
+
+
+@runtime_checkable
+class Buttons(Protocol):
+    """The buttons of a cabinet the app is wired for, by role, as the key codes they send.
+
+    The roles are `left_flipper`, `right_flipper`, `left_magna`, `right_magna`, `start`,
+    `fire`, `extra_ball`, `tilt` and `exit`. A role the app has no key for is left out.
+    """
+
+    def keys(self, settings: Mapping[str, Any]) -> Mapping[str, tuple[str, ...]]: ...
+
+
 # --- the app ----------------------------------------------------------------------
 
 
@@ -382,3 +396,4 @@ class App:
     capability: Capability | None = None
     capture: Capture | None = None
     pause: Pause | None = None
+    buttons: Buttons | None = None

@@ -12,7 +12,7 @@ import json
 import os
 import unittest
 
-from common import config_schema
+from common import config_schema, input_registry
 from common.config_store import (
     CONFIG_SCHEMA,
     SCHEMA_KEY,
@@ -220,6 +220,61 @@ class RetiredValueTests(ConfigStoreTests):
         ConfigStore(str(self.ini))
 
         self.assertEqual(self._payload()["settings"]["behavior"]["paging_group"], "count")
+
+
+class RetiredInputDefaultsTests(ConfigStoreTests):
+    """A 2.x file holds what 2.x shipped for every key nobody changed, so on its own a
+    value equal to a shipped one is not a choice. Reading it as one would keep a tap of
+    Esc as Quit for every install that came up from 2.x."""
+
+    TWO_X = "\n".join([
+        "[Input]", "keyleft = ArrowLeft,ShiftLeft", "keyright = ArrowRight,ShiftRight",
+        "keyup = ArrowUp", "keydown = ArrowDown", "keypageup = PageUp",
+        "keypagedown = PageDown", "keyselect = Enter", "keymenu = m", "keyback = b",
+        "keytutorial = t", "keyexit = Escape,q", "keycollectionmenu = c",
+        "joyleft =", "joyselect =", "joyexit =", ""])
+
+    def _migrated(self, text: str, action: str) -> str:
+        self.ini.write_text(text, encoding="utf-8")
+        return ConfigStore(str(self.ini)).config.get("input", action)
+
+    def test_the_shipped_2x_keys_take_the_current_defaults(self) -> None:
+        exit_default = config_schema.option("input", "exit").default
+
+        self.assertEqual(self._migrated(self.TWO_X, "exit"), exit_default)
+        self.assertEqual(self._migrated(self.TWO_X, "back"),
+                         config_schema.option("input", "back").default)
+
+    def test_a_key_somebody_changed_is_kept_as_they_wrote_it(self) -> None:
+        """Each half is judged alone: the controller buttons nobody mapped still take the
+        standard layout's."""
+        text = self.TWO_X.replace("keyexit = Escape,q", "keyexit = Escape,q,F4")
+
+        self.assertEqual(self._migrated(text, "exit"),
+                         "key:Escape,key:q,key:F4,pad:standard/button:1@hold:1500")
+
+    def test_a_button_somebody_mapped_is_kept_and_the_standard_ones_stay_out(self) -> None:
+        text = self.TWO_X.replace("joyselect =", "joyselect = 7")
+
+        self.assertEqual(self._migrated(text, "select"), "key:Enter,pad:0/button:7")
+
+    def test_a_key_somebody_chose_outranks_a_default_on_another_action(self) -> None:
+        """Esc kept on Quit by choice stays there; Back, unchanged, gives it up."""
+        text = self.TWO_X.replace("keyexit = Escape,q", "keyexit = Escape")
+        self.ini.write_text(text, encoding="utf-8")
+
+        config = ConfigStore(str(self.ini)).config
+
+        self.assertEqual(config.get("input", "exit"),
+                         "key:Escape,pad:standard/button:1@hold:1500")
+        self.assertEqual(config.get("input", "back"), "key:KeyB,pad:standard/button:1")
+        self.assertEqual(input_registry.collisions(
+            {name: value.split(",") for name, value in config.items("input")}), {})
+
+    def test_converting_twice_does_not_change_it_again(self) -> None:
+        first = self._migrated(self.TWO_X, "exit")
+
+        self.assertEqual(ConfigStore(str(self.ini)).config.get("input", "exit"), first)
 
 
 class RetiredRoleTests(ConfigStoreTests):

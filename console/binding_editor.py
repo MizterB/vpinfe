@@ -32,9 +32,8 @@ logger = logging.getLogger("vpinfe.console.binding_editor")
 # made by pressing two things and a hold by keeping one down - the gesture is the
 # notation, and there is no mode to choose first.
 #
-# Escape cancels rather than binding, so there is a way out that does not cost a binding.
-# Somebody who wants Escape itself can still hold it past the hold threshold, which is
-# not a cancel.
+# Every key binds, Escape included: the cabinet's Exit button is Escape, and a capture that
+# cancelled on it could never give that button anything. The way out is the Cancel button.
 _CAPTURE_JS = """() => {
   const HOLD_AT = %(hold_at)d;
   const down = new Map();          // token -> when it went down
@@ -44,9 +43,28 @@ _CAPTURE_JS = """() => {
 
   const note = document.createElement('div');
   note.className = 'console-capture';
+  const message = document.createElement('div');
+  // The markup Quasar renders for a flat, dense, no-caps button, because this is built
+  // outside Vue. Without q-btn--no-uppercase the label is drawn in capitals.
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'q-btn q-btn-item non-selectable no-outline q-btn--flat '
+    + 'q-btn--rectangle q-btn--actionable q-focusable q-hoverable q-btn--no-uppercase '
+    + 'q-btn--dense console-action';
+  cancel.style.fontSize = '10px';
+  const face = document.createElement('span');
+  face.className = 'q-btn__content text-center col items-center q-anchor--skip '
+    + 'justify-center row';
+  const word = document.createElement('span');
+  word.className = 'block';
+  word.textContent = %(cancel)s;
+  face.append(word);
+  cancel.append(face);
+  cancel.addEventListener('click', () => stop(''));
+  note.append(message, cancel);
   document.body.appendChild(note);
   window.__captureOverlay = note;
-  const say = (text) => { note.textContent = text; };
+  const say = (text) => { message.textContent = text; };
   say(%(asking)s);
 
   const stop = (value) => {
@@ -65,7 +83,7 @@ _CAPTURE_JS = """() => {
     if (down.has(token)) return;
     down.set(token, Date.now());
     if (!held.includes(token)) held.push(token);
-    say(%(holding)s + held.length + (held.length > 1 ? ' inputs' : ' input'));
+    say(%(holding)s[Math.min(held.length, %(holding)s.length) - 1]);
   };
 
   const left = (token) => {
@@ -87,7 +105,6 @@ _CAPTURE_JS = """() => {
     e.preventDefault();
     e.stopPropagation();
     if (e.repeat) return;
-    if (e.code === 'Escape' && !held.length) { stop(''); return; }
     arrived('key:' + e.code);
   };
   const onKeyUp = (e) => { e.preventDefault(); left('key:' + e.code); };
@@ -167,7 +184,7 @@ def rows(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
                 # other order is the same binding, and looking it up raw marks one of
                 # the two rows holding it and leaves the other one silent.
                 _chip(binding, store,
-                      claimed.get(input_registry.identity(binding)) or [], held,
+                      claimed.get(input_registry.contention(binding)) or [], held,
                       writable=writable, rerender=rerender)
             if not held:
                 # Amber, because this action cannot be triggered at all - which is the
@@ -317,8 +334,23 @@ async def _remove(text: str, shown: str, store: Callable[[list], Any],
 # because half of one is an ordinary press and nobody means it as a hold.
 HOLD_AT_MS = 1000
 
+# How many inputs the capture counts out loud; a chord is never more than a few.
+MOST_HELD = 8
+
 # What a hold starts at when one is added on the chip rather than performed.
 DEFAULT_HOLD_MS = 1000
+
+
+def capture_js(label: str) -> str:
+    """The capture script with every word it shows, in the language now set."""
+    return _CAPTURE_JS % {
+        "hold_at": HOLD_AT_MS,
+        "asking": json.dumps(t("console.binding_editor.press_key_or_button_for", label=label)),
+        "cancel": json.dumps(t("word.cancel")),
+        "holding": json.dumps([t("console.binding_editor.holding", count=n)
+                               for n in range(1, MOST_HELD + 1)]),
+        "hold_said": json.dumps(t("console.binding_editor.held_let_go_keep")),
+    }
 
 
 def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],
@@ -330,8 +362,8 @@ def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],
         if not selector:
             return
         shown = input_registry.describe(selector)
-        if input_registry.identity(selector) in [
-                input_registry.identity(one) for one in held]:
+        if input_registry.contention(selector) in [
+                input_registry.contention(one) for one in held]:
             ui.notify(t("console.binding_editor.already", shown=(shown)), type="warning")
             return
         # Refused rather than taken with a warning. Dispatch gives a key to the first
@@ -347,21 +379,13 @@ def _capture(option: dict[str, Any], held: list, store: Callable[[list], Any],
 
     panel.action(t("console.binding_editor.bind"), heard, icon="add", inline=True,
                  hint=t("console.binding_editor.press_one_input_two"),
-                 js=_CAPTURE_JS % {
-                     "hold_at": HOLD_AT_MS,
-                     "asking": json.dumps(
-                         f"Press what should do {label}. Two together makes a chord, "
-                         "and keeping it down makes a hold. Esc cancels."),
-                     "holding": json.dumps("Holding "),
-                     "hold_said": json.dumps("Keep holding for a hold. "
-                                             "Let go to bind it."),
-                 })()
+                 js=capture_js(label))()
 
 
 def _owner(selector: str, claimed: dict[str, list[str]],
            option: dict[str, Any]) -> str:
     """Which other action holds this binding, said as a person would name it."""
-    names = [name for name in claimed.get(input_registry.identity(selector), [])
+    names = [name for name in claimed.get(input_registry.contention(selector), [])
              if name != option.get("key")]
     return _and([_label_for(name) for name in names]) if names else ""
 

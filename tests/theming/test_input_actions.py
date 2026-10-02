@@ -111,6 +111,32 @@ class CollisionTests(unittest.TestCase):
     def test_the_shipped_bindings_do_not_collide(self) -> None:
         self.assertEqual(input_registry.collisions(input_registry.defaults()), {})
 
+    def test_a_tap_and_a_hold_of_one_key_are_not_a_collision(self) -> None:
+        """A key has one press and one hold; Esc is Back tapped and Quit held."""
+        found = input_registry.collisions(
+            {"back": ["key:Escape"], "exit": ["key:Escape@hold:1500"]})
+
+        self.assertEqual(found, {})
+
+    def test_a_key_has_one_hold_whatever_its_length(self) -> None:
+        found = input_registry.collisions(
+            {"menu": ["key:Escape@hold:800"], "exit": ["key:Escape@hold:1500"]})
+
+        self.assertEqual(list(found.values()), [["menu", "exit"]])
+
+    def test_holders_names_a_held_key_by_the_key(self) -> None:
+        """So the Console can refuse a second hold on a key before it is stored."""
+        found = input_registry.holders({"exit": ["key:Escape@hold:1500"]})
+
+        self.assertEqual(
+            found[input_registry.contention("key:Escape@hold:300")], ["exit"])
+
+    def test_two_chords_of_different_lengths_are_two_bindings(self) -> None:
+        """Each chord waits on its own timer, so a chord keeps its length."""
+        self.assertNotEqual(
+            input_registry.contention("chord(key:a+key:b)@hold:800"),
+            input_registry.contention("chord(key:a+key:b)@hold:1500"))
+
     def test_an_install_that_holds_one_is_told(self) -> None:
         """The Console refuses new ones; an install that already has one gets a line in
         the log, because the alternative is a player concluding the cabinet is broken."""
@@ -118,6 +144,7 @@ class CollisionTests(unittest.TestCase):
         parser = configparser.ConfigParser()
         parser.add_section("input")
         parser.set("input", "back", "key:b,key:Escape")
+        parser.set("input", "exit", "key:Escape")
 
         with self.assertLogs("vpinfe.frontend.input_api", level="WARNING") as caught:
             input_api.get_bindings(parser)
@@ -131,7 +158,9 @@ class CollisionTests(unittest.TestCase):
         parser = configparser.ConfigParser()
         parser.add_section("input")
         parser.set("input", "back", "key:b,key:Escape")
-        input_api.get_bindings(parser)
+        parser.set("input", "exit", "key:Escape")
+        with self.assertLogs("vpinfe.frontend.input_api", level="WARNING"):
+            input_api.get_bindings(parser)
 
         with self.assertNoLogs("vpinfe.frontend.input_api", level="WARNING"):
             input_api.get_bindings(parser)
@@ -326,6 +355,28 @@ class JavaScriptCopiesTests(unittest.TestCase):
                     for a in input_registry.actions()}
         self.assertEqual(js, expected)
 
+    def test_the_fallback_holds_match_the_shipped_ones(self) -> None:
+        """Before the bridge answers, a tap of Esc must already be Back and not Quit."""
+        block = re.search(r"this\.keyHoldMap = \{(.*?)\};", CORE_JS, re.S)
+        self.assertIsNotNone(block, "keyHoldMap moved; this test needs updating")
+        js = {name: [(token.lower(), int(ms)) for token, ms in re.findall(
+                  r"token:\s*['\"](\w+)['\"],\s*ms:\s*(\d+)", entries)]
+              for name, entries in re.findall(r"(\w+):\s*\[([^\]]*)\]", block.group(1))}
+
+        expected = {}
+        for action in input_registry.actions():
+            for binding in action.bindings:
+                held = input_registry.hold_ms(binding)
+                if held and binding.startswith(input_registry.KEY_PREFIX):
+                    token = input_registry.with_hold(binding, 0)[len(input_registry.KEY_PREFIX):]
+                    expected.setdefault(action.name, []).append((token.lower(), held))
+        self.assertEqual(js, expected)
+
+    def test_a_held_esc_quits_after_a_second_and_a_half(self) -> None:
+        self.assertEqual(input_registry.QUIT_HOLD_MS, 1500)
+        self.assertEqual(input_registry.defaults()["exit"][0], "key:Escape@hold:1500")
+        self.assertIn("ms: 1500", CORE_JS)
+
     def test_contract_1_gets_a_name_for_every_action(self) -> None:
         """A missing entry means a published theme's `case` silently stops matching."""
         block = re.search(r"const LEGACY_ACTION_NAMES = \{(.*?)\n\};", CORE_JS, re.S)
@@ -342,6 +393,219 @@ class PlayActionsTests(unittest.TestCase):
         self.assertIsNotNone(block, "PLAY_ACTIONS moved; this test needs updating")
         self.assertEqual(re.findall(r'"(\w+)"', block.group(1)),
                          list(input_registry.IN_PLAY))
+
+
+class ShippedDefaultTests(unittest.TestCase):
+    """The keyboard and controller defaults as shipped. Dispatch is tested in
+    `tests/js/input.test.js` and the capture in `tests/console`."""
+
+    def test_esc_is_back_and_a_held_esc_is_quit(self) -> None:
+        shipped = input_registry.defaults()
+
+        self.assertIn("key:Escape", shipped["back"])
+        self.assertNotIn("key:Escape", shipped["exit"],
+                         "a tap of Esc used to quit from the root of the list")
+        self.assertIn("key:Escape@hold:1500", shipped["exit"])
+
+    def test_the_action_is_called_quit(self) -> None:
+        exit_action = next(a for a in input_registry.actions() if a.name == "exit")
+
+        self.assertEqual(exit_action.label, "Quit")
+
+    def test_t_is_not_tutorial_on_a_cabinet(self) -> None:
+        """T is the tilt bob in Visual Pinball, so a cabinet's Tutorial has no key."""
+        changed = input_registry.cabinet_bindings(
+            {k: list(v) for k, v in input_registry.defaults().items()}, CABINET)
+
+        self.assertEqual(changed["tutorial"], [])
+        for name, bindings in changed.items():
+            self.assertNotIn("key:KeyT", bindings, name)
+
+    def test_start_is_select_on_a_cabinet(self) -> None:
+        changed = input_registry.cabinet_bindings(
+            {k: list(v) for k, v in input_registry.defaults().items()}, CABINET)
+
+        self.assertEqual(changed["select"][0], "key:Digit1")
+
+    def test_the_controller_defaults_are_for_the_standard_layout(self) -> None:
+        shipped = input_registry.defaults()
+
+        self.assertEqual(
+            {name: [one for one in bindings if one.startswith("pad:")]
+             for name, bindings in shipped.items() if name != "take_picture"},
+            {"previous": ["pad:standard/button:14", "pad:standard/button:6"],
+             "next": ["pad:standard/button:15", "pad:standard/button:7"],
+             "page_previous": ["pad:standard/button:12", "pad:standard/button:4"],
+             "page_next": ["pad:standard/button:13", "pad:standard/button:5"],
+             "select": ["pad:standard/button:0"],
+             "back": ["pad:standard/button:1"],
+             "menu": ["pad:standard/button:9"],
+             "collection_menu": ["pad:standard/button:8"],
+             "tutorial": [],
+             "exit": ["pad:standard/button:1@hold:1500"]})
+
+    def test_a_standard_binding_is_not_a_numbered_pads_button(self) -> None:
+        """The controller field writes `pad:0` back, which would turn a default for
+        standard pads into one for any pad."""
+        self.assertEqual(
+            input_registry.pad_buttons_in(["pad:standard/button:0", "pad:2/button:3"]),
+            ["3"])
+
+
+# The key each button of Visual Pinball's own table sends.
+CABINET = {
+    "left_flipper": ("ShiftLeft",), "right_flipper": ("ShiftRight",),
+    "left_magna": ("ControlLeft",), "right_magna": ("ControlRight",),
+    "start": ("Digit1",), "fire": ("AltLeft",), "extra_ball": ("KeyB",),
+    "tilt": ("KeyT",), "exit": ("Escape",),
+}
+
+
+class CabinetDefaultsTests(unittest.TestCase):
+    """The shipped layout is a keyboard's. A cabinet sends what Visual Pinball is wired
+    for, so the actions nobody has changed take those keys instead."""
+
+    def _stored(self, **chosen: list[str]) -> dict[str, list[str]]:
+        return {**{k: list(v) for k, v in input_registry.defaults().items()}, **chosen}
+
+    def test_each_button_lands_on_the_action_it_stands_for(self) -> None:
+        changed = input_registry.cabinet_bindings(self._stored(), CABINET)
+
+        self.assertEqual(changed["page_previous"][0], "key:ControlLeft")
+        self.assertEqual(changed["page_next"][0], "key:ControlRight")
+        self.assertEqual(changed["select"][0], "key:Digit1")
+        self.assertEqual(changed["menu"][0], "key:AltLeft")
+        self.assertEqual(changed["collection_menu"][0], "key:KeyB")
+        self.assertEqual(changed["back"][0], "key:Escape")
+
+    def test_the_keyboard_keys_stay_beside_them(self) -> None:
+        changed = input_registry.cabinet_bindings(self._stored(), CABINET)
+
+        self.assertIn("key:Enter", changed["select"])
+        self.assertIn("key:PageUp", changed["page_previous"])
+
+    def test_what_is_already_right_is_left_out(self) -> None:
+        """The flippers are Shift in both, and Quit is already a held Esc."""
+        changed = input_registry.cabinet_bindings(self._stored(), CABINET)
+
+        for name in ("previous", "next", "exit"):
+            self.assertNotIn(name, changed)
+
+    def test_the_controller_half_is_never_touched(self) -> None:
+        changed = input_registry.cabinet_bindings(self._stored(), CABINET)
+
+        for name, bindings in changed.items():
+            shipped = [b for b in input_registry.defaults()[name] if b.startswith("pad:")]
+            self.assertEqual([b for b in bindings if b.startswith("pad:")], shipped, name)
+
+    def test_back_gives_up_b_to_the_extra_ball_button(self) -> None:
+        """Visual Pinball plays Extra Ball on B, and the cabinet's button is Collection
+        Menu - one key cannot be both."""
+        changed = input_registry.cabinet_bindings(self._stored(), CABINET)
+
+        self.assertNotIn("key:KeyB", changed["back"])
+
+    def test_an_action_somebody_changed_is_left_alone(self) -> None:
+        changed = input_registry.cabinet_bindings(
+            self._stored(select=["key:F9"]), CABINET)
+
+        self.assertNotIn("select", changed)
+
+    def test_and_so_are_the_keys_it_holds(self) -> None:
+        """Start's key is somebody's Menu now; the cabinet's Select does not take it."""
+        changed = input_registry.cabinet_bindings(
+            self._stored(menu=["key:Digit1"]), CABINET)
+
+        self.assertNotIn("select", changed)
+        self.assertNotIn("menu", changed)
+
+    def test_a_key_somebody_tapped_can_still_be_held_for_quit(self) -> None:
+        """A key has one press and one hold, so a chosen tap does not take the hold."""
+        changed = input_registry.cabinet_bindings(
+            self._stored(back=["key:Escape"]), CABINET)
+
+        self.assertNotIn("exit", changed, "Quit keeps Esc held")
+
+    def test_a_cabinet_that_sends_other_keys_gets_those(self) -> None:
+        elsewhere = {**CABINET, "start": ("KeyP",), "exit": ("KeyQ",)}
+
+        changed = input_registry.cabinet_bindings(self._stored(), elsewhere)
+
+        self.assertEqual(changed["select"][0], "key:KeyP")
+        self.assertEqual(changed["back"][0], "key:KeyQ")
+        self.assertEqual(changed["exit"][0], "key:KeyQ@hold:1500")
+
+    def test_a_button_the_app_does_not_name_changes_nothing_for_its_action(self) -> None:
+        changed = input_registry.cabinet_bindings(
+            self._stored(), {"left_flipper": ("ShiftLeft",)})
+
+        self.assertNotIn("menu", changed)
+        self.assertNotIn("select", changed)
+
+    def test_a_second_pass_changes_nothing(self) -> None:
+        stored = self._stored()
+        stored.update(input_registry.cabinet_bindings(stored, CABINET))
+
+        self.assertEqual(input_registry.cabinet_bindings(stored, CABINET), {})
+
+    def test_the_result_does_not_collide_with_itself(self) -> None:
+        stored = self._stored()
+        stored.update(input_registry.cabinet_bindings(stored, CABINET))
+
+        self.assertEqual(input_registry.collisions(stored), {})
+
+
+class LegacyDefaultsTests(unittest.TestCase):
+    """A 2.x file carries what 2.x shipped for every key nobody changed, so a value equal
+    to it cannot be told from a choice and is read as none."""
+
+    def _action(self, name: str) -> input_registry.InputAction:
+        return next(a for a in input_registry.actions() if a.name == name)
+
+    def test_the_shipped_2x_value_takes_the_current_default(self) -> None:
+        found = input_registry.from_legacy(
+            self._action("exit"), [("keyexit", "Escape,q")])
+
+        self.assertEqual(found, list(self._action("exit").bindings))
+
+    def test_a_value_somebody_chose_is_kept_as_written(self) -> None:
+        found = input_registry.from_legacy(
+            self._action("exit"), [("keyexit", "Escape,q,F4")])
+
+        self.assertEqual(found[:3], ["key:Escape", "key:q", "key:F4"])
+        self.assertNotIn("key:Escape@hold:1500", found)
+
+    def test_the_same_keys_in_another_order_are_still_the_shipped_value(self) -> None:
+        found = input_registry.from_legacy(
+            self._action("exit"), [("keyexit", "q,Escape")])
+
+        self.assertEqual(found, list(self._action("exit").bindings))
+
+    def test_each_half_is_judged_on_its_own(self) -> None:
+        """Keys nobody changed take the new ones; a button somebody mapped is theirs, and
+        the standard layout's does not come in beside it."""
+        found = input_registry.from_legacy(
+            self._action("select"), [("keyselect", "Enter"), ("joyselect", "7")])
+
+        self.assertEqual(found, ["key:Enter", "pad:0/button:7"])
+
+    def test_keys_somebody_chose_do_not_cost_the_controller_its_defaults(self) -> None:
+        found = input_registry.from_legacy(
+            self._action("select"), [("keyselect", "Space"), ("joyselect", "")])
+
+        self.assertEqual(found, ["key:Space", "pad:standard/button:0"])
+
+    def test_a_key_that_has_no_legacy_value_is_not_invented(self) -> None:
+        self.assertEqual(
+            input_registry.from_legacy(self._action("tutorial"), [("joytutorial", "")]),
+            ["key:KeyT"])
+
+    def test_every_value_2x_shipped_is_known(self) -> None:
+        """A key missing here is one whose default would be mistaken for a choice."""
+        keys = {a.legacy_key_key for a in input_registry.actions() if a.legacy_key_key}
+        keys |= {old for a in input_registry.actions() for old in a.legacy
+                 if old.startswith("key")}
+        self.assertEqual(set(input_registry.LEGACY_DEFAULTS), keys)
 
 
 class BridgeTests(unittest.TestCase):

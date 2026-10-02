@@ -9,6 +9,11 @@ A binding names its own input - `key:<name>`, `pad:<index>/button:<n>` - so an a
 needs one list rather than a key per input. Richer selectors - modifiers, axes, hold,
 chord - go in this same list, so adding them is a parser change rather than another
 migration.
+
+An input has one press and one hold, so `key:Escape` and `key:Escape@hold:1500` share a
+key without clashing, and two holds on one key do clash whatever their lengths.
+`pad:standard/button:<n>` is the standard layout's button n, for a pad the browser reports
+as standard only; the numbered form is for any pad.
 """
 
 from __future__ import annotations
@@ -24,6 +29,25 @@ SECTION = "input"
 # Selector prefixes. A binding that starts with neither is not one we can read.
 KEY_PREFIX = "key:"
 PAD_PREFIX = "pad:"
+
+# `pad:standard/button:<n>` is button n of the standard layout, and fires only on a pad the
+# browser reports as `mapping: "standard"`. `pad:<index>/button:<n>` fires on any pad: a
+# pad's index says nothing about which device it is.
+STANDARD_PAD = f"{PAD_PREFIX}standard"
+
+# How long Esc is held to quit.
+QUIT_HOLD_MS = 1500
+
+
+def _standard(button: int, hold: int = 0) -> str:
+    return f"{STANDARD_PAD}/button:{button}" + (f"@hold:{hold}" if hold else "")
+
+
+# The standard layout's buttons, by index.
+_SOUTH, _EAST = 0, 1
+_LEFT_SHOULDER, _RIGHT_SHOULDER, _LEFT_TRIGGER, _RIGHT_TRIGGER = 4, 5, 6, 7
+_SELECT, _START = 8, 9
+_DPAD_UP, _DPAD_DOWN, _DPAD_LEFT, _DPAD_RIGHT = 12, 13, 14, 15
 
 
 @dataclass(frozen=True)
@@ -63,13 +87,15 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
     InputAction(
         "previous",
         group=setting_groups.NAVIGATION,
-        bindings=("key:ArrowLeft", "key:ShiftLeft"),
+        bindings=("key:ArrowLeft", "key:ShiftLeft",
+                  _standard(_DPAD_LEFT), _standard(_LEFT_TRIGGER)),
         legacy=("joyleft", "keyleft"),
     ),
     InputAction(
         "next",
         group=setting_groups.NAVIGATION,
-        bindings=("key:ArrowRight", "key:ShiftRight"),
+        bindings=("key:ArrowRight", "key:ShiftRight",
+                  _standard(_DPAD_RIGHT), _standard(_RIGHT_TRIGGER)),
         legacy=("joyright", "keyright"),
     ),
     # up/down and pageup/pagedown were the same intent under two names: carousel-desktop
@@ -79,35 +105,37 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
     InputAction(
         "page_previous",
         group=setting_groups.NAVIGATION,
-        bindings=("key:PageUp", "key:ArrowUp"),
+        bindings=("key:PageUp", "key:ArrowUp",
+                  _standard(_DPAD_UP), _standard(_LEFT_SHOULDER)),
         legacy=("joypageup", "keypageup", "joyup", "keyup"),
     ),
     InputAction(
         "page_next",
         group=setting_groups.NAVIGATION,
-        bindings=("key:PageDown", "key:ArrowDown"),
+        bindings=("key:PageDown", "key:ArrowDown",
+                  _standard(_DPAD_DOWN), _standard(_RIGHT_SHOULDER)),
         legacy=("joypagedown", "keypagedown", "joydown", "keydown"),
     ),
     InputAction(
         "select",
         group=setting_groups.NAVIGATION,
-        bindings=("key:Enter",),
+        bindings=("key:Enter", _standard(_SOUTH)),
         legacy=("joyselect", "keyselect"),
     ),
     InputAction(
         "back",
         group=setting_groups.NAVIGATION,
-        bindings=("key:KeyB",),
+        bindings=("key:Escape", "key:KeyB", _standard(_EAST)),
         legacy=("joyback", "keyback"),
     ),
     InputAction(
         "menu",
-        bindings=("key:KeyM",),
+        bindings=("key:KeyM", _standard(_START)),
         legacy=("joymenu", "keymenu"),
     ),
     InputAction(
         "collection_menu",
-        bindings=("key:KeyC",),
+        bindings=("key:KeyC", _standard(_SELECT)),
         legacy=("joycollectionmenu", "keycollectionmenu"),
     ),
     InputAction(
@@ -118,7 +146,8 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
     InputAction(
         "exit",
         group=setting_groups.NAVIGATION,
-        bindings=("key:Escape", "key:KeyQ"),
+        bindings=(f"key:Escape@hold:{QUIT_HOLD_MS}", "key:KeyQ",
+                  _standard(_EAST, QUIT_HOLD_MS)),
         legacy=("joyexit", "keyexit"),
     ),
     # Unbound out of the box: a key bound here is listened for from outside the page
@@ -202,6 +231,68 @@ def binding_for_legacy(key: str, value: str) -> list[str]:
     return [f"{KEY_PREFIX}{part.strip()}" for part in raw.split(",") if part.strip()]
 
 
+# What 2.x wrote into `[Input]` for a key nobody changed. Every 2.x install carries these
+# on disk, so a value equal to one is indistinguishable from a choice and is read as none.
+LEGACY_DEFAULTS = {
+    "keyleft": "ArrowLeft,ShiftLeft", "keyright": "ArrowRight,ShiftRight",
+    "keyup": "ArrowUp", "keydown": "ArrowDown",
+    "keypageup": "PageUp", "keypagedown": "PageDown",
+    "keyselect": "Enter", "keyback": "b", "keymenu": "m", "keyexit": "Escape,q",
+    "keycollectionmenu": "c", "keytutorial": "t",
+}
+
+
+def _same_bindings(left: Iterable[str], right: Iterable[str]) -> bool:
+    return {identity(one) for one in left} == {identity(one) for one in right}
+
+
+def _shipped_by_2x(old: str, value: str) -> bool:
+    shipped = LEGACY_DEFAULTS.get(old)
+    return shipped is not None and _same_bindings(
+        binding_for_legacy(old, value), binding_for_legacy(old, shipped))
+
+
+def _legacy_choice(values: Iterable[tuple[str, str]]) -> tuple[bool, list[tuple[str, list[str]]]]:
+    """Whether the keys were chosen, and the values somebody chose, as bindings."""
+    read = list(values)
+    keys_chosen = any(not _shipped_by_2x(old, value)
+                      for old, value in read if old.startswith("key"))
+    kept = [(old, binding_for_legacy(old, value)) for old, value in read
+            if keys_chosen or not old.startswith("key")]
+    return keys_chosen, kept
+
+
+def chosen_in_legacy(values: Iterable[tuple[str, str]]) -> list[str]:
+    """The bindings somebody chose in one action's 2.x values, as written."""
+    return [b for _, found in _legacy_choice(values)[1] for b in found]
+
+
+def from_legacy(action: InputAction, values: Iterable[tuple[str, str]],
+                taken: Iterable[str] = ()) -> list[str]:
+    """What a 2.x install's `[Input]` values for one action mean now.
+
+    A half nobody chose takes the current default: the keys when every `key*` value is
+    what 2.x shipped, the controller buttons when no `joy*` value names one. A half
+    someone chose is kept as written. Keys come first, as everywhere else.
+
+    `taken` is what other actions' values chose. A default that wants the same press as
+    one of those is left out: a choice outranks a default, whichever action holds it.
+    """
+    keys_chosen, kept = _legacy_choice(values)
+    pads_chosen = any(found for old, found in kept if old.startswith("joy"))
+    wanted = {contention(one) for one in taken}
+
+    def free(prefix: str) -> list[str]:
+        return [b for b in action.bindings
+                if b.startswith(prefix) and contention(b) not in wanted]
+
+    out = [] if keys_chosen else free(KEY_PREFIX)
+    out += [b for _, found in kept for b in found]
+    if not pads_chosen:
+        out += free(PAD_PREFIX)
+    return out
+
+
 def keys_in(bindings: Iterable[str] | None) -> list[str]:
     """The keyboard key names in a binding list - what the UI's keyboard field shows."""
     return [b[len(KEY_PREFIX):] for b in bindings or ()
@@ -216,6 +307,10 @@ def pad_buttons_in(bindings: Iterable[str] | None) -> list[str]:
         if not text.startswith(PAD_PREFIX) or "@" not in text and "/button:" not in text:
             continue
         if "chord(" in text or "@" in text or "/axis:" in text:
+            continue
+        # A numbered pad only: `pad:standard` is a layout, and the field this feeds writes
+        # `pad:0` back, which would turn a default for standard pads into one for any.
+        if not text[len(PAD_PREFIX):].split("/", 1)[0].isdigit():
             continue
         out.append(text.rsplit("/button:", 1)[-1])
     return out
@@ -473,23 +568,38 @@ def identity(binding: str) -> str:
     text = str(binding or "").strip()
     members = chord_members(text)
     if not members:
-        return normalize(text)
+        suffix = _hold_of(text)
+        return f"{normalize(text[:-len(suffix)])}{suffix}" if suffix else normalize(text)
     suffix = text[text.rindex(")") + 1:]
     return f"{CHORD_PREFIX}{'+'.join(normalize(one) for one in members)}){suffix}"
 
 
-def holders(bound: Mapping[str, Iterable[str] | None] | None) -> dict[str, list[str]]:
-    """Every binding, and which actions hold it.
+def contention(binding: str) -> str:
+    """The form two bindings are compared in to ask whether they want the same press.
 
-    Compared by `identity`, so a chord written in either order is one binding and a key
-    written either way - `key:c` or `key:KeyC` - is one key. Dispatch matches on both of
-    an event's tokens, so those two really are the same binding, and reading them as
-    different leaves a clash sitting on the page unreported.
+    A key has one press and one hold, at whatever length, so `Esc` held 0.8s and `Esc`
+    held 1.5s are one claim on the key where `identity` keeps them apart. A chord keeps
+    its length: each chord waits on its own timer.
+    """
+    text = identity(binding)
+    suffix = _hold_of(text)
+    if suffix and not chord_members(text):
+        return text[:-len(suffix)] + HOLD_MARK.rstrip(":")
+    return text
+
+
+def holders(bound: Mapping[str, Iterable[str] | None] | None) -> dict[str, list[str]]:
+    """Every binding, and which actions hold it, keyed by `contention`.
+
+    A chord written in either order is one binding and a key written either way - `key:c`
+    or `key:KeyC` - is one key. Dispatch matches on both of an event's tokens, so those
+    two really are the same binding, and reading them as different leaves a clash sitting
+    on the page unreported.
     """
     seen: dict[str, list[str]] = {}
     for name, bindings in dict(bound or {}).items():
         for binding in bindings or ():
-            text = identity(binding)
+            text = contention(binding)
             if not text:
                 continue
             # An action listing the same binding twice holds it once.
@@ -507,6 +617,78 @@ def collisions(bound: Mapping[str, Iterable[str] | None] | None) -> dict[str, li
     """
     return {binding: names for binding, names in holders(bound).items()
             if len(names) > 1}
+
+
+# What a cabinet's own buttons stand for, by the role an app names them under: the action,
+# the role, and the shipped binding the button replaces. The key a cabinet is wired to is
+# the app's say, so the shipped key is only a guess at it. Tutorial is absent on purpose -
+# the tilt bob is T there.
+CABINET_ROLES: dict[str, tuple[str, str]] = {
+    "previous": ("left_flipper", "key:ShiftLeft"),
+    "next": ("right_flipper", "key:ShiftRight"),
+    "page_previous": ("left_magna", ""),
+    "page_next": ("right_magna", ""),
+    "select": ("start", ""),
+    "menu": ("fire", ""),
+    "collection_menu": ("extra_ball", ""),
+    "back": ("exit", "key:Escape"),
+    "exit": ("exit", f"key:Escape@hold:{QUIT_HOLD_MS}"),
+}
+# Buttons the app plays with that no action stands in for. Their keys belong to the app.
+CABINET_AWAY = ("tilt", "extra_ball")
+CABINET_NONE = ("tutorial",)
+
+
+def _keys_of(bindings: Iterable[str]) -> list[str]:
+    return [b for b in bindings if str(b).startswith(KEY_PREFIX)]
+
+
+def _unheld(binding: str) -> str:
+    return contention(with_hold(binding, 0))
+
+
+def cabinet_bindings(stored: Mapping[str, Iterable[str]],
+                     buttons: Mapping[str, Iterable[str]]) -> dict[str, list[str]]:
+    """What a cabinet's actions hold, for the actions nobody has changed.
+
+    `buttons` is the app's cabinet by role, each as the key codes it sends. An action whose
+    keys differ from the shipped ones is the player's and is left as it is, and so are the
+    keys it holds: a button key another action already has stays there. Controller bindings
+    are never touched. Only an action that changes is returned.
+    """
+    shipped = defaults()
+    held = {name: [str(one) for one in bindings] for name, bindings in stored.items()}
+    untouched = [name for name in shipped if name in held and _same_bindings(
+        _keys_of(held[name]), _keys_of(shipped[name]))]
+    chosen = {contention(b) for name, bindings in held.items() if name not in untouched
+              for b in _keys_of(bindings)}
+    away = {_unheld(f"{KEY_PREFIX}{code}") for role in CABINET_AWAY
+            for code in buttons.get(role, ())}
+
+    placed: dict[str, list[str]] = {}
+    for name in untouched:
+        role, replaces = CABINET_ROLES.get(name, ("", ""))
+        sending = (with_hold(f"{KEY_PREFIX}{code}", hold_ms(replaces))
+                   for code in buttons.get(role, ()))
+        placed[name] = [one for one in sending if contention(one) not in chosen]
+    claimed = {contention(one): name for name, found in placed.items() for one in found}
+
+    out: dict[str, list[str]] = {}
+    for name in untouched:
+        _, replaces = CABINET_ROLES.get(name, ("", ""))
+        kept = [] if name in CABINET_NONE else [
+            one for one in _keys_of(shipped[name])
+            if identity(one) != identity(replaces) and _unheld(one) not in away
+            and claimed.get(contention(one), name) == name]
+        keys: list[str] = []
+        for one in [*placed[name], *kept]:
+            if identity(one) not in {identity(k) for k in keys}:
+                keys.append(one)
+        rest = [b for b in held[name] if not str(b).startswith(KEY_PREFIX)]
+        if _same_bindings(keys, _keys_of(held[name])):
+            continue
+        out[name] = [*keys, *rest]
+    return out
 
 
 def unrenderable(bindings: Iterable[str] | None) -> list[str]:

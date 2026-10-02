@@ -42,11 +42,16 @@ class TestConfigStore(unittest.TestCase):
 
             self.assertTrue(config.config.has_section("input"))
             self.assertEqual(config.config.get("input", "previous"),
-                             "key:ArrowLeft,key:ShiftLeft")
+                             "key:ArrowLeft,key:ShiftLeft,"
+                             "pad:standard/button:14,pad:standard/button:6")
             self.assertEqual(config.config.get("input", "page_previous"),
-                             "key:PageUp,key:ArrowUp")
-            self.assertEqual(config.config.get("input", "back"), "key:KeyB")
-            self.assertEqual(config.config.get("input", "exit"), "key:Escape,key:KeyQ")
+                             "key:PageUp,key:ArrowUp,"
+                             "pad:standard/button:12,pad:standard/button:4")
+            self.assertEqual(config.config.get("input", "back"),
+                             "key:Escape,key:KeyB,pad:standard/button:1")
+            self.assertEqual(config.config.get("input", "exit"),
+                             "key:Escape@hold:1500,key:KeyQ,"
+                             "pad:standard/button:1@hold:1500")
             self.assertEqual(config.config.get("input", "tutorial"), "key:KeyT")
 
     def test_adds_mainmenu_hide_quit_button_setting_default(self) -> None:

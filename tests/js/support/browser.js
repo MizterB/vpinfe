@@ -180,6 +180,7 @@ export function makeBrowser({ windowName = "table", search = null, pathname = "/
     _byId: { "overlay-root": element("overlay-root") },
     getElementById(id) { return documentStub._byId[id] || null; },
     createElement() { return element(); },
+    createElementNS() { return element(); },
     // Real enough to see what core put on the page. Core's confirm dialog is not
     // reachable any other way - it is built and removed inside one call - so a stub
     // that threw would leave it untestable.

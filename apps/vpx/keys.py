@@ -46,6 +46,32 @@ def code_of(scancode: int) -> str:
     return _NAMED.get(scancode, "")
 
 
+def entries(ini_path: str) -> dict[str, str]:
+    """Every `Mapping.*` in the file's `[Input]`, by name, with its value as written.
+
+    Nothing for a path that names no file. A file that cannot be read or decoded raises:
+    VPX writes UTF-8, and a settings file saved by another tool may not be.
+    """
+    ini_file = Path((ini_path or "").strip()).expanduser()
+    if not str(ini_path or "").strip() or not ini_file.is_file():
+        return {}
+    found: dict[str, str] = {}
+    in_input_section = False
+    with ini_file.open("r", encoding="utf-8-sig") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith(";"):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                in_input_section = line == "[Input]"
+                continue
+            if not in_input_section or not line.startswith("Mapping."):
+                continue
+            key, _, value = line.partition("=")
+            found[key[len("Mapping."):].strip()] = value.strip()
+    return found
+
+
 def scancodes(ini_path: str) -> dict[str, int]:
     """Every bound `Mapping.*` in the file's `[Input]`, by name. An unbound one is left
     out, and a file holding none says so in the log."""
@@ -61,27 +87,15 @@ def scancodes(ini_path: str) -> dict[str, int]:
                        ini_file)
         return mappings
 
-    in_input_section = False
-    with ini_file.open("r", encoding="utf-8-sig") as f:
-        for raw_line in f:
-            line = raw_line.strip()
-            if not line or line.startswith(";"):
-                continue
-            if line.startswith("[") and line.endswith("]"):
-                in_input_section = line == "[Input]"
-                continue
-            if not in_input_section or not line.startswith("Mapping."):
-                continue
-            key, _, value = line.partition("=")
-            name = key[len("Mapping."):].strip()
-            match = _KEY.search(value.strip())
-            if match:
-                mappings[name] = int(match.group(1))
-            else:
-                # VPX writes "Mapping.LeftFlipper = " with no value until the user binds
-                # that key in its own UI, so an entry existing says nothing about
-                # whether it can send one.
-                unbound.append(name)
+    for name, value in entries(ini_path).items():
+        match = _KEY.search(value)
+        if match:
+            mappings[name] = int(match.group(1))
+        else:
+            # VPX writes "Mapping.LeftFlipper = " with no value until the user binds
+            # that key in its own UI, so an entry existing says nothing about
+            # whether it can send one.
+            unbound.append(name)
 
     if not mappings:
         if unbound:

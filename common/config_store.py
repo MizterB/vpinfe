@@ -201,15 +201,21 @@ class ConfigStore:
         # become entries in its single binding list, so the generic pass below - which
         # moves one value at a time - would have the second overwrite the first.
         if self.config.has_section('Input'):
+            reads: dict[str, list[tuple[str, str]]] = {}
             for action in input_registry.actions():
-                found = []
+                read = []
                 for old in action.legacy:
                     if not self.config.has_option('Input', old):
                         continue
-                    found += input_registry.binding_for_legacy(
-                        old, self.config.get('Input', old))
+                    read.append((old, self.config.get('Input', old)))
                     self.config.remove_option('Input', old)
                     changed = True
+                reads[action.name] = read
+            chosen = {name: input_registry.chosen_in_legacy(read) for name, read in reads.items()}
+            for action in input_registry.actions():
+                taken = [b for name, found in chosen.items() if name != action.name for b in found]
+                read = reads[action.name]
+                found = input_registry.from_legacy(action, read, taken) if read else []
                 if not found:
                     continue
                 # Keyboard first, then pads, and never the same binding twice.

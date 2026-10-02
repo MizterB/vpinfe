@@ -1180,7 +1180,7 @@ The following input actions are passed to your `handleInput` function (controlle
 | `joyup` | Mapped button | `[Input] keyup` (default `ArrowUp`) |
 | `joydown` | Mapped button | `[Input] keydown` (default `ArrowDown`) |
 | `joyselect` | Mapped button | `[Input] keyselect` (default `Enter`) |
-| `joyback` | Mapped button | `[Input] keyback` |
+| `joyback` | Mapped button | `[Input] keyback` (default `Escape,b`) |
 | `joytutorial` | Mapped button | `[Input] keytutorial` when routed to handlers |
 
 The following actions are handled internally by VPinFECore and do **not** reach your handler:
@@ -1190,9 +1190,43 @@ The following actions are handled internally by VPinFECore and do **not** reach 
 | `joymenu` | Mapped button | `[Input] keymenu` (default `m`) | Toggles the main menu overlay |
 | `joycollectionmenu` | Mapped button | `[Input] keycollectionmenu` (default `c`) | Toggles the collection menu overlay |
 | `joytutorial` | Mapped button | `[Input] keytutorial` (default `t`) | Toggles the Pinball Primer tutorial overlay |
-| `joyexit` | Mapped button | `[Input] keyexit` (default `Escape,q`) | Closes the application; while this device is recording a run, asks *Stop recording?* instead |
+| `joyexit` | Mapped button | `[Input] keyexit` (default `q`, and `Escape` held for 1.5 seconds) | Closes the application; while this device is recording a run, asks *Stop recording?* instead. With a menu or the tutorial up it closes that instead |
 | `joypageup` / `joypagedown` | Mapped button | `[Input] keypageup`/`keypagedown` (defaults `PageUp`/`PageDown`) | Pages the game wheel (see below) |
 | `take_picture` | Mapped button | `[input] take_picture` (unbound) | While a table runs: pauses it, and a second press takes a picture of every screen |
+
+#### Taps and holds
+
+A key or a button can carry a hold, written `key:Escape@hold:1500`: kept down for that many
+milliseconds it does the hold's action, and let go sooner it does its ordinary one. An input
+has one of each, so one that has a hold says nothing until it comes back up or the hold is
+reached. Out of the box `Escape` is `joyback` when tapped and `joyexit` when held for 1.5
+seconds, and a controller's East button does the same.
+
+On a contract 2 theme with core navigation on, a tap of `back` with nothing to go back from
+does nothing, and your handler is not called for it. Leaving is the hold, `q` and the menu's
+Quit.
+
+Controller defaults are written against the standard layout, as `pad:standard/button:<n>`,
+and apply only to a controller the browser reports as `mapping: "standard"`. A binding
+written `pad:<index>/button:<n>` applies to any pad, which is what a cabinet's encoder is.
+
+#### The hold ring
+
+While a held input is kept down core draws a ring in the middle of the window that fills over
+the hold's length, so the player can see how long is left. It appears after a quarter of a
+second, so a tap never flashes it. It is a `div.vpinfe-hold` holding an SVG, added to
+`<body>` and removed when the input is let go or the hold is reached:
+
+```css
+/* The element, to restyle it. Core sets --vpinfe-hold-ms to the hold's length. */
+.vpinfe-hold { width: 10vmin; height: 10vmin; }
+.vpinfe-hold-track { stroke: #333; }
+.vpinfe-hold-fill  { stroke: #f2a900; animation-duration: var(--vpinfe-hold-ms); }
+```
+
+A theme that draws its own sets `hold_ring.enabled` to `false` in its `config.json` and reads
+`vpin.enabled("core_hold_ring")` to know which it has. The hold itself still works with the
+ring off; only the drawing goes.
 
 #### Wheel Paging
 

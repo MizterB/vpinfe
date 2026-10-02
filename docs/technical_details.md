@@ -275,16 +275,16 @@ Owned by the VPinPlay extension. Declared here so a 2.x file converts, read once
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `previous` | list | `key:ArrowLeft,key:ShiftLeft` | Previous |
-| `next` | list | `key:ArrowRight,key:ShiftRight` | Next |
-| `page_previous` | list | `key:PageUp,key:ArrowUp` | Page Previous |
-| `page_next` | list | `key:PageDown,key:ArrowDown` | Page Next |
-| `select` | list | `key:Enter` | Select |
-| `back` | list | `key:KeyB` | Back |
-| `menu` | list | `key:KeyM` | Menu |
-| `collection_menu` | list | `key:KeyC` | Collection Menu |
+| `previous` | list | `key:ArrowLeft,key:ShiftLeft,pad:standard/button:14,pad:standard/button:6` | Previous |
+| `next` | list | `key:ArrowRight,key:ShiftRight,pad:standard/button:15,pad:standard/button:7` | Next |
+| `page_previous` | list | `key:PageUp,key:ArrowUp,pad:standard/button:12,pad:standard/button:4` | Page Previous |
+| `page_next` | list | `key:PageDown,key:ArrowDown,pad:standard/button:13,pad:standard/button:5` | Page Next |
+| `select` | list | `key:Enter,pad:standard/button:0` | Select |
+| `back` | list | `key:Escape,key:KeyB,pad:standard/button:1` | Back |
+| `menu` | list | `key:KeyM,pad:standard/button:9` | Menu |
+| `collection_menu` | list | `key:KeyC,pad:standard/button:8` | Collection Menu |
 | `tutorial` | list | `key:KeyT` | Tutorial |
-| `exit` | list | `key:Escape,key:KeyQ` | Exit |
+| `exit` | list | `key:Escape@hold:1500,key:KeyQ,pad:standard/button:1@hold:1500` | Quit |
 | `take_picture` | list |  | Pauses the game. Press again to take a picture of the screens; Back resumes. |
 
 ## Game Metadata File (based on the Zero install table format)

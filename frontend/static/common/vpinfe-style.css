@@ -283,6 +283,63 @@ html[data-vpinfe-waiting]::after {
 }
 
 /* ---------------------------------------------------------------------------
+   The ring that counts a hold.
+
+   Core's, on every theme, while a key or button that has a hold is kept down. Centered
+   because a circle reads the same whichever way the surface is turned. It starts
+   invisible, so a tap never flashes it, and the fill runs for exactly the hold's length
+   (core sets --vpinfe-hold-ms on the element). A theme restyles .vpinfe-hold, or turns
+   it off with hold_ring.enabled and draws its own.
+   --------------------------------------------------------------------------- */
+
+.vpinfe-hold {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: clamp(4rem, 14vmin, 9rem);
+  height: clamp(4rem, 14vmin, 9rem);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2147483646;      /* over any overlay, under a confirm */
+  opacity: 0;
+  animation: vpinfe-hold-appear 120ms ease-out 250ms forwards;
+}
+
+.vpinfe-hold svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.vpinfe-hold-track,
+.vpinfe-hold-fill {
+  fill: rgba(20, 20, 24, 0.88);
+  stroke-width: 4;
+}
+
+.vpinfe-hold-track {
+  stroke: rgba(255, 255, 255, 0.25);
+}
+
+.vpinfe-hold-fill {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: vpinfe-hold-fill var(--vpinfe-hold-ms, 1500ms) linear forwards;
+}
+
+@keyframes vpinfe-hold-appear {
+  to { opacity: 1; }
+}
+
+@keyframes vpinfe-hold-fill {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ---------------------------------------------------------------------------
    A recording shown for a decision, on the screen it belongs to.
 
    The window whose screen it is plays it over everything the theme drew; the

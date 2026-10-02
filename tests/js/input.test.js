@@ -69,40 +69,80 @@ function controller() {
     return calls().some(m => m === "close_app" || m === "lifecycle_request"
                              || m === "lifecycle_needs_confirmation");
   };
-  return { vpin, press, release, blur, calls, quits };
+  return { vpin, browser, press, release, blur, calls, quits };
 }
 
+// The hold Quit asks for is 1500ms, which a test should not wait for. Shortened on the
+// instance, so the one test that pins the shipped length still reads the real one.
+const HOLD_MS = 20;
+const quickHold = (vpin) => { vpin.keyHoldMap = { exit: [{ token: "escape", ms: HOLD_MS }] }; };
+const heldFor = (ms = HOLD_MS) => new Promise(resolve => setTimeout(resolve, ms + 25));
+
 describe("exit never quits VPinFE from inside an overlay", () => {
-  // Escape and q are both bound to exit by default, and an overlay's own Escape
-  // handler never runs because nothing focuses the iframe - so this used to be a
-  // one-key exit from any menu.
+  // Quit is a held Escape and q, and an overlay's own Escape handler never runs because
+  // nothing focuses the iframe - so a one-key exit from any menu is what this prevents.
   // Driven through vpin.overlay, the state itself. Setting it is not the same as opening
   // the overlay for real - the tutorial refuses to open without a url - and what is under
   // test is which branch the keypress takes, not the hosting.
   for (const [name, overlay] of [["main menu", "menu"],
                                  ["collection menu", "collectionMenu"],
                                  ["tutorial", "tutorial"]]) {
-    for (const key of ["Escape", "q"]) {
-      test(`${key} with the ${name} up closes it instead of the app`, async () => {
-        const { vpin, press, quits } = controller();
-        vpin.overlay = overlay;
+    test(`a held Escape with the ${name} up closes it instead of the app`, async () => {
+      const { vpin, press, quits } = controller();
+      quickHold(vpin);
+      vpin.overlay = overlay;
 
-        await press(key);
+      await press("Escape");
+      await heldFor();
 
-        assert.equal(await quits(), false,
-          "quitting must not be reachable while an overlay is up");
-        assert.equal(vpin.overlay, null, "the overlay should have closed");
-      });
-    }
+      assert.equal(await quits(), false,
+        "quitting must not be reachable while an overlay is up");
+      assert.equal(vpin.overlay, null, "the overlay should have closed");
+    });
+
+    test(`q with the ${name} up closes it instead of the app`, async () => {
+      const { vpin, press, quits } = controller();
+      vpin.overlay = overlay;
+
+      await press("q");
+
+      assert.equal(await quits(), false,
+        "quitting must not be reachable while an overlay is up");
+      assert.equal(vpin.overlay, null, "the overlay should have closed");
+    });
+
+    test(`a tap of Escape with the ${name} up is back, for the overlay to answer`, async () => {
+      const { vpin, press, release, quits } = controller();
+      vpin.overlay = overlay;
+      const heard = [];
+      vpin.overlayHandlers[overlay] = [(action) => { heard.push(action); }];
+
+      await press("Escape");
+      assert.deepEqual(heard, [], "a key with a hold says nothing until it is let go");
+      await release("Escape");
+
+      assert.deepEqual(heard, ["back"]);
+      assert.equal(await quits(), false);
+    });
   }
 
   test("exit still quits when no overlay is up", async () => {
     const { press, quits } = controller();
 
-    await press("Escape");
+    await press("q");
 
     assert.equal(await quits(), true,
       "exit has to keep working where it was always meant to");
+  });
+
+  test("a held Escape quits when no overlay is up", async () => {
+    const { vpin, press, quits } = controller();
+    quickHold(vpin);
+
+    await press("Escape");
+    await heldFor();
+
+    assert.equal(await quits(), true);
   });
 });
 
@@ -231,9 +271,17 @@ describe("defaults agree across the boundary", () => {
   test("back is bound in the JavaScript fallback too", () => {
     const { vpin } = controller();
 
-    assert.deepEqual([...vpin.keyActionMap.back], ["keyb"],
-      "Python ships KeyB for back; an empty fallback meant back did nothing until the "
-      + "bridge answered");
+    assert.deepEqual([...vpin.keyActionMap.back], ["escape", "keyb"],
+      "Python ships Escape and KeyB for back; an empty fallback meant back did nothing "
+      + "until the bridge answered");
+  });
+
+  test("quit is a held Escape in the JavaScript fallback too", () => {
+    const { vpin } = controller();
+
+    assert.deepEqual([...vpin.keyActionMap.exit], ["keyq"]);
+    assert.deepEqual(vpin.keyHoldMap, { exit: [{ token: "escape", ms: 1500 }] },
+      "a tap of Escape must be back before the bridge answers, not a one-key exit");
   });
 });
 
@@ -417,12 +465,12 @@ describe("a paging action moves the way its name says", () => {
 
 // A controller with core navigation left on, which is its default.
 function navigating(count = 3) {
-  const { vpin, press, calls } = controller();
+  const { vpin, browser, press, release, calls } = controller();
   vpin._capabilities.core_navigation = true;
   vpin.tableData = Array.from({ length: count }, (_, i) => ({ tableDirName: `G${i}` }));
   const moves = [];
   vpin.sendMessageToAllWindowsIncSelf = (m) => moves.push(m);
-  return { vpin, press, calls, moves };
+  return { vpin, browser, press, release, calls, moves };
 }
 
 describe("core moves the selection so a theme does not have to", () => {
@@ -581,22 +629,65 @@ describe("stepping and paging are one capability at contract 2", () => {
 });
 
 
-describe("back at the root leaves", () => {
-  const atRoot = (contract) => {
-    const { vpin, press, calls } = navigating();
+describe("a tap of back at the root does nothing", () => {
+  // Leaving is exit's - a held Escape or East, q, the menu's Quit - so back at the root
+  // is swallowed whichever way Confirm Before Exit is set.
+  const atRoot = (contract, { confirm = false } = {}) => {
+    const { vpin, browser, press, release } = navigating();
     vpin.contract = contract;
+    // Recorded and then let through, so a request that did go out would reach the
+    // confirm dialog when the setting is on rather than stop at a stub.
     const asked = [];
-    vpin.requestLifecycle = (scope, action) => { asked.push([scope, action]); };
-    return { vpin, press, calls, asked };
+    const request = vpin.requestLifecycle.bind(vpin);
+    vpin.requestLifecycle = (scope, action, ...rest) => {
+      asked.push([scope, action]);
+      return request(scope, action, ...rest);
+    };
+    // The bridge as lifecycle.test.js has it.
+    const sent = [];
+    vpin.call = async (method, ...args) => {
+      sent.push(method);
+      if (method === "lifecycle_needs_confirmation") {
+        return { confirm, description: "Quit VPinFE" };
+      }
+      return true;
+    };
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+    const dialog = () =>
+      browser.document.body.children.find(el => el.className === "vpinfe-confirm");
+    return { vpin, press, release, asked, sent, settle, dialog };
   };
 
-  test("a contract 2 theme quits through the lifecycle path", async () => {
+  for (const confirm of [false, true]) {
+    const setting = confirm ? "on" : "off";
+
+    test(`a contract 2 theme asks for nothing with the confirm ${setting}`, async () => {
+      const { vpin, press, release, asked, sent, settle, dialog } = atRoot(2, { confirm });
+      const seen = [];
+      vpin.inputHandlers.push((a) => seen.push(a));
+
+      await press("b");
+      await release("b");
+      // Escape waits for its release to say whether it was a tap, so a press alone
+      // would leave this looking at a key that is still down.
+      await press("Escape");
+      await release("Escape");
+      await settle();
+
+      assert.deepEqual(asked, [], "no lifecycle request");
+      assert.deepEqual(sent, [], "and nothing sent to the bridge for one");
+      assert.equal(dialog(), undefined, "no confirm dialog is put up either");
+      assert.deepEqual(seen, [], "the theme is not handed a back that core declined");
+    });
+  }
+
+  test("q still quits from the same place", async () => {
     const { press, asked } = atRoot(2);
 
-    await press("b");
+    await press("q");
 
     assert.deepEqual(asked, [["vpinfe", "stop"]],
-                     "through requestLifecycle, so Confirm Before Exit is honoured");
+                     "the tap that does nothing is back's, not every key's");
   });
 
   test("a contract 1 theme keeps its own back", async () => {
@@ -610,25 +701,20 @@ describe("back at the root leaves", () => {
     assert.deepEqual(seen, ["joyback"], "it reaches the theme under its own name");
   });
 
-  // A field means back for dismiss. Quitting because someone backed out of one is not
-  // a near miss - this is the case that broke when the branch was first written.
-  test("typing is not leaving", async () => {
-    const { vpin, press, asked } = atRoot(2);
-    vpin.pushInputMode("text");
+  // A field and a dialog both mean back for dismiss, so the theme hears it there.
+  for (const mode of ["text", "modal"]) {
+    test(`${mode === "text" ? "typing" : "a dialog"} still hears back`, async () => {
+      const { vpin, press, asked } = atRoot(2);
+      const seen = [];
+      vpin.inputHandlers.push((a) => seen.push(a));
+      vpin.pushInputMode(mode);
 
-    await press("b");
+      await press("b");
 
-    assert.deepEqual(asked, []);
-  });
-
-  test("a dialog is not leaving either", async () => {
-    const { vpin, press, asked } = atRoot(2);
-    vpin.pushInputMode("modal");
-
-    await press("b");
-
-    assert.deepEqual(asked, []);
-  });
+      assert.deepEqual(asked, []);
+      assert.deepEqual(seen, ["back"]);
+    });
+  }
 
   test("inside a list back comes out of the list, not the app", async () => {
     const { vpin, press, asked } = atRoot(2);
@@ -638,6 +724,52 @@ describe("back at the root leaves", () => {
 
     assert.deepEqual(asked, [], "there was somewhere to go back to");
     assert.equal(vpin.atRoot, true);
+  });
+});
+
+describe("an overlay over a list answers select and back itself", () => {
+  // Core owns both while it holds a descended list, so without the overlay check a Back
+  // meant to close the menu popped the list under it, and Select chose a row behind it.
+  const over = () => {
+    const { vpin, press } = navigating();
+    vpin.contract = 2;
+    vpin.pushList(vpin.createList([{ name: "Favorites" }], { kind: "collection" }));
+    vpin.overlay = "menu";
+    const heard = [];
+    vpin.overlayHandlers.menu = [(action) => { heard.push(action); }];
+    const chose = [];
+    vpin.selectCurrent = () => { chose.push("row"); };
+    return { vpin, press, heard, chose };
+  };
+
+  test("back reaches the overlay and leaves the list where it is", async () => {
+    const { vpin, press, heard } = over();
+
+    await press("b");
+
+    assert.deepEqual(heard, ["back"]);
+    assert.equal(vpin.atRoot, false, "the list under the overlay is not popped");
+  });
+
+  test("select reaches the overlay and chooses nothing behind it", async () => {
+    const { press, heard, chose } = over();
+
+    await press("Enter");
+
+    assert.deepEqual(heard, ["select"]);
+    assert.deepEqual(chose, []);
+  });
+
+  test("with no overlay the same keys are the list's", async () => {
+    const { vpin, press, heard, chose } = over();
+    vpin.overlay = null;
+
+    await press("Enter");
+    await press("b");
+
+    assert.deepEqual(heard, []);
+    assert.deepEqual(chose, ["row"]);
+    assert.equal(vpin.atRoot, true, "back came out of the list");
   });
 });
 
@@ -704,7 +836,10 @@ async function chorded(bindings) {
   // objects built against a different prototype.
   const maps = context.buildBindingMaps(bindings);
   vpin.keyActionMap = maps.keys;
+  vpin.keyHoldMap = maps.keyHolds;
   vpin.joyButtonMap = maps.buttons;
+  vpin.standardButtonMap = maps.standard;
+  vpin.joyHoldMap = maps.buttonHolds;
   vpin.chordBindings = maps.chords;
   vpin.chordMembers = maps.members;
 
@@ -719,7 +854,8 @@ async function chorded(bindings) {
   };
   stillHeld.push(() => (listeners.blur || []).forEach(fn => fn()));
   return {
-    vpin, seen,
+    vpin, seen, browser,
+    blur: () => (listeners.blur || []).forEach(fn => fn()),
     down: (code, repeat = false) => fire("keydown", codeFor(code), repeat),
     up: (code) => fire("keyup", codeFor(code)),
   };
@@ -955,43 +1091,51 @@ describe("an action produced outside the browser", () => {
 });
 
 
+// Booted through the socket, because the poll is started by the bridge-ready sequence
+// and not by init(). Faking the loop instead would test the test.
+async function padded({ mapping = "", bindings = null } = {}) {
+  const { VPinFECore, browser, context } = loadCore({ windowName: "table" });
+  const listeners = {};
+  browser.window.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
+  const buttons = [{ pressed: false }, { pressed: false }];
+  browser.navigator.getGamepads = () => [{ index: 0, mapping, buttons }];
+  const vpin = new VPinFECore();
+  vpin.isController = () => true;
+  // Only the shapes the boot would otherwise throw on. The rest of the sequence
+  // tolerates an empty answer on purpose.
+  const answers = { get_tables: "[]", get_theme_assets_port: 8000,
+                    get_initial_table_index: 0, get_theme_config: {},
+                    get_keymapping: {}, get_joymaping: {}, get_mainmenu_config: {},
+                    get_monitors: [], get_collections: [] };
+  vpin.call = (method) => Promise.resolve(
+    method in answers ? answers[method] : null);
+  vpin.init();
+  await browser.WebSocket.instances.at(-1).onopen();
+  vpin.frontendInputEnabled = true;
+  vpin.contract = 2;
+  vpin._capabilities && (vpin._capabilities.core_navigation = false);
+  vpin.joyButtonMap = { "0": ["previous"], "1": ["select"] };
+  if (bindings) {
+    const maps = context.buildBindingMaps(bindings);
+    vpin.joyButtonMap = maps.buttons;
+    vpin.standardButtonMap = maps.standard;
+    vpin.joyHoldMap = maps.buttonHolds;
+  }
+  const asked = [];
+  vpin.requestLifecycle = (scope, action) => { asked.push([scope, action]); };
+  stillHeld.push(() => (listeners.blur || []).forEach(fn => fn()));
+  const seen = [];
+  vpin.inputHandlers.push((action) => { seen.push(action); });
+  // The poll re-arms itself every frame, so the harness holds the callback and a test
+  // steps it - which is the only way to produce a press edge and then a release edge.
+  const poll = () => browser.frames.step();
+  return { vpin, browser, seen, asked, buttons, poll };
+}
+
 // A cabinet flipper held down did nothing at all: only the press edge counted, and the
 // keyboard's repeat came from the OS, which a gamepad has no equivalent of. This is the
 // half of the hold engine that fixes the cabinet rather than the phone.
 describe("a held gamepad button", () => {
-  // Booted through the socket, because the poll is started by the bridge-ready sequence
-  // and not by init(). Faking the loop instead would test the test.
-  async function padded() {
-    const { VPinFECore, browser } = loadCore({ windowName: "table" });
-    const listeners = {};
-    browser.window.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
-    const buttons = [{ pressed: false }, { pressed: false }];
-    browser.navigator.getGamepads = () => [{ index: 0, buttons }];
-    const vpin = new VPinFECore();
-    vpin.isController = () => true;
-    // Only the shapes the boot would otherwise throw on. The rest of the sequence
-    // tolerates an empty answer on purpose.
-    const answers = { get_tables: "[]", get_theme_assets_port: 8000,
-                      get_initial_table_index: 0, get_theme_config: {},
-                      get_keymapping: {}, get_joymaping: {}, get_mainmenu_config: {},
-                      get_monitors: [], get_collections: [] };
-    vpin.call = (method) => Promise.resolve(
-      method in answers ? answers[method] : null);
-    vpin.init();
-    await browser.WebSocket.instances.at(-1).onopen();
-    vpin.frontendInputEnabled = true;
-    vpin.contract = 2;
-    vpin._capabilities && (vpin._capabilities.core_navigation = false);
-    vpin.joyButtonMap = { "0": ["previous"], "1": ["select"] };
-    stillHeld.push(() => (listeners.blur || []).forEach(fn => fn()));
-    const seen = [];
-    vpin.inputHandlers.push((action) => { seen.push(action); });
-    // The poll re-arms itself every frame, so the harness holds the callback and a test
-    // steps it - which is the only way to produce a press edge and then a release edge.
-    const poll = () => browser.frames.step();
-    return { vpin, seen, buttons, poll };
-  }
-
   test("it repeats while it is down", async () => {
     const { vpin, seen, buttons, poll } = await padded();
     quickly(vpin);
@@ -1028,5 +1172,247 @@ describe("a held gamepad button", () => {
     await ticks();
 
     assert.deepEqual(seen, ["select"]);
+  });
+});
+
+// One press and one hold per input, at any length. Escape is Back on a tap and Quit held,
+// so a tap must never reach the hold's action.
+describe("a key with a hold waits to be let go", () => {
+  const BINDINGS = {
+    back: ["key:Escape"],
+    exit: [`key:Escape@hold:${HOLD_MS}`],
+  };
+  const holding = async (bindings = BINDINGS) => {
+    const made = await chorded(bindings);
+    const asked = [];
+    made.vpin.requestLifecycle = (scope, action) => { asked.push([scope, action]); };
+    return { ...made, asked };
+  };
+
+  test("let go early it is the press, and only the press", async () => {
+    const { seen, asked, down, up } = await holding();
+
+    await down("Escape");
+    assert.deepEqual([...seen], [], "nothing fires on the way down");
+    await up("Escape");
+    await heldFor();
+
+    assert.deepEqual([...seen], ["back"]);
+    assert.deepEqual(asked, []);
+  });
+
+  test("kept down for the hold's length it is the hold, and only the hold", async () => {
+    const { seen, asked, down, up } = await holding();
+
+    await down("Escape");
+    await heldFor();
+    await up("Escape");
+
+    assert.deepEqual(asked, [["vpinfe", "stop"]], "the hold is Quit");
+    assert.deepEqual([...seen], [], "the press must not also fire when it is let go");
+  });
+
+  test("the operating system's repeat neither restarts it nor fires it twice", async () => {
+    const { asked, down, up } = await holding();
+
+    await down("Escape");
+    await down("Escape", true);
+    await down("Escape", true);
+    await heldFor();
+    await up("Escape");
+
+    assert.equal(asked.length, 1);
+  });
+
+  test("one hold per key, whatever its length", async () => {
+    const { vpin, asked, down, up } = await holding({
+      exit: [`key:Escape@hold:${HOLD_MS}`],
+      menu: [`key:Escape@hold:${HOLD_MS * 3}`],
+    });
+
+    await down("Escape");
+    await heldFor(HOLD_MS * 3);
+    await up("Escape");
+
+    assert.deepEqual(asked, [["vpinfe", "stop"]],
+      "the first declared owns the key; the longer one is never heard");
+    assert.equal(vpin.overlay, null);
+  });
+
+  test("an unbound key is still left alone", async () => {
+    const { seen, down, up } = await holding();
+
+    const event = await down("F9");
+    await up("F9");
+
+    assert.equal(event.prevented, false);
+    assert.deepEqual([...seen], []);
+  });
+
+  test("losing focus drops it without firing either", async () => {
+    const { seen, asked, down, blur } = await holding();
+
+    await down("Escape");
+    blur();
+    await heldFor();
+
+    assert.deepEqual([...seen], []);
+    assert.deepEqual(asked, [], "a release nobody saw is neither the press nor the hold");
+  });
+
+  test("the ring shows while it counts and goes when it is over", async () => {
+    const { browser, down, up } = await holding();
+    const ring = () => browser.document.body.children.filter(
+      one => one.className === "vpinfe-hold");
+
+    await down("Escape");
+    assert.equal(ring().length, 1);
+    assert.match(ring()[0].attributes.style, new RegExp(`--vpinfe-hold-ms: ${HOLD_MS}ms`));
+    assert.deepEqual(ring()[0].children[0].children.map(one => one.attributes.class),
+      ["vpinfe-hold-track", "vpinfe-hold-fill"], "a theme restyles these two");
+    await up("Escape");
+
+    assert.equal(ring().length, 0, "let go early, the ring goes without firing");
+  });
+
+  test("the ring is gone once the hold is reached", async () => {
+    const { browser, down, up } = await holding();
+
+    await down("Escape");
+    await heldFor();
+
+    assert.equal(browser.document.body.children.length, 0);
+    await up("Escape");
+  });
+
+  test("a theme that draws its own ring turns core's off, and the hold still works", async () => {
+    const { vpin, browser, asked, down, up } = await holding();
+    vpin._capabilities.core_hold_ring = false;
+
+    await down("Escape");
+    assert.equal(browser.document.body.children.length, 0);
+    await heldFor();
+    await up("Escape");
+
+    assert.equal(asked.length, 1);
+  });
+});
+
+// The controller defaults are written against the standard layout, and a cabinet's encoder
+// numbers its buttons by wiring. A standard binding fires only for a standard pad, or the
+// controller's South is whatever the encoder calls button 0.
+describe("a standard binding is for a pad that reports the standard layout", () => {
+  const DEFAULTS = {
+    select: ["pad:standard/button:0"],
+    back: ["pad:standard/button:1"],
+    exit: [`pad:standard/button:1@hold:${HOLD_MS}`],
+    next: ["pad:standard/button:15"],
+  };
+
+  test("South selects on a standard pad", async () => {
+    const { buttons, seen, poll } = await padded({ mapping: "standard", bindings: DEFAULTS });
+
+    buttons[0].pressed = true;
+    poll();
+    await ticks();
+
+    assert.deepEqual(seen, ["select"]);
+  });
+
+  test("the same button on a pad that does not say it is standard does nothing", async () => {
+    const { buttons, seen, asked, poll } = await padded({ mapping: "", bindings: DEFAULTS });
+
+    buttons[0].pressed = true;
+    buttons[1].pressed = true;
+    poll();
+    await ticks();
+
+    assert.deepEqual(seen, []);
+    assert.deepEqual(asked, []);
+  });
+
+  test("a numbered binding still fires on any pad", async () => {
+    const { buttons, seen, poll } = await padded({
+      mapping: "", bindings: { select: ["pad:0/button:0"] } });
+
+    buttons[0].pressed = true;
+    poll();
+    await ticks();
+
+    assert.deepEqual(seen, ["select"]);
+  });
+
+  test("East tapped is Back, and held is Quit", async () => {
+    const tapped = await padded({ mapping: "standard", bindings: DEFAULTS });
+    tapped.buttons[1].pressed = true;
+    tapped.poll();
+    assert.deepEqual(tapped.seen, [], "nothing fires on the way down");
+    tapped.buttons[1].pressed = false;
+    tapped.poll();
+    await ticks();
+    assert.deepEqual(tapped.seen, ["back"]);
+    assert.deepEqual(tapped.asked, []);
+
+    const held = await padded({ mapping: "standard", bindings: DEFAULTS });
+    held.buttons[1].pressed = true;
+    held.poll();
+    await heldFor();
+    held.buttons[1].pressed = false;
+    held.poll();
+    await ticks();
+    assert.deepEqual(held.asked, [["vpinfe", "stop"]]);
+    assert.deepEqual(held.seen, [], "letting go after the hold is not also a Back");
+  });
+
+  test("a held East on a pad that is not standard is not Quit", async () => {
+    const { buttons, asked, poll } = await padded({ mapping: "", bindings: DEFAULTS });
+
+    buttons[1].pressed = true;
+    poll();
+    await heldFor();
+
+    assert.deepEqual(asked, []);
+  });
+
+  test("the hold shows the ring on a pad too", async () => {
+    const { browser, buttons, poll } = await padded({ mapping: "standard", bindings: DEFAULTS });
+
+    buttons[1].pressed = true;
+    poll();
+    const rings = () => browser.document.body.children.filter(
+      one => one.className === "vpinfe-hold").length;
+    assert.equal(rings(), 1);
+    buttons[1].pressed = false;
+    poll();
+
+    assert.equal(rings(), 0);
+  });
+});
+
+describe("a binding reads as a standard button, a hold, or neither", () => {
+  const { buildBindingMaps } = loadCore({ windowName: "table" }).context;
+
+  test("pad:standard is kept apart from a numbered pad", () => {
+    const maps = buildBindingMaps({ select: ["pad:standard/button:0", "pad:2/button:3"] });
+
+    assert.deepEqual([...maps.standard["0"]], ["select"]);
+    assert.deepEqual([...maps.buttons["3"]], ["select"]);
+    assert.equal(maps.buttons["0"], undefined);
+  });
+
+  test("a hold comes off the end and is not a plain press", () => {
+    const maps = buildBindingMaps({
+      exit: ["key:Escape@hold:1500", "key:KeyQ", "pad:standard/button:1@hold:1500"] });
+
+    assert.deepEqual(maps.keys.exit, ["keyq"]);
+    assert.deepEqual(maps.keyHolds.exit, [{ token: "escape", ms: 1500 }]);
+    assert.deepEqual(maps.buttonHolds["1"], [{ action: "exit", ms: 1500, standard: true }]);
+  });
+
+  test("a hold of nothing is no hold", () => {
+    const maps = buildBindingMaps({ exit: ["key:Escape@hold:0"] });
+
+    assert.deepEqual(maps.keyHolds, {});
+    assert.deepEqual(maps.keys, {});
   });
 });
