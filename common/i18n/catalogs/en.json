@@ -1593,7 +1593,7 @@
   "console.purpose.community": "What {name} lists, and which of them you have",
   "console.purpose.devices": "The devices on your network, and what each can do",
   "console.purpose.extensions": "Code that adds to VPinFE without being part of it",
-  "console.purpose.games": "Every game your library holds, and what each one has",
+  "console.purpose.games": "One row per game, however many table files you have of it",
   "console.purpose.launchers": "The programs that play your tables",
   "console.purpose.locations": "The folders your library is read from, and which one wins",
   "console.purpose.logs": "What VPinFE has been doing, as it happened",
@@ -1602,7 +1602,7 @@
   "console.purpose.overview": "Where this device stands, at a glance",
   "console.purpose.players": "The next game counts for whoever is up. A score goes to the player whose initials it has.",
   "console.purpose.settings": "How VPinFE behaves on this device, grouped by what it affects",
-  "console.purpose.tables": "One row per table file, so two tables of a game can be told apart",
+  "console.purpose.tables": "One row per table file, so a game with two tables has two rows",
   "console.purpose.tags": "Your own words for grouping games, and what carries them",
   "console.purpose.themes": "How the frontend looks, and which themes are installed",
   "console.record.about_minutes": {
