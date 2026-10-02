@@ -916,6 +916,7 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
         **({"localeText": grid_locale} if (grid_locale := i18n.under("grid")) else {}),
         "suppressDragLeaveHidesColumns": True,
         "animateRows": False,
+        "suppressColumnMoveAnimation": True,
         # False deliberately: preventing the default stops the event reaching Quasar,
         # and ui.context_menu never opens.
         "preventDefaultOnContextMenu": False,

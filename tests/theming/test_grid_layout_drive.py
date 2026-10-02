@@ -1,6 +1,7 @@
 """What a grid writes to `ui-preferences.json`, in a real browser: nothing on a load,
 a view switch or a column turned on, and the person's own layout when they change it.
-And how wide the name is drawn with art beside it, at a wide window and a narrow one.
+And how wide the name is drawn with art beside it, at a wide window and a narrow one,
+and that a column changing place is never drawn over another on the way.
 
 Slow: boots a real instance and a real browser.
 """
@@ -59,6 +60,29 @@ PICK = ("(() => { const i = [...document.querySelectorAll(%s)]"
 PICKER = "document.querySelector('.console-view-picker').innerText"
 RESIZED_FLAG = ("(() => { window.__resized = false; " + API + ".addEventListener("
                 "'gridSizeChanged', () => { window.__resized = true; }); })()")
+# Unpins every column pinned left, as the grid does itself when it has no room for them,
+# and watches the frames after it for two header cells drawn over each other. Each cell
+# is clipped to the part of the header it shows through.
+UNPINNED = ("(async () => { const api = " + API + ";"
+            " const pinned = api.getColumnState().filter(s => s.pinned === 'left')"
+            ".map(s => s.colId);"
+            " const crossed = []; let frames = 0;"
+            " const drawn = () => [...document.querySelectorAll('.ag-header-cell')]"
+            ".map(el => { const box = el.getBoundingClientRect();"
+            " const seen = el.closest('.ag-pinned-left-header, .ag-pinned-right-header,"
+            " .ag-header-viewport').getBoundingClientRect();"
+            " return {id: el.getAttribute('col-id'), left: Math.max(box.left, seen.left),"
+            " right: Math.min(box.right, seen.right)}; })"
+            ".filter(one => one.right - one.left > 1).sort((a, b) => a.left - b.left);"
+            " const until = performance.now() + 600;"
+            " const watched = new Promise(done => { const look = () => { frames += 1;"
+            " const shown = drawn();"
+            " shown.slice(1).forEach((one, i) => { if (one.left < shown[i].right - 1)"
+            " crossed.push(`${shown[i].id} under ${one.id}`); });"
+            " if (performance.now() < until) requestAnimationFrame(look); else done(); };"
+            " requestAnimationFrame(look); });"
+            " api.setColumnsPinned(pinned, null); await watched;"
+            " return {pinned, frames, crossed}; })()")
 
 
 class GridLayoutDrive(unittest.TestCase):
@@ -216,6 +240,7 @@ class GridLayoutDrive(unittest.TestCase):
             seen["resized_widened"] = await browser.evaluate(NAME_DRAWN)
             seen["reloaded"] = await unchanged_by(lambda: load(BY_LINK))
             seen["resized_reloaded"] = await browser.evaluate(NAME_DRAWN)
+            seen["unpinned"] = await browser.evaluate(UNPINNED)
         return seen
 
     def _layout(self, held: dict, scope: str = "console.collections::") -> dict:
@@ -278,6 +303,12 @@ class GridLayoutDrive(unittest.TestCase):
         self.assertEqual(self.seen["resized_widened"]["width"], dragged)
         self.assertEqual(self.seen["resized_reloaded"]["width"], dragged)
         self.assertTrue(self.seen["reloaded"])
+
+    def test_a_column_changing_place_is_never_drawn_over_another(self) -> None:
+        unpinned = self.seen["unpinned"]
+        self.assertIn("name", unpinned["pinned"])
+        self.assertGreater(unpinned["frames"], 5)
+        self.assertEqual([], unpinned["crossed"])
 
 
 def _declared(owner, art: bool) -> int:
