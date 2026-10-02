@@ -16,6 +16,7 @@ import threading
 
 from nicegui import app, context, ui
 
+from common import serving
 from common.failures import why
 from common.online.app_updater import (
     check_now,
@@ -470,6 +471,7 @@ def _run_ui():
 
 def start_manager_ui(port=8001, bind="0.0.0.0"):
     global _ui_thread, _ui_port, _ui_bind
+    serving.bound("http_port", port)
     _ui_port = port
     _ui_bind = bind
     if _ui_thread and _ui_thread.is_alive():

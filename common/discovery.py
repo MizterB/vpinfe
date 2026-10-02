@@ -30,8 +30,7 @@ from typing import Any
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
-from common import install_identity
-from common.config_access import NetworkConfig
+from common import install_identity, serving
 from common.config_store import ConfigStore
 from common.vpinfe_version import get_version
 
@@ -105,7 +104,7 @@ class _Discovery:
         # Both callers hold the lock and have already established this: `start` has just
         # constructed it, and `refresh` returns early without one.
         assert self._zeroconf is not None
-        port = NetworkConfig.from_config(config).http_port
+        port = serving.network(config).http_port
         address = _routable_address()
         # Keyed on the install id, which is the one name guaranteed not to collide with
         # another machine's. What a person reads is in the record, not in the key.

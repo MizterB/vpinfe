@@ -10,8 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from common import device_registry, discovery, install_identity
-from common.config_access import NetworkConfig
+from common import device_registry, discovery, install_identity, serving
 from common.device_registry import get_device_registry
 from common.discovery import Peer
 from common.paths import get_ini_config
@@ -109,7 +108,7 @@ def service_ports() -> dict:
     """
     try:
         return {"files": {
-            "port": NetworkConfig.from_config(get_ini_config()).theme_assets_port}}
+            "port": serving.network(get_ini_config()).theme_assets_port}}
     except Exception as exc:
         logger.warning("Could not read this install's service ports: %s", exc)
         return {}

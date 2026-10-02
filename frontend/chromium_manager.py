@@ -25,7 +25,7 @@ from shutil import which
 from typing import Any, NamedTuple
 from urllib.parse import quote, urlparse
 
-from common import i18n
+from common import i18n, serving
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig, cfg_get
 from common.config_store import ConfigStore
 from common.games import remote_library
@@ -556,7 +556,7 @@ class ChromiumManager:
             iniconfig: ConfigStore instance with display and network settings
             base_url: Base URL for the HTTP server
         """
-        network = NetworkConfig.from_config(iniconfig)
+        network = serving.network(iniconfig)
         displays = DisplayConfig.from_config(iniconfig)
         settings = SettingsConfig.from_config(iniconfig)
         theme_assets_port = network.theme_assets_port

@@ -13,8 +13,7 @@ from urllib.parse import quote, urlencode
 
 import requests
 
-from common import device_client
-from common.config_access import NetworkConfig
+from common import device_client, serving
 from common.i18n import t
 from common.paths import get_ini_config
 
@@ -38,8 +37,7 @@ def local_base_url() -> str:
     derived from features, so an install with no library of its own has no library
     sections for a remote catalog to fill.
     """
-    network = NetworkConfig.from_config(get_ini_config())
-    return f"http://127.0.0.1:{network.http_port}"
+    return f"http://127.0.0.1:{serving.network(get_ini_config()).http_port}"
 
 
 class ApiError(RuntimeError):

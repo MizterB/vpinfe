@@ -6,11 +6,11 @@ import socket
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
+from common import serving
 from common.config_access import (
     ConfigSource,
     DisplayConfig,
     MediaConfig,
-    NetworkConfig,
     SettingsConfig,
     cfg_get,
     cfg_set,
@@ -34,7 +34,7 @@ def get_mainmenu_config(iniconfig: ConfigSource) -> dict[str, bool]:
 
 
 def _managerui_remote_urls(config: ConfigSource) -> list[str]:
-    port = NetworkConfig.from_config(config).http_port
+    port = serving.network(config).http_port
     hostname = socket.gethostname().strip()
     urls: list[str] = []
     seen_hosts: set[str] = set()
@@ -158,11 +158,11 @@ def get_cab_mode(config: ConfigSource) -> bool:
 
 
 def get_theme_assets_port(config: ConfigSource) -> int:
-    return NetworkConfig.from_config(config).theme_assets_port
+    return serving.network(config).theme_assets_port
 
 
 def get_http_port(config: ConfigSource) -> int:
-    return NetworkConfig.from_config(config).http_port
+    return serving.network(config).http_port
 
 
 def get_managerui_remote_link(config: ConfigSource) -> dict[str, Any]:

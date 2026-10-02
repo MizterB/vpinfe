@@ -12,8 +12,7 @@ from typing import Any
 
 import requests
 
-from common import service_errors
-from common.config_access import NetworkConfig
+from common import service_errors, serving
 from common.failures import why
 from common.games import player_records
 from common.i18n import t
@@ -56,7 +55,7 @@ def join(card: str) -> dict[str, Any]:
 
     Never call this on the server's event loop: the request waits on the loop it holds.
     """
-    port = NetworkConfig.from_config(get_ini_config()).http_port
+    port = serving.network(get_ini_config()).http_port
     url = f"http://127.0.0.1:{port}/api/v1/players/guests/card"
     try:
         response = requests.post(url, json={"card": card}, timeout=TIMEOUT)

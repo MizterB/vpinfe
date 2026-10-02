@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from common import theme_options
-from common.config_access import ConfigSource, NetworkConfig, SettingsConfig
+from common import serving, theme_options
+from common.config_access import ConfigSource, SettingsConfig
 from common.paths import THEMES_DIR
 
 logger = logging.getLogger("vpinfe.frontend.theme_api")
@@ -119,6 +119,6 @@ def get_audio_muted(config: ConfigSource) -> bool:
 
 
 def get_theme_index_page(config: ConfigSource, window_name: str) -> str:
-    port = NetworkConfig.from_config(config).theme_assets_port
+    port = serving.network(config).theme_assets_port
     theme_name = quote(get_theme_name(config), safe="")
     return f"http://127.0.0.1:{port}/themes/{theme_name}/index_{window_name}.html?window={window_name}"

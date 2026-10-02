@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import discovery, shutdown
+from common import discovery, serving, shutdown
 from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
@@ -47,6 +47,7 @@ def create_api_instances(iniconfig: ConfigStore,
     network = NetworkConfig.from_config(iniconfig)
     displays = DisplayConfig.from_config(iniconfig)
     ws_bridge = DeviceChannel(port=network.ws_port)
+    serving.bound("ws_port", network.ws_port)
     frontend_browser = ChromiumManager()
 
     # One view, however many windows. They show the same library and the same selection,
@@ -194,6 +195,7 @@ def start_asset_server(mount_points: dict[str, str],
     network = NetworkConfig.from_config(iniconfig)
     http_server.start_file_server(port=network.theme_assets_port,
                                   bind=network.theme_assets_bind)
+    serving.bound("theme_assets_port", network.theme_assets_port)
     return http_server
 
 
@@ -238,7 +240,7 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
         return
 
     if iniconfig.is_new:
-        network = NetworkConfig.from_config(iniconfig)
+        network = serving.network(iniconfig)
         displays = DisplayConfig.from_config(iniconfig)
         http_port = network.http_port
         setup_url = f"http://localhost:{http_port}/"
