@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from datetime import timedelta
 
 from common import timestamps
@@ -145,6 +146,10 @@ def stamp(config: ConfigStore) -> None:
         save()
 
 
+# Held for a download, so the watch and a library read never fetch the catalog together.
+_downloading = threading.RLock()
+
+
 def sync(config: ConfigStore, force: bool = False) -> dict:
     """Ask the catalog whether it has changed, and take it if it has.
 
@@ -156,14 +161,34 @@ def sync(config: ConfigStore, force: bool = False) -> dict:
 
     if not force and not due(config):
         return {"checked": False, "reason": "not_due", "at": checked_at(config)}
-    before = (cfg_get(config, SECTION, "last", "") or "").strip()
-    ok = ensure_vpsdb_downloaded()
-    stamp(config)
+    with _downloading:
+        before = (cfg_get(config, SECTION, "last", "") or "").strip()
+        ok = ensure_vpsdb_downloaded()
+        stamp(config)
     after = (cfg_get(config, SECTION, "last", "") or "").strip()
     if not ok:
         logger.warning("VPSdb sync could not read the catalog")
     return {"checked": True, "ok": bool(ok), "changed": bool(after and after != before),
             "version": after, "at": checked_at(config)}
+
+
+def ensure_catalog(config: ConfigStore,
+                   downloading: Callable[[], object] | None = None) -> bool:
+    """Download the catalog if there is none on disk, whenever it was last asked, unless
+    the schedule is `never`. Calls `downloading` first, and only when it does. True when
+    there is one on disk afterwards."""
+    from common.games.game_service import VPSDB_JSON_PATH
+
+    if VPSDB_JSON_PATH.exists():
+        return True
+    if schedule(config) == NEVER:
+        return False
+    with _downloading:
+        if not VPSDB_JSON_PATH.exists():
+            if downloading:
+                downloading()
+            sync(config, force=True)
+    return VPSDB_JSON_PATH.exists()
 
 
 # How often the runner wakes to ask whether a check is due. Not the schedule - an install

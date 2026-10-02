@@ -43,6 +43,7 @@ def refresh(reporter: JobReporter | None = None) -> dict:
     # Between the halves, not after: this is what makes a discovered entry addressable.
     ensure_unique_table_ids(games)
 
+    _catalog_for(unseen, reporter, 2, 4)
     if reporter:
         reporter.progress(2, 4, t("said.matching_new_games"))
     matched = auto_match.match_new(unseen)
@@ -76,12 +77,29 @@ def read_at_startup(games: list, unseen: list, reporter: JobReporter | None = No
     read what nothing has read."""
     from common.games import auto_match
 
+    _catalog_for(unseen, reporter, 0, 1)
     matched = auto_match.match_new(unseen)
     read = enrich(games, reporter)
     _art_for(unseen)
     return {**{f"enriched_{k}": v for k, v in read.items()},
             **{f"new_{k}": v for k, v in matched.items()},
             "new_unmatched_ids": _waiting(unseen)}
+
+
+def _catalog_for(unseen: list, reporter: JobReporter | None, step: int, steps: int) -> None:
+    """Get the catalog before new games are matched, when there is none on disk."""
+    from common.games import auto_match
+    from common.online import vpsdb_sync
+    from common.paths import get_ini_config
+
+    if not unseen or not auto_match.enabled():
+        return
+
+    def downloading() -> None:
+        if reporter:
+            reporter.progress(step, steps, t("said.downloading_the_spreadsheet"))
+
+    vpsdb_sync.ensure_catalog(get_ini_config(), downloading)
 
 
 def _waiting(unseen: list) -> list[str]:

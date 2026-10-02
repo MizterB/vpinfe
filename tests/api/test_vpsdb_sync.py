@@ -8,8 +8,10 @@ page, so an install that never opened one answered from the snapshot it started 
 from __future__ import annotations
 
 import configparser
+import tempfile
 import unittest
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from common import timestamps
 from common.online import vpsdb_sync
@@ -92,6 +94,55 @@ class SyncTests(unittest.TestCase):
 
         self.assertTrue(vpsdb_sync.checked_at(config))
         self.assertFalse(vpsdb_sync.due(config))
+
+
+class EnsureCatalogTests(unittest.TestCase):
+    """A read with new games to match gets a catalog when there is none on disk."""
+
+    def setUp(self) -> None:
+        held = tempfile.TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.catalog = Path(held.name) / "vpsdb.json"
+        path = patch("common.games.game_service.VPSDB_JSON_PATH", self.catalog)
+        path.start()
+        self.addCleanup(path.stop)
+        self.said: list[str] = []
+
+    def ensure(self, config: configparser.ConfigParser) -> tuple[bool, MagicMock]:
+        def fetch() -> bool:
+            self.catalog.write_text("[]", encoding="utf-8")
+            return True
+
+        with patch("common.games.game_service.ensure_vpsdb_downloaded",
+                   side_effect=fetch) as fetched:
+            held = vpsdb_sync.ensure_catalog(config, lambda: self.said.append("downloading"))
+        return held, fetched
+
+    def test_a_catalog_on_disk_is_not_downloaded_again(self) -> None:
+        self.catalog.write_text("[]", encoding="utf-8")
+
+        held, fetched = self.ensure(_config(download="daily"))
+
+        self.assertTrue(held)
+        fetched.assert_not_called()
+        self.assertEqual(self.said, [])
+
+    def test_no_catalog_is_downloaded_whenever_it_was_last_asked(self) -> None:
+        """The stamp says it was asked an hour ago; the file says nothing came of it."""
+        config = _config(download="daily", checked=_ago(3600))
+
+        held, fetched = self.ensure(config)
+
+        self.assertTrue(held)
+        fetched.assert_called_once()
+        self.assertEqual(self.said, ["downloading"])
+
+    def test_never_downloads_nothing(self) -> None:
+        held, fetched = self.ensure(_config(download="never"))
+
+        self.assertFalse(held)
+        fetched.assert_not_called()
+        self.assertEqual(self.said, [])
 
 
 if __name__ == "__main__":

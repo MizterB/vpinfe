@@ -3549,6 +3549,7 @@
   "said.device_failed": "{name} - {error}",
   "said.device_failed_because": "{name} - {error}. {reason}",
   "said.did_not_arrive": "{name} đîđ ñöţ àřřîṽè",
+  "said.downloading_the_spreadsheet": "Đöŵñŀöàđîñĝ ţĥè šþřèàđšĥèèţ",
   "said.finding_tables": "Ƒîñđîñĝ ţàƀŀèš",
   "said.game_sent": "Šèñţ {game}",
   "said.getting_art_for": "Ĝèţţîñĝ àřţ ƒöř {game}",
