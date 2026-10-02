@@ -5,8 +5,9 @@ from __future__ import annotations
 import unittest
 
 from common.capture import run
+from common.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL
 from console import record
-from console.page import failed_since
+from console.page import failed_since, reads_ended_since
 
 OPENED = 1000.0
 
@@ -42,6 +43,40 @@ class FailedSinceTests(unittest.TestCase):
 
     def test_nothing_run_keeps_nothing(self) -> None:
         self.assertIsNone(failed_since([], OPENED, set()))
+
+
+def _read(job_id: str, state: str = "done", finished_at: float | None = 1010.0,
+          kind: str = KIND_LIBRARY_SCAN) -> dict:
+    return {**_job(job_id, state, finished_at), "kind": kind}
+
+
+class ReadsEndedSinceTests(unittest.TestCase):
+    """The library reads the line tells of once they end, wherever they started."""
+
+    def test_one_that_ended_after_the_page_opened_is_told(self) -> None:
+        self.assertEqual(reads_ended_since([_read("j1")], OPENED, set()), ["j1"])
+
+    def test_one_that_ended_before_the_page_opened_is_not_news(self) -> None:
+        self.assertEqual(reads_ended_since([_read("j1", finished_at=990.0)], OPENED, set()),
+                         [])
+
+    def test_one_told_is_not_told_again(self) -> None:
+        self.assertEqual(reads_ended_since([_read("j1")], OPENED, {"j1"}), [])
+
+    def test_one_running_or_failed_is_not_told(self) -> None:
+        """A failed one has the failed line."""
+        jobs = [_read("j2", "running", None), _read("j1", "failed")]
+
+        self.assertEqual(reads_ended_since(jobs, OPENED, set()), [])
+
+    def test_every_one_that_ended_is_told(self) -> None:
+        jobs = [_read("j2", finished_at=1020.0), _read("j1")]
+
+        self.assertEqual(reads_ended_since(jobs, OPENED, set()), ["j2", "j1"])
+
+    def test_other_work_is_not_a_read(self) -> None:
+        self.assertEqual(reads_ended_since([_read("j1", kind=KIND_MEDIA_FILL)], OPENED, set()),
+                         [])
 
 
 class WaitingRunTests(unittest.TestCase):

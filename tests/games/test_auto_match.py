@@ -8,7 +8,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common.games import auto_match, game_service, library_refresh, metadata_service
+from common.games import (
+    auto_match,
+    game_identity,
+    game_service,
+    library_refresh,
+    metadata_service,
+)
 from common.games.game_metadata import (
     MATCHED_BY_USER,
     MATCHED_ON_IMPORT,
@@ -224,11 +230,13 @@ class FirstSightTests(TempTree):
         self.art = art.start()
         self.addCleanup(art.stop)
 
+    def games(self) -> list:
+        return [fake_game(folder, name, meta=_read(folder)
+                          if (folder / f"{name}.info").exists() else {})
+                for name, folder in self.folders.items()]
+
     def refresh(self) -> dict:
-        games = [fake_game(folder, name, meta=_read(folder)
-                           if (folder / f"{name}.info").exists() else {})
-                 for name, folder in self.folders.items()]
-        with patch("common.games.game_repository.all_games", return_value=games):
+        with patch("common.games.game_repository.all_games", return_value=self.games()):
             return library_refresh.refresh()
 
     def test_a_new_game_is_matched_from_its_folder_name(self) -> None:
@@ -267,6 +275,17 @@ class FirstSightTests(TempTree):
 
     def test_the_result_names_the_new_games_waiting_for_a_match(self) -> None:
         result = self.refresh()
+
+        self.assertEqual(result["new_unmatched_ids"],
+                         [_read(self.folders[UNKNOWN])["vpinfe"]["game_id"]])
+
+    def test_startup_names_them_too(self) -> None:
+        """Startup gives the ids out before its read, the way `main` does."""
+        games = self.games()
+        unseen = [game for game in games if not game_identity.game_id(game)]
+        game_identity.ensure_unique_ids(games)
+
+        result = library_refresh.read_at_startup(games, unseen)
 
         self.assertEqual(result["new_unmatched_ids"],
                          [_read(self.folders[UNKNOWN])["vpinfe"]["game_id"]])

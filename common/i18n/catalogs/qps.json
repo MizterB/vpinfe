@@ -1441,6 +1441,7 @@
     "other": "Ḿàţçĥèđ {matched} öƒ {total} ñèŵ ĝàɱèš. {count} ñèèđ à ɱàţçĥ."
   },
   "console.page.media": "Ḿèđîà",
+  "console.page.more_running": "+{count} ɱöřè",
   "console.page.new_games_need_match": {
     "one": "1 ñèŵ ĝàɱè ñèèđš à ɱàţçĥ",
     "other": "{count} ñèŵ ĝàɱèš ñèèđ à ɱàţçĥ"

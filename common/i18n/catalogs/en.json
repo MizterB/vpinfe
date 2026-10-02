@@ -1441,6 +1441,7 @@
     "other": "Matched {matched} of {total} new games. {count} need a match."
   },
   "console.page.media": "Media",
+  "console.page.more_running": "+{count} more",
   "console.page.new_games_need_match": {
     "one": "1 new game needs a match",
     "other": "{count} new games need a match"

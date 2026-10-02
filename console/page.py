@@ -15,7 +15,7 @@ from nicegui import background_tasks, run, ui
 from common import device_client, feature_checks, icons, install_identity
 from common.failures import why
 from common.i18n import t
-from common.jobs import KIND_MEDIA_CAPTURE
+from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from console import about as about_page
 from console import assets as assets_page
 from console import (
@@ -252,6 +252,15 @@ def failed_since(jobs: list[dict[str, Any]], opened: float,
             or str(ended.get("id") or "") in dismissed):
         return None
     return ended
+
+
+def reads_ended_since(jobs: list[dict[str, Any]], opened: float,
+                      told: set[str]) -> list[str]:
+    """The ids of the library reads that finished after `opened`, not yet told."""
+    return [str(job.get("id") or "") for job in jobs
+            if job.get("kind") == KIND_LIBRARY_SCAN and job.get("state") == DONE
+            and float(job.get("finished_at") or 0) >= opened
+            and str(job.get("id") or "") not in told]
 
 
 # A plain left click on a rail entry navigates in place; anything else is the browser's.
@@ -677,9 +686,15 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 with ui.row().classes("items-center justify-center gap-2 w-full no-wrap"):
                     ui.spinner(size="16px").classes("shrink-0")
                     job_text = ui.label("").classes("text-xs min-w-0 truncate")
+                    # Its own label, because the first job's line truncates and would
+                    # take this with it.
+                    job_more = ui.label("").classes("text-xs shrink-0 opacity-70")
+                    with job_more:
+                        job_others = ui.tooltip("").classes("whitespace-pre-line")
                 job_stop = ui.row().classes("items-center justify-center no-wrap")
             job_line.set_visibility(False)
             labels.append(job_text)
+            labels.append(job_more)
             labels.append(job_stop)
             run_line = ui.column().classes("items-center gap-1 w-full console-job")
             with run_line:
@@ -707,6 +722,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                               .classes("text-xs opacity-70"))
 
     opened = time.time()
+    # A watch started by `watch_jobs` runs as a task of its own, outside the page.
+    here = ui.context.client
+    told: set[str] = set()
     shown_failed: dict[str, Any] = {"id": "", "said": None}
     dismissed: set[str] = set()
 
@@ -800,6 +818,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             job_line.set_visibility(False)
             return
         running = [job for job in found if job.get("state") == "running"]
+        ended = reads_ended_since(found, opened, told)
+        told.update(ended)
+        for job_id in ended:
+            background_tasks.create(_tell_read(job_id), name="console-tell-read")
         failed = None if running else failed_since(found, opened, dismissed)
         job_timer.interval = JOBS_RUNNING_S if running else JOBS_IDLE_S
         job_line.set_visibility(bool(running))
@@ -819,12 +841,33 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             await _watch_run()
             return
         run_line.set_visibility(False)
-        job = running[0]
+        job, *others = running
         _offer_stop(job)
-        said = str(job.get("message") or "").strip() or t("console.page.working")
+        said = _job_said(job)
         pct = int(job.get("pct") or 0)
         job_text.text = t("console.page.job_progress", message=said, percent=pct) \
             if pct else said
+        job_more.text = t("console.page.more_running", count=len(others)) if others else ""
+        job_more.set_visibility(bool(others) and not state.get("mini"))
+        job_others.text = "\n".join(_job_said(one) for one in others)
+
+    def _job_said(job: dict[str, Any]) -> str:
+        return str(job.get("message") or "").strip() or t("console.page.working")
+
+    async def _tell_read(job_id: str) -> None:
+        """A library read this page did not start, said when it found new games.
+
+        The page is not redrawn, which would close the panel open on it."""
+        try:
+            found = await offload.io(ApiClient().job, job_id)
+        except Exception:
+            return
+        result = found.get("result") or {}
+        if not int(result.get("new_games") or 0):
+            return
+        await run.io_bound(library.refresh_after_import)
+        with here:
+            _say_read(result)
 
     job_timer = ui.timer(JOBS_RUNNING_S, _watch_jobs)
 
@@ -914,12 +957,14 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         job = await _read_the_library()
         if job is None:
             return
+        job_id = str(job.get("id") or "")
+        told.add(job_id)
         watch_jobs()
         client = ApiClient()
         for _ in range(150):
             await asyncio.sleep(0.2)
             try:
-                found = await offload.io(client.job, str(job.get("id") or ""))
+                found = await offload.io(client.job, job_id)
             except Exception:
                 return
             if found.get("state") == "running":
@@ -929,16 +974,20 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 ui.notify(lead, caption=caption, type="negative")
             else:
                 await run.io_bound(library.refresh_after_import)
-                said, waiting = read_outcome(found.get("result") or {})
-                if not waiting:
-                    ui.notify(said, type="positive")
-                elif len(waiting) == 1:
-                    undo.act(said, t("console.page.show"),
-                             partial(_open_to_match, waiting[0]))
-                else:
-                    undo.act(said, t("console.page.show_unmatched"), _show_unmatched)
+                _say_read(found.get("result") or {})
                 redraw()
             return
+        # Still going: the rail tells it when it ends, as it would anyone else's.
+        told.discard(job_id)
+
+    def _say_read(result: dict[str, Any]) -> None:
+        said, waiting = read_outcome(result)
+        if not waiting:
+            ui.notify(said, type="positive")
+        elif len(waiting) == 1:
+            undo.act(said, t("console.page.show"), partial(_open_to_match, waiting[0]))
+        else:
+            undo.act(said, t("console.page.show_unmatched"), _show_unmatched)
 
     @on_page
     async def _open_to_match(game_id: str) -> None:
