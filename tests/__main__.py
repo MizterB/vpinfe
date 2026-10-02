@@ -230,8 +230,10 @@ def _read_records(path: Path) -> list[Record]:
 
 def in_processes(shards: list[Shard]) -> None:
     """Run each shard in a process of its own, filling in what it recorded."""
-    # A digit before mkdtemp's random part, as LiveInstance's prefix has.
-    root = Path(tempfile.mkdtemp(prefix="vpinfe-run0"))
+    # A digit before mkdtemp's random part, as LiveInstance's prefix has. Not in this
+    # process's own temp root, which goes at exit with a failing shard's log in it.
+    tests.TEMP_ROOTS.mkdir(parents=True, exist_ok=True)
+    root = Path(tempfile.mkdtemp(prefix="vpinfe-run0", dir=tests.TEMP_ROOTS))
     finished: queue.Queue[tuple[Shard, int]] = queue.Queue()
     running: list[subprocess.Popen] = []
     started = time.perf_counter()

@@ -1468,7 +1468,9 @@ Run the tests after `--fix`, not just the linter.
 by how long each took last time; `-j N` sets how many (half the cores by default) and `-j 1`
 runs them in the calling process. Paths after the options narrow the run to a directory or a
 file under `tests/`. Each process gets its own config directory and temp directory, and a
-process that leaves anything in its temp directory fails the run, naming what it left.
+process that leaves anything in its temp directory fails the run, naming what it left. A
+process that does not pass keeps everything it printed, at the path the report names, after
+the run exits; a run that passes leaves nothing behind.
 `python -m unittest discover -t . -s tests` runs the same tests in one process and is what CI
 runs; `tests/invariants/test_parallel_runner.py` holds the runner to it.
 

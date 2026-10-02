@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import io
+import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -33,6 +36,7 @@ FAILING = """
             self.assertEqual(1, 2)
 """
 BROKEN = "raise RuntimeError('broken at import')\n"
+REPORTED = "Everything it printed: "
 
 
 def _cases(suite: unittest.TestSuite):
@@ -261,6 +265,31 @@ class LeakGateTests(unittest.TestCase):
 
         self.assertIn("exited with code 1", shard.stopped)
         self.assertIn("leaked.txt", shard.stopped)
+
+
+class KeptLogTests(unittest.TestCase):
+    def test_a_failing_process_s_log_is_still_there_after_the_runner_exits(self) -> None:
+        # In a process of its own, without VPINFE_CONFIG_DIR: the runner's own temp root
+        # goes at exit, not on return, and only when tests/__init__.py made it.
+        script = textwrap.dedent("""
+            from tests import __main__ as runner
+            shards = [runner.Shard(n, ["tests.no_such_package.test_nothing"]) for n in (0, 1)]
+            runner.in_processes(shards)
+            print("\\n".join(runner.failures(shards)))
+        """)
+        env = {key: value for key, value in os.environ.items() if key != "VPINFE_CONFIG_DIR"}
+        done = subprocess.run([sys.executable, "-c", script], cwd=str(runner.REPO), env=env,
+                              capture_output=True, text=True, timeout=120)
+        logs = [Path(line.split(REPORTED, 1)[1]) for line in done.stdout.splitlines()
+                if REPORTED in line]
+        for log in logs:
+            self.addCleanup(shutil.rmtree, log.parent, ignore_errors=True)
+
+        self.assertEqual(0, done.returncode, done.stderr)
+        self.assertEqual(2, len(logs), done.stdout)
+        for log in logs:
+            self.assertTrue(log.is_file(), log)
+            self.assertIn("no_such_package", log.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

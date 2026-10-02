@@ -37,14 +37,14 @@ from platformdirs import user_cache_dir
 # An explicit VPINFE_CONFIG_DIR still wins, so a caller can hand in a prepared one.
 # None when this file made it: `python -m tests` cannot split a caller's between processes.
 CALLER_CONFIG_DIR = os.environ.get("VPINFE_CONFIG_DIR", "").strip() or None
+TEMP_ROOTS = Path(user_cache_dir("vpinfe")) / "tests-tmp"
 if CALLER_CONFIG_DIR is None:
     _TEST_CONFIG_DIR = tempfile.mkdtemp(prefix="vpinfe-tests-")
     os.environ["VPINFE_CONFIG_DIR"] = _TEST_CONFIG_DIR
     atexit.register(shutil.rmtree, _TEST_CONFIG_DIR, ignore_errors=True)
 
-    _test_tmp_parent = Path(user_cache_dir("vpinfe")) / "tests-tmp"
-    _test_tmp_parent.mkdir(parents=True, exist_ok=True)
-    _TEST_TMP_DIR = tempfile.mkdtemp(prefix="vpinfe-tmp0", dir=str(_test_tmp_parent))
+    TEMP_ROOTS.mkdir(parents=True, exist_ok=True)
+    _TEST_TMP_DIR = tempfile.mkdtemp(prefix="vpinfe-tmp0", dir=str(TEMP_ROOTS))
     os.environ["TMPDIR"] = _TEST_TMP_DIR
     os.environ["TEMP"] = _TEST_TMP_DIR
     os.environ["TMP"] = _TEST_TMP_DIR
