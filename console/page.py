@@ -885,7 +885,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         except Exception:
             return
         result = found.get("result") or {}
-        if not int(result.get("new_games") or 0):
+        if not (int(result.get("new_games") or 0) or int(result.get("waiting_matched") or 0)):
             return
         await run.io_bound(library.refresh_after_import)
         with here:
@@ -1003,13 +1003,14 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         told.discard(job_id)
 
     def _say_read(result: dict[str, Any]) -> None:
-        said, waiting = read_outcome(result)
+        said, waiting, also = read_outcome(result)
         if not waiting:
-            ui.notify(said, type="positive")
+            ui.notify(said, type="positive", caption=also or None, multi_line=bool(also))
         elif len(waiting) == 1:
-            undo.act(said, t("console.page.show"), partial(_open_to_match, waiting[0]))
+            undo.act(said, t("console.page.show"), partial(_open_to_match, waiting[0]),
+                     caption=also)
         else:
-            undo.act(said, t("console.page.show_unmatched"), _show_unmatched)
+            undo.act(said, t("console.page.show_unmatched"), _show_unmatched, caption=also)
 
     @on_page
     async def _open_to_match(game_id: str) -> None:
@@ -1751,19 +1752,24 @@ def _nav_item(key: str, label: str, icon: str, state: dict[str, Any], render: Ca
         held.append(row)
 
 
-def read_outcome(result: dict[str, Any]) -> tuple[str, list[str]]:
-    """What a finished read of the library says, and the new games waiting for a match."""
+def read_outcome(result: dict[str, Any]) -> tuple[str, list[str], str]:
+    """What a finished read of the library says, the new games waiting for a match, and a
+    line under it for the games seen before that it matched."""
     waiting = [str(one) for one in result.get("new_unmatched_ids") or () if one]
     total = int(result.get("new_games") or 0)
     matched = int(result.get("new_matched") or 0)
+    again = int(result.get("waiting_matched") or 0)
+    also = t("console.page.matched_waiting_games", count=again) if again else ""
     if waiting and matched:
         return t("console.page.matched_some_new_games", count=len(waiting),
-                 matched=matched, total=total), waiting
+                 matched=matched, total=total), waiting, also
     if waiting:
-        return t("console.page.new_games_need_match", count=len(waiting)), waiting
+        return t("console.page.new_games_need_match", count=len(waiting)), waiting, also
     if matched:
-        return t("console.page.matched_new_games", count=matched), []
-    return t("console.page.library_date"), []
+        return t("console.page.matched_new_games", count=matched), [], also
+    if also:
+        return also, [], ""
+    return t("console.page.library_date"), [], ""
 
 
 def read_failure(job: dict[str, Any]) -> tuple[str, str]:

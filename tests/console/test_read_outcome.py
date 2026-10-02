@@ -8,34 +8,47 @@ from console.games import auto_match_outcome
 from console.page import read_failure, read_outcome
 
 
-def _result(games: int, matched: int, waiting: list[str]) -> dict:
+def _result(games: int, matched: int, waiting: list[str], again: int = 0) -> dict:
     return {"new_games": games, "new_matched": matched, "new_unmatched": len(waiting),
-            "new_unmatched_ids": waiting}
+            "new_unmatched_ids": waiting, "waiting_matched": again}
 
 
 class ReadOutcomeTests(unittest.TestCase):
     def test_nothing_new_is_up_to_date(self) -> None:
         self.assertEqual(read_outcome(_result(0, 0, [])),
-                         ("The library is up to date", []))
+                         ("The library is up to date", [], ""))
 
     def test_every_new_game_matched_leads_nowhere(self) -> None:
-        self.assertEqual(read_outcome(_result(3, 3, [])), ("Matched 3 new games", []))
-        self.assertEqual(read_outcome(_result(1, 1, [])), ("Matched 1 new game", []))
+        self.assertEqual(read_outcome(_result(3, 3, [])), ("Matched 3 new games", [], ""))
+        self.assertEqual(read_outcome(_result(1, 1, [])), ("Matched 1 new game", [], ""))
 
     def test_some_matched_says_how_many_are_left(self) -> None:
         self.assertEqual(read_outcome(_result(12, 10, ["g1", "g2"])),
-                         ("Matched 10 of 12 new games. 2 need a match.", ["g1", "g2"]))
+                         ("Matched 10 of 12 new games. 2 need a match.", ["g1", "g2"], ""))
         self.assertEqual(read_outcome(_result(3, 2, ["g1"])),
-                         ("Matched 2 of 3 new games. 1 needs a match.", ["g1"]))
+                         ("Matched 2 of 3 new games. 1 needs a match.", ["g1"], ""))
 
     def test_none_matched_says_they_need_one(self) -> None:
         self.assertEqual(read_outcome(_result(2, 0, ["g1", "g2"])),
-                         ("2 new games need a match", ["g1", "g2"]))
+                         ("2 new games need a match", ["g1", "g2"], ""))
         self.assertEqual(read_outcome(_result(1, 0, ["g1"])),
-                         ("1 new game needs a match", ["g1"]))
+                         ("1 new game needs a match", ["g1"], ""))
 
     def test_a_job_that_said_nothing_is_up_to_date(self) -> None:
-        self.assertEqual(read_outcome({}), ("The library is up to date", []))
+        self.assertEqual(read_outcome({}), ("The library is up to date", [], ""))
+
+    def test_games_seen_before_and_matched_now_say_so_alone(self) -> None:
+        self.assertEqual(read_outcome(_result(0, 0, [], again=3)),
+                         ("Matched 3 games that needed a match", [], ""))
+        self.assertEqual(read_outcome(_result(0, 0, [], again=1)),
+                         ("Matched 1 game that needed a match", [], ""))
+
+    def test_games_seen_before_and_matched_now_go_under_the_new_ones(self) -> None:
+        self.assertEqual(read_outcome(_result(2, 2, [], again=3)),
+                         ("Matched 2 new games", [], "Matched 3 games that needed a match"))
+        self.assertEqual(read_outcome(_result(2, 1, ["g1"], again=1)),
+                         ("Matched 1 of 2 new games. 1 needs a match.", ["g1"],
+                          "Matched 1 game that needed a match"))
 
     def test_a_failed_read_puts_its_reason_under_the_lead(self) -> None:
         self.assertEqual(read_failure({"state": "failed", "error": "Nothing is at /tables"}),

@@ -1442,6 +1442,10 @@
     "one": "Ḿàţçĥèđ {matched} öƒ {total} ñèŵ ĝàɱèš. 1 ñèèđš à ɱàţçĥ.",
     "other": "Ḿàţçĥèđ {matched} öƒ {total} ñèŵ ĝàɱèš. {count} ñèèđ à ɱàţçĥ."
   },
+  "console.page.matched_waiting_games": {
+    "one": "Ḿàţçĥèđ 1 ĝàɱè ţĥàţ ñèèđèđ à ɱàţçĥ",
+    "other": "Ḿàţçĥèđ {count} ĝàɱèš ţĥàţ ñèèđèđ à ɱàţçĥ"
+  },
   "console.page.media": "Ḿèđîà",
   "console.page.more_running": "+{count} ɱöřè",
   "console.page.new_games_need_match": {

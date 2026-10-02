@@ -43,10 +43,12 @@ def refresh(reporter: JobReporter | None = None) -> dict:
     # Between the halves, not after: this is what makes a discovered entry addressable.
     ensure_unique_table_ids(games)
 
-    _catalog_for(unseen, reporter, 2, 4)
+    waiting = _seen_unmatched(games, unseen)
+    _catalog_for(unseen + waiting, reporter, 2, 4)
     if reporter:
         reporter.progress(2, 4, t("said.matching_new_games"))
     matched = auto_match.match_new(unseen)
+    again = auto_match.match_new(waiting)
 
     if reporter:
         reporter.progress(3, 4, t("said.reading_new_tables"))
@@ -56,19 +58,20 @@ def refresh(reporter: JobReporter | None = None) -> dict:
     # next year must not arrive holding a year of upstream activity it was not around
     # for - and a read path that stamped would make asking the question change it.
     watching.note_games(game_identity.ensure_unique_ids(games))
-    _art_for(unseen)
+    _art_for(unseen + waiting)
 
     result = {"games": len(games), **{f"discovered_{k}": v for k, v in found.items()},
               **{f"enriched_{k}": v for k, v in read.items()},
               **{f"new_{k}": v for k, v in matched.items()},
+              **{f"waiting_{k}": v for k, v in again.items()},
               "new_unmatched_ids": _waiting(unseen)}
     if reporter:
         reporter.progress(4, 4, t("word.done"))
     level = (logging.INFO if found["found"] or read["read"] or matched["games"]
-             else logging.DEBUG)
+             or again["matched"] else logging.DEBUG)
     logger.log(level, "Library refresh: %s games, %s tables found, %s read, %s of %s new "
-               "games matched", len(games), found["found"], read["read"],
-               matched["matched"], matched["games"])
+               "games matched, %s of %s waiting", len(games), found["found"], read["read"],
+               matched["matched"], matched["games"], again["matched"], again["games"])
     return result
 
 
@@ -77,22 +80,36 @@ def read_at_startup(games: list, unseen: list, reporter: JobReporter | None = No
     read what nothing has read."""
     from common.games import auto_match
 
-    _catalog_for(unseen, reporter, 0, 1)
+    waiting = _seen_unmatched(games, unseen)
+    _catalog_for(unseen + waiting, reporter, 0, 1)
     matched = auto_match.match_new(unseen)
+    again = auto_match.match_new(waiting)
     read = enrich(games, reporter)
-    _art_for(unseen)
+    _art_for(unseen + waiting)
     return {**{f"enriched_{k}": v for k, v in read.items()},
             **{f"new_{k}": v for k, v in matched.items()},
+            **{f"waiting_{k}": v for k, v in again.items()},
             "new_unmatched_ids": _waiting(unseen)}
 
 
-def _catalog_for(unseen: list, reporter: JobReporter | None, step: int, steps: int) -> None:
-    """Get the catalog before new games are matched, when there is none on disk."""
+def _seen_unmatched(games: list, unseen: list) -> list:
+    """The games a read has seen before that still have no match."""
+    from common.games import auto_match
+    from common.games.game_metadata import normalize_meta
+
+    new = {id(game) for game in unseen}
+    return [game for game in games if id(game) not in new
+            and auto_match.unmatched(normalize_meta(game.meta_config or {}))]
+
+
+def _catalog_for(to_match: list, reporter: JobReporter | None, step: int,
+                 steps: int) -> None:
+    """Get the catalog before games are matched, when there is none on disk."""
     from common.games import auto_match
     from common.online import vpsdb_sync
     from common.paths import get_ini_config
 
-    if not unseen or not auto_match.enabled():
+    if not to_match or not auto_match.enabled():
         return
 
     def downloading() -> None:
@@ -112,15 +129,15 @@ def _waiting(unseen: list) -> list[str]:
             and game_identity.game_id(game)]
 
 
-def _art_for(unseen: list) -> None:
-    """Hand the new games that are now matched to the art fill.
+def _art_for(guessed: list) -> None:
+    """Hand those of `guessed` that are now matched to the art fill.
 
     After the tables are read, not before: the fill writes the same .info files.
     """
     from common.games import media_fill
     from common.games.game_metadata import effective_vps_id, normalize_meta
 
-    media_fill.request([game.full_path_game for game in unseen
+    media_fill.request([game.full_path_game for game in guessed
                         if effective_vps_id(normalize_meta(game.meta_config or {}))])
 
 

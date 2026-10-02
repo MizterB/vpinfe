@@ -1442,6 +1442,10 @@
     "one": "Matched {matched} of {total} new games. 1 needs a match.",
     "other": "Matched {matched} of {total} new games. {count} need a match."
   },
+  "console.page.matched_waiting_games": {
+    "one": "Matched 1 game that needed a match",
+    "other": "Matched {count} games that needed a match"
+  },
   "console.page.media": "Media",
   "console.page.more_running": "+{count} more",
   "console.page.new_games_need_match": {

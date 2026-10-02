@@ -203,10 +203,11 @@ NEW = "Fathom (Bally 1981)"
 UNKNOWN = "Nothing Like It (Nobody 1901)"
 SEEN = "Fathom Deluxe (Bally 1983)"
 DECLARED = "Fathom (Bally 1981) (homebrew)"
+SEEN_DECLARED = "Fathom Deluxe (Bally 1983) (homebrew)"
 
 
 class FirstSightTests(TempTree):
-    """Look for new tables over three new folders and one already seen."""
+    """Look for new tables over three new folders and two already seen."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -220,6 +221,8 @@ class FirstSightTests(TempTree):
             SEEN: write_game(self.root, SEEN, info=game_info(vps_id="", game_id="seen1")),
             DECLARED: write_game(self.root, DECLARED, info=game_info(
                 vps_id="", vpinfe={"alt_vpsid": None})),
+            SEEN_DECLARED: write_game(self.root, SEEN_DECLARED, info=game_info(
+                vps_id="", game_id="seen2", vpinfe={"alt_vpsid": None})),
         }
         for patcher in (patch.object(library_refresh, "discover", return_value={"found": 0}),
                         patch.object(library_refresh, "enrich", return_value={"read": 0}),
@@ -255,10 +258,35 @@ class FirstSightTests(TempTree):
         self.assertEqual(saved["vpinfe"]["alt_title"], "My Fathom")
         self.assertTrue(saved["vpinfe"]["game_id"])
 
-    def test_a_game_already_seen_is_not_guessed(self) -> None:
+    def test_a_game_seen_before_without_a_match_is_guessed_again(self) -> None:
         self.refresh()
 
-        self.assertEqual(_read(self.folders[SEEN])["Info"]["VPSId"], "")
+        saved = _read(self.folders[SEEN])
+        self.assertEqual(saved["Info"]["VPSId"], "chosen")
+        self.assertEqual(vps_matched_by(saved), "")
+
+    def test_a_game_seen_before_and_declared_no_match_is_left_alone(self) -> None:
+        self.refresh()
+
+        saved = _read(self.folders[SEEN_DECLARED])
+        self.assertIsNone(saved["vpinfe"]["alt_vpsid"])
+        self.assertEqual(saved["Info"]["VPSId"], "")
+
+    def test_the_result_counts_the_games_guessed_again_apart(self) -> None:
+        result = self.refresh()
+
+        self.assertEqual((result["waiting_games"], result["waiting_matched"],
+                          result["waiting_unmatched"]), (1, 1, 0))
+
+    def test_startup_guesses_again_too(self) -> None:
+        games = self.games()
+        unseen = [game for game in games if not game_identity.game_id(game)]
+        game_identity.ensure_unique_ids(games)
+
+        result = library_refresh.read_at_startup(games, unseen)
+
+        self.assertEqual(_read(self.folders[SEEN])["Info"]["VPSId"], "chosen")
+        self.assertEqual(result["waiting_matched"], 1)
 
     def test_a_declared_no_match_is_left_alone(self) -> None:
         self.refresh()
@@ -297,13 +325,15 @@ class FirstSightTests(TempTree):
             result = self.refresh()
 
         self.assertEqual(_read(self.folders[NEW])["Info"]["VPSId"], "")
+        self.assertEqual(_read(self.folders[SEEN])["Info"]["VPSId"], "")
         self.assertEqual((result["new_matched"], result["new_unmatched"]), (0, 2))
+        self.assertEqual(result["waiting_matched"], 0)
 
-    def test_the_new_games_now_matched_are_handed_to_the_art_fill(self) -> None:
+    def test_the_games_now_matched_are_handed_to_the_art_fill(self) -> None:
         self.refresh()
 
         (folders,), _ = self.art.call_args
-        self.assertEqual([Path(str(folder)).name for folder in folders], [NEW])
+        self.assertEqual([Path(str(folder)).name for folder in folders], [NEW, SEEN])
 
 
 STALE = "Fathom (Bally 1981)"
