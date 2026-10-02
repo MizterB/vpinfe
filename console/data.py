@@ -248,7 +248,8 @@ class Library:
         that kind. Taken as-is, such a folder would leave the kind out of the coverage
         totals altogether instead of counting it as the gap the per-game read calls it.
         """
-        rows = [row for row in self._client.all_media() if not row.get("table")]
+        rows = [row for row in self._client.all_media() if not row.get("table")
+                and row.get("via") not in (media_ownership.ORPHAN, media_ownership.UNUSED)]
         media = {game["id"]: {spec.kind: dict(_MEDIA_ABSENT) for spec in MEDIA_SPECS}
                  for game in self.games}
         for row in rows:
