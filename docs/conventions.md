@@ -865,11 +865,60 @@ no icon, and on an icon name `verbs.py` does not declare.
   a toolbar of its own.
 - **A wizard keeps its frame and redraws its body and footer at each step**: Back where
   there is history, Cancel where there is not, Next, and the act's own verb on the last
-  step. It draws its own title, since the title changes.
+  step. It draws its own title, since the title changes. Its size, its step row, its
+  welcome and its picture choices are the next four entries.
 
 `tests/invariants/test_dialogs_are_drawn_by_the_frame.py` fails on any `ui.dialog()`
 outside `console/dialog.py`. The enlarged picture in `mediaview.py` and the phone
 remote's sheets are the exceptions, because neither asks anything.
+
+### A wizard is one size on every step
+
+- **The card is `console-wizard-card`, with a height of its own that no step changes.**
+  A frame that fits each step moves the footer from one to the next, under a pointer that
+  was on it a moment ago. The height gives way only to a short window. The body scrolls
+  inside the card; the footer is pinned under a rule.
+- **The title is the step's question at the title size, and `help` is the one sentence of
+  why under it** (`console-wizard-lead`). The frame has no title bar, so nothing else says
+  what is being asked.
+- **Every flow through `console/ext_action.py` is drawn this way**: the Library Importer
+  and any extension action. A flow does not ask for it and cannot opt out.
+
+### A wizard says where the person is in a row of segments
+
+- **One segment per named step, with its name under it,** across the top of the frame. The
+  open step is lit with its name in ink, a done step is a `console-link` and reopens, and
+  a step still ahead waits in the track color and does nothing when clicked.
+- **Drawn only where an answer carries `steps`.** A flow that cannot say how many steps it
+  has sends none and draws no row, and no flow shows a count: "step 2 of 4" is wrong the
+  moment a choice drops a step.
+- **Narrow, a name is cut with an ellipsis** rather than wrapped, so the row is the same
+  height on every step.
+
+### A wizard greets once, centered
+
+- **A step that answers `welcome: true` is centered.** The title is at display size
+  (`--fs-display`), `help` is the lead under it, and the question - the label of its
+  choice - is a region title over the tiles. It is meant for a flow's first step; core does
+  not check that it is.
+- **VPinFE's mark is core's to place.** `wizard.open_dialog(mark=True)` draws it over the
+  welcome; `ext_action` never passes it, so an extension's welcome is centered without it.
+- **The welcome sits in the middle of the frame and the steps after it start at the top**,
+  and a welcome taller than the frame scrolls from its top rather than losing it.
+
+### A choice that carries pictures is tiles or rows
+
+- **An option's fourth element names its picture.** Core draws `desktop` and `cabinet`
+  itself; any other name is a Material icon. A flow names a picture and never supplies a
+  drawing, so a name that is not a plain icon name draws nothing.
+- **The layout follows the step.** On a welcome the options are tiles in a grid, large art
+  over the name and its line, with the question over them. On any other step they are rows
+  with a small picture and a check mark. Alone on a step, the step's own title is the
+  question; beside other fields, the choice's label heads the rows so it can be told from
+  them. The group is named for assistive technology either way.
+- **Both are the pick row** (`console-source-row--pick`): the edge and the wash of
+  `console-source-row--chosen` say which is picked, the check mark says it again where
+  color alone would not. A choice with no pictures stays a radio group.
 
 ### One confirmation, and one field
 

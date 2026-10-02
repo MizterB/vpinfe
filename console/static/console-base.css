@@ -1712,17 +1712,87 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-link-out--mark > :first-child { overflow: visible; min-width: auto; }
 .console-link-out--mark .q-icon { font-size: var(--icon-row); }
 
-/* The wizard's own step, named rather than numbered: the one open reads as chosen the
-   same way a picked member does, done ones are `console-link`, and the rest stay quiet
-   in `console-help` until they are reachable. */
+/* A wizard's card has a height, not a ceiling. The body scrolls; the footer is outside
+   the scroll, under a rule. */
+.console-dialog.console-wizard-card.q-card {
+  width: min(680px, 94vw); height: min(620px, 90vh);
+  display: flex; flex-direction: column; padding: 18px 12px 14px;
+}
+/* `stretch`, because the card's own `align-items` is flex-start and a scroll area
+   would shrink to its content. */
+.console-wizard-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; align-self: stretch;
+}
+.console-wizard-card .console-dialog-footer {
+  border-top: 1px solid var(--line-soft); margin-top: 8px;
+}
+/* No title bar: the title is the step's question and the lead is its one sentence of why. */
+.console-dialog-title.console-wizard-title {
+  font-size: var(--fs-title); line-height: 1.3; padding: 2px 12px 14px;
+}
+.console-wizard-lead {
+  font-size: var(--fs-body); color: var(--ink-2); line-height: 1.5; max-width: 34rem;
+  padding: 0 12px; margin: -8px 0 14px;
+}
+
+/* The step row. A name takes its color from its segment, except a done one, which is a
+   `console-link` and keeps its own. */
+.console-wizard-steps { display: flex; gap: 6px; padding: 0 12px 18px; }
+.console-wizard-step {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+  font-size: var(--fs-caption); color: var(--ink-3);
+}
+.console-wizard-step::before {
+  content: ""; height: 3px; border-radius: 2px; background: var(--bar-track);
+}
+.console-wizard-step > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.console-wizard-step--done::before { background: var(--accent); opacity: 0.55; }
+.console-wizard-step--here::before { background: var(--accent); }
 .console-wizard-step--here { color: var(--ink); font-weight: 600; }
 
-/* The page host's own frame, desktop only: the step list runs beside the step's
-   content rather than above it, so the same row that draws it in the dialog stacks
-   into a column here instead. */
-.console-wizard-page-steps { flex: 0 0 auto; min-width: 160px; }
-.console-wizard-page-steps .console-wizard-steps { flex-direction: column; }
-.console-wizard-page-content { flex: 1 1 auto; }
+/* The welcome: centered, the title at display size. The scroll area centers it
+   vertically with auto margins, which stay at the top once the content outgrows it. */
+.console-wizard--welcome { text-align: center; }
+.console-wizard-scroll.console-wizard--welcome { display: flex; flex-direction: column; }
+.console-wizard-scroll.console-wizard--welcome > :first-child { margin-top: auto; }
+.console-wizard-scroll.console-wizard--welcome > :last-child { margin-bottom: auto; }
+.console-wizard-crest { display: flex; justify-content: center; }
+.console-wizard-mark { width: 92px; height: 92px; margin-bottom: 6px; }
+.console-wizard--welcome .console-dialog-title.console-wizard-title {
+  font-size: var(--fs-display); font-weight: 600; line-height: 1.2; padding-bottom: 6px;
+}
+.console-wizard--welcome .console-wizard-lead { max-width: 30rem; margin: 0 auto; }
+.console-wizard--welcome .console-wizard-question { margin-top: 22px; text-align: center; }
+.console-wizard-question { margin-bottom: 8px; }
+
+/* A choice with pictures. Rows by default and tiles on a welcome, both on the pick row's
+   edge and wash. The row rules are nested under the group because `.console-source-row`
+   and `.console-source-row--pick .console-source-name` come later in this file and win a
+   tie on specificity. */
+.console-wizard-picks { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.console-wizard-picks--tiles {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.console-wizard-picks .console-wizard-pick {
+  display: flex; align-items: center; gap: 14px; padding: 10px 14px;
+}
+.console-wizard-picks .console-wizard-pick .console-source-name {
+  color: var(--ink); font-weight: 600; white-space: normal;
+}
+.console-wizard-pick-text { text-align: left; }
+.console-wizard-art { display: flex; flex: none; width: 64px; height: 48px; color: var(--ink-3); }
+.console-wizard-art > svg { width: 100%; height: 100%; }
+.console-wizard-icon { flex: none; width: 40px; font-size: var(--icon-slot); color: var(--ink-3); }
+.console-source-row--chosen > .console-wizard-art,
+.console-source-row--chosen > .console-wizard-icon { color: var(--accent); }
+.console-wizard-pick-mark { margin-left: auto; color: var(--accent); font-size: var(--icon-mark); }
+.console-wizard-picks .console-wizard-pick--tile {
+  flex-direction: column; gap: 4px; padding: 16px 12px 14px; position: relative;
+}
+.console-wizard-pick--tile .console-wizard-pick-text { align-items: center; text-align: center; }
+.console-wizard-pick--tile .console-wizard-art { width: 96px; height: 72px; margin-bottom: 6px; }
+.console-wizard-pick--tile .console-wizard-icon { width: auto; margin-bottom: 6px; }
+.console-wizard-pick--tile .console-wizard-pick-mark { position: absolute; top: 10px; right: 10px; }
 
 /* A destructive action is still an action - it takes the same shape and says what it
    is with color on top, not instead. */
@@ -1989,7 +2059,6 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
      used to push its own buttons off a short window. */
   max-height: 86vh; display: flex; flex-direction: column;
 }
-.console-import-body { overflow-y: auto; min-height: 0; }
 .console-import-rows { max-height: 46vh; overflow-y: auto; }
 .console-import-row { padding: 4px 0; }
 /* Fixed, so the names beside them line up and the column reads down rather than

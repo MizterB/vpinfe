@@ -40,9 +40,9 @@ def _dressed_calls(tree: ast.AST) -> set[int]:
             if getattr(inner.func, "attr", "") in DRAWN:
                 dressed.add(id(inner))
                 break
-            inner = inner.func.value if isinstance(inner.func, ast.Attribute) else inner
-            if not isinstance(inner, ast.Call | ast.Attribute):
+            if not isinstance(inner.func, ast.Attribute):
                 break
+            inner = inner.func.value
     return dressed
 
 
@@ -61,6 +61,11 @@ def _bare() -> list[str]:
 
 
 class MenuItemsAreDressed(unittest.TestCase):
+
+    def test_a_call_chained_straight_off_a_constructor_ends_the_walk(self):
+        tree = trees.parse_snippet("Row(1).classes('console-menu')\n"
+                                   "ui.menu_item('x').classes('console-menu')")
+        self.assertEqual(1, len(_dressed_calls(tree)))
 
     def test_none_is_bare(self):
         bare = _bare()

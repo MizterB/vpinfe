@@ -348,7 +348,7 @@ Four calls on the extension's own router, under `base`:
 
 | call | answers |
 |---|---|
-| `GET {base}` | `title`, `help`, `fields`, `confirm`, `steps` — what to ask, if anything. `?step=<key>` reopens a done step instead of starting over |
+| `GET {base}` | `title`, `help`, `fields`, `confirm`, `steps`, `welcome` — what to ask, if anything. `?step=<key>` reopens a done step instead of starting over |
 | `POST {base}/check` | `ready`, `reason`, `summary`, `notes`, `errors`, `acts`, more `fields`, `confirm` — what would happen |
 | `POST {base}/act` | the same step again, redrawn — for something a step needs done before it can go on |
 | `POST {base}/run` | `{"job_id": …}`, or the outcome directly |
@@ -373,7 +373,7 @@ The words in these answers are the extension's to look up, with `ctx.t`.
 | `select` | one of `choices` |
 | `multi` | several of `choices` |
 | `switch` | on or off |
-| `choice` | one of `choices`, two to four, each with its own line of help |
+| `choice` | one of `choices`, two to four, each `[key, label, help]` with its own line of help, and optionally a fourth element naming a picture |
 | `number` | a number, with `unit`, `min` and `max` |
 
 `confirm` is the verb at the point of no return, and it is the action's own: a generic
@@ -409,6 +409,17 @@ where an answer carries it - an action that cannot say how many steps it has, su
 the Library Importer reading another frontend's own library, sends none of this and
 loses nothing by it. A `done` step reopens with `GET {base}?step=<key>`, asked the way
 the first step is, rather than walked back to through every step between.
+
+`welcome: true` on a step centers it, for a flow's first: the `title` at display size, the
+`help` as the lead under it, and the label of its `choice` as the question over it. Each
+`/check` and `/act` answer replaces the step, so one that is still a welcome repeats
+`welcome: true`.
+
+A `choice` option's picture is a name, and `null` is none. Core draws `desktop` and
+`cabinet` itself and reads any other name as a Material icon, so a flow never supplies a
+drawing. Options with pictures are tiles on a `welcome` step and rows on any other. Beside
+other fields the `choice`'s label heads its rows; alone on a step, its `title` is the
+question.
 
 A job's `result` may list `rows`, and every row with an `error` is shown under what did not
 come across, by its `name`. That `error` takes the same two forms.

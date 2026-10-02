@@ -488,7 +488,7 @@ _STRUCTURE = """
   --fs-caption: 12px;
   --fs-body: 14px;
   --fs-title: 20px;
-  /* A stat, not prose - the one place a number is the content. */
+  /* A stat, or a welcome's title - one line that is the content, not prose. */
   --fs-display: 30px;
 
   /* 44px where a finger is in scope; the Console is desk-first, so this is the floor. */

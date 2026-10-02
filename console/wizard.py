@@ -11,6 +11,7 @@ four calls already bound to wherever it answers from - HTTP for an extension
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -20,7 +21,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import literal_or, t
 from console import dialog as frame
-from console import panel, verbs
+from console import panel, theme, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -43,6 +44,25 @@ FIELD_TYPES = {
 # The forward-verb button's own marker, so a keypress can find whichever step's button is
 # current without rebinding a listener every time the step redraws.
 _FORWARD = "console-wizard-forward"
+
+# The pictures core draws itself. Any other name is a Material icon: an extension names
+# a picture and never supplies one.
+_SOFT = 'fill="currentColor" fill-opacity="0.12"'
+_DRAWN = ('<svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="1.6" '
+          'stroke-linejoin="round" stroke-linecap="round">')
+_ART = {
+    "desktop": (
+        _DRAWN + f'<rect x="12" y="3" width="40" height="27" rx="2" {_SOFT}/>'
+        '<path d="M32 30v6M25 36h14"/><rect x="10" y="41" width="32" height="5" rx="1.2"/>'
+        '<rect x="47" y="39.5" width="7" height="8" rx="3.5"/></svg>'),
+    "cabinet": (
+        _DRAWN + f'<rect x="17" y="2" width="30" height="16" rx="1.5" {_SOFT}/>'
+        f'<rect x="23" y="20.5" width="18" height="5" rx="1" {_SOFT}/>'
+        f'<path d="M21 29h22l9 17H12z" {_SOFT}/>'
+        '<circle cx="6" cy="40" r="2.2"/><circle cx="58" cy="40" r="2.2"/></svg>'),
+}
+# A Material icon's ligature. Quasar also reads `img:` and `svguse:` names as drawings.
+_ICON_NAME = re.compile(r"[a-z0-9_]+")
 
 
 @dataclass
@@ -104,13 +124,15 @@ class Walk:
 
 
 def _controls(fields: list[dict], values: dict[str, Any], *,
-             client: ApiClient, errors: dict[str, Any]) -> dict[str, tuple[str, Any]]:
+             client: ApiClient, errors: dict[str, Any],
+             welcome: bool = False) -> dict[str, tuple[str, Any]]:
     """Draw what the task asked for, in the Console's own grammar.
 
     Returns each field's own kind and control, keyed by its key - what the dialog host
     reads back before Next, Back or Run (a path field only pushes what it holds on its
     own check, and Next can come sooner than that), and where it sends focus and a
-    refusal from `errors`.
+    refusal from `errors`. `welcome` is the step's own: a choice that carries pictures
+    lays them out as tiles on one and as rows on any other.
     """
     # Each control writes its own key, so the key is bound by a call rather than
     # captured off the loop variable.
@@ -134,8 +156,21 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
         if detail:
             control.tooltip(detail)
 
+    def refusing(draw: Callable[[], None], key: str) -> Callable[[], None]:
+        said = errors.get(key)
+        if not said:
+            return draw
+        text, detail = _worded(said)
+
+        def drawn() -> None:
+            with ui.column().classes("gap-1 min-w-0"):
+                draw()
+                panel.line(text, hint=detail, classes="console-help text-negative")
+        return drawn
+
     held: dict[str, tuple[str, Any]] = {}
     entries: list[tuple[Any, Any]] = []
+    asked = sum(1 for field in fields if field.get("key"))
     for field in fields:
         key = str(field.get("key") or "")
         if not key:
@@ -166,21 +201,25 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
         elif kind == "switch":
             def caught(control: Any, key: str = key) -> None:
                 held[key] = ("switch", control)
-                refused(control, key)
 
-            entries.append((label, panel.switch(
-                bool(values.get(key)), changed(key, bool), on_control=caught)))
+            entries.append((label, refusing(panel.switch(
+                bool(values.get(key)), changed(key, bool), on_control=caught), key)))
         elif kind == "choice":
-            options = [(str(one[0]), str(one[1]), str(one[2]) if len(one) > 2 else "")
+            options = [(str(one[0]), str(one[1]), str(one[2]) if len(one) > 2 else "",
+                       str(one[3] or "") if len(one) > 3 else "")
                       for one in field.get("choices") or []]
 
             def caught(control: Any, key: str = key) -> None:
                 held[key] = ("choice", control)
-                refused(control, key)
 
-            entries.append((label, panel.choice(
-                options, str(values.get(key) or ""),
-                changed(key, lambda value: str(value or "")), on_control=caught)))
+            if any(one[3] for one in options):
+                entries.append((panel.FULL, refusing(_pictured(
+                    label, options, str(values.get(key) or ""), typed(key),
+                    tiles=welcome, labelled=asked > 1, on_control=caught), key)))
+            else:
+                entries.append((label, refusing(panel.choice(
+                    [one[:3] for one in options], str(values.get(key) or ""),
+                    changed(key, lambda value: str(value or "")), on_control=caught), key)))
         elif kind == "number":
             def caught(control: Any, key: str = key) -> None:
                 held[key] = ("number", control)
@@ -219,6 +258,75 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
             entries.append((panel.ASIDE, _aside(str(field["help"]))))
     panel.facts(ui, entries)
     return held
+
+
+class _Picks(ui.element):
+    """The group a picture choice is drawn in; `value` is the key picked, which `_sync`
+    reads back the way it reads a radio."""
+
+    def __init__(self, value: str) -> None:
+        super().__init__("div")
+        self.value = value
+
+
+def _picture(name: str) -> None:
+    if name in _ART:
+        ui.html(_ART[name], sanitize=False, tag="span").classes("console-wizard-art")
+    elif _ICON_NAME.fullmatch(name):
+        ui.icon(name).classes("console-wizard-icon")
+
+
+def _pictured(question: str, options: list[tuple[str, str, str, str]], value: str,
+              on_change: Callable[[str], None], *, tiles: bool, labelled: bool,
+              on_control: Callable[[Any], None]) -> Callable[[], None]:
+    """A choice whose options carry pictures: `(key, label, help, picture)`. They are
+    tiles on a welcome and rows elsewhere. The question is drawn over them on a welcome
+    and on a step with other fields to tell it from; alone on a step, the step's own
+    title is the question and the group carries it as its accessible name only."""
+    def draw() -> None:
+        with ui.column().classes("w-full gap-0"):
+            if tiles or labelled:
+                ui.label(question).classes("console-card-title console-wizard-question")
+            group = _Picks(value).classes(
+                "console-wizard-picks" + (" console-wizard-picks--tiles" if tiles else ""))
+            group.props("role=radiogroup tabindex=-1")
+            group.props["aria-label"] = question
+            drawn: dict[str, tuple[ui.element, ui.icon]] = {}
+
+            def pick(key: str) -> None:
+                group.value = key
+                for one, (row, mark) in drawn.items():
+                    chosen = one == key
+                    if chosen:
+                        row.classes(add="console-source-row--chosen")
+                    else:
+                        row.classes(remove="console-source-row--chosen")
+                    row.props["aria-checked"] = "true" if chosen else "false"
+                    mark.set_visibility(chosen)
+                on_change(key)
+
+            with group:
+                for key, name, help_text, picture in options:
+                    chosen = key == value
+                    row = ui.element("div").classes(
+                        "console-source-row console-source-row--pick console-wizard-pick"
+                        + (" console-wizard-pick--tile" if tiles else "")
+                        + (" console-source-row--chosen" if chosen else ""))
+                    row.props(f"role=radio tabindex=0 aria-checked={'true' if chosen else 'false'}")
+                    row.on("click", lambda key=key: pick(key))
+                    row.on("keydown.space.prevent", lambda key=key: pick(key))
+                    with row:
+                        _picture(picture)
+                        with ui.column().classes("gap-0 min-w-0 console-wizard-pick-text"):
+                            ui.label(name).classes("console-source-name")
+                            if help_text:
+                                ui.label(help_text).classes("console-help")
+                        mark = ui.icon("check_circle").classes("console-wizard-pick-mark")
+                        mark.set_visibility(chosen)
+                    drawn[key] = (row, mark)
+            on_control(group)
+
+    return draw
 
 
 def _sync(values: dict[str, Any], held: dict[str, tuple[str, Any]]) -> None:
@@ -298,19 +406,38 @@ def _sync_step(step_key: str) -> None:
     """)
 
 
-def _step_list(steps: list[dict[str, Any]], current: str, go: Callable[[str], Any]) -> None:
-    """The path as it stands, named steps only. Only a `done` step answers a click - a
-    step still ahead has nothing to reopen, and clicking it would say otherwise."""
-    with ui.row().classes("console-wizard-steps gap-3 px-3 mb-2"):
+def _step_row(steps: list[dict[str, Any]], current: str, go: Callable[[str], Any]) -> None:
+    """The path as it stands: one segment per named step, its name under it. Only a
+    `done` step answers a click - a step still ahead has nothing to reopen, and
+    clicking it would say otherwise."""
+    with ui.element("div").classes("console-wizard-steps"):
         for entry in steps:
             key = str(entry.get("key") or "")
             text = str(entry.get("label") or key)
-            if key == current:
-                ui.label(text).classes("console-wizard-step--here")
-            elif entry.get("done"):
-                ui.label(text).classes("console-link").on("click", lambda key=key: go(key))
-            else:
-                ui.label(text).classes("console-help")
+            state = "here" if key == current else "done" if entry.get("done") else ""
+            segment = ui.element("div").classes(
+                "console-wizard-step" + (f" console-wizard-step--{state}" if state else ""))
+            if state == "here":
+                segment.props("aria-current=step")
+            with segment:
+                name = ui.label(text)
+                if state == "done":
+                    name.classes("console-link").on("click", lambda key=key: go(key))
+
+
+def _greeting(found: dict, root: ui.element, crest: ui.element, mark: bool) -> bool:
+    """Centers the step when it says it is a welcome, and puts VPinFE's mark over it where
+    the caller asked. Returns whether it is one."""
+    welcome = bool(found.get("welcome"))
+    if welcome:
+        root.classes(add="console-wizard--welcome")
+    else:
+        root.classes(remove="console-wizard--welcome")
+    crest.clear()
+    if welcome and mark:
+        with crest:
+            ui.image(theme.LOGO).classes("console-wizard-mark")
+    return welcome
 
 
 def _acts(acts: list[dict[str, Any]], go: Callable[[str], Any]) -> None:
@@ -331,7 +458,7 @@ def _aside(text: str) -> Any:
     return draw
 
 
-async def open_dialog(*, label: str, calls: Calls, under: str) -> None:
+async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False) -> None:
     """Run one flow in the dialog host: ask what it asks, in as many steps as it asks
     it, then do it.
 
@@ -343,7 +470,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str) -> None:
     rather than jumping over the ones already answered.
 
     It stops asking when it answers with a summary instead of fields. `under` is where
-    a run's report belongs in the flow's own catalog.
+    a run's report belongs in the flow's own catalog. `mark` puts VPinFE's mark over a
+    welcome step; only core passes it, so an extension's welcome is centered without it.
     """
     walk = Walk(calls, await calls.first(None))
     client = ApiClient()
@@ -351,10 +479,13 @@ async def open_dialog(*, label: str, calls: Calls, under: str) -> None:
     opened = False
     current_key = ""
 
-    with frame.opened("", wide=True, persistent=True,
-                      classes="console-import-card") as dialog:
-        heading = ui.label("").classes("console-dialog-title").props("tabindex=-1")
-        body = ui.column().classes("w-full gap-0 console-import-body")
+    with frame.opened("", persistent=True, classes="console-wizard-card") as dialog:
+        track = ui.element("div").classes("w-full")
+        with ui.element("div").classes("console-wizard-scroll") as scroll:
+            crest = ui.element("div").classes("console-wizard-crest")
+            heading = ui.label("").classes("console-dialog-title console-wizard-title") \
+                .props("tabindex=-1")
+            body = ui.column().classes("w-full gap-0")
         buttons = frame.footer()
 
         def draw(found: dict) -> None:
@@ -362,18 +493,22 @@ async def open_dialog(*, label: str, calls: Calls, under: str) -> None:
             fresh = current_key != str(found.get("step") or "")
             current_key = str(found.get("step") or "")
             heading.text = str(found.get("title") or label)
+            track.clear()
             body.clear()
             buttons.clear()
             summary = found.get("summary")
+            welcome = _greeting(found, scroll, crest, mark)
+            if found.get("steps"):
+                with track:
+                    _step_row(list(found["steps"]), current_key, _goto)
             with body:
-                if found.get("steps"):
-                    _step_list(list(found["steps"]), current_key, _goto)
                 if found.get("help"):
-                    ui.label(str(found["help"])).classes("console-help px-3 mb-2")
+                    ui.label(str(found["help"])).classes("console-wizard-lead")
                 if summary:
                     _summary(summary)
                 held = _controls(list(found.get("fields") or []), walk.values,
-                                 client=client, errors=dict(found.get("errors") or {}))
+                                 client=client, errors=dict(found.get("errors") or {}),
+                                 welcome=welcome)
                 if found.get("acts"):
                     _acts(list(found["acts"]), _act)
                 _lines(list(found.get("notes") or []),
@@ -455,13 +590,14 @@ async def open_dialog(*, label: str, calls: Calls, under: str) -> None:
                 ui.notify(t("said.could_not_start_it"), caption=why(exc), type="negative")
                 return
             job_id = str(started.get("job_id") or "")
+            if not job_id and started.get("ok") is False:
+                ui.notify(str(started.get("reason") or t("console.ext_action.not_run")),
+                          type="negative")
+                return
+            track.clear()
             if job_id:
                 await _watch(calls.job, job_id, body=body, buttons=buttons, heading=heading,
                             under=under, close=lambda: dialog.submit(True))
-                return
-            if started.get("ok") is False:
-                ui.notify(str(started.get("reason") or t("console.ext_action.not_run")),
-                          type="negative")
                 return
             # Finished already. Some actions are one call and a sentence, and making
             # those wear a progress bar would be theatre.
@@ -472,14 +608,15 @@ async def open_dialog(*, label: str, calls: Calls, under: str) -> None:
     await dialog
 
 
-async def open_page(*, label: str, calls: Calls, under: str, step: str | None = None) -> None:
-    """Run one flow as a Console view: the same steps the dialog host walks, drawn
-    with the step list beside the step's own content instead of above it, and the
-    current step kept in the address so a reload comes back to it.
+async def open_page(*, label: str, calls: Calls, under: str, step: str | None = None,
+                    mark: bool = False) -> None:
+    """Run one flow as a Console view: the same steps the dialog host walks, drawn on
+    the page instead of in a dialog, and the current step kept in the address so a
+    reload comes back to it.
 
     `step` is the key the caller read off its own address, if any - the flow answers
     `GET` with it, the way a done step reopens. Answering `None` gets its first step,
-    same as the dialog host.
+    same as the dialog host. `mark` is the dialog host's.
     """
     walk = Walk(calls, await calls.first(step))
     client = ApiClient()
@@ -488,8 +625,12 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
     current_key = ""
 
     with ui.column().classes("w-full gap-0 console-wizard-page") as page:
-        heading = ui.label("").classes("console-dialog-title").props("tabindex=-1")
-        body = ui.row().classes("w-full gap-4 items-start console-wizard-page-body")
+        track = ui.element("div").classes("w-full")
+        with ui.element("div").classes("w-full") as content:
+            crest = ui.element("div").classes("console-wizard-crest")
+            heading = ui.label("").classes("console-dialog-title console-wizard-title") \
+                .props("tabindex=-1")
+            body = ui.column().classes("w-full min-w-0 gap-0")
         buttons = frame.footer()
 
         def draw(found: dict) -> None:
@@ -497,26 +638,28 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
             fresh = current_key != str(found.get("step") or "")
             current_key = str(found.get("step") or "")
             heading.text = str(found.get("title") or label)
+            track.clear()
             body.clear()
             buttons.clear()
             summary = found.get("summary")
+            welcome = _greeting(found, content, crest, mark)
+            if found.get("steps"):
+                with track:
+                    _step_row(list(found["steps"]), current_key, _goto)
             with body:
-                if found.get("steps"):
-                    with ui.column().classes("console-wizard-page-steps"):
-                        _step_list(list(found["steps"]), current_key, _goto)
-                with ui.column().classes("w-full min-w-0 gap-0 console-wizard-page-content"):
-                    if found.get("help"):
-                        ui.label(str(found["help"])).classes("console-help px-3 mb-2")
-                    if summary:
-                        _summary(summary)
-                    held = _controls(list(found.get("fields") or []), walk.values,
-                                     client=client, errors=dict(found.get("errors") or {}))
-                    if found.get("acts"):
-                        _acts(list(found["acts"]), _act)
-                    _lines(list(found.get("notes") or []),
-                          t("console.ext_action.worth_knowing") if summary else "")
-                    if not found.get("ready", True):
-                        ui.label(str(found.get("reason") or "")).classes("console-help px-3")
+                if found.get("help"):
+                    ui.label(str(found["help"])).classes("console-wizard-lead")
+                if summary:
+                    _summary(summary)
+                held = _controls(list(found.get("fields") or []), walk.values,
+                                 client=client, errors=dict(found.get("errors") or {}),
+                                 welcome=welcome)
+                if found.get("acts"):
+                    _acts(list(found["acts"]), _act)
+                _lines(list(found.get("notes") or []),
+                      t("console.ext_action.worth_knowing") if summary else "")
+                if not found.get("ready", True):
+                    ui.label(str(found.get("reason") or "")).classes("console-help px-3")
             with buttons:
                 if walk.history:
                     frame.quiet(t("word.back"), _back, icon=verbs.BACK)
@@ -590,14 +733,15 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
                 ui.notify(t("said.could_not_start_it"), caption=why(exc), type="negative")
                 return
             job_id = str(started.get("job_id") or "")
+            if not job_id and started.get("ok") is False:
+                ui.notify(str(started.get("reason") or t("console.ext_action.not_run")),
+                          type="negative")
+                return
+            track.clear()
             if job_id:
                 # No `close`: nothing here is a dialog to dismiss.
                 await _watch(calls.job, job_id, body=body, buttons=buttons, heading=heading,
                             under=under, close=None)
-                return
-            if started.get("ok") is False:
-                ui.notify(str(started.get("reason") or t("console.ext_action.not_run")),
-                          type="negative")
                 return
             _finished(body, buttons, None, started)
 

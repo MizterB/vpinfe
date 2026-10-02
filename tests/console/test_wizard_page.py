@@ -1,6 +1,6 @@
-"""The page host's own drawing: the same step body and footer the dialog draws, with
-the step list beside them instead of above, and the current step kept in the address -
-all proven with a fake flow, since nothing in the tree hosts a real one yet."""
+"""The page host's own drawing: the same step row, body and footer the dialog draws,
+on the page rather than in a dialog, and the current step kept in the address - all
+proven with a fake flow, since nothing in the tree hosts a real one yet."""
 
 from __future__ import annotations
 
@@ -79,6 +79,20 @@ def _labelled(page: ui.element, text: str) -> ui.label:
                if isinstance(one, ui.label) and one.text == text)
 
 
+def _segments(root: ui.element) -> list[tuple[str, str, bool]]:
+    """Each step of the row as (name, state, reopens): `here`, `done` or '' for one still
+    ahead, and whether its name answers a click."""
+    found = []
+    for one in root.descendants():
+        if "console-wizard-step" not in one.classes:
+            continue
+        name = next(inner for inner in one.descendants() if isinstance(inner, ui.label))
+        state = next((c.removeprefix("console-wizard-step--") for c in one.classes
+                      if c.startswith("console-wizard-step--")), "")
+        found.append((name.text, state, "console-link" in name.classes))
+    return found
+
+
 def _ran(run: Callable[[], Any]) -> Any:
     """`run`, with NiceGUI's loop set so a handler's own task is started at all."""
     async def inside() -> Any:
@@ -132,34 +146,58 @@ class ActTests(unittest.TestCase):
         self.assertFalse(disabled)
 
 
-class StepListTests(unittest.TestCase):
-    def test_no_steps_key_draws_no_list(self) -> None:
+class StepRowTests(unittest.TestCase):
+    def test_no_steps_key_draws_no_row(self) -> None:
         first = {"step": "one", "fields": []}
 
         async def run() -> bool:
             page = await _opened(_calls(first=first))
-            return any("console-wizard-step--here" in one.classes
-                      or "console-wizard-steps" in one.classes for one in page.descendants())
+            return any("console-wizard-steps" in one.classes for one in page.descendants())
 
         self.assertFalse(_ran(run))
 
-    def test_a_done_step_is_a_link_and_an_open_one_is_not(self) -> None:
+    def test_the_row_has_one_segment_per_step_and_only_a_done_one_reopens(self) -> None:
         first = {"step": "two", "fields": [],
                  "steps": [{"key": "one", "label": "One", "done": True},
                           {"key": "two", "label": "Two", "done": False},
                           {"key": "three", "label": "Three", "done": False}]}
 
-        async def run() -> tuple[list[str], list[str]]:
-            page = await _opened(_calls(first=first))
-            linked = [one.text for one in page.descendants()
-                     if isinstance(one, ui.label) and "console-link" in one.classes]
-            current = [one.text for one in page.descendants()
-                      if isinstance(one, ui.label) and "console-wizard-step--here" in one.classes]
-            return linked, current
+        async def run() -> list[tuple[str, str, bool]]:
+            return _segments(await _opened(_calls(first=first)))
 
-        linked, current = _ran(run)
-        self.assertEqual(["One"], linked)
-        self.assertEqual(["Two"], current)
+        self.assertEqual([("One", "done", True), ("Two", "here", False),
+                          ("Three", "", False)], _ran(run))
+
+    def test_the_current_segment_alone_says_it_is_the_current_step(self) -> None:
+        first = {"step": "two", "fields": [],
+                 "steps": [{"key": "one", "label": "One", "done": True},
+                          {"key": "two", "label": "Two", "done": False}]}
+
+        async def run() -> list[tuple[str, str | None]]:
+            page = await _opened(_calls(first=first))
+            return [(next(inner for inner in one.descendants()
+                          if isinstance(inner, ui.label)).text, one.props.get("aria-current"))
+                    for one in page.descendants() if "console-wizard-step" in one.classes]
+
+        self.assertEqual([("One", None), ("Two", "step")], _ran(run))
+
+    def test_a_welcome_centers_the_step_and_not_the_row_above_it(self) -> None:
+        first = {"step": "hello", "welcome": True, "title": "Hello", "fields": [],
+                 "steps": [{"key": "hello", "label": "Start", "done": False}]}
+
+        async def run() -> tuple[bool, list[bool]]:
+            page = await _opened(_calls(first=first))
+            centered = [one for one in page.descendants()
+                        if "console-wizard--welcome" in one.classes]
+            row = next(one for one in page.descendants() if "console-wizard-steps" in one.classes)
+            title = _labelled(page, "Hello")
+            inside = [{id(inner) for inner in one.descendants()} for one in centered]
+            return ("console-wizard--welcome" in page.classes,
+                    [id(title) in held and id(row) not in held for held in inside])
+
+        on_page, scoped = _ran(run)
+        self.assertFalse(on_page)
+        self.assertEqual([True], scoped)
 
     def test_clicking_a_done_step_reopens_it_by_key(self) -> None:
         first = {"step": "two", "fields": [],
@@ -183,6 +221,43 @@ class StepListTests(unittest.TestCase):
         asked, note = _ran(run)
         self.assertEqual(["one"], asked)
         self.assertEqual("Back on one", note)
+
+
+class RowOnRunTests(unittest.TestCase):
+    """The row says where a person is in the steps, and a run is not one of them."""
+
+    _last = {"step": "review", "fields": [], "summary": [["Folder", "/tables"]],
+             "steps": [{"key": "one", "label": "One", "done": True},
+                      {"key": "review", "label": "Review", "done": False}]}
+
+    def _pressed(self, calls: wizard.Calls) -> list[tuple[str, str, bool]]:
+        async def run() -> list[tuple[str, str, bool]]:
+            page = await _opened(calls)
+            said(_forward(page), "click")
+            await _settled()
+            return _segments(page)
+
+        return _ran(run)
+
+    def test_a_run_that_finishes_at_once_takes_the_row_away(self) -> None:
+        self.assertEqual([], self._pressed(_calls(
+            first=self._last, on_run=lambda values: {"ok": True, "message": "All set"})))
+
+    def test_a_run_that_becomes_a_job_takes_the_row_away(self) -> None:
+        async def done(_job_id: str) -> dict:
+            return {"state": "done", "pct": 100}
+
+        calls = _calls(first=self._last, on_run=lambda values: {"job_id": "j1"})
+        calls.job = done
+
+        self.assertEqual([], self._pressed(calls))
+
+    def test_a_run_that_is_refused_leaves_the_row_for_the_step_it_is_still_on(self) -> None:
+        with mock.patch.object(ui, "notify"):
+            segments = self._pressed(_calls(
+                first=self._last, on_run=lambda values: {"ok": False, "reason": "Not yet"}))
+
+        self.assertEqual([("One", "done", True), ("Review", "here", False)], segments)
 
 
 class TitleFocusTests(unittest.TestCase):

@@ -960,8 +960,8 @@ def choice(options: Sequence[tuple[str, str, str]], value: str,
     """
     def draw() -> None:
         with ui.column().classes("console-fact-edit gap-1"):
-            control = ui.radio({key: label for key, label, _help in options}, value=value,
-                               on_change=on_change).props("dense")
+            control = ui.radio({key: label for key, label, _help in options},
+                               value=value or None, on_change=on_change).props("dense")
             for _key, _label, help_text in options:
                 if help_text:
                     ui.label(help_text).classes("console-help")
