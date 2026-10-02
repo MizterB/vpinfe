@@ -66,7 +66,7 @@ class TranslateTests(unittest.TestCase):
 class BindTests(unittest.TestCase):
     def _bound_to(self, **kwargs) -> tuple:
         server = CustomHTTPServer({})
-        with mock.patch("frontend.custom_http_server.ThreadingTCPServer") as tcp, \
+        with mock.patch("frontend.custom_http_server._FileServer") as tcp, \
              mock.patch("frontend.custom_http_server.threading.Thread"):
             server.start_file_server(port=8123, **kwargs)
         return tcp.call_args[0][0]

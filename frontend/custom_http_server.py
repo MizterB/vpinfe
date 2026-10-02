@@ -14,6 +14,7 @@ import mimetypes
 import os
 import posixpath
 import re
+import socket
 import threading
 from functools import partial
 from pathlib import Path
@@ -34,6 +35,12 @@ NOTHING_HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "__unmou
 
 # The catalog namespaces a core page is sent.
 CORE_WORDS = ("frontend", "word", "input")
+
+
+class _FileServer(ThreadingTCPServer):
+    allow_reuse_address = True
+    request_queue_size = socket.SOMAXCONN
+
 
 class CustomHTTPServer:
     """The loopback server that hands theme assets to the frontend windows."""
@@ -578,16 +585,15 @@ class CustomHTTPServer:
                 logger.debug("[HTTP] " + fmt % args)
 
     def __init__(self, mount_points: dict[str, str]) -> None:
-        self.file_server: ThreadingTCPServer | None = None
+        self.file_server: _FileServer | None = None
         self.mount_points = mount_points
 
     def start_file_server(self, port: int = 8000, bind: str = LOOPBACK) -> None:
         handler_class = partial(self.MultiDirHTTPRequestHandler, mount_points=self.mount_points)
-        ThreadingTCPServer.allow_reuse_address = True
         # Loopback unless told otherwise: this serves the table library, so opening it
         # shares read access to it. An address rather than a switch, so one interface can
         # be named instead of every one.
-        self.file_server = ThreadingTCPServer((bind, port), handler_class)
+        self.file_server = _FileServer((bind, port), handler_class)
         threading.Thread(target=self.file_server.serve_forever, daemon=True).start()
         if bind != LOOPBACK:
             logger.warning("Theme assets and table media are reachable on %s - this port "
