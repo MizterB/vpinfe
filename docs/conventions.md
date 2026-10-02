@@ -873,6 +873,13 @@ no icon, and on an icon name `verbs.py` does not declare.
   there is history, Cancel where there is not, Next, and the act's own verb on the last
   step. It draws its own title, since the title changes. Its size, its step row, its
   welcome and its picture choices are the next four entries.
+- **A flow that can be left and returned to passes `aside` to `wizard.open_dialog`**: a
+  quiet verb on the far left of every step, taking Cancel's place, and `open_dialog`
+  answers whether the flow ran. Setup's is Finish later, and Close when it is asked again.
+- **A step that answers `confirm` with no `summary` is the last one**, and its answering
+  button reads the `confirm`. A run that answers at once ends on "Done" over a Close
+  button; `close_when_done=True` closes the dialog instead, for a flow like Setup whose
+  page already shows the result.
 
 `tests/invariants/test_dialogs_are_drawn_by_the_frame.py` fails on any `ui.dialog()`
 outside `console/dialog.py`. The enlarged picture in `mediaview.py` and the phone

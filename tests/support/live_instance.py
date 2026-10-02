@@ -140,6 +140,10 @@ class LiveInstance:
         cfg_set(store, "network", "http_port", self.ports["manager"])
         cfg_set(store, "network", "ws_port", self.ports["ws"])
         cfg_set(store, "themes", "refresh", "never")
+        # A fresh config is a first run, which opens Setup over the Console's root and
+        # holds the sync watchers back. These instances stand for ones already set up;
+        # `extra_settings` below puts it back for a test of the first run itself.
+        cfg_set(store, "install", "setup_pending", False)
         for (section, key), value in self.extra_settings.items():
             cfg_set(store, section, key, value)
         store.save()

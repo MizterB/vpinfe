@@ -326,6 +326,11 @@ install reporting `core` alone is one that is not currently for anything and can
 configured into being for something. It is synthesized rather than stored, so a client
 must not expect to find it in the config.
 
+`setup_pending` is `true` while this install has not finished Setup, the questions asked on
+a first run, and is left out of the document once it has. A client that finds the key
+absent treats the install as set up, which is also what it finds on a build from before
+Setup existed.
+
 ## Conventions
 
 Field names are `snake_case` (see `docs/conventions.md`), matching Python's own convention (PEP 8) so nothing has to be

@@ -14,7 +14,9 @@ def _calls(steps: dict[str, dict[str, Any]], *,
           checked: list[str] | None = None,
           acted: list[tuple[str, str]] | None = None,
           reopened: list[str] | None = None,
-          ran: list[dict[str, Any]] | None = None) -> wizard.Calls:
+          ran: list[dict[str, Any]] | None = None,
+          ran_from: list[str] | None = None,
+          after_run: dict[str, Any] | None = None) -> wizard.Calls:
     """A flow with a canned next step for each one `Walk` might leave."""
     async def first(step: str | None = None) -> dict:
         if step is None:
@@ -33,10 +35,12 @@ def _calls(steps: dict[str, dict[str, Any]], *,
             acted.append((key, step))
         return steps[step]
 
-    async def run(values: dict[str, Any]) -> dict:
+    async def run(values: dict[str, Any], step: str) -> dict:
         if ran is not None:
             ran.append(dict(values))
-        return {"ok": True}
+        if ran_from is not None:
+            ran_from.append(step)
+        return after_run if after_run is not None else {"ok": True}
 
     async def job(job_id: str) -> dict:
         raise AssertionError("no run in these tests answers with a job")
@@ -174,6 +178,44 @@ class GotoTests(unittest.IsolatedAsyncioTestCase):
         await walk.goto("one")
 
         self.assertEqual(walk.history, [{"step": "one"}])
+
+
+class RunTests(unittest.IsolatedAsyncioTestCase):
+    async def test_a_run_is_told_which_step_it_runs_from(self) -> None:
+        ran_from: list[str] = []
+        walk = wizard.Walk(_calls({}, ran_from=ran_from), {"step": "last", "confirm": "Finish"})
+
+        await walk.run()
+
+        self.assertEqual(ran_from, ["last"])
+
+    async def test_a_run_that_answers_a_step_moves_on_and_back_returns(self) -> None:
+        after = {"step": "more", "fields": []}
+        first = {"step": "last", "confirm": "Finish"}
+        walk = wizard.Walk(_calls({}, after_run=after), first)
+
+        found = await walk.run()
+
+        self.assertIs(found, after)
+        self.assertIs(walk.step, after)
+        self.assertIs(walk.back(), first)
+
+    async def test_a_run_that_answers_the_same_step_is_not_pushed(self) -> None:
+        again = {"step": "last", "errors": {"x": "no"}}
+        walk = wizard.Walk(_calls({}, after_run=again), {"step": "last", "confirm": "Finish"})
+
+        await walk.run()
+
+        self.assertEqual(walk.history, [])
+        self.assertIs(walk.step, again)
+
+    async def test_a_run_that_answers_no_step_leaves_the_step_where_it_was(self) -> None:
+        first = {"step": "last", "confirm": "Finish"}
+        walk = wizard.Walk(_calls({}, after_run={"ok": True, "message": "Done"}), first)
+
+        await walk.run()
+
+        self.assertIs(walk.step, first)
 
 
 if __name__ == "__main__":

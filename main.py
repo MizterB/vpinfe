@@ -43,7 +43,7 @@ apply_configdir_override(sys.argv[1:])
 
 import requests
 
-from common import extensions, i18n, shutdown, theme_options
+from common import extensions, i18n, install_setup, shutdown, theme_options
 from common.config_store import ConfigStore
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
@@ -124,7 +124,7 @@ import console
 import httpapi
 from cli import parse_args
 from frontend import lifecycle_host, runtime
-from managerui.managerui import _shutdown_event, set_first_run, start_manager_ui, stop_manager_ui
+from managerui.managerui import _shutdown_event, start_manager_ui, stop_manager_ui
 from managerui.services import app_control
 
 nicegui_app.add_static_files('/static', os.path.join(base_path, 'managerui/static'))
@@ -215,16 +215,15 @@ headless = cli_args and cli_args.headless
 MOUNT_POINTS, themes_dir = runtime.build_mount_points(base_path, config_dir, config_store)
 nicegui_app.add_static_files('/themes', themes_dir)
 
-# On first run, start the manager UI early so chromium can load it
-if config_store.is_new:
-    set_first_run(True)
+# While Setup is pending, start the web server early so chromium can load it.
+if install_setup.pending(config_store):
     http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
     http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
     start_manager_ui(port=http_port, bind=http_bind)
     reconfigure_app_logging()
     # Wait for the NiceGUI server to be ready before chromium tries to load it
     runtime.wait_for_manager_ui_ready(http_port)
-    logger.info("First run: Manager UI ready on port %s", http_port)
+    logger.info("Setup pending: web server ready on port %s", http_port)
 
 # Before anything installs or updates a theme. An update deletes the theme's folder, and
 # until now that folder is where the user's option values were kept - so this has to run
@@ -346,12 +345,20 @@ shutdown.exit_if_requested(logger)
 # The catalog everything VPS-shaped reads from - matching, release lists, what a kind is
 # offered from. It was only ever downloaded by a Manager UI page, so an install that never
 # opened one answered from whatever snapshot it started with.
-if not config_store.is_new:
+def _start_sync_watchers() -> None:
     from common.online.theme_sync import start_watch as _watch_themes
     from common.online.vpsdb_sync import start_watch as _watch_vpsdb
 
     _watch_vpsdb(config_store, _shutdown_event)
     _watch_themes(config_store, _shutdown_event)
+
+
+# While Setup is pending the watchers start when it finishes instead.
+if install_setup.pending(config_store):
+    install_setup.after_finish(config_store, _start_sync_watchers)
+else:
+    _start_sync_watchers()
+
 # Whatever a person asked to run when VPinFE starts, and anything a previous run left
 # half done. Ahead of the services below because that is what these are usually for -
 # a share mounted, a service stopped, an audio route moved - and everything after this

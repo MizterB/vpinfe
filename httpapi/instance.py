@@ -13,8 +13,9 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Body
+from fastapi.responses import JSONResponse
 
-from common import install_identity, install_presence
+from common import install_identity, install_presence, install_setup
 from common.games import launcher_migration, locations
 from common.online import app_updater
 from common.paths import get_ini_config
@@ -51,7 +52,11 @@ def mint_identity() -> None:
 
 def discovery_payload(prefix: str, api_version: str) -> dict:
     """The discovery document. Links are relative so they survive a reverse proxy;
-    present-but-null means a known link this instance does not offer."""
+    present-but-null means a known link this instance does not offer.
+
+    `setup_pending` is present, and true, only until Setup finishes; a client reads it
+    absent as set up."""
+    pending = {"setup_pending": True} if install_setup.pending(get_ini_config()) else {}
     return {
         # `name` is the product, byte-identical everywhere; `install_id` is who this is.
         "name": "VPinFE",
@@ -72,15 +77,22 @@ def discovery_payload(prefix: str, api_version: str) -> dict:
             "manufacturers": f"{prefix}/manufacturers",
             "devices": f"{prefix}/devices",
         },
+        **pending,
     }
 
 
 def build_router(prefix: str, api_version: str) -> APIRouter:
     router = APIRouter(tags=["instance"])
 
-    @router.get("/", summary="API discovery", dependencies=[requires(scopes.INSTANCE_READ)])
-    def discovery() -> models.Discovery:
-        return models.Discovery(**discovery_payload(prefix, api_version))
+    # Built by hand: `setup_pending` is left out unless true, and every other null stays.
+    @router.get("/", summary="API discovery", dependencies=[requires(scopes.INSTANCE_READ)],
+                response_model=models.Discovery)
+    def discovery() -> JSONResponse:
+        document = models.Discovery(**discovery_payload(prefix, api_version))
+        body = document.model_dump(mode="json", by_alias=True)
+        if not document.setup_pending:
+            del body["setup_pending"]
+        return JSONResponse(body)
 
     @router.get("/health", summary="Liveness check", dependencies=[requires(scopes.INSTANCE_READ)])
     def health() -> models.Health:

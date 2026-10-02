@@ -870,6 +870,10 @@ class ChromiumManager:
         """Unblock wait_for_exit and leave the windows to the caller."""
         self._exit_event.set()
 
+    def reset_exit(self) -> None:
+        """Clear a requested exit - once set, every wait_for_exit returns at once."""
+        self._exit_event.clear()
+
     def wait_for_exit(self,
                       is_window_connected: Callable[[str], bool] | None = None) -> None:
         """Block until all Chromium processes have exited.

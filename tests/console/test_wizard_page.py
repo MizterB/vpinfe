@@ -23,7 +23,7 @@ def _calls(*, first: dict[str, Any],
           on_check: Callable[[dict[str, Any], str], dict[str, Any]] | None = None,
           on_act: Callable[[str, dict[str, Any], str], dict[str, Any]] | None = None,
           on_goto: Callable[[str], dict[str, Any]] | None = None,
-          on_run: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+          on_run: Callable[[dict[str, Any], str], dict[str, Any]] | None = None,
           seen_first: list[str | None] | None = None) -> wizard.Calls:
     async def first_call(step: str | None = None) -> dict:
         if seen_first is not None:
@@ -44,8 +44,8 @@ def _calls(*, first: dict[str, Any],
             raise AssertionError("this flow answers no act")
         return on_act(key, values, step)
 
-    async def run(values: dict[str, Any]) -> dict:
-        return on_run(values) if on_run is not None else {"ok": True}
+    async def run(values: dict[str, Any], step: str) -> dict:
+        return on_run(values, step) if on_run is not None else {"ok": True}
 
     async def job(job_id: str) -> dict:
         raise AssertionError("no test here drives a job")
@@ -241,13 +241,13 @@ class RowOnRunTests(unittest.TestCase):
 
     def test_a_run_that_finishes_at_once_takes_the_row_away(self) -> None:
         self.assertEqual([], self._pressed(_calls(
-            first=self._last, on_run=lambda values: {"ok": True, "message": "All set"})))
+            first=self._last, on_run=lambda values, step: {"ok": True, "message": "All set"})))
 
     def test_a_run_that_becomes_a_job_takes_the_row_away(self) -> None:
         async def done(_job_id: str) -> dict:
             return {"state": "done", "pct": 100}
 
-        calls = _calls(first=self._last, on_run=lambda values: {"job_id": "j1"})
+        calls = _calls(first=self._last, on_run=lambda values, step: {"job_id": "j1"})
         calls.job = done
 
         self.assertEqual([], self._pressed(calls))
@@ -255,7 +255,7 @@ class RowOnRunTests(unittest.TestCase):
     def test_a_run_that_is_refused_leaves_the_row_for_the_step_it_is_still_on(self) -> None:
         with mock.patch.object(ui, "notify"):
             segments = self._pressed(_calls(
-                first=self._last, on_run=lambda values: {"ok": False, "reason": "Not yet"}))
+                first=self._last, on_run=lambda values, step: {"ok": False, "reason": "Not yet"}))
 
         self.assertEqual([("One", "done", True), ("Review", "here", False)], segments)
 
@@ -349,7 +349,7 @@ class RunTests(unittest.TestCase):
 
         async def run() -> tuple[str, bool]:
             page = await _opened(_calls(first=first,
-                                        on_run=lambda values: {"message": "All set"}))
+                                        on_run=lambda values, step: {"message": "All set"}))
             said(_forward(page), "click")
             await _settled()
             message = _labelled(page, "All set").text

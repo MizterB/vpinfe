@@ -49,13 +49,6 @@ import threading as _threading
 
 _shutdown_event = _threading.Event()
 
-# First-run flag — set by main.py when no vpinfe.ini existed
-_first_run = False
-
-def set_first_run(value: bool = True):
-    global _first_run
-    _first_run = value
-
 # Cache for release check result (check once per session)
 _update_check_cache = {
     'checked': False,
@@ -319,21 +312,12 @@ def build_app(page_param: str = '', dialog_param: str = ''):
             if render_page is not None:
                 render_page()
 
-    # Determine initial page: URL ?page= param takes priority, then first-run.
-    global _first_run
-    if _first_run:
-        initial_page = 'vpinfe'
-    elif page_param:
-        initial_page = page_param
-    else:
-        initial_page = 'games'
+    # Determine initial page: URL ?page= param, else the games list.
+    initial_page = page_param or 'games'
     show_page(initial_page)
 
-    # Show dialog if requested via URL param, or first-run dialog
-    if _first_run:
-        _first_run = False  # Only show once
-        _dialog_first_run()
-    elif dialog_param:
+    # Show dialog if requested via URL param.
+    if dialog_param:
         handler = _DIALOG_HANDLERS.get(dialog_param)
         if handler:
             handler()
@@ -345,23 +329,10 @@ def _dialog_test():
         ui.button('Close', on_click=dlg.close)
     dlg.open()
 
-def _dialog_first_run():
-    """Welcome dialog shown on first run when no vpinfe.ini existed."""
-    with ui.dialog() as dlg, ui.card().classes('p-6'):
-        ui.icon('settings_suggest', size='48px').classes('text-blue-400 self-center')
-        ui.label('Welcome to VPinFE!').classes('text-xl font-bold text-center')
-        ui.label(
-            'No configuration file was found so a default vpinfe.ini has been created. '
-            'Please configure your settings below, then restart VPinFE.'
-        ).classes('text-sm text-gray-300 text-center')
-        ui.button('Got it', on_click=dlg.close).classes('self-center mt-2')
-    dlg.open()
-
 # Registry mapping dialog param values to handler functions.
 # Add new entries here to support additional dialogs via ?dialog=<key>.
 _DIALOG_HANDLERS = {
     'test': _dialog_test,
-    'first_run': _dialog_first_run,
 }
 
 # Off the root, which the Console holds now. Its own path rather than a redirect: it is

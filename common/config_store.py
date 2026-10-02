@@ -163,7 +163,6 @@ class ConfigStore:
         self._converted_from_ini = False
         self._saved: dict[tuple[str, str], str] | None = None
 
-        self.is_new = False
         if os.path.exists(self.json_path):
             self._load_json()
         elif os.path.exists(self.ini_path):
@@ -172,8 +171,8 @@ class ConfigStore:
             self._converted_from_ini = True
         else:
             logger.info("Generating default settings at: %s", self.json_path)
-            self.is_new = True
             self.format_defaults()
+            self.config.set('install', 'setup_pending', 'true')
             self.save()
 
         changed = self._converted_from_ini

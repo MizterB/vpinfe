@@ -24,7 +24,7 @@ def _calls(*, first: dict[str, Any],
           on_check: Callable[[dict[str, Any], str], dict[str, Any]] | None = None,
           on_act: Callable[[str, dict[str, Any], str], dict[str, Any]] | None = None,
           on_goto: Callable[[str], dict[str, Any]] | None = None,
-          on_run: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+          on_run: Callable[[dict[str, Any], str], dict[str, Any]] | None = None,
           on_job: Callable[[str], dict[str, Any]] | None = None) -> wizard.Calls:
     async def first_call(step: str | None = None) -> dict:
         if step is None:
@@ -43,8 +43,8 @@ def _calls(*, first: dict[str, Any],
             raise AssertionError("this flow answers no act")
         return on_act(key, values, step)
 
-    async def run(values: dict[str, Any]) -> dict:
-        return on_run(values) if on_run is not None else {"ok": True}
+    async def run(values: dict[str, Any], step: str) -> dict:
+        return on_run(values, step) if on_run is not None else {"ok": True}
 
     async def job(job_id: str) -> dict:
         if on_job is None:
@@ -280,14 +280,14 @@ class RowOnRunTests(unittest.TestCase):
 
     def test_a_run_that_finishes_at_once_takes_the_row_away(self) -> None:
         segments, words = self._pressed(_calls(
-            first=self._last, on_run=lambda values: {"ok": True, "message": "All set"}))
+            first=self._last, on_run=lambda values, step: {"ok": True, "message": "All set"}))
 
         self.assertEqual([], segments)
         self.assertIn("All set", words)
 
     def test_a_run_that_becomes_a_job_takes_the_row_away(self) -> None:
         segments, _words = self._pressed(_calls(
-            first=self._last, on_run=lambda values: {"job_id": "j1"},
+            first=self._last, on_run=lambda values, step: {"job_id": "j1"},
             on_job=lambda job_id: {"state": "done", "pct": 100}))
 
         self.assertEqual([], segments)
@@ -296,9 +296,211 @@ class RowOnRunTests(unittest.TestCase):
         with mock.patch.object(ui, "notify"):
             segments, _words = self._pressed(_calls(
                 first=self._last,
-                on_run=lambda values: {"ok": False, "reason": "Not yet"}))
+                on_run=lambda values, step: {"ok": False, "reason": "Not yet"}))
 
         self.assertEqual([("One", "done", True), ("Review", "here", False)], segments)
+
+
+class LastStepTests(unittest.TestCase):
+    """A `confirm` with nothing to summarize is still the last step, and its button says
+    the verb the flow chose."""
+
+    def _buttons(self, first: dict[str, Any]) -> list[tuple[str, str]]:
+        async def run() -> list[tuple[str, str]]:
+            task, dialog = await _opened(_calls(first=first))
+            found = [(one.text, str(one._props.get("icon") or ""))
+                     for one in dialog.descendants() if isinstance(one, ui.button)]
+            await _finished(task)
+            return found
+
+        return _ran(run)
+
+    def test_a_confirm_without_a_summary_is_the_last_step(self) -> None:
+        buttons = self._buttons({"step": "one", "fields": [], "confirm": "Finish"})
+
+        self.assertIn(("Finish", "check"), buttons)
+        self.assertNotIn("Next", [text for text, _icon in buttons])
+
+    def test_a_summary_with_a_confirm_keeps_the_run_icon(self) -> None:
+        buttons = self._buttons({"step": "one", "fields": [], "summary": [["A", "b"]],
+                                 "confirm": "Copy 3"})
+
+        self.assertIn(("Copy 3", "play_arrow"), buttons)
+
+    def test_a_step_with_neither_goes_on_with_next(self) -> None:
+        buttons = self._buttons({"step": "one", "fields": []})
+
+        self.assertIn("Next", [text for text, _icon in buttons])
+
+    def test_a_run_that_answers_a_step_draws_that_step(self) -> None:
+        first = {"step": "one", "fields": [], "confirm": "Finish"}
+        after = {"step": "two", "fields": [], "title": "Second"}
+
+        async def run() -> tuple[bool, list[str]]:
+            task, dialog = await _opened(_calls(
+                first=first, on_run=lambda values, step: after))
+            said(_forward(dialog), "click")
+            await _settled()
+            found = (_labelled(dialog, "Second") is not None,
+                     [one.text for one in dialog.descendants() if isinstance(one, ui.button)])
+            await _finished(task)
+            return found
+
+        drawn, buttons = _ran(run)
+        self.assertTrue(drawn)
+        self.assertIn("Back", buttons)
+
+
+class AsideTests(unittest.TestCase):
+    """The way out that is not Cancel: on the far left of every step, in place of Cancel."""
+
+    def _opened_with(self, aside: str, first: dict[str, Any],
+                    on_check: Callable[[dict[str, Any], str], dict[str, Any]] | None = None
+                    ) -> Callable[[], Any]:
+        async def run() -> Any:
+            async def go() -> bool:
+                with _PAGE:
+                    return await wizard.open_dialog(
+                        label="Test", calls=_calls(first=first, on_check=on_check),
+                        under="test.action", aside=aside)
+
+            was = set(_PAGE.client.layout.descendants())
+            task = asyncio.create_task(go())
+            await _settled()
+            dialog = next(one for one in set(_PAGE.client.layout.descendants()) - was
+                          if isinstance(one, ui.dialog))
+            return task, dialog
+
+        return run
+
+    def test_the_aside_stands_where_cancel_would_and_cancel_is_gone(self) -> None:
+        async def run() -> tuple[list[str], bool]:
+            task, dialog = await self._opened_with("Finish later", {"step": "one"})()
+            buttons = [one for one in dialog.descendants() if isinstance(one, ui.button)]
+            found = ([one.text for one in buttons],
+                     any("console-dialog-aside" in one.classes
+                         for one in buttons if one.text == "Finish later"))
+            await _finished(task)
+            return found
+
+        texts, aside = _ran(run)
+        self.assertIn("Finish later", texts)
+        self.assertNotIn("Cancel", texts)
+        self.assertTrue(aside)
+
+    def test_the_aside_stays_on_the_steps_after_the_first(self) -> None:
+        async def run() -> list[str]:
+            task, dialog = await self._opened_with(
+                "Finish later", {"step": "one"}, lambda values, step: {"step": "two"})()
+            said(_forward(dialog), "click")
+            await _settled()
+            texts = [one.text for one in dialog.descendants() if isinstance(one, ui.button)]
+            await _finished(task)
+            return texts
+
+        texts = _ran(run)
+        self.assertIn("Finish later", texts)
+        self.assertIn("Back", texts)
+
+    def test_pressing_it_closes_the_flow_unrun(self) -> None:
+        async def run() -> bool:
+            task, dialog = await self._opened_with("Finish later", {"step": "one"})()
+            said(next(one for one in dialog.descendants()
+                      if isinstance(one, ui.button) and one.text == "Finish later"), "click")
+            await _settled()
+            return await task
+
+        self.assertIs(False, _ran(run))
+
+    def test_without_one_the_first_step_keeps_cancel(self) -> None:
+        async def run() -> list[str]:
+            task, dialog = await self._opened_with("", {"step": "one"})()
+            texts = [one.text for one in dialog.descendants() if isinstance(one, ui.button)]
+            await _finished(task)
+            return texts
+
+        self.assertIn("Cancel", _ran(run))
+
+    def test_a_flow_that_ran_returns_true(self) -> None:
+        async def run() -> bool:
+            task, dialog = await self._opened_with(
+                "Close", {"step": "one", "confirm": "Finish"})()
+            said(_forward(dialog), "click")
+            await _settled()
+            said(next(one for one in dialog.descendants()
+                      if isinstance(one, ui.button) and one.text == "Close"
+                      and "console-dialog-aside" not in one.classes), "click")
+            await _settled()
+            return await task
+
+        self.assertIs(True, _ran(run))
+
+
+class CloseWhenDoneTests(unittest.TestCase):
+    """A run that answers at once, left on a Done screen unless the host is told to close."""
+
+    _last = {"step": "one", "fields": [], "confirm": "Finish"}
+
+    def _pressed(self, on_run: Callable[[dict[str, Any], str], dict[str, Any]], *,
+                 close_when_done: bool,
+                 on_job: Callable[[str], dict[str, Any]] | None = None
+                 ) -> tuple[bool | None, list[str]]:
+        """What open_dialog answered, or None while the dialog is still open, and the
+        words left on it."""
+        async def run() -> tuple[bool | None, list[str]]:
+            async def go() -> bool:
+                with _PAGE:
+                    return await wizard.open_dialog(
+                        label="Test", calls=_calls(first=self._last, on_run=on_run, on_job=on_job),
+                        under="test.action", close_when_done=close_when_done)
+
+            was = set(_PAGE.client.layout.descendants())
+            task = asyncio.create_task(go())
+            await _settled()
+            dialog = next(one for one in set(_PAGE.client.layout.descendants()) - was
+                          if isinstance(one, ui.dialog))
+            said(_forward(dialog), "click")
+            await _settled()
+            words = [one.text for one in dialog.descendants() if isinstance(one, ui.label)]
+            if not task.done():
+                await _finished(task)
+                return None, words
+            return task.result(), words
+
+        return _ran(run)
+
+    def test_a_run_that_answers_at_once_closes_the_dialog_as_run(self) -> None:
+        answer, words = self._pressed(lambda values, step: {"ok": True}, close_when_done=True)
+
+        self.assertIs(True, answer)
+        self.assertNotIn("Done", words)
+
+    def test_without_it_the_dialog_stays_on_a_done_screen(self) -> None:
+        answer, words = self._pressed(lambda values, step: {"ok": True}, close_when_done=False)
+
+        self.assertIsNone(answer)
+        self.assertIn("Done", words)
+
+    def test_a_refused_run_stays_open_to_say_why(self) -> None:
+        with mock.patch.object(ui, "notify") as notify:
+            answer, _words = self._pressed(
+                lambda values, step: {"ok": False, "reason": "Not yet"}, close_when_done=True)
+
+        self.assertIsNone(answer)
+        notify.assert_called_once()
+
+    def test_a_run_that_becomes_a_job_is_still_watched(self) -> None:
+        polled: list[str] = []
+
+        def job(job_id: str) -> dict[str, Any]:
+            polled.append(job_id)
+            return {"state": "done", "pct": 100}
+
+        answer, _words = self._pressed(lambda values, step: {"job_id": "j1"},
+                                       close_when_done=True, on_job=job)
+
+        self.assertIsNone(answer, "a job is watched to its end, not closed on")
+        self.assertEqual(["j1"], polled)
 
 
 class TitleFocusTests(unittest.TestCase):

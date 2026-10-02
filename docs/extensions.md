@@ -351,20 +351,25 @@ Four calls on the extension's own router, under `base`:
 | `GET {base}` | `title`, `help`, `fields`, `confirm`, `steps`, `welcome` — what to ask, if anything. `?step=<key>` reopens a done step instead of starting over |
 | `POST {base}/check` | `ready`, `reason`, `summary`, `notes`, `errors`, `acts`, more `fields`, `confirm` — what would happen |
 | `POST {base}/act` | the same step again, redrawn — for something a step needs done before it can go on |
-| `POST {base}/run` | `{"job_id": …}`, or the outcome directly |
+| `POST {base}/run` | `{"job_id": …}`, or the outcome directly, or the next `step` |
 
 **How many steps an action has is read off what it answers, never declared.** No `fields`
 means press it and it happens. `fields` means fill them in first. A `confirm` means a step
 showing what would happen before it runs. A declared mode would be a second statement of
 what the answers already say, and the two come apart.
 
+A `confirm` with no `summary` is the last step with nothing to show first: its forward
+button reads the `confirm` and pressing it runs. A run may answer with a `step` instead of
+an outcome, drawn the way a `/check` answer is, so an answer that changes the path can move
+on to a question that was not there when the last step was drawn.
+
 A run returns a `job_id` where the work is slow — core watches it on `/api/v1/jobs` — or
 the outcome where it is not, with an optional `message` and `summary`. An action that is
 one call and a sentence should not have to wear a progress bar.
 
 `fields` are `{key, type, label, value, help}`; a `path` field may add `opens_at`, the folder
-its picker starts in while the field is empty. `check` and `run` receive
-`{"values": {…}}`; `act` receives that and the step's own key, as `{"values": …, "step": …}`.
+its picker starts in while the field is empty. `check`, `act` and `run` receive
+`{"values": {…}, "step": …}`, the step's own key; `act` adds `"act"`, which one was pressed.
 The words in these answers are the extension's to look up, with `ctx.t`.
 
 | type | asks for |

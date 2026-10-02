@@ -70,7 +70,9 @@
     "display_name": "",
     "features": "library,frontend,devices",
     "id": "",
-    "language": "auto"
+    "language": "auto",
+    "setup_done": "",
+    "setup_pending": "false"
   },
   "logger": {
     "level": "debug",

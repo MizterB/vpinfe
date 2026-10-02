@@ -53,6 +53,7 @@ from console import (
     when,
 )
 from console import commands as commands_help
+from console import setup as setup_page
 from console.data import Library
 from console.on_page import on_page
 
@@ -1584,7 +1585,19 @@ async def _identity_page(library: Library, reported: str,
         entries.append((t(install_identity.LABELS[name]),
                         panel.switch(name in on, flipper(name))))
         entries.append(panel.note(t(FEATURE_NOTES[name])))
+    entries += _setup_entries()
     panel.facts(ui, entries)
+
+
+def _setup_entries() -> list[tuple[Any, Any]]:
+    """The way back into the first-run questions."""
+    return [
+        (panel.HEADING, t("console.setup.title")),
+        panel.intro(t("console.setup.again_note")),
+        (panel.FULL, panel.action(t("console.setup.open"),
+                                  lambda: setup_page.open_setup(), icon=verbs.GO,
+                                  hint=t("console.setup.open.help"))),
+    ]
 
 
 def _take_the_page_again() -> None:

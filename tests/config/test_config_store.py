@@ -12,7 +12,7 @@ import json
 import os
 import unittest
 
-from common import config_schema, input_registry
+from common import config_schema, input_registry, install_setup
 from common.config_store import (
     CONFIG_SCHEMA,
     SCHEMA_KEY,
@@ -39,8 +39,8 @@ class FirstRunTests(ConfigStoreTests):
     def test_a_fresh_install_writes_a_complete_config(self) -> None:
         store = ConfigStore(str(self.ini))
 
-        self.assertTrue(store.is_new, "first run has to announce itself - main.py "
-                                      "uses this to open the Manager UI")
+        self.assertTrue(install_setup.pending(store), "a fresh install has to announce "
+                                                       "itself - main.py opens Setup on it")
         self.assertTrue(self.json.exists())
         self.assertFalse(self.ini.exists(), "nothing writes an ini any more")
 
@@ -59,9 +59,15 @@ class FirstRunTests(ConfigStoreTests):
 
         self.assertTrue(store.config.has_option("general", "game_root_dir"))
 
-    def test_a_second_run_is_not_a_first_run(self) -> None:
+    def test_a_second_run_still_finds_setup_pending(self) -> None:
+        """Unlike the momentary flag this replaced: a cabinet rebooted mid-setup has to
+        keep landing on Setup, not just the one run that wrote the file."""
         ConfigStore(str(self.ini))
-        self.assertFalse(ConfigStore(str(self.ini)).is_new)
+        self.assertTrue(install_setup.pending(ConfigStore(str(self.ini))))
+
+    def test_a_hand_written_config_is_never_sent_through_setup(self) -> None:
+        self.json.write_text("{}", encoding="utf-8")
+        self.assertFalse(install_setup.pending(ConfigStore(str(self.ini))))
 
     def test_the_file_carries_a_schema_version(self) -> None:
         ConfigStore(str(self.ini))

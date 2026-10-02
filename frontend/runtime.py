@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import discovery, serving, shutdown
+from common import discovery, install_setup, serving, shutdown
 from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
@@ -211,6 +211,47 @@ def wait_for_manager_ui_ready(port: int, timeout_seconds: float = 15.0) -> None:
             time.sleep(0.5)
 
 
+SETUP_POLL_S = 0.5
+
+
+def _wait_out_setup(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
+                    logger: logging.Logger) -> bool:
+    """One window on the playfield screen, showing Setup, until it closes.
+
+    True when Setup finished under it - the caller opens the real windows next, no
+    restart. False when a person closed the window themselves - the caller quits, same
+    as any other first start.
+    """
+    from common.paths import get_ini_config
+
+    network = serving.network(iniconfig)
+    displays = DisplayConfig.from_config(iniconfig)
+    screen_id = displays.playfield_screen_id
+    monitors = get_display_monitors()
+    monitor = monitors[screen_id] if screen_id < len(monitors) else monitors[0]
+    logger.info("Setup pending: opening Setup in a chromium window.")
+    frontend_browser.launch_window(
+        window_name="table",
+        url=f"http://localhost:{network.http_port}/?setup=window",
+        monitor=monitor,
+        index=0,
+    )
+
+    stop_polling = threading.Event()
+
+    def _watch() -> None:
+        while not stop_polling.wait(SETUP_POLL_S):
+            if not install_setup.pending(get_ini_config()):
+                frontend_browser.request_exit()
+                return
+
+    threading.Thread(target=_watch, daemon=True).start()
+    frontend_browser.wait_for_exit()
+    stop_polling.set()
+
+    return not install_setup.pending(get_ini_config())
+
+
 def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
                       frontend_browser: ChromiumManager,
                       shutdown_event: threading.Event, logger: logging.Logger,
@@ -239,24 +280,19 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
         logger.info("Shutting down...")
         return
 
-    if iniconfig.is_new:
-        network = serving.network(iniconfig)
-        displays = DisplayConfig.from_config(iniconfig)
-        http_port = network.http_port
-        setup_url = f"http://localhost:{http_port}/"
-        screen_id = displays.playfield_screen_id
-        monitors = get_display_monitors()
-        monitor = monitors[screen_id] if screen_id < len(monitors) else monitors[0]
-        logger.info("First run: loading Manager UI in chromium window for initial configuration.")
-        frontend_browser.launch_window(
-            window_name="table",
-            url=setup_url,
-            monitor=monitor,
-            index=0,
-        )
-        frontend_browser.wait_for_exit()
+    if install_setup.pending(iniconfig):
+        if not _wait_out_setup(iniconfig, frontend_browser, logger):
+            frontend_browser.terminate_all()
+            return
         frontend_browser.terminate_all()
-        return
+        frontend_browser.reset_exit()
+        # A signal in the gap above already set the flag the reset just cleared.
+        if shutdown.requested():
+            return
+        # Setup wrote through the Console's own store, a different instance of this
+        # same file - re-read rather than trust what booted this process.
+        from common.paths import get_ini_config
+        iniconfig = get_ini_config()
 
     # Prime the monitor cache on the main thread before any windows spawn. Each
     # window's JS calls api.get_monitors() on its own pywebview worker thread;

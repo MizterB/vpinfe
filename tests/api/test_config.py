@@ -94,6 +94,23 @@ class ConfigServiceTests(unittest.TestCase):
         self.assertEqual(self.store.written, {})
         self.assertEqual(self.store.saves, 0)
 
+    def test_setup_state_is_refused_like_any_internal_key(self):
+        """Only Setup finishing clears `install.setup_pending`; a settings write that
+        could would end it, or restart it, from outside."""
+        for key in ("setup_pending", "setup_done"):
+            with self.subTest(key=key):
+                with self.assertRaises(config_service.UnknownSettingsError) as caught:
+                    config_service.set_values({"install": {key: "false"}})
+                self.assertEqual(caught.exception.keys, [f"install.{key}"])
+        self.assertEqual(self.store.written, {})
+        self.assertEqual(self.store.saves, 0)
+
+    def test_setup_state_is_not_among_the_values_served(self):
+        served = config_service.values()["values"].get("install", {})
+
+        self.assertNotIn("setup_pending", served)
+        self.assertNotIn("setup_done", served)
+
     def test_a_theme_source_is_written(self):
         config_service.set_values({"themes": {"registries": "http://elsewhere"}})
         self.assertIn(("themes", "registries"), self.store.written)
@@ -155,6 +172,14 @@ class ConfigRouteTests(unittest.TestCase):
                                    json={"general": {"not_a_setting": "x"}})
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("not_a_setting", response.text)
+
+    def test_a_write_to_the_setup_mark_is_a_bad_request_and_changes_nothing(self):
+        response = self.client.put(
+            "/config", json={"install": {"setup_pending": True, "display_name": "x"}})
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("install.setup_pending", response.text)
+        self.assertEqual(self.store.written, {})
 
     def test_a_theme_source_is_accepted(self):
         response = self.client.put("/config",

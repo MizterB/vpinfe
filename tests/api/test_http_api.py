@@ -105,6 +105,34 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(links["docs"], "/api/v1/docs")
         self.assertEqual(links["events"], "/api/v1/events")
 
+    def test_discovery_says_so_while_setup_is_pending(self) -> None:
+        with mock.patch("common.install_setup.pending", return_value=True):
+            body = self.client.get("/").json()
+
+        self.assertIs(body["setup_pending"], True)
+
+    def test_discovery_leaves_the_key_out_once_setup_has_finished(self) -> None:
+        """A build from before Setup never says it either, so absent has to read as set up
+        for both."""
+        with mock.patch("common.install_setup.pending", return_value=False):
+            body = self.client.get("/").json()
+
+        self.assertNotIn("setup_pending", body)
+
+    def test_every_other_null_is_still_said_with_setup_finished_and_pending(self) -> None:
+        """Only `setup_pending` is conditional. A capability with no switch and no reason
+        says both as null, and a client reads that as a statement."""
+        for pending in (True, False):
+            with self.subTest(pending=pending), \
+                 mock.patch("common.install_setup.pending", return_value=pending):
+                events = next(one for one in self.client.get("/").json()["capabilities"]
+                              if one["name"] == "events")
+
+                self.assertIn("feature", events)
+                self.assertIsNone(events["feature"])
+                self.assertIn("reason", events)
+                self.assertIsNone(events["reason"])
+
     def test_health_reports_ok(self) -> None:
         response = self.client.get("/health")
 
@@ -395,6 +423,14 @@ class RegistrationTests(unittest.TestCase):
                 response = self.client.get(path, follow_redirects=False)
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json()["api_version"], "v1")
+
+    def test_setup_pending_is_said_at_both_addresses(self) -> None:
+        for path in ("/api/v1", "/api/v1/"):
+            for pending in (True, False):
+                with self.subTest(path=path, pending=pending), \
+                        mock.patch("common.install_setup.pending", return_value=pending):
+                    body = self.client.get(path, follow_redirects=False).json()
+                    self.assertEqual(body.get("setup_pending"), True if pending else None)
 
     def test_mounted_routes_are_reachable(self) -> None:
         self.assertEqual(self.client.get("/api/v1/health").json(), {"status": "ok"})

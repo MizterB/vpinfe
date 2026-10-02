@@ -85,6 +85,8 @@ class Discovery(ApiModel):
     services: dict[str, ServiceEndpoint] = Field(default_factory=dict)
     extensions: list[dict]
     links: DiscoveryLinks
+    # True until the install has finished Setup, and left out of the document after.
+    setup_pending: bool = False
 
 
 class Health(ApiModel):

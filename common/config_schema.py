@@ -864,6 +864,21 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             internal=True,
         ),
         ConfigOption(
+            "setup_pending",
+            type="bool",
+            default="false",
+            # Written true only by a fresh install's own first save
+            # (common/config_store.py). Absent or false reads the same: setup is done.
+            internal=True,
+        ),
+        ConfigOption(
+            "setup_done",
+            type="list",
+            default="",
+            # The keys of the Setup steps already answered.
+            internal=True,
+        ),
+        ConfigOption(
             "display_name",
             type="string",
             default="",

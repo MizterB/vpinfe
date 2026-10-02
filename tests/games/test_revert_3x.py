@@ -14,7 +14,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from common import install_identity
+from common import install_identity, install_setup
 from common.config_store import ConfigStore
 from common.games import revert_3x
 from common.games.collection_migration import ensure_last_played, ensure_order_direction
@@ -332,7 +332,8 @@ class ConfigTests(RevertTestCase):
 
         self.assertEqual(result["end_state"], revert_3x.FRESH_INSTALL)
         self.assertFalse((self.config_dir / "vpinfe.json").exists())
-        self.assertTrue(ConfigStore(str(self.config_dir / "vpinfe.ini")).is_new)
+        self.assertTrue(
+            install_setup.pending(ConfigStore(str(self.config_dir / "vpinfe.ini"))))
 
     def test_an_install_with_an_ini_reports_that_it_kept_it(self):
         self._migrate()

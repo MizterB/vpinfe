@@ -3,9 +3,9 @@ its questions in stages rather than all at once.
 
 A flow answers every call with a step, and how many there are is read off that, never
 declared: no fields means press it and it happens, fields mean fill them in first, and a
-`summary` means the last step before Run. A flow reaches this through `Calls`, its own
-four calls already bound to wherever it answers from - HTTP for an extension
-(`console/ext_action.py`), or nothing at all for a flow with no boundary to cross.
+`summary` or a `confirm` means the last step before Run. A flow reaches this through
+`Calls`, its own four calls already bound to wherever it answers from - HTTP for an
+extension (`console/ext_action.py`), or nothing at all for a flow with no boundary to cross.
 """
 
 from __future__ import annotations
@@ -68,12 +68,13 @@ _ICON_NAME = re.compile(r"[a-z0-9_]+")
 @dataclass
 class Calls:
     """A flow's own four calls: the first step (or, given a key, a done step reopened),
-    the check that answers the next one, an act that answers the same one, and the run.
-    `job` polls a run that answered with a `job_id` instead of finishing."""
+    the check that answers the next one, an act that answers the same one, and the run,
+    which is told the step it runs from. `job` polls a run that answered with a `job_id`
+    instead of finishing."""
     first: Callable[[str | None], Awaitable[dict]]
     check: Callable[[dict[str, Any], str], Awaitable[dict]]
     act: Callable[[str, dict[str, Any], str], Awaitable[dict]]
-    run: Callable[[dict[str, Any]], Awaitable[dict]]
+    run: Callable[[dict[str, Any], str], Awaitable[dict]]
     job: Callable[[str], Awaitable[dict]]
 
 
@@ -120,7 +121,15 @@ class Walk:
     async def run(self) -> dict:
         if not self.step.get("ready", True):
             return self.step
-        return await self.calls.run(self.values)
+        here = str(self.step.get("step") or "")
+        found = await self.calls.run(self.values, here)
+        # A run that answers with a step is a path that turned out longer than the last
+        # step drawn said: the step it was drawn as the end of is not the end after all.
+        if found.get("step"):
+            if str(found["step"]) != here:
+                self.history.append(self.step)
+            self.step = found
+        return found
 
 
 def _controls(fields: list[dict], values: dict[str, Any], *,
@@ -459,7 +468,8 @@ def _aside(text: str) -> Any:
     return draw
 
 
-async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False) -> bool:
+async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False,
+                      aside: str = "", close_when_done: bool = False) -> bool:
     """Run one flow in the dialog host: ask what it asks, in as many steps as it asks
     it, then do it.
 
@@ -470,9 +480,14 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
     is used, and going Back and forward again asks the same questions in the same order
     rather than jumping over the ones already answered.
 
-    It stops asking when it answers with a summary instead of fields. `under` is where
-    a run's report belongs in the flow's own catalog. `mark` puts VPinFE's mark over a
-    welcome step; only core passes it, so an extension's welcome is centered without it.
+    It stops asking when it answers with a summary or a `confirm` instead of fields.
+    `under` is where a run's report belongs in the flow's own catalog. `mark` puts VPinFE's
+    mark over a welcome step; only core passes it, so an extension's welcome is centered
+    without it. `aside` is the label of a way out that is not Cancel, such as leaving the
+    flow to finish later, drawn on the far left of every step; with it a first step has no
+    Cancel as well. `close_when_done` closes the dialog on a run that answers at once,
+    where the default says "Done" over a Close button; a run that starts a job is watched
+    either way.
 
     True when the flow was run and the dialog closed after it, False when it was cancelled
     before that.
@@ -520,13 +535,17 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 if not found.get("ready", True):
                     ui.label(str(found.get("reason") or "")).classes("console-help px-3")
             with buttons:
+                if aside:
+                    frame.aside(aside, lambda: dialog.submit(False), icon=verbs.CLOSE)
                 if walk.history:
                     frame.quiet(t("word.back"), _back, icon=verbs.BACK)
-                else:
+                elif not aside:
                     frame.cancel(lambda: dialog.submit(False))
                 if summary:
                     go = frame.answer(str(found.get("confirm") or label or t("word.run")),
                                        _start, icon=verbs.RUN)
+                elif found.get("confirm"):
+                    go = frame.answer(str(found["confirm"]), _start, icon=verbs.DONE)
                 else:
                     go = frame.answer(t("word.next"), _next, icon=verbs.NEXT)
                 if not found.get("ready", True):
@@ -593,10 +612,16 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_start_it"), caption=why(exc), type="negative")
                 return
+            if started.get("step"):
+                draw(started)
+                return
             job_id = str(started.get("job_id") or "")
             if not job_id and started.get("ok") is False:
                 ui.notify(str(started.get("reason") or t("console.ext_action.not_run")),
                           type="negative")
+                return
+            if close_when_done and not job_id:
+                dialog.submit(True)
                 return
             track.clear()
             if job_id:
@@ -670,6 +695,8 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
                 if summary:
                     go = frame.answer(str(found.get("confirm") or label or t("word.run")),
                                        _start, icon=verbs.RUN)
+                elif found.get("confirm"):
+                    go = frame.answer(str(found["confirm"]), _start, icon=verbs.DONE)
                 else:
                     go = frame.answer(t("word.next"), _next, icon=verbs.NEXT)
                 if not found.get("ready", True):
@@ -735,6 +762,9 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
                 started = await walk.run()
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.could_not_start_it"), caption=why(exc), type="negative")
+                return
+            if started.get("step"):
+                draw(started)
                 return
             job_id = str(started.get("job_id") or "")
             if not job_id and started.get("ok") is False:

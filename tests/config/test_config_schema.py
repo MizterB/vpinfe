@@ -114,6 +114,8 @@ class SchemaShapeTests(unittest.TestCase):
                                     ("pinmame_score_parser", "roms_update_sha"),
                                     ("pinmame_score_parser", "roms_checked"),
                                     ("install", "id"),
+                                    ("install", "setup_pending"),
+                                    ("install", "setup_done"),
                                     ("general", "hidden_media_kinds"),
                                     ("general", "hidden_asset_kinds"),
                                     # `locations.json` holds this now, for the same

@@ -12,7 +12,7 @@ from typing import Any
 import requests
 from nicegui import background_tasks, run, ui
 
-from common import device_client, feature_checks, icons, install_identity
+from common import device_client, feature_checks, icons, install_identity, install_setup
 from common.failures import why
 from common.i18n import t
 from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
@@ -50,6 +50,7 @@ from console import panel as panel_parts
 from console import players as players_page
 from console import record as recorder
 from console import settings as settings_page
+from console import setup as setup_page
 from console import themes as themes_page
 from console.api import ApiClient
 from console.data import Library
@@ -324,6 +325,8 @@ def _read_hub() -> dict[str, Any]:
     the alternative is importing the services, which is what the boundary exists to
     prevent.
     """
+    from common.paths import get_ini_config
+
     client = ApiClient()
     library = Library(client)
     library.load()
@@ -333,6 +336,7 @@ def _read_hub() -> dict[str, Any]:
         "discovery": client.discovery(),
         "devices": client.devices(),
         "extensions": client.extensions(),
+        "pending": install_setup.pending(get_ini_config()),
         # This machine's own configuration, asked of this machine: a path is only
         # answerable by the install holding it, and the Console is served by that one.
         "trouble": settings_page.local_trouble(),
@@ -343,6 +347,21 @@ def _read_hub() -> dict[str, Any]:
                                 if entry.get("feature") == install_identity.FRONTEND],
         "local_capabilities": set(device_client.served(capabilities)),
     }
+
+
+def setup_line(*, window: bool) -> None:
+    """The line over every page while Setup is unfinished, and the way back into it."""
+    with ui.row().classes("items-center gap-2"):
+        ui.label(t("console.setup.not_finished")).classes("console-help")
+        panel_parts.action(t("word.continue"), lambda: setup_page.open_setup(window=window),
+                           icon=verbs.GO, inline=True,
+                           hint=t("console.setup.open.help"))()
+
+
+def arrives_in_setup(pending: bool, view: str) -> bool:
+    """A bare address while Setup is unfinished opens it; a link naming a place shows
+    that place, with the line above it."""
+    return pending and not view.strip()
 
 
 def why_not_loaded(exc: Exception) -> str:
@@ -478,7 +497,7 @@ def reads_before_drawing(view: str, library: Library) -> Callable[[], Any] | Non
 async def console_page(view: str = "", game: str = "", table: str = "", section: str = "",
                    slot: str = "", page: str = "", mode: str = "",
                    collection: str = "", launcher: str = "", sets: str = "",
-                   player: str = "") -> None:
+                   player: str = "", setup: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -541,6 +560,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     installed_extensions = loaded["extensions"]
     device_capabilities = loaded["device_capabilities"]
     local_capabilities = loaded["local_capabilities"]
+    pending = bool(loaded["pending"])
 
     # The rail this install has, read once: it decides what is drawn and which addresses
     # resolve, and those two disagreeing is a link that lands on a blank page.
@@ -551,6 +571,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
     landing_view = landing_for([key for key, *_rest in nav_items],
                                str(remembered.get("section", "") or ""))
+    # Set by the frontend's own window, the one place that cannot say where else Setup is.
+    in_the_frontends_window = setup.strip().lower() == "window"
 
     def show_extension(name: str) -> None:
         """Open one extension's own page, or go back to the list."""
@@ -1312,6 +1334,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         # height: centring boxes of different heights aligns boxes, not baselines.
         with ui.column().classes("w-full gap-0 min-w-0") \
                 .style(f"min-height:{HEADER_H_PX}px"):
+            if pending:
+                setup_line(window=in_the_frontends_window)
             with ui.row().classes("items-center gap-2 w-full no-wrap"):
                 ui.label(title).classes("grow min-w-0 truncate console-page-title")
                 menu = ui.row().classes("items-center shrink-0 no-wrap")
@@ -1538,6 +1562,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                or discovery.get("install_id")})
     if arrival is not None:
         await arrival
+    if arrives_in_setup(pending, view):
+        background_tasks.create(
+            setup_page.open_setup(window=in_the_frontends_window), name="console-setup")
 
 
 def read_then_render(state: dict[str, Any], library: Library, content: ui.element,

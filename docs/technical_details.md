@@ -188,6 +188,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `id` | string |  | Written by VPinFE on first start. Devices are told apart by this, so changing it makes this a different device. |
+| `setup_pending` | bool | `false` | Written true on this device's first save. Setup clears it when it finishes. |
+| `setup_done` | list |  | The Setup steps already answered. Setup reopens on the first one that is not. |
 | `display_name` | string |  | What to call this device where one is listed. Defaults to its hostname. Nothing is addressed by it, so renaming is safe. |
 | `features` | list | `library,frontend,devices` | What this device is for. Each one you add appears in the Console. Leave it empty and System is still here to come back and set it. |
 | `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Takes effect after a restart. Your library's own words - table names and the rest - are never translated. |

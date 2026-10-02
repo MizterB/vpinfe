@@ -39,8 +39,9 @@ async def open_action(extension: str, action: dict) -> bool:
         return await offload.io(client.ext_post, f"{base}/act",
                                  {"act": key, "values": values, "step": step})
 
-    async def run(values: dict[str, Any]) -> dict:
-        return await offload.io(client.ext_post, f"{base}/run", {"values": values})
+    async def run(values: dict[str, Any], step: str) -> dict:
+        return await offload.io(client.ext_post, f"{base}/run",
+                                 {"values": values, "step": step})
 
     async def job(job_id: str) -> dict:
         return await offload.io(client.job, job_id)
