@@ -313,7 +313,7 @@ def _judged(context: dict, release: dict, manifest: dict | None) -> dict | None:
     current_ver = _parse_tag_version(context["current_version"])
     latest_ver = _parse_tag_version(latest_tag)
     if current_ver is None:
-        result["update_available"] = True
+        result["update_available"] = None
         return result
     if latest_ver is None:
         result["error"] = "latest_tag_unparseable"

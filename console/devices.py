@@ -244,6 +244,8 @@ def _software_rows(device: dict[str, Any], is_local: bool, client: Any,
             t("console.devices.could_not_check"), "unknown", beside=current,
             hint=(t("console.devices.last_checked", when=when.ago(checked, inline=True))
                   if checked else t("console.devices.never_checked")))))
+    elif update.get("update_available", False) is None:
+        rows += _unweighed_rows(update, current)
     elif not update.get("update_available"):
         rows.append((t("word.version"), panel.state(current, "on")))
     else:
@@ -253,14 +255,27 @@ def _software_rows(device: dict[str, Any], is_local: bool, client: Any,
     return rows
 
 
+def _why_not(update: dict[str, Any]) -> tuple[Any, Any]:
+    return panel.note(t(WHY_NOT.get(str(update.get("support_reason") or ""),
+                                    "console.devices.device_cannot_update_itself")))
+
+
+def _unweighed_rows(update: dict[str, Any], current: str) -> list[tuple[Any, Any]]:
+    """A build whose own version cannot be compared with the release, such as a source
+    checkout's. The release is named, never offered."""
+    latest = str(update.get("latest_version") or "")
+    chip = (panel.state(t("console.devices.latest", latest=latest), "unknown", beside=current)
+            if latest else panel.state(current, "unknown"))
+    return [(t("word.version"), chip), _why_not(update)]
+
+
 def _available_rows(device: dict[str, Any], client: Any, update: dict[str, Any],
                     current: str) -> list[tuple[Any, Any]]:
     latest = str(update.get("latest_version") or t("console.devices.newer_build"))
     rows: list[tuple[Any, Any]] = [(t("word.version"), panel.state(
         t("console.devices.available", latest=(latest)), "warn", beside=current))]
     if not update.get("update_supported"):
-        rows.append(panel.note(t(WHY_NOT.get(str(update.get("support_reason") or ""),
-                                             "console.devices.device_cannot_update_itself"))))
+        rows.append(_why_not(update))
         return rows
 
     def update_action() -> None:

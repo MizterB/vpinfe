@@ -118,6 +118,18 @@ class SoftwareRows(unittest.TestCase):
 
         self.assertEqual(chip[1:3], ("v3.1.0", "on"))
 
+    def test_a_build_with_no_version_to_weigh_names_the_release_without_offering_it(
+            self) -> None:
+        with patch.object(devices.panel, "note", new=lambda text: ("note", text)):
+            (_, chip), note = self._rows({
+                "current_version": "dev-local", "latest_version": "v2.5.1",
+                "update_available": None, "support_reason": "source_build",
+                "checked_at": CHECKED})
+
+        self.assertEqual(chip, ("state", t("console.devices.latest", latest="v2.5.1"),
+                                "unknown", "dev-local", ""))
+        self.assertEqual(note, ("note", t("console.devices.why_not.build_runs_source_updates")))
+
     def test_check_now_sits_under_every_answer(self) -> None:
         now = Mock()
         for update in (FAILED, {**FAILED, "error": None},

@@ -821,6 +821,7 @@
   "console.devices.happens_now": "This happens on {device_label}, now.",
   "console.devices.last_checked": "Last checked {when}",
   "console.devices.last_known_announced_install.help": "When it was last known to be there",
+  "console.devices.latest": "Latest {latest}",
   "console.devices.name_belongs_device_can": "This name belongs to that device, and only it can change it",
   "console.devices.never_checked": "Never checked",
   "console.devices.newer_build": "a newer build",

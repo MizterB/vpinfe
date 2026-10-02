@@ -217,7 +217,7 @@ def header():
                                 'https://github.com/superhac/vpinfe/releases/latest',
                                 new_tab=True
                             ).classes('text-yellow-400 text-sm font-medium hover:text-yellow-300').style('text-decoration: none;')
-                    elif result.get('error') is None:
+                    elif result.get('error') is None and result.get('update_available') is not None:
                         ui.icon('check_circle', size='20px').classes('text-green-400')
                         ui.label('Up to date').classes('text-green-400 text-sm font-medium')
                     else:

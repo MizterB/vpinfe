@@ -184,6 +184,13 @@ class UpdateCheckTest(unittest.TestCase):
         self.assertEqual(answer["support_reason"], "source_build")
         self.assertEqual(self.asked, [app_updater.LATEST_RELEASE_URL])
 
+    def test_a_build_with_no_version_to_weigh_is_not_told_the_release_is_newer(self) -> None:
+        self.install = {**SOURCE, "current_version": "dev-local"}
+
+        answer = app_updater.check_now()
+        self.assertIsNone(answer["update_available"])
+        self.assertEqual(answer["latest_version"], "v3.1.0")
+
     def test_a_kept_answer_that_cannot_be_read_is_asked_again(self) -> None:
         self.path.parent.mkdir(parents=True)
         self.path.write_text("{not json", encoding="utf-8")

@@ -2754,9 +2754,11 @@ class UpdateCheck(ApiModel):
     cannot replace itself - one run from source, or on a platform with no published
     asset - still wants to be told a newer version exists. `support_reason` says which
     case it is, so a client offers a link where it cannot offer a button.
+    `update_available` is null where this build's own version does not read as one, so
+    there is nothing to weigh the release against.
     """
 
-    update_available: bool = False
+    update_available: bool | None = False
     current_version: str | None = None
     latest_version: str | None = None
     update_supported: bool = False

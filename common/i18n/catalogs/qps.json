@@ -821,6 +821,7 @@
   "console.devices.happens_now": "Ţĥîš ĥàþþèñš öñ {device_label}, ñöŵ.",
   "console.devices.last_checked": "Ŀàšţ çĥèçķèđ {when}",
   "console.devices.last_known_announced_install.help": "Ŵĥèñ îţ ŵàš ŀàšţ ķñöŵñ ţö ƀè ţĥèřè",
+  "console.devices.latest": "Ŀàţèšţ {latest}",
   "console.devices.name_belongs_device_can": "Ţĥîš ñàɱè ƀèŀöñĝš ţö ţĥàţ đèṽîçè, àñđ öñŀý îţ çàñ çĥàñĝè îţ",
   "console.devices.never_checked": "Ñèṽèř çĥèçķèđ",
   "console.devices.newer_build": "à ñèŵèř ƀûîŀđ",
