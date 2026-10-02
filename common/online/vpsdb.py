@@ -43,9 +43,13 @@ def lookup(catalog: list[dict] | None, name: str, manufacturer: str,
 
     best: dict | None = None
     top = 0.0
+    wanted = name.lower()
     for game in catalog or []:
-        named = SequenceMatcher(None, name.lower(),
-                                str(game.get("name") or "").lower()).ratio()
+        matcher = SequenceMatcher(None, wanted, str(game.get("name") or "").lower())
+        # Both are upper bounds on ratio(), so this drops nothing ratio() would keep.
+        if matcher.real_quick_ratio() < 0.8 or matcher.quick_ratio() < 0.8:
+            continue
+        named = matcher.ratio()
         if named < 0.8:
             continue
         made = SequenceMatcher(None, manufacturer.lower(),
