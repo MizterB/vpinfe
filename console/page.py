@@ -9,6 +9,7 @@ from collections.abc import Callable
 from functools import partial
 from typing import Any
 
+import requests
 from nicegui import background_tasks, run, ui
 
 from common import device_client, feature_checks, icons, install_identity
@@ -335,6 +336,27 @@ def _read_hub() -> dict[str, Any]:
     }
 
 
+def why_not_loaded(exc: Exception) -> str:
+    """Why the first read failed, in this install's words.
+
+    The client words a request nothing answered for a remote device, "It may be off or
+    asleep", and the install serving this page is neither.
+    """
+    if isinstance(exc.__cause__, requests.Timeout):
+        return t("console.page.took_too_long")
+    return why(exc)
+
+
+def _not_loaded(loading: ui.element, exc: Exception) -> None:
+    """The loading line, replaced by what went wrong and a way to ask again."""
+    loading.delete()
+    with ui.column().classes("w-full h-full items-center justify-center gap-3"):
+        ui.label(t("console.page.could_not_load")).classes("console-empty-title")
+        ui.label(why_not_loaded(exc)).classes("text-sm opacity-60")
+        panel_parts.action(t("console.page.try_again"), ui.navigate.reload,
+                           icon=verbs.REFRESH)()
+
+
 # The title is per page, not from ui.run: one process serves both this and the Manager
 # UI, so an app-wide title puts the other surface's name in this one's tab.
 # Both, because the bare host is what somebody types and /console is what a link
@@ -490,7 +512,13 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     busy.until_gone(loading)
 
     await ui.context.client.connected()
-    loaded = await offload.io(_read_hub)
+    try:
+        loaded = await offload.io(_read_hub)
+    except Exception as exc:  # noqa: BLE001 - said on the page, the traceback logged
+        logger.warning("The Console's first read failed", exc_info=True)
+        if not ui.context.client.is_deleted:
+            _not_loaded(loading, exc)
+        return
     if ui.context.client.is_deleted:
         # Reading the library takes long enough that somebody can close the tab or
         # reload inside it, and there is then nothing to draw on and nothing to clear.
