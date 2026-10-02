@@ -451,10 +451,13 @@ body::before {
 }
 .q-menu .q-item:hover { background: var(--surface-hover); }
 .q-menu .q-separator { background: var(--line); margin: 2px 0; }
-/* A menu that holds controls rather than items. `.q-item` carries its own gutters and
-   these do not, so the padding is here - and a width, because a number field alone in a
-   168px minimum reads as a menu that failed to load. */
-.console-binding-menu { padding: 10px 12px; min-width: 232px; }
+/* A menu that holds one segmented choice rather than items: how long a binding has to be
+   down. `.q-item` carries its own gutters and this does not, so the margin is here. */
+.q-menu .console-binding-hold {
+  margin: 6px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+}
+.console-binding-hold .q-btn { padding: 3px 10px; font-size: var(--fs-caption); }
+.console-binding-hold .q-btn:not(.bg-primary) { color: var(--ink-2); }
 
 /* A picker over the whole library. Unconstrained, its menu is as wide as the longest
    title in it - which in a library with one 130-character name is the whole window -
@@ -592,6 +595,87 @@ body::before {
   .console-chip-holder:hover .console-chip-remove,
   .console-chip-holder:focus-within .console-chip-remove { opacity: 1; }
 }
+
+/* The binding table: a label, one field for every key and button that does it, and the way
+   back to the default. The three cells of a row answer one click, so they sit in the grid
+   without a box of their own. */
+.console-facts.console-bindings {
+  grid-template-columns: fit-content(var(--label-max)) minmax(0, 1fr) 20px;
+  column-gap: 10px; padding: 0;
+}
+.console-binding-row { display: contents; }
+.console-binding-label, .console-binding-field { cursor: pointer; }
+.console-binding-field {
+  flex: 1 1 auto; min-width: 0; min-height: var(--field-h);
+  border: 1px solid var(--line); border-radius: 6px; background: var(--wash-lift);
+  padding: 0 8px; transition: border-color 120ms;
+}
+.console-binding-field:hover { border-color: var(--line-strong); }
+/* The row waiting for a press: its field is lit and drops "Nothing mapped". Nothing is
+   added to the field, so the row keeps its height and the rows below do not move under a
+   click that is about to land. */
+.console-binding-row--listening .console-binding-field,
+.console-binding-row--listening .console-binding-field:hover {
+  border-color: var(--accent); background: var(--accent-wash);
+}
+.console-binding-row--listening .console-binding-field .console-tier--warn { display: none; }
+/* Fills while a press is kept down, and is full when it becomes a hold. */
+.console-binding-ring { display: inline-flex; align-self: center; width: 16px; height: 16px; }
+.console-binding-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.console-ring-track { fill: none; stroke: var(--line); stroke-width: 2.5; }
+.console-ring-fill {
+  fill: none; stroke: var(--accent); stroke-width: 2.5;
+  stroke-dasharray: 50.3; stroke-dashoffset: 50.3;
+  animation: console-ring linear forwards;
+}
+@keyframes console-ring { to { stroke-dashoffset: 0; } }
+.console-binding-field .console-member-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.console-chip-glyph { font-size: 1.15em; color: var(--ink-3); }
+.console-binding-revert { display: flex; align-items: center; justify-content: center; }
+.console-binding-aside { grid-column: 2 / -1; min-width: 0; }
+/* What the last press lit: its row and every chip it is. */
+.console-binding-lit.console-fact-label { color: var(--accent); }
+.console-member-chip.console-binding-lit {
+  border-color: var(--accent); color: var(--accent); background: var(--accent-wash);
+}
+
+/* The last thing pressed on this computer, and what it does. */
+.console-binding-live {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 40px;
+  padding: 6px 12px; margin: 10px 0 8px; border-radius: 6px; border: 1px solid var(--line-soft);
+  background: var(--surface-work); font-size: var(--fs-body);
+}
+.console-binding-live > .q-icon { font-size: var(--icon-mark); color: var(--ink-3); }
+.console-binding-live--idle { color: var(--ink-3); }
+.console-binding-live--on { border-color: var(--accent); }
+.console-binding-live--on > .q-icon { color: var(--accent); }
+.console-binding-live-hint { color: var(--ink-2); }
+.console-binding-live-end { margin-left: auto; }
+.console-binding-live-name { color: var(--ink); font-weight: 600; }
+.console-binding-live-sep { color: var(--ink-3); }
+.console-binding-live-does { color: var(--accent); font-weight: 600; }
+.console-binding-live-key { color: var(--ink-3); font-size: var(--fs-caption); }
+
+/* A list taller than its pane says so: a fade over the last rows and a way down. Placed
+   as the last child of the scrolling element; `hidden` once the end is in view. */
+.console-more { position: sticky; bottom: 0; height: 0; z-index: 2; }
+.console-more[hidden] { display: none; }
+.console-more-fade {
+  position: absolute; left: -16px; right: -16px; bottom: 0; height: 64px;
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--surface-work) 70%);
+}
+.console-more-pill {
+  pointer-events: auto; display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px 10px 2px 6px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface-work); color: var(--ink-2); font: inherit;
+  font-size: var(--fs-caption); cursor: pointer;
+}
+.console-more-pill:hover { border-color: var(--accent); color: var(--accent); }
+.console-more-pill .q-icon { font-size: var(--icon-mark); }
 
 /* The collection's icon in a media slot's art region. Contained, so a wide banner and a
    square logo both sit in the same box. */
@@ -820,27 +904,6 @@ body::before {
 .console-dialog .console-confirm-line { padding: 0 12px; }
 .console-pick-list > .console-source-row:nth-child(even) { background: var(--grid-stripe); }
 
-/* While the page is listening for a key. Centred and over everything, because it has
-   taken the keyboard: a prompt in the row would leave the rest of the page looking
-   usable while every key press belongs to the capture. Not a dialog - it is dismissed by
-   the very key it is waiting for, and a dialog's own Escape handling would eat Escape,
-   which is a cabinet's Exit button. */
-.console-capture {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 24px;
-  text-align: center;
-  font-size: var(--fs-body);
-  color: var(--ink);
-  background: var(--scrim-page);
-  backdrop-filter: blur(2px);
-}
 /* The question is a sentence and takes sentence case. It used to wear `.console-card-title`,
    which is the section-heading treatment - uppercase, tracked, accent - so every dialog
    opened by shouting its question. Weight and size carry it instead. */

@@ -37,13 +37,12 @@ from common.i18n import size, t
 from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
-    binding_editor,
     busy,
     confirm,
     deeplink,
     displays,
     folder_picker,
-    input_watch,
+    input_page,
     offload,
     panel,
     recording,
@@ -128,7 +127,6 @@ def _list_art(option: dict, value: Any, save: Callable[[Any], Any], *,
 
 
 EDITORS: dict[str, Callable[..., Callable[[], None]]] = {
-    config_schema.EDITOR_BINDING: binding_editor.rows,
     config_schema.EDITOR_CONSOLE_THEME: theme_picker.tiles,
     config_schema.EDITOR_FRONTEND_THEME: _frontend_theme,
     config_schema.EDITOR_LIST_ART: _list_art,
@@ -504,22 +502,10 @@ async def _themes_foot(library: Library, rerender: Callable[[], None],
     return [last_checked(str(held.get("checked") or ""), now)]
 
 
-async def _input_foot(library: Library, rerender: Callable[[], None],
-                      **_: Any) -> list[tuple[Any, Any]]:
-    """The input detector, under the bindings that name what it sees.
-
-    Here because it is the same question one row up asked backwards. A binding says
-    *this key does that*; somebody who does not know which physical button is which
-    cannot use the row at all until something tells them. It sets nothing.
-    """
-    return [(panel.HEADING, t("word.input_detector")),
-            (panel.FULL, input_watch.strip)]
-
-
 # section -> what to draw under its settings. Only where a page has an act in it, or a
 # reading that answers a question its settings raise.
 FOOTERS: dict[str, Callable] = {"updates": _vps_foot, "themes": _themes_foot,
-                                 "input": _input_foot, recording.SECTION: recording.foot}
+                                 recording.SECTION: recording.foot}
 
 
 def _browser_rows(found: dict[str, Any], chosen: str) -> list[tuple[Any, Any]]:
@@ -689,6 +675,7 @@ PAGE_NOTES: dict[str, str] = {
     "vpinfe.logger": "console.settings.note_logger",
     "frontend.themes": "console.settings.note_themes",
     "frontend.chromium": "console.settings.note_chromium",
+    "hardware.input": "console.settings.note_input",
     "hardware.output": "console.settings.note_output",
     "frontend.presentation": "console.settings.note_presentation",
     "vpinfe.tools": "console.settings.note_tools",
@@ -1059,6 +1046,14 @@ def with_play_input(schema: list[dict], found: dict, values: dict) -> list[dict]
             if block.get("name") == INPUT else block for block in schema]
 
 
+def _input_findings(schema: list[dict]) -> dict[str, tuple[Callable[[], None], ...]]:
+    """What stops each input on this device, drawn under its row."""
+    return {str(option["key"]): tuple(_finding(text, fix)[1]
+                                      for text, fix in option.get("findings") or ())
+            for block in schema if block.get("name") == INPUT
+            for option in block.get("options") or []}
+
+
 def _finding(text: str, fix: str) -> tuple[Any, Callable[[], None]]:
     def draw() -> None:
         with ui.element("div").classes("console-attention w-full"):
@@ -1422,6 +1417,11 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
     if play := await _play_input(library, sections):
         schema = with_play_input(schema, play, values)
     blocks = []
+    if key == input_page.KEY:
+        sections = tuple(name for name in sections if name != INPUT)
+        blocks.append(("", input_page.rows(
+            schema, values, lambda changes: _write_many(library, changes),
+            findings=_input_findings(schema))))
     for registry, heading, above in PAGE_KINDS.get(key, ()):
         rows = await _kind_rows(library, redraw, registry)
         head = [(panel.HEADING, t(heading))] if heading else []

@@ -8,8 +8,9 @@ Awaited rather than callback, so the caller keeps its own flow.
 
 from __future__ import annotations
 
+import enum
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any
+from typing import Any, overload
 
 from nicegui import ui
 
@@ -18,11 +19,36 @@ from console import dialog as frame
 from console import verbs
 
 
+class Answer(enum.StrEnum):
+    """How a question with two ways to say yes was answered."""
+
+    CANCEL = "cancel"
+    CONFIRM = "confirm"
+    SECOND = "second"
+
+
+@overload
+async def ask(question: str, *, detail: str | Sequence[str] = ...,
+              lines: Iterable[str] = ..., confirm: str = ..., icon: str = ...,
+              danger: bool = ...,
+              also: tuple[str, Callable[[], Any], str] | None = ...,
+              second: None = ...) -> bool: ...
+
+
+@overload
+async def ask(question: str, *, detail: str | Sequence[str] = ...,
+              lines: Iterable[str] = ..., confirm: str = ..., icon: str = ...,
+              danger: bool = ...,
+              also: tuple[str, Callable[[], Any], str] | None = ...,
+              second: tuple[str, str]) -> Answer: ...
+
+
 async def ask(question: str, *, detail: str | Sequence[str] = "",
               lines: Iterable[str] = (),
               confirm: str = t("word.delete"), icon: str = verbs.DELETE,
               danger: bool = True,
-              also: tuple[str, Callable[[], Any], str] | None = None) -> bool:
+              also: tuple[str, Callable[[], Any], str] | None = None,
+              second: tuple[str, str] | None = None) -> bool | Answer:
     """Put the question, and wait for an answer.
 
     `question` is the whole ask - "Delete the extracted script?", never "Are you sure?",
@@ -32,6 +58,11 @@ async def ask(question: str, *, detail: str | Sequence[str] = "",
     and `icon` is that verb's drawing - pass both or neither. `also` is one act to offer
     before answering, as its label, what it does and its drawing; it leaves the question
     open.
+
+    `second` is another way to say yes, as its label and its drawing, quiet beside the
+    confirm. Given one, the answer is an `Answer`; without, a bool as it always was.
+
+    Enter presses the confirm unless the question is `danger`.
     """
     with frame.opened(question, classes="console-confirm") as box:
         for said in [detail] if isinstance(detail, str) else detail:
@@ -44,9 +75,18 @@ async def ask(question: str, *, detail: str | Sequence[str] = "",
                 label, act, drawing = also
                 frame.aside(label, act, icon=drawing)
             # Cancel first and quiet: the destructive verb is the one to be aimed at.
-            frame.cancel(lambda: box.submit(False))
-            frame.answer(confirm, lambda: box.submit(True), icon=icon, danger=danger)
-    return bool(await box)
+            frame.cancel(lambda: box.submit(Answer.CANCEL))
+            if second is not None:
+                frame.quiet(second[0], lambda: box.submit(Answer.SECOND), icon=second[1])
+            yes = frame.answer(confirm, lambda: box.submit(Answer.CONFIRM), icon=icon,
+                               danger=danger)
+            # A dangerous verb is never one Enter can reach by habit.
+            if not danger:
+                frame.enter_presses(yes)
+    answered = await box
+    if second is None:
+        return answered == Answer.CONFIRM
+    return Answer(answered) if answered else Answer.CANCEL
 
 
 async def replace(label: str, going: list[str]) -> bool:

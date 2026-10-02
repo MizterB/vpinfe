@@ -131,6 +131,31 @@ class CollisionTests(unittest.TestCase):
         self.assertEqual(
             found[input_registry.contention("key:Escape@hold:300")], ["exit"])
 
+    def test_a_numbered_pad_button_and_the_standard_button_are_one_press(self) -> None:
+        """A numbered binding fires on a pad that reports the standard layout, so the two
+        spellings of one button are one claim."""
+        self.assertEqual(input_registry.contention("pad:0/button:0"),
+                         input_registry.contention("pad:standard/button:0"))
+        self.assertNotEqual(input_registry.contention("pad:0/button:0"),
+                            input_registry.contention("pad:standard/button:1"))
+
+    def test_holders_names_a_numbered_button_by_the_standard_one(self) -> None:
+        found = input_registry.holders({"select": ["pad:0/button:0"]})
+
+        self.assertEqual(
+            found[input_registry.contention("pad:standard/button:0")], ["select"])
+
+    def test_a_numbered_and_a_standard_button_on_two_actions_collide(self) -> None:
+        found = input_registry.collisions(
+            {"select": ["pad:0/button:0"], "back": ["pad:standard/button:0"]})
+
+        self.assertEqual(list(found.values()), [["select", "back"]])
+
+    def test_a_held_standard_button_is_the_held_numbered_one(self) -> None:
+        self.assertEqual(
+            input_registry.contention("pad:standard/button:1@hold:1500"),
+            input_registry.contention("pad:3/button:1@hold:800"))
+
     def test_two_chords_of_different_lengths_are_two_bindings(self) -> None:
         """Each chord waits on its own timer, so a chord keeps its length."""
         self.assertNotEqual(
@@ -166,6 +191,29 @@ class CollisionTests(unittest.TestCase):
             input_api.get_bindings(parser)
 
 
+# The standard `KeyboardEvent.code` values, from the UI Events code tables: the writing
+# system, functional, control pad, arrow pad, numpad, function and media sections.
+STANDARD_CODES = (
+    "Backquote Backslash BracketLeft BracketRight Comma Equal IntlBackslash IntlRo IntlYen "
+    "Minus Period Quote Semicolon Slash "
+    "AltLeft AltRight Backspace CapsLock ContextMenu ControlLeft ControlRight Enter "
+    "MetaLeft MetaRight ShiftLeft ShiftRight Space Tab "
+    "Convert KanaMode Lang1 Lang2 Lang3 Lang4 Lang5 NonConvert "
+    "Delete End Help Home Insert PageDown PageUp "
+    "ArrowDown ArrowLeft ArrowRight ArrowUp "
+    "NumLock NumpadAdd NumpadBackspace NumpadClear NumpadClearEntry NumpadComma "
+    "NumpadDecimal NumpadDivide NumpadEnter NumpadEqual NumpadHash NumpadMemoryAdd "
+    "NumpadMemoryClear NumpadMemoryRecall NumpadMemoryStore NumpadMemorySubtract "
+    "NumpadMultiply NumpadParenLeft NumpadParenRight NumpadStar NumpadSubtract "
+    "Escape Fn FnLock PrintScreen ScrollLock Pause "
+    "BrowserBack BrowserFavorites BrowserForward BrowserHome BrowserRefresh BrowserSearch "
+    "BrowserStop Eject LaunchApp1 LaunchApp2 LaunchMail MediaPlayPause MediaSelect "
+    "MediaStop MediaTrackNext MediaTrackPrevious Power Sleep AudioVolumeDown "
+    "AudioVolumeMute AudioVolumeUp WakeUp"
+).split() + [f"Key{letter}" for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"] \
+    + [f"Digit{n}" for n in range(10)] + [f"Numpad{n}" for n in range(10)]
+
+
 class ReadableBindingTests(unittest.TestCase):
     """A selector is written for a parser. Ten of them on a settings page is what made
     input read as configuration rather than a choice."""
@@ -181,10 +229,87 @@ class ReadableBindingTests(unittest.TestCase):
             with self.subTest(selector=selector):
                 self.assertEqual(input_registry.describe(selector), expected)
 
-    def test_pads_are_numbered_from_one_on_screen(self) -> None:
+    def test_a_numbered_pad_s_button_reads_without_the_pad(self) -> None:
+        """Dispatch fires it on that button of every pad, so a chip that named one pad
+        would say something the binding does not do."""
+        for selector in ("pad:0/button:3", "pad:2/button:3"):
+            with self.subTest(selector=selector):
+                self.assertEqual(input_registry.describe(selector), "Controller Button 3")
+
+    def test_a_press_names_its_pad_counted_from_one(self) -> None:
         """Zero on the wire, one in the hand. Somebody with a single controller has
-        pad 1."""
-        self.assertEqual(input_registry.describe("pad:0/button:3"), "Pad 1 button 3")
+        controller 1."""
+        self.assertEqual(input_registry.describe("pad:0/button:3", device=True),
+                         "Controller 1 Button 3")
+        self.assertEqual(input_registry.describe("pad:2/button:3", device=True),
+                         "Controller 3 Button 3")
+
+    def test_a_chord_and_a_hold_name_the_pad_of_each_member_only_for_a_press(self) -> None:
+        chord = "chord(pad:0/button:3+pad:0/button:4)@hold:1500"
+
+        self.assertEqual(input_registry.describe(chord),
+                         "Controller Button 3 + Controller Button 4, held 1.5s")
+        self.assertEqual(input_registry.describe(chord, device=True),
+                         "Controller 1 Button 3 + Controller 1 Button 4, held 1.5s")
+
+    def test_a_standard_button_keeps_its_name_whether_or_not_it_is_a_press(self) -> None:
+        self.assertEqual(input_registry.describe("pad:standard/button:14", device=True),
+                         "D-pad Left")
+
+    def test_a_standard_button_is_named_for_where_it_sits(self) -> None:
+        """Every pad that maps to the standard layout has the same names, so the button is
+        called what is printed on it rather than a number somebody has to look up."""
+        for button, expected in ((0, "South"), (1, "East"), (2, "West"), (3, "North"),
+                                 (4, "Left Shoulder"), (5, "Right Shoulder"),
+                                 (6, "Left Trigger"), (7, "Right Trigger"),
+                                 (8, "Select"), (9, "Start"),
+                                 (10, "Left Stick"), (11, "Right Stick"),
+                                 (12, "D-pad Up"), (13, "D-pad Down"),
+                                 (14, "D-pad Left"), (15, "D-pad Right")):
+            with self.subTest(button=button):
+                self.assertEqual(
+                    input_registry.describe(f"pad:standard/button:{button}"), expected)
+
+    def test_a_standard_button_with_no_name_is_its_number_and_never_the_layout(self) -> None:
+        """The layout's name is a selector word. It must not reach the screen, in any
+        language, so what has no position of its own reads as a number."""
+        said = input_registry.describe("pad:standard/button:16")
+
+        self.assertEqual(said, "Controller Button 16")
+        self.assertNotIn("standard", said.lower())
+
+    def test_a_standard_button_on_screen_goes_through_the_catalog(self) -> None:
+        """In the pseudo-locale every word is rewritten, so one that is not is a word the
+        catalog never held."""
+        from common import i18n
+
+        self.addCleanup(i18n.set_language, i18n.language())
+        i18n.set_language("qps")
+        said = [input_registry.describe(f"pad:standard/button:{n}") for n in (0, 12, 16)]
+        said += [input_registry.describe("pad:0/button:3"),
+                 input_registry.describe("pad:0/button:3", device=True)]
+
+        for words in said:
+            with self.subTest(words=words):
+                self.assertNotRegex(words, r"[A-Za-z]{3}")
+
+    def test_no_standard_code_is_shown_as_it_was_stored(self) -> None:
+        """In the pseudo-locale, where an English name that happens to match its code
+        (Enter, Tab) still reads differently when it came from the catalog."""
+        from common import i18n
+
+        self.addCleanup(i18n.set_language, i18n.language())
+        i18n.set_language("qps")
+        raw = [code for code in STANDARD_CODES
+               if input_registry.describe(f"key:{code}") == code]
+
+        self.assertEqual([], raw)
+
+    def test_a_numpad_key_is_said_by_what_is_printed_on_it(self) -> None:
+        for code, expected in (("NumpadAdd", "Numpad +"), ("NumpadDecimal", "Numpad ."),
+                               ("NumpadEnter", "Numpad Enter")):
+            with self.subTest(code=code):
+                self.assertEqual(expected, input_registry.describe(f"key:{code}"))
 
     def test_what_it_cannot_name_comes_back_as_it_was(self) -> None:
         """Inventing a name for a chord would be worse than showing the one stored."""
@@ -342,6 +467,115 @@ class WhatCaptureCannotRemakeTests(unittest.TestCase):
                          "pad:0/axis:1+@deadzone:0.5"):
             with self.subTest(selector=selector):
                 self.assertFalse(input_registry.capturable(selector))
+
+
+class WhatAPressIsTests(unittest.TestCase):
+    """A row is matched to a press: which input went down, however long it then stays."""
+
+    def test_a_hold_is_the_same_press_as_a_tap(self) -> None:
+        self.assertEqual(input_registry.press("key:Escape@hold:1500"),
+                         input_registry.press("key:Escape"))
+
+    def test_a_key_is_the_same_press_however_it_is_spelled(self) -> None:
+        self.assertEqual(input_registry.press("key:c"), input_registry.press("key:KeyC"))
+
+    def test_a_numbered_pad_is_the_same_press_on_any_pad(self) -> None:
+        """Dispatch ignores which pad a button is on."""
+        self.assertEqual(input_registry.press("pad:0/button:3"),
+                         input_registry.press("pad:2/button:3"))
+        self.assertNotEqual(input_registry.press("pad:0/button:3"),
+                            input_registry.press("pad:0/button:4"))
+
+    def test_a_standard_pad_is_the_same_press_as_a_numbered_one(self) -> None:
+        """A numbered binding fires for a pad in the standard layout too, so the two want
+        one press - the first hands the button to whichever action is listed first."""
+        self.assertEqual(input_registry.press("pad:standard/button:0"),
+                         input_registry.press("pad:0/button:0"))
+        self.assertNotEqual(input_registry.press("pad:standard/button:0"),
+                            input_registry.press("pad:standard/button:1"))
+
+    def test_a_chord_with_a_standard_button_is_the_chord_with_a_numbered_one(self) -> None:
+        self.assertEqual(input_registry.press("chord(key:a+pad:standard/button:2)"),
+                         input_registry.press("chord(pad:1/button:2+key:a)"))
+
+    def test_a_chord_is_the_same_press_in_either_order(self) -> None:
+        self.assertEqual(input_registry.press("chord(key:b+key:a)@hold:1500"),
+                         input_registry.press("chord(key:a+key:b)"))
+
+    def test_a_pad_is_told_from_a_key(self) -> None:
+        self.assertTrue(input_registry.is_pad("pad:standard/button:0"))
+        self.assertTrue(input_registry.is_pad("pad:1/button:2@hold:1000"))
+        self.assertTrue(input_registry.is_pad("chord(key:a+pad:0/button:1)"))
+        self.assertFalse(input_registry.is_pad("key:Escape"))
+        self.assertFalse(input_registry.is_pad("chord(key:a+key:b)"))
+
+
+class OnePressAndOneHoldTests(unittest.TestCase):
+    """A key has a press and a hold, and each is somebody's. Putting a second hold on a
+    key replaces the first rather than leaving it held two ways."""
+
+    def test_a_new_length_replaces_the_old_one_where_it_stands(self) -> None:
+        self.assertEqual(input_registry.replaced(
+            ["key:Escape@hold:1000", "key:KeyQ"], "key:Escape@hold:1000",
+            "key:Escape@hold:2000"), ["key:Escape@hold:2000", "key:KeyQ"])
+
+    def test_another_length_of_the_same_key_is_dropped(self) -> None:
+        self.assertEqual(input_registry.replaced(
+            ["key:Escape@hold:500", "key:Escape@hold:1000"], "key:Escape@hold:1000",
+            "key:Escape@hold:2000"), ["key:Escape@hold:2000"])
+
+    def test_a_press_does_not_disturb_the_hold_on_the_same_key(self) -> None:
+        self.assertEqual(input_registry.replaced(
+            ["key:Escape", "key:Escape@hold:1500"], "key:Escape", "key:Escape"),
+            ["key:Escape", "key:Escape@hold:1500"])
+
+    def test_taking_a_binding_leaves_the_rest(self) -> None:
+        self.assertEqual(input_registry.without(
+            ["key:Escape@hold:1500", "key:KeyQ", "key:Escape"], "key:Escape@hold:1500"),
+            ["key:KeyQ", "key:Escape"])
+
+    def test_a_chord_keeps_its_length(self) -> None:
+        """Each chord waits on its own timer, so two lengths are two bindings."""
+        self.assertEqual(input_registry.without(
+            ["chord(key:a+key:b)@hold:1000", "chord(key:a+key:b)@hold:2000"],
+            "chord(key:a+key:b)@hold:1000"), ["chord(key:a+key:b)@hold:2000"])
+
+
+class ScrollingThatWouldStepTests(unittest.TestCase):
+    """A key with a hold acts on release, and an action on release cannot repeat, so a
+    scrolling action sharing its key with a hold steps once per tap."""
+
+    HELD = {"previous": ["key:ShiftLeft"], "exit": ["key:ShiftLeft@hold:1500"]}
+
+    def test_it_names_the_press_the_hold_and_who_holds_it(self) -> None:
+        self.assertEqual(
+            input_registry.stalled(self.HELD),
+            [input_registry.Stall("previous", "key:ShiftLeft", "exit",
+                                  "key:ShiftLeft@hold:1500")])
+
+    def test_a_hold_on_a_key_nothing_scrolls_on_stalls_nothing(self) -> None:
+        self.assertEqual(input_registry.stalled(
+            {"previous": ["key:ArrowLeft"], "exit": ["key:ShiftLeft@hold:1500"]}), [])
+
+    def test_a_chord_keeps_its_own_timer_and_is_left_out(self) -> None:
+        self.assertEqual(input_registry.stalled(
+            {"previous": ["key:ShiftLeft"],
+             "exit": ["chord(key:ShiftLeft+key:ShiftRight)@hold:1500"]}), [])
+
+    def test_only_what_a_change_stalls_is_new(self) -> None:
+        was = {"previous": ["key:ShiftLeft"], "exit": ["key:Escape@hold:1500"]}
+
+        self.assertEqual(input_registry.newly_stalled(was, was), [])
+        self.assertEqual([one.action for one in input_registry.newly_stalled(was, self.HELD)],
+                         ["previous"])
+        self.assertEqual(input_registry.newly_stalled(self.HELD, self.HELD), [])
+
+    def test_the_actions_that_scroll_are_the_ones_the_frontend_repeats(self) -> None:
+        block = re.search(r"const REPEATING_ACTIONS = new Set\(\s*\[(.*?)\]\);", CORE_JS, re.S)
+        self.assertIsNotNone(block, "REPEATING_ACTIONS moved; this test needs updating")
+
+        self.assertEqual(tuple(re.findall(r'"(\w+)"', block.group(1))),
+                         input_registry.SCROLLING)
 
 
 class JavaScriptCopiesTests(unittest.TestCase):

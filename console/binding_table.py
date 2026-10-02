@@ -1,0 +1,569 @@
+"""What each action is mapped to, one field for every key and button that does it.
+
+The caller passes the rows, what each is mapped to now and the one act it reports to; the
+table writes nothing itself. A press another row already holds is a question rather than a
+second binding, because dispatch gives a press to the first action that lists it and the
+second would silently never fire.
+"""
+
+from __future__ import annotations
+
+import ipaddress
+import logging
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
+
+from nicegui import ui
+
+from common import input_registry
+from common.i18n import t
+from console import binding_editor, confirm, verbs
+from console.on_page import on_page
+
+logger = logging.getLogger("vpinfe.console.binding_table")
+
+Write = Callable[[dict[str, list[str]]], Awaitable[bool]]
+
+# How long a binding can be asked to be held, in milliseconds. A length set some other way
+# joins the choices where it falls.
+HOLD_STOPS = (0, 500, 1000, 1500, 2000, 3000)
+
+# Reports what was pressed on this computer to the table, which names it and says what it
+# does. Installed once per document: a table drawn later only repoints it. A press while a
+# question, a menu, a listening row or a text field has the keyboard is not a press to report.
+_LIVE_JS = """(() => {
+  const live = window.__bindingLive = window.__bindingLive || {};
+  live.id = %(id)d;
+  if (live.listening) return;
+  live.listening = true;
+  const busy = () => (window.__bindingListen || {}).row
+    || document.querySelector('.q-dialog, .q-menu')
+    || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+  const report = (token) => {
+    const target = document.getElementById('c' + live.id);
+    if (target && !busy()) target.dispatchEvent(new CustomEvent('heard', {detail: token}));
+  };
+  window.addEventListener('keydown', (e) => { if (!e.repeat) report('key:' + e.code); }, true);
+  const down = {};
+  setInterval(() => {
+    for (const pad of (navigator.getGamepads ? navigator.getGamepads() : [])) {
+      if (!pad) continue;
+      pad.buttons.forEach((b, i) => {
+        const seat = pad.index + ':' + i;
+        const fresh = b.pressed && !down[seat];
+        down[seat] = b.pressed;
+        if (fresh) report(%(pad_token)s);
+      });
+    }
+  }, 40);
+})()"""
+
+
+@dataclass(frozen=True)
+class Row:
+    """One action: what it is called, where it is listed and what it ships mapped to.
+
+    `holds` is False where a hold means nothing. `note` and `findings` are drawn under the
+    row.
+    """
+
+    name: str
+    label: str
+    group: str = ""
+    defaults: tuple[str, ...] = ()
+    holds: bool = True
+    note: str = ""
+    findings: tuple[Callable[[], None], ...] = ()
+
+
+@dataclass(frozen=True)
+class Live:
+    """The last press: what it was called, whether a controller made it, and what it does."""
+
+    name: str = ""
+    pad: bool = False
+    does: str = ""
+    nothing: str = ""
+
+
+def selectors(value: Any) -> list[str]:
+    """A binding list, whatever shape it arrived in.
+
+    A stored value is a list and a schema default is the comma-joined string the config
+    file would hold. Taking `list()` of the second gives one chip per character.
+    """
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    return [str(one).strip() for one in (value or []) if str(one).strip()]
+
+
+def holders_of(bound: Mapping[str, Sequence[str]], name: str, binding: str) -> list[str]:
+    """The other rows that hold this press, at whatever length they hold it."""
+    wanted = input_registry.contention(binding)
+    return [other for other, held in bound.items()
+            if other != name and any(input_registry.contention(one) == wanted for one in held)]
+
+
+def after_adding(bound: Mapping[str, Sequence[str]], name: str, binding: str, *,
+                 old: str = "", take: bool = False) -> dict[str, list[str]]:
+    """`bound` with `binding` on `name` in place of `old`, and off every other row if `take`."""
+    out = {other: list(held) for other, held in bound.items()}
+    out[name] = (input_registry.replaced(out[name], old, binding) if old
+                 else [*out[name], binding])
+    if take:
+        for other in holders_of(bound, name, binding):
+            out[other] = input_registry.without(out[other], binding)
+    return out
+
+
+def after_reverting(bound: Mapping[str, Sequence[str]], name: str,
+                    defaults: Iterable[str]) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """`bound` with `name` back on `defaults`, and what other rows give up for it.
+
+    A default another row has since taken goes back on a yes: the second answer is what
+    each of those rows holds that the default wants.
+    """
+    out = {other: list(held) for other, held in bound.items()}
+    have = {input_registry.identity(one) for one in bound[name]}
+    back = [one for one in defaults if input_registry.identity(one) not in have]
+    given: dict[str, list[str]] = {}
+    for other, held in bound.items():
+        if other == name:
+            continue
+        lost = [one for one in held if any(
+            input_registry.contention(one) == input_registry.contention(want) for want in back)]
+        if lost:
+            given[other] = lost
+            out[other] = [one for one in held if one not in lost]
+    out[name] = list(defaults)
+    return out, given
+
+
+def changed(before: Mapping[str, Sequence[str]],
+            after: Mapping[str, Sequence[str]]) -> dict[str, list[str]]:
+    """Only the rows whose bindings differ."""
+    return {name: list(held) for name, held in after.items()
+            if list(before.get(name, ())) != list(held)}
+
+
+def stops(now: int) -> list[int]:
+    """The lengths to offer a hold, with the one it has if that is none of them."""
+    return sorted({*HOLD_STOPS, now})
+
+
+def listed(names: Iterable[str]) -> str:
+    """Names read out in a sentence: "A", "A and B", "A, B and C"."""
+    names = list(names)
+    if len(names) < 2:
+        return names[0] if names else ""
+    return t("console.binding_table.and_last", most=", ".join(names[:-1]), last=names[-1])
+
+
+def elsewhere(peer: str) -> bool:
+    """Whether the socket address a page was asked from is another computer.
+
+    The socket's own address, never a header, which the caller writes. No address, or one
+    that is not an address, is no other computer.
+    """
+    try:
+        address = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+    return not (getattr(address, "ipv4_mapped", None) or address).is_loopback
+
+
+def opened_elsewhere() -> bool:
+    """Whether the page being drawn was opened from another computer than the one serving it."""
+    try:
+        request = ui.context.client.request
+    except RuntimeError:
+        return False
+    return elsewhere(request.client.host if request.client else "")
+
+
+def _around(key: str, name: str) -> tuple[str, str]:
+    """The words before and after `name` in a sentence, whichever order a language puts it."""
+    before, _, after = t(key, row="\0").partition("\0")
+    return before.strip(), after.strip()
+
+
+def _lit(element: ui.element, on: bool) -> None:
+    if on:
+        element.classes(add="console-binding-lit")
+    else:
+        element.classes(remove="console-binding-lit")
+
+
+def said(bindings: Sequence[str]) -> str:
+    """Bindings read out mid-sentence, a held one closing its own aside with a comma."""
+    text = listed(input_registry.describe(one) for one in bindings)
+    return f"{text}," if bindings and input_registry.hold_ms(bindings[-1]) else text
+
+
+class Table:
+    """The rows, each with one field for everything mapped to it.
+
+    `bound` is every row's bindings now and `write` is told the rows that change, answering
+    whether they were kept; the table follows it only if they were. `source` names where
+    the defaults come from, for the revert mark's tooltip. A table that is not `writable`
+    only shows.
+
+    Clicking a row's label or field has that row listen for the next press. Above the rows
+    a line names whatever is pressed on this computer and what it does, and says what is
+    being listened for while a row is.
+    """
+
+    def __init__(self, rows: Sequence[Row], bound: Mapping[str, Any], *, write: Write,
+                 source: str, writable: bool = True) -> None:
+        self.rows = tuple(rows)
+        self.by_name = {row.name: row for row in self.rows}
+        self.bound = {row.name: selectors(bound.get(row.name)) for row in self.rows}
+        self.write = write
+        self.source = source
+        self.writable = writable
+        self.lit = ""
+        self.live = Live()
+        self.listening = ""
+        self.elsewhere = opened_elsewhere()
+        self._rows: dict[str, ui.element] = {}
+        self._labels: dict[str, ui.element] = {}
+        self._chips: dict[tuple[str, str], ui.element] = {}
+        with ui.element("div").classes("w-full") as self.container:
+            self.line = ui.element("div")
+            self.grid = ui.element("div").classes("console-facts console-bindings")
+        self.line.on("heard", self._heard, js_handler="(e) => emit(e.detail)")
+        ui.run_javascript(_LIVE_JS % {"id": self.line.id,
+                                      "pad_token": binding_editor.PAD_TOKEN_JS})
+        if writable:
+            self.line.on("listen", self._listening, js_handler="(e) => emit(e.detail)")
+            self.line.on("captured", self._captured, js_handler="(e) => emit(e.detail)")
+            ui.run_javascript(binding_editor.listen_js(self.line.id))
+        self._draw_live()
+        self.draw()
+
+    def label_of(self, name: str) -> str:
+        row = self.by_name.get(name)
+        return row.label if row is not None else name
+
+    def draw(self) -> None:
+        if self.container.is_deleted:
+            return
+        self.grid.clear()
+        self._rows.clear()
+        self._labels.clear()
+        self._chips.clear()
+        clashes = input_registry.holders(self.bound)
+        heading = ""
+        with self.grid:
+            for row in self.rows:
+                if row.group and row.group != heading:
+                    ui.label(row.group).classes("console-fact-heading")
+                heading = row.group
+                self._row(row, clashes)
+        self._light()
+
+    def _row(self, row: Row, clashes: Mapping[str, list[str]]) -> None:
+        with ui.element("div").classes("console-binding-row") as cells:
+            self._rows[row.name] = cells
+            if self.writable:
+                cells.props(f'data-row="{row.name}" data-holds="{int(row.holds)}"')
+            self._labels[row.name] = ui.label(row.label).classes(
+                "console-fact-label console-binding-label")
+            with ui.element("div").classes("console-fact-edit"):
+                with ui.element("div").classes("console-binding-field"):
+                    with ui.element("div").classes("console-chips"):
+                        self._chips_of(row, clashes)
+            with ui.element("div").classes("console-binding-revert"):
+                if self.writable and not input_registry.same_bindings(
+                        self.bound[row.name], row.defaults):
+                    self._revert_mark(row)
+        self._mark()
+        if row.note:
+            with ui.element("div").classes("console-binding-aside"):
+                ui.label(row.note).classes("console-help")
+        for finding in row.findings:
+            with ui.element("div").classes("console-binding-aside"):
+                finding()
+
+    def _chips_of(self, row: Row, clashes: Mapping[str, list[str]]) -> None:
+        held = self.bound[row.name]
+        # Keys before controller buttons, whichever order they were mapped in.
+        for binding in sorted(held, key=input_registry.is_pad):
+            self._chip(row, binding, clashes.get(input_registry.contention(binding)) or [])
+        if not held:
+            ui.label(t("console.binding_table.nothing_mapped")) \
+                .classes("console-member-chip console-tier console-tier--warn") \
+                .tooltip(t("console.binding_table.nothing_mapped.help"))
+
+    def _chip(self, row: Row, binding: str, claimed_by: list[str]) -> None:
+        shown = input_registry.describe(binding)
+        crowded = len(claimed_by) > 1
+        with ui.element("div").classes("console-chip-holder"):
+            with ui.element("div").classes(
+                    "console-member-chip "
+                    + ("console-chip-warn" if crowded else "console-chip-quiet")) as chip:
+                if input_registry.is_pad(binding):
+                    ui.icon(verbs.CONTROLLER).classes("console-chip-glyph")
+                ui.label(shown)
+            self._chips[(row.name, binding)] = chip
+            if crowded:
+                chip.tooltip(t("console.binding_editor.also_bound_first_one", others=listed(
+                    self.label_of(name) for name in claimed_by if name != row.name)))
+            if not self.writable:
+                return
+            if row.holds:
+                chip.classes("cursor-pointer")
+                with chip:
+                    self._hold_menu(row, binding)
+            ui.label("✕").classes("console-chip-remove") \
+                .on("click", lambda: self._remove(row, binding)) \
+                .tooltip(t("console.binding_table.remove_binding", binding=shown))
+
+    def _hold_menu(self, row: Row, binding: str) -> None:
+        """How long the binding has to be down, which a gesture cannot say exactly."""
+        now = input_registry.hold_ms(binding)
+        with ui.menu() as menu:
+            ui.toggle({ms: t("console.binding_table.seconds", seconds=f"{ms / 1000:g}")
+                       if ms else t("console.binding_table.no_hold") for ms in stops(now)},
+                      value=now,
+                      on_change=lambda event: self._held(row, binding, int(event.value), menu)) \
+                .props("unelevated dense no-caps").classes("console-binding-hold")
+
+    def _revert_mark(self, row: Row) -> None:
+        back = listed(t("console.binding_table.quoted", binding=input_registry.describe(one))
+                      for one in row.defaults) or t("console.binding_table.nothing")
+        ui.icon(verbs.REVERT).classes("console-revert") \
+            .on("click", lambda: self._revert(row)) \
+            .tooltip(t("console.binding_table.revert_to", bindings=back, source=self.source))
+
+    def _draw_live(self) -> None:
+        self.line.clear()
+        live = self.live
+        if self.listening:
+            self._draw_listening(self.by_name[self.listening])
+            return
+        with self.line, ui.element("div").classes(
+                "console-binding-live" + ("" if live.name else " console-binding-live--idle")):
+            if not live.name:
+                ui.icon(verbs.PRESS)
+                ui.label(t("console.binding_table.press_anything"))
+                if self.elsewhere:
+                    ui.label(t("console.binding_table.tried_on_the_cabinet")) \
+                        .classes("console-binding-live-key console-binding-live-end")
+                return
+            ui.icon(verbs.CONTROLLER if live.pad else verbs.KEYBOARD)
+            ui.label(live.name).classes("console-binding-live-name")
+            ui.label("·").classes("console-binding-live-sep")
+            if live.does:
+                ui.label(live.does).classes("console-binding-live-does")
+            else:
+                ui.label(live.nothing or t("console.binding_table.does_nothing_here")) \
+                    .classes("console-binding-live-key")
+
+    def _draw_listening(self, row: Row) -> None:
+        """What the row is listening for, and how a chord and a hold are made."""
+        before, after = _around("console.binding_table.press_for", row.label)
+        with self.line, ui.element("div").classes("console-binding-live console-binding-live--on"):
+            ui.icon(verbs.LISTEN)
+            if before:
+                ui.label(before)
+            ui.label(row.label).classes("console-binding-live-name")
+            if after:
+                ui.label(after)
+            ui.label("·").classes("console-binding-live-sep")
+            ui.label(t("console.binding_table.chord_and_hold" if row.holds
+                       else "console.binding_table.chord")).classes("console-binding-live-hint")
+            ui.label(t("console.binding_table.click_away")) \
+                .classes("console-binding-live-key console-binding-live-end")
+
+    def _mark(self) -> None:
+        """Draw the row that is listening as the one."""
+        for name, cells in self._rows.items():
+            if name == self.listening:
+                cells.classes(add="console-binding-row--listening")
+            else:
+                cells.classes(remove="console-binding-row--listening")
+
+    def _light(self) -> None:
+        """Mark the rows and chips the last press belongs to."""
+        for name, label in self._labels.items():
+            _lit(label, bool(self.lit) and any(
+                input_registry.press(one) == self.lit for one in self.bound[name]))
+        for (_, binding), chip in self._chips.items():
+            _lit(chip, bool(self.lit) and input_registry.press(binding) == self.lit)
+
+    def _does(self, token: str) -> list[str]:
+        """Every row that holds this press, a held one said as such."""
+        wanted = input_registry.press(token)
+        return [t("console.binding_table.when_held", row=row.label)
+                if input_registry.hold_ms(one) else row.label
+                for row in self.rows for one in self.bound[row.name]
+                if input_registry.press(one) == wanted]
+
+    def _show(self, token: str, *, does: str = "", nothing: str = "") -> None:
+        self.lit = input_registry.press(token)
+        self.live = Live(input_registry.describe(token, device=True),
+                         input_registry.is_pad(token), does, nothing)
+        self._draw_live()
+        self._light()
+
+    def _idle(self) -> None:
+        self.lit = ""
+        self.live = Live()
+        self._draw_live()
+        self._light()
+
+    def _heard(self, event: Any) -> None:
+        token = str(event.args or "").strip()
+        if token:
+            self._show(token, does=listed(self._does(token)))
+
+    def _listening(self, event: Any) -> None:
+        """The page started listening for a row, moved to another, or stopped."""
+        name = str(event.args or "")
+        self.listening = name if name in self.by_name else ""
+        if self.listening:
+            self.lit = ""
+            self._light()
+        else:
+            self.live = Live()
+        self._mark()
+        self._draw_live()
+
+    @on_page
+    async def _captured(self, event: Any) -> None:
+        """The row that was listening heard a press and everything was let go."""
+        heard = event.args if isinstance(event.args, dict) else {}
+        row = self.by_name.get(str(heard.get("row") or ""))
+        token = str(heard.get("token") or "").strip()
+        self.listening = ""
+        self._mark()
+        if row is not None and token:
+            await self._mapped(row, token)
+        else:
+            self._draw_live()
+
+    @on_page
+    async def _mapped(self, row: Row, token: str) -> None:
+        """A press captured for `row`."""
+        token = input_registry.identity(token)
+        if any(input_registry.contention(one) == input_registry.contention(token)
+               for one in self.bound[row.name]):
+            self._show(token, nothing=t("console.binding_table.already_does", row=row.label))
+            return
+        self._show(token, does=listed(self._does(token)))
+        await self._offer(row, token)
+
+    @on_page
+    async def _held(self, row: Row, binding: str, ms: int, menu: ui.menu) -> None:
+        menu.close()
+        wanted = input_registry.with_hold(binding, ms)
+        if wanted != binding:
+            await self._offer(row, wanted, old=binding)
+
+    async def _offer(self, row: Row, binding: str, *, old: str = "") -> None:
+        holders = holders_of(self.bound, row.name, binding)
+        if holders:
+            await self._move(row, binding, old, holders)
+        else:
+            await self._add(row, binding, old)
+
+    async def _move(self, row: Row, binding: str, old: str, holders: list[str]) -> None:
+        after = after_adding(self.bound, row.name, binding, old=old, take=True)
+        theirs = next(one for one in self.bound[holders[0]]
+                      if input_registry.contention(one) == input_registry.contention(binding))
+        mapped = t("console.binding_table.mapped_to", binding=said([theirs]),
+                   rows=listed(self.label_of(name) for name in holders))
+        if input_registry.hold_ms(theirs) != input_registry.hold_ms(binding):
+            mapped += " " + t("console.binding_table.one_hold", binding=input_registry.describe(
+                input_registry.with_hold(binding, 0)))
+        answer = await confirm.ask(
+            t("console.binding_table.move_question", binding=input_registry.describe(binding),
+              row=row.label),
+            detail=[mapped, *self._emptied(after, holders), *self._slowing(after)],
+            confirm=t("word.move"), icon=verbs.MOVE, danger=False)
+        if not answer:
+            self._idle()
+            return
+        moved = t("console.binding_table.moved_from_to",
+                  source=listed(self.label_of(name) for name in holders), target=row.label)
+        await self._apply(after, binding, moved)
+
+    async def _add(self, row: Row, binding: str, old: str) -> None:
+        after = after_adding(self.bound, row.name, binding, old=old)
+        if notes := self._slowing(after):
+            held = bool(input_registry.hold_ms(binding))
+            bare = input_registry.describe(input_registry.with_hold(binding, 0))
+            answer = await confirm.ask(
+                t("console.binding_table.hold_question" if held
+                  else "console.binding_table.add_question",
+                  binding=bare if held else input_registry.describe(binding), row=row.label),
+                detail=notes,
+                confirm=t("console.binding_table.add_hold") if held else t("word.add"),
+                icon=verbs.ADD, danger=False)
+            if not answer:
+                self._idle()
+                return
+        await self._apply(after, binding)
+
+    @on_page
+    async def _remove(self, row: Row, binding: str) -> None:
+        # Asked only for a binding no press can make again, a modifier or an axis, because
+        # removing it is permanent.
+        if not input_registry.capturable(binding) and not await confirm.ask(
+                t("console.binding_editor.remove_2", shown=input_registry.describe(binding)),
+                detail=t("console.binding_editor.nothing_can_bind_yet"),
+                confirm=t("word.remove"), icon=verbs.REMOVE):
+            return
+        after = {name: list(held) for name, held in self.bound.items()}
+        after[row.name] = [one for one in after[row.name] if one != binding]
+        await self._apply(after)
+
+    @on_page
+    async def _revert(self, row: Row) -> None:
+        after, given = after_reverting(self.bound, row.name, row.defaults)
+        emptied = self._emptied(after, list(given))
+        notes = self._slowing(after)
+        if given or notes:
+            moving = [one for lost in given.values() for one in lost]
+            lines = [t("console.binding_table.moves_back", count=len(moving),
+                       binding=said(moving),
+                       rows=listed(self.label_of(name) for name in given)) if given else "",
+                     *emptied, *notes]
+            if not await confirm.ask(
+                    t("console.binding_table.revert_question", row=row.label),
+                    detail=[line for line in lines if line], confirm=t("word.revert"),
+                    icon=verbs.REVERT, danger=False):
+                return
+        await self._apply(after)
+
+    def _emptied(self, after: Mapping[str, Sequence[str]], rows: Sequence[str]) -> list[str]:
+        gone = [self.label_of(name) for name in rows if not after[name]]
+        return [t("console.binding_table.will_have_nothing", rows=listed(gone))] if gone else []
+
+    def _slowing(self, after: Mapping[str, Sequence[str]]) -> list[str]:
+        """What a change would stop scrolling, said before it happens."""
+        out = []
+        for one in input_registry.newly_stalled(self.bound, after):
+            row = self.label_of(one.action)
+            binding = input_registry.describe(one.binding)
+            if one.hold in self.bound.get(one.holder, ()):
+                out.append(t("console.binding_table.slowed_by", hold=said([one.hold]),
+                             holder=self.label_of(one.holder), row=row, binding=binding))
+            else:
+                out.append(t("console.binding_table.slowed", row=row, binding=binding))
+        return list(dict.fromkeys(out))
+
+    async def _apply(self, after: Mapping[str, Sequence[str]], binding: str = "",
+                     moved: str = "") -> None:
+        """Keep the rows that changed, and follow the write only if it was kept."""
+        changes = changed(self.bound, after)
+        if changes and not await self.write(changes):
+            return
+        self.bound = {name: list(held) for name, held in after.items()}
+        if binding:
+            self._show(binding, does=moved or listed(self._does(binding)))
+        else:
+            self._idle()
+        self.draw()

@@ -958,6 +958,22 @@ becomes an exception to its rules - and each act hands it the reversal that puts
 exactly what it changed. What cannot be undone still asks first, through
 `console/confirm.py`.
 
+### A press that is somebody else's asks first, and has no Undo
+
+Giving a key to one action takes it from another, and an Undo offered after the answer would
+be a second decision about the same change. So the question comes first, through
+`console/confirm.py`, in the verb of the act - **Move** - with the title quoting the names it
+moves between and the detail stating the cost: who has it now, and which action is left with
+nothing mapped. A yes does it and the page says what it did; there is no Undo on it. Revert
+on a row asks the same way when it would take a key back from another row. Where a change
+costs nothing to anyone else, it does not ask.
+
+`confirm.ask(..., second=(label, icon))` is for a question with two ways to say yes. It then
+answers a `confirm.Answer` where it otherwise answers a bool.
+
+Enter answers a `confirm.ask` that is not `danger` - Move, Revert, Add - and does not answer
+one that is, so a destructive verb is never one a habit reaches.
+
 ### A drag carries addresses, and a menu does the same
 
 A row dragged out of a grid carries each row's Console address as `text/uri-list`, with
@@ -1148,6 +1164,13 @@ control's hint and a clipped value's full text are not lines, and keep their too
 and fails on a tooltip drawn anywhere else that carries a failure's words or sits on a
 `console-help` caption. It does not follow a detail carried in a plain variable onto a line
 that is not a caption; that half is held by this paragraph alone.
+
+### A list taller than its pane says so
+
+`console-more` is the fade over the last rows and the **More below** pill that scrolls on. It
+is the last child of the scrolling element, and its `hidden` attribute is set once the end is
+in view. The class draws it and nothing else decides when it shows, so whatever scrolls owns
+that check.
 
 ### One control per fact, and one way back
 

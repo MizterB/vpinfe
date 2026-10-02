@@ -19,7 +19,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from console import binding_editor, panel, settings, themes
+from console import binding_table, panel, settings, themes
 
 CONSOLE = Path(__file__).resolve().parent.parent.parent / "console"
 
@@ -46,9 +46,6 @@ BUDGET = {
     "mediasource.py": (2, "a start picker and a search, both toolbar"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
     "about.py": (1, "the textarea a browser that will not copy falls back to"),
-    "binding_editor.py": (2, "the hold switch and its duration, in the menu a chip "
-                             "opens - not a fact row, and the row it belongs to is "
-                             "already a strip of chips"),
     "import_dialog.py": (2, "the per-item tick in the import confirmation and the "
                             "destination picker's do-not-ask-again - a choice over a list "
                             "and a one-off promise, neither of them a fact row"),
@@ -210,45 +207,43 @@ class ADeclaredEditorIsRouted(unittest.TestCase):
         from common import config_schema
 
         declared = {one.editor for one in config_schema.options() if one.editor}
+        # Drawn as one table over the whole section by its page, which the API's
+        # consumers read as "bindings" without the Console's routing.
+        drawn_by_a_page = {config_schema.EDITOR_BINDING}
 
-        self.assertTrue(declared <= set(settings.EDITORS),
+        self.assertTrue(declared - drawn_by_a_page <= set(settings.EDITORS),
                         "a setting asks for an editor nothing draws")
         self.assertTrue(declared <= set(config_schema.EDITORS),
                         "an editor name outside the closed set is a typo, not a tool")
 
 
 class BindingsAreNotTypedIn(unittest.TestCase):
-    """`pad:0/button:3` is written for a parser. The editor shows what was pressed."""
+    """`pad:0/button:3` is written for a parser. The table shows what was pressed."""
 
     def test_a_default_arrives_as_a_string_and_is_not_read_letter_by_letter(self) -> None:
         """A stored value is a list; a schema default is the comma-joined string the
         config file would hold. `list()` of the second is one chip per character."""
         self.assertEqual(
-            binding_editor._selectors("key:ArrowLeft,key:ShiftLeft"),
+            binding_table.selectors("key:ArrowLeft,key:ShiftLeft"),
             ["key:ArrowLeft", "key:ShiftLeft"])
         self.assertEqual(
-            binding_editor._selectors(["key:Enter"]), ["key:Enter"])
-        self.assertEqual(binding_editor._selectors(None), [])
+            binding_table.selectors(["key:Enter"]), ["key:Enter"])
+        self.assertEqual(binding_table.selectors(None), [])
 
     def test_a_chord_is_found_whichever_order_it_was_written(self) -> None:
         """A chord is a set. Looked up as raw text, one of the two rows holding it is
         marked and the other stays silent."""
-        # Keyed the way `holders` keys it - by identity, which settles both the
-        # member order and each member's spelling.
-        held = {"chord(key:KeyA+key:KeyB)": ["back", "exit"]}
+        bound = {"back": ["chord(key:KeyA+key:KeyB)"], "exit": ["chord(key:KeyB+key:KeyA)"]}
 
-        self.assertEqual(
-            binding_editor._owner("chord(key:b+key:a)", held, {"key": "exit"}), "Back")
+        self.assertEqual(binding_table.holders_of(bound, "next", "chord(key:KeyB+key:KeyA)"),
+                         ["back", "exit"])
 
-    def test_it_names_who_already_holds_a_binding(self) -> None:
-        held = {"key:Escape": ["back", "exit"]}
+    def test_it_names_the_other_rows_that_already_hold_a_binding(self) -> None:
+        bound = {"back": ["key:Escape"], "exit": ["key:Escape"], "next": ["key:KeyM"]}
 
-        self.assertEqual(
-            binding_editor._owner("key:Escape", held, {"key": "back"}), "Quit")
-        self.assertEqual(
-            binding_editor._owner("key:Escape", held, {"key": "exit"}), "Back")
-        self.assertEqual(
-            binding_editor._owner("key:m", held, {"key": "back"}), "")
+        self.assertEqual(binding_table.holders_of(bound, "back", "key:Escape"), ["exit"])
+        self.assertEqual(binding_table.holders_of(bound, "exit", "key:Escape"), ["back"])
+        self.assertEqual(binding_table.holders_of(bound, "back", "key:KeyZ"), [])
 
 
 class AHoldCanBeSetRatherThanPerformed(unittest.TestCase):
@@ -280,45 +275,6 @@ class AHoldCanBeSetRatherThanPerformed(unittest.TestCase):
         from common import input_registry
 
         self.assertEqual(input_registry.hold_ms("key:a"), 0)
-
-
-class AnyKeyCanBeCaptured(unittest.TestCase):
-    """A tap of Esc could not be bound: capture treated it as the way out. The cabinet's
-    Exit button is Esc on Visual Pinball's layout, so that button could give nothing."""
-
-    def test_escape_is_not_special_to_the_capture(self) -> None:
-        self.assertNotIn("'Escape'", binding_editor._CAPTURE_JS)
-        self.assertNotIn('"Escape"', binding_editor._CAPTURE_JS)
-
-    def test_every_key_down_is_bound_by_its_code(self) -> None:
-        self.assertIn("arrived('key:' + e.code)", binding_editor._CAPTURE_JS)
-
-    def test_the_way_out_is_a_button(self) -> None:
-        self.assertIn("document.createElement('button')", binding_editor._CAPTURE_JS)
-        self.assertIn("cancel.addEventListener('click', () => stop(''))",
-                      binding_editor._CAPTURE_JS)
-
-    def test_the_way_out_is_drawn_like_the_consoles_other_buttons(self) -> None:
-        """A bare q-btn is drawn in capitals, which no other Console button is."""
-        for marker in ("q-btn--no-uppercase", "q-btn__content", "console-action"):
-            self.assertIn(marker, binding_editor._CAPTURE_JS)
-
-    def test_every_word_it_shows_is_the_catalogs(self) -> None:
-        script = binding_editor.capture_js("Back")
-
-        for words in ("Press the key or button for Back", "Cancel", "Holding 1 input",
-                      "Holding 2 inputs", "Held. Let go to keep it."):
-            self.assertIn(words, script)
-        self.assertNotIn("%(", script)
-        self.assertNotIn("' inputs'", script)
-
-    def test_the_prompt_no_longer_promises_that_esc_cancels(self) -> None:
-        from common import i18n
-
-        words = i18n.t("console.binding_editor.press_key_or_button_for", label="Back")
-
-        self.assertNotIn("Esc", words)
-        self.assertEqual(words, "Press the key or button for Back")
 
 
 class RawControlsAreDeclared(unittest.TestCase):

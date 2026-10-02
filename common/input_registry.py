@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from typing import NamedTuple
 
 from common import setting_groups
 from common.i18n import t
@@ -44,10 +45,24 @@ def _standard(button: int, hold: int = 0) -> str:
 
 
 # The standard layout's buttons, by index.
-_SOUTH, _EAST = 0, 1
+_SOUTH, _EAST, _WEST, _NORTH = 0, 1, 2, 3
 _LEFT_SHOULDER, _RIGHT_SHOULDER, _LEFT_TRIGGER, _RIGHT_TRIGGER = 4, 5, 6, 7
 _SELECT, _START = 8, 9
+_LEFT_STICK, _RIGHT_STICK = 10, 11
 _DPAD_UP, _DPAD_DOWN, _DPAD_LEFT, _DPAD_RIGHT = 12, 13, 14, 15
+
+# Named by position, because every maker letters the face buttons differently. A button
+# the layout has no name for is read by its number.
+_PAD_WORDS = {
+    _SOUTH: "input.pad.south", _EAST: "input.pad.east",
+    _WEST: "input.pad.west", _NORTH: "input.pad.north",
+    _LEFT_SHOULDER: "input.pad.left_shoulder", _RIGHT_SHOULDER: "input.pad.right_shoulder",
+    _LEFT_TRIGGER: "input.pad.left_trigger", _RIGHT_TRIGGER: "input.pad.right_trigger",
+    _SELECT: "input.pad.select", _START: "input.pad.start",
+    _LEFT_STICK: "input.pad.left_stick", _RIGHT_STICK: "input.pad.right_stick",
+    _DPAD_UP: "input.pad.dpad_up", _DPAD_DOWN: "input.pad.dpad_down",
+    _DPAD_LEFT: "input.pad.dpad_left", _DPAD_RIGHT: "input.pad.dpad_right",
+}
 
 
 @dataclass(frozen=True)
@@ -130,16 +145,19 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
     ),
     InputAction(
         "menu",
+        group=setting_groups.MENUS,
         bindings=("key:KeyM", _standard(_START)),
         legacy=("joymenu", "keymenu"),
     ),
     InputAction(
         "collection_menu",
+        group=setting_groups.MENUS,
         bindings=("key:KeyC", _standard(_SELECT)),
         legacy=("joycollectionmenu", "keycollectionmenu"),
     ),
     InputAction(
         "tutorial",
+        group=setting_groups.MENUS,
         bindings=("key:KeyT",),
         legacy=("joytutorial", "keytutorial"),
     ),
@@ -242,13 +260,14 @@ LEGACY_DEFAULTS = {
 }
 
 
-def _same_bindings(left: Iterable[str], right: Iterable[str]) -> bool:
+def same_bindings(left: Iterable[str], right: Iterable[str]) -> bool:
+    """Whether two lists bind the same things, in any order and either spelling."""
     return {identity(one) for one in left} == {identity(one) for one in right}
 
 
 def _shipped_by_2x(old: str, value: str) -> bool:
     shipped = LEGACY_DEFAULTS.get(old)
-    return shipped is not None and _same_bindings(
+    return shipped is not None and same_bindings(
         binding_for_legacy(old, value), binding_for_legacy(old, shipped))
 
 
@@ -334,25 +353,29 @@ def capturable(binding: str) -> bool:
     return not any(mark in text for mark in _UNCAPTURABLE)
 
 
-def describe(binding: str) -> str:
+def describe(binding: str, *, device: bool = False) -> str:
     """One binding as a person reads it.
 
     A selector is written for a parser - `pad:0/button:3` - and reading ten of them off a
     settings page is the thing that made bindings feel like configuration rather than a
     choice. Anything this cannot name is returned as it came, because inventing a name
     for a chord would be worse than showing the one that is stored.
+
+    A numbered pad's button reads without the pad, because dispatch fires it on that
+    button of every pad. `device` is for naming a press that just came from one, which
+    keeps the number.
     """
     text = normalize(str(binding or "").strip())
     members = chord_members(text)
     if members:
         # Composed, not looked up. "Left Shift + Right Shift, held 1.5s" is built from
         # its parts, which is where the readable names stop being a table.
-        said = describe(members[0])
+        said = describe(members[0], device=device)
         for one in members[1:]:
-            said = t("input.chord", chord=said, key=describe(one))
+            said = t("input.chord", chord=said, key=describe(one, device=device))
         return _held(said, text)
     if text.endswith(_hold_of(text)) and _hold_of(text):
-        return _held(describe(text[:-len(_hold_of(text))]), text)
+        return _held(describe(text[:-len(_hold_of(text))], device=device), text)
     if any(mark in text for mark in ("@", "+", "/axis:")):
         # Whatever is left after chords and holds have been named above: a modifier, an
         # axis, a selector this build has never seen. Returned whole, because inventing
@@ -363,15 +386,31 @@ def describe(binding: str) -> str:
     if text.startswith(PAD_PREFIX):
         rest = text[len(PAD_PREFIX):]
         pad, _, what = rest.partition("/")
-        # Pads are numbered from zero on the wire and from one on screen. A person with
-        # one controller has "pad 1", not "pad 0".
-        if not what.startswith("button:"):
-            # An axis, or something this build has never seen. Half-naming it - "Pad 1"
+        if not what.startswith("button:") or not (pad.isdigit() or pad == "standard"):
+            # An axis, or something this build has never seen. Half-naming it - "Controller 1"
             # followed by the raw rest - would read as a name while saying nothing.
             return text
-        return t("input.pad_button", pad=int(pad) + 1 if pad.isdigit() else pad,
-                 button=what[len("button:"):])
+        button = what[len("button:"):]
+        if pad == "standard":
+            return pad_name(int(button)) if button.isdigit() else text
+        if not device:
+            return t("input.pad.button", button=button)
+        # Pads are numbered from zero on the wire and from one on screen. A person with
+        # one controller has "pad 1", not "pad 0".
+        return t("input.pad_button", pad=int(pad) + 1, button=button)
     return text
+
+
+def pad_name(button: int) -> str:
+    """A standard-layout button as a person reads it: its position, else its number."""
+    word = _PAD_WORDS.get(button)
+    return t(word) if word else t("input.pad.button", button=button)
+
+
+def is_pad(binding: str) -> bool:
+    """Whether pressing this means pressing something on a controller."""
+    text = identity(binding)
+    return any(one.startswith(PAD_PREFIX) for one in chord_members(text) or (text,))
 
 
 def hold_ms(binding: str) -> int:
@@ -579,13 +618,18 @@ def contention(binding: str) -> str:
 
     A key has one press and one hold, at whatever length, so `Esc` held 0.8s and `Esc`
     held 1.5s are one claim on the key where `identity` keeps them apart. A chord keeps
-    its length: each chord waits on its own timer.
+    its length: each chord waits on its own timer. Which controller a button is on does
+    not count, and a button of the standard layout is the button of that number.
     """
     text = identity(binding)
+    members = chord_members(text)
+    if members:
+        suffix = text[text.rindex(")") + 1:]
+        return f"{CHORD_PREFIX}{'+'.join(sorted(_any_pad(one) for one in members))}){suffix}"
     suffix = _hold_of(text)
-    if suffix and not chord_members(text):
-        return text[:-len(suffix)] + HOLD_MARK.rstrip(":")
-    return text
+    if suffix:
+        text = text[:-len(suffix)] + HOLD_MARK.rstrip(":")
+    return _any_pad(text)
 
 
 def holders(bound: Mapping[str, Iterable[str] | None] | None) -> dict[str, list[str]]:
@@ -617,6 +661,85 @@ def collisions(bound: Mapping[str, Iterable[str] | None] | None) -> dict[str, li
     """
     return {binding: names for binding, names in holders(bound).items()
             if len(names) > 1}
+
+
+def _any_pad(selector: str) -> str:
+    """A pad selector with which pad dropped.
+
+    Dispatch ignores the index, and a numbered binding fires on a pad in the standard
+    layout as well as the standard one does, so `pad:0/button:3`, `pad:1/button:3` and
+    `pad:standard/button:3` all want the same press.
+    """
+    head, slash, rest = selector.partition("/")
+    which = head[len(PAD_PREFIX):] if head.startswith(PAD_PREFIX) else ""
+    layout = which.isdigit() or head == STANDARD_PAD
+    return f"{PAD_PREFIX}*/{rest}" if slash and layout else selector
+
+
+def press(binding: str) -> str:
+    """What has to go down for a binding, however long it is then held.
+
+    The key a chip and a row are matched to a press by: `key:Escape` and
+    `key:Escape@hold:1500` are one press, and `pad:0/button:3` is the same press on any
+    pad, or in the standard layout.
+    """
+    text = with_hold(identity(binding), 0)
+    members = chord_members(text)
+    if members:
+        return f"{CHORD_PREFIX}{'+'.join(sorted(_any_pad(one) for one in members))})"
+    return _any_pad(text)
+
+
+def replaced(bindings: Iterable[str], old: str, new: str) -> list[str]:
+    """`old` swapped for `new` where it stands, and any other binding `new` competes with
+    dropped - so changing how long a key is held never leaves it held two ways."""
+    return [new if one == old else one for one in bindings
+            if one == old or contention(one) != contention(new)]
+
+
+def without(bindings: Iterable[str], taken: str) -> list[str]:
+    """What is left of `bindings` once `taken`, at whatever length, is somebody else's."""
+    return [one for one in bindings if contention(one) != contention(taken)]
+
+
+# The actions that step along a list while their input is kept down. The frontend's
+# `REPEATING_ACTIONS` names the same four.
+SCROLLING = ("previous", "next", "page_previous", "page_next")
+
+
+class Stall(NamedTuple):
+    """A scrolling action's press that moves one step at a time instead of repeating."""
+
+    action: str
+    binding: str
+    holder: str
+    hold: str
+
+
+def stalled(bound: Mapping[str, Iterable[str] | None]) -> list[Stall]:
+    """Each scrolling press that shares its input with a hold.
+
+    A key with a hold acts on release, and an action on release cannot repeat, so a
+    scrolling action on that key steps once per tap. A chord keeps its own timer and is
+    left out.
+    """
+    held = [(name, one) for name, bindings in dict(bound or {}).items()
+            for one in bindings or () if hold_ms(one) and not chord_members(one)]
+    out = []
+    for action in SCROLLING:
+        for one in (bound.get(action) or ()):
+            if hold_ms(one) or chord_members(one):
+                continue
+            out += [Stall(action, one, holder, hold) for holder, hold in held
+                    if _unheld(hold) == _unheld(one)]
+    return out
+
+
+def newly_stalled(was: Mapping[str, Iterable[str] | None],
+                  now: Mapping[str, Iterable[str] | None]) -> list[Stall]:
+    """Only what `now` stalls that `was` did not, so a change is told what it costs."""
+    before = {(one.action, _unheld(one.binding)) for one in stalled(was)}
+    return [one for one in stalled(now) if (one.action, _unheld(one.binding)) not in before]
 
 
 # What a cabinet's own buttons stand for, by the role an app names them under: the action,
@@ -658,7 +781,7 @@ def cabinet_bindings(stored: Mapping[str, Iterable[str]],
     """
     shipped = defaults()
     held = {name: [str(one) for one in bindings] for name, bindings in stored.items()}
-    untouched = [name for name in shipped if name in held and _same_bindings(
+    untouched = [name for name in shipped if name in held and same_bindings(
         _keys_of(held[name]), _keys_of(shipped[name]))]
     chosen = {contention(b) for name, bindings in held.items() if name not in untouched
               for b in _keys_of(bindings)}
@@ -685,7 +808,7 @@ def cabinet_bindings(stored: Mapping[str, Iterable[str]],
             if identity(one) not in {identity(k) for k in keys}:
                 keys.append(one)
         rest = [b for b in held[name] if not str(b).startswith(KEY_PREFIX)]
-        if _same_bindings(keys, _keys_of(held[name])):
+        if same_bindings(keys, _keys_of(held[name])):
             continue
         out[name] = [*keys, *rest]
     return out

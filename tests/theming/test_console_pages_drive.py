@@ -63,7 +63,8 @@ PICK = """(last => {
 })(%s)"""
 # The open section. A page's own name (`panel.header`, Settings) is the page, not a
 # group, and a section bar is the whole section's; both are set aside before either
-# question is asked.
+# question is asked, and so is the input table's live line, which reports for the whole
+# table and so reads above its first group.
 HEADINGS = """(name => {
   const HEAD = '.console-fact-heading, .console-card-title,'
     + ' .console-group:not(.console-rail-group)';
@@ -75,7 +76,8 @@ HEADINGS = """(name => {
   const bare = text => text.trim().split('\\n')[0].replace(/\\s*\\(.*\\)$/, '').toLowerCase();
   const area = [...document.querySelectorAll('.console-section-work')].find(shown);
   const problems = [];
-  const aside = [...area.querySelectorAll('.console-panel-heading, .console-section-bar')];
+  const aside = [...area.querySelectorAll(
+    '.console-panel-heading, .console-section-bar, .console-binding-live')];
   const outside = el => !aside.some(a => a.contains(el));
   const heads = [...area.querySelectorAll(HEAD)].filter(shown).filter(outside);
   const first = [...area.querySelectorAll('*')].filter(outside).find(content);

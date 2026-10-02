@@ -83,6 +83,9 @@ BROWSE = "folder_open"
 MERGE = "merge"
 OPEN_OUT = "open_in_new"
 
+# Giving what one thing holds to another, so the first no longer has it.
+MOVE = "arrow_forward"
+
 # Asking for the current state of something held elsewhere.
 REFRESH = "refresh"
 UPDATE = "system_update_alt"
@@ -130,6 +133,12 @@ UP = "arrow_upward"
 DOWN = "arrow_downward"
 COLLAPSE = "keyboard_arrow_up"
 EXPAND = "keyboard_arrow_down"
+
+# What was pressed, on the line that says what it does, and a row waiting for a press.
+PRESS = "touch_app"
+KEYBOARD = "keyboard"
+CONTROLLER = "sports_esports"
+LISTEN = "hearing"
 
 # For a verb with no drawing of its own, by what kind of act it is.
 FALLBACK = {"open": OPEN_OUT, "change": EDIT, "add": ADD, "remove": CANCEL}

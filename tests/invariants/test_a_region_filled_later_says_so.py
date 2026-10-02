@@ -30,8 +30,6 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
         "draws through the section build that holds its own region.",
     ("about.py", "_show_to_copy"):
         "Selects the text in a dialog once the dialog has focused itself. Draws nothing.",
-    ("input_watch.py", "strip"):
-        "Starts the readout's script once its element is in the document. Draws nothing.",
 }
 
 
