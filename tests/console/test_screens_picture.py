@@ -56,6 +56,34 @@ class PlacedTests(unittest.TestCase):
         self.assertEqual(picture.changes(before, dict(before)), {})
 
 
+class InsideTests(unittest.TestCase):
+    def test_visual_pinball_has_a_topper_above_the_backglass_and_the_playfield_last(self) -> None:
+        self.assertEqual([part.key for part in picture.vpx_parts()],
+                         ["topper", "backglass", "score_view", "playfield"])
+
+    def test_every_part_but_the_playfield_can_be_drawn_inside_it(self) -> None:
+        self.assertEqual({part.key: part.inside for part in picture.vpx_parts()},
+                         {"topper": True, "backglass": True, "score_view": True,
+                          "playfield": False})
+
+    def test_vpinfe_s_parts_are_never_offered_inside(self) -> None:
+        self.assertFalse([part for part in picture.vpinfe_parts() if part.inside])
+
+    def test_inside_is_no_screen_and_displaces_nothing(self) -> None:
+        self.assertEqual(picture.placed({"backglass": 2, "playfield": 1}, "score_view",
+                                        picture.INSIDE),
+                         {"backglass": 2, "playfield": 1, "score_view": picture.INSIDE})
+
+    def test_a_screen_put_where_a_part_is_inside_sends_nothing_back(self) -> None:
+        self.assertEqual(picture.placed({"backglass": picture.INSIDE, "playfield": 1},
+                                        "backglass", 1),
+                         {"backglass": 1, "playfield": picture.INSIDE})
+
+    def test_the_playfield_cannot_be_drawn_inside_itself(self) -> None:
+        self.assertFalse(next(part for part in picture.vpx_parts()
+                              if part.key == picture.PLAYFIELD).inside)
+
+
 class ArrowTests(unittest.TestCase):
     """The setups in docs/theme.md: a rotated portrait monitor, one the OS leaves alone, and a
     landscape one."""
@@ -270,6 +298,78 @@ class DrawnTests(unittest.TestCase):
         self.assertEqual(score.label, t("console.screens.score_view"))
 
 
+class VpxDrawnTests(unittest.TestCase):
+    def _vpx(self, on: dict, **kwargs: Any) -> tuple[picture.Picture, ui.element]:
+        return _drawn(on, parts=picture.vpx_parts(), **kwargs)
+
+    def test_a_topper_is_drawn_above_the_backglass(self) -> None:
+        _, body = self._vpx({"topper": 2})
+
+        labels = _labels(body)
+        self.assertLess(labels.index(t("console.screens.topper")),
+                        labels.index(t("console.screens.backglass")))
+        self.assertIn("console-part--topper", _classes(body))
+
+    def test_a_part_inside_the_playfield_says_so_and_is_not_a_screen(self) -> None:
+        _, body = self._vpx({"backglass": picture.INSIDE, "playfield": 1})
+
+        self.assertIn(t("console.screens.in_the_playfield"), _labels(body))
+        self.assertIn("console-part-slot--inside", _classes(body))
+        self.assertNotIn("console-part-slot--missing", _classes(body))
+
+    def test_a_part_inside_the_playfield_cannot_be_dragged_out(self) -> None:
+        _, body = self._vpx({"backglass": picture.INSIDE})
+
+        [slot] = [one for one in body.descendants() if "console-part-slot--inside" in one.classes]
+        self.assertNotIn("draggable", slot.props)
+
+    def test_a_part_inside_can_be_put_back_on_no_screen(self) -> None:
+        _, body = self._vpx({"backglass": picture.INSIDE})
+
+        [slot] = [one for one in body.descendants() if "console-part-slot--inside" in one.classes]
+        self.assertIn("console-part-slot-clear",
+                      [name for one in slot.descendants() for name in one.classes])
+
+    def test_the_menu_offers_inside_to_the_parts_that_can_be(self) -> None:
+        _, body = self._vpx({})
+        _, plain = _drawn({})
+
+        said = [one.text for one in body.descendants() if isinstance(one, ui.label)
+                and one.text == t("console.screens.in_the_playfield")]
+        self.assertEqual(len(said), 3)
+        self.assertNotIn(t("console.screens.in_the_playfield"), _labels(plain))
+
+    def test_nothing_that_differs_draws_no_line_about_it(self) -> None:
+        _, body = self._vpx({"playfield": 1})
+
+        self.assertNotIn(t("console.screens.different"), _labels(body))
+
+    def test_a_part_that_differs_is_named_and_can_be_matched(self) -> None:
+        _, body = self._vpx({"playfield": 1, "backglass": 2}, differs=["backglass"],
+                            match=AsyncMock())
+
+        self.assertIn(t("console.screens.different"), _labels(body))
+        self.assertIn(t("console.screens.backglass"), _labels(body))
+        self.assertIn("console-part-name--differs", _classes(body))
+        self.assertIn(t("console.screens.match_vpinfe"),
+                      [one.props.get("label") for one in body.descendants()
+                       if isinstance(one, ui.button)])
+
+    def test_the_arrow_differing_is_named_as_the_playfield_arrow(self) -> None:
+        _, body = self._vpx({"playfield": 1}, arrow_differs=True, match=AsyncMock())
+
+        self.assertIn(t("console.screens.playfield_arrow"), _labels(body))
+        self.assertNotIn("console-part-name--differs", _classes(body))
+
+    def test_with_nothing_to_match_with_the_line_still_says_it_differs(self) -> None:
+        _, body = self._vpx({"playfield": 1, "backglass": 2}, differs=["backglass"])
+
+        self.assertIn(t("console.screens.different"), _labels(body))
+        self.assertNotIn(t("console.screens.match_vpinfe"),
+                         [one.props.get("label") for one in body.descendants()
+                          if isinstance(one, ui.button)])
+
+
 class ActedOnTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         # Outside the test's task, which has no page to draw into.
@@ -370,6 +470,43 @@ class ActedOnTests(unittest.IsolatedAsyncioTestCase):
             await press(control._show)
 
         self.assertFalse(control.showing)
+
+    async def test_matching_asks_the_page_to_put_the_parts_right(self) -> None:
+        match = AsyncMock()
+        control, _ = self._drawn({"playfield": 1, "backglass": 2}, parts=picture.vpx_parts(),
+                                 differs=["backglass"], match=match)
+
+        await press(control._match)
+
+        match.assert_awaited_once_with()
+
+    async def test_a_part_put_inside_is_reported_as_inside_and_drawn_so(self) -> None:
+        move = AsyncMock(return_value=True)
+        control, _ = self._drawn({"backglass": 2, "playfield": 1}, parts=picture.vpx_parts(),
+                                 move=move)
+
+        await press(control._put, "backglass", picture.INSIDE)
+
+        move.assert_awaited_once_with({"backglass": picture.INSIDE})
+        self.assertEqual(control.on["backglass"], picture.INSIDE)
+
+    async def test_a_swap_does_not_leave_the_playfield_inside_itself(self) -> None:
+        move = AsyncMock(return_value=True)
+        control, _ = self._drawn({"backglass": picture.INSIDE, "playfield": 1},
+                                 parts=picture.vpx_parts(), move=move)
+
+        await press(control._put, "backglass", 1)
+
+        move.assert_awaited_once_with({"backglass": 1, "playfield": None})
+
+    async def test_a_swap_leaves_a_part_that_can_be_inside_where_it_is(self) -> None:
+        move = AsyncMock(return_value=True)
+        control, _ = self._drawn({"score_view": picture.INSIDE, "backglass": 1},
+                                 parts=picture.vpx_parts(), move=move)
+
+        await press(control._put, "score_view", 1)
+
+        move.assert_awaited_once_with({"score_view": 1, "backglass": picture.INSIDE})
 
 
 if __name__ == "__main__":

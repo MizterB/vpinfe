@@ -950,11 +950,12 @@ def number(value: Any, on_change: Callable[[Any], Any], *,
     return draw
 
 
-def choice(options: Sequence[tuple[str, str, str]], value: str,
+def choice(options: Sequence[tuple[str, str, str]], value: str | None,
            on_change: Callable[[Any], Any], *,
            on_control: Callable[[Any], Any] | None = None) -> Callable[[], None]:
     """`options` is `(key, label, help)`. The control itself is `ui.radio`; every
-    option's sentence follows below it, in the same order.
+    option's sentence follows below it, in the same order. No value, or "", draws none
+    picked.
 
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.

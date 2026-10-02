@@ -480,6 +480,13 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="true",
             group=setting_groups.DATES_AND_TIMES,
         ),
+        ConfigOption(
+            "units",
+            type="choice",
+            default="region",
+            choices=("region", "cm", "in"),
+            group=setting_groups.MEASUREMENTS,
+        ),
     ),
     # Programs on this machine VPinFE shells out to. Each is discovered first, and set
     # here only where discovery finds nothing or picks the wrong one.

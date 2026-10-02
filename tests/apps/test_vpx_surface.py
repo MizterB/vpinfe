@@ -82,6 +82,8 @@ BASELINE: dict[str, int] = {
     "common/uploads/asset_import_service.py": 21,
     "console/assets.py": 2,
     "console/data.py": 1,
+    # The DMD panel's kinds are the names the plugin's keys take.
+    "console/dmd_panel.py": 1,
     "console/game_tables.py": 1,
     "console/games.py": 9,
     "console/media.py": 1,
@@ -92,6 +94,8 @@ BASELINE: dict[str, int] = {
     "console/settings.py": 2,
     "console/table_features.py": 1,
     "console/theme.py": 2,
+    # The Displays page of a Visual Pinball launcher: the file's keys are its subject.
+    "console/vpx_displays.py": 12,
     "console/workbench.py": 32,
     "httpapi/core_capabilities.py": 5,
     "httpapi/filesystem.py": 1,

@@ -3,7 +3,8 @@
 One control wherever a screen is chosen for a part: the caller passes the screens, what is
 on each part now and the acts it reports to, and the control writes nothing itself. A part
 takes one screen and a screen sits on one part, so putting a screen where another is sends
-that one to where this one came from.
+that one to where this one came from. A part that can be drawn inside the playfield's window
+holds `INSIDE` there, which is no screen and displaces nothing.
 """
 
 from __future__ import annotations
@@ -23,6 +24,11 @@ from console.screens import Screen
 BACKGLASS = "backglass"
 SCORE_VIEW = "score_view"
 PLAYFIELD = "playfield"
+TOPPER = "topper"
+INSIDE = "inside"
+
+# A screen's number, INSIDE, or None for no screen.
+Placement = int | str | None
 
 # Which way the playfield's own page points, as the person sees it on the cabinet.
 UP = "up"
@@ -67,6 +73,8 @@ class Part:
     key: str
     label: str
     hint: str = ""
+    # Whether the menu offers to draw it inside the playfield's window.
+    inside: bool = False
 
 
 def vpinfe_parts() -> tuple[Part, ...]:
@@ -77,20 +85,30 @@ def vpinfe_parts() -> tuple[Part, ...]:
             Part(PLAYFIELD, t("console.screens.playfield")))
 
 
-def placed(on: Mapping[str, int | None], part: str,
-           number: int | None) -> dict[str, int | None]:
+def vpx_parts() -> tuple[Part, ...]:
+    """Visual Pinball's: a topper above the backglass, and each but the playfield able to
+    be drawn inside the playfield."""
+    return (Part(TOPPER, t("console.screens.topper"), inside=True),
+            Part(BACKGLASS, t("console.screens.backglass"), inside=True),
+            Part(SCORE_VIEW, t("console.screens.score_view"),
+                 t("console.screens.score_view.help"), inside=True),
+            Part(PLAYFIELD, t("console.screens.playfield")))
+
+
+def placed(on: Mapping[str, Placement], part: str,
+           number: Placement) -> dict[str, Placement]:
     """`number` on `part`, and what `part` held on the part `number` came from."""
     after = dict(on)
     after[part] = number
-    if number is not None:
+    if isinstance(number, int):
         for other, held in on.items():
             if other != part and held == number:
                 after[other] = on.get(part)
     return after
 
 
-def changes(before: Mapping[str, int | None],
-            after: Mapping[str, int | None]) -> dict[str, int | None]:
+def changes(before: Mapping[str, Placement],
+            after: Mapping[str, Placement]) -> dict[str, Placement]:
     return {part: number for part, number in after.items() if before.get(part) != number}
 
 
@@ -153,16 +171,25 @@ class Picture:
     told the arrow picked and the playfield's screen, and `show` runs Show numbers with what
     is where; the picture offers each only when it is given. `arrows` is False for a
     computer on a desk, which has no cabinet to point anywhere in.
+
+    `differs` names the parts held otherwise than the thing this picture is compared with
+    (`arrow_differs` the playfield's arrow), and `match` puts them right; both are drawn
+    only when something differs.
     """
 
-    def __init__(self, screens: Sequence[Screen], on: Mapping[str, int | None], *,
-                 move: Callable[[dict[str, int | None]], Awaitable[bool]],
+    def __init__(self, screens: Sequence[Screen], on: Mapping[str, Placement], *,
+                 move: Callable[[dict[str, Placement]], Awaitable[bool]],
                  parts: Sequence[Part] = (), arrow: str | None = None, arrows: bool = True,
                  point: Callable[[str, Screen], Awaitable[bool]] | None = None,
-                 show: Callable[[dict[str, int | None]], Awaitable[Any]] | None = None,
+                 show: Callable[[dict[str, Placement]], Awaitable[Any]] | None = None,
+                 differs: Sequence[str] = (), arrow_differs: bool = False,
+                 match: Callable[[], Awaitable[Any]] | None = None,
                  ) -> None:
         self.screens = list(screens)
         self.on = dict(on)
+        self.differs = tuple(differs)
+        self.arrow_differs = arrow_differs
+        self.match = match
         self.parts = tuple(parts) or vpinfe_parts()
         self.arrow = arrow
         self.arrows = arrows
@@ -170,10 +197,10 @@ class Picture:
         self.point = point
         self.show = show
         self.showing = False
-        self.container = ui.element("div").classes("console-screens-picture w-full")
+        self.container = ui.element("div").classes("w-full")
         self.draw()
 
-    def screen(self, number: int | None) -> Screen | None:
+    def screen(self, number: Placement) -> Screen | None:
         return next((one for one in self.screens if one.number == number), None)
 
     def draw(self) -> None:
@@ -197,6 +224,7 @@ class Picture:
                     if self.arrows and self.show is not None and self.on.get(PLAYFIELD):
                         ui.label(t("console.screens.arrow_help")).classes(
                             "console-help console-screens-arrow-help")
+                    self._differs()
 
     def _show_numbers(self) -> None:
         panel.action(t("console.screens.showing" if self.showing
@@ -217,6 +245,25 @@ class Picture:
             self.showing = False
             self.draw()
 
+    def _differs(self) -> None:
+        said = [part.label for part in self.parts if part.key in self.differs]
+        if self.arrow_differs:
+            said.append(t("console.screens.playfield_arrow"))
+        if not said:
+            return
+        with ui.element("div").classes("console-screens-differs"):
+            with ui.column().classes("gap-0 min-w-0 grow"):
+                ui.label(t("console.screens.different")).classes("console-screens-differs-title")
+                ui.label(", ".join(said)).classes("console-help")
+            if self.match is not None:
+                panel.action(t("console.screens.match_vpinfe"), self._match,
+                             icon=verbs.REVERT, hint=t("console.screens.match_vpinfe.help"))()
+
+    @on_page
+    async def _match(self) -> None:
+        if self.match is not None:
+            await self.match()
+
     def _cabinet(self) -> None:
         with ui.element("div").classes("console-cab"):
             for part in self.parts:
@@ -225,29 +272,39 @@ class Picture:
     def _part(self, part: Part) -> None:
         number = self.on.get(part.key)
         screen = self.screen(number)
+        inside = number == INSIDE
         with ui.element("div").classes(f"console-part console-part--{part.key}"):
             with ui.element("div").classes("console-part-slot-wrap"):
                 slot = ui.element("div").classes(
                     "console-part-slot" + (" console-part-slot--filled" if screen else
-                                      " console-part-slot--missing" if number else ""))
+                                           " console-part-slot--inside" if inside else
+                                           " console-part-slot--missing" if number else ""))
                 slot.on("dragover", js_handler=_DRAG_OVER)
                 slot.on("dragleave", js_handler=_DRAG_LEAVE)
                 slot.on("drop", lambda event, key=part.key: self._dropped(key, event),
                         js_handler=_DROP)
-                if number is not None:
+                if isinstance(number, int):
                     slot.props("draggable=true")
                     slot.on("dragstart", js_handler=_drag_start(number))
                     slot.on("dragend", js_handler=_DRAG_END)
                 with slot:
                     self._slot_face(part, number, screen)
                     self._menu(part, number)
-            name = ui.label(part.label).classes("console-part-name")
-            if part.hint:
+            name = ui.label(part.label).classes(
+                "console-part-name" + (" console-part-name--differs"
+                                       if part.key in self.differs else ""))
+            if part.key in self.differs:
+                name.tooltip(t("console.screens.different"))
+            elif part.hint:
                 name.tooltip(part.hint)
 
-    def _slot_face(self, part: Part, number: int | None, screen: Screen | None) -> None:
+    def _slot_face(self, part: Part, number: Placement, screen: Screen | None) -> None:
         if number is None:
             ui.label(t("console.screens.no_screen")).classes("console-part-slot-none")
+            return
+        if number == INSIDE:
+            ui.label(t("console.screens.in_the_playfield")).classes("console-part-slot-none")
+            self._clear(part)
             return
         ui.label(str(number)).classes("console-part-slot-num")
         if screen is None:
@@ -258,6 +315,9 @@ class Picture:
                 and self.point is not None:
             for arrow in ARROWS:
                 self._arrow(arrow)
+        self._clear(part)
+
+    def _clear(self, part: Part) -> None:
         clear = ui.icon(verbs.UNPLACE).classes("console-part-slot-clear") \
             .props("tabindex=0 role=button")
         clear.props["aria-label"] = t("console.screens.no_screen")
@@ -276,7 +336,7 @@ class Picture:
         control.on("click.stop", lambda _e, one=arrow: self._aim(one))
         control.on("keydown.enter.stop", lambda _e, one=arrow: self._aim(one))
 
-    def _menu(self, part: Part, number: int | None) -> None:
+    def _menu(self, part: Part, number: Placement) -> None:
         with ui.menu().props("auto-close"):
             for screen in self.screens:
                 panel.menu_entry(
@@ -285,6 +345,11 @@ class Picture:
                     mark=partial(_mini, screen),
                     trail=partial(_size_of, screen),
                     classes="console-menu-on" if screen.number == number else "")
+            if part.inside:
+                panel.menu_entry(t("console.screens.in_the_playfield"),
+                                 lambda _e=None, key=part.key: self._put(key, INSIDE),
+                                 mark=_no_mini,
+                                 classes="console-menu-on" if number == INSIDE else "")
             panel.menu_entry(t("console.screens.no_screen"),
                              lambda _e=None, key=part.key: self._put(key, None),
                              mark=_no_mini)
@@ -311,12 +376,18 @@ class Picture:
             await self._put(part, event.args)
 
     @on_page
-    async def _put(self, part: str, number: int | None) -> None:
+    async def _put(self, part: str, number: Placement) -> None:
         after = placed(self.on, part, number)
+        # A part that cannot be inside the playfield is not left there by a swap.
+        after = {key: (None if held == INSIDE and not self._may_be_inside(key) else held)
+                 for key, held in after.items()}
         moved = changes(self.on, after)
         if moved and await self.move(moved):
             self.on = after
         self.draw()
+
+    def _may_be_inside(self, key: str) -> bool:
+        return any(part.inside for part in self.parts if part.key == key)
 
     @on_page
     async def _aim(self, arrow: str) -> None:

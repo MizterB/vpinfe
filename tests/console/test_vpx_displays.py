@@ -1,0 +1,871 @@
+"""Launchers > Visual Pinball X > Displays: the picture over the launcher's ini, and the
+launchers that move with VPinFE's screens."""
+
+from __future__ import annotations
+
+import asyncio
+import unittest
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock, Mock, patch
+
+from screeninfo import Monitor
+
+from apps.vpx import screens as vpx
+from common import config_service
+from common.i18n import t
+from console import displays, panel, vpx_displays
+from console import screens_picture as picture
+from console.screens import Screen
+from tests.support.clicks import press
+
+SCHEMA = config_service.schema()["sections"]
+
+# A tall screen the OS has turned, the backglass, a score strip, and a second tall one.
+TALL = Screen(1, "SAMSUNG", 2160, 3840, 0, 0)
+BACK = Screen(2, "DELL P2419H", 1920, 1080, 2160, 0)
+STRIP = Screen(3, "CVT DVI", 1280, 390, 4080, 0)
+TALL_TOO = Screen(4, "LG ULTRAFINE", 2160, 3840, 5360, 0)
+NAMELESS = Screen(5, "", 1280, 720, 7520, 0)
+HERE = [TALL, BACK, STRIP, TALL_TOO, NAMELESS]
+
+SAMSUNG = "SAMSUNG [0, 0]"
+DELL = "DELL P2419H [2160, 0]"
+CVT = "CVT DVI [4080, 0]"
+LG = "LG ULTRAFINE [5360, 0]"
+
+
+def _flat(**over: str) -> dict[str, str]:
+    base = {"Player.PlayfieldDisplay": SAMSUNG, "Backglass.BackglassOutput": "1",
+            "Backglass.BackglassDisplay": DELL, "ScoreView.ScoreViewOutput": "0",
+            "Topper.TopperOutput": "0", "TableOverride.ViewCabRotation": "0.0"}
+    base.update({key.replace("__", "."): value for key, value in over.items()})
+    return base
+
+
+def _standing(on: dict | None = None, turn: tuple[str, str] = ("portrait", "0")) -> Any:
+    return displays.Standing({"playfield": 1, "backglass": 2, "score_view": None,
+                              **(on or {})}, turn)
+
+
+class _Library:
+    def __init__(self, flat: dict[str, str] | None = None) -> None:
+        self.flat = flat if flat is not None else _flat()
+        self.write_launcher_config = Mock()
+        self.put_config = Mock()
+        self.launchers = Mock(return_value={"launchers": [
+            {"launcher_id": "vpx-1", "app": "vpx", "enabled": True, "has_config": True}]})
+        self.launcher_config_values = Mock(side_effect=self._values)
+        self.launcher_config_groups = Mock(return_value=[SimpleNamespace(
+            key="displays", settings=[SimpleNamespace(key="Player.PlayfieldDisplay",
+                                                      reported=[])])])
+
+    def _values(self, _launcher_id: str) -> dict[str, dict[str, str]]:
+        return {key: {"value": value} for key, value in self.flat.items()}
+
+
+async def _inline(function: Any, *args: Any) -> Any:
+    return function(*args)
+
+
+def _page(library: Any = None, flat: dict | None = None, *, vpinfe: Any = None,
+          arrows: bool = True, units_now: str = "cm", logged: tuple = ()) -> Any:
+    library = library or _Library()
+    page = vpx_displays.Page(
+        library, "vpx-1", Mock(), flat=dict(_flat() if flat is None else flat),
+        vpinfe=vpinfe or _standing(), here=HERE, logged=logged, arrows=arrows,
+        units_now=units_now, defaults={"Player.ScreenWidth": "95.89",
+                                       "Player.ScreenHeight": "53.94"})
+    return page
+
+
+def _heading(key: str, *keys: str, pairs: tuple = ()) -> tuple[Any, list[Any]]:
+    heading = SimpleNamespace(key=key, label=key.title(), note="", pairs=pairs)
+    return heading, [SimpleNamespace(key=one, label=one) for one in keys]
+
+
+class AppliesTests(unittest.TestCase):
+    def test_a_displays_group_that_holds_the_playfield_s_display_is_drawn(self) -> None:
+        group = SimpleNamespace(key="displays",
+                                settings=[SimpleNamespace(key="Player.PlayfieldDisplay")])
+
+        self.assertTrue(vpx_displays.applies(group))
+
+    def test_another_group_or_another_program_is_not(self) -> None:
+        mine = [SimpleNamespace(key="Player.PlayfieldDisplay")]
+
+        self.assertFalse(vpx_displays.applies(SimpleNamespace(key="sound", settings=mine)))
+        self.assertFalse(vpx_displays.applies(
+            SimpleNamespace(key="displays", settings=[SimpleNamespace(key="Window.Left")])))
+
+
+class TrimmedTests(unittest.TestCase):
+    def _shown(self) -> list:
+        return [_heading("playfield", "Player.PlayfieldDisplay", "Player.PlayfieldFullScreen"),
+                _heading("backglass", "Backglass.BackglassOutput", "Backglass.BackglassDisplay",
+                         "Backglass.BackglassFullScreen"),
+                _heading("topper", "Topper.TopperOutput", "Topper.TopperDisplay",
+                         "Topper.TopperWndX"),
+                _heading("cabinet", "Player.ScreenWidth", "Player.ScreenHeight",
+                         "Player.BGSet")]
+
+    def _kept(self, on: dict) -> dict[str, list[str]]:
+        return {heading.key: [one.key for one in fields]
+                for heading, fields in vpx_displays.trimmed(self._shown(), on)}
+
+    def test_what_the_picture_draws_is_taken_out_of_a_window(self) -> None:
+        kept = self._kept({"playfield": 1, "backglass": 2, "topper": None})
+
+        self.assertEqual(kept["playfield"], ["Player.PlayfieldFullScreen"])
+        self.assertEqual(kept["backglass"], ["Backglass.BackglassFullScreen"])
+
+    def test_a_part_held_on_no_screen_has_no_rows(self) -> None:
+        self.assertNotIn("topper", self._kept({"playfield": 1, "topper": None}))
+
+    def test_a_part_on_a_screen_or_inside_the_playfield_keeps_its_rows(self) -> None:
+        self.assertEqual(self._kept({"topper": 3})["topper"], ["Topper.TopperWndX"])
+        self.assertEqual(self._kept({"topper": picture.INSIDE})["topper"],
+                         ["Topper.TopperWndX"])
+
+    def test_the_playfield_always_shows(self) -> None:
+        self.assertIn("playfield", self._kept({"playfield": None}))
+
+    def test_the_size_row_is_drawn_apart_so_the_cabinet_loses_its_two_fields(self) -> None:
+        self.assertEqual(self._kept({})["cabinet"], ["Player.BGSet"])
+
+    def test_a_heading_left_with_nothing_is_dropped(self) -> None:
+        shown = [_heading("topper", "Topper.TopperOutput", "Topper.TopperDisplay")]
+
+        self.assertEqual(vpx_displays.trimmed(shown, {"topper": 3}), [])
+
+
+class PairsForTests(unittest.TestCase):
+    def test_a_part_inside_the_playfield_says_its_position_is_the_playfield_s(self) -> None:
+        pair = SimpleNamespace(key="position", label="Position", note="", joiner="x",
+                               keys=("a", "b"))
+        shown = [_heading("topper", "a", "b", pairs=(pair,))]
+
+        [found] = vpx_displays.pairs_for(shown, {"topper": picture.INSIDE})
+
+        self.assertEqual(found.note, t("console.vpx_displays.in_the_playfield_window"))
+        self.assertEqual(found.keys, ("a", "b"))
+
+    def test_a_part_on_a_screen_keeps_its_pair_as_it_was(self) -> None:
+        pair = SimpleNamespace(key="position", label="Position", note="", joiner="x",
+                               keys=("a", "b"))
+        shown = [_heading("topper", "a", "b", pairs=(pair,))]
+
+        self.assertEqual(vpx_displays.pairs_for(shown, {"topper": 3}), [pair])
+
+    def test_another_pair_of_a_part_inside_is_left_alone(self) -> None:
+        pair = SimpleNamespace(key="size", label="Size", note="", joiner="x", keys=("a", "b"))
+        shown = [_heading("topper", "a", "b", pairs=(pair,))]
+
+        self.assertEqual(vpx_displays.pairs_for(shown, {"topper": picture.INSIDE}), [pair])
+
+
+class SizeRowGoesBeforeTests(unittest.TestCase):
+    def test_it_goes_before_the_row_that_follows_the_size(self) -> None:
+        shown = [_heading("cabinet", "Player.BGSet", "Player.ScreenWidth", "Player.ScreenHeight",
+                          "Player.ScreenInclination")]
+
+        self.assertEqual(vpx_displays.size_row_goes_before(shown), "Player.ScreenInclination")
+
+    def test_with_nothing_after_it_goes_last(self) -> None:
+        shown = [_heading("cabinet", "Player.BGSet", "Player.ScreenWidth", "Player.ScreenHeight")]
+
+        self.assertEqual(vpx_displays.size_row_goes_before(shown), "")
+
+    def test_with_no_size_fields_it_goes_last(self) -> None:
+        self.assertEqual(vpx_displays.size_row_goes_before(
+            [_heading("cabinet", "Player.BGSet")]), "")
+        self.assertEqual(vpx_displays.size_row_goes_before([]), "")
+
+
+class ArrowOfTests(unittest.TestCase):
+    def test_a_tall_screen_left_at_0_is_up(self) -> None:
+        self.assertEqual(vpx_displays.arrow_of(TALL, "0.0"), picture.UP)
+        self.assertEqual(vpx_displays.arrow_of(TALL, ""), picture.UP)
+
+    def test_a_tall_screen_is_turned_clockwise_through_left_down_and_right(self) -> None:
+        self.assertEqual([vpx_displays.arrow_of(TALL, turn) for turn in ("90", "180", "270")],
+                         [picture.LEFT, picture.DOWN, picture.RIGHT])
+
+    def test_a_wide_screen_at_0_faces_its_right_edge_to_the_player(self) -> None:
+        self.assertEqual([vpx_displays.arrow_of(BACK, turn) for turn in ("0", "90", "180", "270")],
+                         [picture.RIGHT, picture.UP, picture.LEFT, picture.DOWN])
+
+    def test_a_turn_that_faces_no_edge_chooses_no_arrow(self) -> None:
+        self.assertIsNone(vpx_displays.arrow_of(TALL, "45"))
+        self.assertIsNone(vpx_displays.arrow_of(None, "0"))
+        self.assertIsNone(vpx_displays.arrow_of(Screen(6, "", 1000, 1000, 0, 0), "0"))
+
+
+class DifferencesTests(unittest.TestCase):
+    def test_a_launcher_that_matches_differs_in_nothing(self) -> None:
+        self.assertEqual(_page().differences(), ([], False))
+
+    def test_a_part_on_another_screen_differs(self) -> None:
+        page = _page(flat=_flat(Backglass__BackglassDisplay=CVT))
+
+        self.assertEqual(page.differences(), (["backglass"], False))
+
+    def test_a_part_vpinfe_draws_and_visual_pinball_does_not_differs(self) -> None:
+        page = _page(flat=_flat(Backglass__BackglassOutput="0"))
+
+        self.assertEqual(page.differences()[0], ["backglass"])
+
+    def test_a_topper_is_visual_pinball_s_alone_so_it_never_differs(self) -> None:
+        page = _page(flat=_flat(Topper__TopperOutput="1", Topper__TopperDisplay=CVT))
+
+        self.assertEqual(page.differences(), ([], False))
+
+    def test_the_arrow_differs_where_the_turn_is_known_and_is_not_the_one_vpinfe_gives(
+            self) -> None:
+        page = _page(flat=_flat(TableOverride__ViewCabRotation="90"))
+
+        self.assertEqual(page.differences(), ([], True))
+
+    def test_the_arrow_is_not_asked_when_the_playfield_itself_differs(self) -> None:
+        page = _page(flat=_flat(Player__PlayfieldDisplay=LG, TableOverride__ViewCabRotation="90"))
+
+        self.assertEqual(page.differences(), (["playfield"], False))
+
+    def test_a_desk_has_no_arrow_to_differ(self) -> None:
+        page = _page(flat=_flat(TableOverride__ViewCabRotation="90"), arrows=False)
+
+        self.assertEqual(page.differences(), ([], False))
+
+    def test_a_turn_vpinfe_holds_that_faces_no_edge_is_not_a_difference(self) -> None:
+        page = _page(flat=_flat(TableOverride__ViewCabRotation="90"),
+                     vpinfe=_standing(turn=("portrait", "45")))
+
+        self.assertEqual(page.differences(), ([], False))
+
+
+class MovingTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.library = _Library()
+        self.run = self.enterContext(patch.object(vpx_displays.run, "io_bound",
+                                                  new=AsyncMock(side_effect=_inline)))
+        self.notify = self.enterContext(patch.object(vpx_displays.ui, "notify"))
+
+    def _written(self) -> dict[str, str]:
+        return self.library.write_launcher_config.call_args.args[1]
+
+    async def test_a_part_moved_is_written_by_the_name_visual_pinball_stores(self) -> None:
+        page = _page(self.library)
+
+        self.assertTrue(await press(page.move, {"backglass": 3}))
+
+        self.assertEqual(self.library.write_launcher_config.call_args.args[0], "vpx-1")
+        self.assertEqual(self._written()["Backglass.BackglassDisplay"], CVT)
+        self.assertEqual(self._written()["Backglass.BackglassOutput"], "1")
+        self.assertEqual(page.on["backglass"], 3)
+        page.rebuild.assert_called_once_with()
+
+    async def test_the_name_visual_pinball_logged_for_a_screen_wins(self) -> None:
+        page = _page(self.library, logged=("Panel 3 [4080, 0]",))
+
+        await press(page.move, {"backglass": 3})
+
+        self.assertEqual(self._written()["Backglass.BackglassDisplay"], "Panel 3 [4080, 0]")
+
+    async def test_a_part_put_inside_the_playfield_is_embedded(self) -> None:
+        page = _page(self.library)
+
+        await press(page.move, {"backglass": picture.INSIDE})
+
+        self.assertEqual(self._written()["Backglass.BackglassOutput"], "2")
+        self.assertEqual(page.on["backglass"], picture.INSIDE)
+
+    async def test_a_part_put_inside_takes_a_region_of_the_playfield_s_window(self) -> None:
+        page = _page(self.library)
+
+        await press(page.move, {"score_view": picture.INSIDE})
+
+        written = self._written()
+        self.assertEqual(
+            (written["ScoreView.ScoreViewWndX"], written["ScoreView.ScoreViewWndY"],
+             written["ScoreView.ScoreViewWidth"], written["ScoreView.ScoreViewHeight"]),
+            ("108", "3246", "1944", "486"))
+
+    async def test_a_part_put_inside_a_playfield_with_no_screen_is_left_where_it_was(self) -> None:
+        page = _page(self.library, flat=_flat(Player__PlayfieldDisplay=""))
+
+        self.assertFalse(await press(page.move, {"score_view": picture.INSIDE}))
+
+        self.library.write_launcher_config.assert_not_called()
+        self.assertNotEqual(page.on["score_view"], picture.INSIDE)
+        self.assertEqual(self.notify.call_args.args[0], t(
+            "console.vpx_displays.unsized", parts=t("console.screens.score_view")))
+
+    async def test_a_part_cleared_is_disabled(self) -> None:
+        page = _page(self.library)
+
+        await press(page.move, {"backglass": None})
+
+        self.assertEqual(self._written()["Backglass.BackglassOutput"], "0")
+
+    async def test_a_screen_visual_pinball_has_no_name_for_is_not_written(self) -> None:
+        page = _page(self.library)
+
+        self.assertFalse(await press(page.move, {"backglass": 5}))
+
+        self.library.write_launcher_config.assert_not_called()
+        self.assertEqual(page.on["backglass"], 2)
+        self.notify.assert_called_once()
+        self.assertEqual(self.notify.call_args.args[0],
+                         t("console.vpx_displays.unnamed", parts=t("console.screens.backglass")))
+
+    async def test_the_playfield_moved_to_a_tall_screen_keeps_the_arrow_it_had(self) -> None:
+        page = _page(self.library, flat=_flat(TableOverride__ViewCabRotation="90"))
+
+        await press(page.move, {"playfield": 4})
+
+        self.assertEqual(self._written()["Player.PlayfieldDisplay"], LG)
+        self.assertEqual(self._written()["TableOverride.ViewCabRotation"], "90.0")
+
+    async def test_the_playfield_on_a_desk_is_not_turned(self) -> None:
+        page = _page(self.library, flat=_flat(TableOverride__ViewCabRotation="90"),
+                     arrows=False)
+
+        await press(page.move, {"playfield": 4})
+
+        self.assertNotIn("TableOverride.ViewCabRotation", self._written())
+
+    async def test_the_playfield_moved_to_a_wide_screen_is_turned_for_its_shape(self) -> None:
+        page = _page(self.library)
+
+        await press(page.move, {"playfield": 2})
+
+        self.assertEqual(self._written()["TableOverride.ViewCabRotation"], "90.0")
+
+    async def test_a_write_that_fails_says_so_and_holds_nothing(self) -> None:
+        self.run.side_effect = RuntimeError("read-only")
+        page = _page(self.library)
+
+        self.assertFalse(await press(page.move, {"backglass": 3}))
+
+        self.assertEqual(page.on["backglass"], 2)
+        page.rebuild.assert_not_called()
+        self.assertEqual(self.notify.call_args.args[0], t("said.could_not_save_it"))
+        self.assertIn("read-only", self.notify.call_args.kwargs["caption"])
+
+    async def test_render_priorities_are_written_once_a_score_screen_is_placed(self) -> None:
+        page = _page(self.library)
+
+        await press(page.move, {"score_view": 3})
+
+        self.assertEqual(self._written()["ScoreView.Priority.PUP"], "3")
+        self.assertEqual(self._written()["Plugin.B2SLegacy.B2SHideGrill"], "1")
+
+    async def test_a_priority_visual_pinball_already_holds_is_left_alone(self) -> None:
+        page = _page(self.library, flat=_flat(ScoreView__Priority__PUP="9"))
+
+        await press(page.move, {"score_view": 3})
+
+        self.assertNotIn("ScoreView.Priority.PUP", self._written())
+
+
+class PointingTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.library = _Library()
+        self.enterContext(patch.object(vpx_displays.run, "io_bound",
+                                       new=AsyncMock(side_effect=_inline)))
+        self.notify = self.enterContext(patch.object(vpx_displays.ui, "notify"))
+
+    async def test_up_on_a_tall_screen_is_0(self) -> None:
+        page = _page(self.library, flat=_flat(TableOverride__ViewCabRotation="90"))
+
+        self.assertTrue(await press(page.point, picture.UP, TALL))
+
+        self.library.write_launcher_config.assert_called_once_with(
+            "vpx-1", {"TableOverride.ViewCabRotation": "0.0"})
+        page.rebuild.assert_called_once_with()
+
+    async def test_each_arrow_writes_the_turn_that_faces_the_player(self) -> None:
+        for screen, expected in ((TALL, {picture.UP: "0.0", picture.LEFT: "90.0",
+                                         picture.DOWN: "180.0", picture.RIGHT: "270.0"}),
+                                 (BACK, {picture.UP: "90.0", picture.LEFT: "180.0",
+                                         picture.DOWN: "270.0", picture.RIGHT: "0.0"})):
+            for arrow, value in expected.items():
+                with self.subTest(screen=screen.number, arrow=arrow):
+                    self.library.write_launcher_config.reset_mock()
+                    page = _page(self.library)
+
+                    self.assertTrue(await press(page.point, arrow, screen))
+
+                    self.library.write_launcher_config.assert_called_once_with(
+                        "vpx-1", {"TableOverride.ViewCabRotation": value})
+
+    async def test_an_arrow_on_a_square_screen_says_so_and_writes_nothing(self) -> None:
+        page = _page(self.library)
+
+        self.assertFalse(await press(page.point, picture.UP, Screen(6, "", 1000, 1000, 0, 0)))
+
+        self.library.write_launcher_config.assert_not_called()
+        self.assertEqual(self.notify.call_args.args[0], t("console.vpx_displays.arrow_square"))
+        page.rebuild.assert_not_called()
+
+
+class MatchingTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.library = _Library()
+        self.enterContext(patch.object(vpx_displays.run, "io_bound",
+                                       new=AsyncMock(side_effect=_inline)))
+        self.notify = self.enterContext(patch.object(vpx_displays.ui, "notify"))
+
+    def _written(self) -> dict[str, str]:
+        return self.library.write_launcher_config.call_args.args[1]
+
+    async def test_visual_pinball_is_put_where_vpinfe_has_its_parts(self) -> None:
+        page = _page(self.library, flat=_flat(Backglass__BackglassDisplay=CVT))
+
+        await press(page.match)
+
+        self.assertEqual(self._written()["Backglass.BackglassDisplay"], DELL)
+        self.assertEqual(page.on["backglass"], 2)
+        page.rebuild.assert_called_once_with()
+
+    async def test_a_part_vpinfe_does_not_draw_is_disabled(self) -> None:
+        page = _page(self.library, flat=_flat(ScoreView__ScoreViewOutput="1",
+                                              ScoreView__ScoreViewDisplay=CVT))
+
+        await press(page.match)
+
+        self.assertEqual(self._written()["ScoreView.ScoreViewOutput"], "0")
+
+    async def test_the_topper_stays_unless_a_part_now_needs_its_screen(self) -> None:
+        page = _page(self.library, flat=_flat(Topper__TopperOutput="1",
+                                              Topper__TopperDisplay=CVT,
+                                              Backglass__BackglassDisplay=CVT))
+        self.assertEqual(page.on["topper"], 3)
+
+        await press(page.match)
+
+        self.assertNotIn("Topper.TopperOutput", self._written())
+        self.assertEqual(page.on["topper"], 3)
+
+    async def test_a_topper_on_a_screen_vpinfe_uses_is_cleared(self) -> None:
+        page = _page(self.library, flat=_flat(Topper__TopperOutput="1",
+                                              Topper__TopperDisplay=DELL,
+                                              Backglass__BackglassDisplay=CVT))
+
+        await press(page.match)
+
+        self.assertEqual(self._written()["Topper.TopperOutput"], "0")
+        self.assertIsNone(page.on["topper"])
+
+    async def test_the_arrow_is_matched_too_on_a_cabinet(self) -> None:
+        page = _page(self.library, flat=_flat(TableOverride__ViewCabRotation="90"))
+
+        await press(page.match)
+
+        self.assertEqual(self._written()["TableOverride.ViewCabRotation"], "0.0")
+
+    async def test_a_launcher_that_already_matches_writes_only_the_arrow(self) -> None:
+        page = _page(self.library)
+
+        await press(page.match)
+
+        self.assertEqual(self._written(), {"TableOverride.ViewCabRotation": "0.0"})
+
+    async def test_a_failed_write_changes_nothing_on_the_page(self) -> None:
+        self.library.write_launcher_config.side_effect = RuntimeError("read-only")
+        page = _page(self.library, flat=_flat(Backglass__BackglassDisplay=CVT))
+
+        await press(page.match)
+
+        self.assertEqual(page.on["backglass"], 3)
+        page.rebuild.assert_not_called()
+
+
+class DrawnTests(unittest.TestCase):
+    def test_the_picture_is_visual_pinball_s_parts_over_its_own_ini(self) -> None:
+        page = _page(flat=_flat(Backglass__BackglassDisplay=CVT))
+        with patch.object(vpx_displays.picture, "Picture") as control:
+            [heading, (kind, draw)] = page.picture_rows()
+            draw()
+
+        self.assertEqual(heading, (panel.HEADING, t("console.settings.section_screens")))
+        self.assertIs(kind, panel.FULL)
+        screens_, held = control.call_args.args
+        self.assertEqual(screens_, HERE)
+        self.assertEqual(held["backglass"], 3)
+        kwargs = control.call_args.kwargs
+        self.assertEqual([part.key for part in kwargs["parts"]],
+                         ["topper", "backglass", "score_view", "playfield"])
+        self.assertEqual(kwargs["differs"], ["backglass"])
+        self.assertFalse(kwargs["arrow_differs"])
+        self.assertEqual(kwargs["arrow"], picture.UP)
+        self.assertEqual(kwargs["match"], page.match)
+
+    def test_an_arrow_that_is_not_vpinfe_s_is_said_to_differ(self) -> None:
+        page = _page(flat=_flat(TableOverride__ViewCabRotation="90"))
+        with patch.object(vpx_displays.picture, "Picture") as control:
+            page.picture_rows()[1][1]()
+
+        self.assertTrue(control.call_args.kwargs["arrow_differs"])
+        self.assertEqual(control.call_args.kwargs["arrow"], picture.LEFT)
+
+    def test_a_desk_has_no_arrow_to_point(self) -> None:
+        page = _page(arrows=False)
+        with patch.object(vpx_displays.picture, "Picture") as control:
+            page.picture_rows()[1][1]()
+
+        self.assertIsNone(control.call_args.kwargs["point"])
+        self.assertFalse(control.call_args.kwargs["arrows"])
+
+
+class SizeTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.library = _Library()
+        self.enterContext(patch.object(vpx_displays.run, "io_bound",
+                                       new=AsyncMock(side_effect=_inline)))
+        self.notify = self.enterContext(patch.object(vpx_displays.ui, "notify"))
+
+    def test_a_size_is_read_from_the_ini_else_from_visual_pinball_s_default(self) -> None:
+        page = _page(flat=_flat(Player__ScreenWidth="100"))
+
+        self.assertEqual(page.size, {"Player.ScreenWidth": 100.0, "Player.ScreenHeight": 53.94})
+
+    def test_a_size_that_is_neither_is_nothing(self) -> None:
+        page = vpx_displays.Page(_Library(), "vpx-1", Mock(), flat={"Player.ScreenWidth": "x"},
+                                 vpinfe=_standing(), here=HERE, logged=(), arrows=True,
+                                 units_now="cm", defaults={})
+
+        self.assertEqual(page.size, {"Player.ScreenWidth": 0.0, "Player.ScreenHeight": 0.0})
+
+    async def test_a_size_typed_in_inches_is_written_in_centimeters(self) -> None:
+        page = _page(self.library, units_now="in")
+
+        await press(page._sized, "Player.ScreenWidth", SimpleNamespace(value=40.0))
+
+        self.library.write_launcher_config.assert_called_once_with(
+            "vpx-1", {"Player.ScreenWidth": "101.6"})
+        self.assertEqual(page.size["Player.ScreenWidth"], 101.6)
+
+    async def test_a_size_typed_in_centimeters_is_written_as_typed(self) -> None:
+        page = _page(self.library)
+
+        await press(page._sized, "Player.ScreenHeight", SimpleNamespace(value=60))
+
+        self.library.write_launcher_config.assert_called_once_with(
+            "vpx-1", {"Player.ScreenHeight": "60"})
+
+    async def test_a_size_left_as_it_was_writes_nothing(self) -> None:
+        page = _page(self.library)
+
+        await press(page._sized, "Player.ScreenWidth", SimpleNamespace(value=95.9))
+        await press(page._sized, "Player.ScreenWidth", SimpleNamespace(value=None))
+
+        self.library.write_launcher_config.assert_not_called()
+
+    async def test_a_size_that_was_not_kept_is_drawn_again_as_it_was(self) -> None:
+        self.library.write_launcher_config.side_effect = RuntimeError("read-only")
+        page = _page(self.library)
+        page.refill = Mock()
+
+        await press(page._sized, "Player.ScreenWidth", SimpleNamespace(value=60))
+
+        self.assertEqual(page.size["Player.ScreenWidth"], 95.89)
+        page.refill.assert_called_once_with()
+
+    async def test_the_units_chosen_are_kept_for_every_page(self) -> None:
+        page = _page(self.library)
+        page.refill = Mock()
+
+        await press(page._chose_units, SimpleNamespace(value="in"))
+
+        self.library.put_config.assert_called_once_with({"console": {"units": "in"}})
+        self.assertEqual(page.units, "in")
+        page.refill.assert_called_once_with()
+
+    async def test_units_that_were_not_kept_stay_as_they_were(self) -> None:
+        self.library.put_config.side_effect = RuntimeError("offline")
+        page = _page(self.library)
+        page.refill = Mock()
+
+        await press(page._chose_units, SimpleNamespace(value="in"))
+
+        self.assertEqual(page.units, "cm")
+        self.assertEqual(self.notify.call_args.args[0], t("console.settings.could_not_save"))
+
+
+class FollowingTests(unittest.TestCase):
+    def _keys(self, before: Any, after: Any, flat: dict | None = None,
+              logged: tuple = ()) -> dict[str, str]:
+        return vpx_displays.following(before, after, HERE, logged,
+                                      _flat() if flat is None else flat)
+
+    def test_a_part_vpinfe_moved_moves_a_launcher_that_had_it_there(self) -> None:
+        keys = self._keys(_standing(), _standing({"backglass": 3}))
+
+        self.assertEqual(keys["Backglass.BackglassDisplay"], CVT)
+
+    def test_a_part_the_launcher_holds_elsewhere_stays_where_it_was_put(self) -> None:
+        keys = self._keys(_standing(), _standing({"backglass": 3}),
+                          _flat(Backglass__BackglassDisplay=LG))
+
+        self.assertNotIn("Backglass.BackglassDisplay", keys)
+
+    def test_the_topper_is_never_moved(self) -> None:
+        keys = self._keys(_standing({"topper": 3}), _standing({"topper": 4}))
+
+        self.assertFalse([key for key in keys if key.startswith("Topper")])
+
+    def test_nothing_changed_is_nothing_to_write(self) -> None:
+        self.assertEqual(self._keys(_standing(), _standing()), {})
+
+    def test_the_turn_goes_along_where_the_launcher_still_held_the_one_it_was_given(
+            self) -> None:
+        keys = self._keys(_standing(), _standing({"playfield": 4}),
+                          _flat(TableOverride__ViewCabRotation="0.0"))
+
+        self.assertEqual(keys["Player.PlayfieldDisplay"], LG)
+        self.assertEqual(keys["TableOverride.ViewCabRotation"], "0.0")
+
+    def test_a_turn_someone_set_in_visual_pinball_is_left(self) -> None:
+        keys = self._keys(_standing(), _standing({"playfield": 4}),
+                          _flat(TableOverride__ViewCabRotation="90"))
+
+        self.assertEqual(keys["Player.PlayfieldDisplay"], LG)
+        self.assertNotIn("TableOverride.ViewCabRotation", keys)
+
+    def test_a_turn_on_a_launcher_whose_playfield_stayed_is_left(self) -> None:
+        keys = self._keys(_standing(), _standing(turn=("landscape", "0")),
+                          _flat(Player__PlayfieldDisplay=LG))
+
+        self.assertEqual(keys, {})
+
+    def test_a_screen_with_no_name_is_left_out(self) -> None:
+        keys = self._keys(_standing(), _standing({"backglass": 5}))
+
+        self.assertNotIn("Backglass.BackglassDisplay", keys)
+
+    def test_a_part_vpinfe_cleared_is_disabled_where_it_was_the_same(self) -> None:
+        keys = self._keys(_standing(), _standing({"backglass": None}))
+
+        self.assertEqual(keys["Backglass.BackglassOutput"], "0")
+
+    def test_a_part_inside_the_playfield_goes_with_it_to_the_new_screen(self) -> None:
+        keys = self._keys(_standing(), _standing({"playfield": 4}),
+                          _flat(ScoreView__ScoreViewOutput="2"))
+
+        self.assertEqual(keys["ScoreView.ScoreViewOutput"], "2")
+        self.assertEqual([keys[key] for key in vpx.REGION["score_view"]],
+                         [str(one) for one in vpx.embedded_region(TALL_TOO)])
+
+
+class LaunchersTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.library = _Library()
+        self.enterContext(patch.object(vpx_displays.run, "io_bound",
+                                       new=AsyncMock(side_effect=_inline)))
+        self.enterContext(patch.object(vpx_displays.offload, "io",
+                                       new=AsyncMock(side_effect=_inline)))
+        self.notify = self.enterContext(patch.object(vpx_displays.ui, "notify"))
+
+    def _launchers(self, *found: dict) -> None:
+        self.library.launchers.return_value = {"launchers": list(found)}
+
+    @staticmethod
+    def _one(launcher_id: str, **over: Any) -> dict:
+        return {"launcher_id": launcher_id, "app": "vpx", "enabled": True, "has_config": True,
+                **over}
+
+    async def test_each_enabled_visual_pinball_launcher_with_a_file_follows(self) -> None:
+        self._launchers(self._one("a"), self._one("b", app="fpx"),
+                        self._one("c", enabled=False), self._one("d", has_config=False),
+                        self._one("e"))
+
+        await press(vpx_displays.follow, self.library, _standing(), _standing({"backglass": 3}),
+                    HERE)
+
+        self.assertEqual([call.args[0] for call in
+                          self.library.write_launcher_config.call_args_list], ["a", "e"])
+        self.assertEqual(self.library.write_launcher_config.call_args.args[1]
+                         ["Backglass.BackglassDisplay"], CVT)
+
+    async def test_a_launcher_that_already_has_it_is_not_written(self) -> None:
+        await press(vpx_displays.follow, self.library, _standing(), _standing(), HERE)
+
+        self.library.write_launcher_config.assert_not_called()
+
+    async def test_the_names_visual_pinball_logged_are_the_ones_written(self) -> None:
+        self.library.launcher_config_groups.return_value = [SimpleNamespace(
+            key="displays", settings=[
+                SimpleNamespace(key="Player.PlayfieldDisplay", reported=[]),
+                SimpleNamespace(key="Backglass.BackglassDisplay",
+                                reported=["Panel 3 [4080, 0]"])])]
+
+        await press(vpx_displays.follow, self.library, _standing(), _standing({"backglass": 3}),
+                    HERE)
+
+        self.assertEqual(self.library.write_launcher_config.call_args.args[1]
+                         ["Backglass.BackglassDisplay"], "Panel 3 [4080, 0]")
+
+    async def test_one_that_cannot_be_read_is_named_and_the_rest_still_follow(self) -> None:
+        self._launchers(self._one("a"), self._one("b"))
+        real = self.library.launcher_config_values.side_effect
+
+        def values(launcher_id: str) -> dict:
+            if launcher_id == "a":
+                raise RuntimeError("no such file")
+            return real(launcher_id)
+
+        self.library.launcher_config_values.side_effect = values
+
+        with self.assertLogs(vpx_displays.logger, "WARNING"):
+            await press(vpx_displays.follow, self.library, _standing(),
+                        _standing({"backglass": 3}), HERE)
+
+        self.assertEqual([call.args[0] for call in
+                          self.library.write_launcher_config.call_args_list], ["b"])
+        self.assertEqual(self.notify.call_args.args[0], t("said.could_not_save_it"))
+        self.assertIn("no such file", self.notify.call_args.kwargs["caption"])
+
+    async def test_launchers_that_cannot_be_listed_leave_vpinfe_s_own_change_alone(self) -> None:
+        self.library.launchers.side_effect = RuntimeError("offline")
+
+        with self.assertLogs(vpx_displays.logger, "WARNING"):
+            await press(vpx_displays.follow, self.library, _standing(),
+                        _standing({"backglass": 3}), HERE)
+
+        self.library.write_launcher_config.assert_not_called()
+
+
+class PanelKindTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.library = _Library()
+        self.enterContext(patch.object(vpx_displays.run, "io_bound",
+                                       new=AsyncMock(side_effect=_inline)))
+        self.enterContext(patch.object(vpx_displays.offload, "io",
+                                       new=AsyncMock(side_effect=_inline)))
+        self.enterContext(patch.object(vpx_displays.ui, "notify"))
+
+    async def test_each_launcher_is_told_the_kind_on_linux_and_macos(self) -> None:
+        for platform in ("linux", "darwin"):
+            with self.subTest(platform=platform), patch("apps.vpx.screens.sys",
+                                                        platform=platform):
+                self.library.write_launcher_config.reset_mock()
+
+                await press(vpx_displays.follow_dmd, self.library, "ZeDMD")
+
+                self.library.write_launcher_config.assert_called_once_with(
+                    "vpx-1", {"Plugin.DMDUtil.Enable": "1", "Plugin.DMDUtil.ZeDMD": "1"})
+
+    async def test_windows_is_told_nothing(self) -> None:
+        with patch("apps.vpx.screens.sys", platform="win32"):
+            await press(vpx_displays.follow_dmd, self.library, "ZeDMD")
+
+        self.library.write_launcher_config.assert_not_called()
+
+    async def test_another_kind_already_on_is_not_written(self) -> None:
+        self.library.flat = _flat(Plugin__DMDUtil__ZeDMD="1")
+
+        with patch("apps.vpx.screens.sys", platform="linux"):
+            await press(vpx_displays.follow_dmd, self.library, "PIN2DMD")
+
+        self.assertEqual(self.library.write_launcher_config.call_args.args[1],
+                         {"Plugin.DMDUtil.Enable": "1", "Plugin.DMDUtil.PIN2DMD": "1"})
+
+
+class EntriesTests(unittest.IsolatedAsyncioTestCase):
+    MONITORS = [Monitor(x=0, y=0, width=2160, height=3840, width_mm=336, height_mm=597,
+                        name="SAMSUNG", is_primary=True),
+                Monitor(x=2160, y=0, width=1920, height=1080, width_mm=527, height_mm=296,
+                        name="DELL P2419H", is_primary=False)]
+
+    def _group(self) -> Any:
+        keys = ("Player.PlayfieldDisplay", "Backglass.BackglassOutput",
+                "Backglass.BackglassDisplay", "Player.ScreenWidth", "Player.ScreenHeight")
+        return SimpleNamespace(key="displays", settings=[
+            SimpleNamespace(key=key, label=key, reported=[], default="95.89"
+                            if key == "Player.ScreenWidth" else "53.94" if "Height" in key
+                            else "") for key in keys])
+
+    def _values(self) -> dict[str, dict[str, str]]:
+        return {key: {"value": value} for key, value in _flat().items()}
+
+    async def _entries(self, shown: list, rows: Any) -> tuple[list, dict]:
+        context: dict[str, Any] = {"library": _Library(), "launcher": {"launcher_id": "vpx-1"},
+                                   "rebuild": AsyncMock(), "config_values": {"stale": True}}
+        beside = ({}, SCHEMA, self.MONITORS, ["", ""])
+        with patch.object(vpx_displays, "_beside", new=AsyncMock(return_value=beside)):
+            return await vpx_displays.entries(context, self._group(), shown, self._values(),
+                                              rows), context
+
+    async def test_the_heading_comes_first_then_the_intro_the_picture_and_the_rows(
+            self) -> None:
+        rows = AsyncMock(return_value=[("a row", None)])
+        shown = [_heading("playfield", "Player.PlayfieldDisplay"),
+                 _heading("cabinet", "Player.ScreenWidth", "Player.ScreenHeight", "Player.BGSet")]
+
+        out, _ = await self._entries(shown, rows)
+
+        self.assertEqual([kind for kind, _ in out[:4]],
+                         [panel.HEADING, panel.FULL, panel.FULL, panel.FULL])
+        self.assertEqual(out[0][1], t("console.settings.section_screens"))
+        self.assertIn(("a row", None), out)
+
+    async def test_the_rows_are_given_what_the_picture_does_not_draw(self) -> None:
+        rows = AsyncMock(return_value=[])
+        shown = [_heading("playfield", "Player.PlayfieldDisplay", "Player.PlayfieldFullScreen"),
+                 _heading("cabinet", "Player.ScreenWidth", "Player.ScreenHeight", "Player.BGSet")]
+
+        await self._entries(shown, rows)
+
+        [blocks] = rows.await_args.args
+        self.assertEqual([[one.key for one in fields] for _, _, fields in blocks],
+                         [["Player.PlayfieldFullScreen"], ["Player.BGSet"]])
+
+    async def test_the_size_row_is_drawn_before_the_row_that_follows_it(self) -> None:
+        rows = AsyncMock(return_value=[])
+        shown = [_heading("cabinet", "Player.ScreenWidth", "Player.ScreenHeight", "Player.BGSet")]
+
+        await self._entries(shown, rows)
+
+        self.assertEqual(list(rows.await_args.kwargs["ahead"]), ["Player.BGSet"])
+        [(label, _)] = rows.await_args.kwargs["ahead"]["Player.BGSet"]
+        self.assertEqual(label, t("console.vpx_displays.screen_size"))
+
+    async def test_with_no_row_after_it_the_size_row_goes_last(self) -> None:
+        rows = AsyncMock(return_value=[("a row", None)])
+        shown = [_heading("cabinet", "Player.ScreenWidth", "Player.ScreenHeight")]
+
+        out, _ = await self._entries(shown, rows)
+
+        self.assertEqual(rows.await_args.kwargs["ahead"], {})
+        self.assertEqual(out[-1][0], t("console.vpx_displays.screen_size"))
+
+    async def test_what_cannot_be_read_is_said_in_place_of_the_page(self) -> None:
+        context: dict[str, Any] = {"library": _Library(), "launcher": {"launcher_id": "vpx-1"},
+                                   "rebuild": AsyncMock()}
+        rows = AsyncMock()
+        with patch.object(vpx_displays, "_beside", new=AsyncMock(side_effect=RuntimeError("x"))):
+            out = await vpx_displays.entries(context, self._group(), [], self._values(), rows)
+
+        self.assertEqual(len(out), 1)
+        self.assertIs(out[0][0], panel.FULL)
+        rows.assert_not_awaited()
+
+    async def test_a_change_to_the_page_reads_the_ini_again(self) -> None:
+        rows = AsyncMock(return_value=[])
+        with patch.object(vpx_displays, "Page") as page:
+            page.return_value.size_row.return_value = []
+            page.return_value.picture_rows.return_value = [(panel.HEADING, "Screens"),
+                                                           (panel.FULL, None)]
+            page.return_value.on = {}
+            _, context = await self._entries([], rows)
+            rebuild = page.call_args.args[2]
+            rebuild()
+            await asyncio.sleep(0)
+
+        self.assertNotIn("config_values", context)
+        context["rebuild"].assert_awaited_once_with()
+
+
+if __name__ == "__main__":
+    unittest.main()

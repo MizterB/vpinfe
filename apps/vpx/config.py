@@ -11,14 +11,17 @@ invisible otherwise and is the bug report we would get.
 
 from __future__ import annotations
 
+import glob
 import math
 import os
 import re
+import shutil
 import struct
 import sys
 import threading
 from collections.abc import Mapping
 from dataclasses import replace
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -33,7 +36,7 @@ from common.apps.contract import (
     Heading,
 )
 
-from . import areas, displays, plugins
+from . import areas, displays, plugins, screens
 from . import ini as vini
 from .setting_types import CONTEXTUAL, LABELS, REGISTERED, TYPES
 
@@ -144,6 +147,8 @@ READ_AT_TABLE_START = frozenset({
 # script offers.
 TABLE_ONLY_SECTIONS = frozenset({"TableOverride", "TableOption"})
 TABLE_ONLY = frozenset({"Player.OverrideTableEmissionScale", "Player.EmissionScale"})
+# Of those sections' keys, the one the application's file takes too: one turn serves every table.
+ALSO_AT_THE_LAUNCHER = frozenset({screens.VIEW_CAB_ROTATION})
 
 
 def _all_tables_only(qualified: str) -> bool:
@@ -162,8 +167,8 @@ def read_at_table(qualified: str) -> bool:
 
 
 def _table_only(qualified: str) -> bool:
-    return (qualified in TABLE_ONLY
-            or qualified.split(".", 1)[0] in TABLE_ONLY_SECTIONS)
+    return qualified not in ALSO_AT_THE_LAUNCHER and (
+        qualified in TABLE_ONLY or qualified.split(".", 1)[0] in TABLE_ONLY_SECTIONS)
 
 
 def _offered(qualified: str) -> bool:
@@ -179,7 +184,28 @@ def _offered(qualified: str) -> bool:
 
 
 SETTINGS_FILE = "VPinballX.ini"
+ASIDE_MARKER = ".vpinfe-"
 _VERSION_FOLDER = re.compile(r"(\d+)\.(\d+)")
+
+
+def _aside_of(path: Path) -> Path:
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return path.with_name(f"{path.name}{ASIDE_MARKER}{stamp}")
+
+
+def _has_aside(path: Path) -> bool:
+    return any(path.parent.glob(f"{glob.escape(path.name)}{ASIDE_MARKER}*"))
+
+
+def _keep_the_first(path: Path) -> None:
+    """Leave `<file>.vpinfe-<UTC stamp>` beside the file before VPinFE's first write: a copy
+    of the program's own, or an empty one where it has none yet."""
+    if _has_aside(path):
+        return
+    if path.is_file():
+        shutil.copy2(path, _aside_of(path))
+    else:
+        _aside_of(path).touch()
 
 
 def _machine_folders() -> tuple[Path | None, Path | None]:
@@ -193,6 +219,14 @@ def _machine_folders() -> tuple[Path | None, Path | None]:
         return Path.home() / "Library" / "Application Support" / "VPinballX", old
     shared = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
     return Path(shared) / "VPinballX", old
+
+
+def preferences_file(version: str) -> Path | None:
+    """Where a program of this `major.minor` version looks for its settings file, or None
+    where the platform names no preferences folder or `version` is not one."""
+    base, _ = _machine_folders()
+    named = str(version or "").strip()
+    return base / named / SETTINGS_FILE if base and _VERSION_FOLDER.fullmatch(named) else None
 
 
 def own_file(bin_path: str = "") -> Path | None:
@@ -471,7 +505,7 @@ class VPXConfig:
 
         found: dict[str, ConfigValue] = {}
         for qualified in sorted(set(app.settings) | set(table.settings) | set(mine.settings)):
-            if not _offered(qualified):
+            if not _offered(qualified) and qualified not in screens.PRIORITIES:
                 continue
             read_by_vpx = table if read_at_table(qualified) else vini.Ini()
             from_table = read_by_vpx.value(qualified)
@@ -538,8 +572,27 @@ class VPXConfig:
                 path.unlink(missing_ok=True)
             elif keep or path.is_file():
                 path.parent.mkdir(parents=True, exist_ok=True)
+                if scope == SCOPE_LAUNCHER:
+                    _keep_the_first(path)
                 path.write_text(text, encoding="utf-8")
         return cleared
+
+    def create(self, version: str, values: Mapping[str, str],
+               settings: Mapping[str, Any]) -> Path:
+        """Set `values` in the launcher's file, making the one a program of this version
+        looks for when it has none yet. Returns the file.
+
+        What the launcher stores is untouched. Nothing is made for a `version` that names no
+        preferences folder.
+        """
+        held = settings_file(settings)
+        if held is None:
+            held = preferences_file(version)
+            if held is None:
+                raise ValueError(f"There is no preferences folder for version {version!r}.")
+            settings = {**settings, "ini_path": str(held)}
+        self.write(SCOPE_LAUNCHER, "", values, settings)
+        return held
 
     def files(self, settings: Mapping[str, Any]) -> dict[str, str]:
         """The files this launcher's settings live in.

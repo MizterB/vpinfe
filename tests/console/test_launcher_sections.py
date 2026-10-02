@@ -708,7 +708,8 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
     SET = {"set_here": True, "in_effect": True, "scope": "launcher", "value": "960"}
     UNSET = {"set_here": False, "in_effect": True, "scope": "", "value": ""}
 
-    async def _entries(self, values: dict, fields=None, size=None) -> tuple[list, Mock, Mock]:
+    async def _entries(self, values: dict, fields=None, size=None,
+                       ahead=None) -> tuple[list, Mock, Mock]:
         library = Mock()
         context = {"library": library, "launcher": {"launcher_id": "probe", "app_name": self.APP},
                    "config_scope": "launcher", "config_table": "", "rebuild": AsyncMock()}
@@ -722,7 +723,7 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
         marked = self.enterContext(patch.object(workbench, "_marked"))
         entries = await workbench._setting_entries(
             context, [("Playfield", "", fields or [self.WIDTH, self.HEIGHT])],
-            pairs=[size or self.SIZE])
+            pairs=[size or self.SIZE], ahead=ahead)
         return entries, marked, library
 
     def _drawn(self, width: dict, height: dict) -> tuple[Mock, Mock]:
@@ -743,6 +744,21 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([field for _, _, field in marked.call_args.args[0]],
                          [self.WIDTH, self.HEIGHT])
         self.assertEqual(marked.call_args.kwargs["joiner"], "×")
+
+    async def test_entries_given_for_a_setting_are_drawn_above_its_row(self) -> None:
+        extra = [("Screen Size", lambda: None)]
+
+        entries, _, _ = await self._entries({}, fields=[self.WIDTH], ahead={self.WIDTH.key: extra})
+
+        labels = [label for label, _ in entries if isinstance(label, str)]
+        self.assertEqual(labels, ["Screen Size", "Width"])
+
+    async def test_entries_given_for_a_setting_not_drawn_are_not_drawn(self) -> None:
+        extra = [("Screen Size", lambda: None)]
+
+        entries, _, _ = await self._entries({}, fields=[self.WIDTH], ahead={"Elsewhere": extra})
+
+        self.assertEqual([label for label, _ in entries if isinstance(label, str)], ["Width"])
 
     async def test_the_pair_s_note_is_the_one_under_it(self) -> None:
         note = self.enterContext(patch.object(workbench.panel, "note"))

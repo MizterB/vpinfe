@@ -2985,6 +2985,10 @@ a.console-tag:hover { background: var(--wash-hover); }
 .console-screens-head { display: flex; align-items: center; gap: 12px; margin: 2px 0 12px; }
 .console-screens-head > .console-help { flex: 1; max-width: none; }
 .console-screens { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; }
+/* A panel too narrow for both side by side puts the screens under the picture. */
+@container (max-width: 760px) {
+  .console-screens { grid-template-columns: minmax(0, 1fr); }
+}
 .console-screens-side { flex-wrap: nowrap; align-items: stretch; min-width: 0; }
 .console-screens-tray { display: flex; flex-direction: column; gap: 8px; }
 .console-screens-arrow-help { margin-top: 6px; line-height: 1.5; }
@@ -3051,6 +3055,21 @@ a.console-tag:hover { background: var(--wash-hover); }
 .q-menu .console-screen-mini { font-size: 10px; }
 .console-screen-mini--none { width: 28px; height: 16px; border-style: dashed; border-color: var(--ink-3); }
 .console-menu-size { margin-left: auto; color: var(--ink-3); font-size: var(--fs-caption); }
+/* VPX draws a topper and VPinFE does not, so VPX's picture has one more part, above the backglass. */
+.console-part--topper .console-part-slot { width: 170px; height: 40px; flex-direction: row; gap: 10px; }
+.console-part--topper .console-part-slot-num { font-size: 20px; }
+/* A part drawn inside another: the dashed outline of an empty slot, the number of none. */
+.console-part-slot--inside { border-style: dashed; border-color: var(--ink-3); color: var(--ink-2); }
+/* A part VPX holds differently from VPinFE, in the colour of a field that has left its source. */
+.console-part-name--differs { color: var(--tier-table); }
+.console-screens-differs {
+  display: flex; align-items: center; gap: 12px; margin-top: 6px; padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+.console-screens-differs-title { color: var(--tier-table); font-size: var(--fs-body); }
+/* The cm / in choice beside a length, at the type scale of the field it sits by. */
+.console-units { margin-left: 12px; border: 1px solid var(--line-soft); border-radius: 4px; overflow: hidden; }
+.console-units .q-btn { min-width: 36px; font-size: var(--fs-caption); }
 
 /* The folder picker has no fixed-height ancestor to flex against, unlike the sources
    tabs above, so its list takes an explicit cap instead. */

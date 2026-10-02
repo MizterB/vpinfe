@@ -16,8 +16,12 @@ itself, because a missing translation is a blemish and a traceback is an outage.
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import json
 import logging
+import re
+import subprocess
+import sys
 import threading
 from pathlib import Path
 from typing import Any, get_args
@@ -131,6 +135,45 @@ def _from_the_system() -> str:
 
 def language() -> str:
     return _language
+
+
+@functools.cache
+def _platform_locale() -> str:
+    """The locale name the operating system holds for the user, or "" where it gives none."""
+    try:
+        if sys.platform == "darwin":
+            return subprocess.run(["/usr/bin/defaults", "read", "-g", "AppleLocale"],
+                                  capture_output=True, text=True, timeout=2,
+                                  check=False).stdout.strip()
+        if sys.platform == "win32":
+            import ctypes
+            name = ctypes.create_unicode_buffer(85)
+            ctypes.windll.kernel32.GetUserDefaultLocaleName(name, len(name))
+            return str(name.value)
+    except (OSError, subprocess.SubprocessError, AttributeError):
+        pass
+    return ""
+
+
+def _country(locale_name: str) -> str:
+    """The country a locale name carries, or ""."""
+    override = re.search(r"@rg=([a-z]{2})", locale_name, re.IGNORECASE)
+    if override:
+        return override[1].upper()
+    for part in locale_name.split(".")[0].split("@")[0].replace("_", "-").split("-")[1:]:
+        if len(part) == 2 and part.isalpha():
+            return part.upper()
+    return ""
+
+
+def region() -> str:
+    """The country this computer's locale names (`US` for `en-US`), or "" where it names
+    none - `en` alone is a language, not a place."""
+    for ask in (_from_the_system, _platform_locale, language):
+        found = _country(ask())
+        if found:
+            return found
+    return ""
 
 
 # Not a language. `qps` is the pseudo-locale the render check runs under - every letter

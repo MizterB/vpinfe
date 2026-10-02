@@ -17,7 +17,7 @@ import json
 import logging
 import time
 from collections import Counter
-from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import partial
@@ -78,6 +78,7 @@ from console import (
     undo,
     verbs,
     vps_match,
+    vpx_displays,
     when,
 )
 from console import commands as commands_help
@@ -4920,11 +4921,18 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
         await _every_row(context, group)
         return
     _area_search(context)
-    shown = curated_blocks(group, await _config_values(context))
-    entries = await _setting_entries(
-        context, [(heading.label, heading.note, fields) for heading, fields in shown],
-        curated=True, redraw_on=switches(group.curated),
-        pairs=[pair for heading, _ in shown for pair in heading.pairs])
+    values = await _config_values(context)
+    shown = curated_blocks(group, values)
+    if vpx_displays.applies(group):
+        entries = await vpx_displays.entries(
+            context, group, shown, values,
+            partial(_setting_entries, context, curated=True,
+                    redraw_on=switches(group.curated)))
+    else:
+        entries = await _setting_entries(
+            context, [(heading.label, heading.note, fields) for heading, fields in shown],
+            curated=True, redraw_on=switches(group.curated),
+            pairs=[pair for heading, _ in shown for pair in heading.pairs])
     if rest := len(group.settings) - len(curated_keys(group)):
         entries.append((FULL, panel.action(
             t("console.workbench.more_in_all_settings", count=rest),
@@ -5057,11 +5065,14 @@ async def _setting_entries(context: dict[str, Any],
                            blocks: Sequence[tuple[str, str, Sequence[Any]]], *,
                            curated: bool = False, sub: bool = False,
                            redraw_on: Collection[str] = (),
-                           pairs: Sequence[Any] = ()) -> list[tuple[Any, Any]]:
+                           pairs: Sequence[Any] = (),
+                           ahead: Mapping[str, Sequence[tuple[Any, Any]]] | None = None,
+                           ) -> list[tuple[Any, Any]]:
     """Settings as fact rows, block by block: its heading where it has one - a
     sub-heading with `sub` - the line under that, then its rows. A curated row's line is
     the app's help where it has one; the program's description otherwise. Two rows of a
-    block that `pairs` names are one row, under the pair's label and note.
+    block that `pairs` names are one row, under the pair's label and note. `ahead` maps a
+    setting's key to entries drawn above its row.
 
     A write marks every row again in place, so a control keeps its focus. The panel is
     redrawn instead where a setting in `redraw_on` was written, or where the write changed
@@ -5200,6 +5211,7 @@ async def _setting_entries(context: dict[str, Any],
         for field in fields:
             if field.key in taken:
                 continue
+            entries.extend((ahead or {}).get(field.key, ()))
             pair, members = paired.get(field.key, (None, [field]))
             parts = [part(one) for one in members]
             keys = [one.key for one in members]

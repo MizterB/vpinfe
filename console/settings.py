@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
+from functools import partial
 from typing import Any
 
 from nicegui import run, ui
@@ -50,6 +51,7 @@ from console import (
     theme_picker,
     undo,
     verbs,
+    vpx_displays,
     when,
 )
 from console import commands as commands_help
@@ -1433,7 +1435,8 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         blocks.append((_section_label("windows.backglass"), displays.rows(
             values, schema, offered.get(config_schema.SUGGEST_SCREENS, []),
             await offload.io(display_service.get_display_names),
-            lambda changes: _write_many(library, changes), rebuild)))
+            lambda changes: _write_many(library, changes), rebuild,
+            follow=partial(vpx_displays.follow, library))))
     with body:
         page_head(key, findings)
         await build_device_page(library, {"library": library, "rebuild": redraw},

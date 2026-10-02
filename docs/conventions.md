@@ -988,6 +988,17 @@ A screen is called by its model name, and by its size when it has none. It is nu
 which way its top points and are drawn only for Cabinet Mode; a desktop page draws the
 picture without them.
 
+A launcher that keeps its own screens draws the same picture over its own storage. It adds
+the parts VPinFE has no window for, such as Visual Pinball's topper, and **In the playfield**
+joins a part's menu where the program can draw a window inside the playfield's. Where the
+launcher's screens are not VPinFE's, the part's name takes the *differs* colour and a line
+under the picture says **Different from VPinFE** beside **Match VPinFE**. A change to
+VPinFE's screens moves the launcher's only where it still matched.
+
+A length that is a setting of the computer, such as a screen's size, is shown in centimeters
+or inches by Settings > Console > Units, which follows the region until it is set. The page
+that shows one puts the choice beside it as a toggle.
+
 ### A value is written when it is set
 
 No save bar, but for one draft, below. A control that changes a value writes it, and

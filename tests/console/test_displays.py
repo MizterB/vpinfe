@@ -69,6 +69,19 @@ class PlacedTests(unittest.TestCase):
                          {"backglass": None, "score_view": None, "playfield": 1})
 
 
+class StandingTests(unittest.TestCase):
+    def test_it_is_where_the_parts_are_and_how_the_playfield_is_turned(self) -> None:
+        held = displays.standing(_values(playfield={"screen_id": 1, "orientation": "portrait",
+                                                    "rotation": "90"},
+                                         backglass={"screen_id": 0}), SCHEMA)
+
+        self.assertEqual(held.on, {"backglass": 1, "score_view": None, "playfield": 2})
+        self.assertEqual(held.turn, ("portrait", "90"))
+
+    def test_a_fresh_install_is_a_landscape_playfield_turned_nowhere(self) -> None:
+        self.assertEqual(displays.standing({}, SCHEMA).turn, ("landscape", "0"))
+
+
 class CabinetTests(unittest.TestCase):
     def test_cab_mode_decides(self) -> None:
         for stored, expected in (("true", True), (True, True), ("false", False), (False, False),
@@ -154,6 +167,10 @@ class WritesTests(unittest.TestCase):
     def test_a_turn_stored_as_something_else_is_taken_as_up(self) -> None:
         self.assertEqual(displays.writes({"playfield": 2}, [FIRST, SECOND], "auto"),
                          {"windows.playfield": {"screen_id": 1, "orientation": "portrait"}})
+
+    def test_a_placement_that_is_no_screen_stores_none(self) -> None:
+        self.assertEqual(displays.writes({"backglass": picture.INSIDE}, [FIRST], "0"),
+                         {"windows.backglass": {"screen_id": ""}})
 
     def test_the_playfield_on_a_screen_not_connected_is_taken_as_wide(self) -> None:
         self.assertEqual(displays.writes({"playfield": 7}, [FIRST], "0"),
@@ -301,6 +318,75 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         notify.assert_called_once()
         self.assertEqual(notify.call_args.args, (t("console.screens.could_not_show"),))
         self.assertIn("No browser", notify.call_args.kwargs["caption"])
+
+
+class FollowTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.write = AsyncMock(return_value=True)
+        self.follow = AsyncMock()
+        self.control = self.enterContext(patch.object(displays.picture, "Picture"))
+
+    def _drawn(self, values: dict | None = None) -> dict[str, Any]:
+        entries = displays.rows(values or {"presentation": {"cab_mode": "true"}}, SCHEMA,
+                                [BIG, TALL], ["", ""], self.write, Mock(), self.follow)
+        [(_, draw)] = [entry for entry in entries if entry[0] is panel.FULL]
+        draw()
+        return self.control.call_args.kwargs
+
+    async def test_a_part_moved_tells_what_it_was_and_what_it_is(self) -> None:
+        drawn = self._drawn()
+
+        await drawn["move"]({"backglass": 2})
+
+        [(before, after, here)] = [call.args for call in self.follow.await_args_list]
+        self.assertEqual(before.on["backglass"], None)
+        self.assertEqual(after.on["backglass"], 2)
+        self.assertEqual([one.number for one in here], [1, 2])
+
+    async def test_the_playfield_moved_to_another_shape_of_screen_tells_its_new_mounting(
+            self) -> None:
+        drawn = self._drawn()
+
+        await drawn["move"]({"playfield": 2})
+
+        [(before, after, _)] = [call.args for call in self.follow.await_args_list]
+        self.assertEqual(before.turn, ("landscape", "0"))
+        self.assertEqual(after.turn, ("portrait", "0"))
+
+    async def test_an_arrow_tells_the_turn_it_made(self) -> None:
+        drawn = self._drawn()
+
+        await drawn["point"](picture.LEFT, FIRST)
+
+        [(before, after, _)] = [call.args for call in self.follow.await_args_list]
+        self.assertEqual((before.turn, after.turn), (("landscape", "0"), ("portrait", "90")))
+        self.assertEqual(before.on, after.on)
+
+    async def test_a_change_that_was_not_kept_tells_nothing(self) -> None:
+        self.write.return_value = False
+        drawn = self._drawn()
+
+        await drawn["move"]({"backglass": 2})
+        await drawn["point"](picture.LEFT, FIRST)
+
+        self.follow.assert_not_awaited()
+
+    async def test_each_change_is_told_from_where_the_last_one_left_it(self) -> None:
+        drawn = self._drawn()
+
+        await drawn["move"]({"backglass": 2})
+        await drawn["move"]({"backglass": 1})
+
+        [(_, first, _), (before, after, _)] = [call.args for call in self.follow.await_args_list]
+        self.assertEqual(before.on, first.on)
+        self.assertEqual(after.on["backglass"], 1)
+
+    async def test_nothing_is_asked_to_follow_where_nothing_is_listening(self) -> None:
+        entries = displays.rows({}, SCHEMA, [BIG], [""], self.write, Mock())
+        [(_, draw)] = [entry for entry in entries if entry[0] is panel.FULL]
+        draw()
+
+        self.assertTrue(await self.control.call_args.kwargs["move"]({"backglass": 1}))
 
 
 if __name__ == "__main__":

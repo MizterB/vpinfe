@@ -42,7 +42,8 @@
     "list_art_shape": "auto",
     "dates": "language",
     "relative_dates": "true",
-    "times": "24h"
+    "times": "24h",
+    "units": "region"
   },
   "dof": {
     "config_tool_api_key": "",

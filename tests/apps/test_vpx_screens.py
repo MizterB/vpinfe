@@ -1,0 +1,520 @@
+"""Visual Pinball's half of the screens answer, as ini keys."""
+
+from __future__ import annotations
+
+import unittest
+from dataclasses import dataclass
+
+from apps.vpx import areas
+from apps.vpx import screens as vs
+
+
+@dataclass(frozen=True)
+class Monitor:
+    number: int
+    name: str
+    width: int
+    height: int
+    x: int
+    y: int
+
+
+WIDE = Monitor(1, "SAMSUNG", 3840, 2160, 0, 0)
+BACK = Monitor(2, "DELL P2419H", 1920, 1080, 3840, 0)
+STRIP = Monitor(3, "", 1280, 390, 5760, 0)
+TALL = Monitor(1, "SAMSUNG", 2160, 3840, 0, 0)
+CAB = Monitor(1, "LG", 1080, 1920, 0, 0)
+LAND = Monitor(1, "LG", 1920, 1080, 0, 0)
+SQUARE = Monitor(1, "SAMSUNG", 1080, 1080, 0, 0)
+SCREENS = [WIDE, BACK, STRIP]
+LOGGED = ["Samsung Electric Company HDMI-A-1-SAMSUNG [0, 0]", "CVT DVI [5760, 0]"]
+
+
+class NamingAScreenTests(unittest.TestCase):
+    def test_the_name_vpx_logged_at_the_position_wins(self) -> None:
+        self.assertEqual(vs.display_id(WIDE, LOGGED),
+                         "Samsung Electric Company HDMI-A-1-SAMSUNG [0, 0]")
+
+    def test_a_screen_vpx_never_logged_is_called_by_its_model(self) -> None:
+        self.assertEqual(vs.display_id(BACK, LOGGED), "DELL P2419H [3840, 0]")
+
+    def test_a_screen_with_neither_has_no_name(self) -> None:
+        self.assertEqual(vs.display_id(STRIP), "")
+
+    def test_a_logged_name_at_another_position_is_not_borrowed(self) -> None:
+        self.assertEqual(vs.display_id(BACK, ["CVT DVI [0, 0]"]), "DELL P2419H [3840, 0]")
+
+    def test_a_stored_id_names_the_screen_at_its_position(self) -> None:
+        self.assertIs(vs.screen_for("anything at all [3840, 0]", SCREENS), BACK)
+
+    def test_a_position_nothing_sits_at_names_no_screen(self) -> None:
+        self.assertIsNone(vs.screen_for("SAMSUNG [10, 10]", SCREENS))
+
+    def test_a_name_alone_names_the_one_screen_it_holds_the_model_of(self) -> None:
+        self.assertIs(vs.screen_for("Samsung Electric Company SAMSUNG", SCREENS), WIDE)
+
+    def test_a_blank_names_no_screen(self) -> None:
+        self.assertIsNone(vs.screen_for("  ", SCREENS))
+
+    def test_a_name_two_screens_share_names_neither(self) -> None:
+        twin = Monitor(4, "SAMSUNG", 1920, 1080, 7000, 0)
+
+        self.assertIsNone(vs.screen_for("SAMSUNG", [WIDE, twin]))
+
+
+class WhereVpxHasItsPartsTests(unittest.TestCase):
+    def test_a_floating_window_is_on_the_screen_its_display_names(self) -> None:
+        held = vs.placed({
+            "Player.PlayfieldDisplay": "SAMSUNG [0, 0]",
+            "Backglass.BackglassDisplay": "DELL P2419H [3840, 0]",
+            "Backglass.BackglassOutput": "1",
+            "ScoreView.ScoreViewDisplay": "CVT DVI [5760, 0]",
+            "ScoreView.ScoreViewOutput": "1"}, SCREENS)
+
+        self.assertEqual(held, {"playfield": 1, "backglass": 2, "score_view": 3,
+                                "topper": None})
+
+    def test_a_window_that_is_not_floating_is_on_no_screen(self) -> None:
+        held = vs.placed({"Backglass.BackglassDisplay": "DELL P2419H [3840, 0]",
+                          "Backglass.BackglassOutput": "0"}, SCREENS)
+
+        self.assertIsNone(held["backglass"])
+
+    def test_an_embedded_window_is_inside_the_playfield(self) -> None:
+        held = vs.placed({"Topper.TopperOutput": "2"}, SCREENS)
+
+        self.assertEqual(held["topper"], vs.INSIDE)
+
+    def test_a_display_no_screen_answers_to_is_on_no_screen(self) -> None:
+        held = vs.placed({"Backglass.BackglassDisplay": "Gone [1, 1]",
+                          "Backglass.BackglassOutput": "1"}, SCREENS)
+
+        self.assertIsNone(held["backglass"])
+
+    def test_a_blank_ini_has_nothing_anywhere(self) -> None:
+        self.assertEqual(set(vs.placed({}, SCREENS).values()), {None})
+
+
+class PuttingPartsOnScreensTests(unittest.TestCase):
+    def test_a_part_on_a_screen_gets_its_display_and_floats(self) -> None:
+        written = vs.windows({"backglass": 2}, SCREENS)
+
+        self.assertEqual(written.keys, {"Backglass.BackglassDisplay": "DELL P2419H [3840, 0]",
+                                        "Backglass.BackglassOutput": "1"})
+
+    def test_the_playfield_has_a_display_and_no_output(self) -> None:
+        written = vs.windows({"playfield": 1}, SCREENS, LOGGED)
+
+        self.assertEqual(written.keys, {
+            "Player.PlayfieldDisplay": "Samsung Electric Company HDMI-A-1-SAMSUNG [0, 0]"})
+
+    def test_a_part_with_no_screen_is_disabled(self) -> None:
+        self.assertEqual(vs.windows({"score_view": None}, SCREENS).keys,
+                         {"ScoreView.ScoreViewOutput": "0"})
+
+    def test_a_playfield_with_no_screen_blanks_its_display(self) -> None:
+        self.assertEqual(vs.windows({"playfield": None}, SCREENS).keys,
+                         {"Player.PlayfieldDisplay": ""})
+
+    def test_a_part_in_the_playfield_is_embedded_in_a_region_of_its_window(self) -> None:
+        written = vs.windows({"score_view": vs.INSIDE}, [CAB], playfield=CAB)
+
+        self.assertEqual(written.keys, {
+            "ScoreView.ScoreViewOutput": "2", "ScoreView.ScoreViewWndX": "54",
+            "ScoreView.ScoreViewWndY": "1623", "ScoreView.ScoreViewWidth": "972",
+            "ScoreView.ScoreViewHeight": "243"})
+
+    def test_the_region_lies_inside_the_window_whatever_its_shape(self) -> None:
+        for window in (CAB, WIDE, BACK, TALL, Monitor(1, "", 1366, 768, 0, 0)):
+            with self.subTest(window=window):
+                x, y, width, height = vs.embedded_region(window)
+
+                self.assertGreaterEqual(x, 0)
+                self.assertGreaterEqual(y, 0)
+                self.assertLessEqual(x + width, window.width)
+                self.assertLessEqual(y + height, window.height)
+                self.assertEqual(width // 4, height)
+
+    def test_the_region_is_a_strip_along_the_bottom_edge_centered(self) -> None:
+        self.assertEqual(vs.embedded_region(CAB), (54, 1623, 972, 243))
+        self.assertEqual(vs.embedded_region(BACK), (474, 783, 972, 243))
+
+    def test_the_region_is_never_the_size_of_a_floating_window(self) -> None:
+        x, y, width, height = vs.embedded_region(BACK)
+
+        self.assertLess(width, BACK.width)
+        self.assertLess(height, BACK.height // 2)
+
+    def test_a_part_in_the_playfield_with_no_playfield_screen_is_left_out_and_says_so(self) -> None:
+        written = vs.windows({"topper": vs.INSIDE, "backglass": 2}, SCREENS)
+
+        self.assertEqual(written.unsized, ("topper",))
+        self.assertNotIn("Topper.TopperOutput", written.keys)
+        self.assertNotIn("Topper.TopperWidth", written.keys)
+        self.assertIn("Backglass.BackglassOutput", written.keys)
+
+    def test_the_playfield_itself_is_never_embedded(self) -> None:
+        written = vs.windows({"playfield": vs.INSIDE}, SCREENS, playfield=WIDE)
+
+        self.assertEqual((written.keys, written.unsized), ({}, ()))
+
+    def test_a_screen_with_no_name_leaves_its_part_out_and_says_so(self) -> None:
+        written = vs.windows({"score_view": 3, "backglass": 2}, SCREENS)
+
+        self.assertEqual(written.unnamed, ("score_view",))
+        self.assertNotIn("ScoreView.ScoreViewOutput", written.keys)
+        self.assertNotIn("ScoreView.ScoreViewDisplay", written.keys)
+        self.assertIn("Backglass.BackglassOutput", written.keys)
+
+    def test_a_part_the_ini_has_no_window_for_is_left_out(self) -> None:
+        self.assertEqual(vs.windows({"cabinet": 1}, SCREENS).keys, {})
+
+
+class AgreeingWithVpinfeTests(unittest.TestCase):
+    ON = {"playfield": 1, "backglass": 2, "score_view": 3}
+
+    def test_parts_in_the_same_place_do_not_differ(self) -> None:
+        self.assertEqual(vs.differs(self.ON, {**self.ON, "topper": 2}), [])
+
+    def test_a_part_somewhere_else_differs(self) -> None:
+        self.assertEqual(vs.differs(self.ON, {**self.ON, "score_view": None}), ["score_view"])
+
+    def test_a_part_vpinfe_leaves_off_and_vpx_has_differs(self) -> None:
+        self.assertEqual(vs.differs({"playfield": 1}, {"playfield": 1, "backglass": 2}),
+                         ["backglass"])
+
+    def test_a_move_reaches_the_parts_vpx_still_has_where_vpinfe_had_them(self) -> None:
+        got = vs.followed(self.ON, {"backglass": 3, "score_view": 2},
+                          {**self.ON, "score_view": None})
+
+        self.assertEqual(got, {"backglass": 3})
+
+    def test_the_topper_never_follows(self) -> None:
+        self.assertEqual(vs.followed({}, {"topper": 2}, {}), {})
+
+
+class TheTurnTests(unittest.TestCase):
+    PORTRAIT_BY_ROTATION = {"0": "0.0", "90": "90.0", "180": "180.0", "270": "270.0"}
+    LANDSCAPE_BY_ROTATION = {"0": "90.0", "90": "180.0", "180": "270.0", "270": "0.0"}
+
+    def test_the_flipper_end_goes_to_the_edge_that_faces_the_player(self) -> None:
+        """VPinFE's rotation 0 faces the output's bottom edge, 90 the left, 180 the top and
+        270 the right. VPX puts the flipper end on the bottom of a portrait output at 0 and
+        on the right of a landscape one at 0, a clockwise turn at a time."""
+        for rotation, expected in self.PORTRAIT_BY_ROTATION.items():
+            with self.subTest(shape="portrait", rotation=rotation):
+                self.assertEqual(vs.view_cab_rotation(CAB, rotation), expected)
+        for rotation, expected in self.LANDSCAPE_BY_ROTATION.items():
+            with self.subTest(shape="landscape", rotation=rotation):
+                self.assertEqual(vs.view_cab_rotation(WIDE, rotation), expected)
+
+    def test_a_playfield_the_os_turns_upright_is_zero(self) -> None:
+        self.assertEqual(vs.view_cab_rotation(CAB, "0"), "0.0")
+
+    def test_a_blank_rotation_counts_as_zero(self) -> None:
+        self.assertEqual(vs.view_cab_rotation(CAB, ""), "0.0")
+        self.assertEqual(vs.view_cab_rotation(WIDE, ""), "90.0")
+
+    def test_a_landscape_panel_that_wants_zero_or_180_faces_left_or_right(self) -> None:
+        self.assertEqual(vs.view_cab_rotation(WIDE, "270"), "0.0")
+        self.assertEqual(vs.view_cab_rotation(WIDE, "90"), "180.0")
+
+    def test_the_value_is_written_as_the_float_vpx_declares(self) -> None:
+        for rotation in ("0", "90", "180", "270"):
+            self.assertRegex(vs.view_cab_rotation(CAB, rotation) or "", r"^\d+\.0$")
+
+    def test_a_turn_of_none_of_the_four_says_nothing(self) -> None:
+        self.assertIsNone(vs.view_cab_rotation(CAB, "45"))
+        self.assertIsNone(vs.view_cab_rotation(CAB, "sideways"))
+
+    def test_a_square_output_says_nothing(self) -> None:
+        self.assertIsNone(vs.view_cab_rotation(SQUARE, "0"))
+
+    def test_no_screen_says_nothing(self) -> None:
+        self.assertIsNone(vs.view_cab_rotation(None, "0"))
+
+    def test_the_value_goes_back_to_the_rotation_that_made_it(self) -> None:
+        for window in (CAB, WIDE):
+            for rotation in ("0", "90", "180", "270"):
+                with self.subTest(window=window.width, rotation=rotation):
+                    value = vs.view_cab_rotation(window, rotation)
+
+                    self.assertEqual(vs.vpinfe_rotation(window, value or ""), rotation)
+
+    def test_a_blank_vpx_turn_is_its_own_zero_on_either_shape(self) -> None:
+        self.assertEqual(vs.vpinfe_rotation(CAB, ""), "0")
+        self.assertEqual(vs.vpinfe_rotation(WIDE, ""), "270")
+
+    def test_a_vpx_turn_between_the_four_matches_no_rotation(self) -> None:
+        self.assertIsNone(vs.vpinfe_rotation(CAB, "45"))
+        self.assertIsNone(vs.vpinfe_rotation(SQUARE, "0"))
+        self.assertIsNone(vs.vpinfe_rotation(None, "0"))
+
+    def test_a_blank_is_vpxs_own_zero(self) -> None:
+        self.assertEqual(vs.turn_of(""), 0.0)
+        self.assertEqual(vs.turn_of("270"), 270.0)
+        self.assertIsNone(vs.turn_of("sideways"))
+
+    def test_vpx_differs_only_where_the_answer_gives_a_turn(self) -> None:
+        self.assertFalse(vs.rotation_differs("0.0", ""))
+        self.assertFalse(vs.rotation_differs("0.0", "0"))
+        self.assertTrue(vs.rotation_differs("0.0", "270"))
+        self.assertFalse(vs.rotation_differs(None, "270"))
+
+    def test_a_new_answer_moves_vpx_while_it_holds_the_old_one(self) -> None:
+        self.assertTrue(vs.rotation_follows("0.0", "0"))
+        self.assertTrue(vs.rotation_follows(None, ""))
+        self.assertFalse(vs.rotation_follows("0.0", "270"))
+        self.assertFalse(vs.rotation_follows(None, "90"))
+
+
+class WhatTheArrangementImpliesTests(unittest.TestCase):
+    def test_a_score_screen_gets_the_priorities_and_full_dmd(self) -> None:
+        got = vs.derived({"playfield": 1, "backglass": 2, "score_view": 3}, {})
+
+        self.assertEqual(got, {**vs.PRIORITIES, **vs.FULL_DMD})
+
+    def test_the_priorities_stack_pup_over_the_backglass_dmd_over_the_score(self) -> None:
+        got = vs.PRIORITIES
+
+        self.assertLess(got["ScoreView.Priority.ScoreView"], got["ScoreView.Priority.B2SLegacyDMD"])
+        self.assertLess(got["ScoreView.Priority.B2SLegacyDMD"], got["ScoreView.Priority.PUP"])
+
+    def test_one_screen_gets_the_priorities_and_no_full_dmd(self) -> None:
+        got = vs.derived({"playfield": 1}, {})
+
+        self.assertEqual(got, vs.PRIORITIES)
+
+    def test_two_screens_with_no_dmd_screen_get_nothing(self) -> None:
+        self.assertEqual(vs.derived({"playfield": 1, "backglass": 2}, {}), {})
+
+    def test_two_screens_with_the_dmd_embedded_get_nothing_either(self) -> None:
+        self.assertEqual(vs.derived({"playfield": 1, "backglass": 2, "score_view": "inside"},
+                                    {}), {})
+
+    def test_two_screens_where_one_is_the_dmd_get_everything(self) -> None:
+        got = vs.derived({"playfield": 1, "score_view": 2}, {})
+
+        self.assertEqual(got, {**vs.PRIORITIES, **vs.FULL_DMD})
+
+    def test_two_parts_on_one_screen_are_one_screen(self) -> None:
+        self.assertEqual(vs.derived({"playfield": 1, "backglass": 1}, {}), vs.PRIORITIES)
+
+    def test_a_value_vpx_holds_is_left_alone(self) -> None:
+        got = vs.derived({"playfield": 1, "score_view": 2},
+                         {"ScoreView.Priority.PUP": "5", "Plugin.B2SLegacy.B2SHideGrill": "0"})
+
+        self.assertNotIn("ScoreView.Priority.PUP", got)
+        self.assertNotIn("Plugin.B2SLegacy.B2SHideGrill", got)
+        self.assertIn("ScoreView.Priority.ScoreView", got)
+
+    def test_a_blank_value_is_nothing_held(self) -> None:
+        got = vs.derived({"playfield": 1}, {"ScoreView.Priority.PUP": "  "})
+
+        self.assertEqual(got["ScoreView.Priority.PUP"], "3")
+
+    def test_full_dmd_is_never_turned_off(self) -> None:
+        self.assertEqual(vs.full_dmd({"playfield": 1, "backglass": 2}), {})
+        self.assertEqual(vs.full_dmd({}), {})
+
+
+class TheWholeAnswerTests(unittest.TestCase):
+    NOW = {"playfield": 1, "backglass": 2, "score_view": 3}
+
+    def test_it_is_the_windows_the_turn_and_what_follows(self) -> None:
+        got = vs.answer(self.NOW, self.NOW, [TALL, BACK, STRIP], LOGGED, {},
+                        turn=("portrait", "0"))
+
+        self.assertEqual(got.keys["Backglass.BackglassOutput"], "1")
+        self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "1")
+        self.assertEqual(got.keys["TableOverride.ViewCabRotation"], "0.0")
+        self.assertEqual(got.keys["ScoreView.Priority.PUP"], "3")
+        self.assertEqual(got.unnamed, ())
+
+    def test_a_landscape_playfield_is_turned_by_the_edge_that_faces_the_player(self) -> None:
+        got = vs.answer(self.NOW, self.NOW, SCREENS, LOGGED, {}, turn=("landscape", "270"))
+
+        self.assertEqual(got.keys["TableOverride.ViewCabRotation"], "0.0")
+
+    def test_the_turn_is_worked_out_for_the_screen_the_playfield_is_on(self) -> None:
+        moved = {"playfield": 1}
+
+        tall = vs.answer(moved, moved, [TALL], LOGGED, {}, turn=("portrait", "0"))
+        wide = vs.answer(moved, moved, [WIDE], LOGGED, {}, turn=("landscape", "0"))
+
+        self.assertEqual(tall.keys["TableOverride.ViewCabRotation"], "0.0")
+        self.assertEqual(wide.keys["TableOverride.ViewCabRotation"], "90.0")
+
+    def test_the_turn_of_a_playfield_on_no_screen_is_not_written(self) -> None:
+        got = vs.answer({"playfield": None}, {"playfield": None}, SCREENS, LOGGED, {},
+                        turn=("portrait", "0"))
+
+        self.assertNotIn("TableOverride.ViewCabRotation", got.keys)
+
+    def test_a_part_put_in_the_playfield_takes_a_region_of_that_playfield(self) -> None:
+        now = {"playfield": 1, "score_view": "inside"}
+
+        got = vs.answer({"score_view": "inside"}, now, [CAB], LOGGED, {})
+
+        self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "2")
+        self.assertEqual(got.keys["ScoreView.ScoreViewWidth"], "972")
+        self.assertEqual(got.unsized, ())
+
+    def test_a_part_put_in_a_playfield_with_no_screen_is_reported(self) -> None:
+        now = {"playfield": None, "score_view": "inside"}
+
+        got = vs.answer({"score_view": "inside"}, now, [CAB], LOGGED, {})
+
+        self.assertEqual(got.unsized, ("score_view",))
+        self.assertNotIn("ScoreView.ScoreViewOutput", got.keys)
+
+    REGION_HELD = {"ScoreView.ScoreViewOutput": "2", "ScoreView.ScoreViewWndX": "54",
+                   "ScoreView.ScoreViewWndY": "1623", "ScoreView.ScoreViewWidth": "972",
+                   "ScoreView.ScoreViewHeight": "243"}
+
+    def test_a_part_leaving_the_playfield_for_a_screen_floats_with_its_region_blanked(self) -> None:
+        now = {"playfield": 1, "score_view": 3}
+
+        got = vs.answer({"score_view": 3}, now, SCREENS, LOGGED, self.REGION_HELD)
+
+        self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "1")
+        self.assertEqual({key: got.keys[key] for key in vs.REGION["score_view"]},
+                         dict.fromkeys(vs.REGION["score_view"], ""))
+
+    def test_a_part_leaving_the_playfield_for_no_screen_is_disabled_with_its_region_blanked(
+            self) -> None:
+        now = {"playfield": 1, "score_view": None}
+
+        got = vs.answer({"score_view": None}, now, SCREENS, LOGGED, self.REGION_HELD)
+
+        self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "0")
+        self.assertEqual({key: got.keys[key] for key in vs.REGION["score_view"]},
+                         dict.fromkeys(vs.REGION["score_view"], ""))
+
+    def test_a_floating_part_that_moves_keeps_the_geometry_of_its_window(self) -> None:
+        held = {"ScoreView.ScoreViewOutput": "1", "ScoreView.ScoreViewWndX": "40"}
+
+        for where in (3, None):
+            with self.subTest(where=where):
+                got = vs.answer({"score_view": where}, {"playfield": 1, "score_view": where},
+                                SCREENS, LOGGED, held)
+
+                self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+
+    def test_a_part_that_stays_inside_keeps_its_region_as_it_is(self) -> None:
+        now = {"playfield": 1, "score_view": "inside"}
+
+        got = vs.answer({"backglass": None}, {**now, "backglass": None}, [CAB], LOGGED,
+                        self.REGION_HELD)
+
+        self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+
+    def test_a_part_that_cannot_be_named_does_not_have_its_region_blanked(self) -> None:
+        got = vs.answer({"score_view": 3}, {"playfield": 1, "score_view": 3}, SCREENS, [],
+                        self.REGION_HELD)
+
+        self.assertEqual(got.unnamed, ("score_view",))
+        self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+
+    def test_a_part_inside_follows_the_playfield_to_a_window_of_another_shape(self) -> None:
+        now = {"playfield": 1, "score_view": "inside"}
+
+        got = vs.answer({"playfield": 1}, now, [LAND], LOGGED, self.REGION_HELD)
+
+        self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "2")
+        x, y, width, height = vs.embedded_region(LAND)
+        self.assertEqual([got.keys[key] for key in vs.REGION["score_view"]],
+                         [str(x), str(y), str(width), str(height)])
+        self.assertLessEqual(x + width, LAND.width)
+        self.assertLessEqual(y + height, LAND.height)
+        self.assertEqual(got.unsized, ())
+
+    def test_a_playfield_with_no_screen_leaves_the_parts_inside_it_alone(self) -> None:
+        now = {"playfield": None, "score_view": "inside"}
+
+        got = vs.answer({"playfield": None}, now, [CAB], LOGGED, self.REGION_HELD)
+
+        self.assertEqual(got.unsized, ())
+        self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+
+    def test_a_part_put_inside_along_with_the_playfield_takes_the_new_window_too(self) -> None:
+        now = {"playfield": 1, "score_view": "inside", "backglass": "inside"}
+
+        got = vs.answer({"playfield": 1, "backglass": "inside"}, now, [LAND], LOGGED, {})
+
+        for part in ("score_view", "backglass"):
+            self.assertEqual(got.keys[vs.OUTPUT[part]], "2")
+            self.assertEqual([got.keys[key] for key in vs.REGION[part]],
+                             [str(one) for one in vs.embedded_region(LAND)])
+
+    def test_no_turn_given_leaves_the_turn_alone(self) -> None:
+        got = vs.answer({"backglass": 2}, self.NOW, [TALL, BACK, STRIP], LOGGED, {})
+
+        self.assertNotIn("TableOverride.ViewCabRotation", got.keys)
+
+    def test_two_screens_with_no_dmd_write_no_priorities(self) -> None:
+        now = {"playfield": 1, "backglass": 2}
+
+        got = vs.answer(now, now, SCREENS, LOGGED, {})
+
+        self.assertEqual(set(got.keys), {
+            "Player.PlayfieldDisplay", "Backglass.BackglassDisplay",
+            "Backglass.BackglassOutput"})
+
+    def test_the_part_that_has_no_name_is_reported_and_the_rest_written(self) -> None:
+        got = vs.answer({"score_view": 3}, self.NOW, SCREENS, [], {})
+
+        self.assertEqual(got.unnamed, ("score_view",))
+        self.assertNotIn("ScoreView.ScoreViewOutput", got.keys)
+
+
+class ThePanelTests(unittest.TestCase):
+    def test_a_kind_turns_the_plugin_and_that_kind_on(self) -> None:
+        got = vs.dmd_util("ZeDMD", platform="linux")
+
+        self.assertEqual(got, {"Plugin.DMDUtil.Enable": "1", "Plugin.DMDUtil.ZeDMD": "1"})
+
+    def test_it_is_written_on_macos_too(self) -> None:
+        self.assertEqual(vs.dmd_util("Pixelcade", platform="darwin"),
+                         {"Plugin.DMDUtil.Enable": "1", "Plugin.DMDUtil.Pixelcade": "1"})
+
+    def test_windows_gets_nothing(self) -> None:
+        self.assertEqual(vs.dmd_util("ZeDMD", platform="win32"), {})
+
+    def test_only_the_plugin_and_the_kind_are_written(self) -> None:
+        for kind in vs.DMD_KINDS:
+            with self.subTest(kind=kind):
+                self.assertEqual(set(vs.dmd_util(kind, platform="linux")),
+                                 {"Plugin.DMDUtil.Enable", f"Plugin.DMDUtil.{kind}"})
+
+    def test_no_kind_writes_nothing(self) -> None:
+        self.assertEqual(vs.dmd_util(None, platform="linux"), {})
+        self.assertEqual(vs.dmd_util("Other", platform="linux"), {})
+
+    def test_the_kind_vpx_has_on_is_read_back(self) -> None:
+        self.assertEqual(vs.dmd_kind({"Plugin.DMDUtil.PIN2DMD": "1"}), "PIN2DMD")
+        self.assertEqual(vs.dmd_kind({}), "")
+
+
+class TheHeadingsTheConsoleKnowsTests(unittest.TestCase):
+    """The Console tells a part's rows by the headings the displays area declares."""
+
+    def headings(self) -> dict:
+        return {heading.key: heading for heading in areas.CURATED[areas.DISPLAYS]}
+
+    def test_each_window_heading_holds_its_display_and_output(self) -> None:
+        found = self.headings()
+
+        for key, part in vs.WINDOW_HEADINGS.items():
+            with self.subTest(heading=key):
+                self.assertIn(vs.DISPLAY[part], found[key].keys)
+                if part in vs.OUTPUT:
+                    self.assertIn(vs.OUTPUT[part], found[key].keys)
+
+    def test_the_cabinet_heading_holds_the_screen_size(self) -> None:
+        for key in vs.SCREEN_SIZE:
+            self.assertIn(key, self.headings()[vs.CABINET_HEADING].keys)
+
+
+if __name__ == "__main__":
+    unittest.main()
