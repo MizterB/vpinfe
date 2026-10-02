@@ -1722,6 +1722,7 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
    would shrink to its content. */
 .console-wizard-scroll {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; align-self: stretch;
+  scrollbar-gutter: stable;
 }
 .console-wizard-card .console-dialog-footer {
   border-top: 1px solid var(--line-soft); margin-top: 8px;
@@ -1753,7 +1754,9 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 /* The welcome: centered, the title at display size. The scroll area centers it
    vertically with auto margins, which stay at the top once the content outgrows it. */
 .console-wizard--welcome { text-align: center; }
-.console-wizard-scroll.console-wizard--welcome { display: flex; flex-direction: column; }
+.console-wizard-scroll.console-wizard--welcome {
+  display: flex; flex-direction: column; scrollbar-gutter: stable both-edges;
+}
 .console-wizard-scroll.console-wizard--welcome > :first-child { margin-top: auto; }
 .console-wizard-scroll.console-wizard--welcome > :last-child { margin-bottom: auto; }
 .console-wizard-crest { display: flex; justify-content: center; }
@@ -2330,6 +2333,8 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 /* A value the user may set. The read state and the edit state are one element, so the
    alignment cannot drift and nothing moves on the first click. */
 .console-fact-edit { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* A choice stacks its options over their sentences, and they read from the column's edge. */
+.console-fact-edit.nicegui-column { align-items: flex-start; }
 
 /* A control is as wide as the value it holds, capped at the measure - not as wide as
    the pane, which says nothing about what goes in it. What is naturally short stays

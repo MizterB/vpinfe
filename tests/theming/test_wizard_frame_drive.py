@@ -1,6 +1,7 @@
 """A wizard's frame and its picture choices, measured in a real browser with the real
 stylesheet: the body is as wide as the step row, a welcome's title sits on the card's
-centre, and a pick row has the padding and the unclipped name the stylesheet declares.
+center, a pick row has the padding and the unclipped name the stylesheet declares, and a
+choice without pictures starts at its field's edge.
 
 A stylesheet read as text cannot see a rule outranked by one that comes later, nor a
 container that shrinks to its content; only a computed style and a measured box can.
@@ -30,6 +31,11 @@ PLAY = {"key": "play", "type": "choice", "label": "How do you play?", "value": "
 LONG = {**PLAY, "choices": [*PLAY["choices"],
                             ["other", "Something with a name long enough to wrap onto a "
                                       "second line when it must", "", "folder"]]}
+# No pictures, so it draws as radios with each option's sentence under them.
+PLAIN = {"step": "how", "title": "Copy or move?", "help": "Two tables", "steps": STEPS,
+         "fields": [{"key": "how", "type": "choice", "label": "How", "value": "copy",
+                     "choices": [["copy", "Copy them", "The folder stays as it is"],
+                                 ["move", "Move them", "No second copy"]]}]}
 FLOWS = {
     "/welcome": {"step": "welcome", "welcome": True, "title": "Welcome to VPinFE",
                  "help": "A few questions and it is set up", "steps": STEPS,
@@ -38,11 +44,11 @@ FLOWS = {
               "steps": [{**STEPS[0], "done": True}, *STEPS[1:]], "fields": [LONG]},
 }
 
-# The card is measured once its entrance has finished: Quasar scales it in, and a box
-# measured mid-transition is a different size from the one a person sees.
-SETTLED = ("(() => { const card = document.querySelector('.console-wizard-card');"
-           " return !!card && !!document.querySelector('.console-wizard-pick')"
-           " && getComputedStyle(card).transform === 'none'; })()")
+# The card is measured once its entrance has finished: Quasar scales it in and grows it,
+# and a box measured mid-transition is a different size from the one a person sees.
+SETTLED = ("(() => !!document.querySelector('.console-wizard-card')"
+           " && !!document.querySelector('.console-wizard-pick, .q-radio')"
+           " && document.getAnimations().every((a) => a.playState !== 'running'))()")
 MEASURE = """(() => {
   const wide = (selector) => document.querySelector(selector).offsetWidth;
   const row = document.querySelector('.console-wizard-pick');
@@ -60,6 +66,12 @@ MEASURE = """(() => {
     ).whiteSpace,
     card: card.left + card.width / 2, title: spoken.left + spoken.width / 2,
   };
+})()"""
+STACKED = """(() => {
+  const edge = (el) => el.getBoundingClientRect().left;
+  const radio = document.querySelector('.console-wizard-card .q-radio');
+  const edit = radio.closest('.console-fact-edit');
+  return {edit: edge(edit), radio: edge(radio), help: edge(edit.querySelector('.console-help'))};
 })()"""
 
 
@@ -91,6 +103,7 @@ def serve(port: int) -> None:
 
     for path, step in FLOWS.items():
         route(path, step)
+    route("/plain", PLAIN)
 
     @app.get("/heard")
     def said() -> dict:
@@ -124,14 +137,17 @@ class WizardFrameDrive(unittest.TestCase):
                 await browser.navigate(f"http://127.0.0.1:{port}{path}")
                 await browser.wait_for(SETTLED, timeout=30.0)
                 seen[path] = await browser.evaluate(MEASURE)
+            await browser.navigate(f"http://127.0.0.1:{port}/plain")
+            await browser.wait_for(SETTLED, timeout=30.0)
+            seen["plain"] = await browser.evaluate(STACKED)
         return seen
 
     def test_the_body_is_as_wide_as_the_step_row_on_a_welcome_and_on_any_step(self) -> None:
-        for path, found in self.seen.items():
+        for path in FLOWS:
             with self.subTest(path=path):
-                self.assertEqual(found["steps"], found["scroll"])
+                self.assertEqual(self.seen[path]["steps"], self.seen[path]["scroll"])
 
-    def test_a_welcome_title_sits_on_the_card_s_centre(self) -> None:
+    def test_a_welcome_title_sits_on_the_card_s_center(self) -> None:
         found = self.seen["/welcome"]
 
         self.assertAlmostEqual(found["card"], found["title"], delta=1.5)
@@ -154,9 +170,15 @@ class WizardFrameDrive(unittest.TestCase):
         self.assertEqual(sides(rule["padding"]), self.seen["/welcome"]["padding"])
 
     def test_a_long_name_wraps_instead_of_clipping(self) -> None:
-        for path, found in self.seen.items():
+        for path in FLOWS:
             with self.subTest(path=path):
-                self.assertEqual("normal", found["wraps"])
+                self.assertEqual("normal", self.seen[path]["wraps"])
+
+    def test_a_choice_without_pictures_starts_at_its_field_s_edge(self) -> None:
+        found = self.seen["plain"]
+
+        self.assertAlmostEqual(found["edit"], found["radio"], delta=1)
+        self.assertAlmostEqual(found["edit"], found["help"], delta=1)
 
 
 if __name__ == "__main__":
