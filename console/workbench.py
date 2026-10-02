@@ -3537,7 +3537,6 @@ def _faults(context: dict[str, Any], table: dict[str, Any],
             releases: dict[str, dict[str, Any]], entry_url: str,
             unread: str = "") -> list[tuple[str, Callable[[], None] | None]]:
     pinmame = (table.get("dependencies") or {}).get("pinmame") or {}
-    flex = (table.get("dependencies") or {}).get("flexdmd") or {}
     faults: list[tuple[str, Callable[[], None] | None]] = []
     if not table.get("available"):
         # Three ways a thing can be unavailable and they are not the same fault. A file
@@ -3563,8 +3562,6 @@ def _faults(context: dict[str, Any], table: dict[str, Any],
                        panel.action(t("word.add"), opens, icon=verbs.ADD,
                                     hint=t("console.workbench.add_missing.help"))
                        if opens else None))
-    if flex.get("detected") and not flex.get("installed"):
-        faults.append((t("console.workbench.script_uses_flexdmd_not"), None))
     if table.get("update_available"):
         source = table.get("source") or {}
         theirs = str(source.get("version") or "")

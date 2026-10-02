@@ -2671,7 +2671,6 @@
   "console.workbench.saved_for_this_table": "Saved for this table",
   "console.workbench.script_hash": "Script hash",
   "console.workbench.script_inside_vpx": "The table runs the script inside its .vpx",
-  "console.workbench.script_uses_flexdmd_not": "The script uses FlexDMD, which is not installed",
   "console.workbench.sec": "{count} sec",
   "console.workbench.select_media_item_manage": "Select any media item to manage it",
   "console.workbench.set_2": "Set here",

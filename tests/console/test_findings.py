@@ -97,10 +97,17 @@ class Findings(unittest.IsolatedAsyncioTestCase):
                      t("said.why.timed_out")), "")])
 
     async def test_a_fault_nothing_here_fixes_carries_no_act(self) -> None:
+        found = await self._found(_table("a", source={
+            "base": {"file": "base.vpx", "available": False}}))
+
+        self.assertEqual(found, [(t("console.workbench.made_from_gone"), None, "")])
+
+    async def test_a_script_naming_flexdmd_is_not_a_finding(self) -> None:
+        """No content folder says nothing: the script names its own."""
         found = await self._found(_table("a", dependencies={
             "flexdmd": {"detected": True, "installed": False}}))
 
-        self.assertEqual(found, [(t("console.workbench.script_uses_flexdmd_not"), None, "")])
+        self.assertEqual(found, [])
 
     async def test_a_choice_somebody_made_is_not_a_finding(self) -> None:
         self.assertEqual(await self._found(_table("a", hidden=True, default=False)), [])
