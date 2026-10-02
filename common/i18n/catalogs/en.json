@@ -369,7 +369,7 @@
   "config.updates.download_spreadsheet.choice.weekly": "Weekly",
   "config.updates.download_spreadsheet.description": "How often to fetch the spreadsheet. Matching and release lists read this copy.",
   "config.updates.download_spreadsheet.label": "Download Spreadsheet",
-  "config.updates.get_art_for_new_games.description": "Once a new game is matched, download the art it is missing, in the kinds this library collects. Art already there is never replaced.",
+  "config.updates.get_art_for_new_games.description": "Once a new game is matched, download the art it is missing. Art already there is never replaced. For games already here, use Get missing art on Games or Media.",
   "config.updates.get_art_for_new_games.label": "Get Art for New Games",
   "config.updates.match_new_games.description": "When VPinFE finds a new game, match it to the spreadsheet from its folder name",
   "config.updates.match_new_games.label": "Match New Games",
