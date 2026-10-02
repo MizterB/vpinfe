@@ -102,7 +102,8 @@ def run_startup_migrations(games_root: Path, config_dir: Path) -> dict:
     collections = CollectionStore(str(config_dir / "collections.json"))
     work["members_rekeyed"] = collections.migrate_membership_to_game_ids(games)
     work["last_played_seeded"] = ensure_last_played(collections)
-    work["orders_pinned"] = ensure_order_direction(collections)
+    # Not work a 2.x start does: an ini already holds the direction 2.x showed.
+    ensure_order_direction(collections)
     return work
 
 
@@ -198,6 +199,12 @@ class RoundTripTests(RevertTestCase):
         second = self._migrate()
 
         self.assertEqual(second, first)
+
+    def test_a_2x_sort_keeps_its_direction_through_a_start(self):
+        self._migrate()
+
+        store = CollectionStore(str(self.config_dir / "collections.json"))
+        self.assertEqual(store.get_order("Recent")["direction"], "asc")
 
     def test_a_second_migration_without_a_reset_does_nothing(self):
         """The defect this tool exists for, asserted so the test above cannot pass by
