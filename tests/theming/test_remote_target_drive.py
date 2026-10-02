@@ -94,7 +94,6 @@ class RemoteWritesToItsTargetDrive(unittest.TestCase):
                         await browser.wait_for(SHEET_OPEN, timeout=4)
                     except TimeoutError:
                         continue
-                    # A bottom sheet slides in; a click aimed before it settles misses.
                     await walk.drawn()
                     return
                 raise AssertionError(f"no sheet opened for {name}")

@@ -291,23 +291,33 @@ class BrowserSession:
         raise TimeoutError(f"never became truthy: {expression} (last={last!r})")
 
     async def click(self, selector: str, *, nth: int = 0) -> None:
-        """Click something the way a finger does, at its own coordinates.
+        """Click something the way a finger does, at its own coordinates, once it has
+        stopped moving.
 
         A real mouse event, not `element.click()`. Quasar builds several of its controls
         - a select, a menu item - out of listeners that a synthetic click never reaches,
         so a test that drives them with `.click()` reports success and changes nothing.
         """
         where = await self.evaluate(
-            "(() => {"
-            f" const found = document.querySelectorAll({json.dumps(selector)});"
-            f" const el = found[{int(nth)}]; if (!el) return null;"
-            " el.scrollIntoView({block: 'center'});"
-            " const box = el.getBoundingClientRect();"
+            "(async () => {"
+            f" const pick = () => document.querySelectorAll({json.dumps(selector)})[{int(nth)}];"
+            " const first = pick(); if (!first) return null;"
+            " first.scrollIntoView({block: 'center'});"
+            " const measure = () => pick()?.getBoundingClientRect();"
+            " const frame = () => new Promise(done => requestAnimationFrame(done));"
+            " const until = performance.now() + 5000;"
+            " let box = measure(), was;"
+            " do {"
+            "  if (performance.now() > until) return {moving: true};"
+            "  was = box; await frame(); box = measure();"
+            " } while (!box || !was || ['x', 'y', 'width', 'height'].some(k => box[k] !== was[k]));"
             " if (!box.width || !box.height) return null;"
             " return {x: box.left + box.width / 2, y: box.top + box.height / 2};"
             " })()")
         if not where:
             raise AssertionError(f"nothing to click at {selector!r}[{nth}]")
+        if where.get("moving"):
+            raise AssertionError(f"{selector!r}[{nth}] was still moving after 5s")
         for event in ("mousePressed", "mouseReleased"):
             await self.send("Input.dispatchMouseEvent",
                             {"type": event, "x": where["x"], "y": where["y"],
