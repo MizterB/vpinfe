@@ -578,7 +578,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             mediaview.open_viewer(art.media(game_id, kind, version=version), kind,
                                   media_label_map().get(kind, kind))
 
-    rate_row = stars.rating_handler(rows, by_id, lambda: table, ApiClient)
+    rate_row = stars.rating_handler(rows, by_id, lambda: table, library)
 
     grid.on_row_focus(SCOPE, focused)
     state["media_zoom"] = zoom_media
@@ -943,6 +943,9 @@ _MOD_DRAWN: dict[str, Any] = {
 # Which settings those are, by key.
 OWN_SETTINGS_COLUMN = "own_settings"
 
+# The game's rating on a table's row: `rating` there is the table's own.
+GAME_RATING = "game_rating"
+
 # A column whose answer a panel section holds, so focusing it opens there.
 TABLE_COLUMN_SECTIONS = {"settings": "table_settings", OWN_SETTINGS_COLUMN: "table_settings"}
 
@@ -995,6 +998,11 @@ TABLE_COLUMNS = [
                     + [{"value": "", "label": t("console.games.not_default")}],
                     formatted=True),
                 **renderers.drawable("state", states=_DEFAULT_STATES)),
+    grid.column(GAME_RATING, t("console.games.game_rating"), group=t(_GAME),
+                help=t("console.games.rating_game_0_5.help"),
+                cellClass="console-stars-cell",
+                **{**grid.choice_filter(_RATING_CHOICES),
+                   ":cellRenderer": stars.renderer("game", on_table=True)}),
     grid.column("rating", t("console.games.table_rating"), group=t(_TABLE),
                 help=t("console.games.rating_table_0_5.help"),
                 cellClass="console-stars-cell",
@@ -1058,7 +1066,7 @@ TABLE_VIEWS: dict[str, list[str] | views.Preset] = {
     # both were app and on-disk state, which is whether this thing runs - so they are
     # Launch, once.
     "console.game_tables.table_file": views.Preset(
-        columns=("game", "rating", "default_state", "hidden", "filename"),
+        columns=("game", GAME_RATING, "rating", "default_state", "hidden", "filename"),
         help=t("console.view.table_file.help")),
     "console.game_tables.launch": views.Preset(
         columns=("game", "filename", "launcher", "settings", "rom", "default_state",
@@ -1332,7 +1340,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     # rather than selection, so arrowing down the list is a sweep and the checkboxes
     # stay whatever a bulk action left them.
     by_id = {row["id"]: row for row in built}
-    rate_row = stars.rating_handler(built, by_id, lambda: table, ApiClient)
+    rate_row = stars.rating_handler(built, by_id, lambda: table, library, GAME_RATING)
 
     def focused(event: Any) -> Any:
         row = by_id.get(grid.focused_row(event))

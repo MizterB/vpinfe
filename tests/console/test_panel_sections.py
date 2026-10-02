@@ -45,11 +45,12 @@ def _under(entries: list[tuple[Any, Any]], heading: str) -> list[str]:
 
 
 YOURS = t("console.workbench.yours")
-RATING = t("console.workbench.your_rating")
+GAME_RATING = t("console.workbench.game_rating")
+TABLE_RATING = t("console.workbench.table_rating")
 FAVORITE = t("word.favorite")
 PRIVATE = game_tables.PRIVATE_WORDS[0]
 TAGS = t("console.workbench.tags")
-MARKS = {RATING, FAVORITE, PRIVATE, TAGS}
+MARKS = {GAME_RATING, TABLE_RATING, FAVORITE, PRIVATE, TAGS}
 DOF_EVENT = t("console.workbench.dof_event")
 
 
@@ -59,7 +60,7 @@ class GameSectionTests(unittest.TestCase):
         self.entries = workbench._game_entries(context, {}, [], held=False)
 
     def test_the_marks_sit_under_yours(self) -> None:
-        self.assertEqual(_under(self.entries, YOURS), [RATING, FAVORITE, PRIVATE, TAGS])
+        self.assertEqual(_under(self.entries, YOURS), [GAME_RATING, FAVORITE, PRIVATE, TAGS])
 
     def test_yours_follows_the_details(self) -> None:
         headings = _headings(self.entries)
@@ -81,7 +82,7 @@ class TableSectionTests(unittest.TestCase):
 
     def test_the_marks_sit_under_yours(self) -> None:
         """A table has no favorite of its own: the game carries it."""
-        self.assertEqual(_under(self.entries, YOURS), [RATING, TAGS])
+        self.assertEqual(_under(self.entries, YOURS), [TABLE_RATING, TAGS])
 
     def test_yours_sits_between_what_the_file_is_and_how_it_runs(self) -> None:
         headings = _headings(self.entries)

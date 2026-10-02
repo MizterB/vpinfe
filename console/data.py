@@ -402,8 +402,10 @@ class Library:
         return result
 
     def set_game_rating(self, game_id: str, rating: int) -> None:
+        """The by-file rows carry it too."""
         self._client.rate(game_id, rating)
         self._forget_game(game_id)
+        self._table_rows = None
 
     def set_table_rating(self, game_id: str, table_id: str, rating: int) -> None:
         self._client.rate_table(game_id, table_id, rating)

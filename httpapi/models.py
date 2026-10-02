@@ -1721,6 +1721,7 @@ class TableRow(ApiModel):
     update_available: bool | None = None
     # This table's own rating, not its game's. 0 is unrated, which is most of them.
     rating: int = 0
+    game_rating: int = 0
     # What the script was seen to use, three-valued per feature: true, false, and null
     # for a table nothing has parsed - which is not the same as no.
     features: dict[str, bool | None] = {}

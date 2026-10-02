@@ -363,6 +363,15 @@ class TableRatingTests(_Lens):
 
         self.assertEqual(body["rating"], 0)
 
+    def test_a_row_carries_its_game_s_rating_beside_its_own(self) -> None:
+        """A library rated before tables had ratings of their own has only these."""
+        rated = {**INFO, "User": {"Rating": 3}}
+        with patch("common.games.game_repository.catalog", return_value={
+                GAME_ID: fake_game(self.folder, FOLDER, meta=rated)}):
+            rows = self._rows()
+
+        self.assertEqual({(row["game_rating"], row["rating"]) for row in rows}, {(3, 0)})
+
     def test_a_rating_outside_the_scale_is_refused(self) -> None:
         """Refused rather than clamped, the same as a game's - storing 5 for a caller
         that sent 9 hides its bug."""

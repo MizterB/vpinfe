@@ -2446,7 +2446,7 @@ def _game_marks(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
     return [
         (HEADING, t("console.workbench.yours")),
-        (t("console.workbench.your_rating"), stars.draw(int(game.get("rating") or 0), rate)),
+        (t("console.workbench.game_rating"), stars.draw(int(game.get("rating") or 0), rate)),
         (t("word.favorite"),
          lambda: _switch(bool(record.get("favorite")), favorite,
                          hint=t("console.workbench.frontend_can_filter"))),
@@ -2472,7 +2472,8 @@ def _table_marks(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[A
 
     return [
         (HEADING, t("console.workbench.yours")),
-        (t("console.workbench.your_rating"), stars.draw(int(table.get("rating") or 0), rate)),
+        (t("console.workbench.table_rating"),
+         stars.draw(int(table.get("rating") or 0), rate)),
         (t("console.workbench.tags"),
          _tag_picker(list(record.get("tags") or []), context["library"], retag,
                      list(table.get("derived_tags") or []))),

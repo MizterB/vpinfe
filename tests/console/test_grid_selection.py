@@ -157,11 +157,11 @@ class ReadAtActionTimeTests(unittest.TestCase):
         held = [{"id": "g1", "rating": 0}]
         chosen = self._ticked(held, "g1")
 
-        class _Client:
-            def rate(self, game_id: str, value: int) -> None:
+        class _Library:
+            def set_game_rating(self, game_id: str, value: int) -> None:
                 pass
 
-        rate = stars.rating_handler(held, {"g1": held[0]}, _Grid, _Client)
+        rate = stars.rating_handler(held, {"g1": held[0]}, _Grid, _Library())
         asyncio.run(rate(SimpleNamespace(args={"game": "g1", "value": 5})))
 
         self.assertEqual(chosen.rows()[0]["rating"], 5)

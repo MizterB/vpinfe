@@ -189,7 +189,7 @@ class TableRowShapeTests(unittest.TestCase):
             "id": "t1", "game_id": "g1", "game": "Addams Family, The",
             "manufacturer": "Bally", "year": "1992",
             "filename": "taf.vpx", "version": "2.1", "authors": ["g5k"],
-            "rating": 0, "features": {}, "assets": {},
+            "rating": 0, "game_rating": 0, "features": {}, "assets": {},
             "rom": "TAF_L7", "rom_installed": True, "launchable": True,
             "default": True, "default_kind": "user", "hidden": False,
             "available": True, "absent_since": None, "app": "vpx",
@@ -382,6 +382,13 @@ class StarControlTests(unittest.TestCase):
     def test_only_a_rated_row_offers_the_clear(self) -> None:
         """Guarded in the renderer, or an unrated library is a column of dismissals."""
         self.assertIn("if (held)", stars.renderer("game"))
+
+    def test_a_game_s_rating_on_a_table_s_row_writes_the_game(self) -> None:
+        """No table named, or the click rates the file instead."""
+        js = stars.renderer("game", on_table=True)
+
+        self.assertIn("' + (row.game_id || '') + '", js)
+        self.assertIn("data-table=\"' + '' + '", js)
 
     def test_the_listener_reads_the_box_class(self) -> None:
         """One delegated listener for every star in the app; if the class it looks for

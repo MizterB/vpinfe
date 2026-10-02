@@ -184,22 +184,55 @@ class MovedTests(unittest.TestCase):
         self.assertEqual([row["v"] for row in held], [1, 2])
 
 
+class _Library:
+    def __init__(self) -> None:
+        self.written: list[tuple] = []
+
+    def set_game_rating(self, game_id: str, value: int) -> None:
+        self.written.append((game_id, value))
+
+    def set_table_rating(self, game_id: str, table_id: str, value: int) -> None:
+        self.written.append((game_id, table_id, value))
+
+
 class RatingTests(unittest.TestCase):
+    def _rate(self, held: list[dict], **args: object) -> tuple[_Grid, _Library]:
+        screen, library = _Grid(), _Library()
+        by_id = {row["id"]: row for row in held}
+        rate = stars.rating_handler(held, by_id, lambda: screen, library,
+                                    "game_rating" if "game_id" in held[0] else "rating")
+        asyncio.run(rate(SimpleNamespace(args=args)))
+        return screen, library
+
     def test_a_rated_row_is_held_with_its_rating(self) -> None:
         held = [{"id": "g1", "rating": 0}, {"id": "g2", "rating": 4}]
-        by_id = {row["id"]: row for row in held}
-        screen = _Grid()
 
-        class _Client:
-            def rate(self, game_id: str, value: int) -> None:
-                pass
-
-        rate = stars.rating_handler(held, by_id, lambda: screen, _Client)
-        asyncio.run(rate(SimpleNamespace(args={"game": "g1", "value": 3})))
+        screen, library = self._rate(held, game="g1", value=3)
 
         self.assertEqual([row["rating"] for row in held], [3, 4])
-        self.assertEqual(by_id["g1"]["rating"], 3)
+        self.assertEqual(library.written, [("g1", 3)])
         self.assertEqual(screen.sent[0][1], {"update": [{"id": "g1", "rating": 3}]})
+
+    def test_a_game_rated_on_a_table_s_row_repaints_every_table_of_it(self) -> None:
+        held = [{"id": "t1", "game_id": "g1", "rating": 2, "game_rating": 0},
+                {"id": "t2", "game_id": "g1", "rating": 0, "game_rating": 0},
+                {"id": "t3", "game_id": "g2", "rating": 0, "game_rating": 1}]
+
+        _screen, library = self._rate(held, game="g1", value=4)
+
+        self.assertEqual(library.written, [("g1", 4)])
+        self.assertEqual([(row["rating"], row["game_rating"]) for row in held],
+                         [(2, 4), (0, 4), (0, 1)])
+
+    def test_a_table_rated_leaves_its_siblings_and_its_game_alone(self) -> None:
+        held = [{"id": "t1", "game_id": "g1", "rating": 0, "game_rating": 3},
+                {"id": "t2", "game_id": "g1", "rating": 0, "game_rating": 3}]
+
+        _screen, library = self._rate(held, game="g1", table="t2", value=5)
+
+        self.assertEqual(library.written, [("g1", "t2", 5)])
+        self.assertEqual([(row["rating"], row["game_rating"]) for row in held],
+                         [(0, 3), (5, 3)])
 
 
 if __name__ == "__main__":

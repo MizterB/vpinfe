@@ -2463,6 +2463,7 @@
   "console.workbench.game_details": "Ĝàɱè",
   "console.workbench.game_details_not_matched": "Ĝàɱè - ñöţ ɱàţçĥèđ",
   "console.workbench.game_folder": "Ţĥè ĝàɱè ƒöŀđèř",
+  "console.workbench.game_rating": "Ĝàɱè řàţîñĝ",
   "console.workbench.games": "Ĝàɱèš",
   "console.workbench.games_counted": "Ĝàɱèš ({count})",
   "console.workbench.games_match": {
@@ -2710,6 +2711,7 @@
   "console.workbench.table_game_offers": "Ţĥè ţàƀŀè ţĥîš ĝàɱè öƒƒèřš",
   "console.workbench.table_goes_back_script": "Ţĥè ţàƀŀè ĝöèš ƀàçķ ţö ţĥè šçřîþţ îñšîđè îţš .ṽþẋ. Àñýţĥîñĝ ţĥè šîđèçàř ĥèŀđ - à þàţçĥ, àñ èđîţ - ĝöèš ŵîţĥ îţ.",
   "console.workbench.table_gone": "Ţĥàţ ţàƀŀè îš ĝöñè ƒřöɱ ţĥè ŀîƀřàřý",
+  "console.workbench.table_rating": "Ţàƀŀè řàţîñĝ",
   "console.workbench.table_settings": "Šèţţîñĝš",
   "console.workbench.table_spreadsheet_no_longer": "À ţàƀŀè ţĥè šþřèàđšĥèèţ ñö ŀöñĝèř ŀîšţš",
   "console.workbench.tables": "Ţàƀŀèš",
@@ -2754,7 +2756,6 @@
     "one": "Çĥàñĝèš ĥèřè àþþŀý ţö ţĥè 1 ţàƀŀè ţĥàţ ûšèš ţĥîš ƒîŀè",
     "other": "Çĥàñĝèš ĥèřè àþþŀý ţö ţĥè {count} ţàƀŀèš ţĥàţ ûšè ţĥîš ƒîŀè"
   },
-  "console.workbench.your_rating": "Ýöûř řàţîñĝ",
   "console.workbench.yours": "Ýöûřš",
   "date.am": "ÀḾ",
   "date.clock_12": "{hour}:{minute} {period}",

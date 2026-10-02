@@ -26,6 +26,7 @@ from common.games import (
 )
 from common.games.game import Game
 from common.games.game_metadata import (
+    game_rating,
     holds_base,
     table_play_record,
     table_rating,
@@ -511,6 +512,7 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
                 "source": table.get("source"),
                 "update_available": table.get("update_available"),
                 "rating": int(table.get("rating") or 0),
+                "game_rating": game_rating(entry),
                 "features": table.get("features") or {},
                 "assets": table.get("assets") or {},
                 "art_kind": shown.kind if shown else None,

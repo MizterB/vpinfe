@@ -46,11 +46,13 @@ if (!window.__hubStars) {{
 """
 
 
-def renderer(subject: str) -> str:
+def renderer(subject: str, *, on_table: bool = False) -> str:
     """The grid's cell, as JavaScript. Only a rated row carries the clear, or an unrated
-    library reads as a column of dismissals."""
-    game = "row.id" if subject == "game" else "(row.game_id || '')"
-    table = "''" if subject == "game" else "row.id"
+    library reads as a column of dismissals.
+
+    `on_table` draws the game's rating on a table's row."""
+    game = "(row.game_id || '')" if on_table or subject == "table" else "row.id"
+    table = "row.id" if subject == "table" else "''"
     return (
         "params => {"
         " const row = params.data || {}; const held = Number(params.value) || 0;"
@@ -86,12 +88,14 @@ def draw(value: int, on_pick: Callable[[int], Any]) -> Callable[[], None]:
 
 
 def rating_handler(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
-                   grid_of: Callable[[], Any],
-                   client_factory: Callable[[], Any]) -> Callable[[Any], Any]:
-    """One handler for both grids: write it, then repaint only the row that changed - a
+                   grid_of: Callable[[], Any], library: Any,
+                   game_field: str = "rating") -> Callable[[Any], Any]:
+    """One handler for both grids: write it, then repaint only the rows that changed - a
     whole-grid refresh costs the scroll position and the selection for one number.
 
-    `grid_of` rather than the grid, because a caller wires this before the grid exists.
+    Written through `library`, which holds the rows the other grid is drawn from next.
+    A game's rating repaints every row of that game, under `game_field`. `grid_of`
+    rather than the grid, because a caller wires this before the grid exists.
     """
     @on_page
     async def rate(event: Any) -> None:
@@ -101,8 +105,7 @@ def rating_handler(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
         value = int(args.get("value") or 0)
         if not game_id:
             return
-        client = client_factory()
-        call = client.rate_table if table_id else client.rate
+        call = library.set_table_rating if table_id else library.set_game_rating
         wanted = (game_id, table_id, value) if table_id else (game_id, value)
         try:
             await run.io_bound(call, *wanted)
@@ -110,9 +113,13 @@ def rating_handler(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
             ui.notify(t("console.stars.could_not_save_rating"), caption=why(exc),
                       type="negative")
             return
-        row = rows_by_id.get(table_id or game_id)
-        if row is not None:
-            grid.transact(grid_of(), held, {"update": [{**row, "rating": value}]},
-                          rows_by_id)
+        if table_id:
+            row = rows_by_id.get(table_id)
+            changed = [{**row, "rating": value}] if row is not None else []
+        else:
+            changed = [{**row, game_field: value} for row in held
+                       if (row.get("game_id") or row["id"]) == game_id]
+        if changed:
+            grid.transact(grid_of(), held, {"update": changed}, rows_by_id)
 
     return rate
