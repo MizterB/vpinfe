@@ -25,6 +25,9 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
     ("settings.py", "build_device_page.rerender"):
         "Schedules a rebuild, and the rebuild draws through the section build that "
         "holds its own region.",
+    ("settings.py", "_draw_system_page.rebuild"):
+        "Schedules a rebuild once a part's gone screen has been replaced, and the rebuild "
+        "draws through the section build that holds its own region.",
     ("about.py", "_show_to_copy"):
         "Selects the text in a dialog once the dialog has focused itself. Draws nothing.",
     ("input_watch.py", "strip"):

@@ -14,7 +14,7 @@ this device can be asked" are different facts and one of them is a bug.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn
 
@@ -63,6 +63,12 @@ class LocalDevice:
         except Exception:
             logger.debug("Could not enumerate this machine's screens", exc_info=True)
             return []
+
+    def show_numbers(self, screens: Sequence[Any], arrowed: int | None = None) -> None:
+        """Put each screen's number and name on it for a few seconds. Blocking."""
+        from frontend import screen_numbers
+
+        screen_numbers.show(screens, arrowed)
 
     def browser_path(self) -> str | None:
         """Which browser this device would open its windows with, or None."""

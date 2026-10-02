@@ -113,6 +113,15 @@ REVERT = "replay"
 PIN = "push_pin"
 CONTAIN = "south_west"
 
+# Saying which way a screen's top points, and what to do with a screen on a picture.
+FACES_UP = "arrow_upward"
+FACES_LEFT = "arrow_back"
+FACES_RIGHT = "arrow_forward"
+FACES_DOWN = "arrow_downward"
+SHOW_NUMBERS = "filter_1"
+UNPLACE = "close"
+DRAG = "drag_indicator"
+
 # Moving through a list or opening one row of it.
 MORE = "more_vert"
 DRILL = "chevron_right"

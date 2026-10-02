@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from common.host import display_service
@@ -16,6 +17,33 @@ _POSITIONED = re.compile(r"(?P<name>.+?)\s*\[\s*(?P<x>-?\d+),\s*(?P<y>-?\d+)\s*\
 def connected() -> list[Any]:
     """The screens the frontend would open its windows on now, in its order. Blocking."""
     return list(display_service.get_display_monitors(refresh=True))
+
+
+@dataclass(frozen=True)
+class Screen:
+    """A screen as a person counts and names it. The first is 1; a window stores it as
+    `number - 1`, the index the frontend opens its windows by."""
+    number: int
+    name: str
+    width: int
+    height: int
+    x: int
+    y: int
+
+    @property
+    def size(self) -> str:
+        return t("console.screens.size", width=self.width, height=self.height)
+
+    @property
+    def said(self) -> str:
+        """Its model name, else its size: the next thing a person knows it by."""
+        return self.name or self.size
+
+
+def numbered(monitors: Sequence[Any], names: Sequence[str]) -> list[Screen]:
+    return [Screen(at + 1, str(names[at]) if at < len(names) else "",
+                   int(monitor.width), int(monitor.height), int(monitor.x), int(monitor.y))
+            for at, monitor in enumerate(monitors)]
 
 
 def described(screen: Any) -> str:
@@ -39,7 +67,8 @@ def choices(screens: Sequence[Any], value: str, *, blank: bool) -> dict[str, str
     offered = {"": t("word.none")} if blank or not value else {}
     offered.update({str(number): described(screen) for number, screen in enumerate(screens)})
     if value not in offered:
-        offered[value] = t("console.screens.numbered", number=value)
+        offered[value] = t("console.screens.numbered",
+                           number=int(value) + 1 if value.isdigit() else value)
     return offered
 
 

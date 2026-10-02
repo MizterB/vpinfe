@@ -2907,6 +2907,77 @@ a.console-tag:hover { background: var(--wash-hover); }
   border: 1px solid var(--line-soft); border-radius: 6px; padding: 6px 8px;
 }
 
+/* --- the screens picture: the cabinet's parts, and this computer's screens to drag onto them --- */
+.console-screens-head { display: flex; align-items: center; gap: 12px; margin: 2px 0 12px; }
+.console-screens-head > .console-help { flex: 1; max-width: none; }
+.console-screens { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; }
+.console-screens-side { flex-wrap: nowrap; align-items: stretch; min-width: 0; }
+.console-screens-tray { display: flex; flex-direction: column; gap: 8px; }
+.console-screens-arrow-help { margin-top: 6px; line-height: 1.5; }
+.console-cab {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 6px;
+  border-radius: 8px; background: var(--surface-work); border: 1px solid var(--line-soft);
+}
+.console-part { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.console-part-name { font-size: var(--fs-caption); color: var(--ink-3); letter-spacing: .04em; }
+.console-part-slot {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; border: 1.5px dashed var(--line); border-radius: 5px;
+  color: var(--ink-3); cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.console-part-slot:hover { border-color: var(--ink-3); }
+.console-part-slot--filled {
+  border: 1.5px solid var(--accent); background: var(--accent-wash); color: var(--ink);
+  cursor: grab;
+}
+/* A part whose stored screen is not plugged in: the number is kept, and it says so. */
+.console-part-slot--missing { border: 1.5px solid var(--tier-table); color: var(--ink-2); cursor: grab; }
+.console-part-slot.console-drop-hot { background: var(--drop-lit); }
+.console-part--backglass .console-part-slot { width: 200px; height: 112px; }
+.console-part--score_view .console-part-slot { width: 150px; height: 44px; flex-direction: row; gap: 10px; }
+.console-part--playfield .console-part-slot-wrap { perspective: 520px; }
+.console-part--playfield .console-part-slot {
+  width: 210px; height: 150px; transform: rotateX(38deg); transform-origin: 50% 100%;
+  margin-top: -18px;
+}
+.console-part-slot-num { font-size: 30px; font-weight: 700; line-height: 1; }
+.console-part--score_view .console-part-slot-num { font-size: 22px; }
+.console-part-slot-size { font-size: var(--fs-caption); color: var(--ink-2); max-width: 90%; }
+.console-part-slot-none { font-size: var(--fs-caption); }
+.console-part-slot-clear {
+  position: absolute; top: 3px; right: 3px; padding: 2px; border-radius: 4px;
+  font-size: 16px; color: var(--ink-3); cursor: pointer;
+}
+.console-part-slot-clear:hover { color: var(--ink); background: var(--line-soft); }
+/* The playfield's own page, turned to face the player: which way is up on the cabinet. */
+.console-pf-dir {
+  position: absolute; width: 26px; height: 26px; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--surface-work); color: var(--ink-2);
+  font-size: 18px; cursor: pointer;
+}
+.console-pf-dir:hover { border-color: var(--ink-3); color: var(--ink); }
+.console-pf-dir--chosen { border-color: var(--accent); background: var(--accent); color: var(--surface-work); }
+.console-pf-dir--up { top: 5px; left: 50%; transform: translateX(-50%); }
+.console-pf-dir--down { bottom: 5px; left: 50%; transform: translateX(-50%); }
+.console-pf-dir--left { left: 5px; top: 50%; transform: translateY(-50%); }
+.console-pf-dir--right { right: 5px; top: 50%; transform: translateY(-50%); }
+.console-screen-card { padding: 8px 12px; gap: 12px; display: flex; align-items: center; cursor: grab; }
+.console-screen-card:active { cursor: grabbing; }
+.console-screen-card-name { color: var(--ink); font-weight: 600; font-size: var(--fs-body); }
+.console-screen-use { margin-left: auto; white-space: nowrap; }
+.console-screen-used { color: var(--accent); }
+.console-screen-grip { color: var(--ink-3); }
+.console-screen-dragging { opacity: .45; }
+.console-screen-mini {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  border: 1.5px solid var(--ink-2); border-radius: 3px; color: var(--ink);
+  font-weight: 700; font-size: 13px;
+}
+.q-menu .console-screen-mini { font-size: 10px; }
+.console-screen-mini--none { width: 28px; height: 16px; border-style: dashed; border-color: var(--ink-3); }
+.console-menu-size { margin-left: auto; color: var(--ink-3); font-size: var(--fs-caption); }
+
 /* The folder picker has no fixed-height ancestor to flex against, unlike the sources
    tabs above, so its list takes an explicit cap instead. */
 .console-folder-list { max-height: 46vh; overflow-y: auto; }

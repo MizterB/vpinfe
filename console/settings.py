@@ -31,7 +31,7 @@ from common import (
 )
 from common.failures import why
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
-from common.host import frontend_browser, key_reader, key_simulator, tools
+from common.host import display_service, frontend_browser, key_reader, key_simulator, tools
 from common.i18n import size, t
 from common.labels import humanize
 from common.media_specs import media_label_map
@@ -40,6 +40,7 @@ from console import (
     busy,
     confirm,
     deeplink,
+    displays,
     folder_picker,
     input_watch,
     offload,
@@ -75,19 +76,24 @@ CHECKS_NOTE = t("console.settings.checks_note")
 
 
 @on_page
-async def _write(library: Library, section: str, key: str, value: Any) -> bool:
-    """One setting, written when it is set.
+async def _write_many(library: Library, changes: dict[str, dict[str, Any]]) -> bool:
+    """Settings, written when they are set. One request, so a change that is several
+    settings is kept whole or not at all.
 
     No save bar: a control that changes a value writes it, which is what every other
     control in the Console does. The reason a write failed is the API's own message, never
     the status line - `raise_for_status` throws the body away.
     """
     try:
-        await run.io_bound(library.put_config, {section: {key: value}})
+        await run.io_bound(library.put_config, changes)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
         ui.notify(t("console.settings.could_not_save"), caption=why(exc), type="negative")
         return False
     return True
+
+
+async def _write(library: Library, section: str, key: str, value: Any) -> bool:
+    return await _write_many(library, {section: {key: value}})
 
 
 # Tools a setting can ask for by name, where a control cannot do the job. Routed the way
@@ -1252,13 +1258,18 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             checks: dict[tuple[str, str], dict] | None = None,
                             suggestions: dict[str, Any] | None = None,
                             blocks: list[tuple[str, list]] | None = None,
-                            browse: Callable[..., dict] | None = None) -> None:
+                            browse: Callable[..., dict] | None = None,
+                            drawn_elsewhere: bool = False) -> None:
     """One page of a device's settings, drawn exactly as this install's are.
 
     Several config sections can make one page - a machine's screens are four of them -
     with a heading each where there is more than one. How the config file is divided is
     not how somebody looks for a setting, which is why the pages are declared rather
     than taken from the schema's own shape.
+
+    `drawn_elsewhere` leaves out the settings the screens picture draws. Only a page that
+    draws the picture asks for it: without one, those settings are the only way to set
+    them.
 
     `checks` is what to draw beside each path field, and only the install being drawn can
     supply it. The machine holding a path answers for it, so asking this one about
@@ -1273,6 +1284,8 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
 
     drawn = [block for block in schema
              if str(block.get("name")) in sections and block.get("options")]
+    if drawn_elsewhere:
+        drawn = displays.without_drawn(drawn)
     if not drawn and not blocks:
         panel.facts(ui, [panel.intro(t("console.settings.device_declares_nothing_page"))])
         return
@@ -1412,11 +1425,20 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         blocks.append((above, [*head, *rows]))
     findings = [drawn for name in sections if name in FINDINGS
                 if (drawn := FINDINGS[name](offered, library, redraw)) is not None]
+    if key == displays.KEY:
+        def rebuild() -> None:
+            ui.timer(0.01, redraw, once=True)
+
+        blocks.append((_section_label("windows.backglass"), displays.rows(
+            values, schema, offered.get(config_schema.SUGGEST_SCREENS, []),
+            await offload.io(display_service.get_display_names),
+            lambda changes: _write_many(library, changes), rebuild)))
     with body:
         page_head(key, findings)
         await build_device_page(library, {"library": library, "rebuild": redraw},
                                 schema, values, sections, checks=marks,
-                                suggestions=offered, blocks=blocks, browse=library.folders)
+                                suggestions=offered, blocks=blocks, browse=library.folders,
+                                drawn_elsewhere=key == displays.KEY)
 
 
 def _with_windows(sections: tuple[str, ...], schema: list[dict]) -> tuple[str, ...]:

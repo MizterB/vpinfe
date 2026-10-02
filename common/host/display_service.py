@@ -11,6 +11,8 @@ import sys
 import threading
 from typing import Any
 
+from common.host import screen_names
+
 logger = logging.getLogger("vpinfe.common.host.display_service")
 
 
@@ -22,11 +24,13 @@ logger = logging.getLogger("vpinfe.common.host.display_service")
 # after the first successful query no further X connections are opened.
 _monitors_lock = threading.Lock()
 _monitors_cache = None
+_names_cache: list[str] | None = None
 
 
 # Two shapes with the same four fields: screeninfo's Monitor everywhere, and the
 # frontend's own MonitorInfo on macOS, where screeninfo's coordinates are not the ones
-# Chromium wants. Every reader here takes x, y, width and height and nothing else.
+# Chromium wants. Every reader here takes x, y, width and height and nothing else; the
+# model name of each, which neither carries, comes from `get_display_names`.
 def _query_monitors() -> list[Any]:
     if sys.platform == "darwin":
         from frontend.chromium_manager import get_mac_screens
@@ -48,7 +52,7 @@ def get_display_monitors(refresh: bool = False) -> list[Any]:
     reporting healthy. No monitors is a thing callers already handle; not answering is
     not.
     """
-    global _monitors_cache
+    global _monitors_cache, _names_cache
     with _monitors_lock:
         if refresh or _monitors_cache is None:
             try:
@@ -57,7 +61,18 @@ def get_display_monitors(refresh: bool = False) -> list[Any]:
                 logger.warning("Could not enumerate displays; continuing with none",
                                exc_info=True)
                 _monitors_cache = []
+            _names_cache = None
         return _monitors_cache
+
+
+def get_display_names(refresh: bool = False) -> list[str]:
+    """One model name per monitor, in `get_display_monitors`' order, "" where unknown."""
+    global _names_cache
+    monitors = get_display_monitors(refresh)
+    with _monitors_lock:
+        if _names_cache is None or len(_names_cache) != len(monitors):
+            _names_cache = screen_names.model_names(monitors)
+        return list(_names_cache)
 
 
 def monitors_as_dicts() -> list[dict[str, Any]]:

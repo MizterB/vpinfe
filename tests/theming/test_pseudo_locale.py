@@ -76,14 +76,17 @@ ASCII_WORD = re.compile(r"\b[A-Za-z]{4,}\b")
 def _machine_words(*paths: Path) -> set[str]:
     """Words on screen only because of what this machine is called and where it runs.
 
-    Devices prints the hostname, Metrics the watched paths and Browser where the browser
-    was found, so all three carry words no catalog owns. Derived rather than listed,
-    because a list is one machine's.
+    Devices prints the hostname, Metrics the watched paths, Browser where the browser
+    was found and Displays each screen's model name, so all four carry words no catalog
+    owns. Derived rather than listed, because a list is one machine's.
     """
     import socket
     import tempfile
 
+    from common.host import display_service
+
     sources = [socket.gethostname(), tempfile.gettempdir(), str(Path.home()),
+               *display_service.get_display_names(refresh=True),
                *(str(p) for p in paths)]
     return {w.lower() for s in sources for w in re.findall(r"[A-Za-z]{4,}", s)}
 

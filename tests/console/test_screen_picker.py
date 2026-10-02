@@ -96,7 +96,7 @@ class PickedFromTheScreensTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(select.call_args.args[1], "2")
         self.assertEqual(select.call_args.args[0]["2"],
-                         t("console.screens.numbered", number="2"))
+                         t("console.screens.numbered", number="3"))
         value_state.assert_called_with("missing", t("console.screens.not_connected"))
 
     def test_a_connected_screen_or_none_is_not_marked(self) -> None:

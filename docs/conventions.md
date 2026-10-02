@@ -910,6 +910,22 @@ where the rows will go; let go anywhere else on the panel and they are added, at
 when the list is in Custom Order. Anywhere that is not a target refuses the drag, so the
 browser never opens the address it carries.
 
+### A screen is put on a part of the cabinet, not picked from a list
+
+Wherever a screen is chosen for a window, `console/screens_picture.py` draws the parts and
+the computer's screens, and a screen is dragged onto the part it serves. The caller hands it
+the screens, what is on each part and the acts to report to, and the control writes nothing
+itself, so the Displays page, Setup and a VPX page can each mount it over their own storage.
+
+A part takes one screen and a screen sits on one part, so putting a screen where another is
+sends that one to where this one came from. Clicking a part opens a menu that does the same,
+and an empty part reads **No screen**.
+
+A screen is called by its model name, and by its size when it has none. It is numbered from
+1, as a person counts, and a window stores that number less one. The playfield's arrows say
+which way its top points and are drawn only for Cabinet Mode; a desktop page draws the
+picture without them.
+
 ### A value is written when it is set
 
 No save bar, but for one draft, below. A control that changes a value writes it, and

@@ -155,6 +155,8 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
             new=AsyncMock(side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
         self.enterContext(patch.object(display_service, "get_display_monitors",
                                        return_value=[WIDE, SMALL]))
+        self.enterContext(patch.object(display_service, "get_display_names",
+                                       return_value=["", ""]))
         self.enterContext(patch.object(settings, "ui"))
         self.enterContext(patch.object(settings, "page_head"))
         self.enterContext(patch.object(
@@ -177,18 +179,46 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
         at = entries.index((panel.HEADING, heading))
         return entries[at + 1]
 
+    def _label_of(self, section: str, key: str) -> str:
+        [one] = [option for block in self.served.config_schema() if block["name"] == section
+                 for option in block["options"] if option["key"] == key]
+        return str(one["label"])
+
     async def test_it_is_headed_by_its_name_after_score_view(self) -> None:
         headings = self._headings(await self._drawn())
 
         self.assertEqual(headings[headings.index(t("console.settings.section_score_view")) + 1],
                          "Topper")
 
+    async def test_the_windows_screens_are_one_picture_above_their_other_settings(self) -> None:
+        entries = await self._drawn()
+
+        self.assertEqual(self._headings(entries),
+                         [t("console.settings.section_screens"),
+                          t("console.settings.section_backglass"),
+                          t("console.settings.section_score_view"), "Topper",
+                          t("console.settings.section_real_dmd")])
+        self.assertEqual(entries[1][0], panel.FULL)
+
+    async def test_what_the_picture_draws_is_not_a_field_beside_it(self) -> None:
+        entries = await self._drawn()
+        before_topper = entries[:entries.index((panel.HEADING, "Topper"))]
+        fields = [label for label, _ in before_topper if isinstance(label, str)]
+
+        self.assertEqual(fields, [self._label_of("windows.backglass", "override"),
+                                  self._label_of("windows.score_view", "override")])
+
+    async def test_a_window_override_and_the_real_dmd_stay_as_fields(self) -> None:
+        labels = [label for label, _ in await self._drawn() if isinstance(label, str)]
+
+        self.assertEqual(labels.count(self._label_of("windows.backglass", "override")), 2)
+        self.assertIn(self._label_of("real_dmd", "enabled"), labels)
+
     async def test_its_row_picks_from_this_machine_s_screens(self) -> None:
         entries = await self._drawn()
         label, picker = self._under(entries, "Topper")
 
-        self.assertEqual(label, self._under(entries,
-                                            t("console.settings.section_score_view"))[0])
+        self.assertEqual(label, self._label_of("windows.score_view", "screen_id"))
         self.assertEqual(picker.value, "")
         self.assertEqual(set(picker.offered), {"", "0", "1"})
 
