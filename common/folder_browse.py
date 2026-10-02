@@ -101,13 +101,13 @@ def _wanted_file(entry: os.DirEntry, kind: str, suffixes: tuple[str, ...]) -> bo
 
 
 def _entries(path: Path, private: tuple[Path, ...], kind: str,
-             suffixes: tuple[str, ...]) -> tuple[list[dict], list[dict]]:
+             suffixes: tuple[str, ...], hidden: bool) -> tuple[list[dict], list[dict]]:
     folders: list[dict] = []
     files: list[dict] = []
     try:
         with os.scandir(path) as scanned:
             for entry in scanned:
-                if entry.name.startswith("."):
+                if entry.name.startswith(".") and not hidden:
                     continue
                 try:
                     is_dir = entry.is_dir()
@@ -194,13 +194,15 @@ def _start(kind: str) -> Path:
     return Path.home()
 
 
-def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = ()) -> dict:
+def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
+            hidden: bool = False) -> dict:
     """One folder's contents, and where browsing can start over.
 
     `kind` says what `files` holds: nothing for `dir`, whatever this account can run for
     `exe` - an `.app` bundle included, on macOS, as one of its own entries rather than
-    something to walk into - and whatever matches `suffixes` for `file`, or every
-    non-hidden file where `suffixes` is empty.
+    something to walk into - and whatever matches `suffixes` for `file`, or every file
+    where `suffixes` is empty. A dot-named entry is listed only with `hidden`; a private
+    folder never is.
 
     A `path` naming a file, or one inside a macOS `.app` bundle, lists the folder that
     holds it instead of failing to list a file as though it were one.
@@ -219,6 +221,6 @@ def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = ()) -
     if _is_private(here, private):
         raise service_errors.RefusedError(t("error.folders.private"))
     parent = here.parent
-    folders, files = _entries(here, private, kind, suffixes)
+    folders, files = _entries(here, private, kind, suffixes, hidden)
     return {"path": str(here), "parent": "" if parent == here else str(parent),
             "folders": folders, "files": files, "roots": _roots(kind)}

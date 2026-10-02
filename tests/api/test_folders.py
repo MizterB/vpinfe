@@ -29,7 +29,8 @@ class FolderApiTests(TempTree):
         super().setUp()
         self.client = _client()
 
-    def _get(self, path: str = "", *, kind: str = "", suffix: list[str] | None = None):
+    def _get(self, path: str = "", *, kind: str = "", suffix: list[str] | None = None,
+             hidden: bool = False):
         params: dict[str, str | list[str]] = {}
         if path:
             params["path"] = path
@@ -37,6 +38,8 @@ class FolderApiTests(TempTree):
             params["kind"] = kind
         if suffix:
             params["suffix"] = suffix
+        if hidden:
+            params["hidden"] = "true"
         return self.client.get("/folders", params=params)
 
     def test_only_subfolders_are_listed_sorted_by_name(self) -> None:
@@ -137,6 +140,25 @@ class FolderApiTests(TempTree):
         body = self._get(str(self.root), kind="file").json()
 
         self.assertEqual([f["name"] for f in body["files"]], ["visible.txt"])
+
+    def test_hidden_lists_dot_named_folders_and_files(self) -> None:
+        (self.root / ".local").mkdir()
+        (self.root / ".hidden").write_text("")
+        (self.root / "visible.txt").write_text("")
+
+        body = self._get(str(self.root), kind="file", hidden=True).json()
+
+        self.assertEqual([f["name"] for f in body["folders"]], [".local"])
+        self.assertEqual([f["name"] for f in body["files"]], [".hidden", "visible.txt"])
+
+    def test_hidden_still_omits_a_private_folder(self) -> None:
+        (self.root / ".ssh").mkdir()
+        (self.root / ".local").mkdir()
+
+        with patch("common.folder_browse.Path.home", return_value=self.root):
+            body = self._get(str(self.root), hidden=True).json()
+
+        self.assertEqual([f["name"] for f in body["folders"]], [".local"])
 
     def test_a_private_folders_files_are_never_listed(self) -> None:
         private = self.root / ".ssh"

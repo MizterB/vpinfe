@@ -28,13 +28,15 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                     kind: str = "dir", suffixes: tuple[str, ...] = ()) -> str | None:
     """The chosen path, or None where the dialog was cancelled.
 
-    A `start` that cannot be listed opens at the kind's own start instead of failing to
-    open at all - the field it came from may hold a path from a mount that has since
-    gone away.
+    A `start` that cannot be listed opens at the kind's own start, saying why, instead
+    of failing to open at all - the field it came from may hold a path from a mount that
+    has since gone away, or one inside a private folder.
     """
+    refused: Exception | None = None
     try:
         here = await offload.io(list_entries, start, kind, suffixes)
-    except Exception:  # noqa: BLE001 - a stale saved path is not a reason to refuse
+    except Exception as exc:  # noqa: BLE001 - a stale saved path is not a reason to refuse
+        refused = exc
         here = await offload.io(list_entries, "", kind, suffixes)
 
     picked = start if kind != "dir" and any(
@@ -43,12 +45,23 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
     choose: dict[str, Any] = {}
 
     with frame.opened(t(_TITLE[kind]), wide=True) as box:
+        if refused is not None:
+            with ui.element("div").classes("console-attention w-full"):
+                ui.icon("error_outline").classes("console-attention-icon")
+                with ui.column().classes("gap-0 min-w-0"):
+                    ui.label(why(refused)).classes("console-attention-line")
+                    ui.label(start).classes("console-help truncate")
         roots_row = ui.row().classes("items-center gap-1 flex-wrap px-3")
         path_row = ui.row().classes("items-center gap-2 w-full no-wrap px-3")
-        term = ui.input(placeholder=t("console.folder_picker.filter_folders" if kind == "dir"
-                                      else "console.folder_picker.filter")) \
-            .props("dense outlined clearable clear-icon=close").classes("w-full px-3")
+        with ui.row().classes("items-center gap-x-4 w-full no-wrap px-3"):
+            term = ui.input(placeholder=t("console.folder_picker.filter_folders"
+                                          if kind == "dir"
+                                          else "console.folder_picker.filter")) \
+                .props("dense outlined clearable clear-icon=close").classes("grow")
+            shown = ui.checkbox(t("console.folder_picker.show_hidden"), value=False) \
+                .props("dense").classes("whitespace-nowrap")
         listing_col = ui.column().classes("w-full gap-1 console-folder-list px-3")
+        ui.label(t("console.folder_picker.private_never_shown")).classes("console-help px-3")
 
         def draw_path() -> None:
             path_row.clear()
@@ -97,20 +110,22 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                     row.on("dblclick", lambda p=one["path"]: box.submit(p))
 
         @on_page
-        async def _go(path: str) -> None:
+        async def _go(path: str, *, keep_filter: bool = False) -> None:
             try:
-                fresh = await offload.io(list_entries, path, kind, suffixes)
+                fresh = await offload.io(list_entries, path, kind, suffixes, shown.value)
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.mediasource.could_not_read_folder"), caption=why(exc),
                           type="negative")
                 return
             state["here"] = fresh
-            state["selected"] = ""
-            term.value = ""
+            if not any(f["path"] == state["selected"] for f in fresh.get("files") or []):
+                state["selected"] = ""
+            if not keep_filter:
+                term.value = ""
             draw_path()
             draw_listing()
             if "button" in choose:
-                choose["button"].disable()
+                choose["button"].set_enabled(bool(state["selected"]))
 
         def _opens(path: str) -> Callable[[], Any]:
             return lambda: _go(path)
@@ -122,6 +137,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
         draw_path()
         draw_listing()
         term.on_value_change(draw_listing)
+        shown.on_value_change(lambda: _go(state["here"]["path"], keep_filter=True))
 
         with frame.footer():
             frame.cancel(lambda: box.submit(None))

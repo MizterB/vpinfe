@@ -312,8 +312,8 @@ class Library:
         return self._client.browse(path, asset_kind, archives)
 
     def folders(self, path: str = "", kind: str = "dir",
-               suffixes: Iterable[str] = ()) -> dict:
-        return self._client.folders(path, kind, suffixes)
+               suffixes: Iterable[str] = (), hidden: bool = False) -> dict:
+        return self._client.folders(path, kind, suffixes, hidden)
 
     def browsed_file_url(self, path: str) -> str:
         return self._client.browsed_file_url(path)

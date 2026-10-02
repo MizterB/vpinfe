@@ -19,8 +19,9 @@ router = APIRouter(prefix="/folders", tags=["folders"])
 @router.get("", summary="This device's folders and files under a path",
             dependencies=[requires(scopes.CONFIG_WRITE)])
 def list_folders(request: Request, path: str = Query(""), kind: str = Query("dir"),
-                 suffix: list[str] = Query(default=[])) -> models.FolderListing:
+                 suffix: list[str] = Query(default=[]),
+                 hidden: bool = Query(False)) -> models.FolderListing:
     if not caller_is_local(request):
         raise ForbiddenError(t("error.folders.this_device_only"))
     return models.FolderListing.model_validate(
-        folder_browse.listing(path, kind, tuple(suffix)))
+        folder_browse.listing(path, kind, tuple(suffix), hidden))
