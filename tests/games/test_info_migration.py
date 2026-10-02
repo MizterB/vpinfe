@@ -13,6 +13,8 @@ from pathlib import Path
 
 from common.games.info_file import MetaConfig
 from common.games.info_migration import (
+    MATCHED_BY_USER,
+    VPS_MATCHED_BY_KEY,
     backup_path,
     is_versioned,
     migrate,
@@ -103,6 +105,21 @@ class WhatSurvivesTests(unittest.TestCase):
 
     def test_a_key_outside_the_spec_survives(self):
         self.assertEqual(self.after["User"]["Seen"], {"by": "another tool"})
+
+    def test_a_2x_match_is_the_persons(self):
+        """Or it reads as a guess from the folder name, and Match again may replace it."""
+        self.assertEqual(self.after["vpinfe"][VPS_MATCHED_BY_KEY], MATCHED_BY_USER)
+
+    def test_a_2x_file_with_no_match_records_none(self):
+        unmatched = {**LEGACY, "Info": {**LEGACY["Info"], "VPSId": ""}}
+
+        self.assertNotIn(VPS_MATCHED_BY_KEY, migrate(unmatched)["vpinfe"])
+
+    def test_a_stamped_file_2x_wrote_again_keeps_what_3_0_recorded(self):
+        guessed = {"Info": {"VPSId": "vps-1"}, "vpinfe": {"schema": 2},
+                   "VPXFile": {"filename": "X.vpx"}}
+
+        self.assertNotIn(VPS_MATCHED_BY_KEY, migrate(guessed)["vpinfe"])
 
     def test_the_last_reading_moves_under_the_rom_it_names(self):
         """A game held one reading; a ROM is what has a high score table. When 2.x read

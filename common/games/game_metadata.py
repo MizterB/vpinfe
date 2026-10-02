@@ -17,6 +17,7 @@ from common.games import high_scores, unwritten
 from common.games.game import Game, GameRecord
 from common.games.ids import new_id
 from common.games.info_file import GAME_ID_KEY, VPINFE_SECTION, MetaConfig
+from common.games.info_migration import MATCHED_BY_USER, MATCHED_ON_IMPORT, VPS_MATCHED_BY_KEY
 from common.games.tables import (
     DETECT_KEYS,
     TABLE_FILENAME_KEY,
@@ -643,13 +644,6 @@ def effective_vps_id(meta: dict[str, Any]) -> str:
     if alt_vpsid:
         return alt_vpsid
     return str(section(meta, "Info").get("VPSId", "") or "").strip()
-
-
-# How the match in `Info` was made, kept in the `vpinfe` section. Absent is VPinFE's
-# guess from the folder name.
-VPS_MATCHED_BY_KEY = "vps_matched_by"
-MATCHED_ON_IMPORT = "import"
-MATCHED_BY_USER = "user"
 
 
 def vps_matched_by(meta: dict[str, Any]) -> str:

@@ -38,6 +38,12 @@ GUIDE_ORIGIN = "origin"
 FROM_CATALOG = "vps"
 BACKUP_MARKER = ".vpinfe-"
 
+# How the match in `Info` was made, kept in the `vpinfe` section. Absent is VPinFE's
+# guess from the folder name.
+VPS_MATCHED_BY_KEY = "vps_matched_by"
+MATCHED_ON_IMPORT = "import"
+MATCHED_BY_USER = "user"
+
 # What 2.x called each VPXFile field, against what it is called now. Matched
 # case-insensitively: real files carry both `detectnfozzy` and `detectNfozzy`, and a
 # case-sensitive lookup silently drops the flag.
@@ -164,6 +170,8 @@ def migrate(data: dict) -> dict:
     if isinstance(already, dict):
         vpinfe.update(already)
     vpinfe[SCHEMA_KEY] = INFO_SCHEMA
+    if not is_versioned(data) and str(info.get("VPSId", "") or "").strip():
+        vpinfe.setdefault(VPS_MATCHED_BY_KEY, MATCHED_BY_USER)
 
     # The DOF override is configuration, and User is the interop contract for play
     # history. It moves, and the old key goes with it.
