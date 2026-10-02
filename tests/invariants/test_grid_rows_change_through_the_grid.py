@@ -21,7 +21,7 @@ CALL = "applyTransaction"
 
 # Each takes the held rows at this position.
 HELD_AT = {("grid", "transact"): 1, ("grid", "replace_rows"): 1,
-           ("stars", "rating_handler"): 0}
+           ("stars", "rating_handler"): 0, ("stars", "game_rater"): 0}
 
 
 def _sends(path: pathlib.Path) -> list[str]:

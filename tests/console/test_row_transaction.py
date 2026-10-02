@@ -11,7 +11,9 @@ from __future__ import annotations
 import asyncio
 import unittest
 from types import SimpleNamespace
+from unittest import mock
 
+from common.i18n import t
 from console import grid, stars
 from console.games import add_index, row_transaction
 
@@ -185,10 +187,13 @@ class MovedTests(unittest.TestCase):
 
 
 class _Library:
-    def __init__(self) -> None:
+    def __init__(self, refuses: str = "") -> None:
         self.written: list[tuple] = []
+        self.refuses = refuses
 
     def set_game_rating(self, game_id: str, value: int) -> None:
+        if game_id == self.refuses:
+            raise RuntimeError("disk full")
         self.written.append((game_id, value))
 
     def set_table_rating(self, game_id: str, table_id: str, value: int) -> None:
@@ -223,6 +228,35 @@ class RatingTests(unittest.TestCase):
         self.assertEqual(library.written, [("g1", 4)])
         self.assertEqual([(row["rating"], row["game_rating"]) for row in held],
                          [(2, 4), (0, 4), (0, 1)])
+
+    def _rate_games(self, held: list[dict], game_ids: list[str], value: int,
+                    library: _Library) -> tuple[_Grid, bool]:
+        screen = _Grid()
+        rater = stars.game_rater(held, {row["id"]: row for row in held}, lambda: screen,
+                                 library)
+        return screen, asyncio.run(rater(game_ids, value))
+
+    def test_several_games_rated_at_once_repaint_in_one_transaction(self) -> None:
+        held = [{"id": "g1", "rating": 0}, {"id": "g2", "rating": 5}, {"id": "g3", "rating": 2}]
+
+        screen, every = self._rate_games(held, ["g1", "g3"], 4, _Library())
+
+        self.assertTrue(every)
+        self.assertEqual([row["rating"] for row in held], [4, 5, 4])
+        self.assertEqual(len(screen.sent), 1)
+
+    def test_a_game_that_cannot_be_saved_stops_the_run_and_keeps_what_was_saved(self) -> None:
+        held = [{"id": "g1", "rating": 0}, {"id": "g2", "rating": 0}, {"id": "g3", "rating": 0}]
+        library = _Library(refuses="g2")
+
+        with mock.patch.object(stars.ui, "notify") as notify:
+            _screen, every = self._rate_games(held, ["g1", "g2", "g3"], 4, library)
+
+        self.assertFalse(every)
+        self.assertEqual(notify.call_args.args, (t("console.stars.could_not_save_rating"),))
+        self.assertEqual(notify.call_args.kwargs["type"], "negative")
+        self.assertEqual(library.written, [("g1", 4)])
+        self.assertEqual([row["rating"] for row in held], [4, 0, 0])
 
     def test_a_table_rated_leaves_its_siblings_and_its_game_alone(self) -> None:
         held = [{"id": "t1", "game_id": "g1", "rating": 0, "game_rating": 3},

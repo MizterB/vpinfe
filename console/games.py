@@ -7,7 +7,7 @@ import inspect
 import json
 import logging
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from functools import partial
 from pathlib import Path
@@ -399,24 +399,18 @@ def auto_match_outcome(result: dict[str, Any]) -> tuple[str, bool]:
     return t("console.vps_match.nothing_changed"), False
 
 
-async def _rate(games: list[dict[str, Any]]) -> None:
-    """Set a rating on every game passed in.
-
-    The API rates one game at a time (`PUT /games/{id}/rating`), so this loops here
-    rather than calling a bulk endpoint that does not exist.
-    """
-    from nicegui import run
+async def _rate(games: list[dict[str, Any]],
+                rate_games: Callable[[list[str], int], Awaitable[bool]]) -> None:
+    """Set a rating on every game passed in, through the writer the star click uses."""
     if not games:
         return
 
     @on_page
     async def apply(value: int) -> None:
-        client = ApiClient()
-        for game in games:
-            await run.io_bound(client.rate, game["id"], value)
-        box.close()
-        ui.notify(t("console.games.rated_game_s", count=len(games), value=value),
-                  type="positive")
+        if await rate_games([game["id"] for game in games], value):
+            box.close()
+            ui.notify(t("console.games.rated_game_s", count=len(games), value=value),
+                      type="positive")
 
     with frame.opened(t("console.games.rate_game_s", count=len(games))) as box:
         with ui.row().classes("px-3"):
@@ -578,6 +572,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             mediaview.open_viewer(art.media(game_id, kind, version=version), kind,
                                   media_label_map().get(kind, kind))
 
+    rate_games = stars.game_rater(rows, by_id, lambda: table, library)
     rate_row = stars.rating_handler(rows, by_id, lambda: table, library)
 
     grid.on_row_focus(SCOPE, focused)
@@ -690,7 +685,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         known = await collection_adds.read(library, narrowed_to())
         bulk_menu.clear()
         with bulk_menu:
-            panel.menu_entry(t("console.games.rate_selected"), lambda: _rate(chosen))
+            panel.menu_entry(t("console.games.rate_selected"), lambda: _rate(chosen, rate_games))
             private_entries(chosen)
             # One picker at a time: a person decides every one, and Skip leaves a game
             # exactly as it was.

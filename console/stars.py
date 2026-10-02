@@ -87,16 +87,45 @@ def draw(value: int, on_pick: Callable[[int], Any]) -> Callable[[], None]:
     return build
 
 
+def game_rater(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
+               grid_of: Callable[[], Any], library: Any,
+               game_field: str = "rating") -> Callable[[list[str], int], Any]:
+    """Rate games, then repaint every row of them that changed, under `game_field`.
+
+    A failed write says so and stops: the games saved before it stay repainted, and the
+    answer is whether every one was saved. Written through `library`, which holds the rows
+    the other grid is drawn from next. `grid_of` rather than the grid, because a caller
+    wires this before the grid exists.
+    """
+    @on_page
+    async def rate_games(game_ids: list[str], value: int) -> bool:
+        saved: set[str] = set()
+        try:
+            for game_id in game_ids:
+                await run.io_bound(library.set_game_rating, game_id, value)
+                saved.add(game_id)
+        except Exception as exc:
+            ui.notify(t("console.stars.could_not_save_rating"), caption=why(exc),
+                      type="negative")
+        changed = [{**row, game_field: value} for row in held
+                   if (row.get("game_id") or row["id"]) in saved]
+        if changed:
+            grid.transact(grid_of(), held, {"update": changed}, rows_by_id)
+        return len(saved) == len(game_ids)
+
+    return rate_games
+
+
 def rating_handler(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
                    grid_of: Callable[[], Any], library: Any,
                    game_field: str = "rating") -> Callable[[Any], Any]:
     """One handler for both grids: write it, then repaint only the rows that changed - a
     whole-grid refresh costs the scroll position and the selection for one number.
 
-    Written through `library`, which holds the rows the other grid is drawn from next.
-    A game's rating repaints every row of that game, under `game_field`. `grid_of`
-    rather than the grid, because a caller wires this before the grid exists.
+    A game's rating goes through `game_rater`; a table's repaints its own row.
     """
+    rate_games = game_rater(held, rows_by_id, grid_of, library, game_field)
+
     @on_page
     async def rate(event: Any) -> None:
         args = event.args if isinstance(event.args, dict) else {}
@@ -105,21 +134,18 @@ def rating_handler(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
         value = int(args.get("value") or 0)
         if not game_id:
             return
-        call = library.set_table_rating if table_id else library.set_game_rating
-        wanted = (game_id, table_id, value) if table_id else (game_id, value)
+        if not table_id:
+            await rate_games([game_id], value)
+            return
         try:
-            await run.io_bound(call, *wanted)
+            await run.io_bound(library.set_table_rating, game_id, table_id, value)
         except Exception as exc:
             ui.notify(t("console.stars.could_not_save_rating"), caption=why(exc),
                       type="negative")
             return
-        if table_id:
-            row = rows_by_id.get(table_id)
-            changed = [{**row, "rating": value}] if row is not None else []
-        else:
-            changed = [{**row, game_field: value} for row in held
-                       if (row.get("game_id") or row["id"]) == game_id]
-        if changed:
-            grid.transact(grid_of(), held, {"update": changed}, rows_by_id)
+        row = rows_by_id.get(table_id)
+        if row is not None:
+            grid.transact(grid_of(), held, {"update": [{**row, "rating": value}]},
+                          rows_by_id)
 
     return rate
