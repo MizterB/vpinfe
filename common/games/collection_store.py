@@ -73,6 +73,7 @@ COLLECTION_IMAGE_KEY = "image"
 # One-time conversions this file has been through, by name. Not the schema number:
 # whichever conversion stamped that first would tell the others they had already run.
 MIGRATIONS_KEY = "migrations"
+ORDER_DIRECTION_MIGRATION = "direction_applies_to_every_sort"
 
 # A member names a game, and optionally one of its tables:
 #
@@ -325,6 +326,8 @@ class CollectionStore:
         parser.read(self.ini_path, encoding="utf-8")
         # No stamp means the shape 2.x shipped, which is generation 1.
         self._schema = _ini_schema(parser) or 1
+        # 2.x applied the direction to every sort, so what the ini stores is what it showed.
+        self._migrations.append(ORDER_DIRECTION_MIGRATION)
         for name in parser.sections():
             if name in SCHEMA_SECTIONS:
                 continue

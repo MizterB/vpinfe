@@ -10,6 +10,7 @@ import logging
 from common.games.collection_store import (
     COLLECTIONS_SCHEMA,
     MANUAL_ORDER,
+    ORDER_DIRECTION_MIGRATION,
     CollectionStore,
 )
 
@@ -30,7 +31,6 @@ LAST_PLAYED_LIMIT = 30
 # Direction used to be a no-op for every sort but title and year, which read largest
 # first whatever was stored. Honouring `asc` literally now would reorder those lists to
 # express an intent nobody could have had, so the value they behaved as is written down.
-ORDER_DIRECTION_MIGRATION = "direction_applies_to_every_sort"
 DIRECTION_ALWAYS_APPLIED = ("title", "year", MANUAL_ORDER)
 
 

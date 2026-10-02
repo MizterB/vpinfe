@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from common.games import collection_store
 from common.games.collection_migration import (
     ORDER_DIRECTION_MIGRATION,
+    ensure_last_played,
     ensure_order_direction,
 )
 from common.games.collection_resolver import resolve
@@ -234,6 +235,24 @@ class OrderDirectionMigrationTests(TempTree):
         ensure_order_direction(self._store())
 
         self.assertTrue(self._store().has_migrated(ORDER_DIRECTION_MIGRATION))
+
+    def test_a_2x_ascending_sort_comes_through_the_upgrade(self) -> None:
+        """2.x applied the direction to every sort, so its ini is not a file this pass
+        corrects."""
+        (self.root / "collections.ini").write_text(
+            "[Oldest First]\ntype = filter\nsort_by = Newest\norder_by = Ascending\n\n"
+            "[Least Played]\ntype = filter\nsort_by = Highest StartCount\n"
+            "order_by = Ascending\n", encoding="utf-8")
+
+        store = self._store()
+        ensure_last_played(store)
+        ensure_order_direction(store)
+
+        self.assertTrue(self.path.exists())
+        self.assertEqual(
+            {name: self._store().get_order(name)["direction"]
+             for name in ("Oldest First", "Least Played")},
+            {"Oldest First": "asc", "Least Played": "asc"})
 
     def test_a_file_from_a_newer_build_is_left_alone(self) -> None:
         """Same rule the other conversions follow: this build cannot know what else a
