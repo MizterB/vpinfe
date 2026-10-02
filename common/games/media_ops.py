@@ -19,6 +19,7 @@ from common.failures import why
 from common.games import (
     asset_origin,
     game_lens,
+    game_repository,
     media_lookup,
     media_placement,
     media_service,
@@ -307,8 +308,15 @@ def displaced(game_id: str, kind: str, filename: str, table_id: str = "") -> dic
 
 def _wrote(game_dir: Path, kind: str, written: Path, game_id: str,
            table_id: str, table_stem: str | None) -> dict:
+    _reread(game_dir)
     entries = media_service.media_map(game_dir, _prefix(game_id, table_id), table_stem)
     return {"written": written.name, "media": {kind: entries[kind]}}
+
+
+def _reread(game_dir: Path) -> None:
+    """The loaded game is what themes and `/media` serve, so it reads the folder again."""
+    media_service.invalidate_media_cache()
+    game_repository.refresh_game(game_dir)
 
 
 def place_file(game_id: str, kind: str, table_id: str, source: Path,
@@ -413,11 +421,14 @@ def remove(game_id: str, kind: str, table_id: str = "") -> dict:
     game_dir = _folder(game)
     stem = stem_or_refuse(game, table_id) if table_id else game_dir.name
     try:
-        return {"removed": media_placement.remove(game_dir, kind, stem)}
+        removed = media_placement.remove(game_dir, kind, stem)
     except media_placement.UnplaceableError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     except OSError as exc:
         raise service_errors.BlockedError(why(exc)) from exc
+    if removed:
+        _reread(game_dir)
+    return {"removed": removed}
 
 
 __all__ = ["detail", "displaced", "fetch_file", "game_media", "kind_or_refuse",

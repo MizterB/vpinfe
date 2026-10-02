@@ -137,8 +137,6 @@ def _fill_games(targets: list[Target], live: tuple[str, ...],
                 proceed: Callable[[], bool]) -> dict[str, int]:
     """Fetch each target's gaps. `filled` and `failed` count files; `unmatched` counts
     games with no VPS id, which nothing can be looked up for."""
-    from common.games import game_repository, media_service
-
     counts = {"games": len(targets), "filled": 0, "unmatched": 0, "failed": 0}
     if not targets or not live:
         return counts
@@ -169,10 +167,7 @@ def _fill_games(targets: list[Target], live: tuple[str, ...],
             except Exception as exc:
                 counts["failed"] += 1
                 logger.warning("Getting art: could not get %s for %s: %s", kind, name, exc)
-        if placed:
-            counts["filled"] += placed
-            media_service.invalidate_media_cache()
-            game_repository.refresh_game(Path(str(game.full_path_game)))
+        counts["filled"] += placed
     return counts
 
 
