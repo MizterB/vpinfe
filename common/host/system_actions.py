@@ -43,9 +43,10 @@ def restart_if_requested(
         sleep_func = time.sleep
     sleep_func(1)
     if getattr(sys, "frozen", False):
-        os.execvp(sys.executable, [sys.executable])
-    script = os.path.abspath(main_script or APP_ROOT / "main.py")
-    os.execvp(sys.executable, [sys.executable, script])
+        command = [sys.executable]
+    else:
+        command = [sys.executable, os.path.abspath(main_script or APP_ROOT / "main.py")]
+    os.execvp(sys.executable, [*command, *sys.argv[1:]])
 
 
 def shutdown_system() -> None:

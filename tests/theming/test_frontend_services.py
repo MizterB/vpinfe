@@ -28,8 +28,10 @@ class FrontendServiceTests(unittest.TestCase):
             logger = types.SimpleNamespace(info=mock.Mock())
             calls = []
 
-            with mock.patch("common.host.system_actions.os.execvp",
-                            side_effect=lambda *args: calls.append(args)):
+            with (mock.patch("common.host.system_actions.os.execvp",
+                             side_effect=lambda *args: calls.append(args)),
+                  mock.patch.object(system_actions.sys, "argv",
+                                    ["main.py", "--headless", "--configdir", "/cfg"])):
                 system_actions.restart_if_requested(
                     config_dir,
                     logger,
@@ -44,8 +46,26 @@ class FrontendServiceTests(unittest.TestCase):
             self.assertEqual(
                 calls,
                 [(system_actions.sys.executable,
-                  [system_actions.sys.executable, main_script])],
+                  [system_actions.sys.executable, main_script,
+                   "--headless", "--configdir", "/cfg"])],
             )
+
+    def test_a_frozen_build_restarts_with_its_flags(self):
+        with TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir)
+            (config_dir / ".restart").touch()
+            calls = []
+
+            with (mock.patch("common.host.system_actions.os.execvp",
+                             side_effect=lambda *args: calls.append(args)),
+                  mock.patch.object(system_actions.sys, "frozen", True, create=True),
+                  mock.patch.object(system_actions.sys, "argv", ["VPinFE", "--headless"])):
+                system_actions.restart_if_requested(
+                    config_dir, types.SimpleNamespace(info=mock.Mock()),
+                    sleep_func=lambda _seconds: None)
+
+            self.assertEqual(calls, [(system_actions.sys.executable,
+                                      [system_actions.sys.executable, "--headless"])])
 
     def test_theme_config_missing_file_is_optional(self):
         parser = configparser.ConfigParser()
