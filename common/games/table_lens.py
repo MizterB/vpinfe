@@ -192,6 +192,36 @@ def art_or_refuse(art: str) -> str:
     return art
 
 
+def _table_records(described: dict, on_disk: list[str]) -> list[tuple[str, str, dict]]:
+    """(native key, filename, record) for each table, those in the folder first.
+
+    The native key is the filename for something in the folder and `app:key` for
+    something with no file, so one list covers all of them and nothing reading it has to
+    ask which kind it is holding.
+    """
+    rows: list[tuple[str, str, dict]] = [
+        (name, name, entry_for_filename(described, name)[1]) for name in on_disk]
+    seen = {name for name, _f, _e in rows}
+    for record in described.values():
+        native = tables.entry_native_key(record)
+        if not native or native in seen:
+            continue
+        rows.append((native, tables.entry_filename(record), record))
+        seen.add(native)
+    return rows
+
+
+def table_files(game_dir: Path, files: list[str]) -> list[dict]:
+    """Each table's id and filename, from a folder listing the caller already holds.
+
+    For a listing over the library that needs nothing else about a table. `table_rows`
+    reads each table's launcher settings and dependencies to fill the rest.
+    """
+    return [{"id": str(record.get(TABLE_ID_KEY, "") or ""), "filename": name}
+            for _native, name, record in _table_records(table_settings(game_dir),
+                                                        table_names(files))]
+
+
 def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
                art: str = "",
                art_settings: tuple[str, dict[str, str] | None] | None = None
@@ -219,18 +249,7 @@ def table_rows(game: Game, row: dict, *, launcher_settings: bool = False,
         media = media_service.media_contents(game_dir, (files, subdirs))
         art_settings = art_settings or media_service.media_settings()
 
-    # (native key, filename, record). The native key is the filename for something in
-    # the folder and `app:key` for something with no file, so one list covers all of
-    # them and nothing below has to ask which kind it is holding.
-    rows: list[tuple[str, str, dict]] = [
-        (name, name, entry_for_filename(described, name)[1]) for name in on_disk]
-    seen = {name for name, _f, _e in rows}
-    for record in described.values():
-        native = tables.entry_native_key(record)
-        if not native or native in seen:
-            continue
-        rows.append((native, tables.entry_filename(record), record))
-        seen.add(native)
+    rows = _table_records(described, on_disk)
     if not rows:
         return []
 

@@ -68,9 +68,17 @@ def folder_listing(game_dir: str | Path) -> tuple[list[str], list[str]]:
     subdirs: list[str] = []
     path = Path(game_dir)
     if path.is_dir():
-        for entry in path.iterdir():
-            (files if entry.is_file() else subdirs).append(entry.name)
+        with os.scandir(path) as entries:
+            for entry in entries:
+                (files if _is_file(entry) else subdirs).append(entry.name)
     return files, subdirs
+
+
+def _is_file(entry: os.DirEntry) -> bool:
+    try:
+        return entry.is_file()
+    except OSError:
+        return False
 
 
 def _stem(name: str) -> str:

@@ -145,7 +145,7 @@ def listing(limit: int = 0, offset: int = 0, game: str = "",
             logger.warning("assets: cannot read %s", game_dir)
             continue
 
-        tables = [table for table in table_lens.table_rows(entry, row) if table.get("id")]
+        tables = [table for table in table_lens.table_files(game_dir, files) if table["id"]]
         by_filename = {str(table.get("filename") or ""): table for table in tables}
         inventory = asset_resolver.inventory(game_dir.name, files, table_names(files))
         recorded = asset_origin.sources(game_dir)

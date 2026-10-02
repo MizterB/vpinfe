@@ -18,7 +18,14 @@ from pathlib import Path
 from typing import Any
 
 from common import collation
-from common.games import asset_origin, game_repository, media_service, sized_media, table_lens
+from common.games import (
+    asset_origin,
+    asset_resolver,
+    game_repository,
+    media_service,
+    sized_media,
+    table_lens,
+)
 from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
 from common.media_specs import (
@@ -150,12 +157,14 @@ def listing(limit: int = 0, offset: int = 0, game: str = "",
                "vps_id": effective_vps_id(entry.meta_config or {})}
         game_dir = Path(entry.full_path_game or "")
         try:
-            files, medias = media_service.media_contents(game_dir)
+            folder = asset_resolver.folder_listing(game_dir)
+            files, medias = media_service.media_contents(game_dir, folder)
         except OSError:
             logger.warning("media: cannot read %s", game_dir)
             continue
 
-        tables = [table for table in table_lens.table_rows(entry, row) if table.get("id")]
+        tables = [table for table in table_lens.table_files(game_dir, folder[0])
+                  if table["id"]]
         shared = resolve(game_dir, files, medias, None)
         # Resolved per table only to find the files named for one. The folder is walked
         # once above; each of these is set lookups against what it found.
