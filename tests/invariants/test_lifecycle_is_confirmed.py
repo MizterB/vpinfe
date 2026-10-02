@@ -16,11 +16,16 @@ import re
 import unittest
 from pathlib import Path
 
+from common import lifecycle
+
 STATIC = Path(__file__).resolve().parent.parent.parent / "frontend" / "static"
 
 # The bridge methods that act without asking. Core defines and dispatches them; anything
 # else calling one is going around the confirm.
 UNCONFIRMED = ("close_app", "shutdown_system")
+
+REQUEST = re.compile(r"""requestLifecycle\(\s*["'](?P<scope>\w+)["']\s*,"""
+                     r"""\s*["'](?P<action>\w+)["']""")
 
 
 def _pages():
@@ -43,12 +48,26 @@ class LifecycleGoesThroughTheConfirmTests(unittest.TestCase):
                                         "asks first when the user asked to be asked:\n  "
                                         + "\n  ".join(offenders))
 
-    def test_the_confirm_is_reachable_from_the_menu(self) -> None:
-        """The fix, pinned: the menu's quit and shutdown go through requestLifecycle."""
-        menu = (STATIC / "mainmenu" / "mainmenu.js").read_text(encoding="utf-8")
+    def test_every_request_names_a_pair_the_backend_allows(self) -> None:
+        """A pair the backend does not know is logged and dropped, so the button does
+        nothing and nothing on screen says why."""
+        allowed = set(lifecycle.offered())
+        found, offenders = [], []
+        for path in sorted(STATIC.rglob("*")):
+            if path.suffix not in {".js", ".html"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in REQUEST.finditer(text):
+                line = text[:match.start()].count("\n") + 1
+                found.append(f"{path.name}:{line}")
+                if (match["scope"], match["action"]) not in allowed:
+                    offenders.append(f"{path.name}:{line} asks to {match['action']} "
+                                     f"the {match['scope']}")
 
-        self.assertIn("requestLifecycle('app', 'stop')", menu)
-        self.assertIn("requestLifecycle('system', 'stop')", menu)
+        self.assertEqual(offenders, [], "\n  ".join(offenders))
+        # The menu's quit and shutdown are two of them; an empty sweep passes and
+        # measures nothing.
+        self.assertGreaterEqual(sum(name.startswith("mainmenu.js:") for name in found), 2)
 
 
 if __name__ == "__main__":

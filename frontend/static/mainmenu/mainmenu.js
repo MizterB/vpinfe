@@ -424,7 +424,7 @@ function handleInput(input) {
       // "Confirm Before Exit" did nothing from the one menu that can shut the cabinet
       // down. The confirm is drawn here and answered with select and back.
       if (selectedItem.id === 'quit-item') {
-        window.parent.vpin.requestLifecycle('app', 'stop');
+        window.parent.vpin.requestLifecycle('vpinfe', 'stop');
       } else if (selectedItem.id === 'shutdown-item') {
         window.parent.vpin.requestLifecycle('system', 'stop');
       } else if (selectedItem.id === 'rating-item') {
