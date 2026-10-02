@@ -287,6 +287,12 @@ try:
 except Exception:
     logger.exception("Could not start library enrichment; unread tables stay unread")
 
+try:
+    from common.games import media_lens
+    media_lens.read_ahead()
+except Exception:
+    logger.exception("Could not start reading the library's media ahead")
+
 # And keep looking, if the user asked us to. Off by default: a check re-reads every
 # game folder, which is nothing locally and real traffic on a share.
 try:
