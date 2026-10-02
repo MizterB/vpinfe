@@ -68,10 +68,11 @@ BUDGET = {
                        "import confirmation's per-item tick, not a fact row"),
     "record.py": (1, "a tick per kind in Record Media, a choice over a list as Get missing "
                      "art's is, with what the kind's slot holds beside it"),
-    "folder_picker.py": (2, "the filter above the folder list, a toolbar box like a "
-                           "grid's search, and the Show hidden tick beside it, which asks "
-                           "what to show as All Settings' ticks do. Neither is a fact row "
-                           "and neither sets anything on the folder chosen"),
+    "folder_picker.py": (3, "the filter above the folder list, a toolbar box like a "
+                           "grid's search; the Show hidden tick beside it, which asks "
+                           "what to show as All Settings' ticks do; and the name typed "
+                           "into the row a new folder takes in that list. None is a fact "
+                           "row and none sets anything on the folder chosen"),
 }
 
 

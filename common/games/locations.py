@@ -253,22 +253,26 @@ class LocationStore:
             self._write(locations, write_to)
 
     def put(self, location: Location) -> Location:
-        """Add one, or replace the one that already names this place.
+        """Add one last, or replace the one that already names this place where it is.
 
         Matched on the canonical path rather than the id, because adding a folder twice
         is a thing a person does and two rows for one place would each report their own
-        state.
+        state. The replacement keeps the row's place: the order is the priority, and
+        putting a folder that is already held must not demote it.
         """
         wanted = canonical(location.path)
         with self._lock:
             held, write_to = self._load()
-            kept = [one for one in held if canonical(one.path) != wanted]
-            existing = next((one for one in held if canonical(one.path) == wanted), None)
-            if existing is not None:
-                location = Location(location_id=existing.location_id,
-                                    path=location.path, kind=location.kind,
-                                    origin=existing.origin)
-            self._write([*kept, location], write_to)
+            at = next((i for i, one in enumerate(held) if canonical(one.path) == wanted),
+                      None)
+            if at is None:
+                self._write([*held, location], write_to)
+                return location
+            location = Location(location_id=held[at].location_id,
+                                path=location.path, kind=location.kind,
+                                origin=held[at].origin)
+            self._write([location if i == at else one for i, one in enumerate(held)],
+                        write_to)
         return location
 
     def record_origins(self, origins: dict[str, mounts.Origin]) -> None:

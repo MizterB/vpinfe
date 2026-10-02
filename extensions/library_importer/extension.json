@@ -2,8 +2,9 @@
   "name": "library_importer",
   "version": "0.1.0",
   "requires_platform": 1,
-  "scopes": ["games:read", "games:write", "filesystem:read"],
+  "scopes": ["games:read", "games:write", "filesystem:read", "config:read",
+             "config:write"],
   "provides": ["read", "write"],
-  "capabilities": ["ui:mount", "config:own", "fs:read"],
+  "capabilities": ["ui:mount", "config:own", "fs:read", "fs:write"],
   "requires_features": ["library"]
 }

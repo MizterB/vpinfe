@@ -1,9 +1,9 @@
 """Converting a library from another frontend into game folders.
 
-It only ever creates. A foreign layout is read and turned into entries of ours; nothing
-of the source is written to, and nothing already in the library is changed. That is what
-makes it the right first extension: a failed import leaves both libraries exactly as
-they were.
+It creates. A foreign layout is read and turned into entries of ours; nothing already in
+the library is changed, and the source is written to only when somebody chooses to move
+their game files out of it. That is what makes it the right first extension: a failed
+import leaves both libraries as they were, apart from the folders it had made.
 
 Built as an extension deliberately, with no privileged access - the same manifest, the
 same scopes and the same context an outside author is given. Where it cannot do

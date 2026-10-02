@@ -717,7 +717,7 @@ def _already(path: Path) -> FileExistsError:
     return FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(path))
 
 
-def add_table_file(game_dir: Path, source: Path, table_id: str) -> dict:
+def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = False) -> dict:
     """Copy a game file into a folder and record it, as one operation.
 
     Both halves or neither: a file in the folder with nothing describing it becomes a
@@ -730,23 +730,40 @@ def add_table_file(game_dir: Path, source: Path, table_id: str) -> dict:
     losing the table that did arrive.
 
     Answers with what landed: the table's filename, and the companions that came too.
+
+    `move` takes the files out of where they were instead of copying them: the one
+    case where this writes to its source. A file that cannot be recorded goes back to
+    where it came from, because it is the only copy.
     """
     landing = game_dir / source.name
     if landing.exists():
         raise _already(landing)
 
-    shutil.copy2(source, landing)
-    rom = record_arrived_table(game_dir, landing, table_id)
+    carry = shutil.move if move else shutil.copy2
+    companions = companions_beside(source)
+    try:
+        carry(source, landing)
+    except Exception:
+        # Only while the source is still there: if it is gone, the landing is the file.
+        if source.exists():
+            landing.unlink(missing_ok=True)
+        raise
+    try:
+        rom = record_arrived_table(game_dir, landing, table_id, keep=move)
+    except Exception:
+        if move and landing.exists():
+            shutil.move(landing, source)
+        raise
 
     brought = []
-    for one in companions_beside(source):
+    for one in companions:
         beside = game_dir / one.name
         # Never over something already here. A second run, or a file somebody put there
         # on purpose, is not ours to replace - the same rule the import applies to games.
         if beside.exists():
             continue
         try:
-            shutil.copy2(one, beside)
+            carry(one, beside)
             brought.append(one.name)
         except OSError as exc:
             logger.warning("%s did not come with %s: %s", one.name, source.name, exc)
@@ -755,18 +772,20 @@ def add_table_file(game_dir: Path, source: Path, table_id: str) -> dict:
     return {"table": source.name, "companions": brought, "rom": rom}
 
 
-def record_arrived_table(game_dir: Path, landing: Path, table_id: str) -> str:
+def record_arrived_table(game_dir: Path, landing: Path, table_id: str,
+                         keep: bool = False) -> str:
     """Record a game file that has just landed in its game's folder, under `table_id`,
     and describe it from what it says about itself. Answers with the ROM it names.
 
-    Raises ValueError, having removed the file, where the game already holds one by that
-    name. Leaves the refresh to the caller.
+    Raises ValueError, having removed the file unless `keep`, where the game already
+    holds one by that name. Leaves the refresh to the caller.
     """
     from common.games.info_file import MetaConfig
 
     meta = MetaConfig(str(game_dir / f"{game_dir.name}.info"))
     if not meta.add_contained_table(landing.name, table_id):
-        landing.unlink(missing_ok=True)
+        if not keep:
+            landing.unlink(missing_ok=True)
         raise ValueError(t("error.games.game_already_file_name"))
 
     # Read now rather than left for the sweep that enriches a whole library: anything

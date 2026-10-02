@@ -8,20 +8,24 @@ there.
 
 from __future__ import annotations
 
+import os
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 from fastapi import APIRouter
 
-from . import adopt, emulationstation, pinballx, popper
+from . import adopt, emulationstation, folders, pinballx, popper
 from . import plan as plan_for
 from .plan import Plan
-from .source import SourceLibrary
+from .source import SourceGame, SourceLibrary
 
 # Asked in order, first to claim a folder wins. PinballX is looked for first
-# because it is the source somebody converting a pinball library actually has.
-READERS = (pinballx, popper, emulationstation)
+# because it is the source somebody converting a pinball library actually has. Folders
+# is last: a frontend's own folder holds game folders too, and the reader that knows
+# its database should be the one that claims it.
+READERS = (pinballx, popper, emulationstation, folders)
 
 # Where the source is, in this extension's own settings. Not a core setting: it is a
 # fact about somebody's old machine, and it has no meaning to anything else here.
@@ -30,7 +34,7 @@ SOURCE_KEY = "source_root"
 # The order the questions come in. Which of them get asked depends on what is found, but
 # never on how somebody arrived: going Back and forward again asks the same things in
 # the same order rather than jumping over what is already answered.
-STEPS = ("source", "sources", "existing", "summary")
+STEPS = ("source", "sources", "existing", "how", "summary")
 
 
 def _after(step: str) -> tuple[str, ...]:
@@ -39,27 +43,90 @@ def _after(step: str) -> tuple[str, ...]:
     return STEPS[at + 1:] or (STEPS[-1],)
 
 
-def reader_for(root: Path) -> ModuleType | None:
+def reader_for(root: Path, survey: Callable[..., dict] | None = None) -> ModuleType | None:
     """The reader that claims a folder, or None. First to claim it wins, and readers are
-    asked in the order they are declared."""
-    return next((one for one in READERS if one.detect(root)), None)
+    asked in the order they are declared. `survey` is what tells a game folder from
+    any other, for the readers that have no database to ask."""
+    return next((one for one in READERS if one.detect(root, survey)), None)
 
 
-def _state(ctx: Any) -> dict:
+def _once(survey: Callable[..., dict]) -> Callable[..., dict]:
+    """`survey`, asking core about a folder once however many times it is asked.
+
+    Made for one request and dropped with it, so a folder changed since is looked at
+    again by the next.
+    """
+    held: dict[str, dict] = {}
+
+    def ask(path: str | Path) -> dict:
+        key = str(path)
+        if key not in held:
+            held[key] = survey(path)
+        return held[key]
+
+    return ask
+
+
+def _trouble_with(ctx: Any, path: Path) -> str:
+    """Why a folder cannot be read from, or "" where it can. A folder that is there but
+    not open to this install reads as empty to everything below, and "nothing this
+    build can read" would be the wrong thing to tell somebody who simply lacks access."""
+    if not path.is_dir():
+        return ctx.t("reason.unreachable")
+    if not os.access(path, os.R_OK | os.X_OK):
+        return ctx.t("reason.cannot_read")
+    return ""
+
+
+def _name(ctx: Any, reader: ModuleType) -> str:
+    """What a source is called on screen: the catalog's word where it has one, and its
+    own name where it is a product's."""
+    return ctx.t("source.folders") if reader.SOURCE_ID == folders.SOURCE_ID \
+        else reader.SOURCE_NAME
+
+
+def _systems(values: dict) -> list[str]:
+    """Which of the source's systems, or all of them where it was never asked."""
+    return [str(one) for one in (values.get("systems") or [])]
+
+
+def _chosen(values: dict) -> dict | None:
+    held = {key: values[key] for key in plan_for.SOURCES if key in values}
+    return held or None
+
+
+def _mode(library: SourceLibrary, values: dict, games: list[SourceGame]) -> str:
+    """What happens to the game files, given what is going.
+
+    `copy` or `move` where there is something to carry and nobody has already decided:
+    a source that holds game folders is a library folder as it stands, so its loose
+    tables get folders where they lie (`in_place`) and a folder with none of those has
+    nothing to do but be used (`as_is`). `plain` is a source that names no game file
+    at all, which is entries with artwork and nothing to copy or move.
+    """
+    if library.in_place:
+        return "in_place" if games else "as_is"
+    if not any(game.table_file for game in games):
+        return "plain"
+    return "move" if values.get("how") == "move" else "copy"
+
+
+def _state(ctx: Any, survey: Callable[..., dict] | None = None) -> dict:
     configured = ctx.config.get(SOURCE_KEY, "")
     if not configured:
         return {"path": "", "reachable": False, "source_id": "", "source_name": "",
                 "reason": ctx.t("reason.no_source")}
     path = Path(configured)
-    if not path.is_dir():
+    trouble = _trouble_with(ctx, path)
+    if trouble:
         return {"path": configured, "reachable": False, "source_id": "",
-                "source_name": "", "reason": ctx.t("reason.unreachable")}
-    reader = reader_for(path)
+                "source_name": "", "reason": trouble}
+    reader = reader_for(path, survey or _once(ctx.games.survey))
     if reader is None:
         return {"path": configured, "reachable": True, "source_id": "",
                 "source_name": "", "reason": ctx.t("reason.nothing_readable")}
     return {"path": configured, "reachable": True, "source_id": reader.SOURCE_ID,
-            "source_name": reader.SOURCE_NAME, "reason": ""}
+            "source_name": _name(ctx, reader), "reason": ""}
 
 
 def _preview(library: SourceLibrary) -> dict:
@@ -115,6 +182,88 @@ def build(ctx: Any) -> None:
 
     follow_the_setting()
 
+    def point_at(wanted: str) -> None:
+        """Make this the source and declare it, before core is asked anything about it.
+
+        Asking core what a folder holds is refused for a folder not declared, and an
+        uncaught refusal in a route disables the extension.
+        """
+        ctx.config.set(SOURCE_KEY, wanted)
+        follow_the_setting()
+
+    def read(reader: ModuleType, path: Path, values: dict,
+             survey: Callable[..., dict]) -> SourceLibrary:
+        return reader.read(path, ctx.apps.plays, ctx.apps.names(),
+                           survey=survey, chosen=_chosen(values))
+
+    def known(library: SourceLibrary) -> list[dict]:
+        """Every game already here, and the game folders a source holds in place.
+
+        Those are listed under their folder name, first so a real entry of the same name
+        replaces them: a loose table beside a folder of its own name is recognized as
+        having one before the folder is a library folder and can say so itself.
+        """
+        held = [{"game_id": f"in_place:{name}", "folder_name": name}
+                for name in library.in_place]
+        return held + ctx.games.existing()
+
+    def plan(library: SourceLibrary, values: dict, existing: list[dict]) -> Plan:
+        return plan_for.build(library, existing, _chosen(values),
+                              str(values.get("on_existing")
+                                  or plan_for.DEFAULT_ON_EXISTING),
+                              _systems(values), ctx.games.folder_name_for,
+                              library.source_id, ctx.games.kinds(),
+                              ctx.games.companions_of)
+
+    def path_of(location: str) -> str:
+        """Where a location is, or "" where it is not somewhere games can be made.
+
+        Core answers by where games can go: the place new ones go, and every other
+        writable library folder.
+        """
+        found = ctx.games.new_game_destination()
+        if not location:
+            return "" if found.get("reason") else str(found.get("path") or "")
+        return next((str(one.get("path") or "")
+                     for one in [found, *(found.get("alternatives") or [])]
+                     if one.get("location_id") == location), "")
+
+    def into_of(values: dict, location: str = "") -> str:
+        """Where copies go: what was typed, else the location a caller named, else the
+        place new games already go."""
+        if "into" in values:
+            return str(values["into"] or "").strip()
+        return path_of(location)
+
+    def space(library: SourceLibrary, values: dict, mode: str,
+              games: list[SourceGame]) -> tuple[int, int, str]:
+        """Bytes this will write, the room there is for them, and where.
+
+        Asked of the place the games will actually be made, which is the `into` in
+        `values`, or the default where there is none. A caller that names a location
+        instead has it put in `values` first. Room is -1 where it cannot be told. A move
+        writes only the artwork, beside the files; a source with systems on different
+        drives is asked at the first.
+        """
+        if mode not in ("copy", "move", "in_place"):
+            return 0, -1, ""
+        need = plan_for.bytes_to_copy(games, library.source_id, ctx.games.kinds(),
+                                      ctx.games.companions_of, move=mode != "copy")
+        target = (into_of(values) if mode == "copy" else
+                  next((plan_for.tables_folder(one)
+                        for one in plan_for.systems_going(library, games)
+                        if plan_for.tables_folder(one)), library.root))
+        free, where = plan_for.room_at(target) if target else (-1, "")
+        return need, free, where
+
+    def short_of_room(need: int, free: int, where: str) -> str:
+        """Why this cannot start for want of room, or "". Said the same at the summary
+        and at the run, so the one is not a promise the other breaks."""
+        if need > free >= 0:
+            return ctx.t("reason.no_room", size=plan_for.size_of(need),
+                         free=plan_for.size_of(free), where=where)
+        return ""
+
     reading = APIRouter()
 
     @reading.get("/source")
@@ -125,12 +274,13 @@ def build(ctx: Any) -> None:
     @reading.get("/preview")
     def preview() -> dict:
         """What a scan of the chosen source found. Reads it, writes nothing."""
-        state = _state(ctx)
+        survey = _once(ctx.games.survey)
+        state = _state(ctx, survey)
         if not state["source_id"]:
             return {"source_id": "", "root": state["path"], "systems": [],
                     "notes": [state["reason"]]}
         reader = next(one for one in READERS if one.SOURCE_ID == state["source_id"])
-        return _preview(reader.read(Path(state["path"])))
+        return _preview(read(reader, Path(state["path"]), {}, survey))
 
     writing = APIRouter()
 
@@ -165,7 +315,7 @@ def build(ctx: Any) -> None:
                  "label": ctx.t("wizard.source.source_type.label"),
                  "value": "auto",
                  "choices": [["auto", ctx.t("wizard.source.auto")]]
-                            + [[one.SOURCE_ID, one.SOURCE_NAME] for one in READERS],
+                            + [[one.SOURCE_ID, _name(ctx, one)] for one in READERS],
                  "help": ctx.t("wizard.source.source_type.help")},
                 {"key": "path", "type": "path", "wants": "dir",
                  "label": ctx.t("wizard.source.path.label"),
@@ -174,7 +324,8 @@ def build(ctx: Any) -> None:
             ],
         }
 
-    def _reader_for(values: dict, path: Path) -> ModuleType | None:
+    def _reader_for(values: dict, path: Path,
+                    survey: Callable[..., dict]) -> ModuleType | None:
         """The reader this source is to be read with.
 
         What somebody chose, where they chose; otherwise the first that claims the
@@ -185,7 +336,7 @@ def build(ctx: Any) -> None:
         wanted = str(values.get("source_type") or "auto").strip()
         if wanted and wanted != "auto":
             return next((one for one in READERS if one.SOURCE_ID == wanted), None)
-        return reader_for(path)
+        return reader_for(path, survey)
 
     @writing.post("/wizard/check")
     def wizard_check(body: dict) -> dict:
@@ -196,35 +347,42 @@ def build(ctx: Any) -> None:
         if not wanted:
             return _again(ctx.t("reason.say_where"), values)
 
-        ctx.config.set(SOURCE_KEY, wanted)
-        follow_the_setting()
+        point_at(wanted)
         path = Path(wanted)
-        if not path.is_dir():
-            return _again(ctx.t("reason.unreachable"), values)
-        reader = _reader_for(values, path)
+        trouble = _trouble_with(ctx, path)
+        if trouble:
+            return _again(trouble, values)
+        survey = _once(ctx.games.survey)
+        reader = _reader_for(values, path, survey)
         if reader is None:
             return _again(ctx.t("reason.nothing_readable"), values)
-        if not reader.detect(path):
-            return _again(ctx.t("reason.not_this_source", source=reader.SOURCE_NAME),
+        if not reader.detect(path, survey):
+            return _again(ctx.t("reason.not_this_source", source=_name(ctx, reader)),
                           values)
 
-        library = reader.read(path, ctx.apps.plays, ctx.apps.names())
+        library = read(reader, path, values, survey)
         declare_roots(library, values)
-        made = plan_for.build(library, ctx.games.existing(), _chosen(values),
-                              str(values.get("on_existing")
-                                  or plan_for.DEFAULT_ON_EXISTING),
-                              _systems(values), ctx.games.folder_name_for,
-                              library.source_id, ctx.games.kinds(),
-                              ctx.games.companions_of)
+        made = plan(library, values, known(library))
+        games = plan_for.going(library, made, _systems(values))
+        mode = _mode(library, values, games)
+
+        if leaving == "how" and mode in ("copy", "move"):
+            refused = _refuse_how(values)
+            if refused:
+                return _how_step(reader, library, values, games, refused)
 
         for step in _after(leaving):
             if step == "sources":
                 return _sources_step(reader, library, made)
-            if step == "existing" and made.already:
+            # `skip_existing` is how a caller that knows nothing here can matter, a first
+            # run, starts past this question instead of being asked it.
+            if step == "existing" and made.already and not values.get("skip_existing"):
                 return _existing_step(made)
+            if step == "how" and mode in ("copy", "move"):
+                return _how_step(reader, library, values, games)
             if step == "summary":
-                return _summary_step(reader, library, made)
-        return _summary_step(reader, library, made)
+                break
+        return _summary_step(reader, library, made, values, games)
 
     def _again(reason: str, values: dict) -> dict:
         """The source step again - every refusal here is about the folder, so it lands
@@ -235,14 +393,6 @@ def build(ctx: Any) -> None:
             if field["key"] in values:
                 field["value"] = values[field["key"]]
         return found
-
-    def _systems(values: dict) -> list[str]:
-        """Which of the source's systems, or all of them where it was never asked."""
-        return [str(one) for one in (values.get("systems") or [])]
-
-    def _chosen(values: dict) -> dict | None:
-        held = {key: values[key] for key in plan_for.SOURCES if key in values}
-        return held or None
 
     def _sources_step(reader: ModuleType, library: SourceLibrary, made: Plan) -> dict:
         fields: list[dict[str, Any]] = [{
@@ -266,7 +416,7 @@ def build(ctx: Any) -> None:
 
         return {
             "step": "sources",
-            "title": ctx.t("wizard.sources.title", source=reader.SOURCE_NAME),
+            "title": ctx.t("wizard.sources.title", source=_name(ctx, reader)),
             "help": ctx.t("wizard.sources.help"),
             "fields": fields,
         }
@@ -288,34 +438,125 @@ def build(ctx: Any) -> None:
                         if len(made.already) > 8 else []),
         }
 
-    def _summary_step(reader: ModuleType, library: SourceLibrary, made: Plan) -> dict:
+    def _refuse_how(values: dict) -> dict[str, str]:
+        """What is wrong with the answer to the how step, by field. Moving needs nothing
+        more; copying needs a folder to copy into, and one that is there."""
+        if values.get("how") == "move":
+            return {}
+        into = str(values.get("into") or "").strip()
+        if not into:
+            return {"into": ctx.t("reason.say_into")}
+        if not Path(into).expanduser().is_dir():
+            return {"into": ctx.t("reason.unreachable")}
+        return {}
+
+    def _how_step(reader: ModuleType, library: SourceLibrary, values: dict,
+                  games: list[SourceGame], errors: dict[str, str] | None = None) -> dict:
+        """Copy or move, and where the copies go.
+
+        Copy is the default: moving leaves whatever else opens those files, a frontend's
+        list among it, pointing at files that are gone, and the choice says so before it
+        is made.
+        """
+        folder = Path(library.root).name or library.root
+        moving_help = (ctx.t("wizard.how.move.folders_help")
+                       if library.source_id == folders.SOURCE_ID
+                       else ctx.t("wizard.how.move.frontend_help", source=_name(ctx, reader)))
+        into = into_of(values)
+        need, free, where = space(library, {**values, "into": into}, "copy", games)
+        size = plan_for.size_of(need)
+        step: dict[str, Any] = {
+            "step": "how",
+            "title": ctx.t("wizard.how.title"),
+            "help": ctx.t("wizard.how.help", count=sum(1 for one in games if one.table_file),
+                          folder=folder),
+            "fields": [
+                {"key": "how", "type": "choice",
+                 "label": ctx.t("wizard.how.how.label"),
+                 "value": str(values.get("how") or "copy"),
+                 "choices": [
+                     ["copy", ctx.t("wizard.how.copy"),
+                      ctx.t("wizard.how.copy.help", folder=folder), "content_copy"],
+                     ["move", ctx.t("wizard.how.move"),
+                      moving_help, "drive_file_move"]]},
+                {"key": "into", "type": "path", "wants": "dir",
+                 "label": ctx.t("wizard.how.into.label"), "value": into,
+                 "opens_at": str(Path(library.root).parent),
+                 "help": (ctx.t("wizard.how.into.room", size=size,
+                                free=plan_for.size_of(free), where=where)
+                          if into and free >= 0
+                          else ctx.t("wizard.how.into.needs", size=size))},
+            ],
+        }
+        if errors:
+            step["errors"] = errors
+        return step
+
+    def _summary_step(reader: ModuleType, library: SourceLibrary, made: Plan,
+                      values: dict, games: list[SourceGame]) -> dict:
         """Everything the previous steps decided, and what it comes to."""
         found = _preview(library)
         counts = plan_for.expected(made)
-        going = len(made.matches) if made.on_existing == "fill" else len(made.new)
+        mode = _mode(library, values, games)
+        tables = sum(1 for one in games if one.table_file)
+        need, free, where = space(library, values, mode, games)
+        short = short_of_room(need, free, where)
 
-        rows = [[ctx.t("wizard.summary.reads_as"), reader.SOURCE_NAME],
+        rows = [[ctx.t("wizard.summary.reads_as"), _name(ctx, reader)],
                 [ctx.t("wizard.summary.folder"), library.root]]
         rows += [[source.label if source.active else ctx.t(f"kind.{source.key}.none"),
                   source.path or ctx.t("wizard.summary.not_imported")]
                  for source in made.sources]
+        if library.in_place:
+            rows.append([ctx.t("wizard.summary.used_where_they_are"),
+                         ctx.t("wizard.summary.game_folders", count=len(library.in_place))])
         if made.already:
             rows.append([ctx.t("wizard.summary.already_here"),
                          ctx.t(f"wizard.summary.already.{made.on_existing}",
                                count=len(made.already))])
-        rows.append([ctx.t("wizard.summary.going_into"),
-                     ctx.t("wizard.summary.new_games_go")])
+        inside = ", ".join(dict.fromkeys(
+            plan_for.tables_folder(one) for one in plan_for.systems_going(library, games)
+            if plan_for.tables_folder(one))) or library.root
+        how, going_into = ctx.t("wizard.summary.how"), ctx.t("wizard.summary.going_into")
+        if mode == "copy":
+            rows += [[how, ctx.t("wizard.summary.how.copy")], [going_into, into_of(values)]]
+        elif mode == "move":
+            rows += [[how, ctx.t("wizard.summary.how.move")],
+                     [going_into, ctx.t("wizard.how.move.where", folder=inside)]]
+        elif mode == "in_place":
+            rows += [[how, ctx.t("wizard.summary.how.in_place")],
+                     [going_into,
+                      ctx.t("wizard.summary.library_folder", folder=library.root)]]
+        elif mode == "as_is":
+            rows.append([going_into,
+                         ctx.t("wizard.summary.library_folder", folder=library.root)])
+        else:
+            rows.append([going_into, ctx.t("wizard.summary.new_games_go")])
+        if need:
+            rows.append([ctx.t("wizard.summary.space"),
+                         ctx.t("wizard.summary.space_free", size=plan_for.size_of(need),
+                               free=plan_for.size_of(free), where=where)
+                         if free >= 0 else plan_for.size_of(need)])
         rows.append([ctx.t("wizard.summary.comes_across")])
         rows += [[ctx.t(f"count.{key}"), str(counts[key])] for key in plan_for.COUNTS]
+
+        ready = bool(games) or mode == "as_is"
+        reason = short or ("" if ready else ctx.t("reason.nothing_left"))
+        confirm = {
+            "copy": lambda: ctx.t("wizard.summary.confirm_copy", count=tables),
+            "move": lambda: ctx.t("wizard.summary.confirm_move", count=tables),
+            "in_place": lambda: ctx.t("wizard.summary.confirm_in_place", count=tables),
+            "as_is": lambda: ctx.t("wizard.summary.confirm_as_is"),
+        }.get(mode, lambda: ctx.t("wizard.summary.confirm", count=len(games)))()
 
         return {
             "step": "summary",
             "title": ctx.t("wizard.summary.title"),
-            "ready": bool(going),
-            "reason": "" if going else ctx.t("reason.nothing_left"),
+            "ready": ready and not short,
+            "reason": reason,
             "summary": rows,
             "notes": [*found["notes"], *made.notes],
-            "confirm": ctx.t("wizard.summary.confirm", count=going),
+            "confirm": confirm,
         }
 
     @writing.post("/wizard/run", status_code=202)
@@ -328,24 +569,58 @@ def build(ctx: Any) -> None:
         Progress and the outcome are on /api/v1/jobs, the same as a library scan.
         """
         values = body.get("values") or {}
-        path = Path(str(values.get("path") or "").strip())
-        reader = _reader_for(values, path) if path.is_dir() else None
-        if reader is None:
-            return {"started": False, "reason": ctx.t("reason.nothing_readable")}
-        systems = _systems(values)
+        wanted = str(values.get("path") or "").strip()
+        path = Path(wanted)
         location = str(body.get("location") or "")
+        systems = _systems(values)
+
+        def refused(reason: str) -> dict:
+            """The shape the Console reads a refusal by: not started, and why."""
+            return {"started": False, "ok": False, "reason": reason}
+
+        if not wanted or not path.is_dir():
+            return refused(ctx.t("reason.nothing_readable"))
+        survey = _once(ctx.games.survey)
+        point_at(wanted)
+        reader = _reader_for(values, path, survey)
+        if reader is None:
+            return refused(ctx.t("reason.nothing_readable"))
+
+        library = read(reader, path, values, survey)
+        declare_roots(library, values)
+        checked = plan_for.going(library, plan(library, values, known(library)), systems)
+        mode = _mode(library, values, checked)
+        typed_into = "into" in values
+        if mode == "copy":
+            values = {**values, "into": into_of(values, location)}
+            wrong = _refuse_how(values)
+            if wrong:
+                return refused(wrong["into"])
+        short = short_of_room(*space(library, values, mode, checked))
+        if short:
+            return refused(short)
 
         def work(job: Any) -> dict:
-            library = reader.read(path, ctx.apps.plays, ctx.apps.names())
-            declare_roots(library, values)
             job.log(f"Read {len(library.games)} games from {library.root}")
-            made = plan_for.build(library, ctx.games.existing(), _chosen(values),
-                                  str(values.get("on_existing")
-                                      or plan_for.DEFAULT_ON_EXISTING), systems,
-                                  ctx.games.folder_name_for, library.source_id,
-                                  ctx.games.kinds(), ctx.games.companions_of)
+            # First, so the plan below sees the games that are already in it.
+            rooted = (ctx.games.use_library_folder(library.root)["location_id"]
+                      if library.in_place else "")
+            made = plan(library, values, ctx.games.existing())
+            games = plan_for.going(library, made, systems)
+            mode = _mode(library, values, games)
+            where, places = location, {}
+            if mode == "copy" and typed_into:
+                where = ctx.games.use_library_folder(values["into"])["location_id"]
+            elif mode in ("move", "in_place"):
+                # Only the systems this run acts on: a deselected one is not a place
+                # anyone asked to have registered.
+                places = {one.name: rooted or ctx.games.use_library_folder(
+                    plan_for.tables_folder(one))["location_id"]
+                    for one in plan_for.systems_going(library, games)
+                    if plan_for.tables_folder(one)}
             want = plan_for.expected(made)
-            report = adopt.run(ctx, library, systems, location, made)
+            report = adopt.run(ctx, library, systems, where, made,
+                               move=mode in ("move", "in_place"), places=places)
             # Counted again from the plan the run was handed, so the report says what
             # was asked for beside what happened rather than what was hoped for.
             report["against"] = plan_for.against(want, report)

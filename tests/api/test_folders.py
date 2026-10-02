@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
 import unittest
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
+from httpapi import auth
 from tests.support.library import TempTree
 
 # One non-dot private folder per platform, to prove a parent listing omits a private
@@ -205,6 +207,91 @@ class FolderApiTests(TempTree):
 
         self.assertEqual([f["name"] for f in body["folders"]], [])
         self.assertEqual([f["name"] for f in body["files"]], ["Pinball.app"])
+
+
+class MakeFolderApiTests(TempTree):
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = _client()
+
+    def _post(self, parent: str, name: str):
+        return self.client.post("/folders", json={"parent": parent, "name": name})
+
+    def test_the_folder_is_made_and_its_own_listing_comes_back(self) -> None:
+        response = self._post(str(self.root), "Games")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue((self.root / "Games").is_dir())
+        self.assertEqual(response.json()["path"], str(self.root / "Games"))
+        self.assertEqual(response.json()["parent"], str(self.root))
+        self.assertEqual(response.json()["folders"], [])
+
+    def test_the_name_is_trimmed(self) -> None:
+        self._post(str(self.root), "  Games  ")
+
+        self.assertTrue((self.root / "Games").is_dir())
+
+    def test_a_name_is_not_a_path(self) -> None:
+        """A separator would make folders the picker never showed."""
+        for name in ("a/b", "a\\b", "..", "."):
+            with self.subTest(name=name):
+                self.assertEqual(self._post(str(self.root), name).status_code, 400)
+
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_a_name_is_needed(self) -> None:
+        self.assertEqual(self._post(str(self.root), "   ").status_code, 400)
+
+    def test_a_name_with_a_control_character_is_refused_rather_than_failing(self) -> None:
+        """A NUL reaches the filesystem call as a ValueError, which is a 500."""
+        for name in ("a\x00b", "a\nb", "a\tb"):
+            with self.subTest(name=repr(name)):
+                self.assertEqual(self._post(str(self.root), name).status_code, 400)
+
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_a_parent_is_needed_or_it_would_be_made_where_the_server_runs(self) -> None:
+        with contextlib.chdir(self.root):
+            for parent in ("", "   "):
+                with self.subTest(parent=parent):
+                    self.assertEqual(self._post(parent, "Games").status_code, 400)
+
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_a_folder_already_there_is_never_reused(self) -> None:
+        (self.root / "Games").mkdir()
+        (self.root / "Games" / "kept.txt").write_text("mine")
+
+        response = self._post(str(self.root), "Games")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue((self.root / "Games" / "kept.txt").exists())
+
+    def test_a_folder_to_make_it_in_must_be_there(self) -> None:
+        self.assertEqual(self._post(str(self.root / "nowhere"), "Games").status_code, 404)
+
+    def test_a_private_folder_is_not_written_to(self) -> None:
+        (self.root / ".ssh").mkdir()
+
+        with patch("common.folder_browse.Path.home", return_value=self.root):
+            response = self._post(str(self.root / ".ssh"), "Games")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse((self.root / ".ssh" / "Games").exists())
+
+    def test_a_network_caller_is_refused_and_nothing_is_made(self) -> None:
+        with patch("httpapi.folders.caller_is_local", return_value=False):
+            response = self._post(str(self.root), "Games")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse((self.root / "Games").exists())
+
+    def test_it_takes_the_scope_adding_a_library_folder_takes(self) -> None:
+        """Making a folder is writing to the disk for the same reason adding one is."""
+        scopes = {(route.methods and sorted(route.methods)[0], path): auth.route_scope(route)
+                  for path, route in auth.iter_api_routes(httpapi.create_api_app())}
+
+        self.assertEqual(scopes[("POST", "/folders")], scopes[("PUT", "/locations/{location_id}")])
 
 
 if __name__ == "__main__":

@@ -242,7 +242,8 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                     str(field.get("placeholder") or ""),
                     wants=str(field.get("wants") or "dir"),
                     value=str(values.get(key) or ""), width="w-full",
-                    on_checked=synced, browse=client.folders)
+                    on_checked=synced, browse=client.folders,
+                    opens_at=str(field.get("opens_at") or ""))
                 held[key] = ("path", control)
                 refused(control, key)
 
@@ -458,7 +459,7 @@ def _aside(text: str) -> Any:
     return draw
 
 
-async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False) -> None:
+async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False) -> bool:
     """Run one flow in the dialog host: ask what it asks, in as many steps as it asks
     it, then do it.
 
@@ -472,6 +473,9 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
     It stops asking when it answers with a summary instead of fields. `under` is where
     a run's report belongs in the flow's own catalog. `mark` puts VPinFE's mark over a
     welcome step; only core passes it, so an extension's welcome is centered without it.
+
+    True when the flow was run and the dialog closed after it, False when it was cancelled
+    before that.
     """
     walk = Walk(calls, await calls.first(None))
     client = ApiClient()
@@ -605,7 +609,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
 
         draw(walk.step)
 
-    await dialog
+    return bool(await dialog)
 
 
 async def open_page(*, label: str, calls: Calls, under: str, step: str | None = None,

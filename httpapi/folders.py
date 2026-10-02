@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Body, Query, Request
 
 from common import folder_browse
 from common.i18n import t
@@ -25,3 +25,17 @@ def list_folders(request: Request, path: str = Query(""), kind: str = Query("dir
         raise ForbiddenError(t("error.folders.this_device_only"))
     return models.FolderListing.model_validate(
         folder_browse.listing(path, kind, tuple(suffix), hidden))
+
+
+@router.post("", summary="Make a folder on this device",
+             dependencies=[requires(scopes.CONFIG_WRITE)])
+def make_folder(request: Request, body: dict = Body(...)) -> models.FolderListing:
+    """The new folder's own listing, so a picker can go straight into it.
+
+    Writes to the disk, so it takes the scope adding a library folder takes - the folder
+    is made for the same reason.
+    """
+    if not caller_is_local(request):
+        raise ForbiddenError(t("error.folders.this_device_only"))
+    return models.FolderListing.model_validate(
+        folder_browse.make_folder(str(body.get("parent") or ""), str(body.get("name") or "")))

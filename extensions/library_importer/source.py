@@ -115,6 +115,10 @@ class SourceLibrary:
     # else's data and is very often part-broken, and refusing the whole read over one
     # bad row would leave them with nothing.
     notes: tuple[Note, ...] = ()
+    # Game folders already in `root`, by name. Only a folder read as folders has any: they
+    # are games as they stand, so nothing is brought in for them and they are not in
+    # `systems`.
+    in_place: tuple[str, ...] = ()
 
     @property
     def games(self) -> tuple[SourceGame, ...]:

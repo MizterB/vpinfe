@@ -224,3 +224,37 @@ def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
     folders, files = _entries(here, private, kind, suffixes, hidden)
     return {"path": str(here), "parent": "" if parent == here else str(parent),
             "folders": folders, "files": files, "roots": _roots(kind)}
+
+
+def make_folder(parent: str, name: str) -> dict:
+    """Make one folder inside another and answer with its listing, so a picker can go in.
+
+    A name and not a path: a separator in it would make folders the person did not name,
+    in places the picker never showed. The same refusals as a listing - a private folder
+    is not written to any more than it is read.
+
+    A parent is always named. A listing may fall back to somewhere to start, but an empty
+    one here would resolve to the server's working directory and make the folder there.
+    """
+    wanted = str(name or "").strip()
+    if not wanted:
+        raise service_errors.RefusedError(t("error.folders.name_needed"))
+    if wanted in (".", "..") or any(one in wanted for one in "/\\"):
+        raise service_errors.RefusedError(t("error.folders.name_is_a_path"))
+    if any(ord(one) < 32 or ord(one) == 127 for one in wanted):
+        raise service_errors.RefusedError(t("error.folders.name_has_control"))
+    if not str(parent or "").strip():
+        raise service_errors.RefusedError(t("error.folders.parent_needed"))
+    here = Path(os.path.abspath(os.path.expanduser(str(parent))))
+    if not here.is_dir():
+        raise service_errors.NotFoundError(t("error.folders.no_folder"))
+    if _is_private(here, _private_roots()):
+        raise service_errors.RefusedError(t("error.folders.private"))
+    made = here / wanted
+    if made.exists():
+        raise service_errors.RefusedError(t("error.folders.already_there", name=wanted))
+    try:
+        made.mkdir()
+    except (OSError, ValueError) as exc:
+        raise service_errors.RefusedError(t("error.folders.cannot_make")) from exc
+    return listing(str(made))

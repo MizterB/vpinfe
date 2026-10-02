@@ -647,6 +647,10 @@ class ApiClient:
             asked["hidden"] = "true"
         return self._get("/folders?" + urlencode(asked, doseq=True))
 
+    def make_folder(self, parent: str, name: str) -> dict:
+        """A folder made inside `parent`, answered with its own listing."""
+        return self._post("/folders", {"parent": parent, "name": name})
+
     def browsed_file_url(self, path: str) -> str:
         """Where the browser can fetch a file it is showing, so it can be looked at."""
         return "/api/v1/filesystem/file?" + urlencode({"path": path})

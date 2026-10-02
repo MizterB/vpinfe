@@ -93,13 +93,19 @@ class ExtensionFiles:
     what an install will read is something a person agreed to and can be shown.
     """
 
-    def __init__(self, name: str, allowed: bool) -> None:
+    def __init__(self, name: str, allowed: bool, writes: bool = False) -> None:
         self._name = name
         self._allowed = allowed
+        self._writes = writes
         self._roots: tuple[str, ...] = ()
 
     def roots(self) -> tuple[str, ...]:
         return self._roots
+
+    def may_write(self) -> bool:
+        """Whether the manifest declared `fs:write`, which is what lets core take a
+        file out of one of these folders instead of copying it."""
+        return self._writes
 
     def set_roots(self, paths: Iterable[str]) -> None:
         """Replace the set. The user moves a share or points somewhere else, and what
@@ -582,7 +588,8 @@ class ExtensionContext:
         self.logger = logger_for(manifest.name)
         self.config = ExtensionConfig(manifest.name, store)
         self.events = ExtensionEvents(manifest.name, manifest.events, on_failure)
-        self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities)
+        self.files = ExtensionFiles(manifest.name, "fs:read" in manifest.capabilities,
+                                    "fs:write" in manifest.capabilities)
         self.jobs = ExtensionJobs(manifest.name)
         self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities)
         self.players = ExtensionPlayers(manifest.name, manifest.scopes, store)

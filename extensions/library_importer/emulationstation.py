@@ -56,7 +56,7 @@ def gamelist_path(root: Path | str) -> Path:
     return Path(root) / GAMELIST
 
 
-def detect(root: Path | str) -> bool:
+def detect(root: Path | str, survey: Callable[..., dict] | None = None) -> bool:
     return gamelist_path(root).is_file()
 
 
@@ -118,17 +118,19 @@ def _game_from(element: ElementTree.Element, root: Path) -> SourceGame | None:
                       extras=extras, **values)  # type: ignore[arg-type]
 
 
-def read(root: Path | str,
-         plays: Callable[[str], bool] | None = None) -> SourceLibrary:
+def read(root: Path | str, plays: Callable[[str], bool] | None = None,
+         known_apps: tuple[str, ...] = (), *, survey: Callable[..., dict] | None = None,
+         chosen: dict | None = None) -> SourceLibrary:
     """Everything one gamelist describes.
 
     One system per root, because a root is the folder somebody pointed at and ES keeps
     one gamelist per system. A source with several is imported one at a time, which is
     also how somebody thinks about it.
 
-    `plays` is accepted so every reader is called the same way. This one does not
-    filter on it yet: it reads one system, and what to do when that system is not
-    playable here is a question about what the source declares, which is unfinished.
+    Every argument after `root` is accepted so every reader is called the same way. This
+    one does not filter on `plays` yet: it reads one system, and what to do when that
+    system is not playable here is a question about what the source declares, which is
+    unfinished.
     """
     root = Path(root)
     path = gamelist_path(root)

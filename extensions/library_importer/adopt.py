@@ -1,8 +1,10 @@
 """Turning what a source holds into entries of ours.
 
-It only ever creates. Nothing of the source is written to and nothing already in the
-library is changed, so an import that fails partway leaves both exactly as they were
-apart from the folders it had already made - and those are new, complete, and named.
+It creates, and it writes to the source only when told to move. Without that nothing of
+the source is written to and nothing already in the library is changed, so an import that
+fails partway leaves both exactly as they were apart from the folders it had already made -
+and those are new, complete, and named. A move takes the game files out of where they
+were, and is the one thing here that does.
 
 Every write goes through the context. Nothing here opens a file of ours or knows where
 the library is.
@@ -121,7 +123,7 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
 
 def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          location: str, name: str = "", sources: Any = None,
-         history: Any = None) -> AdoptedRow:
+         history: Any = None, move: bool = False) -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
 
     The name is handed in because the caller has already asked core what folder it
@@ -151,7 +153,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     stem, rom = "", ""
     if game.table_file:
         try:
-            landed = ctx.games.add_table(game_id, game.table_file)
+            landed = ctx.games.add_table(game_id, game.table_file, move=move)
             row["table"] = True
             row["companions"] = len(landed["companions"])
             rom = landed.get("rom", "")
@@ -182,7 +184,8 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     return row
 
 
-def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str) -> AdoptedRow:
+def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
+                   move: bool = False) -> AdoptedRow:
     """A second build of a machine the run has already made a game for.
 
     Its file joins that game rather than starting another one. The artwork does not:
@@ -196,7 +199,7 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str) -> Adopt
     if not game.table_file:
         return row
     try:
-        landed = ctx.games.add_table(game_id, game.table_file)
+        landed = ctx.games.add_table(game_id, game.table_file, move=move)
         row["table"] = True
         row["companions"] = len(landed["companions"])
     except Exception as exc:
@@ -206,8 +209,13 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str) -> Adopt
 
 
 def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = "",
-        plan: Any = None) -> dict:
+        plan: Any = None, *, move: bool = False,
+        places: dict[str, str] | None = None) -> dict:
     """Convert the chosen systems. Answers with a row per game and the counts.
+
+    `move` takes each game file out of where it was; artwork, ROMs and the rest are
+    copied either way. `places` names the location a system's games are made in, by the
+    system's name, where that is not `location`.
 
     A game that fails is recorded and the next one is tried. An import of six hundred
     stopping on the one folder somebody already had would be worse than useless: it is
@@ -232,6 +240,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     # folder and the rest fail on a name that is already taken.
     made_here: dict[str, str] = {}
     for system in wanted:
+        where = (places or {}).get(system.name, location)
         for game in system.games:
             match = held.get(game.key)
             if match is not None and match.existing and not fill:
@@ -244,10 +253,10 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             name = ctx.games.folder_name_for(mapping.folder_name(game))
             seen = made_here.get(name.lower())
             if seen:
-                rows.append(_another_build(ctx, game, name, seen))
+                rows.append(_another_build(ctx, game, name, seen, move))
                 continue
-            row = _one(ctx, library.source_id, game, kinds, location, name, sources,
-                       history)
+            row = _one(ctx, library.source_id, game, kinds, where, name, sources,
+                       history, move)
             if row["game_id"]:
                 made_here[name.lower()] = row["game_id"]
             rows.append(row)

@@ -16,6 +16,8 @@ is left alone unless the user says to fill in what it is missing.
 
 from __future__ import annotations
 
+import os
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,7 +26,7 @@ from typing import Any
 from common.extensions.contract import words
 
 from . import gamestats, mapping
-from .source import Note, SourceGame, SourceLibrary
+from .source import Note, SourceGame, SourceLibrary, SourceSystem
 
 t = words("library_importer")
 
@@ -144,6 +146,110 @@ def expected(plan: Plan) -> dict:
 def _wanted(plan: Plan) -> list[Match]:
     """The games this run will act on, which is not every game the source holds."""
     return plan.matches if plan.on_existing == "fill" else plan.new
+
+
+def going(library: SourceLibrary, plan: Plan,
+          systems: list[str] | None = None) -> list[SourceGame]:
+    """The source games this run will act on, in the order the source holds them.
+
+    Paired with the plan's matches by position, which is how they were made: a lookup by
+    key would merge the entries that share one.
+    """
+    wanted = {id(one) for one in _wanted(plan)}
+    return [game for game, match in zip(_games(library, systems), plan.matches, strict=True)
+            if id(match) in wanted]
+
+
+def systems_going(library: SourceLibrary, games: list[SourceGame]) -> list[SourceSystem]:
+    """The systems at least one of these games belongs to, in the order the source holds
+    them. A system somebody deselected, or one with nothing left to bring in, is not
+    among them, and nothing about it is to be touched."""
+    going_ids = {id(one) for one in games}
+    return [system for system in library.systems
+            if any(id(one) in going_ids for one in system.games)]
+
+
+def _beside(companions_of: Callable[..., Any], table_file: str) -> tuple[str, ...]:
+    """What travels with a game file, or nothing where the source lists one that is not
+    there. A frontend's list outlives the files it names; that game fails when it is
+    brought in, and the rest of the check does not stop for it."""
+    try:
+        return tuple(companions_of(table_file))
+    except FileNotFoundError:
+        return ()
+
+
+def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...],
+                  companions_of: Callable[..., Any], move: bool = False) -> int:
+    """What a run writes, in bytes: the game files and what rides with them, unless they
+    are moved, and the artwork.
+
+    ROM sets and sound banks are not counted: which ROM a table wants is only known once
+    the table is opened, and a whole ROM folder would be several times what is used.
+    """
+    total = 0
+    for game in games:
+        if game.table_file and not move:
+            table = Path(game.table_file)
+            total += _bytes(table)
+            total += sum(_bytes(table.parent / name)
+                         for name in _beside(companions_of, game.table_file))
+        total += sum(_bytes(Path(path))
+                     for _kind, path in mapping.media_for(source_id, game, kinds))
+    return total
+
+
+def tables_folder(system: SourceSystem) -> str:
+    """The folder a system's game files sit in: the one they all share, else the folder
+    the source names for them.
+
+    A source can name a folder that holds no table itself - EmulationStation's is its own
+    root, and its tables are wherever each game says - so the files are asked first.
+    """
+    parents = {str(Path(game.table_file).parent) for game in system.games if game.table_file}
+    return parents.pop() if len(parents) == 1 else system.tables_dir
+
+
+def _bytes(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
+
+
+_SIZE_UNITS = ("bytes", "kilobytes", "megabytes", "gigabytes", "terabytes")
+
+
+def size_of(count: int) -> str:
+    """A byte count as it reads on screen: powers of 1024, bytes whole, the rest to one
+    decimal. The same figures core shows elsewhere; an extension cannot import core's, so
+    the units are this extension's own words."""
+    value, step = float(count), 0
+    while value >= 1024 and step < len(_SIZE_UNITS) - 1:
+        value /= 1024
+        step += 1
+    return t(f"size.{_SIZE_UNITS[step]}", value=f"{value:.0f}" if step == 0 else f"{value:.1f}")
+
+
+def room_at(path: str) -> tuple[int, str]:
+    """Free bytes where `path` would be written, and what to call that place.
+
+    A folder that is not made yet is asked as its nearest parent that is. The place is
+    the drive on Windows and the mount point elsewhere, which is what a person reads when
+    something runs out.
+    """
+    here = Path(path).expanduser()
+    while not here.exists() and here != here.parent:
+        here = here.parent
+    try:
+        free = shutil.disk_usage(here).free
+    except OSError:
+        return -1, ""
+    if here.drive:
+        return free, here.drive
+    while not os.path.ismount(here) and here != here.parent:
+        here = here.parent
+    return free, str(here)
 
 
 def against(expected_counts: dict, actual: dict) -> list[dict]:
@@ -270,7 +376,7 @@ def match_existing(library: SourceLibrary, existing: list[dict],
                            how=how,
                            tables=1 if game.table_file else 0,
                            media=len(mapping.media_for(source_id, game, kinds)),
-                           companions=(len(companions_of(game.table_file))
+                           companions=(len(_beside(companions_of, game.table_file))
                                        if companions_of and game.table_file else 0),
                            history=1 if played and played.counts_as_history else 0))
     return found

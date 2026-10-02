@@ -2,6 +2,10 @@
 
 `list_entries` is `library.folders`, taken as a parameter rather than imported: this
 draws for any field that wants a path, and none of them is the library client.
+
+New folder is offered for a folder, whenever the callable that lists is a method of an
+object that can also make one - `library.folders` and the API client's are, a bare
+function is not and so draws without it.
 """
 
 from __future__ import annotations
@@ -23,6 +27,16 @@ _TITLE = {"dir": "console.folder_picker.choose_a_folder",
 _ROW_ICON = {"exe": "terminal", "file": "description"}
 
 
+def _free_name(folders: list[dict[str, Any]]) -> str:
+    """The first of New folder, New folder 2, ... that this folder does not hold."""
+    taken = {one["name"].lower() for one in folders}
+    name, count = t("console.folder_picker.new_folder"), 1
+    while name.lower() in taken:
+        count += 1
+        name = t("console.folder_picker.new_folder_numbered", count=count)
+    return name
+
+
 @on_page
 async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                     kind: str = "dir", suffixes: tuple[str, ...] = ()) -> str | None:
@@ -41,8 +55,10 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
 
     picked = start if kind != "dir" and any(
         f["path"] == start for f in here.get("files") or []) else ""
-    state: dict[str, Any] = {"here": here, "selected": picked}
+    state: dict[str, Any] = {"here": here, "selected": picked, "naming": None}
     choose: dict[str, Any] = {}
+    make_folder: Callable[[str, str], dict] | None = getattr(
+        getattr(list_entries, "__self__", None), "make_folder", None) if kind == "dir" else None
 
     with frame.opened(t(_TITLE[kind]), wide=True) as box:
         if refused is not None:
@@ -85,7 +101,9 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
             files = [f for f in state["here"].get("files") or []
                     if wanted in f["name"].lower()]
             with listing_col:
-                if not folders and not files:
+                if state["naming"] is not None:
+                    _naming_row()
+                if not folders and not files and state["naming"] is None:
                     ui.label(t("console.folder_picker.no_folders" if kind == "dir"
                               else "console.folder_picker.nothing_here")) \
                         .classes("console-help")
@@ -109,6 +127,56 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                     row.on("click", lambda p=one["path"]: select(p))
                     row.on("dblclick", lambda p=one["path"]: box.submit(p))
 
+        def _naming_row() -> None:
+            """The row a folder is named in, where it will sit, selected for typing as
+            Finder and Explorer leave it."""
+            with ui.row().classes("items-center gap-2 w-full no-wrap console-source-row "
+                                  "console-source-row--line console-source-row--chosen"):
+                ui.icon("folder").classes("shrink-0")
+                typed = ui.input(value=state["naming"]) \
+                    .props("dense borderless debounce=0").classes("console-edit-field grow")
+            typed.on("keydown.enter", lambda: _make(typed.value))
+            # Stopped before the window sees it: Quasar closes the whole dialog on Escape.
+            typed.on("keyup.escape.stop", _stop_naming)
+            ui.run_javascript(
+                "requestAnimationFrame(() => { const field = "
+                f"document.getElementById('c{typed.id}'); const input = field && "
+                "(field.matches('input') ? field : field.querySelector('input')); "
+                "if (input) { input.focus(); input.select(); } })")
+
+        def _start_naming() -> None:
+            term.value = ""
+            state["naming"] = _free_name(state["here"]["folders"])
+            draw_listing()
+
+        def _stop_naming() -> None:
+            state["naming"] = None
+            draw_listing()
+
+        @on_page
+        async def _make(name: str) -> None:
+            if make_folder is None:
+                return
+            try:
+                fresh = await offload.io(make_folder, state["here"]["path"], name)
+            except Exception as exc:  # noqa: BLE001
+                ui.notify(t("console.folder_picker.could_not_make_it"), caption=why(exc),
+                          type="negative")
+                return
+            _arrive(fresh)
+
+        def _arrive(fresh: dict[str, Any], *, keep_filter: bool = False) -> None:
+            state["here"] = fresh
+            if not any(f["path"] == state["selected"] for f in fresh.get("files") or []):
+                state["selected"] = ""
+            state["naming"] = None
+            if not keep_filter:
+                term.value = ""
+            draw_path()
+            draw_listing()
+            if "button" in choose:
+                choose["button"].set_enabled(bool(state["selected"]))
+
         @on_page
         async def _go(path: str, *, keep_filter: bool = False) -> None:
             try:
@@ -117,15 +185,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                 ui.notify(t("console.mediasource.could_not_read_folder"), caption=why(exc),
                           type="negative")
                 return
-            state["here"] = fresh
-            if not any(f["path"] == state["selected"] for f in fresh.get("files") or []):
-                state["selected"] = ""
-            if not keep_filter:
-                term.value = ""
-            draw_path()
-            draw_listing()
-            if "button" in choose:
-                choose["button"].set_enabled(bool(state["selected"]))
+            _arrive(fresh, keep_filter=keep_filter)
 
         def _opens(path: str) -> Callable[[], Any]:
             return lambda: _go(path)
@@ -140,6 +200,9 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
         shown.on_value_change(lambda: _go(state["here"]["path"], keep_filter=True))
 
         with frame.footer():
+            if make_folder is not None:
+                frame.aside(t("console.folder_picker.new_folder"), _start_naming,
+                            icon=verbs.NEW_FOLDER)
             frame.cancel(lambda: box.submit(None))
             if kind == "dir":
                 frame.answer(t("console.folder_picker.choose_this_folder"),

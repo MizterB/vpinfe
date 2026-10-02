@@ -315,6 +315,9 @@ class Library:
                suffixes: Iterable[str] = (), hidden: bool = False) -> dict:
         return self._client.folders(path, kind, suffixes, hidden)
 
+    def make_folder(self, parent: str, name: str) -> dict:
+        return self._client.make_folder(parent, name)
+
     def browsed_file_url(self, path: str) -> str:
         return self._client.browsed_file_url(path)
 
@@ -560,6 +563,9 @@ class Library:
         """Read fresh every time, for the reason launchers are - this page edits it, and
         what the disk says can change without anybody editing anything."""
         return self._client.locations()
+
+    def extensions(self) -> list[dict]:
+        return self._client.extensions()
 
     def put_location(self, location_id: str, body: dict) -> dict:
         return self._client.put_location(location_id, body)

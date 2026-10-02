@@ -683,7 +683,7 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
                width: str = "w-96",
                on_checked: Callable[[str, str], str] | None = None,
                browse: Callable[[str], dict] | None = None,
-               suffixes: tuple[str, ...] = ()) -> Any:
+               suffixes: tuple[str, ...] = (), opens_at: str = "") -> Any:
     """A path typed by hand, saying whether it is there. Returns the input.
 
     `wants` is what should be at the end of it - `dir`, `file` or `exe`, the words
@@ -695,7 +695,8 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
     to say and one without are the same height.
 
     `browse` draws Browse beside the field, whatever `wants` is. `suffixes` narrows a
-    `file` field's picker to those extensions; empty means every file.
+    `file` field's picker to those extensions; empty means every file. `opens_at` is where
+    the picker starts while the field is empty.
 
     `debounce=0` stays on the input and the wait goes on a timer: a debounce here leaves
     the value stale at the moment a button is pressed.
@@ -712,7 +713,7 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
 
             async def _browsed() -> None:
                 chosen = await folder_picker.pick_path(
-                    browse, control.value or "", kind=wants, suffixes=suffixes)
+                    browse, control.value or opens_at, kind=wants, suffixes=suffixes)
                 if chosen:
                     control.value = chosen
 

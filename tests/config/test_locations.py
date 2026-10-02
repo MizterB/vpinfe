@@ -68,6 +68,27 @@ class StoreTests(_WithStore, unittest.TestCase):
         self.assertEqual(len(self.store.locations()), 1)
         self.assertEqual(again.location_id, first.location_id)
 
+    def test_putting_a_held_folder_again_keeps_its_place_in_the_order(self) -> None:
+        """The order is the priority, so asking again must not send it to the back."""
+        first = self._location("first")
+        second = self._location("second")
+        self.store.set_write_to(second.location_id)
+
+        again = self.store.put(Location(location_id=locations.mint_location_id(),
+                                        path=str(self.root / "first")))
+
+        self.assertEqual([one.location_id for one in self.store.locations()],
+                         [first.location_id, second.location_id])
+        self.assertEqual(again.location_id, first.location_id)
+        self.assertEqual(self.store.write_to().location_id, second.location_id)
+
+    def test_putting_a_new_folder_puts_it_last(self) -> None:
+        first = self._location("first")
+        second = self._location("second")
+
+        self.assertEqual([one.location_id for one in self.store.locations()],
+                         [first.location_id, second.location_id])
+
     def test_a_second_row_for_one_place_is_dropped_on_read(self) -> None:
         """A file edited by hand can hold it twice."""
         folder = self.root / "share"

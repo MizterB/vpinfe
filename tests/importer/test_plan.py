@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from common.extensions import host
@@ -294,6 +295,101 @@ class ComparisonTests(unittest.TestCase):
         rows = plan_for.against({"games": 3}, {"games": 3})
 
         self.assertEqual(len(rows), len(plan_for.COUNTS))
+
+
+class SpaceTests(unittest.TestCase):
+    """What a run writes and whether there is room for it, said before it writes any."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        (self.root / "Harbor Lights.vpx").write_bytes(b"t" * 1000)
+        (self.root / "Harbor Lights.directb2s").write_bytes(b"b" * 500)
+        (self.root / "Quarry Run.vpx").write_bytes(b"t" * 2000)
+        (self.root / "wheel.png").write_bytes(b"w" * 40)
+        self.games = [
+            SourceGame(key="Harbor Lights", table_file=str(self.root / "Harbor Lights.vpx"),
+                       media=(SourceMedia(source_kind="Wheel Images",
+                                          path=str(self.root / "wheel.png")),)),
+            SourceGame(key="Quarry Run", table_file=str(self.root / "Quarry Run.vpx"))]
+
+    def _companions(self, table_file: str) -> list[str]:
+        stem = Path(table_file).stem
+        return sorted(one.name for one in self.root.iterdir()
+                      if one.stem == stem and one.suffix != ".vpx")
+
+    def _bytes(self, **more) -> int:
+        return plan_for.bytes_to_copy(self.games, "pinballx", ("wheel",),
+                                      self._companions, **more)
+
+    def test_a_copy_counts_the_game_file_what_rides_with_it_and_the_artwork(self) -> None:
+        self.assertEqual(self._bytes(), 1000 + 500 + 2000 + 40)
+
+    def test_a_move_counts_only_the_artwork(self) -> None:
+        """The game files are not written again; they change folders."""
+        self.assertEqual(self._bytes(move=True), 40)
+
+    def test_a_file_that_is_gone_counts_for_nothing(self) -> None:
+        (self.root / "Quarry Run.vpx").unlink()
+
+        self.assertEqual(self._bytes(), 1000 + 500 + 40)
+
+    def test_a_source_with_no_game_file_counts_its_artwork_alone(self) -> None:
+        self.games[0] = SourceGame(key="Harbor Lights", media=self.games[0].media)
+
+        self.assertEqual(self._bytes(), 2000 + 40)
+
+    def test_games_are_made_where_the_game_files_are(self) -> None:
+        """A source can name a folder its tables are not in, and moving into that one
+        would put the folders somewhere the files never were."""
+        library = SourceLibrary(source_id="emulationstation", root=str(self.root), systems=(
+            SourceSystem(name="x", games=tuple(self.games), tables_dir="/elsewhere"),))
+
+        self.assertEqual(plan_for.tables_folder(library.systems[0]), str(self.root))
+
+    def test_game_files_in_several_folders_fall_back_to_the_one_the_source_names(self) -> None:
+        elsewhere = SourceGame(key="Orchard", table_file="/else/Orchard.vpx")
+        system = SourceSystem(name="x", games=(*self.games, elsewhere), tables_dir="/named")
+
+        self.assertEqual(plan_for.tables_folder(system), "/named")
+
+    def test_a_system_with_no_game_files_has_the_folder_it_was_told(self) -> None:
+        system = SourceSystem(name="x", games=(SourceGame(key="Orchard"),),
+                              tables_dir="/named")
+
+        self.assertEqual(plan_for.tables_folder(system), "/named")
+
+    def test_a_listed_file_that_is_gone_has_nothing_riding_with_it(self) -> None:
+        """A frontend's list outlives the files it names."""
+        def refusing(path: str) -> list[str]:
+            raise FileNotFoundError(path)
+
+        gone = [SourceGame(key="Taxi", table_file=str(self.root / "Taxi.vpx"))]
+
+        self.assertEqual(plan_for.bytes_to_copy(gone, "pinballx", (), refusing), 0)
+
+    def test_sizes_read_in_the_unit_a_person_would_say(self) -> None:
+        self.assertEqual(plan_for.size_of(0), "0 B")
+        self.assertEqual(plan_for.size_of(1023), "1023 B")
+        self.assertEqual(plan_for.size_of(1024), "1.0 KB")
+        self.assertEqual(plan_for.size_of(3500), "3.4 KB")
+        self.assertEqual(plan_for.size_of(5 * 1024 ** 2), "5.0 MB")
+        self.assertEqual(plan_for.size_of(int(2.5 * 1024 ** 3)), "2.5 GB")
+        self.assertEqual(plan_for.size_of(3 * 1024 ** 4), "3.0 TB")
+
+    def test_there_is_always_a_unit_to_say_it_in(self) -> None:
+        self.assertTrue(plan_for.size_of(5000 * 1024 ** 4).endswith("TB"))
+
+    def test_room_is_asked_of_the_nearest_folder_that_exists(self) -> None:
+        free, where = plan_for.room_at(str(self.root / "not" / "made" / "yet"))
+
+        self.assertGreater(free, 0)
+        self.assertTrue(where)
+
+    def test_room_that_cannot_be_told_is_minus_one(self) -> None:
+        with unittest.mock.patch.object(plan_for.shutil, "disk_usage", side_effect=OSError):
+            self.assertEqual(plan_for.room_at(str(self.root)), (-1, ""))
 
 
 if __name__ == "__main__":

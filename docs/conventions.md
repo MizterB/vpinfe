@@ -680,6 +680,12 @@ a folder, and this wants a file" is the useful half of the answer. Browse opens
 for a `file` field, narrowed to `suffixes`. The same mark answers for a stored path once
 it has been written, from the same vocabulary.
 
+The picker's **New folder** is the dialog's aside, beside Cancel: it adds a row named
+*New folder* to the listing, selected for typing, the way Finder and Explorer do, and
+Enter makes it and goes in. It is offered wherever the picker lists folders through a client
+that can make one (`ApiClient.make_folder`), and making one takes the permission adding a
+library folder takes.
+
 A field that names something *to be created* is not this. The import dialog asks what to
 call a new game's folder, where finding something already there is the failure, not the
 success.

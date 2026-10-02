@@ -80,9 +80,9 @@ application, and that is the guarantee the model rests on.
 | `ctx.logger` | A logger in `vpinfe.ext.<name>` |
 | `ctx.config` | `get`, `set`, `all` over its own settings |
 | `ctx.events` | `subscribe` to a core event; `publish` one of its own |
-| `ctx.files` | `set_roots` — the folders it works from, so core will take a path from inside one. Needs `fs:read` |
+| `ctx.files` | `set_roots` - the folders it works from, so core will take a path from inside one. Needs `fs:read`; moving a file out of one needs `fs:write` as well |
 | `ctx.jobs` | `submit(kind, work)` — slow work, one at a time per kind, answerable on `/api/v1/jobs` |
-| `ctx.games` | The library. `kinds`, `folder`, `folder_name_for`, `existing`, `create`, `add_table`, `put_media`, plus every operation core offers by name — `reaches()` lists them. Each needs the core scope its manifest declared |
+| `ctx.games` | The library. `kinds`, `folder`, `folder_name_for`, `existing`, `survey`, `create`, `add_table`, `put_media`, plus every operation core offers by name - `reaches()` lists them. Each needs the core scope its manifest declared. `survey(path)` says which of a folder's children are game folders and which files are tables, leaving out any name that starts with a dot; `add_table(game_id, path, move=True)` takes the file out of where it was. Core offers `new_game_destination` under `config:read` and `use_library_folder(path)` under `config:write` |
 | `ctx.apps` | `provide(...)` — add a way to play a table. `suffixes`, `plays`, `names` say what this build can play. Providing needs `apps:provide` |
 | `ctx.games.launch_game(...)` | Start a game on this play host. Needs `launch:invoke`, which `games:write` does not grant |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
@@ -340,7 +340,7 @@ ctx.ui.action("import", "/wizard")
 ```json
 {
   "action.import.label": "Bring in a library",
-  "action.import.description": "Convert a library from another frontend into game folders"
+  "action.import.description": "Convert a library from another frontend, or a folder of tables, into game folders"
 }
 ```
 
@@ -362,7 +362,8 @@ A run returns a `job_id` where the work is slow — core watches it on `/api/v1/
 the outcome where it is not, with an optional `message` and `summary`. An action that is
 one call and a sentence should not have to wear a progress bar.
 
-`fields` are `{key, type, label, value, help}`. `check` and `run` receive
+`fields` are `{key, type, label, value, help}`; a `path` field may add `opens_at`, the folder
+its picker starts in while the field is empty. `check` and `run` receive
 `{"values": {…}}`; `act` receives that and the step's own key, as `{"values": …, "step": …}`.
 The words in these answers are the extension's to look up, with `ctx.t`.
 

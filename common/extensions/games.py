@@ -192,6 +192,21 @@ class ExtensionGames:
         self._needs(GAMES_READ)
         return str(self._game(game_id).full_path_game)
 
+    def survey(self, path: str | Path) -> dict[str, list[str]]:
+        """What a folder holds: `game_folders` the library would read as games, and the
+        `loose` table files lying in it. Asked of core for the same reason as
+        `folder_name_for`: what makes a folder a game is core's rule, and the answer
+        depends on which programs this install plays.
+
+        Only a folder this extension works from.
+        """
+        self._needs(GAMES_READ)
+        from common.games import tables
+
+        wanted = Path(str(path or "")).expanduser().resolve()
+        self._inside_declared(wanted)
+        return tables.survey(wanted)
+
     # -- writing --------------------------------------------------------------
 
     def create(self, name: str, location: str = "") -> str:
@@ -210,21 +225,29 @@ class ExtensionGames:
             raise LookupError(t("error.games.created_device_not_read"))
         return game_identity.ensure_id(made)
 
-    def add_table(self, game_id: str, path: str | Path) -> dict:
+    def add_table(self, game_id: str, path: str | Path, move: bool = False) -> dict:
         """Copy a game file into an entry, with whatever belongs to it.
 
         Answers with the table's id, the companions that came, and the ROM the table
         turns out to need - a caller counting what an import produced needs to know what
         actually landed, and anything keyed on the ROM has no other way to learn it this
         early.
+
+        `move` takes the files out of where they were, which is writing to a folder the
+        extension only declared it reads from, so it needs the `fs:write` capability.
         """
         self._needs(GAMES_WRITE)
         from common.games import game_service
         from common.games.ids import new_id
 
+        if move and not (self._files is not None and self._files.may_write()):
+            raise ContractError(
+                f"{self._name} asks core to move a file, which needs the fs:write "
+                "capability its manifest does not declare")
         source = self._source(path)
         table_id = new_id()
-        found = game_service.add_table_file(Path(self.folder(game_id)), source, table_id)
+        found = game_service.add_table_file(Path(self.folder(game_id)), source, table_id,
+                                            move=move)
         return {"table_id": table_id, "companions": tuple(found["companions"]),
                 "rom": found.get("rom", "")}
 

@@ -21,6 +21,7 @@ CHOOSE = "check"
 # Bringing something into the library.
 ADD = "add"
 CREATE = "add"
+NEW_FOLDER = "create_new_folder"
 IMPORT = "upload"
 COPY = "content_copy"
 DUPLICATE = "content_copy"

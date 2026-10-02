@@ -202,6 +202,8 @@ PLAINLY = {
     "games:write": "console.ext_page.add_change_games",
     "players:read": "console.ext_page.see_players",
     "filesystem:read": "console.ext_page.read_folders_point",
+    "config:read": "console.ext_page.see_where_games_live",
+    "config:write": "console.ext_page.add_library_folders",
     "ui:mount": "console.ext_page.add_page_console",
     "config:own": "console.ext_page.keep_own_settings",
     "net:outbound": "console.ext_page.reach_internet",

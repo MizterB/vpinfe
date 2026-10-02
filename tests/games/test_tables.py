@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 from common.games.tables import (
     ADDED_KEY,
@@ -9,6 +10,7 @@ from common.games.tables import (
     is_parsed,
     offered_tables,
     stamp_added,
+    survey,
     table_names,
 )
 
@@ -182,6 +184,66 @@ class IsParsedTests(unittest.TestCase):
         for bad in (None, {}, [], "nope"):
             with self.subTest(entry=bad):
                 self.assertFalse(is_parsed(bad))
+
+
+class SurveyTests(unittest.TestCase):
+    """What a folder holds, asked of core because what makes a folder a game is core's
+    rule."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+
+    def _game(self, name: str) -> None:
+        (self.root / name).mkdir()
+        (self.root / name / f"{name}.vpx").write_bytes(b"table")
+
+    def test_game_folders_and_loose_tables_are_told_apart(self) -> None:
+        self._game("Harbor Lights")
+        (self.root / "Quarry Run.vpx").write_bytes(b"table")
+        (self.root / "notes.txt").write_text("not a table")
+        (self.root / "Plain folder").mkdir()
+
+        self.assertEqual(survey(self.root), {"game_folders": ["Harbor Lights"],
+                                             "loose": ["Quarry Run.vpx"]})
+
+    def test_a_folder_with_only_an_info_file_is_a_game(self) -> None:
+        """A game whose tables are all hidden or elsewhere still has its `.info`."""
+        (self.root / "Orchard").mkdir()
+        (self.root / "Orchard" / "Orchard.info").write_text("{}")
+
+        self.assertEqual(survey(self.root)["game_folders"], ["Orchard"])
+
+    def test_a_dot_folder_is_not_looked_into(self) -> None:
+        self._game(".hidden")
+        self._game("Visible")
+
+        self.assertEqual(survey(self.root)["game_folders"], ["Visible"])
+
+    def test_a_dot_file_is_not_a_loose_table(self) -> None:
+        """macOS leaves `._Name.vpx` beside the real one on a volume it cannot label."""
+        (self.root / "Quarry Run.vpx").write_bytes(b"table")
+        (self.root / "._Quarry Run.vpx").write_bytes(b"\x00\x05\x16\x07")
+        (self.root / ".hidden.vpx").write_bytes(b"table")
+
+        self.assertEqual(survey(self.root)["loose"], ["Quarry Run.vpx"])
+
+    def test_the_names_are_sorted_without_regard_to_case(self) -> None:
+        for name in ("beta", "Alpha", "gamma"):
+            self._game(name)
+
+        self.assertEqual(survey(self.root)["game_folders"], ["Alpha", "beta", "gamma"])
+
+    def test_a_folder_that_is_not_there_holds_nothing(self) -> None:
+        self.assertEqual(survey(self.root / "absent"),
+                         {"game_folders": [], "loose": []})
+
+    def test_only_the_folder_itself_is_read(self) -> None:
+        """A table inside a game folder is that game's, not a loose one."""
+        self._game("Harbor Lights")
+
+        self.assertEqual(survey(self.root)["loose"], [])
 
 
 if __name__ == "__main__":

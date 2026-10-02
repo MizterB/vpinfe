@@ -22,7 +22,14 @@ from collections.abc import Callable
 from typing import Any
 
 from common.extensions.games import offer
-from common.games import game_lens, game_ops, library_vps_state, media_ops, table_ops
+from common.games import (
+    game_lens,
+    game_ops,
+    library_vps_state,
+    location_ops,
+    media_ops,
+    table_ops,
+)
 from common.host import play_service
 
 from . import scopes
@@ -60,6 +67,17 @@ READS: dict[str, Callable[..., Any]] = {
     "vps_details": game_ops.vps_details,
 }
 
+# Where games live is a setting, and these keep the scopes the routes under /locations
+# keep: an extension that can add a library folder can already point an install at its
+# library, and should ask for that by name.
+CONFIG_READS: dict[str, Callable[..., Any]] = {
+    "new_game_destination": location_ops.destination,
+}
+
+CONFIG_WRITES: dict[str, Callable[..., Any]] = {
+    "use_library_folder": location_ops.use_library_folder,
+}
+
 LAUNCHES: dict[str, Callable[..., Any]] = {
     "launch_game": _launch,
 }
@@ -88,5 +106,9 @@ def offer_all() -> None:
         offer(name, scopes.GAMES_READ, run)
     for name, run in WRITES.items():
         offer(name, scopes.GAMES_WRITE, run)
+    for name, run in CONFIG_READS.items():
+        offer(name, scopes.CONFIG_READ, run)
+    for name, run in CONFIG_WRITES.items():
+        offer(name, scopes.CONFIG_WRITE, run)
     for name, run in LAUNCHES.items():
         offer(name, scopes.LAUNCH_INVOKE, run)

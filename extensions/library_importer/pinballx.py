@@ -80,7 +80,7 @@ _EXTRAS = ("hidedmd", "hidetopper", "hidebackglass", "alternateexe",
            "dateadded", "datemodified", "theme")
 
 
-def detect(root: Path | str) -> bool:
+def detect(root: Path | str, survey: Callable[..., dict] | None = None) -> bool:
     """Whether this reader has anything to say about a root.
 
     The databases rather than the ini: a library copied off an old machine very often
@@ -483,12 +483,16 @@ def _here(recorded: str, root: Path) -> str:
 
 
 def read(root: Path | str, plays: Callable[[str], bool] = _plays_vpx,
-         known_apps: tuple[str, ...] = ()) -> SourceLibrary:
+         known_apps: tuple[str, ...] = (), *, survey: Callable[..., dict] | None = None,
+         chosen: dict | None = None) -> SourceLibrary:
     """Everything under one PinballX or PinballY root.
 
     Every emulator it declares, plus any database folder the config did not mention -
     a source whose ini did not travel still has its games, and they are the part worth
     having.
+
+    `survey` and `chosen` are accepted so every reader is called the same way; only the
+    Folders reader looks at them.
     """
     root = Path(root)
     declared, notes = read_config(root)

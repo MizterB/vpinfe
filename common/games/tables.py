@@ -169,6 +169,33 @@ def is_game_folder(path: str | Path) -> bool:
     return bool(table_names(names)) or f"{here.name}.info" in names
 
 
+def survey(path: str | Path) -> dict[str, list[str]]:
+    """What a folder holds: `game_folders`, the child folders `is_game_folder` calls
+    games, and `loose`, the table files lying in it. Both sorted case-insensitively.
+
+    Anything whose name starts with a dot is skipped: a folder, as the scan skips it, and
+    a file, because macOS writes an AppleDouble `._` file beside each file on a volume
+    that cannot hold its metadata, and that is not a table. An unreadable folder holds
+    nothing.
+    """
+    here = Path(path).expanduser()
+    folders: list[str] = []
+    files: list[str] = []
+    try:
+        with os.scandir(here) as found:
+            for one in found:
+                if one.name.startswith("."):
+                    continue
+                if one.is_dir():
+                    if is_game_folder(one.path):
+                        folders.append(one.name)
+                else:
+                    files.append(one.name)
+    except OSError:
+        return {"game_folders": [], "loose": []}
+    return {"game_folders": sorted(folders, key=str.lower), "loose": table_names(files)}
+
+
 def entry_filename(entry: dict | None) -> str:
     """The file an entry describes, or ""."""
     if not isinstance(entry, dict):

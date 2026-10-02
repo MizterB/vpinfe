@@ -68,6 +68,7 @@ VIDEO_SUFFIXES = frozenset({".mp4", ".m4v", ".mkv", ".avi", ".mov", ".webm", ".f
 
 KINDS_BY_SOURCE = {
     "pinballx": PINBALLX_KINDS,
+    "folders": PINBALLX_KINDS,
     "popper": POPPER_KINDS,
     "emulationstation": EMULATIONSTATION_KINDS,
 }

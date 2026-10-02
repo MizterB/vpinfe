@@ -33,6 +33,8 @@ logger = logging.getLogger("vpinfe.console.locations")
 
 SCOPE = "locations"
 
+IMPORTER = "library_importer"
+
 # What a person would call each kind, rather than what the record calls it.
 KIND_LABELS = {"root": "console.locations.game_folders",
                "game": "console.locations.one_game"}
@@ -148,6 +150,28 @@ def build(library: Library, state: dict[str, Any],
     busy.fill(body, lambda: _fill(library, state, on_select, rerender, body))
 
 
+async def _import_action(library: Library) -> dict | None:
+    """The Library Importer's import, when that extension is running - a button that
+    refuses is worse than none, so an extension that is off or gone offers nothing."""
+    try:
+        found = await offload.io(library.extensions)
+    except Exception:  # noqa: BLE001 - a list that will not load is no action
+        return None
+    importer = next((one for one in found if one.get("name") == IMPORTER), {})
+    return next((one for one in importer.get("actions") or [] if one.get("key") == "import"),
+                None)
+
+
+@on_page
+async def _bring_in(action: dict, rerender: Callable[[], None] | None) -> None:
+    """The import dialog, then the page redrawn: it can add a library folder, and the list
+    and its count are read when the page draws."""
+    from console import ext_action
+
+    if await ext_action.open_action(IMPORTER, action) and rerender is not None:
+        rerender()
+
+
 async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[dict | None], Any],
                 rerender: Callable[[], None] | None, body: Any) -> None:
     try:
@@ -162,6 +186,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
     # so reaching for it at the top would close the loop.
     from console.games import view_control
 
+    importing = await _import_action(library)
     held = list(found.get("locations") or [])
     built = rows(held, asking(found))
     fields = [definition["field"] for definition in COLUMNS]
@@ -186,10 +211,13 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                                                       rerender)) \
                         .classes("console-menu-item console-menu-danger")
                 bulk.set_visibility(False)
-                panel.add_action(
-                    [(t("console.locations.add_location"),
-                      (lambda: _ask_new(library, state, rerender, on_select)))],
-                    empty=not built)
+                choices: list[tuple[str, Callable[[], Any]]] = [
+                    (t("console.locations.add_location"),
+                     (lambda: _ask_new(library, state, rerender, on_select)))]
+                if importing is not None:
+                    choices.append((str(importing.get("label") or ""),
+                                    lambda: _bring_in(importing, rerender)))
+                panel.add_action(choices, empty=not built)
 
         if not built:
             panel.facts(ui, [panel.intro(

@@ -164,6 +164,18 @@ def put(location_id: str, path: str, kind: str = "") -> dict[str, Any]:
                       locations.state_of(written))
 
 
+def use_library_folder(path: str) -> dict[str, Any]:
+    """A folder of game folders, as a location: the one already there, or a new one.
+
+    For a caller that has a folder and no id to name it by. A folder already held keeps
+    its id and its place in the order, so asking again does not change where new games
+    go; a new one goes last. Always a root: what is being asked for is a folder whose
+    children are games, and a folder held as a single game is made a root by it, which
+    is what the caller just said it is.
+    """
+    return put(locations.mint_location_id(), path, locations.KIND_ROOT)
+
+
 def forget(location_id: str) -> dict[str, Any]:
     """The records inside it go with it. A contained entry keeps its record in its own
     folder, so it leaves with the location and is there again if it comes back."""
