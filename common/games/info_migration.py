@@ -226,6 +226,17 @@ def backup_names(names: Iterable[str], info_name: str) -> list[str]:
     return sorted((n for n in names if n.startswith(prefix)), reverse=True)
 
 
+def backup_stamp(backup: str | Path) -> str:
+    """When the copy was taken, as written in its name."""
+    return Path(backup).name.rsplit(BACKUP_MARKER, 1)[-1]
+
+
+def copied_from(backup: str | Path) -> Path:
+    """The file this copy was taken of."""
+    path = Path(backup)
+    return path.with_name(path.name.rsplit(BACKUP_MARKER, 1)[0])
+
+
 def restorable_backup(game_dir: str | Path, max_schema: int = INFO_SCHEMA,
                       names: Iterable[str] | None = None) -> str | None:
     """The backup this build would restore here, or None.

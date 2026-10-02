@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from common.games.collection_store import CollectionStore, restorable_collections_backup
 from common.games.game_parser import GameParser
 from common.games.info_maintenance import (
     game_dirs,
@@ -191,6 +192,43 @@ class RestoreTests(LibraryTestCase):
         self.assertEqual(result["restored"], 1)
         kept = [b.read_text(encoding="utf-8") for b in self._backups(game)]
         self.assertIn("{ truncated", kept)
+
+
+class CollectionsRestoreTests(TempTree):
+    """Collections are put back with the library, from the config folder."""
+
+    INI = "[Favorites]\ntype = vpsid\nvpsids = vps-1\n"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.config = self.root / "config"
+        self.config.mkdir()
+        (self.root / "games").mkdir()
+
+    def _upgraded_from_2x(self) -> None:
+        (self.config / "collections.ini").write_text(self.INI, encoding="utf-8")
+        CollectionStore(str(self.config / "collections.json")).save()
+
+    def test_a_2x_copy_goes_back_to_the_ini_and_the_json_still_reads(self):
+        self._upgraded_from_2x()
+
+        result = restore_library(self.root / "games", config_dir=self.config)
+
+        self.assertTrue(result["collections_restored"])
+        self.assertEqual((self.config / "collections.ini").read_text(encoding="utf-8"),
+                         self.INI)
+        json.loads((self.config / "collections.json").read_text(encoding="utf-8"))
+        self.assertIn("Favorites", CollectionStore(
+            str(self.config / "collections.json")).get_collections_name())
+
+    def test_the_newest_copy_wins_whichever_file_it_was_taken_of(self):
+        (self.config / "collections.json.vpinfe-20260101T000000Z").write_text(
+            json.dumps({"schema": 2, "collections": []}), encoding="utf-8")
+        (self.config / "collections.ini.vpinfe-20260201T000000Z").write_text(
+            self.INI, encoding="utf-8")
+
+        self.assertEqual(Path(restorable_collections_backup(self.config)).name,
+                         "collections.ini.vpinfe-20260201T000000Z")
 
 
 class WalkTests(LibraryTestCase):

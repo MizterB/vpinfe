@@ -25,6 +25,7 @@ from common.games.game_metadata import (
 from common.games.info_file import VPINFE_SECTION
 from common.games.info_migration import (
     backup_names,
+    backup_stamp,
     copy_aside,
     write_atomic,
 )
@@ -980,7 +981,7 @@ def restorable_collections_backup(config_dir: str | Path,
     except OSError:
         return None
     candidates = backup_names(names, COLLECTIONS_NAME) + backup_names(names, COLLECTIONS_NAME_INI)
-    for name in sorted(candidates, reverse=True):
+    for name in sorted(candidates, key=backup_stamp, reverse=True):
         candidate = folder / name
         try:
             schema = collections_schema(candidate)

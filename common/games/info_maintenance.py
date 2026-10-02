@@ -12,13 +12,11 @@ from typing import TypedDict
 
 from common.failures import why
 from common.games import locations
-from common.games.collection_store import (
-    COLLECTIONS_NAME,
-    restorable_collections_backup,
-)
+from common.games.collection_store import restorable_collections_backup
 from common.games.info_file import InvalidMetaConfigError, MetaConfig
 from common.games.info_migration import (
     INFO_SCHEMA,
+    copied_from,
     copy_aside,
     replace_atomic,
     restorable_backup,
@@ -194,13 +192,14 @@ def restore_library(
     if config_dir:
         chosen = restorable_collections_backup(config_dir, max_schema)
         if chosen:
+            target = copied_from(chosen)
             try:
-                _restore_file(Path(config_dir) / COLLECTIONS_NAME, chosen)
+                _restore_file(target, chosen)
                 result["collections_restored"] = True
                 log("Restored your collections.")
             except OSError as exc:
                 result["failed"] += 1
-                result["failures"].append((COLLECTIONS_NAME, why(exc)))
+                result["failures"].append((target.name, why(exc)))
                 log("Left as it is, could not be restored: your collections")
 
     log(_restore_summary(result))
