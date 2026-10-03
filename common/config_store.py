@@ -421,6 +421,23 @@ class ConfigStore:
                 self.config.remove_option(section, key)
         self._schema = max(self._schema, schema)
 
+    def reread(self) -> None:
+        """Take in the file as it stands now. A store holds what it read when it was made,
+        and the Console writes through ones of its own, so a long-lived one is what VPinFE
+        started with until it is told to look again. Anything staged and not saved is
+        dropped."""
+        if not os.path.exists(self.json_path):
+            return
+        try:
+            schema, parser = self._read_json()
+        except (OSError, ValueError) as exc:
+            logger.warning("Could not read %s again, keeping what was read: %s",
+                           self.json_path, exc)
+            return
+        self._schema = schema
+        self.config = parser
+        self._saved = _options(parser)
+
     def value(self, section: str, key: str) -> Any:
         """One setting, typed the way this store would write it back.
 

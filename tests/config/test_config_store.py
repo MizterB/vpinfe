@@ -74,6 +74,40 @@ class FirstRunTests(ConfigStoreTests):
         self.assertEqual(self._payload()[SCHEMA_KEY], CONFIG_SCHEMA)
 
 
+class RereadTests(ConfigStoreTests):
+    """The Console writes through a store of its own; the one a process booted with is
+    stale until it looks again."""
+
+    def test_a_write_through_another_store_shows_after_reread(self) -> None:
+        booted = ConfigStore(str(self.ini))
+        other = ConfigStore(str(self.ini))
+        other.set_value("Display", "rotation", "90")
+        other.save()
+        self.assertNotEqual(booted.value("Display", "rotation"), "90")
+
+        booted.reread()
+
+        self.assertEqual(booted.value("Display", "rotation"), "90")
+
+    def test_a_file_that_cannot_be_read_leaves_what_was_read(self) -> None:
+        store = ConfigStore(str(self.ini))
+        store.set_value("Display", "rotation", "90")
+        store.save()
+        self.json.write_text("{ not json", encoding="utf-8")
+
+        store.reread()
+
+        self.assertEqual(store.value("Display", "rotation"), "90")
+
+    def test_staged_changes_are_dropped(self) -> None:
+        store = ConfigStore(str(self.ini))
+        store.set_value("Display", "rotation", "270")
+
+        store.reread()
+
+        self.assertNotEqual(store.value("Display", "rotation"), 270)
+
+
 class TypedValueTests(ConfigStoreTests):
     def test_bools_and_ints_are_stored_as_bools_and_ints(self) -> None:
         ConfigStore(str(self.ini))

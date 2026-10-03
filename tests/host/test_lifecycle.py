@@ -191,6 +191,65 @@ class LifecycleTests(unittest.TestCase):
 
         power_off.assert_called_once_with()
 
+class FrontendPerformerTests(unittest.TestCase):
+    """What the frontend scope does, and for whom it exists at all."""
+
+    def setUp(self) -> None:
+        lifecycle.reset_for_tests()
+        self.addCleanup(lifecycle.reset_for_tests)
+        self.browser = mock.Mock()
+        self.shutdown = mock.Mock()
+
+    def _install(self, *, windows: bool = False) -> None:
+        self.closed = []
+        self.opened = []
+        extra = ({"open_windows": lambda: self.opened.append(1),
+                  "close_windows": lambda: self.closed.append(1)} if windows else {})
+        lifecycle_host.install(config_store=None, config_dir=Path("."),
+                               frontend_browser=self.browser,
+                               shutdown_event=self.shutdown, **extra)
+
+    def _ask(self, action: str) -> bool:
+        return lifecycle.request(lifecycle.FRONTEND, action,
+                                 origin=lifecycle.Origin(lifecycle.SURFACE_API))
+
+    def test_a_headless_install_performs_none_of_it(self) -> None:
+        self._install()
+        for action in (lifecycle.START, lifecycle.STOP, lifecycle.RESTART):
+            self.assertFalse(lifecycle.performable(lifecycle.FRONTEND, action))
+
+    def test_an_install_with_windows_performs_all_three(self) -> None:
+        self._install(windows=True)
+        for action in (lifecycle.START, lifecycle.STOP, lifecycle.RESTART):
+            self.assertTrue(lifecycle.performable(lifecycle.FRONTEND, action))
+
+    def test_stopping_closes_the_windows_and_leaves_the_run_going(self) -> None:
+        self._install(windows=True)
+
+        self.assertTrue(self._ask(lifecycle.STOP))
+
+        self.assertEqual(self.closed, [1])
+        self.browser.terminate_all.assert_not_called()
+        self.shutdown.set.assert_not_called()
+
+    def test_starting_and_restarting_open_the_windows(self) -> None:
+        self._install(windows=True)
+
+        self._ask(lifecycle.START)
+        self._ask(lifecycle.RESTART)
+
+        self.assertEqual(len(self.opened), 2)
+
+    def test_quitting_vpinfe_still_ends_the_run(self) -> None:
+        self._install(windows=True)
+
+        lifecycle.request(lifecycle.VPINFE, lifecycle.STOP,
+                          origin=lifecycle.Origin(lifecycle.SURFACE_API))
+
+        self.shutdown.set.assert_called_once_with()
+        self.browser.terminate_all.assert_called_once_with()
+
+
 class NoticeTests(unittest.TestCase):
     """Every listening surface that did not start it gets told."""
 

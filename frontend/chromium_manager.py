@@ -452,6 +452,11 @@ class ChromiumManager:
         # two shapes this platform answers with.
         self._processes: list[tuple[str, subprocess.Popen[Any], str, Any]] = []
         self._exit_event = threading.Event()
+        # Which set of windows a monitor belongs to. Closing the windows moves it on, so
+        # a monitor watching the ones that were closed on purpose stays quiet instead of
+        # reading their going as a person closing a window.
+        self._lock = threading.RLock()
+        self._generation = 0
         # Windows only: [(window_name, hwnd)] awaiting restore.
         self._minimized_hwnds: list[tuple[str, int]] = []
         self._controller = ""
@@ -838,33 +843,43 @@ class ChromiumManager:
                     logger.exception("kill %s failed", pid)
 
     def terminate_all(self) -> None:
-        """Terminate all Chromium processes immediately. Safe to call twice."""
-        if not self._processes:
-            self._exit_event.set()
-            return
-
-        logger.debug("Terminating all browser windows...")
-        for window_name, proc, _temp_dir, _ in self._processes:
-            try:
-                if proc.poll() is None:  # still running
-                    # Use force=True (SIGKILL) directly - no need for graceful shutdown
-                    self._kill_process_tree(proc, window_name, force=True)
-            except Exception:
-                logger.exception("Error terminating '%s'", window_name)
-
-        # Wait for parent processes to be reaped
-        for window_name, proc, temp_dir, _ in self._processes:
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                logger.warning("'%s' still not reaped", window_name)
-            # The profile is a fresh temp directory per window per launch, and nothing
-            # was removing it. Three per run adds up fast on a frontend that restarts.
-            shutil.rmtree(temp_dir, ignore_errors=True)
-
-        self._processes.clear()
+        """Terminate all Chromium processes immediately and end the wait for them. Safe
+        to call twice."""
+        self.close_windows()
         self._exit_event.set()
+
+    def close_windows(self) -> bool:
+        """Close the windows and leave the run going, which is what a request to stop
+        the frontend means. `terminate_all` is the one that ends the wait. True when
+        there was a window to close."""
+        with self._lock:
+            self._generation += 1
+            if not self._processes:
+                return False
+
+            logger.debug("Terminating all browser windows...")
+            for window_name, proc, _temp_dir, _ in self._processes:
+                try:
+                    if proc.poll() is None:  # still running
+                        # Use force=True (SIGKILL) directly - no need for graceful shutdown
+                        self._kill_process_tree(proc, window_name, force=True)
+                except Exception:
+                    logger.exception("Error terminating '%s'", window_name)
+
+            # Wait for parent processes to be reaped
+            for window_name, proc, temp_dir, _ in self._processes:
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    logger.warning("'%s' still not reaped", window_name)
+                # The profile is a fresh temp directory per window per launch, and
+                # nothing was removing it. Three per run adds up fast on a frontend that
+                # restarts.
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+            self._processes.clear()
         logger.info("All browser windows closed.")
+        return True
 
     def request_exit(self) -> None:
         """Unblock wait_for_exit and leave the windows to the caller."""
@@ -874,49 +889,64 @@ class ChromiumManager:
         """Clear a requested exit - once set, every wait_for_exit returns at once."""
         self._exit_event.clear()
 
+    def watch(self, is_window_connected: Callable[[str], bool] | None = None,
+              on_lost: Callable[[], None] | None = None) -> None:
+        """Watch the windows now open, and when one is closed by hand take the rest down
+        with it and call `on_lost`.
+
+        Windows closed by `close_windows` do not count. Called again for each set of
+        windows, because the monitor belongs to the set it started with.
+        """
+        with self._lock:
+            generation = self._generation
+        threading.Thread(target=self._monitor,
+                         args=(generation, is_window_connected, on_lost),
+                         daemon=True).start()
+
+    def _monitor(self, generation: int,
+                 is_window_connected: Callable[[str], bool] | None,
+                 on_lost: Callable[[], None] | None) -> None:
+        def current() -> bool:
+            return self._generation == generation and not self._exit_event.is_set()
+
+        while self._processes and current():
+            for window_name, proc, _temp_dir, _ in list(self._processes):
+                if proc.poll() is None:
+                    continue
+                if is_window_connected and is_window_connected(window_name):
+                    logger.info(
+                        "Window '%s' launcher process exited (code %s) "
+                        "but frontend is still connected; waiting for disconnect.",
+                        window_name,
+                        proc.returncode,
+                    )
+                    while current() and is_window_connected(window_name):
+                        self._exit_event.wait(timeout=0.5)
+                    self._exit_event.wait(timeout=0.5)
+                    if not current():
+                        return
+                logger.info("Window '%s' exited (code %s)", window_name, proc.returncode)
+                with self._lock:
+                    # Closed on purpose while this was deciding.
+                    if self._generation != generation:
+                        return
+                    # One window exited - shut everything down
+                    self.terminate_all()
+                if on_lost is not None:
+                    on_lost()
+                return
+            self._exit_event.wait(timeout=0.5)
+
     def wait_for_exit(self,
                       is_window_connected: Callable[[str], bool] | None = None) -> None:
         """Block until all Chromium processes have exited.
 
-        This replaces the legacy UI main loop as the main blocking call.
-        Monitors all processes and returns when any one exits
-        (which typically means the user closed a window or the app is shutting down).
+        Returns when any one exits (which typically means the user closed a window or
+        the app is shutting down). Used where windows are the whole run: Setup's.
         """
         if not self._processes:
             return
-
-        def _monitor() -> None:
-            """Watch for any process to exit, then terminate all."""
-            while self._processes and not self._exit_event.is_set():
-                for window_name, proc, _temp_dir, _ in list(self._processes):
-                    if proc.poll() is not None:
-                        if is_window_connected and is_window_connected(window_name):
-                            logger.info(
-                                "Window '%s' launcher process exited (code %s) "
-                                "but frontend is still connected; waiting for disconnect.",
-                                window_name,
-                                proc.returncode,
-                            )
-                            while (
-                                self._processes
-                                and not self._exit_event.is_set()
-                                and is_window_connected(window_name)
-                            ):
-                                self._exit_event.wait(timeout=0.5)
-                            self._exit_event.wait(timeout=0.5)
-                            if self._exit_event.is_set():
-                                return
-                        logger.info(
-                            "Window '%s' exited (code %s)", window_name, proc.returncode
-                        )
-                        # One window exited - shut everything down
-                        self.terminate_all()
-                        return
-                self._exit_event.wait(timeout=0.5)
-
-        monitor_thread = threading.Thread(target=_monitor, daemon=True)
-        monitor_thread.start()
-
+        self.watch(is_window_connected)
         # Block the main thread until exit is signaled
         self._exit_event.wait()
 
@@ -926,6 +956,12 @@ class ChromiumManager:
             if name == window_name:
                 return proc
         return None
+
+    @property
+    def has_windows(self) -> bool:
+        """Whether any window was launched and not closed, running or not: a launcher
+        that has exited can still have its window up."""
+        return bool(self._processes)
 
     @property
     def is_running(self) -> bool:

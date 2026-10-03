@@ -178,5 +178,33 @@ class ManyLocationTests(unittest.TestCase):
         self.assertEqual([g.location_id for g in found], ["loc1"])
 
 
+class RereadMediaSettingsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        game_repository._PARSERS.clear()
+        self.addCleanup(game_repository._PARSERS.clear)
+
+    def _hold(self, *answers: bool) -> list[mock.Mock]:
+        parsers = [mock.Mock(**{"read_media_settings.return_value": a}) for a in answers]
+        for number, one in enumerate(parsers):
+            game_repository._PARSERS[(f"/folder-{number}", KIND_ROOT)] = one
+        return parsers
+
+    def test_unchanged_settings_leave_the_library_alone(self) -> None:
+        self._hold(False, False)
+        with mock.patch.object(game_repository, "get_ini_config"), \
+             mock.patch.object(game_repository, "all_games") as reread:
+            self.assertFalse(game_repository.reread_media_settings())
+        reread.assert_not_called()
+
+    def test_one_location_under_other_settings_reads_the_library_again(self) -> None:
+        parsers = self._hold(False, True)
+        with mock.patch.object(game_repository, "get_ini_config"), \
+             mock.patch.object(game_repository, "all_games") as reread:
+            self.assertTrue(game_repository.reread_media_settings())
+        reread.assert_called_once_with(reload=True)
+        for one in parsers:
+            one.read_media_settings.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -57,6 +57,10 @@ class DeviceChannel:
         """Register an API instance for a window name."""
         self._api_instances[window_name] = api_instance
 
+    def apis(self) -> list[API]:
+        """The API of every window this process registered."""
+        return list(self._api_instances.values())
+
     def on_windows_changed(self, callback: Callable[[int], None]) -> None:
         """Be told how many windows are connected, each time one connects or goes."""
         self._windows_changed = callback

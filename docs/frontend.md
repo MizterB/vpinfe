@@ -9,6 +9,8 @@ The frontend starts at `main.py`, but most runtime responsibilities now live in 
 3. `frontend.device_channel.DeviceChannel` receives JavaScript calls from theme windows and dispatches only methods listed by `frontend.api.API_ALLOWED_METHODS`.
 4. `frontend.api.API` remains the JS-facing facade for theme code. It should stay thin and delegate feature behavior to service modules.
 
+The windows come and go under the run. `run_frontend_loop` waits on the shutdown event, as a headless run does; `ChromiumManager.close_windows` closes the windows without ending it, and `reopen_windows` opens them again on the settings as they are now (screens, rotation, theme and Chromium options re-read from `vpinfe.json`, the theme's wheel set reapplied). A window closed by hand still sets the event and ends the run. The window set itself is fixed at boot, so adding or removing one needs a restart.
+
 ## Core Modules
 
 - `common/paths.py`: shared config paths, `vpinfe.ini`, `collections.ini`, themes directory, and game root lookup.

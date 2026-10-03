@@ -195,15 +195,24 @@ def create_api_instances():
     """Create API instances for each configured display window."""
     global ws_bridge, frontend_browser
     ws_bridge, frontend_browser = runtime.create_api_instances(config_store, logger)
-    # Now that there is a browser to stop, this process can say what it can do. Windows
-    # are opened by run_frontend_loop below, so nothing here can open them: starting the
-    # frontend on a headless instance is left unperformable until that moves.
+
+    def open_windows() -> None:
+        runtime.reopen_windows(config_store, frontend_browser, ws_bridge,
+                               _shutdown_event, logger)
+
+    def close_windows() -> None:
+        runtime.close_windows(frontend_browser, logger)
+
+    # Now that there is a browser to stop, this process can say what it can do. A headless
+    # instance owns no windows, so it is told of none and offers no action on them.
     lifecycle_host.install(
         config_store=config_store,
         config_dir=config_dir,
         frontend_browser=frontend_browser,
         shutdown_event=_shutdown_event,
         ws_bridge=ws_bridge,
+        open_windows=None if headless else open_windows,
+        close_windows=None if headless else close_windows,
     )
     app_control.install_notices()
 

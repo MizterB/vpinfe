@@ -16,6 +16,43 @@ from common.i18n import t
 from tests.support.library import TempTree, write_game
 
 
+class MediaSettingsTests(unittest.TestCase):
+    """The games resolve their media under the settings the parser last took."""
+
+    def _parser(self, variant: str = "", sets: dict | None = None) -> GameParser:
+        parser = GameParser.__new__(GameParser)
+        parser.playfieldvariant = variant
+        parser.active_sets = sets or {}
+        return parser
+
+    def _read(self, parser: GameParser, *, variant: str, wheelset: str) -> bool:
+        with mock.patch("common.games.game_parser.MediaConfig.from_config",
+                        return_value=SimpleNamespace(playfield_variant=variant,
+                                                     wheelset=wheelset)), \
+             mock.patch("common.games.game_parser.active_set_for",
+                        side_effect=lambda _kind, configured: configured):
+            return parser.read_media_settings(mock.Mock())
+
+    def test_a_different_wheel_set_is_a_change(self) -> None:
+        parser = self._parser()
+        self.assertTrue(self._read(parser, variant="", wheelset="Neon"))
+        self.assertEqual(parser.active_sets, {"wheel": "Neon"})
+
+    def test_the_same_settings_are_not(self) -> None:
+        parser = self._parser("night", {"wheel": "Neon"})
+        self.assertFalse(self._read(parser, variant="night", wheelset="Neon"))
+
+    def test_a_different_playfield_variant_is_a_change(self) -> None:
+        parser = self._parser("")
+        self.assertTrue(self._read(parser, variant="night", wheelset=""))
+        self.assertEqual(parser.playfieldvariant, "night")
+
+    def test_dropping_the_wheel_set_is_a_change(self) -> None:
+        parser = self._parser("", {"wheel": "Neon"})
+        self.assertTrue(self._read(parser, variant="", wheelset=""))
+        self.assertEqual(parser.active_sets, {})
+
+
 class GameParserTests(unittest.TestCase):
     def test_game_parser_accessors_return_copies(self) -> None:
         parser = GameParser.__new__(GameParser)

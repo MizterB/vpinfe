@@ -126,9 +126,9 @@ def _report_shared_library(shared_library: library_resolver.LibraryResolver,
 def _apply_theme_media_sets(iniconfig: ConfigStore, logger: logging.Logger) -> None:
     """Push the active theme's set choices down to media resolution.
 
-    common/ cannot read theme.json (layering), so the frontend does it once at
-    boot, before the first scan. The ini's [Media] wheelset stays the default
-    for anything the theme does not override.
+    common/ cannot read theme.json (layering), so the frontend does it at boot,
+    before the first scan, and again whenever the windows reopen. The ini's [Media]
+    wheelset stays the default for anything the theme does not override.
     """
     try:
         from common.media_specs import set_media_set_override
@@ -136,8 +136,10 @@ def _apply_theme_media_sets(iniconfig: ConfigStore, logger: logging.Logger) -> N
 
         theme_config = get_theme_config(iniconfig) or {}
         wheelset = str(theme_config.get("wheelSet") or "").strip()
+        # Cleared when the theme names none: a reopen can follow a change of theme, and
+        # the last theme's choice would otherwise outlive it.
+        set_media_set_override("wheel", wheelset or None)
         if wheelset:
-            set_media_set_override("wheel", wheelset)
             logger.info("Theme wheel set: %s", wheelset)
     except Exception:
         logger.exception("Could not apply the theme's media set choices")
@@ -252,6 +254,81 @@ def _wait_out_setup(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
     return not install_setup.pending(get_ini_config())
 
 
+def open_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
+                 shutdown_event: threading.Event,
+                 is_window_connected: Callable[[str], bool] | None = None) -> bool:
+    """Open the windows the settings describe and watch them. A window closed by hand
+    ends the run, which is `shutdown_event`. True when one is up."""
+    # Prime the monitor cache before any windows spawn. Each
+    # window's JS calls api.get_monitors() on its own pywebview worker thread;
+    # opening X11 display connections concurrently races in libXau and aborts the
+    # process. Doing the one real X query here keeps those calls served from cache.
+    get_display_monitors()
+
+    frontend_browser.launch_all_windows(iniconfig)
+    frontend_browser.watch(is_window_connected=is_window_connected,
+                           on_lost=shutdown_event.set)
+    return frontend_browser.has_windows
+
+
+# Serializes everything that changes which windows are up, shutdown included: a reopen
+# that is still launching when the run ends would otherwise leave its windows behind.
+_reopening = threading.Lock()
+
+
+def close_windows(frontend_browser: ChromiumManager, logger: logging.Logger) -> None:
+    """Close the windows and leave the run going. While Setup is pending the one window
+    is Setup itself, and closing it is the person quitting, so nothing is closed."""
+    from common.paths import get_ini_config
+
+    with _reopening:
+        if install_setup.pending(get_ini_config()):
+            logger.info("Setup is still open; its window is not closed from here.")
+            return
+        frontend_browser.close_windows()
+
+
+def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
+                   ws_bridge: DeviceChannel, shutdown_event: threading.Event,
+                   logger: logging.Logger) -> None:
+    """Close the windows, if any are up, and open them again on the settings as they are
+    now. The same call opens windows that were closed.
+
+    The Console writes through a store of its own, so what this process booted with is
+    read again first - the screens, rotation, theme and Chromium settings all come from
+    it, and the windows' own API answers from it too. The theme's wheel set is applied
+    again, and a library resolved under another set or variant is read once more.
+    """
+    from common.games import game_repository
+    from common.paths import get_ini_config
+
+    with _reopening:
+        if shutdown_event.is_set() or shutdown.requested():
+            return
+        if install_setup.pending(get_ini_config()):
+            logger.info("Setup is still open; the windows are not reopened under it.")
+            return
+        frontend_browser.close_windows()
+        iniconfig.reread()
+        _apply_theme_media_sets(iniconfig, logger)
+        if game_repository.reread_media_settings():
+            # The shared view still holds the games it resolved before. The first window
+            # to ask rebuilds it, as it does after any change to the library.
+            for api in ws_bridge.apis():
+                api.library.mark_stale()
+        # The reread above can be slow, and a quit can arrive during it.
+        if shutdown_event.is_set() or shutdown.requested():
+            return
+        if not open_windows(iniconfig, frontend_browser, shutdown_event,
+                            ws_bridge.is_window_connected):
+            logger.warning("No window opened; VPinFE keeps running without them.")
+
+
+def _wait_for(shutdown_event: threading.Event) -> None:
+    while not shutdown_event.is_set():
+        shutdown_event.wait(0.2)
+
+
 def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
                       frontend_browser: ChromiumManager,
                       shutdown_event: threading.Event, logger: logging.Logger,
@@ -259,8 +336,12 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
     # Only headless used to handle a signal, so killing the windowed frontend died where
     # it stood and skipped shutdown_services - the play data never reached VPinPlay, and
     # Chromium runs in its own session, so its windows outlived us on screen.
-    shutdown.handle_termination(
-        shutdown_event.set if headless else frontend_browser.request_exit)
+    def _request_exit() -> None:
+        shutdown_event.set()
+        # Setup's wait is on the browser rather than on the event.
+        frontend_browser.request_exit()
+
+    shutdown.handle_termination(shutdown_event.set if headless else _request_exit)
 
     # Asked to quit while starting up. The windows were never opened, so this is the
     # whole frontend lifetime - return and let the caller stop the services.
@@ -273,8 +354,7 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
         logger.info("Press Ctrl+C to stop...")
 
         try:
-            while not shutdown_event.is_set():
-                shutdown_event.wait(0.2)
+            _wait_for(shutdown_event)
         except KeyboardInterrupt:
             shutdown_event.set()
         logger.info("Shutting down...")
@@ -294,17 +374,14 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
         from common.paths import get_ini_config
         iniconfig = get_ini_config()
 
-    # Prime the monitor cache on the main thread before any windows spawn. Each
-    # window's JS calls api.get_monitors() on its own pywebview worker thread;
-    # opening X11 display connections concurrently races in libXau and aborts the
-    # process. Doing the one real X query here keeps those calls served from cache.
-    get_display_monitors()
-
-    frontend_browser.launch_all_windows(iniconfig)
-    frontend_browser.wait_for_exit(is_window_connected=is_window_connected)
+    # No window up at all ends the run. Once there is one, the run belongs to the event,
+    # as a headless one does, and the windows come and go under it.
+    if open_windows(iniconfig, frontend_browser, shutdown_event, is_window_connected):
+        _wait_for(shutdown_event)
     # A no-op when a closed window already took the others down with it; the work
-    # is for the signal, which unblocks the wait without touching the windows.
-    frontend_browser.terminate_all()
+    # is for the signal, which leaves the windows up.
+    with _reopening:
+        frontend_browser.terminate_all()
 
 
 def shutdown_services(logger: logging.Logger, *, iniconfig: ConfigStore,

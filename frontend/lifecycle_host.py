@@ -4,8 +4,10 @@ Every stop and restart of this process ends the same way: `run_frontend_loop` re
 `main.py` runs `shutdown_services`. Reaching for the browser directly skips it, so those
 performers only ever make that loop return.
 
-Stopping a table is the exception and does not touch the loop: the table is a child of
-this install rather than a part of it, and closing one leaves VPinFE and its windows up.
+Two stops are the exception and leave the loop alone. Stopping the frontend closes its
+windows and VPinFE keeps running; starting or restarting it opens them again. Stopping a
+table is the other: the table is a child of this install rather than a part of it, and
+closing one leaves VPinFE and its windows up.
 """
 
 from __future__ import annotations
@@ -84,7 +86,8 @@ def _notice(*, scope: str, action: str, surface: str, address: str,
 def install(*, config_store: ConfigStore, config_dir: Path,
             frontend_browser: ChromiumManager, shutdown_event: threading.Event,
             ws_bridge: DeviceChannel | None = None,
-            open_windows: Callable[[], None] | None = None) -> None:
+            open_windows: Callable[[], None] | None = None,
+            close_windows: Callable[[], None] | None = None) -> None:
     """Wire this process's performers. Called once, from startup."""
     global _config_store, _bridge
     _config_store = config_store
@@ -96,8 +99,8 @@ def install(*, config_store: ConfigStore, config_dir: Path,
         events.subscribe(events.LIFECYCLE_ACTING, _notice)
 
     def stop_app(_request: lifecycle.Request) -> None:
-        # Both, because which one ends the wait depends on whether windows are open:
-        # headless blocks on the event, windowed blocks on the browser.
+        # Both: the event ends the run, and the windows are taken down with it unless
+        # Setup's wait, which blocks on the browser, is the one still running.
         shutdown_event.set()
         frontend_browser.terminate_all()
 
@@ -106,14 +109,6 @@ def install(*, config_store: ConfigStore, config_dir: Path,
         # written before anything unblocks the loop.
         system_actions.request_app_restart(config_dir)
         stop_app(_request)
-
-    def stop_frontend(_request: lifecycle.Request) -> None:
-        frontend_browser.terminate_all()
-
-    def restart_frontend(_request: lifecycle.Request) -> None:
-        frontend_browser.terminate_all()
-        if open_windows is not None:
-            open_windows()
 
     def stop_system(request: lifecycle.Request) -> None:
         system_actions.shutdown_system()
@@ -128,18 +123,22 @@ def install(*, config_store: ConfigStore, config_dir: Path,
 
     lifecycle.register_performer(lifecycle.VPINFE, lifecycle.STOP, stop_app)
     lifecycle.register_performer(lifecycle.VPINFE, lifecycle.RESTART, restart_app)
-    lifecycle.register_performer(lifecycle.FRONTEND, lifecycle.STOP, stop_frontend)
     lifecycle.register_performer(lifecycle.SYSTEM, lifecycle.STOP, stop_system)
     lifecycle.register_performer(lifecycle.SYSTEM, lifecycle.RESTART, restart_system)
     lifecycle.register_performer(lifecycle.TABLE, lifecycle.STOP, stop_table)
 
-    # Only registered when the caller knows how to open windows. An instance that cannot
-    # reports "nothing performs this" rather than silently going dark.
-    if open_windows is not None:
+    # Only registered when the caller owns windows to open and close: a headless instance
+    # has none, and reports "nothing performs this" rather than offering buttons that do
+    # nothing. Opening is also what restarting is - it closes whatever is up first - so
+    # one performer serves both. Closing is the caller's, never terminate_all, which
+    # would end the run.
+    if open_windows is not None and close_windows is not None:
+        lifecycle.register_performer(lifecycle.FRONTEND, lifecycle.STOP,
+                                     lambda _request: close_windows())
         lifecycle.register_performer(lifecycle.FRONTEND, lifecycle.START,
                                      lambda _request: open_windows())
         lifecycle.register_performer(lifecycle.FRONTEND, lifecycle.RESTART,
-                                     restart_frontend)
+                                     lambda _request: open_windows())
 
     lifecycle.register_notifier(_announce)
 

@@ -117,6 +117,19 @@ def all_games(reload: bool = False) -> list[Any]:
     return games
 
 
+def reread_media_settings() -> bool:
+    """Read the library again if the media settings now in force differ from what its
+    games were resolved under: the playfield variant or the active wheel set. True when
+    it did. Left alone otherwise, because a rescan is the slow part on a network share."""
+    store = get_ini_config()
+    with _LOCK:
+        changed = [parser.read_media_settings(store) for parser in _PARSERS.values()]
+    if not any(changed):
+        return False
+    all_games(reload=True)
+    return True
+
+
 def waiting_for() -> list[str]:
     """What an empty library is waiting on: each of its folders, by server where it is on
     one, while none of them can be reached. Empty once one answers, the library read

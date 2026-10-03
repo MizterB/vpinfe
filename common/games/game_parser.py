@@ -31,7 +31,7 @@ from common.games.tables import (
     table_entries,
     table_names,
 )
-from common.media_specs import apply_media_specs, resolve_media_by_table
+from common.media_specs import active_set_for, apply_media_specs, resolve_media_by_table
 
 # Below this many folders the pool costs more than it saves.
 _PARALLEL_SCAN_THRESHOLD = 12
@@ -76,14 +76,22 @@ class GameParser:
         self.unreadable_games: list[dict] = []
         self.active_sets: dict[str, str] = {}
         if ini_config:
-            media_cfg = MediaConfig.from_config(ini_config)
-            self.playfieldvariant = media_cfg.playfield_variant
-            from common.media_specs import active_set_for
-            wheelset = active_set_for("wheel", media_cfg.wheelset)
-            if wheelset:
-                self.active_sets["wheel"] = wheelset
+            self.read_media_settings(ini_config)
         # Constructing reads the library; a load_games(reload=True) after it reads it twice.
         self.load_games()
+
+    def read_media_settings(self, ini_config: ConfigStore) -> bool:
+        """Take the playfield variant and the active wheel set from `ini_config`. The games
+        resolve their media under these when they are read, so a change shows after the
+        next read. True when either changed."""
+        media_cfg = MediaConfig.from_config(ini_config)
+        wheelset = active_set_for("wheel", media_cfg.wheelset)
+        active_sets = {"wheel": wheelset} if wheelset else {}
+        changed = (media_cfg.playfield_variant, active_sets) != (self.playfieldvariant,
+                                                                self.active_sets)
+        self.playfieldvariant = media_cfg.playfield_variant
+        self.active_sets = active_sets
+        return changed
 
     def load_games(self, reload: bool = False) -> None:  # reload if you want to rescan the games
         if not reload and self.games:
