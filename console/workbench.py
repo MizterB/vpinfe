@@ -79,6 +79,7 @@ from console import (
     verbs,
     vps_match,
     vpx_displays,
+    vpx_input,
     when,
 )
 from console import commands as commands_help
@@ -4621,7 +4622,7 @@ async def _device_control(context: dict[str, Any]) -> None:
 # The app's declared groups, as rail sections. Fixed rather than read at import: a
 # section key has to be stable for `section=` in an address to mean one thing, and the
 # groups an app declares are its own vocabulary rather than this file's.
-CONFIG_GROUP_KEYS = ("displays", "sound", "graphics", "plugins")
+CONFIG_GROUP_KEYS = ("displays", "input", "sound", "graphics", "plugins")
 
 
 def _launcher_config_sections() -> tuple[Section, ...]:
@@ -4919,6 +4920,10 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
     curates for it under their headings, then the way to the rest."""
     if not group.curated:
         await _every_row(context, group)
+        return
+    if vpx_input.applies(group):
+        with ui.column().classes("gap-0 console-form"):
+            panel.facts(ui, vpx_input.entries(context, group, await _config_values(context)))
         return
     _area_search(context)
     values = await _config_values(context)
@@ -5398,7 +5403,8 @@ def _listed_groups(context: dict[str, Any]) -> list[Any]:
     """The groups whose settings are rows. A summarized or read-only one is a table's
     alone."""
     return [g for g in context.get("config_groups") or []
-            if not getattr(g, "summarized", False) and not getattr(g, "read_only", False)]
+            if not getattr(g, "summarized", False) and not getattr(g, "read_only", False)
+            and not vpx_input.applies(g)]
 
 
 async def _all_settings(context: dict[str, Any]) -> None:

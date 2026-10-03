@@ -63,8 +63,8 @@ PICK = """(last => {
 })(%s)"""
 # The open section. A page's own name (`panel.header`, Settings) is the page, not a
 # group, and a section bar is the whole section's; both are set aside before either
-# question is asked, and so is the input table's live line, which reports for the whole
-# table and so reads above its first group.
+# question is asked, and so are a page's intro and the input table's live line, which each
+# speak for the whole page and so read above its first group.
 HEADINGS = """(name => {
   const HEAD = '.console-fact-heading, .console-card-title,'
     + ' .console-group:not(.console-rail-group)';
@@ -77,7 +77,7 @@ HEADINGS = """(name => {
   const area = [...document.querySelectorAll('.console-section-work')].find(shown);
   const problems = [];
   const aside = [...area.querySelectorAll(
-    '.console-panel-heading, .console-section-bar, .console-binding-live')];
+    '.console-panel-heading, .console-section-bar, .console-binding-live, .console-intro')];
   const outside = el => !aside.some(a => a.contains(el));
   const heads = [...area.querySelectorAll(HEAD)].filter(shown).filter(outside);
   const first = [...area.querySelectorAll('*')].filter(outside).find(content);
@@ -194,7 +194,7 @@ class ConsolePagesDrive(unittest.TestCase):
 
     def test_a_vpx_install_opens_each_area_of_its_settings(self) -> None:
         self.assertEqual(self.seen["headings"][f"view=launchers&launcher={VPX}"]["opened"],
-                         ["Details", "Displays", "Sound", "Graphics", "Plugins",
+                         ["Details", "Displays", "Input", "Sound", "Graphics", "Plugins",
                           "All Settings", "Settings file"])
 
     def test_a_section_that_reads_before_it_draws_is_read_once_drawn(self) -> None:

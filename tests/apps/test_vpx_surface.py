@@ -96,6 +96,8 @@ BASELINE: dict[str, int] = {
     "console/theme.py": 2,
     # The Displays page of a Visual Pinball launcher: the file's keys are its subject.
     "console/vpx_displays.py": 12,
+    # The Input page of a Visual Pinball launcher: the file's keys are its subject.
+    "console/vpx_input.py": 9,
     "console/workbench.py": 32,
     "httpapi/core_capabilities.py": 5,
     "httpapi/filesystem.py": 1,

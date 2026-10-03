@@ -61,10 +61,21 @@ _LIVE_JS = """(() => {
 
 
 @dataclass(frozen=True)
+class Kept:
+    """A mapping the table shows and never edits: what it says, what it is, and whether a
+    controller makes it."""
+
+    label: str
+    tip: str
+    pad: bool = True
+
+
+@dataclass(frozen=True)
 class Row:
     """One action: what it is called, where it is listed and what it ships mapped to.
 
-    `holds` is False where a hold means nothing. `note` and `findings` are drawn under the
+    `holds` is False where a hold means nothing. `kept` are mappings drawn after the
+    others with no way to remove or move them. `note` and `findings` are drawn under the
     row.
     """
 
@@ -73,6 +84,7 @@ class Row:
     group: str = ""
     defaults: tuple[str, ...] = ()
     holds: bool = True
+    kept: tuple[Kept, ...] = ()
     note: str = ""
     findings: tuple[Callable[[], None], ...] = ()
 
@@ -207,7 +219,9 @@ class Table:
     `bound` is every row's bindings now and `write` is told the rows that change, answering
     whether they were kept; the table follows it only if they were. `source` names where
     the defaults come from, for the revert mark's tooltip. A table that is not `writable`
-    only shows.
+    only shows. Where the program does everything a press is mapped to, `shares`, a press
+    another row holds may be used for both and nothing is slowed or left without.
+    `refuses` says why a press cannot be mapped, or "" where it can.
 
     Clicking a row's label or field has that row listen for the next press. Above the rows
     a line names whatever is pressed on this computer and what it does, and says what is
@@ -215,13 +229,16 @@ class Table:
     """
 
     def __init__(self, rows: Sequence[Row], bound: Mapping[str, Any], *, write: Write,
-                 source: str, writable: bool = True) -> None:
+                 source: str, writable: bool = True, shares: bool = False,
+                 refuses: Callable[[str], str] | None = None) -> None:
         self.rows = tuple(rows)
         self.by_name = {row.name: row for row in self.rows}
         self.bound = {row.name: selectors(bound.get(row.name)) for row in self.rows}
         self.write = write
         self.source = source
         self.writable = writable
+        self.shares = shares
+        self.refuses = refuses
         self.lit = ""
         self.live = Live()
         self.listening = ""
@@ -291,14 +308,21 @@ class Table:
         # Keys before controller buttons, whichever order they were mapped in.
         for binding in sorted(held, key=input_registry.is_pad):
             self._chip(row, binding, clashes.get(input_registry.contention(binding)) or [])
-        if not held:
+        for one in row.kept:
+            with ui.element("div").classes("console-chip-holder"):
+                with ui.element("div").classes("console-member-chip console-chip-quiet") \
+                        .tooltip(one.tip):
+                    if one.pad:
+                        ui.icon(verbs.CONTROLLER).classes("console-chip-glyph")
+                    ui.label(one.label)
+        if not held and not row.kept:
             ui.label(t("console.binding_table.nothing_mapped")) \
                 .classes("console-member-chip console-tier console-tier--warn") \
                 .tooltip(t("console.binding_table.nothing_mapped.help"))
 
     def _chip(self, row: Row, binding: str, claimed_by: list[str]) -> None:
         shown = input_registry.describe(binding)
-        crowded = len(claimed_by) > 1
+        crowded = len(claimed_by) > 1 and not self.shares
         with ui.element("div").classes("console-chip-holder"):
             with ui.element("div").classes(
                     "console-member-chip "
@@ -309,6 +333,9 @@ class Table:
             self._chips[(row.name, binding)] = chip
             if crowded:
                 chip.tooltip(t("console.binding_editor.also_bound_first_one", others=listed(
+                    self.label_of(name) for name in claimed_by if name != row.name)))
+            elif len(claimed_by) > 1:
+                chip.tooltip(t("console.binding_table.also_does", others=listed(
                     self.label_of(name) for name in claimed_by if name != row.name)))
             if not self.writable:
                 return
@@ -448,6 +475,10 @@ class Table:
     async def _mapped(self, row: Row, token: str) -> None:
         """A press captured for `row`."""
         token = input_registry.identity(token)
+        if self.refuses is not None and (why := self.refuses(token)):
+            ui.notify(why, type="warning")
+            self._draw_live()
+            return
         if any(input_registry.contention(one) == input_registry.contention(token)
                for one in self.bound[row.name]):
             self._show(token, nothing=t("console.binding_table.already_does", row=row.label))
@@ -478,12 +509,23 @@ class Table:
         if input_registry.hold_ms(theirs) != input_registry.hold_ms(binding):
             mapped += " " + t("console.binding_table.one_hold", binding=input_registry.describe(
                 input_registry.with_hold(binding, 0)))
-        answer = await confirm.ask(
-            t("console.binding_table.move_question", binding=input_registry.describe(binding),
-              row=row.label),
-            detail=[mapped, *self._emptied(after, holders), *self._slowing(after)],
-            confirm=t("word.move"), icon=verbs.MOVE, danger=False)
-        if not answer:
+        if self.shares:
+            if not await confirm.ask(
+                    t("console.binding_table.share_question",
+                      binding=input_registry.describe(binding), row=row.label),
+                    detail=[mapped],
+                    confirm=t("console.binding_table.use_for_all" if len(holders) > 1
+                              else "console.binding_table.use_for_both"),
+                    icon=verbs.ADD, danger=False):
+                self._idle()
+                return
+            await self._apply(after_adding(self.bound, row.name, binding, old=old), binding)
+            return
+        question = t("console.binding_table.move_question",
+                     binding=input_registry.describe(binding), row=row.label)
+        detail = [mapped, *self._emptied(after, holders), *self._slowing(after)]
+        if not await confirm.ask(question, detail=detail, confirm=t("word.move"),
+                                 icon=verbs.MOVE, danger=False):
             self._idle()
             return
         moved = t("console.binding_table.moved_from_to",
@@ -522,6 +564,9 @@ class Table:
 
     @on_page
     async def _revert(self, row: Row) -> None:
+        if self.shares:
+            await self._apply({**self.bound, row.name: list(row.defaults)})
+            return
         after, given = after_reverting(self.bound, row.name, row.defaults)
         emptied = self._emptied(after, list(given))
         notes = self._slowing(after)
@@ -544,6 +589,8 @@ class Table:
 
     def _slowing(self, after: Mapping[str, Sequence[str]]) -> list[str]:
         """What a change would stop scrolling, said before it happens."""
+        if self.shares:
+            return []
         out = []
         for one in input_registry.newly_stalled(self.bound, after):
             row = self.label_of(one.action)

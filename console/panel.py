@@ -1283,6 +1283,6 @@ def intro(text: str, hint: str = "") -> tuple[Any, Callable[[], None]]:
     difference between this and `note`.
     """
     def draw() -> None:
-        line(text, hint=hint)
+        line(text, hint=hint, classes="console-help console-intro")
 
     return (FULL, draw)

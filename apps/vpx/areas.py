@@ -11,9 +11,11 @@ from collections.abc import Mapping
 
 from common.apps.contract import Heading, Pair, Switched
 
+from . import bindings
 from .plugins import Plugin
 
 DISPLAYS = "displays"
+INPUT = "input"
 SOUND = "sound"
 GRAPHICS = "graphics"
 PLUGINS = "plugins"
@@ -21,7 +23,7 @@ POINT_OF_VIEW = "point_of_view"
 REST = "more"
 
 # In the order the rail draws them.
-AREAS = (DISPLAYS, SOUND, GRAPHICS, PLUGINS)
+AREAS = (DISPLAYS, INPUT, SOUND, GRAPHICS, PLUGINS)
 
 
 def _window(key: str, prefix: str, parts: tuple[str, ...]) -> Heading:
@@ -47,6 +49,9 @@ CURATED: dict[str, tuple[Heading, ...]] = {
                             "Player.CabinetAutofitPos", "Player.ScreenWidth",
                             "Player.ScreenHeight", "Player.ScreenInclination")),
     ),
+    INPUT: tuple(Heading(heading, tuple(one.qualified for one in bindings.ACTIONS
+                                        if one.heading == heading))
+                 for heading in bindings.HEADINGS),
     SOUND: (
         Heading("backglass", ("Player.PlayMusic", "Player.MusicVolume",
                               "Player.SoundDeviceBG")),
@@ -192,6 +197,8 @@ def area_of(qualified: str) -> str:
     section = qualified.rsplit(".", 1)[0]
     if section in _WINDOW_SECTIONS or qualified in _DISPLAYS:
         return DISPLAYS
+    if bindings.is_action(qualified):
+        return INPUT
     if qualified in _SOUND:
         return SOUND
     if qualified in _GRAPHICS:

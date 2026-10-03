@@ -17,7 +17,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from apps.vpx import areas, displays
+from apps.vpx import areas, bindings, displays
 from apps.vpx.config import VPXConfig, own_file, own_log, settings_file
 from apps.vpx.setting_types import LABELS, TYPES
 from common import apps
@@ -404,8 +404,9 @@ class AreaTests(_Case):
         return {f.key for f in self.groups[area].settings}
 
     def test_the_areas_come_in_the_order_of_the_program_s_menu(self) -> None:
-        self.assertEqual(list(self.groups), [areas.DISPLAYS, areas.SOUND, areas.GRAPHICS,
-                                             areas.PLUGINS, areas.POINT_OF_VIEW, areas.REST])
+        self.assertEqual(list(self.groups), [areas.DISPLAYS, areas.INPUT, areas.SOUND,
+                                             areas.GRAPHICS, areas.PLUGINS,
+                                             areas.POINT_OF_VIEW, areas.REST])
 
     def test_each_setting_is_on_its_page(self) -> None:
         self.assertEqual(self.members(areas.DISPLAYS),
@@ -801,7 +802,7 @@ class CuratedTests(unittest.TestCase):
 
     def test_every_curated_row_is_one_the_program_declares(self) -> None:
         self.assertEqual([key for key in self.curated + self.plugin_rows
-                          if key not in TYPES], [])
+                          if key not in TYPES and not bindings.is_action(key)], [])
 
     def test_every_curated_row_is_in_its_own_area(self) -> None:
         for area, headings in areas.CURATED.items():
@@ -1193,7 +1194,7 @@ class SchemaTests(_Case):
     def test_a_section_the_areas_do_not_name_is_in_the_rest(self) -> None:
         keys = [g.key for g in self.config.groups(self.settings)]
 
-        self.assertEqual(keys, [areas.DISPLAYS, areas.REST])
+        self.assertEqual(keys, [areas.DISPLAYS, areas.INPUT, areas.REST])
 
     def test_the_groups_come_from_the_file_rather_than_from_here(self) -> None:
         groups = {g.key: g for g in self.config.groups(self.settings)}
@@ -1272,7 +1273,8 @@ class NumberedSetTests(_Case):
     def _labels(self, ini: str) -> dict[str, dict[str, str]]:
         self.app_ini.write_text(ini)
         return {f.key: apps.field_words("vpx", f)
-                for g in self.config.groups(self.settings) for f in g.settings}
+                for g in self.config.groups(self.settings) for f in g.settings
+                if not bindings.is_action(f.key)}
 
     def test_no_two_settings_of_a_set_read_the_same(self) -> None:
         sections: dict[str, list[str]] = {}
@@ -1349,17 +1351,19 @@ class TypeTests(_Case):
         happens to share the file, and 59 rows of it is noise to read past."""
         offered = {f.key for g in self.config.groups(self.settings) for f in g.settings}
 
-        for key in ("Input.Mapping.LeftFlipper", "Input.Device.Key.Type",
+        for key in ("Input.Mapping.NotAnAction", "Input.Device.Key.Type",
                     "Backglass.Priority.PUP"):
             with self.subTest(key=key):
                 self.assertNotIn(key, offered)
 
     def test_a_binding_is_hidden_even_though_its_section_is_not(self) -> None:
-        """`[Input]` holds both `Mapping.LeftFlipper` and real settings, so the whole
-        name decides rather than the heading above it."""
+        """`[Input]` holds both `Mapping.<Name>` and real settings, so the whole name
+        decides rather than the heading above it. A mapping is offered only for an action
+        the program has."""
         from apps.vpx.config import _offered
 
-        self.assertFalse(_offered("Input.Mapping.LeftFlipper"))
+        self.assertFalse(_offered("Input.Mapping.NotAnAction"))
+        self.assertTrue(_offered("Input.Mapping.LeftFlipper"))
         self.assertTrue(_offered("Input.JoyCustom1"))
 
 

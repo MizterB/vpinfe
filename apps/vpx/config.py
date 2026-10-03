@@ -36,7 +36,7 @@ from common.apps.contract import (
     Heading,
 )
 
-from . import areas, displays, plugins, screens
+from . import areas, bindings, displays, plugins, screens
 from . import ini as vini
 from .setting_types import CONTEXTUAL, LABELS, REGISTERED, TYPES
 
@@ -46,7 +46,8 @@ REST = areas.REST
 # something to set; the rest is state the program keeps in the same file - key bindings
 # written per device as somebody binds them, and the order plugins render in, worked out
 # when they load. None of it is a setting, and a page of raw input bindings in a
-# settings editor is noise somebody has to read past.
+# settings editor is noise somebody has to read past. The mappings of the actions the
+# Input page names are the exception, and are offered there only.
 HIDDEN_SECTIONS = frozenset({"Version", "RecentDir"})
 # `Plugin.vpx` is the program itself, and turning it off stops the program.
 HIDDEN_PREFIXES = ("Input.Mapping", "Input.Device", "Plugin.vpx.")
@@ -177,7 +178,7 @@ def _offered(qualified: str) -> bool:
     that says it is a binding is the key and not the heading above it."""
     parts = qualified.split(".")
     if parts[0] in HIDDEN_SECTIONS or qualified.startswith(HIDDEN_PREFIXES):
-        return False
+        return bindings.is_action(qualified)
     if qualified.startswith(EDITOR_SECTIONS) or EDITOR_PHYSICS.fullmatch(qualified):
         return False
     return not any(part in parts for part in HIDDEN_PARTS)
@@ -398,13 +399,17 @@ def _registered(one: vini.Setting) -> vini.Setting:
 
 def _unwritten(app: vini.Ini,
                installed: Mapping[str, plugins.Plugin] | None) -> list[vini.Setting]:
-    """What each plugin the program has registers that the file does not hold yet.
-    Where what is installed cannot be read, a plugin the file has a section for."""
+    """What each plugin the program has registers that the file does not hold yet, and
+    each key action the file has no mapping for. Where what is installed cannot be read, a
+    plugin the file has a section for."""
     held = {areas.plugin_of(key) for key in app.settings}
-    return [_registered(vini.Setting(section, key, "", label=key))
-            for qualified in REGISTERED if qualified not in app.settings
-            for section, key in (vini.section_and_key(qualified),)
-            if areas.plugin_of(qualified) in (held if installed is None else installed)]
+    found = [_registered(vini.Setting(section, key, "", label=key))
+             for qualified in REGISTERED if qualified not in app.settings
+             for section, key in (vini.section_and_key(qualified),)
+             if areas.plugin_of(qualified) in (held if installed is None else installed)]
+    return [*found, *(vini.Setting(bindings.SECTION, f"{bindings.PREFIX}{one.name}", "",
+                                   label=f"{bindings.PREFIX}{one.name}")
+                      for one in bindings.ACTIONS if one.qualified not in app.settings)]
 
 
 def _colors(app: vini.Ini) -> frozenset[str]:
@@ -824,9 +829,11 @@ def _field(one: vini.Setting) -> Field:
         key=one.qualified,
         # The file gives the key where it has no label. A plugin's declaration may have
         # one, and the catalog has the words for the rest.
-        label=one.label if one.label != one.key else LABELS.get(one.qualified, ""),
+        label="" if bindings.is_mapping(one.qualified)
+        else one.label if one.label != one.key else LABELS.get(one.qualified, ""),
         type=_type_of(one),
-        default=("" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE
+        default=(bindings.default_of(one.qualified) if bindings.is_action(one.qualified)
+                 else "" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE
                  else _default_color(one.default) if _type_of(one) == vini.KIND_COLOR
                  else _shortest(one.default) if _type_of(one) == vini.KIND_NUMBER
                  else one.default),

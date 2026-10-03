@@ -868,5 +868,106 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(list(control.grid.default_slot.children), [])
 
 
+class ASharingTable(unittest.IsolatedAsyncioTestCase):
+    """Where the program does everything a press is mapped to, a press another row holds
+    is used for both, and nothing is slowed or left without."""
+
+    def setUp(self) -> None:
+        self.body = ui.column()
+        self.written: list[dict[str, list[str]]] = []
+
+    async def write(self, changes: dict[str, list[str]]) -> bool:
+        self.written.append(changes)
+        return True
+
+    def drawn(self, bound: dict[str, Any] | None = None, **kwargs: Any) -> Table:
+        control, _ = _drawn(bound, into=self.body, write=self.write, shares=True, **kwargs)
+        return control
+
+    def asking(self, *answers: Any) -> Any:
+        return patch("console.confirm.ask", new=AsyncMock(side_effect=answers))
+
+    async def test_a_press_somebody_holds_can_be_used_for_both(self) -> None:
+        control = self.drawn()
+
+        with self.asking(True) as ask:
+            await press(control._mapped, control.by_name["select"], "key:Escape")
+
+        self.assertEqual(ask.await_args.kwargs["confirm"],
+                         t("console.binding_table.use_for_both"))
+        self.assertNotIn("second", ask.await_args.kwargs)
+        self.assertEqual(self.written, [{"select": ["key:Enter", "key:Escape"]}])
+        self.assertEqual(control.bound["back"], ["key:Escape"])
+
+    async def test_a_press_three_rows_hold_is_used_for_all(self) -> None:
+        control = self.drawn({**SHIPPED, "next": ["key:Escape"]})
+
+        with self.asking(False) as ask:
+            await press(control._mapped, control.by_name["select"], "key:Escape")
+
+        self.assertEqual(ask.await_args.kwargs["confirm"],
+                         t("console.binding_table.use_for_all"))
+
+    async def test_the_question_is_about_sharing_and_there_is_no_move(self) -> None:
+        control = self.drawn()
+
+        with self.asking(False) as ask:
+            await press(control._mapped, control.by_name["select"], "key:Escape")
+
+        self.assertEqual(ask.await_args.args[0], t(
+            "console.binding_table.share_question", binding="Esc", row="Select"))
+        self.assertEqual(ask.await_args.kwargs["detail"],
+                         [t("console.binding_table.mapped_to", binding="Esc", rows="Back")])
+
+    async def test_a_cancelled_question_changes_nothing(self) -> None:
+        control = self.drawn()
+
+        with self.asking(False):
+            await press(control._mapped, control.by_name["select"], "key:Escape")
+
+        self.assertEqual(self.written, [])
+        self.assertEqual(control.bound, SHIPPED)
+
+    async def test_a_revert_is_not_asked_about_and_leaves_the_other_row_its_press(
+            self) -> None:
+        control = self.drawn({**SHIPPED, "select": ["key:Escape"]})
+
+        with self.asking() as ask:
+            await press(control._revert, control.by_name["select"])
+
+        ask.assert_not_awaited()
+        self.assertEqual(self.written, [{"select": ["key:Enter"]}])
+        self.assertEqual(control.bound["back"], ["key:Escape"])
+
+    async def test_a_press_the_caller_refuses_is_said_and_not_mapped(self) -> None:
+        control = self.drawn(refuses=lambda token: "No number for that")
+
+        with self.asking() as ask, patch.object(ui, "notify") as notify:
+            await press(control._mapped, control.by_name["next"], "key:KeyN")
+
+        ask.assert_not_awaited()
+        notify.assert_called_once_with("No number for that", type="warning")
+        self.assertEqual(self.written, [])
+
+    async def test_a_chip_whose_press_two_rows_share_says_who_else_has_it(self) -> None:
+        self.drawn({**SHIPPED, "select": ["key:Escape"]})
+
+        tips = [one.text for one in _wrappers(self.body)["Back"].descendants()
+                if isinstance(one, ui.tooltip)]
+
+        self.assertIn(t("console.binding_table.also_does", others="Select"), tips)
+
+    async def test_a_chip_kept_is_shown_with_no_way_to_remove_it(self) -> None:
+        kept = Row("tilt", "Tilt", holds=False,
+                   kept=(table.Kept("Controller button", "Set elsewhere"),))
+        control = self.drawn({"tilt": []}, rows=(kept,))
+
+        wrapper = _wrappers(self.body)["Tilt"]
+
+        self.assertEqual(_chips(wrapper), ["Controller button"])
+        self.assertNotIn(t("console.binding_table.nothing_mapped"), _chips(wrapper))
+        self.assertEqual(control.bound["tilt"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
