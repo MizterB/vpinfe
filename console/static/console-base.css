@@ -3137,6 +3137,23 @@ a.console-tag:hover { background: var(--wash-hover); }
 /* The folder picker has no fixed-height ancestor to flex against, unlike the sources
    tabs above, so its list takes an explicit cap instead. */
 .console-folder-list { max-height: 46vh; overflow-y: auto; }
+/* Where: the path is the face, drawn as the dropdown the filter field beside it is. Right
+   to left so a long path gives up its start to the ellipsis and the folder you are in
+   stays read; the whole path is the tooltip. */
+.console-where.q-btn {
+  min-width: 0; min-height: 40px; padding: 0 8px; justify-content: flex-start;
+  border: 1px solid var(--line-strong); border-radius: 4px; color: var(--ink);
+  font-size: var(--fs-body); font-weight: normal; text-align: left;
+}
+.console-where.q-btn:hover { border-color: var(--ink-3); }
+.console-where.q-btn:focus-visible { border-color: var(--accent); }
+.console-where .q-btn__content { flex-wrap: nowrap; width: 100%; gap: 8px; text-align: left; }
+.console-where-path {
+  direction: rtl; text-align: left; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; min-width: 0;
+}
+.console-where-mark { font-size: var(--icon-mark); color: var(--ink-3); flex: none; }
+.console-where-caret { font-size: 24px; color: var(--ink-3); flex: none; margin-right: -4px; }
 .console-source-name {
   font-size: var(--fs-body); color: var(--ink-2); word-break: break-all;
   line-height: 1.3;

@@ -78,6 +78,40 @@ class FolderApiTests(TempTree):
 
         self.assertTrue(body["roots"])
 
+    def test_the_folders_above_a_path_come_nearest_first_to_the_top(self) -> None:
+        deep = self.root / "one" / "two"
+        deep.mkdir(parents=True)
+
+        above = self._get(str(deep)).json()["above"]
+
+        self.assertEqual([one["path"] for one in above][:2],
+                         [str(self.root / "one"), str(self.root)])
+        self.assertEqual(above[0]["name"], "one")
+        self.assertEqual(above[-1]["path"], str(deep.resolve().anchor))
+        self.assertEqual(above[-1]["name"], deep.resolve().anchor)
+
+    def test_the_top_of_the_disk_has_nothing_above_it(self) -> None:
+        anchor = self.root.resolve().anchor
+
+        body = self._get(anchor).json()
+
+        self.assertEqual(body["above"], [])
+        self.assertEqual(body["parent"], "")
+
+    def test_home_is_named_home_among_the_places(self) -> None:
+        with patch("common.folder_browse.Path.home", return_value=self.root):
+            body = self._get(str(self.root)).json()
+
+        names = {one["path"]: one["name"] for one in body["roots"]}
+        self.assertEqual(names[str(self.root)], "Home")
+
+    def test_a_program_pickers_places_name_home_too(self) -> None:
+        with patch("common.folder_browse.Path.home", return_value=self.root):
+            body = self._get(str(self.root), kind="exe").json()
+
+        names = {one["path"]: one["name"] for one in body["roots"]}
+        self.assertEqual(names[str(self.root)], "Home")
+
     def test_a_network_caller_is_refused(self) -> None:
         with patch("httpapi.folders.caller_is_local", return_value=False):
             response = self._get(str(self.root))

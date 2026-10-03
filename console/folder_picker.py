@@ -10,6 +10,7 @@ function is not and so draws without it.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -25,6 +26,8 @@ _TITLE = {"dir": "console.folder_picker.choose_a_folder",
          "exe": "console.folder_picker.choose_a_program",
          "file": "console.folder_picker.choose_a_file"}
 _ROW_ICON = {"exe": "terminal", "file": "description"}
+# `/`, a drive and the mount points: where browsing starts over, so they wear the drive's mark.
+_DRIVE_PATH = re.compile(r"^(/|/Volumes|/media|/mnt|[A-Za-z]:\\?)$")
 
 
 def _free_name(folders: list[dict[str, Any]]) -> str:
@@ -35,6 +38,18 @@ def _free_name(folders: list[dict[str, Any]]) -> str:
         count += 1
         name = t("console.folder_picker.new_folder_numbered", count=count)
     return name
+
+
+def _icon_for(name: str, path: str) -> str:
+    """Home by the name the listing gives it, which is the only thing that says so: the
+    Console may be drawing for a machine whose home it cannot see."""
+    if name == t("word.home"):
+        return verbs.HOME
+    return verbs.DRIVE if _DRIVE_PATH.match(path) else "folder"
+
+
+def _last_name(path: str) -> str:
+    return re.split(r"[\\/]", path.rstrip("\\/"))[-1] or path
 
 
 @on_page
@@ -67,7 +82,6 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                 with ui.column().classes("gap-0 min-w-0"):
                     ui.label(why(refused)).classes("console-attention-line")
                     ui.label(start).classes("console-help truncate")
-        roots_row = ui.row().classes("items-center gap-1 flex-wrap px-3")
         path_row = ui.row().classes("items-center gap-2 w-full no-wrap px-3")
         with ui.row().classes("items-center gap-x-4 w-full no-wrap px-3"):
             term = ui.input(placeholder=t("console.folder_picker.filter_folders"
@@ -81,12 +95,43 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
 
         def draw_path() -> None:
             path_row.clear()
+            here_now = state["here"]
+            places = {one["path"]: one for one in here_now.get("roots") or []}
             with path_row:
-                up = panel.icon_only(verbs.UP, lambda: _go(state["here"]["parent"]),
+                up = panel.icon_only(verbs.UP, lambda: _go(here_now["parent"]),
                                      hint=t("console.folder_picker.up"))
-                if not state["here"]["parent"]:
+                if not here_now["parent"]:
                     up.disable()
-                ui.label(state["here"]["path"]).classes("console-help grow truncate")
+                _, menu = panel.path_face(
+                    _icon_for(places.get(here_now["path"], {}).get("name", ""),
+                              here_now["path"]),
+                    here_now["path"], name=t("word.where"))
+                with menu:
+                    _where_menu(places)
+
+        def _where_menu(places: dict[str, dict[str, Any]]) -> None:
+            """The folder you are in, each folder above it, then where browsing starts over."""
+            here_now = state["here"]
+
+            def entry(name: str, path: str, *, current: bool = False, under: str = "") -> None:
+                mark = _icon_for(places.get(path, {}).get("name", ""), path)
+                panel.menu_entry(
+                    name, None if current else _opens(path),
+                    mark=lambda: ui.icon(mark).classes("console-menu-mark"),
+                    trail=(lambda: ui.icon("check").classes("console-menu-check"))
+                    if current else None,
+                    classes="console-menu-on" if current else "", under=under)
+
+            entry(places.get(here_now["path"], {}).get("name") or _last_name(here_now["path"]),
+                  here_now["path"], current=True)
+            for above in here_now.get("above") or []:
+                entry(places.get(above["path"], {}).get("name") or above["name"],
+                      above["path"])
+            ui.separator()
+            for place in here_now.get("roots") or []:
+                entry(place["name"], place["path"],
+                      under="" if place["path"].rstrip("\\") == place["name"]
+                      else place["path"])
 
         def select(path: str) -> None:
             state["selected"] = path
@@ -190,10 +235,6 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
         def _opens(path: str) -> Callable[[], Any]:
             return lambda: _go(path)
 
-        with roots_row:
-            for root in here.get("roots") or []:
-                frame.quiet(root["name"], _opens(root["path"]),
-                           icon=verbs.BROWSE).props("dense")
         draw_path()
         draw_listing()
         term.on_value_change(draw_listing)

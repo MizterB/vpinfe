@@ -23,7 +23,12 @@ ASIDE = f"{DIALOG} .console-dialog-aside"
 NAMING = f"{DIALOG} .console-folder-list input"
 SHOWS = "!!document.querySelector(%s)"
 GONE = "!document.querySelector(%s)"
-PATH_SHOWN = f"(document.querySelector('{DIALOG} .console-help.grow') || {{}}).innerText"
+FACE = f"{DIALOG} .console-where"
+PATH_SHOWN = (f"((document.querySelector('{FACE} .console-where-path') || {{}}).innerText"
+              " || '').replace(/\\u200e/g, '')")
+MENU_ITEMS = ".q-menu .console-menu-item"
+MENU_TEXTS = (f"[...document.querySelectorAll('{MENU_ITEMS}')]"
+              ".map(el => el.querySelector('.nicegui-column > div').innerText)")
 BUTTONS = ("[...document.querySelectorAll('" + DIALOG + " button')]"
            ".map(b => b.innerText.replace(/^[a-z_]+\\s*/, '').trim())")
 
@@ -47,17 +52,19 @@ def serve(port: int) -> None:
     api.local_base_url = lambda: "http://127.0.0.1:9"
     base = Path(os.environ["VPINFE_CONFIG_DIR"]) / "browse"
     (base / "Existing").mkdir(parents=True, exist_ok=True)
-    heard: dict = {"picked": "unasked", "base": str(base)}
+    heard: dict = {"picked": "unasked", "base": str(base), "home": str(Path.home())}
 
     class Folders:
-        def folders(self, path: str, kind: str = "dir", suffixes: tuple = ()) -> dict:
-            return folder_browse.listing(path, kind, tuple(suffixes))
+        def folders(self, path: str, kind: str = "dir", suffixes: tuple = (),
+                    hidden: bool = False) -> dict:
+            return folder_browse.listing(path, kind, tuple(suffixes), hidden)
 
         def make_folder(self, parent: str, name: str) -> dict:
             return folder_browse.make_folder(parent, name)
 
-    def only_listing(path: str, kind: str = "dir", suffixes: tuple = ()) -> dict:
-        return folder_browse.listing(path, kind, tuple(suffixes))
+    def only_listing(path: str, kind: str = "dir", suffixes: tuple = (),
+                     hidden: bool = False) -> dict:
+        return folder_browse.listing(path, kind, tuple(suffixes), hidden)
 
     @ui.page("/")
     def page() -> None:
@@ -121,6 +128,36 @@ class FolderPickerDrive(unittest.TestCase):
             await walk.act(lambda: click_text(f"{DIALOG} button", t(
                 "console.folder_picker.choose_this_folder")), until=GONE % json.dumps(DIALOG))
             seen["heard"] = _heard(port)
+
+            # The Where face: its menu, then a folder above and a place through it.
+            await walk.act(lambda: browser.click("#make"), until=SHOWS % json.dumps(DIALOG))
+            seen["face_start"] = await browser.evaluate(PATH_SHOWN)
+            seen["face_label"] = await browser.evaluate(
+                f"document.querySelector('{FACE}').getAttribute('aria-label')")
+            await walk.act(lambda: browser.click(FACE), until=SHOWS % json.dumps(MENU_ITEMS))
+            seen["menu"] = await browser.evaluate(MENU_TEXTS)
+            seen["menu_rows"] = await browser.evaluate(
+                f"[...document.querySelectorAll('{MENU_ITEMS}')].map(el => ["
+                "el.querySelector('.console-menu-mark').innerText,"
+                " (el.querySelector('.console-menu-sub') || {}).innerText || ''])")
+            seen["menu_on"] = await browser.evaluate(
+                f"[...document.querySelectorAll('{MENU_ITEMS}')]"
+                ".map(el => el.classList.contains('console-menu-on'))")
+            await walk.act(lambda: browser.click(MENU_ITEMS, nth=0), until=GONE % json.dumps(
+                ".q-menu"))
+            seen["after_current"] = await browser.evaluate(PATH_SHOWN)
+            await walk.act(lambda: browser.click(FACE), until=SHOWS % json.dumps(MENU_ITEMS))
+            await walk.act(lambda: browser.click(MENU_ITEMS, nth=1),
+                           until=GONE % json.dumps(".q-menu"))
+            await browser.wait_for(PATH_SHOWN + f" !== {json.dumps(seen['face_start'])}")
+            seen["above_path"] = await browser.evaluate(PATH_SHOWN)
+            await walk.act(lambda: browser.click(FACE), until=SHOWS % json.dumps(MENU_ITEMS))
+            await walk.act(lambda: click_text(MENU_ITEMS, t("word.home")),
+                           until=GONE % json.dumps(".q-menu"))
+            await browser.wait_for(PATH_SHOWN + f" === {json.dumps(seen['heard']['home'])}")
+            seen["home_path"] = await browser.evaluate(PATH_SHOWN)
+            await walk.act(lambda: click_text(f"{DIALOG} button", t("word.cancel")),
+                           until=GONE % json.dumps(DIALOG))
         return seen
 
     def test_the_picker_that_cannot_make_one_does_not_offer_it(self) -> None:
@@ -145,6 +182,34 @@ class FolderPickerDrive(unittest.TestCase):
         self.assertTrue(self.seen["inside"].endswith(TYPED))
         self.assertEqual(self.seen["heard"]["picked"],
                          str(Path(self.seen["heard"]["base"]) / TYPED))
+
+    def test_where_is_the_face_and_is_named(self) -> None:
+        self.assertEqual(self.seen["face_start"], self.seen["heard"]["base"])
+        self.assertEqual(self.seen["face_label"], t("word.where"))
+
+    def test_the_menu_starts_with_the_current_folder_then_what_is_above_then_places(self) -> None:
+        base = Path(self.seen["heard"]["base"])
+        menu = self.seen["menu"]
+        self.assertTrue(menu[0].endswith(base.name))
+        self.assertIn(base.parent.name, menu[1])
+        self.assertTrue(any(t("word.home") in one for one in menu))
+        self.assertEqual(self.seen["menu_on"].count(True), 1)
+        self.assertTrue(self.seen["menu_on"][0])
+
+    def test_places_wear_their_icon_and_say_where_they_are(self) -> None:
+        rows = dict(zip(self.seen["menu"], self.seen["menu_rows"], strict=True))
+        self.assertEqual(rows[t("word.home")], ["home", self.seen["heard"]["home"]])
+        self.assertEqual(rows["/"][0], "storage")
+        self.assertEqual(rows[Path(self.seen["heard"]["base"]).name][0], "folder")
+
+    def test_choosing_the_current_folder_does_nothing(self) -> None:
+        self.assertEqual(self.seen["after_current"], self.seen["face_start"])
+
+    def test_choosing_a_folder_above_lists_it(self) -> None:
+        self.assertEqual(self.seen["above_path"], str(Path(self.seen["heard"]["base"]).parent))
+
+    def test_choosing_a_place_lists_it(self) -> None:
+        self.assertEqual(self.seen["home_path"], self.seen["heard"]["home"])
 
 
 if __name__ == "__main__":

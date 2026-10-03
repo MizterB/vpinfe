@@ -418,6 +418,23 @@ def icon_only(icon: str, on_click: Callable[[], Any], *, hint: str = "") -> Any:
     return control
 
 
+def path_face(icon: str, path: str, *, name: str) -> tuple[Any, Any]:
+    """A button drawn as the Console's outlined dropdown whose face is a path, and the
+    menu it opens. `name` is its accessible name and the whole `path` its tooltip. The
+    path reads right to left so a long one gives up its start to the ellipsis; the
+    left-to-right marks around it keep its slashes and colon where they were typed."""
+    ltr = "‎"
+    face = ui.button().props("flat no-caps align=left").classes("grow console-where")
+    face.props["aria-label"] = name
+    face.tooltip(path)
+    with face:
+        ui.icon(icon).classes("console-where-mark")
+        ui.label(f"{ltr}{path}{ltr}").classes("console-where-path grow")
+        ui.icon("arrow_drop_down").classes("console-where-caret")
+        menu = ui.menu().props("fit")
+    return face, menu
+
+
 def selection_actions(hint: str) -> tuple[Any, Any]:
     """A grid bar's `more_vert` for the selected rows, and the menu it opens. Hidden until
     the caller shows it, which is when some rows are selected."""
@@ -1042,10 +1059,12 @@ def icon_action(label: str, on_click: Callable[[], Any], *, icon: str, hint: str
 def menu_entry(label: str, on_click: Callable[..., Any] | None = None, *,
                mark: Callable[[], Any] | None = None,
                trail: Callable[[], Any] | None = None,
-               classes: str = "", auto_close: bool = True, refused: str = "") -> Any:
+               classes: str = "", auto_close: bool = True, refused: str = "",
+               under: str = "") -> Any:
     """An entry in a menu whose items share the leading slot: `mark` draws into it, and an
     entry without one indents to it so the labels line up. `trail` draws the state at the
-    end. `refused` dims it, with those words under it, and it does nothing."""
+    end. `under` is a line of detail below the label. `refused` dims it, with those words
+    under it, and it does nothing."""
     if refused:
         on_click, auto_close = None, False
         classes = f"console-menu-blocked {classes}"
@@ -1058,8 +1077,8 @@ def menu_entry(label: str, on_click: Callable[..., Any] | None = None, *,
             mark()
         with ui.column().classes("gap-0 grow min-w-0"):
             ui.label(label)
-            if refused:
-                ui.label(refused).classes("console-menu-sub")
+            if refused or under:
+                ui.label(refused or under).classes("console-menu-sub")
         if trail is not None:
             trail()
     return item

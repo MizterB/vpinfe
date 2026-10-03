@@ -680,6 +680,14 @@ a folder, and this wants a file" is the useful half of the answer. Browse opens
 for a `file` field, narrowed to `suffixes`. The same mark answers for a stored path once
 it has been written, from the same vocabulary.
 
+The picker's **Where** is one dropdown and it is the path: beside Up, the current folder's
+whole path with that folder's icon, a long one giving up its start to an ellipsis so the
+folder you are in stays readable. Its menu lists the current folder (ticked, and choosing
+it does nothing), each folder above it nearest first, a rule, then the places browsing can
+start over from, each with its path under its name where that is not just the name. Home
+reads **Home**, not the account's name. A menu rather than a row of buttons because a row
+of places above the path read as a poorly assembled path.
+
 The picker's **New folder** is the dialog's aside, beside Cancel: it adds a row named
 *New folder* to the listing, selected for typing, the way Finder and Explorer do, and
 Enter makes it and goes in. It is offered wherever the picker lists folders through a client

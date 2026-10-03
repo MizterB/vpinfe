@@ -46,6 +46,17 @@ def _name(path: Path) -> str:
     return path.name or str(path)
 
 
+def _anchor_name(path: Path) -> str:
+    """The top of a path as a person names it: `C:` for a drive, `/` for the root."""
+    return path.drive or str(path)
+
+
+def _above(path: Path) -> list[dict]:
+    """The folders above `path`, nearest first, to `/` or the drive."""
+    return [{"name": _name(one) if one.parent != one else _anchor_name(one), "path": str(one)}
+            for one in path.parents]
+
+
 def _private_roots() -> tuple[Path, ...]:
     home = Path.home()
     relative = _PRIVATE_COMMON + _PRIVATE_BY_PLATFORM.get(sys.platform, ())
@@ -129,25 +140,15 @@ def _entries(path: Path, private: tuple[Path, ...], kind: str,
     return folders, files
 
 
-def _labeled(roots: list[dict]) -> list[dict]:
-    """Each root named for its folder, unless that repeats another root's - then both
-    say the whole path, the only way left to tell them apart."""
-    counts: dict[str, int] = {}
-    for root in roots:
-        counts[root["name"]] = counts.get(root["name"], 0) + 1
-    return [{"name": root["name"] if counts[root["name"]] == 1 else root["path"],
-             "path": root["path"]} for root in roots]
-
-
 def _common_roots() -> list[dict]:
     home = Path.home()
     if sys.platform == "win32":
         found = [{"name": f"{letter}:", "path": f"{letter}:\\"} for letter in
                  (chr(code) for code in range(ord("A"), ord("Z") + 1))
                  if Path(f"{letter}:\\").exists()]
-        found.append({"name": _name(home), "path": str(home)})
+        found.append({"name": t("word.home"), "path": str(home)})
         return found
-    found = [{"name": "/", "path": "/"}, {"name": _name(home), "path": str(home)}]
+    found = [{"name": "/", "path": "/"}, {"name": t("word.home"), "path": str(home)}]
     if sys.platform == "darwin" and Path("/Volumes").exists():
         found.append({"name": t("word.volumes"), "path": "/Volumes"})
     if sys.platform == "linux":
@@ -162,7 +163,7 @@ def _program_roots() -> list[dict]:
         found = [{"name": _name(candidate), "path": str(candidate)} for candidate in
                 (Path("/Applications"), home / "Applications",
                  Path("/opt/homebrew/bin"), Path("/usr/local/bin")) if candidate.exists()]
-        found.append({"name": _name(home), "path": str(home)})
+        found.append({"name": t("word.home"), "path": str(home)})
         found.append({"name": "/", "path": "/"})
         return found
     if sys.platform == "win32":
@@ -175,13 +176,13 @@ def _program_roots() -> list[dict]:
         return found
     found = [{"name": _name(candidate), "path": str(candidate)} for candidate in
             (Path("/usr/bin"), Path("/usr/local/bin"), Path("/opt")) if candidate.exists()]
-    found.append({"name": _name(home), "path": str(home)})
+    found.append({"name": t("word.home"), "path": str(home)})
     found.append({"name": "/", "path": "/"})
     return found
 
 
 def _roots(kind: str) -> list[dict]:
-    return _labeled(_program_roots() if kind == "exe" else _common_roots())
+    return _program_roots() if kind == "exe" else _common_roots()
 
 
 def _start(kind: str) -> Path:
@@ -196,7 +197,7 @@ def _start(kind: str) -> Path:
 
 def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
             hidden: bool = False) -> dict:
-    """One folder's contents, and where browsing can start over.
+    """One folder's contents, the folders above it, and where browsing can start over.
 
     `kind` says what `files` holds: nothing for `dir`, whatever this account can run for
     `exe` - an `.app` bundle included, on macOS, as one of its own entries rather than
@@ -223,7 +224,7 @@ def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
     parent = here.parent
     folders, files = _entries(here, private, kind, suffixes, hidden)
     return {"path": str(here), "parent": "" if parent == here else str(parent),
-            "folders": folders, "files": files, "roots": _roots(kind)}
+            "above": _above(here), "folders": folders, "files": files, "roots": _roots(kind)}
 
 
 def make_folder(parent: str, name: str) -> dict:
