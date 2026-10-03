@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common import timestamps
+from common import jobs, timestamps
 from common.online import vpsdb_sync
 
 
@@ -107,6 +107,8 @@ class EnsureCatalogTests(unittest.TestCase):
         path.start()
         self.addCleanup(path.stop)
         self.said: list[str] = []
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
 
     def ensure(self, config: configparser.ConfigParser) -> tuple[bool, MagicMock]:
         def fetch() -> bool:
@@ -136,6 +138,36 @@ class EnsureCatalogTests(unittest.TestCase):
         self.assertTrue(held)
         fetched.assert_called_once()
         self.assertEqual(self.said, ["downloading"])
+
+    def test_the_download_is_a_job_the_rail_can_show(self) -> None:
+        seen: list[str] = []
+
+        def fetch() -> bool:
+            seen.extend(job.kind for job in jobs.active())
+            self.catalog.write_text("[]", encoding="utf-8")
+            return True
+
+        with patch("common.games.game_service.ensure_vpsdb_downloaded", side_effect=fetch):
+            vpsdb_sync.ensure_catalog(_config(download="daily"))
+
+        self.assertEqual(seen, [jobs.KIND_CATALOG_DOWNLOAD])
+        self.assertEqual(jobs.recent()[0].state, jobs.DONE)
+
+    def test_a_download_that_fails_is_the_jobs_failure(self) -> None:
+        with patch("common.games.game_service.ensure_vpsdb_downloaded", return_value=False):
+            held = vpsdb_sync.ensure_catalog(_config(download="daily"))
+
+        self.assertFalse(held)
+        job = jobs.recent()[0]
+        self.assertEqual((job.kind, job.state), (jobs.KIND_CATALOG_DOWNLOAD, jobs.FAILED))
+
+    def test_a_refresh_by_the_watch_is_not_a_job(self) -> None:
+        self.catalog.write_text("[]", encoding="utf-8")
+
+        with patch("common.games.game_service.ensure_vpsdb_downloaded", return_value=True):
+            vpsdb_sync.sync(_config(download="daily"), force=True)
+
+        self.assertEqual(jobs.recent(), [])
 
     def test_never_downloads_nothing(self) -> None:
         held, fetched = self.ensure(_config(download="never"))

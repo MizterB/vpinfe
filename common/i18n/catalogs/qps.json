@@ -3050,6 +3050,8 @@
   "error.instance.release_incomplete": "Ţĥè ŀàţèšţ řèŀèàšè îš îñçöɱþŀèţè - ţřý àĝàîñ ŀàţèř",
   "error.instance.table_running": "À ţàƀŀè îš řûññîñĝ",
   "error.jobs.busy": "Ţĥàţ îš àŀřèàđý řûññîñĝ",
+  "error.jobs.catalog_not_downloaded": "Çöûŀđ ñöţ đöŵñŀöàđ ţĥè šþřèàđšĥèèţ",
+  "error.jobs.getting_catalog": "Ţĥè šþřèàđšĥèèţ îš ƀèîñĝ đöŵñŀöàđèđ àŀřèàđý",
   "error.jobs.getting_tool": "ƑƑɱþèĝ îš ƀèîñĝ đöŵñŀöàđèđ àŀřèàđý",
   "error.jobs.library_busy": "Ţĥè ŀîƀřàřý îš ƀûšý - ţřý àĝàîñ ŵĥèñ îţ ƒîñîšĥèš",
   "error.jobs.no_job_id": "Ñö ĵöƀ ŵîţĥ îđ {job_id}",

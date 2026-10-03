@@ -17,9 +17,10 @@ import threading
 from collections.abc import Callable
 from datetime import timedelta
 
-from common import timestamps
+from common import jobs, timestamps
 from common.config_access import cfg_bool, cfg_get
 from common.config_store import ConfigStore
+from common.i18n import t
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb_sync")
 
@@ -175,8 +176,9 @@ def sync(config: ConfigStore, force: bool = False) -> dict:
 def ensure_catalog(config: ConfigStore,
                    downloading: Callable[[], object] | None = None) -> bool:
     """Download the catalog if there is none on disk, whenever it was last asked, unless
-    the schedule is `never`. Calls `downloading` first, and only when it does. True when
-    there is one on disk afterwards."""
+    the schedule is `never`. The download is a job, so the rail shows it, and a failure is
+    the job's. Calls `downloading` first, and only when it downloads. True when there is one
+    on disk afterwards."""
     from common.games.game_service import VPSDB_JSON_PATH
 
     if VPSDB_JSON_PATH.exists():
@@ -187,7 +189,14 @@ def ensure_catalog(config: ConfigStore,
         if not VPSDB_JSON_PATH.exists():
             if downloading:
                 downloading()
-            sync(config, force=True)
+            try:
+                with jobs.track(jobs.KIND_CATALOG_DOWNLOAD) as job:
+                    job.progress(0, 1, t("said.downloading_the_spreadsheet"))
+                    sync(config, force=True)
+                    if not VPSDB_JSON_PATH.exists():
+                        raise RuntimeError(t("error.jobs.catalog_not_downloaded"))
+            except Exception:
+                logger.warning("The catalog could not be downloaded", exc_info=True)
     return VPSDB_JSON_PATH.exists()
 
 

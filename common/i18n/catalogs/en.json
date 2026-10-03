@@ -3050,6 +3050,8 @@
   "error.instance.release_incomplete": "The latest release is incomplete - try again later",
   "error.instance.table_running": "A table is running",
   "error.jobs.busy": "That is already running",
+  "error.jobs.catalog_not_downloaded": "Could not download the spreadsheet",
+  "error.jobs.getting_catalog": "The spreadsheet is being downloaded already",
   "error.jobs.getting_tool": "FFmpeg is being downloaded already",
   "error.jobs.library_busy": "The library is busy - try again when it finishes",
   "error.jobs.no_job_id": "No job with id {job_id}",

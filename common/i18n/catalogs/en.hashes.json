@@ -2654,6 +2654,8 @@
   "error.instance.release_incomplete": "e253e1c0019b",
   "error.instance.table_running": "a8b1245d58ae",
   "error.jobs.busy": "e478fae4b459",
+  "error.jobs.catalog_not_downloaded": "f92cff3b1f90",
+  "error.jobs.getting_catalog": "2d9971c12415",
   "error.jobs.getting_tool": "3626a285d16b",
   "error.jobs.library_busy": "8917f4e6cebd",
   "error.jobs.no_job_id": "82c1cc2307ca",
