@@ -403,7 +403,7 @@ class Table:
 
     def _show(self, token: str, *, does: str = "", nothing: str = "") -> None:
         self.lit = input_registry.press(token)
-        self.live = Live(input_registry.describe(token, device=True),
+        self.live = Live(input_registry.describe(token),
                          input_registry.is_pad(token), does, nothing)
         self._draw_live()
         self._light()

@@ -211,7 +211,7 @@ class DrawnTests(unittest.TestCase):
     def test_no_chip_on_a_standard_pad_puts_the_layout_s_name_on_screen(self) -> None:
         _, body = _drawn({**SHIPPED, "select": ["pad:standard/button:0", "pad:standard/button:16"]})
 
-        self.assertEqual(_chips(_wrappers(body)["Select"]), ["South", "Controller Button 16"])
+        self.assertEqual(_chips(_wrappers(body)["Select"]), ["South", "Button 16"])
         self.assertFalse([text for text in _labels(body) if "standard" in text.lower()])
 
     def test_a_press_two_rows_hold_marks_both_chips_and_names_the_other_row(self) -> None:
@@ -763,7 +763,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call.args, (t("console.binding_table.move_question",
                                        binding="South", row="Back"),))
         self.assertEqual(call.kwargs["detail"][0], t(
-            "console.binding_table.mapped_to", binding="Controller Button 0", rows="Select"))
+            "console.binding_table.mapped_to", binding="Button 0", rows="Select"))
         self.assertEqual(self.written, [{"select": ["key:Enter"],
                                          "back": ["key:Escape", "pad:standard/button:0"]}])
 
@@ -775,7 +775,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         [call] = ask.await_args_list
         self.assertEqual(call.args, (t("console.binding_table.move_question",
-                                       binding="Controller Button 0", row="Back"),))
+                                       binding="Button 0", row="Back"),))
         self.assertEqual(self.written, [])
 
     async def test_a_press_is_named_and_the_rows_that_hold_it_are_lit(self) -> None:
@@ -825,14 +825,13 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(control.live.does, "Select")
 
-    async def test_a_press_on_a_numbered_pad_names_the_pad_and_a_binding_does_not(self) -> None:
+    async def test_a_press_on_a_numbered_pad_reads_as_the_binding_does(self) -> None:
         control = self.drawn({**SHIPPED, "select": ["pad:0/button:3"]})
 
         said(control.line, "heard", "pad:2/button:3")
 
-        self.assertEqual(control.live.name, "Controller 3 Button 3")
-        self.assertEqual(_chips(_wrappers(self.body)["Select"]),
-                         ["Controller Button 3"])
+        self.assertEqual(control.live.name, "Button 3")
+        self.assertEqual(_chips(_wrappers(self.body)["Select"]), ["Button 3"])
 
     async def test_nothing_is_said_for_an_empty_press(self) -> None:
         control = self.drawn()

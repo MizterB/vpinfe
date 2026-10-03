@@ -206,7 +206,7 @@ class InputTableDrive(unittest.TestCase):
 
             await browser.evaluate("window.__pad.mapping = ''")
             await browser.evaluate(_held(5, True))
-            await browser.wait_for(f"{LINE}.includes('Controller 1')")
+            await browser.wait_for(f"{LINE}.includes('Button 5')")
             seen["heard_numbered_pad"] = await browser.evaluate(LINE)
             await browser.evaluate(_held(5, False))
             await browser.evaluate("window.__pad.mapping = 'standard'")
@@ -415,9 +415,9 @@ class InputTableDrive(unittest.TestCase):
     def test_a_controller_button_pressed_names_itself_too(self) -> None:
         self.assertEqual(self.seen["heard_pad"], "D-pad Left · Previous")
 
-    def test_a_numbered_pad_names_itself_and_fires_what_the_standard_button_does(self) -> None:
+    def test_a_numbered_pad_reads_as_a_button_and_fires_what_the_standard_button_does(self) -> None:
         self.assertEqual(self.seen["heard_numbered_pad"],
-                         "Controller 1 Button 5 · Page Next")
+                         "Button 5 · Page Next")
 
     def test_a_press_nothing_holds_says_so(self) -> None:
         self.assertEqual(self.seen["heard_nothing"], "Z · Does nothing here")

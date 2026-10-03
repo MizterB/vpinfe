@@ -234,27 +234,12 @@ class ReadableBindingTests(unittest.TestCase):
         would say something the binding does not do."""
         for selector in ("pad:0/button:3", "pad:2/button:3"):
             with self.subTest(selector=selector):
-                self.assertEqual(input_registry.describe(selector), "Controller Button 3")
+                self.assertEqual(input_registry.describe(selector), "Button 3")
 
-    def test_a_press_names_its_pad_counted_from_one(self) -> None:
-        """Zero on the wire, one in the hand. Somebody with a single controller has
-        controller 1."""
-        self.assertEqual(input_registry.describe("pad:0/button:3", device=True),
-                         "Controller 1 Button 3")
-        self.assertEqual(input_registry.describe("pad:2/button:3", device=True),
-                         "Controller 3 Button 3")
-
-    def test_a_chord_and_a_hold_name_the_pad_of_each_member_only_for_a_press(self) -> None:
+    def test_a_chord_and_a_hold_read_each_member_without_its_pad(self) -> None:
         chord = "chord(pad:0/button:3+pad:0/button:4)@hold:1500"
 
-        self.assertEqual(input_registry.describe(chord),
-                         "Controller Button 3 + Controller Button 4, held 1.5s")
-        self.assertEqual(input_registry.describe(chord, device=True),
-                         "Controller 1 Button 3 + Controller 1 Button 4, held 1.5s")
-
-    def test_a_standard_button_keeps_its_name_whether_or_not_it_is_a_press(self) -> None:
-        self.assertEqual(input_registry.describe("pad:standard/button:14", device=True),
-                         "D-pad Left")
+        self.assertEqual(input_registry.describe(chord), "Button 3 + Button 4, held 1.5s")
 
     def test_a_standard_button_is_named_for_where_it_sits(self) -> None:
         """Every pad that maps to the standard layout has the same names, so the button is
@@ -275,7 +260,7 @@ class ReadableBindingTests(unittest.TestCase):
         language, so what has no position of its own reads as a number."""
         said = input_registry.describe("pad:standard/button:16")
 
-        self.assertEqual(said, "Controller Button 16")
+        self.assertEqual(said, "Button 16")
         self.assertNotIn("standard", said.lower())
 
     def test_a_standard_button_on_screen_goes_through_the_catalog(self) -> None:
@@ -286,8 +271,7 @@ class ReadableBindingTests(unittest.TestCase):
         self.addCleanup(i18n.set_language, i18n.language())
         i18n.set_language("qps")
         said = [input_registry.describe(f"pad:standard/button:{n}") for n in (0, 12, 16)]
-        said += [input_registry.describe("pad:0/button:3"),
-                 input_registry.describe("pad:0/button:3", device=True)]
+        said.append(input_registry.describe("pad:0/button:3"))
 
         for words in said:
             with self.subTest(words=words):

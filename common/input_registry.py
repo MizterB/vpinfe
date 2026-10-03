@@ -353,7 +353,7 @@ def capturable(binding: str) -> bool:
     return not any(mark in text for mark in _UNCAPTURABLE)
 
 
-def describe(binding: str, *, device: bool = False) -> str:
+def describe(binding: str) -> str:
     """One binding as a person reads it.
 
     A selector is written for a parser - `pad:0/button:3` - and reading ten of them off a
@@ -362,20 +362,19 @@ def describe(binding: str, *, device: bool = False) -> str:
     for a chord would be worse than showing the one that is stored.
 
     A numbered pad's button reads without the pad, because dispatch fires it on that
-    button of every pad. `device` is for naming a press that just came from one, which
-    keeps the number.
+    button of every pad.
     """
     text = normalize(str(binding or "").strip())
     members = chord_members(text)
     if members:
         # Composed, not looked up. "Left Shift + Right Shift, held 1.5s" is built from
         # its parts, which is where the readable names stop being a table.
-        said = describe(members[0], device=device)
+        said = describe(members[0])
         for one in members[1:]:
-            said = t("input.chord", chord=said, key=describe(one, device=device))
+            said = t("input.chord", chord=said, key=describe(one))
         return _held(said, text)
     if text.endswith(_hold_of(text)) and _hold_of(text):
-        return _held(describe(text[:-len(_hold_of(text))], device=device), text)
+        return _held(describe(text[:-len(_hold_of(text))]), text)
     if any(mark in text for mark in ("@", "+", "/axis:")):
         # Whatever is left after chords and holds have been named above: a modifier, an
         # axis, a selector this build has never seen. Returned whole, because inventing
@@ -387,17 +386,13 @@ def describe(binding: str, *, device: bool = False) -> str:
         rest = text[len(PAD_PREFIX):]
         pad, _, what = rest.partition("/")
         if not what.startswith("button:") or not (pad.isdigit() or pad == "standard"):
-            # An axis, or something this build has never seen. Half-naming it - "Controller 1"
-            # followed by the raw rest - would read as a name while saying nothing.
+            # An axis, or something this build has never seen. Naming the pad and trailing the
+            # raw rest would read as a name while saying nothing.
             return text
         button = what[len("button:"):]
         if pad == "standard":
             return pad_name(int(button)) if button.isdigit() else text
-        if not device:
-            return t("input.pad.button", button=button)
-        # Pads are numbered from zero on the wire and from one on screen. A person with
-        # one controller has "pad 1", not "pad 0".
-        return t("input.pad_button", pad=int(pad) + 1, button=button)
+        return t("input.pad.button", button=button)
     return text
 
 
