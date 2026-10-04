@@ -938,7 +938,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             return
         landed(device_id)
         if state.get("device_id") == device_id:
-            await show_device(None)
+            # A probe's task has no slot of its own, so the redraw is entered on the page.
+            with here:
+                await show_device(None)
 
     async def _arrived(device_id: str, found: dict) -> None:
         """`_reached`, then what that device says it can be asked to do, for its menus."""
