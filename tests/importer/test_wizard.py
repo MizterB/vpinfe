@@ -146,7 +146,7 @@ class CheckTests(WizardCase):
                             for note in found["notes"]))
 
     def test_the_confirm_says_what_it_will_do(self) -> None:
-        self.assertEqual(self._check(FIXTURE)["confirm"], "Bring in 4 games")
+        self.assertEqual(self._check(FIXTURE)["confirm"], "Import 4 games")
 
     def test_several_systems_are_a_choice_and_one_is_not(self) -> None:
         found = self._step(FIXTURE)

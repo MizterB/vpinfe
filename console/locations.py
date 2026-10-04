@@ -163,7 +163,7 @@ async def _import_action(library: Library) -> dict | None:
 
 
 @on_page
-async def _bring_in(action: dict, rerender: Callable[[], None] | None) -> None:
+async def _open_importer(action: dict, rerender: Callable[[], None] | None) -> None:
     """The import dialog, then the page redrawn: it can add a library folder, and the list
     and its count are read when the page draws."""
     from console import ext_action
@@ -216,7 +216,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                      (lambda: _ask_new(library, state, rerender, on_select)))]
                 if importing is not None:
                     choices.append((str(importing.get("label") or ""),
-                                    lambda: _bring_in(importing, rerender)))
+                                    lambda: _open_importer(importing, rerender)))
                 panel.add_action(choices, empty=not built)
 
         if not built:

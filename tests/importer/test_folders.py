@@ -30,7 +30,7 @@ BASE = test_adopt.BASE
 
 
 class FolderCase(test_adopt.AdoptCase):
-    """A library to bring things into, and a folder of tables to bring them from."""
+    """A library to import into, and a folder of tables to import from."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -413,7 +413,7 @@ class StartingPastAlreadyHereTests(FolderCase):
 
         self.assertEqual(found["step"], "summary")
         self.assertFalse(found["ready"])
-        self.assertEqual(found["reason"], "Nothing left to bring in")
+        self.assertEqual(found["reason"], "Nothing left to import")
 
     def test_a_caller_that_starts_past_it_is_not_asked_when_there_is_nothing_to_ask(self) -> None:
         fresh = self.root / "Fresh"
@@ -520,7 +520,7 @@ class RunTests(FolderCase):
         self.assertEqual(self.games_held(), ["Harbor Lights"])
         self.assertTrue((self.tables / "Harbor Lights.vpx").exists())
 
-    def test_running_it_again_brings_nothing_in_twice(self) -> None:
+    def test_running_it_again_imports_nothing_twice(self) -> None:
         self.loose("Harbor Lights", "Quarry Run")
         copies = self.root / "Copies"
         copies.mkdir()

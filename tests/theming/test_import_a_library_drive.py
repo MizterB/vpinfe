@@ -1,4 +1,4 @@
-"""Library > Locations beside Add: Bring in a library, through the Folders source, in a real
+"""Library > Locations beside Add: Import a library, through the Folders source, in a real
 browser - the entry, the questions, Copy or Move, the space line, and the copy itself.
 
 Slow: boots a real instance and a real browser.
@@ -43,7 +43,7 @@ def chosen(label: str) -> str:
             f"el.innerText.includes({json.dumps(label)}))")
 
 
-class BringInALibraryDrive(unittest.TestCase):
+class ImportALibraryDrive(unittest.TestCase):
     seen: dict = {}
 
     @classmethod

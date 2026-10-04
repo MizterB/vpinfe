@@ -1,4 +1,4 @@
-"""The Library Importer: reading a library from another frontend, and bringing it in."""
+"""The Library Importer: reading a library from another frontend, and importing it."""
 
 from pathlib import Path
 

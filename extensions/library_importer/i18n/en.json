@@ -1,7 +1,7 @@
 {
   "name": "Library Importer",
   "description": "Converts a frontend's library, or a folder of tables, into game folders",
-  "action.import.label": "Bring in a library",
+  "action.import.label": "Import a library",
   "action.import.description": "Convert a frontend's library, or a folder of tables, into game folders",
   "reason.no_source": "No source has been chosen",
   "reason.unreachable": "That folder is not reachable from here",
@@ -9,10 +9,10 @@
   "reason.nothing_readable": "Nothing this build can read is in that folder",
   "reason.say_where": "Say where the library is",
   "reason.not_this_source": "That does not look like {source}",
-  "reason.nothing_left": "Nothing left to bring in",
+  "reason.nothing_left": "Nothing left to import",
   "reason.say_into": "Say where the copies go",
   "reason.no_room": "Needs {size}, but only {free} is free on {where}",
-  "wizard.source.title": "Bring in a library",
+  "wizard.source.title": "Import a library",
   "wizard.source.help": "The folder the library is kept in",
   "wizard.source.source_type.label": "Coming from",
   "wizard.source.source_type.help": "Which frontend the library belongs to",
@@ -22,7 +22,7 @@
   "wizard.sources.title": "Reading it as {source}",
   "wizard.sources.help": "Where each kind of thing lives. Anything left empty is not imported.",
   "wizard.sources.systems.label": "Systems",
-  "wizard.sources.systems.help": "Which of the source's systems to bring across",
+  "wizard.sources.systems.help": "Which of the source's systems to import",
   "wizard.sources.worked_out": "{help}. Worked out from the source.",
   "wizard.how.title": "A folder for each table",
   "wizard.how.help": {
@@ -75,8 +75,8 @@
   "wizard.summary.space_free": "{size}, with {free} free on {where}",
   "wizard.summary.comes_across": "What comes across",
   "wizard.summary.confirm": {
-    "one": "Bring in {count} game",
-    "other": "Bring in {count} games"
+    "one": "Import {count} game",
+    "other": "Import {count} games"
   },
   "wizard.summary.confirm_copy": {
     "one": "Copy {count} table",
@@ -138,7 +138,7 @@
   "note.no_database": "{system} is declared but has no database at {path}",
   "note.tables_unreachable": "{system}: the tables are recorded at {path}, which is not reachable from here",
   "note.remapped": "Reading {recorded} as {local} - the paths recorded here are the old computer's",
-  "note.not_played": "Not brought in, because this device does not play them: {systems}",
+  "note.not_played": "Not imported, because this device does not play them: {systems}",
   "note.entries_unnamed": {
     "one": "{file}: {count} entry has no name, so nothing can be matched to it",
     "other": "{file}: {count} entries have no name, so nothing can be matched to them"

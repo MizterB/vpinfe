@@ -339,7 +339,7 @@ ctx.ui.action("import", "/wizard")
 
 ```json
 {
-  "action.import.label": "Bring in a library",
+  "action.import.label": "Import a library",
   "action.import.description": "Convert a library from another frontend, or a folder of tables, into game folders"
 }
 ```

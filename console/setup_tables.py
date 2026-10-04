@@ -40,7 +40,7 @@ NEW_FOLDER = "tables_new"
 NEW_CHECKED = "tables_new_checked"
 
 PREFIX = "tables."
-BRING_IN = "bring_in"
+IMPORT = "import"
 IMPORT_KEY = "import"
 FOLDERS_SOURCE = "folders"
 PATHS_STEP = "sources"
@@ -233,8 +233,8 @@ async def ask(found: Tables, *, again: bool) -> dict[str, Any]:
             "help": t("console.setup.tables.have", count=found.games),
             "draw": _facts(found)}
         if found.action is not None:
-            step["acts"] = [{"key": BRING_IN, "label": t("console.setup.tables.bring_in"),
-                             "hint": t("console.setup.tables.bring_in_hint")}]
+            step["acts"] = [{"key": IMPORT, "label": t("console.setup.tables.import"),
+                             "hint": t("console.setup.tables.import_hint")}]
         return step
     client = ApiClient()
     start = await offload.io(tables_beside, found.program)
@@ -314,7 +314,7 @@ async def lead_on(found: Tables, values: dict[str, Any]) -> dict[str, Any]:
     return _named(await _calls(found).check(_put_in(found, values), PATHS_STEP))
 
 
-async def bring_in(found: Tables) -> dict[str, Any]:
+async def open_importer(found: Tables) -> dict[str, Any]:
     return _named(await _calls(found).first(None))
 
 

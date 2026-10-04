@@ -222,7 +222,7 @@ class SetupTablesDrive(unittest.TestCase):
         seen["card"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))
         seen["games_before"] = len(h["instance"].api("/api/v1/games").get("games", []))
         await h["walk"].act(
-            lambda: h["click_text"](f"{CARD} button", t("console.setup.tables.bring_in")),
+            lambda: h["click_text"](f"{CARD} button", t("console.setup.tables.import")),
             until=(f"(document.querySelector({json.dumps(TITLE)}) || {{innerText: ''}})"
                    f".innerText.trim() !== {json.dumps(t('console.setup.tables.title_have'))}"))
         seen["next_title"] = await h["title"]()
@@ -294,7 +294,7 @@ class SetupTablesDrive(unittest.TestCase):
         seen = self.seen["again"]
 
         self.assertIn(t("console.setup.tables.have", count=1), seen["card"])
-        self.assertIn(t("console.setup.tables.bring_in"), seen["card"])
+        self.assertIn(t("console.setup.tables.import"), seen["card"])
         self.assertEqual(seen["games_before"], seen["games_after"])
         self.assertNotEqual(t("console.setup.tables.title_have"), seen["next_title"])
 

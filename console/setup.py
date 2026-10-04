@@ -294,8 +294,8 @@ def calls(session: Session) -> wizard.Calls:
     async def act(key: str, values: dict[str, Any], step: str) -> dict:
         if setup_tables.inside(step):
             return inside(await setup_tables.act(tables, key, values, step))
-        if key == setup_tables.BRING_IN:
-            return inside(await setup_tables.bring_in(tables))
+        if key == setup_tables.IMPORT:
+            return inside(await setup_tables.open_importer(tables))
         return await _ask(session, _step(step) or _resume(session))
 
     async def finish(values: dict[str, Any], key: str) -> dict:

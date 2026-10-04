@@ -685,7 +685,7 @@ class _Slot(_OneFile):
                 await run.io_bound(self.target.bring, self.game_id,
                                    self.destination, self.kind, item["path"])
             except Exception as exc:
-                ui.notify(t("console.mediasource.bring_failed"), caption=why(exc),
+                ui.notify(t("console.mediasource.import_failed"), caption=why(exc),
                           type="negative")
                 return
             await self.finish(t("console.mediasource.label_saved", label=self.label))

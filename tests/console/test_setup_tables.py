@@ -16,7 +16,7 @@ from common.path_checks import OK as PATH_OK
 from console import setup, setup_tables
 from console.setup_tables import Tables
 
-IMPORT = {"key": "import", "label": "Bring in a library", "base": "/wizard"}
+IMPORT = {"key": "import", "label": "Import a library", "base": "/wizard"}
 FOLDERS = {"game_folders": ["a", "b"], "loose": []}
 LOOSE = {"game_folders": [], "loose": ["x.vpx"]}
 MIXED = {"game_folders": ["a"], "loose": ["x.vpx", "y.vpx"]}
@@ -130,13 +130,13 @@ class AskTests(unittest.TestCase):
                 self.assertEqual(action is not None, step["gate"](_in_folder(LOOSE)))
                 self.assertIs(setup_tables.ends_here, step["ends"])
 
-    def test_run_again_with_a_library_shows_it_and_offers_to_bring_one_in(self) -> None:
+    def test_run_again_with_a_library_shows_it_and_offers_to_import_one(self) -> None:
         found = Tables(action=IMPORT, games=12, locations=[{"name": "", "path": "/lib"}])
 
         step = self._ask(found, again=True)
 
         self.assertNotIn("fields", step)
-        self.assertEqual(["bring_in"], [one["key"] for one in step["acts"]])
+        self.assertEqual(["import"], [one["key"] for one in step["acts"]])
         self.assertIn("12", step["help"])
 
     def test_run_again_without_the_importer_only_shows_what_is_there(self) -> None:
@@ -308,12 +308,12 @@ class SetupCallsTests(unittest.TestCase):
         self.assertEqual({"job_id": "j1", "started": True}, answer)
         self.assertEqual([], self.finished)
 
-    def test_bring_in_opens_the_importer_from_the_run_again_view(self) -> None:
-        async def bring_in(found: Tables) -> dict[str, Any]:
+    def test_import_opens_the_importer_from_the_run_again_view(self) -> None:
+        async def open_importer(found: Tables) -> dict[str, Any]:
             return {"step": "tables.source"}
 
-        with mock.patch.object(setup_tables, "bring_in", bring_in):
-            step = _ran(setup.calls(self.session).act(setup_tables.BRING_IN, {}, setup.TABLES))
+        with mock.patch.object(setup_tables, "open_importer", open_importer):
+            step = _ran(setup.calls(self.session).act(setup_tables.IMPORT, {}, setup.TABLES))
 
         self.assertEqual("tables.source", step["step"])
 
