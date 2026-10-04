@@ -10,7 +10,6 @@ from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from functools import partial
-from pathlib import Path
 from typing import Any
 
 from nicegui import run, ui
@@ -26,8 +25,8 @@ from console import (
     art_fill,
     busy,
     collection_adds,
-    confirm,
     deeplink,
+    game_acts,
     game_tables,
     grid,
     list_art,
@@ -51,7 +50,6 @@ from console import (
 from console import dialog as frame
 from console import record as recorder
 from console import settings as settings_page
-from console.api import ApiClient
 from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.games")
@@ -420,20 +418,6 @@ async def _rate(games: list[dict[str, Any]],
     box.open()
 
 
-@on_page
-async def _launch(games: list[dict[str, Any]]) -> None:
-    """Launch one game. Deliberately refuses a multi-row selection.
-
-    Launching is device-resident and starts something on a machine; doing it for
-    several rows at once has no sensible meaning, so it is refused rather than looped.
-    """
-    if len(games) != 1:
-        ui.notify(t("console.games.select_single_game_launch"), type="warning")
-        return
-    await run.io_bound(ApiClient().launch, games[0]["id"])
-    ui.notify(t("console.games.launching", name=games[0].get("name")), type="positive")
-
-
 def media_zoomed(state: dict[str, Any], event: Any) -> Any:
     """A media cell's zoom, answered by the grid drawn last."""
     zoom = state.get("media_zoom")
@@ -483,7 +467,6 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
     columns = grid_columns(rows, kinds, library)
     all_fields = [definition["field"] for definition in columns]
     selected: list[dict[str, Any]] = []
-    context_row: list[dict[str, Any]] = []
 
     sections.metadata_line(library, state)
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
@@ -584,7 +567,6 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
     async def on_context(row: dict | None) -> None:
         # The row menu acts on the row under the cursor, which is not necessarily the
         # selection. Conflating the two is how people act on the wrong thing.
-        context_row[:] = [row] if row else []
         known = await collection_adds.read(library, narrowed_to()) if row else None
         _fill_menu(row=row, known=known)
 
@@ -725,18 +707,14 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         row menu opens over a header, offering to launch a column.
         """
         context_menu.clear()
-        with context_menu:
-            if pinning is not None:
+        if pinning is not None:
+            with context_menu:
                 grid.column_menu(context_menu, table, columns, col_id, pinning)
-            elif row:
-                ui.item_label(row.get("name") or "").props("header") \
-                    .classes("console-menu-header")
-                ui.separator()
-                panel.menu_entry(t("console.games.launch"), lambda: _launch(context_row))
-                if known is not None:
-                    ui.separator()
-                    collection_adds.draw(offer([row], str(row.get("name") or "")), known,
-                                         context_menu.close)
+        elif row:
+            name = str(row.get("name") or "")
+            panel.verb_menu(context_menu, name, game_acts.game_acts(
+                library, str(row["id"]), name,
+                game_acts.collections_of(offer([row], name), known)))
 
     # The menu hangs off a wrapper, not off the grid: ui.aggrid's Vue template is a bare
     # <div> with no slot, so a child of it is never rendered and the menu silently does
@@ -1467,62 +1445,19 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     state["refresh_game"] = refresh_game
     state["open_table"] = open_table
 
-    @on_page
-    async def drop_script(row: dict[str, Any]) -> None:
-        """Asked, because a patched table quietly becomes an unpatched one."""
-        every = game_tables.shares_its_script(row)
-        if not await confirm.ask(
-                t("console.games.delete_script_beside_table"),
-                detail=t("console.game_tables.every_table_loses_script" if every
-                         else "console.games.table_goes_back_script"),
-                lines=[f"{Path(str(row.get('filename') or '')).stem}.vbs"]):
-            return
-        await act(library.delete_script, row["game_id"], row["id"],
-                  said=t("console.game_tables.deleted_every_table_runs_own" if every
-                         else "console.games.deleted_table_runs_own"), row=row)
+    def after(row: dict[str, Any]) -> game_acts.After:
+        """Put only what changed back on screen. Rebuilding the page reads as the grid
+        flashing: scroll position, focus and the open panel all go, for a write that
+        touched one game's rows."""
+        async def put_right(gone: bool) -> None:
+            await refresh_game(str(row["game_id"]))
+            # The panel is about one of these rows and would otherwise still show what
+            # the write changed. `on_select` redraws the workbench alone, not the page.
+            answer = on_select(by_id.get(row["id"]))
+            if inspect.isawaitable(answer):
+                await answer
 
-    async def lock_default(row: dict[str, Any], *, lock: bool) -> None:
-        def said(after: Any) -> str:
-            return game_tables.lock_said(str(row.get("game") or ""), row,
-                                         (after or {}).get("tables") or [], lock=lock)
-
-        await act(library.set_default_table, row["game_id"], row["id"] if lock else "",
-                  said=said, row=row)
-
-    async def set_hidden(row: dict[str, Any], *, hidden: bool) -> None:
-        def said(answer: Any) -> str:
-            return game_tables.hidden_said(str(row.get("game") or ""), row, answer,
-                                           hidden=hidden)
-
-        await act(library.set_table_hidden, row["game_id"], row["id"], hidden,
-                  said=said, row=row)
-
-    @on_page
-    async def act(what: Callable, *args: Any, said: str | Callable[[Any], str] = "",
-                  row: dict[str, Any] | None = None) -> None:
-        """Run one row-menu act, then put only what changed back on screen.
-
-        Rebuilding the page reads as the grid flashing: scroll position, focus and the
-        open panel all go, for a write that touched one game's rows.
-        """
-        try:
-            after = await run.io_bound(what, *args)
-        except Exception as exc:
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
-            return
-        ui.notify(said(after) if callable(said) else said, type="positive")
-        game_id = str((row or {}).get("game_id") or "")
-        if row is None or not game_id:
-            if rerender is not None:
-                rerender()
-            return
-
-        await refresh_game(game_id)
-        # The panel is about one of these rows and would otherwise still show what the
-        # write changed. `on_select` redraws the workbench alone, not the page.
-        answer = on_select(by_id.get(row["id"]))
-        if inspect.isawaitable(answer):
-            await answer
+        return put_right
 
     def _fill(row: dict | None, col_id: str | None = None,
               pinning: grid.Pinning | None = None,
@@ -1533,58 +1468,15 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         right-click - so the header's entries and the row's share this one.
         """
         menu.clear()
-        with menu:
-            if pinning is not None:
+        if pinning is not None:
+            with menu:
                 grid.column_menu(menu, table, table_columns, col_id, pinning)
-            elif row:
-                ui.item_label(_table_label(row)).props("header") \
-                    .classes("console-menu-header")
-                ui.separator()
-                # Managed here, where every candidate for the game is visible at once.
-                if not row.get("default"):
-                    if not game_tables.why_not_default(row):
-                        panel.menu_entry(
-                            t("word.make_default"),
-                            lambda r=row: act(library.set_default_table, r["game_id"],
-                                              r["id"], said=game_tables.now_plays(
-                                                  str(r.get("game") or ""), r),
-                                              row=r))
-                elif locking := game_tables.lock_act(
-                        row, [one for one in by_id.values()
-                              if one.get("game_id") == row.get("game_id")]):
-                    lock, words = locking
-                    panel.menu_entry(words,
-                                     lambda r=row, lock=lock: lock_default(r, lock=lock))
-                hidden = bool(row.get("hidden"))
-                panel.menu_entry(
-                    t("console.games.unhide") if hidden else t("console.games.hide"),
-                    lambda r=row, h=hidden: set_hidden(r, hidden=not h))
-                # The script sidecar. VPX loads a `<table>.vbs` beside the .vpx in
-                # preference to the one inside it, so this is per table and belongs on
-                # the row rather than only on the panel that was carrying it.
-                if game_tables.runs_its_own_script(row):
-                    panel.menu_entry(t("console.games.delete_script"),
-                                     lambda r=row: drop_script(r),
-                                     classes="console-menu-danger")
-                else:
-                    panel.menu_entry(
-                        t("console.games.extract_script"),
-                        lambda r=row: act(library.extract_script, r["game_id"],
-                                          r["id"],
-                                          said=t("console.games.extracted_table_now_runs"),
-                                          row=r))
-                # Only for a table whose file is gone. While it is on disk the record
-                # describes something the user owns, and hiding is what takes it out of
-                # play without losing its stats.
-                if not row.get("available"):
-                    panel.menu_entry(
-                        t("console.games.forget_table"),
-                        lambda r=row: act(library.forget_table, r["game_id"], r["id"],
-                                          said=t("console.games.record_dropped"),
-                                          row=r))
-                if known is not None:
-                    ui.separator()
-                    collection_adds.draw(offer([row], _table_label(row)), known, menu.close)
+        elif row:
+            panel.verb_menu(menu, _table_label(row), game_acts.table_acts(
+                library, str(row["game_id"]), str(row.get("game") or ""), row,
+                [one for one in by_id.values() if one.get("game_id") == row.get("game_id")],
+                after(row),
+                game_acts.collections_of(offer([row], _table_label(row)), known)))
 
     wire_views(table)
     search.on_value_change(

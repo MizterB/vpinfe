@@ -58,6 +58,7 @@ from console import (
     community,
     confirm,
     deeplink,
+    game_acts,
     game_tables,
     grid,
     list_art,
@@ -552,6 +553,8 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
     # its own process, so a blocking call here does not just cost time, it deadlocks.
     launcher_listing = await offload.io(_launchers_for_panel, library)
     await offload.io(library.media_for, game_id, None)
+    # The header menu's collections, read here for the same reason as the tables.
+    collections = await collection_adds.read(library, str(state.get("collection") or ""))
 
     container.clear()
     title.clear()
@@ -577,6 +580,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
         # and the panel answers for that.
         context = {"library": library, "game": game, "game_id": game_id,
                    "tables": tables, "launchers": launcher_listing, "state": state,
+                   "collections": collections,
                    "lens": table_id, "redraws": [], "slot": state["slot"]}
 
         # The subject has to survive a rebuild. Left off, every rail click fell
@@ -3851,6 +3855,11 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
         ui.notify(t("console.workbench.could_not_forget"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.workbench.table_forgotten"), type="positive")
+    await _table_gone(context, table)
+
+
+async def _table_gone(context: dict[str, Any], table: dict[str, Any]) -> None:
+    """Put the panel and the grid right once `table` is no longer the game's."""
     if table.get("id") and table.get("id") == context.get("lens"):
         left = await offload.io(context["library"].tables_for, context["game_id"])
         after = next((str(one.get("id") or "") for one in left if one.get("default")), "")
@@ -7273,9 +7282,43 @@ def _device_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     return devices_page.acts(context["library"], context["device"], _page_redraw(context))
 
 
+def _game_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    library, game_id = context["library"], context["game_id"]
+    name = str(context["game"].get("name") or "")
+    offer = collection_adds.Offer(library, [collection_adds.Row(game_id)],
+                                  collection_adds.GAMES, name,
+                                  then=partial(_game_redrawn, context),
+                                  narrowed=str(context["state"].get("collection") or ""))
+    return game_acts.game_acts(library, game_id, name,
+                               game_acts.collections_of(offer, context["collections"]))
+
+
+def _table_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    library, game_id, table_id = context["library"], context["game_id"], context["lens"]
+    table = next((one for one in context["tables"] if str(one.get("id")) == table_id), None)
+    if table is None:
+        return []
+
+    async def after(gone: bool) -> None:
+        if gone:
+            await _table_gone(context, table)
+        else:
+            await context["rebuild"]()
+
+    offer = collection_adds.Offer(
+        library, [collection_adds.Row(game_id, table_id)], collection_adds.TABLES,
+        game_tables.name_among(table, context["tables"]),
+        then=partial(_game_redrawn, context))
+    return game_acts.table_acts(
+        library, game_id, str(context["game"].get("name") or ""), table, context["tables"],
+        after, game_acts.collections_of(offer, context["collections"]))
+
+
 # What the panel header's menu offers, per subject: the same lists the grids' row menus
-# draw. A subject with none - a game, a table, a file - has no menu.
+# draw. A subject with none - a file - has no menu.
 SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
+    "game": _game_verbs,
+    "table": _table_verbs,
     "tag": _tag_verbs,
     "collection": _collection_verbs,
     "launcher": _launcher_verbs,

@@ -22,15 +22,18 @@ CATALOG = REPO / "common" / "i18n" / "catalogs" / "en.json"
 # `panel.py` is the ⋮ that opens a subject's verbs.
 ACTIONS_WORD_AT = {"panel.py"}
 
-# Every subject with a panel ⋮, and the module whose `acts` its grid row menu draws.
+# Every subject with a panel ⋮: the module and function that write its list of verbs, and
+# the module whose grid row menu draws it.
 GRID_OF = {
-    "tag": "tageditor.py",
-    "collection": "collections.py",
-    "launcher": "launchers.py",
-    "location": "locations.py",
-    "theme": "themes.py",
-    "device": "devices.py",
-    "player": "players.py",
+    "tag": ("tageditor.py", "acts", "tageditor.py"),
+    "collection": ("collections.py", "acts", "collections.py"),
+    "launcher": ("launchers.py", "acts", "launchers.py"),
+    "location": ("locations.py", "acts", "locations.py"),
+    "theme": ("themes.py", "acts", "themes.py"),
+    "device": ("devices.py", "acts", "devices.py"),
+    "player": ("players.py", "acts", "players.py"),
+    "game": ("game_acts.py", "game_acts", "games.py"),
+    "table": ("game_acts.py", "table_acts", "games.py"),
 }
 
 # Direct `ui.button(` calls outside `panel.py`. A count that only comes down: lower it
@@ -79,15 +82,16 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
 
     def test_a_subject_menu_and_its_row_menu_share_one_list(self) -> None:
         self.assertEqual(_subject_verbs(), set(GRID_OF))
-        for subject, name in GRID_OF.items():
-            tree = _tree(CONSOLE / name)
-            defined = {node.name for node in tree.body if isinstance(node, ast.FunctionDef)}
+        for subject, (written, function, drawn) in GRID_OF.items():
+            defined = {node.name for node in _tree(CONSOLE / written).body
+                       if isinstance(node, ast.FunctionDef)}
+            tree = _tree(CONSOLE / drawn)
             called = {node.func.attr for node in ast.walk(tree)
                       if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                       and isinstance(node.func.value, ast.Name)
                       and node.func.value.id == "panel"}
             with self.subTest(subject=subject):
-                self.assertIn("acts", defined)
+                self.assertIn(function, defined)
                 self.assertIn("verb_menu", called)
 
     def test_hand_built_buttons_only_come_down(self) -> None:

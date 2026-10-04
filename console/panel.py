@@ -1094,6 +1094,8 @@ class Verb:
     link to that address instead, one outside the Console opening a new tab and marked
     as leaving. `in_panel` false keeps it to the grid, for a verb whose panel home is a
     field. `icon` is for where it is also drawn as a button; a menu item takes none.
+    `draw` stands in for an entry of its own: it draws several into the menu being built,
+    given what closes that menu, for the one list that is a submenu with state of its own.
     """
     label: str
     run: Callable[[], Any] | None = None
@@ -1103,6 +1105,7 @@ class Verb:
     in_panel: bool = True
     icon: str = ""
     to: str = ""
+    draw: Callable[[Callable[[], Any]], None] | None = None
 
 
 def leaves(to: str) -> bool:
@@ -1139,16 +1142,25 @@ def _verb_entry(verb: Verb) -> None:
                 ui.menu_item(label, run).classes("console-menu-item")
 
 
-def verb_entries(entries: Sequence[Verb]) -> None:
-    """Into the menu being built. The destructive ones last, under a rule."""
+def verb_entries(entries: Sequence[Verb], close: Callable[[], Any] | None = None) -> None:
+    """Into the menu being built. The destructive ones last, under a rule. `close` shuts
+    that menu, for the entries that draw their own."""
     safe = [one for one in entries if not one.danger]
     risky = [one for one in entries if one.danger]
+    shut = close or (lambda: None)
     for one in safe:
-        _verb_entry(one)
+        _draw_verb(one, shut)
     if safe and risky:
         ui.separator()
     for one in risky:
-        _verb_entry(one)
+        _draw_verb(one, shut)
+
+
+def _draw_verb(verb: Verb, close: Callable[[], Any]) -> None:
+    if verb.draw is not None:
+        verb.draw(close)
+    else:
+        _verb_entry(verb)
 
 
 def verb_menu(menu: Any, name: str, entries: Sequence[Verb]) -> None:
@@ -1159,7 +1171,7 @@ def verb_menu(menu: Any, name: str, entries: Sequence[Verb]) -> None:
     with menu:
         ui.item_label(name).props("header").classes("console-menu-header")
         ui.separator()
-        verb_entries(entries)
+        verb_entries(entries, menu.close)
 
 
 def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
@@ -1171,8 +1183,8 @@ def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
     with slot:
         button = ui.button(icon=verbs.MORE).props("flat dense round size=sm") \
             .tooltip(t("word.actions"))
-        with button, ui.menu():
-            verb_entries(shown)
+        with button, ui.menu() as menu:
+            verb_entries(shown, menu.close)
 
 
 def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
