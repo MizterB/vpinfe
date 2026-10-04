@@ -18,9 +18,9 @@ from pathlib import Path
 from common import config_schema
 from tests.support import trees
 from tests.support.project import project_files
+from tests.support.startup_reads import READERS, STORE_ACCESSORS, STORES
 
 REPO =Path(__file__).resolve().parent.parent.parent
-READERS = {"cfg_get", "cfg_bool", "cfg_int", "cfg_list", "cfg_set"}
 
 # Sections whose keys are declared elsewhere and resolved at runtime, so a literal here
 # is a name in that vocabulary rather than a schema key.
@@ -53,11 +53,6 @@ def _call_sites():
 # `config_store` owns the 2.x migration, so it is the one place that reads a former
 # section name off the parser on purpose.
 OWNS_THE_OLD_NAMES = {"common/config_store.py"}
-
-# The store's own accessors, which take the section and the key as the first two
-# arguments rather than after a source.
-STORE_ACCESSORS = {"value", "set_value"}
-STORES = {"store", "config_store", "ini_config"}
 
 # Methods only a parser has, plus the ones it shares with a dict and so are counted only
 # when called with a section and a key.

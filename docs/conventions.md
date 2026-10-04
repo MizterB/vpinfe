@@ -285,6 +285,10 @@ for a restart reads as broken. Each setting declares `applies` in
 Declaring `applies` is a claim about the setting's read site. Find where it is read, not
 where it is declared: a setting read once at startup that says `now` is a setting that
 looks broken.
+`tests/invariants/test_a_setting_read_at_startup_does_not_apply_now.py` fails on one whose
+every read runs once, at module level or in a function called only from there. It sees
+only reads written with a literal section and key. A read through a variable, a wrapper
+such as `config_access`, or a function reached by string is not checked.
 
 ### Naming a key
 
@@ -1052,7 +1056,7 @@ picture without them.
 A launcher that keeps its own screens draws the same picture over its own storage. It adds
 the parts VPinFE has no window for, such as Visual Pinball's topper, and **In the playfield**
 joins a part's menu where the program can draw a window inside the playfield's. Where the
-launcher's screens are not VPinFE's, the part's name takes the *differs* colour and a line
+launcher's screens are not VPinFE's, the part's name takes the *differs* color and a line
 under the picture says **Different from VPinFE** beside **Match VPinFE**. A change to
 VPinFE's screens moves the launcher's only where it still matched.
 
