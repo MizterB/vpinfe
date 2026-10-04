@@ -353,7 +353,7 @@ class PlayersDrive(unittest.TestCase):
         self.assertIn("Not on VPinPlay until you share", said)
         self.assertIn("old-key-holder", said)
         self.assertEqual(self.seen["resolved_state2_acts"],
-                         ["Change User ID", "Remove", "Use a Card"])
+                         ["Change User ID", "Use a Card"])
 
     def test_initials_that_are_not_three_are_refused_in_the_dialog(self) -> None:
         self.assertEqual(self.seen["refused"], "Initials are three characters")
@@ -399,10 +399,10 @@ class PlayersDrive(unittest.TestCase):
         self.assertIn("Available", self.seen["choose_checked"])
         self.assertIn(USER_ID, self.seen["choose_checked"])
 
-    def test_state_two_is_text_not_an_input_with_change_and_remove(self) -> None:
+    def test_state_two_is_text_not_an_input_with_change_and_a_card(self) -> None:
         self.assertIn("Not on VPinPlay until you share", self.seen["state2"])
         self.assertEqual(self.seen["state2_acts"],
-                         ["Change User ID", "Remove", "Use a Card"])
+                         ["Change User ID", "Use a Card"])
 
     def test_share_while_unclaimed_asks_first_and_names_what_becomes_public(self) -> None:
         said = self.seen["consent"]
@@ -416,7 +416,7 @@ class PlayersDrive(unittest.TestCase):
         self.assertIn("Played games, ratings, scores and play times go public on VPinPlay",
                       said)
         self.assertIn("Anyone holding this card can play as you on VPinPlay", said)
-        self.assertEqual(self.seen["state3_acts"], ["Disconnect", "Save Card", "Use a Card"])
+        self.assertEqual(self.seen["state3_acts"], ["Save Card", "Use a Card"])
 
     def test_the_card_stays_hidden_until_shown_large(self) -> None:
         self.assertTrue(self.seen["viewer_has_image"])

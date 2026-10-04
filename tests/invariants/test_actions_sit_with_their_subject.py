@@ -51,6 +51,91 @@ def _is_ui_call(node: ast.AST, attr: str) -> bool:
             and node.func.value.id == "ui")
 
 
+# What a section's builder draws, read from `ui.` and `panel.` calls. A button is a verb; a
+# layout call holds either; anything else is something to read or set.
+_BUTTONS = {"action", "icon_action", "remote_action", "browse_button", "link", "link_out",
+            "out", "menu_button", "verb_menu", "subject_menu", "button"}
+_LAYOUT = {"row", "column", "element", "space", "separator", "tooltip", "menu", "item",
+           "card", "timer", "notify", "navigate", "run_javascript", "add_head_html",
+           "add_css", "expansion", "tabs", "tab", "tab_panels", "tab_panel", "dialog"}
+
+
+def _imports(tree: ast.Module) -> dict[str, tuple[str, str | None]]:
+    """What each imported console name is: (module, name) for a function, (module, None)
+    for a module."""
+    found: dict[str, tuple[str, str | None]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        for alias in node.names:
+            bound = alias.asname or alias.name
+            if node.module == "console":
+                found[bound] = (alias.name, None)
+            elif node.module.startswith("console."):
+                found[bound] = (node.module.removeprefix("console."), alias.name)
+    return found
+
+
+def draws(trees_by_module: dict[str, ast.Module], module: str, name: str) -> set[str]:
+    """`button` and `content` for what `module.name` draws, through the console functions
+    it calls. A call that resolves to nothing here is a library call, and is not read."""
+    defs = {mod: {node.name: node for node in tree.body
+                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+            for mod, tree in trees_by_module.items()}
+    imports = {mod: _imports(tree) for mod, tree in trees_by_module.items()}
+    seen: set[tuple[str, str]] = set()
+    found: set[str] = set()
+    stack = [(module, name)]
+    while stack:
+        mod, fn = stack.pop()
+        node = defs.get(mod, {}).get(fn)
+        if node is None or (mod, fn) in seen:
+            continue
+        seen.add((mod, fn))
+        for call in ast.walk(node):
+            if not isinstance(call, ast.Call):
+                continue
+            func = call.func
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+                owner, attr = func.value.id, func.attr
+                if owner in ("ui", "panel"):
+                    found.add("button" if attr in _BUTTONS else
+                              "layout" if attr in _LAYOUT and owner == "ui" else "content")
+                elif owner in imports[mod] and imports[mod][owner][1] is None:
+                    stack.append((imports[mod][owner][0], attr))
+            elif isinstance(func, ast.Name):
+                if func.id in defs.get(mod, {}):
+                    stack.append((mod, func.id))
+                elif func.id in imports[mod] and imports[mod][func.id][1] is not None:
+                    stack.append((imports[mod][func.id][0], imports[mod][func.id][1] or ""))
+    return found - {"layout"}
+
+
+def _builders(trees_by_module: dict[str, ast.Module]) -> dict[str, list[tuple[str, str]]]:
+    """Each rail section's key, with the functions that build it. The workbench's `SECTIONS`
+    names them; an account section is built by `players._account`, outside that list."""
+    imports = _imports(trees_by_module["workbench"])
+    built: dict[str, list[tuple[str, str]]] = {}
+    for node in ast.walk(trees_by_module["workbench"]):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Section"
+                and len(node.args) > 2):
+            continue
+        refs: list[tuple[str, str]] = []
+        for ref in ast.walk(node.args[2]):
+            if isinstance(ref, ast.Name):
+                refs.append(("workbench", ref.id))
+            elif (isinstance(ref, ast.Attribute) and isinstance(ref.value, ast.Name)
+                  and ref.value.id in imports and imports[ref.value.id][1] is None):
+                refs.append((imports[ref.value.id][0], ref.attr))
+        built[ast.unparse(node.args[0])] = refs
+    built["player_account"] = [("players", "_account")]
+    return built
+
+
+def _console_trees() -> dict[str, ast.Module]:
+    return {path.stem: _tree(path) for path in CONSOLE.glob("*.py")}
+
+
 def _subject_verbs() -> set[str]:
     for node in _tree(CONSOLE / "workbench.py").body:
         target = getattr(node, "target", None)
@@ -93,6 +178,29 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
             with self.subTest(subject=subject):
                 self.assertIn(function, defined)
                 self.assertIn("verb_menu", called)
+
+    def test_no_section_is_only_buttons(self) -> None:
+        read = _console_trees()
+        sections = _builders(read)
+        self.assertGreater(len(sections), 25)
+        drawn = {key: set().union(*(draws(read, *ref) for ref in refs))
+                 for key, refs in sections.items()}
+        self.assertEqual([key for key, found in drawn.items() if not found], [],
+                         "a section's builder was not followed to anything it draws")
+        only_buttons = sorted(key for key, found in drawn.items() if found == {"button"})
+        self.assertEqual(only_buttons, [],
+                         "a verb sits in the menu of what it acts on; a section holds "
+                         "something to read or set")
+
+    def test_a_builder_of_only_buttons_is_found_and_a_mixed_one_is_not(self) -> None:
+        source = trees.parse_snippet(
+            "def bare(): panel.action('Go', go)()\n"
+            "def mixed(): panel.action('Go', go)(); panel.facts(ui, [])\n"
+            "def through(): bare()\n")
+        found = {"snippet": source}
+        self.assertEqual(draws(found, "snippet", "bare"), {"button"})
+        self.assertEqual(draws(found, "snippet", "mixed"), {"button", "content"})
+        self.assertEqual(draws(found, "snippet", "through"), {"button"})
 
     def test_hand_built_buttons_only_come_down(self) -> None:
         count = sum(1 for path in CONSOLE.rglob("*.py") if path.name != "panel.py"

@@ -650,7 +650,7 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
                     panel.note(t("console.players.not_shared_note", service=service)),
                     (t("console.players.share"), panel.switch(False, lambda e: share(
                         bool(e.value))))]
-        entries.append((panel.FULL, lambda: _unclaimed_actions(context, account, service)))
+        entries.append((panel.FULL, lambda: _unclaimed_actions(context, account)))
     else:
         entries.append((panel.HEADING, t("console.players.account_heading")))
         entries += [(t("console.players.user_id"),
@@ -662,8 +662,7 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
         if waiting:
             entries.append((t("console.players.waiting"),
                             t("console.players.waiting_count", count=waiting)))
-        entries.append((panel.FULL,
-                        lambda: _claimed_actions(context, account, service, waiting)))
+            entries.append((panel.FULL, lambda: _send_now(context, account)))
         entries.append((panel.HEADING, t("console.players.card_heading")))
         entries.append((panel.FULL, lambda: _card_section(library, player, account, service)))
         entries.append((panel.FULL, lambda: _card_actions(context, account)))
@@ -693,31 +692,21 @@ def _choose_or_card(context: dict[str, Any], account: dict[str, Any]) -> None:
                     hint=t("console.players.use_card.help"))
 
 
-def _unclaimed_actions(context: dict[str, Any], account: dict[str, Any],
-                       service: str) -> None:
+def _unclaimed_actions(context: dict[str, Any], account: dict[str, Any]) -> None:
     with ui.element("div").classes("console-slot-actions"):
         panel.action(t("console.players.change_id"),
                      lambda: choose_user_id(context, account), icon=verbs.EDIT,
                      hint=t("console.players.change_id.help"))()
-        panel.action(t("word.remove"), lambda: _remove_user_id(context, account, service),
-                     icon=verbs.REMOVE, danger=True,
-                     hint=t("console.players.remove_user_id.help", service=service))()
         _card_picker(t("console.players.use_card"),
                     lambda event: use_card(context, account, event),
                     hint=t("console.players.use_card.help"))
 
 
-def _claimed_actions(context: dict[str, Any], account: dict[str, Any], service: str,
-                     waiting: int) -> None:
+def _send_now(context: dict[str, Any], account: dict[str, Any]) -> None:
     with ui.element("div").classes("console-slot-actions"):
-        if waiting:
-            panel.action(t("console.players.send_now"),
-                         lambda: run_act(context, account, SEND_NOW), icon=verbs.SEND,
-                         hint=t("console.players.send_now.help"))()
-        panel.action(t("console.players.disconnect"),
-                     lambda: _disconnect(context, account, service), icon=verbs.FORGET,
-                     danger=True,
-                     hint=t("console.players.disconnect.help", service=service))()
+        panel.action(t("console.players.send_now"),
+                     lambda: run_act(context, account, SEND_NOW), icon=verbs.SEND,
+                     hint=t("console.players.send_now.help"))()
 
 
 def _card_section(library: Library, player: dict[str, Any], account: dict[str, Any],
