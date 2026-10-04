@@ -14,6 +14,7 @@ program it names.
 
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -175,8 +176,17 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
             if launcher is None:
                 menu.clear()
                 return
+            launcher_id = str(launcher["launcher_id"])
+
+            async def copied() -> None:
+                if state.get("launcher") != launcher_id:
+                    return
+                answer = on_select(by_id.get(launcher_id))
+                if inspect.isawaitable(answer):
+                    await answer
+
             panel.verb_menu(menu, str(launcher["display_name"]),
-                            acts(library, state, launcher, len(held), redraw))
+                            acts(library, state, launcher, len(held), redraw, after=copied))
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
             table = grid.build(COLUMNS, built, SCOPE, on_context=fill, view_of=showing)
@@ -409,11 +419,50 @@ async def _do_copy(library: Library, launcher: dict, devices: list[dict],
               type="positive" if all(one.ok for one in outcomes) else "warning")
 
 
+def keeps_settings(launcher: dict) -> bool:
+    """Whether there is a settings file here to copy and put back: the app has one and
+    its program is on this machine."""
+    checks = launcher.get("checks") or {}
+    return bool(launcher.get("has_config")) \
+        and (checks.get("bin_path") or {}).get("state") == path_checks.OK
+
+
+def copy_verbs(library: Library, launcher: dict, after: Callable[[], Awaitable[Any]],
+               *, playing: bool = False) -> list[panel.Verb]:
+    """Copy now and Restore, for the settings file this launcher's program writes.
+
+    `playing` is what the caller knew when it drew the menu; a menu outlives it, so the
+    click asks again."""
+    from console import workbench
+
+    context = {"library": library, "launcher": launcher, "rebuild": after}
+
+    def guarded(act: Callable[[dict[str, Any]], Awaitable[Any]]) -> Callable[[], Any]:
+        @on_page
+        async def run_it() -> None:
+            if await offload.io(workbench._playing, library):
+                ui.notify(t(workbench.PLAYING_NOTE), caption=t(workbench.PLAYING_WHY),
+                          type="warning")
+                return
+            await act(context)
+        return run_it
+
+    hint = t(workbench.PLAYING_NOTE) if playing else ""
+    return [panel.Verb(t("console.launchers.copy_now"),
+                       None if playing else guarded(workbench.take_copy), hint=hint),
+            panel.Verb(t("word.restore"),
+                       None if playing else guarded(workbench.choose_copy), hint=hint)]
+
+
 def acts(library: Library, state: dict[str, Any], launcher: dict, count: int,
-         redraw: Callable[[], None]) -> list[panel.Verb]:
-    """What can be done to one launcher."""
+         redraw: Callable[[], None], *, after: Callable[[], Awaitable[Any]] | None = None,
+         playing: bool = False) -> list[panel.Verb]:
+    """What can be done to one launcher. With `after`, also what can be done to its
+    program's settings file, where there is one."""
     offered = [panel.Verb(t("console.workbench.duplicate"),
                           lambda: duplicate(library, state, redraw, launcher))]
+    if after is not None and keeps_settings(launcher):
+        offered += copy_verbs(library, launcher, after, playing=playing)
     if state.get("can_manage_devices"):
         offered.append(panel.Verb(t("console.workbench.copy_devices"),
                                   lambda: copy_dialog(library, state, launcher)))

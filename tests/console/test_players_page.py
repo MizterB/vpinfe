@@ -95,6 +95,29 @@ class WhatCanBeDone(unittest.TestCase):
         (verb,) = self.acts(_player("p-vis", guest=True))
         self.assertEqual((verb.label, verb.danger), (t("console.players.sign_out"), True))
 
+    def test_an_account_is_offered_the_verb_its_state_allows(self) -> None:
+        async def after() -> None:
+            return None
+
+        accounts = [
+            {"extension": "vpinplay", "label": "VPinPlay", "user_id": "u-1", "claimed": True},
+            {"extension": "other", "label": "Other", "user_id": "u-2", "claimed": False},
+            {"extension": "bare", "label": "Bare", "user_id": ""},
+            {"extension": "broken", "label": "Broken", "user_id": "u-3", "error": "down"},
+        ]
+        made = players.acts(object(), {}, _player("p-jor"), lambda: None,  # type: ignore[arg-type]
+                            accounts=accounts, after=after)
+        self.assertEqual([(one.label, one.danger) for one in made], [
+            (t("console.players.menu_disconnect", service="VPinPlay"), True),
+            (t("console.players.menu_remove_id", service="Other"), True),
+            (t("word.remove"), True)])
+
+    def test_without_a_way_to_redraw_only_the_player_is_offered(self) -> None:
+        made = players.acts(object(), {}, _player("p-jor"), lambda: None,  # type: ignore[arg-type]
+                            accounts=[{"extension": "vpinplay", "user_id": "u-1",
+                                       "claimed": True}])
+        self.assertEqual([one.label for one in made], [t("word.remove")])
+
     def test_removing_says_what_goes_and_offers_the_card_where_there_is_one(self) -> None:
         self.assertEqual(players.removal_detail(None), [t("console.players.remove_detail")])
         self.assertEqual(players.removal_detail({"extension": "vpinplay",

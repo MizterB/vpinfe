@@ -1211,6 +1211,7 @@
   "console.launchers.copy_of": "{name} copy",
   "console.launchers.copy_title": "Copy “{name}” to which devices?",
   "console.launchers.assignments_failed": "Could not read the assignments",
+  "console.launchers.copy_now": "Copy now",
   "console.launchers.devices_failed": "Could not read the devices",
   "console.launchers.launchers_failed": "Could not read the launchers",
   "console.launchers.unassigned": {
@@ -1570,6 +1571,8 @@
   "console.players.initials": "Initials",
   "console.players.initials.help": "What they enter on a high score table, which is how a score finds them",
   "console.players.initials_example": "ABC",
+  "console.players.menu_disconnect": "Disconnect {service}",
+  "console.players.menu_remove_id": "Remove {service} user ID",
   "console.players.just_initials": "Just Initials",
   "console.players.just_initials.help": "Opens a spot for initials, then joins as a guest under them",
   "console.players.no_account": "No {service} account",

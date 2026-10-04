@@ -7,9 +7,11 @@ player's rail are built as the panel opens, from what is running then.
 from __future__ import annotations
 
 import base64
+import inspect
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Sequence
+from functools import partial
 from typing import Any
 
 from nicegui import run, ui
@@ -151,18 +153,25 @@ def games_played(record: list[dict[str, Any]]) -> int:
     return sum(int(one.get("play_count") or 0) for one in record)
 
 
-async def _read(library: Library) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    """The roster, and how many games each guest has played this session."""
+async def _read(library: Library) -> tuple[list[dict[str, Any]], dict[str, int],
+                                           dict[str, list[dict[str, Any]]]]:
+    """The roster, how many games each guest has played this session, and each player's
+    accounts."""
     roster = await offload.io(library.players)
     played: dict[str, int] = {}
+    accounts: dict[str, list[dict[str, Any]]] = {}
     for player in roster:
+        try:
+            accounts[player["id"]] = await offload.io(library.player_accounts, player["id"])
+        except Exception:  # noqa: BLE001 - a menu entry is not worth failing the page for
+            logger.debug("Could not read a player's accounts", exc_info=True)
         if player.get("guest"):
             try:
                 played[player["id"]] = games_played(
                     await offload.io(library.player_record, player["id"]))
             except Exception:  # noqa: BLE001 - a count is not worth failing the page for
                 logger.debug("Could not read a guest's record", exc_info=True)
-    return roster, played
+    return roster, played, accounts
 
 
 # -- the grid ------------------------------------------------------------------
@@ -179,7 +188,7 @@ async def _fill(library: Library, state: dict[str, Any],
                 body: Any) -> None:
     state["show_player"] = on_select
     try:
-        roster, played = await _read(library)
+        roster, played, held = await _read(library)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         with body:
             panel.facts(ui, [panel.intro(t("console.players.players_failed"),
@@ -227,7 +236,19 @@ async def _fill(library: Library, state: dict[str, Any],
             if player is None:
                 menu.clear()
                 return
-            panel.verb_menu(menu, shown_name(player), acts(library, state, player, redraw))
+            player_id = str(player["id"])
+
+            async def changed_here() -> None:
+                await _refresh(state)
+                if state.get("player") != player_id:
+                    return
+                answer = on_select(by_id.get(player_id))
+                if inspect.isawaitable(answer):
+                    await answer
+
+            panel.verb_menu(menu, shown_name(player),
+                            acts(library, state, player, redraw,
+                                 accounts=held.get(player_id) or [], after=changed_here))
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
             table = grid.build(COLUMNS, built, SCOPE, on_context=fill, view_of=showing)
@@ -238,7 +259,9 @@ async def _fill(library: Library, state: dict[str, Any],
         wire_views(table)
 
         async def refresh_players() -> None:
-            fresh, counted = await _read(library)
+            fresh, counted, again = await _read(library)
+            held.clear()
+            held.update(again)
             by_player.clear()
             by_player.update({str(one["id"]): one for one in fresh})
             grid.replace_rows(table, built, by_id, rows(fresh, counted), lambda _row: True)
@@ -372,16 +395,41 @@ async def add_guest(library: Library, state: dict[str, Any],
 
 # -- removing ------------------------------------------------------------------
 
+def account_verbs(library: Library, player: dict[str, Any],
+                  accounts: Sequence[dict[str, Any]],
+                  after: Callable[[], Awaitable[Any]]) -> list[panel.Verb]:
+    """Disconnect where an account is claimed, and Remove user ID where an id is held
+    but not claimed, one each per service. An account with neither is not offered."""
+    context = {"library": library, "player": player, "rebuild": after}
+    offered: list[panel.Verb] = []
+    for account in accounts:
+        if account.get("error") or not account.get("user_id"):
+            continue
+        service = str(account.get("label") or account["extension"])
+        if account.get("claimed"):
+            offered.append(panel.Verb(
+                t("console.players.menu_disconnect", service=service),
+                partial(_disconnect, context, account, service), danger=True))
+        else:
+            offered.append(panel.Verb(
+                t("console.players.menu_remove_id", service=service),
+                partial(_remove_user_id, context, account, service), danger=True))
+    return offered
+
+
 def acts(library: Library, state: dict[str, Any], player: dict[str, Any],
-         redraw: Callable[[], None]) -> list[panel.Verb]:
+         redraw: Callable[[], None], *, accounts: Sequence[dict[str, Any]] = (),
+         after: Callable[[], Awaitable[Any]] | None = None) -> list[panel.Verb]:
     """What can be done to one player. The owner stays, and says so."""
+    offered = account_verbs(library, player, accounts, after) if after else []
     if player.get("guest"):
-        return [panel.Verb(t("console.players.sign_out"),
-                           lambda: sign_out(library, state, redraw, player), danger=True)]
-    return [panel.Verb(t("word.remove"),
-                       None if player.get("owner")
-                       else (lambda: remove(library, state, redraw, player)),
-                       danger=True, hint=t("error.players.owner_not_removable"))]
+        return [*offered, panel.Verb(
+            t("console.players.sign_out"),
+            lambda: sign_out(library, state, redraw, player), danger=True)]
+    return [*offered, panel.Verb(
+        t("word.remove"),
+        None if player.get("owner") else (lambda: remove(library, state, redraw, player)),
+        danger=True, hint=t("error.players.owner_not_removable"))]
 
 
 def removal_detail(carded: dict[str, Any] | None) -> list[str]:
@@ -470,9 +518,10 @@ def _of(context: dict[str, Any]) -> dict[str, Any]:
 
 async def changed(context: dict[str, Any], *, again: bool = True) -> None:
     """The grid's rows, and with `again` this panel, after a write."""
-    await _refresh(context["state"])
     if again:
         await context["rebuild"]()
+    else:
+        await _refresh(context["state"])
 
 
 def _alert(line: str) -> tuple[Any, Callable[[], None]]:

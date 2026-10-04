@@ -1211,6 +1211,7 @@
   "console.launchers.copy_of": "{name} çöþý",
   "console.launchers.copy_title": "Çöþý “{name}” ţö ŵĥîçĥ đèṽîçèš?",
   "console.launchers.assignments_failed": "Çöûŀđ ñöţ řèàđ ţĥè àššîĝñɱèñţš",
+  "console.launchers.copy_now": "Çöþý ñöŵ",
   "console.launchers.devices_failed": "Çöûŀđ ñöţ řèàđ ţĥè đèṽîçèš",
   "console.launchers.launchers_failed": "Çöûŀđ ñöţ řèàđ ţĥè ŀàûñçĥèřš",
   "console.launchers.unassigned": {
@@ -1570,6 +1571,8 @@
   "console.players.initials": "Îñîţîàŀš",
   "console.players.initials.help": "Ŵĥàţ ţĥèý èñţèř öñ à ĥîĝĥ šçöřè ţàƀŀè, ŵĥîçĥ îš ĥöŵ à šçöřè ƒîñđš ţĥèɱ",
   "console.players.initials_example": "ÀƁÇ",
+  "console.players.menu_disconnect": "Đîšçöññèçţ {service}",
+  "console.players.menu_remove_id": "Řèɱöṽè {service} ûšèř ÎĐ",
   "console.players.just_initials": "Ĵûšţ Îñîţîàŀš",
   "console.players.just_initials.help": "Öþèñš à šþöţ ƒöř îñîţîàŀš, ţĥèñ ĵöîñš àš à ĝûèšţ ûñđèř ţĥèɱ",
   "console.players.no_account": "Ñö {service} àççöûñţ",

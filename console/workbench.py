@@ -1271,6 +1271,7 @@ async def _draw_player(container: ui.column, title: ui.column, library: Library,
                          for key, label, build in map(players_page.account_section, held))
         context: dict[str, Any] = {
             "library": library, "player": player, "roster": roster, "state": state,
+            "accounts": held,
             "rail": (*fixed[:1], *accounts, *fixed[1:]), "redraws": [], "dock": None,
         }
 
@@ -1279,9 +1280,13 @@ async def _draw_player(container: ui.column, title: ui.column, library: Library,
             _title(title, name, players_page.kind_word(player))
 
         context["retitle"] = retitle
-        context["rebuild"] = _rebuilds(
-            context, f"player:{player_id}",
-            lambda: build_player(container, title, library, player_id, state))
+
+        async def again() -> None:
+            """The grid first, so its row menus hold the accounts as they are now."""
+            await players_page.changed(context, again=False)
+            await build_player(container, title, library, player_id, state)
+
+        context["rebuild"] = _rebuilds(context, f"player:{player_id}", again)
         await _rail(context, "player", state)
 
 
@@ -5708,16 +5713,8 @@ async def _config_backups(context: dict[str, Any]) -> None:
     named = list((found.get("files") or {}).values())
     playing = bool(context.get("playing"))
 
-    @on_page
-    async def take() -> None:
-        try:
-            await run.io_bound(library.take_config_backup, launcher["launcher_id"], "")
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.snapshot_failed"), caption=why(exc),
-                      type="negative")
-            return
-        ui.notify(t("word.copied"), type="positive")
-        await context["rebuild"]()
+    def take() -> Any:
+        return take_copy(context)
 
     entries: list[tuple[Any, Any]] = []
     if named:
@@ -5729,6 +5726,37 @@ async def _config_backups(context: dict[str, Any]) -> None:
                 value=(found.get('kept_in') or
                         t("console.workbench.config_folder")))))
     _rows(ui, entries)
+
+
+@on_page
+async def take_copy(context: dict[str, Any]) -> None:
+    """A copy of the launcher's settings file as it is now. Needs `library`, `launcher`
+    and an awaitable `rebuild` in the context."""
+    try:
+        await run.io_bound(context["library"].take_config_backup,
+                           context["launcher"]["launcher_id"], "")
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("console.workbench.snapshot_failed"), caption=why(exc),
+                  type="negative")
+        return
+    ui.notify(t("word.copied"), type="positive")
+    await context["rebuild"]()
+
+
+@on_page
+async def choose_copy(context: dict[str, Any]) -> None:
+    """Which copy to put back, read when asked: a menu is drawn long before it is used."""
+    try:
+        found = await offload.io(context["library"].config_backups,
+                                 context["launcher"]["launcher_id"])
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("console.workbench.copies_failed"), caption=why(exc), type="negative")
+        return
+    held = list(found.get("backups") or [])
+    if not held:
+        ui.notify(t("console.workbench.restore_empty"), type="warning")
+        return
+    await _restore_dialog(held, context, False)
 
 
 def _file_value(path: str) -> Callable[[], None]:
@@ -7216,7 +7244,9 @@ async def _folders_changed(context: dict[str, Any]) -> None:
 
 def _launcher_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     return launchers_page.acts(context["library"], context["state"], context["launcher"],
-                               len(context.get("launchers") or []), _page_redraw(context))
+                               len(context.get("launchers") or []), _page_redraw(context),
+                               after=context["rebuild"],
+                               playing=bool(context.get("playing")))
 
 
 def _location_verbs(context: dict[str, Any]) -> list[panel.Verb]:
@@ -7231,7 +7261,8 @@ def _theme_verbs(context: dict[str, Any]) -> list[panel.Verb]:
 
 def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     return players_page.acts(context["library"], context["state"], context["player"],
-                             _page_redraw(context))
+                             _page_redraw(context), accounts=context.get("accounts") or (),
+                             after=context["rebuild"])
 
 
 def _device_verbs(context: dict[str, Any]) -> list[panel.Verb]:
