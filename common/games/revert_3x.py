@@ -14,6 +14,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
+from common import serving
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.info_file import ASSETS_KEY, VPINFE_SECTION
@@ -97,10 +98,14 @@ def reset(game_root: str | Path | None, config_dir: str | Path, *, http_port: in
     config_home = Path(config_dir)
     reporter = JobReporter(logger, progress_cb=progress_cb, log_cb=log_cb)
 
-    live = running_instance(http_port)
+    # The setting is where the next start would listen. A run that was started on another
+    # port says where it is, so a port changed since it started does not hide it.
+    port = next((candidate for candidate in (http_port, serving.published(config_home))
+                 if candidate is not None and running_instance(candidate)), None)
+    live = port is not None
     if live and not dry_run:
         raise InstanceRunningError(
-            f"VPinFE is answering on port {http_port}. Stop it and run this again - a "
+            f"VPinFE is answering on port {port}. Stop it and run this again - a "
             "reset under a running instance is written straight back over.")
 
     result = {
@@ -113,7 +118,7 @@ def reset(game_root: str | Path | None, config_dir: str | Path, *, http_port: in
                       else FRESH_INSTALL),
     }
     if live:
-        reporter.log(f"VPinFE is answering on port {http_port}, so a real run would refuse.")
+        reporter.log(f"VPinFE is answering on port {port}, so a real run would refuse.")
 
     if not config_only:
         _reset_library(game_root, result, reporter, dry_run)

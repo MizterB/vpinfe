@@ -43,7 +43,7 @@ apply_configdir_override(sys.argv[1:])
 
 import requests
 
-from common import events, extensions, i18n, install_setup, shutdown, theme_options
+from common import events, extensions, i18n, install_setup, serving, shutdown, theme_options
 from common.config_store import ConfigStore
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
@@ -229,6 +229,7 @@ if install_setup.pending(config_store):
     http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
     http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
     start_manager_ui(port=http_port, bind=http_bind)
+    serving.publish(config_dir)
     reconfigure_app_logging()
     # Wait for the NiceGUI server to be ready before chromium tries to load it
     runtime.wait_for_manager_ui_ready(http_port)
@@ -402,6 +403,7 @@ http_server = runtime.start_asset_server(MOUNT_POINTS, config_store)
 http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
 http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
 start_manager_ui(port=http_port, bind=http_bind)
+serving.publish(config_dir)
 reconfigure_app_logging()
 
 try:
@@ -434,6 +436,7 @@ runtime.shutdown_services(
     nicegui_app=nicegui_app,
     stop_manager_ui=stop_manager_ui,
 )
+serving.withdraw(config_dir)
 
 # Last, so a command that puts the machine back runs after everything it might be
 # putting back has actually stopped. Before the restart check, because a restart is

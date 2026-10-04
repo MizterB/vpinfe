@@ -472,6 +472,10 @@ class Library:
         somebody may have just changed it from somewhere else."""
         return self._client.config_values()
 
+    def config_waiting(self) -> dict:
+        """Never cached: it changes with every save and with every restart."""
+        return self._client.config_waiting()
+
     def metrics(self, history_seconds: float = 0) -> dict:
         return self._client.metrics(history_seconds)
 

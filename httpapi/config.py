@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Response
 
-from common import config_service
+from common import config_service, events, settings_waiting
 from common.capture import settings as capture_settings
 from common.failures import why
 from common.host import get_ffmpeg, tools
@@ -23,6 +23,7 @@ from . import jobs as jobs_api
 from . import models, scopes
 from .auth import requires
 from .errors import ConflictError, InvalidRequestError, NotFoundError
+from .events import declare_snapshot
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -70,6 +71,14 @@ def get_tool(tool_id: str, response: Response) -> models.JobResource:
     return models.JobResource(**jobs_api.resource(job))
 
 
+@router.get("/waiting", summary="What is saved and not yet in effect",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_waiting() -> models.ConfigWaiting:
+    """Each setting that differs from what this run is using, and what it waits for: a
+    `restart`, or a `reopen` of the windows. Changing a value back clears it."""
+    return models.ConfigWaiting.model_validate(settings_waiting.answer())
+
+
 @router.get("", summary="What this install is set to",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_values() -> models.ConfigValues:
@@ -96,3 +105,7 @@ def put_values(values: dict[str, dict[str, Any]] = Body(...)) -> models.ConfigVa
               keys=", ".join(exc.keys))) from exc
     except config_service.SettingsWriteError as exc:
         raise ConflictError(why(exc)) from exc
+
+
+def declare_snapshots() -> None:
+    declare_snapshot(events.CONFIG_WAITING_CHANGED, settings_waiting.answer)

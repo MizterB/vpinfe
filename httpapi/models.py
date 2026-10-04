@@ -1132,6 +1132,29 @@ class ConfigValues(ApiModel):
     values: dict[str, dict[str, object]]
 
 
+class ConfigWaitingEntry(ApiModel):
+    """One change that is saved and not yet in effect. `kind` is `setting` or `extension`;
+    for an extension `key` is its name and `set` is that it is on."""
+
+    kind: str
+    section: str
+    key: str
+    label: str
+    label_key: str
+    waits_for: str
+    in_effect: object
+    set: object
+
+
+class ConfigWaiting(ApiModel):
+    """What is waiting for a restart or for the windows to reopen. `reopen` is whether
+    this install can reopen them; `http_port` is where the next start listens."""
+
+    waiting: list[ConfigWaitingEntry]
+    reopen: bool
+    http_port: int
+
+
 class GameOverrides(ApiModel):
     """What the user said, against what was discovered about the game.
 

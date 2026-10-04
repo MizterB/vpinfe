@@ -313,22 +313,28 @@ class Registry:
     def switch(self, name: str, on: bool) -> Record | None:
         """Written to `extensions.json`. None when there is no such extension."""
         with self._lock:
-            record = self._records.get(str(name or "").strip())
-            if record is None:
-                return None
-            self._store.set_enabled(record.name, on)
-            record.enabled = on
-            logger.info("Extension %s switched %s", record.name, "on" if on else "off")
-            # A refused manifest is refused at every start, whatever the switch says.
-            if record.manifest is None:
-                return record
-            if not on:
-                if not self._take_out(record.name, OFF, SWITCHED_OFF):
-                    record.became(OFF, SWITCHED_OFF)
-            elif record.state == OFF:
-                why, values = _cannot_run(record.manifest)
-                record.became(OFF, why or STARTS_AT_RESTART, **values)
+            record = self._switch(str(name or "").strip(), on)
+        if record is not None:
+            core_events.emit(core_events.EXTENSION_SWITCHED, extension=record.name, enabled=on)
+        return record
+
+    def _switch(self, name: str, on: bool) -> Record | None:
+        record = self._records.get(name)
+        if record is None:
+            return None
+        self._store.set_enabled(record.name, on)
+        record.enabled = on
+        logger.info("Extension %s switched %s", record.name, "on" if on else "off")
+        # A refused manifest is refused at every start, whatever the switch says.
+        if record.manifest is None:
             return record
+        if not on:
+            if not self._take_out(record.name, OFF, SWITCHED_OFF):
+                record.became(OFF, SWITCHED_OFF)
+        elif record.state == OFF:
+            why, values = _cannot_run(record.manifest)
+            record.became(OFF, why or STARTS_AT_RESTART, **values)
+        return record
 
     # -- the kill switch -----------------------------------------------------
 

@@ -84,7 +84,7 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
     }
 
 
-def _settable(windows: Sequence[str]) -> tuple[config_schema.ConfigOption, ...]:
+def settable(windows: Sequence[str]) -> tuple[config_schema.ConfigOption, ...]:
     """The schema's settings, with a screen for each of `windows` it does not declare
     placed after its own."""
     declared = config_schema.settable()
@@ -103,7 +103,7 @@ def schema(windows: Sequence[str] = ()) -> dict[str, Any]:
     config file, and offering a last-played pointer as a setting invites someone to set
     it. `settable()` is the same predicate the config file's own docs use.
     """
-    options = [_describe(option) for option in _settable(windows)]
+    options = [_describe(option) for option in settable(windows)]
     sections = [{"name": name,
                  "writable": name not in READ_ONLY_SECTIONS,
                  "options": [o for o in options if o["section"] == name]}
@@ -131,7 +131,7 @@ def values(windows: Sequence[str] = ()) -> dict[str, Any]:
     because that is what the install is actually running on."""
     store = get_ini_config()
     found: dict[str, dict[str, Any]] = {}
-    for option in _settable(windows):
+    for option in settable(windows):
         found.setdefault(option.section, {})[option.key] = \
             store.value(option.section, option.key)
     return {"values": found}
@@ -146,7 +146,7 @@ def set_values(wanted: dict[str, dict[str, Any]] | None,
     asked for and no screen reflects.
     """
     store = get_ini_config()
-    served = set(_settable(windows))
+    served = set(settable(windows))
     staged: list[tuple[str, str, Any]] = []
     unknown: list[str] = []
     refused: list[str] = []

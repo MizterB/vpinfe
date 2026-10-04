@@ -14,7 +14,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from common import install_identity, install_setup
+from common import install_identity, install_setup, serving
 from common.config_store import ConfigStore
 from common.games import revert_3x
 from common.games.collection_migration import ensure_last_played, ensure_order_direction
@@ -455,6 +455,27 @@ class RunningInstanceTests(RevertTestCase):
 
         self.assertTrue((self.config_dir / "vpinfe.json").exists())
         self.assertEqual(self._library_bytes(), migrated)
+
+    def test_it_finds_an_instance_whose_port_was_changed_after_it_started(self):
+        """The setting says where the next start listens. The run still answers where it
+        started, and a reset that only looked at the setting would write under it."""
+        self._migrate()
+        instance = StubInstance("VPinFE")
+        self.addCleanup(instance.stop)
+        (self.config_dir / serving.PORT_FILE).write_text(f"{instance.port}\n",
+                                                          encoding="utf-8")
+
+        with self.assertRaises(revert_3x.InstanceRunningError):
+            self._reset(http_port=self.closed_port)
+
+    def test_a_port_left_behind_by_a_run_that_is_gone_does_not_block_a_reset(self):
+        self._migrate()
+        (self.config_dir / serving.PORT_FILE).write_text(f"{self.closed_port}\n",
+                                                          encoding="utf-8")
+
+        result = self._reset()
+
+        self.assertFalse(result["instance_running"])
 
     def test_something_else_on_that_port_does_not_block_a_reset(self):
         """The port is configurable and ordinary. Refusing on a bare TCP connect would

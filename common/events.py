@@ -38,6 +38,15 @@ GAME_SELECTED = "game.selected"
 # the keys it owns, so a setting that applies `now` is one something here listens for.
 SETTINGS_CHANGED = "settings.changed"
 
+# An extension was switched on or off. Carries `extension` and `enabled`. Whether it runs is
+# not decided here: one switched on after the run began starts at the next start.
+EXTENSION_SWITCHED = "extension.switched"
+
+# What waits for a restart or a reopen changed. Carries the whole answer, like
+# play.state_changed, so a consumer that missed one is correct after the next.
+#   config.waiting_changed  {waiting, reopen, http_port}
+CONFIG_WAITING_CHANGED = "config.waiting_changed"
+
 # Play-host state changed. Carries the whole new state, so a consumer that missed one
 # is still correct after the next.
 PLAY_STATE_CHANGED = "play.state_changed"

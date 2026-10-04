@@ -1086,6 +1086,11 @@ class ApiClient:
         """What it is set to, typed - a bool arrives as a bool."""
         return dict(self._get("/config").get("values") or {})
 
+    def config_waiting(self) -> dict:
+        """What is saved and not yet in effect: `waiting`, whether a `reopen` can be done
+        here, and the `http_port` the next start listens on."""
+        return dict(self._get("/config/waiting") or {})
+
     def library_policy(self) -> dict:
         """What this library collects. The library's answer, not this machine's - a
         device reading a remote library gets that library's."""

@@ -154,6 +154,7 @@ def create_api_app() -> FastAPI:
     frontend.declare_snapshots()
     players.declare_snapshots()
     capture.declare_snapshots()
+    config.declare_snapshots()
     events.attach()
     auth.assert_every_route_declares_a_scope(api)
     return api

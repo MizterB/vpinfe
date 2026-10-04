@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import discovery, install_setup, serving, shutdown
+from common import discovery, install_setup, serving, settings_waiting, shutdown
 from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
@@ -41,9 +41,24 @@ def window_configs(iniconfig: ConfigStore | None = None) -> list[tuple[str, str]
             for name in theme_windows.active(iniconfig)]
 
 
+def _own_windows(iniconfig: ConfigStore) -> tuple[str, ...]:
+    from frontend import theme_windows
+
+    return theme_windows.own_windows(theme_windows.active(iniconfig))
+
+
+def _served_windows(iniconfig: ConfigStore) -> frozenset[str]:
+    """The windows that get an API under these settings: those with a screen set."""
+    displays = DisplayConfig.from_config(iniconfig)
+    return frozenset(name for name, key in window_configs(iniconfig)
+                     if displays.window_screen_id(key).strip())
+
+
 def create_api_instances(iniconfig: ConfigStore,
                          logger: logging.Logger) -> tuple[DeviceChannel, ChromiumManager]:
     _apply_theme_media_sets(iniconfig, logger)
+    settings_waiting.install(_own_windows, _served_windows)
+    settings_waiting.record_start(iniconfig)
     network = NetworkConfig.from_config(iniconfig)
     displays = DisplayConfig.from_config(iniconfig)
     ws_bridge = DeviceChannel(port=network.ws_port)
@@ -265,6 +280,7 @@ def open_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
     # process. Doing the one real X query here keeps those calls served from cache.
     get_display_monitors()
 
+    settings_waiting.windows_opened(iniconfig)
     frontend_browser.launch_all_windows(iniconfig)
     frontend_browser.watch(is_window_connected=is_window_connected,
                            on_lost=shutdown_event.set)
@@ -286,6 +302,7 @@ def close_windows(frontend_browser: ChromiumManager, logger: logging.Logger) -> 
             logger.info("Setup is still open; its window is not closed from here.")
             return
         frontend_browser.close_windows()
+        settings_waiting.windows_closed()
 
 
 def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,

@@ -249,6 +249,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/metrics/gpu` | What the graphics cards are doing. Separate because it shells out to nvtop, and says so where nvtop is missing rather than reporting no cards |
 | GET | `/api/v1/about` | What this install and this device *are* - version, build, OS, browser, and where files live. `text` is the same answer as something to paste into a report |
 | GET | `/api/v1/config/schema` | Every setting this install has. An option's `group` is a token (`navigation`, `local_services`...) and `group_label` beside it is the heading in this install's language. `default_is` says whose the default is, `community` or `vpinfe`, for a client that reminds a person of it from `default`, and `unit` what a number counts (`seconds`). `applies` says when a saved change takes effect: `now`, `table` (the next table to start), `windows` (the next time the frontend's windows open) or `restart`. A window the active theme declares beyond the three every theme has is a `windows.<name>` section of its own, with the `screen_id` it opens on, after `windows.score_view` |
+| GET | `/api/v1/config/waiting` | What is saved and not yet in effect. `waiting` lists each change as `{kind, section, key, label, label_key, waits_for, in_effect, set}`: `kind` is `setting` or `extension`, `waits_for` is `restart` or `reopen`, `in_effect` is the value this run is using and `set` the value saved. A setting declared `restart` is compared with the value VPinFE started on, a `windows` one with the value the windows last opened on, and changing a value back clears it. A `windows` setting waits for a restart instead of a reopen while the set of windows has changed - a window added or removed, or a theme declaring others - and never waits on an install with no windows open. An extension switched on since the run began is listed as `extension` with `waits_for: restart`. `reopen` says whether this install can reopen its windows, false when headless; `http_port` is the port the next start listens on |
 | GET | `/api/v1/config` | What this install is set to, by section and key |
 | PUT | `/api/v1/config` | Change settings, `{section: {key: value}}`. A patch: only what is sent is written |
 | GET | `/api/v1/config/paths` | Whether each path setting finds anything on this device |
@@ -1182,6 +1183,7 @@ What's on it, each alongside the `install_id` described below:
 | `job.done` | `{"job_id"}` |
 | `job.failed` | `{"job_id", "error"}` |
 | `capture.run_changed` | `{"run": ...}` - a recording run started, moved on to its next game, paused, resumed or ended; the same as `GET /capture/runs/current`, `null` once there is none |
+| `config.waiting_changed` | `{"waiting": [...], "reopen", "http_port"}` - what is saved and not yet in effect changed. The whole answer, the same as `GET /config/waiting`, so a client that missed one is right after the next |
 
 `game.changed` and `collections.changed` carry no path. The bus does, for handlers in
 this process, but a subscriber on another machine has a different path for the same thing
