@@ -291,7 +291,7 @@ class DrawnTests(unittest.TestCase):
     def test_a_string_default_is_not_read_letter_by_letter(self) -> None:
         _, body = _drawn({**SHIPPED, "next": "key:ArrowRight,key:KeyD"})
 
-        self.assertEqual(_chips(_wrappers(body)["Next"]), ["Right arrow", "D"])
+        self.assertEqual(_chips(_wrappers(body)["Next"]), ["Right Arrow", "D"])
 
 
 class WhatCanBeChangedTests(unittest.TestCase):

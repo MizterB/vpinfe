@@ -41,6 +41,17 @@ class TestConfigDirEnvOverride(unittest.TestCase):
 
         self.assertEqual(paths.CONFIG_DIR, Path.home() / "vpinfe-home")
 
+    def test_a_relative_override_is_anchored_where_it_was_read(self) -> None:
+        os.environ[ENV_VAR] = "relative-config"
+        paths = self._reload()
+
+        anchored = Path.cwd() / "relative-config"
+
+        self.assertEqual(paths.CONFIG_DIR, anchored)
+        self.assertTrue(paths.COLLECTIONS_PATH.is_absolute())
+        self.assertEqual(os.environ[ENV_VAR], str(anchored),
+                         "a helper process reads the same variable from another directory")
+
     def test_blank_override_falls_back_to_platformdirs(self) -> None:
         os.environ.pop(ENV_VAR, None)
         default = self._reload().CONFIG_DIR

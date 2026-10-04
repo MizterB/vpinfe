@@ -20,9 +20,14 @@ def _resolve_config_dir() -> Path:
     # themes/, caches, logs, .nicegui storage) somewhere other than the OS
     # default. Read at import time so it also applies to frozen PyInstaller
     # builds. Falls back to the platformdirs location when unset.
+    # Anchored here, once: a relative path would follow the working directory, and the
+    # Manager UI changes that while it runs a script. Written back so a helper started
+    # from another directory resolves the same one.
     override = os.environ.get("VPINFE_CONFIG_DIR", "").strip()
     if override:
-        return Path(override).expanduser()
+        anchored = Path(override).expanduser().absolute()
+        os.environ["VPINFE_CONFIG_DIR"] = str(anchored)
+        return anchored
     if _unbootstrapped_test_run():
         raise RuntimeError(
             "This is a unittest run that skipped tests/__init__.py, so it would use the "

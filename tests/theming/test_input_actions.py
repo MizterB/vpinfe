@@ -219,7 +219,7 @@ class ReadableBindingTests(unittest.TestCase):
     input read as configuration rather than a choice."""
 
     def test_a_key_is_named_as_a_keyboard_prints_it(self) -> None:
-        for selector, expected in (("key:ArrowLeft", "Left arrow"),
+        for selector, expected in (("key:ArrowLeft", "Left Arrow"),
                                    ("key:ShiftLeft", "Left Shift"),
                                    ("key:KeyM", "M"),
                                    ("key:Digit4", "4"),

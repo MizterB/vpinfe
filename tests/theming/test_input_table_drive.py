@@ -248,7 +248,7 @@ class InputTableDrive(unittest.TestCase):
 
             await row("Next")
             await listening("Next")
-            await chip("Next", "Right arrow")
+            await chip("Next", "Right Arrow")
             await asyncio.sleep(NOTHING_FOLLOWS_S)
             seen["own_chip"] = {"listening": await browser.evaluate(LISTENING_ROWS),
                                 "menu": await browser.evaluate(f"!!{MENU}")}
@@ -394,7 +394,7 @@ class InputTableDrive(unittest.TestCase):
 
     def test_every_row_reads_what_it_ships_with(self) -> None:
         shipped = self.seen["shipped"]
-        self.assertEqual(shipped["Previous"], ["Left arrow", "Left Shift", "D-pad Left",
+        self.assertEqual(shipped["Previous"], ["Left Arrow", "Left Shift", "D-pad Left",
                                                "Left Trigger"])
         self.assertEqual(shipped["Back"], ["Esc", "B", "East"])
         self.assertEqual(shipped["Quit"], ["Esc, held 1.5s", "Q", "East, held 1.5s"])
@@ -409,7 +409,7 @@ class InputTableDrive(unittest.TestCase):
                          "Press anything on this computer to see what it does")
 
     def test_a_key_pressed_names_itself_and_what_it_does(self) -> None:
-        self.assertEqual(self.seen["heard_key"], "Left arrow · Previous")
+        self.assertEqual(self.seen["heard_key"], "Left Arrow · Previous")
         self.assertEqual(self.seen["lit_key"], ["Previous"])
 
     def test_a_controller_button_pressed_names_itself_too(self) -> None:
@@ -493,7 +493,7 @@ class InputTableDrive(unittest.TestCase):
 
     def test_a_press_nobody_holds_is_added_to_the_row(self) -> None:
         self.assertEqual(self.seen["added"][-1], "key:KeyN")
-        self.assertEqual(self.seen["next_chips"][:2], ["Right arrow", "Right Shift"])
+        self.assertEqual(self.seen["next_chips"][:2], ["Right Arrow", "Right Shift"])
         self.assertIn("N", self.seen["next_chips"])
 
     def test_a_press_somebody_holds_asks_to_move_it(self) -> None:
