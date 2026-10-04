@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -246,30 +246,36 @@ async def _write_ini(launcher_id: str, keys: dict[str, str]) -> None:
 
 
 async def answer_program(vpx: Vpx, values: dict[str, Any], *, cabinet: bool,
-                         write_bgset: bool = True) -> str:
-    """The program answered, which the Tables step starts its search beside."""
+                         write_bgset: bool = True,
+                         then: Callable[[str], Awaitable[None]] | None = None) -> str:
+    """The program answered, which the Tables step starts its search beside. `then` is
+    told the launcher's id when this answer is what made the launcher."""
     path = _program_chosen(vpx, values)
     vpx.chosen = path
     vpx.answered = True
     if not path:
         return path
     client = ApiClient()
+    made = vpx.launcher is None
     if not (vpx.stored and _same(path, vpx.stored)):
         launcher_id, body = _launcher_body(vpx, path)
         await offload.io(client.put_launcher, launcher_id, body)
         vpx.launcher = Launcher.from_dict({**body, "launcher_id": launcher_id})
         vpx.stored = path
-    if vpx.launcher is None or not write_bgset:
+    if vpx.launcher is None:
         return path
-    # The Screens answer's Visual Pinball half: How you play could not write it while the
-    # program was unknown, and the file may not exist yet.
-    wanted = "1" if cabinet else "0"
-    try:
-        held = await offload.io(_read, client, vpx.launcher.launcher_id)
-        if str((held.get(BGSET_KEY) or {}).get("value") or "0") != wanted:
-            await _write_ini(vpx.launcher.launcher_id, {BGSET_KEY: wanted})
-    except Exception:
-        logger.warning("Could not write BGSet for the default launcher", exc_info=True)
+    if write_bgset:
+        # The Screens answer's Visual Pinball half: How you play could not write it while
+        # the program was unknown, and the file may not exist yet.
+        wanted = "1" if cabinet else "0"
+        try:
+            held = await offload.io(_read, client, vpx.launcher.launcher_id)
+            if str((held.get(BGSET_KEY) or {}).get("value") or "0") != wanted:
+                await _write_ini(vpx.launcher.launcher_id, {BGSET_KEY: wanted})
+        except Exception:
+            logger.warning("Could not write BGSet for the default launcher", exc_info=True)
+    if made and then is not None:
+        await then(vpx.launcher.launcher_id)
     return path
 
 

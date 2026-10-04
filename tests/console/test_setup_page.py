@@ -365,6 +365,24 @@ class OpenSetupTests(_Fresh):
 
         reload.assert_not_called()
 
+    def test_a_resumed_run_knows_the_screens_were_answered(self) -> None:
+        install_setup.answer(self.store, setup.SCREENS)
+        sessions: list[setup.Session] = []
+
+        def calls(session: setup.Session) -> mock.Mock:
+            sessions.append(session)
+            return mock.Mock()
+
+        async def go() -> None:
+            with _PAGE:
+                await setup.open_setup()
+
+        with mock.patch.object(setup, "calls", calls), \
+             mock.patch.object(setup.wizard, "open_dialog", mock.AsyncMock(return_value=False)):
+            _ran(go())
+
+        self.assertTrue(sessions[0].screens.answered)
+
     def test_asked_again_the_way_out_is_close_and_the_page_is_not_reloaded(self) -> None:
         install_setup.finish(self.store)
 
@@ -380,7 +398,8 @@ class TheRealStepsTests(_Fresh):
         with self._screens(1):
             step = _ran(setup.calls(setup.Session(again=False)).first(None))
 
-        self.assertEqual([setup.HOW, setup.VPX, setup.GLASS, setup.VPX_KEYS, setup.TABLES],
+        self.assertEqual([setup.HOW, setup.SCREENS, setup.VPX, setup.GLASS, setup.VPX_KEYS,
+                          setup.TABLES],
                          [one.key for one in setup.STEPS])
         self.assertEqual(step["step"], setup.HOW)
         self.assertNotIn("confirm", step, "Visual Pinball's pages follow it")
@@ -429,7 +448,7 @@ class TheRealStepsTests(_Fresh):
     def test_not_installed_yet_makes_the_program_page_the_last(self) -> None:
         session = setup.Session(again=False, vpx=setup_vpx.Vpx(answered=True))
         with mock.patch.object(setup, "_cabinet", return_value=True):
-            self.assertEqual([setup.HOW, setup.VPX, setup.TABLES],
+            self.assertEqual([setup.HOW, setup.SCREENS, setup.VPX, setup.TABLES],
                              [one.key for one in setup._applicable(session)])
             self.assertEqual(setup.TABLES, setup._after(session, setup._step(setup.VPX)).key)
 

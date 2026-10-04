@@ -24,6 +24,7 @@ from common.host import display_service
 from common.i18n import t
 from console import displays, offload, panel, screens, units
 from console import screens_picture as picture
+from console.data import config_groups
 from console.on_page import on_page
 from console.screens import Screen
 
@@ -380,6 +381,42 @@ async def follow(library: Any, before: displays.Standing, after: displays.Standi
 async def follow_dmd(library: Any, kind: str) -> None:
     """Tell each Visual Pinball launcher which kind of DMD panel is on the cabinet."""
     await _each_launcher(library, partial(_follow_panel, library, kind))
+
+
+async def fill(client: Any, launcher_id: str, standing: displays.Standing,
+               here: Sequence[Screen], kind: str) -> dict[str, str]:
+    """Writes the answer into what the launcher holds no value for, making its settings file
+    where the program has never run. A part it already answers stays where it was put.
+    Returns the keys written."""
+    found = await offload.io(client.launcher_config, launcher_id)
+    held = dict(found.get("values") or {})
+    logged = sorted({name for group in config_groups(found) if applies(group)
+                     for one in group.settings if one.key in vpx.DISPLAY.values()
+                     for name in one.reported})
+    keys = filling(standing, here, logged, held, kind)
+    if keys:
+        await offload.io(client.write_launcher_config, launcher_id, keys, create=True)
+    return keys
+
+
+def filling(standing: displays.Standing, here: Sequence[Screen], logged: Sequence[str],
+            held: Mapping[str, Any], kind: str) -> dict[str, str]:
+    """The ini keys `fill` writes. `held` is the launcher's settings as read, each with
+    whether the file sets it; `kind` is the DMD panel's, or "" with no panel."""
+    flat = {key: str((one or {}).get("value") or "") for key, one in held.items()}
+
+    def open_to_answer(part: str) -> bool:
+        one = held.get(vpx.DISPLAY[part] if part == vpx.PLAYFIELD else vpx.OUTPUT[part]) or {}
+        return not (one.get("set_here") and str(one.get("value") or "").strip())
+
+    moved = {part: where for part, where in standing.on.items()
+             if part != vpx.TOPPER and where is not None and open_to_answer(part)}
+    keys = vpx.answer(moved, {**vpx.placed(flat, here), **moved}, here, logged, flat,
+                      turn=standing.turn if vpx.PLAYFIELD in moved else None).keys \
+        if moved else {}
+    if not vpx.dmd_kind(flat):
+        keys.update(vpx.dmd_util(kind))
+    return keys
 
 
 async def _flat_values(library: Any, launcher_id: str) -> dict[str, str]:

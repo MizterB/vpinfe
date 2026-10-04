@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 from nicegui import run, ui
@@ -23,13 +24,14 @@ from common.config_access import DisplayConfig
 from common.games import launchers as launcher_model
 from common.host import addresses
 from common.i18n import t
-from console import offload, screens, setup_tables, setup_vpx, wizard
+from console import offload, screens, setup_screens, setup_tables, setup_vpx, wizard
 from console.api import ApiClient
 from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.setup")
 
 HOW = "how"
+SCREENS = "screens"
 VPX = "vpx"
 GLASS = "glass"
 VPX_KEYS = "vpxkeys"
@@ -55,6 +57,7 @@ class Session:
     # Whether How you play was answered differently from what the install holds, so the
     # Visual Pinball half of it is still to write once the program is known.
     bgset_due: bool = True
+    screens: setup_screens.Screens = field(default_factory=setup_screens.Screens)
     tables: setup_tables.Tables = field(default_factory=setup_tables.Tables)
     # Set once the install has been finished, which a job that is polled more than once
     # must not do again.
@@ -140,13 +143,22 @@ def _cabinet() -> bool:
     return DisplayConfig.from_config(_config()).cab_mode
 
 
+async def _ask_screens(session: Session) -> dict[str, Any]:
+    return await setup_screens.ask(session.screens)
+
+
+async def _answer_screens(session: Session, values: dict[str, Any]) -> None:
+    await setup_screens.answer(session.screens, session.vpx)
+
+
 async def _ask_vpx(session: Session) -> dict[str, Any]:
     return await setup_vpx.ask_program(session.vpx)
 
 
 async def _answer_vpx(session: Session, values: dict[str, Any]) -> None:
     session.tables.program = await setup_vpx.answer_program(
-        session.vpx, values, cabinet=_cabinet(), write_bgset=session.bgset_due)
+        session.vpx, values, cabinet=_cabinet(), write_bgset=session.bgset_due,
+        then=partial(setup_screens.fill, session.screens) if _cabinet() else None)
 
 
 async def _ask_glass(session: Session) -> dict[str, Any]:
@@ -177,6 +189,8 @@ async def _answer_tables(session: Session, values: dict[str, Any]) -> None:
 # says so with `applies`; it is not asked, and not in the row, where it does not.
 STEPS: tuple[Step, ...] = (
     Step(HOW, "console.setup.step.how", _ask_how, _answer_how),
+    Step(SCREENS, "console.setup.step.screens", _ask_screens, _answer_screens,
+         lambda session: _cabinet()),
     # Three pages under one name in the row.
     Step(VPX, "console.setup.step.vpx", _ask_vpx, _answer_vpx),
     Step(GLASS, "console.setup.step.vpx", _ask_glass, _answer_glass,
@@ -327,6 +341,7 @@ async def open_setup(*, window: bool = False) -> None:
     session = Session(again=not install_setup.pending(_config()), window=window, vpx=vpx,
                       tables=await offload.io(setup_tables.gather, vpx.chosen))
     session.vpx.answered = not session.again and VPX in install_setup.answered(_config())
+    session.screens.answered = not session.again and SCREENS in install_setup.answered(_config())
     ran = await wizard.open_dialog(
         label=t("console.setup.title"), calls=calls(session), under="setup", mark=True,
         aside=t("word.close") if session.again else t("console.setup.finish_later"),
