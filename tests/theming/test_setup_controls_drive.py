@@ -40,6 +40,8 @@ PAD = """(() => {
   Object.defineProperty(navigator, 'getGamepads',
                         {configurable: true, value: () => [window.__pad]});
 })()"""
+SCROLL = "document.querySelector('.console-wizard-scroll')"
+MORE_HIDDEN = "document.querySelector('.console-more').hidden"
 # The page reads a controller every 40ms, so a button pressed has been seen by this.
 PAD_READ_S = 0.3
 
@@ -97,6 +99,13 @@ class SetupControlsDrive(unittest.TestCase):
             seen["labels"] = await browser.evaluate(LABELS)
             seen["select_before_pad"] = await browser.evaluate(CHIPS % json.dumps("Select"))
             seen["idle"] = await browser.evaluate(LINE)
+            seen["more_at_top"] = await browser.evaluate(MORE_HIDDEN)
+            seen["sideways"] = await browser.evaluate(
+                f"({SCROLL}).scrollWidth - ({SCROLL}).clientWidth")
+            await browser.evaluate(f"({SCROLL}).scrollTop = 1e6")
+            await browser.wait_for(MORE_HIDDEN)
+            await browser.evaluate(f"({SCROLL}).scrollTop = 0")
+            await browser.wait_for(f"!{MORE_HIDDEN}")
 
             await browser.press("ArrowLeft", "ArrowLeft")
             await browser.wait_for(f"{LINE}.includes('Previous')")
@@ -117,6 +126,25 @@ class SetupControlsDrive(unittest.TestCase):
             await browser.wait_for(f"{CHIPS % json.dumps('Tutorial')}.includes('Z')")
             seen["tutorial_chips"] = await browser.evaluate(CHIPS % json.dumps("Tutorial"))
             seen["tutorial_saved"] = stored("tutorial")
+
+            await browser.evaluate(f"({ROW % json.dumps('Tutorial')}"
+                                   ".querySelector('.console-binding-label').focus())")
+            await browser.press("Enter", "Enter")
+            await browser.wait_for("(window.__bindingListen || {}).row === 'tutorial'")
+            await browser.press("x", "KeyX")
+            await browser.wait_for(f"{CHIPS % json.dumps('Tutorial')}.includes('X')")
+            await browser.wait_for(
+                f"document.activeElement === ({ROW % json.dumps('Tutorial')}"
+                ".querySelector('.console-binding-label'))")
+            seen["tutorial_by_key"] = stored("tutorial")
+
+            await browser.press("Enter", "Enter")
+            await browser.wait_for("(window.__bindingListen || {}).row === 'tutorial'")
+            await browser.press("Enter", "Enter")
+            await browser.wait_for("!!document.querySelector('.q-dialog .console-dialog-footer')")
+            await asyncio.sleep(PAD_READ_S)
+            seen["title_after_enter_bound"] = (await browser.evaluate(
+                f"document.querySelector({json.dumps(TITLE)}).innerText")).strip()
         return seen
 
     def test_the_step_is_the_one_asked_for(self) -> None:
@@ -141,6 +169,16 @@ class SetupControlsDrive(unittest.TestCase):
     def test_a_clicked_row_takes_the_next_press_and_it_is_saved_as_made(self) -> None:
         self.assertIn("Z", self.seen["tutorial_chips"])
         self.assertIn("key:KeyZ", self.seen["tutorial_saved"])
+
+    def test_a_step_taller_than_the_dialog_says_there_is_more_below(self) -> None:
+        self.assertFalse(self.seen["more_at_top"])
+        self.assertEqual(0, self.seen["sideways"])
+
+    def test_enter_on_a_label_asks_for_a_press_and_focus_stays_on_it(self) -> None:
+        self.assertIn("key:KeyX", self.seen["tutorial_by_key"])
+
+    def test_enter_taken_as_the_press_does_not_press_next(self) -> None:
+        self.assertEqual(t("console.setup.controls.title"), self.seen["title_after_enter_bound"])
 
 
 if __name__ == "__main__":

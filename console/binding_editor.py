@@ -7,6 +7,10 @@ happens client-side and emits the selector it heard. A binding is a selector -
 
 from __future__ import annotations
 
+import json
+
+from nicegui import ui
+
 # A controller button as stored, in the browser's terms (`pad` and `i`). A pad mapped to the
 # standard layout is named for the layout, the form the shipped defaults use, so a press on
 # it meets them; any other pad is named by its number.
@@ -20,10 +24,10 @@ HOLD_AT_MS = 1000
 RING_AFTER_MS = 250
 
 # One listener for the document, repointed by every table drawn after the first. A row
-# listens from a click on its label or field until a press is let go or a click lands
-# elsewhere, and the table's own element is told of both. The first device heard owns the
-# capture. A dialog opening over the row, or the row leaving the page, ends the listening;
-# a dialog the table is itself drawn in does not.
+# listens from a click on its label or field, or Enter on its label, until a press is let
+# go or a click lands elsewhere, and the table's own element is told of both. The first
+# device heard owns the capture. A dialog opening over the row, or the row leaving the
+# page, ends the listening; a dialog the table is itself drawn in does not.
 LISTEN_JS = """(() => {
   const listen = window.__bindingListen = window.__bindingListen || {};
   listen.id = %(id)d;
@@ -61,8 +65,9 @@ LISTEN_JS = """(() => {
     listen.row = '';
     tell('listen', '');
   };
-  const start = (name) => {
+  const start = (name, byKey) => {
     clear();
+    listen.byKey = !!byKey;
     already.clear();
     pads().forEach(pad => pad.buttons.forEach((b, i) => {
       if (b.pressed) already.add(pad.index + ':' + i);
@@ -122,7 +127,7 @@ LISTEN_JS = """(() => {
       ? one + '@hold:' + Math.round(longest / 100) * 100 : one;
     clear();
     listen.row = '';
-    tell('captured', {row, token: binding});
+    tell('captured', {row, token: binding, key: listen.byKey});
   };
 
   window.addEventListener('keydown', (e) => {
@@ -134,7 +139,19 @@ LISTEN_JS = """(() => {
   window.addEventListener('keyup', (e) => {
     if (!active()) return;
     e.preventDefault();
+    e.stopPropagation();
     left('key:' + e.code);
+  }, true);
+  // Enter or Space on a row's focused label asks it to listen, as a click does. Added
+  // after the listener above, so the key that starts it is not also heard by it; it is
+  // left to travel on, so a dialog's own Enter handling sees the row listening.
+  window.addEventListener('keydown', (e) => {
+    if (listen.row || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+    const label = e.target instanceof Element && e.target.closest('.console-binding-label');
+    const row = label && label.closest('[data-row]');
+    if (!row) return;
+    e.preventDefault();
+    start(row.dataset.row, true);
   }, true);
   // A key let go while the window is elsewhere never reports, and would hold the capture
   // to its device.
@@ -182,3 +199,19 @@ def listen_js(line_id: int) -> str:
     """The listener, told which element carries the table's events."""
     return LISTEN_JS % {"id": line_id, "hold_at": HOLD_AT_MS, "ring_after": RING_AFTER_MS,
                         "pad_token": PAD_TOKEN_JS}
+
+
+def focus_label(name: str) -> None:
+    """Puts focus back on a row's label once the redrawn row is in the page."""
+    ui.run_javascript(f"""
+        (() => {{
+          let tries = 0;
+          const go = () => {{
+            const label = document.querySelector(
+              '[data-row=' + {json.dumps(json.dumps(name))} + '] .console-binding-label');
+            if (!label) {{ if (++tries < 40) setTimeout(go, 25); return; }}
+            label.focus();
+          }};
+          go();
+        }})()
+    """)

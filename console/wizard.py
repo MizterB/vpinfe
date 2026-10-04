@@ -21,7 +21,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import literal_or, t
 from console import dialog as frame
-from console import panel, theme, verbs
+from console import more_below, panel, theme, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -547,7 +547,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             crest = ui.element("div").classes("console-wizard-crest")
             heading = ui.label("").classes("console-dialog-title console-wizard-title") \
                 .props("tabindex=-1")
-            body = ui.column().classes("w-full gap-0")
+            body = ui.column().classes("w-full gap-0 console-wizard-body")
+        more = more_below.attach(scroll)
         buttons = frame.footer()
 
         def draw(found: dict) -> None:
@@ -631,6 +632,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 # same persistent dialog element, one more for every step visited.
                 dialog.on("show", lambda: ui.run_javascript(
                     _enter_presses_forward(dialog.id)))
+                dialog.on("show", lambda: ui.run_javascript(more_below.watch(scroll, more)))
             elif fresh:
                 _focus_title(heading)
             elif control is not None:

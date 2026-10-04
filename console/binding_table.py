@@ -248,6 +248,7 @@ class Table:
         self.lit = ""
         self.live = Live()
         self.listening = ""
+        self._refocus = ""
         self.elsewhere = opened_elsewhere()
         self._rows: dict[str, ui.element] = {}
         self._labels: dict[str, ui.element] = {}
@@ -285,6 +286,8 @@ class Table:
                 heading = row.group
                 self._row(row, clashes)
         self._light()
+        if self._refocus:
+            binding_editor.focus_label(self._refocus)
 
     def _row(self, row: Row, clashes: Mapping[str, list[str]]) -> None:
         with ui.element("div").classes("console-binding-row") as cells:
@@ -293,6 +296,8 @@ class Table:
                 cells.props(f'data-row="{row.name}" data-holds="{int(row.holds)}"')
             self._labels[row.name] = ui.label(row.label).classes(
                 "console-fact-label console-binding-label")
+            if self.writable:
+                self._labels[row.name].props("tabindex=0 role=button")
             with ui.element("div").classes("console-fact-edit"):
                 with ui.element("div").classes("console-binding-field"):
                     with ui.element("div").classes("console-chips"):
@@ -477,7 +482,13 @@ class Table:
         self.listening = ""
         self._mark()
         if row is not None and token:
-            await self._mapped(row, token)
+            # A press that began at the keyboard ends there: the redraw replaces the label
+            # that had focus.
+            self._refocus = row.name if heard.get("key") else ""
+            try:
+                await self._mapped(row, token)
+            finally:
+                self._refocus = ""
         else:
             self._draw_live()
 

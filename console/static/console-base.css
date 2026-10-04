@@ -605,6 +605,9 @@ body::before {
 }
 .console-binding-row { display: contents; }
 .console-binding-label, .console-binding-field { cursor: pointer; }
+.console-binding-label:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
 .console-binding-field {
   flex: 1 1 auto; min-width: 0; min-height: var(--field-h);
   border: 1px solid var(--line); border-radius: 6px; background: var(--wash-lift);
@@ -663,7 +666,7 @@ body::before {
 .console-more { position: sticky; bottom: 0; height: 0; z-index: 2; }
 .console-more[hidden] { display: none; }
 .console-more-fade {
-  position: absolute; left: -16px; right: -16px; bottom: 0; height: 64px;
+  position: absolute; left: 0; right: 0; bottom: 0; height: 64px;
   display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
   pointer-events: none;
   background: linear-gradient(to bottom, transparent, var(--surface-work) 70%);
@@ -1830,7 +1833,7 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   display: flex; flex-direction: column; scrollbar-gutter: stable both-edges;
 }
 .console-wizard-scroll.console-wizard--welcome > :first-child { margin-top: auto; }
-.console-wizard-scroll.console-wizard--welcome > :last-child { margin-bottom: auto; }
+.console-wizard-scroll.console-wizard--welcome > .console-wizard-body { margin-bottom: auto; }
 .console-wizard-crest { display: flex; justify-content: center; }
 .console-wizard-mark { width: 92px; height: 92px; margin-bottom: 6px; }
 .console-wizard--welcome .console-dialog-title.console-wizard-title {
