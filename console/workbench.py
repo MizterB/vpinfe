@@ -58,6 +58,7 @@ from console import (
     community,
     confirm,
     deeplink,
+    folder_picker,
     game_acts,
     game_tables,
     grid,
@@ -5890,10 +5891,13 @@ async def _location_details(context: dict[str, Any]) -> None:
         if said := await write(kind=wanted):
             ui.notify(t("said.could_not_save_it"), caption=said, type="negative")
 
+    async def browse(current: str) -> str | None:
+        return await folder_picker.pick_path(library.folders, current, kind="dir")
+
     entries: list[tuple[Any, Any]] = [
         (HEADING, t("console.workbench.location")),
         (t("word.folder"), panel.field(
-            row["path"], save_path, refuses=True,
+            row["path"], save_path, refuses=True, browse=browse,
             status=panel.value_state("ok" if row["reachable"] else "missing",
                                      row["reason"]))),
         (t("word.contains"), panel.select(
