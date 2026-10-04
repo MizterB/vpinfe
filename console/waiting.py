@@ -1,0 +1,236 @@
+"""The line over every page for settings that are saved and not yet in effect.
+
+The server holds the answer (`GET /config/waiting`) and this only draws it, so every
+Console on every device says the same thing. Dismissing is the one thing kept here, in the
+browser: it hides the entries that were waiting at the time, and an entry that waits
+afterwards brings the line back.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from collections.abc import Callable
+from typing import Any
+
+from nicegui import ui
+
+from common import settings_waiting
+from common.failures import why
+from common.i18n import t
+from console import confirm, offload, panel, remembered, verbs
+from console.api import ApiClient
+from console.data import Library
+from console.on_page import on_page
+
+logger = logging.getLogger("vpinfe.console.waiting")
+
+POLL_S = 3.0
+REMEMBERED = "waiting.dismissed"
+# How long the browser keeps asking for the Console to come back before giving up and
+# leaving the page as it is.
+FOLLOW_FOR_S = 120
+RESTART_HOLD_S = 60.0
+REOPEN_HOLD_S = 15.0
+
+RESTART = settings_waiting.WAITS_RESTART
+REOPEN = settings_waiting.WAITS_REOPEN
+
+
+def entry_key(entry: dict[str, Any]) -> str:
+    return f"{entry.get('section')}.{entry.get('key')}"
+
+
+def waiting_for(answer: dict[str, Any]) -> str:
+    """What the line asks for: the windows reopened when that is all anything waits on and
+    it can be done here, otherwise VPinFE restarted. Empty when nothing waits."""
+    entries = answer.get("waiting") or []
+    if not entries:
+        return ""
+    if answer.get("reopen") and all(one.get("waits_for") == REOPEN for one in entries):
+        return REOPEN
+    return RESTART
+
+
+def names(answer: dict[str, Any]) -> str:
+    return ", ".join(str(one.get("label") or one.get("key") or "")
+                     for one in answer.get("waiting") or [])
+
+
+def heading(answer: dict[str, Any]) -> str:
+    said = "console.waiting.reopen" if waiting_for(answer) == REOPEN \
+        else "console.waiting.restart"
+    return t(said, names=names(answer))
+
+
+def hidden(answer: dict[str, Any], dismissed: set[str]) -> bool:
+    """Dismissed while every entry still waiting was already waiting when it was."""
+    keys = {entry_key(one) for one in answer.get("waiting") or []}
+    return bool(keys) and keys <= dismissed
+
+
+def undo_plan(answer: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """The values in effect, to write back, and the extensions to switch off again."""
+    values: dict[str, dict[str, Any]] = {}
+    extensions: list[str] = []
+    for one in answer.get("waiting") or []:
+        if one.get("kind") == settings_waiting.KIND_EXTENSION:
+            extensions.append(str(one.get("key") or ""))
+        else:
+            values.setdefault(str(one["section"]), {})[str(one["key"])] = one.get("in_effect")
+    return values, extensions
+
+
+def follow_script(port: int) -> str:
+    """The browser's side of a restart that moves the Console: ask the new address until
+    it answers, then go there. Nothing is done when the port is the one already open, and
+    the page's own reconnect covers that."""
+    return f"""
+(() => {{
+  const port = String({int(port)});
+  const here = location.port || (location.protocol === 'https:' ? '443' : '80');
+  if (port === here) return;
+  const target = location.protocol + '//' + location.hostname + ':' + port;
+  const until = Date.now() + {FOLLOW_FOR_S * 1000};
+  const ask = async () => {{
+    try {{
+      await fetch(target + '/', {{mode: 'no-cors', cache: 'no-store'}});
+      location.href = target + location.pathname + location.search;
+      return;
+    }} catch (gone) {{}}
+    if (Date.now() < until) setTimeout(ask, 1000);
+  }};
+  setTimeout(ask, 1500);
+}})();
+"""
+
+
+class Bar:
+    """One per Console page. `place` is called where the header draws it and draws from the
+    last answer; `refresh` asks the server again and redraws when it moved."""
+
+    def __init__(self, library: Library, redraw: Callable[[], None] | None = None) -> None:
+        self.library = library
+        self.redraw = redraw
+        self.answer: dict[str, Any] = {}
+        self._slot: ui.element | None = None
+        self._going: str = ""
+        self._until = 0.0
+
+    def place(self) -> None:
+        self._slot = ui.column().classes("w-full gap-0")
+        self._draw()
+
+    @on_page
+    async def refresh(self) -> None:
+        try:
+            found = await offload.io(self.library.config_waiting)
+        except Exception:  # noqa: BLE001 - an install that is restarting answers nothing
+            logger.debug("Could not read what is waiting", exc_info=True)
+            return
+        released = bool(self._going) and time.monotonic() >= self._until
+        if found == self.answer and not released:
+            return
+        self.answer = found
+        self._dismissed()
+        self._draw()
+
+    def count(self) -> int:
+        return len(self.answer.get("waiting") or [])
+
+    def _dismissed(self) -> set[str]:
+        held = {str(one) for one in remembered.get(REMEMBERED, []) or []}
+        keys = {entry_key(one) for one in self.answer.get("waiting") or []}
+        # What stopped waiting is forgotten, so waiting on it again is news.
+        if held - keys:
+            held &= keys
+            remembered.put(REMEMBERED, sorted(held))
+        return held
+
+    def _draw(self) -> None:
+        slot = self._slot
+        if slot is None or slot.is_deleted:
+            return
+        slot.clear()
+        if not self.answer.get("waiting"):
+            self._going = ""
+            return
+        if self._going and time.monotonic() >= self._until:
+            self._going = ""
+        if self._going:
+            with slot, ui.element("div").classes("console-attention w-full mb-2"):
+                ui.spinner(size="16px").classes("shrink-0")
+                ui.label(self._going).classes("console-attention-line grow")
+            return
+        if hidden(self.answer, self._dismissed()):
+            return
+        reopening = waiting_for(self.answer) == REOPEN
+        with slot, ui.element("div").classes("console-attention w-full mb-2"):
+            ui.icon("error_outline").classes("console-attention-icon")
+            ui.label(heading(self.answer)).classes("console-attention-line grow")
+            if reopening:
+                panel.action(t("console.waiting.reopen_windows"), self._reopen,
+                             icon=verbs.REFRESH,
+                             hint=t("action.frontend.restart.help"))()
+            else:
+                panel.action(t("action.vpinfe.restart"), self._restart, icon=verbs.RESET,
+                             hint=t("console.waiting.restart_help"))()
+            panel.action(t("console.waiting.undo"), self._undo, icon=verbs.REVERT,
+                         hint=t("console.waiting.undo_help"))()
+            panel.icon_only(verbs.CLOSE, self._dismiss, hint=t("console.waiting.dismiss"))
+
+    def _dismiss(self) -> None:
+        remembered.put(REMEMBERED, sorted(entry_key(one)
+                                          for one in self.answer.get("waiting") or []))
+        self._draw()
+
+    def _hold(self, said: str, seconds: float) -> None:
+        """Say what is happening in place of the buttons, and give the buttons back if it
+        has not cleared the entries by then."""
+        self._going, self._until = said, time.monotonic() + seconds
+        self._draw()
+
+    @on_page
+    async def _restart(self) -> None:
+        label = t("action.vpinfe.restart")
+        if not await confirm.ask(f"{label}?", detail=t("console.waiting.restart_detail"),
+                                 confirm=label, icon=verbs.RESET):
+            return
+        port = int(self.answer.get("http_port") or 0)
+        try:
+            await offload.io(self.library.perform_action, "vpinfe", "restart")
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            return
+        self._hold(t("console.waiting.restarting"), RESTART_HOLD_S)
+        if port:
+            ui.run_javascript(follow_script(port))
+
+    @on_page
+    async def _reopen(self) -> None:
+        try:
+            done = await offload.io(self.library.perform_action, "frontend", "restart")
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            return
+        if not done.get("performed"):
+            ui.notify(t("console.devices.not_happen", label=t("console.waiting.reopen_windows")),
+                      type="warning")
+            return
+        self._hold(t("console.waiting.reopening"), REOPEN_HOLD_S)
+        await self.refresh()
+
+    @on_page
+    async def _undo(self) -> None:
+        values, extensions = undo_plan(self.answer)
+        try:
+            if values:
+                await offload.io(self.library.put_config, values)
+            for name in extensions:
+                await offload.io(ApiClient().set_extension_enabled, name, False)
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            ui.notify(t("console.waiting.could_not_undo"), caption=why(exc), type="negative")
+        remembered.put(REMEMBERED, [])
+        await self.refresh()
+        if self.redraw is not None:
+            self.redraw()

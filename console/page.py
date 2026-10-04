@@ -36,6 +36,7 @@ from console import (
     uploads,
     verbs,
     views,
+    waiting,
     workbench,
 )
 from console import collections as collections_page
@@ -561,6 +562,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     device_capabilities = loaded["device_capabilities"]
     local_capabilities = loaded["local_capabilities"]
     pending = bool(loaded["pending"])
+    waiting_bar = waiting.Bar(library, lambda: redraw())
 
     # The rail this install has, read once: it decides what is drawn and which addresses
     # resolve, and those two disagreeing is a link that lands on a blank page.
@@ -906,6 +908,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             _say_read(result)
 
     job_timer = ui.timer(JOBS_RUNNING_S, _watch_jobs)
+    ui.timer(waiting.POLL_S, waiting_bar.refresh)
+    ui.timer(0.1, waiting_bar.refresh, once=True)
 
     def watch_jobs() -> None:
         """For a job this page has just started."""
@@ -1349,6 +1353,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         # height: centring boxes of different heights aligns boxes, not baselines.
         with ui.column().classes("w-full gap-0 min-w-0") \
                 .style(f"min-height:{HEADER_H_PX}px"):
+            waiting_bar.place()
             if pending:
                 setup_line(window=in_the_frontends_window)
             with ui.row().classes("items-center gap-2 w-full no-wrap"):
