@@ -218,18 +218,6 @@ class PlayGroupTests(unittest.TestCase):
         self.assertEqual(workbench._played_when(""), "Never")
         self.assertEqual(workbench._played_when("not a date"), "Never")
 
-    def test_reset_is_offered_only_where_there_is_something_to_clear(self) -> None:
-        """An act offered on a record of nothing is a button that cannot do anything."""
-        nothing = {"last_played": None, "play_count": 0, "play_time_seconds": 0}
-        played = {"last_played": None, "play_count": 3, "play_time_seconds": 0}
-        noop = lambda *a: None  # noqa: E731
-
-        def labels(record):
-            return [row[0] for row in workbench._play_rows({}, record, on_reset=noop)]
-
-        self.assertNotIn(workbench.FULL, labels(nothing))
-        self.assertIn(workbench.FULL, labels(played))
-
 
 class LabelCasingTests(unittest.TestCase):
     """One casing rule for every label the Console shows."""

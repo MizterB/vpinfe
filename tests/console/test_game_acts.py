@@ -23,6 +23,16 @@ async def _after(_gone: bool) -> None:
     return None
 
 
+async def _after_game() -> None:
+    return None
+
+
+def _library(*games: dict[str, Any]) -> MagicMock:
+    library = MagicMock()
+    library.games = list(games)
+    return library
+
+
 def _labels(verbs: list[panel.Verb]) -> list[str]:
     return [one.label for one in verbs]
 
@@ -35,17 +45,37 @@ def _acts(table: dict[str, Any], *tables: dict[str, Any], collections: Any = Non
 
 class ForAGame(unittest.TestCase):
     def test_it_can_be_played_and_filed(self) -> None:
-        verbs = game_acts.game_acts(MagicMock(), "afm", "Attack from Mars", lambda _: None)
+        verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", lambda _: None,
+                                    _after_game)
 
         self.assertEqual(["Launch", "Add to Collection"], _labels(verbs))
 
     def test_it_is_only_played_before_the_collections_are_read(self) -> None:
-        verbs = game_acts.game_acts(MagicMock(), "afm", "Attack from Mars", None)
+        verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", None, _after_game)
 
         self.assertEqual(["Launch"], _labels(verbs))
 
+    def test_the_play_record_can_be_reset_only_where_there_is_one(self) -> None:
+        played = _library({"id": "afm", "user": {"play_count": 3}})
+        unplayed = _library({"id": "afm", "user": {"play_count": 0, "last_played": None}})
+
+        offered = game_acts.game_acts(played, "afm", "Attack from Mars", None, _after_game)
+        quiet = game_acts.game_acts(unplayed, "afm", "Attack from Mars", None, _after_game)
+
+        self.assertEqual(["Launch", "Reset play record"], _labels(offered))
+        self.assertTrue(offered[-1].danger)
+        self.assertEqual(["Launch"], _labels(quiet))
+
 
 class ForATable(unittest.TestCase):
+    def test_the_games_own_record_is_cleared_apart_from_the_tables(self) -> None:
+        played = _library({"id": "afm", "user": {"play_count": 3}})
+
+        verb = game_acts.reset_game(played, "afm", _after_game, "Reset game's play record")
+
+        self.assertEqual("Reset game's play record", verb.label if verb else "")
+        self.assertIsNone(game_acts.reset_game(_library({"id": "afm"}), "afm", _after_game))
+
     def test_a_table_that_is_not_the_default_can_be_made_it(self) -> None:
         verbs = _acts(_table("a"), _table("a"), _table("b", default=True))
 
@@ -71,6 +101,15 @@ class ForATable(unittest.TestCase):
         self.assertEqual("Forget this table", verbs[-2].label)
         self.assertTrue(verbs[-2].danger)
         self.assertEqual("Add to Collection", verbs[-1].label)
+
+    def test_the_play_record_can_be_reset_only_where_there_is_one(self) -> None:
+        played = _acts(_table("a", user={"last_played": "2026-10-01T20:00:00Z"}))
+        unplayed = _acts(_table("a", user={"play_count": 0}))
+
+        self.assertIn("Reset play record", _labels(played))
+        self.assertTrue(next(one for one in played
+                             if one.label == "Reset play record").danger)
+        self.assertNotIn("Reset play record", _labels(unplayed))
 
     def test_a_table_on_disk_cannot_be_forgotten(self) -> None:
         self.assertFalse([one for one in _acts(_table("a")) if one.danger])

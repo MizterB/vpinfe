@@ -2548,8 +2548,7 @@
     "one": "It keeps the {count} game it shows now and stops updating.",
     "other": "It keeps the {count} games it shows now and stops updating."
   },
-  "console.workbench.convert_static": "Convert to Hand-picked...",
-  "console.workbench.convert_static.help": "Asks, then fixes its members to what it shows now and stops updating",
+  "console.workbench.convert_static": "Convert to Hand-picked",
   "console.workbench.convert_question": "Convert “{name}” to hand-picked?",
   "console.workbench.converted": "“{name}” is hand-picked now",
   "console.workbench.copied": "Copied in",
@@ -2843,6 +2842,8 @@
   "console.workbench.replaced": "Replaced",
   "console.workbench.reset_game_question": "Reset this game's play record?",
   "console.workbench.reset_action": "Reset play record",
+  "console.workbench.reset_game_action": "Reset game's play record",
+  "console.workbench.reset_done": "Play record reset",
   "console.workbench.reset_table_question": "Reset this table's play record?",
   "console.workbench.restored": "Restored",
   "console.workbench.revert": "Revert to {target} - from {source}",

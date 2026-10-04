@@ -714,7 +714,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             name = str(row.get("name") or "")
             panel.verb_menu(context_menu, name, game_acts.game_acts(
                 library, str(row["id"]), name,
-                game_acts.collections_of(offer([row], name), known)))
+                game_acts.collections_of(offer([row], name), known),
+                partial(record_cleared, str(row["id"]))))
 
     # The menu hangs off a wrapper, not off the grid: ui.aggrid's Vue template is a bare
     # <div> with no slot, so a child of it is never rendered and the menu silently does
@@ -759,6 +760,13 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                 await answer
 
     state["refresh_games"] = refresh_games
+
+    async def record_cleared(game_id: str) -> None:
+        if state.get("game") != game_id:
+            return
+        answer = on_select(by_id.get(game_id))
+        if inspect.isawaitable(answer):
+            await answer
 
     async def counted() -> None:
         seen = await table.run_grid_method("getDisplayedRowCount")

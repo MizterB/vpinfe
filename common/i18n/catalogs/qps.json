@@ -2548,8 +2548,7 @@
     "one": "Îţ ķèèþš ţĥè {count} ĝàɱè îţ šĥöŵš ñöŵ àñđ šţöþš ûþđàţîñĝ.",
     "other": "Îţ ķèèþš ţĥè {count} ĝàɱèš îţ šĥöŵš ñöŵ àñđ šţöþš ûþđàţîñĝ."
   },
-  "console.workbench.convert_static": "Çöñṽèřţ ţö Ĥàñđ-þîçķèđ...",
-  "console.workbench.convert_static.help": "Àšķš, ţĥèñ ƒîẋèš îţš ɱèɱƀèřš ţö ŵĥàţ îţ šĥöŵš ñöŵ àñđ šţöþš ûþđàţîñĝ",
+  "console.workbench.convert_static": "Çöñṽèřţ ţö Ĥàñđ-þîçķèđ",
   "console.workbench.convert_question": "Çöñṽèřţ “{name}” ţö ĥàñđ-þîçķèđ?",
   "console.workbench.converted": "“{name}” îš ĥàñđ-þîçķèđ ñöŵ",
   "console.workbench.copied": "Çöþîèđ îñ",
@@ -2843,6 +2842,8 @@
   "console.workbench.replaced": "Řèþŀàçèđ",
   "console.workbench.reset_game_question": "Řèšèţ ţĥîš ĝàɱè'š þŀàý řèçöřđ?",
   "console.workbench.reset_action": "Řèšèţ þŀàý řèçöřđ",
+  "console.workbench.reset_game_action": "Řèšèţ ĝàɱè'š þŀàý řèçöřđ",
+  "console.workbench.reset_done": "Þŀàý řèçöřđ řèšèţ",
   "console.workbench.reset_table_question": "Řèšèţ ţĥîš ţàƀŀè'š þŀàý řèçöřđ?",
   "console.workbench.restored": "Řèšţöřèđ",
   "console.workbench.revert": "Řèṽèřţ ţö {target} - ƒřöɱ {source}",

@@ -2496,38 +2496,12 @@ def _table_marks(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[A
 
 def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """The game's own record."""
-    record = context["game"].get("user") or {}
-
-    @on_page
-    async def reset() -> None:
-        if not await confirm.ask(
-                t("console.workbench.reset_game_question"),
-                detail=t("console.workbench.reset_game_detail"),
-                confirm=t("word.reset"), icon=verbs.RESET):
-            return
-        await _write(context, context["library"].reset_play_record,
-                     context["game_id"])
-
-    return _play_rows(context, record, on_reset=reset)
+    return _play_rows(context["game"].get("user") or {})
 
 
-def _table_play_rows(context: dict[str, Any],
-                     table: dict[str, Any]) -> list[tuple[Any, Any]]:
+def _table_play_rows(table: dict[str, Any]) -> list[tuple[Any, Any]]:
     """This file's own record."""
-    record = table.get("user") or {}
-    table_id = str(table.get("id") or "")
-
-    @on_page
-    async def reset() -> None:
-        if not await confirm.ask(
-                t("console.workbench.reset_table_question"),
-                detail=t("console.workbench.reset_table_detail"),
-                confirm=t("word.reset"), icon=verbs.RESET):
-            return
-        await _write(context, context["library"].reset_play_record,
-                     context["game_id"], table_id)
-
-    return _play_rows(context, record, on_reset=reset)
+    return _play_rows(table.get("user") or {})
 
 
 def _play_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -2538,7 +2512,7 @@ def _play_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     return [(HEADING, t("console.workbench.game_details")),
             *_game_play_rows(context),
             (HEADING, t("console.workbench.table_details")),
-            *_table_play_rows(context, chosen)]
+            *_table_play_rows(chosen)]
 
 
 def _chosen_table(context: dict[str, Any]) -> dict[str, Any] | None:
@@ -3251,20 +3225,15 @@ def _played_for(seconds: int) -> str:
             else t("console.workbench.hr", count=hours))
 
 
-def _play_rows(context: dict[str, Any], record: dict[str, Any], *,
-               on_reset: Callable[[], Any]) -> list[tuple[Any, Any]]:
-    """What has been done with this. The reset sits under the record it clears."""
-    rows: list[tuple[Any, Any]] = [
+def _play_rows(record: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """What has been done with this."""
+    return [
         (t("word.last_played"), _played_when(record.get("last_played"))),
         (t("console.workbench.times_played"),
                 str(int(record.get("play_count") or 0) or t("word.never"))),
         (t("console.workbench.play_time"),
                 _played_for(int(record.get("play_time_seconds") or 0))),
     ]
-    if context is not None and any(record.get(key) for key in
-                                   ("last_played", "play_count", "play_time_seconds")):
-        rows.append((FULL, _reset_action(on_reset)))
-    return rows
 
 
 def _tag_picker(held: list[str], library: Library,
@@ -3305,18 +3274,6 @@ def _derived_chips(tags: Sequence[str], looks: dict[str, dict[str, Any]]) -> Non
                                      str(sources[0].get("list") or "")),
                 hint=t("console.tags.from_source",
                        source=", ".join(tag_source(one) for one in sources if one)))()
-
-
-def _reset_action(on_reset: Callable[[], Any]) -> Callable[[], None]:
-    """Only where there is something to clear. An act offered on a record of nothing
-    is a button that cannot do anything."""
-    def draw() -> None:
-        with ui.element("div").classes("console-slot-actions"):
-            ui.button(t("console.workbench.reset_action"), icon="restart_alt",
-                      on_click=on_reset).props("flat dense no-caps size=sm") \
-                .classes("console-action")
-
-    return draw
 
 
 IPDB_URL = "https://www.ipdb.org/machine.cgi?id={id}"
@@ -6374,10 +6331,6 @@ def _rules_block(context: dict[str, Any], row: dict[str, Any]) -> None:
             _condition(context, index, one)
     with ui.row().classes("items-center gap-2 console-slot-actions"):
         _add_rule_button(context)
-        if smart and not _drafting(context):
-            panel.action(t("console.workbench.convert_static"),
-                         lambda: _convert(context), icon=verbs.KEEP,
-                         hint=t("console.workbench.convert_static.help"))()
     added, taken = _by_hand(context)
     ui.label(collection_rules.sentence(rows, context["fields"], added, taken)) \
         .classes("console-help console-rule-sentence mt-1 mb-2")
@@ -6558,30 +6511,12 @@ async def _cancel_rules(context: dict[str, Any]) -> None:
     await context["rebuild"]()
 
 
-@on_page
-async def _convert(context: dict[str, Any]) -> None:
-    row = _collection(context)
-    name = row["name"]
-    if not await confirm.ask(t("console.workbench.convert_question", name=name),
-                             detail=t("console.workbench.convert_detail",
-                                      count=int(row.get("count") or 0)),
-                             confirm=t("console.workbench.convert"), icon=verbs.KEEP,
-                             danger=False):
-        return
-    await _keep_what_it_found(context)
-
-
-@on_page
 async def _keep_what_it_found(context: dict[str, Any]) -> None:
-    name = _collection(context)["name"]
-    try:
-        await run.io_bound(context["library"].keep_collection_result, name)
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
-        return
-    context["draft"].pop("rules", None)
-    ui.notify(t("console.workbench.converted", name=name), type="positive")
-    await _written(context)
+    # Imported here: console.collections imports console.games, which imports this module.
+    from console.collections import keep_result
+
+    await keep_result(context["library"], context["state"], _collection(context)["name"],
+                      lambda name: _written(context, name or ""))
 
 
 @on_page
@@ -7258,7 +7193,9 @@ def _collection_verbs(context: dict[str, Any]) -> list[panel.Verb]:
         deeplink.sync(state)
         await context["rebuild"]()
 
-    return acts(context["library"], state, _collection(context)["name"], after)
+    row = _collection(context)
+    return acts(context["library"], state, row["name"], after,
+                smart=_is_dynamic(row), count=int(row.get("count") or 0))
 
 
 def _page_redraw(context: dict[str, Any]) -> Callable[[], None]:
@@ -7314,7 +7251,8 @@ def _game_verbs(context: dict[str, Any]) -> list[panel.Verb]:
                                   then=partial(_game_redrawn, context),
                                   narrowed=str(context["state"].get("collection") or ""))
     return game_acts.game_acts(library, game_id, name,
-                               game_acts.collections_of(offer, context["collections"]))
+                               game_acts.collections_of(offer, context["collections"]),
+                               context["rebuild"])
 
 
 def _table_verbs(context: dict[str, Any]) -> list[panel.Verb]:
@@ -7326,16 +7264,24 @@ def _table_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     async def after(gone: bool) -> None:
         if gone:
             await _table_gone(context, table)
-        else:
-            await context["rebuild"]()
+            return
+        await context["rebuild"]()
+        refresh = context["state"].get("refresh_game")
+        if callable(refresh):
+            await refresh(game_id)
 
     offer = collection_adds.Offer(
         library, [collection_adds.Row(game_id, table_id)], collection_adds.TABLES,
         game_tables.name_among(table, context["tables"]),
         then=partial(_game_redrawn, context))
-    return game_acts.table_acts(
+    offered = game_acts.table_acts(
         library, game_id, str(context["game"].get("name") or ""), table, context["tables"],
         after, game_acts.collections_of(offer, context["collections"]))
+    # The panel shows the game's record above the table's, so both can be cleared here.
+    if reset := game_acts.reset_game(library, game_id, context["rebuild"],
+                                     t("console.workbench.reset_game_action")):
+        offered.append(reset)
+    return offered
 
 
 # What the panel header's menu offers, per subject: the same lists the grids' row menus

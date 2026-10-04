@@ -24,10 +24,18 @@ from console.on_page import on_page
 After = Callable[[bool], Awaitable[None]]
 Collections = Callable[[Callable[[], Any]], None]
 
+PLAYED = ("last_played", "play_count", "play_time_seconds")
 
-def game_acts(library: Any, game_id: str, name: str,
-              collections: Collections | None) -> list[panel.Verb]:
-    """What can be done to a game: play it, and file it in a collection."""
+
+def has_record(record: dict[str, Any] | None) -> bool:
+    """Whether a play record holds anything to clear."""
+    return any((record or {}).get(key) for key in PLAYED)
+
+
+def game_acts(library: Any, game_id: str, name: str, collections: Collections | None,
+              after: Callable[[], Awaitable[None]]) -> list[panel.Verb]:
+    """What can be done to a game: play it, file it in a collection, clear its play
+    record. `after` puts the caller's surface right once the record is cleared."""
     @on_page
     async def launch() -> None:
         try:
@@ -40,7 +48,35 @@ def game_acts(library: Any, game_id: str, name: str,
     offered = [panel.Verb(t("console.games.launch"), launch)]
     if collections is not None:
         offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
+    if reset := reset_game(library, game_id, after):
+        offered.append(reset)
     return offered
+
+
+def reset_game(library: Any, game_id: str, after: Callable[[], Awaitable[None]],
+               label: str = "") -> panel.Verb | None:
+    """Clear a game's play record, or None where it holds nothing to clear."""
+    played = next((one.get("user") for one in library.games
+                   if one.get("id") == game_id), None)
+    if not has_record(played):
+        return None
+
+    @on_page
+    async def reset() -> None:
+        if not await confirm.ask(
+                t("console.workbench.reset_game_question"),
+                detail=t("console.workbench.reset_game_detail"),
+                confirm=t("word.reset"), icon=verbs.RESET):
+            return
+        try:
+            await run.io_bound(library.reset_play_record, game_id)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
+            return
+        ui.notify(t("console.workbench.reset_done"), type="positive")
+        await after()
+
+    return panel.Verb(label or t("console.workbench.reset_action"), reset, danger=True)
 
 
 def table_acts(library: Any, game_id: str, game_name: str, table: dict[str, Any],
@@ -95,6 +131,17 @@ def table_acts(library: Any, game_id: str, game_name: str, table: dict[str, Any]
         await write(library.forget_table, table_id, said=t("console.workbench.table_forgotten"),
                     failed=t("console.workbench.forget_failed"), gone=True)
 
+    @on_page
+    async def reset() -> None:
+        if not await confirm.ask(
+                t("console.workbench.reset_table_question"),
+                detail=t("console.workbench.reset_table_detail"),
+                confirm=t("word.reset"), icon=verbs.RESET):
+            return
+        await write(library.reset_play_record, table_id,
+                    said=t("console.workbench.reset_done"),
+                    failed=t("console.workbench.save_failed"))
+
     offered: list[panel.Verb] = []
     if not table.get("default"):
         if not game_tables.why_not_default(table):
@@ -122,6 +169,9 @@ def table_acts(library: Any, game_id: str, game_name: str, table: dict[str, Any]
             partial(write, library.extract_script, table_id,
                     said=t("console.workbench.extract_done"),
                     failed=t("console.workbench.extract_failed"))))
+    if has_record(table.get("user")):
+        offered.append(panel.Verb(t("console.workbench.reset_action"), reset,
+                                  danger=True))
     if not table.get("available"):
         offered.append(panel.Verb(t("console.games.forget_table"), forget, danger=True))
     if collections is not None:

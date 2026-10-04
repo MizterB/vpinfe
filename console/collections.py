@@ -341,7 +341,8 @@ def build(collections: list[dict[str, Any]], library: Any,
             elif row:
                 panel.verb_menu(menu, row["name"],
                                 moves(row["name"])
-                                + acts(library, state, row["name"], redrawn))
+                                + acts(library, state, row["name"], redrawn,
+                                       smart=row["kind"] == "filter", count=row["count"]))
 
     def moves(name: str) -> list[panel.Verb]:
         out = []
@@ -466,9 +467,11 @@ async def _ask_delete_many(picked: list[dict], library: Any, act: Callable) -> N
 
 
 def acts(library: Any, state: dict[str, Any], name: str,
-         after: Callable[[str | None], Awaitable[None]]) -> list[panel.Verb]:
+         after: Callable[[str | None], Awaitable[None]], *, smart: bool,
+         count: int) -> list[panel.Verb]:
     """What can be done to one collection. `after` is given the collection to show next,
-    or None when this one has gone.
+    or None when this one has gone. `smart` and `count` say whether it can be converted
+    to hand-picked and how many games that would keep.
 
     No Rename: the name is a field in the panel's Details, beside the description, and
     a name editable in two places is two answers."""
@@ -503,8 +506,33 @@ def acts(library: Any, state: dict[str, Any], name: str,
             state["collection"] = None
         await after(None)
 
-    return [panel.Verb(t("console.workbench.duplicate"), duplicate),
-            panel.Verb(t("word.delete"), delete, danger=True)]
+    @on_page
+    async def convert() -> None:
+        if not await confirm.ask(t("console.workbench.convert_question", name=name),
+                                 detail=t("console.workbench.convert_detail", count=count),
+                                 confirm=t("console.workbench.convert"), icon=verbs.KEEP,
+                                 danger=False):
+            return
+        await keep_result(library, state, name, after)
+
+    offered = [panel.Verb(t("console.workbench.duplicate"), duplicate)]
+    if smart and "rules" not in state.get("collection_drafts", {}).get(name, {}):
+        offered.append(panel.Verb(t("console.workbench.convert_static"), convert))
+    return [*offered, panel.Verb(t("word.delete"), delete, danger=True)]
+
+
+@on_page
+async def keep_result(library: Any, state: dict[str, Any], name: str,
+                      after: Callable[[str | None], Awaitable[None]]) -> None:
+    """Fix a smart collection's members to the games it shows now, and stop updating."""
+    try:
+        await run.io_bound(library.keep_collection_result, name)
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+        return
+    state.setdefault("collection_drafts", {}).get(name, {}).pop("rules", None)
+    ui.notify(t("console.workbench.converted", name=name), type="positive")
+    await after(name)
 
 
 def _copy_name(name: str, taken: set[str]) -> str:
