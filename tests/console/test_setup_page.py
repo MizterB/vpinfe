@@ -398,12 +398,12 @@ class TheRealStepsTests(_Fresh):
         with self._screens(1):
             step = _ran(setup.calls(setup.Session(again=False)).first(None))
 
-        self.assertEqual([setup.HOW, setup.SCREENS, setup.VPX, setup.GLASS, setup.VPX_KEYS,
-                          setup.TABLES],
+        self.assertEqual([setup.HOW, setup.SCREENS, setup.CONTROLS, setup.VPX, setup.GLASS,
+                          setup.VPX_KEYS, setup.TABLES],
                          [one.key for one in setup.STEPS])
         self.assertEqual(step["step"], setup.HOW)
         self.assertNotIn("confirm", step, "Visual Pinball's pages follow it")
-        self.assertEqual(["How you play", "Visual Pinball", "Tables"],
+        self.assertEqual(["How you play", "Controls", "Visual Pinball", "Tables"],
                          [segment["label"] for segment in step["steps"]])
 
     def test_every_step_names_itself_for_the_row(self) -> None:
@@ -413,7 +413,7 @@ class TheRealStepsTests(_Fresh):
             with self.subTest(step=one.key):
                 self.assertNotEqual(t(one.label), one.label)
 
-    def test_answering_how_you_play_writes_it_and_goes_on_to_the_program(self) -> None:
+    def test_answering_how_you_play_writes_it_and_goes_on_to_the_controls(self) -> None:
         client = mock.Mock()
         session = setup.Session(again=False)
 
@@ -423,7 +423,7 @@ class TheRealStepsTests(_Fresh):
             answer = _ran(setup.calls(session).check({"cab_mode": "cabinet"}, setup.HOW))
 
         client.put_config.assert_called_once_with({"presentation": {"cab_mode": True}})
-        self.assertEqual(answer["step"], setup.VPX)
+        self.assertEqual(answer["step"], setup.CONTROLS)
         self.assertTrue(install_setup.pending(self.store))
         self.assertEqual(install_setup.answered(self.store), [setup.HOW])
 
@@ -448,7 +448,7 @@ class TheRealStepsTests(_Fresh):
     def test_not_installed_yet_makes_the_program_page_the_last(self) -> None:
         session = setup.Session(again=False, vpx=setup_vpx.Vpx(answered=True))
         with mock.patch.object(setup, "_cabinet", return_value=True):
-            self.assertEqual([setup.HOW, setup.SCREENS, setup.VPX, setup.TABLES],
+            self.assertEqual([setup.HOW, setup.SCREENS, setup.CONTROLS, setup.VPX, setup.TABLES],
                              [one.key for one in setup._applicable(session)])
             self.assertEqual(setup.TABLES, setup._after(session, setup._step(setup.VPX)).key)
 

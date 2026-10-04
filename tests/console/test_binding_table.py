@@ -294,6 +294,32 @@ class DrawnTests(unittest.TestCase):
         self.assertEqual(_chips(_wrappers(body)["Next"]), ["Right Arrow", "D"])
 
 
+class PadsWhenHeardTests(unittest.TestCase):
+    def test_a_controller_button_is_not_drawn_until_a_controller_is_heard(self) -> None:
+        _, body = _drawn(pads_when_heard=True)
+
+        self.assertEqual(_chips(_wrappers(body)["Previous"]), ["Left Shift"])
+
+    def test_the_first_controller_press_brings_every_controller_chip_in(self) -> None:
+        control, body = _drawn(pads_when_heard=True)
+
+        control._heard(SimpleNamespace(args="pad:standard/button:0"))
+
+        self.assertEqual(_chips(_wrappers(body)["Previous"]), ["Left Shift", "D-pad Left"])
+
+    def test_a_key_press_leaves_the_controller_chips_out(self) -> None:
+        control, body = _drawn(pads_when_heard=True)
+
+        control._heard(SimpleNamespace(args="key:KeyA"))
+
+        self.assertEqual(_chips(_wrappers(body)["Previous"]), ["Left Shift"])
+
+    def test_a_table_not_asked_to_wait_shows_them_from_the_start(self) -> None:
+        _, body = _drawn()
+
+        self.assertEqual(_chips(_wrappers(body)["Previous"]), ["Left Shift", "D-pad Left"])
+
+
 class WhatCanBeChangedTests(unittest.TestCase):
     def test_a_row_carries_its_name_and_whether_it_can_be_held_for_the_listener(self) -> None:
         _, body = _drawn()

@@ -24,7 +24,15 @@ from common.config_access import DisplayConfig
 from common.games import launchers as launcher_model
 from common.host import addresses
 from common.i18n import t
-from console import offload, screens, setup_screens, setup_tables, setup_vpx, wizard
+from console import (
+    offload,
+    screens,
+    setup_controls,
+    setup_screens,
+    setup_tables,
+    setup_vpx,
+    wizard,
+)
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -32,6 +40,7 @@ logger = logging.getLogger("vpinfe.console.setup")
 
 HOW = "how"
 SCREENS = "screens"
+CONTROLS = "controls"
 VPX = "vpx"
 GLASS = "glass"
 VPX_KEYS = "vpxkeys"
@@ -151,6 +160,14 @@ async def _answer_screens(session: Session, values: dict[str, Any]) -> None:
     await setup_screens.answer(session.screens, session.vpx)
 
 
+async def _ask_controls(session: Session) -> dict[str, Any]:
+    return await setup_controls.ask()
+
+
+async def _answer_controls(session: Session, values: dict[str, Any]) -> None:
+    await setup_controls.answer(values)
+
+
 async def _ask_vpx(session: Session) -> dict[str, Any]:
     return await setup_vpx.ask_program(session.vpx)
 
@@ -191,6 +208,7 @@ STEPS: tuple[Step, ...] = (
     Step(HOW, "console.setup.step.how", _ask_how, _answer_how),
     Step(SCREENS, "console.setup.step.screens", _ask_screens, _answer_screens,
          lambda session: _cabinet()),
+    Step(CONTROLS, "console.setup.step.controls", _ask_controls, _answer_controls),
     # Three pages under one name in the row.
     Step(VPX, "console.setup.step.vpx", _ask_vpx, _answer_vpx),
     Step(GLASS, "console.setup.step.vpx", _ask_glass, _answer_glass,

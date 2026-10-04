@@ -31,14 +31,17 @@ HOLD_STOPS = (0, 500, 1000, 1500, 2000, 3000)
 
 # Reports what was pressed on this computer to the table, which names it and says what it
 # does. Installed once per document: a table drawn later only repoints it. A press while a
-# question, a menu, a listening row or a text field has the keyboard is not a press to report.
+# question over the table, a menu, a listening row or a text field has the keyboard is not a
+# press to report. A dialog the table is drawn in is not a question over it.
 _LIVE_JS = """(() => {
   const live = window.__bindingLive = window.__bindingLive || {};
   live.id = %(id)d;
   if (live.listening) return;
   live.listening = true;
   const busy = () => (window.__bindingListen || {}).row
-    || document.querySelector('.q-dialog, .q-menu')
+    || document.querySelector('.q-menu')
+    || [...document.querySelectorAll('.q-dialog')].some(
+         one => !one.contains(document.getElementById('c' + live.id)))
     || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
   const report = (token) => {
     const target = document.getElementById('c' + live.id);
@@ -221,7 +224,8 @@ class Table:
     the defaults come from, for the revert mark's tooltip. A table that is not `writable`
     only shows. Where the program does everything a press is mapped to, `shares`, a press
     another row holds may be used for both and nothing is slowed or left without.
-    `refuses` says why a press cannot be mapped, or "" where it can.
+    `refuses` says why a press cannot be mapped, or "" where it can. With `pads_when_heard`
+    the controller buttons are left undrawn until a controller is pressed.
 
     Clicking a row's label or field has that row listen for the next press. Above the rows
     a line names whatever is pressed on this computer and what it does, and says what is
@@ -230,7 +234,8 @@ class Table:
 
     def __init__(self, rows: Sequence[Row], bound: Mapping[str, Any], *, write: Write,
                  source: str, writable: bool = True, shares: bool = False,
-                 refuses: Callable[[str], str] | None = None) -> None:
+                 refuses: Callable[[str], str] | None = None,
+                 pads_when_heard: bool = False) -> None:
         self.rows = tuple(rows)
         self.by_name = {row.name: row for row in self.rows}
         self.bound = {row.name: selectors(bound.get(row.name)) for row in self.rows}
@@ -239,6 +244,7 @@ class Table:
         self.writable = writable
         self.shares = shares
         self.refuses = refuses
+        self.pads_hidden = pads_when_heard
         self.lit = ""
         self.live = Live()
         self.listening = ""
@@ -304,7 +310,8 @@ class Table:
                 finding()
 
     def _chips_of(self, row: Row, clashes: Mapping[str, list[str]]) -> None:
-        held = self.bound[row.name]
+        held = [one for one in self.bound[row.name]
+                if not (self.pads_hidden and input_registry.is_pad(one))]
         # Keys before controller buttons, whichever order they were mapped in.
         for binding in sorted(held, key=input_registry.is_pad):
             self._chip(row, binding, clashes.get(input_registry.contention(binding)) or [])
@@ -429,6 +436,9 @@ class Table:
                 if input_registry.press(one) == wanted]
 
     def _show(self, token: str, *, does: str = "", nothing: str = "") -> None:
+        if self.pads_hidden and input_registry.is_pad(token):
+            self.pads_hidden = False
+            self.draw()
         self.lit = input_registry.press(token)
         self.live = Live(input_registry.describe(token),
                          input_registry.is_pad(token), does, nothing)

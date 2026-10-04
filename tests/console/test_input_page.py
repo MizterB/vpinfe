@@ -116,6 +116,21 @@ class MountedTests(unittest.TestCase):
         self.assertIn("N", names)
         self.assertNotIn("M", names)
 
+    def test_controller_chips_wait_for_a_controller_where_the_caller_asks(self) -> None:
+        options = [_option("previous", "Previous", setting_groups.NAVIGATION,
+                           "key:ShiftLeft,pad:standard/button:14")]
+        block = [{"name": "input", "writable": True, "options": options}]
+        for waits, expected in ((True, ["Left Shift"]), (False, ["Left Shift", "D-pad Left"])):
+            with self.subTest(waits=waits):
+                [(_, draw)] = input_page.rows(block, {}, AsyncMock(), pads_when_heard=waits)
+
+                with patch.object(ui, "run_javascript"), ui.column() as body:
+                    draw()
+
+                names = [one.text for one in body.descendants() if isinstance(one, ui.label)]
+                self.assertEqual(expected, [one for one in names
+                                            if one in ("Left Shift", "D-pad Left")])
+
     def test_a_setting_never_stored_is_mapped_to_its_default(self) -> None:
         [(_, draw)] = input_page.rows(self._block(), {}, AsyncMock())
 

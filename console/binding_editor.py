@@ -22,7 +22,8 @@ RING_AFTER_MS = 250
 # One listener for the document, repointed by every table drawn after the first. A row
 # listens from a click on its label or field until a press is let go or a click lands
 # elsewhere, and the table's own element is told of both. The first device heard owns the
-# capture. A dialog opening, or the row leaving the page, ends the listening.
+# capture. A dialog opening over the row, or the row leaving the page, ends the listening;
+# a dialog the table is itself drawn in does not.
 LISTEN_JS = """(() => {
   const listen = window.__bindingListen = window.__bindingListen || {};
   listen.id = %(id)d;
@@ -71,7 +72,10 @@ LISTEN_JS = """(() => {
   };
   const active = () => {
     if (!listen.row) return false;
-    if (rowElement() && !document.querySelector('.q-dialog')) return true;
+    const row = rowElement();
+    if (row && ![...document.querySelectorAll('.q-dialog')].some(one => !one.contains(row))) {
+      return true;
+    }
     stop();
     return false;
   };

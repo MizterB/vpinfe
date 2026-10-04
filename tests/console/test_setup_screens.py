@@ -179,10 +179,10 @@ class ProgramStepTests(unittest.TestCase):
 
 
 class StepTests(unittest.TestCase):
-    def test_the_step_is_asked_of_a_cabinet_alone_between_how_and_the_program(self) -> None:
+    def test_the_step_is_asked_of_a_cabinet_alone_between_how_and_the_controls(self) -> None:
         session = setup.Session(again=False)
-        for cabinet, keys in ((True, [setup.HOW, setup.SCREENS, setup.VPX]),
-                              (False, [setup.HOW, setup.VPX])):
+        for cabinet, keys in ((True, [setup.HOW, setup.SCREENS, setup.CONTROLS]),
+                              (False, [setup.HOW, setup.CONTROLS])):
             with self.subTest(cabinet=cabinet), \
                  mock.patch.object(setup, "_cabinet", return_value=cabinet):
                 found = [one.key for one in setup._applicable(session)]

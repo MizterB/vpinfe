@@ -63,7 +63,7 @@ async def _gather(library: Library) -> Seen:
 
 
 @on_page
-async def _write(changes: dict[str, dict[str, Any]]) -> bool:
+async def write(changes: dict[str, dict[str, Any]]) -> bool:
     try:
         await run.io_bound(ApiClient().put_config, changes)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
@@ -89,11 +89,11 @@ def _entries(state: Screens, library: Library, seen: Seen,
         await vpx_displays.follow_dmd(library, kind)
 
     picture = [one for one in displays.rows(seen.values, seen.schema, seen.monitors, seen.names,
-                                            _write, rebuild, follow=follow)
+                                            write, rebuild, follow=follow)
                if one[0] is not panel.HEADING]
     return [*picture,
-            *dmd_panel.rows(seen.values, seen.schema, _write, rebuild, kept, kind=state.kind),
-            *placement_panel.rows(seen.reading, seen.values, seen.schema, _write, rebuild)]
+            *dmd_panel.rows(seen.values, seen.schema, write, rebuild, kept, kind=state.kind),
+            *placement_panel.rows(seen.reading, seen.values, seen.schema, write, rebuild)]
 
 
 async def ask(state: Screens) -> dict[str, Any]:

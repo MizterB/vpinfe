@@ -37,7 +37,7 @@ def table_rows(options: Sequence[dict],
 
 def rows(schema: Sequence[dict], values: Mapping[str, Any], write: Write, *,
          findings: Mapping[str, Sequence[Callable[[], None]]] | None = None,
-         ) -> list[tuple[Any, Any]]:
+         pads_when_heard: bool = False) -> list[tuple[Any, Any]]:
     """The table as one row spanning the page, for a block to place."""
     block = next((one for one in schema if one.get("name") == input_registry.SECTION), {})
     options = block.get("options") or []
@@ -52,7 +52,8 @@ def rows(schema: Sequence[dict], values: Mapping[str, Any], write: Write, *,
 
     def draw() -> None:
         Table(table_rows(options, findings), bound, write=put, writable=writable,
-              source=t("console.binding_table.vpinfe_defaults"))
+              source=t("console.binding_table.vpinfe_defaults"),
+              pads_when_heard=pads_when_heard)
 
     return [*([] if writable else [panel.intro(t("console.settings.not_writable"))]),
             (panel.FULL, draw)]
