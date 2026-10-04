@@ -89,7 +89,7 @@ class FixTests(unittest.TestCase):
 
     def test_windows_needs_the_setting_because_the_bundled_copy_wins(self) -> None:
         self.assertEqual(self.fix(fb.NO_H264, "Windows", True).key,
-                         "frontend_browser.fix.install_chrome_set")
+                         "frontend_browser.fix.set_chrome")
 
     def test_macos_needs_only_the_install(self) -> None:
         self.assertEqual(self.fix(fb.NO_H264, "Darwin", True).key,
@@ -102,7 +102,7 @@ class FixTests(unittest.TestCase):
     def test_linux_with_a_distribution_chromium_needs_the_setting(self) -> None:
         # `chromium` is found ahead of `google-chrome`, so installing Chrome changes nothing.
         self.assertEqual(self.fix(fb.NO_H264, "Linux", False).key,
-                         "frontend_browser.fix.install_chrome_set")
+                         "frontend_browser.fix.set_chrome")
 
     def test_no_browser_has_its_own_fix(self) -> None:
         self.assertEqual(self.fix(fb.NO_BROWSER, "Windows", False).key,

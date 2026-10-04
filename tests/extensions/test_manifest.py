@@ -64,7 +64,7 @@ class ParseTests(unittest.TestCase):
             contract.parse(_without("requires_platform", requires_platform=99))
 
         self.assertEqual(_said(caught.exception),
-                         t("extension.reason.manifest_platform_not_offered", abi="99",
+                         t("extension.reason.platform_mismatch", abi="99",
                            offered=str(contract.PLATFORM_ABI)))
 
     def test_a_capability_nobody_has_heard_of_is_refused(self) -> None:

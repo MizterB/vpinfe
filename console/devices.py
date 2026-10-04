@@ -41,19 +41,19 @@ _CHIP = {
 
 # A device there is no way to call back. Not the same as one that is down, and it says
 # which: an install announces the port it answers on, and this one never did.
-UNREACHABLE_NOTE = "console.devices.device_not_said_port"
+UNREACHABLE_NOTE = "console.devices.no_port"
 
 # Why an install cannot replace itself, in the words a person reads. The API answers with
 # the reason's name; the sentence for it belongs to whatever is showing it.
 WHY_NOT = {
-    "source_build": "console.devices.why_not.build_runs_source_updates",
-    "non_release_build": "console.devices.why_not.build_not_published_release",
-    "unsupported_architecture": "console.devices.why_not.no_published_build_matches",
-    "no_matching_asset": "console.devices.why_not.no_published_build_matches",
+    "source_build": "console.devices.why_not.source",
+    "non_release_build": "console.devices.why_not.non_release",
+    "unsupported_architecture": "console.devices.why_not.architecture",
+    "no_matching_asset": "console.devices.why_not.architecture",
     "asset_missing_file_name": "console.devices.why_not.release_incomplete",
     "asset_not_attached_to_release": "console.devices.why_not.release_incomplete",
-    "macos_not_supported_yet": "console.devices.why_not.updating_place_not_built",
-    "unsupported_platform": "console.devices.why_not.updating_place_not_built"
+    "macos_not_supported_yet": "console.devices.why_not.platform",
+    "unsupported_platform": "console.devices.why_not.platform"
 }
 
 # How many records to ask for. Enough to see what led to something without handing over
@@ -162,7 +162,7 @@ def _connection_rows(context: dict[str, Any], address: str) -> list[tuple[Any, A
     rows.append((t("console.devices.first_seen"),
                  _when(str(device.get("first_seen") or ""), t("console.devices.not_known"))))
     if is_local(context) or context.get("library") is None:
-        rows.append(panel.note(t("console.devices.device_reading_console_entry")))
+        rows.append(panel.note(t("console.devices.self_note")))
     return rows
 
 
@@ -243,7 +243,7 @@ def _device_verb(device: dict[str, Any], client: Any, entry: dict[str, Any],
         try:
             done = await offload.io(client.perform_action, scope, action)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("said.could_not_do_that"), caption=_why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=_why(exc), type="negative")
             return
         # A machine on its way down answers before it goes, so "performed" here means
         # the work was handed over rather than finished.
@@ -285,13 +285,13 @@ async def _confirm_forget(library: Any, device: dict[str, Any],
     name = device_label(device)
     if not await confirm.ask(
             t("console.devices.forget", name=(name)),
-            detail=t("console.devices.removes_entry_here"),
+            detail=t("console.devices.forget_detail"),
             confirm=t("word.forget"), icon=verbs.FORGET):
         return
     try:
         await run.io_bound(library.forget_device, str(device.get("device_id") or ""))
     except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-        ui.notify(t("console.devices.could_not_forget_device"), caption=_why(exc),
+        ui.notify(t("console.devices.forget_failed"), caption=_why(exc),
                   type="negative")
         return
     ui.notify(t("console.devices.forgot", name=(name)), type="positive")
@@ -317,7 +317,7 @@ async def _confirm_forget_all(library: Any, devices: list[dict[str, Any]],
             await run.io_bound(library.forget_device, str(device.get("device_id") or ""))
             forgot += 1
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("console.devices.could_not_forget_name", name=device_label(device)),
+            ui.notify(t("console.devices.forget_named_failed", name=device_label(device)),
                       caption=_why(exc), type="negative")
     if forgot:
         ui.notify(t("console.devices.forgot_count", count=forgot), type="positive")
@@ -350,7 +350,7 @@ def _software_rows(device: dict[str, Any], is_local: bool, client: Any,
     checked = str(update.get("checked_at") or "")
     if update.get("error"):
         rows.append((t("word.version"), panel.state(
-            t("console.devices.could_not_check"), "unknown", beside=current,
+            t("console.devices.check_failed"), "unknown", beside=current,
             hint=(t("console.devices.last_checked", when=when.ago(checked, inline=True))
                   if checked else t("console.devices.never_checked")))))
     elif update.get("update_available", False) is None:
@@ -366,7 +366,7 @@ def _software_rows(device: dict[str, Any], is_local: bool, client: Any,
 
 def _why_not(update: dict[str, Any]) -> tuple[Any, Any]:
     return panel.note(t(WHY_NOT.get(str(update.get("support_reason") or ""),
-                                    "console.devices.device_cannot_update_itself")))
+                                    "console.devices.update_self")))
 
 
 def _unweighed_rows(update: dict[str, Any], current: str) -> list[tuple[Any, Any]]:
@@ -410,7 +410,7 @@ async def _confirm_update(client: Any, name: str, update: dict[str, Any]) -> Non
     try:
         playing = await offload.io(client.play_state)
     except Exception as exc:  # noqa: BLE001 - a dialog that cannot say what it will do
-        ui.notify(t("console.devices.could_not_check_what", name=name), caption=_why(exc),
+        ui.notify(t("console.devices.activity_failed", name=name), caption=_why(exc),
                   type="negative")
         return
 
@@ -419,12 +419,12 @@ async def _confirm_update(client: Any, name: str, update: dict[str, Any]) -> Non
 
     # Named, because "a table is running" is a fact the person asking may not have: the
     # Console is not necessarily open on the machine the table is on.
-    lines = [t("console.devices.being_played_closed", running=(running))] if running else []
+    lines = [t("console.devices.close_note", running=(running))] if running else []
     if not await confirm.ask(
             t("console.devices.update_2", name=(name), latest=(latest)),
-            detail=t("console.devices.package_downloaded_first_vpinfe"),
+            detail=t("console.devices.update_detail"),
             lines=lines,
-            confirm=t("console.devices.stop_table_update") if running
+            confirm=t("console.devices.stop_confirm") if running
             else t("console.devices.update"),
             icon=verbs.STOP if running else verbs.UPDATE,
             danger=bool(running)):
@@ -437,12 +437,12 @@ async def _start_update(client: Any, name: str, stop_table: bool) -> None:
     try:
         await run.io_bound(lambda: client.perform_update(stop_table=stop_table))
     except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-        ui.notify(t("console.devices.could_not_start_update"), caption=_why(exc),
+        ui.notify(t("console.devices.update_failed"), caption=_why(exc),
                   type="negative")
         return
     # Nothing to redraw towards. Updating this install takes the page's own server down;
     # updating another leaves it up but knowing nothing new until that device is back.
-    ui.notify(t("console.devices.update_staged_restarting_apply", name=(name)), type="positive")
+    ui.notify(t("console.devices.update_staged", name=(name)), type="positive")
 
 
 def _hostname_placeholder(device: dict[str, Any]) -> str:
@@ -452,7 +452,7 @@ def _hostname_placeholder(device: dict[str, Any]) -> str:
     than the word "hostname" - it is the actual answer rather than a description of one.
     """
     return str(device.get("display_name") or "") \
-        .strip() or t("console.devices.device_s_hostname")
+        .strip() or t("console.devices.hostname")
 
 
 
@@ -471,7 +471,7 @@ _STATE_CHOICES = [{"value": text, "label": t(text)} for text, _l, _c in _REACH.v
 BROWSER_STATES = {
     "no_h264": {"label": t("console.devices.browser_no_h264"), "tier": "warn",
                 "why": t("frontend_browser.finding.no_h264")},
-    "no_video": {"label": t("console.devices.browser_cannot_play_video"), "tier": "bad",
+    "no_video": {"label": t("console.devices.browser_no_video"), "tier": "bad",
                  "why": t("frontend_browser.finding.no_video")},
     "no_browser": {"label": t("console.devices.browser_no_browser"), "tier": "bad",
                    "why": t("frontend_browser.finding.no_browser")},
@@ -484,15 +484,15 @@ COLUMNS: list[dict[str, Any]] = [
     # A column has to be declared to be sorted on, and this one is a fact about the row
     # rather than anything to read.
     grid.column("self", t("console.devices.device_2"), hide=True,
-                help=t("console.devices.whether_device_reading_console.help")),
+                help=t("console.devices.self.help")),
     grid.identifier("name", t("word.name"), 200, pinned="left",
-                help=t("console.devices.what_device_calls_itself.help")),
+                help=t("console.devices.name.help")),
     grid.column("kind", t("word.kind"), 120, **grid.choice_filter(_KIND_CHOICES),
-                help=t("console.devices.vpinfe_or_vpx_mobile.help")),
+                help=t("console.devices.kind.help")),
     grid.column("state", t("word.state"), 140, **grid.choice_filter(_STATE_CHOICES),
-                help=t("console.devices.whether_answered_last_asked.help")),
+                help=t("console.devices.state.help")),
     grid.column("version", t("word.version"), 160,
-                help=t("console.devices.what_answered_vpinfe_install.help")),
+                help=t("console.devices.version.help")),
     grid.column("browser", t("console.devices.browser"), 150,
                 help=t("console.devices.browser.help"),
                 **grid.choice_filter([{"value": key, "label": one["label"]}
@@ -500,12 +500,12 @@ COLUMNS: list[dict[str, Any]] = [
                                      formatted=True),
                 **renderers.drawable("state", states=BROWSER_STATES)),
     grid.column("address", t("console.devices.address"), 150,
-                help=t("console.devices.where_reached_read_off.help")),
+                help=t("console.devices.address.help")),
     grid.column("last_seen", t("word.last_seen"), 170,
-                help=t("console.devices.last_known_announced_install.help"),
+                help=t("console.devices.last_seen.help"),
                 **when.cell("last_seen")),
     grid.list_column("features", t("console.devices.features"), 150,
-                     help=t("console.devices.what_device_is_for.help"),
+                     help=t("console.devices.features.help"),
                      looks=renderers.FEATURE_LOOKS),
 ]
 
@@ -523,21 +523,21 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         sort=(_SELF_FIRST,
               {"colId": "state", "sort": "asc", "sortIndex": 1},
               {"colId": "name", "sort": "asc", "sortIndex": 2}),
-        help=t("console.devices.every_device_known_here.help")),
+        help=t("console.devices.all_view.help")),
     "console.view.answering": views.Preset(
         columns=("name", "kind", "version", "browser", "address", "features"),
         sort=(_SELF_FIRST, {"colId": "name", "sort": "asc", "sortIndex": 1}),
         filters={"state": {"values": [_REACH[device_client.ANSWERING][0]]}},
-        help=t("console.devices.what_switched_reachable_right.help")),
+        help=t("console.devices.answering_view.help")),
     "console.devices.not_answering": views.Preset(
         columns=("name", "kind", "state", "address", "last_seen"),
         sort=(_SELF_FIRST, {"colId": "last_seen", "sort": "asc", "sortIndex": 1}),
         filters={"state": {"values": [_REACH[device_client.UNREACHABLE][0],
                                       _REACH[device_client.UNASKABLE][0]]}},
-        help=t("console.devices.devices_could_not_reached.help")),
+        help=t("console.devices.unreached_view.help")),
     "console.view.everything": views.Preset(
         columns=tuple(_ALL),
-        help=t("console.devices.every_row_every_column.help")),
+        help=t("console.devices.everything_view.help")),
 }
 
 
@@ -635,7 +635,7 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
         if on_screen["rows"] != len(built):
             return t("console.devices.devices_2", shown=(on_screen["rows"]),
                      count=(len(built)))
-        return t("console.devices.devices_not_answering", count=(len(built)), away=(away)) if away \
+        return t("console.devices.count_away", count=(len(built)), away=(away)) if away \
             else t("console.devices.devices", count=(len(built)))
 
     with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
@@ -649,9 +649,9 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
         with bar.bottom, panel.bar_end():
             count = ui.label(said()).classes("text-xs console-label")
             actions, bulk_menu = panel.selection_actions(
-                t("console.devices.actions_selected_devices"))
+                t("console.devices.bulk_menu"))
             if probe is not None:
-                panel.refresh(probe, t("console.devices.ask_every_device_whether"))
+                panel.refresh(probe, t("console.devices.probe_all"))
 
     by_id = {row["id"]: row for row in built}
     grid.on_row_focus(SCOPE,
@@ -833,7 +833,7 @@ async def _playing_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         try:
             await offload.io(client.perform_action, lifecycle.TABLE, lifecycle.STOP)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("said.could_not_do_that"), caption=_why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=_why(exc), type="negative")
             return
         await context["rebuild"]()
 
@@ -841,7 +841,7 @@ async def _playing_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         with ui.element("div").classes("console-fact-edit"):
             if name:
                 ui.label(name).classes("console-fact-value truncate min-w-0").tooltip(name)
-            panel.action(t("console.devices.close_the_table"), close, icon=verbs.STOP,
+            panel.action(t("console.devices.close_action"), close, icon=verbs.STOP,
                          inline=True, hint=t("action.table.stop.help"))()
 
     return [(t("console.devices.playing"), draw)]
@@ -861,27 +861,27 @@ async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         held = await offload.io(ApiClient().device_games,
                                   str(device.get("device_id") or ""))
     except Exception as exc:
-        return [panel.note(t("console.devices.could_not_read_carrying"), hint=_why(exc))]
+        return [panel.note(t("console.devices.carrying_failed"), hint=_why(exc))]
 
     @on_page
     async def forget(name: str) -> None:
         if not await confirm.ask(
                 t("console.devices.remove", name=(name),
                         device_label=(device_label(device))),
-                detail=t("console.devices.comes_off_device_own"),
+                detail=t("console.devices.remove_detail"),
                 confirm=t("word.remove"), icon=verbs.REMOVE, danger=True):
             return
         try:
             await run.io_bound(ApiClient().remove_from_device,
                                str(device.get("device_id") or ""), name)
         except Exception as exc:
-            ui.notify(t("said.could_not_remove_it"), caption=_why(exc), type="negative")
+            ui.notify(t("said.remove_failed"), caption=_why(exc), type="negative")
             return
         if library is not None:
             context["rerender"]()
 
     if not held:
-        return [panel.note(t("console.devices.nothing_yet_send_games"))]
+        return [panel.note(t("console.devices.carrying_empty"))]
 
     def row(name: str) -> Callable[[], None]:
         def draw() -> None:
@@ -898,12 +898,12 @@ async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 # Why a device's settings are somewhere else. Said where somebody is looking for them,
 # because "not here" without a reason reads as something missing.
-SETTINGS_NOTE = "console.devices.device_s_settings_belong"
+SETTINGS_NOTE = "console.devices.settings_note"
 
 # What is wrong when the door will not open. Both halves matter: one is a machine to go
 # and switch on, the other is an entry with nothing to dial.
 NO_DOOR = {
-    device_client.UNREACHABLE: "console.devices.not_answering_nothing_open",
+    device_client.UNREACHABLE: "console.devices.open_refused",
     device_client.UNASKABLE: UNREACHABLE_NOTE,
 }
 
@@ -990,7 +990,7 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
             await run.io_bound(library.put_config,
                                {"install": {"display_name": value.strip()}})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("console.devices.could_not_save"), caption=_why(exc), type="negative")
+            ui.notify(t("console.devices.save_failed"), caption=_why(exc), type="negative")
             return
         rebuild = context.get("rebuild")
         if rebuild is not None:
@@ -1003,7 +1003,7 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
          if library is not None else device_label(device)),
     ]
     if not is_local(context):
-        rows_out.append(panel.note(t("console.devices.name_belongs_device_can")))
+        rows_out.append(panel.note(t("console.devices.name_note")))
     rows_out.append((t("console.devices.features"), _feature_chips(device.get("features"))))
     return rows_out
 
@@ -1092,7 +1092,7 @@ def _check_now(context: dict[str, Any], ask: Callable[..., Any]) -> Callable[[],
         try:
             await offload.io(ask, True)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("console.devices.could_not_ask",
+            ui.notify(t("console.devices.ask_failed",
                         device_label=device_label(_of(context))),
                       caption=_why(exc), type="negative")
             return
@@ -1116,7 +1116,7 @@ def capability_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         text, level = _CHIP[state]
         text = t(text)
         out.append((humanize(capability), panel.state(text, level)))
-    return out or [panel.intro(t("console.devices.device_declares_nothing"))]
+    return out or [panel.intro(t("console.devices.no_features"))]
 
 
 async def log_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -1136,11 +1136,11 @@ async def log_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     except Exception as exc:  # noqa: BLE001 - unreachable is a state, not a 500
         logger.info("Could not read the log on %s", device_label(_of(context)),
                     exc_info=True)
-        return [panel.intro(t("console.devices.could_not_read_log"), hint=_why(exc))]
+        return [panel.intro(t("console.devices.log_failed"), hint=_why(exc))]
 
     records = list(found.get("records") or [])
     if not records:
-        return [panel.intro(t("console.devices.nothing_written_log_device"))]
+        return [panel.intro(t("console.devices.log_empty"))]
     return [(panel.FULL, lambda: _log_lines(records, str(found.get("path") or "")))]
 
 

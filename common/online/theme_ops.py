@@ -233,7 +233,7 @@ def remove(key: str) -> dict[str, Any]:
         # Refused rather than allowed with a warning: the frontend would come up with
         # no theme at all, and the way out of that is a config file.
         raise service_errors.RefusedError(
-            t("error.themes.active_theme_make_another", key=(key)))
+            t("error.themes.still_active", key=(key)))
     try:
         theme_service.delete_theme(registry, key)
     except ThemeRegistryError as exc:
@@ -249,7 +249,7 @@ def activate(key: str) -> dict[str, Any]:
     anything."""
     key = str(key or "").strip()
     if not key:
-        raise service_errors.RefusedError(t("error.themes.name_theme_to_activate"))
+        raise service_errors.RefusedError(t("error.themes.none_named"))
     if not _readable().is_installed(key):
         raise service_errors.RefusedError(t("error.themes.not_installed", key=key))
     theme_service.set_active_theme(key)

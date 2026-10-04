@@ -105,7 +105,7 @@ class ExtensionGames:
         wanted = Path(str(path or "")).expanduser().resolve()
         self._inside_declared(wanted)
         if not wanted.is_file():
-            raise FileNotFoundError(t("error.games.no_file_at", path=wanted))
+            raise FileNotFoundError(t("error.games.missing_file", path=wanted))
         return wanted
 
     def _inside_declared(self, wanted: Path) -> None:
@@ -131,7 +131,7 @@ class ExtensionGames:
 
         found = game_identity.ensure_unique_ids(all_games()).get(str(game_id or ""))
         if found is None:
-            raise LookupError(t("error.games.no_game_id", game_id=game_id))
+            raise LookupError(t("error.games.unknown_game", game_id=game_id))
         return found
 
     # -- reading --------------------------------------------------------------
@@ -222,7 +222,7 @@ class ExtensionGames:
         if made is None:
             logger.warning("%s created %s, which is not among the games this device reads",
                            self._name, folder)
-            raise LookupError(t("error.games.created_device_not_read"))
+            raise LookupError(t("error.games.created_unseen"))
         return game_identity.ensure_id(made)
 
     def add_table(self, game_id: str, path: str | Path, move: bool = False) -> dict:
@@ -293,8 +293,8 @@ class ExtensionGames:
         game_dir = Path(self.folder(game_id))
         into = folder_for(kind, game_dir, rom)
         if into is None:
-            raise ValueError(t("error.games.kind_needs_rom" if kind in self.asset_kinds()
-                               else "error.games.kind_no_folder", kind=kind))
+            raise ValueError(t("error.games.rom_needed" if kind in self.asset_kinds()
+                               else "error.games.no_folder", kind=kind))
 
         landing = into / source.name
         if landing.exists():
@@ -316,7 +316,7 @@ class ExtensionGames:
         from common.games import media_placement
 
         if kind not in self.kinds():
-            raise ValueError(t("error.games.no_media_kind_called", kind=kind))
+            raise ValueError(t("error.games.kind_not_found", kind=kind))
         source = self._source(path)
         game_dir = Path(self.folder(game_id))
         written = media_placement.place(game_dir, kind, table_stem or game_dir.name,

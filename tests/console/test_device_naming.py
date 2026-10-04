@@ -236,10 +236,10 @@ class FailureWordsTests(unittest.TestCase):
         with self.assertRaises(device_client.NotVPinFEError) as caught:
             device_client.MobileDevice("http://192.168.1.60:2112").logs(200)
 
-        self.assertEqual(devices._why(caught.exception), t("device.reason.runs_vpx_mobile"))
+        self.assertEqual(devices._why(caught.exception), t("device.reason.wrong_app"))
 
     def test_this_install_s_own_answer_is_shown_as_it_said_it(self) -> None:
-        said = t("error.devices.no_device_device_id", device_id="Bbbb222222")
+        said = t("error.devices.not_found", device_id="Bbbb222222")
 
         self.assertEqual(devices._why(ApiError(said)), said)
 

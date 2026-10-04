@@ -85,7 +85,7 @@ def _launch_key(game: Any, table_id: str) -> str | None:
         return None
     entry = tables.table_entries(getattr(game, "meta_config", None) or {}).get(table_id)
     if entry is None:
-        raise service_errors.NotFoundError(t("error.games.game_no_such_table"),
+        raise service_errors.NotFoundError(t("error.games.table_not_found"),
                                            details={"table": table_id})
     return tables.entry_native_key(entry)
 

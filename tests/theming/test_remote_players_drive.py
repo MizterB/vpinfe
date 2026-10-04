@@ -196,7 +196,7 @@ class RemotePlayersDrive(unittest.TestCase):
             # Taken: offers the Remote's own Use My Card instead of claiming here.
             await retype_into(".q-dialog input", TAKEN_ID)
             seen["choose_taken"] = await dialog_says(
-                t("console.players.id_taken"), t("console.remote.use_my_card"))
+                t("console.players.id_taken"), t("console.remote.use_card"))
 
             # Can't reach VPinPlay: choosing is refused.
             await retype_into(".q-dialog input", UNREACHABLE_ID)
@@ -215,7 +215,7 @@ class RemotePlayersDrive(unittest.TestCase):
 
             seen["consent"] = await dialog_says(
                 t("console.players.share_consent_heading"),
-                t("console.players.share_consent_no_rename", service="VPinPlay"))
+                t("console.players.consent_note", service="VPinPlay"))
             await click_text(DIALOG_FOOTER, t("console.players.share"))
             await browser.wait_for(NO_DIALOG)
             await walk.drawn()
@@ -286,10 +286,10 @@ class RemotePlayersDrive(unittest.TestCase):
     def test_the_join_screen_offers_both_ways_in(self) -> None:
         said = self.seen["join_screen"]
         # The target's own name fills the sentence - this machine's, whatever it is here.
-        before, after = t("console.remote.play_as_you", target="\0").split("\0")
+        before, after = t("console.remote.play_target", target="\0").split("\0")
         self.assertIn(before, said)
         self.assertIn(after, said)
-        self.assertIn(t("console.remote.use_my_card"), said)
+        self.assertIn(t("console.remote.use_card"), said)
         self.assertIn(t("console.players.just_initials"), said)
         self.assertIn(t("console.remote.guest_until_close"), said)
 
@@ -312,13 +312,13 @@ class RemotePlayersDrive(unittest.TestCase):
     # -- Choose: an id checked live, on the panel's own flow -----------------------
 
     def test_choosing_opens_on_the_panels_own_title(self) -> None:
-        self.assertIn(t("console.players.choose_user_id_title", service="VPinPlay"),
+        self.assertIn(t("console.players.id_title", service="VPinPlay"),
                       self.seen["choose_title"])
 
     def test_a_taken_id_offers_use_my_card_instead(self) -> None:
         said = self.seen["choose_taken"]
         self.assertIn(t("console.players.id_taken"), said)
-        self.assertIn(t("console.remote.use_my_card"), said)
+        self.assertIn(t("console.remote.use_card"), said)
 
     def test_an_unreachable_id_refuses_to_choose(self) -> None:
         self.assertIn(t("console.players.id_unreachable", service="VPinPlay"),
@@ -336,7 +336,7 @@ class RemotePlayersDrive(unittest.TestCase):
     def test_consent_names_what_becomes_public(self) -> None:
         said = self.seen["consent"]
         self.assertIn(t("console.players.share_consent_heading"), said)
-        self.assertIn(t("console.players.share_consent_no_rename", service="VPinPlay"),
+        self.assertIn(t("console.players.consent_note", service="VPinPlay"),
                       said)
 
     def test_sharing_sets_the_user_id_claims_it_and_turns_share_on(self) -> None:

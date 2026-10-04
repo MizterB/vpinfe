@@ -36,7 +36,7 @@ class SwitchingOff(unittest.IsolatedAsyncioTestCase):
         notify.assert_not_called()
 
     async def test_a_refusal_is_shown_and_nothing_is_asked(self) -> None:
-        refused = t("error.launchers.fallback_has_no_program", name="Visual Pinball X")
+        refused = t("error.launchers.fallback_unrunnable", name="Visual Pinball X")
         agreed, ask, notify = await self._switch_off(
             _fallback(4, (("plain", "Visual Pinball X", 4),), refused))
 
@@ -50,9 +50,9 @@ class SwitchingOff(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(agreed)
         self.assertEqual(ask.call_args.args[0],
-                         t("console.workbench.switch_off_name", name="VPX (4K)"))
+                         t("console.workbench.off_question", name="VPX (4K)"))
         self.assertEqual(ask.call_args.kwargs["detail"],
-                         t("console.workbench.switched_off_launch_with", count=4,
+                         t("console.workbench.off_detail", count=4,
                            fallback="Visual Pinball X"))
         self.assertFalse(ask.call_args.kwargs["danger"])
 
@@ -67,8 +67,8 @@ class SwitchingOff(unittest.IsolatedAsyncioTestCase):
             _fallback(4, (("plain", "Visual Pinball X", 3), ("fp", "Future Pinball", 1))))
 
         self.assertEqual(list(ask.call_args.kwargs["lines"]), [
-            t("console.workbench.count_launch_with", count=3, name="Visual Pinball X"),
-            t("console.workbench.count_launch_with", count=1, name="Future Pinball"),
+            t("console.workbench.launch_count", count=3, name="Visual Pinball X"),
+            t("console.workbench.launch_count", count=1, name="Future Pinball"),
         ])
 
 

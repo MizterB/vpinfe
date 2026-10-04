@@ -686,7 +686,7 @@ def analyze_path(path: Path) -> AnalysisResult:
         logger.exception("Failed to open source: %s", path)
         return AnalysisResult(
             _source_kind(path), path.name, (), False,
-            error=t("error.uploads.could_not_read_dropped"))
+            error=t("error.uploads.drop_unreadable"))
 
     # Surface a missing RAR tool up front, before the confirm dialog, rather than
     # failing at extraction time after the user has committed to the import.
@@ -705,7 +705,7 @@ def analyze_path(path: Path) -> AnalysisResult:
             logger.exception("Failed to list source: %s", path)
             return AnalysisResult(
                 source.kind, source.name, (), False,
-                error=t("error.uploads.could_not_read_dropped"))
+                error=t("error.uploads.drop_unreadable"))
 
         assets, notes, has_game, unrecognized = _analyze_entries(entries)
 

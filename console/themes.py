@@ -163,7 +163,7 @@ async def _fill(library: Library, state: dict[str, Any],
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         body.clear()
         with body:
-            panel.facts(ui, [panel.intro(t("console.themes.could_not_read_themes"),
+            panel.facts(ui, [panel.intro(t("console.themes.themes_failed"),
                                          hint=why(exc))])
         return
 
@@ -172,7 +172,7 @@ async def _fill(library: Library, state: dict[str, Any],
     body.clear()
     if not built:
         with body:
-            panel.facts(ui, [panel.intro(t("console.themes.no_theme_sources_configured"))])
+            panel.facts(ui, [panel.intro(t("console.themes.sources_empty"))])
         return
     with body:
         with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
@@ -282,10 +282,10 @@ async def details(context: dict[str, Any]) -> None:
                             panel.link_out(repo_name(registry), to=repo_page(registry))))
         entries.append((t("console.themes.repository"),
                         panel.link_out(repo_name(str(theme["url"])), to=str(theme["url"]))
-                        if theme.get("url") else t("console.themes.added_by_hand")))
+                        if theme.get("url") else t("console.themes.source_manual")))
         changes = changes_worth_showing(theme)
         if changes:
-            entries += [(panel.HEADING, t("console.themes.new_in_version")),
+            entries += [(panel.HEADING, t("console.themes.whats_new")),
                         panel.intro(changes)]
         panel.facts(ui, entries)
 
@@ -357,7 +357,7 @@ async def settings_section(context: dict[str, Any]) -> None:
     try:
         found = await offload.io(library.theme_options, theme["key"])
     except Exception as exc:  # noqa: BLE001
-        panel.facts(ui, [panel.intro(t("console.themes.could_not_read_settings"),
+        panel.facts(ui, [panel.intro(t("console.themes.settings_failed"),
                                      hint=why(exc))])
         return
     options = list(found.get("options") or [])
@@ -370,7 +370,7 @@ async def settings_section(context: dict[str, Any]) -> None:
         try:
             await run.io_bound(library.save_theme_options, theme["key"], dict(wanted))
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.themes.could_not_save_settings"), caption=why(exc),
+            ui.notify(t("console.themes.save_failed"), caption=why(exc),
                       type="negative")
             return False
         return True
@@ -388,7 +388,7 @@ async def _install(library: Library, key: str, again: Callable[[], Any]) -> None
     try:
         await run.io_bound(library.install_theme, key)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.themes.could_not_install"), caption=why(exc), type="negative")
+        ui.notify(t("console.themes.install_failed"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.themes.installed", key=(key)), type="positive")
     await again()
@@ -403,17 +403,17 @@ async def _activate(library: Library, theme: dict[str, Any], again: Callable[[],
     doing on another screen.
     """
     if not await confirm.ask(
-            t("console.themes.make_active_theme", name=theme["name"]),
-            detail=t("console.themes.takes_effect_next_time"),
+            t("console.themes.activate_confirm", name=theme["name"]),
+            detail=t("console.themes.activate_detail"),
             confirm=t("word.make_active"), icon=verbs.ACTIVATE, danger=False):
         return
     try:
         await run.io_bound(library.activate_theme, theme["key"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.themes.could_not_make_active"), caption=why(exc),
+        ui.notify(t("console.themes.activate_failed"), caption=why(exc),
                   type="negative")
         return
-    ui.notify(t("console.themes.plays_frontend_next_starts", name=theme["name"]),
+    ui.notify(t("console.themes.activated", name=theme["name"]),
             type="positive")
     await again()
 
@@ -423,13 +423,13 @@ async def _uninstall(library: Library, theme: dict[str, Any],
                      again: Callable[[], Any]) -> None:
     if not await confirm.ask(
             t("console.themes.uninstall", name=theme["name"]),
-            detail=t("console.themes.files_deleted_can_installed"),
+            detail=t("console.themes.uninstall_detail"),
             confirm=t("word.uninstall"), icon=verbs.UNINSTALL):
         return
     try:
         await run.io_bound(library.remove_theme, theme["key"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.themes.uninstalled", name=theme["name"]), type="positive")
     await again()
@@ -539,12 +539,12 @@ def _expected(option: dict[str, Any], kind: str) -> str:
     if kind == "number":
         low, high = option.get("min"), option.get("max")
         if low is not None and high is not None:
-            return t("console.themes.expected_number_between", low=(low), high=(high))
+            return t("console.themes.type_range", low=(low), high=(high))
         return t("console.themes.expected_number")
     if kind == "select":
-        return t("console.themes.expected_one_choices", count=len(option.get("options") or []))
+        return t("console.themes.type_choice", count=len(option.get("options") or []))
     if kind == "textarea":
-        return t("console.themes.expected_text_many_lines")
+        return t("console.themes.type_lines")
     if kind == "json":
-        return t("console.themes.expected_json_object_array")
+        return t("console.themes.type_json")
     return t("console.themes.expected_text")

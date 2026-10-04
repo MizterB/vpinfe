@@ -25,7 +25,7 @@ def _library_scan(result: Any) -> str:
     if "games" in result and "new_games" in result:
         # A library read: how many games, how many it had not seen, how many of those matched.
         new = int(result.get("new_games") or 0)
-        return t("said.job_library_read_new" if new else "said.job_library_read",
+        return t("said.job_library_new" if new else "said.job_library_read",
                  count=int(result["games"]), new=new,
                  matched=int(result.get("new_matched") or 0))
     if "found" in result and "not_found" in result:

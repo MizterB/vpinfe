@@ -50,11 +50,11 @@ def size_or_refuse(size: int | None, family: str) -> int | None:
         return None
     if size not in SIZES:
         raise service_errors.RefusedError(
-            t("error.games.unknown_media_size"),
+            t("error.games.unknown_size"),
             details={"unknown": size, "known": list(SIZES)})
     if family != "image":
         raise service_errors.RefusedError(
-            t("error.games.media_size_images_only"), details={"size": size})
+            t("error.games.size_unsupported"), details={"size": size})
     return size
 
 

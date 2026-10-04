@@ -102,8 +102,8 @@ PRIVATE_WORDS = (t("console.game_tables.private"), t("console.game_tables.not_pr
 PRIVATE_HELP = t("console.game_tables.private.help")
 # How the match in force was made, by the token `how_matched` gives a row.
 HOW_MATCHED = {"auto": t("console.game_tables.auto_matched"),
-               "import": t("console.game_tables.matched_on_import"),
-               "user": t("console.game_tables.matched_by_you")}
+               "import": t("console.game_tables.match_import"),
+               "user": t("console.game_tables.match_user")}
 
 
 def how_matched(game: dict[str, Any]) -> str:
@@ -125,7 +125,7 @@ def mod_of_said(mod: dict[str, Any] | None) -> str:
         made_by = ", ".join(str(name) for name in (mod.get("authors") or [])[:3])
         told = JOIN.join(part for part in (str(mod.get("game") or ""),
                                            str(mod.get("version") or ""), made_by) if part)
-        return told or t("console.workbench.no_version_given")
+        return told or t("console.workbench.no_version")
     return str(mod.get("note") or "") or t("word.unknown")
 
 
@@ -148,7 +148,7 @@ def made_from_it(table: dict[str, Any], tables: list[dict[str, Any]]) -> list[di
 
 def made_from_it_line(names: list[str]) -> str:
     """Those tables named, as the line said before their base goes, or `""` for none."""
-    return t("console.game_tables.made_from_it", names=", ".join(names)) if names else ""
+    return t("console.game_tables.derived", names=", ".join(names)) if names else ""
 
 
 # The label, not the state - "Default" alone left a reader asking "default what?" on a
@@ -272,8 +272,8 @@ def offered(table: dict[str, Any]) -> bool:
 def why_not_default(table: dict[str, Any]) -> str:
     """Why this table cannot be made its game's default, or "" where it can."""
     if table.get("absent_since"):
-        return t("console.workbench.not_disk_cannot_default")
-    return t("console.game_tables.hidden_cannot_default") if table.get("hidden") else ""
+        return t("console.workbench.default_absent")
+    return t("console.game_tables.hidden_blocked") if table.get("hidden") else ""
 
 
 def hidden_hint(table: dict[str, Any], tables: list[dict[str, Any]]) -> str:
@@ -291,15 +291,15 @@ def hidden_said(game: str, table: dict[str, Any], answer: dict[str, Any] | None,
     now = (answer or {}).get("default")
     if not hidden:
         if now and now.get("id") == table.get("id"):
-            return t("console.game_tables.offered_now_plays", game=game, table=table_name(now))
+            return t("console.game_tables.result_offered", game=game, table=table_name(now))
         return HIDDEN_WORDS[1]
     if not now:
         return t("console.game_tables.hidden_none_left", game=game)
     if not table.get("default"):
         return HIDDEN_WORDS[0]
-    key = ("console.game_tables.hidden_unlocked_now_plays"
+    key = ("console.game_tables.result_both"
            if (table.get("default_kind") or "") == CHOSEN
-           else "console.game_tables.hidden_now_plays")
+           else "console.game_tables.result_hidden")
     return t(key, game=game, table=table_name(now))
 
 
@@ -330,5 +330,5 @@ def lock_said(game: str, table: dict[str, Any], after: list[dict[str, Any]], *,
         return t("console.game_tables.locked_to", table=table_name(table))
     now = next((row for row in after if row.get("default")), None)
     if now and now.get("id") != table.get("id"):
-        return t("console.game_tables.unlocked_now_plays", game=game, table=table_name(now))
+        return t("console.game_tables.result_unlocked", game=game, table=table_name(now))
     return t("console.game_tables.unlocked")

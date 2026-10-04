@@ -134,7 +134,7 @@ def room_for_sort_order(columns: list[dict[str, Any]],
 # a blank cell is a choice like any other rather than the one state a filter cannot
 # express.
 CHOICE_FILTER = "window.HubChoiceFilter"
-_FILTER_THIS_LIST = t("console.grid.filter_this_list")
+_FILTER_THIS_LIST = t("console.grid.filter_hint")
 
 _CHOICE_FILTER_JS = """
 if (!window.HubChoiceFilter) {
@@ -1168,7 +1168,7 @@ def column_menu(menu: Any, table: Any, columns: list[dict[str, Any]],
         with ui.menu_item(t("word.pin_left"), auto_close=False) \
                 .classes("console-menu-item console-menu-blocked") \
                 .props("aria-disabled=true"):
-            ui.tooltip(t("console.grid.no_room_to_pin")).classes("console-menu-tip")
+            ui.tooltip(t("console.grid.pin_refused")).classes("console-menu-tip")
     ui.menu_item(t("word.hide_column"),
                  lambda: table.run_grid_method("setColumnsVisible", [col_id], False)) \
         .classes("console-menu-item")

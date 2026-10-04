@@ -255,7 +255,7 @@
 </head>
 <body>
   <h1 data-i18n="frontend.gamepad.gamepad_configuration">Gamepad Configuration</h1>
-  <div class="subtitle" data-i18n="frontend.gamepad.press_esc_exit">Press ESC to exit</div>
+  <div class="subtitle" data-i18n="frontend.gamepad.exit_hint">Press ESC to exit</div>
 
   <div class="container">
     <div class="section">
@@ -265,7 +265,7 @@
 
     <div class="section mappings-section">
       <h2 data-i18n="frontend.gamepad.button_mappings">Button Mappings</h2>
-      <div class="status-message info" id="statusMessage" data-i18n="frontend.gamepad.click_mapping_below_press">Click a mapping below, then press a gamepad button to assign it</div>
+      <div class="status-message info" id="statusMessage" data-i18n="frontend.gamepad.intro">Click a mapping below, then press a gamepad button to assign it</div>
       <div class="mappings-grid" id="mappingsGrid"></div>
     </div>
   </div>
@@ -319,7 +319,7 @@
         renderMappings();
       } catch (error) {
         console.error("Failed to load mappings:", error);
-        setStatus(vpin.t("frontend.gamepad.could_not_load",
+        setStatus(vpin.t("frontend.gamepad.load_failed",
                          "Could not load the current mappings"), "info");
       }
     }
@@ -367,7 +367,7 @@
       item.classList.add('active');
       activeMappingKey = key;
 
-      setStatus(vpin.t("frontend.gamepad.press_to_assign",
+      setStatus(vpin.t("frontend.gamepad.assign_prompt",
                        'Press a gamepad button to assign to "{action}"',
                        { action: actionLabel(key) }), "waiting");
     }
@@ -382,7 +382,7 @@
 
       const label = actionLabel(activeMappingKey);
       const couldNotSave = () => setStatus(
-        vpin.t("frontend.gamepad.could_not_save", "✗ Could not save that mapping"), "info");
+        vpin.t("frontend.gamepad.save_failed", "✗ Could not save that mapping"), "info");
 
       try {
         const result = await vpin.call("set_button_mapping", activeMappingKey, buttonIndex);
@@ -399,7 +399,7 @@
               item.classList.remove('active');
             });
             activeMappingKey = null;
-            setStatus(vpin.t("frontend.gamepad.click_mapping_below_press",
+            setStatus(vpin.t("frontend.gamepad.intro",
                              "Click a mapping below, then press a gamepad button to assign it"),
                       "info");
           }, 2000);

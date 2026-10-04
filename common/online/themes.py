@@ -104,7 +104,7 @@ class ThemeRegistry:
         self.origins = {}
         index = theme_sources.merge(parts, self.origins)
         if not index and parts:
-            raise ThemeRegistryError(t("error.themes.no_source_read"))
+            raise ThemeRegistryError(t("error.themes.sources_failed"))
 
         self.themes_index = index
 

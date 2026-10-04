@@ -129,15 +129,15 @@ def run_card(state: dict[str, Any], client_for_target: Client,
                                show_value=False).props("rounded")
     if recording:
         panel.remote_action(t("console.remote.pause"),
-                            partial(act, "pause_capture", "console.remote.could_not_pause"),
+                            partial(act, "pause_capture", "console.remote.pause_failed"),
                             icon=verbs.PAUSE, hint=t("console.remote.pause.help"))
     else:
         panel.remote_action(t("console.page.resume"),
-                            partial(act, "resume_capture", "console.remote.could_not_resume"),
+                            partial(act, "resume_capture", "console.remote.resume_failed"),
                             icon=verbs.RUN, primary=True,
                             hint=t("console.remote.resume_capture.help"))
     panel.remote_action(t("console.record.stop"),
-                        partial(act, "stop_capture", "console.remote.could_not_stop"),
+                        partial(act, "stop_capture", "console.remote.stop_failed"),
                         icon=verbs.STOP, danger=True,
                         hint=t("console.remote.stop_capture.help"))
 
@@ -167,7 +167,7 @@ async def begin(state: dict[str, Any], client_for_target: Client,
     try:
         rows = await offload.io(waiting_of, client_for_target())
     except Exception as exc:
-        ui.notify(t("console.record.could_not_read_waiting"), caption=why(exc),
+        ui.notify(t("console.record.waiting_failed"), caption=why(exc),
                   type="negative")
         return
     state["waiting"] = rows
@@ -186,7 +186,7 @@ async def _show(state: dict[str, Any], client_for_target: Client,
         await run.io_bound(client_for_target().show_proposal,
                            str(_current(review).get("id") or ""), review["showing"])
     except Exception as exc:
-        ui.notify(t("console.remote.could_not_show"), caption=why(exc), type="negative")
+        ui.notify(t("console.remote.show_failed"), caption=why(exc), type="negative")
     redraw()
 
 
@@ -326,7 +326,7 @@ def sheet_entry(game: dict[str, Any], state: dict[str, Any], client_for_target: 
             await offload.io(client_for_target().start_capture,
                              {"games": [str(game.get("id") or "")], "existing": existing})
         except Exception as exc:
-            ui.notify(t("console.remote.could_not_record"), caption=why(exc),
+            ui.notify(t("console.remote.record_failed"), caption=why(exc),
                       type="negative")
             return
         await started()

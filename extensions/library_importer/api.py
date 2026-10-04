@@ -508,7 +508,7 @@ def build(ctx: Any) -> None:
                   source.path or ctx.t("wizard.summary.not_imported")]
                  for source in made.sources]
         if library.in_place:
-            rows.append([ctx.t("wizard.summary.used_where_they_are"),
+            rows.append([ctx.t("wizard.summary.as_is"),
                          ctx.t("wizard.summary.game_folders", count=len(library.in_place))])
         if made.already:
             rows.append([ctx.t("wizard.summary.already_here"),
@@ -531,7 +531,7 @@ def build(ctx: Any) -> None:
             rows.append([going_into,
                          ctx.t("wizard.summary.library_folder", folder=library.root)])
         else:
-            rows.append([going_into, ctx.t("wizard.summary.new_games_go")])
+            rows.append([going_into, ctx.t("wizard.summary.default_location")])
         if need:
             rows.append([ctx.t("wizard.summary.space"),
                          ctx.t("wizard.summary.space_free", size=plan_for.size_of(need),

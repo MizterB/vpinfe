@@ -642,7 +642,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             try:
                 found = await walk.next()
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.ext_action.could_not_go_on"), caption=why(exc),
+                ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
                 return
             draw(found)
@@ -657,7 +657,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             try:
                 found = await walk.act(key)
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.ext_action.could_not_go_on"), caption=why(exc),
+                ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
                 return
             draw(found)
@@ -668,7 +668,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             try:
                 found = await walk.goto(step_key)
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.ext_action.could_not_go_on"), caption=why(exc),
+                ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
                 return
             draw(found)
@@ -679,7 +679,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             try:
                 started = await walk.run()
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("said.could_not_start_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.start_failed"), caption=why(exc), type="negative")
                 return
             if started.get("step"):
                 draw(started)
@@ -793,7 +793,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
             try:
                 found = await walk.next()
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.ext_action.could_not_go_on"), caption=why(exc),
+                ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
                 return
             draw(found)
@@ -808,7 +808,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
             try:
                 found = await walk.act(key)
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.ext_action.could_not_go_on"), caption=why(exc),
+                ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
                 return
             draw(found)
@@ -819,7 +819,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
             try:
                 found = await walk.goto(step_key)
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.ext_action.could_not_go_on"), caption=why(exc),
+                ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
                 return
             draw(found)
@@ -830,7 +830,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
             try:
                 started = await walk.run()
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("said.could_not_start_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.start_failed"), caption=why(exc), type="negative")
                 return
             if started.get("step"):
                 draw(started)
@@ -1000,7 +1000,7 @@ def _report(body: Any, job: dict, under: str) -> None:
         missed = [row for row in (result.get("rows") or []) if row.get("error")]
         if missed:
             panel.facts(ui, [(panel.HEADING,
-                              t("console.ext_action.not_come_across", count=len(missed)))])
+                              t("console.ext_action.not_found", count=len(missed)))])
             for row in missed[:20]:
                 error, detail = _worded(row["error"])
                 _line(t("console.ext_action.missed", name=(row.get("name") or row.get("key")),

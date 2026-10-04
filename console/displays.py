@@ -143,7 +143,7 @@ def rows(values: Mapping[str, Any], schema: Sequence[dict], monitors: Sequence[A
             await run.io_bound(device_client.local().show_numbers, here,
                                playfield if arrows and isinstance(playfield, int) else None)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("console.screens.could_not_show"), caption=why(exc), type="negative")
+            ui.notify(t("console.screens.show_failed"), caption=why(exc), type="negative")
 
     def draw() -> None:
         picture.Picture(here, held, move=move, arrows=arrows, show=show,

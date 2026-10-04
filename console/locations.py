@@ -46,24 +46,24 @@ COLUMNS = [
     # The folder leads and is pinned. It is what a person recognizes a location by, and
     # every other column is a fact about it.
     grid.identifier("name", t("word.folder"), 260, pinned="left",
-                help=t("console.locations.folder_location_last_two.help")),
+                help=t("console.locations.name.help")),
     grid.column("contains", t("word.contains"), 140,
             **grid.choice_filter(_KIND_CHOICES),
-                help=t("console.locations.game_folders_children_games.help")),
+                help=t("console.locations.contains.help")),
     grid.column("where", t("word.where"), 160, tooltipField="where_tip",
-                help=t("console.locations.device_or_server_whose.help")),
+                help=t("console.locations.where.help")),
     grid.column("state", t("word.state"), 140,
-                help=t("console.locations.what_disk_says_right.help")),
+                help=t("console.locations.state.help")),
     grid.column("new_games", t("console.locations.new_games"), 120,
-                help=t("console.locations.where_game_add_import.help")),
+                help=t("console.locations.new_games.help")),
     # Priority as a number rather than as position alone: the grid can be sorted by
     # any column, so the order you are looking at is not always the order that decides.
     grid.column("priority", t("word.priority"), 110, type="numericColumn",
-                help=t("console.locations.location_wins_two_them.help")),
+                help=t("console.locations.priority.help")),
     grid.column("shadowed", t("console.locations.shadowed"), 120, type="numericColumn",
-                help=t("console.locations.game_folders_whose_id.help")),
+                help=t("console.locations.shadowed.help")),
     grid.column("path", t("console.locations.full_path"), 420,
-                help=t("console.locations.whole_path_telling_two.help")),
+                help=t("console.locations.full_path.help")),
 ]
 
 LOCATION_VIEWS: dict[str, list[str] | views.Preset] = {
@@ -113,7 +113,7 @@ def destinations(found: dict[str, Any]) -> tuple[dict[str, str], str]:
     offered = {str(one["location_id"]): str(one.get("name") or one.get("path") or "")
                for one in roots}
     if len(roots) > 1:
-        offered[ASK] = t("console.locations.ask_each_time")
+        offered[ASK] = t("console.locations.ask")
     return offered, ASK if asking(found) else str(found.get("write_to") or "")
 
 
@@ -178,7 +178,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
         found = await offload.io(library.locations)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         with body:
-            panel.facts(ui, [panel.intro(t("console.locations.could_not_read_locations"),
+            panel.facts(ui, [panel.intro(t("console.locations.read_failed"),
                                          hint=why(exc))])
         return
 
@@ -221,7 +221,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
 
         if not built:
             panel.facts(ui, [panel.intro(
-                t("console.locations.no_locations_yet_add"))])
+                t("console.locations.empty"))])
             return
         _new_games_line(library, found, rerender)
 
@@ -275,13 +275,13 @@ def _new_games_line(library: Library, found: dict[str, Any],
                 await run.io_bound(library.set_location_write_to, wanted)
                 await run.io_bound(library.put_config, NOT_ASKING)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return
         if rerender is not None:
             rerender()
 
     with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0 no-wrap"):
-        ui.label(t("console.locations.new_games_go_to")).classes("console-fact-label")
+        ui.label(t("console.locations.destination")).classes("console-fact-label")
         if len(offered) == 1:
             ui.label(next(iter(offered.values())))
         else:
@@ -301,16 +301,16 @@ async def _remove_many(picked: list[dict[str, Any]], library: Library,
             if len(names) > 8 else [])
     if not await confirm.ask(
             t("console.locations.stop_looking", name=names[0]) if one
-            else t("console.locations.stop_looking_in", count=len(names)),
-            detail=t("console.locations.games_leave_library_nothing") if one
-            else t("console.locations.games_leave_library_folders"),
+            else t("console.locations.stop_many", count=len(names)),
+            detail=t("console.locations.remove_one") if one
+            else t("console.locations.remove_many"),
             lines=shown, confirm=t("word.remove"), icon=verbs.REMOVE):
         return
     for row in picked:
         try:
             await run.io_bound(library.delete_location, str(row.get("id") or ""))
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_remove_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
             return
     if rerender is not None:
         rerender()
@@ -327,7 +327,7 @@ def _sort_it(found: dict[str, Any], state_now: str, said: str) -> str:
     if state_now != "ok":
         return ""
     return t("console.locations.one_game_folder" if game
-             else "console.locations.folder_of_games")
+             else "console.locations.many_games")
 
 
 def _ask_new(library: Library, state: dict[str, Any],
@@ -356,7 +356,7 @@ def _ask_new(library: Library, state: dict[str, Any],
         wanted = (held["folder"].value or "").strip()
         if not wanted:
             held["folder"].props["error"] = True
-            held["folder"].props["error-message"] = t("console.locations.name_a_folder")
+            held["folder"].props["error-message"] = t("console.locations.needs_name")
             return
         box.close()
         await _create(library, state, rerender, on_select, found["kind"], wanted)
@@ -378,7 +378,7 @@ async def _create(library: Library, state: dict[str, Any], rerender: Callable[[]
     try:
         written = await run.io_bound(library.put_location, made, {"path": path, "kind": kind})
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_add_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.add_failed"), caption=why(exc), type="negative")
         return
     # A folder already held keeps its own id, so the new one is not the row to land on.
     made = (written or {}).get("location_id", made)
@@ -410,12 +410,12 @@ async def remove(library: Library, row: dict[str, Any]) -> bool:
     if not await confirm.ask(
             t("console.locations.stop_looking", name=row["name"]) if row.get("name")
             else t("console.locations.stop_looking_here"),
-            detail=t("console.locations.games_leave_library_nothing"),
+            detail=t("console.locations.remove_one"),
             confirm=t("word.remove"), icon=verbs.REMOVE):
         return False
     try:
         await run.io_bound(library.delete_location, row["location_id"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_remove_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
         return False
     return True

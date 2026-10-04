@@ -120,7 +120,7 @@ def _get_json(url: str, collection: str, timeout: int) -> Any:
         return http_client.get_json(url, timeout=timeout)
     except requests.HTTPError as exc:
         if collection.strip() and getattr(exc.response, "status_code", None) == 404:
-            raise NotFoundError(t("error.collections.no_collection_named",
+            raise NotFoundError(t("error.collections.not_found",
                                   name=collection)) from exc
         raise
 

@@ -26,8 +26,8 @@ YES = "yes"
 NO = "no"
 
 OPERATOR_WORDS = {
-    ANY_OF: "console.collection_rules.is_any_of",
-    NONE_OF: "console.collection_rules.is_none_of",
+    ANY_OF: "console.collection_rules.op_any",
+    NONE_OF: "console.collection_rules.op_none",
     STARTS_WITH: "console.collection_rules.starts_with",
     BETWEEN: "console.collection_rules.between",
     BEFORE: "console.collection_rules.before",
@@ -39,9 +39,9 @@ OPERATOR_WORDS = {
 # A flag's two answers in the sentence, where it has words of its own.
 FLAG_WORDS = {
     "played": {YES: "console.collection_rules.you_played",
-               NO: "console.collection_rules.you_never_played"},
-    "favorite": {YES: "console.collection_rules.you_marked_favorite",
-                 NO: "console.collection_rules.you_not_marked_favorite"},
+               NO: "console.collection_rules.played_no"},
+    "favorite": {YES: "console.collection_rules.favorite_yes",
+                 NO: "console.collection_rules.favorite_no"},
 }
 
 
@@ -278,18 +278,18 @@ def sentence(rows: list[dict[str, Any]], known: list[Field],
     clauses = [said for said in (_clause(row, named) for row in rows if complete(row))
                if said]
     if not clauses:
-        return t("console.collection_rules.add_rule_choose_games")
+        return t("console.collection_rules.add_rule")
     joined = _all_of(clauses)
     if added and taken:
-        return t("console.collection_rules.every_game_where_plus_minus", clauses=joined,
+        return t("console.collection_rules.summary_both", clauses=joined,
                  added=added, taken=taken)
     if added:
-        return t("console.collection_rules.every_game_where_plus", clauses=joined,
+        return t("console.collection_rules.summary_plus", clauses=joined,
                  added=added)
     if taken:
-        return t("console.collection_rules.every_game_where_minus", clauses=joined,
+        return t("console.collection_rules.summary_minus", clauses=joined,
                  taken=taken)
-    return t("console.collection_rules.every_game_where", clauses=joined)
+    return t("console.collection_rules.summary", clauses=joined)
 
 
 def _clause(row: dict[str, Any], named: dict[str, Field]) -> str:
@@ -304,18 +304,18 @@ def _clause(row: dict[str, Any], named: dict[str, Field]) -> str:
         return t("console.collection_rules.axis_is", axis=one.label,
                  values=t("word.yes") if op == YES else t("word.no"))
     if op == STARTS_WITH:
-        return t("console.collection_rules.title_starts_with",
+        return t("console.collection_rules.title_prefix",
                  values=_either(_chosen(value)))
     if op == ANY_OF:
         return t("console.collection_rules.axis_is", axis=one.label,
                  values=_either(_chosen(value)))
     if op == NONE_OF:
-        return t("console.collection_rules.axis_is_not", axis=one.label,
+        return t("console.collection_rules.axis_not", axis=one.label,
                  values=_either(_chosen(value)))
     if op in (AT_LEAST, EXACTLY):
         stars = t("console.stars.5", n=_chosen(value)[0])
         if op == AT_LEAST:
-            return t("console.collection_rules.axis_at_least", axis=one.label, value=stars)
+            return t("console.collection_rules.axis_min", axis=one.label, value=stars)
         return t("console.collection_rules.axis_is", axis=one.label, values=stars)
     if op == BETWEEN:
         start, end = _ends(value)

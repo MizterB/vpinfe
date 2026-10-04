@@ -57,7 +57,7 @@ def outcome(result: dict[str, Any]) -> tuple[str, Literal["positive", "warning",
     if got:
         return t("console.art_fill.got", count=got), "positive"
     if failed:
-        return t("console.art_fill.could_not_get", count=failed), "warning"
+        return t("console.art_fill.get_failed", count=failed), "warning"
     return t("console.art_fill.got_nothing"), "info"
 
 
@@ -69,7 +69,7 @@ async def ask(game_ids: list[str] | None, state: dict[str, Any],
     try:
         found = await offload.io(ApiClient().missing_media, game_ids)
     except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
-        ui.notify(t("console.art_fill.could_not_read"), caption=why(exc), type="warning")
+        ui.notify(t("console.art_fill.read_failed"), caption=why(exc), type="warning")
         return
     if not found.get("sources"):
         ui.notify(t("console.art_fill.no_sources"), type="warning")
@@ -104,7 +104,7 @@ async def confirm_kind(game_ids: list[str], kind: str, state: dict[str, Any],
     try:
         found = await offload.io(ApiClient().missing_media, game_ids)
     except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
-        ui.notify(t("console.art_fill.could_not_read"), caption=why(exc), type="warning")
+        ui.notify(t("console.art_fill.read_failed"), caption=why(exc), type="warning")
         return
     if not found.get("sources"):
         ui.notify(t("console.art_fill.no_sources"), type="warning")

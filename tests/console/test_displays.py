@@ -316,7 +316,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         await press(drawn["show"], {})
 
         notify.assert_called_once()
-        self.assertEqual(notify.call_args.args, (t("console.screens.could_not_show"),))
+        self.assertEqual(notify.call_args.args, (t("console.screens.show_failed"),))
         self.assertIn("No browser", notify.call_args.kwargs["caption"])
 
 

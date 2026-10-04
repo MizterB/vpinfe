@@ -97,5 +97,5 @@ async def replace(label: str, going: list[str]) -> bool:
     the .png with it and the user never named that file.
     """
     return await ask(t("console.mediasource.replace", kind=label),
-                     detail=t("console.mediasource.replaced_files_deleted_not"),
+                     detail=t("console.mediasource.replace_detail"),
                      lines=going, confirm=t("word.replace"), icon=verbs.REPLACE)

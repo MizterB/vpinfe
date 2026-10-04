@@ -176,7 +176,7 @@ class MobileTransferTests(unittest.TestCase):
                 self.assertRaises(mobile_transfer.DeviceUnreachableError) as raised:
             self._send()
 
-        self.assertEqual(str(raised.exception), t("device.reason.answered_but_refused"))
+        self.assertEqual(str(raised.exception), t("device.reason.rejected"))
         self.assertIn("/upload: 500", logged.output[0])
 
     def test_a_device_that_is_not_there_says_so(self) -> None:
@@ -196,6 +196,6 @@ class MobileTransferTests(unittest.TestCase):
             mobile_transfer.send(empty, self.host, self.port)
 
         self.assertEqual(str(raised.exception),
-                         t("error.devices.nothing_to_send", game="Empty"))
+                         t("error.devices.nothing_sendable", game="Empty"))
 
         self.assertEqual(_Device.folders, {})

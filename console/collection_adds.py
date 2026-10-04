@@ -31,12 +31,12 @@ _IN = ("named", "filter")
 _STORED = ("named", "missing")
 
 _ADDED = {GAMES: "console.adds.added_games", TABLES: "console.adds.added_tables"}
-_ADDED_HELD = {GAMES: "console.adds.added_games_held",
-               TABLES: "console.adds.added_tables_held"}
+_ADDED_HELD = {GAMES: "console.adds.held_games",
+               TABLES: "console.adds.held_tables"}
 _EXCEPTION = {GAMES: "console.adds.exception_games",
               TABLES: "console.adds.exception_tables"}
-_EXCEPTION_HELD = {GAMES: "console.adds.exception_games_held",
-                   TABLES: "console.adds.exception_tables_held"}
+_EXCEPTION_HELD = {GAMES: "console.adds.held_exception_games",
+                   TABLES: "console.adds.held_exception_tables"}
 
 
 @dataclass(frozen=True)
@@ -115,7 +115,7 @@ def write(library: Any, name: str, rows: Sequence[Row], at: int | None = None) -
     collection = next((one for one in library.load_collections()
                        if one.get("name") == name), None)
     if collection is None:
-        raise LookupError(t("console.page.no_longer_library"))
+        raise LookupError(t("console.page.gone"))
     wrote = Wrote(smart=(collection.get("type") or "") == "filter")
     members = library.collection_members(name).get("members") or []
     held = held_rows(members, rows)
@@ -191,7 +191,7 @@ async def add(library: Any, name: str, rows: Iterable[Row], *, what: str = GAMES
     try:
         wrote = await offload.io(write, library, name, asked, at)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-        ui.notify(t("said.could_not_add_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.add_failed"), caption=why(exc), type="negative")
         return None
     used(name)
     if then is not None:
@@ -248,7 +248,7 @@ def _read(library: Any, name: str) -> tuple[dict[str, Any], list[dict[str, Any]]
     collection = next((one for one in library.load_collections()
                        if one.get("name") == name), None)
     if collection is None:
-        raise LookupError(t("console.page.no_longer_library"))
+        raise LookupError(t("console.page.gone"))
     members = library.collection_members(name).get("members") or []
     return collection, members, Took(order=_stored(members)
                                      if collection.get("order_by") == MANUAL_ORDER else None)
@@ -342,7 +342,7 @@ async def _taken(taking: Callable[[], Took], library: Any, name: str,
     try:
         took = await offload.io(taking)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     if then is not None:
         await then()
@@ -352,7 +352,7 @@ async def _taken(taking: Callable[[], Took], library: Any, name: str,
         if then is not None:
             await then()
 
-    key = "console.adds.taken_out_games" if took.kept_out and not took.removed \
+    key = "console.adds.excluded_games" if took.kept_out and not took.removed \
         else "console.adds.removed_games"
     said = t(key, count=took.taken, name=name)
     if took.for_good:
@@ -387,9 +387,9 @@ def renamed(old: str, new: str) -> None:
 
 # --- what a grid's menus offer ----------------------------------------------------
 
-_ADD_TO = {GAMES: "console.adds.add_games_to", TABLES: "console.adds.add_tables_to"}
-_ADD_TO_COLLECTION = {GAMES: "console.adds.add_games_to_collection",
-                      TABLES: "console.adds.add_tables_to_collection"}
+_ADD_TO = {GAMES: "console.adds.bulk_games", TABLES: "console.adds.bulk_tables"}
+_ADD_TO_COLLECTION = {GAMES: "console.adds.parent_games",
+                      TABLES: "console.adds.parent_tables"}
 _PICK_TITLE = {GAMES: "console.adds.pick_games", TABLES: "console.adds.pick_tables"}
 
 
@@ -457,7 +457,7 @@ def draw(offer: Offer, known: Read, close: Callable[[], Any]) -> None:
               smart=known.kinds.get(top, False),
               held=holds_all(known.held, top, offer.rows))
     parent = _item(t(_ADD_TO_COLLECTION[offer.what], count=count) if bulk
-                   else t("console.adds.add_to_collection"), None, opens=True)
+                   else t("console.adds.verb"), None, opens=True)
     with parent, ui.menu().props('anchor="top end" self="top start"') as sub:
         if known.recent:
             ui.item_label(t("console.adds.recent")).props("header") \
@@ -485,7 +485,7 @@ def draw(offer: Offer, known: Read, close: Callable[[], Any]) -> None:
             await remove(offer.library, offer.narrowed, [row.game for row in offer.rows],
                          then=offer.then)
 
-        _item(t("console.adds.remove_games_from", count=count, name=offer.narrowed)
+        _item(t("console.adds.bulk_remove", count=count, name=offer.narrowed)
               if bulk else t("console.adds.remove_from", name=offer.narrowed), take_out)
 
 
@@ -544,7 +544,7 @@ async def pick(offer: Offer) -> None:
         names = [str(one.get("name") or "") for one in collections]
         held = await offload.io(library.held_members, names) if names else {}
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     title = (t("console.adds.pick_one", name=offer.subject) if offer.subject
              else t(_PICK_TITLE[offer.what], count=len(offer.rows)))
@@ -641,7 +641,7 @@ def _collection_row(one: dict[str, Any], held: bool, chosen: bool,
         with ui.column().classes("gap-0 grow min-w-0"):
             ui.label(str(one.get("name") or "")).classes("console-source-name")
             ui.label(t("console.workbench.smart_games" if smart
-                       else "console.workbench.hand_picked_games", count=count)) \
+                       else "console.workbench.hand_picked", count=count)) \
                 .classes("console-help")
         if held:
             ui.label(t("console.adds.in_it")).classes("console-help shrink-0")
@@ -674,13 +674,13 @@ def ask_new(library: Any, made: Callable[[str], Awaitable[Any]], *,
         wanted = (name.value or "").strip()
         if not wanted:
             name.props["error"] = True
-            name.props["error-message"] = t("said.give_it_a_name")
+            name.props["error-message"] = t("said.needs_name")
             return
         dialog.close()
         try:
             created = await offload.io(library.create_collection, wanted, None)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         if announce:
             ui.notify(t("console.collections.created", name=wanted), type="positive")

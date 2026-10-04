@@ -87,7 +87,7 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
             entries.append((panel.FULL, lambda: _own_pick(
                 behind, cleared=not entry, guessed=guessed, back=lambda: box.submit(""))))
         entries.append((panel.HEADING, t("console.vps_match.find_another" if entry or behind
-                                         else "console.vps_match.find_a_match")))
+                                         else "console.vps_match.title")))
         entries.append((panel.FULL, search_row))
         panel.facts(ui, entries)
         found = ui.column().classes("w-full gap-0 console-source-list console-pick-list px-3")
@@ -101,7 +101,7 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
             else:
                 ui.button(t("word.cancel"), icon=verbs.CANCEL,
                           on_click=lambda: box.submit(CANCELLED)).props("flat no-caps")
-            update = ui.button(t("console.vps_match.match_to_this"), icon=verbs.MATCH,
+            update = ui.button(t("console.vps_match.pick"), icon=verbs.MATCH,
                                on_click=lambda: box.submit(str(picked["id"]))) \
                 .props("no-caps")
         update.set_visibility(False)
@@ -129,9 +129,9 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
             if not said or not rows:
                 found.clear()
                 with found:
-                    ui.label(t("console.vps_match.vps_not_downloaded") if not held
-                             else t("console.vps_match.type_name_maker_year") if not said
-                             else t("console.vps_match.nothing_vps_matches", said=(said))) \
+                    ui.label(t("console.vps_match.no_vps_data") if not held
+                             else t("console.vps_match.search_hint") if not said
+                             else t("console.vps_match.no_results", said=(said))) \
                         .classes("console-help")
                 return
             draw()
@@ -154,7 +154,7 @@ async def walk(library: Any, games: list[dict[str, Any]]) -> None:
     changed = 0
     for index, game in enumerate(games, 1):
         picked = await ask(library, game, walking=True,
-                           place=t("console.vps_match.index_of_total",
+                           place=t("console.vps_match.position",
                                    index=index, total=total))
         if picked == STOPPED:
             break
@@ -169,7 +169,7 @@ async def walk(library: Any, games: list[dict[str, Any]]) -> None:
                                    {"alt_vps_id": str(picked)})
         except Exception as exc:  # noqa: BLE001 - one bad write does not end the walk
             logger.exception("Could not set the match for %s", game.get("id"))
-            ui.notify(t("console.vps_match.could_not_set_match"), caption=why(exc),
+            ui.notify(t("console.vps_match.set_failed"), caption=why(exc),
                       type="negative")
             continue
         changed += 1
@@ -194,10 +194,10 @@ _OWN_PICK_WORDS = {
     # (cleared, guessed): the line, then the button that goes back.
     (False, True): ("console.vps_match.you_picked", "console.vps_match.go_back"),
     (True, True): ("console.vps_match.you_cleared", "console.vps_match.go_back"),
-    (False, False): ("console.vps_match.you_picked_over_yours",
-                     "console.vps_match.go_back_to_yours"),
-    (True, False): ("console.vps_match.you_cleared_over_yours",
-                    "console.vps_match.go_back_to_yours"),
+    (False, False): ("console.vps_match.picked_prior",
+                     "console.vps_match.restore_earlier"),
+    (True, False): ("console.vps_match.cleared_prior",
+                    "console.vps_match.restore_earlier"),
 }
 
 

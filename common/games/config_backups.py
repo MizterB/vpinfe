@@ -111,7 +111,7 @@ def restore(launcher_id: str, name: str, files: dict[str, str],
 
     target = _target_for(source, files)
     if target is None:
-        raise ValueError(t("error.launchers.copy_matches_no_file"))
+        raise ValueError(t("error.launchers.copy_unmatched"))
 
     safety = take(launcher_id, {"": str(target)}, reason=BEFORE_RESTORE,
                   named=named)

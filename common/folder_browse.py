@@ -241,7 +241,7 @@ def make_folder(parent: str, name: str) -> dict:
     if not wanted:
         raise service_errors.RefusedError(t("error.folders.name_needed"))
     if wanted in (".", "..") or any(one in wanted for one in "/\\"):
-        raise service_errors.RefusedError(t("error.folders.name_is_a_path"))
+        raise service_errors.RefusedError(t("error.folders.name_slash"))
     if any(ord(one) < 32 or ord(one) == 127 for one in wanted):
         raise service_errors.RefusedError(t("error.folders.name_has_control"))
     if not str(parent or "").strip():

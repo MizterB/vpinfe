@@ -126,7 +126,7 @@ class FolderPickerDrive(unittest.TestCase):
             await browser.wait_for(PATH_SHOWN + f".endsWith({json.dumps(TYPED)})")
             seen["inside"] = await browser.evaluate(PATH_SHOWN)
             await walk.act(lambda: click_text(f"{DIALOG} button", t(
-                "console.folder_picker.choose_this_folder")), until=GONE % json.dumps(DIALOG))
+                "console.folder_picker.accept")), until=GONE % json.dumps(DIALOG))
             seen["heard"] = _heard(port)
 
             # The Where face: its menu, then a folder above and a place through it.

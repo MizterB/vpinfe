@@ -149,7 +149,7 @@ def gpu() -> dict[str, Any]:
         done = subprocess.run([found, "-s"], capture_output=True, text=True,
                               timeout=3, check=False)
     except subprocess.TimeoutExpired:
-        return _no_gpu(reason=t("error.metrics.nvtop_timed_out"))
+        return _no_gpu(reason=t("error.metrics.nvtop_timeout"))
     except Exception as exc:  # noqa: BLE001 - a probe must not take the page with it
         return _no_gpu(reason=t("error.metrics.nvtop_failed"), detail=why(exc))
 
@@ -164,7 +164,7 @@ def gpu() -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         return _no_gpu(reason=t("error.metrics.nvtop_unreadable"), detail=why(exc))
     if not isinstance(cards, list) or not cards:
-        return _no_gpu(reason=t("error.metrics.nvtop_no_cards"))
+        return _no_gpu(reason=t("error.metrics.nvtop_empty"))
 
     # Per card, not aggregated. Two cards averaged is a number describing neither, and a
     # machine with a second card is exactly the machine somebody is looking at this for.
@@ -176,7 +176,7 @@ def gpu() -> dict[str, Any]:
          **{key: card.get(key) for key, _label in GPU_FIELDS}}
         for index, card in enumerate(cards, start=1) if isinstance(card, dict)]
     if not found_cards:
-        return _no_gpu(reason=t("error.metrics.nvtop_nothing_usable"))
+        return _no_gpu(reason=t("error.metrics.nvtop_unusable"))
     return {"available": True, "reason": "", "gpus": found_cards}
 
 

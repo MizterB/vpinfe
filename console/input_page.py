@@ -54,5 +54,5 @@ def rows(schema: Sequence[dict], values: Mapping[str, Any], write: Write, *,
         Table(table_rows(options, findings), bound, write=put, writable=writable,
               source=t("console.binding_table.vpinfe_defaults"))
 
-    return [*([] if writable else [panel.intro(t("console.settings.read_only_device"))]),
+    return [*([] if writable else [panel.intro(t("console.settings.not_writable"))]),
             (panel.FULL, draw)]

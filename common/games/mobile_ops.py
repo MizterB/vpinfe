@@ -34,7 +34,7 @@ def send(device_id: str, game_ids: Iterable[str],
     device = device_ops.mobile_or_refuse(device_id)
     folders = [_folder_or_refuse(game_id) for game_id in game_ids]
     if not folders:
-        raise service_errors.RefusedError(t("error.devices.name_least_one_game"))
+        raise service_errors.RefusedError(t("error.devices.games_needed"))
 
     def work(job: job_registry.Job) -> None:
         reporter = job.reporter()
@@ -52,7 +52,7 @@ def send(device_id: str, game_ids: Iterable[str],
             reporter.progress(index, len(folders), t("said.sending_game", game=folder.name))
             mobile_transfer.send(folder, device.address, device.port,
                                  everything=everything, on_progress=reporting(index))
-        sent = t("said.sent_games_to", count=len(folders),
+        sent = t("said.send_result", count=len(folders),
                  device=device.display_name or device_id)
         reporter.progress(len(folders), len(folders), sent)
         job.detail = sent
@@ -69,5 +69,5 @@ def _folder_or_refuse(game_id: str) -> Path:
     folder = game_repository.game_folder(game_id)
     if folder is None:
         raise service_errors.NotFoundError(
-            t("error.games.no_game_id", game_id=(game_id)))
+            t("error.games.unknown_game", game_id=(game_id)))
     return folder

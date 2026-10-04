@@ -45,7 +45,7 @@ DISABLED = "disabled"
 OFF = "off"
 SWITCHED_OFF = "extension.reason.switched_off"
 # Switched on since this run started.
-STARTS_AT_RESTART = "extension.reason.starts_at_restart"
+STARTS_AT_RESTART = "extension.reason.pending_restart"
 
 _PLATFORMS = {"linux": "linux", "win32": "windows", "darwin": "macos"}
 PLATFORM_NAMES = {"linux": "extension.platform.linux",
@@ -288,7 +288,7 @@ class Registry:
             logger.exception("Extension %s did not load: %r", record.name, exc)
             if context is not None:
                 _withdraw(record.name, context.events.registered, context.apps)
-            record.became(FAILED, "extension.reason.did_not_start")
+            record.became(FAILED, "extension.reason.start_failed")
             return self._remember(record)
 
         record.routers = list(context.routers)
@@ -394,7 +394,7 @@ def _cannot_run(manifest: Manifest) -> tuple[str, dict[str, str | tuple[str, ...
     """Why this device cannot run it whatever the switch says, or `""`."""
     platform = this_platform()
     if manifest.platforms and platform not in manifest.platforms:
-        return "extension.reason.not_for_platform", {
+        return "extension.reason.wrong_platform", {
             "platform": (PLATFORM_NAMES.get(platform, platform),)}
     missing = [name for name in install_identity.FEATURES
                if name in manifest.requires_features and name not in _features()]

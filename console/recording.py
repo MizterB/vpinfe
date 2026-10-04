@@ -84,13 +84,13 @@ def add_under(entries: list[Any], option: dict, value: Any,
     def draw() -> None:
         with ui.column().classes("gap-1 min-w-0"):
             if own and not str(value or "").strip():
-                panel.action(t("console.recording.copy_vpinfe_command"), copy,
+                panel.action(t("console.recording.copy_command"), copy,
                              icon=verbs.COPY,
-                             hint=t("console.recording.copy_vpinfe_command.help"))()
-            with panel.disclosure(t("console.commands.names_can_use", count=len(names))) \
+                             hint=t("console.recording.copy_command.help"))()
+            with panel.disclosure(t("console.commands.names_title", count=len(names))) \
                     .classes("console-tokens"):
                 with ui.column().classes("gap-1 pt-1"):
-                    ui.label(t("console.commands.each_stands_something_command")) \
+                    ui.label(t("console.commands.names_note")) \
                         .classes("console-help")
                     with ui.element("div").classes("console-token-list"):
                         for name in names:

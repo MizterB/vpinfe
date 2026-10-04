@@ -61,7 +61,7 @@ def create(name: str, location_id: str = "") -> dict:
     try:
         folder = game_service.create_game(name, location_id)
     except FileExistsError as exc:
-        raise service_errors.BlockedError(t("error.games.already_folder_name"),
+        raise service_errors.BlockedError(t("error.games.folder_exists"),
                                           details={"path": exc.filename}) from exc
     except ValueError as exc:
         raise service_errors.RefusedError(
@@ -80,7 +80,7 @@ def create(name: str, location_id: str = "") -> dict:
         # The folder and its record are on disk and the library did not pick them up.
         # Saying so beats a 500: what was asked for happened, and what is wrong is that the
         # location it landed in is not one this install reads.
-        raise service_errors.BlockedError(t("error.games.created_device_not_read"),
+        raise service_errors.BlockedError(t("error.games.created_unseen"),
                                           details={"path": str(folder)})
     return game_lens.detail(game_identity.game_id(made))
 
@@ -106,7 +106,7 @@ def set_details(game_id: str, values: dict) -> dict:
     try:
         game_service.set_details(Path(str(game.full_path_game)), values)
     except FileNotFoundError as exc:
-        raise service_errors.BlockedError(t("error.games.game_no_record_write"),
+        raise service_errors.BlockedError(t("error.games.no_record"),
                                           details={"path": str(exc)}) from exc
     except OSError as exc:
         raise service_errors.BlockedError(why(exc)) from exc
@@ -164,7 +164,7 @@ def curate_guides(held: list[Any], wanted: list[dict[str, Any]]) -> list[dict[st
                 raise service_errors.RefusedError(t("error.games.guide_kind_unknown",
                                                     kind=kind, kinds=", ".join(GUIDE_KINDS)))
             if urlparse(address).scheme not in ("http", "https"):
-                raise service_errors.RefusedError(t("error.games.guide_not_an_address",
+                raise service_errors.RefusedError(t("error.games.guide_bad_address",
                                                     url=address))
             kept = {"kind": kind, GUIDE_ORIGIN: "user",
                     "title": str(one.get("title") or "").strip(), "authors": [],
@@ -176,7 +176,7 @@ def curate_guides(held: list[Any], wanted: list[dict[str, Any]]) -> list[dict[st
     kept_addresses = {guide_address(one) for one in out}
     if any(is_catalog_guide(one) and address not in kept_addresses
            for address, one in stored.items()):
-        raise service_errors.RefusedError(t("error.games.guide_from_vps_is_hidden"))
+        raise service_errors.RefusedError(t("error.games.guide_listed"))
     return out
 
 
@@ -245,7 +245,7 @@ def set_overrides(game_id: str, changes: dict) -> dict:
     unknown = set(changes) - set(GAME_OVERRIDES)
     if unknown:
         raise service_errors.RefusedError(
-            t("error.games.not_game_s_set", keys=", ".join(sorted(unknown))))
+            t("error.games.table_keys", keys=", ".join(sorted(unknown))))
 
     game_dir = Path(game.full_path_game)
     try:
@@ -304,7 +304,7 @@ def adopt_details(game_id: str, fields: Iterable[str] | None = None) -> dict:
     game = game_lens.game_or_refuse(game_id)
     entry = game_service.matched_vps_entry(game)
     if not entry:
-        raise service_errors.NotFoundError(t("error.games.game_matched_no_vps"),
+        raise service_errors.NotFoundError(t("error.games.unmatched"),
                                            details={"game_id": game_id})
     adopt_vps_details(game, entry, fields)
     reread_game(game)

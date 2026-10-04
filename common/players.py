@@ -432,7 +432,7 @@ def _kept_initials(raw: Any, others: list[Player], held: str = "") -> str:
 def _guest_initials(raw: Any, held: str = "") -> str:
     wanted = _new_initials(raw, held)
     if not wanted:
-        raise service_errors.RefusedError(t("error.players.guest_needs_initials"))
+        raise service_errors.RefusedError(t("error.players.guest_initials"))
     return wanted
 
 

@@ -21,7 +21,7 @@ def _raised(message: str, cause: BaseException | None) -> ApiError:
 class WhyNotLoadedTests(unittest.TestCase):
     def test_a_timeout_is_this_install_taking_too_long(self) -> None:
         exc = _raised(t("device.reason.timed_out"), requests.ReadTimeout())
-        self.assertEqual(why_not_loaded(exc), t("console.page.took_too_long"))
+        self.assertEqual(why_not_loaded(exc), t("console.page.timeout"))
 
     def test_an_answer_from_the_api_is_said_in_its_own_words(self) -> None:
         exc = _raised("The games folder is not there", None)

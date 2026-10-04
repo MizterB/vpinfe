@@ -248,7 +248,7 @@ class MatchTests(unittest.TestCase):
 
     def test_an_unmatched_game_says_so_in_the_rail(self) -> None:
         self.assertEqual(workbench._game_label({"game": {}}),
-                         t("console.workbench.game_details_not_matched"))
+                         t("console.workbench.game_unmatched"))
         self.assertEqual(workbench._game_label({"game": {"vps_id": "abc"}}),
                          t("console.workbench.game_details"))
 

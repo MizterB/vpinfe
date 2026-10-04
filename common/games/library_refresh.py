@@ -31,7 +31,7 @@ def refresh(reporter: JobReporter | None = None) -> dict:
     from common.games.game_repository import all_games
 
     if reporter:
-        reporter.progress(0, 4, t("said.reading_the_library"))
+        reporter.progress(0, 4, t("said.read_library"))
     games = all_games(reload=True)
     # Taken straight after the read: any request that reaches the catalog gives these
     # an id, and then nothing can tell they are new.
@@ -46,12 +46,12 @@ def refresh(reporter: JobReporter | None = None) -> dict:
     waiting = _seen_unmatched(games, unseen)
     _catalog_for(unseen + waiting, reporter, 2, 4)
     if reporter:
-        reporter.progress(2, 4, t("said.matching_new_games"))
+        reporter.progress(2, 4, t("said.match_new"))
     matched = auto_match.match_new(unseen)
     again = auto_match.match_new(waiting)
 
     if reporter:
-        reporter.progress(3, 4, t("said.reading_new_tables"))
+        reporter.progress(3, 4, t("said.read_new"))
     read = enrich(games, reporter)
 
     # Stamped here because this is the pass that knows a game is new. A game added
@@ -114,7 +114,7 @@ def _catalog_for(to_match: list, reporter: JobReporter | None, step: int,
 
     def downloading() -> None:
         if reporter:
-            reporter.progress(step, steps, t("said.downloading_the_spreadsheet"))
+            reporter.progress(step, steps, t("said.catalog_download"))
 
     vpsdb_sync.ensure_catalog(get_ini_config(), downloading)
 

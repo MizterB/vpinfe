@@ -110,7 +110,7 @@ class FillTests(_Library):
         media_fill.fill([self.folder], reporter=reporter)
 
         said = reporter.progress.call_args.args[2]
-        self.assertEqual(said, i18n.t("said.getting_art_for", game=FOLDER))
+        self.assertEqual(said, i18n.t("said.art_fetch", game=FOLDER))
         self.assertNotEqual(said, FOLDER)
 
     def test_where_it_came_from_is_recorded(self) -> None:
@@ -479,7 +479,7 @@ class UpdateTests(_Replaced):
         media_fill.update_downloaded(reporter)
 
         self.assertEqual(reporter.progress.call_args.args[2],
-                         i18n.t("said.updating_art_for", game=FOLDER))
+                         i18n.t("said.art_update", game=FOLDER))
 
 
 RENAMED = "Fathom VPW"

@@ -457,7 +457,7 @@ class CollectionsApiTests(TempTree):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"]["message"],
-                         t("error.collections.file_not_image"))
+                         t("error.collections.not_image"))
 
     # --- membership -----------------------------------------------------
 

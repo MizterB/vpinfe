@@ -56,7 +56,7 @@ _ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt
 _NAME = (
     "params => {" + _ESCAPE +
     f" const tip = esc({json.dumps(t('console.collections.opens_on.help'))});"
-    f" const off = esc({json.dumps(t('console.collections.not_in_frontend.help'))});"
+    f" const off = esc({json.dumps(t('console.collections.out_frontend.help'))});"
     f" const unsaved = esc({json.dumps(t('word.not_saved'))});"
     f" const why = esc({json.dumps(t('console.collections.not_saved.help'))});"
     " const d = params.data || {};"
@@ -255,7 +255,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         try:
             await run.io_bound(what, *args)
         except Exception as exc:
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         ui.notify(said, type="positive")
         if rerender is not None:
@@ -281,7 +281,7 @@ def build(collections: list[dict[str, Any]], library: Any,
             count = ui.label(t("console.collections.collections",
                                count=len(built))).classes("text-xs console-label")
             bulk = ui.button(icon=verbs.MORE).props("flat round dense") \
-                .tooltip(t("console.collections.actions_selected_collections"))
+                .tooltip(t("console.collections.bulk_menu"))
             with bulk, ui.menu():
                 ui.menu_item(t("console.collections.delete_selected"),
                              lambda: _ask_delete_many(grid.selection(table), library,
@@ -347,7 +347,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         out = []
         for label, where in ((t("console.collections.move_up"), "up"),
                              (t("console.collections.move_down"), "down"),
-                             (t("console.collections.move_to_top"), "top")):
+                             (t("console.collections.move_first"), "top")):
             order = moved(name, where)
             out.append(panel.Verb(
                 label, partial(arrange, order, name) if order else None,
@@ -358,7 +358,7 @@ def build(collections: list[dict[str, Any]], library: Any,
     def sorted_said() -> str:
         by = arrangement["sorted"]
         header = next((d.get("headerName") for d in columns if d.get("field") == by), by)
-        return t("console.collections.sorted_to_arrange", column=header)
+        return t("console.collections.sort_lock", column=header)
 
     def moved(name: str, where: str) -> list[str] | None:
         """The whole order with `name` moved, or None where it cannot go that way."""
@@ -389,7 +389,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         try:
             await run.io_bound(library.arrange_collections, order)
         except Exception as exc:
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         await reread(focus)
 
     @on_page
@@ -479,7 +479,7 @@ def acts(library: Any, state: dict[str, Any], name: str,
                      for one in await offload.io(library.load_collections)}
             made = await offload.io(library.copy_collection, _copy_name(name, taken), name)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         copy = str(made.get("name") or "")
         ui.notify(t("console.collections.created", name=copy), type="positive")
@@ -495,7 +495,7 @@ def acts(library: Any, state: dict[str, Any], name: str,
         try:
             await run.io_bound(library.delete_collection, name)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         ui.notify(t("console.collections.deleted", name=(name)), type="positive")
         state.setdefault("collection_drafts", {}).pop(name, None)
@@ -523,7 +523,7 @@ async def what_deleting_leaves(library: Any, names: list[str]) -> str:
         settings = {}
     opens_on = str((settings.get("behavior") or {}).get("startup_collection") or "")
     if opens_on.strip() in names:
-        return t("console.collections.games_stay_opens_all")
+        return t("console.collections.delete_default")
     return t("console.collections.games_stay")
 
 

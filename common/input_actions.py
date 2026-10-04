@@ -112,12 +112,12 @@ def act(action: str, phase: str, *, source: str,
     action = (action or "").strip()
     if not known(action):
         raise service_errors.RefusedError(
-            t("error.input.no_input_action_called", action=(action),
+            t("error.input.unknown_action", action=(action),
               actions=", ".join(one.name for one in input_registry.INPUT_ACTIONS)))
     phase = (phase or TAP).strip().lower()
     if phase not in PHASES:
         raise service_errors.RefusedError(
-            t("error.input.phase_one_not", phases=", ".join(PHASES), phase=(phase)))
+            t("error.input.unknown_phase", phases=", ".join(PHASES), phase=(phase)))
 
     if phase == RELEASE:
         release(action, source=source)

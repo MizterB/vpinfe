@@ -103,12 +103,12 @@ def within_roots(raw: str) -> Path:
     try:
         path = Path(raw).expanduser().resolve()
     except OSError as exc:
-        raise service_errors.RefusedError(t("error.filesystem.path_cannot_read"),
+        raise service_errors.RefusedError(t("error.filesystem.path_unreadable"),
                                   details={"path": raw}) from exc
     allowed = [Path(item["path"]) for item in roots()] + _extension_roots()
     if not any(path == root or root in path.parents for root in allowed):
         raise service_errors.RefusedError(
-            t("error.filesystem.folder_vpinfe_may_not_read"),
+            t("error.filesystem.folder_refused"),
             details={"path": raw, "allowed": [str(root) for root in allowed]})
     return path
 
@@ -122,7 +122,7 @@ def media_file(path: str) -> Path:
     """
     here = within_roots(path)
     if not here.is_file() or not family_of(here):
-        raise service_errors.RefusedError(t("error.filesystem.not_media_file"),
+        raise service_errors.RefusedError(t("error.filesystem.not_media"),
                                           details={"path": path})
     return here
 
@@ -161,7 +161,7 @@ def entries(path: str, *, extensions: Iterable[str] = ()) -> dict:
                 files.append({"name": entry.name, "path": str(entry), "kind": "file",
                               "family": family, "size_bytes": entry.stat().st_size})
     except OSError as exc:
-        raise service_errors.RefusedError(t("error.filesystem.folder_cannot_read"),
+        raise service_errors.RefusedError(t("error.filesystem.folder_unreadable"),
                                   details={"path": path}) from exc
 
     # Null at a root, so a client knows where "up" stops without knowing the rules.

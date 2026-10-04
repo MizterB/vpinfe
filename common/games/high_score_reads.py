@@ -34,7 +34,7 @@ def for_table(game_id: str, table_id: str) -> dict[str, Any] | None:
     game = game_lens.game_or_refuse(game_id)
     entry = table_entries(load_game_meta(game)).get(table_id)
     if entry is None:
-        raise service_errors.NotFoundError(t("error.games.game_no_such_table"),
+        raise service_errors.NotFoundError(t("error.games.table_not_found"),
                                            details={"table": table_id})
     return look(game, entry)
 

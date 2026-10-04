@@ -32,7 +32,7 @@ def launcher_or_refuse(launcher_id: str) -> launchers.Launcher:
     found = launchers.get_launcher_store().get(launcher_id)
     if found is None:
         raise service_errors.NotFoundError(
-            t("error.launchers.no_launcher_called", launcher_id=(launcher_id)))
+            t("error.launchers.unknown_launcher", launcher_id=(launcher_id)))
     return found
 
 
@@ -124,11 +124,11 @@ def put(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """
     wanted = str(launcher_id or "").strip()
     if not wanted:
-        raise service_errors.RefusedError(t("error.launchers.launcher_needs_id"))
+        raise service_errors.RefusedError(t("error.launchers.needs_id"))
     app_id = str(body.get("app") or "").strip()
     if apps.get(app_id) is None:
         raise service_errors.RefusedError(
-            t("error.launchers.no_app_called_build", app_id=(app_id),
+            t("error.launchers.unknown_app", app_id=(app_id),
                     apps=', '.join(app.id for app in apps.all_apps())))
 
     store = launchers.get_launcher_store()
@@ -189,7 +189,7 @@ def _refusal(fallbacks: list[launchers.Launcher | None]) -> str:
         if one is None:
             return t("error.launchers.no_fallback")
         if not _has_program(one):
-            return t("error.launchers.fallback_has_no_program", name=one.display_name)
+            return t("error.launchers.fallback_unrunnable", name=one.display_name)
     return ""
 
 
@@ -232,7 +232,7 @@ def _game_file(table_id: str) -> str:
         return ""
     found = find_table_by_id(game_repository.all_games(), wanted)
     if found is None:
-        raise service_errors.NotFoundError(t("error.launchers.no_table_called", wanted=(wanted)))
+        raise service_errors.NotFoundError(t("error.launchers.unknown_table", wanted=(wanted)))
     game, filename = found
     return str(Path(str(game.full_path_game or "")) / filename)
 
@@ -253,7 +253,7 @@ def app_config(launcher_id: str, table: str = "",
     settings = _launcher_settings(found)
     if scope not in config.scopes():
         raise service_errors.RefusedError(
-            t("error.launchers.no_scope_called_app", scope=(scope),
+            t("error.launchers.unknown_scope_app", scope=(scope),
                     scopes=', '.join(config.scopes())))
     target = _game_file(table)
     values = config.read(scope, target, settings)
@@ -375,16 +375,16 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     config = _app_settings_surface(found)
     if config is None:
         raise service_errors.RefusedError(
-            t("error.launchers.no_settings_own_write", app_name=(apps.app_name(found.app))))
+            t("error.launchers.no_own_settings", app_name=(apps.app_name(found.app))))
 
     scope = str(body.get("scope") or "launcher")
     if scope not in config.scopes():
-        raise service_errors.RefusedError(t("error.launchers.no_scope_called", scope=(scope)))
+        raise service_errors.RefusedError(t("error.launchers.unknown_scope", scope=(scope)))
     if scope == SCOPE_FOLDER:
-        raise service_errors.RefusedError(t("error.launchers.game_file_read_only"))
+        raise service_errors.RefusedError(t("error.launchers.game_file_locked"))
     values = body.get("values") or {}
     if not isinstance(values, dict) or not values:
-        raise service_errors.RefusedError(t("error.launchers.name_least_one_setting"))
+        raise service_errors.RefusedError(t("error.launchers.empty_write"))
     settings = _launcher_settings(found)
     table = _game_file(str(body.get("table") or ""))
     writing = {str(k): str(v) for k, v in values.items()}
@@ -402,7 +402,7 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
         make = getattr(config, "create", None)
         if make is None:
             raise service_errors.RefusedError(t(
-                "error.launchers.keeps_no_settings_file", app_name=apps.app_name(found.app)))
+                "error.launchers.cannot_copy_settings", app_name=apps.app_name(found.app)))
         try:
             make(config.newest_version, writing, settings)
         except ValueError as exc:
@@ -449,13 +449,13 @@ def take_backup(launcher_id: str, label: str = "") -> dict[str, Any]:
     files = _config_files(found)
     if not files:
         raise service_errors.RefusedError(
-            t("error.launchers.keeps_no_settings_file", app_name=(apps.app_name(found.app))))
+            t("error.launchers.cannot_copy_settings", app_name=(apps.app_name(found.app))))
     taken = config_backups.take(launcher_id, files,
                                 label=label,
                                 named=found.display_name)
     if not taken:
         raise service_errors.RefusedError(
-            t("error.launchers.nothing_copy_yet_file"))
+            t("error.launchers.source_missing"))
     return {"taken": [_as_backup(one) for one in taken]}
 
 
@@ -479,7 +479,7 @@ def make_default(launcher_id: str) -> dict[str, Any]:
     found = launcher_or_refuse(launcher_id)
     if not _has_program(found):
         raise service_errors.RefusedError(
-            t("error.launchers.default_has_no_program", name=found.display_name))
+            t("error.launchers.default_unrunnable", name=found.display_name))
     if not found.enabled:
         raise service_errors.RefusedError(
             t("error.launchers.default_switched_off", name=found.display_name))

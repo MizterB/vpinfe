@@ -70,7 +70,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
             body.clear()
             with body:
-                panel.facts(ui, [panel.intro(t("console.about.could_not_read_device"),
+                panel.facts(ui, [panel.intro(t("console.about.read_failed"),
                                              hint=why(exc))])
             return
         held["text"] = str(found.get("text") or "")
@@ -84,15 +84,15 @@ def _draw(body: Any, groups: list[dict[str, Any]], held: dict[str, Any],
     body.clear()
     with body:
         with ui.row().classes("items-center gap-2 w-full no-wrap"):
-            ui.label(t("console.about.everything_bug_report_asks")) \
+            ui.label(t("console.about.copy_note")) \
                 .classes("console-help grow min-w-0")
             panel.action(t("word.copy"), lambda event: _copied(bool(event.args),
                     held["text"]),
                          icon="content_copy",
-                         hint=t("console.about.put_all_clipboard"),
+                         hint=t("console.about.copy_hint"),
                          js=_COPY_JS % json.dumps(held["text"]))()
             panel.action(t("console.about.refresh"), lambda: reload(True), icon=verbs.REFRESH,
-                         hint=t("word.read_it_again"))()
+                         hint=t("word.reread"))()
         # One list for all of them, headings inside it, the way Settings next door
         # draws its sections: a list per group sizes a label column per group, and the
         # values then start at four different places down one page.
@@ -118,8 +118,8 @@ def _copied(done: bool, text: str) -> None:
 
 
 def _show_to_copy(text: str) -> None:
-    with frame.opened(t("console.about.browser_not_let_page"), wide=True) as box:
-        ui.label(t("console.about.press_usual_copy_shortcut")).classes("console-help px-3")
+    with frame.opened(t("console.about.clipboard_blocked"), wide=True) as box:
+        ui.label(t("console.about.manual_copy")).classes("console-help px-3")
         with ui.element("div").classes("w-full px-3"):
             ui.textarea(value=text).props("outlined readonly rows=18") \
                 .classes("w-full console-log")

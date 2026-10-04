@@ -89,25 +89,25 @@ _SOURCE = "word.source"
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("game", t(_GAME), 240, pinned="left", group=t(_GAME),
                 subtitle="said", picture=list_art.FIELD, glyph=icons.GAMES,
-                help=t("console.media.game_folder_file_belongs.help")),
+                help=t("console.media.game.help")),
     grid.column("label", t("word.kind"), 160, group=t(_FILE),
-                help=t("console.media.twenty_media_kinds_row.help")),
+                help=t("console.media.kind.help")),
     grid.column("used_by", t("word.used_by"), type="numericColumn", group=t(_FILE),
-                help=t("console.media.how_many_game_s.help")),
+                help=t("console.media.used_by.help")),
     grid.column("reason", t("word.unused_reason"), 150, group=t(_FILE),
                 **grid.choice_filter(_REASON_CHOICES),
-                help=t("console.media.why_file_not_one.help")),
+                help=t("console.media.reason.help")),
     grid.column("table_file", t("console.media.table"), 200, group=t(_FILE),
-                help=t("console.media.vpx_file_named_blank.help")),
+                help=t("console.media.table.help")),
     grid.column("path", t("word.path"), 300, group=t(_FILE),
-                help=t("console.media.where_file_sits_relative.help")),
+                help=t("console.media.path.help")),
     grid.column("source", t("word.source"), 165, group=t(_SOURCE),
                 **grid.choice_filter(_SOURCE_CHOICES),
-                help=t("console.media.put_file_far_anything.help")),
+                help=t("console.media.source.help")),
     grid.column("match", t("console.media.match"), 140, group=t(_SOURCE),
-                help=t("console.media.vps_file_somebody_said.help")),
+                help=t("console.media.match.help")),
     grid.column("covered_by", t("console.media.covered"), 130, group=t(_FILE),
-                help=t("console.media.what_shows_kind_no_file.help")),
+                help=t("console.media.covered_by.help")),
     grid.column("manufacturer", t("word.manufacturer"), 150, group=t(_GAME),
                 help=t("help.who_made_it")),
     grid.column("year", t("word.year"), group=t(_GAME),
@@ -139,26 +139,26 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("game", "label", "reason"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [_MISSING]}},
-        help=t("console.media.art_not_filter_one.help")),
+        help=t("console.media.view_missing.help")),
     "console.view.orphans": views.Preset(
         columns=("game", "label", "reason", "table_file", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [_ORPHAN]}},
-        help=t("console.media.art_left_behind_table.help")),
+        help=t("console.media.view_orphans.help")),
     "console.view.unused": views.Preset(
         columns=("game", "label", "reason", "used_by", "path", "source"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [_UNUSED]}},
-        help=t("console.media.files_nothing_loads_because.help")),
+        help=t("console.media.view_unused.help")),
     SOURCES: views.Preset(
         columns=("game", "label", "used_by", "path", "source", "match"),
         sort=({"colId": "source", "sort": "asc", "sortIndex": 0},
               {"colId": "game", "sort": "asc", "sortIndex": 1}),
         filters={"reason": {"values": [""]}},
-        help=t("console.media.where_art_came_unattributed.help")),
+        help=t("console.media.view_sources.help")),
     "console.view.everything": views.Preset(
         columns=tuple(_ALL),
-        help=t("console.media.every_row_nothing_hidden.help")),
+        help=t("console.media.view_everything.help")),
 }
 
 
@@ -214,9 +214,9 @@ def build(found: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(said(0)).classes("text-xs console-label")
             actions = ui.button(icon=verbs.MORE).props("flat round dense") \
-                .tooltip(t("console.media.actions_selected_media"))
+                .tooltip(t("console.media.actions"))
             if rescan is not None:
-                panel.refresh(rescan, t("console.media.read_library_disk_pick"))
+                panel.refresh(rescan, t("console.media.rescan"))
 
         @on_page
         async def get_missing_art() -> None:

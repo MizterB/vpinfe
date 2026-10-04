@@ -47,12 +47,12 @@ COLUMNS: list[dict[str, Any]] = [
     grid.column("tables", t("console.launchers.tables"),
                 help=t("console.launchers.tables.help"), **_NUMERIC),
     grid.column("state", t("word.state"), 150, **grid.choice_filter(_STATE_CHOICES),
-                help=t("console.launchers.ready_switched_program_cannot.help")),
+                help=t("console.launchers.state.help")),
     grid.column("default", t("word.default"), 110,
-                help=t("console.launchers.tables_name_no_launcher.help")),
+                help=t("console.launchers.default.help")),
     grid.column("app", t("word.runs"), 180),
     grid.column("program", t("word.program"), 420,
-                help=t("console.launchers.executable_launcher_runs.help")),
+                help=t("console.launchers.program.help")),
 ]
 
 LAUNCHER_VIEWS: dict[str, list[str] | views.Preset] = {
@@ -129,7 +129,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
         found = await offload.io(library.launchers)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         with body:
-            panel.facts(ui, [panel.intro(t("console.launchers.could_not_read_launchers"),
+            panel.facts(ui, [panel.intro(t("console.launchers.launchers_failed"),
                                          hint=why(exc))])
         return
 
@@ -162,7 +162,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
 
         if not built:
             panel.facts(ui, [panel.intro(
-                t("console.launchers.no_launchers_yet_add"))])
+                t("console.launchers.empty"))])
             return
 
         by_id = {row["id"]: row for row in built}
@@ -347,18 +347,18 @@ async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -
     try:
         known = await offload.io(library.devices)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.launchers.could_not_read_devices"), caption=why(exc),
+        ui.notify(t("console.launchers.devices_failed"), caption=why(exc),
                   type="negative")
         return
     reachable = copy_targets(known, str(state.get("install_id") or ""))
     if not reachable:
-        ui.notify(t("console.launchers.no_other_frontend"), type="warning")
+        ui.notify(t("console.launchers.no_peers"), type="warning")
         return
 
     picked: set[str] = set()
-    with frame.opened(t("console.launchers.copy_to_devices",
+    with frame.opened(t("console.launchers.copy_title",
                         name=launcher["display_name"])) as box:
-        ui.label(t("console.launchers.arrives_same_name_same")).classes("console-help px-3")
+        ui.label(t("console.launchers.copy_note")).classes("console-help px-3")
         with ui.column().classes("gap-1 px-3"):
             for one in reachable:
                 name = str(one.get("display_name") or one.get("device_id"))
@@ -366,8 +366,8 @@ async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -
                     picked.add(str(d.get("device_id"))) if e.value
                     else picked.discard(str(d.get("device_id"))))) \
                     .props("dense")
-            also = ui.checkbox(t("console.launchers.also_copy_tables_use")).props("dense")
-        ui.label(t("console.launchers.one_way_copy_change")).classes("console-help px-3")
+            also = ui.checkbox(t("console.launchers.copy_usage")).props("dense")
+        ui.label(t("console.launchers.copy_diverge")).classes("console-help px-3")
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
             frame.answer(t("word.copy"), lambda: box.submit(True), icon=verbs.COPY)
@@ -375,7 +375,7 @@ async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -
     if not await box:
         return
     if not picked:
-        ui.notify(t("console.launchers.no_devices_picked"), type="warning")
+        ui.notify(t("console.launchers.none_picked"), type="warning")
         return
     await _do_copy(library, launcher, [one for one in reachable
                                        if str(one.get("device_id")) in picked],
@@ -394,7 +394,7 @@ async def _do_copy(library: Library, launcher: dict, devices: list[dict],
             mappings = {table: to for table, to in (found.get("mappings") or {}).items()
                         if to == launcher["launcher_id"]}
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.launchers.could_not_read_assignments"), caption=why(exc),
+            ui.notify(t("console.launchers.assignments_failed"), caption=why(exc),
                       type="negative")
             return
 
@@ -439,9 +439,9 @@ def removal_words(found: dict[str, Any]) -> tuple[str, list[str]]:
         return t("console.launchers.remove_detail", tables=said, kept=kept), []
     return (t("console.launchers.remove_split_detail", kept=kept,
               tables=t("console.launchers.remove_split", count=count)),
-            [t("console.workbench.count_launch_with", count=int(one["tables"]),
+            [t("console.workbench.launch_count", count=int(one["tables"]),
                name=one["display_name"]) if one.get("display_name")
-             else t("console.launchers.count_no_launcher", count=int(one["tables"]))
+             else t("console.launchers.unassigned", count=int(one["tables"]))
              for one in goes])
 
 
@@ -453,7 +453,7 @@ async def remove(library: Library, state: dict[str, Any], redraw: Callable[[], N
     try:
         found = await offload.io(library.launcher_fallback, launcher["launcher_id"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_work"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.lookup_failed"), caption=why(exc), type="negative")
         return
     detail, lines = removal_words(found)
     if not await confirm.ask(
@@ -463,7 +463,7 @@ async def remove(library: Library, state: dict[str, Any], redraw: Callable[[], N
     try:
         await run.io_bound(library.delete_launcher, launcher["launcher_id"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_remove_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
         return
     state["launcher"] = ""
     redraw()

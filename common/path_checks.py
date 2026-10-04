@@ -27,8 +27,8 @@ WRONG_KIND = "wrong_kind"
 NOT_EXECUTABLE = "not_executable"
 
 _WANTED = {
-    "file": "error.path.folder_wants_file",
-    "exe": "error.path.folder_wants_program",
+    "file": "error.path.expected_file",
+    "exe": "error.path.expected_program",
 }
 
 
@@ -56,7 +56,7 @@ def check(kind: str, raw: str) -> tuple[str, str]:
 
     if kind == "dir":
         if not here.is_dir():
-            return WRONG_KIND, t("error.path.file_wants_folder")
+            return WRONG_KIND, t("error.path.expected_folder")
         return OK, ""
 
     if here.is_dir():

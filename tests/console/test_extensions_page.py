@@ -95,7 +95,7 @@ class CardTests(unittest.TestCase):
     def test_one_off_for_another_reason_says_which(self) -> None:
         said, switches = _drawn({
             **RUNNING, "state": host.OFF, "reason": "Not for macOS",
-            "reason_key": "extension.reason.not_for_platform"})
+            "reason_key": "extension.reason.wrong_platform"})
 
         self.assertIn("Not for macOS", said)
         self.assertEqual(switches, [True])
@@ -143,7 +143,7 @@ class SwitchTests(unittest.IsolatedAsyncioTestCase):
 
         await self.press(switch)
 
-        notify.assert_called_once_with(i18n.t("said.could_not_turn_off"), caption="Not allowed",
+        notify.assert_called_once_with(i18n.t("said.off_failed"), caption="Not allowed",
                                        type="negative")
         self.assertEqual([one.args[0] for one in switch.call_args_list], [True, True])
 
@@ -161,7 +161,7 @@ class SwitchTests(unittest.IsolatedAsyncioTestCase):
         with pressed:
             await switch.call_args.args[1](SimpleNamespace(value=False))
 
-        notify.assert_called_once_with(i18n.t("said.could_not_turn_off"), caption="Not allowed",
+        notify.assert_called_once_with(i18n.t("said.off_failed"), caption="Not allowed",
                                        type="negative")
 
 

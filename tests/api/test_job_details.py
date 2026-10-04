@@ -18,7 +18,7 @@ class Describers(unittest.TestCase):
         said = job_details.of(jobs.KIND_LIBRARY_SCAN,
                               {"games": 40, "new_games": 3, "new_matched": 2})
 
-        self.assertEqual(t("said.job_library_read_new", count=40, new=3, matched=2), said)
+        self.assertEqual(t("said.job_library_new", count=40, new=3, matched=2), said)
 
     def test_a_scan_counts_found_and_not_found(self) -> None:
         said = job_details.of(jobs.KIND_LIBRARY_SCAN, {"found": 9, "not_found": 2})

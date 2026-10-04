@@ -46,7 +46,7 @@ def save_collection_icon(filename: str, content: bytes) -> str:
     """
     suffix = Path(filename).suffix.lower()
     if suffix not in IMAGE_EXTENSIONS:
-        raise ValueError(t("error.collections.file_not_image"))
+        raise ValueError(t("error.collections.not_image"))
 
     icon_dir = ensure_collection_icons_dir()
     stem = _safe_icon_stem(filename)

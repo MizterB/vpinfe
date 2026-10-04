@@ -158,7 +158,7 @@ def fix_for(state: str, *, system: str, bundled: bool, in_use: str,
         return Fix("frontend_browser.fix.install_chrome_mac")
     if system == "Linux" and bundled:
         return Fix("frontend_browser.fix.install_chrome_linux")
-    return Fix("frontend_browser.fix.install_chrome_set")
+    return Fix("frontend_browser.fix.set_chrome")
 
 
 def _log(state: str, browser: str, path: str, bundled: bool,

@@ -27,7 +27,7 @@ def device_or_refuse(device_id: str) -> Device:
     found = get_device_registry().get(device_id)
     if found is None:
         raise service_errors.NotFoundError(
-            t("error.devices.no_device_device_id", device_id=(device_id)))
+            t("error.devices.not_found", device_id=(device_id)))
     return found
 
 
@@ -40,11 +40,11 @@ def mobile_or_refuse(device_id: str) -> Device:
     found = device_or_refuse(device_id)
     if found.kind != device_registry.KIND_VPX_MOBILE:
         raise service_errors.RefusedError(
-            t("error.devices.runs_vpinfe_not_mobile",
+            t("error.devices.wrong_kind",
               device=(found.display_name or device_id)))
     if not found.address or not found.port:
         raise service_errors.RefusedError(
-            t("error.devices.no_address_send", device=(found.display_name or device_id)))
+            t("error.devices.no_address", device=(found.display_name or device_id)))
     return found
 
 
@@ -93,13 +93,13 @@ def announce(device_id: str, kind: str, display_name: str, features: Iterable[st
     if not device_id:
         if not is_mobile:
             raise service_errors.RefusedError(
-                t("error.devices.device_needs_device_id"))
+                t("error.devices.id_needed"))
         device_id = device_registry.mint_device_id()
 
     if is_mobile:
         address = (declared_address or "").strip()
         if not address:
-            raise service_errors.RefusedError(t("error.devices.mobile_device_needs"))
+            raise service_errors.RefusedError(t("error.devices.address_needed"))
     else:
         address = heard_from or ""
 
@@ -115,7 +115,7 @@ def announce(device_id: str, kind: str, display_name: str, features: Iterable[st
         port=port,
     )
     if device is None:
-        raise service_errors.RefusedError(t("error.devices.device_needs_device_id"))
+        raise service_errors.RefusedError(t("error.devices.id_needed"))
     return _resource(device)
 
 
@@ -164,4 +164,4 @@ def forget(device_id: str) -> None:
     """Forgetting one that is still running only means it announces itself again."""
     if not get_device_registry().forget(device_id):
         raise service_errors.NotFoundError(
-            t("error.devices.no_device_device_id", device_id=(device_id)))
+            t("error.devices.not_found", device_id=(device_id)))

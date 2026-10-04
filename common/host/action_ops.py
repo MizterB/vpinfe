@@ -29,7 +29,7 @@ GOES_AWAY = frozenset({
 
 # Why a request for an action nothing performs is refused. Older installs also sent it
 # as the reason on a listed entry, which is why a client drops entries carrying it.
-NOT_WIRED = "error.actions.nothing_performs_that"
+NOT_WIRED = "error.actions.unsupported"
 
 
 def _describe(scope: str, action: str) -> dict:
@@ -54,7 +54,7 @@ def check(scope: str, action: str) -> tuple[str, str]:
     scope, action = scope.strip().lower(), action.strip().lower()
     if (scope, action) not in lifecycle.offered():
         raise service_errors.RefusedError(
-            t("error.actions.not_something_vpinfe_does", action=(action), scope=(scope)))
+            t("error.actions.unknown_action", action=(action), scope=(scope)))
     if not lifecycle.performable(scope, action):
         raise service_errors.UnavailableError(
             t(NOT_WIRED), details={"scope": scope, "action": action})

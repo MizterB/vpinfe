@@ -149,7 +149,7 @@ class GuestTests(_PlayersCase):
 
     def test_a_guest_with_no_initials_is_refused(self) -> None:
         self._refused(self.client.post("/players/guests", json={"initials": " "}),
-                      400, "invalid_request", t("error.players.guest_needs_initials"))
+                      400, "invalid_request", t("error.players.guest_initials"))
 
     def test_a_guest_with_a_kept_players_initials_joins_and_both_say_so(self) -> None:
         guest = self._guest("own")
@@ -282,7 +282,7 @@ class RecordTests(_PlayersCase):
         self.assertEqual(self.client.get("/players/nobody/record").status_code, 404)
 
     def test_the_owner_s_are_the_library_s(self) -> None:
-        said = t("error.players.owner_record_is_the_library")
+        said = t("error.players.owner_record")
 
         self._refused(self._rate(self.owner, 3), 400, "invalid_request", said)
         self._refused(self.client.get(f"/players/{self.owner}/record"), 400,

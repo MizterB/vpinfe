@@ -65,7 +65,7 @@ class NoteTests(unittest.TestCase):
 
     def test_an_install_with_none_says_so(self) -> None:
         self.assertEqual(self._said({"app": "vpx"}, {}),
-                         [t("console.workbench.device_no_launcher_add")])
+                         [t("console.workbench.launcher_hint")])
 
 
 class GridRowTests(unittest.TestCase):

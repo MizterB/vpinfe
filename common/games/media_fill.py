@@ -146,7 +146,7 @@ def _fill_games(targets: list[Target], live: tuple[str, ...],
             break
         name = str(game.game_dir_name or "")
         if reporter:
-            reporter.progress(index, len(targets), t("said.getting_art_for", game=name))
+            reporter.progress(index, len(targets), t("said.art_fetch", game=name))
         vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
         if not vps_id:
             counts["unmatched"] += 1
@@ -408,7 +408,7 @@ def update_downloaded(reporter: JobReporter | None = None,
             break
         name = str(game.game_dir_name or "")
         if reporter:
-            reporter.progress(index, len(games), t("said.updating_art_for", game=name))
+            reporter.progress(index, len(games), t("said.art_update", game=name))
         try:
             updated, failed = update(game_id, game,
                                      effective_vps_id(normalize_meta(game.meta_config or {})))

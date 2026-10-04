@@ -55,7 +55,7 @@ def _entry_or_refuse(vps_id: str) -> dict:
     found = next((one for one in load_vpsdb()
                   if str(one.get("id") or "") == vps_id), None)
     if found is None:
-        raise service_errors.NotFoundError(t("error.uploads.no_such_vps_entry"),
+        raise service_errors.NotFoundError(t("error.uploads.vps_not_found"),
                                            details={"vps_id": vps_id})
     return found
 
@@ -104,7 +104,7 @@ def releases(vps_id: str, listed_as: str = "tableFiles") -> dict[str, Any]:
     """
     if listed_as != "tableFiles" and listed_as not in vps_kinds.BY_LISTING:
         raise service_errors.RefusedError(
-            t("error.uploads.vpsdb_lists_no_such"),
+            t("error.uploads.unknown_kind"),
             details={"listed_as": listed_as,
                      "known": ["tableFiles", *sorted(vps_kinds.BY_LISTING)]})
     found = _entry_or_refuse(vps_id)

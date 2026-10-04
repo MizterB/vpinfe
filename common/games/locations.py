@@ -150,11 +150,11 @@ def _look(raw_path: str, recorded: mounts.Origin | None = None) -> LocationState
     if origin is not None and not where.connected:
         return LocationState(NOT_CONNECTED, t("error.locations.not_connected"), origin)
     if not there:
-        return LocationState(NOT_FOUND, t("error.locations.nothing_at_path"), origin)
+        return LocationState(NOT_FOUND, t("error.locations.missing"), origin)
     if not path.is_dir():
-        return LocationState(NOT_FOUND, t("error.locations.not_a_folder"), origin)
+        return LocationState(NOT_FOUND, t("error.locations.is_file"), origin)
     if not os.access(path, os.W_OK):
-        return LocationState(READ_ONLY, t("error.locations.nothing_can_be_written"),
+        return LocationState(READ_ONLY, t("error.locations.unwritable"),
                              origin)
     return LocationState(READY, origin=origin)
 
@@ -484,11 +484,11 @@ def destination(location_id: str = "") -> Destination:
     named = next((one for one in held if one.location_id == wanted), None)
     others = tuple(one for one in writable if one.location_id != wanted)
     if named is None:
-        return Destination(reason=t("error.locations.new_games_location_gone"),
+        return Destination(reason=t("error.locations.default_removed"),
                            alternatives=others)
     state = states[named.location_id]
     if named.kind != KIND_ROOT:
-        return Destination(reason=t("error.locations.single_game_folder", name=named.name),
+        return Destination(reason=t("error.locations.single_game", name=named.name),
                            alternatives=others)
     if not state.reachable:
         return Destination(reason=t("error.locations.not_reachable", name=named.name,

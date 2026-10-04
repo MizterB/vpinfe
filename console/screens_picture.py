@@ -303,7 +303,7 @@ class Picture:
             ui.label(t("console.screens.no_screen")).classes("console-part-slot-none")
             return
         if number == INSIDE:
-            ui.label(t("console.screens.in_the_playfield")).classes("console-part-slot-none")
+            ui.label(t("console.screens.inside")).classes("console-part-slot-none")
             self._clear(part)
             return
         ui.label(str(number)).classes("console-part-slot-num")
@@ -346,7 +346,7 @@ class Picture:
                     trail=partial(_size_of, screen),
                     classes="console-menu-on" if screen.number == number else "")
             if part.inside:
-                panel.menu_entry(t("console.screens.in_the_playfield"),
+                panel.menu_entry(t("console.screens.inside"),
                                  lambda _e=None, key=part.key: self._put(key, INSIDE),
                                  mark=_no_mini,
                                  classes="console-menu-on" if number == INSIDE else "")

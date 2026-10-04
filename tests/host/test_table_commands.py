@@ -151,7 +151,7 @@ class FailureTests(unittest.TestCase):
                                               start_required="true"))
 
         self.assertEqual(str(raised.exception),
-                         t("error.table_commands.every_table_command_failed"))
+                         t("error.table_commands.global_failed"))
         self.assertIn("no share", logged.output[0])
 
     def test_and_the_other_half_still_owes_a_run(self) -> None:

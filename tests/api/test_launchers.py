@@ -329,7 +329,7 @@ class RestoreRefusedTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"]["message"],
-                         t("error.launchers.copy_matches_no_file"))
+                         t("error.launchers.copy_unmatched"))
 
 
 class NeverRunTests(unittest.TestCase):

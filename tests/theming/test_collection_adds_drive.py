@@ -276,7 +276,7 @@ class CollectionAddsDrive(unittest.TestCase):
                            until="!!document.querySelector('.q-menu .console-menu-item')")
             seen["game_menu"] = await browser.evaluate(MENU)
             await outside()
-            await said(t("console.workbench.put_back_in", name=SMART), lambda: browser.click(
+            await said(t("console.workbench.restore_into", name=SMART), lambda: browser.click(
                 ".console-section-work .console-member-row button",
                 nth=[row for row, _b in seen["game_panel"]].index(f"{SMART} / Taken out")),
                 drawn=newer(".console-section-work .console-member-row"))

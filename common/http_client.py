@@ -43,7 +43,7 @@ class HostQuietError(requests.RequestException):
     def __init__(self, host: str, until: float, **kwargs: Any) -> None:
         self.host = host
         self.until = until
-        super().__init__(t("said.why.asked_to_wait_at", host=host,
+        super().__init__(t("said.why.rate_limited_at", host=host,
                            time=datetime.fromtimestamp(until).strftime("%H:%M")), **kwargs)
 
 

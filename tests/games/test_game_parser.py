@@ -240,7 +240,7 @@ class UnreadableInfoTests(TempTree):
 
         self.assertEqual([self.FINE], loaded)
         self.assertEqual({"Malformed (Original 2024)":
-                          t("error.games.info_wrong_at_line", line=1)}, said)
+                          t("error.games.info_bad_line", line=1)}, said)
 
     def test_one_not_saved_as_utf8(self) -> None:
         loaded, said = self._scan_beside("Latin (Original 2024)",

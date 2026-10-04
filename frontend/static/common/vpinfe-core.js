@@ -1726,7 +1726,7 @@ class VPinFECore {
     question.textContent = this.t("frontend.confirm.question", "{what}?", { what });
     const hint = document.createElement("p");
     hint.className = "vpinfe-confirm-hint";
-    hint.textContent = this.t("frontend.confirm.select_confirm_back_cancel",
+    hint.textContent = this.t("frontend.confirm.hint",
                               "Select to confirm, Back to cancel");
     card.appendChild(question);
     card.appendChild(hint);

@@ -30,7 +30,7 @@ class DestinationTests(unittest.TestCase):
             ask=False))
 
         self.assertEqual(list(offered), ["a", "b", locations.ASK])
-        self.assertEqual(offered[locations.ASK], t("console.locations.ask_each_time"))
+        self.assertEqual(offered[locations.ASK], t("console.locations.ask"))
         self.assertEqual(chosen, "a")
 
     def test_asking_is_the_choice_when_it_is_set(self) -> None:

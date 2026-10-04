@@ -57,7 +57,7 @@ def row_or_refuse(game: Game, table_id: str) -> dict:
     found = next((row for row in _game_tables(game)
                   if row.get("id") == table_id), None)
     if found is None:
-        raise service_errors.NotFoundError(t("error.games.game_no_such_table"),
+        raise service_errors.NotFoundError(t("error.games.table_not_found"),
                                            details={"table": table_id})
     return found
 
@@ -69,7 +69,7 @@ def filename_or_refuse(game: Game, table_id: str) -> str:
     filename = entry_filename(entry) if isinstance(entry, dict) else ""
     if not filename:
         raise service_errors.NotFoundError(
-            t("error.games.game_no_such_table"),
+            t("error.games.table_not_found"),
             details={"game": game.game_dir_name, "table": table_id})
     return filename
 
@@ -114,7 +114,7 @@ def extract_script(game_id: str, table_id: str) -> dict:
     filename = filename_or_refuse(game, table_id)
     game_dir = Path(game.full_path_game or "")
     if not (game_dir / filename).is_file():
-        raise service_errors.NotFoundError(t("error.games.table_s_file_not"),
+        raise service_errors.NotFoundError(t("error.games.file_gone"),
                                            details={"table": table_id})
     table_id = tables.entry_for_filename(table_entries(game.meta_config), filename)[0]
     # Asked before the work rather than read out of the failure: with the table's file
@@ -143,7 +143,7 @@ def delete_script(game_id: str, table_id: str) -> dict:
     game_dir = Path(game.full_path_game or "")
     script = game_dir / f"{media_ops.stem_or_refuse(game, table_id)}.vbs"
     if not script.is_file():
-        raise service_errors.NotFoundError(t("error.games.table_no_script_beside"),
+        raise service_errors.NotFoundError(t("error.games.no_script"),
                                            details={"table": table_id})
     script.unlink()
     return row_or_refuse(game, table_id)
@@ -197,7 +197,7 @@ def set_default(game_id: str, table_id: str) -> dict:
     if table_id:
         filename_or_refuse(game, table_id)
         if table_entries(load_game_meta(game))[table_id].get("hidden") is True:
-            raise service_errors.RefusedError(t("error.games.hidden_table_not_default"),
+            raise service_errors.RefusedError(t("error.games.hidden_default"),
                                               details={"table": table_id})
     try:
         MetaConfig(str(meta_file_path(game))).set_default_table(table_id)
@@ -220,12 +220,12 @@ def set_overrides(game_id: str, table_id: str, changes: dict) -> dict:
     unknown = set(changes) - set(TABLE_OVERRIDES)
     if unknown:
         raise service_errors.RefusedError(
-            t("error.games.not_table_s_set", keys=", ".join(sorted(unknown))))
+            t("error.games.game_keys", keys=", ".join(sorted(unknown))))
 
     game_dir = Path(game.full_path_game)
     if table_id not in table_entries(load_game_meta(game)):
         raise service_errors.NotFoundError(
-            t("error.games.no_table_id_game", table_id=table_id, game=game_title(game)))
+            t("error.games.table_id_unknown", table_id=table_id, game=game_title(game)))
     try:
         for name, value in changes.items():
             game_service.update_table_vpinfe_setting(game_dir, table_id, name, value)
@@ -253,14 +253,14 @@ def import_file(game_id: str, path: str) -> dict:
                                           details={"path": str(path)})
     if apps.app_for(source.name) is None:
         raise service_errors.RefusedError(
-            t("error.games.nothing_build_knows_plays", name=(source.name)))
+            t("error.games.no_player", name=(source.name)))
 
     game_dir = Path(game.full_path_game or "")
     table_id = new_id()
     try:
         game_service.add_table_file(game_dir, source, table_id)
     except FileExistsError as exc:
-        raise service_errors.BlockedError(t("error.games.game_already_file_name"),
+        raise service_errors.BlockedError(t("error.games.file_exists"),
                                           details={"filename": Path(exc.filename).name}) from exc
     except (OSError, ValueError) as exc:
         raise service_errors.BlockedError(why(exc)) from exc
@@ -284,18 +284,18 @@ def add_keyed(game_id: str, app_id: str, key: str) -> dict:
     app = apps.get(app_id)
     if app is None:
         raise service_errors.RefusedError(
-            t("error.games.no_app_called_build", app_id=(app_id),
+            t("error.games.unknown_app", app_id=(app_id),
               apps=", ".join(one.id for one in apps.all_apps())))
     if not app.claim.accepts_keys:
         raise service_errors.RefusedError(
-            t("error.games.plays_files_not_names", app_name=(apps.app_name(app_id))))
+            t("error.games.needs_file", app_name=(apps.app_name(app_id))))
     key = str(key or "").strip()
     if not key:
-        raise service_errors.RefusedError(t("error.games.say_what_program_calls"))
+        raise service_errors.RefusedError(t("error.games.id_needed"))
 
     table_id = new_id()
     if not MetaConfig(str(meta_file_path(game))).add_keyed_table(app_id, key, table_id):
-        raise service_errors.BlockedError(t("error.games.game_already_one"),
+        raise service_errors.BlockedError(t("error.games.duplicate"),
                                           details={"app": app_id, "key": key})
     game = reread_game(game)
     return row_or_refuse(game, table_id)
@@ -314,23 +314,23 @@ def add_referenced(game_id: str, path: str) -> dict:
     game_dir = str(game.full_path_game or "")
     target = os.path.expanduser(str(path or "").strip())
     if not target:
-        raise service_errors.RefusedError(t("error.games.say_where_file"))
+        raise service_errors.RefusedError(t("error.games.location_needed"))
     if not os.path.isabs(target):
-        raise service_errors.RefusedError(t("error.games.give_full_path_file"))
+        raise service_errors.RefusedError(t("error.games.path_needed"))
     if not os.path.isfile(target):
         raise service_errors.NotFoundError(t("error.games.no_file"),
                                            details={"path": target})
     if apps.app_for(os.path.basename(target)) is None:
         raise service_errors.RefusedError(
-            t("error.games.nothing_build_knows_plays", name=(os.path.basename(target))))
+            t("error.games.no_player", name=(os.path.basename(target))))
     if locations.canonical(os.path.dirname(target)) == locations.canonical(game_dir):
-        raise service_errors.RefusedError(t("error.games.file_already_game_s"))
+        raise service_errors.RefusedError(t("error.games.already_inside"))
 
     # Relative where it survives the library moving, absolute where it would not.
     stored = locations.portable_reference(game_dir, target)
     table_id = new_id()
     if not MetaConfig(str(meta_file_path(game))).add_referenced_table(stored, table_id):
-        raise service_errors.BlockedError(t("error.games.game_already_points_file"),
+        raise service_errors.BlockedError(t("error.games.already_linked"),
                                           details={"path": stored})
     game = reread_game(game)
     return row_or_refuse(game, table_id)
@@ -347,17 +347,17 @@ def contain(game_id: str, table_id: str) -> dict:
     game = game_lens.game_or_refuse(game_id)
     entry = table_entries(load_game_meta(game)).get(table_id)
     if not isinstance(entry, dict) or not tables.entry_reference(entry):
-        raise service_errors.NotFoundError(t("error.games.game_no_such_reference"),
+        raise service_errors.NotFoundError(t("error.games.reference_not_found"),
                                            details={"table": table_id})
 
     game_dir = Path(game.full_path_game or "")
     source = Path(tables.resolved_reference(str(game_dir), tables.entry_reference(entry)))
     if not source.is_file():
-        raise service_errors.BlockedError(t("error.games.file_not_reachable_nothing"),
+        raise service_errors.BlockedError(t("error.games.file_unreachable"),
                                           details={"path": str(source)})
     landing = game_dir / source.name
     if landing.exists():
-        raise service_errors.BlockedError(t("error.games.game_already_file_name"),
+        raise service_errors.BlockedError(t("error.games.file_exists"),
                                           details={"filename": source.name})
 
     try:
@@ -371,7 +371,7 @@ def contain(game_id: str, table_id: str) -> dict:
         # file in the folder with nothing describing it becomes a second table on the next
         # scan, beside the reference that is still there.
         landing.unlink(missing_ok=True)
-        raise service_errors.BlockedError(t("error.games.could_not_record"),
+        raise service_errors.BlockedError(t("error.games.record_failed"),
                                           details={"table": table_id})
     game = reread_game(game)
     return row_or_refuse(game, table_id)
@@ -388,7 +388,7 @@ def forget(game_id: str, table_id: str) -> dict:
     entry = table_entries(load_game_meta(game)).get(table_id)
     if not isinstance(entry, dict):
         raise service_errors.NotFoundError(
-            t("error.games.game_no_such_table"),
+            t("error.games.table_not_found"),
             details={"game": game.game_dir_name, "table": table_id})
     meta = MetaConfig(str(meta_file_path(game)))
     if tables.entry_key(entry) or tables.entry_reference(entry):
@@ -398,7 +398,7 @@ def forget(game_id: str, table_id: str) -> dict:
         meta.forget_keyed_table(table_id)
     elif not entry.get(ABSENT_SINCE_KEY):
         raise service_errors.BlockedError(
-            t("error.games.table_s_file_still"),
+            t("error.games.file_present"),
             details={"table": table_id, "filename": entry.get("filename", "")})
     else:
         meta.forget_table(table_id)

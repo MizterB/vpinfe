@@ -415,7 +415,7 @@ def prepare_update() -> dict:
     context = get_install_context()
     if not context["supported"]:
         logger.warning("Cannot update in place: %s", context["reason"])
-        raise UpdateError(t("error.instance.device_cannot_update_itself"))
+        raise UpdateError(t("error.instance.no_self_update"))
 
     release_payload = _get_release_payload()
     latest_tag = (release_payload.get("tag_name") or "").strip()
@@ -427,7 +427,7 @@ def prepare_update() -> dict:
                        latest_tag)
         raise UpdateError(t("error.instance.latest_unreadable"))
     if current_ver is None:
-        raise UpdateError(t("error.instance.not_a_release"))
+        raise UpdateError(t("error.instance.unpublished"))
     if latest_ver <= current_ver:
         raise UpdateError(t("error.instance.already_latest"))
 
@@ -435,7 +435,7 @@ def prepare_update() -> dict:
     resolved_triplet, asset_info = _resolve_manifest_asset(manifest, context["triplet"])
     if not asset_info:
         logger.warning("The latest release has no asset for %s", context["triplet"])
-        raise UpdateError(t("error.instance.no_build_for_system"))
+        raise UpdateError(t("error.instance.no_build"))
     if resolved_triplet and resolved_triplet != context["triplet"]:
         logger.info(
             "Preparing update using compatible manifest triplet=%s for context triplet=%s",
@@ -629,7 +629,7 @@ def take_published(*, stop_table: bool = False) -> dict:
     context = get_install_context()
     if not context["supported"]:
         raise service_errors.UnavailableError(
-            t("error.instance.device_cannot_update_itself"),
+            t("error.instance.no_self_update"),
             details={"support_reason": context["reason"]})
 
     playing = launch_state.current()

@@ -27,7 +27,7 @@ _FILES: dict[int, tuple[str, str]] = {
     errno.EISDIR: ("said.why.is_folder", "said.why.is_folder_at"),
     errno.EBUSY: ("said.why.in_use", "said.why.in_use_at"),
     errno.ETXTBSY: ("said.why.in_use", "said.why.in_use_at"),
-    errno.ENAMETOOLONG: ("said.why.name_too_long", "said.why.name_too_long"),
+    errno.ENAMETOOLONG: ("said.why.long_name", "said.why.long_name"),
     errno.ELOOP: ("said.why.link_loops", "said.why.link_loops_at"),
 }
 
@@ -35,7 +35,7 @@ _UNREACHABLE = {errno.ENETUNREACH, errno.EHOSTUNREACH, errno.EHOSTDOWN, errno.EN
 
 # The key with no host, and the key naming the host.
 _TIMED_OUT = ("said.why.timed_out", "said.why.timed_out_at")
-_NOTHING_ANSWERS = ("said.why.nothing_answers", "said.why.nothing_answers_at")
+_NOTHING_ANSWERS = ("said.why.nothing_answers", "said.why.no_answer_at")
 _NOT_REACHED = ("said.why.unreachable", "said.why.unreachable_at")
 
 
@@ -75,7 +75,7 @@ def _unwrapped(exc: BaseException) -> BaseException:
 
 def _unanswered(exc: BaseException, host: str) -> str:
     if isinstance(exc, HostQuietError):
-        return t("said.why.asked_to_wait_at", host=exc.host,
+        return t("said.why.rate_limited_at", host=exc.host,
                  time=datetime.fromtimestamp(exc.until).strftime("%H:%M"))
     if isinstance(exc, requests.RequestException):
         return _network(exc, host) or _raw(exc)

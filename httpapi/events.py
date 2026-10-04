@@ -320,7 +320,7 @@ def _parse_filter(raw: str) -> frozenset[str] | None:
     unknown = sorted(wanted - set(STREAMED_EVENTS))
     if unknown:
         raise InvalidRequestError(
-            t("error.events.unknown_event_name"),
+            t("error.events.bad_event"),
             details={"unknown": unknown, "known": sorted(STREAMED_EVENTS)},
         )
     return frozenset(wanted)

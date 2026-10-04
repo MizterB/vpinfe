@@ -53,7 +53,7 @@ class PickerListTests(unittest.IsolatedAsyncioTestCase):
         listed = await workbench._listed_by_vps(_context(records=[], held=False),
                                                 NONE_LISTED)
 
-        self.assertEqual(([], t("console.workbench.vps_not_downloaded"), ""), listed)
+        self.assertEqual(([], t("console.workbench.no_vps_data"), ""), listed)
 
     async def test_a_read_that_fails_says_it_could_not_read(self) -> None:
         for failing in ("vps_releases", "vps_catalog_held"):
@@ -66,7 +66,7 @@ class PickerListTests(unittest.IsolatedAsyncioTestCase):
                     listed = await workbench._listed_by_vps(context, NONE_LISTED)
 
                 self.assertEqual(
-                    ([], t("console.workbench.could_not_read_vps"),
+                    ([], t("console.workbench.vps_failed"),
                      t("said.why.timed_out")),
                     listed)
 

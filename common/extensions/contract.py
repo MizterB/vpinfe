@@ -131,7 +131,7 @@ def _strings(raw: Any, field: str) -> tuple[str, ...]:
     if raw is None:
         return ()
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
-        raise ManifestError("extension.reason.manifest_not_a_list", field=field)
+        raise ManifestError("extension.reason.manifest_bad_list", field=field)
     return tuple(str(item).strip() for item in raw if str(item).strip())
 
 
@@ -149,7 +149,7 @@ def parse(raw: Any) -> Manifest:
     except (TypeError, ValueError):
         raise ManifestError("extension.reason.manifest_platform_unsaid") from None
     if abi not in SUPPORTED_ABI:
-        raise ManifestError("extension.reason.manifest_platform_not_offered", abi=str(abi),
+        raise ManifestError("extension.reason.platform_mismatch", abi=str(abi),
                             offered=", ".join(str(v) for v in sorted(SUPPORTED_ABI)))
 
     provides = _strings(raw.get("provides"), "provides")

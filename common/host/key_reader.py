@@ -35,7 +35,7 @@ NOT_HEARD = "keys.hear.not_heard"
 NO_INPUT_GROUP = "keys.hear.no_input_group"
 JOIN_INPUT_GROUP = "keys.hear.join_input_group"
 NO_INPUT_MONITORING = "keys.hear.no_input_monitoring"
-ALLOW_INPUT_MONITORING = "keys.hear.allow_input_monitoring"
+ALLOW_INPUT_MONITORING = "keys.hear.grant_monitoring"
 NO_SESSION = "keys.hear.no_session"
 
 DEVICES = "/proc/bus/input/devices"

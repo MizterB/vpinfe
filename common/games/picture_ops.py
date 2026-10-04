@@ -15,14 +15,14 @@ def _folder(game_id: str) -> Path:
 
 def _named(name: str) -> str:
     if not pictures.is_name(name):
-        raise service_errors.RefusedError(t("error.games.not_a_picture_name", name=name))
+        raise service_errors.RefusedError(t("error.games.not_png", name=name))
     return name
 
 
 def _found(game_id: str, name: str) -> Path:
     path = pictures.folder_of(_folder(game_id)) / _named(name)
     if not path.is_file():
-        raise service_errors.NotFoundError(t("error.games.game_no_picture", name=name))
+        raise service_errors.NotFoundError(t("error.games.no_picture", name=name))
     return path
 
 
@@ -52,7 +52,7 @@ def put(game_id: str, name: str, data: bytes) -> dict:
     except ValueError as exc:
         raise service_errors.RefusedError(t("error.games.picture_not_png")) from exc
     except FileExistsError as exc:
-        raise service_errors.BlockedError(t("error.games.game_already_file_name"),
+        raise service_errors.BlockedError(t("error.games.file_exists"),
                                           details={"name": name}) from exc
     return pictures.row(path)
 

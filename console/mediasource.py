@@ -315,13 +315,13 @@ class _Sources:
             starts = await offload.io(self.starts)
         except Exception as exc:
             with body:
-                panel.line(t("console.mediasource.could_not_read_host",
+                panel.line(t("console.mediasource.host_failed",
                              host=_host_name(self.library)), hint=why(exc))
             return
         self.browse_roots = starts
         with body:
             if not starts:
-                ui.label(t("console.mediasource.no_folders_browsable_game")) \
+                ui.label(t("console.mediasource.browse_empty")) \
                     .classes("console-help")
                 return
             # The control before what it controls: built the other way round, the
@@ -342,7 +342,7 @@ class _Sources:
             here = await offload.io(self.listing, path)
         except Exception as exc:
             with listing:
-                panel.line(t("console.mediasource.could_not_read_folder"), hint=why(exc))
+                panel.line(t("console.mediasource.folder_failed"), hint=why(exc))
             return
         with listing:
             # Named from the start it was reached through rather than as an absolute
@@ -365,7 +365,7 @@ class _Sources:
                     ui.label(t("console.mediasource.nothing_use", kind=self.label)) \
                         .classes("console-help")
                 elif len(here["entries"]) > _LIST_MAX:
-                    ui.label(t("console.mediasource.more_not_shown",
+                    ui.label(t("console.mediasource.overflow",
                             count=len(here["entries"]) - _LIST_MAX)) \
                         .classes("console-help")
 
@@ -458,7 +458,7 @@ class _OneFile(_Sources):
         if said.get("folder") and self.accept:
             ui.notify(self._takes(), type="warning")
         elif int(said.get("count") or 0) == 0:
-            ui.notify(t("console.uploads.nothing_to_upload"), type="warning")
+            ui.notify(t("console.uploads.empty"), type="warning")
         else:
             ui.notify(t("console.mediasource.one_file"), type="warning")
 
@@ -503,8 +503,8 @@ class _Slot(_OneFile):
         self._own_id = ""
 
     def title(self) -> str:
-        return t("console.mediasource.for_this_table" if self.table_id
-                 else "console.mediasource.for_this_game", kind=self.label)
+        return t("console.mediasource.title_table" if self.table_id
+                 else "console.mediasource.title_game", kind=self.label)
 
     def starts(self) -> list[dict[str, Any]]:
         return self.library.browse_roots(self.game_id)
@@ -578,7 +578,7 @@ class _Slot(_OneFile):
                 ui.label(str(item.get("base") or "")).classes("console-placement-name")
                 going = list(item.get("displaces") or [])
                 if going:
-                    ui.label(t("console.mediasource.replaces_file_already",
+                    ui.label(t("console.mediasource.overwrites",
                                count=len(going))) \
                         .classes("console-destination-conflict")
         self._marks[table] = mark
@@ -601,7 +601,7 @@ class _Slot(_OneFile):
         self.filename_note.text = (
             t("console.mediasource.saved",
                     chosen_extension=(self.chosen_extension)) if self.chosen_extension
-            else t("console.mediasource.extension_follows_file_choose"))
+            else t("console.mediasource.extension_hint"))
 
     def note_extension(self, filename: str) -> None:
         """The picked file's extension, so the name shown is the name it will get."""
@@ -624,9 +624,9 @@ class _Slot(_OneFile):
         chosen = self.placed_at or {}
         where = (t("console.mediasource.for",
                    table=_trimmed_stem(str(chosen.get("label") or "")))
-                 if self.destination else t("console.mediasource.every_table_game"))
+                 if self.destination else t("console.mediasource.for_all"))
         if not self._in_view():
-            where = t("console.mediasource.not_what_view_showing", where=where)
+            where = t("console.mediasource.off_view", where=where)
         return t("console.mediasource.saved_where", message=message, where=where)
 
     def _in_view(self) -> bool:
@@ -651,7 +651,7 @@ class _Slot(_OneFile):
             going = await offload.io(self.target.displaced, self.game_id,
                                        self.destination, self.kind, filename)
         except Exception as exc:
-            ui.notify(t("console.mediasource.could_not_check_slot"), caption=why(exc),
+            ui.notify(t("console.mediasource.slot_failed"), caption=why(exc),
                       type="negative")
             return False
         return not going or await confirm.replace(self.label, going)
@@ -671,7 +671,7 @@ class _Slot(_OneFile):
             await run.io_bound(self.target.place, self.game_id,
                                self.destination, self.kind, name, data)
         except Exception as exc:
-            ui.notify(t("console.mediasource.could_not_place"), caption=why(exc),
+            ui.notify(t("console.mediasource.place_failed"), caption=why(exc),
                       type="negative")
             return
         await self.finish(t("console.mediasource.label_saved", label=self.label))
@@ -685,7 +685,7 @@ class _Slot(_OneFile):
                 await run.io_bound(self.target.bring, self.game_id,
                                    self.destination, self.kind, item["path"])
             except Exception as exc:
-                ui.notify(t("console.mediasource.could_not_bring"), caption=why(exc),
+                ui.notify(t("console.mediasource.bring_failed"), caption=why(exc),
                           type="negative")
                 return
             await self.finish(t("console.mediasource.label_saved", label=self.label))
@@ -809,7 +809,7 @@ class _Slot(_OneFile):
                     listing = await offload.io(library.capture_proposals)
                 except Exception as exc:  # noqa: BLE001 - it still waits on the device
                     with made:
-                        panel.line(t("console.record.could_not_read_waiting"), hint=why(exc))
+                        panel.line(t("console.record.waiting_failed"), hint=why(exc))
                     return
                 row = next((one for one in listing.get("proposals") or []
                             if one.get("id") in kept), None)
@@ -852,7 +852,7 @@ class _Slot(_OneFile):
         with body:
             self.online_head = ui.label("").classes("console-card-title")
             self.online_body = ui.column().classes("w-full gap-1 console-source-offers")
-            ui.label(t("console.mediasource.search_another_game")) \
+            ui.label(t("console.mediasource.other_game")) \
                 .classes("console-card-title console-source-under")
             search = ui.input(value=str(game.get("name") or "")) \
                 .props("outlined dense clearable").classes("w-full")
@@ -886,11 +886,11 @@ class _Slot(_OneFile):
             found = await offload.io(self.library.search_vps, query.strip())
         except Exception as exc:
             with results:
-                panel.line(t("console.mediasource.could_not_search"), hint=why(exc))
+                panel.line(t("console.mediasource.search_failed"), hint=why(exc))
             return
         with results:
             if not found:
-                ui.label(t("console.mediasource.no_game_name_vpsdb")).classes("console-help")
+                ui.label(t("console.mediasource.vpsdb_empty")).classes("console-help")
                 return
             for item in found:
                 self._game_choice(item)
@@ -922,23 +922,23 @@ class _Slot(_OneFile):
         # every visit stops being read by the time it matters.
         self.online_head.text = (t("console.mediasource.found_online")
                                  if vps_id == self._own_id
-                                 else t("console.mediasource.found_online_for", name=name))
+                                 else t("console.mediasource.online_title", name=name))
         if not vps_id:
             with body:
-                ui.label(t("console.mediasource.game_no_vps_id")) \
+                ui.label(t("console.mediasource.needs_id")) \
                     .classes("console-help")
             return
         try:
             found = await offload.io(self.library.media_offers, vps_id, self.kind)
         except Exception as exc:
             with body:
-                panel.line(t("console.mediasource.could_not_reach_catalogs"), hint=why(exc))
+                panel.line(t("console.mediasource.catalogs_failed"), hint=why(exc))
             return
         with body:
             if not found:
                 where = self._searched()
                 ui.label(t("console.mediasource.nothing", where=(where)) if where else
-                         t("console.mediasource.no_online_sources_switched")).classes("console-help")
+                         t("console.mediasource.sources_off")).classes("console-help")
                 return
             named = {item["id"]: item["name"]
                      for item in (self._known_sources or [])}
@@ -964,7 +964,7 @@ class _Slot(_OneFile):
                                    self.destination, self.kind, offer["source"],
                                    vps_id, size)
             except Exception as exc:
-                ui.notify(t("console.mediasource.could_not_fetch"), caption=why(exc),
+                ui.notify(t("console.mediasource.fetch_failed"), caption=why(exc),
                           type="negative")
                 return
             finally:
@@ -999,7 +999,7 @@ class _Folder(_Sources):
         self._busy = False
 
     def title(self) -> str:
-        return t("console.mediasource.for_this_game", kind=self.label)
+        return t("console.mediasource.title_game", kind=self.label)
 
     def starts(self) -> list[dict[str, Any]]:
         return self.library.browse_roots(self.game_id)
@@ -1042,14 +1042,14 @@ class _Folder(_Sources):
         try:
             upload_id = await offload.io(self.library.upload_from_path, path)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.uploads.could_not_read"), caption=why(exc), type="negative")
+            ui.notify(t("console.uploads.read_failed"), caption=why(exc), type="negative")
             return
         await self._import(upload_id, PurePosixPath(path).name)
 
     @on_page
     async def _import(self, upload_id: str, source: str, file_count: int = 0) -> None:
         if self._busy:
-            ui.notify(t("console.uploads.finish_one_already_open"), type="warning")
+            ui.notify(t("console.uploads.busy"), type="warning")
             await run.io_bound(self.library.abort_upload, upload_id)
             return
         self._busy = True
@@ -1112,7 +1112,7 @@ class _Table(_Folder):
         self.copies = True
 
     def title(self) -> str:
-        return t("console.mediasource.add_table_to", name=self.game_name)
+        return t("console.mediasource.add_table", name=self.game_name)
 
     def starts(self) -> list[dict[str, Any]]:
         return [root for root in self.library.browse_roots(self.game_id)
@@ -1162,7 +1162,7 @@ class _Table(_Folder):
             self._ways()
             listed = ui.column().classes("w-full gap-2")
             with ui.row().classes("items-start gap-2 w-full no-wrap"):
-                typed = panel.path_field(placeholder=t("console.workbench.path_table_file"),
+                typed = panel.path_field(placeholder=t("console.workbench.path_placeholder"),
                                          wants="file", width="grow min-w-0",
                                          browse=self.library.folders,
                                          suffixes=apps.table_suffixes())
@@ -1212,7 +1212,7 @@ class _Table(_Folder):
         try:
             await offload.io(adds, self.game_id, path)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_add_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.add_failed"), caption=why(exc), type="negative")
             return
         await self._imported()
 
@@ -1223,7 +1223,7 @@ class _Table(_Folder):
             apps = await offload.io(self.library.launch_apps)
         except Exception as exc:  # noqa: BLE001
             with body:
-                panel.line(t("console.launchers.could_not_read_launchers"), hint=why(exc))
+                panel.line(t("console.launchers.launchers_failed"), hint=why(exc))
             return
         takes_ids = {str(app.get("id") or "") for app in apps if app.get("accepts_keys")}
         offered = [one for one in found.get("launchers") or []
@@ -1232,7 +1232,7 @@ class _Table(_Folder):
         with body:
             ui.label(t("console.mediasource.without_file.help")).classes("console-help")
             if not offered:
-                ui.label(t("console.mediasource.no_launcher_takes_id")) \
+                ui.label(t("console.mediasource.launcher_none")) \
                     .classes("console-help")
                 with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
                     panel.action(t("console.mediasource.add_launcher"),
@@ -1265,7 +1265,7 @@ class _Table(_Folder):
                 if not said:
                     held["typed"].props["error"] = True
                     held["typed"].props["error-message"] = \
-                        t("console.mediasource.give_it_an_id")
+                        t("console.mediasource.blank_id")
                     held["typed"].update()
                     return
                 launcher = chosen["launcher"]
@@ -1278,7 +1278,7 @@ class _Table(_Folder):
                                          str(made.get("id") or ""),
                                          str(launcher["launcher_id"]))
                 except Exception as exc:  # noqa: BLE001
-                    ui.notify(t("said.could_not_add_it"), caption=why(exc), type="negative")
+                    ui.notify(t("said.add_failed"), caption=why(exc), type="negative")
                     return
                 await self._imported()
 
@@ -1304,7 +1304,7 @@ class _Table(_Folder):
                                  {"app": apps[0], "display_name": name, "enabled": True,
                                   "settings": {}})
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("said.could_not_add_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.add_failed"), caption=why(exc), type="negative")
                 return
             wanted = "/console?" + deeplink.query({"view": "launchers", "launcher": made})
         self.dialog.close()
@@ -1321,7 +1321,7 @@ class _Image(_OneFile):
         self.name = name
 
     def title(self) -> str:
-        return t("console.mediasource.for_this_collection", kind=self.label)
+        return t("console.mediasource.title_collection", kind=self.label)
 
     def starts(self) -> list[dict[str, Any]]:
         return self.library.browse_roots()
@@ -1335,7 +1335,7 @@ class _Image(_OneFile):
             try:
                 data = await offload.io(self.library.browsed_file, item["path"])
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.mediasource.could_not_use_image"), caption=why(exc),
+                ui.notify(t("console.mediasource.image_failed"), caption=why(exc),
                           type="negative")
                 return
             await self.took(item["name"], data)
@@ -1349,7 +1349,7 @@ class _Image(_OneFile):
             entries = await offload.io(self.library.collection_entries, self.name)
         except Exception as exc:  # noqa: BLE001
             with body:
-                panel.line(t("console.mediasource.could_not_read_its_games"), hint=why(exc))
+                panel.line(t("console.mediasource.games_failed"), hint=why(exc))
             return
         wheeled = [entry for entry in entries if "wheel" in (entry.get("media") or [])]
         with body:
@@ -1369,7 +1369,7 @@ class _Image(_OneFile):
             listing.clear()
             with listing:
                 if not found:
-                    ui.label(t("console.mediasource.no_game_by_name")).classes("console-help")
+                    ui.label(t("console.mediasource.find_empty")).classes("console-help")
                 for entry in found:
                     self._wheel_row(entry)
 
@@ -1389,7 +1389,7 @@ class _Image(_OneFile):
                 data, served = await offload.io(self.library.media_file, game_id, table_id,
                                                 "wheel")
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.mediasource.could_not_use_image"), caption=why(exc),
+                ui.notify(t("console.mediasource.image_failed"), caption=why(exc),
                           type="negative")
                 return
             await self.took(_named_for(name, served), data)
@@ -1403,7 +1403,7 @@ class _Image(_OneFile):
         try:
             await offload.io(self.library.set_collection_image, self.name, name, data)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.mediasource.could_not_use_image"), caption=why(exc),
+            ui.notify(t("console.mediasource.image_failed"), caption=why(exc),
                       type="negative")
             return
         await self.finish(t("console.mediasource.label_saved", label=self.label))
@@ -1434,7 +1434,7 @@ def _trimmed_stem(label: str) -> str:
 def _start_name(root: dict[str, Any]) -> str:
     """What to call a starting point. The game's own folder is not named after the
     folder, because the folder's name is the one thing already on screen above it."""
-    return (t("console.mediasource.game_s_folder") if root.get("source") == "game"
+    return (t("console.mediasource.game_folder") if root.get("source") == "game"
             else str(root.get("name") or root.get("path") or ""))
 
 

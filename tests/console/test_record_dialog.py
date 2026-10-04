@@ -185,7 +185,7 @@ class OutcomeTests(unittest.TestCase):
 
     def test_a_table_that_did_not_start_says_why(self) -> None:
         table = {"state": "failed", "placed": [], "failed": [], "proposed": [],
-                 "reason": {"key": "capture.outcome.would_not_start", "params": {},
+                 "reason": {"key": "capture.outcome.start_failed", "params": {},
                             "detail": "No Visual Pinball on this machine"}}
 
         self.assertEqual(record.outcome(table), (
@@ -402,7 +402,7 @@ class ManyTests(unittest.TestCase):
             "DMD Video: Visual Pinball X doesn't show the DMD on a screen of its own"))
 
     def test_games_that_failed_whole_are_counted_by_reason(self) -> None:
-        wont = {"key": "capture.outcome.would_not_start", "params": {}, "detail": ""}
+        wont = {"key": "capture.outcome.start_failed", "params": {}, "detail": ""}
         tables = [_game(), _game(), _game("failed", placed=[], failed=[], reason=wont),
                   _game(proposed=[{"kind": "backglass_video", "id": "a1"}])]
 

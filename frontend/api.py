@@ -726,7 +726,7 @@ class API:
         if not choices:
             return {}
         return {"game_id": game_id, "choices": choices,
-                "label": t("frontend.mainmenu.record_missing_media" if missing
+                "label": t("frontend.mainmenu.record_missing" if missing
                            else "frontend.mainmenu.record_media")}
 
     def record_media(self, index: Any, existing: str) -> dict[str, Any]:

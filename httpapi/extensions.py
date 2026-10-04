@@ -43,7 +43,7 @@ def list_extensions() -> dict:
 def put_extension_enabled(name: str, body: models.ExtensionSwitch) -> dict:
     record = extensions.switch(name, body.enabled)
     if record is None:
-        raise NotFoundError(t("error.extensions.no_extension_named", name=name))
+        raise NotFoundError(t("error.extensions.not_found", name=name))
     return record.as_dict()
 
 
@@ -59,7 +59,7 @@ def _running(name: str) -> Any:
             reason = (record.reason if record is not None
                       else t("extension.reason.not_installed"))
             display = record.display_name if record is not None else name
-            raise FeatureUnavailableError(t("error.extensions.extension_not_running",
+            raise FeatureUnavailableError(t("error.extensions.not_running",
                     display=(display),
                     value=(reason or t("extension.reason.none_recorded"))))
 
@@ -192,7 +192,7 @@ def _answered(status: int, body: bytes) -> Any:
         raise ApiError(str(error.get("code") or CODE_INTERNAL_ERROR),
                        str(error.get("message") or ""), status_code=status,
                        details=error.get("details"))
-    raise ApiError(CODE_INTERNAL_ERROR, t("error.envelope.internal_server_error"),
+    raise ApiError(CODE_INTERNAL_ERROR, t("error.envelope.server_fault"),
                    status_code=status)
 
 

@@ -82,7 +82,7 @@ class TheHeaderMenu(unittest.TestCase):
         self.assertIn("console-menu-blocked", pin.classes)
         self.assertEqual("true", pin.props.get("aria-disabled"))
         self.assertEqual(0, _clicks(pin))
-        self.assertEqual([(t("console.grid.no_room_to_pin"), ["console-menu-tip"])],
+        self.assertEqual([(t("console.grid.pin_refused"), ["console-menu-tip"])],
                          _tips(pin))
 
     def test_with_room_pin_left_pins(self) -> None:

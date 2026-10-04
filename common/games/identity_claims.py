@@ -68,11 +68,11 @@ class DeclaredIdentity:
             found.append(t("error.identity.basis_not_accepted", basis="confirmed_by",
                            accepted=", ".join(ACCEPTED_FROM_CALLERS)))
         if self.names_a_record and not basis:
-            found.append(t("error.identity.record_needs_basis", basis="confirmed_by"))
+            found.append(t("error.identity.no_basis", basis="confirmed_by"))
         if basis and not (self.names_a_record or self.game_id or self.table_id):
-            found.append(t("error.identity.basis_without_identity", basis="confirmed_by"))
+            found.append(t("error.identity.orphan_basis", basis="confirmed_by"))
         if self.vps_file_id and not self.host_item_id:
-            found.append(t("error.identity.file_needs_item", file_id="vps_file_id",
+            found.append(t("error.identity.no_item", file_id="vps_file_id",
                            item_id="host_item_id"))
         return found
 

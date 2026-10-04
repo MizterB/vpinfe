@@ -45,7 +45,7 @@ SKIPPED = "skipped"
 # Halted by the run: nothing placed, the recording thrown away.
 STOPPED = "stopped"
 
-WOULD_NOT_START = "capture.outcome.would_not_start"
+WOULD_NOT_START = "capture.outcome.start_failed"
 CLOSED_AT_CABINET = "capture.outcome.closed"
 NO_FRAMES = "capture.outcome.no_frames"
 SILENT = "capture.outcome.silent"

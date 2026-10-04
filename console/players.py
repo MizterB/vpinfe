@@ -122,7 +122,7 @@ def same_initials(player: dict[str, Any], roster: list[dict[str, Any]]) -> str:
              if one.get("id") in (player.get("shares_initials_with") or [])]
     if not named:
         return ""
-    return t("console.players.same_initials_as",
+    return t("console.players.initials_clash",
              player=t("console.collection_rules.list_join").join(named))
 
 
@@ -141,7 +141,7 @@ def rows(roster: list[dict[str, Any]],
             "kind": kind_of(player),
             "up": bool(player.get("up")) and not alone,
             "shared": same_initials(player, roster),
-            "session": (t("console.players.games_this_session", count=games)
+            "session": (t("console.players.session_total", count=games)
                         if player.get("guest") and games else ""),
         })
     return made
@@ -182,7 +182,7 @@ async def _fill(library: Library, state: dict[str, Any],
         roster, played = await _read(library)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         with body:
-            panel.facts(ui, [panel.intro(t("console.players.could_not_read_players"),
+            panel.facts(ui, [panel.intro(t("console.players.players_failed"),
                                          hint=why(exc))])
         return
 
@@ -213,9 +213,9 @@ async def _fill(library: Library, state: dict[str, Any],
                     empty=False)
                 if guests:
                     panel.icon_action(
-                        t("console.players.sign_out_guests"),
+                        t("console.players.guests_end"),
                         lambda: sign_out_guests(library, state, redraw),
-                        icon=verbs.REMOVE, hint=t("console.players.sign_out_guests"))()
+                        icon=verbs.REMOVE, hint=t("console.players.guests_end"))()
 
         by_id = {row["id"]: row for row in built}
         by_player = {str(one["id"]): one for one in roster}
@@ -343,7 +343,7 @@ async def add_guest(library: Library, state: dict[str, Any],
             text = (await event.file.read()).decode("utf-8", "replace")
             made = await offload.io(library.add_guest_from_card, text)
         except Exception as exc:  # noqa: BLE001 - said, and the dialog stays for a retry
-            ui.notify(t("console.players.could_not_add_guest"), caption=why(exc),
+            ui.notify(t("console.players.guest_failed"), caption=why(exc),
                       type="negative")
             return
         box.submit(str(made.get("id") or ""))
@@ -357,7 +357,7 @@ async def add_guest(library: Library, state: dict[str, Any],
 
     with frame.opened(t("console.players.add_guest"), persistent=True) as box:
         ui.label(t("console.players.guest_forgotten")).classes("console-help px-3")
-        panel.facts(ui, [(t("console.players.use_a_card"), card_row),
+        panel.facts(ui, [(t("console.players.use_card"), card_row),
                          (t("console.players.just_initials"), initials_row)])
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
@@ -434,7 +434,7 @@ async def sign_out_guests(library: Library, state: dict[str, Any],
     try:
         guests = [one for one in await offload.io(library.players) if one.get("guest")]
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.players.could_not_read_players"), caption=why(exc),
+        ui.notify(t("console.players.players_failed"), caption=why(exc),
                   type="negative")
         return
     if not guests:
@@ -455,7 +455,7 @@ async def _gone(library: Library, state: dict[str, Any], redraw: Callable[[], No
         try:
             await run.io_bound(library.remove_player, player["id"])
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_remove_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
             break
     if state.get("player") in {one["id"] for one in players}:
         state["player"] = ""
@@ -521,7 +521,7 @@ async def details(context: dict[str, Any]) -> None:
         try:
             await run.io_bound(library.set_player_up, player_id, on)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         await changed(context)
 
     entries: list[tuple[Any, Any]] = []
@@ -573,7 +573,7 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
     the same panel, in its own words."""
     library, player = context["library"], _of(context)
     if account.get("error"):
-        panel.facts(ui, [panel.intro(t("console.players.could_not_read_account"),
+        panel.facts(ui, [panel.intro(t("console.players.account_failed"),
                                      hint=str(account["error"]))])
         return
     service = str(account.get("label") or account["extension"])
@@ -589,7 +589,7 @@ async def _account(context: dict[str, Any], account: dict[str, Any]) -> None:
         try:
             await run.io_bound(library.put_share, player["id"], account["extension"], on)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         await context["rebuild"]()
 
     entries: list[tuple[Any, Any]] = []
@@ -635,27 +635,27 @@ def _user_id_value(user_id: str, page: str, service: str) -> Callable[[], None]:
 
 def _choose_or_card(context: dict[str, Any], account: dict[str, Any]) -> None:
     with ui.element("div").classes("console-slot-actions"):
-        panel.action(t("console.players.choose_user_id"),
+        panel.action(t("console.players.choose_id"),
                      lambda: choose_user_id(context, account), icon=verbs.CHOOSE,
-                     hint=t("console.players.choose_user_id.help",
+                     hint=t("console.players.choose_id.help",
                             service=str(account.get("label") or account["extension"])))()
-        _card_picker(t("console.players.use_a_card"),
+        _card_picker(t("console.players.use_card"),
                     lambda event: use_card(context, account, event),
-                    hint=t("console.players.use_a_card.help"))
+                    hint=t("console.players.use_card.help"))
 
 
 def _unclaimed_actions(context: dict[str, Any], account: dict[str, Any],
                        service: str) -> None:
     with ui.element("div").classes("console-slot-actions"):
-        panel.action(t("console.players.change_user_id"),
+        panel.action(t("console.players.change_id"),
                      lambda: choose_user_id(context, account), icon=verbs.EDIT,
-                     hint=t("console.players.change_user_id.help"))()
+                     hint=t("console.players.change_id.help"))()
         panel.action(t("word.remove"), lambda: _remove_user_id(context, account, service),
                      icon=verbs.REMOVE, danger=True,
                      hint=t("console.players.remove_user_id.help", service=service))()
-        _card_picker(t("console.players.use_a_card"),
+        _card_picker(t("console.players.use_card"),
                     lambda event: use_card(context, account, event),
-                    hint=t("console.players.use_a_card.help"))
+                    hint=t("console.players.use_card.help"))
 
 
 def _claimed_actions(context: dict[str, Any], account: dict[str, Any], service: str,
@@ -686,9 +686,9 @@ def _card_actions(context: dict[str, Any], account: dict[str, Any]) -> None:
         panel.action(t("console.players.save_card"),
                      lambda: save_card(library, player, account), icon=verbs.FETCH,
                      hint=t("console.players.save_card.help"))()
-        _card_picker(t("console.players.use_a_card"),
+        _card_picker(t("console.players.use_card"),
                     lambda event: use_card(context, account, event),
-                    hint=t("console.players.use_a_card_replace.help"))
+                    hint=t("console.players.card_replace.help"))
 
 
 def _card_tile(on_click: Callable[[], Any], hint: str) -> None:
@@ -708,7 +708,7 @@ async def _open_card(library: Library, player: dict[str, Any],
     try:
         drawn = await offload.io(library.player_card, player["id"], account["extension"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     src = f"data:image/svg+xml;base64,{base64.b64encode(drawn).decode('ascii')}"
     mediaview.open_viewer(src, "", t("console.players.card_of", name=shown_name(player)),
@@ -754,7 +754,7 @@ async def choose_user_id(context: dict[str, Any], account: dict[str, Any]) -> No
                 panel.state(t("console.players.id_taken"), "warn", beside=said)()
         (go.enable() if free else go.disable())
 
-    with frame.opened(t("console.players.choose_user_id_title", service=service),
+    with frame.opened(t("console.players.id_title", service=service),
                       persistent=True) as box:
         field = frame.field(user_id if (user_id := str(account.get("user_id") or "")) else "")
         holder = ui.element("div").classes("console-fact-edit")
@@ -773,7 +773,7 @@ async def choose_user_id(context: dict[str, Any], account: dict[str, Any]) -> No
         await run.io_bound(library.put_account, player["id"], extension,
                            {"user_id": str(chosen).strip().lower()})
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         return
     await context["rebuild"]()
 
@@ -797,7 +797,7 @@ async def _share_on(context: dict[str, Any], account: dict[str, Any], service: s
         with ui.column().classes("gap-1 px-3"):
             for line in account.get("consent") or []:
                 ui.label(f"• {line}").classes("console-help")
-        ui.label(t("console.players.share_consent_no_rename", service=service)) \
+        ui.label(t("console.players.consent_note", service=service)) \
             .classes("console-help px-3")
         with frame.footer():
             frame.cancel(lambda: box.submit(False))
@@ -811,7 +811,7 @@ async def _share_on(context: dict[str, Any], account: dict[str, Any], service: s
                          CONSENT if claimed else CLAIM)
         await run.io_bound(library.put_share, player["id"], extension, True)
     except Exception as exc:  # noqa: BLE001 - "taken", "can't reach": said, Share stays off
-        ui.notify(t("said.could_not_turn_on"), caption=why(exc), type="negative")
+        ui.notify(t("said.on_failed"), caption=why(exc), type="negative")
     await context["rebuild"]()
 
 
@@ -820,15 +820,15 @@ async def _remove_user_id(context: dict[str, Any], account: dict[str, Any],
                           service: str) -> None:
     library, player = context["library"], _of(context)
     extension = str(account["extension"])
-    if not await confirm.ask(t("console.players.remove_user_id_confirm"),
-                             detail=t("console.players.remove_user_id_detail",
+    if not await confirm.ask(t("console.players.forget_confirm"),
+                             detail=t("console.players.forget_detail",
                                      service=service),
                              confirm=t("word.remove"), icon=verbs.REMOVE):
         return
     try:
         await offload.io(library.account_act, player["id"], extension, DISCONNECT)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         return
     await context["rebuild"]()
 
@@ -851,7 +851,7 @@ async def _disconnect(context: dict[str, Any], account: dict[str, Any],
     try:
         await offload.io(library.account_act, player["id"], extension, DISCONNECT)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         return
     await context["rebuild"]()
 
@@ -870,14 +870,14 @@ async def use_card(context: dict[str, Any], account: dict[str, Any], event: Any)
             [t("console.players.remove_card_detail", service=service)] if carded else [])
         also = ((t("console.players.save_card"),
                  lambda: save_card(library, player, account), verbs.FETCH) if carded else None)
-        if not await confirm.ask(t("console.players.use_card_for", name=shown_name(player)),
-                                 detail=detail, confirm=t("console.players.use_a_card"),
+        if not await confirm.ask(t("console.players.card_confirm", name=shown_name(player)),
+                                 detail=detail, confirm=t("console.players.use_card"),
                                  icon=verbs.REPLACE, also=also):
             return
     try:
         await run.io_bound(library.use_card, player["id"], extension, text)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.players.could_not_use_card"), caption=why(exc), type="negative")
+        ui.notify(t("console.players.card_failed"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.players.card_used", service=service), type="positive")
     await context["rebuild"]()
@@ -890,7 +890,7 @@ async def run_act(context: dict[str, Any], account: dict[str, Any], key: str) ->
     try:
         said = await offload.io(library.account_act, player["id"], account["extension"], key)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     if said.get("url"):
         ui.navigate.to(str(said["url"]), new_tab=True)
@@ -914,7 +914,7 @@ async def save_card(library: Library, player: dict[str, Any],
     try:
         drawn = await offload.io(library.player_card, player["id"], extension)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     ui.download.content(drawn, card_filename(account), "image/svg+xml")
     ui.notify(t("console.players.card_saved"), type="positive")
@@ -951,7 +951,7 @@ async def plays(context: dict[str, Any]) -> None:
     try:
         record = await offload.io(library.player_record, player["id"])
     except Exception as exc:  # noqa: BLE001
-        panel.facts(ui, [panel.intro(t("console.players.could_not_read_plays"),
+        panel.facts(ui, [panel.intro(t("console.players.plays_failed"),
                                      hint=why(exc))])
         return
     shown = [one for one in record if played_line(one)]

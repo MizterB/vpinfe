@@ -278,8 +278,8 @@ def _open(src: str, family: str, label: str, acts: Sequence[Act] = ()) -> None:
             turn_left = ui.button(icon=verbs.ROTATE_LEFT).props("flat dense round")
             turn_right = ui.button(icon=verbs.ROTATE_RIGHT).props("flat dense round")
             ui.button(icon="close", on_click=dialog.close).props("flat dense round")
-        turn_left.tooltip(t("console.mediaview.turn_quarter_left_view"))
-        turn_right.tooltip(t("console.mediaview.turn_quarter_right_view"))
+        turn_left.tooltip(t("console.mediaview.turn_left"))
+        turn_right.tooltip(t("console.mediaview.turn_right"))
 
         with ui.element("div").classes("console-viewer-stage"):
             # Sized by the script once it is on screen, which is also what has to

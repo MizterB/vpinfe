@@ -152,7 +152,7 @@ def touches(plan: dict[str, Any]) -> str:
     """What the chosen Existing Files will do: how many it fills, and what it replaces or
     asks about."""
     if not plan.get("recording"):
-        return t("console.record.nothing_to_record")
+        return t("console.record.empty")
     fills, asks = int(plan.get("fills") or 0), int(plan.get("asks") or 0)
     replacing = int(plan.get("replacing") or 0)
     yours = sum(int(count) for source, count in
@@ -421,7 +421,7 @@ async def _dialog(library: Any, named: list[Target], title: str,
         try:
             await offload.io(library.put_config, {recording.SECTION: dict(held.changed)})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-            ui.notify(t("console.settings.could_not_save"), caption=why(exc),
+            ui.notify(t("console.settings.save_failed"), caption=why(exc),
                       type="negative")
             return
         held.kept()
@@ -436,7 +436,7 @@ async def _dialog(library: Any, named: list[Target], title: str,
                 t("console.record.replace_ask", count=replacing),
                 detail=t("console.record.replace_detail"),
                 lines=by_source(plan) if many else going(plan),
-                confirm=t("console.record.record_and_replace"), icon=verbs.RECORD):
+                confirm=t("console.record.replace_confirm"), icon=verbs.RECORD):
             return
         box.submit(confirmed(request(), plan))
 
@@ -611,7 +611,7 @@ def run_outcome(result: dict[str, Any]) -> tuple[str, Level, str]:
     if not recorded:
         if failed:
             return t("console.record.could_not_record"), "negative", caption
-        return t("console.record.nothing_to_record"), "info", ""
+        return t("console.record.empty"), "info", ""
     said = t("console.record.run_recorded", count=recorded)
     if failed:
         said = t("console.record.recorded_failed", recorded=said, failed=failed)
@@ -761,7 +761,7 @@ async def review(library: Any, then: Callable[[], Any],
     try:
         listing = await offload.io(library.capture_proposals)
     except Exception as exc:  # noqa: BLE001 - they still wait on the device
-        ui.notify(t("console.record.could_not_read_waiting"), caption=why(exc),
+        ui.notify(t("console.record.waiting_failed"), caption=why(exc),
                   type="warning")
         return
     pages = grouped([row for row in listing.get("proposals") or []
@@ -868,7 +868,7 @@ def proposal(library: Any, row: dict[str, Any], decided: Callable[[bool], Any], 
             going = deleted(await offload.io(library.displaced_by, game_id, table_id, kind,
                                              str(row.get("file") or "")), replaces)
         except Exception as exc:  # noqa: BLE001 - nothing is placed unasked
-            ui.notify(t("console.mediasource.could_not_check_slot"), caption=why(exc),
+            ui.notify(t("console.mediasource.slot_failed"), caption=why(exc),
                       type="negative")
             return
         if going and not await confirm.replace(label, going):

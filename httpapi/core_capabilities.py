@@ -29,7 +29,7 @@ def _peripherals_available() -> bool | tuple[bool, str]:
         enabled = [name for name, check in (("DOF", dof_enabled), ("real-DMD", dmd_enabled))
                    if check(config)]
         if not enabled:
-            return False, t("error.capabilities.no_peripherals_on")
+            return False, t("error.capabilities.no_peripherals")
         return True
     except Exception:
         logger.exception("Could not tell whether DOF or a real DMD is on")
@@ -50,7 +50,7 @@ def _launch_available() -> bool | tuple[bool, str]:
             return False, t("error.capabilities.no_launcher")
         configured = str(found.value("bin_path") or "").strip()
         if not configured:
-            return False, t("said.no_program_set", launcher_name=found.display_name)
+            return False, t("said.no_program", launcher_name=found.display_name)
         if not Path(configured).exists():
             return False, t("said.program_not_there",
                              launcher_name=found.display_name, path=configured)

@@ -119,7 +119,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.action.reset_mock()
         entries[0][1]()
         offered = [call.args[1] for call in self.action.call_args_list
-                   if call.args[0] == t("console.settings.use_google_chrome")]
+                   if call.args[0] == t("console.settings.use_chrome")]
         return offered[0] if offered else None
 
     async def test_the_report_and_the_settings_are_one_list(self) -> None:
@@ -138,7 +138,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(entries[0][0], panel.FULL)
         self.assertEqual(self._value(entries, t("console.settings.browser_plays")),
                          "VP9, AV1, MP3, Vorbis, Opus")
-        self.assertEqual(self._value(entries, t("console.settings.browser_does_not_play")),
+        self.assertEqual(self._value(entries, t("console.settings.browser_unsupported")),
                          "H.264, HEVC, AAC")
 
     async def test_a_browser_that_plays_everything_says_so_and_nothing_more(self) -> None:
@@ -147,7 +147,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         entries = await self._drawn()
 
         self.assertIsNot(entries[0][0], panel.FULL)
-        self.assertNotIn(t("console.settings.browser_does_not_play"), self._labels(entries))
+        self.assertNotIn(t("console.settings.browser_unsupported"), self._labels(entries))
 
     async def test_from_is_left_out_where_browser_program_names_the_same_path(self) -> None:
         self._reported(PLAYS_ALL)
@@ -176,7 +176,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.ui.label.call_args.args[0],
                          t("console.settings.browser_not_checked"))
-        self.assertNotIn(t("console.settings.browser_does_not_play"), self._labels(entries))
+        self.assertNotIn(t("console.settings.browser_unsupported"), self._labels(entries))
         self.assertIsNot(entries[0][0], panel.FULL)
 
     async def test_a_report_on_another_browser_is_not_this_one_s(self) -> None:
@@ -198,7 +198,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
             entries = await self._drawn()
             entries[0][1]()
 
-        self.assertEqual(line.call_args.args[0], t("console.settings.could_not_read_browser"))
+        self.assertEqual(line.call_args.args[0], t("console.settings.browser_failed"))
         self.assertIn(t("config.chromium.path.label"), self._labels(entries))
 
     async def test_use_google_chrome_sets_browser_program_and_restarts_the_frontend(
@@ -229,7 +229,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         await press(reverse)
 
-        self.assertEqual(said, t("console.settings.using_google_chrome"))
+        self.assertEqual(said, t("console.settings.chrome_active"))
         self.assertEqual(self._program(), str(self.in_use))
         self.assertEqual(self.served.perform_action.call_count, 2)
         self.offer.assert_called_once()
@@ -251,7 +251,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         (await self._drawn())[0][1]()
 
         said = [call.args[0] for call in self.ui.label.call_args_list if call.args]
-        self.assertIn(t("console.recording.or_record_as_vp9"), said)
+        self.assertIn(t("console.recording.vp9_offer"), said)
         self.assertEqual(self.link.call_args.kwargs["to"],
                          settings.address_for("capture"))
 
@@ -262,7 +262,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         (await self._drawn())[0][1]()
 
         said = [call.args[0] for call in self.ui.label.call_args_list if call.args]
-        self.assertNotIn(t("console.recording.or_record_as_vp9"), said)
+        self.assertNotIn(t("console.recording.vp9_offer"), said)
 
 
 class TooOldToSayTests(unittest.TestCase):

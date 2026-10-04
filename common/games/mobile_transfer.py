@@ -82,7 +82,7 @@ def send(game_dir: Path, host: str, port: int, *,
     """
     contents = list(bundle_paths(game_dir, everything=everything))
     if not contents:
-        raise ValueError(t("error.devices.nothing_to_send", game=game_dir.name))
+        raise ValueError(t("error.devices.nothing_sendable", game=game_dir.name))
 
     name = game_dir.name
     _ask(host, port, "POST", f"/folder?q={quote(name, safe='')}", timeout=ASK_SECONDS)
@@ -184,7 +184,7 @@ def _ask(host: str, port: int, method: str, path: str, *, body: bytes = b"",
             if answer.status >= 400:
                 logger.warning("%s refused %s %s: %s", host, method, where.path,
                                answer.status)
-                raise DeviceUnreachableError(t("device.reason.answered_but_refused"))
+                raise DeviceUnreachableError(t("device.reason.rejected"))
             return said
         except DeviceUnreachableError:
             raise

@@ -812,7 +812,7 @@ def set_asset_source(game: Game, path: str, vps_file_id: str) -> dict[str, Any]:
     config = load_game_meta(game)
     key = str(path or "").strip().replace("\\", "/").strip("/")
     if not key:
-        raise ValueError(t("error.games.say_where_file"))
+        raise ValueError(t("error.games.location_needed"))
     entries = config.setdefault(ASSETS_KEY, {})
     entry = entries.setdefault(key, {})
 

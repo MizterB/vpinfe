@@ -50,13 +50,13 @@ class DeleteConfirmTests(unittest.IsolatedAsyncioTestCase):
         detail = await self._detail(
             _table(FOLDER_NAMED, "Multi VPX (Original 2024).vbs", "shared"))
 
-        self.assertEqual(t("console.game_tables.every_table_loses_script"), detail)
+        self.assertEqual(t("console.game_tables.script_detail"), detail)
 
     async def test_a_tables_own_vbs_says_the_table_goes_back(self) -> None:
         detail = await self._detail(
             _table(ALT, "Multi VPX (Original 2024) - alt.vbs", "dedicated"))
 
-        self.assertEqual(t("console.workbench.table_goes_back_script"), detail)
+        self.assertEqual(t("console.workbench.delete_detail"), detail)
 
 
 if __name__ == "__main__":

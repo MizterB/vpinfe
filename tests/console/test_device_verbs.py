@@ -263,7 +263,7 @@ class PlayingRowTests(unittest.IsolatedAsyncioTestCase):
                           new=AsyncMock(side_effect=lambda call, *a: call(*a))):
             await press(pressed["on_click"])
 
-        self.assertEqual(pressed["label"], t("console.devices.close_the_table"))
+        self.assertEqual(pressed["label"], t("console.devices.close_action"))
         self.assertTrue(pressed["hint"])
         client.perform_action.assert_called_once_with("table", "stop")
         context["rebuild"].assert_awaited_once()

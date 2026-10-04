@@ -152,7 +152,7 @@ class Page:
         try:
             await run.io_bound(self.library.write_launcher_config, self.launcher_id, keys)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return False
         self.flat.update(keys)
         return True
@@ -231,7 +231,7 @@ class Page:
             await run.io_bound(device_client.local().show_numbers, self.here,
                                playfield if self.arrows and isinstance(playfield, int) else None)
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("console.screens.could_not_show"), caption=why(exc), type="negative")
+            ui.notify(t("console.screens.show_failed"), caption=why(exc), type="negative")
 
     def picture_rows(self) -> Entries:
         def draw() -> None:
@@ -293,7 +293,7 @@ class Page:
         try:
             await run.io_bound(self.library.put_config, {"console": {"units": chosen}})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("console.settings.could_not_save"), caption=why(exc), type="negative")
+            ui.notify(t("console.settings.save_failed"), caption=why(exc), type="negative")
         else:
             self.units = chosen
         self.refill()
@@ -308,7 +308,7 @@ async def entries(context: dict[str, Any], group: Any, shown: Sequence[tuple[Any
     try:
         vpinfe, schema, monitors, names = await _beside(library)
     except Exception as exc:  # noqa: BLE001 - a page says why, never 500s
-        return [panel.intro(t("said.could_not_read_the_settings"), hint=why(exc))]
+        return [panel.intro(t("said.settings_unreadable"), hint=why(exc))]
     by_key = {one.key: one for one in group.settings}
     flat = {key: str((held or {}).get("value") or "") for key, held in values.items()}
 
@@ -366,7 +366,7 @@ async def _each_launcher(library: Any, act: Callable[[str], Awaitable[None]]) ->
         except Exception as exc:  # noqa: BLE001 - say which, and carry on with the rest
             logger.warning("Could not move %s to follow VPinFE", one.get("launcher_id"),
                            exc_info=True)
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
 
 
 async def follow(library: Any, before: displays.Standing, after: displays.Standing,

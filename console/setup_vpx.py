@@ -60,7 +60,7 @@ _SOURCES = {
     vpx_find.POPPER: ("console.setup.vpx.from_popper", "dvr"),
     vpx_find.USUAL: ("console.setup.vpx.usual_place", "apps"),
     vpx_find.APPLICATIONS: ("console.setup.vpx.in_applications", "apps"),
-    vpx_find.PATH: ("console.setup.vpx.on_the_path", "terminal"),
+    vpx_find.PATH: ("console.setup.vpx.path", "terminal"),
 }
 
 # The glass's own state in the walk's values, and where each of its values came from.
@@ -300,7 +300,7 @@ def _differs(left: tuple[float, float], right: tuple[float, float]) -> bool:
 
 
 def _unreadable(title_key: str) -> dict[str, Any]:
-    return {"title": t(title_key), "notes": [t("said.could_not_read_the_settings")]}
+    return {"title": t(title_key), "notes": [t("said.settings_unreadable")]}
 
 
 async def ask_glass(vpx: Vpx, config: Any) -> dict[str, Any]:
@@ -390,7 +390,7 @@ async def ask_glass(vpx: Vpx, config: Any) -> dict[str, Any]:
                 await offload.io(ApiClient().put_config, {"console": {"units": chosen}})
             except Exception:
                 logger.warning("Could not save the units", exc_info=True)
-                ui.notify(t("console.settings.could_not_save"), type="negative")
+                ui.notify(t("console.settings.save_failed"), type="negative")
                 return
             now["units"] = chosen
             drawn["fill"]()
@@ -469,7 +469,7 @@ async def answer_glass(vpx: Vpx, values: dict[str, Any]) -> None:
         await _write_ini(vpx.launcher.launcher_id, keys)
     except Exception as exc:
         logger.warning("Could not write the playfield glass", exc_info=True)
-        ui.notify(t("console.settings.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.settings.save_failed"), caption=why(exc), type="negative")
 
 
 # ---- the buttons ----------------------------------------------------------------------
@@ -518,7 +518,7 @@ async def ask_keys(vpx: Vpx) -> dict[str, Any]:
             page = vpx_input.Page(context["library"], context, group, flat)
             with holder:
                 Table(vpx_input.table_rows(group, flat), page.bound(), write=page.put,
-                      source=t("console.vpx_input.visual_pinball_defaults"), shares=True,
+                      source=t("console.vpx_input.defaults"), shares=True,
                       refuses=page.refuse)
 
         async def rebuild() -> None:

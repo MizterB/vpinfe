@@ -70,7 +70,7 @@ KEPT_NOTE = t("console.settings.kinds_note")
 
 # Every source that ships is listed, switched off included: "why is that catalog not
 # coming up" is answered by seeing it sitting there off.
-SOURCES_NOTE = (t("console.settings.online_catalogs_searched_artwork"))
+SOURCES_NOTE = (t("console.settings.sources_note"))
 
 # The library's answer, not this install's, so two machines reading one library report
 # the same gaps. Turning one off stops it being counted, never fixes what it found.
@@ -89,7 +89,7 @@ async def _write_many(library: Library, changes: dict[str, dict[str, Any]]) -> b
     try:
         await run.io_bound(library.put_config, changes)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-        ui.notify(t("console.settings.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.settings.save_failed"), caption=why(exc), type="negative")
         return False
     return True
 
@@ -108,7 +108,7 @@ def _frontend_theme(option: dict, value: Any, save: Callable[[Any], Any],
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             ui.label(str(value or "")).classes("console-fact-value truncate min-w-0")
-            panel.link(t("console.settings.change_on_themes"),
+            panel.link(t("console.settings.themes_link"),
                        to="/console?view=themes")()
 
     return draw
@@ -381,7 +381,7 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
         policy = await offload.io(library.library_policy)
         known = await offload.io(items, library)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
-        said = [panel.intro(t("said.could_not_read_the_settings"), hint=why(exc))]
+        said = [panel.intro(t("said.settings_unreadable"), hint=why(exc))]
         if body is None:
             return said
         with body:
@@ -397,7 +397,7 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
         try:
             await run.io_bound(library.put_library_policy, {key: store})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("console.settings.could_not_save"), caption=why(exc), type="negative")
+            ui.notify(t("console.settings.save_failed"), caption=why(exc), type="negative")
             return
         rerender()
 
@@ -440,7 +440,7 @@ async def _vps_foot(library: Library, rerender: Callable[[], None],
     try:
         state = await offload.io(library.vps_sync_state)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
-        return [panel.intro(t("console.settings.could_not_read_sync"), hint=why(exc))]
+        return [panel.intro(t("console.settings.sync_failed"), hint=why(exc))]
 
     @on_page
     async def now() -> None:
@@ -449,7 +449,7 @@ async def _vps_foot(library: Library, rerender: Callable[[], None],
         try:
             done = await offload.io(library.sync_vps)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.settings.could_not_check"), caption=why(exc), type="negative")
+            ui.notify(t("console.settings.check_failed"), caption=why(exc), type="negative")
             return
         finally:
             checking.dismiss()
@@ -484,7 +484,7 @@ async def _themes_foot(library: Library, rerender: Callable[[], None],
     try:
         held = await offload.io(library.themes)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
-        return [panel.intro(t("console.settings.could_not_read_themes"), hint=why(exc))]
+        return [panel.intro(t("console.settings.themes_failed"), hint=why(exc))]
 
     @on_page
     async def now() -> None:
@@ -493,7 +493,7 @@ async def _themes_foot(library: Library, rerender: Callable[[], None],
         try:
             await offload.io(library.themes, True)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.settings.could_not_check"), caption=why(exc), type="negative")
+            ui.notify(t("console.settings.check_failed"), caption=why(exc), type="negative")
             return
         finally:
             checking.dismiss()
@@ -539,7 +539,7 @@ def _browser_rows(found: dict[str, Any], chosen: str) -> list[tuple[Any, Any]]:
             or t("word.none")),
     ]
     if found.get("does_not_play"):
-        rows.append((t("console.settings.browser_does_not_play"),
+        rows.append((t("console.settings.browser_unsupported"),
                      ", ".join(found["does_not_play"])))
     rows.append((t("console.settings.browser_checked"), checked))
     return rows
@@ -560,7 +560,7 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
             if await offload.io(library.frontend_running):
                 await offload.io(library.perform_action, "frontend", "restart")
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-            ui.notify(t("console.settings.could_not_use_browser"), caption=why(exc),
+            ui.notify(t("console.settings.switch_failed"), caption=why(exc),
                       type="negative")
             return
         if said:
@@ -575,15 +575,15 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
                 ui.label(str(found["fix_text"])).classes("console-member-table")
             if found.get("state") == frontend_browser.NO_H264:
                 with ui.row().classes("items-center gap-1 no-wrap min-w-0"):
-                    ui.label(t("console.recording.or_record_as_vp9")) \
+                    ui.label(t("console.recording.vp9_offer")) \
                         .classes("console-member-table")
                     panel.link(t("console.settings.page_recording"),
                                to=address_for(recording.SECTION))()
         if fix.get("action") == "use_chrome" and chrome:
-            panel.action(t("console.settings.use_google_chrome"),
-                         lambda: use(chrome, t("console.settings.using_google_chrome")),
+            panel.action(t("console.settings.use_chrome"),
+                         lambda: use(chrome, t("console.settings.chrome_active")),
                          icon=verbs.CHOOSE,
-                         hint=t("console.settings.use_google_chrome.help"))()
+                         hint=t("console.settings.use_chrome.help"))()
 
 
 async def _browser_head(library: Library, rerender: Callable[[], None],
@@ -592,7 +592,7 @@ async def _browser_head(library: Library, rerender: Callable[[], None],
     try:
         found = await offload.io(library.frontend_browser)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
-        return [panel.intro(t("console.settings.could_not_read_browser"), hint=why(exc))]
+        return [panel.intro(t("console.settings.browser_failed"), hint=why(exc))]
     if not found:
         return []
     rows = _browser_rows(found, str((values.get("chromium") or {}).get("path") or ""))
@@ -620,14 +620,14 @@ def _get_tool(library: Library, rerender: Callable[[], None], row: dict[str, Any
         try:
             job = await offload.io(library.get_tool, str(row.get("id")))
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-            ui.notify(t("console.settings.could_not_get_ffmpeg"), caption=why(exc),
+            ui.notify(t("console.settings.ffmpeg_failed"), caption=why(exc),
                       type="negative")
             return
         from console import record
 
         ended = await record.ended_job(library, str(job.get("id") or ""))
         if not ended or ended.get("error"):
-            ui.notify(t("console.settings.could_not_get_ffmpeg"),
+            ui.notify(t("console.settings.ffmpeg_failed"),
                       caption=str(ended.get("error") or ""), type="negative")
         else:
             ui.notify(t("console.settings.got_ffmpeg", version=str(ended.get("version"))),
@@ -669,8 +669,8 @@ RESOLVES: dict[str, Callable[[dict[str, Any]], dict[str, str]]] = {
 # page -> the line under its heading. Optional: a page whose name says the whole thing
 # takes none.
 PAGE_NOTES: dict[str, str] = {
-    "vpinfe.commands": "console.settings.run_whoever_vpinfe_running",
-    "frontend.table_commands": "console.settings.run_whoever_vpinfe_running",
+    "vpinfe.commands": "console.settings.commands_warning",
+    "frontend.table_commands": "console.settings.commands_warning",
     "vpinfe.console": "console.settings.note_console",
     "vpinfe.logger": "console.settings.note_logger",
     "frontend.themes": "console.settings.note_themes",
@@ -857,10 +857,10 @@ def pages_for_features(features: Any) -> list[tuple[str, DevicePage]]:
 # What switching one on gets you. The name says which feature; this says what the install
 # then does, which is the half a person switching it on is actually choosing between.
 FEATURE_NOTES = {
-    install_identity.LIBRARY: "console.settings.feature.curate_game_library",
+    install_identity.LIBRARY: "console.settings.feature.library",
     install_identity.FRONTEND: "console.settings.feature.launch_games",
-    install_identity.DEVICES: "console.settings.feature.manage_other_devices",
-    install_identity.OVERVIEW: "console.settings.feature.add_front_page_summarising"
+    install_identity.DEVICES: "console.settings.feature.devices",
+    install_identity.OVERVIEW: "console.settings.feature.overview"
 }
 
 
@@ -1120,14 +1120,14 @@ def build_library_page(library: Library, rerender: Callable[[], None], key: str,
     if kind == BUILT_PAGE:
         drawn = PAGES.get(key)
         if drawn is None:
-            panel.facts(ui, [panel.intro(t("console.settings.not_built_yet"))])
+            panel.facts(ui, [panel.intro(t("console.settings.unbuilt"))])
             return
         drawn()
         return
 
     found = KIND_PAGES.get(key)
     if found is None:
-        panel.facts(ui, [panel.intro(t("console.settings.not_built_yet"))])
+        panel.facts(ui, [panel.intro(t("console.settings.unbuilt"))])
         return
     note, _section, name, items = found
     _kind_page(library, rerender, note, "", name, items)
@@ -1233,7 +1233,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  for one in options}
     entries: list[tuple[Any, Any]] = []
     if not writable:
-        entries.append(panel.intro(t("console.settings.read_only_device")))
+        entries.append(panel.intro(t("console.settings.not_writable")))
 
     names_groups = any(option.get("group") for option in options)
     heading = ""
@@ -1303,7 +1303,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
     if drawn_elsewhere:
         drawn = displays.without_drawn(drawn)
     if not drawn and not blocks:
-        panel.facts(ui, [panel.intro(t("console.settings.device_declares_nothing_page"))])
+        panel.facts(ui, [panel.intro(t("console.settings.page_empty"))])
         return
 
     entries: list[tuple[Any, Any]] = []
@@ -1425,7 +1425,7 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         offered = await _suggestions(library, schema, sections)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
         with body:
-            panel.facts(ui, [panel.intro(t("said.could_not_read_the_settings"),
+            panel.facts(ui, [panel.intro(t("said.settings_unreadable"),
                                          hint=why(exc))])
         return
     marks = field_marks(trouble, checks)
@@ -1549,7 +1549,7 @@ async def _identity_page(library: Library, reported: str,
     try:
         values = await offload.io(library.config_values)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
-        panel.facts(ui, [panel.intro(t("said.could_not_read_the_settings"), hint=why(exc))])
+        panel.facts(ui, [panel.intro(t("said.settings_unreadable"), hint=why(exc))])
         return
     held = dict(values.get("install") or {})
     on = _listed(held.get("features"))
@@ -1588,7 +1588,7 @@ async def _identity_page(library: Library, reported: str,
         (t("word.name"), panel.field(str(held.get("display_name") or ""),
                                                  rename,
                              placeholder=reported)),
-        panel.note(t("console.settings.what_device_called_where")),
+        panel.note(t("console.settings.name_note")),
     ]
     if language is not None:
         entries.append((language.label or humanize(language.key),
@@ -1601,7 +1601,7 @@ async def _identity_page(library: Library, reported: str,
             entries.append(panel.note(said))
     entries += [
         (panel.HEADING, t("console.settings.features")),
-        panel.intro(t("console.settings.what_device_each_one")),
+        panel.intro(t("console.settings.features_note")),
     ]
     for name in install_identity.FEATURES:
         entries.append((t(install_identity.LABELS[name]),

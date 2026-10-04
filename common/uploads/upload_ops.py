@@ -127,7 +127,7 @@ def _media_replaces(base: Path, item: PlannedItem) -> str:
     shown = media_service.resolved_media(base).get(kind)
     if shown is None or shown.path is None:
         return t("asset.plan.slot_empty")
-    return t("asset.plan.in_front_of", name=shown.path.name)
+    return t("asset.plan.precedes", name=shown.path.name)
 
 
 def _made_from_replaced(plan: ImportPlan, item: PlannedItem) -> list[str]:
@@ -258,7 +258,7 @@ def _single_file(upload_id: str) -> Path:
         else:
             files = [one for one in session.iterdir() if one.is_file()]
     if len(files) != 1:
-        raise service_errors.RefusedError(t("error.uploads.drop_single_file_slot"))
+        raise service_errors.RefusedError(t("error.uploads.slot_file"))
     return files[0]
 
 
@@ -276,7 +276,7 @@ def _slot_plan(upload_id: str, game_dir: str, media_kind: str) -> ImportPlan:
     """
     if not game_dir:
         raise service_errors.RefusedError(
-            t("error.uploads.slot_import_needs_game"))
+            t("error.uploads.slot_game"))
     try:
         return build_media_slot_plan(_single_file(upload_id), game_dir=Path(game_dir),
                                      media_kind=media_kind)
@@ -293,7 +293,7 @@ def _named_plan(upload_id: str, request: dict[str, Any]) -> ImportPlan | None:
     if request.get("asset_kind") != "readme":
         return None
     if not game_dir:
-        raise service_errors.RefusedError(t("error.uploads.slot_import_needs_game"))
+        raise service_errors.RefusedError(t("error.uploads.slot_game"))
     return build_readme_plan(_single_file(upload_id), game_dir=Path(game_dir))
 
 
@@ -395,7 +395,7 @@ def execute(upload_id: str, request: dict[str, Any],
     vps_entry = _vps_entry(request.get("vps_id") or "")
     plan = _built_plan(analysis, request)
     if vps_entry is not None and not plan.new_game_dir_name:
-        raise service_errors.RefusedError(t("error.uploads.vps_id_applies_new"))
+        raise service_errors.RefusedError(t("error.uploads.vps_new_only"))
 
     plan = _as_asked(plan, request, vps_entry, request.get("selected"))
     report = _run(plan, source_path, identities, upload_id)
@@ -451,4 +451,4 @@ def _associate(report: dict, vps_entry: dict) -> None:
         logging.getLogger("vpinfe.common.uploads.upload_ops").exception(
             "VPS association failed after import")
         report["vps_associated"] = False
-        report["vps_error"] = t("error.uploads.log_says_why")
+        report["vps_error"] = t("error.uploads.see_log")

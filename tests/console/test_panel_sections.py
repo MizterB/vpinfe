@@ -124,7 +124,7 @@ class DefaultRadioTests(unittest.TestCase):
 
         self.assertIn("opacity-30", radio.classes)
         self.assertNotIn("cursor-pointer", radio.classes)
-        self.assertEqual(tip, t("console.game_tables.hidden_cannot_default"))
+        self.assertEqual(tip, t("console.game_tables.hidden_blocked"))
 
     def test_an_offered_row_s_radio_makes_it_the_default(self) -> None:
         radio, tip = _radio(_table("beta"))

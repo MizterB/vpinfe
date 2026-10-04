@@ -140,11 +140,11 @@ class DefaultOfferTests(unittest.TestCase):
 
     def test_a_hidden_table_cannot_and_says_why(self) -> None:
         self.assertEqual(game_tables.why_not_default(HIDDEN),
-                         t("console.game_tables.hidden_cannot_default"))
+                         t("console.game_tables.hidden_blocked"))
 
     def test_a_table_not_on_disk_cannot_and_says_why(self) -> None:
         self.assertEqual(game_tables.why_not_default(GONE),
-                         t("console.workbench.not_disk_cannot_default"))
+                         t("console.workbench.default_absent"))
 
 
 class HiddenHintTests(unittest.TestCase):
@@ -173,13 +173,13 @@ class HiddenSaidTests(unittest.TestCase):
     def test_hiding_the_default_names_the_table_that_now_plays(self) -> None:
         said = game_tables.hidden_said(GAME, AUTOMATIC, {"default": OTHER}, hidden=True)
 
-        self.assertEqual(said, t("console.game_tables.hidden_now_plays", game=GAME,
+        self.assertEqual(said, t("console.game_tables.result_hidden", game=GAME,
                                  table=game_tables.table_name(OTHER)))
 
     def test_hiding_a_locked_default_says_it_was_unlocked(self) -> None:
         said = game_tables.hidden_said(GAME, LOCKED, {"default": OTHER}, hidden=True)
 
-        self.assertEqual(said, t("console.game_tables.hidden_unlocked_now_plays",
+        self.assertEqual(said, t("console.game_tables.result_both",
                                  game=GAME, table=game_tables.table_name(OTHER)))
 
     def test_hiding_the_last_table_says_the_frontend_leaves_the_game_out(self) -> None:
@@ -192,7 +192,7 @@ class HiddenSaidTests(unittest.TestCase):
 
         said = game_tables.hidden_said(GAME, HIDDEN, {"default": now}, hidden=False)
 
-        self.assertEqual(said, t("console.game_tables.offered_now_plays", game=GAME,
+        self.assertEqual(said, t("console.game_tables.result_offered", game=GAME,
                                  table=game_tables.table_name(now)))
 
     def test_offering_one_that_leaves_the_default_says_only_that(self) -> None:

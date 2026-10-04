@@ -102,7 +102,7 @@ def took(seconds: float) -> str:
         return t("date.took_hours", hours=hours, minutes=minutes)
     if minutes:
         return t("date.took_minutes", minutes=minutes, seconds=secs)
-    return t("date.took_seconds", seconds=secs) if whole else t("date.took_under_a_second")
+    return t("date.took_seconds", seconds=secs) if whole else t("date.took_instant")
 
 
 def ago(stamp: Any, now: datetime | None = None, *, timed: bool = False,

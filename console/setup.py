@@ -115,7 +115,7 @@ async def _ask_how(session: Session) -> dict[str, Any]:
         }],
     }
     if session.window and (address := await offload.io(_address)):
-        step["notes"] = [t("console.setup.from_another_computer", address=address)]
+        step["notes"] = [t("console.setup.address_note", address=address)]
     return step
 
 

@@ -283,16 +283,16 @@ def listener(on_arrival: Callable[[Drop], Any]) -> Callable[[Any], None]:
         elif status == "error":
             _clear(state)
             if payload.get("empty"):
-                ui.notify(t("console.uploads.nothing_to_upload"), type="warning")
+                ui.notify(t("console.uploads.empty"), type="warning")
             else:
-                ui.notify(t("console.uploads.could_not_read"), caption=_stopped(payload),
+                ui.notify(t("console.uploads.read_failed"), caption=_stopped(payload),
                           type="negative")
         elif status == "done":
             _clear(state)
             if state["busy"]:
                 # One at a time. A second import landing while the first is still being
                 # decided would have two dialogs answering for two different sessions.
-                ui.notify(t("console.uploads.finish_one_already_open"), type="warning")
+                ui.notify(t("console.uploads.busy"), type="warning")
                 return
             asyncio.create_task(_handle(state, payload, on_arrival))
 
@@ -358,7 +358,7 @@ async def analyzed(library: Any, upload_id: str) -> dict[str, Any] | None:
     except Exception as exc:  # noqa: BLE001
         analysis = {"error": why(exc)}
     if analysis.get("error"):
-        ui.notify(t("console.uploads.could_not_read"), caption=str(analysis["error"]),
+        ui.notify(t("console.uploads.read_failed"), caption=str(analysis["error"]),
                   type="negative")
         await run.io_bound(library.abort_upload, upload_id)
         return None
@@ -384,7 +384,7 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
                                 media_kind=media_kind, location_id=location_id,
                                 asset_kind=asset_kind, add_table=add_table)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.uploads.could_not_work_where"), caption=why(exc),
+        ui.notify(t("console.uploads.no_destination"), caption=why(exc),
                   type="negative")
         await run.io_bound(library.abort_upload, upload_id)
         return

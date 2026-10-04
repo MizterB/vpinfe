@@ -53,13 +53,13 @@ class Findings(unittest.IsolatedAsyncioTestCase):
         found = await self._found(_table("a", dependencies={
             "pinmame": {"effective": "hustler", "installed": False}}))
 
-        self.assertEqual(found, [(t("console.workbench.rom_not_installed", rom="hustler"),
+        self.assertEqual(found, [(t("console.workbench.rom_missing", rom="hustler"),
                                   ("act", t("word.add")), "")])
 
     async def test_a_file_that_is_gone_is_forgotten_from_its_alert(self) -> None:
         found = await self._found(_table("a", available=False))
 
-        self.assertEqual(found, [(t("console.workbench.file_not_disk"),
+        self.assertEqual(found, [(t("console.workbench.file_absent"),
                                   ("act", t("word.forget")), "")])
 
     async def test_an_update_gives_both_versions_and_links_to_the_release(self) -> None:
@@ -93,14 +93,14 @@ class Findings(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual([alert for _, alert in entries], [(
                     t("console.workbench.newer_on_vps", theirs="3.0", ours="1.0"),
-                    (t("console.workbench.could_not_read_vps"), "unknown",
+                    (t("console.workbench.vps_failed"), "unknown",
                      t("said.why.timed_out")), "")])
 
     async def test_a_fault_nothing_here_fixes_carries_no_act(self) -> None:
         found = await self._found(_table("a", source={
             "base": {"file": "base.vpx", "available": False}}))
 
-        self.assertEqual(found, [(t("console.workbench.made_from_gone"), None, "")])
+        self.assertEqual(found, [(t("console.workbench.source_gone"), None, "")])
 
     async def test_a_script_naming_flexdmd_is_not_a_finding(self) -> None:
         """No content folder says nothing: the script names its own."""

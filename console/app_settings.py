@@ -70,7 +70,7 @@ async def section(context: dict[str, Any]) -> None:
                if table is not None else [])
     with ui.column().classes("gap-0 console-form"):
         if table is None:
-            ui.label(t("console.workbench.no_table_selected")).classes("console-help")
+            ui.label(t("console.workbench.none_selected")).classes("console-help")
             return
         panel.facts(ui, entries)
     ui.run_javascript(workbench._KEEP_SCROLL
@@ -91,7 +91,7 @@ async def _program_entries(context: dict[str, Any],
         return []
     library = context["library"]
     entries: list[tuple[Any, Any]] = [(panel.HEADING, t(
-        "console.app_settings.for_this_table", app=launcher.get("app_name") or ""))]
+        "console.app_settings.table_title", app=launcher.get("app_name") or ""))]
     if note := workbench._program_note(launcher):
         return [*entries, panel.intro(note)]
     table_id = str(table.get("id") or "")
@@ -99,7 +99,7 @@ async def _program_entries(context: dict[str, Any],
         found = await offload.io(library.launcher_config, launcher["launcher_id"],
                                  table_id, SCOPE_ENTRY)
     except Exception as exc:  # noqa: BLE001 - this says why, never 500s
-        return [*entries, panel.intro(t("said.could_not_read_the_settings"), hint=why(exc))]
+        return [*entries, panel.intro(t("said.settings_unreadable"), hint=why(exc))]
 
     groups = config_groups(found)
     values = dict(found.get("values") or {})
@@ -123,7 +123,7 @@ async def _program_entries(context: dict[str, Any],
     view = point_of_view(groups, values, added)
     options = table_options(groups, values)
     if not blocks and view is None and options is None:
-        entries.append(panel.intro(t("console.app_settings.same_as_all_tables")))
+        entries.append(panel.intro(t("console.app_settings.no_override")))
     if view is not None:
         blocks.append((view.label, view.rows))
     entries += await workbench._setting_entries(
@@ -137,9 +137,9 @@ async def _program_entries(context: dict[str, Any],
     if offered := addable(groups, values, added):
         entries.append((panel.FULL, partial(_add_picker, context, added, offered)))
     entries.append((panel.FULL, panel.action(
-        t("console.app_settings.show_every_setting"),
+        t("console.app_settings.show_all"),
         partial(_every_setting, context, table, inner), icon=verbs.DRILL,
-        hint=t("console.app_settings.show_every_setting.help"))))
+        hint=t("console.app_settings.show_all.help"))))
     return entries
 
 
@@ -251,13 +251,13 @@ def _add_picker(context: dict[str, Any], added: list[str],
     lead = offered[0][0]
     rest = next((field.key for field, _area in offered if not field.per_table), None)
     if lead.per_table:
-        headings[lead.key] = t("console.app_settings.commonly_set_per_table")
+        headings[lead.key] = t("console.app_settings.common_heading")
         if rest is not None:
             headings[rest] = t("console.app_settings.everything_else")
     labels = {field.key: str(field.label) for field, _area in offered}
     picker = panel.SettingPicker(
         labels, areas={field.key: area for field, area in offered}, headings=headings,
-        label=t("console.app_settings.add_a_setting")) \
+        label=t("console.app_settings.add")) \
         .props('dense outlined options-dense input-debounce=0 hide-selected fill-input '
                'popup-content-class="console-picker-popup"') \
         .classes("w-full mt-2")
@@ -333,8 +333,8 @@ def _camera_entries(view: SimpleNamespace, remove: Callable[[list[str]], Any],
 
 
 def camera_said(view: SimpleNamespace) -> str:
-    said = t("console.workbench.saved_for_this_table" if view.own
-             else "console.app_settings.saved_for_this_game" if view.reaching
+    said = t("console.workbench.saved_table" if view.own
+             else "console.app_settings.saved_game" if view.reaching
              else "console.app_settings.the_tables_own")
     if view.views and view.reaching:
         return t("console.app_settings.saved_in_views", saved=said,
@@ -402,7 +402,7 @@ async def _remove(inner: dict[str, Any], keys: list[str]) -> None:
                          inner["launcher"]["launcher_id"], dict.fromkeys(keys, ""),
                          table=inner["config_table"], scope=SCOPE_ENTRY)
     except Exception as exc:  # noqa: BLE001 - said, never raised into the page
-        ui.notify(t("said.could_not_clear_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.clear_failed"), caption=why(exc), type="negative")
         return
     await inner["rebuild"]()
 
@@ -458,7 +458,7 @@ async def _copy_from_game(inner: dict[str, Any], reach: dict[str, str]) -> None:
                          inner["launcher"]["launcher_id"], reach,
                          table=inner["config_table"], scope=SCOPE_ENTRY)
     except Exception as exc:  # noqa: BLE001 - said, never raised into the page
-        ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.app_settings.copied_from_game", count=len(reach)), type="positive")
     await inner["rebuild"]()
@@ -555,12 +555,12 @@ class ForAll:
             return None
         playing = bool(self.inner.get("playing"))
         return panel.action(
-            t("console.app_settings.set_for_all", count=len(self.others) + 1),
+            t("console.app_settings.apply_all", count=len(self.others) + 1),
             partial(_set_for_all, self.inner, self.others, own, self.shares_here,
                     self.tables, self.rebuild),
             icon=verbs.SHARE, inline=True, enabled=not playing,
             hint=t(workbench.PLAYING_NOTE) if playing
-            else t("console.app_settings.set_for_all.help"))
+            else t("console.app_settings.apply_all.help"))
 
 
 def write_for_all(library: Any, others: list[dict[str, Any]], field: Any, value: str,
@@ -637,9 +637,9 @@ async def _set_for_all(inner: dict[str, Any], others: list[dict[str, Any]],
             table for field, value in own
             for table in write_for_all(inner["library"], others, field, value, shares_here)])
     except Exception as exc:  # noqa: BLE001 - said, never raised into the page
-        ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
     else:
-        ui.notify(t("console.app_settings.set_for_all_done", count=len(others) + 1),
+        ui.notify(t("console.app_settings.apply_done", count=len(others) + 1),
                   type="positive")
         if cut:
             workbench.no_longer_reads_game(cut, tables)

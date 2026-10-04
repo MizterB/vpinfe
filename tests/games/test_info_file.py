@@ -216,7 +216,7 @@ class TestMetaConfig(unittest.TestCase):
     def test_a_file_that_is_not_json_names_the_line_it_goes_wrong_at(self) -> None:
         refused = self._refused(b'{"Info": {"Title": "Broken",\n  "Year": }}')
 
-        self.assertEqual(why(refused), t("error.games.info_wrong_at_line", line=2))
+        self.assertEqual(why(refused), t("error.games.info_bad_line", line=2))
 
     def test_a_file_not_saved_as_utf8_says_so(self) -> None:
         refused = self._refused('{"Info": {"Title": "Café"}}'.encode("cp1252"))
@@ -463,12 +463,12 @@ class DefaultTableRefusalTests(unittest.TestCase):
     def test_a_table_the_game_lacks_is_refused_in_words(self) -> None:
         with self.assertRaises(ValueError) as said:
             self.meta.set_default_table("nope")
-        self.assertEqual(str(said.exception), t("error.games.game_no_such_table"))
+        self.assertEqual(str(said.exception), t("error.games.table_not_found"))
 
     def test_a_hidden_table_is_refused_in_words(self) -> None:
         with self.assertRaises(ValueError) as said:
             self.meta.set_default_table("kept")
-        self.assertEqual(str(said.exception), t("error.games.hidden_table_not_default"))
+        self.assertEqual(str(said.exception), t("error.games.hidden_default"))
 
 
 if __name__ == "__main__":

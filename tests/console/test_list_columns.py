@@ -43,7 +43,7 @@ class AListColumn(unittest.TestCase):
         self.assertEqual(renderers.TAG_LOOKS, params["looks"])
         self.assertEqual({"none": t("word.none"), "any": t("console.grid.any_of"),
                           "all": t("console.grid.all_of"),
-                          "search": t("console.grid.filter_this_list")}, params["words"])
+                          "search": t("console.grid.filter_hint")}, params["words"])
 
     def test_a_looks_source_it_names_is_one_the_page_installs(self) -> None:
         self.assertIn(self.column["filterParams"]["looks"], renderers.LOOKS)
@@ -52,7 +52,7 @@ class AListColumn(unittest.TestCase):
         column = grid.choice_filter([{"value": "a", "label": "A"}])
         self.assertEqual(grid.CHOICE_FILTER, column[":filter"])
         self.assertEqual([{"value": "a", "label": "A"}], column["filterParams"]["choices"])
-        self.assertEqual({"search": t("console.grid.filter_this_list")},
+        self.assertEqual({"search": t("console.grid.filter_hint")},
                          column["filterParams"]["words"])
 
 

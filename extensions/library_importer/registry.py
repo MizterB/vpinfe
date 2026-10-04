@@ -152,7 +152,7 @@ def read(path: Path | str) -> tuple[list[Key], Note]:
     if not text:
         return [], said
     if HEADER not in text.splitlines()[0]:
-        return [], t("note.not_a_registry_export", file=Path(path).name)
+        return [], t("note.not_registry", file=Path(path).name)
     return parse(text), said
 
 

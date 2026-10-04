@@ -97,7 +97,7 @@ class AddTablePlanTests(unittest.TestCase):
         plan = self._plan(["Foo.vpx"])
 
         self.assertEqual(blocked_reasons(plan),
-                         {"table": t("error.games.game_already_file_name")})
+                         {"table": t("error.games.file_exists")})
 
     def test_what_comes_with_it_is_named_for_it(self):
         plan = self._plan(["Foo 1.2.vpx", "Foo 1.2.directb2s", "settings.ini",

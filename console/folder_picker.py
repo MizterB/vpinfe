@@ -22,9 +22,9 @@ from console import dialog as frame
 from console import offload, panel, verbs
 from console.on_page import on_page
 
-_TITLE = {"dir": "console.folder_picker.choose_a_folder",
-         "exe": "console.folder_picker.choose_a_program",
-         "file": "console.folder_picker.choose_a_file"}
+_TITLE = {"dir": "console.folder_picker.title_folder",
+         "exe": "console.folder_picker.title_program",
+         "file": "console.folder_picker.title_file"}
 _ROW_ICON = {"exe": "terminal", "file": "description"}
 # `/`, a drive and the mount points: where browsing starts over, so they wear the drive's mark.
 _DRIVE_PATH = re.compile(r"^(/|/Volumes|/media|/mnt|[A-Za-z]:\\?)$")
@@ -91,7 +91,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
             shown = ui.checkbox(t("console.folder_picker.show_hidden"), value=False) \
                 .props("dense").classes("whitespace-nowrap")
         listing_col = ui.column().classes("w-full gap-1 console-folder-list px-3")
-        ui.label(t("console.folder_picker.private_never_shown")).classes("console-help px-3")
+        ui.label(t("console.folder_picker.private_note")).classes("console-help px-3")
 
         def draw_path() -> None:
             path_row.clear()
@@ -205,7 +205,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
             try:
                 fresh = await offload.io(make_folder, state["here"]["path"], name)
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.folder_picker.could_not_make_it"), caption=why(exc),
+                ui.notify(t("console.folder_picker.make_failed"), caption=why(exc),
                           type="negative")
                 return
             _arrive(fresh)
@@ -227,7 +227,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
             try:
                 fresh = await offload.io(list_entries, path, kind, suffixes, shown.value)
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.mediasource.could_not_read_folder"), caption=why(exc),
+                ui.notify(t("console.mediasource.folder_failed"), caption=why(exc),
                           type="negative")
                 return
             _arrive(fresh, keep_filter=keep_filter)
@@ -246,7 +246,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                             icon=verbs.NEW_FOLDER)
             frame.cancel(lambda: box.submit(None))
             if kind == "dir":
-                frame.answer(t("console.folder_picker.choose_this_folder"),
+                frame.answer(t("console.folder_picker.accept"),
                             lambda: box.submit(state["here"]["path"]), icon=verbs.CHOOSE)
             else:
                 choose["button"] = frame.answer(

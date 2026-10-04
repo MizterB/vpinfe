@@ -198,7 +198,7 @@ def why_not(exc: Exception) -> str:
     import requests
 
     if isinstance(exc, NotVPinFEError):
-        return "device.reason.runs_vpx_mobile"
+        return "device.reason.wrong_app"
     if isinstance(exc, (requests.Timeout, TimeoutError)):
         return "device.reason.timed_out"
     if any(isinstance(one, ConnectionRefusedError) for one in _chain(exc)):

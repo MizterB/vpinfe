@@ -114,12 +114,12 @@ class ThePage(unittest.IsolatedAsyncioTestCase):
 
     def test_a_controller_press_is_refused_and_a_key_is_not(self) -> None:
         self.assertEqual(self.page.refuse("pad:standard/button:1"),
-                         t("console.vpx_input.controllers_in_visual_pinball"))
+                         t("console.vpx_input.controllers_note"))
         self.assertEqual(self.page.refuse("key:KeyA"), "")
 
     def test_a_key_the_program_has_no_number_for_is_refused(self) -> None:
         self.assertEqual(self.page.refuse("key:IntlRo"),
-                         t("console.vpx_input.no_number_for_key"))
+                         t("console.vpx_input.unknown_key"))
 
     async def test_a_new_key_is_one_line_and_the_controller_button_stays(self) -> None:
         kept = await press(self.page.put, {"LeftFlipper": ["key:KeyA"]})
@@ -153,7 +153,7 @@ class ThePage(unittest.IsolatedAsyncioTestCase):
         kept = await press(self.page.put, {"Custom1": ["key:KeyA"]})
 
         self.assertFalse(kept)
-        self.assertEqual(self.notify.call_args.args, (t("said.could_not_save_it"),))
+        self.assertEqual(self.notify.call_args.args, (t("said.save_failed"),))
         self.assertEqual(self.page.flat, self.flat)
 
     async def test_a_row_emptied_that_has_a_default_comes_back_with_it_and_says_so(

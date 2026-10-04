@@ -38,7 +38,7 @@ LINE = ("[...document.querySelectorAll('.console-help')]"
 CONTINUE_SHOWN = ("[...document.querySelectorAll('.console-action--inline')]"
                   f".some(el => el.innerText.includes({json.dumps(t('word.continue'))}))")
 # Up to the address, which is wherever this machine is reached.
-FROM_ELSEWHERE = t("console.setup.from_another_computer", address="").strip()
+FROM_ELSEWHERE = t("console.setup.address_note", address="").strip()
 
 
 class SetupFirstRunDrive(unittest.TestCase):

@@ -215,7 +215,7 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
             self.assertIs(label, panel.ASIDE)
             draw()
         [copy] = [call.args[1] for call in self.action.call_args_list
-                  if call.args[0] == t("console.recording.copy_vpinfe_command")]
+                  if call.args[0] == t("console.recording.copy_command")]
 
         await copy()
 

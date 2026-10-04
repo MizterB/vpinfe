@@ -99,8 +99,8 @@ class Page:
     def refuse(self, token: str) -> str:
         """Why a press cannot be mapped here, or "" where it can."""
         if input_registry.is_pad(token):
-            return t("console.vpx_input.controllers_in_visual_pinball")
-        return "" if bindings.writable(_chord(token)) else t("console.vpx_input.no_number_for_key")
+            return t("console.vpx_input.controllers_note")
+        return "" if bindings.writable(_chord(token)) else t("console.vpx_input.unknown_key")
 
     @on_page
     async def put(self, changes: dict[str, list[str]]) -> bool:
@@ -119,7 +119,7 @@ class Page:
                 await run.io_bound(self.library.write_launcher_config,
                                    self.context["launcher"]["launcher_id"], keys)
             except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-                ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
                 return False
             self.flat.update(keys)
         if back:
@@ -138,7 +138,7 @@ def entries(context: dict[str, Any], group: Any,
 
     def draw() -> None:
         Table(table_rows(group, flat), page.bound(), write=page.put,
-              source=t("console.vpx_input.visual_pinball_defaults"), shares=True,
+              source=t("console.vpx_input.defaults"), shares=True,
               refuses=page.refuse)
 
     return [panel.intro(t("console.vpx_input.intro")), (panel.FULL, draw)]

@@ -193,7 +193,7 @@ class TheExceptionGoesUnderTheWords(unittest.TestCase):
                   "    try:\n"
                   "        client.save()\n"
                   "    except KeyError as exc:\n"
-                  "        ui.notify(t('said.could_not_save_it', exc=(exc)))\n"
+                  "        ui.notify(t('said.save_failed', exc=(exc)))\n"
                   "    except ValueError as exc:\n"
                   "        ui.notify(str(exc))\n"
                   "    except OSError as exc:\n"

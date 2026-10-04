@@ -173,7 +173,7 @@ def _no_working_launcher(on: list[str], found: Any) -> Unmet | None:
     else:
         configured = str(found.value("bin_path") or "").strip()
         if not configured:
-            reason, state = (t("said.no_program_set", launcher_name=found.display_name),
+            reason, state = (t("said.no_program", launcher_name=found.display_name),
                              path_checks.UNSET)
         else:
             state, said = path_checks.check("exe", configured)
@@ -199,7 +199,7 @@ def _no_library_to_read(config: ConfigStore, on: list[str]) -> Unmet | None:
     return Unmet(feature=install_identity.FRONTEND,
                  section=LIBRARY_URL[0], key=LIBRARY_URL[1],
                  state=path_checks.UNSET,
-                 reason=t("error.features.no_library_chosen"))
+                 reason=t("error.features.no_library"))
 
 
 def features_in_trouble(config: ConfigStore,

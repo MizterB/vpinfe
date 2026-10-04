@@ -599,9 +599,9 @@ def _strip(state: dict[str, Any], client_for_target: Callable[[], Any],
 
     with ui.row().classes("w-full items-center gap-3 no-wrap remote-strip"):
         with ui.column().classes("grow min-w-0 gap-0") as said:
-            ui.label(t("console.remote.on_the_wheel")).classes("console-card-title")
+            ui.label(t("console.remote.wheel_title")).classes("console-card-title")
             if not game:
-                ui.label(t("console.remote.nothing_on_the_wheel")).classes("remote-empty")
+                ui.label(t("console.remote.wheel_empty")).classes("remote-empty")
                 return
             ui.label(str(game.get("name") or "")).classes("remote-headline")
             made = game_tables.made(game)
@@ -674,7 +674,7 @@ def _identity_sheet(state: dict[str, Any], client_for_target: Callable[[], Any],
         try:
             await run.io_bound(client_for_target().remove_player, identity["id"])
         except Exception as exc:
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         remember_identity(state["target"], "")
         await state["reread"]()
@@ -688,14 +688,14 @@ def _identity_sheet(state: dict[str, Any], client_for_target: Callable[[], Any],
     with frame.made().props("position=bottom") as sheet, \
             ui.card().classes("w-full remote-sheet"):
         if identity is None:
-            ui.label(t("console.remote.who_is_this")).classes("remote-headline")
+            ui.label(t("console.remote.identify")).classes("remote-headline")
             for player in (one for one in players if kind_of(one) == ""):
                 panel.remote_action(shown_name(player),
                                     lambda _e=None, pid=player["id"]: become(pid),
                                     icon=verbs.THIS_IS_ME,
                                     hint=t("console.remote.this_is_me.help"))
-            panel.remote_action(t("console.remote.join_as_guest"), go_join, icon=verbs.JOIN,
-                                hint=t("console.remote.join_as_guest.help"))
+            panel.remote_action(t("console.remote.join_guest"), go_join, icon=verbs.JOIN,
+                                hint=t("console.remote.join_guest.help"))
         else:
             ui.label(t("console.remote.youre", name=shown_name(identity))) \
                 .classes("remote-headline")
@@ -761,7 +761,7 @@ async def _share_with(state: dict[str, Any], identity: dict[str, Any],
                 await run.io_bound(library.use_card, identity["id"], extension, text)
                 await run.io_bound(library.put_share, identity["id"], extension, True)
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.players.could_not_use_card"), caption=why(exc),
+                ui.notify(t("console.players.card_failed"), caption=why(exc),
                           type="negative")
                 return
             box.submit(True)
@@ -770,8 +770,8 @@ async def _share_with(state: dict[str, Any], identity: dict[str, Any],
         uploader.props(f'accept="{",".join(CARD_FILES)}"')
         uploader.on("finish",
                     js_handler=f"() => getElement({uploader.id}).$refs.qRef.reset()")
-        button = panel.remote_action(t("console.remote.use_my_card"), icon=verbs.FROM_FILE,
-                                     hint=t("console.players.use_a_card.help"))
+        button = panel.remote_action(t("console.remote.use_card"), icon=verbs.FROM_FILE,
+                                     hint=t("console.players.use_card.help"))
         button.on("click",
                  js_handler=f"() => getElement({uploader.id}).$refs.qRef.pickFiles()")
 
@@ -820,7 +820,7 @@ async def _share_with(state: dict[str, Any], identity: dict[str, Any],
             await run.io_bound(library.put_account, identity["id"], extension,
                                {"user_id": said})
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return
         held["id"] = said
         refs["timer"].deactivate()
@@ -833,12 +833,12 @@ async def _share_with(state: dict[str, Any], identity: dict[str, Any],
             await offload.io(library.account_act, identity["id"], extension, act)
             await run.io_bound(library.put_share, identity["id"], extension, True)
         except Exception as exc:  # noqa: BLE001 - "taken", "can't reach": said, Share off
-            ui.notify(t("said.could_not_turn_on"), caption=why(exc), type="negative")
+            ui.notify(t("said.on_failed"), caption=why(exc), type="negative")
             return
         box.submit(True)
 
     def draw_choose() -> None:
-        heading.text = t("console.players.choose_user_id_title", service=service)
+        heading.text = t("console.players.id_title", service=service)
         body.clear()
         buttons.clear()
         with body:
@@ -870,7 +870,7 @@ async def _share_with(state: dict[str, Any], identity: dict[str, Any],
                 with ui.column().classes("gap-1 px-3"):
                     for line in account.get("consent") or []:
                         ui.label(f"• {line}").classes("console-help")
-                ui.label(t("console.players.share_consent_no_rename", service=service)) \
+                ui.label(t("console.players.consent_note", service=service)) \
                     .classes("console-help px-3")
         with buttons:
             frame.cancel(lambda: box.submit(False))
@@ -991,7 +991,7 @@ def _playing(play: dict[str, Any], state: dict[str, Any], client_for_target: Cal
         try:
             await run.io_bound(client_for_target().stop_play)
         except Exception as exc:
-            ui.notify(t("console.remote.could_not_quit"), caption=why(exc), type="negative")
+            ui.notify(t("console.remote.quit_failed"), caption=why(exc), type="negative")
             return
         state["play"] = await offload.io(client_for_target().play_state)
         redraw()
@@ -1043,7 +1043,7 @@ def _up_section(state: dict[str, Any], client_for_target: Callable[[], Any],
             state["players"] = await run.io_bound(
                 client_for_target().set_player_up, player_id, up)
         except Exception as exc:
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return
         redraw()
 
@@ -1096,7 +1096,7 @@ def _idle(state: dict[str, Any], client_for_target: Callable[[], Any],
         try:
             await _rate(client_for_target(), identity, str(game["id"]), value)
         except Exception as exc:
-            ui.notify(t("console.stars.could_not_save_rating"), caption=why(exc),
+            ui.notify(t("console.stars.save_failed"), caption=why(exc),
                       type="negative")
             return
         if is_someone_else(identity):
@@ -1135,9 +1135,9 @@ def _send_status(account: dict[str, Any], *, credited: bool, several_up: bool) -
         return ""
     service = str(account.get("label") or account.get("extension") or "")
     if several_up and not credited:
-        return t("console.remote.not_sent_one_per_game", service=service)
+        return t("console.remote.solo_only", service=service)
     if account.get("waiting"):
-        return t("console.remote.waiting_to_send")
+        return t("console.remote.send_pending")
     return t("console.remote.sent_to", service=service)
 
 
@@ -1207,7 +1207,7 @@ def _result_card(state: dict[str, Any], client_for_target: Callable[[], Any],
         try:
             await _rate(client_for_target(), identity, game_id, value)
         except Exception as exc:
-            ui.notify(t("console.stars.could_not_save_rating"), caption=why(exc),
+            ui.notify(t("console.stars.save_failed"), caption=why(exc),
                       type="negative")
             return
         if is_someone_else(identity):
@@ -1336,13 +1336,13 @@ def _play(state: dict[str, Any],
             try:
                 await run.io_bound(client_for_target().show_on_frontend, name)
             except Exception as exc:
-                ui.notify(t("console.remote.could_not_show"), caption=why(exc),
+                ui.notify(t("console.remote.show_failed"), caption=why(exc),
                           type="negative")
         try:
             state.update(await offload.io(_narrowed_to, client_for_target(), name))
         except Exception as exc:
             state["collection_ids"] = None
-            ui.notify(t("console.remote.could_not_read_collection"), caption=why(exc),
+            ui.notify(t("console.remote.collection_failed"), caption=why(exc),
                       type="negative")
         listed()
 
@@ -1384,7 +1384,7 @@ def _game_list(found: list[dict[str, Any]], state: dict[str, Any],
     state["rows"] = {}
     if not found:
         return _nothing(t("console.remote.nothing_name") if state.get("find")
-                        else t("console.remote.nothing_in_collection"))
+                        else t("console.remote.collection_empty"))
     with ui.column().classes("w-full gap-0"):
         for game in found[:SHOWN_AT_ONCE]:
             _game_row(game, state, client_for_target, redraw)
@@ -1392,7 +1392,7 @@ def _game_list(found: list[dict[str, Any]], state: dict[str, Any],
         if left > 0:
             # The count, not a "load more": what is wanted is one game, and typing two
             # more letters reaches it faster than paging to it does.
-            ui.label(t("console.remote.more_keep_typing", left=(left))).classes("remote-note p-3")
+            ui.label(t("console.remote.search_more", left=(left))).classes("remote-note p-3")
 
 
 def _game_row(game: dict[str, Any], state: dict[str, Any], client_for_target: Callable[[], Any],
@@ -1462,7 +1462,7 @@ def _game_sheet(game: dict[str, Any], state: dict[str, Any], client_for_target: 
             try:
                 await run.io_bound(call, *args)
             except Exception as exc:
-                ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
                 return False
             return True
 
@@ -1471,7 +1471,7 @@ def _game_sheet(game: dict[str, Any], state: dict[str, Any], client_for_target: 
             try:
                 await _rate(client_for_target(), identity, str(game["id"]), value)
             except Exception as exc:
-                ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
                 return
             if someone_else:
                 state.setdefault("record", {}).setdefault(str(game["id"]), {})["rating"] = value
@@ -1522,7 +1522,7 @@ def _launch_button(game: dict[str, Any], state: dict[str, Any],
         try:
             await run.io_bound(client_for_target().launch, game["id"])
         except Exception as exc:
-            ui.notify(t("console.remote.could_not_launch"), caption=why(exc), type="negative")
+            ui.notify(t("console.remote.launch_failed"), caption=why(exc), type="negative")
             return
         then()
         state["screen"] = NOW
@@ -1545,7 +1545,7 @@ def _add_to_collection(game: dict[str, Any], state: dict[str, Any], sheet: Any,
     if not named:
         ui.button(t("console.remote.add_collection"), icon=verbs.ADD_TO_LIST) \
             .props("no-caps flat disable").classes("remote-action") \
-            .tooltip(t("console.remote.no_hand_picked_yet"))
+            .tooltip(t("console.remote.manual_empty"))
         return
 
     @on_page
@@ -1647,7 +1647,7 @@ def _control(state: dict[str, Any],
     if str(target.get("kind") or "") == device_registry.KIND_VPX_MOBILE:
         # Said rather than shown as dead buttons: this is a real target and it really
         # can be played on, which is a different thing from being driveable.
-        return _nothing(t("console.remote.plays_tables_not_run",
+        return _nothing(t("console.remote.cannot_drive",
                 target_name=(target_name(target))))
 
     play = state.get("play") or {}
@@ -1675,7 +1675,7 @@ def _playing_instead(play: dict[str, Any], state: dict[str, Any],
                      redraw: Callable[[], None]) -> None:
     with ui.column().classes("w-full gap-3 p-3"):
         _playing(play, state, client_for_target, redraw,
-                 note=t("console.remote.wheel_not_listening_while"))
+                 note=t("console.remote.wheel_busy"))
 
 
 def _pad(client_for_target: Callable[[], Any]) -> None:
@@ -1762,7 +1762,7 @@ def _join(state: dict[str, Any], client_for_target: Callable[[], Any],
         try:
             said = await run.io_bound(client_for_target().add_guest_from_card, text)
         except Exception as exc:
-            ui.notify(t("console.remote.could_not_join"), caption=why(exc), type="negative")
+            ui.notify(t("console.remote.join_failed"), caption=why(exc), type="negative")
             return
         await joined(said or {})
 
@@ -1794,15 +1794,15 @@ def _join(state: dict[str, Any], client_for_target: Callable[[], Any],
             await joined(said)
 
     with ui.column().classes("w-full gap-4 p-4 items-center text-center"):
-        ui.label(t("console.remote.play_as_you",
+        ui.label(t("console.remote.play_target",
                    target=target_name(state["target"]))).classes("remote-headline")
         uploader = ui.upload(on_upload=with_card, auto_upload=True).classes("hidden")
         uploader.props(f'accept="{",".join(CARD_FILES)}"')
         uploader.on("finish",
                    js_handler=f"() => getElement({uploader.id}).$refs.qRef.reset()")
-        card_button = panel.remote_action(t("console.remote.use_my_card"), icon=verbs.FROM_FILE,
+        card_button = panel.remote_action(t("console.remote.use_card"), icon=verbs.FROM_FILE,
                                           primary=True,
-                                          hint=t("console.remote.use_my_card.help"))
+                                          hint=t("console.remote.use_card.help"))
         card_button.on("click",
                        js_handler=f"() => getElement({uploader.id}).$refs.qRef.pickFiles()")
         panel.remote_action(t("console.players.just_initials"), just_initials,

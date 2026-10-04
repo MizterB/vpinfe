@@ -398,7 +398,7 @@ class TheLineAndItsMenu(unittest.IsolatedAsyncioTestCase):
         said, _asked = await self.fill(LOADED, {**KEPT, "rows": None, "error": "down"},
                                        {"status": "Sharing as OWN", "acts": []})
 
-        self.assertIn(t("console.community.could_not_read", name="site"), said)
+        self.assertIn(t("console.community.read_failed", name="site"), said)
         self.assertIn("Sharing as OWN", said)
         self.assertEqual([], self.menu())
 

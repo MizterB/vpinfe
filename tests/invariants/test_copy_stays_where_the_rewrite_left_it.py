@@ -13,8 +13,8 @@ OVER = 80
 OVER_EIGHTY = 97
 
 TOO_LONG_TODAY = frozenset({
-    "console.media.why_file_not_one.help",
-    "console.assets.why_file_not_one.help",
+    "console.media.reason.help",
+    "console.assets.reason.help",
 })
 
 RETIRED = ("manager ui", "managerui", "hubui")

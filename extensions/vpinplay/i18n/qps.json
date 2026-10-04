@@ -9,16 +9,16 @@
     "one": "{count} ĝàɱè ŵàîţîñĝ ţö šèñđ",
     "other": "{count} ĝàɱèš ŵàîţîñĝ ţö šèñđ"
   },
-  "account.status.sent_just_now": "Šèñţ ĵûšţ ñöŵ",
-  "account.status.sent_minutes_ago": {
+  "account.status.age_now": "Šèñţ ĵûšţ ñöŵ",
+  "account.status.age_minutes": {
     "one": "Šèñţ {count} ɱîñûţè àĝö",
     "other": "Šèñţ {count} ɱîñûţèš àĝö"
   },
-  "account.status.sent_hours_ago": {
+  "account.status.age_hours": {
     "one": "Šèñţ {count} ĥöûř àĝö",
     "other": "Šèñţ {count} ĥöûřš àĝö"
   },
-  "account.status.sent_days_ago": {
+  "account.status.age_days": {
     "one": "Šèñţ {count} đàý àĝö",
     "other": "Šèñţ {count} đàýš àĝö"
   },
@@ -29,7 +29,7 @@
     "other": "Šèñţ {count} ĝàɱèš"
   },
   "error.no_card": "À çàřđ ñèèđš ţĥîš þŀàýèř'š ûšèř ÎĐ àñđ îñîţîàŀš",
-  "error.no_user_id": "Ţĥîš þŀàýèř ĥàš ñö ṼÞîñÞŀàý ûšèř ÎĐ",
+  "error.no_account": "Ţĥîš þŀàýèř ĥàš ñö ṼÞîñÞŀàý ûšèř ÎĐ",
   "error.no_initials": "Ţĥîš þŀàýèř ĥàš ñö îñîţîàŀš",
   "error.already_claimed": "Ţĥîš àççöûñţ îš àŀřèàđý çŀàîɱèđ",
   "error.taken": "Ţĥàţ ûšèř ÎĐ îš öñ ṼÞîñÞŀàý àŀřèàđý",

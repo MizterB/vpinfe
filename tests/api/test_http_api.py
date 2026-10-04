@@ -377,7 +377,7 @@ class ErrorEnvelopeTests(unittest.TestCase):
             urlopen(f"http://127.0.0.1:{port}/", timeout=5)
 
         client = TestClient(api, raise_server_exceptions=False)
-        for path, said in (("/over-requests", t("said.why.nothing_answers_at", host="127.0.0.1")),
+        for path, said in (("/over-requests", t("said.why.no_answer_at", host="127.0.0.1")),
                            ("/over-urllib", t("said.why.nothing_answers"))):
             with self.subTest(path):
                 with self.assertLogs("vpinfe.httpapi.errors", "WARNING"):

@@ -18,7 +18,7 @@ WITHOUT_ROM = {"id": "g-2", "name": "An Original", "folder": "/games/An Original
 PLANNED = {"game_dir": WITH_ROM["folder"], "blocked": [],
            "items": [{"index": 0, "kind": "altcolor_serum",
                       "destination": "/games/Medieval Madness/serum/mm_109c/mm_109c.cRZ"}]}
-NO_ROM = {"kind": "altcolor_serum", "reason": t("error.uploads.game_has_no_rom")}
+NO_ROM = {"kind": "altcolor_serum", "reason": t("error.uploads.no_rom")}
 REFUSED = {"game_dir": WITHOUT_ROM["folder"], "items": [], "blocked": [NO_ROM]}
 
 

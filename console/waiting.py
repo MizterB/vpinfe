@@ -226,7 +226,7 @@ class Bar:
         try:
             done = await offload.io(self.library.perform_action, "vpinfe", "restart")
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         if not done.get("performed"):
             ui.notify(t("console.devices.not_happen", label=label), type="warning")
@@ -244,7 +244,7 @@ class Bar:
         try:
             done = await offload.io(self.library.perform_action, "frontend", "restart")
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         if not done.get("performed"):
             ui.notify(t("console.devices.not_happen", label=t("console.waiting.reopen_windows")),

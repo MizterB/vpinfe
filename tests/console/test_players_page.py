@@ -50,8 +50,8 @@ class TheRows(unittest.TestCase):
                         shares_initials_with=["p-jor"])
         made = players.rows([OWNER, kept, guest])
         self.assertEqual([row["shared"] for row in made], [
-            "", t("console.players.same_initials_as", player="XYZ"),
-            t("console.players.same_initials_as", player="Jordan")])
+            "", t("console.players.initials_clash", player="XYZ"),
+            t("console.players.initials_clash", player="Jordan")])
 
     def test_several_sharing_are_all_named(self) -> None:
         one = _player("a", initials="XYZ", shares_initials_with=["b", "c"])
@@ -65,7 +65,7 @@ class TheRows(unittest.TestCase):
         kept = _player("p-jor", name="Jordan")
         made = players.rows([OWNER, kept, guest], {"p-vis": 3, "p-jor": 5})
         self.assertEqual([row["session"] for row in made],
-                         ["", "", t("console.players.games_this_session", count=3)])
+                         ["", "", t("console.players.session_total", count=3)])
 
     def test_a_guest_with_no_games_yet_says_nothing(self) -> None:
         guest = _player("p-vis", initials="XYZ", guest=True)

@@ -155,7 +155,7 @@ class PlayerRecords:
         """Raises NotFoundError for a player no longer on the roster."""
         wanted = str(game_id or "").strip()
         if not wanted:
-            raise service_errors.NotFoundError(t("error.games.no_game_id", game_id=wanted))
+            raise service_errors.NotFoundError(t("error.games.unknown_game", game_id=wanted))
         with self._lock:
             get_roster().player(player.player_id)
             record = self._load(_theirs(player))
@@ -207,7 +207,7 @@ class PlayerRecords:
 
 def _theirs(player: Player) -> Player:
     if player.owner:
-        raise service_errors.RefusedError(t("error.players.owner_record_is_the_library"))
+        raise service_errors.RefusedError(t("error.players.owner_record"))
     return player
 
 

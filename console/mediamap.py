@@ -148,7 +148,7 @@ def _tile(game_id: str, table_id: str, kind: str, entry: dict[str, Any],
                     ui.icon("cloud_download", size="16px") \
                         .classes("console-mediatile-offered") \
                         .tooltip(t("console.mediamap.in_spreadsheet", offered=(offered))
-                                 if offered > 1 else t("console.mediamap.one_in_spreadsheet"))
+                                 if offered > 1 else t("console.mediamap.offered_one"))
             elif glyph is not None:
                 ui.icon(glyph, size="18px").classes("text-primary opacity-80")
             elif media_family(kind) == "video":
@@ -166,7 +166,7 @@ def _tile(game_id: str, table_id: str, kind: str, entry: dict[str, Any],
             # says otherwise.
             if differing:
                 ui.element("div").classes("console-mediatile-differs") \
-                    .tooltip(t("console.mediamap.table_use_something_else", count=differing))
+                    .tooltip(t("console.mediamap.differs", count=differing))
             if state != "missing" and wont_play:
                 ui.label(t("console.plays_on.wont_play")) \
                     .classes("console-tier console-tier--warn console-mediatile-plays")

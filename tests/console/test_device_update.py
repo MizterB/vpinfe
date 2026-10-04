@@ -38,7 +38,7 @@ class UpdateConfirm(unittest.IsolatedAsyncioTestCase):
         ask = await self._ask({"launching": True, "game_name": "Medieval Madness"})
 
         self.assertEqual(ask.call_args.kwargs["confirm"],
-                         t("console.devices.stop_table_update"))
+                         t("console.devices.stop_confirm"))
         self.assertEqual(ask.call_args.kwargs["icon"], verbs.STOP)
         self.assertTrue(ask.call_args.kwargs["danger"])
 
@@ -105,7 +105,7 @@ class SoftwareRows(unittest.TestCase):
             (label, chip), = self._rows(FAILED)
 
         self.assertEqual(label, t("word.version"))
-        self.assertEqual(chip, ("state", t("console.devices.could_not_check"), "unknown",
+        self.assertEqual(chip, ("state", t("console.devices.check_failed"), "unknown",
                                 "v3.0.0", t("console.devices.last_checked", when="yesterday")))
 
     def test_a_check_that_never_worked_says_so(self) -> None:
@@ -128,7 +128,7 @@ class SoftwareRows(unittest.TestCase):
 
         self.assertEqual(chip, ("state", t("console.devices.latest", latest="v2.5.1"),
                                 "unknown", "dev-local", ""))
-        self.assertEqual(note, ("note", t("console.devices.why_not.build_runs_source_updates")))
+        self.assertEqual(note, ("note", t("console.devices.why_not.source")))
 
     def test_check_now_sits_under_every_answer(self) -> None:
         now = Mock()

@@ -58,13 +58,13 @@ async def ask_where(games: list[dict[str, Any]],
     try:
         found = phones(await offload.io(ApiClient().devices))
     except Exception as exc:
-        ui.notify(t("console.send_to_device.could_not_read_devices"), caption=why(exc),
+        ui.notify(t("console.send_to_device.devices_failed"), caption=why(exc),
                   type="negative")
         return
     if not found:
         # Said rather than hidden: the answer is "not yet", and somebody who has just
         # added a phone in Devices needs to know this is where it turns up.
-        ui.notify(t("console.send_to_device.no_devices_send_add"),
+        ui.notify(t("console.send_to_device.targets_empty"),
                   type="warning")
         return
 
@@ -73,7 +73,7 @@ async def ask_where(games: list[dict[str, Any]],
         return
     if not await confirm.ask(
             t("console.send_to_device.send_games", count=len(games), device=name_of(picked)),
-            detail=t("console.send_to_device.table_backglass_settings_rom"),
+            detail=t("console.send_to_device.send_detail"),
             confirm=t("console.send_to_device.send"), icon=verbs.SEND, danger=False):
         return
     await send(games, picked, state)

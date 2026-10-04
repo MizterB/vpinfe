@@ -191,7 +191,7 @@ def ensure_catalog(config: ConfigStore,
                 downloading()
             try:
                 with jobs.track(jobs.KIND_CATALOG_DOWNLOAD) as job:
-                    job.progress(0, 1, t("said.downloading_the_spreadsheet"))
+                    job.progress(0, 1, t("said.catalog_download"))
                     sync(config, force=True)
                     if not VPSDB_JSON_PATH.exists():
                         raise RuntimeError(t("error.jobs.catalog_not_downloaded"))

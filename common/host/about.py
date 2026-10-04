@@ -238,7 +238,7 @@ def _locations() -> list[tuple[str, str]]:
     found = [(t("about.fact.configuration"), str(CONFIG_DIR)),
              (t("about.fact.settings_file"), str(VPINFE_INI_PATH))]
     log = log_file()
-    found.append((t("about.fact.log_file"), str(log) if log else t("about.not_written_yet")))
+    found.append((t("about.fact.log_file"), str(log) if log else t("about.no_log")))
     found += [(t("about.fact.library_folder"), path) for path in _library_folders()]
     return found
 

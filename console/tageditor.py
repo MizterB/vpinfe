@@ -94,7 +94,7 @@ def build(rows: list[dict[str, Any]], library: Any,
         try:
             changed = await offload.io(call, *args)
         except Exception as exc:
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         ui.notify(t("console.tageditor.game_changed", said=said, count=changed),
                   type="positive")
@@ -107,7 +107,7 @@ def build(rows: list[dict[str, Any]], library: Any,
         others = [str(r.get("tag")) for r in group[1:]]
         if not await confirm.ask(
                 t("console.tageditor.merge", into=(into)),
-                detail=t("console.tageditor.every_game_carrying_one"),
+                detail=t("console.tageditor.merge_detail"),
                 lines=[t("console.tageditor.tag_game" if r["games"] == 1
                          else "console.tageditor.tag_games",
                          tag=r["tag"], count=r["games"]) for r in group[1:]],
@@ -119,8 +119,8 @@ def build(rows: list[dict[str, Any]], library: Any,
     duplicates = rows_by_key(rows)
     if duplicates:
         with ui.element("div").classes("console-card w-full mb-2"):
-            ui.label(t("console.tageditor.look_like_same_tag")).classes("console-card-title")
-            ui.label(t("console.tageditor.entry_keeps_what_typed")) \
+            ui.label(t("console.tageditor.similar")).classes("console-card-title")
+            ui.label(t("console.tageditor.merge_note")) \
                 .classes("console-help")
             for group in duplicates:
                 with ui.row().classes("items-center gap-2 w-full no-wrap "
@@ -142,7 +142,7 @@ def build(rows: list[dict[str, Any]], library: Any,
         try:
             await offload.io(library.put_tag, name, changes)
         except Exception as exc:
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         if rerender is not None:
             rerender()
@@ -164,7 +164,7 @@ def build(rows: list[dict[str, Any]], library: Any,
                              empty=not rows)
 
     if not rows:
-        ui.label(t("console.tageditor.no_tags_yet_tag")) \
+        ui.label(t("console.tageditor.empty")) \
             .classes("console-help p-4")
         return
     by_id = {row["id"]: row for row in rows}
@@ -249,14 +249,14 @@ async def _new_tag(library: Library) -> tuple[str, dict[str, str]] | None:
     def keep() -> None:
         name = _named(fields)
         if not name:
-            refused(t("said.give_it_a_name"))
+            refused(t("said.needs_name"))
         elif name in known:
-            refused(t("console.tageditor.already_a_tag"))
+            refused(t("console.tageditor.duplicate"))
         else:
             box.submit((name, {"description": str(fields["said"].value or "").strip(),
                                "color": held["color"]}))
 
-    with frame.opened(t("console.tageditor.add_new_tag")) as box:
+    with frame.opened(t("console.tageditor.add_title")) as box:
         panel.facts(ui, [(t("console.tageditor.tag"), draw_name),
                          (t("console.workbench.description"), draw_said),
                          (t("console.tags.color"), draw_colors)])
@@ -286,7 +286,7 @@ def acts(library: Any, tag: str, games: int,
         try:
             await offload.io(library.merge_tags, [tag], said)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         ui.notify(t("console.tageditor.renamed", said=(said)), type="positive")
         await after(said)
@@ -294,7 +294,7 @@ def acts(library: Any, tag: str, games: int,
     @on_page
     async def merge(into: str) -> None:
         if not await confirm.ask(t("console.tageditor.merge", into=into),
-                                 detail=t("console.tageditor.every_game_carrying_one"),
+                                 detail=t("console.tageditor.merge_detail"),
                                  lines=[t("console.tageditor.tag_game" if games == 1
                                           else "console.tageditor.tag_games",
                                           tag=tag, count=games)],
@@ -303,7 +303,7 @@ def acts(library: Any, tag: str, games: int,
         try:
             await offload.io(library.merge_tags, [tag], into)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         ui.notify(t("console.tageditor.merged", into=(into)), type="positive")
         await after(into)
@@ -317,7 +317,7 @@ def acts(library: Any, tag: str, games: int,
         try:
             await offload.io(library.delete_tag, tag)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         ui.notify(t("console.tageditor.deleted", tag=tag), type="positive")
         await after(None)
@@ -338,7 +338,7 @@ async def _ask_for_a_name(current: str, *, title: str = "", help_: str = "",
                           verb: str = "") -> str:
     held: dict[str, Any] = {}
     with frame.opened(title or t("console.tageditor.rename_tag")) as box:
-        ui.label(help_ or t("console.tageditor.every_game_carrying_retagged")) \
+        ui.label(help_ or t("console.tageditor.rename_hint")) \
             .classes("console-help px-3")
         panel.facts(ui, [(t("console.tageditor.tag"),
                           lambda: held.update(field=frame.field(current)))])

@@ -41,17 +41,17 @@ class OpenOnThis(unittest.IsolatedAsyncioTestCase):
     def test_on_where_the_frontend_opens_on_it_and_off_saying_so(self) -> None:
         value, _, hint, _ = self._drawn("Friday Night", "Friday Night")
 
-        self.assertEqual((True, t("console.workbench.open_on_this.here")), (value, hint))
+        self.assertEqual((True, t("console.workbench.start_view.here")), (value, hint))
 
     def test_off_names_the_collection_it_would_take_over_from(self) -> None:
         value, _, hint, _ = self._drawn("90s Bally", "Friday Night")
 
         self.assertEqual(
-            (False, t("console.workbench.open_on_this.elsewhere", name="Friday Night")),
+            (False, t("console.workbench.start_view.elsewhere", name="Friday Night")),
             (value, hint))
 
     def test_off_with_nothing_set_says_all_games(self) -> None:
-        self.assertEqual(t("console.workbench.open_on_this.everything"),
+        self.assertEqual(t("console.workbench.start_view.everything"),
                          self._drawn("90s Bally", "")[2])
 
     async def test_on_writes_the_setting_settings_writes(self) -> None:

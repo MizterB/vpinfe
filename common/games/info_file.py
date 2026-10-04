@@ -214,7 +214,7 @@ class MetaConfig:
                 self.data = json.loads(original)
             except json.JSONDecodeError as exc:
                 raise InvalidMetaConfigError(
-                    configfilepath, t("error.games.info_wrong_at_line", line=exc.lineno)) from exc
+                    configfilepath, t("error.games.info_bad_line", line=exc.lineno)) from exc
             except UnicodeDecodeError as exc:
                 raise InvalidMetaConfigError(
                     configfilepath, t("error.games.info_not_utf8")) from exc
@@ -430,9 +430,9 @@ class MetaConfig:
         entries = self._entries_by_id()
         wanted = str(table_id or "").strip()
         if wanted and wanted not in entries:
-            raise ValueError(t("error.games.game_no_such_table"))
+            raise ValueError(t("error.games.table_not_found"))
         if wanted and entries[wanted].get("hidden") is True:
-            raise ValueError(t("error.games.hidden_table_not_default"))
+            raise ValueError(t("error.games.hidden_default"))
         vpinfe = self.data.setdefault(VPINFE_SECTION, {})
         if wanted:
             vpinfe[DEFAULT_TABLE_KEY] = wanted

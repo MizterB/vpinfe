@@ -202,7 +202,7 @@ Every one of them comes from the catalog. `common/i18n/catalogs/en.json` holds t
 
 ```python
 ui.label(t("console.games.no_table_selected"))
-ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
 ```
 
 `tests/invariants/test_i18n_catalog.py` fails the suite on a literal in a display position,
@@ -315,7 +315,7 @@ such as `config_access`, or a function reached by string is not checked.
 
 ### Naming a key
 
-`<owner>.<module>.<what it says>` — named for what owns the string, never for the screen
+`<owner>.<module>.<name>`, named for what owns the string, never for the screen
 showing it. A label moves between screens constantly and never moves between owners.
 
 Three shared namespaces exist so a translator writes a word once:
@@ -328,9 +328,27 @@ Three shared namespaces exist so a translator writes a word once:
 `Media` and `Device` each carry several senses here, and folding them would force one
 translation on all of them.
 
-A leaf reads as a name, not as a truncated sentence: `put_all_clipboard`, not
-`put_all_of_it_on_the`. Prose keys end in `.help`, which is what marks them as the tier a
-locale may leave in English.
+**A leaf names the thing or its role, in one or two words**: `empty`, `confirm`, `failed`,
+`not_found`, `unknown_kind`. Three words only to keep two apart. Then a kind suffix where
+there is one: `.label`, `.help`, `.description`, `.blank`. Those four are the only suffixes
+set aside, so `title` and `intro` are names in their own right. Prose keys end in `.help`,
+which is what marks them as the tier a locale may leave in English.
+
+The test is rewording. If the English changes and the key is now wrong, the key was made
+from the text, so say what the string is for instead of taking words from the sentence. An
+error is named for what went wrong (`error.games.unknown_kind`), not for its sentence.
+Variants of one thing share a stem and differ by a role word (`restored`, `restored_some`,
+`restore_failed`). Column help is named for the column (`console.assets.reason.help`).
+
+`tests/invariants/test_a_key_names_a_place_not_a_sentence.py` fails on a leaf of more than
+three words, and on a three-word leaf whose words all appear, in order, in its own text. A
+one or two word leaf that matches its text is fine: it is short enough to stay true.
+
+Exempt are the keys whose leaf is data the code declares: `config.*`, `filter.*`,
+`media.kind.*`, the VPX app's field and group ids, two of its own ids
+(`from_the_screen.help`, `match_the_display`) and the playfield window tip. Also
+`frontend.theme.*`, which theme authors read and `docs/theme.md` documents. A single exempt
+key that would pass anyway fails the test, so those only shrink.
 
 ### Adding a string
 

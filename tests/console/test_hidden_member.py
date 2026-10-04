@@ -32,9 +32,9 @@ class HiddenMemberTests(unittest.TestCase):
                           for one in (LOCKED_HIDDEN, FOLLOWING, TAKEN_OUT)])
 
     def test_the_heading_counts_the_hidden_rows_it_lists(self) -> None:
-        self.assertEqual(t("console.workbench.count_games_hidden", count=0, hidden=1),
+        self.assertEqual(t("console.workbench.count_hidden", count=0, hidden=1),
                          workbench._games_heading(0, 1, 0))
-        self.assertEqual(t("console.workbench.count_games_hidden_taken_out", count=1,
+        self.assertEqual(t("console.workbench.count_both", count=1,
                            hidden=1, taken=1),
                          workbench._games_heading(1, 1, 1))
         self.assertEqual(t("console.workbench.count_games", count=2),

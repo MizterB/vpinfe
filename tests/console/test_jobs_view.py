@@ -100,7 +100,7 @@ class TimesOnScreen(unittest.TestCase):
         self.assertIn(at.strftime("%H:%M:%S"), when.at_second(NOW))
 
     def test_how_long_names_the_two_largest_units(self) -> None:
-        self.assertEqual(t("date.took_under_a_second"), when.took(0.4))
+        self.assertEqual(t("date.took_instant"), when.took(0.4))
         self.assertEqual(t("date.took_seconds", seconds=7), when.took(7.9))
         self.assertEqual(t("date.took_minutes", minutes=2, seconds=5), when.took(125))
         self.assertEqual(t("date.took_hours", hours=3, minutes=1), when.took(3 * 3600 + 61))

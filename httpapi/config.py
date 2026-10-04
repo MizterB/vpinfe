@@ -65,7 +65,7 @@ def get_tool(tool_id: str, response: Response) -> models.JobResource:
     """Accepted, not done. The request is the consent. Only FFmpeg, on Windows and macOS,
     can be got."""
     if tool_id != tools.FFMPEG.id:
-        raise NotFoundError(t("error.config.no_tool_to_get", tool=tool_id))
+        raise NotFoundError(t("error.config.tool_unavailable", tool=tool_id))
     job = get_ffmpeg.start()
     response.headers["Location"] = f"/api/v1/jobs/{job.id}"
     return models.JobResource(**jobs_api.resource(job))
@@ -97,11 +97,11 @@ def put_values(values: dict[str, dict[str, Any]] = Body(...)) -> models.ConfigVa
             config_service.set_values(values, _windows()))
     except config_service.UnknownSettingsError as exc:
         raise InvalidRequestError(
-            t("error.config.no_such_settings",
+            t("error.config.unknown_keys",
               keys=", ".join(exc.keys))) from exc
     except config_service.ReadOnlySettingsError as exc:
         raise InvalidRequestError(
-            t("error.config.read_http_theme_sources",
+            t("error.config.read_only",
               keys=", ".join(exc.keys))) from exc
     except config_service.SettingsWriteError as exc:
         raise ConflictError(why(exc)) from exc

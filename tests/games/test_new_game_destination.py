@@ -73,7 +73,7 @@ class RefusalTests(_Destinations):
         found = locations.destination()
 
         self.assertIsNone(found.location)
-        self.assertEqual(found.reason, t("error.locations.new_games_location_gone"))
+        self.assertEqual(found.reason, t("error.locations.default_removed"))
 
     @needs_posix_permissions
     def test_and_a_read_only_one_is_refused_too(self) -> None:
@@ -95,7 +95,7 @@ class RefusalTests(_Destinations):
         found = locations.destination()
 
         self.assertEqual(found.reason, t("error.locations.not_reachable", name=gone.name,
-                                         reason=t("error.locations.nothing_at_path")))
+                                         reason=t("error.locations.missing")))
 
     def test_a_refusal_offers_the_writable_ones_instead(self) -> None:
         """What a caller needs on a refusal is not only that it failed - it is where
@@ -114,7 +114,7 @@ class RefusalTests(_Destinations):
 
         self.assertIsNone(found.location)
         self.assertEqual(found.reason,
-                         t("error.locations.single_game_folder", name=single.name))
+                         t("error.locations.single_game", name=single.name))
 
     def test_an_override_that_cannot_be_written_to_is_refused_in_its_turn(self) -> None:
         """It does not fall back either. An override is somebody naming a place."""

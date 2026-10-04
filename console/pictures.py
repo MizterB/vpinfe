@@ -95,7 +95,7 @@ async def _delete(context: dict[str, Any], shot: dict[str, Any]) -> None:
     try:
         held = await offload.io(library.remove_picture, game_id, name)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-        ui.notify(t("said.could_not_delete_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.delete_failed"), caption=why(exc), type="negative")
         return
     await context["rebuild"]()
     state = context["state"]

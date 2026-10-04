@@ -54,5 +54,5 @@ def get_job(job_id: str) -> models.JobResource:
     """
     job = job_registry.get(job_id)
     if job is None:
-        raise NotFoundError(t("error.jobs.no_job_id", job_id=(job_id)))
+        raise NotFoundError(t("error.jobs.unknown_job", job_id=(job_id)))
     return models.JobResource(**resource(job, with_result=True))

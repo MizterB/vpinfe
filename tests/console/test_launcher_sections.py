@@ -396,12 +396,12 @@ class CuratedAreaTests(unittest.TestCase):
 class ProgramNoteTests(unittest.TestCase):
     def test_no_program_set_says_to_set_one(self) -> None:
         self.assertEqual(workbench._program_note(_launcher(path_checks.UNSET)),
-                         t("console.workbench.set_program_see_settings",
+                         t("console.workbench.program_hint",
                            app="Visual Pinball X"))
 
     def test_a_path_that_finds_nothing_says_so(self) -> None:
         self.assertEqual(workbench._program_note(_launcher(path_checks.MISSING)),
-                         t("console.workbench.not_at_that_path", app="Visual Pinball X"))
+                         t("console.workbench.app_missing", app="Visual Pinball X"))
 
     def test_a_program_that_is_there_needs_no_note(self) -> None:
         self.assertEqual(workbench._program_note(_launcher(path_checks.OK)), "")
@@ -841,7 +841,7 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
             self._part(self.HEIGHT, t("console.workbench.app_default", app=self.APP)))))
 
     def test_clear_s_hover_names_the_number_it_clears_where_it_is_one(self) -> None:
-        back = t("console.workbench.back_to_whose",
+        back = t("console.workbench.back_link",
                  whose=t("console.workbench.app_default", app=self.APP))
 
         _, one = self._drawn(self.SET, self.UNSET)

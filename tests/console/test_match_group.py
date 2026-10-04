@@ -14,12 +14,12 @@ from console.workbench import game_match_gap, release_match_gap
 class AGame(unittest.TestCase):
     def test_an_id_the_catalog_lacks_is_not_in_vps(self) -> None:
         said, level, _ = game_match_gap("SHAREDID", declared=False, held=True)
-        self.assertEqual(("console.workbench.not_in_vps", "warn"), (said, level))
+        self.assertEqual(("console.workbench.not_listed", "warn"), (said, level))
 
     def test_with_no_catalog_the_match_is_unknown_rather_than_wrong(self) -> None:
         said, level, why = game_match_gap("abc", declared=False, held=False)
         self.assertEqual(("word.unknown", "unknown"), (said, level))
-        self.assertEqual("console.workbench.vps_not_downloaded", why)
+        self.assertEqual("console.workbench.no_vps_data", why)
 
     def test_no_id_is_not_matched_whether_or_not_there_is_a_catalog(self) -> None:
         for held in (True, False):
@@ -36,18 +36,18 @@ class ATable(unittest.TestCase):
                          release_match_gap("entry", "", held=True))
 
     def test_an_unmatched_game_says_which_comes_first(self) -> None:
-        self.assertEqual("console.workbench.match_game_vps_first",
+        self.assertEqual("console.workbench.releases_unmatched",
                          release_match_gap("", "", held=True)[2])
 
     def test_a_release_the_catalog_lacks_is_not_in_vps(self) -> None:
-        self.assertEqual("console.workbench.not_in_vps",
+        self.assertEqual("console.workbench.not_listed",
                          release_match_gap("entry", "gone", held=True)[0])
 
     def test_with_no_catalog_the_release_is_unknown(self) -> None:
         self.assertEqual("word.unknown", release_match_gap("entry", "x", held=False)[0])
 
     def test_a_list_that_could_not_be_read_is_unknown_and_says_so(self) -> None:
-        self.assertEqual(("word.unknown", "unknown", "console.workbench.could_not_read_vps"),
+        self.assertEqual(("word.unknown", "unknown", "console.workbench.vps_failed"),
                          release_match_gap("entry", "x", held=True, read=False))
 
 
@@ -76,7 +76,7 @@ class ATableWhoseReleasesCouldNotBeRead(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual(rows[1:], [
                     (workbench.FULL, (t("word.unknown"), "unknown", t("said.why.timed_out"))),
-                    ("intro", t("console.workbench.could_not_read_vps")),
+                    ("intro", t("console.workbench.vps_failed")),
                     (workbench.FULL, "change")])
 
 

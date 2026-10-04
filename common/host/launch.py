@@ -85,7 +85,7 @@ def this_devices_copy(game: Any) -> Game:
     Raises LaunchUnavailableError when this device has no copy of it."""
     here = game_repository.on_this_device(game)
     if here is None:
-        raise LaunchUnavailableError(t("error.launch.not_on_this_device"))
+        raise LaunchUnavailableError(t("error.launch.off_device"))
     return here
 
 
@@ -150,7 +150,7 @@ def _binary_of(launcher: launchers.Launcher | None) -> str:
     configured = str(launcher.value("bin_path") or "").strip()
     if not configured:
         raise LaunchUnavailableError(
-            t("said.no_program_set", launcher_name=launcher.display_name))
+            t("said.no_program", launcher_name=launcher.display_name))
     resolved = resolve_launcher_path(configured)
     if not resolved.exists():
         raise LaunchUnavailableError(t("said.program_not_there",
@@ -179,7 +179,7 @@ def _resolve_entry(game: Game, named: str | None) -> tuple[str, dict]:
             return chosen
         path = str(game.full_path_vpx_file or "")
         if not path:
-            raise LaunchUnavailableError(t("error.launch.nothing_to_launch"))
+            raise LaunchUnavailableError(t("error.launch.empty"))
         return "", {tables.TABLE_FILENAME_KEY: os.path.basename(path)}
 
     wanted = str(named).strip()
@@ -201,7 +201,7 @@ def _resolve_entry(game: Game, named: str | None) -> tuple[str, dict]:
         listing = [name for name in os.listdir(game_dir)
                    if os.path.isfile(os.path.join(game_dir, name))]
     if wanted not in table_names(listing):
-        raise UnknownTableError(t("error.launch.no_table_named", table=named))
+        raise UnknownTableError(t("error.launch.unknown_table", table=named))
     found_id, found = entry_for_filename(entries, wanted)
     return found_id, found or {tables.TABLE_FILENAME_KEY: wanted}
 

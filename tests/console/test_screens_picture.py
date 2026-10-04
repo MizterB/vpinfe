@@ -313,7 +313,7 @@ class VpxDrawnTests(unittest.TestCase):
     def test_a_part_inside_the_playfield_says_so_and_is_not_a_screen(self) -> None:
         _, body = self._vpx({"backglass": picture.INSIDE, "playfield": 1})
 
-        self.assertIn(t("console.screens.in_the_playfield"), _labels(body))
+        self.assertIn(t("console.screens.inside"), _labels(body))
         self.assertIn("console-part-slot--inside", _classes(body))
         self.assertNotIn("console-part-slot--missing", _classes(body))
 
@@ -335,9 +335,9 @@ class VpxDrawnTests(unittest.TestCase):
         _, plain = _drawn({})
 
         said = [one.text for one in body.descendants() if isinstance(one, ui.label)
-                and one.text == t("console.screens.in_the_playfield")]
+                and one.text == t("console.screens.inside")]
         self.assertEqual(len(said), 3)
-        self.assertNotIn(t("console.screens.in_the_playfield"), _labels(plain))
+        self.assertNotIn(t("console.screens.inside"), _labels(plain))
 
     def test_nothing_that_differs_draws_no_line_about_it(self) -> None:
         _, body = self._vpx({"playfield": 1})

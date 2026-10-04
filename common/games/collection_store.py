@@ -175,7 +175,7 @@ SORT_LABELS = {
 DIRECTION_LABELS = {"asc": "order.direction.asc", "desc": "order.direction.desc"}
 
 DIRECTION_WORDS = {
-    "title": {"asc": "order.direction.a_to_z", "desc": "order.direction.z_to_a"},
+    "title": {"asc": "order.direction.alpha_asc", "desc": "order.direction.alpha_desc"},
     "year": {"asc": "order.direction.oldest_first", "desc": "order.direction.newest_first"},
     "added": {"asc": "order.direction.oldest_first",
               "desc": "order.direction.newest_first"},
@@ -356,7 +356,7 @@ class CollectionStore:
     def _require(self, name: str) -> dict:
         record = self._record(name)
         if record is None:
-            raise KeyError(t("error.collections.no_collection_named", name=name))
+            raise KeyError(t("error.collections.not_found", name=name))
         return record
 
     def _require_mutable(self, name: str) -> dict:
@@ -364,7 +364,7 @@ class CollectionStore:
         so an edit would be accepted and then vanish at the next call."""
         record = self._require(name)
         if record.get("builtin") is True:
-            raise ValueError(t("error.collections.cannot_be_changed", name=name))
+            raise ValueError(t("error.collections.locked", name=name))
         return record
 
     def get_collections_name(self) -> list[str]:
@@ -373,7 +373,7 @@ class CollectionStore:
     def arrange(self, names: list[str]) -> None:
         """Put the records in the order `names` gives, which must name each exactly once."""
         if sorted(names) != sorted(self.get_collections_name()):
-            raise ValueError(t("error.collections.order_must_name_every"))
+            raise ValueError(t("error.collections.order_collections"))
         place = {name: at for at, name in enumerate(names)}
         self.records.sort(key=lambda record: place[record["name"]])
 
@@ -495,7 +495,7 @@ class CollectionStore:
             return
         value = int(limit)
         if value <= 0:
-            raise ValueError(t("error.collections.cap_fewer_one_game"))
+            raise ValueError(t("error.collections.cap_too_low"))
         record[LIMIT_KEY] = value
 
     def get_excluded_refs(self, section: str) -> list[dict]:
@@ -572,7 +572,7 @@ class CollectionStore:
     def add_collection(self, section: str, members: Iterable[object] | None = None) -> None:
         """Add a collection whose membership is an explicit list of games."""
         if self._record(section) is not None:
-            raise ValueError(t("error.collections.collection_named_already_exists",
+            raise ValueError(t("error.collections.name_taken",
                                name=section))
         self.records.append({"name": section, "type": "manual",
                              "image": "", "members": list(members or [])})
@@ -593,7 +593,7 @@ class CollectionStore:
     ) -> None:
         """Add a filter-based collection."""
         if self._record(section) is not None:
-            raise ValueError(t("error.collections.collection_named_already_exists",
+            raise ValueError(t("error.collections.name_taken",
                                name=section))
         criteria: dict[str, str | bool] = {
             "letter": letter, "theme": theme, "game_type": game_type,
@@ -610,7 +610,7 @@ class CollectionStore:
 
     def copy_collection(self, source: str, section: str) -> None:
         if self._record(section) is not None:
-            raise ValueError(t("error.collections.collection_named_already_exists",
+            raise ValueError(t("error.collections.name_taken",
                                name=section))
         record = copy.deepcopy(self._require_mutable(source))
         record["name"] = section
@@ -654,10 +654,10 @@ class CollectionStore:
     def rename_collection(self, old_name: str, new_name: str) -> None:
         record = self._require_mutable(old_name)
         if self._record(new_name) is not None:
-            raise ValueError(t("error.collections.collection_named_already_exists",
+            raise ValueError(t("error.collections.name_taken",
                                name=new_name))
         if not new_name.strip():
-            raise ValueError(t("error.collections.collection_needs_name"))
+            raise ValueError(t("error.collections.name_needed"))
         record["name"] = new_name
 
     def add_member(self, section: str, member_id: str, table_id: str = "",

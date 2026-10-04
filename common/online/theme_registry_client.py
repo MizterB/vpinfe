@@ -55,4 +55,4 @@ class ThemeRegistryClient:
             response.raise_for_status()
             return BytesIO(response.content)
         logger.warning("%s still rate limited after %s tries", url, max_retries)
-        raise ThemeRegistryError(t("error.themes.host_limiting_downloads"))
+        raise ThemeRegistryError(t("error.themes.rate_limited"))

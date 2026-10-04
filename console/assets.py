@@ -77,23 +77,23 @@ _SOURCE = "word.source"
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("game", t(_GAME), 240, pinned="left", group=t(_GAME),
                 subtitle="said", picture=list_art.FIELD, glyph=icons.GAMES,
-                help=t("console.assets.game_folder_file_belongs.help")),
+                help=t("console.assets.game.help")),
     grid.column("label", t("word.kind"), 160, group=t(_FILE),
-                help=t("console.assets.what_file_backglass_vpx.help")),
+                help=t("console.assets.kind.help")),
     grid.column("used_by", t("word.used_by"), type="numericColumn", group=t(_FILE),
-                help=t("console.assets.how_many_game_s.help")),
+                help=t("console.assets.used_by.help")),
     grid.column("reason", t("word.unused_reason"), 150, group=t(_FILE),
                 **grid.choice_filter(_REASON_CHOICES),
-                help=t("console.assets.why_file_not_one.help")),
+                help=t("console.assets.reason.help")),
     grid.column("table_file", t("console.assets.table"), 200, group=t(_FILE),
-                help=t("console.assets.vpx_file_named_blank.help")),
+                help=t("console.assets.table.help")),
     grid.column("path", t("word.path"), 300, group=t(_FILE),
-                help=t("console.assets.where_file_sits_relative.help")),
+                help=t("console.assets.path.help")),
     grid.column("source", t("word.source"), 165, group=t(_SOURCE),
                 **grid.choice_filter(_SOURCE_CHOICES),
-                help=t("console.assets.put_file_far_anything.help")),
+                help=t("console.assets.source.help")),
     grid.column("match", t("console.assets.match"), 140, group=t(_SOURCE),
-                help=t("console.assets.vps_file_somebody_said.help")),
+                help=t("console.assets.match.help")),
     grid.column("manufacturer", t("word.manufacturer"), 150, group=t(_GAME),
                 help=t("help.who_made_it")),
     grid.column("year", t("word.year"), group=t(_GAME),
@@ -107,26 +107,26 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("game", "label", "reason"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [MISSING]}},
-        help=t("console.assets.what_table_could_use.help")),
+        help=t("console.assets.missing_view.help")),
     "console.view.orphans": views.Preset(
         columns=("game", "label", "reason", "table_file", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [ORPHAN]}},
-        help=t("console.assets.files_left_behind_table.help")),
+        help=t("console.assets.orphans_view.help")),
     "console.view.unused": views.Preset(
         columns=("game", "label", "reason", "used_by", "table_file", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [UNUSED]}},
-        help=t("console.assets.correctly_named_files_nothing.help")),
+        help=t("console.assets.unused_view.help")),
     "console.view.sources": views.Preset(
         columns=("game", "label", "used_by", "path", "source", "match"),
         sort=({"colId": "source", "sort": "asc", "sortIndex": 0},
               {"colId": "game", "sort": "asc", "sortIndex": 1}),
         filters={"reason": {"values": [""]}},
-        help=t("console.assets.where_files_rely_came.help")),
+        help=t("console.assets.sources_view.help")),
     "console.view.everything": views.Preset(
         columns=tuple(_ALL),
-        help=t("console.assets.every_row_nothing_hidden.help")),
+        help=t("console.assets.everything_view.help")),
 }
 
 
@@ -158,7 +158,7 @@ def build(found: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(said()).classes("text-xs console-label")
             if rescan is not None:
-                panel.refresh(rescan, t("console.assets.read_library_disk_pick"))
+                panel.refresh(rescan, t("console.assets.rescan"))
 
     by_id = {row["id"]: row for row in built}
     grid.on_row_focus(SCOPE,

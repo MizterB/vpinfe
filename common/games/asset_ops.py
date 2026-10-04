@@ -43,7 +43,7 @@ def _stem(game: Game, kind: AssetKind, table_id: str) -> str:
         return media_ops.stem_or_refuse(game, table_id)
     if not kind.folder_fallback:
         raise service_errors.RefusedError(
-            t("error.assets.only_for_a_table", label=spec_for(kind.key).label),
+            t("error.assets.table_only", label=spec_for(kind.key).label),
             details={"kind": kind.key})
     return _folder(game).name
 
@@ -131,7 +131,7 @@ def remove(game_id: str, path: str) -> dict:
     elif found.suffix.lower() in _EXTENSIONS and found.is_file():
         found.unlink()
     else:
-        raise service_errors.RefusedError(t("error.assets.not_an_asset_file"),
+        raise service_errors.RefusedError(t("error.assets.not_removable"),
                                           details={"path": path})
     return {"removed": [path]}
 

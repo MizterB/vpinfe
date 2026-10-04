@@ -64,7 +64,7 @@ def _shadowed() -> Any:
 def _location_or_refuse(location_id: str) -> None:
     if locations.get_location_store().get(location_id) is None:
         raise service_errors.NotFoundError(
-            t("error.locations.no_location_called", location_id=(location_id)))
+            t("error.locations.unknown_location", location_id=(location_id)))
 
 
 def listing() -> dict[str, Any]:
@@ -105,9 +105,9 @@ def reorder(order: object) -> dict[str, Any]:
     Declared above `/{location_id}`, which would otherwise match "order" as an id.
     """
     if not isinstance(order, list) or not order:
-        raise service_errors.RefusedError(t("error.locations.name_locations_order_want"))
+        raise service_errors.RefusedError(t("error.locations.empty_order"))
     if not locations.get_location_store().reorder([str(one) for one in order]):
-        raise service_errors.NotFoundError(t("error.locations.none_locations_device"))
+        raise service_errors.NotFoundError(t("error.locations.none_on_device"))
     return listing()
 
 
@@ -148,16 +148,16 @@ def put(location_id: str, path: str, kind: str = "") -> dict[str, Any]:
     """
     wanted = str(location_id or "").strip()
     if not wanted:
-        raise service_errors.RefusedError(t("error.locations.location_needs_id"))
+        raise service_errors.RefusedError(t("error.locations.needs_id"))
     path = str(path or "").strip()
     if not path:
-        raise service_errors.RefusedError(t("error.locations.location_needs_path"))
+        raise service_errors.RefusedError(t("error.locations.needs_path"))
     if not os.path.isabs(os.path.expanduser(path)):
-        raise service_errors.RefusedError(t("error.locations.give_the_full_path"))
+        raise service_errors.RefusedError(t("error.locations.not_absolute"))
     kind = str(kind or locations.KIND_ROOT).strip()
     if kind not in locations.KINDS:
         raise service_errors.RefusedError(
-            t("error.locations.no_location_kind_called", kind=(kind),
+            t("error.locations.unknown_kind", kind=(kind),
                     kinds=', '.join(locations.KINDS)))
 
     store = locations.get_location_store()
@@ -165,7 +165,7 @@ def put(location_id: str, path: str, kind: str = "") -> dict[str, Any]:
         written = store.put(locations.Location(location_id=wanted, path=path, kind=kind))
     except locations.FolderHeldError as held:
         raise service_errors.RefusedError(
-            t("error.locations.already_in_the_list", name=held.held.name)) from held
+            t("error.locations.duplicate", name=held.held.name)) from held
     target = store.write_to()
     return _described(written, target.location_id if target is not None else "",
                       locations.state_of(written))
@@ -188,7 +188,7 @@ def forget(location_id: str) -> dict[str, Any]:
     folder, so it leaves with the location and is there again if it comes back."""
     if not locations.get_location_store().remove(location_id):
         raise service_errors.NotFoundError(
-            t("error.locations.no_location_called", location_id=(location_id)))
+            t("error.locations.unknown_location", location_id=(location_id)))
     return {"removed": location_id}
 
 
@@ -220,26 +220,26 @@ def adopt(location_id: str, path: str) -> dict[str, Any]:
     _location_or_refuse(location_id)
     wanted = locations.canonical(str(path or ""))
     if not wanted:
-        raise service_errors.RefusedError(t("error.locations.name_folder_give_id"))
+        raise service_errors.RefusedError(t("error.locations.needs_folder"))
 
     found = _shadowed()
     one = next((entry for entry in found.under(location_id)
                 if locations.canonical(entry.path) == wanted), None)
     if one is None:
         raise service_errors.NotFoundError(
-            t("error.locations.nothing_shadowed_path_may"),
+            t("error.locations.not_shadowed"),
             details={"path": str(path or "")})
 
     game = next((held for held in game_repository.all_games()
                  if locations.canonical(str(held.full_path_game or ""))
                  == wanted), None)
     if game is None:
-        raise service_errors.NotFoundError(t("error.locations.folder_no_longer_library"))
+        raise service_errors.NotFoundError(t("error.locations.folder_removed"))
     return {"path": one.path, "game_id": game_identity.ensure_id(game, force_new=True)}
 
 
 def set_write_to(location_id: str) -> dict[str, Any]:
     if not locations.get_location_store().set_write_to(location_id):
         raise service_errors.NotFoundError(
-            t("error.locations.no_location_called", location_id=(location_id)))
+            t("error.locations.unknown_location", location_id=(location_id)))
     return {"write_to": location_id}

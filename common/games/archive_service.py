@@ -34,7 +34,7 @@ def create_vpxz_archive(game_dir: Path, *, everything: bool = False,
     """
     # A path with no name wraps nothing: `Path("")` is the working directory.
     if not game_dir.name or not game_dir.is_dir():
-        raise service_errors.NotFoundError(t("error.games.game_not_found"))
+        raise service_errors.NotFoundError(t("error.games.not_found"))
 
     tmp_dir = tempfile.mkdtemp()
     vpxz_path = os.path.join(tmp_dir, f"{game_dir.name}.vpxz")

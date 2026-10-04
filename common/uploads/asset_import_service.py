@@ -207,12 +207,12 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
     kind = asset.kind
     spec = spec_for(kind)
     if spec.requires_rom and not rom_name:
-        return BlockedItem(asset, t("error.uploads.game_has_no_rom"))
+        return BlockedItem(asset, t("error.uploads.no_rom"))
 
     if kind == "table":
         dest = base / _safe_upload_name(_basename(asset.entries[0].arcname))
         if game_kind_action == "add_table" and dest.exists():
-            return BlockedItem(asset, t("error.games.game_already_file_name"))
+            return BlockedItem(asset, t("error.games.file_exists"))
         return PlannedItem(asset, str(dest), game_kind_action)
     if kind == "game_info":
         # Always written as <folder>.info — the parser matches it by folder name.
@@ -242,7 +242,7 @@ def _plan_asset(asset: DetectedAsset, base: Path, vpx_stem: str, rom_name: str,
         return PlannedItem(asset, str(base / name), "copy")
     if kind == "patch":
         if not vpx_stem:
-            return BlockedItem(asset, t("error.uploads.no_table_to_patch"))
+            return BlockedItem(asset, t("error.uploads.no_table"))
         return PlannedItem(asset, str(base / _patched_vpx_name(asset, base, vpx_stem)),
                            "apply_patch")
     if kind == "media":
@@ -343,9 +343,9 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
 
     for asset in analysis.assets:
         if spec_for(asset.kind).requires_game:
-            blocked.append(BlockedItem(asset, t("error.uploads.drop_on_its_game")))
+            blocked.append(BlockedItem(asset, t("error.uploads.target_game")))
         else:
-            blocked.append(BlockedItem(asset, t("error.uploads.drop_to_make_game")))
+            blocked.append(BlockedItem(asset, t("error.uploads.target_library")))
     return ImportPlan("", "", rom_name, (), tuple(blocked))
 
 
@@ -357,7 +357,7 @@ def build_media_slot_plan(source_path: Path, *, game_dir: Path, media_kind: str)
     reason.
     """
     if media_kind not in _MEDIA_FILENAMES:
-        raise ValueError(t("error.uploads.no_slot_called", media_kind=media_kind))
+        raise ValueError(t("error.uploads.unknown_slot", media_kind=media_kind))
     src = Path(source_path)
     try:
         size = src.stat().st_size
@@ -368,7 +368,7 @@ def build_media_slot_plan(source_path: Path, *, game_dir: Path, media_kind: str)
                           size=size, detail=f"{src.name} → {media_kind}")
 
     if src.is_dir() or src.suffix.lower() in ARCHIVE_EXTENSIONS:
-        blocked = BlockedItem(asset, t("error.uploads.drop_single_file_slot"))
+        blocked = BlockedItem(asset, t("error.uploads.slot_file"))
         return ImportPlan(str(game_dir), "", "", (), (blocked,))
 
     try:
@@ -388,7 +388,7 @@ def build_readme_plan(source_path: Path, *, game_dir: Path) -> ImportPlan:
     asset = DetectedAsset("readme", spec_for("readme").label, (entry,), size=size,
                           detail=src.name)
     if src.is_dir() or src.suffix.lower() in ARCHIVE_EXTENSIONS:
-        blocked = BlockedItem(asset, t("error.uploads.notes_one_file"))
+        blocked = BlockedItem(asset, t("error.uploads.notes_shape"))
         return ImportPlan(str(game_dir), "", "", (), (blocked,))
     item = PlannedItem(asset, str(game_dir / f"readme{src.suffix.lower()}"), "copy")
     return ImportPlan(str(game_dir), "", "", (item,), ())
@@ -457,7 +457,7 @@ def select_plan_items(plan: ImportPlan, indices: list[int] | None = None,
     new_name = (sanitize_dir_name(new_game_dir_name) if new_game_dir_name is not None
                 else plan.new_game_dir_name)
     if not new_name:
-        raise ValueError(t("error.uploads.folder_needs_name"))
+        raise ValueError(t("error.uploads.folder_unnamed"))
     if new_name == plan.new_game_dir_name:
         return replace(plan, items=chosen)
 
@@ -594,7 +594,7 @@ def _replace_vpx_from_file(source: AssetSource, asset: DetectedAsset,
     entry = asset.entries[0]
     safe = _safe_upload_name(_basename(entry.arcname))
     if not safe.lower().endswith(".vpx"):
-        raise ValueError(t("error.uploads.only_vpx_replaces_table"))
+        raise ValueError(t("error.uploads.table_kind"))
     new_vpx = base / safe
     old_vpx = replaced_table(base)
     old_b2s = _find_directb2s_file(base, old_vpx.stem) if old_vpx else None
@@ -627,7 +627,7 @@ def _add_table_from_file(source: AssetSource, asset: DetectedAsset, base: Path,
                          dest: Path) -> str:
     """Bring a table in beside the game's others. Answers with its new id."""
     if dest.exists():
-        raise ValueError(t("error.games.game_already_file_name"))
+        raise ValueError(t("error.games.file_exists"))
     _extract_replace(source, asset.entries[0], dest)
     table_id = new_id()
     record_arrived_table(base, dest, table_id)
@@ -716,7 +716,7 @@ def _apply_patch(source: AssetSource, asset: DetectedAsset, base: Path,
     candidates = sorted(base.glob("*.vpx"), key=lambda p: p.stat().st_size, reverse=True)
     candidates = [c for c in candidates if c != dest]
     if not candidates:
-        raise ValueError(t("error.uploads.no_table_to_patch"))
+        raise ValueError(t("error.uploads.no_table"))
     original = candidates[0]
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".dif") as tmp:
@@ -729,7 +729,7 @@ def _apply_patch(source: AssetSource, asset: DetectedAsset, base: Path,
             except PatchError as exc:
                 dest.unlink(missing_ok=True)
                 logger.warning("Patch does not apply to %s: %s", original.name, exc)
-                raise ValueError(t("error.uploads.patch_does_not_apply",
+                raise ValueError(t("error.uploads.patch_mismatch",
                                    table=original.name)) from exc
         base_hash = _sha256(original)
         logger.info("Patched %s -> %s (base sha256 %s)", original.name, dest.name,
@@ -759,7 +759,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
     base = Path(plan.game_dir)
     if plan.new_game_dir_name:
         if base.exists():
-            raise ValueError(t("error.uploads.folder_already_there", name=base.name))
+            raise ValueError(t("error.uploads.folder_exists", name=base.name))
         base.mkdir(parents=True)
 
     source = open_source(Path(source_path))

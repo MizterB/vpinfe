@@ -37,7 +37,7 @@ class PatchAssetTests(unittest.TestCase):
             plan = build_import_plan(analyze_path(path), game_dir=Path(tmp))
             self.assertFalse(plan.items)
             self.assertEqual([b.reason for b in plan.blocked],
-                             [t("error.uploads.no_table_to_patch")])
+                             [t("error.uploads.no_table")])
 
     def test_the_patched_game_takes_the_patch_name(self):
         """A mod's .ini, .directb2s and artwork are named for the mod, and all of them
@@ -159,7 +159,7 @@ class PatchAssetTests(unittest.TestCase):
                 execute_import_plan(plan, zip_path)
 
             self.assertEqual(str(caught.exception),
-                             t("error.uploads.patch_does_not_apply", table="Table.vpx"))
+                             t("error.uploads.patch_mismatch", table="Table.vpx"))
             self.assertFalse((game_dir / "Mod.vpx").exists())
 
     def test_the_patched_table_is_parsed_when_it_is_made(self):

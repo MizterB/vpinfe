@@ -306,8 +306,8 @@ EMPTY_PANE = {
     "tables": ("console.page.table_details", "console.page.select_table"),
     "collections": ("console.page.collection", "console.page.select_collection"),
     "tags": ("console.page.tag", "console.page.select_tag"),
-    "media": ("console.page.media", "console.page.select_kind_media"),
-    "assets": ("console.page.assets", "console.page.select_kind_file"),
+    "media": ("console.page.media", "console.page.select_media"),
+    "assets": ("console.page.assets", "console.page.select_asset"),
     "devices": ("console.page.device", "console.page.select_device"),
     "locations": ("console.page.location", "console.page.select_location"),
     "launchers": ("console.page.launcher", "console.page.select_launcher"),
@@ -377,7 +377,7 @@ def why_not_loaded(exc: Exception) -> str:
     asleep", and the install serving this page is neither.
     """
     if isinstance(exc.__cause__, requests.Timeout):
-        return t("console.page.took_too_long")
+        return t("console.page.timeout")
     return why(exc)
 
 
@@ -385,7 +385,7 @@ def _not_loaded(loading: ui.element, exc: Exception) -> None:
     """The loading line, replaced by what went wrong and a way to ask again."""
     loading.delete()
     with ui.column().classes("w-full h-full items-center justify-center gap-3"):
-        ui.label(t("console.page.could_not_load")).classes("console-empty-title")
+        ui.label(t("console.page.load_failed")).classes("console-empty-title")
         ui.label(why_not_loaded(exc)).classes("text-sm opacity-60")
         panel_parts.action(t("console.page.try_again"), ui.navigate.reload,
                            icon=verbs.REFRESH)()
@@ -425,14 +425,14 @@ async def _took_a_drop(
         analysis = read
 
     if drop.target != uploads.TARGET_LIBRARY and not game_dir:
-        ui.notify(t("console.page.could_not_work_game"), type="negative")
+        ui.notify(t("console.page.row_unknown"), type="negative")
         await run.io_bound(library.abort_upload, drop.upload_id)
         return
 
     # A drop with no game named can only be a new one, and only if it brought a table.
     new_game = not game_dir and not media_kind
     if new_game and not analysis.get("has_game"):
-        ui.notify(t("console.page.drop_game_add_one"), type="warning")
+        ui.notify(t("console.page.drop_hint"), type="warning")
         await run.io_bound(library.abort_upload, drop.upload_id)
         return
 
@@ -670,7 +670,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             nav_icon = ui.icon("menu_open", size="24px") \
                 .classes("opacity-70 shrink-0 cursor-pointer console-panel-toggle") \
                 .on("click", lambda: toggle_mini())
-            nav_icon.tooltip(t("console.page.show_hide_navigation"))
+            nav_icon.tooltip(t("console.page.nav_toggle"))
             # Larger and heavier than a nav item, like HA's own title. Row height may
             # differ from the items below - that is fine and expected; what has to stay
             # aligned is the icon column, which does not depend on the label's size.
@@ -1004,7 +1004,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         badge.set_visibility(True)
         badge.tooltip(t("console.page.update_waiting",
                 devices=", ".join(waiting)) if len(waiting) <= 3
-                      else t("console.page.devices_update_waiting", count=len(waiting)))
+                      else t("console.page.updates_count", count=len(waiting)))
 
     ui.timer(0.1, _look_for_update, once=True)
 
@@ -1116,12 +1116,12 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                     full_icon = ui.button(icon=verbs.ENLARGE,
                                           on_click=lambda: toggle_full()) \
                         .props("flat dense round size=sm") \
-                        .tooltip(t("console.page.give_workbench_whole_window"))
+                        .tooltip(t("console.page.workbench_max"))
                 # Outside that row: it is the only way back once the rest have gone.
                 workbench_icon = ui.icon("menu_open", size="24px") \
                     .classes("opacity-70 shrink-0 cursor-pointer console-panel-toggle") \
                     .on("click", lambda: show_workbench(not state["workbench"]))
-                workbench_icon.tooltip(t("console.page.show_hide_workbench"))
+                workbench_icon.tooltip(t("console.page.workbench_toggle"))
         # The scrolling belongs to the workbench's body column now, so the outline
         # beside it can stay put while that scrolls.
         panel = ui.column().classes("w-full gap-0 grow min-h-0 overflow-hidden")
@@ -1285,7 +1285,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         this is for when you have just gone and switched one on."""
         failed = await devices_page.ask_each(devices, _probe_one, _arrived)
         if failed:
-            ui.notify(t("console.page.could_not_ask_devices"), caption=why(failed[0]),
+            ui.notify(t("console.page.devices_failed"), caption=why(failed[0]),
                       type="negative")
 
     @on_page
@@ -1804,12 +1804,12 @@ def read_outcome(result: dict[str, Any]) -> tuple[str, list[str], str]:
     again = int(result.get("waiting_matched") or 0)
     also = t("console.page.matched_waiting_games", count=again) if again else ""
     if waiting and matched:
-        return t("console.page.matched_some_new_games", count=len(waiting),
+        return t("console.page.matched_some", count=len(waiting),
                  matched=matched, total=total), waiting, also
     if waiting:
-        return t("console.page.new_games_need_match", count=len(waiting)), waiting, also
+        return t("console.page.needs_match", count=len(waiting)), waiting, also
     if matched:
-        return t("console.page.matched_new_games", count=matched), [], also
+        return t("console.page.matched_all", count=matched), [], also
     if also:
         return also, [], ""
     return t("console.page.library_date"), [], ""
@@ -1832,7 +1832,7 @@ async def _read_the_library() -> dict | None:
         job = await offload.io(ApiClient().refresh_library)
     except Exception as exc:
         # Already running is the ordinary case here, not a failure worth a trace.
-        ui.notify(t("console.page.could_not_start"), caption=why(exc), type="warning")
+        ui.notify(t("console.page.start_failed"), caption=why(exc), type="warning")
         return None
-    ui.notify(t("console.page.reading_library_disk"), type="positive")
+    ui.notify(t("console.page.rescanning"), type="positive")
     return job

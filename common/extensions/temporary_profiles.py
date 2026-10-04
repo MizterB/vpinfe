@@ -67,7 +67,7 @@ def join(card: str) -> dict[str, Any]:
         except ValueError:
             said = ""
         raise service_errors.RefusedError(
-            said or t("error.players.card_not_taken", status_code=response.status_code))
+            said or t("error.players.card_refused", status_code=response.status_code))
     return state()
 
 

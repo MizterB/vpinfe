@@ -132,14 +132,14 @@ _TICK = {
 COLUMNS = [
     grid.identifier("name", t(_GAME), 280, pinned="left", group=t(_GAME),
                 subtitle="said", picture=list_art.FIELD, glyph=icons.GAMES,
-                help=t("console.games.game_library_names.help"),
+                help=t("console.games.game.help"),
                 **row_drag.source(row_drag.GAMES)),
     # Always, including 1: it is the only thing saying the row collapses its tables,
     # and it qualifies everything to its right. "Table Count" rather
     # than "Tables", which read as the tables themselves - this is a number about the
     # game, and it belongs with the game's other facts.
     grid.column("table_count", t("word.table_count"), type="numericColumn", group=t(_GAME),
-                help=t("console.games.how_many_vpx_files.help")),
+                help=t("console.games.table_count.help")),
     grid.column("hidden", game_tables.FRONTEND, group=t(_GAME),
                 help=t("console.games.hidden_game.help"),
                 **{":valueFormatter":
@@ -166,19 +166,19 @@ COLUMNS = [
     grid.column("year", t("word.year"), group=t(_GAME),
                 help=t("help.year_released")),
     grid.column("game_type", t("console.games.type"), group=t(_GAME),
-                help=t("console.games.solid_state_electro_mechanical.help")),
+                help=t("console.games.type.help")),
     # Qualified for the reason Game Rating is: an install has a *frontend* theme and will
     # have a Console one, so "Themes" in a column header is three things one screen apart.
     # The panel says "Themes" plainly, because a group headed Machine has said which.
     grid.list_column("themes", t("console.games.game_themes"), 200, group=t(_GAME),
-                     help=t("console.games.what_game_about.help")),
+                     help=t("console.games.themes.help")),
     # The word only where it is missing, and a blank cell everywhere else: most of a
     # library is matched, so a mark on every row says nothing and the few that are not
     # are the whole point of the column. It sits beside the catalog facts because it
     # explains them - a game with no manufacturer, year or themes is usually a game the
     # catalog has never been asked about.
     grid.column("vps_unmatched", t("console.games.vps_match"), group=t(_GAME),
-                help=t("console.games.blank_where_game_matched.help"),
+                help=t("console.games.vps_match.help"),
                 **_NO_CHECKBOX,
                 **{":valueFormatter":
                    "params => params.value ? "
@@ -194,7 +194,7 @@ COLUMNS = [
     # Named for whose rating it is, because the tables grid has one too and "Rating"
     # in two places invites the reader to assume they are the same number.
     grid.column("rating", t("console.games.game_rating"), group=t(_GAME),
-                help=t("console.games.rating_game_0_5.help"),
+                help=t("console.games.game_rating.help"),
                 cellClass="console-stars-cell",
                 **{**grid.choice_filter(_RATING_CHOICES),
                    ":cellRenderer": stars.renderer("game")}),
@@ -389,11 +389,11 @@ def auto_match_outcome(result: dict[str, Any]) -> tuple[str, bool]:
     if moved and waiting:
         return t("console.games.auto_matched_some",
                  matched=t("console.games.auto_matched", count=moved),
-                 waiting=t("console.games.still_need_match", count=waiting)), True
+                 waiting=t("console.games.unmatched", count=waiting)), True
     if moved:
         return t("console.games.auto_matched", count=moved), True
     if waiting:
-        return t("console.games.still_need_match", count=waiting), False
+        return t("console.games.unmatched", count=waiting), False
     return t("console.vps_match.nothing_changed"), False
 
 
@@ -506,9 +506,9 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             # looking at - and it costs no vertical space of its own.
             count = ui.label(t("console.games.games", count=len(rows))) \
                 .classes("text-xs console-label")
-            actions, bulk_menu = panel.selection_actions(t("console.games.actions_selected_games"))
+            actions, bulk_menu = panel.selection_actions(t("console.games.games_menu"))
             if rescan is not None:
-                panel.refresh(rescan, t("console.games.read_library_disk_pick"))
+                panel.refresh(rescan, t("console.games.rescan"))
 
     shown: dict[str, int] = {"rows": len(rows)}
 
@@ -587,7 +587,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         try:
             result = await offload.io(library.auto_match, ids)
         except Exception as exc:  # noqa: BLE001 - said, and the grid is as it was
-            ui.notify(t("console.games.could_not_auto_match"), caption=why(exc), type="warning")
+            ui.notify(t("console.games.match_failed"), caption=why(exc), type="warning")
             return
         said, moved = auto_match_outcome(result)
         ui.notify(said, type="positive" if moved else "info")
@@ -612,11 +612,11 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         try:
             await run.io_bound(library.set_games_private, ids, private)
         except Exception as exc:  # noqa: BLE001 - said, and the grid is as it was
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return
         await show_private(ids)
         said = t("console.games.marked_private" if private
-                 else "console.games.marked_not_private", count=len(ids))
+                 else "console.games.cleared_private", count=len(ids))
 
         @on_page
         async def put_back() -> None:
@@ -633,7 +633,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         panel.menu_entry(t("console.games.mark_private"), lambda: mark_private(games, True),
                          refused=t("console.games.already_private", count=len(games))
                          if all(marked) else "")
-        panel.menu_entry(t("console.games.mark_not_private"),
+        panel.menu_entry(t("console.games.clear_private"),
                          lambda: mark_private(games, False),
                          refused="" if any(marked)
                          else t("console.games.none_private", count=len(games)))
@@ -889,10 +889,10 @@ _LAUNCHER_DRAWN: dict[str, Any] = {":cellRenderer": _LAUNCHER_CELL}
 _OWN_SETTINGS, _POINT_OF_VIEW, _FROM_GAME = "own", "point_of_view", "from_game"
 _GAME_SCOPE = t("console.workbench.folder")
 _SETTINGS_CHOICES = [
-    {"value": _OWN_SETTINGS, "label": t("console.games.has_settings_own")},
+    {"value": _OWN_SETTINGS, "label": t("console.games.filter_own")},
     {"value": _POINT_OF_VIEW, "label": t("asset.kind.pov.label")},
     {"value": _FROM_GAME, "label": t("console.games.settings_from", scope=_GAME_SCOPE)},
-    {"value": "", "label": t("console.games.same_as_all_tables")},
+    {"value": "", "label": t("console.games.filter_same")},
 ]
 _SETTINGS_DRAWN: dict[str, Any] = {
     ":valueFormatter": "params => (params.data || {}).settings_said || ''",
@@ -926,16 +926,16 @@ TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
                 picture=list_art.FIELD, glyph=icons.TABLES,
-                help=t("console.games.game_this_table.help"),
+                help=t("console.games.table_game.help"),
                 **row_drag.source(row_drag.TABLES)),
     grid.column("version", t("word.version"), group=t(_TABLE),
-                help=t("console.games.table_s_version.help")),
+                help=t("console.games.version.help")),
     grid.column("on_vps", t("console.games.on_vps"), group=t(_TABLE),
                 help=t("console.games.on_vps.help")),
     grid.column("update", t("console.games.update"), 140, group=t(_TABLE),
                 help=t("console.games.update.help"),
                 **grid.choice_filter([
-                    {"value": _NEWER, "label": t("console.games.newer_on_vps")},
+                    {"value": _NEWER, "label": t("console.games.filter_newer")},
                     {"value": "", "label": t("console.games.no_newer_version")}])),
     grid.column("mod_of", t("console.games.mod_of"), 200, group=t(_TABLE),
                 help=t("console.games.mod_of.help"),
@@ -944,11 +944,11 @@ TABLE_COLUMNS = [
                     {"value": "", "label": t("console.games.no_mod_known")}],
                     formatted=True), **_MOD_DRAWN}),
     grid.column("author", t("word.author"), 160, group=t(_TABLE),
-                help=t("console.games.built_table_several_names.help")),
+                help=t("console.games.author.help")),
     grid.column("rom", t("console.games.rom"), 110, group=t(_TABLE),
-                help=t("console.games.pinmame_rom_table_resolves.help")),
+                help=t("console.games.rom.help")),
     grid.column("launcher", t("console.games.launcher"), group=t(_TABLE),
-                help=t("console.games.launcher_plays_file_dot.help"),
+                help=t("console.games.launcher.help"),
                 **_LAUNCHER_DRAWN),
     grid.column("settings", t("console.workbench.table_settings"), 155, group=t(_TABLE),
                 help=t("console.games.settings.help"),
@@ -964,7 +964,7 @@ TABLE_COLUMNS = [
     # for. A summary column can be built later, deliberately, from these.
     # Not a tick: a locked default and an automatic one are different facts.
     grid.column("default_state", game_tables.DEFAULT_LABEL, group=t(_IN_PLAY),
-                help=t("console.games.table_frontend_offers.help"),
+                help=t("console.games.default.help"),
                 **grid.choice_filter(
                     [{"value": kind, "label": word}
                      for kind, (word, _why) in game_tables.DEFAULT_WORDS.items()]
@@ -972,12 +972,12 @@ TABLE_COLUMNS = [
                     formatted=True),
                 **renderers.drawable("state", states=_DEFAULT_STATES)),
     grid.column(GAME_RATING, t("console.games.game_rating"), group=t(_GAME),
-                help=t("console.games.rating_game_0_5.help"),
+                help=t("console.games.game_rating.help"),
                 cellClass="console-stars-cell",
                 **{**grid.choice_filter(_RATING_CHOICES),
                    ":cellRenderer": stars.renderer("game", on_table=True)}),
     grid.column("rating", t("console.games.table_rating"), group=t(_TABLE),
-                help=t("console.games.rating_table_0_5.help"),
+                help=t("console.games.table_rating.help"),
                 cellClass="console-stars-cell",
                 **{**grid.choice_filter(_RATING_CHOICES),
                    ":cellRenderer": stars.renderer("table")}),
@@ -986,17 +986,17 @@ TABLE_COLUMNS = [
     # Each column's own words, not a generic pair: "Hidden: Yes" is a question about a
     # question, where "Hidden / Offered" is the fact and its opposite.
     grid.column("hidden", t("word.hidden"), group=t(_IN_PLAY),
-                help=t("console.games.ticked_where_frontend_not.help"),
+                help=t("console.games.hidden.help"),
                 **{**_TICK, **grid.choice_filter(
                     _two(game_tables.HIDDEN_WORDS))}),
     grid.column("missing", t("console.games.missing"), group=t(_IN_PLAY),
-                help=t("console.games.ticked_where_library_describes.help"),
+                help=t("console.games.missing.help"),
                 **{**_TICK, **grid.choice_filter(
                     _two(game_tables.FILE_WORDS))}),
     # Last and widest: it is the identifier of record, and the part that tells two
     # tables of one game apart sits at its end.
     grid.column("filename", game_tables.FILE, 420, group=t(_TABLE),
-                help=t("console.games.vpx_itself_identifier_record.help")),
+                help=t("console.games.filename.help")),
     *FEATURE_COLUMNS,
 ]
 
@@ -1305,9 +1305,9 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(_tables_said(built, len(built))) \
                 .classes("text-xs console-label")
-            actions, bulk_menu = panel.selection_actions(t("console.games.actions_selected_tables"))
+            actions, bulk_menu = panel.selection_actions(t("console.games.tables_menu"))
             if rescan is not None:
-                panel.refresh(rescan, t("console.games.read_library_disk_pick"))
+                panel.refresh(rescan, t("console.games.rescan"))
 
     # The workbench follows the focused row, the same way it does under Games - focus
     # rather than selection, so arrowing down the list is a sweep and the checkboxes
@@ -1549,7 +1549,7 @@ def view_control(library: Any, scope: str,
     with top:
         menu_button = ui.button(icon=verbs.TUNE).props("flat dense round size=sm") \
             .classes("console-view-menu") \
-            .tooltip(t("console.games.columns_saving_view"))
+            .tooltip(t("console.games.view_menu"))
         with menu_button:
             menu = ui.menu()
 
@@ -1612,7 +1612,7 @@ def view_control(library: Any, scope: str,
             # old fallback showed every column instead, which reads as the view
             # misbehaving rather than as a view that has gone stale.
             if wanted is None:
-                ui.notify(t("console.games.saved_columns_library_no", name=(view.name)),
+                ui.notify(t("console.games.view_stale", name=(view.name)),
                         type="warning")
                 await _refresh()
                 return
@@ -1851,7 +1851,7 @@ def _ask_name(save: Callable[..., Any], *, named: str = "",
         name = held["name"]
         if not (name.value or "").strip():
             name.props["error"] = True
-            name.props["error-message"] = t("said.give_it_a_name")
+            name.props["error-message"] = t("said.needs_name")
             return
         box.close()
         await save(name.value, held["purpose"].value or "")
@@ -1861,7 +1861,7 @@ def _ask_name(save: Callable[..., Any], *, named: str = "",
             (t("word.name"), draw_name),
             (t("console.workbench.description"),
              lambda: held.update(purpose=frame.field(
-                 said, placeholder=t("console.games.what_view_for"))))])
+                 said, placeholder=t("console.games.view_hint"))))])
         with frame.footer():
             frame.cancel(box.close)
             go = frame.answer(t("word.save"), keep, icon=verbs.SAVE)

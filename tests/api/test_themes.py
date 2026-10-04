@@ -48,7 +48,7 @@ class NoThemeNamedTests(TempTree):
 
         self.assertEqual(answer.status_code, 400)
         self.assertEqual(answer.json()["error"]["message"],
-                         t("error.themes.name_theme_to_activate"))
+                         t("error.themes.none_named"))
 
 
 if __name__ == "__main__":

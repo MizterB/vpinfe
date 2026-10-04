@@ -131,7 +131,7 @@ def _send(device: dict[str, Any], sending: list[dict[str, Any]],
             logger.warning("Could not copy launcher %s to %s: %s",
                            one.get("display_name"), name, exc)
             return Outcome(device_id, name, launchers=sent,
-                           error=t("said.did_not_arrive", name=one.get("display_name")),
+                           error=t("said.not_arrived", name=one.get("display_name")),
                            reason=_reason(exc))
         sent += 1
 
@@ -142,7 +142,7 @@ def _send(device: dict[str, Any], sending: list[dict[str, Any]],
         except Exception as exc:  # noqa: BLE001
             logger.warning("Could not copy a mapping to %s: %s", name, exc)
             return Outcome(device_id, name, launchers=sent, mappings=mapped,
-                           error=t("said.assignments_did_not_arrive"), reason=why(exc))
+                           error=t("said.assignments_lost"), reason=why(exc))
         mapped += 1
 
     return Outcome(device_id, name, launchers=sent, mappings=mapped)
@@ -173,9 +173,9 @@ def said(outcomes: Iterable[Outcome]) -> str:
     found = list(outcomes)
     good = sum(one.ok for one in found)
     if good == len(found):
-        return t("said.copied_to_devices", count=good)
+        return t("said.copy_result", count=good)
     if not good:
-        return t("said.nothing_was_copied")
+        return t("said.copy_none")
     return t("said.copied_to_some", count=good, total=len(found))
 
 

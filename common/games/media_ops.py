@@ -48,7 +48,7 @@ def kind_or_refuse(kind: str) -> str:
     kind = canonical_kind(kind)
     if kind not in _KINDS:
         raise service_errors.RefusedError(
-            t("error.games.unknown_media_kind"),
+            t("error.games.unknown_kind"),
             details={"unknown": kind, "known": sorted(_KINDS)})
     return kind
 
@@ -59,7 +59,7 @@ def stem_or_refuse(game: Game, table_id: str) -> str:
     filename = media_lookup.table_filename(game, table_id)
     if not filename:
         raise service_errors.NotFoundError(
-            t("error.games.game_no_such_table"),
+            t("error.games.table_not_found"),
             details={"game": game.game_dir_name, "table": table_id})
     return Path(filename).stem
 
@@ -106,7 +106,7 @@ def media_file(game_id: str, kind: str, table_id: str = "",
     hit = media_service.resolved_media(_folder(game), stem).get(kind)
     path = hit.path if hit is not None else None
     if path is None or not path.is_file():
-        raise service_errors.NotFoundError(t("error.games.game_no_media", kind=(kind)))
+        raise service_errors.NotFoundError(t("error.games.no_media", kind=(kind)))
     return sized_media.served(path, size)
 
 
@@ -269,7 +269,7 @@ def placements(game_id: str, kind: str) -> dict:
     spec = next((item for item in MEDIA_SPECS if item.kind == kind), None)
     if spec is None:
         raise service_errors.RefusedError(
-            t("error.games.unknown_media_kind"),
+            t("error.games.unknown_kind"),
             details={"unknown": kind, "known": sorted(_KINDS)})
     game = game_lens.game_or_refuse(game_id)
     game_dir = _folder(game)
@@ -382,7 +382,7 @@ def fetch_file(game_id: str, kind: str, table_id: str, source: str, vps_id: str,
                                   asset_sources.enabled_ids())
     if offer is None:
         raise service_errors.NotFoundError(
-            t("error.games.source_no_such_art"),
+            t("error.games.no_art"),
             details={"source": source, "vps_id": vps_id, "kind": kind, "size": size})
     with tempfile.TemporaryDirectory() as staging:
         staged = Path(staging) / Path(offer.url).name

@@ -332,7 +332,7 @@ class Table:
                 ui.label(shown)
             self._chips[(row.name, binding)] = chip
             if crowded:
-                chip.tooltip(t("console.binding_editor.also_bound_first_one", others=listed(
+                chip.tooltip(t("console.binding_editor.shared", others=listed(
                     self.label_of(name) for name in claimed_by if name != row.name)))
             elif len(claimed_by) > 1:
                 chip.tooltip(t("console.binding_table.also_does", others=listed(
@@ -376,7 +376,7 @@ class Table:
                 ui.icon(verbs.PRESS)
                 ui.label(t("console.binding_table.press_anything"))
                 if self.elsewhere:
-                    ui.label(t("console.binding_table.tried_on_the_cabinet")) \
+                    ui.label(t("console.binding_table.cabinet_note")) \
                         .classes("console-binding-live-key console-binding-live-end")
                 return
             ui.icon(verbs.CONTROLLER if live.pad else verbs.KEYBOARD)
@@ -385,7 +385,7 @@ class Table:
             if live.does:
                 ui.label(live.does).classes("console-binding-live-does")
             else:
-                ui.label(live.nothing or t("console.binding_table.does_nothing_here")) \
+                ui.label(live.nothing or t("console.binding_table.no_action")) \
                     .classes("console-binding-live-key")
 
     def _draw_listening(self, row: Row) -> None:
@@ -399,7 +399,7 @@ class Table:
             if after:
                 ui.label(after)
             ui.label("·").classes("console-binding-live-sep")
-            ui.label(t("console.binding_table.chord_and_hold" if row.holds
+            ui.label(t("console.binding_table.chord_hold" if row.holds
                        else "console.binding_table.chord")).classes("console-binding-live-hint")
             ui.label(t("console.binding_table.click_away")) \
                 .classes("console-binding-live-key console-binding-live-end")
@@ -514,8 +514,8 @@ class Table:
                     t("console.binding_table.share_question",
                       binding=input_registry.describe(binding), row=row.label),
                     detail=[mapped],
-                    confirm=t("console.binding_table.use_for_all" if len(holders) > 1
-                              else "console.binding_table.use_for_both"),
+                    confirm=t("console.binding_table.share_all" if len(holders) > 1
+                              else "console.binding_table.share_both"),
                     icon=verbs.ADD, danger=False):
                 self._idle()
                 return
@@ -528,7 +528,7 @@ class Table:
                                  icon=verbs.MOVE, danger=False):
             self._idle()
             return
-        moved = t("console.binding_table.moved_from_to",
+        moved = t("console.binding_table.moved",
                   source=listed(self.label_of(name) for name in holders), target=row.label)
         await self._apply(after, binding, moved)
 
@@ -555,7 +555,7 @@ class Table:
         # removing it is permanent.
         if not input_registry.capturable(binding) and not await confirm.ask(
                 t("console.binding_editor.remove_2", shown=input_registry.describe(binding)),
-                detail=t("console.binding_editor.nothing_can_bind_yet"),
+                detail=t("console.binding_editor.remove_detail"),
                 confirm=t("word.remove"), icon=verbs.REMOVE):
             return
         after = {name: list(held) for name, held in self.bound.items()}
@@ -585,7 +585,7 @@ class Table:
 
     def _emptied(self, after: Mapping[str, Sequence[str]], rows: Sequence[str]) -> list[str]:
         gone = [self.label_of(name) for name in rows if not after[name]]
-        return [t("console.binding_table.will_have_nothing", rows=listed(gone))] if gone else []
+        return [t("console.binding_table.unmapped", rows=listed(gone))] if gone else []
 
     def _slowing(self, after: Mapping[str, Sequence[str]]) -> list[str]:
         """What a change would stop scrolling, said before it happens."""

@@ -247,7 +247,7 @@ def _coerce_theme_option_value(option: dict[str, Any], raw_value: Any) -> Any:
         if raw_value in ("", None):
             return option.get("default") if "default" in option else ""
         if allowed_values and raw_value not in allowed_values:
-            raise ValueError(t("error.themes.option_no_such_choice", name=option["name"]))
+            raise ValueError(t("error.themes.option_bad_choice", name=option["name"]))
         return raw_value
 
     if raw_value is None:

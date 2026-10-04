@@ -383,7 +383,7 @@ def _database_text(path: Path) -> tuple[str | None, list[Note]]:
         except UnicodeDecodeError:
             continue
     try:
-        return raw.decode("cp1252"), [t("note.read_as_windows", file=path.name)]
+        return raw.decode("cp1252"), [t("note.encoding_fallback", file=path.name)]
     except UnicodeDecodeError:
         return raw.decode("utf-8", "replace"), [t("note.bytes_lost", file=path.name)]
 

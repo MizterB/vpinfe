@@ -105,7 +105,7 @@ def game_rater(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
                 await run.io_bound(library.set_game_rating, game_id, value)
                 saved.add(game_id)
         except Exception as exc:
-            ui.notify(t("console.stars.could_not_save_rating"), caption=why(exc),
+            ui.notify(t("console.stars.save_failed"), caption=why(exc),
                       type="negative")
         changed = [{**row, game_field: value} for row in held
                    if (row.get("game_id") or row["id"]) in saved]
@@ -140,7 +140,7 @@ def rating_handler(held: list[dict[str, Any]], rows_by_id: dict[str, Any],
         try:
             await run.io_bound(library.set_table_rating, game_id, table_id, value)
         except Exception as exc:
-            ui.notify(t("console.stars.could_not_save_rating"), caption=why(exc),
+            ui.notify(t("console.stars.save_failed"), caption=why(exc),
                       type="negative")
             return
         row = rows_by_id.get(table_id)

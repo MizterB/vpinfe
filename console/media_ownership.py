@@ -93,25 +93,25 @@ class Tier:
 _TIERS = {
     TABLE: Tier(TABLE, "console.media_ownership.table",
              "console.media_ownership.table_2", "console-tier--table",
-                "console-mark--full", "console.media_ownership.file_named_table_uses"),
+                "console-mark--full", "console.media_ownership.table_tip"),
     GAME: Tier(GAME, "console.media_ownership.all_tables",
-             "console.media_ownership.shared_every_table", "console-tier--game",
-               "console-mark--outline", "console.media_ownership.file_whole_game_shares"),
+             "console.media_ownership.game_short", "console-tier--game",
+               "console-mark--outline", "console.media_ownership.game_tip"),
     STAND_IN: Tier(STAND_IN, "console.media_ownership.stand",
              "console.media_ownership.standing", "console-tier--standin",
                    "console-mark--set",
-                            "console.media_ownership.something_else_filling_slot"),
+                            "console.media_ownership.stand_tip"),
     MISSING: Tier(MISSING, "console.media_ownership.missing",
              "console.media_ownership.not", "console-tier--missing",
                   "console-mark--dashed", "console.media_ownership.nothing"),
     ORPHAN: Tier(ORPHAN, "console.media_ownership.orphan",
-             "console.media_ownership.named_table_gone",
+             "console.media_ownership.orphan_short",
                  "console-tier--missing", "console-mark--dashed",
-                 "console.media_ownership.named_table_folder_not"),
+                 "console.media_ownership.orphan_tip"),
     UNUSED: Tier(UNUSED, "console.media_ownership.unused",
-             "console.media_ownership.covered_something_more_specific",
+             "console.media_ownership.unused_short",
                  "console-tier--standin", "console-mark--set",
-                 "console.media_ownership.correctly_named_something_more"),
+                 "console.media_ownership.unused_tip"),
 }
 
 # Most specific first. `LEGEND` omits Missing, which a legend does not need - a blank
@@ -190,14 +190,14 @@ def sentence(via: str | None, *, viewing_a_table: bool = False) -> str:
     if key == TABLE:
         return t("console.media_ownership.table_uses")
     if key == GAME:
-        return (t("console.media_ownership.table_none_own_uses")
-                if viewing_a_table else t("console.media_ownership.every_table_game_uses"))
+        return (t("console.media_ownership.via_shared")
+                if viewing_a_table else t("console.media_ownership.via_game"))
     if key == STAND_IN:
         detail = str(via or "").split(":", 1)[-1]
         if str(via or "").startswith("set:"):
             return t("console.media_ownership.set", detail=(detail))
         borrowed = media_label_map().get(detail, detail).lower()
-        return t("console.media_ownership.standing_kind_none_own", borrowed=(borrowed))
+        return t("console.media_ownership.via_stand", borrowed=(borrowed))
     return ""
 
 

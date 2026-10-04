@@ -29,6 +29,6 @@ def links(game_id: str, table_id: str = "", path: str = "") -> dict:
                     if one.get("id") == table_id), None)
         if row is None:
             raise service_errors.NotFoundError(
-                t("error.games.no_table_id_game", table_id=table_id, game=game_title(record)))
+                t("error.games.table_id_unknown", table_id=table_id, game=game_title(record)))
         return {"links": catalogs.links("table", descriptors.table(record, row))}
     return {"links": catalogs.links("game", descriptors.game(record))}

@@ -175,7 +175,7 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
         wrap = ui.button(icon=verbs.WRAP,
                          on_click=lambda: remember("wrap", not held["wrap"])) \
             .props("flat dense round size=sm")
-        wrap.tooltip(t("console.logs.wrap_long_lines") if not held["wrap"]
+        wrap.tooltip(t("console.logs.wrap") if not held["wrap"]
                 else t("console.logs.stop_wrapping"))
         if held["wrap"]:
             wrap.props(add="color=primary")
@@ -184,15 +184,15 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
             follow = ui.button(icon="play_arrow" if held["follow"] else "pause",
                                on_click=lambda: remember("follow", not held["follow"])) \
                 .props("flat dense round size=sm")
-            follow.tooltip(t("console.logs.following_click_stop") if held["follow"]
-                           else t("console.logs.not_following_click_follow"))
+            follow.tooltip(t("console.logs.follow_on") if held["follow"]
+                           else t("console.logs.follow_off"))
             if held["follow"]:
                 follow.props(add="color=primary")
         else:
             # A rotated file does not change, so following it is a control that would
             # do nothing. Refresh is what makes sense there.
             ui.button(icon=verbs.REFRESH, on_click=lambda: reload()) \
-                .props("flat dense round size=sm").tooltip(t("word.read_it_again"))
+                .props("flat dense round size=sm").tooltip(t("word.reread"))
 
         if held["path"]:
             panel.line(held["path"], classes="console-help truncate max-w-xs")
@@ -248,7 +248,7 @@ def _draw_jobs(box: Any, held: dict[str, Any], shown: list[dict[str, Any]],
         held["table"] = said
         box.clear()
         with box:
-            panel.facts(ui, [panel.intro(t("console.logs.could_not_read_log"),
+            panel.facts(ui, [panel.intro(t("console.logs.read_failed"),
                                          hint=held["error"])] if held["error"]
                         else [panel.intro(said[1])])
         return
@@ -282,12 +282,12 @@ async def _draw(viewport: Any, held: dict[str, Any]) -> None:
     with viewport:
         if held.get("error"):
             panel.facts(ui,
-                    [panel.intro(t("console.logs.could_not_read_log"), hint=held["error"])])
+                    [panel.intro(t("console.logs.read_failed"), hint=held["error"])])
             return
         if not held["records"]:
             panel.facts(ui, [panel.intro(
                 t("console.logs.nothing_matches") if held["level"] or held["contains"]
-                else t("console.logs.nothing_logged_yet"))])
+                else t("console.logs.empty"))])
             return
         if held["view"] == DIGEST:
             _digest(held["records"])

@@ -134,9 +134,9 @@ class MetadataCardTests(unittest.TestCase):
     def test_a_folder_it_could_not_read_is_named_with_why_on_hover(self) -> None:
         drawn = self._drawn(self._unreadable("Malformed Info (Original 2024)"))
 
-        self.assertEqual(t("error.games.info_wrong_at_line", line=1),
+        self.assertEqual(t("error.games.info_bad_line", line=1),
                          drawn.get("Malformed Info (Original 2024)"), list(drawn))
-        self.assertIn(t("console.sections.could_not_read_game"), drawn)
+        self.assertIn(t("console.sections.unreadable_one"), drawn)
 
     def test_four_are_named_and_the_rest_counted(self) -> None:
         names = [f"Broken {i} (Original 2024)" for i in range(6)]
@@ -147,15 +147,15 @@ class MetadataCardTests(unittest.TestCase):
         self.assertIn(t("said.and_more", count=2), drawn)
 
     def test_one_game_written_by_an_older_build_reads_as_one(self) -> None:
-        one, two = (t("console.sections.written_older_build_can", count=n) for n in (1, 2))
+        one, two = (t("console.sections.written_older", count=n) for n in (1, 2))
 
         self.assertIn(one, _card({"pending_upgrade": 1}))
         self.assertIn(two, _card({"pending_upgrade": 2}))
         self.assertNotEqual(one, two.replace("2", "1"))
 
     def test_one_game_with_a_saved_copy_reads_as_one(self) -> None:
-        for key, stamp in (("games_saved_copy", ""),
-                           ("games_saved_copy_from", "20260909T110917Z")):
+        for key, stamp in (("saved_copy", ""),
+                           ("saved_dated", "20260909T110917Z")):
             with self.subTest(key=key):
                 said = {n: t(f"console.sections.{key}", count=n, when="2026-09-09")
                         for n in (1, 2)}

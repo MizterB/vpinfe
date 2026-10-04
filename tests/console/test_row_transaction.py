@@ -253,7 +253,7 @@ class RatingTests(unittest.TestCase):
             _screen, every = self._rate_games(held, ["g1", "g2", "g3"], 4, library)
 
         self.assertFalse(every)
-        self.assertEqual(notify.call_args.args, (t("console.stars.could_not_save_rating"),))
+        self.assertEqual(notify.call_args.args, (t("console.stars.save_failed"),))
         self.assertEqual(notify.call_args.kwargs["type"], "negative")
         self.assertEqual(library.written, [("g1", 4)])
         self.assertEqual([row["rating"] for row in held], [4, 0, 0])

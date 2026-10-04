@@ -245,7 +245,7 @@ async def run_act(extension: str, about: str, act: dict[str, Any],
                                 f"/ext/{extension}{about}/acts/"
                                 f"{quote(str(act['key']), safe='')}", {})
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     said = said if isinstance(said, dict) else {}
     if web(said.get("url")):
@@ -299,7 +299,7 @@ async def _make_collection(library: Library, title: str, filters: dict[str, Any]
         made = await offload.io(library.create_collection, free_name(title, collections),
                                 filters)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     name = str(made.get("name") or "")
     ui.notify(t("console.collections.created", name=name), type="positive")
@@ -410,7 +410,7 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
         with body:
             panel.facts(ui, [
                 panel.intro(t("console.community.not_running", name=said, reason=_why(now)))
-                if stopped else panel.intro(t("console.community.could_not_read", name=said),
+                if stopped else panel.intro(t("console.community.read_failed", name=said),
                                             hint=str(state["error"]))])
             with ui.row().classes("items-center gap-2 px-3"):
                 line.append(ui.element("div"))
@@ -506,7 +506,7 @@ async def _fill(extension: dict[str, Any], declared: dict[str, Any], library: Li
         if found is not None:
             grid.replace_rows(table, built, by_id, found, lambda _row: True)
         elif asked:
-            ui.notify(t("console.community.could_not_read", name=said),
+            ui.notify(t("console.community.read_failed", name=said),
                       caption=str(fresh["error"]), type="negative")
 
     if not reading and not stopped:

@@ -44,12 +44,12 @@ def target_name(kind: str, stem: str, extension: str) -> str:
     """
     spec = _SPEC_BY_KIND.get(kind)
     if spec is None:
-        raise UnplaceableError(t("error.games.unknown_media_kind"))
+        raise UnplaceableError(t("error.games.unknown_kind"))
     if not spec.token:
         raise RuntimeError(f"{kind} has no spec name, so it can only be a default")
     extension = extension.lower()
     if extension not in spec.family:
-        raise UnplaceableError(t("error.games.slot_does_not_take", slot=spec.label,
+        raise UnplaceableError(t("error.games.wrong_extension", slot=spec.label,
                                  extension=extension, extensions=", ".join(spec.family)))
     return f"{spec.token} {stem}{extension}"
 
@@ -127,7 +127,7 @@ def retier(game_dir: str | Path, kind: str, from_stem: str, to_stem: str) -> Pat
     sources = list(_family_at_tier(game_dir, kind, from_stem))
     if not sources:
         spec = _SPEC_BY_KIND.get(kind)
-        raise UnplaceableError(t("error.games.nothing_in_slot_to_move",
+        raise UnplaceableError(t("error.games.slot_empty",
                                  slot=spec.label if spec else kind, name=from_stem))
 
     source, *behind = sources
@@ -169,7 +169,7 @@ def removable(game_dir: str | Path, kind: str, stem: str) -> list[Path]:
     """The files a `remove` at this stem takes."""
     spec = _SPEC_BY_KIND.get(kind)
     if spec is None:
-        raise UnplaceableError(t("error.games.unknown_media_kind"))
+        raise UnplaceableError(t("error.games.unknown_kind"))
     if not spec.token:
         raise RuntimeError(f"Cannot address {kind} by name")
     return list(_family_at_tier(Path(game_dir), kind, stem))

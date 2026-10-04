@@ -136,7 +136,7 @@ def game_or_refuse(game_id: str) -> Any:
     game = game_repository.game_by_id(game_id)
     if game is None:
         raise service_errors.NotFoundError(
-            t("error.games.no_game_id", game_id=(game_id)))
+            t("error.games.unknown_game", game_id=(game_id)))
     return game
 
 

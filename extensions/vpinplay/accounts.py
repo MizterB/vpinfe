@@ -182,7 +182,7 @@ def routers(ctx: Any, site: str, sender: Sender,
         held = dict(ctx.players.account(player_id))
         user_id = held.get(USER_ID, "").strip()
         if not user_id:
-            raise HTTPException(400, detail=ctx.t("error.no_user_id"))
+            raise HTTPException(400, detail=ctx.t("error.no_account"))
         if held.get(KEY):
             raise HTTPException(400, detail=ctx.t("error.already_claimed"))
         initials = initials_of(player_id)
@@ -265,7 +265,7 @@ def routers(ctx: Any, site: str, sender: Sender,
             raise HTTPException(404, detail=ctx.t("error.no_act", act=act))
         held = ctx.players.account(player_id)
         if not (held.get(USER_ID) and held.get(KEY)):
-            raise HTTPException(404, detail=ctx.t("error.no_user_id"))
+            raise HTTPException(404, detail=ctx.t("error.no_account"))
         if not sender.waiting(player_id):
             return {"message": ctx.t("account.nothing_waiting")}
         went, waiting = sender.send_now(player_id)
@@ -306,12 +306,12 @@ def sent_ago(ctx: Any, when: str) -> str:
         return ""
     seconds = max(0, int((datetime.now(UTC) - then).total_seconds()))
     if seconds < 60:
-        return ctx.t("account.status.sent_just_now")
+        return ctx.t("account.status.age_now")
     if seconds < 3600:
-        return ctx.t("account.status.sent_minutes_ago", count=seconds // 60)
+        return ctx.t("account.status.age_minutes", count=seconds // 60)
     if seconds < 86400:
-        return ctx.t("account.status.sent_hours_ago", count=seconds // 3600)
-    return ctx.t("account.status.sent_days_ago", count=seconds // 86400)
+        return ctx.t("account.status.age_hours", count=seconds // 3600)
+    return ctx.t("account.status.age_days", count=seconds // 86400)
 
 
 def checked(ctx: Any, card: Any) -> dict[str, Any]:

@@ -197,7 +197,7 @@
         <span class="dropdown-label" data-i18n="frontend.collectionmenu.order">Order By:</span>
         <span class="dropdown-value" id="orderby-value" data-i18n="frontend.collectionmenu.ascending">Ascending</span>
       </li>
-      <li class="menu-item action-separator" id="save-filter-item" data-i18n="frontend.collectionmenu.save_as_collection" hidden>Save as Collection...</li>
+      <li class="menu-item action-separator" id="save-filter-item" data-i18n="frontend.collectionmenu.save_menu" hidden>Save as Collection...</li>
       <li class="menu-item" id="close-item" data-i18n="word.close">Close</li>
     </ul>
 
@@ -212,7 +212,7 @@
 
     <!-- Dialog for saving filters -->
     <div id="save-filter-dialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 2px solid #555; padding: 1.5vh 2vw; z-index: 2000; border-radius: 0.5vh;">
-      <div style="font-size: 2.82vh; margin-bottom: 1vh;" data-i18n="frontend.collectionmenu.save_as_collection_title">Save as Collection</div>
+      <div style="font-size: 2.82vh; margin-bottom: 1vh;" data-i18n="frontend.collectionmenu.save_title">Save as Collection</div>
       <input type="text" id="filter-name-input" style="width: 100%; padding: 0.5vh; font-size: 2.34vh; background: #333; color: #fff; border: 1px solid #555; border-radius: 0.25vh; margin-bottom: 1vh;">
       <div style="display: flex; gap: 1vw;">
         <button id="save-filter-btn" style="flex: 1; padding: 0.5vh; font-size: 2.34vh; background: #444; color: #fff; border: 1px solid #666; border-radius: 0.25vh; cursor: pointer;" data-i18n="word.save">Save</button>
@@ -529,7 +529,7 @@ function t(key, english, params) {
       if (ratingIndex > 0) {
         const count = Number(ratings[ratingIndex]);
         parts.push(ratingModes[ratingModeIndex] === 'Or Higher'
-          ? t('frontend.collectionmenu.named_stars_or_higher', '{count}+ Stars', { count })
+          ? t('frontend.collectionmenu.named_stars_plus', '{count}+ Stars', { count })
           : t('frontend.collectionmenu.named_stars',
               { one: '{count} Star', other: '{count} Stars' }, { count }));
       }
@@ -559,7 +559,7 @@ function t(key, english, params) {
         return;
       }
       say(result.already
-        ? t('frontend.collectionmenu.already_saved_as', 'Already saved as {name}',
+        ? t('frontend.collectionmenu.save_exists', 'Already saved as {name}',
             { name: result.name })
         : t('frontend.collectionmenu.saved_as', 'Saved as {name}', { name: result.name }));
       await showAsCurrent(result.name);
@@ -574,8 +574,8 @@ function t(key, english, params) {
       const current = rows.current;
       const save = document.getElementById('save-filter-item');
       save.hidden = !somethingChosen();
-      save.dataset.i18n = onCabinet() ? 'frontend.collectionmenu.save_as_collection_now'
-        : 'frontend.collectionmenu.save_as_collection';
+      save.dataset.i18n = onCabinet() ? 'frontend.collectionmenu.save_confirm'
+        : 'frontend.collectionmenu.save_menu';
       save.textContent = t(save.dataset.i18n,
                            onCabinet() ? 'Save as Collection' : 'Save as Collection...');
       rows.items = menuItems.filter((item) => !item.hidden);

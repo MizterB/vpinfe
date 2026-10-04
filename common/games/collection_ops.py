@@ -238,19 +238,19 @@ def _row_or_refuse(name: str) -> dict:
         if row["name"] == name:
             return row
     raise service_errors.NotFoundError(
-        t("error.collections.no_collection_named", name=(name)))
+        t("error.collections.not_found", name=(name)))
 
 
 def _named_or_refuse(manager: CollectionStore, name: str) -> None:
     if name not in manager.get_collections_name():
         raise service_errors.NotFoundError(
-            t("error.collections.no_collection_named", name=(name)))
+            t("error.collections.not_found", name=(name)))
 
 
 def _game_or_refuse(game_id: str) -> None:
     if game_id not in game_repository.catalog():
         raise service_errors.NotFoundError(
-            t("error.collections.no_game_id", game_id=(game_id)))
+            t("error.collections.game_not_found", game_id=(game_id)))
 
 
 def _one_table_of(game_id: str, table_id: str) -> None:
@@ -550,7 +550,7 @@ def _known_games_or_refuse(games: Iterable[str]) -> None:
     known = set(game_repository.catalog())
     unknown = [game_id for game_id in games if game_id not in known]
     if unknown:
-        raise service_errors.RefusedError(t("error.collections.unknown_game_ids"),
+        raise service_errors.RefusedError(t("error.collections.unknown_games"),
                                           details={"ids": unknown})
 
 
@@ -561,7 +561,7 @@ def _write_criteria(manager: CollectionStore, name: str, criteria: dict,
     by = order.get("by") or ""
     if by == MANUAL_ORDER:
         raise service_errors.BlockedError(
-            t("error.collections.filter_collection_no_arrangement", name=(name)))
+            t("error.collections.no_arrangement", name=(name)))
     if by:
         _orderable_or_refuse(ORDER_ALIASES.get(by, by))
     ordered_by = by or manager.get_order(name)["by"]
@@ -595,7 +595,7 @@ def create(name: str, games: Iterable[str] = (), description: str = "",
     name = (name or "").strip()
     if not name:
         raise service_errors.RefusedError(
-            t("error.collections.collection_needs_name"))
+            t("error.collections.name_needed"))
     games = list(games)
     if copy_of is not None and (games or description or criteria is not None):
         raise service_errors.RefusedError(t("error.collections.copy_or_contents"))
@@ -603,7 +603,7 @@ def create(name: str, games: Iterable[str] = (), description: str = "",
     with get_collections_manager().mutate() as manager:
         if name in manager.get_collections_name():
             raise service_errors.BlockedError(
-                t("error.collections.collection_named_already_exists", name=(name)))
+                t("error.collections.name_taken", name=(name)))
         if copy_of is not None:
             _named_or_refuse(manager, copy_of)
             manager.copy_collection(copy_of, name)
@@ -745,7 +745,7 @@ def keep_result(name: str) -> dict:
     manager = get_collections_manager()
     if not manager.has_filters(name):
         raise service_errors.BlockedError(
-            t("error.collections.no_criteria_keep_result", name=(name)))
+            t("error.collections.no_criteria", name=(name)))
     held = {(ref["game"], ref.get("table", "")) for ref in manager.get_member_refs(name)}
     refs: list[dict] = []
     following: set[str] = set()
@@ -785,7 +785,7 @@ def patch(name: str, *, new_name: str | None = None, games: Iterable[str] | None
     racing whatever else edited it meanwhile.
     """
     if clear_criteria and criteria is not None:
-        raise service_errors.RefusedError(t("error.collections.rules_or_no_rules"))
+        raise service_errors.RefusedError(t("error.collections.rules_conflict"))
     final = name
     renamed_from: str | None = None
     with get_collections_manager().mutate() as manager:
@@ -805,7 +805,7 @@ def patch(name: str, *, new_name: str | None = None, games: Iterable[str] | None
         elif limit is not None:
             if limit < 1:
                 raise service_errors.RefusedError(
-                    t("error.collections.cap_fewer_one_game"))
+                    t("error.collections.cap_too_low"))
             manager.set_limit(name, limit)
 
         if description is not None:
@@ -838,10 +838,10 @@ def _rename(manager: CollectionStore, name: str, wanted: str) -> str:
     new_name = wanted.strip()
     if not new_name:
         raise service_errors.RefusedError(
-            t("error.collections.collection_needs_name"))
+            t("error.collections.name_needed"))
     if new_name in manager.get_collections_name():
         raise service_errors.BlockedError(
-            t("error.collections.collection_named_already_exists", name=(new_name)))
+            t("error.collections.name_taken", name=(new_name)))
     manager.rename_collection(name, new_name)
     return new_name
 
@@ -866,7 +866,7 @@ def _set_order_fields(manager: CollectionStore, name: str, order_by: str | None,
     # name something that does not exist.
     if by == MANUAL_ORDER and manager.is_filter_based(name):
         raise service_errors.BlockedError(
-            t("error.collections.filter_collection_no_arrangement", name=(name)))
+            t("error.collections.no_arrangement", name=(name)))
     manager.set_order(name, by,
                       direction or order.get("direction") or DEFAULT_DIRECTION,
                       # "" is a value here - it says "follow the player" - so it cannot
@@ -888,7 +888,7 @@ def set_arrangement(name: str, games: list[str]) -> None:
         _named_or_refuse(manager, name)
         if manager.is_filter_based(name):
             raise service_errors.BlockedError(
-                t("error.collections.filter_collection_order_comes", name=(name)))
+                t("error.collections.fixed_order", name=(name)))
         # Per ref, not per game: an order is over the rows, and one game can hold several.
         # `get_members` de-duplicates by design, so comparing against it read 7 where the
         # collection has 8 rows and refused every move.
@@ -924,7 +924,7 @@ def arrange_collections(names: list[str]) -> dict:
         sent = [str(name) for name in names]
         if sorted(sent) != sorted(stored):
             raise service_errors.RefusedError(
-                t("error.collections.order_must_name_every"),
+                t("error.collections.order_collections"),
                 details={"missing": sorted(set(stored) - set(sent)),
                          "unknown": sorted(set(sent) - set(stored)),
                          "sent": len(sent), "collections": len(stored)})
@@ -938,7 +938,7 @@ def _refuse_arrangement(members: list[str], sent: list[str]) -> None:
     # request failed with both lists empty and the caller was told only that something was
     # wrong.
     raise service_errors.RefusedError(
-        t("error.collections.order_must_list_exactly"),
+        t("error.collections.order_members"),
         details={"missing": sorted(set(members) - set(sent)),
                  "not_members": sorted(set(sent) - set(members)),
                  "sent": len(sent), "members": len(members)})

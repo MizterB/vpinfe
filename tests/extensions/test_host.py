@@ -519,7 +519,7 @@ class SwitchTests(HostCase):
                              host.SWITCHED_OFF)
             record = self.registry.switch("elsewhere", True)
 
-        self.assertEqual(record.why, "extension.reason.not_for_platform")
+        self.assertEqual(record.why, "extension.reason.wrong_platform")
 
     def test_switching_off_one_a_fault_stopped_reads_as_switched_off(self) -> None:
         self.load()

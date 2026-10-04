@@ -68,7 +68,7 @@ def _settings(name: str, surfaces: dict) -> None:
         except Exception as exc:  # noqa: BLE001
             card.clear()
             with card:
-                panel.line(t("console.ext_page.could_not_read_them"), hint=why(exc))
+                panel.line(t("console.ext_page.list_failed"), hint=why(exc))
             return
         card.clear()
         with card:
@@ -100,7 +100,7 @@ def _control(client: Any, base: str, key: str, field: dict,
         try:
             await run.io_bound(client.ext_put, base, {"values": {key: new_value}})
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return
         await redraw()
 
@@ -149,7 +149,7 @@ def _state(name: str, surfaces: dict) -> None:
         except Exception as exc:  # noqa: BLE001
             card.clear()
             with card:
-                panel.line(t("console.ext_page.could_not_read"), hint=why(exc))
+                panel.line(t("console.ext_page.read_failed"), hint=why(exc))
             return
         card.clear()
         rows = list(found.get("rows") or [])
@@ -173,7 +173,7 @@ def _row(client: Any, base: str, row: dict, redraw: Callable[[], Awaitable[None]
             await run.io_bound(client.ext_post, f"{base}/{key}",
                                {"id": str(row.get("id") or "")})
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         await redraw()
 
@@ -199,16 +199,16 @@ def _row(client: Any, base: str, row: dict, redraw: Callable[[], Awaitable[None]
 # reading a consent list should not have to work out what that lets somebody do.
 PLAINLY = {
     "games:read": "console.ext_page.read_library",
-    "games:write": "console.ext_page.add_change_games",
+    "games:write": "console.ext_page.games_write",
     "players:read": "console.ext_page.see_players",
-    "filesystem:read": "console.ext_page.read_folders_point",
-    "config:read": "console.ext_page.see_where_games_live",
-    "config:write": "console.ext_page.add_library_folders",
-    "ui:mount": "console.ext_page.add_page_console",
-    "config:own": "console.ext_page.keep_own_settings",
+    "filesystem:read": "console.ext_page.filesystem_read",
+    "config:read": "console.ext_page.config_read",
+    "config:write": "console.ext_page.config_write",
+    "ui:mount": "console.ext_page.ui_mount",
+    "config:own": "console.ext_page.config_own",
     "net:outbound": "console.ext_page.reach_internet",
-    "proc:spawn": "console.ext_page.run_other_programs",
-    "hardware:usb": "console.ext_page.talk_usb_devices",
+    "proc:spawn": "console.ext_page.proc_spawn",
+    "hardware:usb": "console.ext_page.hardware_usb",
     "fs:read": "console.ext_page.read_files",
     "fs:write": "console.ext_page.write_files",
 }
@@ -231,7 +231,7 @@ def _reach(extension: dict) -> None:
     uses = [_plainly(str(one)) for one in extension.get("capabilities") or []]
     if not reaches and not uses:
         return
-    ui.label(t("console.ext_page.what_can_reach")).classes("console-group mt-4")
+    ui.label(t("console.ext_page.reach_title")).classes("console-group mt-4")
     with ui.element("div").classes("console-card w-full"):
         entries: list[tuple[Any, Any]] = []
         if reaches:

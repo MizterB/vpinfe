@@ -21,7 +21,7 @@ class WhatAStoppedUploadSays(unittest.TestCase):
         notify = self._notified({"status": "error", "unreached": "192.168.1.50"})
 
         notify.assert_called_once_with(
-            t("console.uploads.could_not_read"),
+            t("console.uploads.read_failed"),
             caption=t("said.why.unreachable_at", host="192.168.1.50"), type="negative")
 
     def test_an_install_that_refused_says_why_in_its_own_words(self) -> None:
@@ -29,13 +29,13 @@ class WhatAStoppedUploadSays(unittest.TestCase):
 
         notify = self._notified({"status": "error", "said": refused})
 
-        notify.assert_called_once_with(t("console.uploads.could_not_read"),
+        notify.assert_called_once_with(t("console.uploads.read_failed"),
                                        caption=refused, type="negative")
 
     def test_the_browser_s_own_words_are_never_shown(self) -> None:
         notify = self._notified({"status": "error", "message": "Failed to fetch"})
 
-        notify.assert_called_once_with(t("console.uploads.could_not_read"), caption="",
+        notify.assert_called_once_with(t("console.uploads.read_failed"), caption="",
                                        type="negative")
 
     def test_the_script_sends_no_exception_text(self) -> None:

@@ -180,7 +180,7 @@ class AssociateTests(TempTree):
         with self.assertRaises(FileNotFoundError) as said:
             game_service.associate_vps_to_folder(folder, _entry("chosen", "Fathom"))
 
-        self.assertEqual(str(said.exception), t("error.games.folder_has_no_table"))
+        self.assertEqual(str(said.exception), t("error.games.folder_empty"))
 
 
 def _offline(case: TempTree, catalog: list[dict]) -> None:
@@ -444,10 +444,10 @@ class ImportWithPickTests(TempTree):
     def test_a_match_that_failed_for_a_worded_reason_says_it(self) -> None:
         report = {"game_dir": str(self.root / NEW)}
         with patch.object(game_service, "associate_vps_to_folder",
-                          side_effect=FileNotFoundError(t("error.games.folder_has_no_table"))):
+                          side_effect=FileNotFoundError(t("error.games.folder_empty"))):
             upload_ops._associate(report, _entry("fathom", "Fathom"))
 
-        self.assertEqual(report["vps_error"], t("error.games.folder_has_no_table"))
+        self.assertEqual(report["vps_error"], t("error.games.folder_empty"))
 
     def test_one_that_failed_for_any_other_reason_points_at_the_log(self) -> None:
         report = {"game_dir": str(self.root / NEW)}
@@ -457,7 +457,7 @@ class ImportWithPickTests(TempTree):
             upload_ops._associate(report, _entry("fathom", "Fathom"))
 
         self.assertIs(report["vps_associated"], False)
-        self.assertEqual(report["vps_error"], t("error.uploads.log_says_why"))
+        self.assertEqual(report["vps_error"], t("error.uploads.see_log"))
         self.assertIn("tableFiles", "\n".join(logged.output))
 
 

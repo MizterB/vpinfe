@@ -71,7 +71,7 @@ async def ask_where(library: Any) -> str | None:
     try:
         found = await offload.io(library.new_game_destination)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.import_dialog.could_not_work_where"), caption=why(exc),
+        ui.notify(t("console.import_dialog.place_failed"), caption=why(exc),
                   type="negative")
         return None
 
@@ -87,7 +87,7 @@ async def _no_destination(library: Any, found: dict[str, Any],
                           others: list[dict[str, Any]]) -> str | None:
     """It cannot go where it was told to. Refuse, say why, and offer the rest."""
     if not others:
-        ui.notify(str(found.get("reason") or t("console.import_dialog.nowhere_put_new_game")),
+        ui.notify(str(found.get("reason") or t("console.import_dialog.no_place")),
                   type="negative")
         return None
     return await _pick(library, str(found.get("reason") or ""), others,
@@ -106,7 +106,7 @@ async def _which_destination(library: Any, found: dict[str, Any],
 async def _pick(library: Any, reason: str, offered: list[dict[str, Any]],
                 *, offer_remember: bool) -> str | None:
     holds = {"id": str(offered[0].get("location_id") or ""), "stop_asking": False}
-    with frame.opened(t("console.import_dialog.where_should_game_go")) as picker:
+    with frame.opened(t("console.import_dialog.place_title")) as picker:
         if reason:
             # The refusal leads, because it is the reason they are being asked at all.
             ui.label(reason).classes("console-help px-3")
@@ -118,7 +118,7 @@ async def _pick(library: Any, reason: str, offered: list[dict[str, Any]],
             # Offered here rather than only in Settings, because this is the moment
             # somebody knows whether they want to be asked again.
             with ui.element("div").classes("px-3"):
-                ui.checkbox(t("console.import_dialog.always_use_one_not"),
+                ui.checkbox(t("console.import_dialog.remember"),
                             on_change=lambda e: holds.__setitem__("stop_asking",
                                                                   bool(e.value))) \
                     .props("dense").classes("console-help")
@@ -136,7 +136,7 @@ async def _pick(library: Any, reason: str, offered: list[dict[str, Any]],
             await run.io_bound(library.set_location_write_to, said)
         except Exception as exc:  # noqa: BLE001
             # The import still goes where they said. Only the remembering failed.
-            ui.notify(t("console.import_dialog.could_not_remember"), caption=why(exc),
+            ui.notify(t("console.import_dialog.remember_failed"), caption=why(exc),
                       type="warning")
     return said
 
@@ -182,7 +182,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
                    name=Path(str(plan.get("game_dir") or "")).name),
             wide=True, persistent=True, classes="console-import-card") as dialog:
         if new_folder:
-            ui.label(t("console.import_dialog.files_keep_names_folder")) \
+            ui.label(t("console.import_dialog.folder_note")) \
                 .classes("console-help px-3")
             _folder_row(library, named, plan)
         elif not single and source:
@@ -232,7 +232,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
     wanted = None if single else [i for i, on in sorted(chosen.items()) if on]
     if wanted is not None and not wanted:
         await run.io_bound(library.abort_upload, upload_id)
-        ui.notify(t("console.import_dialog.nothing_selected_nothing_imported"), type="warning")
+        ui.notify(t("console.import_dialog.none_selected"), type="warning")
         return
 
     note = ui.notification(t("console.import_dialog.importing"), spinner=True, timeout=None)
@@ -244,7 +244,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
             selected=wanted, declared=declared)
     except Exception as exc:  # noqa: BLE001
         note.dismiss()
-        ui.notify(t("console.import_dialog.could_not_import"), caption=why(exc),
+        ui.notify(t("console.import_dialog.import_failed"), caption=why(exc),
                   type="negative")
         await run.io_bound(library.abort_upload, upload_id)
         return
@@ -255,7 +255,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
     if report.get("vps_error"):
         # The import worked and the match did not. Two facts, and rolling the second
         # into a failure would say the files did not land when they did.
-        ui.notify(t("console.import_dialog.imported_could_not_match"),
+        ui.notify(t("console.import_dialog.match_failed"),
                   caption=str(report["vps_error"]), type="warning")
     if on_done is not None:
         answer = on_done(report)
@@ -309,7 +309,7 @@ def _folder_row(library: Any, named: dict[str, Any], plan: dict[str, Any]) -> No
             panel.action(t("console.import_dialog.match"),
                          lambda: _match(library, named, field), icon=verbs.MATCH,
                          inline=True,
-                         hint=t("console.import_dialog.name_folder_upstream_record"))()
+                         hint=t("console.import_dialog.match_hint"))()
 
     panel.facts(ui, [(t("word.folder"), draw)])
     del plan
@@ -346,11 +346,11 @@ async def _match(library: Any, named: dict[str, Any], field: Any) -> None:
     try:
         found = await offload.io(library.vps_search, term, 8)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.import_dialog.could_not_search"), caption=why(exc),
+        ui.notify(t("console.import_dialog.search_failed"), caption=why(exc),
                   type="negative")
         return
     if not found:
-        ui.notify(t("console.import_dialog.nothing_spreadsheet_matches_name"), type="warning")
+        ui.notify(t("console.import_dialog.no_match"), type="warning")
         return
     offered = {str(one.get("vps_id") or ""):
                str(one.get("name") or "") + (f" ({made})" if (made := game_tables.made(one))
@@ -358,7 +358,7 @@ async def _match(library: Any, named: dict[str, Any], field: Any) -> None:
                for one in found}
     holds = {"id": next(iter(offered), "")}
     with frame.opened(t("console.import_dialog.one")) as picker:
-        ui.label(t("console.import_dialog.folder_named_record_other")) \
+        ui.label(t("console.import_dialog.pick_note")) \
             .classes("console-help px-3")
         panel.facts(ui, [(t("word.game"), panel.select(
             offered, holds["id"], lambda e: holds.__setitem__("id", str(e.value or ""))))])

@@ -59,7 +59,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         ui.label(t("console.metrics.graphics")).classes("console-group mt-2")
         with ui.element("div").classes("console-card w-full"):
             with ui.row().classes("items-center gap-3 w-full no-wrap"):
-                ui.label(t("console.metrics.watch_graphics_cards")) \
+                ui.label(t("console.metrics.gpu_watch")) \
                     .classes("console-setting grow min-w-0")
                 # Through the shared control, which is where "on is green" is decided.
                 # Drawn by hand here it was the default color, so the one switch on this
@@ -87,13 +87,13 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         try:
             found = await offload.io(library.metrics, WINDOW_SECONDS)
         except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
-            show(t("console.metrics.could_not_read_device"), why(exc))
+            show(t("console.metrics.read_failed"), why(exc))
             return
         now = found.get("now") or {}
         if not now.get("measurable"):
             # Offered with the reason rather than hidden: a page that simply omits the
             # readings leaves somebody unsure whether the machine is fine or this is.
-            show(str(now.get("reason") or t("console.metrics.device_cannot_report_readings")))
+            show(str(now.get("reason") or t("console.metrics.no_readings")))
             return
         show("")
         history = found.get("history") or []
@@ -109,7 +109,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
                 held["gpu"] = await offload.io(library.gpu_metrics)
             except Exception as exc:  # noqa: BLE001
                 held["gpu"] = {"available": False, "gpus": [],
-                               "reason": t("console.metrics.could_not_read_device"),
+                               "reason": t("console.metrics.read_failed"),
                                "detail": why(exc)}
             _draw_cards(cards, held)
 
@@ -156,7 +156,7 @@ def _draw_cards(target: Any, held: dict[str, Any]) -> None:
     target.clear()
     with target:
         if not held["watch_gpu"]:
-            ui.label(t("console.metrics.off_reading_them_runs")).classes("console-help")
+            ui.label(t("console.metrics.off_hint")).classes("console-help")
             return
         if found is None:
             ui.label(t("console.metrics.reading_them")).classes("console-help")
@@ -257,7 +257,7 @@ def _tone(value: Any) -> str:
 def _bytes_said(used: Any, total: Any) -> str:
     if used is None or total is None:
         return ""
-    return t("console.metrics.used_of_total", used=i18n.size(used), total=i18n.size(total))
+    return t("console.metrics.usage", used=i18n.size(used), total=i18n.size(total))
 
 
 def _load_said(load: Any) -> str:

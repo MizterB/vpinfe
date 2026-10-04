@@ -139,7 +139,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
     def test_a_folder_it_could_not_read_is_said_above_the_grid(self) -> None:
         self._plant_broken()
 
-        self.assertEqual([t("console.sections.not_in_library", count=1)],
+        self.assertEqual([t("console.sections.unlisted", count=1)],
                          self._line(self._drawn()))
 
     def test_a_game_on_an_older_format_is_said_above_the_grid(self) -> None:
@@ -167,7 +167,7 @@ class TheLineAboveTheGrid(unittest.TestCase):
 
         self._drawn(show)
 
-        self.assertEqual(t("error.games.info_wrong_at_line", line=1), opened.get(BROKEN),
+        self.assertEqual(t("error.games.info_bad_line", line=1), opened.get(BROKEN),
                          list(opened))
 
     def test_show_opens_it_again_once_the_last_one_has_gone(self) -> None:

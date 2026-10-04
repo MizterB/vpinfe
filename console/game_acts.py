@@ -33,13 +33,13 @@ def game_acts(library: Any, game_id: str, name: str,
         try:
             await run.io_bound(library.launch, game_id)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.could_not_launch"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.launch_failed"), caption=why(exc), type="negative")
             return
         ui.notify(t("console.games.launching", name=name), type="positive")
 
     offered = [panel.Verb(t("console.games.launch"), launch)]
     if collections is not None:
-        offered.append(panel.Verb(t("console.adds.add_to_collection"), draw=collections))
+        offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
     return offered
 
 
@@ -69,21 +69,21 @@ def table_acts(library: Any, game_id: str, game_name: str, table: dict[str, Any]
     async def drop_script() -> None:
         every = game_tables.shares_its_script(table)
         if not await confirm.ask(
-                t("console.workbench.delete_script_beside_table"),
-                detail=t("console.game_tables.every_table_loses_script" if every
-                         else "console.workbench.table_goes_back_script"),
+                t("console.workbench.delete_question"),
+                detail=t("console.game_tables.script_detail" if every
+                         else "console.workbench.delete_detail"),
                 lines=[f"{Path(table.get('filename') or '').stem}.vbs"]):
             return
         await write(library.delete_script, table_id,
-                    said=t("console.game_tables.deleted_every_table_runs_own" if every
-                           else "console.workbench.deleted_table_runs_own"),
-                    failed=t("console.workbench.could_not_delete_script"))
+                    said=t("console.game_tables.script_deleted" if every
+                           else "console.workbench.delete_done"),
+                    failed=t("console.workbench.delete_failed"))
 
     @on_page
     async def forget() -> None:
         detail = ("console.workbench.forget_keyed" if game_tables.is_keyed(table)
                   else "console.workbench.forget_reference" if game_tables.is_referenced(table)
-                  else "console.workbench.record_goes_no_file")
+                  else "console.workbench.forget_missing")
         made = game_tables.made_from_it_line(
             [game_tables.name_among(one, tables)
              for one in game_tables.made_from_it(table, tables)])
@@ -93,7 +93,7 @@ def table_acts(library: Any, game_id: str, game_name: str, table: dict[str, Any]
                 confirm=t("word.forget"), icon=verbs.FORGET):
             return
         await write(library.forget_table, table_id, said=t("console.workbench.table_forgotten"),
-                    failed=t("console.workbench.could_not_forget"), gone=True)
+                    failed=t("console.workbench.forget_failed"), gone=True)
 
     offered: list[panel.Verb] = []
     if not table.get("default"):
@@ -101,31 +101,31 @@ def table_acts(library: Any, game_id: str, game_name: str, table: dict[str, Any]
             offered.append(panel.Verb(t("word.make_default"), partial(
                 write, library.set_default_table, table_id,
                 said=game_tables.now_plays(game_name, table),
-                failed=t("console.workbench.could_not_change"))))
+                failed=t("console.workbench.change_failed"))))
     elif locking := game_tables.lock_act(table, tables):
         lock, words = locking
         offered.append(panel.Verb(words, partial(
             write, library.set_default_table, table_id if lock else "",
-            said=partial(lock_said, lock), failed=t("console.workbench.could_not_change"))))
+            said=partial(lock_said, lock), failed=t("console.workbench.change_failed"))))
     hidden = bool(table.get("hidden"))
     offered.append(panel.Verb(
         t("console.games.unhide") if hidden else t("console.games.hide"),
         partial(write, library.set_table_hidden, table_id, not hidden,
                 said=lambda answer: game_tables.hidden_said(game_name, table, answer,
                                                             hidden=not hidden),
-                failed=t("console.workbench.could_not_save"))))
+                failed=t("console.workbench.save_failed"))))
     if game_tables.runs_its_own_script(table):
         offered.append(panel.Verb(t("console.games.delete_script"), drop_script, danger=True))
     else:
         offered.append(panel.Verb(
             t("console.games.extract_script"),
             partial(write, library.extract_script, table_id,
-                    said=t("console.workbench.extracted_table_now_runs"),
-                    failed=t("console.workbench.could_not_extract_script"))))
+                    said=t("console.workbench.extract_done"),
+                    failed=t("console.workbench.extract_failed"))))
     if not table.get("available"):
         offered.append(panel.Verb(t("console.games.forget_table"), forget, danger=True))
     if collections is not None:
-        offered.append(panel.Verb(t("console.adds.add_to_collection"), draw=collections))
+        offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
     return offered
 
 

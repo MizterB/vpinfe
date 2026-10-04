@@ -205,7 +205,7 @@ class OwnerTests(_RecordsCase):
             with self.subTest(), self.assertRaises(service_errors.RefusedError) as refused:
                 write()
             self.assertEqual(str(refused.exception),
-                             t("error.players.owner_record_is_the_library"))
+                             t("error.players.owner_record"))
 
         self.assertFalse(self.root.exists())
 

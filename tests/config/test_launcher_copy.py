@@ -163,7 +163,7 @@ class RefusedTests(unittest.TestCase):
         found = self._copy(_launcher("there", "vpx"))
 
         self.assertEqual((found.error, found.reason),
-                         (t("said.did_not_arrive", name="vpx"),
+                         (t("said.not_arrived", name="vpx"),
                           t("error.launchers.name_taken", name="vpx")))
         self.assertIsNone(self.store.get("there"))
 

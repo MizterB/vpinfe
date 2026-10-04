@@ -66,9 +66,9 @@ _STATES = {
                      t("console.table_features.script_uses"), glyph="\u2713",
                              glyph_class="console-tick"),
     UNUSED: State(UNUSED, t("console.table_features.not_used"), "console-tier--off", "",
-                  t("console.table_features.script_not_use")),
-    UNKNOWN: State(UNKNOWN, t("console.table_features.not_parsed_yet"), "console-tier--unknown", "",
-                   t("console.table_features.nothing_read_table_s"), glyph="?",
+                  t("console.table_features.script_unused")),
+    UNKNOWN: State(UNKNOWN, t("console.table_features.unknown"), "console-tier--unknown", "",
+                   t("console.table_features.unknown_tip"), glyph="?",
                    glyph_class="console-unknown"),
 }
 

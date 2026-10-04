@@ -622,7 +622,7 @@ async def _draw_tag(container: ui.column, title: ui.column, library: Library,
         return
     look = library.tag_looks().get(name)
     if look is None:
-        _blank(container, title, t("console.page.tag"), t("console.page.no_longer_library"))
+        _blank(container, title, t("console.page.tag"), t("console.page.gone"))
         return
     container.clear()
     title.clear()
@@ -658,14 +658,14 @@ async def _tag_details(context: dict[str, Any]) -> None:
             return
         if said in library.tag_looks() and not await confirm.ask(
                 t("console.tageditor.merge", into=said),
-                detail=t("console.tageditor.every_game_carrying_one"),
+                detail=t("console.tageditor.merge_detail"),
                 confirm=t("word.merge"), icon=verbs.MERGE):
             await context["rebuild"]()
             return
         try:
             await run.io_bound(library.merge_tags, [name], said)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         await _tag_changed(context, said)
 
@@ -674,7 +674,7 @@ async def _tag_details(context: dict[str, Any]) -> None:
         try:
             await run.io_bound(library.put_tag, name, {"description": value})
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         refresh = context["state"].get("refresh_tags")
         if callable(refresh):
@@ -706,7 +706,7 @@ def _swatches(context: dict[str, Any]) -> None:
         try:
             await run.io_bound(library.put_tag, name, {"color": color})
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
         await _tag_changed(context, name)
 
@@ -786,8 +786,8 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
     media = family == "media"
     heading = t("console.page.media" if media else "console.page.assets")
     if not row:
-        _blank(container, title, heading, t("console.page.select_kind_media" if media
-                                             else "console.page.select_kind_file"))
+        _blank(container, title, heading, t("console.page.select_media" if media
+                                             else "console.page.select_asset"))
         return
     game_id = str(row.get("game_id") or "")
     game = next((one for one in library.games if one["id"] == game_id), None)
@@ -797,7 +797,7 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
     files = await offload.io(library.files_of, "media" if media else "asset", game_id)
     found = _same_file(files, row)
     if found is None:
-        _blank(container, title, heading, t("console.page.no_longer_library"))
+        _blank(container, title, heading, t("console.page.gone"))
         return
     tables = await offload.io(library.tables_for, game_id)
     table_id = str(found.get("table") or "")
@@ -930,9 +930,9 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                 ui.icon(_asset_icon(kind)).classes("console-slot-blank-icon")
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             if not present:
-                ui.label(t("console.workbench.no_kind_for_table", kind=label)
+                ui.label(t("console.workbench.missing_table", kind=label)
                          if context["lens"]
-                         else t("console.workbench.no_kind_for_game", kind=label)) \
+                         else t("console.workbench.missing_game", kind=label)) \
                     .classes("console-help")
             else:
                 with ui.row().classes("items-start gap-2 w-full no-wrap"):
@@ -1100,7 +1100,7 @@ async def _remove_asset(context: dict[str, Any], kind: str, path: str, tier: str
     try:
         await run.io_bound(context["library"].remove_asset, context["game_id"], path)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_remove_it"), caption=why(exc), type="negative")
+        ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
         return
     await context["rebuild"]()
 
@@ -1131,7 +1131,7 @@ async def _open_whole(context: dict[str, Any], path: str, label: str) -> None:
     try:
         found = await offload.io(context["library"].asset_detail, context["game_id"], path, 0)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_read_file"), caption=why(exc),
+        ui.notify(t("console.workbench.read_failed"), caption=why(exc),
                   type="negative")
         return
     mediaview.open_text(label, str(found.get("head") or ""))
@@ -1357,7 +1357,7 @@ async def _draw_theme(container: ui.column, title: ui.column, library: Library,
     theme = next((one for one in found.get("themes") or [] if one.get("key") == key), None)
     if theme is None:
         _blank(container, title, t("console.page.theme"),
-               t("console.page.no_longer_library"))
+               t("console.page.gone"))
         return
     container.clear()
     title.clear()
@@ -1401,7 +1401,7 @@ async def _draw_collection(container: ui.column, title: ui.column, library: Libr
     row = next((entry for entry in rows if entry.get("name") == name), None)
     if row is None:
         _blank(container, title, t("console.page.collection"),
-               t("console.page.no_longer_library"))
+               t("console.page.gone"))
         return
     # Independent of each other, so one wait rather than four.
     membership, axes, settings, _ = await asyncio.gather(
@@ -1443,7 +1443,7 @@ async def _draw_collection(container: ui.column, title: ui.column, library: Libr
                     ui.icon(verbs.SMART).classes("console-heading-mark") \
                         .tooltip(t("console.collections.smart.help"))
                 ui.label(t("console.workbench.smart_games", count=size) if smart
-                         else t("console.workbench.hand_picked_games", count=size)) \
+                         else t("console.workbench.hand_picked", count=size)) \
                     .classes("text-xs console-workbench-label leading-none truncate")
         _note_unsaved(state, waiting)
         context: dict[str, Any] = {"library": library, "collection": row,
@@ -1764,8 +1764,8 @@ async def _media_block(context: dict[str, Any]) -> None:
                     # they fill, which is our word and not theirs. No "above" or
                     # "beside" either: this region moves depending on the width.
                     with ui.column().classes("console-dock-empty items-center gap-1"):
-                        ui.label(t("console.workbench.no_media_chosen")).classes("console-empty-title")
-                        ui.label(t("console.workbench.select_media_item_manage")) \
+                        ui.label(t("console.workbench.no_media")).classes("console-empty-title")
+                        ui.label(t("console.workbench.media_hint")) \
                             .classes("console-help")
 
     async def written() -> None:
@@ -1976,11 +1976,11 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
         try:
             result = await offload.io(library.remove_media, game_id, table_id, kind)
         except Exception as exc:
-            ui.notify(t("said.could_not_remove_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
             return
         gone = len(result.get("removed") or [])
         ui.notify(t("console.workbench.removed_files", count=gone) if gone
-                  else t("console.workbench.nothing_remove_level"),
+                  else t("console.workbench.nothing_removable"),
                   type="positive" if gone else "info")
         await draw()
 
@@ -1996,9 +1996,9 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
         try:
             await run.io_bound(library.retier_media, game_id, kind, table_id, "")
         except Exception as exc:
-            ui.notify(t("console.workbench.could_not_move"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.move_failed"), caption=why(exc), type="negative")
             return
-        ui.notify(t("console.workbench.now_used_all_tables"), type="positive")
+        ui.notify(t("console.workbench.give_done"), type="positive")
         for redraw in context["redraws"]:
             await redraw()
 
@@ -2056,9 +2056,9 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                     ui.label(matched).classes("console-help")
                 _outside_lines(links)
             else:
-                ui.label(t("console.workbench.no_kind_for_table", kind=label)
+                ui.label(t("console.workbench.missing_table", kind=label)
                          if table_id
-                         else t("console.workbench.no_kind_for_game", kind=label)) \
+                         else t("console.workbench.missing_game", kind=label)) \
                     .classes("console-help")
 
         # Only when there is more than one, because with one the sentence above has
@@ -2073,7 +2073,7 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                     with ui.row().classes("items-center gap-2 w-full no-wrap"):
                         ui.label(item.get("file") or "").classes("console-slot-other-file")
                         media_ownership.badge(_used_as(item))
-                ui.label(t("console.workbench.each_resolves_file_above")) \
+                ui.label(t("console.workbench.shadowed_hint")) \
                     .classes("console-help")
 
         # Only from the game's lens, and only when somebody differs. This is the whole
@@ -2116,7 +2116,7 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                     .props("flat dense no-caps size=sm") \
                     .classes("console-action console-action--danger")
             if can_share:
-                ui.button(t("console.workbench.give_all_tables"),
+                ui.button(t("console.workbench.give_all"),
                     icon=verbs.SHARE, on_click=share) \
                     .props("flat dense no-caps size=sm").classes("console-action")
 
@@ -2127,7 +2127,7 @@ def _game_label(context: dict[str, Any]) -> str:
     declared = (game.get("overrides") or {}).get("alt_vps_id", "") is None
     if game.get("vps_id") or declared:
         return t("console.workbench.game_details")
-    return t("console.workbench.game_details_not_matched")
+    return t("console.workbench.game_unmatched")
 
 
 async def _game_block(context: dict[str, Any]) -> None:
@@ -2165,7 +2165,7 @@ async def _table_block(context: dict[str, Any]) -> None:
     findings = await _findings(context, [chosen]) if chosen is not None else []
     with ui.column().classes("gap-0 console-form"):
         if chosen is None:
-            ui.label(t("console.workbench.no_table_selected")).classes("console-help")
+            ui.label(t("console.workbench.none_selected")).classes("console-help")
             return
         _rows(ui, _table_entries(chosen, context, match, links, findings))
     ui.run_javascript(_KEEP_SCROLL % f"table:{chosen.get('id') or ''}".replace("'", "\\'"))
@@ -2228,7 +2228,7 @@ async def _write(context: dict[str, Any], call: Callable[..., Any],
     try:
         await run.io_bound(call, *args)
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
     await (context["rebuild"]() if shape else context["saved"]())
 
@@ -2246,7 +2246,7 @@ async def _save_overrides(context: dict[str, Any], changes: dict[str, Any], *,
         else:
             await run.io_bound(library.set_game_overrides, context["game_id"], changes)
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
     await context["rebuild"]()
 
@@ -2318,9 +2318,9 @@ def game_match_gap(vps_id: str, declared: bool, held: bool) -> tuple[str, str, s
     if not vps_id:
         return ("console.workbench.not_matched", "warn", "")
     if not held:
-        return ("word.unknown", "unknown", "console.workbench.vps_not_downloaded")
-    return ("console.workbench.not_in_vps", "warn",
-            "console.workbench.vps_lists_no_such_game")
+        return ("word.unknown", "unknown", "console.workbench.no_vps_data")
+    return ("console.workbench.not_listed", "warn",
+            "console.workbench.game_unlisted")
 
 
 def release_match_gap(entry: str, bound: str, held: bool,
@@ -2329,15 +2329,15 @@ def release_match_gap(entry: str, bound: str, held: bool,
     entry's releases could be read."""
     if not entry:
         return ("console.workbench.not_matched", "off",
-                "console.workbench.match_game_vps_first")
+                "console.workbench.releases_unmatched")
     if not bound:
         return ("console.workbench.not_matched", "off", "")
     if not read:
-        return ("word.unknown", "unknown", "console.workbench.could_not_read_vps")
+        return ("word.unknown", "unknown", "console.workbench.vps_failed")
     if not held:
-        return ("word.unknown", "unknown", "console.workbench.vps_not_downloaded")
-    return ("console.workbench.not_in_vps", "warn",
-            "console.workbench.vps_lists_no_such_release")
+        return ("word.unknown", "unknown", "console.workbench.no_vps_data")
+    return ("console.workbench.not_listed", "warn",
+            "console.workbench.release_unlisted")
 
 
 def _match(found: dict[str, Any], vps_id: str, declared: bool,
@@ -2434,7 +2434,7 @@ def _game_frontend(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         (HEADING, game_tables.FRONTEND),
         (t("console.workbench.dof_event"),
          _override(overrides.get("frontend_dof_event") or "", None, "", save_dof,
-                   hint=t("console.workbench.empty_uses_default_effect"))),
+                   hint=t("console.workbench.effect_hint"))),
     ]
 
 
@@ -2463,7 +2463,7 @@ def _game_marks(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         (t("console.workbench.game_rating"), stars.draw(int(game.get("rating") or 0), rate)),
         (t("word.favorite"),
          lambda: _switch(bool(record.get("favorite")), favorite,
-                         hint=t("console.workbench.frontend_can_filter"))),
+                         hint=t("console.workbench.filter_hint"))),
         (game_tables.PRIVATE_WORDS[0], lambda: _switch(bool(game.get("private")), private)),
         panel.note(game_tables.PRIVATE_HELP),
         (t("console.workbench.tags"),
@@ -2501,8 +2501,8 @@ def _game_play_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     @on_page
     async def reset() -> None:
         if not await confirm.ask(
-                t("console.workbench.reset_game_s_play"),
-                detail=t("console.workbench.rating_favorite_tags_kept"),
+                t("console.workbench.reset_game_question"),
+                detail=t("console.workbench.reset_game_detail"),
                 confirm=t("word.reset"), icon=verbs.RESET):
             return
         await _write(context, context["library"].reset_play_record,
@@ -2520,8 +2520,8 @@ def _table_play_rows(context: dict[str, Any],
     @on_page
     async def reset() -> None:
         if not await confirm.ask(
-                t("console.workbench.reset_table_s_play"),
-                detail=t("console.workbench.rating_kept_game_s"),
+                t("console.workbench.reset_table_question"),
+                detail=t("console.workbench.reset_table_detail"),
                 confirm=t("word.reset"), icon=verbs.RESET):
             return
         await _write(context, context["library"].reset_play_record,
@@ -2601,9 +2601,9 @@ def _high_scores_aside(lines: list[tuple[str, str]]) -> None:
 # Each state with nothing to list: its line, and the key of its detail. None for the detail
 # the answer carries itself.
 HIGH_SCORE_STATES: dict[str, tuple[str, str | None]] = {
-    "none": ("console.workbench.high_scores_none", "console.workbench.high_scores_none_why"),
+    "none": ("console.workbench.high_scores_none", "console.workbench.scores_pending"),
     "unsupported": ("console.workbench.high_scores_unsupported",
-                    "console.workbench.high_scores_unsupported_why"),
+                    "console.workbench.scores_no_map"),
     "unreadable": ("console.workbench.high_scores_unreadable", None),
 }
 
@@ -2614,9 +2614,9 @@ def _high_scores_read(read_at: str, clears: bool) -> tuple[str, str]:
     if clears:
         text, hint = t("console.workbench.high_scores_cleared"), ""
     elif at is None:
-        text, hint = t("console.workbench.high_scores_read_undated"), ""
+        text, hint = t("console.workbench.scores_undated"), ""
     elif (datetime.now(UTC) - at).total_seconds() < 60:
-        text, hint = t("console.workbench.high_scores_read_now"), when.local(read_at)
+        text, hint = t("console.workbench.scores_fresh"), when.local(read_at)
     else:
         text = t("console.workbench.high_scores_read", when=when.ago(read_at, inline=True))
         hint = when.local(read_at)
@@ -2665,7 +2665,7 @@ def _score_row(entry: dict[str, Any], value: str, day: str, *, ranked: bool,
                 chip = ui.label(t("console.workbench.high_scores_new")) \
                     .classes("console-tier console-tier--off console-score-new")
                 if entry.get("new"):
-                    chip.tooltip(t("console.workbench.high_scores_new_after", day=day))
+                    chip.tooltip(t("console.workbench.scores_dated", day=day))
                 else:
                     chip.classes(add="console-score-new--held")
 
@@ -2691,12 +2691,12 @@ async def _collections_block(context: dict[str, Any]) -> None:
         members = await offload.io(library.held_members,
                                    [str(one.get("name") or "") for one in every])
     except Exception as exc:  # noqa: BLE001 - the panel says why, never raises
-        panel.line(t("console.workbench.could_not_read_collections"), hint=why(exc),
+        panel.line(t("console.workbench.collections_failed"), hint=why(exc),
                    classes="console-help px-3")
         return
     with ui.column().classes("gap-0 console-form w-full min-w-0"):
         if not held["collections"] and not held["taken_out"]:
-            ui.label(t("console.workbench.in_no_collections_yet")).classes("console-help px-3")
+            ui.label(t("console.workbench.no_collections")).classes("console-help px-3")
         for one in held["collections"]:
             _collection_row(context, one)
         for one in held["taken_out"]:
@@ -2719,9 +2719,9 @@ def _collection_row(context: dict[str, Any], one: dict[str, Any]) -> None:
         try:
             await run.io_bound(library.unexclude_from_collection, name, game_id, None)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
             return
-        ui.notify(t("console.workbench.put_back_in", name=name), type="positive")
+        ui.notify(t("console.workbench.restore_into", name=name), type="positive")
         await context["rebuild"]()
 
     with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
@@ -2749,7 +2749,7 @@ def _add_to_collection(context: dict[str, Any], every: list[dict[str, Any]],
         library, [collection_adds.Row(game_id, table_id)],
         collection_adds.TABLES if table_id else collection_adds.GAMES,
         "", then=partial(_game_redrawn, context))
-    button = ui.button(t("console.workbench.add_to_collection"), icon=verbs.ADD_TO_LIST) \
+    button = ui.button(t("console.workbench.to_collection"), icon=verbs.ADD_TO_LIST) \
         .props("flat dense no-caps size=sm").classes("console-action")
     with button, ui.menu() as menu:
         collection_adds.draw_every(offer, every, members, menu.close)
@@ -2802,7 +2802,7 @@ async def _guides_block(context: dict[str, Any]) -> None:
             _guide_row(media_label_map().get("rule_sheet", "rule_sheet"),
                        art.media(context["game_id"], "rule_sheet",
                                  version=sheet.get("version")),
-                       t("console.workbench.in_game_folder"))
+                       t("console.workbench.in_folder"))
         with ui.column().classes("gap-0 w-full").props('data-arrange="hub_guide_moved"'):
             for one in shown:
                 _guide_row(*guide_words(one), arrange=len(shown) > 1,
@@ -2831,7 +2831,7 @@ async def _save_guides(context: dict[str, Any], guides: list[dict[str, Any]]) ->
     try:
         await run.io_bound(context["library"].set_game_guides, context["game_id"], guides)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
     await context["rebuild"]()
 
@@ -2902,7 +2902,7 @@ async def _add_guide(context: dict[str, Any]) -> None:
                                      {"url": said, "kind": held["kind"],
                                       "title": str(held["title"].value or "").strip()}])
 
-    with frame.opened(t("console.workbench.add_guide_to",
+    with frame.opened(t("console.workbench.guide_dialog",
                         name=str(context["game"].get("name") or ""))) as box:
         panel.facts(ui, [
             (t("console.workbench.guide_address"), draw_address),
@@ -2933,7 +2933,7 @@ def _guide_row(name: str, address: str, said: str, *, arrange: bool = False,
         if arrange:
             ui.icon("drag_indicator").classes("console-drag-handle") \
                 .props("tabindex=0 role=button") \
-                .tooltip(t("console.workbench.drag_move_press_space"))
+                .tooltip(t("console.workbench.drag_hint"))
         with ui.column().classes("gap-0 grow min-w-0"):
             panel.link_out(name, to=address)()
             if said:
@@ -2979,7 +2979,7 @@ def _table_entries(table: dict[str, Any],
             (HEADING, game_tables.KNOWN_AS),
             (t("word.id"), table.get("key") or "-"),
             (t("word.program"), table.get("app_name") or "-"),
-            panel.note(t("console.workbench.program_finds_name_rather")),
+            panel.note(t("console.workbench.keyed_hint")),
         ]
     elif reference:
         # Where it is comes first, because that is the fact that makes this entry
@@ -2997,7 +2997,7 @@ def _table_entries(table: dict[str, Any],
             # The distinction that matters: nothing here has been lost, so the thing
             # to do is make the location reachable, not forget the entry.
             entries.append(panel.note(
-                t("console.workbench.file_not_right_now")))
+                t("console.workbench.file_offline")))
         entries += [
             (t("word.version"), table.get("version") or "-"),
             (t("word.author"), ", ".join(table.get("authors") or []) or "-"),
@@ -3066,7 +3066,7 @@ def _made_from(table: dict[str, Any],
     named = any(one.get("available") and one.get("filename") == base["file"]
                 and str(one.get("id") or "") != str(base.get("table_id") or "")
                 for one in tables if one is not table)
-    word, why = ((t("console.workbench.replaced"), t("console.workbench.another_file_name"))
+    word, why = ((t("console.workbench.replaced"), t("console.workbench.name_reused"))
                  if named else (game_tables.word_for(game_tables.FILE_WORDS, True), ""))
 
     def gone() -> None:
@@ -3180,8 +3180,8 @@ def _resolved_row(context: dict[str, Any], table: dict[str, Any], kind: str,
             # that has no wrong answer: which script runs.
             if kind == "script":
                 word = game_tables.word_for(game_tables.SCRIPT_WORDS, external)
-                why = (t("console.workbench.vbs_beside_table_vpx") if external
-                       else t("console.workbench.script_inside_vpx"))
+                why = (t("console.workbench.script_sidecar") if external
+                       else t("console.workbench.script_embedded"))
                 ui.label(word).classes("console-tier console-tier--off").tooltip(why)
             else:
                 tier = media_ownership.for_resolution(state.get("resolution"))
@@ -3312,7 +3312,7 @@ def _reset_action(on_reset: Callable[[], Any]) -> Callable[[], None]:
     is a button that cannot do anything."""
     def draw() -> None:
         with ui.element("div").classes("console-slot-actions"):
-            ui.button(t("console.workbench.reset_play_record"), icon="restart_alt",
+            ui.button(t("console.workbench.reset_action"), icon="restart_alt",
                       on_click=on_reset).props("flat dense no-caps size=sm") \
                 .classes("console-action")
 
@@ -3358,7 +3358,7 @@ def _details_differ(context: dict[str, Any],
                     ui.label(str(item.get("ours") or "-")).classes("console-diff-was")
                     ui.icon("arrow_forward").classes("console-diff-arrow")
                     ui.label(str(item.get("theirs") or "-")).classes("console-help truncate")
-            ui.button(t("console.workbench.use_what_spreadsheet_says"),
+            ui.button(t("console.workbench.use_spreadsheet"),
                 icon=verbs.ACCEPT, on_click=adopt) \
                 .props("flat dense no-caps size=sm").classes("console-action")
 
@@ -3404,7 +3404,7 @@ async def _pick_a_match(context: dict[str, Any]) -> None:
             if wanted:
                 await run.io_bound(library.adopt_vps_details, context["game_id"], wanted)
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
     await context["rebuild"]()
 
 
@@ -3416,7 +3416,7 @@ async def _confirm_details(differs: list[dict[str, Any]]) -> list[str]:
     """
     chosen = {str(item.get("field") or ""): True for item in differs}
 
-    with frame.opened(t("console.workbench.use_new_entry_details"), wide=True,
+    with frame.opened(t("console.workbench.new_entry_question"), wide=True,
                       persistent=True) as box:
         for new in (False, True):
             rows = [one for one in differs if bool(one.get("new")) is new]
@@ -3476,7 +3476,7 @@ def _rom_state(pinmame: dict[str, Any], rom: str,
                   on_click=lambda: _choose(context, "assets")) \
             .props("flat dense no-caps size=sm") \
             .classes("console-action console-action--inline") \
-            .tooltip(t("console.workbench.where_rom_managed"))
+            .tooltip(t("console.workbench.rom_tip"))
 
     return draw
 
@@ -3559,21 +3559,21 @@ def _faults(context: dict[str, Any], table: dict[str, Any],
         # and nothing here is lost; something with no file at all has nothing to play
         # it. The same sentence for all three would send somebody to the wrong fix.
         if game_tables.is_referenced(table):
-            faults.append((t("console.workbench.place_table_lives_not"), None))
+            faults.append((t("console.workbench.place_unreachable"), None))
         elif game_tables.is_keyed(table):
-            faults.append((t("console.workbench.nothing_device_can_play"), None))
+            faults.append((t("console.workbench.unplayable"), None))
         else:
-            faults.append((t("console.workbench.file_not_disk"),
+            faults.append((t("console.workbench.file_absent"),
                            panel.action(t("word.forget"),
                                         partial(_forget_table, context, table),
                                         icon=verbs.FORGET,
                                         hint=t("console.workbench.forget_table.help"))))
     base = (table.get("source") or {}).get("base") or {}
     if table.get("available") and base.get("file") and not base.get("available"):
-        faults.append((t("console.workbench.made_from_gone"), None))
+        faults.append((t("console.workbench.source_gone"), None))
     if pinmame.get("effective") and pinmame.get("installed") is False:
         opens = _add_opener(context, "rom")
-        faults.append((t("console.workbench.rom_not_installed", rom=pinmame["effective"]),
+        faults.append((t("console.workbench.rom_missing", rom=pinmame["effective"]),
                        panel.action(t("word.add"), opens, icon=verbs.ADD,
                                     hint=t("console.workbench.add_missing.help"))
                        if opens else None))
@@ -3583,7 +3583,7 @@ def _faults(context: dict[str, Any], table: dict[str, Any],
         release = releases.get(str(source.get("vps_file_id") or "")) or {}
         to = str(release.get("url") or "") or entry_url
         act = (panel.link_out(t("console.workbench.get_version", version=theirs), to=to)
-               if to else _state(t("console.workbench.could_not_read_vps"), "unknown",
+               if to else _state(t("console.workbench.vps_failed"), "unknown",
                                  hint=unread) if unread else None)
         faults.append((t("console.workbench.newer_on_vps", theirs=theirs,
                          ours=str(table.get("version") or "")), act))
@@ -3617,7 +3617,7 @@ def _hidden_row(context: dict[str, Any], table: dict[str, Any]) -> tuple[Any, An
             answer = await run.io_bound(context["library"].set_table_hidden,
                                         context["game_id"], table_id, hidden)
         except Exception as exc:
-            ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
             return
         ui.notify(game_tables.hidden_said(str(context["game"].get("name") or ""), table,
                                           answer, hidden=hidden), type="positive")
@@ -3644,7 +3644,7 @@ def _play_action(context: dict[str, Any], table: dict[str, Any]) -> Callable[[],
         try:
             await run.io_bound(context["library"].launch, context["game_id"], filename)
         except Exception as exc:
-            ui.notify(t("console.workbench.could_not_launch"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.launch_failed"), caption=why(exc), type="negative")
 
     def draw() -> None:
         with ui.row().classes("items-center gap-2"):
@@ -3653,7 +3653,7 @@ def _play_action(context: dict[str, Any], table: dict[str, Any]) -> Callable[[],
                 .props("flat dense no-caps size=sm").classes("console-action")
             if not table.get("available"):
                 button.disable()
-                button.tooltip(t("console.workbench.vpx_not_disk"))
+                button.tooltip(t("console.workbench.vpx_absent"))
 
     return draw
 
@@ -3669,12 +3669,12 @@ def launcher_rows(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[
 
     def nvram() -> None:
         _switch(bool(overrides.get("delete_nvram_on_close")), toggle,
-                hint=t("console.workbench.remove_nvram_file_table"))
+                hint=t("console.workbench.nvram_note"))
 
     return [
         (t("console.workbench.launcher_2"), _launcher_pick(context, table)),
         *_launcher_notes(context, table),
-        (t("console.workbench.clear_nvram_exit"), nvram),
+        (t("console.workbench.nvram_clear"), nvram),
     ]
 
 
@@ -3701,7 +3701,7 @@ def _launcher_notes(context: dict[str, Any], table: dict[str, Any]) -> list[tupl
     listing = context.get("launchers") or {}
     held = listing.get("launchers") or []
     if not held:
-        return [panel.note(t("console.workbench.device_no_launcher_add"))]
+        return [panel.note(t("console.workbench.launcher_hint"))]
     runs = next((one for one in held if one["launcher_id"] == table.get("launcher")), None)
     own: dict[str, Any] = next((one for one in listing.get("apps") or []
                 if one.get("id") == table.get("app")), {})
@@ -3749,7 +3749,7 @@ def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[
                     else t("console.workbench.chosen_here"))
         if not held:
             field.disable()
-            field.tooltip(t("console.workbench.device_no_launcher"))
+            field.tooltip(t("console.workbench.no_launcher"))
 
         @on_page
         async def changed() -> None:
@@ -3757,7 +3757,7 @@ def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[
                 await run.io_bound(context["library"].assign_launcher,
                                    table_id, str(field.value or ""))
             except Exception as exc:
-                ui.notify(t("console.workbench.could_not_point_launcher"),
+                ui.notify(t("console.workbench.launcher_failed"),
                           caption=why(exc), type="negative")
                 return
             await (context.get("rebuild") or context["saved"])()
@@ -3814,8 +3814,8 @@ async def _extract_script(context: dict[str, Any], table: dict[str, Any]) -> Non
     """Not confirmed: it writes a new file and takes nothing away, and the way back is
     the Delete beside it."""
     await _script_act(context, context["library"].extract_script,
-                      table.get("id") or "", t("console.workbench.extracted_table_now_runs"),
-                      t("console.workbench.could_not_extract_script"))
+                      table.get("id") or "", t("console.workbench.extract_done"),
+                      t("console.workbench.extract_failed"))
 
 
 @on_page
@@ -3824,16 +3824,16 @@ async def _drop_script(context: dict[str, Any], table: dict[str, Any]) -> None:
     becomes an unpatched one."""
     every = game_tables.shares_its_script(table)
     if not await confirm.ask(
-            t("console.workbench.delete_script_beside_table"),
-            detail=t("console.game_tables.every_table_loses_script" if every
-                     else "console.workbench.table_goes_back_script"),
+            t("console.workbench.delete_question"),
+            detail=t("console.game_tables.script_detail" if every
+                     else "console.workbench.delete_detail"),
             lines=[f"{Path(table.get('filename') or '').stem}.vbs"]):
         return
     await _script_act(context, context["library"].delete_script,
                       table.get("id") or "",
-                      t("console.game_tables.deleted_every_table_runs_own" if every
-                        else "console.workbench.deleted_table_runs_own"),
-                      t("console.workbench.could_not_delete_script"))
+                      t("console.game_tables.script_deleted" if every
+                        else "console.workbench.delete_done"),
+                      t("console.workbench.delete_failed"))
 
 
 @on_page
@@ -3847,7 +3847,7 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
     """
     detail = ("console.workbench.forget_keyed" if game_tables.is_keyed(table)
               else "console.workbench.forget_reference" if game_tables.is_referenced(table)
-              else "console.workbench.record_goes_no_file")
+              else "console.workbench.forget_missing")
     made = game_tables.made_from_it_line(
         [game_tables.name_among(one, context["tables"])
          for one in game_tables.made_from_it(table, context["tables"])])
@@ -3860,7 +3860,7 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
         await run.io_bound(context["library"].forget_table,
                            context["game_id"], table.get("id") or "")
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_forget"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.forget_failed"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.workbench.table_forgotten"), type="positive")
     await _table_gone(context, table)
@@ -3956,7 +3956,7 @@ def _say_added(context: dict[str, Any], new: dict[str, Any], was: dict[str, Any]
         if callable(refresh):
             await refresh(game_id)
 
-    undo.offer(t("console.game_tables.added_now_plays", table=name, game=game), keep,
+    undo.offer(t("console.game_tables.result_added", table=name, game=game), keep,
                label=t("console.game_tables.keep", table=kept),
                done=t("console.game_tables.locked_to", table=kept))
 
@@ -3995,8 +3995,8 @@ async def _contain_table(context: dict[str, Any], table: dict[str, Any]) -> None
     """
     reference = table.get("reference") or {}
     if not await confirm.ask(
-            t("console.workbench.copy_table_game"),
-            detail=t("console.workbench.copied_not_moved_whatever"),
+            t("console.workbench.copy_question"),
+            detail=t("console.workbench.copy_detail"),
             lines=[reference.get("resolved") or reference.get("path") or ""],
             confirm=t("console.workbench.copy"), icon=verbs.COPY):
         return
@@ -4004,7 +4004,7 @@ async def _contain_table(context: dict[str, Any], table: dict[str, Any]) -> None
         await run.io_bound(context["library"].contain_table,
                            context["game_id"], table.get("id") or "")
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_copy"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.copy_failed"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.workbench.copied"), type="positive")
     await _table_list_changed(context)
@@ -4051,7 +4051,7 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                 # the user's.
                 chips.append((game_tables.word_for(game_tables.FILE_WORDS, True),
                               "console-tier console-tier--warn",
-                              t("console.workbench.not_disk_since", value=when.local(since))))
+                              t("console.workbench.absent_since", value=when.local(since))))
             if table.get("hidden"):
                 chips.append((game_tables.HIDDEN_WORDS[0], "console-chip-warn",
                               game_tables.hidden_hint(table, tables)))
@@ -4142,7 +4142,7 @@ def _release_line(table: dict[str, Any], held: bool = True) -> None:
     if not told and not held:
         return
     with ui.row().classes("items-center gap-2 w-full no-wrap console-member-table-line"):
-        ui.label(told or t("console.workbench.table_spreadsheet_no_longer")) \
+        ui.label(told or t("console.workbench.delisted_table")) \
             .classes("console-help truncate")
     _based_on(source.get("mod_of"), "console-member-table-line")
 
@@ -4186,7 +4186,7 @@ def _release_button(context: dict[str, Any], table: dict[str, Any]) -> None:
     # A release belongs to an entry, so there is nothing to choose among until the
     # game is matched. Said on the control rather than in a dialog that opens empty.
     button.disable()
-    button.tooltip(t("console.workbench.match_game_vps_first"))
+    button.tooltip(t("console.workbench.releases_unmatched"))
 
 
 def _listed_as(kind: str, inventory: str) -> Any:
@@ -4216,7 +4216,7 @@ async def _match_line(context: dict[str, Any], kind: str, matched_to: Any) -> st
     except Exception:
         logger.warning("console: could not read %s for %s", listed.listed_as, vps_id,
                        exc_info=True)
-        return t("console.workbench.matched_published_file")
+        return t("console.workbench.matched_file")
     for record in records:
         if str(record.get("vps_file_id") or "") == said:
             told = " · ".join(part for part in (
@@ -4224,10 +4224,10 @@ async def _match_line(context: dict[str, Any], kind: str, matched_to: Any) -> st
                 ", ".join(str(name) for name in (record.get("authors") or [])[:2]),
             ) if part)
             return t("console.workbench.matched",
-                    told=(told)) if told else t("console.workbench.matched_published_file")
+                    told=(told)) if told else t("console.workbench.matched_file")
     # Worth saying: it is why no update will ever be reported for this file.
-    return (t("console.workbench.matched_file_spreadsheet_no") if held
-            else t("console.workbench.matched_published_file"))
+    return (t("console.workbench.delisted_file") if held
+            else t("console.workbench.matched_file"))
 
 
 def _match_button(context: dict[str, Any], kind: str, label: str,
@@ -4252,7 +4252,7 @@ def _match_button(context: dict[str, Any], kind: str, label: str,
     # The records belong to an entry, so there is nothing to choose among until the
     # game is matched. Said on the control rather than in a dialog that opens empty.
     button.disable()
-    button.tooltip(t("console.workbench.match_game_vps_first_2"))
+    button.tooltip(t("console.workbench.files_unmatched"))
 
 
 @on_page
@@ -4266,7 +4266,7 @@ async def _pick_a_record(context: dict[str, Any], listed_as: str, label: str,
     """
     library = context["library"]
     records, empty, reason = await _listed_by_vps(
-        context, t("console.workbench.vps_lists_none_for_game", kind=label), listed_as)
+        context, t("console.workbench.kind_unlisted", kind=label), listed_as)
 
     with frame.opened(t("console.workbench.published", kind=label), wide=True,
                       persistent=True) as box:
@@ -4297,7 +4297,7 @@ def _record_row(record: dict[str, Any], dialog: Any, bound: str) -> None:
         meta.append(made_by)
     if record.get("updated_at"):
         meta.append(when.ago(record["updated_at"]))
-    name = str(record.get("version") or "") or t("console.workbench.no_version_given")
+    name = str(record.get("version") or "") or t("console.workbench.no_version")
     if said == bound:
         name = f"{name}  ✓"
     candidates.choice(str(record.get("img_url") or ""), name,
@@ -4318,10 +4318,10 @@ async def _listed_by_vps(context: dict[str, Any], none_listed: str,
         held = bool(found) or await offload.io(library.vps_catalog_held)
     except Exception as exc:
         logger.warning("console: could not read VPS for %s", vps_id, exc_info=True)
-        return [], t("console.workbench.could_not_read_vps"), why(exc)
+        return [], t("console.workbench.vps_failed"), why(exc)
     if found:
         return found, "", ""
-    return [], none_listed if held else t("console.workbench.vps_not_downloaded"), ""
+    return [], none_listed if held else t("console.workbench.no_vps_data"), ""
 
 
 def _in_place_of_list(line: str, reason: str) -> None:
@@ -4341,7 +4341,7 @@ async def _pick_a_release(context: dict[str, Any], table: dict[str, Any]) -> Non
     library = context["library"]
     bound = str((table.get("source") or {}).get("vps_file_id") or "")
     releases, empty, reason = await _listed_by_vps(
-        context, t("console.workbench.vps_lists_no_tables"))
+        context, t("console.workbench.tables_unlisted"))
 
     with frame.opened(t("console.workbench.release_table"), wide=True,
                       persistent=True) as box:
@@ -4375,7 +4375,7 @@ def _yours(table: dict[str, Any]) -> None:
     if table.get("filename"):
         ui.label(str(table["filename"])).classes("console-slot-file")
     ui.label(t("console.workbench.file_says", told=(told)) if told
-             else t("console.workbench.file_records_no_version")) \
+             else t("console.workbench.unversioned")) \
         .classes("console-help")
 
 
@@ -4387,7 +4387,7 @@ def _release_words(release: dict[str, Any]) -> tuple[str, str]:
         meta.append(made_by)
     if release.get("updated_at"):
         meta.append(when.ago(release["updated_at"]))
-    name = str(release.get("version") or "") or t("console.workbench.no_version_given")
+    name = str(release.get("version") or "") or t("console.workbench.no_version")
     return name, " \u00b7 ".join(part for part in meta if part)
 
 
@@ -4482,7 +4482,7 @@ def _launch_button(context: dict[str, Any], table: dict[str, Any]) -> None:
         try:
             await run.io_bound(context["library"].launch, context["game_id"], filename)
         except Exception as exc:
-            ui.notify(t("console.workbench.could_not_launch"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.launch_failed"), caption=why(exc), type="negative")
 
     button = ui.button(icon="play_arrow", on_click=go) \
         .props("flat dense round size=sm").tooltip(t("console.workbench.play_table"))
@@ -4501,7 +4501,7 @@ def _default_mark(context: dict[str, Any], table: dict[str, Any], *,
         mark.classes(add="console-default-mark--on")
         automatic = several and (table.get("default_kind") or "") == game_tables.DERIVED
         mark.tooltip(game_tables.DEFAULT_WORDS[game_tables.DERIVED][1] if automatic
-                     else t("console.workbench.table_game_offers"))
+                     else t("console.workbench.offered_table"))
         return
     if why := game_tables.why_not_default(table):
         mark.classes(add="opacity-30")
@@ -4530,7 +4530,7 @@ async def _lock_default(context: dict[str, Any], table: dict[str, Any], *,
         after = await run.io_bound(context["library"].set_default_table, context["game_id"],
                                    str(table.get("id") or "") if lock else "")
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_change"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.change_failed"), caption=why(exc), type="negative")
         return
     ui.notify(game_tables.lock_said(str(context["game"].get("name") or ""), table,
                                     (after or {}).get("tables") or [], lock=lock),
@@ -4546,7 +4546,7 @@ async def _make_default(context: dict[str, Any], table: dict[str, Any]) -> None:
         await run.io_bound(context["library"].set_default_table,
                            context["game_id"], str(table.get("id") or ""))
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_change"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.change_failed"), caption=why(exc), type="negative")
         return
     ui.notify(game_tables.now_plays(str(context["game"].get("name") or ""), table),
               type="positive")
@@ -4676,8 +4676,8 @@ def _program_note(launcher: dict[str, Any]) -> str:
     if not launcher.get("has_config") or state == path_checks.OK:
         return ""
     if state == path_checks.UNSET:
-        return t("console.workbench.set_program_see_settings", app=launcher["app_name"])
-    return t("console.workbench.not_at_that_path", app=launcher["app_name"])
+        return t("console.workbench.program_hint", app=launcher["app_name"])
+    return t("console.workbench.app_missing", app=launcher["app_name"])
 
 
 def _config_group_label(key: str) -> Callable[[dict[str, Any]], str]:
@@ -4822,12 +4822,12 @@ def _whose_value(held: dict, field: Any, app_name: str) -> str:
     whose = t(CAME_FROM.get(held.get("scope") or "", "console.workbench.inherited"))
     if held.get("set_here") and not held.get("in_effect", True):
         if said := _said_value(field, held.get("value") or ""):
-            return t("console.workbench.has_its_own", whose=whose, value=said)
-        return t("console.workbench.has_its_own_whose", whose=whose)
+            return t("console.workbench.override_value", whose=whose, value=said)
+        return t("console.workbench.override", whose=whose)
     if held.get("set_here"):
         if not held.get("varies") and _same_value(field, held.get("value") or "",
                                                   str(field.default or "")):
-            return t("console.workbench.same_as_default", app=app_name)
+            return t("console.workbench.same_default", app=app_name)
         return t("console.workbench.set_2")
     if held.get("scope"):
         return whose
@@ -4870,7 +4870,7 @@ def _clear_hint(held: dict, field: Any, app_name: str) -> str:
         value = _said_value(field, field.default)
     if value:
         return t("console.workbench.back_to", value=value, whose=whose)
-    return t("console.workbench.back_to_whose", whose=whose)
+    return t("console.workbench.back_link", whose=whose)
 
 
 def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field: Any,
@@ -4910,8 +4910,8 @@ def _beside(mark_of: Callable[[], Callable[[], None] | None], held: dict, field:
 # Said once over the group rather than on every row. The program rewrites both layers
 # when a table exits and its own in-game menu writes the same keys, so an edit made now
 # is one of two writers and the last one wins.
-PLAYING_NOTE = "console.workbench.read_only_playing"
-PLAYING_WHY = "console.workbench.read_only_playing.help"
+PLAYING_NOTE = "console.workbench.playing_lock"
+PLAYING_WHY = "console.workbench.playing_lock.help"
 
 # A number writes on every keystroke, so its redraw waits until it loses focus: drawn
 # between two keys, the second lands nowhere.
@@ -4951,9 +4951,9 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
             pairs=[pair for heading, _ in shown for pair in heading.pairs])
     if rest := len(group.settings) - len(curated_keys(group)):
         entries.append((FULL, panel.action(
-            t("console.workbench.more_in_all_settings", count=rest),
+            t("console.workbench.more_settings", count=rest),
             lambda: _open_all_settings(context, area=group.key), icon=verbs.DRILL,
-            hint=t("console.workbench.more_in_all_settings.help"))))
+            hint=t("console.workbench.more_settings.help"))))
     with ui.column().classes("gap-0 console-form"):
         panel.facts(ui, entries)
 
@@ -5136,7 +5136,7 @@ async def _setting_entries(context: dict[str, Any],
                 async with in_turn:
                     await written({key: "" for key in keys if rows[key].get("set_here")})
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("said.could_not_clear_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.clear_failed"), caption=why(exc), type="negative")
                 return
             context.pop("config_values", None)
             await _keeping_place(ui.context.client, context["rebuild"], keys[0])
@@ -5149,7 +5149,7 @@ async def _setting_entries(context: dict[str, Any],
                 async with in_turn:
                     wrote = await written({key: _as_text(value)})
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
+                ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
                 return False
             if cut := (wrote or {}).get("cut"):
                 no_longer_reads_game(cut, context.get("tables"))
@@ -5163,7 +5163,7 @@ async def _setting_entries(context: dict[str, Any],
             cleared = bool(table and fresh and key in ((wrote or {}).get("cleared") or ()))
             stuck = cleared and _whose(fresh, key) not in ("", "launcher")
             if cleared and not stuck:
-                ui.notify(t("console.app_settings.now_same_all_tables"), type="positive")
+                ui.notify(t("console.app_settings.cleared"), type="positive")
             if fresh and typed and (stuck or key in redraw_on or _moved(shown, fresh, key)):
                 pending["written"] = key
             elif not fresh or stuck or key in redraw_on or _moved(shown, fresh, key):
@@ -5272,7 +5272,7 @@ async def _keeping_place(client: Any, rebuild: Callable[[], Awaitable[Any]],
 
 def no_longer_reads_game(cut: Sequence[dict[str, Any]],
                          tables: list[dict[str, Any]] | None) -> None:
-    ui.notify(t("console.app_settings.no_longer_reads_game", count=len(cut),
+    ui.notify(t("console.app_settings.detached", count=len(cut),
                 tables="\n".join(_table_line(one, tables) for one in cut)), type="warning")
 
 
@@ -5323,7 +5323,7 @@ def _tables_of_their_own(launcher: dict[str, Any], keys: Sequence[str],
                          count: int) -> Callable[[], None]:
     """The link to the Tables grid on the tables that answer over any of these
     settings."""
-    return panel.link(t("console.workbench.tables_set_their_own", count=count),
+    return panel.link(t("console.workbench.override_count", count=count),
                       to="/console?" + deeplink.query({
                           "view": "tables", "launcher": launcher["launcher_id"],
                           "sets": ",".join(keys)}))
@@ -5452,7 +5452,7 @@ async def _all_settings(context: dict[str, Any]) -> None:
         results.clear()
         with results, ui.column().classes("gap-0 console-form"):
             panel.facts(ui, entries if found else [panel.intro(
-                t("console.workbench.no_setting_matches"))])
+                t("console.workbench.settings_empty"))])
 
     async def narrow(key: str, value: Any) -> None:
         wanted[key] = value or ("" if key in ("query", "area") else False)
@@ -5565,7 +5565,7 @@ async def _agreed_to_switch_off(library: Any, launcher: dict[str, Any]) -> bool:
     try:
         found = await offload.io(library.launcher_fallback, launcher["launcher_id"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_work"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.lookup_failed"), caption=why(exc), type="negative")
         return False
     if found.get("refused"):
         ui.notify(found["refused"], type="warning")
@@ -5576,14 +5576,14 @@ async def _agreed_to_switch_off(library: Any, launcher: dict[str, Any]) -> bool:
     goes = list(found.get("fallbacks") or [])
     lines: list[str] = []
     if len(goes) == 1:
-        detail = t("console.workbench.switched_off_launch_with", count=count,
+        detail = t("console.workbench.off_detail", count=count,
                    fallback=goes[0]["display_name"])
     else:
         detail = t("console.workbench.switched_off_split", count=count)
-        lines = [t("console.workbench.count_launch_with", count=int(one["tables"]),
+        lines = [t("console.workbench.launch_count", count=int(one["tables"]),
                    name=one["display_name"]) for one in goes]
     return await confirm.ask(
-        t("console.workbench.switch_off_name",
+        t("console.workbench.off_question",
           name=launcher.get("display_name") or launcher["app_name"]),
         detail=detail, lines=lines, confirm=t("console.workbench.switch_off"),
         icon=verbs.SWITCH_OFF, danger=False)
@@ -5637,7 +5637,7 @@ async def _launcher_details(context: dict[str, Any]) -> None:
     async def write(**changes: Any) -> bool:
         refused = await put(changes)
         if refused:
-            ui.notify(t("console.workbench.could_not_save"), caption=refused, type="negative")
+            ui.notify(t("console.workbench.save_failed"), caption=refused, type="negative")
         return not refused
 
     async def rename(text: str) -> str:
@@ -5664,7 +5664,7 @@ async def _launcher_details(context: dict[str, Any]) -> None:
             try:
                 await run.io_bound(library.make_launcher_default, launcher["launcher_id"])
             except Exception as exc:  # noqa: BLE001
-                ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+                ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
             again = context["state"].get("refresh_launchers")
             if callable(again):
                 await again()
@@ -5679,7 +5679,7 @@ async def _launcher_details(context: dict[str, Any]) -> None:
         (HEADING, t("console.workbench.this_launcher")),
         (t("word.name"), panel.field(launcher["display_name"], rename,
                              placeholder=launcher["app_name"], refuses=True)),
-        panel.note(t("console.workbench.what_call_way_running")),
+        panel.note(t("console.workbench.name_note")),
         (t("word.runs"), launcher["app_name"]),
         (t("word.default"), panel.switch(
             is_default, lambda e: make_default(bool(e.value)),
@@ -5692,7 +5692,7 @@ async def _launcher_details(context: dict[str, Any]) -> None:
         hint=t("console.workbench.only_launcher") if only_one else "")))
     if goes_to := _switched_off_goes_to(launcher, context.get("launchers") or []):
         entries.append(panel.note(
-            t("console.workbench.switched_off_stays_configured", default=goes_to)))
+            t("console.workbench.off_note", default=goes_to)))
 
     entries.append((HEADING, t("word.program")))
     if note := _program_note(launcher):
@@ -5744,7 +5744,7 @@ async def _config_backups(context: dict[str, Any]) -> None:
     try:
         found = await offload.io(library.config_backups, launcher["launcher_id"])
     except Exception as exc:  # noqa: BLE001
-        _rows(ui, [panel.note(t("console.workbench.could_not_read_copies"), hint=why(exc))])
+        _rows(ui, [panel.note(t("console.workbench.copies_failed"), hint=why(exc))])
         return
 
     held = list(found.get("backups") or [])
@@ -5756,7 +5756,7 @@ async def _config_backups(context: dict[str, Any]) -> None:
         try:
             await run.io_bound(library.take_config_backup, launcher["launcher_id"], "")
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.could_not_take_copy"), caption=why(exc),
+            ui.notify(t("console.workbench.snapshot_failed"), caption=why(exc),
                       type="negative")
             return
         ui.notify(t("word.copied"), type="positive")
@@ -5770,7 +5770,7 @@ async def _config_backups(context: dict[str, Any]) -> None:
     entries.append(panel.note(
         t("console.workbench.kept",
                 value=(found.get('kept_in') or
-                        t("console.workbench.vpinfe_configuration_folder")))))
+                        t("console.workbench.config_folder")))))
     _rows(ui, entries)
 
 
@@ -5807,7 +5807,7 @@ def _copies_value(held: list[dict], take: Callable, found: dict,
                          enabled=bool(held) and not playing,
                          hint=(t(PLAYING_NOTE) if playing
                                else "" if held
-                               else t("console.workbench.no_copies_put_back")))()
+                               else t("console.workbench.restore_empty")))()
     return draw
 
 
@@ -5821,21 +5821,21 @@ async def _restore_dialog(held: list[dict], context: dict[str, Any],
     async def put_back(name: str, dialog: Any) -> None:
         dialog.close()
         if not await confirm.ask(
-                t("console.workbench.put_copy_back"),
-                detail=t("console.workbench.copy_settings_now_taken"),
+                t("console.workbench.restore_question"),
+                detail=t("console.workbench.restore_detail"),
                 confirm=t("word.restore"), icon=verbs.RESTORE):
             return
         try:
             await run.io_bound(library.restore_config_backup, launcher_id, name)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.could_not_put_back"), caption=why(exc),
+            ui.notify(t("console.workbench.restore_failed"), caption=why(exc),
                       type="negative")
             return
         ui.notify(t("console.workbench.restored"), type="positive")
         await context["rebuild"]()
 
-    with frame.opened(t("console.workbench.put_copy_back_2"), wide=True) as box:
-        ui.label(t("console.workbench.newest_first_copy_settings")).classes("console-help px-3")
+    with frame.opened(t("console.workbench.restore_title"), wide=True) as box:
+        ui.label(t("console.workbench.restore_intro")).classes("console-help px-3")
         with ui.column().classes("gap-0 w-full console-form px-3"):
             _rows(ui, [(_backup_when(one),
                         _one_copy(one, put_back, box, playing)) for one in held])
@@ -5891,7 +5891,7 @@ async def _location_details(context: dict[str, Any]) -> None:
         if wanted == row["kind"]:
             return
         if said := await write(kind=wanted):
-            ui.notify(t("said.could_not_save_it"), caption=said, type="negative")
+            ui.notify(t("said.save_failed"), caption=said, type="negative")
 
     async def browse(current: str) -> str | None:
         return await folder_picker.pick_path(library.folders, current, kind="dir")
@@ -5916,7 +5916,7 @@ async def _location_details(context: dict[str, Any]) -> None:
     # control that cannot do anything and a word nobody needs to learn.
     if len(context.get("locations") or []) > 1:
         entries += [(t("word.priority"), _location_priority(context, row)),
-                    panel.note(t("console.workbench.location_wins_two_them"))]
+                    panel.note(t("console.workbench.priority_hint"))]
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, entries)
         await _shadowed_block(context, row)
@@ -5940,14 +5940,14 @@ def _location_priority(context: dict[str, Any],
         try:
             await run.io_bound(context["library"].set_location_order, wanted)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.could_not_reorder_them"), caption=why(exc),
+            ui.notify(t("console.workbench.reorder_failed"), caption=why(exc),
                       type="negative")
             return
         await _folders_changed(context)
 
     def draw() -> None:
         with ui.row().classes("items-center gap-2 no-wrap"):
-            ui.label(t("console.workbench.place_of_total", place=place + 1,
+            ui.label(t("console.workbench.position", place=place + 1,
                        total=len(order))).classes("console-fact-value")
             up = ui.button(icon=verbs.UP, on_click=lambda: move(-1)) \
                 .props("flat dense round size=sm").tooltip(t("console.workbench.higher_priority"))
@@ -5973,7 +5973,7 @@ async def _shadowed_block(context: dict[str, Any], row: dict[str, Any]) -> None:
         held = await offload.io(context["library"].shadowed_here,
                                   row["location_id"])
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_read_what_2"), caption=why(exc),
+        ui.notify(t("console.workbench.shadowed_failed"), caption=why(exc),
                   type="negative")
         return
     if not held:
@@ -5982,7 +5982,7 @@ async def _shadowed_block(context: dict[str, Any], row: dict[str, Any]) -> None:
     count = len(held)
     ui.label(t("console.workbench.shadowed",
             count=count)).classes("console-card-title console-fact-heading")
-    ui.label(t("console.workbench.same_game_library_twice")).classes("console-help")
+    ui.label(t("console.workbench.shadowed_intro")).classes("console-help")
     for one in held:
         # Marked, so the action stays visible rather than waiting for a hover. Every row
         # here is one somebody came to act on, which is the case that rule is for.
@@ -5993,7 +5993,7 @@ async def _shadowed_block(context: dict[str, Any], row: dict[str, Any]) -> None:
                     .classes("console-member-name grow min-w-0 truncate") \
                     .tooltip(str(one.get("path") or ""))
                 with ui.element("div").classes("console-row-action"):
-                    ui.button(t("console.workbench.make_own_game_2"), icon=verbs.SPLIT,
+                    ui.button(t("console.workbench.own_action"), icon=verbs.SPLIT,
                               on_click=lambda _, o=one: _adopt_shadowed(context, o)) \
                         .props("flat dense no-caps size=sm")
             ui.label(t("console.workbench.answered", value=(one.get('used_path') or ''))) \
@@ -6009,8 +6009,8 @@ async def _adopt_shadowed(context: dict[str, Any], one: dict[str, Any]) -> None:
     install deliberately refuses to make on its own.
     """
     if not await confirm.ask(
-            t("console.workbench.make_own_game"),
-            detail=t("console.workbench.gets_new_id_joins"),
+            t("console.workbench.own_question"),
+            detail=t("console.workbench.own_detail"),
             lines=[str(one.get("path") or "")],
             confirm=t("console.workbench.make_own"), icon=verbs.SPLIT):
         return
@@ -6019,9 +6019,9 @@ async def _adopt_shadowed(context: dict[str, Any], one: dict[str, Any]) -> None:
                            context["location"]["location_id"],
                            str(one.get("path") or ""))
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
-    ui.notify(t("console.workbench.own_game_now"), type="positive")
+    ui.notify(t("console.workbench.own_done"), type="positive")
     await _folders_changed(context)
 
 
@@ -6041,9 +6041,9 @@ async def _collection_details(context: dict[str, Any]) -> None:
         (t("word.name"), _text_control(context, row, "name")),
         (t("console.workbench.description"), _text_control(context, row, "description",
                 lines=3)),
-        (HEADING, t("console.workbench.in_the_frontend")),
-        (t("console.workbench.show_in_frontend"), _in_frontend_switch(context, row)),
-        (t("console.workbench.open_on_this"), _opens_on_switch(context, row)),
+        (HEADING, t("console.workbench.frontend")),
+        (t("console.workbench.frontend_visible"), _in_frontend_switch(context, row)),
+        (t("console.workbench.start_view"), _opens_on_switch(context, row)),
         (t("console.workbench.page_buttons"), _page_buttons(context, row, size)),
         (FULL, partial(_image_slot, context, row)),
     ]
@@ -6066,7 +6066,7 @@ def _text_control(context: dict[str, Any], row: dict[str, Any], field: str,
         if value == (row.get(field) or ""):
             return
         if field == "name" and not value.strip():
-            ui.notify(t("said.give_it_a_name"), type="warning")
+            ui.notify(t("said.needs_name"), type="warning")
             return
         if field == "name":
             await _rename(context, value)
@@ -6096,7 +6096,7 @@ async def _rename(context: dict[str, Any], wanted: str) -> None:
     try:
         made = await offload.io(context["library"].patch_collection, old, {"name": wanted})
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
     new = str(made.get("name") or wanted.strip())
     collection_adds.renamed(old, new)
@@ -6120,7 +6120,7 @@ def _in_frontend_switch(context: dict[str, Any], row: dict[str, Any]) -> Callabl
         if bool(event.value) != shown:
             await _patch(context, {"in_frontend": bool(event.value)})
 
-    return panel.switch(shown, changed, hint=t("console.workbench.show_in_frontend.help"))
+    return panel.switch(shown, changed, hint=t("console.workbench.frontend_visible.help"))
 
 
 def _opens_on_switch(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
@@ -6139,13 +6139,13 @@ def _opens_on_switch(context: dict[str, Any], row: dict[str, Any]) -> Callable[[
             await run.io_bound(context["library"].put_config, {"behavior": {
                 "startup_collection": name if event.value else ""}})
         except Exception as exc:
-            ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
             return
         await _written(context)
 
-    hint = (t("console.workbench.open_on_this.here") if here
-            else t("console.workbench.open_on_this.elsewhere", name=now) if now
-            else t("console.workbench.open_on_this.everything"))
+    hint = (t("console.workbench.start_view.here") if here
+            else t("console.workbench.start_view.elsewhere", name=now) if now
+            else t("console.workbench.start_view.everything"))
     return panel.switch(here, changed, hint=hint)
 
 
@@ -6160,10 +6160,10 @@ def _page_buttons(context: dict[str, Any], row: dict[str, Any],
     is shown as that."""
     stored = row.get("paging_group") or ""
     group = group_kind(row.get("order_by") or DEFAULT_ORDER_BY)
-    options = {"": t("console.workbench.as_in_settings")}
+    options = {"": t("console.workbench.size_default")}
     if group in _PAGE_BY_GROUP:
         options["sort"] = t(_PAGE_BY_GROUP[group])
-    options["count"] = t("console.workbench.at_a_time", count=size)
+    options["count"] = t("console.workbench.page_size", count=size)
     shown = stored if stored in options else "count"
 
     async def changed(event: Any) -> None:
@@ -6206,7 +6206,7 @@ def _image_slot(context: dict[str, Any], row: dict[str, Any]) -> None:
                 with ui.column().classes("console-slot-blank items-center gap-1"):
                     ui.icon("image").classes("console-slot-blank-icon")
         if stand_ins:
-            ui.label(t("console.workbench.from_its_games")) \
+            ui.label(t("console.workbench.slot_origin")) \
                 .classes("text-xs console-label self-center")
         with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
             ui.button(t("word.replace") if present else t("word.add"),
@@ -6267,12 +6267,12 @@ async def _collection_games(context: dict[str, Any]) -> None:
 
 def _empty_fork(context: dict[str, Any]) -> None:
     with ui.column().classes("gap-2 w-full min-w-0 py-2"):
-        ui.label(t("console.workbench.nothing_in_it_yet")).classes("console-empty-title")
+        ui.label(t("console.workbench.empty")).classes("console-empty-title")
         _add_control(context, [])
         with ui.row().classes("items-center gap-2 no-wrap"):
             ui.label(t("word.or")).classes("console-help")
             _add_rule_button(context)
-            ui.label(t("console.workbench.to_fill_itself")).classes("console-help")
+            ui.label(t("console.workbench.rule_hint")).classes("console-help")
         library = context["library"]
         lists = [(tag_source(one), tag) for tag, look in library.tag_looks().items()
                  for one in look.get("sources") or []]
@@ -6365,7 +6365,7 @@ def _rules_block(context: dict[str, Any], row: dict[str, Any]) -> None:
                 .tooltip(t("console.collections.smart.help"))
     if not rows and not smart:
         with ui.row().classes("items-center gap-2 w-full no-wrap py-1"):
-            ui.label(t("console.workbench.no_rules_hand_picked")) \
+            ui.label(t("console.workbench.hand_picked_rules")) \
                 .classes("console-help min-w-0")
             _add_rule_button(context)
         return
@@ -6375,9 +6375,9 @@ def _rules_block(context: dict[str, Any], row: dict[str, Any]) -> None:
     with ui.row().classes("items-center gap-2 console-slot-actions"):
         _add_rule_button(context)
         if smart and not _drafting(context):
-            panel.action(t("console.workbench.convert_hand_picked"),
+            panel.action(t("console.workbench.convert_static"),
                          lambda: _convert(context), icon=verbs.KEEP,
-                         hint=t("console.workbench.convert_hand_picked.help"))()
+                         hint=t("console.workbench.convert_static.help"))()
     added, taken = _by_hand(context)
     ui.label(collection_rules.sentence(rows, context["fields"], added, taken)) \
         .classes("console-help console-rule-sentence mt-1 mb-2")
@@ -6546,7 +6546,7 @@ async def _save_rules(context: dict[str, Any]) -> None:
         await run.io_bound(library.patch_collection, row["name"],
                            {"filters": wanted, **order})
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
     context["draft"].pop("rules", None)
     context["draft"].pop("order", None)
@@ -6577,7 +6577,7 @@ async def _keep_what_it_found(context: dict[str, Any]) -> None:
     try:
         await run.io_bound(context["library"].keep_collection_result, name)
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     context["draft"].pop("rules", None)
     ui.notify(t("console.workbench.converted", name=name), type="positive")
@@ -6608,7 +6608,7 @@ async def _take_rules_away(context: dict[str, Any]) -> None:
         await run.io_bound(context["library"].patch_collection, name,
                            {"clear_filters": True})
     except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
     context["draft"].pop("rules", None)
     ui.notify(t("console.workbench.converted", name=name), type="positive")
@@ -6627,7 +6627,7 @@ def _draft_bar(context: dict[str, Any]) -> None:
                                          context["fields"])
     matched = int(preview.get("matched") or 0)
     said = [(t("console.workbench.games_match", count=matched) if matched
-             else t("console.workbench.no_games_match")) if asks
+             else t("console.workbench.search_empty")) if asks
             else t("console.workbench.no_rules")]
     if then - now:
         said.append(t("console.workbench.join", count=len(then - now)))
@@ -6688,7 +6688,7 @@ def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
                          else t("console.workbench.ranked_off")) \
                     .classes("console-order-label")
         with ui.row().classes("items-center gap-2 no-wrap ml-auto"):
-            ui.label(t("console.workbench.show_at_most")).classes("console-order-label")
+            ui.label(t("console.workbench.show_limit")).classes("console-order-label")
             _limit_box(context, row)
 
 
@@ -6758,7 +6758,7 @@ async def _patch(context: dict[str, Any], changes: dict[str, Any]) -> None:
         await run.io_bound(library.patch_collection, _collection(context)["name"],
                            changes)
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_save"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
     await _written(context)
 
@@ -6787,11 +6787,11 @@ def _games_list(context: dict[str, Any], row: dict[str, Any],
             .classes("console-card-title whitespace-nowrap")
         if live and int(row.get("count") or 0):
             with ui.element("span").classes("whitespace-nowrap"):
-                panel.link(t("console.workbench.show_in_games"), to="/console?"
+                panel.link(t("console.workbench.games_visible"), to="/console?"
                            + deeplink.query({"view": "games", "collection": name}))()
     controls()
     if lens.get("error"):
-        panel.line(t("console.workbench.could_not_work"), hint=str(lens["error"]),
+        panel.line(t("console.workbench.lookup_failed"), hint=str(lens["error"]),
                    classes="console-help text-warning")
         return
     if live and len((context.get("membership") or {}).get("members") or []) > 8:
@@ -6879,19 +6879,19 @@ async def _reorder(context: dict[str, Any], members: list[dict], moved: Any) -> 
         await run.io_bound(library.set_collection_order,
                            _collection(context)["name"], order)
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_move"), caption=why(exc), type="negative")
+        ui.notify(t("console.workbench.move_failed"), caption=why(exc), type="negative")
         return
     await _written(context)
 
 
 def _games_heading(playable: int, hidden: int, taken: int) -> str:
     if hidden and taken:
-        return t("console.workbench.count_games_hidden_taken_out", count=playable,
+        return t("console.workbench.count_both", count=playable,
                  hidden=hidden, taken=taken)
     if hidden:
-        return t("console.workbench.count_games_hidden", count=playable, hidden=hidden)
+        return t("console.workbench.count_hidden", count=playable, hidden=hidden)
     if taken:
-        return t("console.workbench.count_games_taken_out", count=playable, taken=taken)
+        return t("console.workbench.count_taken", count=playable, taken=taken)
     return t("console.workbench.count_games", count=playable)
 
 
@@ -6926,7 +6926,7 @@ def _member_line(context: dict[str, Any], member: dict[str, Any], *,
             # row action had.
             ui.icon("drag_indicator").classes("console-drag-handle") \
                 .props('tabindex=0 role=button') \
-                .tooltip(t("console.workbench.drag_move_press_space"))
+                .tooltip(t("console.workbench.drag_hint"))
         with list_art.beside(member.get(list_art.FIELD), icons.GAMES, look=look), \
                 ui.column().classes("gap-0 grow min-w-0"):
             with ui.row().classes("items-center gap-2 w-full no-wrap"):
@@ -7013,7 +7013,7 @@ async def _fill_table_menu(context: dict[str, Any], member: dict[str, Any],
     try:
         choices = await offload.io(context["library"].tables_for, game)
     except Exception as exc:
-        ui.notify(t("console.workbench.could_not_read_game"), caption=why(exc),
+        ui.notify(t("console.workbench.tables_failed"), caption=why(exc),
                   type="negative")
         return
     others = [other for other in (context.get("membership") or {}).get("members") or []
@@ -7042,9 +7042,9 @@ async def _fill_table_menu(context: dict[str, Any], member: dict[str, Any],
     blocked = t("console.workbench.already_collection")
     holder.clear()
     with holder:
-        ui.item_label(t("console.workbench.which_table_plays")).props("header") \
+        ui.item_label(t("console.workbench.plays_heading")).props("header") \
             .classes("console-menu-header")
-        _table_menu_item(context, member, "", t("console.workbench.the_game_s_default"),
+        _table_menu_item(context, member, "", t("console.workbench.game_default"),
                          chosen=following, blocked=blocked if default_taken else "",
                          under=game_tables.table_name(offers) if offers else "")
         for one in choices:
@@ -7093,7 +7093,7 @@ def _table_menu_item(context: dict[str, Any], member: dict[str, Any], table_id: 
         try:
             await _hold(context, member, table_id)
         except Exception as exc:
-            ui.notify(t("console.workbench.could_not_change"), caption=why(exc), type="negative")
+            ui.notify(t("console.workbench.change_failed"), caption=why(exc), type="negative")
             return
         await _written(context)
 
@@ -7151,7 +7151,7 @@ def _add_table_item(context: dict[str, Any], member: dict[str, Any],
             await run.io_bound(library.add_to_collection, name, game,
                                str(table.get("id") or ""), after)
         except Exception as exc:
-            ui.notify(t("said.could_not_add_it"), caption=why(exc), type="negative")
+            ui.notify(t("said.add_failed"), caption=why(exc), type="negative")
             return
         await _written(context)
 
@@ -7181,9 +7181,9 @@ def _member_action(context: dict[str, Any], member: dict[str, Any],
         try:
             await run.io_bound(library.unexclude_from_collection, name, row.game, row.table)
         except Exception as exc:
-            ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
-        ui.notify(t("console.workbench.put_back_in", name=name), type="positive")
+        ui.notify(t("console.workbench.restore_into", name=name), type="positive")
         await _written(context)
 
     if origin == "excluded":

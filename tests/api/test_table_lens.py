@@ -253,7 +253,7 @@ class TableScriptTests(_Lens):
 
         self.assertEqual(response.status_code, 400, response.text)
         self.assertEqual(response.json()["error"]["message"],
-                         t("error.games.vpx_wrote_no_script"))
+                         t("error.games.vpx_no_script"))
         self.assertIn("Unhandled exception", "\n".join(logged.output))
 
     def test_visual_pinball_that_will_not_start_is_said_in_words(self) -> None:
@@ -262,7 +262,7 @@ class TableScriptTests(_Lens):
             response = self.client.post(f"/games/{GAME_ID}/tables/tbl0000002/script")
 
         self.assertEqual(response.json()["error"]["message"],
-                         t("error.games.vpx_did_not_start"))
+                         t("error.games.vpx_failed"))
 
 
 class OwnSettingsTests(_Lens):

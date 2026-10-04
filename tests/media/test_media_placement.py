@@ -167,7 +167,7 @@ class RetierTests(PlacementTests):
             media_placement.retier(self.root, KIND, BUILD, GAME)
 
         self.assertEqual(str(caught.exception),
-                         t("error.games.nothing_in_slot_to_move",
+                         t("error.games.slot_empty",
                            slot=t("media.kind.backglass.label"), name=BUILD))
 
     def test_a_file_the_slot_does_not_take_names_what_it_does(self) -> None:
@@ -176,7 +176,7 @@ class RetierTests(PlacementTests):
             media_placement.place(self.root, KIND, GAME, self._source("theme.mp3"))
 
         self.assertEqual(str(caught.exception),
-                         t("error.games.slot_does_not_take", slot=spec.label,
+                         t("error.games.wrong_extension", slot=spec.label,
                            extension=".mp3", extensions=", ".join(spec.family)))
         self.assertEqual(self._medias(), [])
 

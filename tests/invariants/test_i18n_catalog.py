@@ -459,7 +459,7 @@ class TestWhatAModuleHandsBackIsLookedUp(unittest.TestCase):
 
     def test_each_road_is_read(self) -> None:
         source = ('NOT_WIRED = "Nothing performs that."\n'
-                  'KEY = "error.actions.nothing_performs_that"\n'
+                  'KEY = "error.actions.unsupported"\n'
                   "def listing():\n"
                   '    return {"reason": NOT_WIRED, "reason_key": KEY, "what": "VPinFE"}\n'
                   "def probe(exc):\n"
@@ -646,9 +646,9 @@ class TestAnExceptionIsSaidInWords(unittest.TestCase):
                   "        return str(exc)\n"
                   "    except Exception as exc:\n"
                   "        logger.info('Could not ask %s', exc)\n"
-                  "        ui.notify(t('said.could_not_do_that', exc=(exc)))\n"
+                  "        ui.notify(t('said.action_failed', exc=(exc)))\n"
                   "        ui.notify(f'Could not: {exc}')\n"
-                  "        return t('said.could_not_do_that', exc=_why(exc))\n")
+                  "        return t('said.action_failed', exc=_why(exc))\n")
 
         said = [f"{one.lineno} {ast.unparse(one)}"
                for one in _exception_made_text(trees.parse_snippet(source))]

@@ -9,16 +9,16 @@
     "one": "{count} game waiting to send",
     "other": "{count} games waiting to send"
   },
-  "account.status.sent_just_now": "Sent just now",
-  "account.status.sent_minutes_ago": {
+  "account.status.age_now": "Sent just now",
+  "account.status.age_minutes": {
     "one": "Sent {count} minute ago",
     "other": "Sent {count} minutes ago"
   },
-  "account.status.sent_hours_ago": {
+  "account.status.age_hours": {
     "one": "Sent {count} hour ago",
     "other": "Sent {count} hours ago"
   },
-  "account.status.sent_days_ago": {
+  "account.status.age_days": {
     "one": "Sent {count} day ago",
     "other": "Sent {count} days ago"
   },
@@ -29,7 +29,7 @@
     "other": "Sent {count} games"
   },
   "error.no_card": "A card needs this player's user ID and initials",
-  "error.no_user_id": "This player has no VPinPlay user ID",
+  "error.no_account": "This player has no VPinPlay user ID",
   "error.no_initials": "This player has no initials",
   "error.already_claimed": "This account is already claimed",
   "error.taken": "That user ID is on VPinPlay already",

@@ -80,4 +80,4 @@ def start_build(api: API, *, build_metadata_func: Callable[..., Any],
 
     threading.Thread(target=run_build, daemon=True).start()
     threading.Thread(target=process_events, daemon=True).start()
-    return {"success": True, "message": t("frontend.buildmeta.build_metadata_started")}
+    return {"success": True, "message": t("frontend.buildmeta.started")}

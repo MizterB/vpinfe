@@ -107,7 +107,7 @@ class ThemeInstallStore:
                 archive.extractall(self.themes_dir)
             extracted = self._extracted_folder(before)
             if extracted is None:
-                raise ThemeRegistryError(t("error.themes.download_holds_no_theme",
+                raise ThemeRegistryError(t("error.themes.empty_download",
                                            key=theme_key))
             os.rename(self._path(extracted), self._path(theme_key))
         except Exception:

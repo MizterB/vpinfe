@@ -349,7 +349,7 @@ class MovingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(page.on["backglass"], 2)
         page.rebuild.assert_not_called()
-        self.assertEqual(self.notify.call_args.args[0], t("said.could_not_save_it"))
+        self.assertEqual(self.notify.call_args.args[0], t("said.save_failed"))
         self.assertIn("read-only", self.notify.call_args.kwargs["caption"])
 
     async def test_render_priorities_are_written_once_a_score_screen_is_placed(self) -> None:
@@ -590,7 +590,7 @@ class SizeTests(unittest.IsolatedAsyncioTestCase):
         await press(page._chose_units, SimpleNamespace(value="in"))
 
         self.assertEqual(page.units, "cm")
-        self.assertEqual(self.notify.call_args.args[0], t("console.settings.could_not_save"))
+        self.assertEqual(self.notify.call_args.args[0], t("console.settings.save_failed"))
 
 
 class FollowingTests(unittest.TestCase):
@@ -723,7 +723,7 @@ class LaunchersTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([call.args[0] for call in
                           self.library.write_launcher_config.call_args_list], ["b"])
-        self.assertEqual(self.notify.call_args.args[0], t("said.could_not_save_it"))
+        self.assertEqual(self.notify.call_args.args[0], t("said.save_failed"))
         self.assertIn("no such file", self.notify.call_args.kwargs["caption"])
 
     async def test_launchers_that_cannot_be_listed_leave_vpinfe_s_own_change_alone(self) -> None:
