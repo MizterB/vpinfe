@@ -107,7 +107,8 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
             held["records"] = list(found.get("records") or [])
             held["sources"] = list(found.get("sources") or [])
             held["path"] = str(found.get("path") or "")
-        _draw_bar(bar, held, load, state)
+        if held["bar_for"] != _bar_key(held):
+            _draw_bar(bar, held, load, state)
         await _draw(viewport, held)
 
     busy.fill(viewport, load)
@@ -117,6 +118,14 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
     ui.timer(EVERY_SECONDS,
              lambda: load() if held["view"] == JOBS
              or (held["follow"] and not held["source"]) else None)
+
+
+def _bar_key(held: dict[str, Any]) -> tuple[Any, ...]:
+    """What the bar is drawn from. A tick that finds the same key leaves the bar alone:
+    clearing it closes a menu somebody has open."""
+    if held["view"] == JOBS:
+        return (JOBS,)
+    return (held["view"], tuple(held["sources"]), held["path"])
 
 
 def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
@@ -137,7 +146,7 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
                    JOBS: t("console.jobs.view")}, value=held["view"]) \
             .props("dense outlined").classes("w-32") \
             .on_value_change(lambda e: remember("view", e.value or STREAM))
-        held["bar_for"] = held["view"]
+        held["bar_for"] = _bar_key(held)
 
         if held["view"] == JOBS:
             _jobs_controls(held, remember)
@@ -221,7 +230,7 @@ async def _load_jobs(library: Library, box: Any, bar: Any, held: dict[str, Any],
     state["log_find_jobs"] = held["find_jobs"]
     # Not on every tick: the bar holds the find box, and redrawing it would take what is
     # being typed with it.
-    if held["bar_for"] != JOBS:
+    if held["bar_for"] != _bar_key(held):
         _draw_bar(bar, held, reload, state)
     _draw_jobs(box, held, jobs_list.rows(found, time.time(), held["outcome"]),
                bool(found))
