@@ -277,6 +277,8 @@ Screen assignment and playfield layout:
 
 The right side of the page lists detected displays so you can map IDs correctly. On macOS it also shows NSScreen coordinates used for window placement.
 
+On Linux under Sway or Hyprland the page also shows **Window placement**: VPinFE keeps a small rules file that puts each of its windows, and Visual Pinball's, on its screen with no border, and gives the playfield focus. **Add it** adds one line to your compositor config and reloads it; **I'll add it myself** shows the line to copy. The file is VPinFE's and is rewritten when you change a screen. Anything else about your desktop stays yours. On GNOME and KDE VPinFE cannot place windows, and the page offers to run the browser through XWayland instead.
+
 #### Input section
 
 Gamepad button mappings stored in `vpinfe.ini`:

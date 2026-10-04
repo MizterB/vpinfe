@@ -14,12 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from common.host import tools
+from common.i18n import t
 
 from .. import geometry
 from . import Output, Screen, Window
 
 # sway's IPC: this magic, then the payload's length and the message type, little-endian.
 _MAGIC = b"i3-ipc"
+_RUN_COMMAND = 0
 _GET_OUTPUTS = 3
 _GET_TREE = 4
 # The output sway keeps its scratchpad under, which shows nothing.
@@ -49,9 +51,9 @@ def _read(sock: socket.socket, count: int) -> bytes:
     return held
 
 
-def ask_sway(sock: socket.socket, message: int = _GET_OUTPUTS) -> Any:
+def ask_sway(sock: socket.socket, message: int = _GET_OUTPUTS, payload: bytes = b"") -> Any:
     with sock:
-        sock.sendall(_MAGIC + struct.pack("<II", 0, message))
+        sock.sendall(_MAGIC + struct.pack("<II", len(payload), message) + payload)
         header = _read(sock, len(_MAGIC) + 8)
         if header[:len(_MAGIC)] != _MAGIC:
             raise ConnectionRefusedError
@@ -67,6 +69,26 @@ def ask_hyprland(sock: socket.socket, request: bytes = b"j/monitors") -> Any:
         while got := sock.recv(65536):
             held += got
         return json.loads(held)
+
+
+def reload_config(env: Mapping[str, str], connect: Connect = _unix) -> None:
+    """Asks the compositor to read its config again. Raises OSError where it does not
+    answer or refuses."""
+    if env.get("SWAYSOCK"):
+        try:
+            said = ask_sway(connect(str(env["SWAYSOCK"])), _RUN_COMMAND, b"reload")
+        except ValueError as exc:
+            raise OSError(t("capture.reload.refused", compositor="Sway")) from exc
+        if not said or not all(isinstance(one, dict) and one.get("success") for one in said):
+            raise OSError(t("capture.reload.refused", compositor="Sway"))
+        return
+    with connect(hyprland_socket(env)) as sock:
+        sock.sendall(b"/reload")
+        held = b""
+        while got := sock.recv(4096):
+            held += got
+    if held.strip() != b"ok":
+        raise OSError(t("capture.reload.refused", compositor="Hyprland"))
 
 
 def hyprland_socket(env: Mapping[str, str]) -> str:

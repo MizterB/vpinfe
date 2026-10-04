@@ -331,7 +331,9 @@ class Capture(Protocol):
     `topper`. `outputs` answers, per window, the output the app's own settings show it on,
     by the name the desktop gives the output (`DP-1`), or "" where the app shows that
     window on no screen of its own; a window it cannot say is left out. `window` answers
-    which window a desktop window is, from its app id and its title, or "".
+    which window a desktop window is, from its app id and its title, or "". `titles` answers
+    the other way for a desktop that places a window by its title: each window by the title
+    the app gives it.
 
     `placed_by` answers what the app reads to decide which windows it shows for the entry,
     as one string that stays the same until any of it changes, or "" where it cannot say.
@@ -343,6 +345,8 @@ class Capture(Protocol):
     def outputs(self, entry: Entry, settings: Mapping[str, Any]) -> Mapping[str, str]: ...
 
     def window(self, app_id: str, title: str) -> str: ...
+
+    def titles(self) -> Mapping[str, str]: ...
 
     def placed_by(self, entry: Entry, settings: Mapping[str, Any]) -> str: ...
 

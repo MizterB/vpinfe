@@ -16,8 +16,8 @@ through one renderer - what differs is only which install answers.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable, Sequence
-from functools import partial
 from typing import Any
 
 from nicegui import run, ui
@@ -45,6 +45,7 @@ from console import (
     input_page,
     offload,
     panel,
+    placement_panel,
     recording,
     screens,
     theme_picker,
@@ -1450,11 +1451,24 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         def rebuild() -> None:
             ui.timer(0.01, redraw, once=True)
 
-        blocks.append((_section_label("windows.backglass"), displays.rows(
-            values, schema, offered.get(config_schema.SUGGEST_SCREENS, []),
-            await offload.io(display_service.get_display_names),
-            lambda changes: _write_many(library, changes), rebuild,
-            follow=partial(vpx_displays.follow, library))))
+        @on_page
+        async def follow(before: Any, after: Any, here: Any) -> None:
+            await vpx_displays.follow(library, before, after, here)
+            try:
+                await offload.io(placement_panel.resync)
+            except OSError as exc:
+                ui.notify(t("console.placement.update_failed"), caption=why(exc),
+                          type="warning")
+
+        def write(changes: dict[str, dict[str, Any]]) -> Any:
+            return _write_many(library, changes)
+
+        blocks.append((_section_label("windows.backglass"), [
+            *displays.rows(values, schema, offered.get(config_schema.SUGGEST_SCREENS, []),
+                           await offload.io(display_service.get_display_names), write,
+                           rebuild, follow=follow),
+            *placement_panel.rows(await run.io_bound(placement_panel.read, os.environ),
+                                  values, schema, write, rebuild)]))
     with body:
         page_head(key, findings)
         await build_device_page(library, {"library": library, "rebuild": redraw},

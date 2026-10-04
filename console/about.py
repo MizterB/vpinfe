@@ -37,7 +37,7 @@ logger = logging.getLogger("vpinfe.console.about")
 # way this install is reached from another machine - is not one, so the old command is
 # what is left there. It needs the click's own permission, and a Console click that goes
 # to the server and back has spent it by the time anything runs.
-_COPY_JS = """() => {
+COPY_JS = """() => {
   const text = %s;
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text).then(() => emit(true), () => emit(false));
@@ -86,11 +86,11 @@ def _draw(body: Any, groups: list[dict[str, Any]], held: dict[str, Any],
         with ui.row().classes("items-center gap-2 w-full no-wrap"):
             ui.label(t("console.about.copy_note")) \
                 .classes("console-help grow min-w-0")
-            panel.action(t("word.copy"), lambda event: _copied(bool(event.args),
+            panel.action(t("word.copy"), lambda event: copied(bool(event.args),
                     held["text"]),
                          icon="content_copy",
                          hint=t("console.about.copy_hint"),
-                         js=_COPY_JS % json.dumps(held["text"]))()
+                         js=COPY_JS % json.dumps(held["text"]))()
             panel.action(t("console.about.refresh"), lambda: reload(True), icon=verbs.REFRESH,
                          hint=t("word.reread"))()
         # One list for all of them, headings inside it, the way Settings next door
@@ -104,7 +104,7 @@ def _draw(body: Any, groups: list[dict[str, Any]], held: dict[str, Any],
         panel.facts(ui, entries)
 
 
-def _copied(done: bool, text: str) -> None:
+def copied(done: bool, text: str) -> None:
     """Copied, or shown so it can be copied by hand.
 
     A button that silently does nothing is worse than no button. Where the browser

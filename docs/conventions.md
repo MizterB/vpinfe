@@ -1094,6 +1094,13 @@ A screen is called by its model name, and by its size when it has none. It is nu
 which way its top points and are drawn only for Cabinet Mode; a desktop page draws the
 picture without them.
 
+Window placement is a set of rows, `console/placement_panel.py`, that a page mounts under the
+screens picture: Displays does today and the Screens step of Setup can. The rows write
+nothing themselves except VPinFE's own rules file. The one line in the person's compositor
+config goes in on **Add it** only, and **I'll add it myself** shows it with a copy button, the
+only option when the config cannot be written. Screens that cannot be read leave both actions
+refused, since rules that place nothing would replace working ones.
+
 A launcher that keeps its own screens draws the same picture over its own storage. It adds
 the parts VPinFE has no window for, such as Visual Pinball's topper, and **In the playfield**
 joins a part's menu where the program can draw a window inside the playfield's. Where the

@@ -11,7 +11,7 @@ import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from common.capture import adapters, geometry
 from common.capture.adapters import ffmpeg, wlr
@@ -243,6 +243,54 @@ class IpcTests(unittest.TestCase):
 
         with self.assertRaises(OSError):
             wlr.WlrAdapter(SWAY, lambda path: _serve(sway)).outputs()
+
+
+class ReloadTests(unittest.TestCase):
+    def _sway(self, said: list, heard: list):
+        def sway(sock):
+            with sock:
+                head = sock.recv(14)
+                (length, kind) = struct.unpack("<II", head[6:])
+                heard.append((kind, sock.recv(length) if length else b""))
+                payload = json.dumps(said).encode()
+                sock.sendall(b"i3-ipc" + struct.pack("<II", len(payload), 0) + payload)
+
+        return lambda path: _serve(sway)
+
+    def test_sway_is_sent_reload_as_a_command(self) -> None:
+        heard: list = []
+
+        wlr.reload_config(SWAY, self._sway([{"success": True}], heard))
+
+        self.assertEqual(heard, [(0, b"reload")])
+
+    def test_sway_answering_with_nothing_readable_is_an_error_not_a_crash(self) -> None:
+        with patch.object(wlr, "ask_sway", side_effect=ValueError("empty")), \
+                self.assertRaises(OSError):
+            wlr.reload_config(SWAY, lambda path: MagicMock())
+
+    def test_sway_refusing_the_reload_is_an_error(self) -> None:
+        for said in ([], [{"success": False, "error": "no"}],
+                     [{"success": True}, {"success": False}], {"success": True}):
+            with self.subTest(said=said), self.assertRaises(OSError):
+                wlr.reload_config(SWAY, self._sway(said, []))
+
+    def test_hyprland_is_sent_reload_and_must_answer_ok(self) -> None:
+        for answer, ok in ((b"ok", True), (b"ok\n", True), (b"unknown request", False)):
+            heard: list = []
+
+            def hyprland(sock, answer=answer, heard=heard):
+                with sock:
+                    heard.append(sock.recv(64))
+                    sock.sendall(answer)
+
+            with self.subTest(answer=answer):
+                if ok:
+                    wlr.reload_config(HYPRLAND, lambda path: _serve(hyprland))
+                else:
+                    with self.assertRaises(OSError):
+                        wlr.reload_config(HYPRLAND, lambda path: _serve(hyprland))
+                self.assertEqual(heard, [b"/reload"])
 
 
 def _config(**screens: str) -> configparser.ConfigParser:

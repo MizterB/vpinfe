@@ -47,6 +47,8 @@ BUDGET = {
     "mediasource.py": (2, "a start picker and a search, both toolbar"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
     "about.py": (1, "the textarea a browser that will not copy falls back to"),
+    "placement_panel.py": (1, "the textarea that shows the one line to copy into a "
+                              "compositor config, read-only"),
     "import_dialog.py": (2, "the per-item tick in the import confirmation and the "
                             "destination picker's do-not-ask-again - a choice over a list "
                             "and a one-off promise, neither of them a fact row"),

@@ -134,6 +134,9 @@ class VPXCapture:
     def window(self, app_id: str, title: str) -> str:
         return TITLES.get(str(title or "").strip(), "")
 
+    def titles(self) -> Mapping[str, str]:
+        return dict(TITLES)
+
     def placed_by(self, entry: Entry, settings: Mapping[str, Any]) -> str:
         program = str(settings.get("bin_path") or "").strip()
         said = [_content(settings_file(settings)), _stamp(Path(program)) if program else "-"]
