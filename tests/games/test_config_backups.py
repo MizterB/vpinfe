@@ -90,15 +90,50 @@ class RestoreTests(_Case):
         self.assertEqual(safety.reason, backups.BEFORE_RESTORE)
         self.assertIn(backups.BEFORE_RESTORE, [one.reason for one in backups.held("L1")])
 
-    def test_a_hyphenated_reason_still_reads_back(self) -> None:
-        """`before-restore` is one word with a hyphen in it, and a pattern that allowed
-        only letters read its reason as blank."""
+    def test_what_was_there_is_named_for_the_file_and_says_why(self) -> None:
         made = backups.take("L1", self.files)[0]
-        self.ini.write_text("x")
-        backups.restore("L1", made.name, self.files)
+        self.ini.write_text("[A]\nB = 2\n")
 
-        reasons = {one.reason for one in backups.held("L1")}
-        self.assertEqual(reasons, {backups.MANUAL, backups.BEFORE_RESTORE})
+        safety = backups.restore("L1", made.name, self.files)
+
+        self.assertRegex(safety.name, r"^VPinballX\.ini\.vpinfe-\d{8}T\d{6}Z-restore$")
+        self.assertRegex(safety.taken_at, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
+    def test_a_copy_taken_before_a_restore_can_be_put_back_too(self) -> None:
+        made = backups.take("L1", self.files)[0]
+        self.ini.write_text("[A]\nB = 2\n")
+        safety = backups.restore("L1", made.name, self.files)
+
+        backups.restore("L1", safety.name, self.files)
+
+        self.assertEqual(self.ini.read_text(), "[A]\nB = 2\n")
+
+    def test_a_second_restore_keeps_only_the_newest_copy_it_took_and_all_of_yours(self) -> None:
+        made = backups.take("L1", self.files)[0]
+        for count in range(3):
+            self.ini.write_text(f"[A]\nB = {count + 2}\n")
+            backups.restore("L1", made.name, self.files)
+
+        held = backups.held("L1")
+        self.assertEqual([one.reason for one in held].count(backups.BEFORE_RESTORE), 1)
+        self.assertEqual([one.reason for one in held].count(backups.MANUAL), 1)
+        self.assertEqual(self.ini.read_text(), "[A]\nB = 1\n")
+
+    def test_restoring_from_an_older_safety_copy_does_not_remove_it_first(self) -> None:
+        made = backups.take("L1", self.files)[0]
+        self.ini.write_text("one")
+        first = backups.restore("L1", made.name, self.files)
+        self.ini.write_text("two")
+
+        backups.restore("L1", first.name, self.files)
+
+        self.assertEqual(self.ini.read_text(), "one")
+
+    def test_a_manual_label_that_looks_like_a_kept_copy_is_still_read_as_manual(self) -> None:
+        made = backups.take("L1", self.files, label="x.vpinfe-1")[0]
+
+        self.assertEqual(made.reason, backups.MANUAL)
+        self.assertRegex(made.taken_at, r"^\d{4}-")
 
     def test_a_name_that_is_not_there_is_refused(self) -> None:
         with self.assertRaises(FileNotFoundError):

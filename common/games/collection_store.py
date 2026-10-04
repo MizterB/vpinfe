@@ -24,6 +24,7 @@ from common.games.game_metadata import (
 )
 from common.games.info_file import VPINFE_SECTION
 from common.games.info_migration import (
+    OF_2X,
     backup_names,
     backup_stamp,
     copy_aside,
@@ -907,7 +908,7 @@ class CollectionStore:
         with _write_lock:
             if self._converted_from_ini and self.ini_path.exists():
                 logger.info("Kept the pre-JSON collections at %s",
-                            copy_aside(str(self.ini_path)))
+                            copy_aside(str(self.ini_path), OF_2X))
                 self._converted_from_ini = False
             # Never stamp a newer file down to what this build writes. A newer VPinFE
             # owns that number, and claiming it would tell the next reader we understood

@@ -20,6 +20,7 @@ from common.failures import why
 from common.games import asset_ops
 from common.games.game_service import replace_table
 from common.games.info_migration import (
+    RESTORE,
     copy_aside,
     replace_atomic,
     write_backup,
@@ -82,7 +83,7 @@ class RefusedWriteTests(TempTree):
         self._assert_names_the_folder(lambda: write_backup(self.info, "{}"))
 
     def test_the_copy_a_restore_sets_aside(self) -> None:
-        self._assert_names_the_folder(lambda: copy_aside(self.info))
+        self._assert_names_the_folder(lambda: copy_aside(self.info, RESTORE))
 
     def test_a_placed_file(self) -> None:
         source = self.root / "new.directb2s"

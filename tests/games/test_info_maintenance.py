@@ -125,6 +125,48 @@ class RestoreTests(LibraryTestCase):
             self.assertEqual(after["User"]["Rating"], 4)
             self.assertNotIn("vpinfe", after)
 
+    def _upgraded_with_id(self, game_id: str) -> Path:
+        game = self._game("Dr. Dude")
+        upgrade_library(self.root)
+        info = self._info(game)
+        info["vpinfe"]["game_id"] = game_id
+        (game / "Dr. Dude.info").write_text(json.dumps(info), encoding="utf-8")
+        return game
+
+    def test_the_game_keeps_its_id_through_a_restore(self):
+        """Everything that points at a game points at it by that id."""
+        game = self._upgraded_with_id("g-kept")
+
+        restore_library(self.root)
+
+        after = self._info(game)
+        self.assertEqual(after["vpinfe"], {"game_id": "g-kept"})
+        self.assertEqual(after["VPXFile"]["filehash"], "abc123")
+
+    def test_a_game_with_no_id_is_put_back_as_it_was_taken(self):
+        game = self._game("Dr. Dude")
+        original = (game / "Dr. Dude.info").read_bytes()
+        upgrade_library(self.root)
+
+        restore_library(self.root)
+
+        self.assertEqual((game / "Dr. Dude.info").read_bytes(), original)
+
+    def test_a_reset_can_ask_for_the_file_exactly_as_it_was(self):
+        game = self._upgraded_with_id("g-gone")
+
+        restore_library(self.root, keep_ids=False)
+
+        self.assertNotIn("vpinfe", self._info(game))
+
+    def test_what_a_restore_set_aside_is_named_for_why(self):
+        game = self._upgraded_with_id("g-kept")
+
+        restore_library(self.root)
+
+        self.assertEqual([p.name.rsplit("-", 1)[-1] for p in self._backups(game)
+                          if p.name.endswith("-restore")], ["restore"])
+
     def test_a_game_that_never_upgraded_is_left_alone(self):
         self._game("Dr. Dude")
 

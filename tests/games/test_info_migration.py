@@ -13,10 +13,19 @@ from pathlib import Path
 
 from common.games.info_file import MetaConfig
 from common.games.info_migration import (
+    IMPORT,
     MATCHED_BY_USER,
+    OF_2X,
+    RESET,
+    RESTORE,
     VPS_MATCHED_BY_KEY,
     backup_path,
+    backup_stamp,
+    backup_why,
+    copied_from,
+    copy_aside,
     is_versioned,
+    keep_newest,
     migrate,
     needs_migration,
     write_backup,
@@ -242,6 +251,75 @@ class WhatSurvivesTests(unittest.TestCase):
         self.assertTrue(is_versioned(after))
 
 
+class CapTests(TempTree):
+    """When VPinFE writes a copy it drops that file's older ones it took itself, keeping
+    the newest 2.x copy and the newest of any kind."""
+
+    def setUp(self):
+        super().setUp()
+        self.info = self.root / "Example.info"
+        self.info.write_text(json.dumps(LEGACY), encoding="utf-8")
+
+    def _at(self, day: int) -> datetime:
+        return datetime(2026, 7, day, 12, 0, 0, tzinfo=UTC)
+
+    def _names(self) -> list[str]:
+        return sorted(p.name for p in self.root.iterdir() if ".vpinfe-" in p.name)
+
+    def test_a_second_restore_leaves_the_newest_2x_copy_and_the_newest(self):
+        write_backup(str(self.info), json.dumps(LEGACY), self._at(1))
+        copy_aside(self.info, RESTORE, self._at(2))
+        copy_aside(self.info, RESTORE, self._at(3))
+
+        self.assertEqual(self._names(), ["Example.info.vpinfe-20260701T120000Z",
+                                         "Example.info.vpinfe-20260703T120000Z-restore"])
+
+    def test_the_newest_2x_copy_is_kept_when_it_is_also_the_newest(self):
+        write_backup(str(self.info), json.dumps(LEGACY), self._at(1))
+        write_backup(str(self.info), json.dumps(LEGACY), self._at(2))
+
+        self.assertEqual(self._names(), ["Example.info.vpinfe-20260702T120000Z"])
+
+    def test_what_is_not_a_copy_of_ours_is_left_alone(self):
+        for name in ("Example.info.bak", "Example.info.bak-repro", "Example.info.vpinfe-keep",
+                     "vpinfe-backup-20260701T120000Z.zip",
+                     "Example.info.vpinfe-20260701T120000Z-restore-twice"):
+            (self.root / name).write_text("{}")
+        copy_aside(self.info, RESTORE, self._at(2))
+        copy_aside(self.info, RESTORE, self._at(3))
+
+        self.assertTrue(all((self.root / n).exists() for n in
+                            ("Example.info.bak", "Example.info.bak-repro",
+                             "Example.info.vpinfe-keep", "vpinfe-backup-20260701T120000Z.zip",
+                             "Example.info.vpinfe-20260701T120000Z-restore-twice")))
+
+    def test_another_file_beside_it_keeps_its_own(self):
+        other = self.root / "Other.info"
+        other.write_text("{}")
+        copy_aside(other, RESTORE, self._at(1))
+        copy_aside(self.info, RESTORE, self._at(2))
+        copy_aside(self.info, RESTORE, self._at(3))
+
+        self.assertIn("Other.info.vpinfe-20260701T120000Z-restore", self._names())
+
+    def test_the_copy_about_to_be_put_back_is_spared_once(self):
+        older = copy_aside(self.info, RESTORE, self._at(1))
+        copy_aside(self.info, RESTORE, self._at(2), restoring=older)
+
+        self.assertTrue(Path(older).exists())
+        self.assertEqual(keep_newest(self.info), [Path(older).name])
+
+    def test_a_folder_of_its_own_is_capped_the_same_way(self):
+        kept = self.root / "kept"
+        kept.mkdir()
+        copy_aside(self.info, RESTORE, self._at(1), into=kept)
+        copy_aside(self.info, RESTORE, self._at(2), into=kept)
+
+        self.assertEqual(sorted(p.name for p in kept.iterdir()),
+                         ["Example.info.vpinfe-20260702T120000Z-restore"])
+        self.assertEqual(self._names(), [])
+
+
 class BackupTests(TempTree):
     def setUp(self):
         super().setUp()
@@ -256,6 +334,28 @@ class BackupTests(TempTree):
 
         self.assertEqual(path, "/games/X/X.info.vpinfe-20260729T143022Z")
         self.assertNotIn(":", path, "Windows will not have a colon in a filename")
+
+    def test_a_copy_of_a_2x_file_keeps_the_bare_name_2x_looks_for(self):
+        path = backup_path("/games/X/X.info", datetime(2026, 7, 29, 14, 30, 22, tzinfo=UTC),
+                           OF_2X)
+
+        self.assertTrue(path.endswith(".info.vpinfe-20260729T143022Z"), path)
+
+    def test_a_copy_of_3_0s_own_says_why_in_one_word_after_the_stamp(self):
+        when = datetime(2026, 7, 29, 14, 30, 22, tzinfo=UTC)
+        for why in (RESTORE, IMPORT, RESET):
+            path = backup_path("/games/X/X.info", when, why)
+
+            self.assertTrue(path.endswith(f".info.vpinfe-20260729T143022Z-{why}"), path)
+            self.assertEqual(backup_stamp(path), "20260729T143022Z")
+            self.assertEqual(backup_why(path), why)
+            self.assertEqual(copied_from(path), Path("/games/X/X.info"))
+        self.assertEqual(backup_why("/games/X/X.info.vpinfe-20260729T143022Z"), OF_2X)
+
+    def test_the_stamp_still_sorts_with_a_word_after_it(self):
+        names = ["X.info.vpinfe-20260729T143022Z", "X.info.vpinfe-20260730T010101Z-restore"]
+
+        self.assertEqual(sorted(names, key=backup_stamp)[-1], names[1])
 
     def test_reading_does_not_write_anything(self):
         before = self.info.read_text(encoding="utf-8")
@@ -285,13 +385,13 @@ class BackupTests(TempTree):
 
         self.assertEqual(len(self._backups()), 1)
 
-    def test_a_second_migration_never_overwrites_the_first_backup(self):
+    def test_a_second_copy_in_the_same_second_gets_a_name_of_its_own(self):
         stamp = datetime(2026, 7, 29, 14, 30, 22, tzinfo=UTC)
         first = write_backup(str(self.info), json.dumps(LEGACY), stamp)
         second = write_backup(str(self.info), json.dumps({"Info": {}}), stamp)
 
         self.assertNotEqual(first, second)
-        self.assertEqual(json.loads(Path(first).read_text())["Info"]["Title"], "Dr. Dude")
+        self.assertEqual(json.loads(Path(second).read_text()), {"Info": {}})
 
     def test_an_unreadable_backup_is_refused_rather_than_written(self):
         with self.assertRaises(json.JSONDecodeError):

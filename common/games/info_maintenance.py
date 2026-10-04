@@ -5,6 +5,7 @@ Neither walk stops on a bad file, and neither re-reads a `.vpx`.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -13,13 +14,20 @@ from typing import TypedDict
 from common.failures import why
 from common.games import locations
 from common.games.collection_store import restorable_collections_backup
-from common.games.info_file import InvalidMetaConfigError, MetaConfig
+from common.games.info_file import (
+    GAME_ID_KEY,
+    VPINFE_SECTION,
+    InvalidMetaConfigError,
+    MetaConfig,
+)
 from common.games.info_migration import (
     INFO_SCHEMA,
+    RESTORE,
     copied_from,
     copy_aside,
     replace_atomic,
     restorable_backup,
+    write_json_atomic,
 )
 from common.i18n import t
 from common.jobs import JobReporter, LogCallback, ProgressCallback
@@ -153,10 +161,12 @@ def restore_library(
     config_dir: str | Path | None = None,
     progress_cb: ProgressCallback | None = None,
     log_cb: LogCallback | None = None,
+    keep_ids: bool = True,
 ) -> RestoreResult:
     """Put back the newest readable backup in every folder that has one.
 
     All or nothing: nobody chose which games upgraded, so nobody can choose which return.
+    A game keeps its id unless `keep_ids` is off, which only a reset to the 2.x bytes wants.
     """
     reporter = JobReporter(logger, progress_cb=progress_cb, log_cb=log_cb)
     log = reporter.log
@@ -178,7 +188,7 @@ def restore_library(
             continue
         info_path = _info_path(game_dir)
         try:
-            _restore_file(info_path, chosen)
+            _restore_file(info_path, chosen, keep_id=keep_ids)
         except OSError as exc:
             result["failed"] += 1
             result["failures"].append((game_dir.name, why(exc)))
@@ -206,11 +216,35 @@ def restore_library(
     return result
 
 
-def _restore_file(path: str | Path, backup: str | Path) -> None:
-    """Put `backup` in place at `path`, keeping what is there now."""
+def _restore_file(path: str | Path, backup: str | Path, keep_id: bool = False) -> None:
+    """Put `backup` in place at `path`, keeping what is there now.
+
+    With `keep_id`, a game's `.info` keeps the id it has: the copy was taken before the id
+    existed or under another, and the id is what holds the game in its collections and its
+    play history under each player.
+    """
+    kept_id = _game_id_in(path) if keep_id and Path(path).suffix == ".info" else ""
     if Path(path).exists():
-        copy_aside(str(path))
+        copy_aside(str(path), RESTORE, restoring=backup)
+    if kept_id and _game_id_in(backup) != kept_id:
+        data = json.loads(Path(backup).read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            section = data.get(VPINFE_SECTION)
+            data[VPINFE_SECTION] = {**(section if isinstance(section, dict) else {}),
+                                    GAME_ID_KEY: kept_id}
+            write_json_atomic(path, data)
+            return
     replace_atomic(backup, path)
+
+
+def _game_id_in(path: str | Path) -> str:
+    """The game id a `.info` holds, or nothing when it has none or cannot be read."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    section = data.get(VPINFE_SECTION) if isinstance(data, dict) else None
+    return str(section.get(GAME_ID_KEY) or "") if isinstance(section, dict) else ""
 
 
 def _games(count: int) -> str:

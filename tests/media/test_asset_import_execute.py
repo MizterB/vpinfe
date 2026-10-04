@@ -144,9 +144,10 @@ class GameInfoImportTests(unittest.TestCase):
                 self.assertEqual(data["Info"]["VPSId"], "local-id")     # association kept
                 self.assertEqual(data["User"]["Rating"], 3)             # history kept
                 self.assertEqual(data["User"]["StartCount"], 12)
-                backup = game_dir / "Foo (Bar 1999).info.bak"
-                self.assertTrue(backup.exists())
-                self.assertEqual(json.loads(backup.read_text()), local)
+                copies = sorted(game_dir.glob("Foo (Bar 1999).info.vpinfe-*-import"))
+                self.assertEqual(len(copies), 1)
+                self.assertEqual(json.loads(copies[0].read_text()), local)
+                self.assertFalse((game_dir / "Foo (Bar 1999).info.bak").exists())
 
 
 class ImportExecuteTests(unittest.TestCase):

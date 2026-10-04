@@ -20,8 +20,8 @@ from common.games.game import Game
 from common.games.game_metadata import vpinfe_section
 from common.games.info_file import InvalidMetaConfigError, MetaConfig
 from common.games.info_migration import (
-    BACKUP_MARKER,
     backup_names,
+    backup_stamp,
     restorable_backup,
 )
 from common.games.tables import (
@@ -192,7 +192,7 @@ class GameParser:
         game.info_restorable = bool(
             stamps and restorable_backup(game_dir, names=game_contents))
         if stamps:
-            game.info_backup_stamp = stamps[0].rsplit(BACKUP_MARKER, 1)[-1]
+            game.info_backup_stamp = backup_stamp(stamps[0])
         if info_name not in game_contents:
             (self.missing_games if missing is None else missing).append({
                 'folder': game.game_dir_name,

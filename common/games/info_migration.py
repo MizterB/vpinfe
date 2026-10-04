@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
@@ -37,6 +38,13 @@ GUIDES_KEY = "guides"
 GUIDE_ORIGIN = "origin"
 FROM_CATALOG = "vps"
 BACKUP_MARKER = ".vpinfe-"
+# What a copy VPinFE took was for, the word after the stamp. A copy of a 2.x file has none,
+# so it keeps the bare `<file>.vpinfe-<UTC>` that 2.x looks for.
+OF_2X = ""
+RESTORE = "restore"
+IMPORT = "import"
+RESET = "reset"
+_COPY_TAIL = re.compile(re.escape(BACKUP_MARKER) + r"(?P<stamp>\d{8}T\d{6}Z)(?:-(?P<why>[a-z]+))?$")
 
 # How the match in `Info` was made, kept in the `vpinfe` section. Absent is VPinFE's
 # guess from the folder name.
@@ -215,18 +223,20 @@ def migrate(data: dict) -> dict:
     return migrated
 
 
-def backup_path(info_path: str | Path, when: datetime | None = None) -> str:
-    """Where the pre-migration copy goes.
+def backup_path(info_path: str | Path, when: datetime | None = None,
+                why: str = OF_2X) -> str:
+    """Where a copy VPinFE takes of this file goes.
 
-    Timestamped rather than .bak, so restore points accumulate instead of the last one
-    winning. UTC and no colons, because Windows will not have them in a filename.
+    Timestamped rather than .bak, so a restore point is not overwritten by the next one.
+    UTC and no colons, because Windows will not have them in a filename. Every name that
+    marks a kept copy is built here.
     """
     stamp = (when or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
-    return f"{info_path}{BACKUP_MARKER}{stamp}"
+    return f"{info_path}{BACKUP_MARKER}{stamp}" + (f"-{why}" if why else "")
 
 
 def backup_names(names: Iterable[str], info_name: str) -> list[str]:
-    """The pre-migration copies in a folder listing, newest first.
+    """The copies in a folder listing, newest first.
 
     Takes names so it can ride a scan already in progress; the stamp sorts lexically.
     """
@@ -234,9 +244,22 @@ def backup_names(names: Iterable[str], info_name: str) -> list[str]:
     return sorted((n for n in names if n.startswith(prefix)), reverse=True)
 
 
+def is_copy(name: str | Path) -> bool:
+    """Whether a name is one of VPinFE's kept copies, in either spelling."""
+    return _COPY_TAIL.search(Path(name).name) is not None
+
+
 def backup_stamp(backup: str | Path) -> str:
     """When the copy was taken, as written in its name."""
-    return Path(backup).name.rsplit(BACKUP_MARKER, 1)[-1]
+    name = Path(backup).name
+    found = _COPY_TAIL.search(name)
+    return found.group("stamp") if found else name.rsplit(BACKUP_MARKER, 1)[-1]
+
+
+def backup_why(backup: str | Path) -> str:
+    """What the copy was taken for, as written in its name. Empty for a copy of a 2.x file."""
+    found = _COPY_TAIL.search(Path(backup).name)
+    return (found.group("why") or "") if found else ""
 
 
 def copied_from(backup: str | Path) -> Path:
@@ -294,14 +317,19 @@ def write_json_atomic(path: str | Path, data: object) -> None:
     write_atomic(path, lambda handle: json.dump(data, handle, indent=4))
 
 
-def _free_backup_path(info_path: str | Path, when: datetime | None = None) -> str:
-    path = backup_path(info_path, when)
+def _free_backup_path(info_path: str | Path, when: datetime | None = None,
+                      why: str = OF_2X, into: str | Path | None = None) -> str:
+    def named(at: datetime | None) -> str:
+        path = backup_path(info_path, at, why)
+        return path if into is None else os.path.join(into, os.path.basename(path))
+
+    path = named(when)
     while os.path.exists(path):        # never overwrite a restore point
         # A whole second, not the second field: replace(second=(s + 1) % 60) wraps 59 to
         # 0, and the name that is supposed to be newer then sorts 59 seconds older. These
         # names are the only ordering restore has.
         when = (when or datetime.now(UTC)) + timedelta(seconds=1)
-        path = backup_path(info_path, when)
+        path = named(when)
     return path
 
 
@@ -310,7 +338,8 @@ def write_backup(info_path: str | Path, original_text: str,
     """Copy the file aside before it is rewritten, and prove the copy is readable.
 
     A truncated backup is worse than none: it is the one file whose failure is only
-    discovered at the moment somebody needs it.
+    discovered at the moment somebody needs it. The copy of a 2.x file, so no reason in
+    its name.
     """
     json.loads(original_text)
     path = _free_backup_path(info_path, when)
@@ -319,16 +348,56 @@ def write_backup(info_path: str | Path, original_text: str,
             handle.write(original_text)
         with open(path, encoding="utf-8") as handle:
             json.load(handle)
+    keep_newest(info_path)
     return path
 
 
-def copy_aside(info_path: str | Path, when: datetime | None = None) -> str:
-    """Keep the current file before a restore replaces it, whatever state it is in.
+def copy_aside(info_path: str | Path, why: str, when: datetime | None = None,
+               into: str | Path | None = None, restoring: str | Path | None = None) -> str:
+    """Keep the current file before something replaces it, whatever state it is in.
+
+    `why` is what the copy is for: `OF_2X` for a file a 2.x build reads, and otherwise the
+    word that goes after the stamp. `into` is a folder other than the file's own.
+    `restoring` is the copy about to be put back over the file, which the cap must not
+    remove out from under the restore.
 
     No JSON check: a file too broken to parse is one somebody is restoring *because* it
     is broken.
     """
-    path = _free_backup_path(info_path, when)
+    path = _free_backup_path(info_path, when, why, into)
     with naming_folder(info_path):
         shutil.copy2(info_path, path)
+    keep_newest(info_path, into, spare=restoring)
     return path
+
+
+def keep_newest(info_path: str | Path, folder: str | Path | None = None,
+                spare: str | Path | None = None) -> list[str]:
+    """The cap: remove the copies of this file that VPinFE took itself, keeping the newest
+    copy of a 2.x file and the newest of any kind. Returns what it removed.
+
+    Runs when a copy is written, never on a clock. A name that does not end in a stamp and
+    at most one word is somebody else's and is left where it is.
+    """
+    path = Path(info_path)
+    where = Path(folder) if folder is not None else path.parent
+    try:
+        names = os.listdir(where)
+    except OSError:
+        return []
+    own = [n for n in backup_names(names, path.name) if _COPY_TAIL.search(n)]
+    keep_2x = next((n for n in own if backup_why(n) == OF_2X), None)
+    keep = set(own[:1]) | ({keep_2x} if keep_2x else set())
+    if spare is not None:
+        keep.add(Path(spare).name)
+    removed = []
+    for name in own:
+        if name in keep:
+            continue
+        try:
+            (where / name).unlink()
+        except OSError:
+            logger.warning("Could not remove an older copy: %s", where / name, exc_info=True)
+            continue
+        removed.append(name)
+    return removed

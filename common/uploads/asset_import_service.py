@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import tempfile
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
@@ -16,7 +15,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 
 from common import tokens
-from common.atomic_write import naming_folder, staged_for, write_atomic
+from common.atomic_write import staged_for, write_atomic
 from common.failures import why
 from common.games import media_placement
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, lens_kind, spec_for
@@ -33,6 +32,7 @@ from common.games.game_service import (
 from common.games.identity_claims import DeclaredIdentity
 from common.games.ids import new_id
 from common.games.info_file import VPINFE_SECTION, MetaConfig
+from common.games.info_migration import IMPORT, copy_aside
 from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.media_specs import media_filename_map
@@ -564,8 +564,7 @@ def _import_game_info(source: AssetSource, asset: DetectedAsset, base: Path) -> 
             existing = {}
         if not isinstance(existing, dict):
             existing = {}
-        with naming_folder(dest):
-            shutil.copy2(dest, dest.with_name(dest.name + ".bak"))
+        copy_aside(dest, IMPORT)
         payload = merge_info(incoming, existing)
     else:
         payload = incoming

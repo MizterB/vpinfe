@@ -20,6 +20,7 @@ from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.info_file import ASSETS_KEY, VPINFE_SECTION
 from common.games.info_maintenance import game_dirs, restore_library
 from common.games.info_migration import (
+    RESET,
     backup_names,
     copy_aside,
     needs_migration,
@@ -139,7 +140,7 @@ def _reset_library(game_root: str | Path | None, result: dict, reporter: JobRepo
         return
 
     outcome = restore_library(game_root, max_schema=MAX_2X_SCHEMA,
-                              progress_cb=reporter.progress_cb)
+                              progress_cb=reporter.progress_cb, keep_ids=False)
     result["restored"] = outcome["restored"]
     result["failed"] += outcome["failed"]
     result["failures"] += outcome["failures"]
@@ -177,7 +178,7 @@ def _keep_aside(config_dir: Path, result: dict) -> list[str]:
         if not source.exists():
             continue
         try:
-            kept.append(Path(copy_aside(source)).name)
+            kept.append(Path(copy_aside(source, RESET)).name)
         except OSError as exc:
             result["failed"] += 1
             result["failures"].append((name, str(exc)))
