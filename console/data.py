@@ -167,6 +167,7 @@ def config_groups(found: dict[str, Any]) -> list:
             named=tuple(tuple(pair) for pair in f.get("named") or ()),
             reported=tuple(f.get("reported") or ()),
             per_table=bool(f.get("per_table")),
+            path=f.get("path", ""), suffixes=tuple(f.get("suffixes") or ()),
             scopes=tuple(f.get("scopes") or ()))
             for f in g["settings"]])
         for g in found.get("groups") or []]

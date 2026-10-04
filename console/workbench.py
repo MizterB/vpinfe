@@ -5545,6 +5545,8 @@ def _as_option(field: Any) -> dict[str, Any]:
                               "blank": getattr(field, "blank", "")}
     if named := getattr(field, "named", ()):
         option["named"] = {value: label for value, label in named}
+    if path := getattr(field, "path", ""):
+        option.update(path=path, suffixes=tuple(getattr(field, "suffixes", ())))
     if getattr(field, "reported", ()):
         option.update(suggest=REPORTED, clearable=False)
     if field.choices:

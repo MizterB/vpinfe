@@ -330,9 +330,7 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                                     control.value = chosen
                                 await leave(control, chosen)
 
-                            ui.button(icon=verbs.BROWSE, on_click=_browsed) \
-                                .props("flat round dense") \
-                                .tooltip(t("console.folder_picker.browse"))
+                            browse_button(_browsed)
             if disabled:
                 control.disable()
             if on_control is not None:
@@ -696,6 +694,12 @@ def hint(control: Any, said: str) -> None:
         control.props(remove="hint")
 
 
+def browse_button(on_click: Callable[[], Any]) -> ui.button:
+    """Browse, drawn in a field's append slot."""
+    return ui.button(icon=verbs.BROWSE, on_click=on_click) \
+        .props("flat round dense").tooltip(t("console.folder_picker.browse"))
+
+
 def path_field(placeholder: str = "", *, wants: str, value: str = "",
                width: str = "w-96",
                on_checked: Callable[[str, str], str] | None = None,
@@ -734,8 +738,7 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
                 if chosen:
                     control.value = chosen
 
-            ui.button(icon=verbs.BROWSE, on_click=_browsed) \
-                .props("flat round dense").tooltip(t("console.folder_picker.browse"))
+            browse_button(_browsed)
     seen: dict[str, Any] = {"was": object()}
 
     async def look() -> None:

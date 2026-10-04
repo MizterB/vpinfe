@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 
-from common import i18n, input_registry, setting_groups
+from common import i18n, input_registry, media_specs, setting_groups
 from common.i18n import t
 from common.labels import humanize
 
@@ -118,6 +118,8 @@ class ConfigOption:
     # the same way and want different answers, and a surface that guesses from a name is
     # one rename away from validating the wrong thing.
     path: str = ""
+    # For a `file`, which suffixes it may be. Empty means every file.
+    suffixes: tuple[str, ...] = ()
     # A heading to gather this setting under, within its section. Empty means it sits
     # above the first heading, which is where the ones that need no explaining go.
     #
@@ -895,6 +897,8 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "default_missing_image",
             type="string",
+            path="file",
+            suffixes=media_specs.IMAGE_FAMILY,
             default="",
             aliases=("defaultmissingmediaimg",),
         ),

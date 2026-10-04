@@ -696,6 +696,8 @@ class ConfigOptionInfo(ApiModel):
     # What this string names on disk, when it names something: file, dir or exe. Empty
     # for everything that is only text, so a client need not match on the key's name.
     path: str = ""
+    # For a `file`, the suffixes it may have; empty means any file.
+    suffixes: list[str] = []
     # A live list worth offering beside this setting, named rather than included: it
     # changes while the install runs, so a client asks for it when it draws. Empty for
     # everything a person simply types.

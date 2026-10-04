@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -8,7 +8,7 @@ from nicegui import ui
 from nicegui.events import ValueChangeEventArguments
 
 from common.i18n import t
-from console import verbs
+from console import panel, verbs
 
 
 @contextmanager
@@ -60,15 +60,29 @@ def footer() -> ui.row:
     return ui.row().classes("console-dialog-footer")
 
 
-def field(value: str = "", *, placeholder: str = "", lines: int = 0) -> Any:
-    """The panel's own field, answering nothing until the dialog does."""
+def field(value: str = "", *, placeholder: str = "", lines: int = 0,
+          browse: Callable[[str], Awaitable[str | None]] | None = None) -> Any:
+    """The panel's own field, answering nothing until the dialog does.
+
+    `browse` takes the field's current value and returns the path picked, or None; what
+    it returns replaces the text.
+    """
     with ui.element("div").classes("console-fact-edit"):
         if lines:
             return ui.textarea(value=value, placeholder=placeholder) \
                 .props(f"dense borderless rows={lines} debounce=0") \
                 .classes("console-edit-field")
-        return ui.input(value=value, placeholder=placeholder) \
+        control = ui.input(value=value, placeholder=placeholder) \
             .props("dense borderless debounce=0").classes("console-edit-field")
+        if browse is not None:
+            async def browsed() -> None:
+                chosen = await browse(control.value or "")
+                if chosen and not control.is_deleted:
+                    control.value = chosen
+
+            with control.add_slot("append"):
+                panel.browse_button(browsed)
+        return control
 
 
 def quiet(label: str, on_click: Callable[[], Any], *, icon: str) -> ui.button:

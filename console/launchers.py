@@ -23,7 +23,7 @@ from nicegui import run, ui
 from common import install_identity, path_checks
 from common.failures import why
 from common.i18n import t
-from console import busy, confirm, grid, offload, panel, verbs, views
+from console import busy, confirm, folder_picker, grid, offload, panel, verbs, views
 from console import dialog as frame
 from console.data import Library
 from console.on_page import on_page
@@ -220,7 +220,7 @@ async def _add(library: Library, state: dict[str, Any], redraw: Callable[[], Non
             "display_name": name or model.free_name(app["name"], names)})
 
     if await ask_name(t("console.launchers.new_title", app=app["name"]), t("word.add"),
-                      names, write, asked=asked,
+                      names, write, asked=asked, looking=library.folders,
                       placeholder=t("console.launchers.name_example", app=app["name"])):
         await _open(state, redraw, made)
 
@@ -265,8 +265,11 @@ async def _open(state: dict[str, Any], redraw: Callable[[], None], made: str) ->
 async def ask_name(title: str, answer: str, names: list[str],
                    write: Callable[[str, dict[str, str]], Awaitable[None]], *,
                    named: str = "", asked: list[dict] | None = None,
-                   placeholder: str = "", icon: str = verbs.CREATE) -> bool:
+                   placeholder: str = "", icon: str = verbs.CREATE,
+                   looking: Callable[..., dict] | None = None) -> bool:
     """Name a launcher, and fill the path fields `asked` lists, before it exists.
+
+    `looking` lists a folder for the picker; without it the path fields are typed only.
 
     True once `write` took it. A name already in use, or any refusal from `write`, is
     said on the Name field and the dialog stays open.
@@ -275,10 +278,21 @@ async def ask_name(title: str, answer: str, names: list[str],
 
     fields: dict[str, Any] = {}
 
-    def draw(key: str, value: str = "", hint: str = "") -> Callable[[], None]:
+    def draw(key: str, value: str = "", hint: str = "",
+             browse: Callable[[str], Awaitable[str | None]] | None = None) -> Callable[[], None]:
         def drawn() -> None:
-            fields[key] = frame.field(value, placeholder=hint)
+            fields[key] = frame.field(value, placeholder=hint, browse=browse)
         return drawn
+
+    def browsing(one: dict) -> Callable[[str], Awaitable[str | None]] | None:
+        if not (kind := str(one.get("path") or "")) or looking is None:
+            return None
+
+        async def browsed(current: str) -> str | None:
+            return await folder_picker.pick_path(
+                looking, current, kind=kind, suffixes=tuple(one.get("suffixes") or ()))
+
+        return browsed
 
     def refused(why: str) -> None:
         fields["name"].props["error"] = bool(why)
@@ -299,7 +313,8 @@ async def ask_name(title: str, answer: str, names: list[str],
 
     with frame.opened(title) as box:
         panel.facts(ui, [(t("word.name"), draw("name", named, placeholder))]
-                    + [(one["label"], draw(one["key"], hint=str(one.get("blank") or "")))
+                    + [(one["label"], draw(one["key"], hint=str(one.get("blank") or ""),
+                                           browse=browsing(one)))
                        for one in asked or ()])
         with frame.footer():
             frame.cancel(lambda: box.submit(False))

@@ -108,6 +108,7 @@ def listing() -> dict[str, Any]:
                   "suffixes": list(app.claim.suffixes),
                   "has_config": app.config is not None,
                   "fields": [{"key": f.key, **apps.field_words(app.id, f), "path": f.path,
+                              "suffixes": list(f.suffixes),
                               "blank": apps.field_blank(app.id, f)}
                              for f in app.fields]}
                  for app in apps.all_apps()],
@@ -337,6 +338,7 @@ def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:
             "choices": [list(pair) for pair in field.choices],
             "choice_help": apps.choice_help(app_id, field),
             "minimum": field.minimum, "maximum": field.maximum,
+            "path": field.path, "suffixes": list(field.suffixes),
             "per_table": field.per_table}
 
 

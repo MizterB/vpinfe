@@ -243,6 +243,26 @@ class SettingLabelTests(unittest.TestCase):
                          ["Post Processed Antialiasing", "PIN2DMD"])
 
 
+class AFolderSettingReachesTheControl(unittest.TestCase):
+    """The path a plugin setting names, from the field the app declares to the option the
+    control reads, with nothing in between built by hand."""
+
+    def test_a_declared_folder_comes_out_as_an_option_that_browses(self) -> None:
+        from apps.vpx import areas
+        from common.apps.contract import Field
+        from common.games import launcher_ops
+
+        key = next(iter(sorted(areas.FOLDERS)))
+        described = launcher_ops._described_field(
+            "vpx", Field(key=key, path="dir"))
+        groups = data.config_groups({"groups": [{
+            "key": "plugins", "label": "Plugins", "settings": [described]}]})
+
+        option = workbench._as_option(groups[0].settings[0])
+
+        self.assertEqual(option["path"], "dir")
+
+
 class CuratedAreaTests(unittest.TestCase):
     PLUGINS = _group(
         "plugins",
@@ -437,6 +457,18 @@ class BlankValueTests(unittest.TestCase):
         self.assertEqual(option["choices"],
                          {"": "The table's own", "0": "Legacy", "2": "Window"})
         self.assertEqual(option["describes"], {"Window": "The screen as a window"})
+
+    def test_a_path_field_keeps_what_it_names_so_the_control_can_browse(self) -> None:
+        field = SimpleNamespace(key="Plugin.PinMAME.PinMAMEPath", type="string",
+                                label="PinMAME Path", default="", choices=(), path="dir")
+        file = SimpleNamespace(key="ini_path", type="string", label="Settings File",
+                               default="", choices=(), path="file", suffixes=(".ini",))
+        plain = SimpleNamespace(key="Player.ShowFPS", type="string", label="FPS",
+                                default="", choices=())
+
+        self.assertEqual(workbench._as_option(field)["path"], "dir")
+        self.assertEqual(workbench._as_option(file)["suffixes"], (".ini",))
+        self.assertNotIn("path", workbench._as_option(plain))
 
     def test_a_field_as_the_wire_sends_it_says_so_too(self) -> None:
         field = {"key": "Player.PlayfieldWidth", "type": "int", "label": "Width",

@@ -646,6 +646,17 @@ class InstalledPluginTests(_Case):
                       {f.key for f in self.groups[areas.REST].settings})
         self.assertNotIn("FlexDMD", self.headings)
 
+    def test_a_plugin_s_folder_is_declared_one_so_it_can_be_browsed_for(self) -> None:
+        fields = {f.key: f for f in self.groups[areas.PLUGINS].settings}
+
+        self.assertEqual(fields["Plugin.PinMAME.PinMAMEPath"].path, "dir")
+        self.assertEqual(fields["Plugin.Serum.SerumPath"].path, "dir")
+        self.assertEqual(fields["Plugin.PinMAME.Sound"].path, "")
+
+    def test_every_folder_setting_is_one_a_plugin_has(self) -> None:
+        self.assertEqual({areas.plugin_of(key) for key in areas.FOLDERS},
+                         {"ScoreView", "PinMAME", "AltSound", "Serum", "VNI", "PUP"})
+
     def test_the_program_s_own_entry_is_not_offered(self) -> None:
         """Turning it off stops the program, which is why the program never offers it."""
         offered = {f.key for g in self.groups.values() for f in g.settings}
