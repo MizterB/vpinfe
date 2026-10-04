@@ -463,7 +463,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
           rescan: Callable[[], Any] | None = None) -> None:
     state = state if state is not None else {}
     tag_chips.install(library.tag_looks())
-    renderers.install_collection_looks(library.smart_collections())
+    renderers.install_collection_looks(library.smart_collections(), ui.context.client)
     columns = grid_columns(rows, kinds, library)
     all_fields = [definition["field"] for definition in columns]
     selected: list[dict[str, Any]] = []
@@ -727,11 +727,10 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                                       on_header_context, view_of=showing)
         context_menu: ui.context_menu = ui.context_menu()
 
-    @on_page
     async def rows_again(ids: set[str]) -> list[dict[str, Any]]:
         """These games' rows, read as a full draw reads them."""
         await run.io_bound(library.load_games_grid, True)
-        renderers.install_collection_looks(library.smart_collections(), on=table)
+        renderers.install_collection_looks(library.smart_collections(), table.client)
         return [row for row in await offload.io(library.game_rows) if row.get("id") in ids]
 
     async def refresh_game(game_id: str) -> None:

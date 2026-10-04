@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from nicegui import ui
+from nicegui import Client, ui
 
 from common import install_identity
 from common.i18n import t
@@ -162,12 +162,12 @@ def install() -> None:
         f" {{{looks}}});")
 
 
-def install_collection_looks(smart: set[str], on: ui.element | None = None) -> None:
-    """Which collections' chips carry the Smart mark. `on` is any element of the page, for
-    a caller whose own slot a rebuild may have deleted."""
+def install_collection_looks(smart: set[str], page: Client) -> None:
+    """Which collections' chips carry the Smart mark, on `page`. Given rather than read
+    from the current slot, for a caller whose own slot a rebuild may have deleted."""
     held = {name: {"smart": True} for name in sorted(smart)}
     code = f"window.{_COLLECTION_LOOKS_DATA} = {json.dumps(held)};"
-    (on.client if on is not None else ui.context.client).run_javascript(code)
+    page.run_javascript(code)
 
 
 def install_setting_names(names: dict[str, str]) -> None:

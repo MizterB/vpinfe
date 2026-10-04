@@ -1205,7 +1205,7 @@ sequence that used to lose them: install, configure, update, check.
 
 **PAR-37 — Setting names are snake_case, and every old spelling still resolves.**
 `gamerootdir` is `game_root_dir`, `cabmode` is `cab_mode`, `MMhideQuitButton` is
-`hide_quit_button` - 53 of the 87 settings moved. A stored file is rewritten to the new
+`hide_quit_button` - 52 of the 86 settings moved. A stored file is rewritten to the new
 names on first read (schema 2), and **every previous spelling stays a permanent alias**,
 so a config written by any earlier build still loads and a caller written against the old
 name still reads.

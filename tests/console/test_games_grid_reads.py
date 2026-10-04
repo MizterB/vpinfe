@@ -130,6 +130,16 @@ class ARowPutBackAfterAnImport(unittest.TestCase):
         self.assertEqual(["g-1"], [row["id"] for row in self.sent])
         self.assertEqual(self.before, self.sent[0].get("media_wheel"))
 
+    def test_a_row_put_back_from_a_task_with_no_slot_still_reaches_the_grid(self) -> None:
+        # A panel rebuild runs as a task of its own once the control that started it is
+        # gone, so there is no current slot to read.
+        async def from_a_bare_task() -> None:
+            await asyncio.create_task(self.state["refresh_game"]("g-1"))
+
+        self._on_the_grid(from_a_bare_task)
+
+        self.assertEqual(["g-1"], [row["id"] for row in self.sent])
+
 
 if __name__ == "__main__":
     unittest.main()
