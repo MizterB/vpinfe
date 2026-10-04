@@ -9,6 +9,7 @@ each row needs, and that nothing belonging to another game is touched.
 from __future__ import annotations
 
 import asyncio
+import json
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -27,6 +28,8 @@ def _fresh(*pairs):
 
 
 class _Grid:
+    id = 7
+
     def __init__(self) -> None:
         self.sent: list[tuple] = []
 
@@ -139,7 +142,33 @@ class TransactTests(unittest.TestCase):
         transaction = {"update": [{"id": "c", "v": 3}]}
         grid.transact(self.screen, self.held, transaction)
 
-        self.assertEqual(self.screen.sent, [("applyTransaction", transaction)])
+        self.assertEqual(self.screen.sent[0], ("applyTransaction", transaction))
+
+    def test_an_updated_row_is_redrawn_and_only_that_row(self) -> None:
+        grid.transact(self.screen, self.held, {"update": [{"id": "c", "v": 3}]})
+
+        (name, options), = self.screen.sent[1:]
+        self.assertEqual(name, "refreshCells")
+        self.assertTrue(options["force"])
+        self.assertIn('["c"]', options[":rowNodes"])
+        self.assertIn("getElement(7)", options[":rowNodes"])
+
+    def test_an_id_with_a_quote_or_backslash_reaches_the_script_escaped(self) -> None:
+        awkward = 'a"b\\c'
+        self.held.append({"id": awkward, "v": 0})
+
+        grid.transact(self.screen, self.held, {"update": [{"id": awkward, "v": 1}]})
+
+        (_, options), = self.screen.sent[1:]
+        self.assertIn(json.dumps([awkward]), options[":rowNodes"])
+
+    def test_a_removal_an_add_or_an_empty_update_redraws_nothing(self) -> None:
+        grid.transact(self.screen, self.held, {"remove": [{"id": "a"}]})
+        grid.transact(self.screen, self.held, {"add": [{"id": "d"}]})
+        grid.transact(self.screen, self.held, {"update": []})
+
+        self.assertEqual([name for name, *_ in self.screen.sent],
+                         ["applyTransaction"] * 3)
 
 
 class MovedTests(unittest.TestCase):
@@ -157,7 +186,8 @@ class MovedTests(unittest.TestCase):
                                              {"id": "b", "v": 1}])
 
         self.assertEqual([row["id"] for row in held], ["c", "a", "b"])
-        (method, option, rows), = screen.sent
+        (method, option, rows), (redrawn, options) = screen.sent
+        self.assertEqual((redrawn, options), ("refreshCells", {"force": True}))
         self.assertEqual((method, option), ("setGridOption", "rowData"))
         self.assertEqual([row["id"] for row in rows], ["c", "a", "b"])
         self.assertEqual(by_id["c"]["v"], 2)
@@ -243,7 +273,7 @@ class RatingTests(unittest.TestCase):
 
         self.assertTrue(every)
         self.assertEqual([row["rating"] for row in held], [4, 5, 4])
-        self.assertEqual(len(screen.sent), 1)
+        self.assertEqual([name for name, *_ in screen.sent].count("applyTransaction"), 1)
 
     def test_a_game_that_cannot_be_saved_stops_the_run_and_keeps_what_was_saved(self) -> None:
         held = [{"id": "g1", "rating": 0}, {"id": "g2", "rating": 0}, {"id": "g3", "rating": 0}]

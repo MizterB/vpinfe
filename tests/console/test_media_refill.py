@@ -36,6 +36,7 @@ class _Library:
 
 
 class _Grid:
+    id = 7
     is_deleted = False
 
     def __init__(self) -> None:
@@ -64,7 +65,7 @@ class RefillTests(unittest.TestCase):
     def test_the_grid_gets_one_transaction_for_the_filled_game(self) -> None:
         self._refill("g1")
 
-        self.assertEqual(len(self.table.sent), 1)
+        self.assertEqual([call[0] for call in self.table.sent].count("applyTransaction"), 1)
         name, transaction = self.table.sent[0]
         self.assertEqual(name, "applyTransaction")
         self.assertEqual([row["id"] for row in transaction["remove"]], ["g1:wheel:"])

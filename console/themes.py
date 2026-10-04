@@ -224,6 +224,7 @@ async def _fill(library: Library, state: dict[str, Any],
             by_id.clear()
             by_id.update({row["id"]: row for row in fresh})
             table.run_grid_method("setGridOption", "rowData", fresh)
+            grid.redraw(table)
 
         state["refresh_themes"] = refresh_rows
         wire_views(table)

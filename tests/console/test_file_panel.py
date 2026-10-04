@@ -94,6 +94,8 @@ class ItsOwnRail(unittest.TestCase):
 
 
 class _Grid:
+    id = 7
+
     def __init__(self) -> None:
         self.sent: list[tuple] = []
 
@@ -112,7 +114,7 @@ class OneGamesRowsPutRight(unittest.TestCase):
                                                {"id": "a:3", "game_id": "a"}],
                           lambda row: row["game_id"] == "a")
 
-        (method, change), = table.sent
+        method, change = table.sent[0]
         self.assertEqual(("applyTransaction", [{"id": "a:2"}], ["a:1"], ["a:3"]),
                          (method, change["remove"], [r["id"] for r in change["update"]],
                           [r["id"] for r in change["add"]]))

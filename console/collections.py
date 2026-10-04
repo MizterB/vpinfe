@@ -422,7 +422,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
         table.run_grid_method("setGridOption", "rowData", fresh)
-        table.run_grid_method("refreshCells", {"force": True, "columns": ["name"]})
+        grid.redraw(table)
         count.text = said()
         if not focus:
             return
@@ -443,8 +443,6 @@ def build(collections: list[dict[str, Any]], library: Any,
                    if row["unsaved"] != (row["id"] in names)]
         if changed:
             grid.transact(table, built, {"update": changed}, by_id)
-            # The name is unchanged, so the grid would not redraw the cell carrying it.
-            table.run_grid_method("refreshCells", {"force": True, "columns": ["name"]})
 
     state["mark_unsaved"] = mark_unsaved
 

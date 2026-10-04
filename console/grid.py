@@ -517,6 +517,22 @@ def transact(table: Any, held: list[dict[str, Any]], transaction: dict[str, Any]
             by_id.pop(row_id, None)
         by_id.update({row["id"]: row for row in [*fresh.values(), *added]})
     table.run_grid_method("applyTransaction", transaction)
+    if fresh:
+        redraw(table, list(fresh))
+
+
+def redraw(table: Any, ids: list[str] | None = None) -> None:
+    """Draw these rows' cells again, or every row's where `ids` is None.
+
+    The grid redraws a cell only when its own field changed. A renderer that draws from
+    another field of the row, such as the subtitle under a name, is not told, so a write
+    that changes only that field needs this after it.
+    """
+    options: dict[str, Any] = {"force": True}
+    if ids is not None:
+        options[":rowNodes"] = (f"{json.dumps(ids)}.map(id => getElement({table.id})"
+                                "?.api?.getRowNode(id)).filter(Boolean)")
+    table.run_grid_method("refreshCells", options)
 
 
 def replace_rows(table: Any, held: list[dict[str, Any]], by_id: dict[str, Any],
@@ -543,6 +559,7 @@ def replace_rows(table: Any, held: list[dict[str, Any]], by_id: dict[str, Any],
         by_id.pop(row_id, None)
     by_id.update({row["id"]: row for row in fresh})
     table.run_grid_method("setGridOption", "rowData", list(held))
+    redraw(table)
 
 
 def two_line(header: str) -> str:

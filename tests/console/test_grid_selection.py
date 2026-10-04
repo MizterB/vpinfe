@@ -26,6 +26,8 @@ def _part(turn: int, at: int, of: int, *ids: str) -> dict:
 
 
 class _Grid:
+    id = 7
+
     def run_grid_method(self, *_: object) -> None:
         pass
 
