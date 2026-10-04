@@ -89,6 +89,37 @@ class StoreTests(_WithStore, unittest.TestCase):
         self.assertEqual([one.location_id for one in self.store.locations()],
                          [first.location_id, second.location_id])
 
+    def test_pointing_a_row_at_another_folder_changes_that_row(self) -> None:
+        """An edit names the row by its id; no second row appears under it."""
+        first = self._location("first")
+        second = self._location("second")
+        moved = self.root / "moved"
+        moved.mkdir()
+
+        self.store.put(Location(location_id=first.location_id, path=str(moved)))
+
+        self.assertEqual([(one.location_id, one.path) for one in self.store.locations()],
+                         [(first.location_id, str(moved)),
+                          (second.location_id, second.path)])
+
+    def test_moving_a_row_onto_a_folder_another_row_holds_is_refused(self) -> None:
+        first = self._location("first")
+        second = self._location("second")
+
+        with self.assertRaises(locations.FolderHeldError) as refused:
+            self.store.put(Location(location_id=first.location_id, path=second.path))
+
+        self.assertEqual(refused.exception.held, second)
+        self.assertEqual(self.store.locations(), [first, second])
+
+    def test_moving_a_row_drops_the_share_it_was_seen_on(self) -> None:
+        held = self.store.put(Location("id", str(self.root / "share"), origin=NAS))
+
+        moved = self.store.put(Location("id", str(self.root / "elsewhere")))
+
+        self.assertIsNone(moved.origin)
+        self.assertEqual(held.location_id, moved.location_id)
+
     def test_a_second_row_for_one_place_is_dropped_on_read(self) -> None:
         """A file edited by hand can hold it twice."""
         folder = self.root / "share"
@@ -101,6 +132,21 @@ class StoreTests(_WithStore, unittest.TestCase):
 
         self.assertEqual([one.location_id for one in LocationStore(path).locations()],
                          ["a"])
+
+    def test_a_second_row_under_one_id_is_dropped_on_read(self) -> None:
+        """The id keys the state, the write target and the order, so two rows under it
+        would each answer for the other."""
+        first, second = self.root / "first", self.root / "second"
+        first.mkdir()
+        second.mkdir()
+        path = self.root / "locations.json"
+        path.write_text(json.dumps({"schema": 2, "locations": [
+            {"location_id": "a", "path": str(first), "kind": KIND_ROOT},
+            {"location_id": "a", "path": str(second), "kind": KIND_ROOT},
+        ]}))
+
+        self.assertEqual([one.path for one in LocationStore(path).locations()],
+                         [str(first)])
 
     def test_reading_the_list_resolves_no_path(self) -> None:
         folder = self._location("share")

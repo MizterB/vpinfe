@@ -5862,32 +5862,38 @@ async def _location_details(context: dict[str, Any]) -> None:
     """What the location is, and what the disk says about it."""
     row = context["location"]
     library = context["library"]
-    rebuild = context["rebuild"]
 
     @on_page
-    async def write(**changes: Any) -> None:
+    async def write(**changes: Any) -> str:
+        """Saved, and the grid put right behind the panel. The reason it was refused, or
+        empty."""
         body = {"path": row["path"], "kind": row["kind"], **changes}
         try:
             await run.io_bound(library.put_location, row["location_id"], body)
         except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.could_not_save_it"), caption=why(exc), type="negative")
-            return
-        await rebuild()
+            return why(exc)
+        await _folders_changed(context)
+        return ""
 
-    async def save_path(text: str) -> None:
+    @on_page
+    async def save_path(text: str) -> str:
         wanted = str(text or "").strip()
-        if wanted and wanted != row["path"]:
-            await write(path=wanted)
+        if not wanted or wanted == row["path"]:
+            return ""
+        return await write(path=wanted)
 
+    @on_page
     async def save_kind(event: Any) -> None:
         wanted = str(getattr(event, "value", "") or "root")
-        if wanted != row["kind"]:
-            await write(kind=wanted)
+        if wanted == row["kind"]:
+            return
+        if said := await write(kind=wanted):
+            ui.notify(t("said.could_not_save_it"), caption=said, type="negative")
 
     entries: list[tuple[Any, Any]] = [
         (HEADING, t("console.workbench.location")),
         (t("word.folder"), panel.field(
-            row["path"], save_path,
+            row["path"], save_path, refuses=True,
             status=panel.value_state("ok" if row["reachable"] else "missing",
                                      row["reason"]))),
         (t("word.contains"), panel.select(
@@ -5931,7 +5937,7 @@ def _location_priority(context: dict[str, Any],
             ui.notify(t("console.workbench.could_not_reorder_them"), caption=why(exc),
                       type="negative")
             return
-        await context["rebuild"]()
+        await _folders_changed(context)
 
     def draw() -> None:
         with ui.row().classes("items-center gap-2 no-wrap"):
@@ -6010,7 +6016,7 @@ async def _adopt_shadowed(context: dict[str, Any], one: dict[str, Any]) -> None:
         ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
         return
     ui.notify(t("console.workbench.own_game_now"), type="positive")
-    await context["rebuild"]()
+    await _folders_changed(context)
 
 
 def _location_state(row: dict[str, Any]) -> Callable[[], None]:
@@ -7255,6 +7261,14 @@ def _page_redraw(context: dict[str, Any]) -> Callable[[], None]:
         if callable(reload_page):
             reload_page()
     return redraw
+
+
+async def _folders_changed(context: dict[str, Any]) -> None:
+    """The Library folders page drawn again on this folder, and its panel with it. The
+    page's draw empties the panel, so the panel is built after it."""
+    grid.land_on(locations_page.SCOPE, {"id": context["location"]["location_id"]})
+    _page_redraw(context)()
+    await context["rebuild"]()
 
 
 def _launcher_verbs(context: dict[str, Any]) -> list[panel.Verb]:

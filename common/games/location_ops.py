@@ -12,6 +12,7 @@ drops.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from common import service_errors
@@ -142,8 +143,8 @@ def _asks() -> bool:
 def put(location_id: str, path: str, kind: str = "") -> dict[str, Any]:
     """Whole, under the id the caller names, the way a launcher arrives.
 
-    A path already held under another id replaces that row rather than making a second:
-    two rows for one place would each report their own state.
+    An id already held is changed in place, and refuses a path some other row holds. An
+    unheld id on a path already held replaces that row rather than making a second.
     """
     wanted = str(location_id or "").strip()
     if not wanted:
@@ -151,6 +152,8 @@ def put(location_id: str, path: str, kind: str = "") -> dict[str, Any]:
     path = str(path or "").strip()
     if not path:
         raise service_errors.RefusedError(t("error.locations.location_needs_path"))
+    if not os.path.isabs(os.path.expanduser(path)):
+        raise service_errors.RefusedError(t("error.locations.give_the_full_path"))
     kind = str(kind or locations.KIND_ROOT).strip()
     if kind not in locations.KINDS:
         raise service_errors.RefusedError(
@@ -158,7 +161,11 @@ def put(location_id: str, path: str, kind: str = "") -> dict[str, Any]:
                     kinds=', '.join(locations.KINDS)))
 
     store = locations.get_location_store()
-    written = store.put(locations.Location(location_id=wanted, path=path, kind=kind))
+    try:
+        written = store.put(locations.Location(location_id=wanted, path=path, kind=kind))
+    except locations.FolderHeldError as held:
+        raise service_errors.RefusedError(
+            t("error.locations.already_in_the_list", name=held.held.name)) from held
     target = store.write_to()
     return _described(written, target.location_id if target is not None else "",
                       locations.state_of(written))

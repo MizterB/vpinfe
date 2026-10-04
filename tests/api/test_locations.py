@@ -96,6 +96,35 @@ class LocationApiTests(unittest.TestCase):
     def test_a_location_needs_a_path(self) -> None:
         self.assertEqual(self._put("one", "  ").status_code, 400)
 
+    def test_a_relative_path_is_refused(self) -> None:
+        """It would name a different folder depending on where the install started."""
+        response = self._put("one", "testbed/tables")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.client.get("/locations").json()["locations"], [])
+
+    def test_a_new_path_under_a_held_id_changes_that_row(self) -> None:
+        self._put("one", self._folder("before"))
+        self._put("two", self._folder("other"))
+        after = self._folder("after")
+
+        self._put("one", after)
+
+        held = self.client.get("/locations").json()["locations"]
+        self.assertEqual([(row["location_id"], row["path"]) for row in held],
+                         [("one", after), ("two", str(self.root / "other"))])
+
+    def test_a_held_id_moved_onto_another_row_names_that_row(self) -> None:
+        self._put("one", self._folder("before"))
+        taken = self._folder("taken")
+        self._put("two", taken)
+
+        response = self._put("one", taken)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("taken", response.json()["error"]["message"])
+        self.assertEqual(len(self.client.get("/locations").json()["locations"]), 2)
+
     def test_a_kind_this_build_does_not_know_is_refused(self) -> None:
         response = self._put("one", self._folder("share"), kind="mounted-elsewhere")
 

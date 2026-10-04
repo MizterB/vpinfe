@@ -65,6 +65,14 @@ def canonical(path: str) -> str:
     return os.path.normpath(os.path.realpath(os.path.expanduser(wanted)))
 
 
+class FolderHeldError(ValueError):
+    """The folder a row was moved onto is another row's. `held` is that row."""
+
+    def __init__(self, held: Location) -> None:
+        super().__init__(held.path)
+        self.held = held
+
+
 @dataclass(frozen=True)
 class Location:
     location_id: str
@@ -253,24 +261,31 @@ class LocationStore:
             self._write(locations, write_to)
 
     def put(self, location: Location) -> Location:
-        """Add one last, or replace the one that already names this place where it is.
+        """Change the row that has this id, or add one last.
 
-        Matched on the canonical path rather than the id, because adding a folder twice
-        is a thing a person does and two rows for one place would each report their own
-        state. The replacement keeps the row's place: the order is the priority, and
-        putting a folder that is already held must not demote it.
+        With no row under this id, a folder already held is the row changed, under its own
+        id. Either way the row keeps its place in the order, which is the priority.
+
+        Raises `FolderHeldError` when this id's row is moved onto a folder another row
+        holds.
         """
         wanted = canonical(location.path)
         with self._lock:
             held, write_to = self._load()
-            at = next((i for i, one in enumerate(held) if canonical(one.path) == wanted),
-                      None)
+            named = next((i for i, one in enumerate(held)
+                          if one.location_id == location.location_id), None)
+            same = next((i for i, one in enumerate(held) if canonical(one.path) == wanted),
+                        None)
+            if named is not None and same not in (None, named):
+                raise FolderHeldError(held[same])
+            at = named if named is not None else same
             if at is None:
                 self._write([*held, location], write_to)
                 return location
+            # A share's origin belongs to the folder it was seen on, not to the row.
+            origin = held[at].origin if at == same else None
             location = Location(location_id=held[at].location_id,
-                                path=location.path, kind=location.kind,
-                                origin=held[at].origin)
+                                path=location.path, kind=location.kind, origin=origin)
             self._write([location if i == at else one for i, one in enumerate(held)],
                         write_to)
         return location
@@ -367,17 +382,20 @@ class LocationStore:
                 (Location.from_dict(raw) for raw in payload.get(LOCATIONS_KEY) or []
                  if isinstance(raw, dict))
                 if one is not None]
-        # One row per place. A file edited by hand can hold the same folder twice, and
-        # two rows for one place would each report their own state. Compared as spelled,
-        # not through canonical(): resolving a path on a dead mount blocks.
+        # One row per place and per id. A file edited by hand can hold the same folder
+        # twice, and two rows for one place would each report their own state; the id is
+        # what the state, the write target and the order are all keyed by. Compared as
+        # spelled, not through canonical(): resolving a path on a dead mount blocks.
         seen: set[str] = set()
+        ids: set[str] = set()
         unique = []
         for one in held:
             key = os.path.normpath(os.path.expanduser(one.path))
-            if key in seen:
+            if key in seen or one.location_id in ids:
                 logger.warning("Ignoring a second location for %s", one.path)
                 continue
             seen.add(key)
+            ids.add(one.location_id)
             unique.append(one)
         write_to = str(payload.get(WRITE_TO_KEY, "") or "").strip()
         return unique, write_to

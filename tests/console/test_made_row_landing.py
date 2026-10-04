@@ -19,7 +19,8 @@ class LocationAdded(unittest.IsolatedAsyncioTestCase):
             locations.grid, "land_on", side_effect=lambda *_: self.order.append("land")))
         self.enterContext(patch.object(locations.model, "mint_location_id",
                                        return_value="loc-new"))
-        self.put = self.enterContext(patch.object(locations.run, "io_bound", new=AsyncMock()))
+        self.put = self.enterContext(patch.object(
+            locations.run, "io_bound", new=AsyncMock(return_value={"location_id": "loc-new"})))
         self.enterContext(patch.object(locations.ui, "notify"))
         self.shown = AsyncMock(side_effect=lambda _row: self.order.append("show"))
 
@@ -36,6 +37,13 @@ class LocationAdded(unittest.IsolatedAsyncioTestCase):
         await self.add()
         self.shown.assert_awaited_once_with({"id": "loc-new"})
         self.assertEqual(self.state["location"], "loc-new")
+
+    async def test_a_folder_already_held_lands_on_its_own_row(self) -> None:
+        self.put.return_value = {"location_id": "loc-held"}
+        await self.add()
+        self.landed.assert_called_once_with(locations.SCOPE, {"id": "loc-held"})
+        self.shown.assert_awaited_once_with({"id": "loc-held"})
+        self.assertEqual(self.state["location"], "loc-held")
 
     async def test_a_refused_add_lands_nowhere(self) -> None:
         self.put.side_effect = OSError("read-only")

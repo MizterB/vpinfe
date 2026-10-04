@@ -376,10 +376,12 @@ async def _create(library: Library, state: dict[str, Any], rerender: Callable[[]
                   on_select: Callable[[dict | None], Any], kind: str, path: str) -> None:
     made = model.mint_location_id()
     try:
-        await run.io_bound(library.put_location, made, {"path": path, "kind": kind})
+        written = await run.io_bound(library.put_location, made, {"path": path, "kind": kind})
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("said.could_not_add_it"), caption=why(exc), type="negative")
         return
+    # A folder already held keeps its own id, so the new one is not the row to land on.
+    made = (written or {}).get("location_id", made)
     state["location"] = made
     grid.land_on(SCOPE, {"id": made})
     if rerender is not None:
