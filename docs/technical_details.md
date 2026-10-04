@@ -181,7 +181,6 @@ Runtime state written by VPinFE, not shown as a setting.
 | `browse_dirs` | list |  | Extra folders you can add tables, media and assets from by hand. Your library folders are always available; anywhere else has to be listed here first. |
 | `manufacturer_logos_dir` | string |  | Your own manufacturer logos. A theme uses them before the downloaded pack's. |
 | `wheelset` | string |  | Which wheel art set to use, as a folder under a game's medias/wheels/. The name logo shows each game's own logo instead. A theme can override this. |
-| `default_missing_image` | string |  | Default Missing Media Image |
 | `thumb_cache_max_mb` | int | `500` | Thumbnail Cache Max (MB) |
 
 ### `install`

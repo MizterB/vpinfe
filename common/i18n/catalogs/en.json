@@ -283,7 +283,6 @@
   "config.logger.terminal.label": "Log to Terminal",
   "config.media.browse_dirs.description": "Extra folders you can add tables, media and assets from by hand. Your library folders are always available; anywhere else has to be listed here first.",
   "config.media.browse_dirs.label": "Folders to Add From",
-  "config.media.default_missing_image.label": "Default Missing Media Image",
   "config.media.manufacturer_logos_dir.description": "Your own manufacturer logos. A theme uses them before the downloaded pack's.",
   "config.media.manufacturer_logos_dir.label": "Manufacturer Logos Folder",
   "config.media.playfield_resolution.choice.1k": "1K",

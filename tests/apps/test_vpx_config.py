@@ -657,6 +657,21 @@ class InstalledPluginTests(_Case):
         self.assertEqual({areas.plugin_of(key) for key in areas.FOLDERS},
                          {"ScoreView", "PinMAME", "AltSound", "Serum", "VNI", "PUP"})
 
+    def test_an_image_setting_is_declared_a_picture_file_so_it_can_be_browsed_for(self) -> None:
+        self.app_ini.write_text(INSTALLED_INI + "\n[Player]\nBallImage = \nDecalImage = \n"
+                                "OverwriteBallImage = 0\n")
+        groups = self.config.groups(self.settings)
+        fields = {f.key: f for g in groups for f in g.settings}
+
+        for key in ("Player.BallImage", "Player.DecalImage"):
+            self.assertEqual(fields[key].path, "file", key)
+            self.assertIn(".png", fields[key].suffixes, key)
+        self.assertNotIn(".vpx", fields["Player.BallImage"].suffixes)
+        self.assertEqual(fields["Player.OverwriteBallImage"].path, "")
+
+    def test_every_image_setting_is_one_the_program_has(self) -> None:
+        self.assertLessEqual(areas.IMAGES, set(TYPES))
+
     def test_the_program_s_own_entry_is_not_offered(self) -> None:
         """Turning it off stops the program, which is why the program never offers it."""
         offered = {f.key for g in self.groups.values() for f in g.settings}

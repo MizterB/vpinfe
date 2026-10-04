@@ -119,11 +119,18 @@ PLUGIN_ROWS: dict[str, tuple[str, ...]] = {
     "UpscaleDMD": ("Plugin.UpscaleDMD.UpscaleMode",),
 }
 
-# Plugin settings that name a folder, so the console offers Browse beside the typed path.
+# Settings that name a folder, so the console offers Browse beside the typed path.
 FOLDERS = frozenset({
     "Plugin.ScoreView.LayoutFolder", "Plugin.PinMAME.PinMAMEPath", "Plugin.AltSound.Folder",
     "Plugin.Serum.SerumPath", "Plugin.VNI.VniPath", "Plugin.PUP.PUPFolder",
 })
+
+# Settings that name an image file, which Visual Pinball decodes from disk.
+IMAGES = frozenset({
+    "Player.BallImage", "Player.DecalImage", "Plugin.PUP.BGFrameOverlay",
+    "Plugin.PUP.SVFrameOverlay", "Plugin.PUP.TopperFrameOverlay",
+})
+IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
 
 # Plugins for writing plugins. In the rest.
 NOT_PLUGINS = frozenset({"HelloScript", "HelloWorld", "Inspector"})

@@ -235,12 +235,6 @@
   ],
   [
     "Media",
-    "defaultmissingmediaimg",
-    "media",
-    "default_missing_image"
-  ],
-  [
-    "Media",
     "dmdmediapriority",
     "presentation",
     "score_view_media_priority"
@@ -586,12 +580,6 @@
     "terminal",
     "logger",
     "terminal"
-  ],
-  [
-    "media",
-    "defaultmissingmediaimg",
-    "media",
-    "default_missing_image"
   ],
   [
     "media",

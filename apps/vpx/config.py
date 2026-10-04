@@ -845,7 +845,9 @@ def _field(one: vini.Setting) -> Field:
         choices=one.choices,
         minimum=one.minimum,
         maximum=one.maximum,
-        path="dir" if one.qualified in areas.FOLDERS else "",
+        path="dir" if one.qualified in areas.FOLDERS
+        else "file" if one.qualified in areas.IMAGES else "",
+        suffixes=areas.IMAGE_SUFFIXES if one.qualified in areas.IMAGES else (),
         per_table=one.qualified in areas.PER_TABLE or (
             areas.is_curated(one.qualified) and not _all_tables_only(one.qualified)),
     )

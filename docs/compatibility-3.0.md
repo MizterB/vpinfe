@@ -1208,8 +1208,7 @@ sequence that used to lose them: install, configure, update, check.
 `hide_quit_button` - 53 of the 87 settings moved. A stored file is rewritten to the new
 names on first read (schema 2), and **every previous spelling stays a permanent alias**,
 so a config written by any earlier build still loads and a caller written against the old
-name still reads. Two settings changed more than their casing: `defaultmissingmediaimg`
-spells out `default_missing_media_image`, matching every other `[Media]` key.
+name still reads.
 **`[Input]` is deliberately untouched** - those names are the theme-facing action
 vocabulary and rename with that work, not this.
 *Why:* the ini forced a second spelling of nearly every setting - the file said

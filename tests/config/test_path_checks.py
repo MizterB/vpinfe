@@ -104,14 +104,6 @@ class PathOptionTests(unittest.TestCase):
         self.assertEqual(found.get(("media", "manufacturer_logos_dir")), "dir")
         self.assertEqual(found.get(("tools", "rar_path")), "exe")
 
-    def test_the_missing_media_image_is_a_picture_file(self) -> None:
-        found = {(o.section, o.key): o for o in path_checks.path_options()}
-        option = found[("media", "default_missing_image")]
-
-        self.assertEqual(option.path, "file")
-        self.assertIn(".png", option.suffixes)
-        self.assertNotIn(".vpx", option.suffixes)
-
     def test_the_library_root_is_not_one_of_them(self) -> None:
         """It is a location now, and internal - so it is not a setting anybody is
         offered, and a check that follows a field has no field to follow."""

@@ -157,8 +157,6 @@ class AliasTests(unittest.TestCase):
         """A spot check in both directions, so a bad regeneration is visible."""
         self.assertEqual(config_schema.canonical("Settings", "gamerootdir"), "game_root_dir")
         self.assertEqual(config_schema.canonical("presentation", "cabmode"), "cab_mode")
-        self.assertEqual(config_schema.canonical("Media", "defaultmissingmediaimg"),
-                         "default_missing_image")
         self.assertEqual(config_schema.canonical("Settings", "game_root_dir"), "game_root_dir")
 
     def test_input_keys_are_untouched(self) -> None:
