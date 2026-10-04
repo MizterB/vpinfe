@@ -1188,7 +1188,7 @@
   "console.import_dialog.place_title": "Where should this game go?",
   "console.jobs.all_outcomes": "All outcomes",
   "console.jobs.detail": "Detail",
-  "console.jobs.kind.catalog_download": "Spreadsheet download",
+  "console.jobs.kind.spreadsheet_download": "Spreadsheet download",
   "console.jobs.kind.device_send": "Send to device",
   "console.jobs.kind.library_media_fill": "Art fill",
   "console.jobs.kind.library_scan": "Library scan",

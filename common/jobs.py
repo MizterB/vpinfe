@@ -57,7 +57,7 @@ KIND_MEDIA_CAPTURE = "media.capture"
 KIND_TOOL_GET = "tools.get"
 # Getting the VPS catalog because there is none on disk, ahead of a read that has games to
 # match. The watch's later refreshes are not this: they stay silent.
-KIND_CATALOG_DOWNLOAD = "catalog.download"
+KIND_SPREADSHEET_DOWNLOAD = "spreadsheet.download"
 
 # Finished jobs kept since startup, for the Jobs view. Memory only: a restart empties it.
 HISTORY_LIMIT = 500
@@ -70,7 +70,7 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_MEDIA_FILL: "error.media_fill.busy",
          KIND_MEDIA_CAPTURE: "error.capture.busy",
          KIND_TOOL_GET: "error.jobs.getting_tool",
-         KIND_CATALOG_DOWNLOAD: "error.jobs.getting_spreadsheet"}
+         KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet"}
 
 # Kinds refused while another kind runs, and what the refusal says.
 _BLOCKED_BY = {(KIND_MEDIA_CAPTURE, KIND_MEDIA_FILL): "error.capture.fill_running",

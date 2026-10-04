@@ -150,7 +150,7 @@ class EnsureCatalogTests(unittest.TestCase):
         with patch("common.games.game_service.ensure_vpsdb_downloaded", side_effect=fetch):
             vpsdb_sync.ensure_catalog(_config(download="daily"))
 
-        self.assertEqual(seen, [jobs.KIND_CATALOG_DOWNLOAD])
+        self.assertEqual(seen, [jobs.KIND_SPREADSHEET_DOWNLOAD])
         self.assertEqual(jobs.recent()[0].state, jobs.DONE)
 
     def test_a_download_that_fails_is_the_jobs_failure(self) -> None:
@@ -159,7 +159,7 @@ class EnsureCatalogTests(unittest.TestCase):
 
         self.assertFalse(held)
         job = jobs.recent()[0]
-        self.assertEqual((job.kind, job.state), (jobs.KIND_CATALOG_DOWNLOAD, jobs.FAILED))
+        self.assertEqual((job.kind, job.state), (jobs.KIND_SPREADSHEET_DOWNLOAD, jobs.FAILED))
 
     def test_a_refresh_by_the_watch_is_not_a_job(self) -> None:
         self.catalog.write_text("[]", encoding="utf-8")

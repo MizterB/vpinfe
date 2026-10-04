@@ -38,8 +38,8 @@ class Outcome(unittest.TestCase):
 
 class WhatRan(unittest.TestCase):
     def test_a_known_kind_is_named_in_words(self) -> None:
-        self.assertEqual(t("console.jobs.kind.catalog_download"),
-                         jobs_list.what_ran(jobs.KIND_CATALOG_DOWNLOAD))
+        self.assertEqual(t("console.jobs.kind.spreadsheet_download"),
+                         jobs_list.what_ran(jobs.KIND_SPREADSHEET_DOWNLOAD))
 
     def test_every_kind_the_registry_names_has_words(self) -> None:
         kinds = [value for name, value in vars(jobs).items()
@@ -138,7 +138,7 @@ class TheRegistryKeepsAHistory(unittest.TestCase):
 
     def test_a_job_that_ran_is_a_row_with_its_start(self) -> None:
         before = time.time()
-        with jobs.track(jobs.KIND_CATALOG_DOWNLOAD):
+        with jobs.track(jobs.KIND_SPREADSHEET_DOWNLOAD):
             pass
 
         found = jobs_list.rows([job.snapshot() for job in jobs.recent(jobs_list.LIMIT)],
