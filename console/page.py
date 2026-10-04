@@ -87,6 +87,10 @@ WORKBENCH_MAX_PX = 1000
 # by hand still wins afterwards. Phone is not addressed - that needs a different shell,
 # and the phone-shaped job has its own surface.
 NAV_NARROW_PX = 1100
+# Quasar's own width for turning a drawer into an overlay, which ignores `mini`: the rail
+# then covers the page at full width with its labels already hidden. Zero keeps the drawer
+# in the layout at every width, where the rail is the narrow form.
+NAV_OVERLAY_PX = 0
 # One rail width for both panels - they collapse to the same thing.
 RAIL_PX = 57
 
@@ -652,7 +656,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
     power_menu = power.Power(library, waiting_bar, state, devices,
                              str(discovery.get("install_id") or ""))
-    with ui.left_drawer(value=True).props(f"width={NAV_WIDE_PX} bordered") as left:
+    with ui.left_drawer(value=True).props(
+            f"width={NAV_WIDE_PX} breakpoint={NAV_OVERLAY_PX} bordered") as left:
         # A nav header row carrying the collapse control - the shape 2.x already uses
         # (`manager-nav-header`). It is the panel's own chrome, so it costs nothing that
         # was not already the panel, and nothing floats over the grid.
