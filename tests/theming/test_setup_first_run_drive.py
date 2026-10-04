@@ -106,8 +106,24 @@ class SetupFirstRunDrive(unittest.TestCase):
 
             await walk.visit("/")
             await opened()
-            seen["finish_says"] = (await browser.evaluate(
-                f"document.querySelector({json.dumps(FORWARD + ' .block')}).innerText")).strip()
+
+            async def forward_says() -> str:
+                return (await browser.evaluate(
+                    f"document.querySelector({json.dumps(FORWARD + ' .block')}).innerText")
+                ).strip()
+
+            # Each page but the last says Next, and the one it opens has another title.
+            for _ in range(6):
+                if await forward_says() == t("word.finish"):
+                    break
+                title = (await browser.evaluate(TEXT_OF % json.dumps(TITLE))).strip()
+                await walk.act(
+                    lambda: browser.click(FORWARD),
+                    mark=f"window.fromTitle = {json.dumps(title)}",
+                    until=(f"(document.querySelector({json.dumps(TITLE)}) || {{innerText: ''}})"
+                           ".innerText.trim() !== window.fromTitle"))
+                await walk.drawn()
+            seen["finish_says"] = await forward_says()
             # Finishing reloads the page onto the Console's usual home, and the marker
             # goes with the old document.
             await walk.act(lambda: browser.click(FORWARD),

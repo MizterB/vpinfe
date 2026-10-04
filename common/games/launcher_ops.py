@@ -395,8 +395,28 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
             else "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
             keys=(", ".join(refused))))
 
-    cleared = config.write(scope, table, writing, settings)
+    if body.get("create") and scope == SCOPE_LAUNCHER and not _config_files(found):
+        # Only when asked: a write on its own refuses where the program has no file yet.
+        make = getattr(config, "create", None)
+        if make is None:
+            raise service_errors.RefusedError(t(
+                "error.launchers.keeps_no_settings_file", app_name=apps.app_name(found.app)))
+        try:
+            make(config.newest_version, writing, settings)
+        except ValueError as exc:
+            raise _cannot_write(found) from exc
+        return {"written": sorted(writing), "cleared": []}
+
+    try:
+        cleared = config.write(scope, table, writing, settings)
+    except ValueError as exc:
+        raise _cannot_write(found) from exc
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
+
+
+def _cannot_write(launcher: launchers.Launcher) -> service_errors.RefusedError:
+    return service_errors.RefusedError(t(
+        "error.launchers.cannot_write_settings", app_name=apps.app_name(launcher.app)))
 
 
 def _config_files(launcher: launchers.Launcher) -> dict[str, str]:

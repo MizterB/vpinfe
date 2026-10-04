@@ -331,6 +331,57 @@ class RestoreRefusedTests(unittest.TestCase):
                          t("error.launchers.copy_matches_no_file"))
 
 
+class NeverRunTests(unittest.TestCase):
+    """A Visual Pinball that has not run yet: no preferences folder, so no file."""
+
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.data = pathlib.Path(self.tmp.name, "data")
+        self.store = launchers.LauncherStore(os.path.join(self.tmp.name, "launchers.json"))
+        for patcher in (patch.object(launchers, "get_launcher_store", return_value=self.store),
+                        patch("apps.vpx.config._machine_folders",
+                              return_value=(self.data / "VPinballX", None)),
+                        patch.object(config_backups, "BACKUPS_DIR",
+                                     pathlib.Path(self.tmp.name, "backups"))):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.store.mark_migration(launcher_migration.SEEDED)
+        self.client = _client()
+        self.client.put("/launchers/l1",
+                        json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
+        self.file = self.data / "VPinballX" / "10.8" / "VPinballX.ini"
+
+    def _put(self, **body):
+        return self.client.put("/launchers/l1/config",
+                               json={"scope": "launcher", "values": {"Player.BGSet": "1"},
+                                     **body})
+
+    def test_a_write_on_its_own_is_refused_and_makes_nothing(self) -> None:
+        got = self._put()
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertFalse(self.file.exists())
+
+    def test_a_write_that_asks_makes_the_newest_releases_file_holding_only_what_was_sent(
+            self) -> None:
+        got = self._put(create=True)
+
+        self.assertEqual(got.status_code, 200, got.text)
+        self.assertEqual(got.json()["written"], ["Player.BGSet"])
+        self.assertEqual(self.file.read_text(), "[Player]\nBGSet = 1\n")
+
+    def test_the_next_write_needs_no_asking(self) -> None:
+        self._put(create=True)
+
+        got = self.client.put("/launchers/l1/config", json={
+            "scope": "launcher", "values": {"Player.ScreenInclination": "6"}})
+
+        self.assertEqual(got.status_code, 200, got.text)
+        self.assertIn("BGSet = 1", self.file.read_text())
+        self.assertIn("ScreenInclination = 6", self.file.read_text())
+
+
 class _TableCase(unittest.TestCase):
     """A launcher, and one table whose folder has a settings file of its own."""
 

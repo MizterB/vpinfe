@@ -659,5 +659,94 @@ class RefusalTests(unittest.TestCase):
         self.assertEqual([], self._lines(holder))
 
 
+class InProcessHooksTests(unittest.TestCase):
+    """What a flow that draws in this process (Setup) adds to a step: callables, which
+    cannot travel as JSON."""
+
+    def _choice(self, **extra: Any) -> dict[str, Any]:
+        return {"step": "one", "fields": [{
+            "key": "pick", "type": "choice", "label": "Pick", "value": "a",
+            "choices": [["a", "Alpha", "", "tv"], ["b", "Beta", "", "tv"]],
+            **extra.pop("field", {})}], **extra}
+
+    def _texts(self, root: ui.element) -> list[str]:
+        return [one.text for one in root.descendants() if isinstance(one, ui.label)]
+
+    def test_before_draws_above_the_fields_and_draw_below_them(self) -> None:
+        def above() -> None:
+            ui.label("above")
+
+        def below(values: dict[str, Any]) -> None:
+            ui.label(f"below {values['pick']}")
+
+        first = self._choice(before=above, draw=below)
+
+        async def run() -> list[str]:
+            task, dialog = await _opened(_calls(first=first))
+            texts = self._texts(dialog)
+            await _finished(task)
+            return texts
+
+        texts = _ran(run)
+        self.assertLess(texts.index("above"), texts.index("Alpha"))
+        self.assertLess(texts.index("Alpha"), texts.index("below a"))
+
+    def test_a_detail_is_drawn_under_its_option_and_shown_only_while_it_is_picked(self) -> None:
+        def detail(values: dict[str, Any], _changed: Any) -> None:
+            ui.label(f"asks {values['pick']}")
+
+        first = self._choice(field={"details": {"b": detail}})
+
+        async def run() -> tuple[bool, bool]:
+            task, dialog = await _opened(_calls(first=first))
+            holder = next(one for one in dialog.descendants()
+                          if "console-wizard-detail" in one.classes)
+            before = holder.visible
+            beta = next(one for one in dialog.descendants()
+                        if "console-wizard-pick" in one.classes
+                        and "Beta" in self._texts(one))
+            said(beta, "click")
+            await _settled()
+            after = holder.visible
+            await _finished(task)
+            return before, after
+
+        self.assertEqual((False, True), _ran(run))
+
+    def test_a_gate_holds_next_until_a_detail_says_the_answer_is_complete(self) -> None:
+        seen: dict[str, Any] = {}
+
+        def detail(values: dict[str, Any], changed: Any) -> None:
+            seen["values"], seen["changed"] = values, changed
+
+        first = self._choice(field={"details": {"a": detail}},
+                             gate=lambda values: bool(values.get("typed")))
+
+        async def run() -> tuple[bool, bool]:
+            task, dialog = await _opened(_calls(first=first))
+            held = _forward(dialog)._props.get("disable", False)
+            seen["values"]["typed"] = "something"
+            seen["changed"]()
+            await _settled()
+            open_now = not _forward(dialog)._props.get("disable", False)
+            await _finished(task)
+            return held, open_now
+
+        self.assertEqual((True, True), _ran(run))
+
+    def test_a_segment_that_holds_several_steps_is_current_for_each(self) -> None:
+        first = {"step": "three", "fields": [], "steps": [
+            {"key": "one", "label": "How", "done": True, "holds": ["one"]},
+            {"key": "two", "label": "Program", "done": False, "holds": ["two", "three"]}]}
+
+        async def run() -> list[tuple[str, str, bool]]:
+            task, dialog = await _opened(_calls(first=first))
+            segments = _segments(dialog)
+            await _finished(task)
+            return segments
+
+        self.assertEqual([("How", "done", True), ("Program", "here", False)], _ran(run))
+
+
 if __name__ == "__main__":
     unittest.main()

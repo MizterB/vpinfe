@@ -15,7 +15,7 @@ from nicegui import ui
 from common import install_setup
 from common.config_store import ConfigStore
 from common.games.launchers import Launcher
-from console import setup
+from console import setup, setup_vpx
 from tests.support.library import TempTree
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -376,14 +376,16 @@ class OpenSetupTests(_Fresh):
 
 
 class TheRealStepsTests(_Fresh):
-    def test_how_you_play_is_the_only_question_and_carries_finish_itself(self) -> None:
+    def test_how_you_play_comes_first_and_the_row_names_it_and_visual_pinball(self) -> None:
         with self._screens(1):
             step = _ran(setup.calls(setup.Session(again=False)).first(None))
 
-        self.assertEqual([one.key for one in setup.STEPS], [setup.HOW])
+        self.assertEqual([setup.HOW, setup.VPX, setup.GLASS, setup.VPX_KEYS],
+                         [one.key for one in setup.STEPS])
         self.assertEqual(step["step"], setup.HOW)
-        self.assertEqual(step["confirm"], "Finish")
-        self.assertNotIn("steps", step, "a row of one name says nothing the title does not")
+        self.assertNotIn("confirm", step, "Visual Pinball's pages follow it")
+        self.assertEqual(["How you play", "Visual Pinball"],
+                         [segment["label"] for segment in step["steps"]])
 
     def test_every_step_names_itself_for_the_row(self) -> None:
         from common.i18n import t
@@ -392,17 +394,43 @@ class TheRealStepsTests(_Fresh):
             with self.subTest(step=one.key):
                 self.assertNotEqual(t(one.label), one.label)
 
-    def test_answering_how_you_play_finishes_setup(self) -> None:
+    def test_answering_how_you_play_writes_it_and_goes_on_to_the_program(self) -> None:
         client = mock.Mock()
+        session = setup.Session(again=False)
 
         with mock.patch.object(setup, "ApiClient", return_value=client), \
-             mock.patch("common.games.launchers.default_launcher", return_value=None):
-            answer = _ran(setup.calls(setup.Session(again=False)).run(
-                {"cab_mode": "cabinet"}, setup.HOW))
+             mock.patch("common.games.launchers.default_launcher", return_value=None), \
+             mock.patch.object(setup_vpx, "ApiClient", return_value=client):
+            answer = _ran(setup.calls(session).check({"cab_mode": "cabinet"}, setup.HOW))
 
+        client.put_config.assert_called_once_with({"presentation": {"cab_mode": True}})
+        self.assertEqual(answer["step"], setup.VPX)
+        self.assertTrue(install_setup.pending(self.store))
+        self.assertEqual(install_setup.answered(self.store), [setup.HOW])
+
+    def test_the_last_page_carries_finish_and_answering_it_finishes_setup(self) -> None:
+        session = setup.Session(again=False, vpx=setup_vpx.Vpx(chosen="/x/vpx", answered=True))
+        client = mock.Mock()
+        client.launcher_config.return_value = {"values": {}}
+
+        with mock.patch.object(setup, "_cabinet", return_value=False), \
+             mock.patch.object(setup_vpx, "ApiClient", return_value=client), \
+             mock.patch.object(setup_vpx, "ask_keys",
+                               mock.AsyncMock(return_value={"title": "Keys"})):
+            step = _ran(setup.calls(session).first(setup.VPX_KEYS))
+            answer = _ran(setup.calls(session).run({}, setup.VPX_KEYS))
+
+        self.assertEqual(step["confirm"], "Finish")
         self.assertEqual(answer, {"ok": True})
         self.assertFalse(install_setup.pending(self.store))
-        self.assertEqual(install_setup.answered(self.store), [setup.HOW])
+        self.assertEqual(install_setup.answered(self.store), [setup.VPX_KEYS])
+
+    def test_not_installed_yet_makes_the_program_page_the_last(self) -> None:
+        session = setup.Session(again=False, vpx=setup_vpx.Vpx(answered=True))
+        with mock.patch.object(setup, "_cabinet", return_value=True):
+            self.assertEqual([setup.HOW, setup.VPX],
+                             [one.key for one in setup._applicable(session)])
+            self.assertIsNone(setup._after(session, setup._step(setup.VPX)))
 
 
 if __name__ == "__main__":

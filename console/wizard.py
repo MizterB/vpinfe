@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -63,6 +63,11 @@ _ART = {
 }
 # A Material icon's ligature. Quasar also reads `img:` and `svguse:` names as drawings.
 _ICON_NAME = re.compile(r"[a-z0-9_]+")
+
+
+# What an option of a picture choice asks next: the walk's values, which it writes its
+# answer into, and what to call after it has.
+Detail = Callable[[dict[str, Any], Callable[[], None]], None]
 
 
 @dataclass
@@ -133,26 +138,31 @@ class Walk:
 
 
 def _controls(fields: list[dict], values: dict[str, Any], *,
-             client: ApiClient, errors: dict[str, Any],
-             welcome: bool = False) -> dict[str, tuple[str, Any]]:
+             client: ApiClient, errors: dict[str, Any], welcome: bool = False,
+             on_change: Callable[[], None] | None = None) -> dict[str, tuple[str, Any]]:
     """Draw what the task asked for, in the Console's own grammar.
 
     Returns each field's own kind and control, keyed by its key - what the dialog host
     reads back before Next, Back or Run (a path field only pushes what it holds on its
     own check, and Next can come sooner than that), and where it sends focus and a
     refusal from `errors`. `welcome` is the step's own: a choice that carries pictures
-    lays them out as tiles on one and as rows on any other.
+    lays them out as tiles on one and as rows on any other. `on_change` is told after any
+    control has written its value, for a step that gates its forward button on them.
     """
     # Each control writes its own key, so the key is bound by a call rather than
     # captured off the loop variable.
     def changed(key: str, cast: Callable[[Any], Any]) -> Callable[[Any], None]:
         def write(event: Any) -> None:
             values[key] = cast(event.value)
+            if on_change:
+                on_change()
         return write
 
     def typed(key: str) -> Callable[[str], None]:
         def write(text: str) -> None:
             values[key] = text
+            if on_change:
+                on_change()
         return write
 
     def refused(control: Any, key: str) -> None:
@@ -224,7 +234,9 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
             if any(one[3] for one in options):
                 entries.append((panel.FULL, refusing(_pictured(
                     label, options, str(values.get(key) or ""), typed(key),
-                    tiles=welcome, labelled=asked > 1, on_control=caught), key)))
+                    tiles=welcome, labelled=asked > 1, on_control=caught,
+                    details=field.get("details") or {}, values=values,
+                    changed=on_change or (lambda: None)), key)))
             else:
                 entries.append((label, refusing(panel.choice(
                     [one[:3] for one in options], str(values.get(key) or ""),
@@ -245,6 +257,8 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                     # The 0.3s check is a poll, not a push on every keystroke; Next
                     # reads the control directly instead of waiting on it.
                     values[key] = said
+                    if on_change:
+                        on_change()
                     return ""
 
                 control = panel.path_field(
@@ -288,11 +302,21 @@ def _picture(name: str) -> None:
 
 def _pictured(question: str, options: list[tuple[str, str, str, str]], value: str,
               on_change: Callable[[str], None], *, tiles: bool, labelled: bool,
-              on_control: Callable[[Any], None]) -> Callable[[], None]:
+              on_control: Callable[[Any], None],
+              details: Mapping[str, Detail] | None = None,
+              values: dict[str, Any] | None = None,
+              changed: Callable[[], None] = lambda: None) -> Callable[[], None]:
     """A choice whose options carry pictures: `(key, label, help, picture)`. They are
     tiles on a welcome and rows elsewhere. The question is drawn over them on a welcome
     and on a step with other fields to tell it from; alone on a step, the step's own
-    title is the question and the group carries it as its accessible name only."""
+    title is the question and the group carries it as its accessible name only.
+
+    `details` draws what an option asks next, under its row and only while it is the one
+    picked, and is handed the walk's `values`, which it writes its answer into, and
+    `changed` to call after it has. Callables cannot travel as JSON, so only a flow that
+    draws in this process (Setup) can give them."""
+    details = details or {}
+
     def draw() -> None:
         with ui.column().classes("w-full gap-0"):
             if tiles or labelled:
@@ -302,6 +326,7 @@ def _pictured(question: str, options: list[tuple[str, str, str, str]], value: st
             group.props("role=radiogroup tabindex=-1")
             group.props["aria-label"] = question
             drawn: dict[str, tuple[ui.element, ui.icon]] = {}
+            under: dict[str, ui.element] = {}
 
             def pick(key: str) -> None:
                 group.value = key
@@ -313,6 +338,8 @@ def _pictured(question: str, options: list[tuple[str, str, str, str]], value: st
                         row.classes(remove="console-source-row--chosen")
                     row.props["aria-checked"] = "true" if chosen else "false"
                     mark.set_visibility(chosen)
+                for one, holder in under.items():
+                    holder.set_visibility(one == key)
                 on_change(key)
 
             with group:
@@ -334,6 +361,11 @@ def _pictured(question: str, options: list[tuple[str, str, str, str]], value: st
                         mark = ui.icon("check_circle").classes("console-wizard-pick-mark")
                         mark.set_visibility(chosen)
                     drawn[key] = (row, mark)
+                    if key in details:
+                        with ui.element("div").classes("console-wizard-detail") as holder:
+                            details[key](values if values is not None else {}, changed)
+                        holder.set_visibility(chosen)
+                        under[key] = holder
             on_control(group)
 
     return draw
@@ -393,8 +425,17 @@ def _enter_presses_forward(root_id: int) -> str:
         (() => {{
           const root = document.getElementById('c{root_id}');
           if (!root) return;
+          // An Enter that a button took or a row was listening for is that control's.
+          // Decided on the way down: the row has stopped listening by the time it is let go.
+          let taken = false;
+          root.addEventListener('keydown', (event) => {{
+            if (event.key !== 'Enter') return;
+            taken = !!(window.__bindingListen || {{}}).row
+              || !!(event.target.closest && event.target.closest('button, [role=button]'));
+          }}, true);
           root.addEventListener('keyup', (event) => {{
-            if (event.key !== 'Enter' || event.target.tagName === 'TEXTAREA') {{
+            if (event.key !== 'Enter' || event.target.tagName === 'TEXTAREA' || taken) {{
+              taken = false;
               return;
             }}
             const btn = root.querySelector('.{_FORWARD}');
@@ -419,12 +460,14 @@ def _sync_step(step_key: str) -> None:
 def _step_row(steps: list[dict[str, Any]], current: str, go: Callable[[str], Any]) -> None:
     """The path as it stands: one segment per named step, its name under it. Only a
     `done` step answers a click - a step still ahead has nothing to reopen, and
-    clicking it would say otherwise."""
+    clicking it would say otherwise. A segment may `hold` several steps, which are one
+    name in the row: it is here for any of them and a click reopens the first."""
     with ui.element("div").classes("console-wizard-steps"):
         for entry in steps:
             key = str(entry.get("key") or "")
             text = str(entry.get("label") or key)
-            state = "here" if key == current else "done" if entry.get("done") else ""
+            held = [str(one) for one in entry.get("holds") or [key]]
+            state = "here" if current in held else "done" if entry.get("done") else ""
             segment = ui.element("div").classes(
                 "console-wizard-step" + (f" console-wizard-step--{state}" if state else ""))
             if state == "here":
@@ -432,7 +475,7 @@ def _step_row(steps: list[dict[str, Any]], current: str, go: Callable[[str], Any
             with segment:
                 name = ui.label(text)
                 if state == "done":
-                    name.classes("console-link").on("click", lambda key=key: go(key))
+                    name.classes("console-link").on("click", lambda key=held[0]: go(key))
 
 
 def _greeting(found: dict, root: ui.element, crest: ui.element, mark: bool) -> bool:
@@ -516,6 +559,15 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             body.clear()
             buttons.clear()
             summary = found.get("summary")
+            # Setup's own, since a callable cannot travel as JSON: `gate` says whether the
+            # answer is complete, asked again after every change; `before()` draws above
+            # the fields and `draw(values)` below them, writing into the values itself.
+            gate: Callable[[dict[str, Any]], bool] | None = found.get("gate")
+            forward: list[Any] = []
+
+            def regate() -> None:
+                if forward and gate:
+                    forward[0].set_enabled(bool(gate(walk.values)))
             welcome = _greeting(found, scroll, crest, mark)
             if found.get("steps"):
                 with track:
@@ -525,9 +577,13 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                     ui.label(str(found["help"])).classes("console-wizard-lead")
                 if summary:
                     _summary(summary)
+                if found.get("before"):
+                    found["before"]()
                 held = _controls(list(found.get("fields") or []), walk.values,
                                  client=client, errors=dict(found.get("errors") or {}),
-                                 welcome=welcome)
+                                 welcome=welcome, on_change=regate if gate else None)
+                if found.get("draw"):
+                    found["draw"](walk.values)
                 if found.get("acts"):
                     _acts(list(found["acts"]), _act)
                 _lines(list(found.get("notes") or []),
@@ -550,6 +606,9 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                     go = frame.answer(t("word.next"), _next, icon=verbs.NEXT)
                 if not found.get("ready", True):
                     go.disable()
+                elif gate:
+                    forward.append(go)
+                    regate()
             go.classes(_FORWARD)
             # held keeps insertion order, so its first entry is the step's first field.
             first = next(iter(held.values()), None)

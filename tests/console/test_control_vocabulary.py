@@ -71,6 +71,8 @@ BUDGET = {
                            "what to show as All Settings' ticks do; and the name typed "
                            "into the row a new folder takes in that list. None is a fact "
                            "row and none sets anything on the folder chosen"),
+    "setup_vpx.py": (1, "the long and short sides of the playfield screen with the cm / in "
+                        "toggle, as the Screen Size row in vpx_displays draws them"),
     "vpx_displays.py": (1, "the cm / in toggle beside the Screen Size numbers, which sets "
                            "the unit those two are written in - the unit of a row, not a "
                            "fact row of its own"),

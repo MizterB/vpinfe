@@ -114,11 +114,14 @@ class ThisDeviceRowTests(TempTree):
 
         async def run() -> None:
             with mock.patch.object(setup_page, "_config", return_value=store), \
+                 mock.patch.object(setup_page.setup_vpx, "gather", setup_page.setup_vpx.Vpx), \
                  mock.patch.object(setup_page.wizard, "open_dialog", host):
                 (button,) = _buttons(holder)
                 said(button, "click")
-                for _ in range(8):
-                    await asyncio.sleep(0)
+                for _ in range(200):
+                    if host.called:
+                        break
+                    await asyncio.sleep(0.01)
 
         _ran(run)
         host.assert_called_once()

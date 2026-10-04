@@ -92,10 +92,16 @@ BASELINE: dict[str, int] = {
     "console/sections.py": 2,
     # Both lines are the VPX Mobile page id and its note key. They go when the page does.
     "console/settings.py": 2,
+    # Setup's Visual Pinball step: the walk's three pages and the session that holds them.
+    "console/setup.py": 13,
+    # The three pages of that step: the program, the playfield glass, the buttons.
+    "console/setup_vpx.py": 23,
     "console/table_features.py": 1,
     "console/theme.py": 2,
     # The Displays page of a Visual Pinball launcher: the file's keys are its subject.
     "console/vpx_displays.py": 12,
+    # Where the program is on this machine: the names its builds go by are the subject.
+    "console/vpx_find.py": 11,
     # The Input page of a Visual Pinball launcher: the file's keys are its subject.
     "console/vpx_input.py": 9,
     "console/workbench.py": 32,

@@ -1859,6 +1859,18 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 .console-wizard-pick--tile .console-wizard-art { width: 96px; height: 72px; margin-bottom: 6px; }
 .console-wizard-pick--tile .console-wizard-icon { width: auto; margin-bottom: 6px; }
 .console-wizard-pick--tile .console-wizard-pick-mark { position: absolute; top: 10px; right: 10px; }
+/* What the picked row asks next, under it rather than on a step of its own. The left
+   padding is the row's own: its padding, the picture slot and the gap after it. */
+.console-wizard-detail { padding: 10px 14px 4px 68px; display: flex; flex-direction: column; gap: 6px; }
+/* A line saying what a step found, or that it found nothing: an icon, the finding, and what
+   it looked in. */
+.console-wizard-found { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 16px; }
+.console-wizard-found > .q-icon { font-size: var(--icon-mark); color: var(--ink-3); margin-top: 1px; }
+/* Where a value came from, under the field that holds it. */
+.console-wizard-src { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-caption); color: var(--ink-3); line-height: 1.4; }
+.console-wizard-src > .q-icon { font-size: var(--icon-menu); margin-top: 1px; }
+.console-wizard-src-label { color: var(--ink-2); }
+.console-wizard-src--offer { align-items: center; margin-top: 4px; }
 
 /* A destructive action is still an action - it takes the same shape and says what it
    is with color on top, not instead. */

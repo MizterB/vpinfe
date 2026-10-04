@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from nicegui import run, ui
@@ -23,13 +23,16 @@ from common.config_access import DisplayConfig
 from common.games import launchers as launcher_model
 from common.host import addresses
 from common.i18n import t
-from console import offload, screens, wizard
+from console import offload, screens, setup_vpx, wizard
 from console.api import ApiClient
 from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.setup")
 
 HOW = "how"
+VPX = "vpx"
+GLASS = "glass"
+VPX_KEYS = "vpxkeys"
 
 # The launcher setting `presentation.cab_mode` mirrors in VPX's own ini.
 BGSET_KEY = "Player.BGSet"
@@ -47,6 +50,10 @@ class Session:
     # Opened in the window the frontend itself opened, which has no other way to say
     # where Setup can be reached from.
     window: bool = False
+    vpx: setup_vpx.Vpx = field(default_factory=setup_vpx.Vpx)
+    # Whether How you play was answered differently from what the install holds, so the
+    # Visual Pinball half of it is still to write once the program is known.
+    bgset_due: bool = True
 
 
 @dataclass(frozen=True)
@@ -110,6 +117,7 @@ async def _ask_how(session: Session) -> dict[str, Any]:
 async def _answer_how(session: Session, values: dict[str, Any]) -> None:
     cabinet = str(values.get("cab_mode") or "desktop") == "cabinet"
     if session.again and cabinet == DisplayConfig.from_config(_config()).cab_mode:
+        session.bgset_due = False
         return
     client = ApiClient()
     await offload.io(client.put_config, {"presentation": {"cab_mode": cabinet}})
@@ -123,10 +131,45 @@ async def _answer_how(session: Session, values: dict[str, Any]) -> None:
             logger.warning("Could not write BGSet for the default launcher", exc_info=True)
 
 
+def _cabinet() -> bool:
+    return DisplayConfig.from_config(_config()).cab_mode
+
+
+async def _ask_vpx(session: Session) -> dict[str, Any]:
+    return await setup_vpx.ask_program(session.vpx)
+
+
+async def _answer_vpx(session: Session, values: dict[str, Any]) -> None:
+    await setup_vpx.answer_program(session.vpx, values, cabinet=_cabinet(),
+                                   write_bgset=session.bgset_due)
+
+
+async def _ask_glass(session: Session) -> dict[str, Any]:
+    return await setup_vpx.ask_glass(session.vpx, _config())
+
+
+async def _answer_glass(session: Session, values: dict[str, Any]) -> None:
+    await setup_vpx.answer_glass(session.vpx, values)
+
+
+async def _ask_keys(session: Session) -> dict[str, Any]:
+    return await setup_vpx.ask_keys(session.vpx)
+
+
+async def _answer_keys(session: Session, values: dict[str, Any]) -> None:
+    await setup_vpx.answer_keys(session.vpx, values)
+
+
 # The questions, in the order they are asked. A step that depends on an earlier answer
 # says so with `applies`; it is not asked, and not in the row, where it does not.
 STEPS: tuple[Step, ...] = (
     Step(HOW, "console.setup.step.how", _ask_how, _answer_how),
+    # Three pages under one name in the row.
+    Step(VPX, "console.setup.step.vpx", _ask_vpx, _answer_vpx),
+    Step(GLASS, "console.setup.step.vpx", _ask_glass, _answer_glass,
+         lambda session: _cabinet() and setup_vpx.expects_program(session.vpx)),
+    Step(VPX_KEYS, "console.setup.step.vpx", _ask_keys, _answer_keys,
+         lambda session: setup_vpx.expects_program(session.vpx)),
 )
 
 
@@ -157,8 +200,17 @@ def _resume(session: Session) -> Step:
 
 def _row(session: Session, steps: list[Step]) -> list[dict[str, Any]]:
     answered = install_setup.answered(_config())
-    return [{"key": one.key, "label": t(one.label),
-             "done": session.again or one.key in answered} for one in steps]
+    row: list[dict[str, Any]] = []
+    for one in steps:
+        done = session.again or one.key in answered
+        # Steps that share a name are one segment, which is done when all of them are.
+        if row and row[-1]["label"] == t(one.label):
+            row[-1]["holds"].append(one.key)
+            row[-1]["done"] = row[-1]["done"] and done
+        else:
+            row.append({"key": one.key, "label": t(one.label), "done": done,
+                        "holds": [one.key]})
+    return row
 
 
 async def _ask(session: Session, step: Step) -> dict[str, Any]:
@@ -212,7 +264,9 @@ def calls(session: Session) -> wizard.Calls:
 @on_page
 async def open_setup(*, window: bool = False) -> None:
     """Setup over the page this is called from, until it is closed or finished."""
-    session = Session(again=not install_setup.pending(_config()), window=window)
+    session = Session(again=not install_setup.pending(_config()), window=window,
+                      vpx=await offload.io(setup_vpx.gather))
+    session.vpx.answered = not session.again and VPX in install_setup.answered(_config())
     ran = await wizard.open_dialog(
         label=t("console.setup.title"), calls=calls(session), under="setup", mark=True,
         aside=t("word.close") if session.again else t("console.setup.finish_later"),

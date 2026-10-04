@@ -222,7 +222,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/launchers/{id}/default` | Make it the default for its app, by moving it to the front of the list. A switched-off launcher, or one with no program, is refused |
 | GET | `/api/v1/launchers/{id}/fallback` | What switching it off would do: `tables` it plays now, `fallbacks` naming where each group of them would go (`launcher_id` empty for nowhere) and whether that one `has_program`, and `refused`, the refusal a switch-off would get, or `""` |
 | GET | `/api/v1/launchers/{id}/config` | The settings of the program it runs, and every value as it stands at one `scope` - `launcher` (the default), `folder` or `entry`. `table=` names the table for the last two |
-| PUT | `/api/v1/launchers/{id}/config` | Set values at one scope, `{"scope", "table", "values"}` → `{"written", "cleared"}`. `launcher` or `entry`: a write at `folder` is refused |
+| PUT | `/api/v1/launchers/{id}/config` | Set values at one scope, `{"scope", "table", "values"}` → `{"written", "cleared"}`. `launcher` or `entry`: a write at `folder` is refused. A program that has never run has no file to write to, and the write is refused; `"create": true` at `launcher` scope makes its file in the preferences folder of the newest release, holding only the values sent |
 | GET | `/api/v1/launchers/{id}/config/backups` | Copies of the program's own settings file, newest first. `files` names what a copy takes and `kept_in` says where the copies are |
 | POST | `/api/v1/launchers/{id}/config/backups` | Take a copy now. `{"label": "..."}` is optional |
 | POST | `/api/v1/launchers/{id}/config/backups/{name}/restore` | Put a copy back. What is there now is copied first, and comes back as `safety_copy` |

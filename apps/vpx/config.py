@@ -185,6 +185,8 @@ def _offered(qualified: str) -> bool:
 
 
 SETTINGS_FILE = "VPinballX.ini"
+# The preferences folder a program that has never run is assumed to use: the newest release's.
+NEWEST_VERSION = "10.8"
 ASIDE_MARKER = ".vpinfe-"
 _VERSION_FOLDER = re.compile(r"(\d+)\.(\d+)")
 
@@ -447,6 +449,8 @@ def _type_of(one: vini.Setting) -> str:
 
 class VPXConfig:
     """The settings surface for one launcher, and for one table under it."""
+
+    newest_version = NEWEST_VERSION
 
     def scopes(self) -> tuple[str, ...]:
         return (SCOPE_LAUNCHER, SCOPE_FOLDER, SCOPE_ENTRY)

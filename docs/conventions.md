@@ -959,6 +959,23 @@ remote's sheets are the exceptions, because neither asks anything.
   `console-source-row--chosen` say which is picked, the check mark says it again where
   color alone would not. A choice with no pictures stays a radio group.
 
+### What a step finds, and where a value came from
+
+Setup draws in this process, so a step may carry callables that cannot travel as JSON.
+
+- **A choice's option can ask the next thing under its own row** (`details`), shown only
+  while it is the one picked, and `gate(values)` holds Next until the answer is complete.
+  A path asked under "Somewhere else" is a step's detail, not a page of its own.
+- **A line saying what a step found, or that it found nothing,** is `console-wizard-found`:
+  an icon, the finding, and what it looked in. It is drawn above the rows by `before`.
+- **A value that was not typed says where it came from, under its field** with
+  `console-wizard-src`: an icon and a few words, with one line of how to do better in the
+  help color. Typing over the value drops the label, because it is no longer the source's.
+  A better value on offer is the same line with an action beside it
+  (`console-wizard-src--offer`).
+- **Pages that answer one question share a name in the step row** (`holds`), so the row
+  does not grow a segment for each page a choice can add or drop.
+
 ### One confirmation, and one field
 
 - **Anything that cannot be undone asks first, through `console/confirm.py`.** Four dialogs
