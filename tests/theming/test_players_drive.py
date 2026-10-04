@@ -342,8 +342,8 @@ class PlayersDrive(unittest.TestCase):
 
     def test_the_page_says_the_two_rules(self) -> None:
         self.assertEqual(self.seen["purpose"],
-                         "The next game counts for whoever is up. A score goes to the "
-                         "player whose initials it has.")
+                         "Pick who is up. A score goes to the player whose "
+                         "initials match.")
 
     def test_a_household_of_one_shows_no_up(self) -> None:
         self.assertEqual(self.seen["alone"], "No name Owner")

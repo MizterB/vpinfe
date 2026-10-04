@@ -579,7 +579,6 @@ def extensions(installed: list[dict], open_one: Callable[..., Any] | None = None
     if not installed:
         with ui.element("div").classes("console-card w-full"):
             ui.label(t("console.sections.nothing_installed")).classes("console-setting")
-            ui.label(t("console.sections.extension_adds_feature")).classes("console-help")
         return
 
     for found in installed:

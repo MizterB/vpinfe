@@ -54,7 +54,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `timeout` | int | `15` | Seconds before a command is given up on. One that never finishes would mean no table launches again. |
+| `timeout` | int | `15` | Seconds to wait for a command before giving up |
 | `on_vpinfe_start` | text |  | One command per line, run before anything else. Arguments split the way a shell splits them; for a pipe, point at a script. |
 | `on_vpinfe_exit` | text |  | Run last. These run even if VPinFE is stopping because something went wrong. |
 
@@ -72,14 +72,14 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `path` | string |  | The browser the frontend's windows open in. Blank finds one on this device. |
 | `options` | text |  | Additional Chrome Options |
-| `options_exclude` | text |  | Which built-in options to leave off, one per line. For when one of them is the problem and turning them all off would take the rest with it. |
+| `options_exclude` | text |  | Built-in options to leave off, one per line |
 | `disable_defaults` | bool | `false` | Disable Default Chrome Options |
 
 ### `console`
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `theme` | choice (synthwave, dark, light, system) | `synthwave` | How the Console and the remote look. System follows whether this computer is set to light or dark. |
+| `theme` | choice (synthwave, dark, light, system) | `synthwave` | How the Console and remote look. System matches the computer's light or dark. |
 | `list_art` | choice (none, wheel, backglass, playfield, logo) | `wheel` | The picture beside a game, table or collection's name in the Console's lists |
 | `list_art_shape` | choice (auto, square, wide) | `auto` | Automatic draws wheels square and the rest wide |
 | `list_art_height` | choice (small, medium, large) | `small` | Taller grid rows show bigger pictures and fit fewer on a screen |
@@ -160,8 +160,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `active` | string | `Revolution` | Active Theme |
 | `registries` | list | `https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json` | Catalogs to offer themes from, most trusted first. A source is fetched and installed, so add one you trust. |
-| `repositories` | list |  | Individual theme repos, each one a theme. Resolved before the registries. |
-| `refresh` | choice (never, daily, weekly, monthly) | `daily` | How often to read the theme registries and repositories again: what is offered, what has an update, and when each last changed. The last read is kept between. |
+| `repositories` | list |  | Individual theme repositories, one theme each. They take priority over the catalogs. |
+| `refresh` | choice (never, daily, weekly, monthly) | `daily` | How often to search for new themes and updates |
 | `last_read` | string |  |  |
 
 ### `logger`
@@ -179,7 +179,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `playfield_resolution` | choice (4k, 1k) | `4k` | Playfield Resolution |
 | `playfield_video_resolution` | choice (4k, 1k) | `1k` | Playfield Video Resolution |
 | `browse_dirs` | list |  | Extra folders you can add tables, media and assets from by hand. Your library folders are always available; anywhere else has to be listed here first. |
-| `manufacturer_logos_dir` | string |  | Logos a theme can show for a game's manufacturer. Your own go in its user folder and win over a downloaded pack's in default. |
+| `manufacturer_logos_dir` | string |  | Your own manufacturer logos. A theme uses them before the downloaded pack's. |
 | `wheelset` | string |  | Which wheel art set to use, as a folder under a game's medias/wheels/. The name logo shows each game's own logo instead. A theme can override this. |
 | `default_missing_image` | string |  | Default Missing Media Image |
 | `thumb_cache_max_mb` | int | `500` | Thumbnail Cache Max (MB) |
@@ -191,8 +191,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | `id` | string |  | Written by VPinFE on first start. Devices are told apart by this, so changing it makes this a different device. |
 | `setup_pending` | bool | `false` | Written true on this device's first save. Setup clears it when it finishes. |
 | `setup_done` | list |  | The Setup steps already answered. Setup reopens on the first one that is not. |
-| `display_name` | string |  | What to call this device where one is listed. Defaults to its hostname. Nothing is addressed by it, so renaming is safe. |
-| `features` | list | `library,frontend,devices` | What this device is for. Each one you add appears in the Console. Leave it empty and System is still here to come back and set it. |
+| `display_name` | string |  | What to call this device where one is listed. Defaults to its hostname. |
+| `features` | list | `library,frontend,devices` | What this device is for. Each one you add appears in the Console. |
 | `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Your library's own words - table names and the rest - are never translated. |
 
 ### `vpsdb`
@@ -229,7 +229,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `theme_assets_port` | int | `8000` | Theme Server Port |
 | `theme_assets_bind` | string | `127.0.0.1` | Which address to serve theme packages and table media on. The default answers this device only. Opening it wider shares read access to your table library. |
-| `ws_port` | int | `8002` | Port the frontend windows and the theme talk to VPinFE over. Loopback only. |
+| `ws_port` | int | `8002` | Port the frontend windows and the theme use to talk to VPinFE. Reachable from this device only. |
 | `http_port` | int | `8001` | Port this device answers on: the HTTP API, the Console, and the remote and mobile pages |
 | `library_url` | string |  | Which device this one reads its library from. Empty means it holds its own. Devices on your network are offered; type an address for one that is not. |
 | `verify_shared_library` | bool | `false` | On startup, check that the library this device reads is the one on disk here, by comparing file hashes. Reports what does not match, and changes nothing. |

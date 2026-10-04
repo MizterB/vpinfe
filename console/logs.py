@@ -195,8 +195,7 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
                 .props("flat dense round size=sm").tooltip(t("word.read_it_again"))
 
         if held["path"]:
-            panel.line(held["path"], hint=t("console.logs.where_file_reading_rest"),
-                       classes="console-help truncate max-w-xs")
+            panel.line(held["path"], classes="console-help truncate max-w-xs")
 
 
 def _jobs_controls(held: dict[str, Any], remember: Callable[[str, Any], Any]) -> None:

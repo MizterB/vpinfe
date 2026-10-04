@@ -43,7 +43,7 @@
     "one": "{count} of these is already here",
     "other": "{count} of these are already here"
   },
-  "wizard.existing.help": "Matched by folder, then by catalog id, so a renamed game is not brought in twice",
+  "wizard.existing.help": "Games already in your library are recognized even if they were renamed",
   "wizard.existing.on_existing.label": "What to do",
   "wizard.existing.more": "and {count} more",
   "wizard.summary.title": "This is what will happen",

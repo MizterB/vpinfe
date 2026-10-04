@@ -221,6 +221,29 @@ error raised from one carries `why(exc)` as its message, and the Console puts th
 own lead in turn. `tests/invariants/test_a_failure_leads_with_words.py` holds the whole tree
 to it.
 
+### Help says what a control does, or what to do next
+
+A help line, hint, caption or tooltip does one of two jobs. It says what the control does
+when it is used, or what to do next. A line that does neither is cut.
+
+- **Say what happens, not why it was built that way.** What the control changes, what it
+  deletes, what stays on disk, what needs a restart. How it works inside, what it used to
+  do and why the default is what it is belong in the commit message.
+- **A consequence stays, a defense goes.** "Anything changed since, such as a rating, is
+  lost" tells a person what happens to their data. "Nothing is addressed by it, so renaming
+  is safe" tells them how the code is wired.
+- **No words the person never meets elsewhere.** A line that needs an id, a resolver, a
+  record or a file format to make sense is describing the code.
+- **Do not answer a question nobody asked.** "Nothing is lost, so this is usually a drive
+  that has not come back" replies to a worry the person has not voiced. Say what happens
+  and the worry is answered.
+- **Do not restate.** Not the label, not the page title, not what the control already
+  shows (its state, its default), and not a line beside it.
+- **One sentence by default.** A second only for a consequence the first does not carry.
+
+To check a line, cover the label and read it as the person at the control. If it tells them
+nothing they could not see, or tells them something they did not need to decide, it goes.
+
 ### What is not a word
 
 Left in the code, and the checks know to leave them alone:
