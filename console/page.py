@@ -26,6 +26,7 @@ from console import (
     games,
     grid,
     offload,
+    power,
     remembered,
     remote,
     row_drag,
@@ -649,6 +650,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         set_mini(not state["mini"])
 
 
+    power_menu = power.Power(library, waiting_bar, state, devices,
+                             str(discovery.get("install_id") or ""))
     with ui.left_drawer(value=True).props(f"width={NAV_WIDE_PX} bordered") as left:
         # A nav header row carrying the collapse control - the shape 2.x already uses
         # (`manager-nav-header`). It is the panel's own chrome, so it costs nothing that
@@ -740,13 +743,14 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             failed_line.set_visibility(False)
             failed_line.on("click", lambda: _show_jobs(dismiss=True))
             labels.append(failed_text)
-            with ui.column().classes("gap-0 items-center w-full"):
+            with ui.row().classes("gap-2 items-center justify-center w-full no-wrap"):
                 # Which build this is. Identity rather than state, so it is always
                 # true and always shown. Whether a newer one exists is a device's
                 # business and is said on the Devices entry, which is one place for it
                 # rather than two that can disagree.
                 labels.append(ui.label(_version(discovery.get("vpinfe_version")))
                               .classes("text-xs opacity-70"))
+                power_menu.place()
 
     opened = time.time()
     # A watch started by `watch_jobs` runs as a task of its own, outside the page.
@@ -910,6 +914,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     job_timer = ui.timer(JOBS_RUNNING_S, _watch_jobs)
     ui.timer(waiting.POLL_S, waiting_bar.refresh)
     ui.timer(0.1, waiting_bar.refresh, once=True)
+    ui.timer(0.1, power_menu.load, once=True)
 
     def watch_jobs() -> None:
         """For a job this page has just started."""
@@ -939,6 +944,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             state.setdefault("device_actions", {})[device_id] = \
                 await devices_page.load_actions(library, entry, discovery.get("install_id"),
                                                 found)
+            if device_id == power_menu.local_id:
+                power_menu.refill()
 
     async def _look_for_update() -> None:
         """Mark each device with whether it answered, and Devices with how many of them

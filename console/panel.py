@@ -1174,6 +1174,14 @@ def verb_menu(menu: Any, name: str, entries: Sequence[Verb]) -> None:
         verb_entries(entries, menu.close)
 
 
+def menu_button(icon: str, hint: str) -> tuple[Any, Any]:
+    """A round icon button and the menu it opens, for the caller to fill."""
+    button = ui.button(icon=icon).props("flat dense round size=sm").tooltip(hint)
+    with button:
+        menu = ui.menu()
+    return button, menu
+
+
 def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
     """The panel header's menu, for the subject the panel is about."""
     slot.clear()
@@ -1181,9 +1189,8 @@ def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
     if not shown:
         return
     with slot:
-        button = ui.button(icon=verbs.MORE).props("flat dense round size=sm") \
-            .tooltip(t("word.actions"))
-        with button, ui.menu() as menu:
+        _button, menu = menu_button(verbs.MORE, t("word.actions"))
+        with menu:
             verb_entries(shown, menu.close)
 
 

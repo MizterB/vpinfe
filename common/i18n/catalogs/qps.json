@@ -1503,6 +1503,7 @@
   "console.page.not_found": "Ñöţ ƒöûñđ",
   "console.page.not_library": "Ñöţ îñ ţĥîš ŀîƀřàřý",
   "console.page.player": "Þŀàýèř",
+  "console.page.power": "Þöŵèř",
   "console.page.previous_game": "Þřèṽîöûš ĝàɱè",
   "console.page.reading_library_disk": "Řèàđîñĝ ţĥè ŀîƀřàřý ƒřöɱ đîšķ",
   "console.page.resume": "Řèšûɱè",
@@ -2491,8 +2492,13 @@
   "console.vpx_input.other_key": "Öţĥèř ķèý",
   "console.vpx_input.other_key.help": "À ķèý ţĥîš þàĝè ĥàš ñö ñàɱè ƒöř - ķèþţ àš îţ îš",
   "console.vpx_input.visual_pinball_defaults": "Ṽîšûàŀ Þîñƀàŀŀ'š đèƒàûŀţš",
+  "console.waiting.changes": {
+    "one": "1 çĥàñĝè ŵàîţîñĝ",
+    "other": "{count} çĥàñĝèš ŵàîţîñĝ"
+  },
   "console.waiting.could_not_undo": "Çöûŀđ ñöţ þûţ ţĥè šèţţîñĝš ƀàçķ",
   "console.waiting.dismiss": "Đîšɱîšš",
+  "console.waiting.menu_lead": "{label} - {note}",
   "console.waiting.reopen": "Ŵàîţîñĝ ƒöř ţĥè ŵîñđöŵš ţö řèöþèñ: {names}",
   "console.waiting.reopen_windows": "Řèöþèñ ŵîñđöŵš",
   "console.waiting.reopening": "Řèöþèñîñĝ ţĥè ŵîñđöŵš",

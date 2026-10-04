@@ -15,7 +15,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import settings_waiting
+from common import lifecycle, settings_waiting
 from common.failures import why
 from common.i18n import t
 from console import confirm, offload, panel, remembered, verbs
@@ -113,6 +113,7 @@ class Bar:
         self.library = library
         self.redraw = redraw
         self.answer: dict[str, Any] = {}
+        self.watchers: list[Callable[[], None]] = []
         self._slot: ui.element | None = None
         self._going: str = ""
         self._until = 0.0
@@ -147,7 +148,32 @@ class Bar:
             remembered.put(REMEMBERED, sorted(held))
         return held
 
+    def quiet(self) -> bool:
+        """Something waits and the line has been put away for it."""
+        return (bool(self.count()) and not self._going
+                and hidden(self.answer, self._dismissed()))
+
+    def lead(self) -> tuple[tuple[str, str], str] | None:
+        """What the line would have offered, and how much is waiting on it, for a menu to
+        lead with once the line is gone. None while the line is up or nothing waits."""
+        if not self.quiet():
+            return None
+        pair = (lifecycle.FRONTEND, lifecycle.RESTART) if waiting_for(self.answer) == REOPEN \
+            else (lifecycle.VPINFE, lifecycle.RESTART)
+        waiting = self.count()
+        return pair, t("console.waiting.changes", count=waiting)
+
+    def routes(self) -> dict[tuple[str, str], Callable[[], Any]]:
+        """The two actions the line performs, which also follow the Console to a new port."""
+        return {(lifecycle.VPINFE, lifecycle.RESTART): self.restart,
+                (lifecycle.FRONTEND, lifecycle.RESTART): self.reopen}
+
     def _draw(self) -> None:
+        self._draw_line()
+        for watcher in self.watchers:
+            watcher()
+
+    def _draw_line(self) -> None:
         slot = self._slot
         if slot is None or slot.is_deleted:
             return
@@ -169,11 +195,11 @@ class Bar:
             ui.icon("error_outline").classes("console-attention-icon")
             ui.label(heading(self.answer)).classes("console-attention-line grow")
             if reopening:
-                panel.action(t("console.waiting.reopen_windows"), self._reopen,
+                panel.action(t("console.waiting.reopen_windows"), self.reopen,
                              icon=verbs.REFRESH,
                              hint=t("action.frontend.restart.help"))()
             else:
-                panel.action(t("action.vpinfe.restart"), self._restart, icon=verbs.RESET,
+                panel.action(t("action.vpinfe.restart"), self.restart, icon=verbs.RESET,
                              hint=t("console.waiting.restart_help"))()
             panel.action(t("console.waiting.undo"), self._undo, icon=verbs.REVERT,
                          hint=t("console.waiting.undo_help"))()
@@ -191,23 +217,30 @@ class Bar:
         self._draw()
 
     @on_page
-    async def _restart(self) -> None:
+    async def restart(self) -> None:
         label = t("action.vpinfe.restart")
         if not await confirm.ask(f"{label}?", detail=t("console.waiting.restart_detail"),
                                  confirm=label, icon=verbs.RESET):
             return
         port = int(self.answer.get("http_port") or 0)
         try:
-            await offload.io(self.library.perform_action, "vpinfe", "restart")
+            done = await offload.io(self.library.perform_action, "vpinfe", "restart")
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
             ui.notify(t("said.could_not_do_that"), caption=why(exc), type="negative")
             return
-        self._hold(t("console.waiting.restarting"), RESTART_HOLD_S)
+        if not done.get("performed"):
+            ui.notify(t("console.devices.not_happen", label=label), type="warning")
+            return
+        if self.count():
+            self._hold(t("console.waiting.restarting"), RESTART_HOLD_S)
+        else:
+            # The line has nothing to say about it, and the menu is the only other voice.
+            ui.notify(label, type="positive")
         if port:
             ui.run_javascript(follow_script(port))
 
     @on_page
-    async def _reopen(self) -> None:
+    async def reopen(self) -> None:
         try:
             done = await offload.io(self.library.perform_action, "frontend", "restart")
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
@@ -217,7 +250,10 @@ class Bar:
             ui.notify(t("console.devices.not_happen", label=t("console.waiting.reopen_windows")),
                       type="warning")
             return
-        self._hold(t("console.waiting.reopening"), REOPEN_HOLD_S)
+        if self.count():
+            self._hold(t("console.waiting.reopening"), REOPEN_HOLD_S)
+        else:
+            ui.notify(t("console.waiting.reopen_windows"), type="positive")
         await self.refresh()
 
     @on_page

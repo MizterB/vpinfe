@@ -166,14 +166,14 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
     async def test_restart_asks_first_and_goes_nowhere_on_a_no(self) -> None:
         bar, _slot = await self._drawn()
         with patch.object(confirm, "ask", AsyncMock(return_value=False)):
-            await _on_page(bar._restart)
+            await _on_page(bar.restart)
         self.library.perform_action.assert_not_called()
 
     async def test_restart_on_a_yes_restarts_and_says_so_in_place_of_the_buttons(self) -> None:
         bar, slot = await self._drawn()
         with patch.object(confirm, "ask", AsyncMock(return_value=True)), \
                 patch.object(ui, "run_javascript") as script:
-            await _on_page(bar._restart)
+            await _on_page(bar.restart)
         self.library.perform_action.assert_called_once_with("vpinfe", "restart")
         self.assertIn("Restarting VPinFE. This page follows when it is back.", _labels(slot))
         self.assertIn("String(8011)", script.call_args.args[0])
@@ -182,7 +182,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
         self.library.config_waiting.return_value = _answer(ROTATION, reopen=True)
         self.library.perform_action.return_value = {"performed": True}
         bar, slot = await self._drawn()
-        await _on_page(bar._reopen)
+        await _on_page(bar.reopen)
         self.library.perform_action.assert_called_once_with("frontend", "restart")
         self.assertIn("Reopening the windows", _labels(slot))
 
@@ -191,7 +191,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
         self.library.perform_action.return_value = {"performed": False}
         bar, slot = await self._drawn()
         with patch.object(ui, "notify") as note:
-            await _on_page(bar._reopen)
+            await _on_page(bar.reopen)
         self.assertEqual(note.call_args.args[0], "Reopen windows did not happen")
         self.assertNotIn("Reopening the windows", _labels(slot))
 

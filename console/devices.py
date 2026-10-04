@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from typing import Any
 
 from nicegui import run, ui
@@ -163,19 +164,36 @@ def _connection_rows(device: dict[str, Any],
 
 def acts(library: Any, device: dict[str, Any], rerender: Callable[[], Any] | None,
          *, client: Any = None, offered: list[dict[str, Any]] | None = None,
-         forgettable: bool = True) -> list[panel.Verb]:
+         forgettable: bool = True,
+         routed: dict[tuple[str, str], Callable[[], Any]] | None = None,
+         led: tuple[tuple[str, str], str] | None = None) -> list[panel.Verb]:
     """What can be done to one device: what it says it performs, then Forget.
 
     `offered` is the device's own `/actions` answer, read where the page already reaches
     the device, because a menu has to open at once. `forgettable` is false for this
     install's own entry, which announces itself again at once.
+
+    `routed` swaps a pair's handler for one that asks and reports for itself. `led` puts a
+    pair first, with its note after the label.
     """
-    out = [_device_verb(device, client, entry) for entry in _menu_entries(offered or [])]
+    entries = _menu_entries(offered or [])
+    out = [_device_verb(device, client, entry, (routed or {}).get(_pair(entry)))
+           for entry in entries]
+    at = next((i for i, entry in enumerate(entries)
+               if led is not None and _pair(entry) == led[0]), None)
+    if at is not None and led is not None:
+        first = out.pop(at)
+        out.insert(0, replace(first, label=t("console.waiting.menu_lead",
+                                             label=first.label, note=led[1])))
     if forgettable:
         out.append(panel.Verb(t("word.forget"),
                               lambda: _confirm_forget(library, device, rerender),
                               danger=True))
     return out
+
+
+def _pair(entry: dict[str, Any]) -> tuple[str, str]:
+    return str(entry.get("scope") or ""), str(entry.get("action") or "")
 
 
 def usable(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -191,7 +209,13 @@ def _menu_entries(offered: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [by_pair[pair] for pair in MENU_ACTIONS if pair in by_pair]
 
 
-def _device_verb(device: dict[str, Any], client: Any, entry: dict[str, Any]) -> panel.Verb:
+def offers(offered: list[dict[str, Any]] | None, pair: tuple[str, str]) -> bool:
+    """Whether the device's menu carries this pair."""
+    return any(_pair(entry) == pair for entry in _menu_entries(offered or []))
+
+
+def _device_verb(device: dict[str, Any], client: Any, entry: dict[str, Any],
+                 routed: Callable[[], Any] | None = None) -> panel.Verb:
     """One of the device's lifecycle verbs, asked about first where it costs the machine
     something. One that can run but not now is offered and refused, with its reason."""
     scope = str(entry["scope"])
@@ -200,6 +224,8 @@ def _device_verb(device: dict[str, Any], client: Any, entry: dict[str, Any]) -> 
     if not entry.get("available", True):
         return panel.Verb(label, danger=scope == lifecycle.SYSTEM,
                           hint=str(entry.get("reason") or ""))
+    if routed is not None:
+        return panel.Verb(label, routed, danger=scope == lifecycle.SYSTEM)
 
     @on_page
     async def go() -> None:

@@ -69,6 +69,36 @@ class MenuOrderTests(unittest.TestCase):
         self.assertEqual(labels(verbs), [t("word.forget")])
 
 
+class RoutedAndLedTests(unittest.TestCase):
+    def test_a_routed_pair_runs_what_it_was_given_and_asks_nothing_itself(self) -> None:
+        handler = Mock()
+
+        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=EVERY,
+                             forgettable=False,
+                             routed={(lifecycle.VPINFE, lifecycle.RESTART): handler})
+
+        self.assertIs(verbs[0].run, handler)
+        self.assertIsNot(verbs[1].run, handler)
+
+    def test_a_led_pair_goes_first_with_its_note_after_the_label(self) -> None:
+        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=EVERY,
+                             forgettable=False,
+                             led=((lifecycle.FRONTEND, lifecycle.RESTART), "2 changes waiting"))
+
+        self.assertEqual(labels(verbs)[:3], [
+            f"{t('action.frontend.restart')} - 2 changes waiting",
+            t("action.vpinfe.restart"), t("action.vpinfe.stop")])
+
+    def test_a_led_pair_this_device_does_not_offer_leaves_the_menu_as_it_was(self) -> None:
+        headless = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
+
+        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=headless,
+                             forgettable=False,
+                             led=((lifecycle.FRONTEND, lifecycle.RESTART), "1 change waiting"))
+
+        self.assertEqual(labels(verbs)[0], t("action.vpinfe.restart"))
+
+
 class OlderInstallTests(unittest.TestCase):
     def test_an_entry_an_older_install_listed_to_say_nothing_performs_it_is_dropped(self) -> None:
         said = entry("frontend", "restart", available=False,

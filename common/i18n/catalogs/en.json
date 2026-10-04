@@ -1503,6 +1503,7 @@
   "console.page.not_found": "Not found",
   "console.page.not_library": "Not in this library",
   "console.page.player": "Player",
+  "console.page.power": "Power",
   "console.page.previous_game": "Previous game",
   "console.page.reading_library_disk": "Reading the library from disk",
   "console.page.resume": "Resume",
@@ -2491,8 +2492,13 @@
   "console.vpx_input.other_key": "Other key",
   "console.vpx_input.other_key.help": "A key this page has no name for - kept as it is",
   "console.vpx_input.visual_pinball_defaults": "Visual Pinball's defaults",
+  "console.waiting.changes": {
+    "one": "1 change waiting",
+    "other": "{count} changes waiting"
+  },
   "console.waiting.could_not_undo": "Could not put the settings back",
   "console.waiting.dismiss": "Dismiss",
+  "console.waiting.menu_lead": "{label} - {note}",
   "console.waiting.reopen": "Waiting for the windows to reopen: {names}",
   "console.waiting.reopen_windows": "Reopen windows",
   "console.waiting.reopening": "Reopening the windows",

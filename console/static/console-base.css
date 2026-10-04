@@ -1169,6 +1169,15 @@ body::before {
   right: -4px;
 }
 
+/* The same badge with no number: something is waiting behind a control that has no room
+   for one. */
+.console-nav-badge--dot {
+  min-width: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+}
+
 /* A log, read the way `tail` shows one: newest last, monospaced so timestamps and levels
    line up down the column, and the message under its own header line rather than beside
    it - a traceback is the case that matters and it has nowhere to go on one line. */
