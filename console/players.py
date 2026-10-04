@@ -65,9 +65,10 @@ _NAME = (
     " const d = params.data || {};"
     " let said = esc(params.value == null ? '' : params.value);"
     " const kind = kinds[d.kind];"
-    " if (kind) said += ' <span class=\"console-member-chip console-chip-quiet\" title=\"'"
-    " + esc(kind.tip) + '\">' + esc(kind.label) + '</span>';"
-    " if (d.up) said += ' <span class=\"console-member-chip console-tier console-tier--on\""
+    " if (kind) said += ' <span class=\"console-member-chip console-cell-chip"
+    " console-chip-quiet\" title=\"' + esc(kind.tip) + '\">' + esc(kind.label) + '</span>';"
+    " if (d.up) said += ' <span class=\"console-member-chip console-cell-chip"
+    " console-tier console-tier--on\""
     " title=\"' + upTip + '\">' + up + '</span>';"
     " if (d.session) said += ' <span class=\"console-cell-quiet\">' + esc(d.session)"
     " + '</span>';"
@@ -79,7 +80,7 @@ _INITIALS = (
     f" const same = esc({json.dumps(t('console.players.same_initials'))});"
     " const d = params.data || {};"
     " const said = esc(params.value == null ? '' : params.value);"
-    " return d.shared ? said + ' <span class=\"console-member-chip console-tier"
+    " return d.shared ? said + ' <span class=\"console-member-chip console-cell-chip console-tier"
     " console-tier--warn\" title=\"' + esc(d.shared) + '\">' + same + '</span>' : said; }"
 )
 

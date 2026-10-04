@@ -65,7 +65,7 @@ _NAME = (
     " console-cell-mark--chosen\" title=\"' + tip + '\">" + verbs.OPENS_ON + "</i>';"
     " if (d.in_frontend === false) said += ' <i class=\"material-icons console-cell-mark\""
     " title=\"' + off + '\">" + verbs.HIDE + "</i>';"
-    " if (d.unsaved) said += ' <span class=\"console-member-chip console-tier"
+    " if (d.unsaved) said += ' <span class=\"console-member-chip console-cell-chip console-tier"
     " console-tier--warn\" title=\"' + why + '\">' + unsaved + '</span>';"
     f" const art = d['{list_art.FIELD}'] ?? null;"
     " if (art == null) return said;"
@@ -85,8 +85,8 @@ _GAMES = (
     "params => {" + _ESCAPE +
     " const d = params.data || {};"
     " const said = esc(d.games_said || (params.value ?? ''));"
-    " const chip = text => text ? ' <span class=\"console-member-chip console-tier"
-    " console-tier--warn\">' + esc(text) + '</span>' : '';"
+    " const chip = text => text ? ' <span class=\"console-member-chip console-cell-chip"
+    " console-tier console-tier--warn\">' + esc(text) + '</span>' : '';"
     " return said + chip(d.missing_said) + chip(d.hidden_said); }"
 )
 
