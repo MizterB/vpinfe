@@ -102,9 +102,9 @@ class CapabilityStateTests(unittest.TestCase):
 
 
 class SectionsItServesTests(unittest.TestCase):
-    """Logs and Control are on a device's panel unless it is known not to serve them."""
+    """Logs are on a device's panel unless it is known not to serve them."""
 
-    SERVED = {"device_logs", "device_control"}
+    SERVED = {"device_logs"}
 
     def _shown(self, device: dict, reach: dict | None = None,
                local: set[str] | None = None) -> set[str]:
@@ -136,9 +136,8 @@ class SectionsItServesTests(unittest.TestCase):
         shown = self._shown({"device_id": "Bbbb222222", "kind": "vpinfe"}, reach)
 
         self.assertIn("device_logs", shown)
-        self.assertNotIn("device_control", shown)
 
-    def test_an_install_nobody_could_ask_keeps_both_to_say_why(self) -> None:
+    def test_an_install_nobody_could_ask_keeps_its_logs_to_say_why(self) -> None:
         reach = {"state": device_client.UNREACHABLE}
 
         shown = self._shown({"device_id": "Bbbb222222", "kind": "vpinfe"}, reach)

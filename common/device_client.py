@@ -299,8 +299,7 @@ class RemoteDevice:
              "reason": reason or "asked from another install"}) or {})
 
     def actions(self) -> list[dict[str, Any]]:
-        """What that install says it can be asked to do, and which of them are wired
-        up over there rather than here."""
+        """What that install says it can be asked to do and performs."""
         from common import http_client
 
         try:

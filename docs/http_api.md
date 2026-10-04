@@ -126,7 +126,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/devices/{id}/games` | What a VPX Mobile device is carrying, asked of the device every time |
 | POST | `/api/v1/devices/{id}/games` | Send games to it, `{"games": [...], "everything": false}`: each game's default table and what it needs, or with `everything` its whole folder. Returns `202` and a job |
 | DELETE | `/api/v1/devices/{id}/games/{name}` | Remove a game from it. `204` |
-| GET | `/api/v1/actions` | What this install can be asked to do to itself. Every pair the build has, with `available` saying which are wired up here. One that is not carries `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
+| GET | `/api/v1/actions` | What this install can be asked to do to itself. Only the pairs it performs, so a headless install lists no window action. One that can run but not now stays, with `available` false and a `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
 | POST | `/api/v1/actions` | Do one. `{"scope","action","reason"}`. One that takes this process or this device down answers before it goes, so `performed` means the work was handed over |
 | GET | `/api/v1/logs` | Recent records from this install's own log, oldest last (`limit`, `level`, `contains`). A record carries its continuation lines, so a traceback arrives whole |
 | GET | `/api/v1/manufacturers` | Every manufacturer VPSdb or the library knows: computed slug, effective alias, resolved logo (or `null`), library game count. The reference for logo packs and alias maps |

@@ -9,7 +9,8 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import device_client, device_registry
+from common import device_client, device_registry, lifecycle
+from common.host import action_ops
 from common.i18n import t
 from common.labels import humanize
 from console import offload, renderers, verbs
@@ -67,17 +68,16 @@ LOG_LEVELS = {
     "WARNING": "console-log-warn",
 }
 
-# What an icon says about a verb, where the verb alone reads as either direction.
-_ACTION_ICONS = {
-    ("table", "stop"): "stop_circle",
-    ("frontend", "start"): "launch",
-    ("frontend", "stop"): "close",
-    ("frontend", "restart"): "refresh",
-    ("vpinfe", "stop"): "power_settings_new",
-    ("vpinfe", "restart"): "restart_alt",
-    ("system", "stop"): "power_settings_new",
-    ("system", "restart"): "restart_alt",
-}
+# What a device's menu can offer, in the order it is drawn. The two that take the whole
+# machine down are last, which is where `panel.verb_entries` puts a danger verb anyway.
+MENU_ACTIONS = (
+    (lifecycle.VPINFE, lifecycle.RESTART), (lifecycle.FRONTEND, lifecycle.RESTART),
+    (lifecycle.VPINFE, lifecycle.STOP),
+    (lifecycle.SYSTEM, lifecycle.RESTART), (lifecycle.SYSTEM, lifecycle.STOP),
+)
+QUIT = (lifecycle.VPINFE, lifecycle.STOP)
+# What a lifecycle action costs, which is what decides whether it is asked about first.
+_ASKED = {lifecycle.VPINFE, lifecycle.SYSTEM}
 
 # What a probe found, as the mark on a rail row and the chip on the page. Green for
 # answering, because that is the one a person scans the rail for.
@@ -161,12 +161,91 @@ def _connection_rows(device: dict[str, Any],
     return rows
 
 
-def acts(library: Any, device: dict[str, Any],
-         rerender: Callable[[], Any] | None) -> list[panel.Verb]:
-    """What can be done to one device's entry here. Never offered for this install's
-    own, which is the one reading the Console and announces itself again at once."""
-    return [panel.Verb(t("word.forget"), lambda: _confirm_forget(library, device, rerender),
-                       danger=True)]
+def acts(library: Any, device: dict[str, Any], rerender: Callable[[], Any] | None,
+         *, client: Any = None, offered: list[dict[str, Any]] | None = None,
+         forgettable: bool = True) -> list[panel.Verb]:
+    """What can be done to one device: what it says it performs, then Forget.
+
+    `offered` is the device's own `/actions` answer, read where the page already reaches
+    the device, because a menu has to open at once. `forgettable` is false for this
+    install's own entry, which announces itself again at once.
+    """
+    out = [_device_verb(device, client, entry) for entry in _menu_entries(offered or [])]
+    if forgettable:
+        out.append(panel.Verb(t("word.forget"),
+                              lambda: _confirm_forget(library, device, rerender),
+                              danger=True))
+    return out
+
+
+def usable(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """What a device listed, less what it only listed to say nothing performs it - which
+    is how an install from before the list was filtered says so."""
+    return [entry for entry in entries
+            if entry.get("available", True) or entry.get("reason_key") != action_ops.NOT_WIRED]
+
+
+def _menu_entries(offered: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_pair = {(str(entry.get("scope") or ""), str(entry.get("action") or "")): entry
+               for entry in usable(offered)}
+    return [by_pair[pair] for pair in MENU_ACTIONS if pair in by_pair]
+
+
+def _device_verb(device: dict[str, Any], client: Any, entry: dict[str, Any]) -> panel.Verb:
+    """One of the device's lifecycle verbs, asked about first where it costs the machine
+    something. One that can run but not now is offered and refused, with its reason."""
+    scope = str(entry["scope"])
+    action = str(entry["action"])
+    label = lifecycle.label(scope, action)
+    if not entry.get("available", True):
+        return panel.Verb(label, danger=scope == lifecycle.SYSTEM,
+                          hint=str(entry.get("reason") or ""))
+
+    @on_page
+    async def go() -> None:
+        if scope in _ASKED and not await confirm.ask(
+                f"{label}?",
+                detail=t("console.devices.quit_detail" if (scope, action) == QUIT
+                         else "console.devices.happens_now",
+                         device_label=device_label(device)),
+                confirm=label, icon=verbs.STOP):
+            return
+        try:
+            done = await offload.io(client.perform_action, scope, action)
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            ui.notify(t("said.could_not_do_that"), caption=_why(exc), type="negative")
+            return
+        # A machine on its way down answers before it goes, so "performed" here means
+        # the work was handed over rather than finished.
+        ui.notify(label if done.get("performed")
+                  else t("console.devices.not_happen", label=label),
+                  type="positive" if done.get("performed") else "warning")
+
+    return panel.Verb(label, go, danger=scope == lifecycle.SYSTEM)
+
+
+async def load_actions(library: Any, device: dict[str, Any], local_device_id: str | None,
+                       reach: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """What a device says it performs, or nothing from one that cannot say.
+
+    Never raises: a device that is asleep, a phone, or an install from before the route
+    existed gets its entry's own verbs and no more.
+    """
+    local = device.get("device_id") == local_device_id
+    if device.get("kind") == device_registry.KIND_VPX_MOBILE:
+        return []
+    if not local and (reach or {}).get("state") != device_client.ANSWERING:
+        return []
+    client: Any = library if local else device_client.for_device(device, local_device_id)
+    if client is None:
+        return []
+    try:
+        return usable(await offload.io(client.actions))
+    except device_client.TooOldError:
+        return []
+    except Exception:  # noqa: BLE001 - unreachable is a state, not a 500
+        logger.info("Could not ask %s what it does", device_label(device), exc_info=True)
+        return []
 
 
 @on_page
@@ -553,12 +632,22 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
 
     def _fill_row_menu(row: dict | None) -> None:
         menu.clear()
-        if not row or row.get("self"):
+        if not row:
             return
-        device = known.get(str(row.get("id") or ""))
+        device_id = str(row.get("id") or "")
+        device = known.get(device_id)
         if device is None:
             return
-        panel.verb_menu(menu, str(row.get("name") or ""), acts(library, device, rerender))
+        offered = acts(
+            library, device, rerender,
+            client=library if row.get("self")
+            else device_client.for_device(device, local_device_id),
+            offered=(state.get("device_actions") or {}).get(device_id),
+            forgettable=not row.get("self"))
+        panel.verb_menu(menu, str(row.get("name") or ""), offered)
+        if not offered:
+            # The browser opened it on the click; there is nothing to show yet.
+            menu.close()
 
     async def on_header_context(col_id: str | None) -> None:
         await grid.header_menu(menu, table, COLUMNS, col_id)
@@ -588,7 +677,7 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
         table = grid.build(COLUMNS, built, SCOPE, on_select_rows,
                            on_context=_fill_row_menu,
                            on_header_context=on_header_context, view_of=showing,
-                           rows_without_a_menu=mine, rows_not_selectable=mine)
+                           rows_not_selectable=mine)
         menu = ui.context_menu()
 
         def keep_current() -> None:
@@ -628,7 +717,7 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
 # hand back fact rows, because what a device is and what may be asked of it belongs
 # with the device rather than with the panel that draws it.
 
-def _client_for(context: dict[str, Any]) -> Any:
+def client_for(context: dict[str, Any]) -> Any:
     """Who answers for this device. This install's own client for itself, the client
     that reaches it for anything else - both expose the same calls, which is what lets
     one page draw either."""
@@ -678,6 +767,7 @@ async def detail_groups(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     rows_out += await _identity_rows(context)
     rows_out.append((panel.HEADING, t("console.devices.connection")))
     rows_out += _connection_rows(_of(context), context.get("reach"))
+    rows_out += await _playing_rows(context)
     if is_phone(context):
         # A phone is not an install: no software, no lifecycle, no settings of ours to
         # open. What it has instead is the one thing this end can act on - the games it
@@ -691,6 +781,42 @@ async def detail_groups(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     rows_out.append((panel.HEADING, t("console.devices.entry")))
     rows_out += entry_rows(context)
     return rows_out
+
+
+async def _playing_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """The table being played there, with the way to close it. Nothing while none is,
+    and nothing from a device that does not say it can close one or does not answer."""
+    pair = {"scope": lifecycle.TABLE, "action": lifecycle.STOP}
+    if not any(pair.items() <= entry.items() for entry in context.get("actions") or []):
+        return []
+    client = client_for(context)
+    try:
+        playing = await offload.io(client.play_state)
+    except Exception:  # noqa: BLE001 - a row that cannot be read is not shown
+        logger.info("Could not ask %s what it is playing", device_label(_of(context)),
+                    exc_info=True)
+        return []
+    if not playing.get("launching"):
+        return []
+    name = str(playing.get("game_name") or "")
+
+    @on_page
+    async def close() -> None:
+        try:
+            await offload.io(client.perform_action, lifecycle.TABLE, lifecycle.STOP)
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            ui.notify(t("said.could_not_do_that"), caption=_why(exc), type="negative")
+            return
+        await context["rebuild"]()
+
+    def draw() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            if name:
+                ui.label(name).classes("console-fact-value truncate min-w-0").tooltip(name)
+            panel.action(t("console.devices.close_the_table"), close, icon=verbs.STOP,
+                         inline=True, hint=t("action.table.stop.help"))()
+
+    return [(t("console.devices.playing"), draw)]
 
 
 async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
@@ -908,7 +1034,7 @@ async def software_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """What it is running. Asked of the device rather than read from the registry,
     which holds no version at all."""
     device = _of(context)
-    client = _client_for(context)
+    client = client_for(context)
     update = context.get("update")
     ask = update_checker(is_local(context), client)
     why = ""
@@ -960,81 +1086,6 @@ def capability_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     return out or [panel.intro(t("console.devices.device_declares_nothing"))]
 
 
-# What a lifecycle action costs, which is what decides whether it is asked about twice.
-# Closing a table loses a game in progress; the rest lose the whole machine for a while.
-_HEAVY = {"vpinfe", "system"}
-
-
-async def action_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """What this device can be told to do, and what it will not answer for.
-
-    Every pair the build has, greyed where nothing over there performs it - two installs
-    showing different buttons look like different products, and the reason is the answer
-    to somebody asking why.
-    """
-    client = _client_for(context)
-    if client is None:
-        return [panel.intro(t(UNREACHABLE_NOTE))]
-    try:
-        offered = await offload.io(client.actions)
-    except device_client.TooOldError:
-        return [panel.intro(t(device_client.TOO_OLD))]
-    except Exception as exc:  # noqa: BLE001 - unreachable is a state, not a 500
-        logger.info("Could not ask %s what it does", device_label(_of(context)),
-                    exc_info=True)
-        return [panel.intro(t("console.devices.could_not_ask",
-                              device_label=device_label(_of(context))),
-                            hint=_why(exc))]
-    if not offered:
-        return [panel.intro(t("console.devices.device_offers_nothing"))]
-
-    rows_out: list[tuple[Any, Any]] = [panel.intro(t("console.devices.happen_on_this_device"))]
-    for entry in offered:
-        rows_out.append(("", _action_control(context, entry)))
-        if not entry.get("available") and entry.get("reason"):
-            rows_out.append(panel.note(str(entry["reason"])))
-    return rows_out
-
-
-def _action_control(context: dict[str, Any],
-                    entry: dict[str, Any]) -> Callable[[], None]:
-    """One verb, asked about first where it costs the machine."""
-    scope = str(entry.get("scope") or "")
-    action = str(entry.get("action") or "")
-    label = str(entry.get("label")
-                or t("console.devices.action_the_scope", action=action, scope=scope))
-    icon = verbs.STOP if action in ("stop", "restart") else verbs.RUN
-
-    @on_page
-    async def go() -> None:
-        if scope in _HEAVY and not await confirm.ask(
-                f"{label}?",
-                detail=t("console.devices.happens_now",
-                        device_label=(device_label(_of(context)))),
-                confirm=label, icon=icon):
-            return
-        client = _client_for(context)
-        try:
-            done = await offload.io(client.perform_action, scope, action)
-        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("said.could_not_do_that"), caption=_why(exc), type="negative")
-            return
-        # A machine on its way down answers before it goes, so "performed" here means
-        # the work was handed over rather than finished.
-        ui.notify(f"{label}" if done.get("performed") else t("console.devices.not_happen",
-                label=(label)),
-                  type="positive" if done.get("performed") else "warning")
-
-    def draw() -> None:
-        with ui.element("div").classes("console-fact-edit"):
-            panel.action(label, go, icon=_ACTION_ICONS.get((scope, action), "play_arrow"),
-                         inline=True, danger=scope in _HEAVY,
-                         enabled=bool(entry.get("available")),
-                         hint=t(f"action.{scope}.{action}.help"))()
-
-    return draw
-
-
 async def log_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """The tail of that install's own log.
 
@@ -1042,7 +1093,7 @@ async def log_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     rather than lines, so a traceback arrives under the message that caused it instead
     of as a dozen rows carrying no level of their own.
     """
-    client = _client_for(context)
+    client = client_for(context)
     if client is None:
         return [panel.intro(t(UNREACHABLE_NOTE))]
     try:

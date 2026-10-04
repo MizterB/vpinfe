@@ -111,7 +111,7 @@ Every one of these already existed for the Console and the API; Remote adds none
 | A guest's accounts, for the identity sheet | `GET /players/{id}/accounts` |
 | Share with an account, Save Card | `PUT /players/{id}/accounts/{ext}`, `/share`, `GET .../card` |
 
-`GET /actions` returns `available` and `reason` per action. Remote greys a button and shows that sentence rather than deciding for itself what is possible.
+`GET /actions` lists only what the install performs, so Remote offers no button for the rest. An action that can run but not now comes with `available` false and a `reason`; Remote dims its button and shows that sentence rather than deciding for itself what is possible.
 
 ## Where it lives
 

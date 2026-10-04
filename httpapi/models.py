@@ -141,8 +141,9 @@ class DeviceList(ApiModel):
 class Action(ApiModel):
     """One thing an install can be told to do to itself.
 
-    `available` is whether anything on this build performs it, which is not the same as
-    whether the vocabulary has it: a headless install owns no frontend windows.
+    Listed only where this install performs it, which is not the same as whether this
+    build's vocabulary has it: a headless install owns no frontend windows. `available`
+    false, with `reason`, is for one that can run but not now.
     """
 
     scope: str

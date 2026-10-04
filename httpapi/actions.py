@@ -21,8 +21,7 @@ router = APIRouter(prefix="/actions", tags=["actions"])
 @router.get("", summary="What this install can be asked to do",
             dependencies=[requires(scopes.SYSTEM_READ)])
 def list_actions() -> models.ActionList:
-    """Every pair, offered or not: a surface greys one rather than hiding it, because two
-    installs showing different buttons look like different products."""
+    """Only the pairs this install performs, so a headless one lists no window action."""
     return models.ActionList.model_validate(action_ops.listing())
 
 

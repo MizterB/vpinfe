@@ -1199,7 +1199,7 @@ class ApiClient:
         return response.json()
 
     def actions(self) -> list[dict]:
-        """What this install can be asked to do to itself, offered or not."""
+        """What this install can be asked to do to itself, and performs."""
         return list(self._get("/actions").get("actions") or [])
 
     def perform_action(self, scope: str, action: str, reason: str = "") -> dict:

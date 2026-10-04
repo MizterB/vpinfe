@@ -930,6 +930,16 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         if state.get("device_id") == device_id:
             await show_device(None)
 
+    async def _arrived(device_id: str, found: dict) -> None:
+        """`_reached`, then what that device says it can be asked to do, for its menus."""
+        await _reached(device_id, found)
+        entry = next((one for one in devices
+                      if str(one.get("device_id") or "") == device_id), None)
+        if entry is not None:
+            state.setdefault("device_actions", {})[device_id] = \
+                await devices_page.load_actions(library, entry, discovery.get("install_id"),
+                                                found)
+
     async def _look_for_update() -> None:
         """Mark each device with whether it answered, and Devices with how many of them
         have an update, once per page load.
@@ -943,7 +953,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         waiting: list[str] = []
 
         async def reached(device_id: str, found: dict) -> None:
-            await _reached(device_id, found)
+            await _arrived(device_id, found)
             entry = entries.get(device_id) or {}
             client = device_client.for_device(entry, local_id)
             if found.get("state") != device_client.ANSWERING or client is None:
@@ -1259,7 +1269,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     async def _probe_devices() -> None:
         """Ask every device again, on demand. The page's own pass runs once on load;
         this is for when you have just gone and switched one on."""
-        failed = await devices_page.ask_each(devices, _probe_one, _reached)
+        failed = await devices_page.ask_each(devices, _probe_one, _arrived)
         if failed:
             ui.notify(t("console.page.could_not_ask_devices"), caption=why(failed[0]),
                       type="negative")

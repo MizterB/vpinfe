@@ -810,7 +810,9 @@ called Actions, which names the mechanism and says nothing about the subject.
   verb that only makes sense in one of them says so with `in_panel=False`, as Rename does
   where the panel already edits the name in place.
 - **Danger goes last, under a rule, in red.** A verb that cannot run right now stays in
-  the list, dimmed, with the reason under it, so nobody wonders where it went.
+  the list, dimmed, with the reason under it, so nobody wonders where it went. One this
+  install can never perform is not in the list at all: a headless install has no window
+  to reopen, so it does not offer one.
 - **One word per act.** **Delete** means gone from disk, or gone for good where there is
   no disk. **Remove** takes it out of the library and keeps the files. **Forget** stops
   tracking something VPinFE does not own. **Uninstall** is for a theme.

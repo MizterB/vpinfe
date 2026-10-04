@@ -1323,7 +1323,14 @@ async def _draw_device(container: ui.column, title: ui.column, library: Library,
             "device_capabilities": device_capabilities,
             "local_capabilities": local_capabilities,
             "reach": reach, "redraws": [], "dock": None,
+            "actions": (state.get("device_actions") or {}).get(
+                str(device.get("device_id") or "")),
         }
+        if context["actions"] is None:
+            context["actions"] = await devices_page.load_actions(
+                library, device, local_device_id, reach)
+            state.setdefault("device_actions", {})[
+                str(device.get("device_id") or "")] = context["actions"]
 
         context["rebuild"] = _rebuilds(
             context, f"device:{local_device_id}",
@@ -4622,12 +4629,6 @@ async def _device_logs(context: dict[str, Any]) -> None:
         _rows(ui, await devices_page.log_rows(context))
 
 
-async def _device_control(context: dict[str, Any]) -> None:
-    """What it can be told to do to itself."""
-    with ui.column().classes("gap-0 console-form"):
-        _rows(ui, await devices_page.action_rows(context))
-
-
 # The app's declared groups, as rail sections. Fixed rather than read at import: a
 # section key has to be stable for `section=` in an address to mean one thing, and the
 # groups an app declares are its own vocabulary rather than this file's.
@@ -7277,9 +7278,12 @@ def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:
 
 
 def _device_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    if devices_page.is_local(context) or context.get("library") is None:
+    if context.get("library") is None:
         return []
-    return devices_page.acts(context["library"], context["device"], _page_redraw(context))
+    return devices_page.acts(context["library"], context["device"], _page_redraw(context),
+                             client=devices_page.client_for(context),
+                             offered=context.get("actions"),
+                             forgettable=not devices_page.is_local(context))
 
 
 def _game_verbs(context: dict[str, Any]) -> list[panel.Verb]:
@@ -7389,11 +7393,6 @@ SECTIONS: tuple[Section, ...] = (
     Section("device_logs", lambda _: t("console.workbench.logs"), _device_logs,
             subjects=frozenset({"device"}),
             shown=lambda context: devices_page.serves(context, "logs")),
-    # Last, and it is the only one that changes anything: reading down the rail is
-    # reading from what a device is to what it can be told to do.
-    Section("device_control", lambda _: t("console.workbench.control"), _device_control,
-            subjects=frozenset({"device"}),
-            shown=lambda context: devices_page.serves(context, "actions")),
     Section("theme_details", lambda _: t("console.themes.theme"), themes_page.details,
             subjects=frozenset({"theme"})),
     Section("theme_settings", lambda _: t("console.themes.settings"),

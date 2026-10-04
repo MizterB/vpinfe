@@ -13,7 +13,6 @@ from unittest.mock import patch
 import httpapi
 from common import lifecycle
 from common.host import action_ops
-from common.i18n import t
 from tests.support.library import TempTree
 
 try:
@@ -34,15 +33,35 @@ class ActionsApiTests(TempTree):
         lifecycle.register_performer(scope, action, done.append)
         return done
 
-    def test_every_pair_is_listed_whether_or_not_it_is_wired_up(self) -> None:
-        """Hiding one makes two installs look like different products."""
+    def _listed(self) -> set[tuple[str, str]]:
+        return {(a["scope"], a["action"]) for a in self.client.get("/actions").json()["actions"]}
+
+    def test_only_what_is_wired_up_is_listed(self) -> None:
+        self._offer("frontend", "restart")
+        self._offer("vpinfe", "stop")
+
         body = self.client.get("/actions").json()
 
-        self.assertEqual(body["count"], len(lifecycle.offered()))
-        self.assertEqual({(a["scope"], a["action"]) for a in body["actions"]},
-                         set(lifecycle.offered()))
+        self.assertEqual(self._listed(), {("frontend", "restart"), ("vpinfe", "stop")})
+        self.assertEqual(body["count"], 2)
+
+    def test_an_install_with_no_windows_lists_no_window_action(self) -> None:
+        self._offer("vpinfe", "restart")
+
+        self.assertFalse({pair for pair in self._listed() if pair[0] == "frontend"})
+
+    def test_what_is_listed_is_available(self) -> None:
+        for pair in lifecycle.offered():
+            self._offer(*pair)
+
+        body = self.client.get("/actions").json()
+
+        self.assertEqual(self._listed(), set(lifecycle.offered()))
+        self.assertTrue(all(a["available"] and not a["reason"] for a in body["actions"]))
 
     def test_each_one_is_named_in_the_words_a_person_reads(self) -> None:
+        for pair in lifecycle.offered():
+            self._offer(*pair)
         body = self.client.get("/actions").json()
 
         for entry in body["actions"]:
@@ -51,14 +70,8 @@ class ActionsApiTests(TempTree):
                 self.assertNotEqual(entry["label"],
                                     f'{entry["action"]} the {entry["scope"]}')
 
-    def test_one_nothing_performs_says_so_rather_than_being_offered(self) -> None:
-        body = self.client.get("/actions").json()
-        found = next(a for a in body["actions"]
-                     if (a["scope"], a["action"]) == ("system", "restart"))
-
-        self.assertFalse(found["available"])
-        self.assertEqual(found["reason"], t(found["reason_key"]))
-        self.assertNotEqual(found["reason"], found["reason_key"])
+    def test_one_nothing_performs_is_not_offered(self) -> None:
+        self.assertNotIn(("system", "restart"), self._listed())
 
     def test_performing_one_goes_through_the_lifecycle_scope(self) -> None:
         done = self._offer("frontend", "restart")

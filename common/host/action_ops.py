@@ -4,10 +4,10 @@
 so this serves that rather than restating it - a pair added there appears here without
 this file being touched.
 
-Two lists, not one. What the vocabulary allows is fixed by the build; what is wired up
-depends on the install, and a headless one owns no frontend windows. A button that reports
-success while nothing happened is worse than one that is not offered, so both facts travel
-together.
+What the vocabulary allows is fixed by the build; what is wired up depends on the install,
+and a headless one owns no frontend windows. A button that reports success while nothing
+happened is worse than one that is not offered, so only what this install performs is
+listed.
 """
 
 from __future__ import annotations
@@ -27,25 +27,25 @@ GOES_AWAY = frozenset({
     (lifecycle.SYSTEM, lifecycle.STOP), (lifecycle.SYSTEM, lifecycle.RESTART),
 })
 
-# Why an action is not offered: the key is answered beside the words, so a surface with a
-# language of its own can say it in that one.
+# Why a request for an action nothing performs is refused. Older installs also sent it
+# as the reason on a listed entry, which is why a client drops entries carrying it.
 NOT_WIRED = "error.actions.nothing_performs_that"
 
 
 def _describe(scope: str, action: str) -> dict:
-    performable = lifecycle.performable(scope, action)
+    # `available` and `reason` stay on the wire for an action that can run but not now.
+    # Nothing is in that state today, so every entry is available.
     return {"scope": scope, "action": action,
             "label": lifecycle.label(scope, action),
             "label_key": f"action.{scope}.{action}",
-            "available": performable,
-            "reason": "" if performable else t(NOT_WIRED),
-            "reason_key": "" if performable else NOT_WIRED}
+            "available": True, "reason": "", "reason_key": ""}
 
 
 def listing() -> dict:
-    """Every pair, offered or not: a surface greys one rather than hiding it, because two
-    installs showing different buttons look like different products."""
-    found = [_describe(scope, action) for scope, action in lifecycle.offered()]
+    """Only the pairs this install performs. One it can never perform is not offered; one
+    that can run but not now would stay, with `available` false and its reason."""
+    found = [_describe(scope, action) for scope, action in lifecycle.offered()
+             if lifecycle.performable(scope, action)]
     return {"count": len(found), "actions": found}
 
 
