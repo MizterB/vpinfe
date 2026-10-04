@@ -56,6 +56,9 @@ class LiveInstance:
         # was all letters about 6% of the time. A digit denies the boundary.
         self._tmp = TemporaryDirectory(prefix="vpinfe-live0")
         self.config_dir = Path(self._tmp.name)
+        # The instance's home folder, so Setup's write of Visual Pinball's ini stays here.
+        self._home_tmp = TemporaryDirectory(prefix="vpinfe-home0")
+        self.home = Path(self._home_tmp.name)
         self.proc: subprocess.Popen | None = None
         self.ports: dict[str, int] = {}
 
@@ -97,8 +100,19 @@ class LiveInstance:
             # announced itself would turn up in the device list of whatever install is
             # already running here, which is exactly what its own config dir prevents.
             env={**os.environ, "VPINFE_CONFIG_DIR": str(self.config_dir),
-                 discovery.OFF: "1", http_client.OFFLINE: "1", "PYTHONUNBUFFERED": "1"},
+                 discovery.OFF: "1", http_client.OFFLINE: "1", "PYTHONUNBUFFERED": "1",
+                 **self._home_env()},
             stdout=self._log, stderr=subprocess.STDOUT, text=True)
+
+    def _home_env(self) -> dict[str, str]:
+        """Every variable a platform resolves home and preferences from: any one left
+        pointing at the real folder is the one that gets written."""
+        return {
+            "HOME": str(self.home),
+            "USERPROFILE": str(self.home),
+            "APPDATA": str(self.home / "AppData" / "Roaming"),
+            "XDG_DATA_HOME": str(self.home / ".local" / "share"),
+        }
 
     def _stop(self) -> None:
         """Take the instance down without touching the config dir it was built in."""
@@ -117,6 +131,7 @@ class LiveInstance:
     def __exit__(self, *_exc) -> None:
         self._stop()
         self._tmp.cleanup()
+        self._home_tmp.cleanup()
 
     # -- setup -------------------------------------------------------------
 

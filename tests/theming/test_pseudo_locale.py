@@ -228,7 +228,7 @@ class PseudoLocaleTests(unittest.TestCase):
             write_game(root, GAME)
             with LiveInstance(root,
                               extra_settings={("general", "language"): "qps"}) as instance:
-                allowed |= _machine_words(root, instance.config_dir,
+                allowed |= _machine_words(root, instance.config_dir, instance.home,
                                           Path(get_chromium_path("").path))
                 asyncio.run(look(instance))
 
