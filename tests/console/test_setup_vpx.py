@@ -255,8 +255,8 @@ class WhichPagesApplyTests(unittest.TestCase):
 
     def test_the_glass_applies_to_a_cabinet_alone(self) -> None:
         session = setup.Session(again=False, vpx=setup_vpx.Vpx(chosen=NEW, answered=True))
-        for cabinet, keys in ((True, [setup.HOW, setup.VPX, setup.GLASS, setup.VPX_KEYS]),
-                              (False, [setup.HOW, setup.VPX, setup.VPX_KEYS])):
+        every = [setup.HOW, setup.VPX, setup.GLASS, setup.VPX_KEYS, setup.TABLES]
+        for cabinet, keys in ((True, every), (False, [one for one in every if one != setup.GLASS])):
             with self.subTest(cabinet=cabinet), \
                  mock.patch.object(setup, "_cabinet", return_value=cabinet):
                 self.assertEqual(keys, [one.key for one in setup._applicable(session)])
@@ -268,9 +268,9 @@ class WhichPagesApplyTests(unittest.TestCase):
                                return_value=[setup.HOW, setup.VPX, setup.GLASS]):
             row = setup._row(session, setup._applicable(session))
 
-        self.assertEqual([setup.HOW, setup.VPX], [segment["key"] for segment in row])
+        self.assertEqual([setup.HOW, setup.VPX, setup.TABLES], [segment["key"] for segment in row])
         self.assertEqual([setup.VPX, setup.GLASS, setup.VPX_KEYS], row[1]["holds"])
-        self.assertEqual([True, False], [segment["done"] for segment in row])
+        self.assertEqual([True, False, False], [segment["done"] for segment in row])
 
 
 class GlassTests(unittest.TestCase):

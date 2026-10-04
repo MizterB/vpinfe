@@ -332,6 +332,19 @@ class LastStepTests(unittest.TestCase):
 
         self.assertIn("Next", [text for text, _icon in buttons])
 
+    def test_a_confirm_that_does_not_end_here_goes_on_with_next(self) -> None:
+        buttons = self._buttons({"step": "one", "fields": [], "confirm": "Finish",
+                                 "ends": lambda values: False})
+
+        self.assertIn("Next", [text for text, _icon in buttons])
+        self.assertNotIn("Finish", [text for text, _icon in buttons])
+
+    def test_a_confirm_that_ends_here_keeps_finish(self) -> None:
+        buttons = self._buttons({"step": "one", "fields": [], "confirm": "Finish",
+                                 "ends": lambda values: True})
+
+        self.assertIn(("Finish", "check"), buttons)
+
     def test_a_run_that_answers_a_step_draws_that_step(self) -> None:
         first = {"step": "one", "fields": [], "confirm": "Finish"}
         after = {"step": "two", "fields": [], "title": "Second"}

@@ -563,10 +563,39 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             # answer is complete, asked again after every change; `before()` draws above
             # the fields and `draw(values)` below them, writing into the values itself.
             gate: Callable[[dict[str, Any]], bool] | None = found.get("gate")
+            # Whether the answer as it stands is the last, for a step that carries a
+            # `confirm` but may still lead on: where it says no, the forward button is Next.
+            ends: Callable[[dict[str, Any]], bool] | None = found.get("ends")
             forward: list[Any] = []
 
+            def foot() -> None:
+                buttons.clear()
+                forward.clear()
+                with buttons:
+                    if aside:
+                        frame.aside(aside, lambda: dialog.submit(False), icon=verbs.CLOSE)
+                    if walk.history:
+                        frame.quiet(t("word.back"), _back, icon=verbs.BACK)
+                    elif not aside:
+                        frame.cancel(lambda: dialog.submit(False))
+                    if summary:
+                        go = frame.answer(str(found.get("confirm") or label or t("word.run")),
+                                           _start, icon=verbs.RUN)
+                    elif found.get("confirm") and (ends is None or ends(walk.values)):
+                        go = frame.answer(str(found["confirm"]), _start, icon=verbs.DONE)
+                    else:
+                        go = frame.answer(t("word.next"), _next, icon=verbs.NEXT)
+                    if not found.get("ready", True):
+                        go.disable()
+                    elif gate:
+                        forward.append(go)
+                        go.set_enabled(bool(gate(walk.values)))
+                go.classes(_FORWARD)
+
             def regate() -> None:
-                if forward and gate:
+                if ends is not None:
+                    foot()
+                elif forward and gate:
                     forward[0].set_enabled(bool(gate(walk.values)))
             welcome = _greeting(found, scroll, crest, mark)
             if found.get("steps"):
@@ -581,7 +610,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                     found["before"]()
                 held = _controls(list(found.get("fields") or []), walk.values,
                                  client=client, errors=dict(found.get("errors") or {}),
-                                 welcome=welcome, on_change=regate if gate else None)
+                                 welcome=welcome, on_change=regate if gate or ends else None)
                 if found.get("draw"):
                     found["draw"](walk.values)
                 if found.get("acts"):
@@ -590,26 +619,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                        t("console.ext_action.worth_knowing") if summary else "")
                 if not found.get("ready", True):
                     ui.label(str(found.get("reason") or "")).classes("console-help px-3")
-            with buttons:
-                if aside:
-                    frame.aside(aside, lambda: dialog.submit(False), icon=verbs.CLOSE)
-                if walk.history:
-                    frame.quiet(t("word.back"), _back, icon=verbs.BACK)
-                elif not aside:
-                    frame.cancel(lambda: dialog.submit(False))
-                if summary:
-                    go = frame.answer(str(found.get("confirm") or label or t("word.run")),
-                                       _start, icon=verbs.RUN)
-                elif found.get("confirm"):
-                    go = frame.answer(str(found["confirm"]), _start, icon=verbs.DONE)
-                else:
-                    go = frame.answer(t("word.next"), _next, icon=verbs.NEXT)
-                if not found.get("ready", True):
-                    go.disable()
-                elif gate:
-                    forward.append(go)
-                    regate()
-            go.classes(_FORWARD)
+            foot()
             # held keeps insertion order, so its first entry is the step's first field.
             first = next(iter(held.values()), None)
             control = first[1] if first else None

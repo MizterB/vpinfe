@@ -2191,7 +2191,43 @@
   "console.setup.open": "Öþèñ",
   "console.setup.open.help": "Öþèñš Šèţûþ öṽèř ţĥîš þàĝè",
   "console.setup.step.how": "Ĥöŵ ýöû þŀàý",
+  "console.setup.step.tables": "Ţàƀŀèš",
   "console.setup.step.vpx": "Ṽîšûàŀ Þîñƀàŀŀ",
+  "console.setup.tables.bring_in": "Ɓřîñĝ îñ à ŀîƀřàřý",
+  "console.setup.tables.bring_in_hint": "Àđđ ţàƀŀèš ƒřöɱ à ƒöŀđèř öř àñöţĥèř ƒřöñţèñđ",
+  "console.setup.tables.folder": "Îñ à ƒöŀđèř",
+  "console.setup.tables.folder_help": "Ṽîšûàŀ Þîñƀàŀŀ'š Ţàƀŀèš ƒöŀđèř, öř öñè öƒ ýöûř öŵñ",
+  "console.setup.tables.folder_placeholder": "Çĥööšè à ƒöŀđèř",
+  "console.setup.tables.found_folders": {
+    "one": "{count} ţàƀŀè, îñ à ƒöŀđèř öƒ îţš öŵñ",
+    "other": "{count} ţàƀŀèš, èàçĥ îñ à ƒöŀđèř öƒ îţš öŵñ"
+  },
+  "console.setup.tables.found_folders_help": "Ûšèđ ŵĥèřè ţĥèý àřè. Ñöţĥîñĝ îš çöþîèđ öř ɱöṽèđ.",
+  "console.setup.tables.found_loose": {
+    "one": "{count} ţàƀŀè, ŀööšè îñ ţĥîš ƒöŀđèř",
+    "other": "{count} ţàƀŀèš, ŀööšè îñ ţĥîš ƒöŀđèř"
+  },
+  "console.setup.tables.found_loose_help": "Èàçĥ ĝèţš à ƒöŀđèř öƒ îţš öŵñ öñ ţĥè ñèẋţ šţèþ.",
+  "console.setup.tables.found_mixed": {
+    "one": "{count} ţàƀŀè îñ à ƒöŀđèř öƒ îţš öŵñ, {loose} ŀööšè",
+    "other": "{count} ţàƀŀèš îñ ƒöŀđèřš öƒ ţĥèîř öŵñ, {loose} ŀööšè"
+  },
+  "console.setup.tables.found_mixed_help": {
+    "one": "Ţĥè ŀööšè öñè ĝèţš à ƒöŀđèř öƒ îţš öŵñ öñ ţĥè ñèẋţ šţèþ.",
+    "other": "Ţĥè {count} ŀööšè öñèš èàçĥ ĝèţ à ƒöŀđèř öƒ ţĥèîř öŵñ öñ ţĥè ñèẋţ šţèþ."
+  },
+  "console.setup.tables.found_none": "Ñö ţàƀŀèš îñ ţĥîš ƒöŀđèř",
+  "console.setup.tables.frontend": "Îñ àñöţĥèř ƒřöñţèñđ",
+  "console.setup.tables.frontend_help": "ÞîñÛÞ Þöþþèř, ÞîñƀàŀŀẊ, ÞîñƀàŀŀÝ öř ÈɱûŀàţîöñŠţàţîöñ",
+  "console.setup.tables.have": {
+    "one": "{count} ĝàɱè",
+    "other": "{count} ĝàɱèš"
+  },
+  "console.setup.tables.new_placeholder": "Çĥööšè à ƒöŀđèř",
+  "console.setup.tables.none": "Ñöñè ýèţ",
+  "console.setup.tables.none_help": "Þîçķ ŵĥèřè ñèŵ ţàƀŀèš ŵîŀŀ ĝö.",
+  "console.setup.tables.title": "Ŵĥèřè àřè ýöûř ţàƀŀèš?",
+  "console.setup.tables.title_have": "Ýöûř ţàƀŀèš",
   "console.setup.title": "Šèţûþ",
   "console.setup.vpx.else": "Šöɱèŵĥèřè èŀšè",
   "console.setup.vpx.else_help": "Çĥööšè ţĥè þřöĝřàɱ",

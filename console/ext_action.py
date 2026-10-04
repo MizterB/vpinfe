@@ -18,12 +18,9 @@ from console.api import ApiClient
 from console.on_page import on_page
 
 
-@on_page
-async def open_action(extension: str, action: dict) -> bool:
-    """Run one action: ask what it asks, in as many steps as it asks it, then do it.
-
-    True once it ran and the dialog was closed, so a page that shows what the action
-    changes can redraw; False when it was cancelled first."""
+def calls(extension: str, action: dict) -> wizard.Calls:
+    """The action's four calls over HTTP, for the dialog host or for a flow that nests it
+    inside steps of its own."""
     client = ApiClient()
     base = f"/ext/{extension}{action.get('base') or ''}"
 
@@ -46,7 +43,16 @@ async def open_action(extension: str, action: dict) -> bool:
     async def job(job_id: str) -> dict:
         return await offload.io(client.job, job_id)
 
+    return wizard.Calls(first, check, act, run, job)
+
+
+@on_page
+async def open_action(extension: str, action: dict) -> bool:
+    """Run one action: ask what it asks, in as many steps as it asks it, then do it.
+
+    True once it ran and the dialog was closed, so a page that shows what the action
+    changes can redraw; False when it was cancelled first."""
     return await wizard.open_dialog(
         label=str(action.get("label") or ""),
-        calls=wizard.Calls(first, check, act, run, job),
+        calls=calls(extension, action),
         under=f"ext.{extension}.action.{action.get('key')}")

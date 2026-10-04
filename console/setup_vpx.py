@@ -246,12 +246,13 @@ async def _write_ini(launcher_id: str, keys: dict[str, str]) -> None:
 
 
 async def answer_program(vpx: Vpx, values: dict[str, Any], *, cabinet: bool,
-                         write_bgset: bool = True) -> None:
+                         write_bgset: bool = True) -> str:
+    """The program answered, which the Tables step starts its search beside."""
     path = _program_chosen(vpx, values)
     vpx.chosen = path
     vpx.answered = True
     if not path:
-        return
+        return path
     client = ApiClient()
     if not (vpx.stored and _same(path, vpx.stored)):
         launcher_id, body = _launcher_body(vpx, path)
@@ -259,7 +260,7 @@ async def answer_program(vpx: Vpx, values: dict[str, Any], *, cabinet: bool,
         vpx.launcher = Launcher.from_dict({**body, "launcher_id": launcher_id})
         vpx.stored = path
     if vpx.launcher is None or not write_bgset:
-        return
+        return path
     # The Screens answer's Visual Pinball half: How you play could not write it while the
     # program was unknown, and the file may not exist yet.
     wanted = "1" if cabinet else "0"
@@ -269,6 +270,7 @@ async def answer_program(vpx: Vpx, values: dict[str, Any], *, cabinet: bool,
             await _write_ini(vpx.launcher.launcher_id, {BGSET_KEY: wanted})
     except Exception:
         logger.warning("Could not write BGSet for the default launcher", exc_info=True)
+    return path
 
 
 # ---- the playfield glass --------------------------------------------------------------

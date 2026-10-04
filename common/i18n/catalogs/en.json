@@ -2191,7 +2191,43 @@
   "console.setup.open": "Open",
   "console.setup.open.help": "Opens Setup over this page",
   "console.setup.step.how": "How you play",
+  "console.setup.step.tables": "Tables",
   "console.setup.step.vpx": "Visual Pinball",
+  "console.setup.tables.bring_in": "Bring in a library",
+  "console.setup.tables.bring_in_hint": "Add tables from a folder or another frontend",
+  "console.setup.tables.folder": "In a folder",
+  "console.setup.tables.folder_help": "Visual Pinball's Tables folder, or one of your own",
+  "console.setup.tables.folder_placeholder": "Choose a folder",
+  "console.setup.tables.found_folders": {
+    "one": "{count} table, in a folder of its own",
+    "other": "{count} tables, each in a folder of its own"
+  },
+  "console.setup.tables.found_folders_help": "Used where they are. Nothing is copied or moved.",
+  "console.setup.tables.found_loose": {
+    "one": "{count} table, loose in this folder",
+    "other": "{count} tables, loose in this folder"
+  },
+  "console.setup.tables.found_loose_help": "Each gets a folder of its own on the next step.",
+  "console.setup.tables.found_mixed": {
+    "one": "{count} table in a folder of its own, {loose} loose",
+    "other": "{count} tables in folders of their own, {loose} loose"
+  },
+  "console.setup.tables.found_mixed_help": {
+    "one": "The loose one gets a folder of its own on the next step.",
+    "other": "The {count} loose ones each get a folder of their own on the next step."
+  },
+  "console.setup.tables.found_none": "No tables in this folder",
+  "console.setup.tables.frontend": "In another frontend",
+  "console.setup.tables.frontend_help": "PinUP Popper, PinballX, PinballY or EmulationStation",
+  "console.setup.tables.have": {
+    "one": "{count} game",
+    "other": "{count} games"
+  },
+  "console.setup.tables.new_placeholder": "Choose a folder",
+  "console.setup.tables.none": "None yet",
+  "console.setup.tables.none_help": "Pick where new tables will go.",
+  "console.setup.tables.title": "Where are your tables?",
+  "console.setup.tables.title_have": "Your tables",
   "console.setup.title": "Setup",
   "console.setup.vpx.else": "Somewhere else",
   "console.setup.vpx.else_help": "Choose the program",

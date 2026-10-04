@@ -50,12 +50,14 @@ class SetupFirstRunDrive(unittest.TestCase):
         if not binary:
             raise unittest.SkipTest("no Chromium on this machine")
         with TemporaryDirectory() as tmp:
+            fresh = Path(tmp) / "fresh"
+            fresh.mkdir()
             with LiveInstance(Path(tmp), extra_settings={("install", "setup_pending"): True}
                               ) as instance:
-                cls.seen = asyncio.run(cls._drive(instance, binary))
+                cls.seen = asyncio.run(cls._drive(instance, binary, fresh))
 
     @classmethod
-    async def _drive(cls, instance: LiveInstance, binary: str) -> dict:
+    async def _drive(cls, instance: LiveInstance, binary: str, fresh: Path) -> dict:
         seen: dict = {}
         instance.wait_for_api()
 
@@ -75,6 +77,23 @@ class SetupFirstRunDrive(unittest.TestCase):
             async def opened() -> None:
                 await browser.wait_for(CARD_UP, timeout=60)
                 await walk.drawn()
+
+            async def choose_none_yet() -> None:
+                radio = f"{CARD} .console-wizard-pick"
+                await click_text(radio, t("console.setup.tables.none"))
+                field = f"{CARD} input.q-field__native"
+                shown = (f"[...document.querySelectorAll({json.dumps(field)})]"
+                         ".filter(el => el.getBoundingClientRect().width > 0)")
+                await browser.wait_for(f"{shown}.length > 0")
+                nth = int(await browser.evaluate(
+                    f"[...document.querySelectorAll({json.dumps(field)})]"
+                    ".indexOf(" + shown + ".at(-1))"))
+                await browser.click(field, nth=nth)
+                await browser.send("Input.insertText", {"text": str(fresh)})
+                await browser.wait_for(
+                    f"!document.querySelector({json.dumps(FORWARD)}).disabled"
+                    f" && !document.querySelector({json.dumps(FORWARD)}).classList"
+                    ".contains('disabled')", timeout=30)
 
             async def left_for_later() -> None:
                 await walk.act(lambda: browser.click(ASIDE), until=CARD_GONE)
@@ -114,9 +133,11 @@ class SetupFirstRunDrive(unittest.TestCase):
 
             # Each page but the last says Next, and the one it opens has another title.
             for _ in range(6):
+                title = (await browser.evaluate(TEXT_OF % json.dumps(TITLE))).strip()
+                if title == t("console.setup.tables.title"):
+                    await choose_none_yet()
                 if await forward_says() == t("word.finish"):
                     break
-                title = (await browser.evaluate(TEXT_OF % json.dumps(TITLE))).strip()
                 await walk.act(
                     lambda: browser.click(FORWARD),
                     mark=f"window.fromTitle = {json.dumps(title)}",
