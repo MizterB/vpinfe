@@ -734,6 +734,10 @@ class Library:
         """Never cached, obviously: the whole question is what has happened since."""
         return self._client.logs(limit, level, contains, source)
 
+    def jobs(self, limit: int = 20) -> list[dict]:
+        """Never cached either: what has run since the last read is the question."""
+        return self._client.jobs(limit)
+
     def discovered_installs(self) -> list[dict]:
         """Never cached: what is on the network is the question, and an answer from when
         the page opened is the one thing it must not be."""

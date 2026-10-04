@@ -32,6 +32,8 @@ _FIELDS = (
     # Which page of a section is open. Named for that rather than for Settings, which
     # is now one of System's three and not the only one with pages inside it.
     ("page", lambda state: state.get("settings_page") or ""),
+    # Which of the Logs page's views is up, so the rail's running job can link to Jobs.
+    ("log", lambda state: state.get("log_view") or ""),
     ("collection", lambda state: state.get("collection") or ""),
     ("launcher", lambda state: state.get("launcher") or ""),
     ("player", lambda state: state.get("player") or ""),
@@ -49,10 +51,13 @@ _FIELDS = (
 # is one game's slot - so leaving it out would drop the whole selection in silence.
 _PANEL = ("games", "tables", "media", "assets")
 _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
-            "page": ("settings",), "collection": ("collections", "games"),
+            "page": ("settings",), "log": ("logs",), "collection": ("collections", "games"),
             "launcher": ("launchers", "tables"), "sets": ("tables",),
             "player": ("players",)}
 
+
+# The Logs page's views that have an address; the stream is the one with none.
+LOG_VIEWS = ("digest", "jobs")
 
 # What the address calls a panel with nothing open.
 NO_SECTION = "none"
@@ -127,6 +132,8 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
         state["slot"]["kind"] = clean("slot")
     if clean("page"):
         state["settings_page"] = clean("page")
+    if clean("log") in LOG_VIEWS:
+        state["log_view"] = clean("log")
     if str(params.get("collection") or "").strip():
         state["collection"] = str(params["collection"]).strip()
     if str(params.get("launcher") or "").strip():

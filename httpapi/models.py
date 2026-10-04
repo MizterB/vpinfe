@@ -2749,6 +2749,11 @@ class JobResource(ApiModel):
     # library scan leaves a scanned library and has nothing else to say.
     result: Any | None = None
     stoppable: bool = False
+    # A person ended it early. `state` is still `done`: what it did before is kept.
+    stopped: bool = False
+    # One line on what it did, counts mostly. Empty while it runs and for kinds with
+    # nothing to count.
+    detail: str = ""
     links: JobLinks
 
 

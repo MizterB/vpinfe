@@ -1195,6 +1195,25 @@
   "console.import_dialog.one": "Which one is this?",
   "console.import_dialog.use": "Use this",
   "console.import_dialog.where_should_game_go": "Where should this game go?",
+  "console.jobs.all_outcomes": "All outcomes",
+  "console.jobs.detail": "Detail",
+  "console.jobs.kind.catalog_download": "Spreadsheet download",
+  "console.jobs.kind.device_send": "Send to device",
+  "console.jobs.kind.library_media_fill": "Art fill",
+  "console.jobs.kind.library_scan": "Library scan",
+  "console.jobs.kind.library_vps_rollup": "VPS count",
+  "console.jobs.kind.media_capture": "Recording",
+  "console.jobs.kind.tools_get": "Tool download",
+  "console.jobs.nothing_ran_yet": "Nothing has run yet",
+  "console.jobs.outcome": "Outcome",
+  "console.jobs.outcome.done": "Done",
+  "console.jobs.outcome.failed": "Failed",
+  "console.jobs.outcome.running": "Running",
+  "console.jobs.outcome.stopped": "Stopped",
+  "console.jobs.started": "Started",
+  "console.jobs.took": "Took",
+  "console.jobs.view": "Jobs",
+  "console.jobs.what": "What ran",
   "console.launchers.add": "{app}…",
   "console.launchers.also_copy_tables_use": "Also copy which tables use it",
   "console.launchers.arrives_same_name_same": "It arrives with the same name. If its program is somewhere else there, change it on that device.",
@@ -2846,6 +2865,7 @@
   "console.workbench.yours": "Yours",
   "date.am": "AM",
   "date.clock_12": "{hour}:{minute} {period}",
+  "date.clock_12_seconds": "{hour}:{minute}:{second} {period}",
   "date.day_and_time": "{day} {time}",
   "date.days_ago": {
     "one": "{count} day ago",
@@ -2875,6 +2895,10 @@
   "date.month.9": "Sep",
   "date.pm": "PM",
   "date.short": "{day} {month} {year}",
+  "date.took_hours": "{hours} h {minutes} min",
+  "date.took_minutes": "{minutes} min {seconds} s",
+  "date.took_seconds": "{seconds} s",
+  "date.took_under_a_second": "Under a second",
   "device.reason.answered_but_refused": "It answered, but refused.",
   "device.reason.no_port": "It has not said which port it answers on.",
   "device.reason.refused": "Something is at that address, but nothing answers on its port.",
@@ -3657,6 +3681,25 @@
     "one": "{count} guide",
     "other": "{count} guides"
   },
+  "said.job_art_filled": {
+    "one": "{count} game, {filled} filled, {unmatched} unmatched, {failed} failed",
+    "other": "{count} games, {filled} filled, {unmatched} unmatched, {failed} failed"
+  },
+  "said.job_art_replaced": {
+    "one": "{count} game, {updated} replaced, {failed} failed",
+    "other": "{count} games, {updated} replaced, {failed} failed"
+  },
+  "said.job_library_read": {
+    "one": "{count} game",
+    "other": "{count} games"
+  },
+  "said.job_library_read_new": {
+    "one": "{count} game, {new} new, {matched} matched",
+    "other": "{count} games, {new} new, {matched} matched"
+  },
+  "said.job_recorded": "Recorded {done} of {total}",
+  "said.job_scan_found": "{found} found, {missing} not found",
+  "said.job_tool_version": "Version {version}",
   "said.matching_new_games": "Matching new games",
   "said.no_program_set": "{launcher_name} has no program set.",
   "said.not_reached": "could not be reached",

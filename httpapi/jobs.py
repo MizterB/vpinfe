@@ -34,8 +34,11 @@ def resource(job: job_registry.Job, with_result: bool = False) -> dict:
 
 @router.get("", summary="Jobs, running first",
             dependencies=[requires(scopes.JOBS_READ)])
-def list_jobs(kind: str = Query("", description="Filter by job kind")) -> models.JobList:
-    found = job_registry.recent()
+def list_jobs(kind: str = Query("", description="Filter by job kind"),
+              limit: int = Query(20, ge=1, le=job_registry.HISTORY_LIMIT,
+                                 description="How many, running first then newest "
+                                             "finished")) -> models.JobList:
+    found = job_registry.recent(limit)
     if kind:
         found = [job for job in found if job.kind == kind]
     return models.JobList.model_validate({"jobs": [resource(job) for job in found]})

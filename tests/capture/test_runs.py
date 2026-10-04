@@ -258,6 +258,7 @@ class StopTests(_Held):
         self.assertEqual((result["run"]["state"], result["tables"]), ("stopped", []))
         self.assertEqual(len(self.sessions), 1)
         self.assertIsNone(run.current())
+        self.assertTrue(job.stopped)
 
     def test_pause_holds_the_run_at_the_game_in_hand(self) -> None:
         job = run.start(THREE)
@@ -266,6 +267,7 @@ class StopTests(_Held):
         run.pause()
         self.ran(job)
 
+        self.assertTrue(job.stopped, "a held run is not a finished one")
         now = run.current()
         assert now is not None
         self.assertEqual((now["state"], now["done"], now["reason"]), ("paused", 0, None))

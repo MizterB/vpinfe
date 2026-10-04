@@ -199,11 +199,46 @@ class RegistryTests(unittest.TestCase):
         self.assertIsNone(jobs.get("nope"))
 
     def test_history_is_bounded_so_a_long_session_does_not_grow(self) -> None:
-        for index in range(jobs._HISTORY_LIMIT + 5):
+        for index in range(jobs.HISTORY_LIMIT + 5):
             with jobs.track(f"test.kind{index}"):
                 pass
 
-        self.assertEqual(len(jobs.recent()), jobs._HISTORY_LIMIT)
+        self.assertEqual(len(jobs.recent(jobs.HISTORY_LIMIT + 5)), jobs.HISTORY_LIMIT)
+
+    def test_a_listing_is_short_unless_the_whole_history_is_asked_for(self) -> None:
+        for index in range(30):
+            with jobs.track(f"test.kind{index}"):
+                pass
+
+        self.assertEqual(len(jobs.recent()), 20)
+        self.assertEqual(len(jobs.recent(500)), 30)
+
+    def test_a_finished_job_carries_what_its_result_says(self) -> None:
+        with jobs.track(jobs.KIND_TOOL_GET) as job:
+            job.result = {"version": "1.2"}
+
+        self.assertEqual(job.detail, t("said.job_tool_version", version="1.2"))
+        self.assertEqual(job.snapshot()["detail"], job.detail)
+
+    def test_a_detail_the_work_set_is_kept(self) -> None:
+        with jobs.track(jobs.KIND_TOOL_GET) as job:
+            job.result = {"version": "1.2"}
+            job.detail = "said by the work"
+
+        self.assertEqual(job.detail, "said by the work")
+
+    def test_a_describer_that_raises_does_not_unfinish_the_job(self) -> None:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN) as job:
+            job.result = {"games": "many", "new_games": 1}
+
+        self.assertEqual(job.state, jobs.DONE)
+        self.assertEqual(job.detail, "")
+
+    def test_a_job_is_not_stopped_unless_its_work_says_so(self) -> None:
+        with jobs.track("test.kind") as job:
+            pass
+
+        self.assertFalse(job.snapshot()["stopped"])
 
     def test_recent_lists_running_jobs_before_finished_ones(self) -> None:
         with jobs.track("test.finished"):
@@ -251,6 +286,27 @@ class JobEndpointTests(unittest.TestCase):
         self.assertEqual(body["pct"], 100)
         self.assertIsNone(body["error"])
         self.assertIsNotNone(body["finished_at"])
+
+    def test_the_listing_takes_a_limit(self) -> None:
+        for index in range(30):
+            with jobs.track(f"test.kind{index}"):
+                pass
+
+        self.assertEqual(len(self.client.get("/jobs").json()["jobs"]), 20)
+        self.assertEqual(len(self.client.get("/jobs", params={"limit": 500}).json()["jobs"]), 30)
+        self.assertEqual(self.client.get("/jobs", params={"limit": 0}).status_code, 422)
+        self.assertEqual(self.client.get(
+            "/jobs", params={"limit": jobs.HISTORY_LIMIT + 1}).status_code, 422)
+
+    def test_a_job_on_the_wire_says_whether_it_stopped_and_what_it_counted(self) -> None:
+        with jobs.track(jobs.KIND_TOOL_GET) as job:
+            job.result = {"version": "3"}
+            job.stopped = True
+
+        body = self.client.get(f"/jobs/{job.id}").json()
+
+        self.assertTrue(body["stopped"])
+        self.assertEqual(body["detail"], t("said.job_tool_version", version="3"))
 
     def test_filtering_by_kind(self) -> None:
         with jobs.track("test.wanted"), jobs.track("test.other"):

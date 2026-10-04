@@ -13,6 +13,10 @@ reason.
 answers *what is wrong with this machine* by collapsing repeats - a machine can log one
 mistake four thousand times, and a list of four thousand rows hides that it is one.
 
+**A third over the jobs.** Jobs answers *what did this install just do, and how did it go*,
+from the job registry rather than the log file. It is a grid, so it takes the grid's
+sorting and filters.
+
 Streaming is a timer on this page rather than a transport of its own. The Console is
 server-rendered and already holds a live socket to the browser, so the tail pushes over
 the one that is there.
@@ -21,6 +25,7 @@ the one that is there.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -28,7 +33,7 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from console import busy, offload, panel, verbs
+from console import busy, deeplink, grid, jobs_list, offload, panel, verbs
 from console import devices as devices_page
 from console.data import Library
 from console.on_page import on_page
@@ -44,6 +49,11 @@ RECORDS = 500
 
 LEVELS = ("", "DEBUG", "INFO", "WARNING", "ERROR")
 
+# The views, by the value the select holds and the address carries. The stream is the
+# empty one.
+STREAM, DIGEST, JOBS = "", "digest", "jobs"
+VIEWS = (STREAM, DIGEST, JOBS)
+
 
 def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -> None:
     """The control bar, and the viewport under it."""
@@ -52,7 +62,14 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         "contains": state.get("log_contains", ""),
         "source": state.get("log_source", ""),
         "wrap": state.get("log_wrap", True),
-        "digest": state.get("log_digest", False),
+        "view": state.get("log_view") if state.get("log_view") in VIEWS else STREAM,
+        "outcome": state.get("log_outcome", ""),
+        "find_jobs": state.get("log_find_jobs", ""),
+        # What the jobs box holds now: the grid, or the words standing in for it.
+        "table": None,
+        "rows": [],
+        "bar_for": None,
+        "error": "",
         "follow": state.get("log_follow", True),
         "records": [],
         "sources": [],
@@ -69,9 +86,17 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         # traceback fits in.
         viewport = ui.column().classes(
             "w-full grow min-h-0 overflow-auto gap-0 console-log")
+        # The grid's own container: a flex column, so the grid takes the height left.
+        jobs_box = ui.element("div").classes("w-full grow min-h-0 flex flex-col")
 
     @on_page
     async def load() -> None:
+        viewport.set_visibility(held["view"] != JOBS)
+        jobs_box.set_visibility(held["view"] == JOBS)
+        if held["view"] == JOBS:
+            await _load_jobs(library, jobs_box, bar, held, load, state)
+            return
+        held["table"] = None
         try:
             found = await offload.io(library.logs, RECORDS, held["level"],
                                        held["contains"], held["source"])
@@ -87,26 +112,36 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
 
     busy.fill(viewport, load)
     # Only while following, and only on the live file: a rotated log does not change,
-    # so re-reading it is a request that can only return what it just returned.
+    # so re-reading it is a request that can only return what it just returned. The jobs
+    # list is always live, because a running job's progress is the point of it.
     ui.timer(EVERY_SECONDS,
-             lambda: load() if held["follow"] and not held["source"] else None)
+             lambda: load() if held["view"] == JOBS
+             or (held["follow"] and not held["source"]) else None)
 
 
 def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
               state: dict[str, Any]) -> None:
     bar.clear()
     with bar:
-        def remember(key: str, value: Any) -> None:
-            """Hold the choice, persist it, and redraw. Every caller wanted all three,
-            and said so as a tuple of two calls, which is not what a tuple is for."""
+        def remember(key: str, value: Any) -> Any:
+            """Hold the choice, persist it, and redraw. Returns the redraw, which NiceGUI
+            runs only when a handler hands it back."""
             held[key] = value
             state[f"log_{key}"] = value
-            reload()
+            held["bar_for"] = None
+            if key == "view":
+                deeplink.sync(state)
+            return reload()
 
-        ui.select({"": t("console.logs.stream"), "digest": t("console.logs.digest")},
-                  value="digest" if held["digest"] else "") \
+        ui.select({STREAM: t("console.logs.stream"), DIGEST: t("console.logs.digest"),
+                   JOBS: t("console.jobs.view")}, value=held["view"]) \
             .props("dense outlined").classes("w-32") \
-            .on_value_change(lambda e: remember("digest", bool(e.value)))
+            .on_value_change(lambda e: remember("view", e.value or STREAM))
+        held["bar_for"] = held["view"]
+
+        if held["view"] == JOBS:
+            _jobs_controls(held, remember)
+            return
 
         if len(held["sources"]) > 1:
             # Named separately rather than spanned: a rotation boundary is where an
@@ -155,6 +190,73 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
                        classes="console-help truncate max-w-xs")
 
 
+def _jobs_controls(held: dict[str, Any], remember: Callable[[str, Any], Any]) -> None:
+    """The jobs bar: which outcome, and a find that narrows the grid as it is typed."""
+    ui.select({"": t("console.jobs.all_outcomes"),
+               **{one: t(f"console.jobs.outcome.{one}") for one in jobs_list.OUTCOMES}},
+              value=held["outcome"]).props("dense outlined").classes("w-36") \
+        .on_value_change(lambda e: remember("outcome", e.value or ""))
+
+    def find(text: str) -> None:
+        held["find_jobs"] = text
+        table = held["table"]
+        if table is not None and not isinstance(table, tuple):
+            table.run_grid_method("setGridOption", "quickFilterText", text)
+
+    ui.input(placeholder=t("console.logs.find"), value=held["find_jobs"]) \
+        .props("dense outlined clearable").classes("grow min-w-0") \
+        .on_value_change(lambda e: find(e.value or ""))
+
+
+@on_page
+async def _load_jobs(library: Library, box: Any, bar: Any, held: dict[str, Any],
+                     reload: Callable[[], Any], state: dict[str, Any]) -> None:
+    found: list[dict[str, Any]] = []
+    try:
+        found = await offload.io(library.jobs, jobs_list.LIMIT)
+    except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
+        held["error"] = why(exc)
+    else:
+        held["error"] = ""
+    state["log_find_jobs"] = held["find_jobs"]
+    # Not on every tick: the bar holds the find box, and redrawing it would take what is
+    # being typed with it.
+    if held["bar_for"] != JOBS:
+        _draw_bar(bar, held, reload, state)
+    _draw_jobs(box, held, jobs_list.rows(found, time.time(), held["outcome"]),
+               bool(found))
+
+
+def _draw_jobs(box: Any, held: dict[str, Any], shown: list[dict[str, Any]],
+               any_ran: bool) -> None:
+    """The grid, or the words that stand in for it. What is up is left alone when nothing
+    about it changed: drawing it again would blink the page every tick."""
+    if held["error"] or not shown:
+        said = ("error", held["error"]) if held["error"] else (
+            "none", t("console.logs.nothing_matches") if any_ran
+            else t("console.jobs.nothing_ran_yet"))
+        if held["table"] == said:
+            return
+        held["table"] = said
+        box.clear()
+        with box:
+            panel.facts(ui, [panel.intro(t("console.logs.could_not_read_log"),
+                                         hint=held["error"])] if held["error"]
+                        else [panel.intro(said[1])])
+        return
+    table = held["table"]
+    if table is None or isinstance(table, tuple):
+        box.clear()
+        with box:
+            table = grid.build(jobs_list.COLUMNS, shown, jobs_list.SCOPE)
+        held["table"], held["rows"] = table, shown
+        table.run_grid_method("setGridOption", "quickFilterText", held["find_jobs"])
+        return
+    if held["rows"] != shown:
+        held["rows"] = shown
+        table.run_grid_method("setGridOption", "rowData", shown)
+
+
 @on_page
 async def _draw(viewport: Any, held: dict[str, Any]) -> None:
     # Only when already at the bottom. A tail that yanks you away from the line you are
@@ -179,12 +281,12 @@ async def _draw(viewport: Any, held: dict[str, Any]) -> None:
                 t("console.logs.nothing_matches") if held["level"] or held["contains"]
                 else t("console.logs.nothing_logged_yet"))])
             return
-        if held["digest"]:
+        if held["view"] == DIGEST:
             _digest(held["records"])
         else:
             _stream(held["records"], held["wrap"])
 
-    if at_bottom and not held["digest"]:
+    if at_bottom and held["view"] != DIGEST:
         ui.run_javascript(
             f'(() => {{ const e = getElement({viewport.id}); '
             f'if (e) e.scrollTop = e.scrollHeight; }})()')

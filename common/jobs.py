@@ -59,9 +59,9 @@ KIND_TOOL_GET = "tools.get"
 # match. The watch's later refreshes are not this: they stay silent.
 KIND_CATALOG_DOWNLOAD = "catalog.download"
 
-# Finished jobs a client can still ask about. Small on purpose: this is a courtesy
-# for the caller who missed the last event, not a history feature.
-_HISTORY_LIMIT = 20
+# Finished jobs kept since startup, for the Jobs view. Memory only: a restart empties it.
+HISTORY_LIMIT = 500
+_LISTING = 20
 
 
 _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
@@ -144,6 +144,12 @@ class Job:
     result: object | None = None
     # Whether whoever started it offers a way to stop it part way.
     stoppable: bool = False
+    # Set by the work when it ended early without failing. The job still finishes `done`:
+    # `state` has three values and a consumer branches on `failed`.
+    stopped: bool = False
+    # One line on what it did, counts mostly. Written when the work finishes, by the
+    # describer registered for its kind or by the work itself.
+    detail: str = ""
     progress_cb: ProgressCallback | None = None
     log_cb: LogCallback | None = None
 
@@ -183,6 +189,8 @@ class Job:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "stoppable": self.stoppable,
+            "stopped": self.stopped,
+            "detail": self.detail,
         }
         if with_result:
             found["result"] = self.result
@@ -194,6 +202,20 @@ _active: dict[str, Job] = {}
 _history: list[Job] = []
 
 
+def _detail(job: Job) -> str:
+    """What the work wrote, else its result put into words. A line that cannot be written
+    is no line: it must not fail a job that finished."""
+    if job.detail or job.result is None:
+        return job.detail
+    from common import job_details  # imports this module for the kinds
+
+    try:
+        return job_details.of(job.kind, job.result)
+    except Exception:  # noqa: BLE001
+        logger.debug("Describing %s failed", job.kind, exc_info=True)
+        return ""
+
+
 def _finish(job: Job, error: BaseException | None) -> None:
     with _lock:
         if _active.get(job.kind) is job:
@@ -202,11 +224,12 @@ def _finish(job: Job, error: BaseException | None) -> None:
         if error is None:
             job.state = DONE
             job.pct = 100
+            job.detail = _detail(job)
         else:
             job.state = FAILED
             job.error = why(error)
         _history.append(job)
-        del _history[:-_HISTORY_LIMIT]
+        del _history[:-HISTORY_LIMIT]
     if error is None:
         events.emit(events.JOB_DONE, job_id=job.id)
     else:
@@ -270,7 +293,7 @@ def active(kind: str | None = None) -> list[Job]:
     return [job for job in jobs if kind is None or job.kind == kind]
 
 
-def recent(limit: int = _HISTORY_LIMIT) -> list[Job]:
+def recent(limit: int = _LISTING) -> list[Job]:
     """Running jobs first, then the most recently finished."""
     with _lock:
         return list(_active.values()) + list(reversed(_history))[:limit]

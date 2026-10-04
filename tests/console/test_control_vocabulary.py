@@ -39,7 +39,8 @@ BUDGET = {
                          "three controls rather than a label and a value. Three are "
                          "All Settings' filter bar, the area picker and two ticks, which "
                          "ask what to show rather than hold a value"),
-    "logs.py": (4, "the control bar above the viewport: two pickers, a level and a find"),
+    "logs.py": (6, "the control bar above the viewport: for the log two pickers, a level and "
+                   "a find; for Jobs an outcome picker and a find"),
     "games.py": (1, "a tick per column in the column picker, a menu rather than a fact "
                     "row. The view picker is `panel.DescribedSelect`, which is where a "
                     "picker whose options explain themselves lives"),

@@ -89,7 +89,7 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/games/{id}/collections` | The collections holding a game, each `added` (written into it) or `matched` (its rule brought the game in), and under `taken_out` every other collection an exclusion keeps it out of. A game the limit cuts is held by none |
 | GET | `/api/v1/library/game_collections` | The same answer for every game a collection holds, in one read. A game no collection holds is not listed |
 | POST | `/api/v1/library/preview` | What a rule would match, storing nothing |
-| GET | `/api/v1/jobs` | Slow work, running first. `?kind=` filters |
+| GET | `/api/v1/jobs` | Slow work, running first. `?kind=` filters; `?limit=` is how many finished jobs, 20 by default and 500 at most |
 | GET | `/api/v1/jobs/{id}` | One job — state, last progress, outcome, and `result` where the work produced one. Not on the listing: a result can be a row per game |
 | GET | `/api/v1/library/entries` | The play lens over the whole library |
 | GET | `/api/v1/library/filters` | Every filter axis, with the values this library holds |
@@ -1626,9 +1626,11 @@ rebuild across every game folder, which is why it sits under `/library` rather t
 The job resource exists because the stream isn't the only way in. A client that connected
 late, missed `job.done`, or simply wants to know what is running asks `GET /jobs` or
 `GET /jobs/{id}` — `pct` and `message` hold the last progress reported, so a late reader is
-correct without having seen a single event. Finished jobs stay answerable for a while
-(bounded — this is a courtesy for the client that missed the last event, not a history
-feature).
+correct without having seen a single event. Finished jobs are kept in memory since startup,
+up to 500, and a restart empties them. The listing returns the last 20 unless `?limit=` asks
+for more. A finished job says how it went: `detail` is one line of counts, in the install's
+language, for the kinds that have something to count, and `stopped` is true on a `done` job
+whose work was stopped part way - `state` stays `done`, `failed`, or `running`.
 
 Starting work is never a `POST /jobs`. The permission to run something is the permission of
 the thing itself, so a scan is `games:write` because that is what a scan does. `jobs:read`

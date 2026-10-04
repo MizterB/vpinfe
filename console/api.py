@@ -1441,9 +1441,10 @@ class ApiClient:
         """One run of slow work, for watching a particular one to its end."""
         return self._get(f"/jobs/{job_id}")
 
-    def jobs(self) -> list[dict]:
-        """Runs of slow work, running first. Read on a timer while one is going."""
-        return self._get("/jobs").get("jobs", [])
+    def jobs(self, limit: int = 20) -> list[dict]:
+        """Runs of slow work, running first. Read on a timer while one is going; the Jobs
+        view asks for the whole history."""
+        return self._get(f"/jobs?limit={limit}").get("jobs", [])
 
     def refresh_library(self) -> dict:
         """Ask the install to look at the disk again. Returns the job to watch."""

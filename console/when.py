@@ -79,6 +79,32 @@ def clock(at: datetime) -> str:
     return at.strftime("%H:%M")
 
 
+def clock_seconds(at: datetime) -> str:
+    """The time of day to the second, where a run is told apart from the next by its start."""
+    if _setting("times", "24h") == "12h":
+        return t("date.clock_12_seconds", hour=at.hour % 12 or 12, minute=f"{at.minute:02d}",
+                 second=f"{at.second:02d}", period=t("date.pm" if at.hour >= 12 else "date.am"))
+    return at.strftime("%H:%M:%S")
+
+
+def at_second(epoch: float) -> str:
+    """An epoch time as local wall time to the second."""
+    at = datetime.fromtimestamp(epoch).astimezone()
+    return t("date.day_and_time", day=day(at), time=clock_seconds(at))
+
+
+def took(seconds: float) -> str:
+    """How long something ran: the two largest units that are not zero."""
+    whole = int(seconds)
+    hours, rest = divmod(whole, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return t("date.took_hours", hours=hours, minutes=minutes)
+    if minutes:
+        return t("date.took_minutes", minutes=minutes, seconds=secs)
+    return t("date.took_seconds", seconds=secs) if whole else t("date.took_under_a_second")
+
+
 def ago(stamp: Any, now: datetime | None = None, *, timed: bool = False,
         inline: bool = False) -> str:
     """How long ago, in the catalog's words. "" where there is no stamp. `inline` for

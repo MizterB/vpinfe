@@ -497,7 +497,7 @@ def reads_before_drawing(view: str, library: Library) -> Callable[[], Any] | Non
 async def console_page(view: str = "", game: str = "", table: str = "", section: str = "",
                    slot: str = "", page: str = "", mode: str = "",
                    collection: str = "", launcher: str = "", sets: str = "",
-                   player: str = "", setup: str = "") -> None:
+                   player: str = "", setup: str = "", log: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -591,7 +591,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     deeplink.apply(state, {"view": view, "game": game, "table": table,
                            "section": section, "slot": slot, "page": page,
                            "collection": collection, "launcher": launcher, "sets": sets,
-                           "player": player},
+                           "player": player, "log": log},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
 
@@ -705,7 +705,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             # nothing, and the one it replaced said that even while a scan ran.
             job_line = ui.column().classes("items-center gap-1 w-full console-job")
             with job_line:
-                with ui.row().classes("items-center justify-center gap-2 w-full no-wrap"):
+                # Only this row opens the jobs: Stop sits beside it, and a click on Stop
+                # is not a request to go anywhere.
+                with ui.row().classes("items-center justify-center gap-2 w-full no-wrap "
+                                      "cursor-pointer").on("click", lambda: _show_jobs()):
                     ui.spinner(size="16px").classes("shrink-0")
                     job_text = ui.label("").classes("text-xs min-w-0 truncate")
                     # Its own label, because the first job's line truncates and would
@@ -733,7 +736,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 ui.icon("error", size="16px").classes("shrink-0 text-negative")
                 failed_text = ui.element("div").classes("flex min-w-0")
             failed_line.set_visibility(False)
-            failed_line.on("click", lambda: _dismiss_failed())
+            failed_line.on("click", lambda: _show_jobs(dismiss=True))
             labels.append(failed_text)
             with ui.column().classes("gap-0 items-center w-full"):
                 # Which build this is. Identity rather than state, so it is always
@@ -753,6 +756,17 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     def _dismiss_failed() -> None:
         dismissed.add(shown_failed["id"])
         failed_line.set_visibility(False)
+
+    @on_page
+    async def _show_jobs(dismiss: bool = False) -> None:
+        """The Jobs view on the Logs page. A failure line that is opened has been read, so
+        it goes."""
+        if not await may_leave(state, "logs"):
+            return
+        if dismiss:
+            _dismiss_failed()
+        state["log_view"] = "jobs"
+        go("logs")
 
     offered: dict[str, Any] = {"stop": "", "run": None}
     records = any(one.get("name") == "capture"

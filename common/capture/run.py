@@ -499,7 +499,9 @@ def _work(job: jobs.Job, run: dict[str, Any], kit: session.Kit | None) -> dict[s
     try:
         with _lock:
             pass    # until `_submit` has recorded this job as the run's
-        return _go(job, run, kit)
+        result = _go(job, run, kit)
+        job.stopped = result["run"]["state"] in ("stopped", PAUSED)
+        return result
     finally:
         events.unsubscribe(events.TABLE_LAUNCHING, _heard_launch)
 

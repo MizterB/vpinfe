@@ -1195,6 +1195,25 @@
   "console.import_dialog.one": "Ŵĥîçĥ öñè îš ţĥîš?",
   "console.import_dialog.use": "Ûšè ţĥîš",
   "console.import_dialog.where_should_game_go": "Ŵĥèřè šĥöûŀđ ţĥîš ĝàɱè ĝö?",
+  "console.jobs.all_outcomes": "Àŀŀ öûţçöɱèš",
+  "console.jobs.detail": "Đèţàîŀ",
+  "console.jobs.kind.catalog_download": "Šþřèàđšĥèèţ đöŵñŀöàđ",
+  "console.jobs.kind.device_send": "Šèñđ ţö đèṽîçè",
+  "console.jobs.kind.library_media_fill": "Àřţ ƒîŀŀ",
+  "console.jobs.kind.library_scan": "Ŀîƀřàřý šçàñ",
+  "console.jobs.kind.library_vps_rollup": "ṼÞŠ çöûñţ",
+  "console.jobs.kind.media_capture": "Řèçöřđîñĝ",
+  "console.jobs.kind.tools_get": "Ţööŀ đöŵñŀöàđ",
+  "console.jobs.nothing_ran_yet": "Ñöţĥîñĝ ĥàš řûñ ýèţ",
+  "console.jobs.outcome": "Öûţçöɱè",
+  "console.jobs.outcome.done": "Đöñè",
+  "console.jobs.outcome.failed": "Ƒàîŀèđ",
+  "console.jobs.outcome.running": "Řûññîñĝ",
+  "console.jobs.outcome.stopped": "Šţöþþèđ",
+  "console.jobs.started": "Šţàřţèđ",
+  "console.jobs.took": "Ţööķ",
+  "console.jobs.view": "Ĵöƀš",
+  "console.jobs.what": "Ŵĥàţ řàñ",
   "console.launchers.add": "{app}…",
   "console.launchers.also_copy_tables_use": "Àŀšö çöþý ŵĥîçĥ ţàƀŀèš ûšè îţ",
   "console.launchers.arrives_same_name_same": "Îţ àřřîṽèš ŵîţĥ ţĥè šàɱè ñàɱè. Îƒ îţš þřöĝřàɱ îš šöɱèŵĥèřè èŀšè ţĥèřè, çĥàñĝè îţ öñ ţĥàţ đèṽîçè.",
@@ -2846,6 +2865,7 @@
   "console.workbench.yours": "Ýöûřš",
   "date.am": "ÀḾ",
   "date.clock_12": "{hour}:{minute} {period}",
+  "date.clock_12_seconds": "{hour}:{minute}:{second} {period}",
   "date.day_and_time": "{day} {time}",
   "date.days_ago": {
     "one": "{count} đàý àĝö",
@@ -2875,6 +2895,10 @@
   "date.month.9": "Šèþ",
   "date.pm": "ÞḾ",
   "date.short": "{day} {month} {year}",
+  "date.took_hours": "{hours} ĥ {minutes} ɱîñ",
+  "date.took_minutes": "{minutes} ɱîñ {seconds} š",
+  "date.took_seconds": "{seconds} š",
+  "date.took_under_a_second": "Ûñđèř à šèçöñđ",
   "device.reason.answered_but_refused": "Îţ àñšŵèřèđ, ƀûţ řèƒûšèđ.",
   "device.reason.no_port": "Îţ ĥàš ñöţ šàîđ ŵĥîçĥ þöřţ îţ àñšŵèřš öñ.",
   "device.reason.refused": "Šöɱèţĥîñĝ îš àţ ţĥàţ àđđřèšš, ƀûţ ñöţĥîñĝ àñšŵèřš öñ îţš þöřţ.",
@@ -3657,6 +3681,25 @@
     "one": "{count} ĝûîđè",
     "other": "{count} ĝûîđèš"
   },
+  "said.job_art_filled": {
+    "one": "{count} ĝàɱè, {filled} ƒîŀŀèđ, {unmatched} ûñɱàţçĥèđ, {failed} ƒàîŀèđ",
+    "other": "{count} ĝàɱèš, {filled} ƒîŀŀèđ, {unmatched} ûñɱàţçĥèđ, {failed} ƒàîŀèđ"
+  },
+  "said.job_art_replaced": {
+    "one": "{count} ĝàɱè, {updated} řèþŀàçèđ, {failed} ƒàîŀèđ",
+    "other": "{count} ĝàɱèš, {updated} řèþŀàçèđ, {failed} ƒàîŀèđ"
+  },
+  "said.job_library_read": {
+    "one": "{count} ĝàɱè",
+    "other": "{count} ĝàɱèš"
+  },
+  "said.job_library_read_new": {
+    "one": "{count} ĝàɱè, {new} ñèŵ, {matched} ɱàţçĥèđ",
+    "other": "{count} ĝàɱèš, {new} ñèŵ, {matched} ɱàţçĥèđ"
+  },
+  "said.job_recorded": "Řèçöřđèđ {done} öƒ {total}",
+  "said.job_scan_found": "{found} ƒöûñđ, {missing} ñöţ ƒöûñđ",
+  "said.job_tool_version": "Ṽèřšîöñ {version}",
   "said.matching_new_games": "Ḿàţçĥîñĝ ñèŵ ĝàɱèš",
   "said.no_program_set": "{launcher_name} ĥàš ñö þřöĝřàɱ šèţ.",
   "said.not_reached": "çöûŀđ ñöţ ƀè řèàçĥèđ",

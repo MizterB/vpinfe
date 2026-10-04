@@ -1,0 +1,67 @@
+"""A finished job's result, as the one line the Jobs view shows beside it.
+
+A result of a shape not named here has no line: a count read off the wrong shape would
+say something false.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
+from common import jobs
+from common.i18n import t
+
+
+def of(kind: str, result: object) -> str:
+    """The line for `result`, or "" where this kind of result has none."""
+    describe = _KINDS.get(kind)
+    return describe(result) if describe else ""
+
+
+def _library_scan(result: Any) -> str:
+    if not isinstance(result, dict):
+        return ""
+    if "games" in result and "new_games" in result:
+        # A library read: how many games, how many it had not seen, how many of those matched.
+        new = int(result.get("new_games") or 0)
+        return t("said.job_library_read_new" if new else "said.job_library_read",
+                 count=int(result["games"]), new=new,
+                 matched=int(result.get("new_matched") or 0))
+    if "found" in result and "not_found" in result:
+        return t("said.job_scan_found", found=int(result["found"]),
+                 missing=int(result["not_found"]))
+    return ""
+
+
+def _media_fill(result: Any) -> str:
+    if not isinstance(result, dict):
+        return ""
+    if "filled" in result:
+        return t("said.job_art_filled", count=int(result.get("games") or 0),
+                 filled=int(result["filled"]), unmatched=int(result.get("unmatched") or 0),
+                 failed=int(result.get("failed") or 0))
+    if "updated" in result:
+        return t("said.job_art_replaced", count=int(result.get("games") or 0),
+                 updated=int(result["updated"]), failed=int(result.get("failed") or 0))
+    return ""
+
+
+def _capture(result: Any) -> str:
+    run = result.get("run") if isinstance(result, dict) else None
+    if not isinstance(run, dict) or "of" not in run:
+        return ""
+    return t("said.job_recorded", done=int(run.get("done") or 0), total=int(run["of"]))
+
+
+def _tool(result: Any) -> str:
+    version = str(result.get("version") or "") if isinstance(result, dict) else ""
+    return t("said.job_tool_version", version=version) if version else ""
+
+
+_KINDS: dict[str, Callable[[Any], str]] = {
+    jobs.KIND_LIBRARY_SCAN: _library_scan,
+    jobs.KIND_MEDIA_FILL: _media_fill,
+    jobs.KIND_MEDIA_CAPTURE: _capture,
+    jobs.KIND_TOOL_GET: _tool,
+}
