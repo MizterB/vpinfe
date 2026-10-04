@@ -8,24 +8,34 @@ to a selection is not - see the subscribers below.
 from __future__ import annotations
 
 import logging
+import threading
+from collections.abc import Sequence
 from typing import Any
 
 from common import events
 from common.config_store import ConfigStore
 from common.games.game import Game
 from common.games.game_metadata import game_frontend_dof_event
-from common.host import real_dmd
+from common.host import launch_state, real_dmd
 from common.host.dof_service import (
+    restart_dof_service_if_enabled,
     send_frontend_dof_event,
     start_dof_service_if_enabled,
     stop_dof_service,
 )
-from common.host.libdmdutil_service import show_image, stop_libdmdutil_service
+from common.host.libdmdutil_service import (
+    restart_libdmdutil_service_if_enabled,
+    show_image,
+    stop_libdmdutil_service,
+)
 
 logger = logging.getLogger("vpinfe.common.host.peripherals")
 
 # Ahead of anything else that hooks a launch: the peripherals come first.
 PRIORITY = 10
+
+# The DOF setting its helper reads; its other key is for the config tool.
+_DOF_KEYS = frozenset({"dof.enabled"})
 
 _registered = False
 _realdmd_updater: real_dmd.RealDmdUpdater | None = None
@@ -62,6 +72,34 @@ def show_realdmd_art(*, game: Game | None = None, ini_config: ConfigStore | None
     )
 
 
+def apply_settings(keys: Sequence[str], ini_config: ConfigStore | None) -> None:
+    """Restart the helper of each peripheral whose setting changed.
+
+    While a table plays nothing restarts: VPX holds the hardware, and the next table
+    selection starts each again from the saved settings.
+    """
+    if ini_config is None or launch_state.current().launching:
+        return
+    if _DOF_KEYS.intersection(keys):
+        restart_dof_service_if_enabled(ini_config)
+    if any(key.startswith("real_dmd.") for key in keys):
+        restart_libdmdutil_service_if_enabled(ini_config)
+        # The updater the frontend made, reading the store the frontend holds. One made
+        # here would keep this save's store, which is stale by the next save.
+        if _realdmd_updater is not None:
+            _realdmd_updater.show_again()
+
+
+def on_settings_changed(*, keys: Sequence[str] = (), ini_config: ConfigStore | None = None,
+                        **_payload: Any) -> None:
+    """Off the saving request: stopping a helper waits for its process to end."""
+    if not (_DOF_KEYS.intersection(keys)
+            or any(key.startswith("real_dmd.") for key in keys)):
+        return
+    threading.Thread(target=apply_settings, args=(keys, ini_config),
+                     name="peripherals-settings", daemon=True).start()
+
+
 def _updater(ini_config: ConfigStore) -> real_dmd.RealDmdUpdater:
     """One updater for the process, not one per frontend window.
 
@@ -86,6 +124,7 @@ def register() -> None:
     # third peripheral is a third subscriber rather than an edit here.
     events.subscribe(events.GAME_SELECTED, play_dof_effect)
     events.subscribe(events.GAME_SELECTED, show_realdmd_art)
+    events.subscribe(events.SETTINGS_CHANGED, on_settings_changed)
     _registered = True
     logger.debug("Peripherals attached to table lifecycle events")
 

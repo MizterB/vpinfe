@@ -268,6 +268,24 @@ never typed into a description.
 `tests/invariants/test_a_default_is_read_from_its_setting.py` fails on any setting whose
 description holds its default number or text.
 
+### A setting says when it takes effect
+
+A person who changes a setting is owed an answer to *when*, and a setting that quietly waits
+for a restart reads as broken. Each setting declares `applies` in
+`common/config_schema.py`, from where it is read:
+
+- `now` is the default: read each time it is used, or acted on as it is saved. DOF and the
+  real DMD are the second kind - `common/host/peripherals.py` hears `settings.changed` and
+  restarts the helper.
+- `table` is read when a table starts. `windows` is read when the frontend's windows open,
+  and a change shows once they reopen. `restart` is read at startup.
+- Anything but `now` puts a line under the field - *Takes effect after VPinFE restarts* -
+  from the catalog, so a description never states it itself.
+
+Declaring `applies` is a claim about the setting's read site. Find where it is read, not
+where it is declared: a setting read once at startup that says `now` is a setting that
+looks broken.
+
 ### Naming a key
 
 `<owner>.<module>.<what it says>` — named for what owns the string, never for the screen

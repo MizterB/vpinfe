@@ -1160,11 +1160,26 @@ def default_said(option: dict, value: Any, resolved: str = "") -> str:
             else t("console.settings.vpinfe_default_is", value=shown))
 
 
+def with_when(description: str, applies: Any) -> str:
+    """What a setting does, followed by when a change to it takes effect.
+
+    Said only where a change waits for something: a setting that applies now has nothing
+    to add, and a line on every row would say nothing.
+    """
+    applies = str(applies or "now")
+    if applies == "now":
+        return description
+    waits = t(f"console.settings.applies.{applies}")
+    return (t("console.settings.described_default", description=description, default=waits)
+            if description else waits)
+
+
 def _noted(option: dict, value: Any, save: Callable[[Any], Any],
            resolved: str) -> tuple[Callable[[Any], Any], tuple[Any, Any] | None]:
-    """The line under a setting - what it does, and its default - and a `save` that keeps
-    the default's half true as the value changes."""
-    described = str(option.get("description") or "")
+    """The line under a setting - what it does, when a change takes effect where that is
+    not now, and its default - and a `save` that keeps the default's half true as the
+    value changes."""
+    described = with_when(str(option.get("description") or ""), option.get("applies"))
 
     def said(now: Any) -> str:
         reminder = default_said(option, now, resolved)
@@ -1578,8 +1593,9 @@ async def _identity_page(library: Library, reported: str,
                                       for value in language.choices},
                                      str(held.get("language") or language.default),
                                      relanguage)))
-        if language.description:
-            entries.append(panel.note(language.description))
+        said = with_when(language.description, language.applies)
+        if said:
+            entries.append(panel.note(said))
     entries += [
         (panel.HEADING, t("console.settings.features")),
         panel.intro(t("console.settings.what_device_each_one")),

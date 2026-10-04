@@ -54,6 +54,7 @@ class RealDmdUpdater:
         self._event = threading.Event()
         self._image_path: Path | None = None
         self._game_name = ""
+        self._queued = False
         self._thread: threading.Thread | None = None
 
     def queue_image_update(self, game_name: str, image_path: Path | None) -> None:
@@ -61,7 +62,18 @@ class RealDmdUpdater:
         with self._lock:
             self._game_name = game_name
             self._image_path = image_path
+            self._queued = True
             self._event.set()
+
+    def show_again(self) -> None:
+        """Send the last image once more, for a panel that was just restarted. Nothing
+        before the first table was selected, so a restart does not draw over the logo
+        the panel starts with."""
+        with self._lock:
+            if not self._queued:
+                return
+        self._ensure_worker()
+        self._event.set()
 
     def _ensure_worker(self) -> None:
         with self._lock:

@@ -16,7 +16,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from common import config_schema, install_presence, path_checks
+from common import config_schema, events, install_presence, path_checks
 from common.failures import why
 from common.paths import get_ini_config
 
@@ -78,6 +78,7 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         "lines": option.lines,
         "default_is": option.default_is,
         "unit": option.unit,
+        "applies": option.applies,
         "blank": option.blank,
         "home": option.home,
     }
@@ -171,8 +172,12 @@ def set_values(wanted: dict[str, dict[str, Any]] | None,
     if not staged:
         return values(windows)
 
+    changed: list[str] = []
     for section, key, value in staged:
+        before = store.value(section, key)
         store.set_value(section, key, value)
+        if store.value(section, key) != before:
+            changed.append(f"{section}.{key}")
     try:
         store.save()
     except Exception as exc:
@@ -183,4 +188,6 @@ def set_values(wanted: dict[str, dict[str, Any]] | None,
         # The registry holds a copy of what each install reported. This one just changed
         # what it reports, and every screen listing devices reads the copy.
         install_presence.record_self()
+    if changed:
+        events.emit(events.SETTINGS_CHANGED, keys=changed, ini_config=store)
     return values(windows)

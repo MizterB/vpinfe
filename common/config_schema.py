@@ -50,7 +50,7 @@ def _input_options() -> tuple[ConfigOption, ...]:
         )
         for action in input_registry.actions()
     ]
-    return in_section(input_registry.SECTION, *out)
+    return in_section(input_registry.SECTION, *(replace(o, applies=APPLIES_WINDOWS) for o in out))
 
 
 # Sections renamed wholesale, old name to new. A section rename is not the same thing as
@@ -141,6 +141,11 @@ class ConfigOption:
     default_is: str = ""
     # One of `UNITS`: what the number counts.
     unit: str = ""
+    # One of `APPLIES`: when a change reaches what it governs. `now` is a setting read
+    # each time it is used, or one whose change is acted on as it is saved; anything
+    # else is a claim about where the setting is read, so check that read before
+    # declaring it.
+    applies: str = "now"
 
     @property
     def keys(self) -> str:
@@ -218,6 +223,14 @@ DEFAULTS_ARE = (DEFAULT_COMMUNITY, DEFAULT_VPINFE)
 UNIT_SECONDS = "seconds"
 UNITS = (UNIT_SECONDS,)
 
+# When a saved change takes effect. `table` is the next table to start, `windows` the
+# next time the frontend's windows open, `restart` the next time VPinFE starts.
+APPLIES_NOW = "now"
+APPLIES_TABLE = "table"
+APPLIES_WINDOWS = "windows"
+APPLIES_RESTART = "restart"
+APPLIES = (APPLIES_NOW, APPLIES_TABLE, APPLIES_WINDOWS, APPLIES_RESTART)
+
 # What a `suggest` may name. Closed, so a typo is a setting with no suggestions rather
 # than a surface quietly asking for a list nobody serves.
 SUGGEST_LIBRARIES = "libraries"
@@ -242,6 +255,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "windows.playfield",
         ConfigOption(
             "screen_id",
+            applies=APPLIES_WINDOWS,
             type="int",
             default="0",
             legacy=(("Displays", "playfieldscreenid"),),
@@ -249,6 +263,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "orientation",
+            applies=APPLIES_WINDOWS,
             type="choice",
             default="landscape",
             choices=("landscape", "portrait"),
@@ -256,6 +271,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "rotation",
+            applies=APPLIES_WINDOWS,
             type="choice",
             default="0",
             choices=("0", "90", "180", "270"),
@@ -266,6 +282,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "windows.backglass",
         ConfigOption(
             "screen_id",
+            applies=APPLIES_RESTART,
             type="int",
             default="",
             legacy=(("Displays", "bgscreenid"),),
@@ -273,6 +290,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "override",
+            applies=APPLIES_WINDOWS,
             type="string",
             default="",
             legacy=(("Displays", "bgwindowoverride"),),
@@ -282,6 +300,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "windows.score_view",
         ConfigOption(
             "screen_id",
+            applies=APPLIES_RESTART,
             type="int",
             default="",
             legacy=(("Displays", "dmdscreenid"),),
@@ -289,6 +308,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "override",
+            applies=APPLIES_WINDOWS,
             type="string",
             default="",
             legacy=(("Displays", "dmdwindowoverride"),),
@@ -345,6 +365,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "on_vpinfe_start",
+            applies=APPLIES_RESTART,
             type="text",
             lines=3,
             default="",
@@ -363,6 +384,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "table_commands",
         ConfigOption(
             "on_start",
+            applies=APPLIES_TABLE,
             type="text",
             lines=3,
             default="",
@@ -370,6 +392,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "on_exit",
+            applies=APPLIES_TABLE,
             type="text",
             lines=3,
             default="",
@@ -377,6 +400,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "start_required",
+            applies=APPLIES_TABLE,
             type="bool",
             default="false",
             legacy=(),
@@ -387,12 +411,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "chromium",
         ConfigOption(
             "path",
+            applies=APPLIES_WINDOWS,
             type="string",
             path="exe",
             default="",
         ),
         ConfigOption(
             "options",
+            applies=APPLIES_WINDOWS,
             # One flag per line, which is what the help beside it has always said and
             # what a one-line box could not take. Parsed with shell-style quoting, so a
             # newline is whitespace and nothing about the stored value changes.
@@ -403,6 +429,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "options_exclude",
+            applies=APPLIES_WINDOWS,
             type="text",
             lines=3,
             default="",
@@ -410,6 +437,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "disable_defaults",
+            applies=APPLIES_WINDOWS,
             type="bool",
             default="false",
             legacy=(("general", "disabledefaultchromeoptions"),),
@@ -606,6 +634,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "refresh_minutes",
+            applies=APPLIES_RESTART,
             type="int",
             default="0",
             legacy=(),
@@ -630,6 +659,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "presentation",
         ConfigOption(
             "cab_mode",
+            applies=APPLIES_WINDOWS,
             type="bool",
             default="false",
             aliases=("cabmode",),
@@ -637,6 +667,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "playfield_media_rotation",
+            applies=APPLIES_WINDOWS,
             type="choice",
             default="auto",
             choices=("auto", "0", "90", "180", "270"),
@@ -644,6 +675,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "playfield_media_priority",
+            applies=APPLIES_WINDOWS,
             type="choice",
             default="video",
             choices=("video", "image"),
@@ -651,6 +683,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "backglass_media_priority",
+            applies=APPLIES_WINDOWS,
             type="choice",
             default="video",
             choices=("video", "image"),
@@ -658,6 +691,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "score_view_media_priority",
+            applies=APPLIES_WINDOWS,
             type="choice",
             default="video",
             choices=("video", "image"),
@@ -695,6 +729,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "startup_collection",
+            applies=APPLIES_RESTART,
             group=setting_groups.STARTUP,
             type="string",
             default="",
@@ -705,6 +740,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "restore_last_table",
+            applies=APPLIES_WINDOWS,
             group=setting_groups.STARTUP,
             type="bool",
             default="true",
@@ -718,6 +754,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "splashscreen",
+            applies=APPLIES_WINDOWS,
             group=setting_groups.STARTUP,
             type="bool",
             default="false",
@@ -743,6 +780,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "mute_audio",
+            applies=APPLIES_WINDOWS,
             group=setting_groups.AUDIO,
             type="bool",
             default="false",
@@ -755,6 +793,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         # are found.
         ConfigOption(
             "active",
+            applies=APPLIES_RESTART,
             type="string",
             default="Revolution",
             suggest=SUGGEST_THEMES,
@@ -788,12 +827,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "logger",
         ConfigOption(
             "level",
+            applies=APPLIES_RESTART,
             type="choice",
             default="debug",
             choices=("debug", "info", "warning", "error"),
         ),
         ConfigOption(
             "terminal",
+            applies=APPLIES_RESTART,
             type="bool",
             default="true",
             aliases=("console",),
@@ -803,6 +844,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "media",
         ConfigOption(
             "playfield_variant",
+            applies=APPLIES_WINDOWS,
             group=setting_groups.PLAYFIELD_ARTWORK,
             type="choice",
             default="table",
@@ -836,6 +878,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         # Art keyed by a game's manufacturer rather than owned by one game.
         ConfigOption(
             "manufacturer_logos_dir",
+            applies=APPLIES_RESTART,
             group=setting_groups.LOCAL_SOURCES,
             type="string",
             path="dir",
@@ -844,6 +887,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "wheelset",
+            applies=APPLIES_WINDOWS,
             group=setting_groups.WHEELS,
             type="string",
             default="",
@@ -898,6 +942,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "language",
+            applies=APPLIES_RESTART,
             type="choice",
             # `auto` reads the operating system, which is right on a cabinet somebody
             # set up in their own language and never opened this page.
@@ -968,6 +1013,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         "network",
         ConfigOption(
             "theme_assets_port",
+            applies=APPLIES_RESTART,
             group=setting_groups.LOCAL_SERVICES,
             type="int",
             default="8000",
@@ -975,12 +1021,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "theme_assets_bind",
+            applies=APPLIES_RESTART,
             group=setting_groups.LOCAL_SERVICES,
             type="string",
             default="127.0.0.1",
         ),
         ConfigOption(
             "ws_port",
+            applies=APPLIES_RESTART,
             group=setting_groups.LOCAL_SERVICES,
             type="int",
             default="8002",
@@ -988,6 +1036,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "http_port",
+            applies=APPLIES_RESTART,
             group=setting_groups.LOCAL_SERVICES,
             type="int",
             default="8001",
@@ -995,6 +1044,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "library_url",
+            applies=APPLIES_RESTART,
             group=setting_groups.REMOTE_SERVICES,
             type="string",
             default="",
@@ -1002,12 +1052,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "verify_shared_library",
+            applies=APPLIES_RESTART,
             group=setting_groups.REMOTE_SERVICES,
             type="bool",
             default="false",
         ),
         ConfigOption(
             "http_bind",
+            applies=APPLIES_RESTART,
             group=setting_groups.LOCAL_SERVICES,
             type="string",
             default="0.0.0.0",
@@ -1161,7 +1213,8 @@ def window_name(section: str) -> str:
 def window_screen(name: str) -> ConfigOption:
     """The screen a window opens on, for a window a theme declares."""
     return ConfigOption("screen_id", type="int", default="", section=f"windows.{name}",
-                        label_key="config.windows.screen_id", suggest=SUGGEST_SCREENS)
+                        label_key="config.windows.screen_id", suggest=SUGGEST_SCREENS,
+                        applies=APPLIES_RESTART)
 
 
 def option(section: str, key: str) -> ConfigOption | None:

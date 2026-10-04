@@ -43,7 +43,7 @@ apply_configdir_override(sys.argv[1:])
 
 import requests
 
-from common import extensions, i18n, install_setup, shutdown, theme_options
+from common import events, extensions, i18n, install_setup, shutdown, theme_options
 from common.config_store import ConfigStore
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
@@ -378,6 +378,11 @@ try:
     vpinfe_commands.on_start(config_store)
 except Exception:
     logger.exception("Commands set to run when VPinFE starts did not all work")
+
+# The Console saves through a store of its own, so this one holds what the file said at
+# startup until it is told to look again. First, so a subscriber that runs after it reads
+# what was just saved.
+events.subscribe(events.SETTINGS_CHANGED, lambda **_: config_store.reread())
 
 # Feedback hardware follows game lifecycle events from here on, so both launch
 # paths get the same behavior without either of them knowing about DOF.

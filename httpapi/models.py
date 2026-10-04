@@ -719,6 +719,9 @@ class ConfigOptionInfo(ApiModel):
     # counts: `seconds`, or empty.
     default_is: str = ""
     unit: str = ""
+    # When a saved change reaches what it governs: `now`, `table` (the next table to
+    # start), `windows` (the next time the frontend's windows open) or `restart`.
+    applies: str = "now"
     # What an empty value stands for, in this install's language, for a client to show in
     # the empty field; empty where it needs no words.
     blank: str = ""

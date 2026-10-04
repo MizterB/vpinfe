@@ -33,6 +33,11 @@ COLLECTIONS_CHANGED = "collections.changed"
 # game, and the payload has never held a table.
 GAME_SELECTED = "game.selected"
 
+# Settings were saved. Carries `keys`, each as `section.key`, for the ones whose stored
+# value changed, and `ini_config`, the store they were written to. A subscriber acts on
+# the keys it owns, so a setting that applies `now` is one something here listens for.
+SETTINGS_CHANGED = "settings.changed"
+
 # Play-host state changed. Carries the whole new state, so a consumer that missed one
 # is still correct after the next.
 PLAY_STATE_CHANGED = "play.state_changed"

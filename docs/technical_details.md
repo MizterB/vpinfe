@@ -193,7 +193,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `setup_done` | list |  | The Setup steps already answered. Setup reopens on the first one that is not. |
 | `display_name` | string |  | What to call this device where one is listed. Defaults to its hostname. Nothing is addressed by it, so renaming is safe. |
 | `features` | list | `library,frontend,devices` | What this device is for. Each one you add appears in the Console. Leave it empty and System is still here to come back and set it. |
-| `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Takes effect after a restart. Your library's own words - table names and the rest - are never translated. |
+| `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Your library's own words - table names and the rest - are never translated. |
 
 ### `vpsdb`
 
