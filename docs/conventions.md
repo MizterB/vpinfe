@@ -1328,7 +1328,7 @@ element.
   end (`console-file-name`), which is where two builds of one game differ.
   `tests/invariants/test_maker_and_year_are_joined_once.py` fails on a maker-year join
   written anywhere else.
-- **A game, table or collection in a list carries its art as the Artwork settings draw
+- **A game, table or collection in a list carries its art as the Media settings draw
   it.** One frame ahead of the name holds the chosen kind as the frontend shows it, or a
   collection's own picture, or the row's own glyph where there is none. The settings
   (Settings > VPinFE > Console) give every list the same frame: square or twice as wide,

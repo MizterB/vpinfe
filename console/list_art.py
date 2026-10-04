@@ -1,7 +1,7 @@
 """The picture ahead of a name in a list: which one, where it is served, and its frame.
 
 Every row of a list draws the same frame, holding the row's glyph where there is no
-picture. Its shape, height and ground are the Artwork settings, carried by an ancestor of
+picture. Its shape, height and ground are the Media settings, carried by an ancestor of
 the frame as a `Look`. The address comes from `console/art.py`.
 """
 

@@ -369,7 +369,7 @@ def match_existing(library: SourceLibrary, existing: list[dict],
         how = "folder" if held else ""
         if held is None and game.vps_id:
             held = by_vps.get(game.vps_id.lower())
-            how = "catalog_id" if held else ""
+            how = "vps_id" if held else ""
         played = history_for(history or {}, game)
         found.append(Match(key=game.key, folder=folder,
                            game_id=str(held.get("game_id") or "") if held else "",

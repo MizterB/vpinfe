@@ -47,7 +47,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `game_root_dir` | string |  | The folder holding your table folders, one folder per game |
-| `hidden_media_kinds` | list |  | Kinds of artwork this library does not collect. VPinFE stops showing and counting them; the files stay where they are. |
+| `hidden_media_kinds` | list |  | Kinds of media this library does not collect. VPinFE stops showing and counting them; the files stay where they are. |
 | `hidden_asset_kinds` | list |  | Kinds of supporting file this library does not collect - an all-EM library has no ROMs. A table that will not launch still says so. |
 
 ### `commands`
@@ -135,7 +135,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `cab_mode` | bool | `false` | Presents VPinFE for playing standing at a cabinet: larger text and targets, and no controls that need a mouse. It does not rotate anything. |
-| `playfield_media_rotation` | choice (auto, 0, 90, 180, 270) | `auto` | How far to turn playfield artwork so it fills the screen |
+| `playfield_media_rotation` | choice (auto, 0, 90, 180, 270) | `auto` | How far to turn playfield media so it fills the screen |
 | `playfield_media_priority` | choice (video, image) | `video` | Playfield Media Priority |
 | `backglass_media_priority` | choice (video, image) | `video` | Backglass Media Priority |
 | `score_view_media_priority` | choice (video, image) | `video` | Score View Media Priority |
@@ -159,8 +159,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `active` | string | `Revolution` | Active Theme |
-| `registries` | list | `https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json` | Catalogs to offer themes from, most trusted first. A source is fetched and installed, so add one you trust. |
-| `repositories` | list |  | Individual theme repositories, one theme each. They take priority over the catalogs. |
+| `registries` | list | `https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json` | Where to look for themes, most trusted first. A source is fetched and installed, so add one you trust. |
+| `repositories` | list |  | Individual theme repositories, one theme each. They take priority over the other theme sources. |
 | `refresh` | choice (never, daily, weekly, monthly) | `daily` | How often to search for new themes and updates |
 | `last_read` | string |  |  |
 
@@ -175,7 +175,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `playfield_variant` | choice (table, fss) | `table` | Which playfield artwork this library holds: table.png, or fss.png for art captured in Visual Pinball's Full Single Screen mode |
+| `playfield_variant` | choice (table, fss) | `table` | Which playfield media this library holds: table.png, or fss.png for art captured in Visual Pinball's Full Single Screen mode |
 | `playfield_resolution` | choice (4k, 1k) | `4k` | Playfield Resolution |
 | `playfield_video_resolution` | choice (4k, 1k) | `1k` | Playfield Video Resolution |
 | `browse_dirs` | list |  | Extra folders you can add tables, media and assets from by hand. Your library folders are always available; anywhere else has to be listed here first. |

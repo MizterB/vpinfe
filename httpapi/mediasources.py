@@ -24,7 +24,7 @@ logger = logging.getLogger("vpinfe.httpapi.mediasources")
 router = APIRouter(prefix="/media-sources", tags=["media-sources"])
 
 
-@router.get("", summary="The online artwork catalogs this install knows",
+@router.get("", summary="The online media sources this install knows",
             dependencies=[requires(scopes.VPS_READ)])
 def list_sources() -> models.MediaSourceList:
     """Every source that ships, and whether it is one of the ones being asked.

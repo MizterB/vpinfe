@@ -121,12 +121,12 @@ class CheckTests(WizardCase):
         self.assertEqual(summary["Reads as"], "PinballX / PinballY")
 
     def test_a_kind_with_no_source_says_it_is_not_coming(self) -> None:
-        """"No artwork" should be a choice somebody can see they made, not a silence
+        """"No media" should be a choice somebody can see they made, not a silence
         they notice afterwards."""
         found = self._check(FIXTURE, media="")
         summary = dict(one for one in found["summary"] if len(one) == 2)
 
-        self.assertEqual(summary["No artwork"], "not being imported")
+        self.assertEqual(summary["No media"], "not being imported")
 
     def test_every_kind_of_source_is_offered_and_can_be_cleared(self) -> None:
         """Derived where it can be, overridable always, and empty means not imported."""
@@ -224,7 +224,7 @@ class SummaryShapeTests(WizardCase):
         at = next(i for i, one in enumerate(found["summary"]) if len(one) == 1)
 
         after = [one[0] for one in found["summary"][at + 1:]]
-        self.assertEqual(after, ["Games", "Game files", "Artwork files",
+        self.assertEqual(after, ["Games", "Game files", "Media files",
                                  "Backglasses and settings", "Games with play history"])
 
     def test_the_summary_counts_the_games_whose_play_history_comes_across(self) -> None:

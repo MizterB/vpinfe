@@ -94,7 +94,7 @@ class MatchTests(unittest.TestCase):
         found = plan_for.match_existing(library, self.HELD)
 
         self.assertTrue(found[0].existing)
-        self.assertEqual(found[0].how, "catalog_id")
+        self.assertEqual(found[0].how, "vps_id")
 
     def test_a_game_nothing_here_matches_is_new(self) -> None:
         found = plan_for.match_existing(_library(_game("Funhouse")), self.HELD)

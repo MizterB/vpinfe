@@ -1,7 +1,7 @@
 """Where a file comes from, in one place.
 
 Three ways in, because there are three: the computer you are looking at this from, the
-machine VPinFE runs on, and the catalogs. A collection's picture has a fourth, the art its
+machine VPinFE runs on, and the online sources. A collection's picture has a fourth, the art its
 games already have, and a table has one with no file at all. Anything already on a disk
 is one browser rather than a tab apiece - this game's folder, another game's, and a folder
 of downloads are the same act, and splitting them made three answers to one question.
@@ -872,7 +872,7 @@ class _Slot(_OneFile):
         """Where we looked, for the one case that needs it: nothing came back.
 
         An empty result with no "where" reads as the feature being broken rather than
-        as the catalogs not having it.
+        as the online sources not having it.
         """
         asked = [item["name"] for item in (self._known_sources or [])
                  if item.get("enabled")]
@@ -932,7 +932,7 @@ class _Slot(_OneFile):
             found = await offload.io(self.library.media_offers, vps_id, self.kind)
         except Exception as exc:
             with body:
-                panel.line(t("console.mediasource.catalogs_failed"), hint=why(exc))
+                panel.line(t("console.mediasource.sources_failed"), hint=why(exc))
             return
         with body:
             if not found:
