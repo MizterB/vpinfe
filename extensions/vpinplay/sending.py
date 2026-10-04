@@ -44,6 +44,7 @@ class Played:
     reading: dict | None
     credited: bool
     record: dict | None
+    rated: bool = False
 
 
 class Sender:
@@ -87,7 +88,7 @@ class Sender:
         if (holder is None or not game_id or not self._ctx.players.sharing(player_id)
                 or game_id not in self._sent(player_id)):
             return
-        _on_a_thread(partial(self._run, holder, Played(game_id, None, False, None)))
+        _on_a_thread(partial(self._run, holder, Played(game_id, None, False, None, rated=True)))
 
     def share_changed(self, **payload: Any) -> None:
         """`account.share_changed`, for this extension's accounts."""
@@ -193,8 +194,8 @@ class Sender:
                  played: Played | None) -> dict | None:
         """One game for this account, or None where there is nothing to send: a Private
         game, a game no catalog matched, a game no longer here. Raises
-        `CannotReadTheirsError` where what VPinPlay holds for a player other than the owner
-        could not be read, which leaves the game waiting."""
+        `CannotReadTheirsError` where what VPinPlay already holds for the player could not
+        be read, which leaves the game waiting."""
         try:
             game = self._ctx.games.get_game(game_id)
         except Exception:
@@ -208,17 +209,16 @@ class Sender:
                      tables[0] if tables else None)
         library = sync.from_library(game)
         reading = played.reading if played and played.reading else library["user"]["score"]
-        if holder.owner:
-            mine = sync.theirs_of(reading, holder.initials,
-                                  bool(played and played.credited))
-            return sync.payload_for({**library, "user": {**library["user"],
-                                                         "score": mine}}, table)
         held = sync.their_record(where, holder.user_id, vps_id, sync.GAME_TIMEOUT)
         if held is None:
             self._ctx.logger.warning("Not sending %s for %s yet: VPinPlay could not say "
                                      "what it already holds", game.get("name"),
                                      holder.initials)
             raise CannotReadTheirsError
+        if holder.owner:
+            return sync.payload_for_owner(library, table, held, reading, holder.initials,
+                                          credited=bool(played and played.credited),
+                                          rated=bool(played and played.rated))
         mine = (played.record if played and played.record is not None
                 else self._ctx.players.record(holder.player_id, game_id)) or {}
         return sync.payload_for_player(game, table, mine, held, reading, holder.initials,

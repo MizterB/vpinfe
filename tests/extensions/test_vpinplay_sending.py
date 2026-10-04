@@ -130,7 +130,7 @@ class WhatAPlaySends(SendingCase):
                           table["user"]["startCount"], table["user"]["runTime"]),
                          (f"vps-{GAME}", 4, 7, 10))
         self.assertEqual(table["vpinfe"]["alttitle"], "Mine")
-        self.held.assert_not_called()
+        self.assertEqual(self.held.call_args.args[1:3], ("owner-id", f"vps-{GAME}"))
 
     def test_the_score_is_the_reading_as_core_filled_it_kept_to_their_own_entry(self) -> None:
         """A blank took the one player up's initials; a `???` stays `???` - and since it
@@ -140,6 +140,50 @@ class WhatAPlaySends(SendingCase):
         self.play(self.owner)
 
         self.assertEqual(self.only_table()["user"]["score"], _only(READING["entries"][0]))
+
+    def test_an_owner_send_with_no_score_of_theirs_keeps_the_one_vpinplay_holds(self) -> None:
+        held = {"rom": "ex", "entries": [{"section": "HIGH SCORES", "rank": 1,
+                                          "initials": "OWN", "score": 5000}]}
+        self.sharing(self.owner, "owner-id")
+        self.held.return_value = {"score": held}
+
+        self.play(self.owner, reading={**READING, "entries": [READING["entries"][2]]})
+
+        self.assertEqual(self.only_table()["user"]["score"], held)
+
+    def test_an_owner_score_of_their_own_replaces_the_one_vpinplay_holds(self) -> None:
+        self.sharing(self.owner, "owner-id")
+        self.held.return_value = {"score": {"rom": "ex", "entries": []}}
+
+        self.play(self.owner)
+
+        self.assertEqual(self.only_table()["user"]["score"], _only(READING["entries"][0]))
+
+    def test_an_owner_rating_never_given_here_is_the_one_vpinplay_holds(self) -> None:
+        self.sharing(self.owner, "owner-id")
+        self.games[GAME]["user"]["rating"] = 0
+        self.held.return_value = {"rating": 3}
+
+        self.play(self.owner)
+
+        self.assertEqual(self.only_table()["user"]["rating"], 3)
+
+    def test_an_owner_rating_given_here_replaces_the_one_vpinplay_holds(self) -> None:
+        self.sharing(self.owner, "owner-id")
+        self.held.return_value = {"rating": 3}
+
+        self.play(self.owner)
+
+        self.assertEqual(self.only_table()["user"]["rating"], 4)
+
+    def test_an_owner_with_nothing_held_and_nothing_to_send_sends_none(self) -> None:
+        self.sharing(self.owner, "owner-id")
+        self.games[GAME]["user"]["rating"] = 0
+
+        self.play(self.owner, reading=None)
+
+        self.assertEqual((self.only_table()["user"]["score"],
+                          self.only_table()["user"]["rating"]), (None, 0))
 
     def test_a_kept_player_s_game_goes_with_their_own_numbers(self) -> None:
         kept = self.sharing(self.kept().player_id, "jordan")
@@ -347,6 +391,15 @@ class WhatWaits(SendingCase):
         self.send.assert_not_called()
         self.assertEqual(self.account(kept)["status"], "1 game waiting to send")
 
+    def test_nothing_goes_for_an_owner_vpinplay_cannot_say_it_holds(self) -> None:
+        self.sharing(self.owner, "owner-id")
+        self.held.return_value = None
+
+        self.play(self.owner)
+
+        self.send.assert_not_called()
+        self.assertEqual(self.account(self.owner)["status"], "1 game waiting to send")
+
     def test_a_new_user_id_forgets_what_the_old_one_was_sent_and_owes(self) -> None:
         self.sharing(self.owner, "owner-id")
         self.fail()
@@ -416,6 +469,21 @@ class WhatARatingSends(SendingCase):
         self.run_later()
 
         self.assertEqual(len(self.requests_sent()), 1)
+
+
+class WhatClearingARatingSends(SendingCase):
+    def test_an_owner_clearing_their_rating_sends_the_clear_not_the_one_held(self) -> None:
+        self.sharing(self.owner, "owner-id")
+        self.play(self.owner)
+        self.send.reset_mock()
+        self.games[GAME]["user"]["rating"] = 0
+        self.held.return_value = {"rating": 3}
+
+        events.emit(events.GAME_RATED, game_id=GAME, rating=0,
+                    player=players.get_roster().player(self.owner).as_payload())
+        self.run_later()
+
+        self.assertEqual(self.only_table()["user"]["rating"], 0)
 
 
 class WhatShareOffDrops(SendingCase):

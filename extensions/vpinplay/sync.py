@@ -109,6 +109,27 @@ def payload_for_player(game: dict, table: dict | None, mine: dict, held: dict,
     }, table)
 
 
+def payload_for_owner(game: dict, table: dict | None, held: dict, reading: Any,
+                      initials: str, *, credited: bool = False, rated: bool = False
+                      ) -> dict | None:
+    """One game, for the owner, in the shape `payload_for` builds.
+
+    `game` is the library's record of it, which is the owner's own. A send replaces the
+    whole record for the table, and the service stores a missing score as nothing and a
+    rating of 0 as nothing, so where this install has neither to send they come from
+    `held`, the service's record - as they do for another player. `rated` says the send
+    is for a rating just given, where 0 is the owner clearing it and goes as it is.
+    """
+    user = game.get("user") or {}
+    return payload_for({
+        **game,
+        "user": {**user,
+                 "rating": (user.get("rating") if rated
+                            else user.get("rating") or held.get("rating")),
+                 "score": theirs_of(reading, initials, credited) or held.get("score")},
+    }, table)
+
+
 def from_library(game: dict) -> dict:
     """A game as core's library lens publishes it, its high score table in the shape a
     reading off the hardware has - which is the shape the service files."""
