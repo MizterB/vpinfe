@@ -114,7 +114,7 @@ def _catalog_for(to_match: list, reporter: JobReporter | None, step: int,
 
     def downloading() -> None:
         if reporter:
-            reporter.progress(step, steps, t("said.catalog_download"))
+            reporter.progress(step, steps, t("said.spreadsheet_download"))
 
     vpsdb_sync.ensure_catalog(get_ini_config(), downloading)
 
