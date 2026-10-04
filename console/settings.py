@@ -864,16 +864,19 @@ FEATURE_NOTES = {
 }
 
 
-def features_said(features: Any) -> str:
-    """What an install is for, in a person's words.
+def features_listed(features: Any) -> list[str]:
+    """What an install is for, as the names it reported.
 
     `core` is left out: every install has it, so a list naming it prints the same word
-    on every row. Anything else unrecognized is shown as it arrived, because a device
-    reporting a feature this build has not heard of is a fact rather than a blank.
+    on every row. Anything else unrecognized stays, because a device reporting a feature
+    this build has not heard of is a fact rather than a blank.
     """
-    return ", ".join(t(install_identity.LABELS.get(str(name), str(name)))
-                     for name in (features or [])
-                     if str(name) != install_identity.CORE)
+    return [str(name) for name in (features or []) if str(name) != install_identity.CORE]
+
+
+def feature_said(name: str) -> str:
+    """A feature in a person's words."""
+    return t(install_identity.LABELS.get(name, name))
 
 
 IDENTITY = "vpinfe.install"

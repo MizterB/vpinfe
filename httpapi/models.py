@@ -321,12 +321,12 @@ class DeviceProbe(ApiModel):
 
     `state` is `answering`, `unreachable`, or `unaskable` - the last meaning there was
     nothing to dial, which a device being switched off never causes and switching it on
-    never fixes. `what` is the product on the other end, written for a person.
+    never fixes. `version` is the version that answered, empty where it did not say.
     """
 
     device_id: str
     state: str
-    what: str = ""
+    version: str = ""
     reason: str = ""
     reason_key: str = ""
     features: list[str] = Field(default_factory=list)

@@ -289,7 +289,7 @@ class _Answering:
         self.asked = 0
 
     def probe(self) -> dict:
-        return {"state": device_client.ANSWERING, "what": "VPinFE 3.0.0", "reason": "",
+        return {"state": device_client.ANSWERING, "version": "3.0.0", "reason": "",
                 "features": self.features}
 
     def frontend_browser(self) -> dict:

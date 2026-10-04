@@ -12,6 +12,7 @@ from typing import Any
 
 from nicegui import ui
 
+from common import install_identity
 from common.i18n import t
 from console import media_ownership, tag_chips, verbs
 
@@ -110,8 +111,14 @@ _SETTING_LOOK = (
     f"key => {{ const name = (window.{_SETTING_NAMES_DATA} || {{}})[key];"
     " return name ? {label: name} : {}; }"
 )
+FEATURE_LOOKS = "features"
+_FEATURE_LOOK = (
+    "name => ({chip: 'console-member-chip console-chip-quiet',"
+    f" label: ({json.dumps({name: t(key) for name, key in install_identity.LABELS.items()})}"
+    ")[name] ?? name})"
+)
 LOOKS = {TAG_LOOKS: tag_chips.LOOK, COLLECTION_LOOKS: _COLLECTION_LOOK,
-         SETTING_LOOKS: _SETTING_LOOK}
+         SETTING_LOOKS: _SETTING_LOOK, FEATURE_LOOKS: _FEATURE_LOOK}
 
 
 def named(looks: str) -> str:

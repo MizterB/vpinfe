@@ -140,7 +140,7 @@ class LocalDevice:
         """Always answering: this is the process being asked."""
         from common.vpinfe_version import get_version
 
-        return {"state": ANSWERING, "what": f"VPinFE {get_version()}", "reason": ""}
+        return {"state": ANSWERING, "version": get_version(), "reason": ""}
 
 
 class TooOldError(RuntimeError):
@@ -209,7 +209,7 @@ def why_not(exc: Exception) -> str:
 
 
 def _not_answering(state: str, key: str) -> dict[str, Any]:
-    return {"state": state, "what": "", "reason": t(key), "reason_key": key}
+    return {"state": state, "version": "", "reason": t(key), "reason_key": key}
 
 
 def served(listing: list[dict[str, Any]]) -> list[str]:
@@ -405,10 +405,8 @@ class RemoteDevice:
         from common import http_client
 
         said = dict(http_client.get_json(self._url(""), timeout=_PROBE_TIMEOUT) or {})
-        name = str(said.get("name") or "VPinFE")
-        version = str(said.get("vpinfe_version") or "")
         return {"state": ANSWERING,
-                "what": f"{name} {version}".strip(),
+                "version": str(said.get("vpinfe_version") or ""),
                 "features": list(said.get("features") or []),
                 # Already in this response, so asking again would be a second call for
                 # something we are holding. Names only: the descriptions are the biggest
@@ -438,13 +436,12 @@ class MobileDevice:
     def probe(self) -> dict[str, Any]:
         """Its file listing, which is the only thing it offers that proves it is there.
 
-        There is no version to report: the protocol carries no identity, so what a
-        person gets told is the bare fact - something is answering VPX Mobile there.
+        There is no version to report: the protocol carries no identity.
         """
         from common import http_client
 
         http_client.get_json(f"{self.base_url}/files", timeout=_PROBE_TIMEOUT)
-        return {"state": ANSWERING, "what": "VPX Mobile", "reason": ""}
+        return {"state": ANSWERING, "version": "", "reason": ""}
 
 
 _local = LocalDevice()

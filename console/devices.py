@@ -11,7 +11,7 @@ from typing import Any
 from nicegui import run, ui
 
 from common import device_client, device_registry, lifecycle
-from common.host import action_ops
+from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
 from console import offload, renderers, verbs
@@ -132,17 +132,18 @@ def device_label(device: dict[str, Any]) -> str:
             or t("console.devices.device"))
 
 
-def _connection_rows(device: dict[str, Any],
-                     reach: dict[str, Any] | None) -> list[tuple[Any, Any]]:
-    """Whether it is there, what answered, and when it last was.
+def own_address() -> str:
+    """What another machine would type to reach this one, or "" where nothing but
+    loopback is on offer."""
+    return next((host for host in addresses.hosts() if host != "localhost"), "")
 
-    The timestamp is shown beside the state rather than instead of it: "not answering"
-    is the fact, and how long that has been true is what decides whether it is worth
-    doing something about.
-    """
-    rows: list[tuple[Any, Any]] = [
-        (t("console.devices.address"),
-         str(device.get("address") or "") or t("console.devices.not_known"))]
+
+def _connection_rows(context: dict[str, Any], address: str) -> list[tuple[Any, Any]]:
+    """Whether it is there, when it last was, where, and since when this install has
+    known it."""
+    device = _of(context)
+    reach = context.get("reach")
+    rows: list[tuple[Any, Any]] = []
 
     found = _REACH.get(str((reach or {}).get("state") or ""))
     if found is None:
@@ -150,15 +151,18 @@ def _connection_rows(device: dict[str, Any],
                      panel.state(t("console.devices.checking"), "unknown")))
     else:
         label, level, _color = found
-        what = str((reach or {}).get("what") or "")
-        rows.append((t("word.state"),
-                     panel.state(t(label), level, beside=what)))
+        rows.append((t("word.state"), panel.state(t(label), level)))
         reason = str((reach or {}).get("reason") or "")
         if level != "on" and reason:
             rows.append(panel.note(reason))
 
     rows.append((t("word.last_seen"),
                  _when(str(device.get("last_reachable") or ""), t("word.never"))))
+    rows.append((t("console.devices.address"), address or t("console.devices.not_known")))
+    rows.append((t("console.devices.first_seen"),
+                 _when(str(device.get("first_seen") or ""), t("console.devices.not_known"))))
+    if is_local(context) or context.get("library") is None:
+        rows.append(panel.note(t("console.devices.device_reading_console_entry")))
     return rows
 
 
@@ -441,14 +445,12 @@ async def _start_update(client: Any, name: str, stop_table: bool) -> None:
     ui.notify(t("console.devices.update_staged_restarting_apply", name=(name)), type="positive")
 
 
-def _hostname_placeholder(device: dict[str, Any], is_local: bool) -> str:
+def _hostname_placeholder(device: dict[str, Any]) -> str:
     """What it will be called if the field is left empty.
 
     The name it reports with nothing set is its hostname, so showing that is more use
     than the word "hostname" - it is the actual answer rather than a description of one.
     """
-    if not is_local:
-        return str(device.get("display_name") or "")
     return str(device.get("display_name") or "") \
         .strip() or t("console.devices.device_s_hostname")
 
@@ -489,7 +491,7 @@ COLUMNS: list[dict[str, Any]] = [
                 help=t("console.devices.vpinfe_or_vpx_mobile.help")),
     grid.column("state", t("word.state"), 140, **grid.choice_filter(_STATE_CHOICES),
                 help=t("console.devices.whether_answered_last_asked.help")),
-    grid.column("what", t("word.running"), 160,
+    grid.column("version", t("word.version"), 160,
                 help=t("console.devices.what_answered_vpinfe_install.help")),
     grid.column("browser", t("console.devices.browser"), 150,
                 help=t("console.devices.browser.help"),
@@ -502,8 +504,9 @@ COLUMNS: list[dict[str, Any]] = [
     grid.column("last_seen", t("word.last_seen"), 170,
                 help=t("console.devices.last_known_announced_install.help"),
                 **when.cell("last_seen")),
-    grid.column("features", t("console.devices.features"), 150,
-                help=t("console.devices.what_device_is_for.help")),
+    grid.list_column("features", t("console.devices.features"), 150,
+                     help=t("console.devices.what_device_is_for.help"),
+                     looks=renderers.FEATURE_LOOKS),
 ]
 
 # `self` is out: it is a sort key, not a column somebody picks.
@@ -516,13 +519,13 @@ _SELF_FIRST = {"colId": "self", "sort": "desc", "sortIndex": 0}
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     "console.devices.all_devices": views.Preset(
-        columns=("name", "kind", "state", "what", "browser", "last_seen"),
+        columns=("name", "kind", "state", "version", "browser", "last_seen"),
         sort=(_SELF_FIRST,
               {"colId": "state", "sort": "asc", "sortIndex": 1},
               {"colId": "name", "sort": "asc", "sortIndex": 2}),
         help=t("console.devices.every_device_known_here.help")),
     "console.view.answering": views.Preset(
-        columns=("name", "kind", "what", "browser", "address", "features"),
+        columns=("name", "kind", "version", "browser", "address", "features"),
         sort=(_SELF_FIRST, {"colId": "name", "sort": "asc", "sortIndex": 1}),
         filters={"state": {"values": [_REACH[device_client.ANSWERING][0]]}},
         help=t("console.devices.what_switched_reachable_right.help")),
@@ -561,11 +564,11 @@ def rows(devices: list[dict[str, Any]],
             # Blank until the probes land, rather than a word meaning "not yet": a
             # grid filter over "Checking" is a filter over how fast the page loaded.
             "state": state[0] if state else "",
-            "what": str(probe.get("what") or ""),
+            "version": str(probe.get("version") or ""),
             "browser": str(_browser_of(device, probe).get("state") or ""),
             "address": str(device.get("address") or ""),
             "last_seen": str(device.get("last_reachable") or ""),
-            "features": settings_page.features_said(device.get("features")),
+            "features": settings_page.features_listed(device.get("features")),
         })
     return [when.said(row, "last_seen") for row in out]
 
@@ -780,19 +783,20 @@ def serves(context: dict[str, Any], capability: str) -> bool:
 
 
 async def detail_groups(context: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """What a device is, whether it is there, where its settings are, and what this
-    install holds about it.
+    """What a device is, whether it is there, and where its settings are.
 
-    Descriptive, then operational, then what this install holds about it: what a thing
-    is comes before what can be done to it, and the record we keep of it is nobody's
-    first question. They are headings inside one section rather than rail entries of
-    their own, because four of them hold three rows or fewer and a rail entry that opens
-    one row is a click charged for nothing.
+    Descriptive, then operational: what a thing is comes before what can be done to it.
+    They are headings inside one section rather than rail entries of their own, because
+    each holds three rows or fewer and a rail entry that opens one row is a click charged
+    for nothing.
     """
     rows_out: list[tuple[Any, Any]] = [(panel.HEADING, t("word.identity"))]
     rows_out += await _identity_rows(context)
     rows_out.append((panel.HEADING, t("console.devices.connection")))
-    rows_out += _connection_rows(_of(context), context.get("reach"))
+    # Read off the machine, so off the loop: this machine's own address is a name lookup.
+    address = (await offload.io(own_address) if is_local(context)
+               else str(_of(context).get("address") or ""))
+    rows_out += _connection_rows(context, address)
     rows_out += await _playing_rows(context)
     if is_phone(context):
         # A phone is not an install: no software, no lifecycle, no settings of ours to
@@ -804,8 +808,6 @@ async def detail_groups(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     else:
         rows_out.append((panel.HEADING, t("console.devices.settings")))
         rows_out += settings_door(context)
-    rows_out.append((panel.HEADING, t("console.devices.entry")))
-    rows_out += entry_rows(context)
     return rows_out
 
 
@@ -963,10 +965,10 @@ def settings_door(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 
 async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """What it is called, and what kind of thing it is."""
+    """What it is called, and what it is for."""
     device = _of(context)
     # The library this name can be written through, which only the install serving the
-    # page has. Its absence is what makes the field read-only, so the two cannot drift.
+    # page has. Without one the name is plain text.
     library = context.get("library") if is_local(context) else None
 
     # What the install has been told to call itself, which is not what it reports: the
@@ -995,25 +997,30 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
             await rebuild()
 
     rows_out: list[tuple[Any, Any]] = [
-        (t("word.name"), panel.field(stored, rename,
-                             placeholder=_hostname_placeholder(device,
-                                                               is_local(context)),
-                             disabled=library is None)),
+        (t("word.name"),
+         panel.field(stored, rename,
+                     placeholder=_hostname_placeholder(device))
+         if library is not None else device_label(device)),
     ]
     if not is_local(context):
         rows_out.append(panel.note(t("console.devices.name_belongs_device_can")))
-    rows_out.append((t("word.kind"),
-            KIND_LABELS.get(str(device.get("kind") or "vpinfe"),
-                                             "VPinFE")))
-    rows_out.append((t("console.devices.features"),
-                     settings_page.features_said(device.get("features"))
-                     or t("console.devices.not_reported")))
+    rows_out.append((t("console.devices.features"), _feature_chips(device.get("features"))))
     return rows_out
 
 
-def connection_rows(device: dict[str, Any],
-                    reach: dict[str, Any] | None) -> list[tuple[Any, Any]]:
-    return _connection_rows(device, reach)
+def _feature_chips(features: Any) -> Any:
+    """One quiet chip per feature, or the plain statement that none was reported."""
+    names = settings_page.features_listed(features)
+    if not names:
+        return t("console.devices.not_reported")
+
+    def draw() -> None:
+        with ui.element("div").classes("console-chips"):
+            for name in names:
+                ui.label(settings_page.feature_said(name)) \
+                    .classes("console-member-chip console-chip-quiet")
+
+    return draw
 
 
 async def ask_each(entries: list[dict[str, Any]],
@@ -1150,19 +1157,3 @@ def _log_lines(records: list[dict[str, Any]], path: str) -> None:
             ui.label(str(record.get("message") or "")).classes("console-log-message")
     if path:
         ui.label(path).classes("console-log-path")
-
-
-def entry_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """What this install holds about the device, which is the only part it owns."""
-    device = _of(context)
-    library = context.get("library")
-    out: list[tuple[Any, Any]] = [
-        (t("console.devices.first_seen"),
-                _when(str(device.get("first_seen") or ""), t("console.devices.not_known"))),
-        (t("console.devices.announced"),
-                _when(str(device.get("last_seen") or ""), t("word.never"))),
-    ]
-    if is_local(context) or library is None:
-        out.append(panel.note(
-            t("console.devices.device_reading_console_entry")))
-    return out
