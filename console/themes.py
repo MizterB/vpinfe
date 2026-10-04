@@ -385,12 +385,15 @@ async def settings_section(context: dict[str, Any]) -> None:
 
 @on_page
 async def _install(library: Library, key: str, again: Callable[[], Any]) -> None:
-    ui.notify(t("console.themes.downloading", key=(key)), type="ongoing")
+    downloading = ui.notification(t("console.themes.downloading", key=key),
+                                  spinner=True, timeout=None)
     try:
         await run.io_bound(library.install_theme, key)
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("console.themes.install_failed"), caption=why(exc), type="negative")
         return
+    finally:
+        downloading.dismiss()
     ui.notify(t("console.themes.installed", key=(key)), type="positive")
     await again()
 

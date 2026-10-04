@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import AsyncMock, Mock, patch
 
 from console import themes
+from tests.support.clicks import press
 
 
 def _theme(**more) -> dict:
@@ -82,6 +84,38 @@ class TheChangelog(unittest.TestCase):
     def test_it_is_old_news_on_the_copy_you_run(self) -> None:
         self.assertEqual("", themes.changes_worth_showing(
             _theme(change_log="Faster", installed=True)))
+
+
+class Installing(unittest.IsolatedAsyncioTestCase):
+    async def _install(self, outcome: object) -> tuple[Mock, Mock, AsyncMock]:
+        downloading, notify, again = Mock(), Mock(), AsyncMock()
+        self.notification = Mock(return_value=downloading)
+        with patch.object(themes.ui, "notification", new=self.notification), \
+                patch.object(themes.ui, "notify", new=notify), \
+                patch.object(themes.run, "io_bound", new=AsyncMock(side_effect=outcome)):
+            await press(themes._install, Mock(), "carousel-desktop", again)
+        return downloading, notify, again
+
+    async def test_the_download_notice_stays_until_the_install_is_over(self) -> None:
+        await self._install([None])
+
+        self.notification.assert_called_once()
+        self.assertEqual((True, None), (self.notification.call_args.kwargs["spinner"],
+                                        self.notification.call_args.kwargs["timeout"]))
+
+    async def test_the_download_notice_goes_once_the_theme_is_in(self) -> None:
+        downloading, notify, again = await self._install([None])
+
+        downloading.dismiss.assert_called_once_with()
+        self.assertEqual("positive", notify.call_args.kwargs["type"])
+        again.assert_awaited_once()
+
+    async def test_the_download_notice_goes_when_the_install_fails(self) -> None:
+        downloading, notify, again = await self._install(OSError("down"))
+
+        downloading.dismiss.assert_called_once_with()
+        self.assertEqual("negative", notify.call_args.kwargs["type"])
+        again.assert_not_awaited()
 
 
 if __name__ == "__main__":
