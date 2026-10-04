@@ -435,7 +435,7 @@ def prepare_update() -> dict:
     resolved_triplet, asset_info = _resolve_manifest_asset(manifest, context["triplet"])
     if not asset_info:
         logger.warning("The latest release has no asset for %s", context["triplet"])
-        raise UpdateError(t("error.instance.no_build"))
+        raise UpdateError(t("error.instance.no_package"))
     if resolved_triplet and resolved_triplet != context["triplet"]:
         logger.info(
             "Preparing update using compatible manifest triplet=%s for context triplet=%s",

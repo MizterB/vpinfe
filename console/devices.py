@@ -954,11 +954,11 @@ def settings_door(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
     def door() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            panel.action(t("console.devices.open_system") if here
+            panel.action(t("console.devices.open_settings_here") if here
                     else t("console.devices.open_settings"),
                          open_it, icon="open_in_new", inline=True,
                          enabled=not stopped,
-                         hint=t("console.devices.open_system.help") if here
+                         hint=t("console.devices.open_settings_here.help") if here
                          else t("console.devices.open_settings.help"))()
 
     return [("", door), panel.note(t(stopped) if stopped else t(SETTINGS_NOTE))]

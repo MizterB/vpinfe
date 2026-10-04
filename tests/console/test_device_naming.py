@@ -159,7 +159,7 @@ class ThisInstallsCapabilitiesTests(unittest.TestCase):
         {"name": "actions", "feature": None, "available": False,
          "reason": "Nothing performs these"},
         {"name": "peripherals", "feature": "frontend", "available": False,
-         "reason": "No peripherals are turned on in configuration"},
+         "reason": "No peripherals are turned on in settings"},
     ]
 
     def _local(self) -> set[str]:
