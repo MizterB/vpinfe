@@ -138,11 +138,12 @@ class ServedAsSettingsTests(ATheme):
 
         self.assertEqual(self._stored("windows.apron"), "2")
 
-    def test_a_theme_declaring_no_windows_of_its_own_is_served_the_three(self) -> None:
+    def test_the_topper_is_served_to_a_theme_that_declares_no_windows(self) -> None:
         self._activate("Plain")
 
         self.assertEqual([name for name in self._sections() if name.startswith("windows.")],
-                         ["windows.playfield", "windows.backglass", "windows.score_view"])
+                         ["windows.playfield", "windows.backglass", "windows.score_view",
+                          "windows.topper"])
 
 
 class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
@@ -235,11 +236,10 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
     async def test_a_window_no_longer_declared_is_not_drawn(self) -> None:
         self.assertNotIn("Apron", self._headings(await self._drawn()))
 
-    async def test_choosing_another_theme_changes_what_the_page_draws(self) -> None:
-        await self._drawn()
+    async def test_choosing_a_theme_that_declares_no_topper_keeps_it(self) -> None:
         self._activate("Plain")
 
-        self.assertNotIn("Topper", self._headings(await self._drawn()))
+        self.assertIn("Topper", self._headings(await self._drawn()))
 
 
 if __name__ == "__main__":

@@ -101,6 +101,17 @@ Everything about a window follows from its name:
 `vpin.isController()` is how a window knows. A window with no monitor set is not opened,
 so declaring four on a two-monitor machine is fine.
 
+**The topper is the cabinet's, not the theme's.** Someone with a topper screen sets it once
+under Hardware › Displays, and VPinFE opens a `topper` window on it whichever theme is
+active. If your theme ships `index_topper.html` that page is used, so declaring `"topper"`
+and supplying the page keeps full control, as in the example above. If it does not, core
+draws a page of its own that shows the selected game's topper video, else its topper image,
+on black. A theme has nothing to declare for that, and `get_theme_windows()` still lists
+only what the theme declared. A theme that declares `"topper"` but ships no page gets
+core's page as well. Core's page is drawn by `core_media_window`, so a theme that sets
+`media_window.enabled` to `false` leaves the cabinet's topper screen black; a contract 1
+theme shows the topper image only, as contract 1 has no topper video field.
+
 Name a window after a media kind and `vpin.getImageURL(index, windowName)` gives you that
 kind's art. Several published contract 1 themes already rely on it for `bg` and `dmd`.
 

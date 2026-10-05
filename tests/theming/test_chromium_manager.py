@@ -605,6 +605,16 @@ class WindowUrlTests(unittest.TestCase):
 
         self.assertIn("index_playfield.html?window=playfield&", url)
 
+    def test_a_given_page_replaces_the_theme_s_own(self) -> None:
+        with mock.patch("frontend.chromium_manager.platform.system", return_value="Darwin"):
+            url = chromium_manager._build_window_url(
+                base_url="http://127.0.0.1", theme_assets_port=9000,
+                theme_name="Some Theme", window_name="topper", splash_enabled=False,
+                page="core/index_topper.html")
+
+        self.assertTrue(url.startswith(
+            "http://127.0.0.1:9000/core/index_topper.html?window=topper&wsPort="), url)
+
 
 def _ns_screen(x: float, y: float, width: float, height: float) -> types.SimpleNamespace:
     """An NSScreen as AppKit hands it over: a frame whose origin is its bottom-left corner,

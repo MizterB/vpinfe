@@ -31,7 +31,7 @@ from common.config_store import ConfigStore
 from common.games import remote_library
 from common.log_setup import include_thirdparty_logs
 from common.paths import bundled
-from frontend import theme_windows
+from frontend import theme_api, theme_windows
 
 logger = logging.getLogger("vpinfe.frontend.chromium_manager")
 
@@ -179,8 +179,12 @@ def _build_window_url(
     library_host: str = "",
     device_port: int = 8001,
     library_files_port: int = 0,
+    page: str = "",
 ) -> str:
     """Where a window opens, and how it finds the services.
+
+    `page` is the path under the server root of a page that is not the theme's own
+    `index_<window>.html`: core's, for a window the theme ships no page for.
 
     The ports travel in the url because they are what the page cannot ask for:
     everything else comes over the bridge, and asking needs the bridge port. Without
@@ -206,12 +210,8 @@ def _build_window_url(
         return (f"{base_url}:{theme_assets_port}/core/splash.html"
                 f"?window={window_name}&{endpoints}")
 
-    encoded_theme = quote(theme_name, safe="")
-    return (
-        f"{base_url}:{theme_assets_port}/themes/"
-        f"{encoded_theme}/index_{window_name}.html?window={window_name}"
-        f"&{endpoints}"
-    )
+    page = page or f"themes/{quote(theme_name, safe='')}/index_{window_name}.html"
+    return f"{base_url}:{theme_assets_port}/{page}?window={window_name}&{endpoints}"
 
 
 def resource_path(relative_path: str) -> str:
@@ -605,6 +605,7 @@ class ChromiumManager:
                 library_host=library.host,
                 device_port=library.device_port,
                 library_files_port=library.files_port,
+                page=theme_api.window_page_path(iniconfig, window_name),
             )
 
             section = OVERRIDE_SECTIONS.get(theme_windows.canonical(window_name))

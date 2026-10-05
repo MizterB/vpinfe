@@ -118,7 +118,23 @@ def get_audio_muted(config: ConfigSource) -> bool:
     return SettingsConfig.from_config(config).mute_audio
 
 
+# Windows core draws itself when the theme ships no page for them, and the page it uses.
+CORE_WINDOW_PAGES = {"topper": "index_topper.html"}
+
+
+def window_page_path(config: ConfigSource, window_name: str) -> str:
+    """Where a window's page is served from, relative to the server root: the theme's own,
+    or core's where core draws this window and the theme has no page for it."""
+    theme_name = get_theme_name(config)
+    page = f"index_{window_name}.html"
+    core_page = CORE_WINDOW_PAGES.get(window_name)
+    if core_page:
+        theme_dir = resolve_theme_dir(theme_name)
+        if theme_dir is None or not (theme_dir / page).is_file():
+            return f"core/{core_page}"
+    return f"themes/{quote(theme_name, safe='')}/{page}"
+
+
 def get_theme_index_page(config: ConfigSource, window_name: str) -> str:
     port = serving.network(config).theme_assets_port
-    theme_name = quote(get_theme_name(config), safe="")
-    return f"http://127.0.0.1:{port}/themes/{theme_name}/index_{window_name}.html?window={window_name}"
+    return f"http://127.0.0.1:{port}/{window_page_path(config, window_name)}?window={window_name}"

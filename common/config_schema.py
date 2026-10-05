@@ -314,6 +314,16 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             legacy=(("Displays", "dmdwindowoverride"),),
         ),
     ),
+    *in_section(
+        "windows.topper",
+        ConfigOption(
+            "screen_id",
+            applies=APPLIES_RESTART,
+            type="int",
+            default="",
+            suggest=SUGGEST_SCREENS,
+        ),
+    ),
     # Seven Visual Pinball settings left this section for the launcher that owns them:
     # the binary, its ini, the environment, the log-delete switch and the three override
     # keys. They are not settings an install has, they are fields of a way of running an

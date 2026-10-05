@@ -40,6 +40,12 @@ uses an old spelling both still load.
 | `screen_id` | int |  | Screen |
 | `override` | string |  | Position and size for this window, as x,y,width,height. Empty means no override. |
 
+### `windows.topper`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `screen_id` | int |  | Screen |
+
 ### `general`
 
 Runtime state written by VPinFE, not shown as a setting.

@@ -184,5 +184,8 @@
   "windows.score_view": {
     "override": "",
     "screen_id": ""
+  },
+  "windows.topper": {
+    "screen_id": ""
   }
 }

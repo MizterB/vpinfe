@@ -184,7 +184,7 @@ class LookupTests(unittest.TestCase):
             if entry.key.lower() in repeated:
                 self.assertIn(entry.section,
                               {"windows.playfield", "windows.backglass",
-                               "windows.score_view", "dof", "real_dmd"},
+                               "windows.score_view", "windows.topper", "dof", "real_dmd"},
                               f"{entry.section}.{entry.key} repeats outside a surface")
 
     def test_a_repeated_key_is_labelled_for_the_row_not_the_section(self) -> None:

@@ -12,7 +12,7 @@ import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from common.config_access import ConfigSource
+from common.config_access import ConfigSource, DisplayConfig
 from frontend import theme_api, theme_contract
 
 logger = logging.getLogger("vpinfe.frontend.theme_windows")
@@ -37,6 +37,10 @@ DEFAULT_WINDOWS = {
 # A contract 1 theme keeps its own spellings: it still gets `table`, `bg` and `dmd`
 # windows and still loads index_bg.html. Only the canonical side moved.
 CANONICAL = {"table": "playfield", "bg": "backglass", "dmd": "scoreview"}
+
+# Opened for any theme once the cabinet has a screen for it. A theme's own index_topper.html
+# is used when it ships one; theme_api.CORE_WINDOW_PAGES is the page otherwise.
+TOPPER = "topper"
 
 
 # Windows whose label is not just the capitalized name. The contract 1 spellings keep
@@ -119,11 +123,16 @@ def declared_windows(theme_dir: str | Path | None, contract: int) -> tuple[str, 
 
 
 def active(config: ConfigSource | None) -> tuple[str, ...]:
-    """The windows the active theme wants, controller first."""
+    """The windows to open, controller first: the active theme's, and the topper when the
+    cabinet has a screen for it and the theme does not declare one."""
     theme_dir = (theme_api.resolve_theme_dir(theme_api.get_theme_name(config))
                  if config is not None else None)
     contract = theme_contract.declared_contract(theme_dir) if theme_dir else OLDEST_CONTRACT
-    return declared_windows(theme_dir, contract)
+    windows = declared_windows(theme_dir, contract)
+    if config is not None and TOPPER not in windows and \
+            DisplayConfig.from_config(config).window_screen_id(screen_key(TOPPER)).strip():
+        return (*windows, TOPPER)
+    return windows
 
 
 def own_windows(windows: Iterable[str]) -> tuple[str, ...]:

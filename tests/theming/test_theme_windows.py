@@ -12,6 +12,7 @@ import unittest
 from configparser import ConfigParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 from common.config_access import DisplayConfig
 from common.config_store import ConfigStore
@@ -119,6 +120,74 @@ class IndexPageTests(TempTree):
         windows = theme_windows.declared_windows(theme, 2)
 
         self.assertIn("index_topper.html", theme_api.get_theme_index_page(config, windows[1]))
+
+
+class CoreTopperTests(TempTree):
+    """The topper is the cabinet's: a screen set for it opens a window under any theme."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.themes = self.root / "themes"
+        self.enterContext(mock.patch("frontend.theme_api.THEMES_DIR", self.themes))
+
+    def _config(self, screen: str = "") -> ConfigParser:
+        config = ConfigParser()
+        config.read_dict({"Settings": {"theme": "a-theme"}})
+        if screen:
+            config.read_dict({"windows.topper": {"screen_id": screen}})
+        return config
+
+    def _install(self, manifest: dict | None, *, page: bool = False) -> None:
+        theme = _theme(self.themes, manifest)
+        if page:
+            (theme / "index_topper.html").write_text("<html></html>", encoding="utf-8")
+
+    def test_a_screen_for_it_adds_the_window_after_the_theme_s_own(self) -> None:
+        self._install({"min_vpinfe": "3.0"})
+
+        self.assertEqual(theme_windows.active(self._config("2")),
+                         ("playfield", "backglass", "scoreview", "topper"))
+
+    def test_no_screen_for_it_adds_nothing(self) -> None:
+        self._install({"min_vpinfe": "3.0"})
+
+        self.assertNotIn("topper", theme_windows.active(self._config()))
+
+    def test_a_theme_that_declares_it_is_not_given_a_second(self) -> None:
+        self._install({"min_vpinfe": "3.0", "windows": ["playfield", "topper"]})
+
+        self.assertEqual(theme_windows.active(self._config("2")), ("playfield", "topper"))
+
+    def test_the_controller_stays_the_theme_s_first_window(self) -> None:
+        self._install({"min_vpinfe": "3.0", "windows": ["playfield"]})
+
+        self.assertEqual(theme_windows.controller(theme_windows.active(self._config("2"))),
+                         "playfield")
+
+    def test_a_theme_without_a_page_for_it_gets_core_s(self) -> None:
+        self._install({"min_vpinfe": "3.0"})
+
+        page = theme_api.get_theme_index_page(self._config("2"), "topper")
+
+        self.assertIn("/core/index_topper.html?window=topper", page)
+
+    def test_a_theme_that_ships_the_page_keeps_it(self) -> None:
+        self._install({"min_vpinfe": "3.0", "windows": ["playfield", "topper"]}, page=True)
+
+        page = theme_api.get_theme_index_page(self._config("2"), "topper")
+
+        self.assertIn("/themes/a-theme/index_topper.html?window=topper", page)
+
+    def test_core_has_the_page_it_falls_back_to(self) -> None:
+        self.assertTrue((Path(theme_api.__file__).parent / "static" /
+                         theme_api.CORE_WINDOW_PAGES["topper"]).is_file())
+
+    def test_no_other_window_falls_back(self) -> None:
+        self._install({"min_vpinfe": "3.0"})
+
+        page = theme_api.get_theme_index_page(self._config(), "backglass")
+
+        self.assertIn("/themes/a-theme/index_backglass.html", page)
 
 
 class DeclaredTests(TempTree):

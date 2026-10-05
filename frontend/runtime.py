@@ -29,7 +29,8 @@ from frontend.device_channel import DeviceChannel
 
 
 def window_configs(iniconfig: ConfigStore | None = None) -> list[tuple[str, str]]:
-    """(window name, monitor key) for each window the active theme declares.
+    """(window name, monitor key) for each window to open: the active theme's, and the topper
+    when the cabinet has a screen for it.
 
     Derived rather than fixed: a theme names its own windows, and the default depends on
     which contract it was written against - which is what keeps index_table.html working
