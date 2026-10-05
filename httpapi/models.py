@@ -540,7 +540,8 @@ class PlayerAccount(ApiModel):
     extension's own route for checking a candidate id, asked at
     `/ext/{extension}{check}?candidate=…` - empty where it offers none. `reads_cards`
     says whether a card can be used for it. `waiting` is the same fact `waiting_count`
-    puts as a number, as a plain boolean."""
+    puts as a number, as a plain boolean. `picture` says whether the service has a
+    picture for this player to use."""
 
     extension: str
     label: str = ""
@@ -558,6 +559,7 @@ class PlayerAccount(ApiModel):
     waiting_count: int = 0
     acts: list[AccountAct] = Field(default_factory=list)
     card: bool = False
+    picture: bool = False
     reads_cards: bool = False
     error: str = ""
 

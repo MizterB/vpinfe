@@ -15,8 +15,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import mimetypes
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -1415,11 +1416,39 @@ class _PlayerPicture(_Image):
 
     games = False
 
-    def __init__(self, library: Any, label: str, save: Callable) -> None:
+    def __init__(self, library: Any, label: str, save: Callable,
+                 services: Sequence[dict[str, Any]] = (),
+                 use_service: Callable | None = None) -> None:
         super().__init__(library, "", label, save)
+        self.services = list(services)
+        self.use_service = use_service
+        self.online = bool(self.services and use_service)
 
     def title(self) -> str:
         return t("console.mediasource.title_player", kind=self.label)
+
+    async def online_tab(self, body: ui.column) -> None:
+        """One button per account whose service has a picture for this player."""
+        body.clear()
+        with body:
+            for service in self.services:
+                name = str(service.get("label") or service["extension"])
+                panel.action(
+                    t("console.players.picture_from_service", service=name),
+                    partial(self._copied, str(service["extension"])),
+                    icon=verbs.FROM_ONLINE,
+                    hint=t("console.players.picture_from_service.help", service=name))()
+
+    @on_page
+    async def _copied(self, extension: str) -> None:
+        try:
+            redraw = await self.use_service(extension)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("console.mediasource.image_failed"), caption=why(exc),
+                      type="negative")
+            return
+        self.dialog.close()
+        await redraw()
 
     @on_page
     async def took(self, name: str, data: bytes) -> None:
@@ -1512,6 +1541,12 @@ def open_image_sources(library: Any, name: str, label: str, done: Callable) -> N
     _Image(library, name, label, done).open()
 
 
-def open_player_picture_sources(library: Any, label: str, save: Callable) -> None:
-    """`save(name, data)` keeps the file and raises with its reason if it cannot."""
-    _PlayerPicture(library, label, save).open()
+def open_player_picture_sources(library: Any, label: str, save: Callable, *,
+                                services: Sequence[dict[str, Any]] = (),
+                                use_service: Callable | None = None) -> None:
+    """`save(name, data)` keeps the file and raises with its reason if it cannot.
+
+    `services` are the accounts whose service has a picture; `use_service(extension)` copies
+    that one and returns the redraw, raising with its reason where it cannot.
+    """
+    _PlayerPicture(library, label, save, services, use_service).open()

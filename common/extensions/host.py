@@ -147,7 +147,10 @@ class Record:
         """Its account, in the language now set. Empty when it offers none."""
         if not self.account:
             return {}
-        return {**self.account,
+        consent = list(self.account.get("consent") or [])
+        if self.account.get("sends_picture"):
+            consent.append(i18n.t("extension.account.sends_picture"))
+        return {**self.account, "consent": consent,
                 "label": self.said(self.account["label"], "account.label",
                                    self.display_name)[0],
                 "share_help": self.said("", "account.share.help")[0]}

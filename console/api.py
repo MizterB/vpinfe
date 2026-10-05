@@ -957,6 +957,10 @@ class ApiClient:
         return dict(self._post(f"{self._account(player_id, extension)}/card",
                                {"card": card}) or {})
 
+    def use_account_picture(self, player_id: str, extension: str) -> dict:
+        """Copy the picture `extension` has for this player. Answers the player."""
+        return dict(self._post(f"{self._account(player_id, extension)}/picture", {}) or {})
+
     def account_act(self, player_id: str, extension: str, act: str) -> dict:
         return dict(self._post(f"{self._account(player_id, extension)}/acts/"
                                f"{quote(act, safe='')}", {}) or {})

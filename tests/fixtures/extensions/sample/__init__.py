@@ -11,7 +11,10 @@ a client, and the tests hold it to that.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+import io
+
+from fastapi import APIRouter, HTTPException, Response
+from PIL import Image
 
 # The core event it listens to. A name, not an import: the event vocabulary is part of
 # the platform ABI the manifest names, and an extension holds no reference into core.
@@ -20,6 +23,9 @@ GAME_SELECTED = "game.selected"
 # The one kind of card it reads, and the version of it it writes.
 CARD = "sample_card"
 CARD_VERSION = 1
+
+# What a player's `picture` value names, and so what its service answers with.
+PICTURES = {"red": (200, 30, 30), "blue": (30, 30, 200)}
 
 
 def register(ctx) -> None:
@@ -66,7 +72,25 @@ def register(ctx) -> None:
                      "value": held.get("token", "")}],
                 "status": "Ready" if held.get("handle") else "No handle",
                 "acts": [{"key": "ping", "label": "Ping"}],
-                "card": bool(held.get("handle") and held.get("token"))}
+                "card": bool(held.get("handle") and held.get("token")),
+                "picture": held.get("picture") in PICTURES}
+
+    @router.get("/accounts/{player_id}/picture")
+    def picture(player_id: str) -> Response:
+        named = ctx.players.account(player_id).get("picture", "")
+        if named == "denied":
+            raise HTTPException(403, detail="The service refused")
+        if named == "text":
+            return Response(b"not an image", media_type="text/plain")
+        color = PICTURES.get(named.removesuffix("-jpg"))
+        if color is None:
+            raise HTTPException(404, detail="No picture yet")
+        out = io.BytesIO()
+        if named.endswith("-jpg"):
+            Image.new("RGB", (40, 20), color).save(out, format="JPEG")
+            return Response(out.getvalue(), media_type="image/jpg")
+        Image.new("RGB", (40, 20), color).save(out, format="PNG")
+        return Response(out.getvalue(), media_type="image/png")
 
     @router.get("/accounts/{player_id}")
     def read_account(player_id: str) -> dict:

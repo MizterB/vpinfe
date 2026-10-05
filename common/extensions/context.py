@@ -362,7 +362,8 @@ class ExtensionUI:
         self.state_label = str(label or "").strip()
 
     def account(self, base: str, *, label: str = "", cards: Iterable[str] = (),
-                marker: str = "", check: str = "", consent: Iterable[str] = ()) -> None:
+                marker: str = "", check: str = "", consent: Iterable[str] = (),
+                sends_picture: bool = False) -> None:
         """Say that a player can hold an account with this extension.
 
         `base` is a route of this extension's, asked with a player's id as
@@ -371,7 +372,9 @@ class ExtensionUI:
         a card it makes hides its text, and is the extension's name unless given.
         `check` is a route asked with a candidate id, `available`, while it is being
         chosen. `consent` is what Share tells the player becomes public, each line
-        already in its own words from `ctx.t`.
+        already in its own words from `ctx.t`. `sends_picture` declares that this
+        extension sends a player's picture to its service: `ctx.players.picture` answers
+        only where it is set, and core adds its own line to the consent.
         """
         self._needs_ui("an account")
         if self.account_offered:
@@ -386,7 +389,8 @@ class ExtensionUI:
         self.account_offered = {"base": wanted, "label": str(label or "").strip(),
                                 "cards": list(read), "marker": hidden,
                                 "check": str(check or "").strip(),
-                                "consent": [str(one) for one in consent if str(one).strip()]}
+                                "consent": [str(one) for one in consent if str(one).strip()],
+                                "sends_picture": bool(sends_picture)}
 
     def kept(self, key: str) -> dict | None:
         """The last good read core keeps of one of this extension's Community lists:
@@ -416,10 +420,12 @@ class ExtensionPlayers:
     values are this extension's own and need nothing declared.
     """
 
-    def __init__(self, name: str, scopes: Iterable[str], store: ExtensionStore) -> None:
+    def __init__(self, name: str, scopes: Iterable[str], store: ExtensionStore,
+                 ui: ExtensionUI | None = None) -> None:
         self._name = name
         self._reads = PLAYERS_READ in frozenset(scopes)
         self._store = store
+        self._ui = ui
 
     def roster(self) -> list[dict]:
         """Every player: the owner, the kept players, then the guests as they joined."""
@@ -453,6 +459,21 @@ class ExtensionPlayers:
         from common import players
 
         return players.get_roster().sharing(player_id, self._name)
+
+    def picture(self, player_id: str) -> Path | None:
+        """The path of a kept player's picture, for an extension that declared
+        `sends_picture` and only while that player's Share here is on. None otherwise,
+        including when the player has no picture."""
+        from common import player_pictures, players
+
+        offered = self._ui.account_offered if self._ui is not None else {}
+        roster = players.get_roster()
+        if not offered.get("sends_picture") or not roster.sharing(player_id, self._name):
+            return None
+        kept = roster.get(player_id)
+        if kept is None or kept.guest:
+            return None
+        return player_pictures.find(roster.pictures_dir, kept.player_id)
 
     def account(self, player_id: str) -> dict[str, str]:
         """This player's account here, secrets included. Empty when they hold none."""
@@ -592,7 +613,7 @@ class ExtensionContext:
                                     "fs:write" in manifest.capabilities)
         self.jobs = ExtensionJobs(manifest.name)
         self.ui = ExtensionUI(manifest.name, "ui:mount" in manifest.capabilities)
-        self.players = ExtensionPlayers(manifest.name, manifest.scopes, store)
+        self.players = ExtensionPlayers(manifest.name, manifest.scopes, store, self.ui)
         self.entries = ExtensionEntries(manifest.name)
         self.catalogs = ExtensionCatalogs(manifest.name)
         self.tokens = ExtensionTokens(manifest.name)

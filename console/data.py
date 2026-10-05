@@ -564,6 +564,9 @@ class Library:
     def use_card(self, player_id: str, extension: str, card: str) -> dict:
         return self._client.use_card(player_id, extension, card)
 
+    def use_account_picture(self, player_id: str, extension: str) -> dict:
+        return self._client.use_account_picture(player_id, extension)
+
     def account_act(self, player_id: str, extension: str, act: str) -> dict:
         return self._client.account_act(player_id, extension, act)
 

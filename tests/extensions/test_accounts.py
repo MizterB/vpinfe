@@ -10,6 +10,7 @@ from configparser import ConfigParser
 from pathlib import Path
 
 from fastapi import FastAPI
+from PIL import Image
 from starlette.testclient import TestClient
 
 import httpapi
@@ -19,6 +20,7 @@ from common.extensions.context import ContractError, ExtensionPlayers, Extension
 from common.games import player_records
 from common.i18n import t
 from httpapi import events as event_stream
+from tests.support import pictures
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "extensions"
 TOKEN = "tok-" + "Zq9" * 20
@@ -93,7 +95,8 @@ class ReadingAccounts(AccountsCase):
 
         self.assertEqual(next(one for one in listed if one["name"] == "sample")["account"],
                          {"base": "/accounts", "label": "Sample", "cards": ["sample_card"],
-                          "marker": "sample", "check": "", "consent": [], "share_help": ""})
+                          "marker": "sample", "check": "", "consent": [],
+                          "sends_picture": False, "share_help": ""})
 
     def test_an_extension_with_no_words_for_share_leaves_them_to_core(self) -> None:
         self.assertEqual(self.account(self.owner)["share_help"], "")
@@ -372,6 +375,152 @@ class UsingACard(AccountsCase):
         self.assertTrue(self.account(self.owner)["reads_cards"])
 
 
+class PictureFromAnAccount(AccountsCase):
+    """The service's picture, copied once into the player's own."""
+
+    def use(self, player_id: str, status: int = 200) -> dict:
+        return self.ok(self.client.post(f"/players/{player_id}/accounts/sample/picture"),
+                       status)
+
+    def kept(self, player_id: str) -> tuple[int, int, int] | None:
+        found = players.get_roster().pictures_dir / f"{player_id}.webp"
+        if not found.exists():
+            return None
+        with Image.open(found) as opened:
+            return opened.convert("RGB").getpixel((opened.width // 2, opened.height // 2))
+
+    def test_an_account_offers_a_picture_only_where_its_service_answers_one(self) -> None:
+        self.assertFalse(self.account(self.owner)["picture"])
+
+        self.fill(self.owner, picture="red")
+
+        self.assertTrue(self.account(self.owner)["picture"])
+
+    def test_using_it_keeps_it_as_an_upload_is_kept(self) -> None:
+        self.fill(self.owner, picture="red")
+
+        answered = self.use(self.owner)
+
+        red, green, blue = self.kept(self.owner) or (0, 0, 0)
+        self.assertGreater(red, green + 100)
+        self.assertGreater(red, blue + 100)
+        self.assertIsNotNone(answered["picture_version"])
+
+    def test_it_is_copied_once_and_never_followed(self) -> None:
+        self.fill(self.owner, picture="red")
+        self.use(self.owner)
+
+        self.fill(self.owner, picture="blue")
+
+        red, _green, blue = self.kept(self.owner) or (0, 0, 0)
+        self.assertGreater(red, blue)
+
+        self.use(self.owner)
+
+        red, _green, blue = self.kept(self.owner) or (0, 0, 0)
+        self.assertGreater(blue, red)
+
+    def test_a_service_with_none_is_a_404_and_changes_nothing(self) -> None:
+        self.fill(self.owner, picture="red")
+        self.use(self.owner)
+        self.fill(self.owner, picture="")
+
+        self.use(self.owner, 404)
+
+        self.assertIsNotNone(self.kept(self.owner))
+
+    def test_a_guest_has_none_to_set(self) -> None:
+        guest = players.get_roster().add_guest("GST")
+
+        self.fill(guest.player_id, picture="red")
+        response = self.client.post(f"/players/{guest.player_id}/accounts/sample/picture")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIsNone(self.kept(guest.player_id))
+
+    def test_a_service_that_refuses_is_an_error_and_not_a_missing_picture(self) -> None:
+        self.fill(self.owner, picture="denied")
+
+        response = self.client.post(f"/players/{self.owner}/accounts/sample/picture")
+
+        self.assertNotIn(response.status_code, (200, 404))
+        self.assertIsNone(self.kept(self.owner))
+
+    def test_what_is_not_an_image_is_refused_and_changes_nothing(self) -> None:
+        self.fill(self.owner, picture="text")
+
+        self.use(self.owner, 400)
+
+        self.assertIsNone(self.kept(self.owner))
+
+    def test_a_jpeg_served_as_image_jpg_is_kept(self) -> None:
+        self.fill(self.owner, picture="blue-jpg")
+
+        self.use(self.owner)
+
+        red, _green, blue = self.kept(self.owner) or (0, 0, 0)
+        self.assertGreater(blue, red)
+
+    def test_a_player_nobody_has_is_a_404(self) -> None:
+        self.assertEqual(self.client.post(
+            "/players/Nobody0000/accounts/sample/picture").status_code, 404)
+
+    def test_an_extension_that_is_not_running_has_none_to_copy(self) -> None:
+        self.assertEqual(self.client.post(
+            f"/players/{self.owner}/accounts/bystander/picture").status_code, 404)
+
+
+class SendingAPicture(AccountsCase):
+    """`ctx.players.picture`, and the consent a service that sends one owes."""
+
+    def sender(self, *, declared: bool = True) -> ExtensionPlayers:
+        ui = ExtensionUI("sample", allowed=True)
+        ui.account("/accounts", sends_picture=declared)
+        return ExtensionPlayers("sample", (), self.store, ui)
+
+    def given(self, player_id: str) -> None:
+        players.get_roster().set_picture(player_id, "p.png", pictures.png(40, 40))
+
+    def test_it_answers_the_file_while_share_is_on(self) -> None:
+        self.given(self.owner)
+        players.get_roster().set_sharing(self.owner, "sample", True)
+
+        found = self.sender().picture(self.owner)
+
+        self.assertEqual(found, players.get_roster().pictures_dir / f"{self.owner}.webp")
+
+    def test_share_off_answers_none(self) -> None:
+        self.given(self.owner)
+
+        self.assertIsNone(self.sender().picture(self.owner))
+
+    def test_an_extension_that_did_not_declare_it_answers_none(self) -> None:
+        self.given(self.owner)
+        players.get_roster().set_sharing(self.owner, "sample", True)
+
+        self.assertIsNone(self.sender(declared=False).picture(self.owner))
+        self.assertIsNone(ExtensionPlayers("sample", (), self.store).picture(self.owner))
+
+    def test_a_guest_answers_none(self) -> None:
+        guest = players.get_roster().add_guest("GST")
+        players.get_roster().set_sharing(guest.player_id, "sample", True)
+
+        self.assertIsNone(self.sender().picture(guest.player_id))
+
+    def test_a_player_with_no_picture_answers_none(self) -> None:
+        players.get_roster().set_sharing(self.owner, "sample", True)
+
+        self.assertIsNone(self.sender().picture(self.owner))
+
+    def test_the_consent_names_the_picture_where_it_is_sent(self) -> None:
+        self.assertEqual(self.account(self.owner)["consent"], [])
+
+        self.registry.get("sample").account["sends_picture"] = True
+
+        self.assertEqual(self.account(self.owner)["consent"],
+                         [t("extension.account.sends_picture")])
+
+
 class SecretsNeverLeave(AccountsCase):
     """Accepted on a write, answered as set or not set, by every route."""
 
@@ -419,7 +568,13 @@ class TheDeclaration(unittest.TestCase):
 
         self.assertEqual(self.ui.account_offered, {"base": "/accounts", "label": "",
                                                    "cards": ["site_card"], "marker": "site",
-                                                   "check": "", "consent": []})
+                                                   "check": "", "consent": [],
+                                                   "sends_picture": False})
+
+    def test_sending_a_picture_is_declared_not_assumed(self) -> None:
+        self.ui.account("/accounts", sends_picture=True)
+
+        self.assertIs(self.ui.account_offered["sends_picture"], True)
 
     def test_a_check_route_and_consent_lines_are_recorded_too(self) -> None:
         self.ui.account("/accounts", cards=["site_card"], check="/accounts/available",

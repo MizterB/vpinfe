@@ -645,7 +645,10 @@ def _picture_slot(context: dict[str, Any]) -> None:
             panel.action(
                 t("word.replace") if present else t("word.add"),
                 lambda: mediasource.open_player_picture_sources(
-                    context["library"], label, partial(set_picture, context)),
+                    context["library"], label, partial(set_picture, context),
+                    services=[one for one in context.get("accounts") or []
+                              if one.get("picture") and not one.get("error")],
+                    use_service=partial(use_account_picture, context)),
                 icon=verbs.REPLACE if present else verbs.ADD,
                 hint=t("console.players.picture_replace.help") if present
                 else t("console.players.picture_add.help"))()
@@ -686,6 +689,18 @@ async def set_picture(context: dict[str, Any], name: str, data: bytes) -> Callab
     library, player_id = context["library"], _of(context)["id"]
     before = await run.io_bound(library.player_picture_bytes, player_id)
     await offload.io(library.set_player_picture, player_id, name, data)
+    _picture_undo(context, t("console.players.picture_replaced" if before is not None
+                             else "console.players.picture_added"), before)
+    return partial(_picture_written, context, player_id)
+
+
+@on_page
+async def use_account_picture(context: dict[str, Any], extension: str) -> Callable:
+    """The picture a service has for this player, copied once and saved as an upload
+    would be, with Undo holding what it replaced."""
+    library, player_id = context["library"], _of(context)["id"]
+    before = await run.io_bound(library.player_picture_bytes, player_id)
+    await offload.io(library.use_account_picture, player_id, extension)
     _picture_undo(context, t("console.players.picture_replaced" if before is not None
                              else "console.players.picture_added"), before)
     return partial(_picture_written, context, player_id)

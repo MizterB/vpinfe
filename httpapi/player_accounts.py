@@ -12,7 +12,9 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Body, Request, Response
+from starlette.concurrency import run_in_threadpool
 
+from common import service_errors
 from common.extensions import accounts, cards
 from common.failures import why
 from common.i18n import t
@@ -21,11 +23,14 @@ from common.players import get_roster
 from . import models, scopes
 from .auth import requires
 from .errors import ApiError, NotFoundError
-from .extensions import ask
+from .extensions import ask, ask_file
 
 router = APIRouter(prefix="/players", tags=["players"])
 
 SVG = "image/svg+xml"
+_PICTURE_SUFFIX = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg",
+                   "image/webp": ".webp", "image/gif": ".gif", "image/bmp": ".bmp",
+                   "image/x-ms-bmp": ".bmp"}
 _UNSAFE_IN_A_NAME = re.compile(r"[^A-Za-z0-9_-]")
 
 
@@ -105,6 +110,31 @@ async def use_card(player_id: str, extension: str, request: Request,
     return _shaped(declared, player_id, written)
 
 
+@router.post("/{player_id}/accounts/{extension}/picture",
+             summary="Use the service's picture as the player's",
+             dependencies=[requires(scopes.PLAYERS_WRITE)])
+async def use_picture(player_id: str, extension: str,
+                      request: Request) -> models.PlayerResource:
+    """Copies the picture the extension answers at `{base}/{player_id}/picture` once, as
+    an upload of it would be kept. It is never followed: pressing it again takes the
+    service's picture as it is then. A 404 when the service has none."""
+    await _copy_picture(request, player_id, extension)
+    return models.PlayerResource.model_validate(get_roster().player_state(player_id))
+
+
+async def _copy_picture(request: Request, player_id: str, extension: str) -> None:
+    """Asked only for a kept player: a guest is refused before the service is."""
+    declared = _declared(player_id, extension)
+    if get_roster().player(player_id).guest:
+        raise service_errors.RefusedError(t("error.players.picture_guest"))
+    found = await ask_file(request, extension, f"{_at(declared, player_id)}/picture")
+    if found is None:
+        raise NotFoundError(t("error.players.no_service_picture", extension=declared["label"]))
+    served, content = found
+    await run_in_threadpool(get_roster().set_picture, player_id,
+                            f"picture{_PICTURE_SUFFIX.get(served, '')}", content)
+
+
 @router.post("/guests/card", summary="Add a guest from their card", status_code=201,
              dependencies=[requires(scopes.PLAYERS_WRITE)])
 async def add_guest_from_card(request: Request, body: models.GuestCardRequest = Body(...),
@@ -165,7 +195,8 @@ def _shaped(declared: dict[str, Any], player_id: str, said: Any) -> models.Playe
                                 label=str(one.get("label") or one["key"]),
                                 description=str(one.get("description") or ""))
               for one in acts],
-        card=bool(answer.get("card")), reads_cards=bool(declared.get("cards")))
+        card=bool(answer.get("card")), picture=bool(answer.get("picture")),
+        reads_cards=bool(declared.get("cards")))
 
 
 def _card_file(declared: dict[str, Any], said: Any) -> Response:

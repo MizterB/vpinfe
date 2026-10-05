@@ -135,6 +135,23 @@ async def ask(request: Request, extension: str, method: str, path: str,
               body: Any = None) -> Any:
     """What one of an extension's own routes answers, asked in-process through the whole
     API app, as the caller. An answer that is an error is raised as that error."""
+    status, _, chunks = await _asked(request, extension, method, path, body)
+    return _answered(status, chunks)
+
+
+async def ask_file(request: Request, extension: str, path: str) -> tuple[str, bytes] | None:
+    """The bytes a GET on one of an extension's own routes answers, with their content
+    type. None for a 404, which is how a route says there is nothing; any other error is
+    raised as that error."""
+    status, headers, chunks = await _asked(request, extension, "GET", path)
+    if status == 404:
+        return None
+    _answered(status, chunks)
+    return headers.get("content-type", "").split(";")[0].strip().lower(), chunks
+
+
+async def _asked(request: Request, extension: str, method: str, path: str,
+                 body: Any = None) -> tuple[int, dict[str, str], bytes]:
     root = str(request.scope.get("root_path") or "")
     where = f"{root}{PREFIX}/{quote(extension, safe='')}{path}"
     raw = b"" if body is None else json.dumps(body).encode("utf-8")
@@ -150,10 +167,13 @@ async def ask(request: Request, extension: str, method: str, path: str,
         return {"type": "http.disconnect"}
 
     status, chunks = [500], []
+    answered_headers: dict[str, str] = {}
 
     async def send(message: Message) -> None:
         if message["type"] == "http.response.start":
             status[0] = int(message["status"])
+            answered_headers.update({name.decode("latin-1").lower(): value.decode("latin-1")
+                                     for name, value in message.get("headers", [])})
         elif message["type"] == "http.response.body":
             chunks.append(message.get("body", b""))
             if not message.get("more_body"):
@@ -177,7 +197,7 @@ async def ask(request: Request, extension: str, method: str, path: str,
         # An error nobody expected is answered with a 500 first and raised after; the
         # answer is what counts, and the extension has already been blamed for it.
         logger.debug("%s %s raised after answering", method, where, exc_info=True)
-    return _answered(status[0], b"".join(chunks))
+    return status[0], answered_headers, b"".join(chunks)
 
 
 def _answered(status: int, body: bytes) -> Any:

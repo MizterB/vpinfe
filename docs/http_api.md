@@ -248,6 +248,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/players/{id}/accounts/{extension}/acts/{act}` | Do one of the account's acts. Answers what the extension says came of it |
 | GET | `/api/v1/players/{id}/accounts/{extension}/card` | The player's card, an SVG file. `404` while the extension cannot make one |
 | POST | `/api/v1/players/{id}/accounts/{extension}/card` | Use a card for this account, `{"card": "..."}`, taken as `POST /players/guests/card` takes one. Its values replace the account's; the player's name, initials and Share stay. Answers the account. `400` for a card this extension does not read |
+| POST | `/api/v1/players/{id}/accounts/{extension}/picture` | Use the picture the account's service has as this player's. Copied once, kept as `PUT /players/{id}/picture` keeps an upload, and never followed. Answers the player. `404` while the service has none, `400` for a guest. The account says whether there is one: `picture` on `GET .../accounts` |
 | GET | `/api/v1/metrics` | What this device is doing now. `history_seconds` adds as much of this session as you ask for; 0 means none |
 | GET | `/api/v1/metrics/gpu` | What the graphics cards are doing. Separate because it shells out to nvtop, and says so where nvtop is missing rather than reporting no cards |
 | GET | `/api/v1/about` | What this install and this device *are* - version, build, OS, browser, and where files live. `text` is the same answer as something to paste into a report |
@@ -1589,7 +1590,7 @@ values. A guest's are held in memory and gone when they are.
    "page": "https://scores.example/players/jordan",
    "status": "Sent 2 minutes ago", "waiting": false, "waiting_count": 0,
    "acts": [{"key": "send_now", "label": "Send Now", "description": ""}],
-   "fields": [], "card": true, "reads_cards": true, "error": ""}
+   "fields": [], "card": true, "reads_cards": true, "picture": true, "error": ""}
 ]}
 ```
 
@@ -1599,7 +1600,9 @@ claimed, `""` before. `check` is where a candidate id is asked about while it is
 chosen, not under this player: `GET /ext/{extension}{check}?candidate=…`, straight through
 to the extension the way its settings are. `consent` is what Share tells the player
 becomes public, asked once, the first time it is turned on. `acts` is empty until claimed;
-`send_now` is the one this shape offers, only while something waits. `fields` is unused by
+`send_now` is the one this shape offers, only while something waits. `picture` says the
+service has a picture for this player, which `POST /players/{id}/accounts/{extension}/picture`
+copies once as an upload of it would be kept. `fields` is unused by
 this shape - a `secret` field of an extension whose account is settings-like instead is
 accepted on a write and read back as `set`, true or false, by this route and by every
 route an extension serves, and never answered.

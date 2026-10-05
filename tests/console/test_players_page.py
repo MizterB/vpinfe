@@ -266,6 +266,8 @@ class TheClient(unittest.TestCase):
              ("POST", "/players/p-1/accounts/vpinplay/acts/claim", {})),
             (lambda c: c.player_card("p-1", "vpinplay"),
              ("GET", "/players/p-1/accounts/vpinplay/card", None)),
+            (lambda c: c.use_account_picture("p-1", "vpinplay"),
+             ("POST", "/players/p-1/accounts/vpinplay/picture", {})),
             (lambda c: c.set_player_picture("a/b", "me.png", b"x"),
              ("PUT", "/players/a%2Fb/picture", None)),
             (lambda c: c.clear_player_picture("p-1"), ("DELETE", "/players/p-1/picture", None)),

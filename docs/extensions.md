@@ -541,9 +541,11 @@ any of them it can: a user id and key at a scores site, a name a leaderboard pos
 | `account(player_id)` | Its values for this player, secrets included. Empty when they hold none |
 | `set_account(player_id, values)` | Replace them. Empty values remove the account |
 | `holders()` | The ids of every player holding an account here |
+| `picture(player_id)` | The path of the player's picture file, for an extension that declared `sends_picture` (see "Offering an account") and only while that player's Share here is on. None otherwise: Share off, a guest, no picture, or `sends_picture` not declared. There is no second switch |
 
-The first four need `players:read`; the last four are the extension's own and need
-nothing declared. Values are strings, kept in the extension's own settings file under
+The first four need `players:read`; the rest are the extension's own and need
+nothing declared, except `picture`, which is core's file about a person and is gated by
+the `sends_picture` declaration and Share instead. Values are strings, kept in the extension's own settings file under
 `accounts`, keyed by player id - which is why `accounts` is not a name a setting can
 take. **A guest's are held in memory and never
 written**, so a visitor leaves nothing on the disk, and they go when the guest does.
@@ -565,7 +567,8 @@ so nothing played while it was on goes later by hand, or when it is turned on ag
 
 ```python
 ctx.ui.account("/accounts", cards=("scores_site_card",), check="/available",
-               consent=(ctx.t("account.consent.id"), ctx.t("account.consent.plays")))
+               consent=(ctx.t("account.consent.id"), ctx.t("account.consent.plays")),
+               sends_picture=True)
 ```
 
 Like settings, an account is declared rather than drawn: core asks the extension's own
@@ -575,10 +578,11 @@ iScored can hold one the same way; nothing about the shape below is VPinPlay's.
 
 | call | answers |
 |---|---|
-| `GET {base}/{player_id}` | `user_id`, `claimed`, `needs_consent`, `page`, `card`, `status`, `waiting`, `waiting_count`, `acts`, `fields` (unused by this shape, kept for a simpler account that is only ever settings-like) |
+| `GET {base}/{player_id}` | `user_id`, `claimed`, `needs_consent`, `page`, `card`, `picture`, `status`, `waiting`, `waiting_count`, `acts`, `fields` (unused by this shape, kept for a simpler account that is only ever settings-like) |
 | `PUT {base}/{player_id}` | receives `{"values": {…}}`; saves what is given and answers as the `GET` does. Never mints a key - claiming is its own act, never a side effect of a write |
 | `POST {base}/{player_id}/acts/{key}` | what came of it, with an optional `message`; `claim`, `consent` and `disconnect` answer the account itself, as the `GET` does |
 | `GET {base}/{player_id}/card` | `{"card": {…}, "filename"}` - the card to draw, or a `404` while there is none |
+| `GET {base}/{player_id}/picture` | The service's picture for this player as image bytes with their content type (PNG, JPEG, WebP, GIF or BMP), or a `404` while there is none. Same shape as `/card`. The extension fetches it from its service; core never fetches an address an extension hands it |
 | `POST {base}/cards` | receives `{"card": {…}}`; answers `name`, `initials` and the account's `values` |
 | `GET {check}?candidate=…` | `{"available": bool}` for a candidate id, asked live as one is typed. Not under `{base}/{player_id}`: it needs no player, and the Console asks it straight through to the extension, the way it asks `settings` and a Community list's `about` - `GET /ext/{extension}{check}?candidate=…`. Raise to say it could not be reached; the Console reads that as "can't reach", never as "taken" |
 
@@ -618,6 +622,21 @@ after.
 turned on: each line already in its own words from `ctx.t`, drawn as what the account
 shares. Core adds that the service can neither rename nor delete an account, since this
 shape never offers either.
+
+**A picture, in either direction.** Where an account answers `picture: true`, the player's
+picture dialog offers *Use {Service}'s Picture*, named for the extension's display name.
+Pressing it asks `GET {base}/{player_id}/picture` once and keeps the bytes exactly as an
+upload is kept (centre square, at most 1024 pixels, WebP, Undo); it is never followed, and
+pressing it again takes the service's current picture. A guest has none to set. The
+content type must be one of `image/png`, `image/jpeg`, `image/webp`, `image/gif` or
+`image/bmp`; any other is refused as not an image.
+
+An extension that sends a player's picture to its service declares
+`ctx.ui.account(..., sends_picture=True)`, and reads the file with
+`ctx.players.picture(player_id)`. Core adds its own line to `consent` for it. **An
+extension that starts sending after a player has already consented owes the dialog
+again:** its `needs_consent` answers true until a consent that named the picture. That is
+the extension's to track; core cannot know which line a past consent showed.
 
 The Console follows what an act answers. A `message` is said, and a `url` is opened in a
 new tab. Core asks these in-process as whoever asked core, so the routes are gated and
