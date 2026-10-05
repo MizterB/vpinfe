@@ -14,6 +14,10 @@ OF_GAME = "game"
 OF_LAUNCHER = "launcher"
 OF_THEME = "theme"
 OF_VPINFE = "vpinfe"
+OF_ARCHIVE = "archive"
+
+# What the records in the config folder are of.
+VPINFE_NAME = "VPinFE"
 
 # What kind of file it is.
 KIND_GAME = "game_metadata"
@@ -24,6 +28,7 @@ KIND_PLAYERS = "players"
 KIND_RECORDS = "records"
 KIND_LAUNCHER = "launcher_settings"
 KIND_THEME = "theme"
+KIND_ARCHIVE = "backup"
 
 # Why it was taken.
 WHY_UPGRADE = "upgrade"
@@ -45,6 +50,8 @@ PLACE_LAUNCHER = "launcher"
 PLACE_BESIDE = "beside"
 PLACE_VPX_2X = "vpx_2x"
 PLACE_THEME = "theme"
+PLACE_ARCHIVE = "archive"
+PLACE_MEMBER = "member"
 
 
 @dataclass(frozen=True)
@@ -62,6 +69,8 @@ class Copy:
     note: str
     size: int
     gone: bool
+    # The id of the backup this is a part of. Empty for a copy that is a file of its own.
+    within: str = ""
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -73,20 +82,40 @@ def make_id(place: str, path: str | Path) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
 
-def read_id(copy_id: str) -> tuple[str, Path] | None:
-    """The place and the path an id holds, or None for anything that is not one."""
+def _parts(copy_id: str) -> list[str] | None:
     try:
         padded = str(copy_id) + "=" * (-len(str(copy_id)) % 4)
         raw = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
     except (ValueError, binascii.Error, UnicodeError):
         return None
-    if (not isinstance(raw, list) or len(raw) != 2
-            or not all(isinstance(part, str) and part for part in raw)):
+    if not isinstance(raw, list) or not all(isinstance(part, str) and part for part in raw):
         return None
-    path = raw[1]
-    if "\0" in path or not os.path.isabs(path) or os.path.normpath(path) != path:
+    return raw
+
+
+def _is_clean(path: str) -> bool:
+    return "\0" not in path and os.path.isabs(path) and os.path.normpath(path) == path
+
+
+def read_id(copy_id: str) -> tuple[str, Path] | None:
+    """The place and the path an id holds, or None for anything that is not one."""
+    parts = _parts(copy_id)
+    if parts is None or len(parts) != 2 or not _is_clean(parts[1]):
         return None
-    return raw[0], Path(path)
+    return parts[0], Path(parts[1])
+
+
+def make_member_id(archive: str | Path, member: str) -> str:
+    raw = json.dumps([PLACE_MEMBER, str(archive), member], separators=(",", ":"))
+    return base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def read_member_id(copy_id: str) -> tuple[Path, str] | None:
+    """The backup and the part of it an id holds, or None for anything that is not one."""
+    parts = _parts(copy_id)
+    if parts is None or len(parts) != 3 or parts[0] != PLACE_MEMBER or not _is_clean(parts[1]):
+        return None
+    return Path(parts[1]), parts[2]
 
 
 def iso_from_stamp(stamp: str) -> str:

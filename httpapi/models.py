@@ -1677,6 +1677,16 @@ class GameDetails(ApiModel):
     ipdb_id: str | None = None
 
 
+class BackupRequest(ApiModel):
+    """What one Back up now press covers. `games` names the games for the `games` scope and
+    `launcher` the program for the `launcher` scope; the others take neither."""
+
+    scope: Literal["games", "all_games", "records", "launcher", "everything"]
+    games: list[str] = Field(default_factory=list)
+    launcher: str = ""
+    note: str = ""
+
+
 class NewGameRequest(ApiModel):
     """A game to create. `name` is the folder's name; `location` names where it goes,
     and left out it goes wherever new games are set to go."""

@@ -16,6 +16,7 @@ from common.backups import ops
 
 from . import scopes
 from .auth import requires
+from .models import BackupRequest
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
@@ -27,10 +28,19 @@ def list_backups() -> dict[str, Any]:
     return ops.listing()
 
 
+@router.post("", summary="Back up now",
+             dependencies=[requires(scopes.CONFIG_WRITE)])
+def take_backup(body: BackupRequest) -> dict[str, Any]:
+    """One zip of the games, records or settings named, as the copy that lists it."""
+    return ops.take(body.scope, game_ids=body.games, launcher_id=body.launcher,
+                    note=body.note).as_dict()
+
+
 @router.post("/{copy_id}/restore", summary="Put a copy back",
              dependencies=[requires(scopes.CONFIG_WRITE)])
 def restore_backup(copy_id: str) -> dict[str, Any]:
-    """The copy, what it replaced as `kept`, and whether the restore waits on a close."""
+    """The copy, what it replaced as `kept`, whether the restore waits on a close, and what a
+    backup had nowhere to put as `skipped`."""
     return ops.restore(copy_id).as_dict()
 
 

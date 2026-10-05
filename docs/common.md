@@ -63,8 +63,9 @@ something. `docs/extensions.md` is the contract an author reads.
 
 - `copies.py`: a copy as a row, and the opaque id a client holds for it. The id carries where it is kept and is checked there, so one made by hand reaches nothing.
 - `places.py`: where each kind is kept - beside a game's `.info`, in the config folder, under a launcher's backups, beside VPX's own ini, as a theme's `.previous` - and how each is read off the disk.
-- `ops.py`: restore and delete. A restore keeps what it replaces as another copy.
-- `pending.py`: restores of the config folder's files that wait for VPinFE to close, because the running app writes them back.
+- `archive.py`: Back up now. One zip per press, written to a temporary name and renamed, holding the files and a `manifest.json`; a game's file is its `.info`. Where a file goes back is worked out when it is restored, from its id and name.
+- `ops.py`: take, restore and delete. A restore keeps what it replaces as another copy. A zip restores whole or one file at a time.
+- `pending.py`: restores of the config folder's files that wait for VPinFE to close, because the running app writes them back. A file from a zip is taken out when the restore is asked for, so deleting the zip does not lose it.
 
 Depends on `common/games/`, `common/online/` and `common/host/`.
 

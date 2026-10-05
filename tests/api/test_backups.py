@@ -18,8 +18,14 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common.backups import copies, pending, places
-from common.games import config_backups, launcher_migration, launchers, locations
+from common.backups import archive, copies, ops, pending, places
+from common.games import (
+    config_backups,
+    game_repository,
+    launcher_migration,
+    launchers,
+    locations,
+)
 from common.games.info_migration import RESET, RESTORE, backup_path
 from tests.support.library import game_info, write_game
 
@@ -46,6 +52,12 @@ class BackupsCase(unittest.TestCase):
                              return_value=[locations.Location("l1", str(self.library))]),
                 patch.object(places, "CONFIG_DIR", self.config),
                 patch.object(pending, "CONFIG_DIR", self.config),
+                patch.object(ops, "CONFIG_DIR", self.config),
+                patch.object(archive, "CONFIG_DIR", self.config),
+                patch.object(archive, "ARCHIVES_DIR", self.config / "backups"),
+                patch.object(game_repository, "all_games", side_effect=self.library_games),
+                patch.object(game_repository, "game_folder", side_effect=self.folder_of),
+                patch.object(game_repository, "by_folder_name", side_effect=self.named),
                 patch.object(places, "INI_2X_DIR", self.config / "backups" / "vpx_ini"),
                 patch.object(places, "get_themes_dir", return_value=self.themes),
                 patch.object(config_backups, "BACKUPS_DIR",
@@ -57,6 +69,25 @@ class BackupsCase(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def library_games(self) -> list[SimpleNamespace]:
+        found = []
+        for folder in sorted(self.library.iterdir()):
+            try:
+                meta = json.loads((folder / f"{folder.name}.info").read_text())
+            except (OSError, ValueError):
+                meta = {}
+            found.append(SimpleNamespace(game_dir_name=folder.name,
+                                         full_path_game=str(folder), meta_config=meta))
+        return found
+
+    def folder_of(self, game_id: str) -> pathlib.Path | None:
+        return next((pathlib.Path(game.full_path_game) for game in self.library_games()
+                     if game.meta_config.get("vpinfe", {}).get("game_id") == game_id), None)
+
+    def named(self, name: str) -> SimpleNamespace | None:
+        return next((game for game in self.library_games() if game.game_dir_name == name),
+                    None)
 
     def game(self, name: str = "Taxi", info: dict | None = None) -> pathlib.Path:
         return write_game(self.library, name, info=info or game_info(
@@ -203,7 +234,7 @@ class LauncherListingTests(BackupsCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(self.ini.read_text(), "[Player]\nFXAA = 0\n")
-        kept = pathlib.Path(response.json()["kept"]["path"])
+        kept = pathlib.Path(response.json()["kept"][0]["path"])
         self.assertEqual(kept.read_text(), "[Player]\nFXAA = 1\n")
 
     def test_a_launcher_copy_is_not_put_back_while_a_table_plays(self) -> None:
@@ -253,7 +284,7 @@ class RestoreTests(BackupsCase):
         now = json.loads((folder / "Taxi.info").read_text())
         self.assertEqual(now["Info"]["Title"], "Taxi (old)")
         self.assertEqual(now["vpinfe"]["game_id"], "id-Taxi")
-        self.assertEqual(body["kept"]["why"], "restore")
+        self.assertEqual([one["why"] for one in body["kept"]], ["restore"])
         self.assertTrue(old.exists())
 
     def test_a_game_copy_that_cannot_be_read_is_refused_and_nothing_is_changed(self) -> None:
@@ -273,7 +304,7 @@ class RestoreTests(BackupsCase):
         before = (folder / "Taxi.info").read_text()
         old = self.kept(folder, OLD)
 
-        kept = self.restore(old).json()["kept"]
+        kept = self.restore(old).json()["kept"][0]
         undone = self.client.post(f"/backups/{kept['id']}/restore")
 
         self.assertEqual(undone.status_code, 200, undone.text)
@@ -305,7 +336,7 @@ class RestoreTests(BackupsCase):
         live.write_text("live")
         stranger = self.config / "players.json.vpinfe-20261001T010203Z"
         stranger.write_text("other")
-        pending.add(live, stranger, self.config)
+        pending.add(live, stranger, self.config, copy_id="")
 
         self.assertEqual(pending.apply(self.config), 0)
 
@@ -344,7 +375,7 @@ class RestoreTests(BackupsCase):
         self.assertEqual((self.themes / "Classic" / "index.html").read_text(), "old")
         self.assertEqual((self.themes / "Classic.previous" / "index.html").read_text(),
                          "new")
-        self.client.post(f"/backups/{first['kept']['id']}/restore")
+        self.client.post(f"/backups/{first['kept'][0]['id']}/restore")
         self.assertEqual((self.themes / "Classic" / "index.html").read_text(), "new")
 
     def test_a_previous_theme_with_nothing_beside_it_just_comes_back(self) -> None:
@@ -354,7 +385,7 @@ class RestoreTests(BackupsCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertTrue((self.themes / "Classic").is_dir())
-        self.assertIsNone(response.json()["kept"])
+        self.assertEqual(response.json()["kept"], [])
 
 
 class DeleteAndForgeryTests(BackupsCase):

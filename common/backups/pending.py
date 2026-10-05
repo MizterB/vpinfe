@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
 
 from common.atomic_write import write_atomic
@@ -16,25 +17,36 @@ from common.games import info_maintenance
 from common.games.info_migration import copied_from, is_copy
 from common.paths import CONFIG_DIR
 
+from . import archive
+
 logger = logging.getLogger("vpinfe.common.backups.pending")
 
 PENDING_NAME = ".pending-restores.json"
+STAGED_DIR = ".pending-files"
 
 
 def _file(config_dir: Path | None = None) -> Path:
     return (config_dir or CONFIG_DIR) / PENDING_NAME
 
 
-def held(config_dir: Path | None = None) -> dict[str, str]:
-    """Each file waiting to be replaced, and the copy that replaces it."""
+def _staged(config_dir: Path | None = None) -> Path:
+    return (config_dir or CONFIG_DIR) / STAGED_DIR
+
+
+def held(config_dir: Path | None = None) -> dict[str, dict[str, str]]:
+    """Each file waiting to be replaced: the file that replaces it, and the id of the copy
+    that was asked for."""
     try:
         data = json.loads(_file(config_dir).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(target): {"copy": str(one.get("copy") or ""), "id": str(one.get("id") or "")}
+            for target, one in data.items() if isinstance(one, dict)}
 
 
-def _write(found: dict[str, str], config_dir: Path | None) -> None:
+def _write(found: dict[str, dict[str, str]], config_dir: Path | None) -> None:
     path = _file(config_dir)
     if not found:
         path.unlink(missing_ok=True)
@@ -42,21 +54,48 @@ def _write(found: dict[str, str], config_dir: Path | None) -> None:
     write_atomic(path, lambda handle: json.dump(found, handle, indent=2))
 
 
-def add(target: Path, copy: Path, config_dir: Path | None = None) -> None:
+def add(target: Path, copy: Path, config_dir: Path | None = None, *, copy_id: str) -> None:
     """A second copy for the same file replaces the first: only one can end up in place."""
     found = held(config_dir)
-    found[str(target)] = str(copy)
+    found[str(target)] = {"copy": str(copy), "id": copy_id}
     _write(found, config_dir)
 
 
-def drop(copy: Path, config_dir: Path | None = None) -> bool:
-    """Forget a restore waiting on this copy. True when there was one."""
+def stage(target: Path, backup: Path, member: archive.Member, copy_id: str,
+          config_dir: Path | None = None) -> None:
+    """Take a file out of a backup now, so deleting the backup before the app closes does
+    not lose it."""
+    folder = _staged(config_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    add(target, archive.extract(backup, member, folder), config_dir, copy_id=copy_id)
+
+
+def waiting() -> list[str]:
+    """The ids of the copies waiting for the app to close."""
+    return [one["id"] for one in held().values() if one["id"]]
+
+
+def drop(match: str | Path, config_dir: Path | None = None) -> bool:
+    """Forget a restore waiting on this copy, by its file or its id. True when there was
+    one."""
     found = held(config_dir)
-    kept = {target: held_copy for target, held_copy in found.items() if held_copy != str(copy)}
+    kept = {target: one for target, one in found.items()
+            if str(match) not in (one["copy"], one["id"])}
     if kept == found:
         return False
+    for target, one in found.items():
+        if target not in kept and Path(one["copy"]).parent == _staged(config_dir):
+            Path(one["copy"]).unlink(missing_ok=True)
     _write(kept, config_dir)
     return True
+
+
+def _ready(target: Path, copy: Path, folder: Path) -> bool:
+    if target.parent != folder or not copy.is_file():
+        return False
+    if copy.parent == _staged(folder):
+        return target.name in archive.RECORD_KINDS
+    return copy.parent == folder and is_copy(copy) and copied_from(copy) == target
 
 
 def apply(config_dir: Path | None = None) -> int:
@@ -67,15 +106,14 @@ def apply(config_dir: Path | None = None) -> int:
     """
     folder = config_dir or CONFIG_DIR
     done = 0
-    for target, copy in held(folder).items():
+    for target, one in held(folder).items():
         try:
-            if (Path(target).parent != folder or Path(copy).parent != folder
-                    or not is_copy(copy) or copied_from(copy) != Path(target)
-                    or not Path(copy).is_file()):
+            if not _ready(Path(target), Path(one["copy"]), folder):
                 continue
-            info_maintenance.restore_file(Path(target), Path(copy))
+            info_maintenance.restore_file(Path(target), Path(one["copy"]))
             done += 1
         except (OSError, ValueError):
-            logger.exception("Could not restore %s from %s", target, copy)
+            logger.exception("Could not restore %s from %s", target, one["copy"])
     _file(folder).unlink(missing_ok=True)
+    shutil.rmtree(_staged(folder), ignore_errors=True)
     return done
