@@ -13,7 +13,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from common import jobs
+from common import jobs, migration_ledger
 from common.atomic_write import staged_for
 from common.config_store import ConfigStore
 from common.games import game_index_service, game_repository, info_maintenance, metadata_service
@@ -44,6 +44,7 @@ from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.jobs import LogCallback, ProgressCallback
 from common.paths import COLLECTIONS_PATH, CONFIG_DIR, VPINFE_INI_PATH
+from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.games.game_service")
 
@@ -621,12 +622,15 @@ def upgrade_info(progress_cb: ProgressCallback | None = None,
                  log_cb: LogCallback | None = None, *, job: jobs.Job | None = None,
                  game_name: str | None = None) -> UpgradeResult:
     """Upgrade every game's .info in one pass."""
-    return _as_a_job(
+    result = _as_a_job(
         lambda owned: info_maintenance.upgrade_library(
             game_name=game_name,
             progress_cb=owned.progress, log_cb=owned.log,
             route_match=route_legacy_match),
         progress_cb, log_cb, job)
+    if result["upgraded"] and not game_name:
+        migration_ledger.record("info_upgrade", get_version(), result["upgraded"])
+    return result
 
 
 def restore_info(progress_cb: ProgressCallback | None = None,

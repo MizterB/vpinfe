@@ -28,6 +28,7 @@ from common.failures import why
 from common.i18n import t
 from console import busy, offload, panel, verbs
 from console import dialog as frame
+from console import whats_new as whats_new_page
 from console.data import Library
 
 logger = logging.getLogger("vpinfe.console.about")
@@ -91,6 +92,9 @@ def _draw(body: Any, groups: list[dict[str, Any]], held: dict[str, Any],
                          icon="content_copy",
                          hint=t("console.about.copy_hint"),
                          js=COPY_JS % json.dumps(held["text"]))()
+            panel.action(t("console.about.whats_new"),
+                         lambda: whats_new_page.open_whats_new(again=True),
+                         icon=verbs.REVIEW, hint=t("console.about.whats_new_hint"))()
             panel.action(t("console.about.refresh"), lambda: reload(True), icon=verbs.REFRESH,
                          hint=t("word.reread"))()
         # One list for all of them, headings inside it, the way Settings next door

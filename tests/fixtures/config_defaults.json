@@ -72,8 +72,11 @@
     "features": "library,frontend,devices",
     "id": "",
     "language": "auto",
+    "last_version": "",
     "setup_done": "",
-    "setup_pending": "false"
+    "setup_pending": "false",
+    "whats_new_pending": "false",
+    "whats_new_since": ""
   },
   "logger": {
     "level": "debug",

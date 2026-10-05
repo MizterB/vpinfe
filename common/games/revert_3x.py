@@ -14,7 +14,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-from common import serving
+from common import migration_ledger, serving
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.info_file import ASSETS_KEY, VPINFE_SECTION
@@ -36,7 +36,7 @@ logger = logging.getLogger("vpinfe.common.games.revert_3x")
 # `watching.json` is 3.0 data with no 2.x original: a reset library that kept it would
 # measure new findings against an install that no longer exists.
 CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "devices.json", "players.json",
-                "manager-ui-state.json", "watching.json")
+                "manager-ui-state.json", "watching.json", migration_ledger.FILE_NAME)
 CONFIG_DIRS = ("theme_user_options",)
 
 # Whose `.vpinfe-*` copies are ours to remove. The ini pair is what the conversion to

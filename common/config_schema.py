@@ -924,6 +924,27 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             internal=True,
         ),
         ConfigOption(
+            "last_version",
+            type="string",
+            default="",
+            # The release this install last started as (common/whats_new.py).
+            internal=True,
+        ),
+        ConfigOption(
+            "whats_new_pending",
+            type="bool",
+            default="false",
+            # An update that has not been read about yet.
+            internal=True,
+        ),
+        ConfigOption(
+            "whats_new_since",
+            type="string",
+            default="",
+            # Where the pending review begins: the oldest release not yet read.
+            internal=True,
+        ),
+        ConfigOption(
             "display_name",
             type="string",
             default="",

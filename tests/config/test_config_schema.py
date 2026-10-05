@@ -116,6 +116,9 @@ class SchemaShapeTests(unittest.TestCase):
                                     ("install", "id"),
                                     ("install", "setup_pending"),
                                     ("install", "setup_done"),
+                                    ("install", "last_version"),
+                                    ("install", "whats_new_pending"),
+                                    ("install", "whats_new_since"),
                                     ("general", "hidden_media_kinds"),
                                     ("general", "hidden_asset_kinds"),
                                     # `locations.json` holds this now, for the same

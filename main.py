@@ -43,7 +43,17 @@ apply_configdir_override(sys.argv[1:])
 
 import requests
 
-from common import events, extensions, i18n, install_setup, serving, shutdown, theme_options
+from common import (
+    events,
+    extensions,
+    i18n,
+    install_setup,
+    migration_ledger,
+    serving,
+    shutdown,
+    theme_options,
+    whats_new,
+)
 from common.config_store import ConfigStore
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
@@ -81,6 +91,7 @@ logger.info("Logging to %s", log_path)
 logger.info("Language: %s (%s)", spoken, " -> ".join(i18n.chain()))
 logger.info("Using NiceGUI storage path: %s", nicegui_storage_path)
 logger.info("Version: %s", get_version())
+whats_new.note_start(config_store, get_version())
 
 # Startup downloads themes, walks the library and rewrites .info files, and it can take
 # a while on a big one. Start listening for a kill now; the checks below act on it at
@@ -269,6 +280,7 @@ try:
     from common.games.table_identity import ensure_unique_table_ids
     games = all_games()
     unseen = [game for game in games if not game_id(game)]
+    awaiting_upgrade = [game for game in games if game.info_pending_upgrade]
     ensure_unique_ids(games)
     # Before the minting pass, not after: discovery adds an entry for every .vpx the
     # folder holds, and minting is what turns those into addressable tables.
@@ -281,6 +293,8 @@ try:
     from common.games.launchers import get_launcher_store
     migrate_assignments(get_launcher_store(), games)
     retire_table_pattern(get_launcher_store(), config_store, games)
+    if upgraded := sum(1 for game in awaiting_upgrade if not game.info_pending_upgrade):
+        migration_ledger.record("info_upgrade", get_version(), upgraded)
 except Exception:
     logger.exception("Id backfill failed; games or tables without an id are not addressable")
 
@@ -325,8 +339,10 @@ try:
     _collections = CollectionStore(str(COLLECTIONS_PATH))
     _collections.migrate_membership_to_game_ids(all_games())
     # After the rekey, so a file arriving as a 2.x ini is in its current shape first.
-    ensure_last_played(_collections)
-    ensure_order_direction(_collections)
+    if ensure_last_played(_collections):
+        migration_ledger.record("last_played", get_version())
+    if moved := ensure_order_direction(_collections):
+        migration_ledger.record("collection_order", get_version(), moved)
 except Exception:
     logger.exception("Collection membership migration failed; memberships left as they were")
 
@@ -338,7 +354,8 @@ try:
     from common.device_migration import ensure_mobile_device
     from common.device_registry import get_device_registry
     from common.paths import get_ini_config
-    ensure_mobile_device(get_device_registry(), get_ini_config())
+    if ensure_mobile_device(get_device_registry(), get_ini_config()):
+        migration_ledger.record("mobile_device", get_version(), 1)
 except Exception:
     logger.exception("Mobile device import failed; [mobile] left as it was")
 

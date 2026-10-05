@@ -50,6 +50,7 @@ DATA_ROOTS = [
     "apps/generic/i18n",
     "apps/vpx/i18n",
     "extensions",
+    "releases",
     "third_party/dof",
     "third_party/libdmdutil",
 ]
@@ -64,6 +65,8 @@ if not SLIM:
         DATA_ROOTS.append("chromium/windows")
 
 datas = [(str(REPO_ROOT / root), root) for root in DATA_ROOTS]
+# The running release's notes, which the What's new page reads beside the archived ones.
+datas.append((str(REPO_ROOT / "RELEASE_NOTES.md"), "."))
 
 # PyInstaller ships no pynput hook, so the backend it loads by name at runtime is invisible
 # to the import scan. Only X11 matters: the Windows and macOS backends are imported

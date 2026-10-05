@@ -12,7 +12,14 @@ from typing import Any
 import requests
 from nicegui import background_tasks, run, ui
 
-from common import device_client, feature_checks, icons, install_identity, install_setup
+from common import (
+    device_client,
+    feature_checks,
+    icons,
+    install_identity,
+    install_setup,
+    whats_new,
+)
 from common.failures import why
 from common.i18n import t
 from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
@@ -54,6 +61,7 @@ from console import record as recorder
 from console import settings as settings_page
 from console import setup as setup_page
 from console import themes as themes_page
+from console import whats_new as whats_new_page
 from console.api import ApiClient
 from console.data import Library
 from console.on_page import on_page
@@ -343,6 +351,7 @@ def _read_hub() -> dict[str, Any]:
         "devices": client.devices(),
         "extensions": client.extensions(),
         "pending": install_setup.pending(get_ini_config()),
+        "whats_new_due": whats_new.due(get_ini_config()),
         # This machine's own configuration, asked of this machine: a path is only
         # answerable by the install holding it, and the Console is served by that one.
         "trouble": settings_page.local_trouble(),
@@ -368,6 +377,13 @@ def arrives_in_setup(pending: bool, view: str) -> bool:
     """A bare address while Setup is unfinished opens it; a link naming a place shows
     that place, with the line above it."""
     return pending and not view.strip()
+
+
+def arrives_in_whats_new(due: bool, view: str, *, window: bool) -> bool:
+    """A bare address after an update opens what changed. A link naming a place shows
+    that place, and the frontend's own window never does: nobody at the cabinet is
+    reading release notes."""
+    return due and not window and not view.strip()
 
 
 def why_not_loaded(exc: Exception) -> str:
@@ -567,6 +583,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     device_capabilities = loaded["device_capabilities"]
     local_capabilities = loaded["local_capabilities"]
     pending = bool(loaded["pending"])
+    whats_new_due = bool(loaded["whats_new_due"])
     waiting_bar = waiting.Bar(library, lambda: redraw())
 
     # The rail this install has, read once: it decides what is drawn and which addresses
@@ -1609,6 +1626,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     if arrives_in_setup(pending, view):
         background_tasks.create(
             setup_page.open_setup(window=in_the_frontends_window), name="console-setup")
+    elif arrives_in_whats_new(whats_new_due, view, window=in_the_frontends_window):
+        background_tasks.create(whats_new_page.open_whats_new(), name="console-whats-new")
 
 
 def read_then_render(state: dict[str, Any], library: Library, content: ui.element,
