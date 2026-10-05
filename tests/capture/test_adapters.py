@@ -332,6 +332,13 @@ class ScreenMatchTests(unittest.TestCase):
 
         self.assertEqual(found.output.name, "HDMI-A-1")
 
+    def test_the_topper_finds_the_output_of_its_own_screen(self) -> None:
+        monitors = [_monitor(3000, 1920, 1080, "HDMI-A-1"), _monitor(0, 1080, 1920, "DP-1")]
+
+        found = adapters.screen_of("topper", self.outputs, _config(topper="1"), monitors)
+
+        self.assertEqual(found.output.name, "DP-1")
+
     def test_a_window_with_no_screen_set_says_so(self) -> None:
         for window, config in (("backglass", _config()), ("topper", _config())):
             with self.subTest(window):

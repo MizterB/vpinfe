@@ -63,6 +63,16 @@ class RulesTests(unittest.TestCase):
         self.assertIn('assign [title="^Visual\\ Pinball\\ Score\\ View$"] output HDMI-A-1',
                       text)
 
+    def test_a_topper_with_a_screen_sends_visual_pinballs_there_too(self) -> None:
+        rows = [*ROWS, placement.Row("topper", "topper", "HDMI-A-2")]
+        vpx = [*VPX, placement.AppWindow("Visual Pinball Topper", "topper")]
+
+        text = placement.rules(placement.SWAY, rows, vpx)
+
+        self.assertIn('assign [app_id="^chrom(e|ium)-.*__app_topper-Default$"] '
+                      'output HDMI-A-2', text)
+        self.assertIn('assign [title="^Visual\\ Pinball\\ Topper$"] output HDMI-A-2', text)
+
     def test_every_window_loses_its_border_including_one_with_no_screen(self) -> None:
         text = placement.rules(placement.SWAY, ROWS, VPX)
 

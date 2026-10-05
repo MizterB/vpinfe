@@ -36,7 +36,7 @@ _INCLUDE = {SWAY: "include {}", HYPRLAND: "source = {}"}
 @dataclass(frozen=True)
 class Row:
     """A window of VPinFE's, by the name its URL carries, and the output it goes to ("" for
-    none). `role` is the part it plays: playfield, backglass or scoreview."""
+    none). `role` is the part it plays: playfield, backglass, scoreview or topper."""
 
     window: str
     role: str

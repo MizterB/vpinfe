@@ -347,6 +347,20 @@ class RowsFromThemeTests(unittest.TestCase):
                          [("playfield", "playfield"), ("bg", "backglass")])
         self.assertEqual({one.output for one in found}, {"DP-1"})
 
+    def test_the_topper_is_placed_on_the_screen_set_for_it(self) -> None:
+        config = configparser.ConfigParser()
+        config.read_dict({"windows.topper": {"screen_id": "0"}})
+        with patch.object(placement_panel, "get_ini_config", return_value=config), \
+                patch.object(placement_panel.display_service, "get_display_monitors",
+                             return_value=[SimpleNamespace(name="DP-3")]), \
+                patch.object(placement_panel.theme_windows, "active",
+                             return_value=("playfield", "topper")):
+            found, missed = placement_panel._rows([SimpleNamespace(name="DP-3")])
+
+        self.assertEqual([(one.window, one.role, one.output) for one in found],
+                         [("playfield", "playfield", ""), ("topper", "topper", "DP-3")])
+        self.assertFalse(missed)
+
 
 if __name__ == "__main__":
     unittest.main()
