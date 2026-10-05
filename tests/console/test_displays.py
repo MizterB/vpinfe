@@ -59,14 +59,16 @@ class NumberOfTests(unittest.TestCase):
 class PlacedTests(unittest.TestCase):
     def test_each_part_is_where_its_window_is_stored(self) -> None:
         held = displays.placed(_values(playfield={"screen_id": 1}, backglass={"screen_id": 0},
-                                       score_view={"screen_id": ""}), SCHEMA)
+                                       score_view={"screen_id": ""}, topper={"screen_id": 2}),
+                               SCHEMA)
 
-        self.assertEqual(held, {"backglass": 1, "score_view": None, "playfield": 2})
+        self.assertEqual(held, {"topper": 3, "backglass": 1, "score_view": None, "playfield": 2})
 
     def test_a_fresh_install_has_the_playfield_on_the_first_screen_and_the_rest_on_none(
             self) -> None:
         self.assertEqual(displays.placed({}, SCHEMA),
-                         {"backglass": None, "score_view": None, "playfield": 1})
+                         {"topper": None, "backglass": None, "score_view": None,
+                          "playfield": 1})
 
 
 class StandingTests(unittest.TestCase):
@@ -75,7 +77,8 @@ class StandingTests(unittest.TestCase):
                                                     "rotation": "90"},
                                          backglass={"screen_id": 0}), SCHEMA)
 
-        self.assertEqual(held.on, {"backglass": 1, "score_view": None, "playfield": 2})
+        self.assertEqual(held.on, {"topper": None, "backglass": 1, "score_view": None,
+                                   "playfield": 2})
         self.assertEqual(held.turn, ("portrait", "90"))
 
     def test_a_fresh_install_is_a_landscape_playfield_turned_nowhere(self) -> None:
@@ -97,7 +100,8 @@ class CabinetTests(unittest.TestCase):
 class WithoutDrawnTests(unittest.TestCase):
     def _blocks(self) -> list[dict]:
         return [block for block in SCHEMA if str(block.get("name")) in (
-            "windows.playfield", "windows.backglass", "windows.score_view", "real_dmd")]
+            "windows.playfield", "windows.backglass", "windows.score_view", "windows.topper",
+            "real_dmd")]
 
     def test_what_the_picture_draws_is_taken_out(self) -> None:
         kept = {block["name"]: [one["key"] for one in block["options"]]
@@ -107,8 +111,10 @@ class WithoutDrawnTests(unittest.TestCase):
         self.assertEqual(kept["windows.score_view"], ["override"])
 
     def test_a_section_with_nothing_left_is_dropped(self) -> None:
-        self.assertNotIn("windows.playfield",
-                         [block["name"] for block in displays.without_drawn(self._blocks())])
+        left = [block["name"] for block in displays.without_drawn(self._blocks())]
+
+        self.assertNotIn("windows.playfield", left)
+        self.assertNotIn("windows.topper", left)
 
     def test_a_section_the_picture_does_not_draw_is_whole(self) -> None:
         [dmd] = [block for block in displays.without_drawn(self._blocks())
@@ -139,6 +145,12 @@ class WritesTests(unittest.TestCase):
     def test_a_part_moved_is_the_screen_id_its_window_stores(self) -> None:
         self.assertEqual(displays.writes({"backglass": 2}, [FIRST, SECOND], "0"),
                          {"windows.backglass": {"screen_id": 1}})
+
+    def test_the_topper_is_stored_in_its_own_window(self) -> None:
+        self.assertEqual(displays.writes({"topper": 2}, [FIRST, SECOND], "0"),
+                         {"windows.topper": {"screen_id": 1}})
+        self.assertEqual(displays.writes({"topper": None}, [FIRST, SECOND], "0"),
+                         {"windows.topper": {"screen_id": ""}})
 
     def test_a_part_cleared_stores_no_screen(self) -> None:
         self.assertEqual(displays.writes({"score_view": None}, [FIRST], "0"),
@@ -203,7 +215,22 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         screens, held = self.control.call_args.args
         self.assertEqual([(one.number, one.name) for one in screens],
                          [(1, "Dell P2419H"), (2, "")])
-        self.assertEqual(held, {"backglass": None, "score_view": None, "playfield": 1})
+        self.assertEqual(held, {"topper": None, "backglass": None, "score_view": None,
+                                "playfield": 1})
+
+    def test_the_topper_is_on_the_screen_stored_for_it(self) -> None:
+        self._drawn(_values(topper={"screen_id": 1}))
+
+        _, held = self.control.call_args.args
+        self.assertEqual(held["topper"], 2)
+
+    async def test_a_move_of_the_topper_is_written_to_its_own_window(self) -> None:
+        kwargs = self._drawn()
+
+        moved = await kwargs["move"]({"topper": 2})
+
+        self.assertTrue(moved)
+        self.write.assert_awaited_once_with({"windows.topper": {"screen_id": 1}})
 
     def test_the_arrows_are_for_a_cabinet_and_not_for_a_desk(self) -> None:
         on_a_cab = self._drawn({"presentation": {"cab_mode": "true"}})

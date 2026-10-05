@@ -78,8 +78,10 @@ class Part:
 
 
 def vpinfe_parts() -> tuple[Part, ...]:
-    """The three parts VPinFE opens a window for."""
-    return (Part(BACKGLASS, t("console.screens.backglass")),
+    """The four parts VPinFE opens a window for. A topper is opened only where it has a
+    screen."""
+    return (Part(TOPPER, t("console.screens.topper")),
+            Part(BACKGLASS, t("console.screens.backglass")),
             Part(SCORE_VIEW, t("console.screens.score_view"),
                  t("console.screens.score_view.help")),
             Part(PLAYFIELD, t("console.screens.playfield")))
@@ -129,9 +131,9 @@ def turn(arrow: str, screen: Screen | None) -> dict[str, str]:
 def guess(screens: Sequence[Screen]) -> dict[str, int]:
     """A part for each screen whose size tells it from the rest, and no part for the others.
 
-    A strip is the Score View, the biggest of what is left the Playfield and the next the
-    Backglass. Two screens of one size are not told apart by their size, so neither is
-    placed, and a lone screen is the Playfield.
+    A strip is the Score View, the biggest of what is left the Playfield, the next the
+    Backglass and the one after that the Topper. Two screens of one size are not told apart
+    by their size, so neither is placed, and a lone screen is the Playfield.
     """
     if len(screens) == 1:
         return {PLAYFIELD: screens[0].number}
@@ -143,7 +145,7 @@ def guess(screens: Sequence[Screen]) -> dict[str, int]:
         found[SCORE_VIEW] = strips[0].number
     rest = sorted((screen for screen in alone if screen not in strips),
                   key=lambda screen: screen.width * screen.height, reverse=True)
-    for part, screen in zip((PLAYFIELD, BACKGLASS), rest, strict=False):
+    for part, screen in zip((PLAYFIELD, BACKGLASS, TOPPER), rest, strict=False):
         found[part] = screen.number
     return found
 

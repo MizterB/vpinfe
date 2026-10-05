@@ -20,7 +20,6 @@ from common.i18n import t
 from console import panel, settings
 from console.data import Library
 from frontend import theme_windows
-from tests.support.clicks import press
 
 WIDE = Monitor(x=0, y=0, width=2560, height=1440, width_mm=597, height_mm=336,
                name="DP-1", is_primary=True)
@@ -175,36 +174,27 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
     def _headings(entries: list[tuple[Any, Any]]) -> list[str]:
         return [str(value) for label, value in entries if label is panel.HEADING]
 
-    @staticmethod
-    def _under(entries: list[tuple[Any, Any]], heading: str) -> tuple[Any, Any]:
-        at = entries.index((panel.HEADING, heading))
-        return entries[at + 1]
-
     def _label_of(self, section: str, key: str) -> str:
         [one] = [option for block in self.served.config_schema() if block["name"] == section
                  for option in block["options"] if option["key"] == key]
         return str(one["label"])
 
-    async def test_it_is_headed_by_its_name_after_score_view(self) -> None:
-        headings = self._headings(await self._drawn())
-
-        self.assertEqual(headings[headings.index(t("console.settings.section_score_view")) + 1],
-                         "Topper")
-
-    async def test_the_windows_screens_are_one_picture_above_their_other_settings(self) -> None:
+    async def test_the_topper_is_drawn_by_the_picture_and_has_no_section_of_its_own(
+            self) -> None:
         entries = await self._drawn()
 
         self.assertEqual(self._headings(entries),
                          [t("console.settings.section_screens"),
                           t("console.settings.section_backglass"),
-                          t("console.settings.section_score_view"), "Topper",
+                          t("console.settings.section_score_view"),
                           t("console.settings.section_real_dmd")])
         self.assertEqual(entries[1][0], panel.FULL)
 
     async def test_what_the_picture_draws_is_not_a_field_beside_it(self) -> None:
         entries = await self._drawn()
-        before_topper = entries[:entries.index((panel.HEADING, "Topper"))]
-        fields = [label for label, _ in before_topper if isinstance(label, str)]
+        before_dmd = entries[:entries.index(
+            (panel.HEADING, t("console.settings.section_real_dmd")))]
+        fields = [label for label, _ in before_dmd if isinstance(label, str)]
 
         self.assertEqual(fields, [self._label_of("windows.backglass", "override"),
                                   self._label_of("windows.score_view", "override")])
@@ -215,31 +205,14 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(labels.count(self._label_of("windows.backglass", "override")), 2)
         self.assertIn(self._label_of("real_dmd", "enabled"), labels)
 
-    async def test_its_row_picks_from_this_machine_s_screens(self) -> None:
-        entries = await self._drawn()
-        label, picker = self._under(entries, "Topper")
-
-        self.assertEqual(label, self._label_of("windows.score_view", "screen_id"))
-        self.assertEqual(picker.value, "")
-        self.assertEqual(set(picker.offered), {"", "0", "1"})
-
-    async def test_a_pick_there_is_the_screen_the_frontend_opens_it_on(self) -> None:
-        _, picker = self._under(await self._drawn(), "Topper")
-
-        await press(picker.pick, SimpleNamespace(value="1"))
-
-        self.assertEqual(
-            DisplayConfig.from_config(ConfigStore(self.ini)).window_screen_id(
-                theme_windows.screen_key("topper")),
-            "1")
-
     async def test_a_window_no_longer_declared_is_not_drawn(self) -> None:
         self.assertNotIn("Apron", self._headings(await self._drawn()))
 
-    async def test_choosing_a_theme_that_declares_no_topper_keeps_it(self) -> None:
+    async def test_choosing_a_theme_that_declares_no_topper_changes_nothing(self) -> None:
+        before = self._headings(await self._drawn())
         self._activate("Plain")
 
-        self.assertIn("Topper", self._headings(await self._drawn()))
+        self.assertEqual(self._headings(await self._drawn()), before)
 
 
 if __name__ == "__main__":

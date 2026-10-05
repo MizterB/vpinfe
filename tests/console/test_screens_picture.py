@@ -66,6 +66,10 @@ class InsideTests(unittest.TestCase):
                          {"topper": True, "backglass": True, "score_view": True,
                           "playfield": False})
 
+    def test_vpinfe_has_a_topper_above_the_backglass_and_the_playfield_last(self) -> None:
+        self.assertEqual([part.key for part in picture.vpinfe_parts()],
+                         ["topper", "backglass", "score_view", "playfield"])
+
     def test_vpinfe_s_parts_are_never_offered_inside(self) -> None:
         self.assertFalse([part for part in picture.vpinfe_parts() if part.inside])
 
@@ -141,6 +145,13 @@ class GuessTests(unittest.TestCase):
             self) -> None:
         self.assertEqual(picture.guess([STRIP, BARE, BIG]),
                          {"score_view": 3, "playfield": 1, "backglass": 4})
+
+    def test_the_fourth_screen_is_the_topper(self) -> None:
+        self.assertEqual(picture.guess([STRIP, BARE, BIG, TALL]),
+                         {"score_view": 3, "playfield": 1, "backglass": 4, "topper": 2})
+
+    def test_three_screens_leave_the_topper_unplaced(self) -> None:
+        self.assertNotIn("topper", picture.guess([STRIP, BARE, BIG]))
 
     def test_two_screens_of_one_size_are_not_told_apart(self) -> None:
         twin = Screen(5, "", 1920, 1080, 0, 0)
