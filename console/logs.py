@@ -307,9 +307,7 @@ def _stream(records: list[dict[str, Any]], wrap: bool) -> None:
         with ui.row().classes("items-baseline gap-2 w-full no-wrap console-log-row"):
             ui.label(str(record.get("when") or "")).classes("console-log-when")
             level = str(record.get("level") or "")
-            ui.label(level).classes(
-                "console-log-level " + devices_page.LOG_LEVELS.get(
-                    level, "console-log-plain"))
+            ui.label(level).classes("console-log-level " + devices_page.level_class(level))
             ui.label(str(record.get("logger") or "")).classes("console-log-source")
         # The one thing the shared treatment does not decide: wrapping is a choice on
         # this page, and a stack trace is unreadable either way without it.
@@ -343,8 +341,7 @@ def _digest(records: list[dict[str, Any]]) -> None:
     ui.label(t("console.logs.distinct_records", count=len(ordered), records=len(records))) \
         .classes("console-help px-3 pb-1")
     for (source, first_line), found in ordered:
-        tone = devices_page.LOG_LEVELS.get(str(found["level"] or ""),
-                                           "console-log-plain")
+        tone = devices_page.LOG_LEVELS.get(str(found["level"] or ""), "console-log-text")
         with ui.row().classes("items-baseline gap-3 w-full no-wrap console-log-row"):
             ui.label(f"{found['count']}x").classes(f"shrink-0 {tone}") \
                 .style("min-width:4ch; text-align:right")
@@ -352,7 +349,7 @@ def _digest(records: list[dict[str, Any]]) -> None:
                 ui.label(first_line).classes(f"truncate {tone}")
                 ui.label(t("console.logs.first_last", source=(source), first=found["first"],
                         last=found["last"])) \
-                    .classes("console-log-source")
+                    .classes("console-log-detail")
 
 
 def _rank(level: Any) -> int:

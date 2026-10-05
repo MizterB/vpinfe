@@ -60,14 +60,22 @@ WHY_NOT = {
 # a 2MB file to a panel; the path is on the page for anyone who wants the rest.
 LOG_LIMIT = 200
 
-# What each level is worth noticing. Only the two that mean something went wrong are
-# colored - a column where every row is lit says nothing about any of them.
+# What each level is worth noticing. Only the two that mean something went wrong get a
+# hue - a column where every row is lit says nothing about any of them.
 # Read by the Logs page too, so one install's log and another's are colored the same.
 LOG_LEVELS = {
     "ERROR": "console-log-bad",
     "CRITICAL": "console-log-bad",
     "WARNING": "console-log-warn",
 }
+
+
+def level_class(level: str) -> str:
+    # The digest colors a whole line and takes LOG_LEVELS directly, where INFO is not
+    # set apart from DEBUG.
+    return LOG_LEVELS.get(level) or ("console-log-info" if level == "INFO"
+                                     else "console-log-plain")
+
 
 # What a device's menu can offer, in the order it is drawn. The two that take the whole
 # machine down are last, which is where `panel.verb_entries` puts a danger verb anyway.
@@ -1151,8 +1159,7 @@ def _log_lines(records: list[dict[str, Any]], path: str) -> None:
             with ui.row().classes("items-baseline gap-2 w-full no-wrap console-log-row"):
                 ui.label(str(record.get("when") or "")).classes("console-log-when")
                 level = str(record.get("level") or "")
-                ui.label(level).classes(
-                    "console-log-level " + LOG_LEVELS.get(level, "console-log-plain"))
+                ui.label(level).classes("console-log-level " + level_class(level))
                 ui.label(str(record.get("logger") or "")).classes("console-log-source")
             ui.label(str(record.get("message") or "")).classes("console-log-message")
     if path:

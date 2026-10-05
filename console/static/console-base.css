@@ -1225,14 +1225,25 @@ body::before {
 /* Fixed width, so the source names beside them start at one place down the column. */
 .console-log-level { flex: none; width: 62px; font-weight: 700; }
 .console-log-plain { color: var(--ink-3); }
+/* A step above the timestamp, or the two read as one grey. */
+.console-log-info { color: var(--ink-2); }
 .console-log-warn { color: var(--warm); }
 .console-log-bad { color: var(--danger); }
-.console-log-source { color: var(--ink-3); min-width: 0; overflow: hidden;
+/* Pulled toward the ink, as the panel header's hues are: a full accent on every row
+   would read as a link. */
+.console-log-source {
+  color: color-mix(in srgb, var(--accent) 65%, var(--ink-2));
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The digest's two lines per group: what happened in the brightest ink, and where and
+   when under it, quiet, with the source's truncation. */
+.console-log-text { color: var(--ink); }
+.console-log-detail { color: var(--ink-3); min-width: 0; overflow: hidden;
                       text-overflow: ellipsis; white-space: nowrap; }
 /* Wrapped and indented under its header. `pre-wrap` because a traceback's own leading
    spaces are what make it readable, and collapsing them turns it into a paragraph. */
 .console-log-message {
-  color: var(--ink-2);
+  color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
   padding-left: 4px;
