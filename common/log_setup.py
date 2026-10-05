@@ -261,6 +261,9 @@ _RECORD = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (\w+) \[([^\]]*)\] (.*)
 # tail is what the question "what just happened" actually wants.
 TAIL_BYTES = 512 * 1024
 
+# Another program's name for a level that has one of ours.
+_ALIASES = {"WARN": "WARNING"}
+
 
 def log_files() -> list[Path]:
     """The current log and the rotations kept beside it, newest first.
@@ -284,29 +287,39 @@ def read_log(limit: int = 200, level: str = "", contains: str = "",
              source: str = "") -> list[dict]:
     """The most recent records, oldest first.
 
-    Records rather than lines. A traceback is one thing that happened, and splitting it
-    into fourteen rows both buries the message that caused it and makes a level filter
-    drop the half that carries the reason.
-
     `source` names one of `log_files()` and is checked against that list rather than
     opened as given - a caller must not be able to read an arbitrary file through this.
     """
     path = log_file()
     if source:
         path = next((one for one in log_files() if one.name == source), None)
-    if path is None or not path.exists():
+    if path is None:
         return []
+    return read_records(path, limit, level, contains)
+
+
+def read_records(path: Path, limit: int, level: str = "", contains: str = "",
+                 record: re.Pattern[str] | None = None) -> list[dict]:
+    """The most recent records of any file, oldest first. `path` is opened as given, so
+    only a caller that has already checked it against a list may pass one.
+
+    Records rather than lines. A traceback is one thing that happened, and splitting it
+    into fourteen rows both buries the message that caused it and makes a level filter
+    drop the half that carries the reason. `record` matches a record's first line with
+    four groups: when, level, source, message.
+    """
     try:
         with open(path, "rb") as handle:
             handle.seek(0, os.SEEK_END)
             handle.seek(max(0, handle.tell() - TAIL_BYTES))
-            text = handle.read().decode("utf-8", "replace")
+            text = handle.read().decode("utf-8", "replace").lstrip("\ufeff")
     except OSError:
         return []
 
+    start = record or _RECORD
     records: list[dict] = []
     for line in text.splitlines():
-        found = _RECORD.match(line)
+        found = start.match(line)
         if found is None:
             # Dropped rather than kept when it is the first thing in the window: it is
             # the tail of a record whose head was cut off by the seek.
@@ -314,9 +327,11 @@ def read_log(limit: int = 200, level: str = "", contains: str = "",
                 records[-1]["message"] += "\n" + line
             continue
         when, name, source, message = found.groups()
-        records.append({"when": when, "level": name, "logger": source,
-                        "message": message})
+        records.append({"when": when, "level": _ALIASES.get(name, name),
+                        "logger": source, "message": message})
 
+    for one in records:
+        one["message"] = one["message"].rstrip()
     wanted = (level or "").strip().upper()
     if wanted:
         records = [r for r in records if r["level"] == wanted]

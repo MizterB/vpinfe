@@ -13,7 +13,8 @@ from console import logs
 
 
 def _held(**more: Any) -> dict[str, Any]:
-    return {"view": logs.STREAM, "sources": ["a.log"], "path": "/logs/a.log", **more}
+    return {"view": logs.STREAM, "sources": ["a.log"], "path": "/logs/a.log", "source": "",
+            "visual_pinball": "", **more}
 
 
 class WhatTheBarIsDrawnFrom(unittest.TestCase):
@@ -32,6 +33,12 @@ class WhatTheBarIsDrawnFrom(unittest.TestCase):
     def test_another_file_draws_its_bar_again(self) -> None:
         self.assertNotEqual(logs._bar_key(_held()),
                             logs._bar_key(_held(path="/logs/b.log")))
+
+    def test_a_source_that_appears_draws_its_bar_again(self) -> None:
+        """Visual Pinball's log is named once a launcher says where it writes, and the
+        select has to offer it."""
+        self.assertNotEqual(logs._bar_key(_held(view=logs.JOBS)),
+                            logs._bar_key(_held(view=logs.JOBS, visual_pinball="v.log")))
 
     def test_the_jobs_bar_does_not_depend_on_the_log_file(self) -> None:
         self.assertEqual(logs._bar_key(_held(view=logs.JOBS)),

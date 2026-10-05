@@ -13,9 +13,10 @@ reason.
 answers *what is wrong with this machine* by collapsing repeats - a machine can log one
 mistake four thousand times, and a list of four thousand rows hides that it is one.
 
-**A third over the jobs.** Jobs answers *what did this install just do, and how did it go*,
-from the job registry rather than the log file. It is a grid, so it takes the grid's
-sorting and filters.
+**One select names what is read.** VPinFE, its previous run, Visual Pinball, and Jobs.
+Jobs answers *what did this install just do, and how did it go*, from the job registry
+rather than a log file. It is a grid, so it takes the grid's sorting and filters, and
+the controls that only mean something for a log - the view, the level - leave the bar.
 
 Streaming is a timer on this page rather than a transport of its own. The Console is
 server-rendered and already holds a live socket to the browser, so the tail pushes over
@@ -24,16 +25,18 @@ the one that is there.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from console import busy, deeplink, grid, jobs_list, offload, panel, verbs
+from console import about, busy, deeplink, grid, jobs_list, offload, panel, verbs
 from console import devices as devices_page
 from console.data import Library
 from console.on_page import on_page
@@ -49,8 +52,8 @@ RECORDS = 500
 
 LEVELS = ("", "DEBUG", "INFO", "WARNING", "ERROR")
 
-# The views, by the value the select holds and the address carries. The stream is the
-# empty one.
+# The views, by the value the address carries. The stream is the empty one. Jobs is also
+# what the source select holds when it is chosen: no log file is called that.
 STREAM, DIGEST, JOBS = "", "digest", "jobs"
 VIEWS = (STREAM, DIGEST, JOBS)
 
@@ -73,6 +76,11 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         "follow": state.get("log_follow", True),
         "records": [],
         "sources": [],
+        "visual_pinball": "",
+        "sources_read": False,
+        # The way the log is read, kept while Jobs is up so coming back to a log restores it.
+        "last_view": state.get("log_view") if state.get("log_view") in (STREAM, DIGEST)
+        else STREAM,
         "path": "",
     }
 
@@ -105,31 +113,70 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         else:
             held["error"] = ""
             held["records"] = list(found.get("records") or [])
-            held["sources"] = list(found.get("sources") or [])
-            held["path"] = str(found.get("path") or "")
+            _note_sources(held, found)
+            if not _known(held):
+                # A rotation that has gone, or a launcher that no longer names an ini.
+                held["source"] = state["log_source"] = ""
+                held["bar_for"] = None
+                return await load()
         if held["bar_for"] != _bar_key(held):
-            _draw_bar(bar, held, load, state)
+            _draw_bar(bar, library, held, load, state)
         await _draw(viewport, held)
 
     busy.fill(viewport, load)
-    # Only while following, and only on the live file: a rotated log does not change,
-    # so re-reading it is a request that can only return what it just returned. The jobs
-    # list is always live, because a running job's progress is the point of it.
+    # Only while following, and only on a file that is still being written: a rotated log
+    # does not change, so re-reading it is a request that can only return what it just
+    # returned. The jobs list is always live, because a running job's progress is the
+    # point of it.
     ui.timer(EVERY_SECONDS,
              lambda: load() if held["view"] == JOBS
-             or (held["follow"] and not held["source"]) else None)
+             or (held["follow"] and _live(held)) else None)
+
+
+def _note_sources(held: dict[str, Any], found: dict[str, Any]) -> None:
+    held["sources"] = list(found.get("sources") or [])
+    held["visual_pinball"] = str(found.get("visual_pinball") or "")
+    held["path"] = str(found.get("path") or "")
+    held["sources_read"] = True
+
+
+def _live(held: dict[str, Any]) -> bool:
+    """Whether the file chosen is one that is still being written: the current VPinFE log,
+    or Visual Pinball's. A rotation is finished."""
+    return not held["source"] or held["source"] == held["visual_pinball"]
 
 
 def _bar_key(held: dict[str, Any]) -> tuple[Any, ...]:
     """What the bar is drawn from. A tick that finds the same key leaves the bar alone:
     clearing it closes a menu somebody has open."""
+    files = (tuple(held["sources"]), held["visual_pinball"])
     if held["view"] == JOBS:
-        return (JOBS,)
-    return (held["view"], tuple(held["sources"]), held["path"])
+        return (JOBS, *files)
+    return (held["view"], held["source"], held["path"], *files)
 
 
-def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
-              state: dict[str, Any]) -> None:
+def _known(held: dict[str, Any]) -> bool:
+    """Whether the source held is one the last read listed."""
+    return held["source"] in ("", *held["sources"], held["visual_pinball"])
+
+
+def _source_options(held: dict[str, Any]) -> dict[str, str]:
+    """What can be read, named for what it is. The first file is the log being written;
+    the ones after it are earlier runs, newest first."""
+    options = {"": t("console.logs.vpinfe")}
+    for number, name in enumerate(held["sources"][1:], 1):
+        options[name] = (t("console.logs.vpinfe_previous") if number == 1
+                         else t("console.logs.vpinfe_previous_n", number=number))
+    if held["visual_pinball"]:
+        options[held["visual_pinball"]] = t("console.logs.visual_pinball")
+    options[JOBS] = t("console.jobs.view")
+    # A read that failed names no files, and a select refuses a value it does not list.
+    options.setdefault(held["source"], held["source"])
+    return options
+
+
+def _draw_bar(bar: Any, library: Library, held: dict[str, Any],
+              reload: Callable[[], Any], state: dict[str, Any]) -> None:
     bar.clear()
     with bar:
         def remember(key: str, value: Any) -> Any:
@@ -139,29 +186,35 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
             state[f"log_{key}"] = value
             held["bar_for"] = None
             if key == "view":
+                if value != JOBS:
+                    held["last_view"] = value
                 deeplink.sync(state)
             return reload()
 
-        ui.select({STREAM: t("console.logs.stream"), DIGEST: t("console.logs.digest"),
-                   JOBS: t("console.jobs.view")}, value=held["view"]) \
-            .props("dense outlined").classes("w-32") \
-            .on_value_change(lambda e: remember("view", e.value or STREAM))
+        def pick(value: str) -> Any:
+            if value == JOBS:
+                return remember("view", JOBS)
+            if held["view"] == JOBS:
+                held["view"] = state["log_view"] = held["last_view"]
+                deeplink.sync(state)
+            return remember("source", value)
+
+        source = ui.select(_source_options(held),
+                           value=JOBS if held["view"] == JOBS else held["source"]) \
+            .props("dense outlined").classes("w-44") \
+            .on_value_change(lambda e: pick(e.value or ""))
+        if held["path"] and held["view"] != JOBS:
+            source.tooltip(held["path"])
         held["bar_for"] = _bar_key(held)
 
         if held["view"] == JOBS:
             _jobs_controls(held, remember)
             return
 
-        if len(held["sources"]) > 1:
-            # Named separately rather than spanned: a rotation boundary is where an
-            # install restarted, and reading across one silently would hide that.
-            ui.select({name: (t("console.logs.current") if i == 0 else name)
-                       for i, name in enumerate(held["sources"])},
-                      value=held["source"] or held["sources"][0]) \
-                .props("dense outlined").classes("w-40") \
-                .on_value_change(
-                    lambda e: remember(
-                        "source", "" if e.value == held["sources"][0] else e.value))
+        ui.select({STREAM: t("console.logs.stream"), DIGEST: t("console.logs.digest")},
+                  value=held["view"]) \
+            .props("dense outlined").classes("w-32") \
+            .on_value_change(lambda e: remember("view", e.value or STREAM))
 
         ui.select({one: (t(f"config.logger.level.choice.{one.lower()}") if one
                          else t("console.logs.all_levels")) for one in LEVELS},
@@ -172,15 +225,7 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
             .props("dense outlined clearable").classes("grow min-w-0") \
             .on("keydown.enter", lambda e: remember("contains", e.sender.value or ""))
 
-        wrap = ui.button(icon=verbs.WRAP,
-                         on_click=lambda: remember("wrap", not held["wrap"])) \
-            .props("flat dense round size=sm")
-        wrap.tooltip(t("console.logs.wrap") if not held["wrap"]
-                else t("console.logs.stop_wrapping"))
-        if held["wrap"]:
-            wrap.props(add="color=primary")
-
-        if not held["source"]:
+        if _live(held):
             follow = ui.button(icon="play_arrow" if held["follow"] else "pause",
                                on_click=lambda: remember("follow", not held["follow"])) \
                 .props("flat dense round size=sm")
@@ -194,8 +239,37 @@ def _draw_bar(bar: Any, held: dict[str, Any], reload: Callable[[], Any],
             ui.button(icon=verbs.REFRESH, on_click=lambda: reload()) \
                 .props("flat dense round size=sm").tooltip(t("word.reread"))
 
+        _file_menu(library, held, remember)
+
+
+def _file_menu(library: Library, held: dict[str, Any],
+               remember: Callable[[str, Any], Any]) -> None:
+    """What is done to the file or to how it is drawn, kept out of the bar because none
+    of it is wanted on every visit."""
+    with ui.button(icon=verbs.MORE).props("flat dense round size=sm") as more, ui.menu():
+        ui.menu_item(t("console.logs.stop_wrapping") if held["wrap"]
+                     else t("console.logs.wrap"),
+                     lambda: remember("wrap", not held["wrap"])) \
+            .classes("console-menu-item")
         if held["path"]:
-            panel.line(held["path"], classes="console-help truncate max-w-xs")
+            # In the browser at the click, which is the only moment it will copy.
+            ui.menu_item(t("console.logs.copy_path")) \
+                .classes("console-menu-item") \
+                .on("click", lambda event: about.copied(bool(event.args), held["path"]),
+                    js_handler=about.COPY_JS % json.dumps(held["path"]))
+            ui.menu_item(t("console.logs.download"),
+                         lambda: _download(library, held)).classes("console-menu-item")
+    more.tooltip(t("console.logs.file_menu"))
+
+
+@on_page
+async def _download(library: Library, held: dict[str, Any]) -> None:
+    try:
+        content = await offload.io(library.log_file, held["source"])
+    except Exception as exc:  # noqa: BLE001 - say why, never a bare 500
+        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+        return
+    ui.download.content(content, Path(held["path"]).name, "text/plain")
 
 
 def _jobs_controls(held: dict[str, Any], remember: Callable[[str, Any], Any]) -> None:
@@ -220,6 +294,12 @@ def _jobs_controls(held: dict[str, Any], remember: Callable[[str, Any], Any]) ->
 async def _load_jobs(library: Library, box: Any, bar: Any, held: dict[str, Any],
                      reload: Callable[[], Any], state: dict[str, Any]) -> None:
     found: list[dict[str, Any]] = []
+    if not held["sources_read"]:
+        # A page opened on Jobs has not read a log, and the select needs to name them.
+        try:
+            _note_sources(held, await offload.io(library.logs, 1))
+        except Exception:  # noqa: BLE001 - the select shows what it has
+            logger.debug("Could not read the log sources", exc_info=True)
     try:
         found = await offload.io(library.jobs, jobs_list.LIMIT)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -230,7 +310,7 @@ async def _load_jobs(library: Library, box: Any, bar: Any, held: dict[str, Any],
     # Not on every tick: the bar holds the find box, and redrawing it would take what is
     # being typed with it.
     if held["bar_for"] != _bar_key(held):
-        _draw_bar(bar, held, reload, state)
+        _draw_bar(bar, library, held, reload, state)
     _draw_jobs(box, held, jobs_list.rows(found, time.time(), held["outcome"]),
                bool(found))
 
@@ -310,8 +390,10 @@ def _stream(records: list[dict[str, Any]], wrap: bool) -> None:
             ui.label(level).classes("console-log-level " + devices_page.level_class(level))
             ui.label(str(record.get("logger") or "")).classes("console-log-source")
         # The one thing the shared treatment does not decide: wrapping is a choice on
-        # this page, and a stack trace is unreadable either way without it.
-        ui.label(str(record.get("message") or "")).classes("console-log-message") \
+        # this page, and a stack trace is unreadable either way without it. `shrink-0`
+        # because an unwrapped label scrolls sideways, which lets a flex column squash
+        # it to no height at all.
+        ui.label(str(record.get("message") or "")).classes("console-log-message shrink-0") \
             .style("" if wrap else "white-space:pre; overflow-x:auto")
 
 

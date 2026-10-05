@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 
-from common import log_setup
+from common.host import log_sources
 
 from . import models, scopes
 from .auth import requires
@@ -35,15 +36,24 @@ def get_log(limit: int = Query(200, ge=1, le=MAX_RECORDS),
             source: str = "") -> models.LogRecords:
     """The tail, oldest first, optionally filtered by level or by text.
 
-    `source` names one of the files this install writes - the current log or a rotation
-    beside it - and is resolved against that list rather than opened as given. `path` is
-    served so a person can go and read the rest of it.
+    `source` is a name resolved against the files this install reads, never a path.
     """
-    found = log_setup.read_log(limit=limit, level=level, contains=contains,
-                               source=source)
-    where = next((one for one in log_setup.log_files() if one.name == source),
-                 log_setup.log_file()) if source else log_setup.log_file()
     return models.LogRecords.model_validate(
-        {"count": len(found), "records": found,
-         "path": str(where) if where else "",
-         "sources": [one.name for one in log_setup.log_files()]})
+        log_sources.read(source, limit, level, contains))
+
+
+@router.get("/file", summary="One of this install's log files, whole",
+            dependencies=[requires(scopes.SYSTEM_READ)],
+            response_class=FileResponse)
+def download_log(source: str = "") -> FileResponse:
+    """The file itself, for somebody who wants to attach it to a report.
+
+    Resolved against the same list `source` is above, so a name that is not one of those
+    files is a 404 rather than a path read.
+    """
+    chosen = log_sources.resolve(source)
+    if chosen is None or not chosen.path.is_file():
+        raise HTTPException(status_code=404, detail="No such log")
+    if chosen.path.stat().st_size > log_sources.MAX_DOWNLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="That log is too large to download")
+    return FileResponse(chosen.path, media_type="text/plain", filename=chosen.name)

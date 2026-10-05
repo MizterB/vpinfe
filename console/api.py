@@ -1265,6 +1265,14 @@ class ApiClient:
                            "source": source})
         return self._get(f"/logs?{query}")
 
+    def log_file(self, source: str = "") -> bytes:
+        """One log file, whole, as the install would hand it to a person."""
+        path = f"/logs/file?{urlencode({'source': source})}"
+        _refuse_the_event_loop(path)
+        response = self._session.get(f"{self._base}{path}", timeout=_TIMEOUT)
+        self._answered(response)
+        return response.content
+
     def update_check(self, refresh: bool = False) -> dict:
         """Whether a newer build is published. `refresh` asks GitHub on the server's side
         rather than reading the last answer."""

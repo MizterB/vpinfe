@@ -294,6 +294,9 @@ class LogRecords(ApiModel):
     # What else could be shown: the current log and the rotations kept beside it. Named
     # rather than spanned, because a rotation boundary is where an install restarted.
     sources: list[str] = []
+    # Visual Pinball's log, by the name it is asked for with, when a launcher names where
+    # it writes. Empty when none does.
+    visual_pinball: str = ""
 
 class DiscoveredInstall(ApiModel):
     """One install heard announcing itself on this network.

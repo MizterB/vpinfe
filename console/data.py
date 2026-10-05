@@ -747,6 +747,9 @@ class Library:
         """Never cached, obviously: the whole question is what has happened since."""
         return self._client.logs(limit, level, contains, source)
 
+    def log_file(self, source: str = "") -> bytes:
+        return self._client.log_file(source)
+
     def jobs(self, limit: int = 20) -> list[dict]:
         """Never cached either: what has run since the last read is the question."""
         return self._client.jobs(limit)
