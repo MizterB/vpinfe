@@ -20,6 +20,9 @@ from common.paths import get_ini_config
 logger = logging.getLogger("vpinfe.console.api")
 
 _TIMEOUT = 15
+# Reads that cover the whole library. The first one scans it, and on a network share that
+# has gone idle the scan outlasts _TIMEOUT. Reads of one thing keep _TIMEOUT.
+_LIBRARY_TIMEOUT = 120
 # An import copies files, which is disk work rather than a question - a pup pack is
 # gigabytes and the default would give up on it partway through.
 _IMPORT_TIMEOUT = 900
@@ -100,9 +103,9 @@ class ApiClient:
                 status_code=(response.status_code)),
                        details if isinstance(details, dict) else {})
 
-    def _get(self, path: str) -> dict:
+    def _get(self, path: str, timeout: int = _TIMEOUT) -> dict:
         _refuse_the_event_loop(path)
-        response = self._session.get(f"{self._base}{path}", timeout=_TIMEOUT)
+        response = self._session.get(f"{self._base}{path}", timeout=timeout)
         self._answered(response)
         return response.json()
 
@@ -135,10 +138,10 @@ class ApiClient:
                          {"enabled": bool(on)})
 
     def games(self) -> list[dict]:
-        return self._get("/games").get("games", [])
+        return self._get("/games", _LIBRARY_TIMEOUT).get("games", [])
 
     def filter_axes(self) -> list[dict]:
-        return self._get("/library/filters").get("axes", [])
+        return self._get("/library/filters", _LIBRARY_TIMEOUT).get("axes", [])
 
     def game(self, game_id: str) -> dict:
         return self._get(f"/games/{game_id}")
@@ -148,15 +151,16 @@ class ApiClient:
         on it; with `art`, which file of that kind each one shows."""
         query = urlencode({key: value for key, value in (("art", art), ("game", game))
                            if value})
-        return list(self._get(f"/tables{'?' if query else ''}{query}").get("tables") or [])
+        return list(self._get(f"/tables{'?' if query else ''}{query}",
+                              _LIBRARY_TIMEOUT).get("tables") or [])
 
     def all_media(self) -> list[dict]:
         """Every media file in the library, one row each, and one per file it lacks."""
-        return self._get("/media").get("media", [])
+        return self._get("/media", _LIBRARY_TIMEOUT).get("media", [])
 
     def all_assets(self) -> list[dict]:
         """Every asset file in the library, one row each, and one per file it lacks."""
-        return self._get("/assets").get("assets", [])
+        return self._get("/assets", _LIBRARY_TIMEOUT).get("assets", [])
 
     def media_of(self, game_id: str) -> list[dict]:
         return self._get("/media?" + urlencode({"game": game_id})).get("media", [])
@@ -396,7 +400,7 @@ class ApiClient:
         return self._post("/library/owned", {"ids": list(ids)})
 
     def tags(self) -> list[dict]:
-        return list(self._get("/library/tags").get("tags") or [])
+        return list(self._get("/library/tags", _LIBRARY_TIMEOUT).get("tags") or [])
 
     def put_tag(self, tag: str, changes: dict) -> dict:
         return self._put(f"/library/tags/{quote(tag, safe='')}", changes)
@@ -486,23 +490,24 @@ class ApiClient:
 
     def library_game_collections(self) -> dict[str, list[dict]]:
         """Game id to the collections holding it, for every game some collection holds."""
+        held = self._get("/library/game_collections", _LIBRARY_TIMEOUT)
         return {str(one.get("game") or ""): list(one.get("collections") or [])
-                for one in self._get("/library/game_collections").get("games") or []}
+                for one in held.get("games") or []}
 
     def collection_games(self, name: str) -> list[dict]:
         """The management lens: what is in it now, and why each one is there."""
-        return list(self._get(f"/collections/{quote(name, safe='')}/games")
-                    .get("games") or [])
+        return list(self._get(f"/collections/{quote(name, safe='')}/games",
+                              _LIBRARY_TIMEOUT).get("games") or [])
 
     def library_entries(self) -> list[dict]:
         """The play lens over the whole library: what the cabinet offers before a
         collection is chosen."""
-        return list(self._get("/library/entries").get("entries") or [])
+        return list(self._get("/library/entries", _LIBRARY_TIMEOUT).get("entries") or [])
 
     def collection_entries(self, name: str) -> list[dict]:
         """The play lens: one entry per game, in the order the cabinet shows them."""
-        return list(self._get(f"/collections/{quote(name, safe='')}/entries")
-                    .get("entries") or [])
+        return list(self._get(f"/collections/{quote(name, safe='')}/entries",
+                              _LIBRARY_TIMEOUT).get("entries") or [])
 
     def create_collection(self, name: str, filters: dict | None = None,
                           games: list[str] | None = None, copy_of: str | None = None) -> dict:
@@ -1021,7 +1026,7 @@ class ApiClient:
         Read fresh every time: reachable and writable are answers about this moment, and
         a cache would show that a share was mounted before it dropped.
         """
-        return dict(self._get("/locations") or {})
+        return dict(self._get("/locations", _LIBRARY_TIMEOUT) or {})
 
     def put_location(self, location_id: str, body: dict) -> dict:
         return dict(self._put(f"/locations/{location_id}", body) or {})
@@ -1245,7 +1250,7 @@ class ApiClient:
 
     def info_maintenance(self) -> dict:
         """What the library's own metadata files need doing to them."""
-        return self._get("/library/info")
+        return self._get("/library/info", _LIBRARY_TIMEOUT)
 
     def upgrade_info(self) -> dict:
         """Bring every `.info` onto the current format. Returns the job to watch."""

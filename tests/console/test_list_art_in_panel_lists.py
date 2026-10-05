@@ -63,7 +63,7 @@ class _OverTheApi(ApiClient):
         self._api = api
         self.read: list[str] = []
 
-    def _get(self, path: str) -> dict:
+    def _get(self, path: str, timeout: int = 15) -> dict:
         self.read.append(path)
         answer = self._api.get(path or "/")
         answer.raise_for_status()

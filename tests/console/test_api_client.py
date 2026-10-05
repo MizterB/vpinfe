@@ -37,5 +37,35 @@ class NothingAnsweredTests(unittest.TestCase):
         self.assertEqual(str(caught.exception), t("device.reason.timed_out"))
 
 
+class HowLongEachReadWaitsTests(unittest.TestCase):
+    @staticmethod
+    def _waited(call) -> float:
+        seen: dict = {}
+
+        def send(_adapter, _request, **kwargs):
+            seen.update(kwargs)
+            response = requests.Response()
+            response.status_code = 200
+            response._content = b"{}"
+            return response
+
+        with patch.object(requests.adapters.HTTPAdapter, "send", send):
+            call(ApiClient("http://127.0.0.1:1"))
+        return seen["timeout"]
+
+    def test_reading_the_whole_library_waits_for_a_cold_share(self) -> None:
+        for read in (lambda c: c.games(), lambda c: c.all_tables(),
+                     lambda c: c.all_media(), lambda c: c.all_assets(),
+                     lambda c: c.filter_axes(), lambda c: c.library_entries(),
+                     lambda c: c.tags(), lambda c: c.locations(),
+                     lambda c: c.library_game_collections(),
+                     lambda c: c.collection_games("c"), lambda c: c.collection_entries("c"),
+                     lambda c: c.info_maintenance()):
+            self.assertGreater(self._waited(read), 60)
+
+    def test_a_question_about_one_thing_still_gives_up_quickly(self) -> None:
+        self.assertEqual(self._waited(lambda c: c.game("g1")), 15)
+
+
 if __name__ == "__main__":
     unittest.main()

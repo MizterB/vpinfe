@@ -69,7 +69,7 @@ class _OverTheApi(ApiClient):
         self.read: list[str] = []
         self.on_loop: list[str] = []
 
-    def _get(self, path: str) -> dict:
+    def _get(self, path: str, timeout: int = 15) -> dict:
         self.read.append(path)
         try:
             asyncio.get_running_loop()
