@@ -39,7 +39,8 @@ HANDED_ON = {
         "_one": "the log: a launch refused says so again in the catalog's words"},
     "common/host/dof_service_worker.py": {"handle": "the DOF service, which logs it",
                                           "main": "the DOF service, which logs it"},
-    "common/host/pinmame_worker.py": {"main": "the PinMAME lookup, which logs it"},
+    "common/host/pinmame_worker.py": {"main": "the PinMAME lookup, which logs it",
+                                      "serve": "the PinMAME lookup, which logs it"},
 }
 
 

@@ -7,6 +7,9 @@ dof_service_worker.
 
 Usage: python -m common.host.pinmame_worker <libpath> <roms_dir> <set> [<set>...]
 Prints one JSON object keyed by set name.
+
+With `--serve <libpath>` instead, it loads the library once and answers one JSON line
+per request line on stdin.
 """
 
 from __future__ import annotations
@@ -16,7 +19,8 @@ import json
 import shutil
 import sys
 import tempfile
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, TextIO
 
 PINMAME_MAX_PATH = 512
 FILE_TYPE_ROMS = 0
@@ -43,48 +47,87 @@ class PinmameConfig(ctypes.Structure):
                 *((f"cb{i}", ctypes.c_void_p) for i in range(12))]
 
 
-def lookup(lib_path: str, roms_dir: str, names: list[str]) -> dict:
-    lib = ctypes.CDLL(lib_path)
-    game_callback = ctypes.CFUNCTYPE(None, ctypes.POINTER(PinmameGame), ctypes.c_void_p)
+class Audit:
+    """The library, opened once; each lookup points it at a roms folder and asks."""
 
-    config = PinmameConfig()
-    ctypes.memset(ctypes.byref(config), 0, ctypes.sizeof(config))
-    # The library insists on a writable vpm home even for catalog reads.
-    vpm_home = tempfile.mkdtemp(prefix="vpinfe-pinmame-")
-    try:
-        encoded_home = vpm_home.encode()
-        ctypes.memmove(config.vpmPath, encoded_home,
-                       min(len(encoded_home), PINMAME_MAX_PATH - 1))
-        lib.PinmameSetConfig(ctypes.byref(config))
-        lib.PinmameSetPath(FILE_TYPE_ROMS, roms_dir.encode())
+    def __init__(self, lib_path: str) -> None:
+        self._lib = ctypes.CDLL(lib_path)
+        config = PinmameConfig()
+        ctypes.memset(ctypes.byref(config), 0, ctypes.sizeof(config))
+        # The library insists on a writable vpm home even for catalog reads.
+        self._vpm_home = tempfile.mkdtemp(prefix="vpinfe-pinmame-")
+        try:
+            encoded_home = self._vpm_home.encode()
+            ctypes.memmove(config.vpmPath, encoded_home,
+                           min(len(encoded_home), PINMAME_MAX_PATH - 1))
+            self._lib.PinmameSetConfig(ctypes.byref(config))
+        except BaseException:
+            self.close()
+            raise
+        self._hit: list[dict] = []
+        game_callback = ctypes.CFUNCTYPE(None, ctypes.POINTER(PinmameGame), ctypes.c_void_p)
+        self._callback = game_callback(self._on_game)
 
-        hit: list[dict] = []
+    def _on_game(self, game_ptr: Any, _user: Any) -> None:
+        game = game_ptr.contents
+        self._hit.append({
+            "clone_of": (game.clone_of or b"").decode() or None,
+            "description": (game.description or b"").decode(),
+            "year": (game.year or b"").decode(),
+            "manufacturer": (game.manufacturer or b"").decode(),
+            "found": bool(game.found),
+        })
 
-        def on_game(game_ptr: Any, _user: Any) -> None:
-            game = game_ptr.contents
-            hit.append({
-                "clone_of": (game.clone_of or b"").decode() or None,
-                "description": (game.description or b"").decode(),
-                "year": (game.year or b"").decode(),
-                "manufacturer": (game.manufacturer or b"").decode(),
-                "found": bool(game.found),
-            })
-
-        callback = game_callback(on_game)
+    def lookup(self, roms_dir: str, names: list[str]) -> dict:
+        self._lib.PinmameSetPath(FILE_TYPE_ROMS, roms_dir.encode())
         result = {}
         for name in names:
-            hit.clear()
-            status = lib.PinmameGetGame(name.encode(), callback, None)
-            if status == STATUS_OK and hit:
-                result[name] = {"catalog": True, **hit[0]}
+            self._hit.clear()
+            status = self._lib.PinmameGetGame(name.encode(), self._callback, None)
+            if status == STATUS_OK and self._hit:
+                result[name] = {"catalog": True, **self._hit[0]}
             else:
                 result[name] = {"catalog": False}
         return result
+
+    def close(self) -> None:
+        shutil.rmtree(self._vpm_home, ignore_errors=True)
+
+
+def lookup(lib_path: str, roms_dir: str, names: list[str]) -> dict:
+    audit = Audit(lib_path)
+    try:
+        return audit.lookup(roms_dir, names)
     finally:
-        shutil.rmtree(vpm_home, ignore_errors=True)
+        audit.close()
+
+
+def serve(lib_path: str, requests: Iterable[str], answers: TextIO) -> int:
+    """One request per line, `{"roms_dir": ..., "names": [...]}`; one answer per line.
+
+    A request that fails is answered `{"error": ...}` and the next is still served.
+    """
+    try:
+        audit = Audit(lib_path)
+    except Exception as exc:
+        print(json.dumps({"error": f"{type(exc).__name__}: {exc}"}), file=answers, flush=True)
+        return 1
+    try:
+        for line in requests:
+            try:
+                request = json.loads(line)
+                answer = audit.lookup(request["roms_dir"], request["names"])
+            except Exception as exc:
+                answer = {"error": f"{type(exc).__name__}: {exc}"}
+            print(json.dumps(answer), file=answers, flush=True)
+    finally:
+        audit.close()
+    return 0
 
 
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] == "--serve":
+        return serve(sys.argv[2], sys.stdin, sys.stdout)
     if len(sys.argv) < 4:
         print(json.dumps({"error": "usage: pinmame_worker <lib> <roms_dir> <set>..."}))
         return 2

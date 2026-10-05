@@ -5,18 +5,20 @@ already configured, which ties it to the right install on the machine that
 launches - the play host. A machine without VPX simply reports the audit
 unavailable, through the same availability predicate as everything else.
 
-The lookup runs in a subprocess (see pinmame_worker) and the answer is cached
-against the roms folder's mtime, because loading the library costs real time
-and a folder that has not changed gives the same audit.
+The lookups run in one long-lived subprocess (see pinmame_worker), which loads the
+library once for all of them, and each answer is cached against the roms folder's mtime
+because a folder that has not changed gives the same audit.
 """
 
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from common.i18n import t
@@ -27,6 +29,8 @@ ENV_OVERRIDE = "VPINFE_LIBPINMAME"
 WORKER_TIMEOUT_SECONDS = 20.0
 
 _cache: dict[tuple, dict] = {}
+_helper: tuple[str, subprocess.Popen] | None = None
+_helper_lock = threading.Lock()
 
 
 def _candidate_dirs(vpx_bin_path: str) -> list[Path]:
@@ -96,27 +100,84 @@ def lookup(vpx_bin_path: str, roms_dir: str, set_name: str) -> dict | None:
     if key in _cache:
         return _cache[key]
 
-    try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "common.host.pinmame_worker",
-             str(library), roms_dir, set_name],
-            capture_output=True, text=True, timeout=WORKER_TIMEOUT_SECONDS,
-            cwd=str(Path(__file__).resolve().parents[2]),
-        )
-        payload = json.loads(proc.stdout.strip() or "{}")
-    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
-        logger.warning("PinMAME catalog worker failed: %s", exc)
-        return None
+    with _helper_lock:
+        # A caller queued behind the lock may find its answer already made.
+        if key in _cache:
+            return _cache[key]
+        try:
+            payload = _ask(str(library), roms_dir, set_name)
+        except (OSError, ValueError, RuntimeError) as exc:
+            _stop_helper()
+            logger.warning("PinMAME catalog worker failed: %s", str(exc) or type(exc).__name__)
+            return None
 
-    if "error" in payload:
-        logger.warning("PinMAME catalog worker: %s", payload["error"])
-        return None
-    entry = payload.get(set_name)
-    if entry is not None:
-        _cache[key] = entry
-    return entry
+        if "error" in payload:
+            _stop_helper()
+            logger.warning("PinMAME catalog worker: %s", payload["error"])
+            return None
+        entry = payload.get(set_name)
+        if entry is not None:
+            _cache[key] = entry
+        return entry
+
+
+def _ask(library: str, roms_dir: str, set_name: str) -> dict:
+    """One request to the helper, started on first use. Held under `_helper_lock`.
+
+    A helper that does not answer in time is killed, which ends the read with an empty line.
+    """
+    global _helper
+    if _helper is None or _helper[0] != library or _helper[1].poll() is not None:
+        _stop_helper()
+        process = subprocess.Popen(
+            [sys.executable, "-m", "common.host.pinmame_worker", "--serve", library],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, cwd=str(Path(__file__).resolve().parents[2]),
+        )
+        _helper = (library, process)
+    process = _helper[1]
+    watchdog = threading.Timer(WORKER_TIMEOUT_SECONDS, process.kill)
+    watchdog.start()
+    try:
+        assert process.stdin is not None and process.stdout is not None
+        process.stdin.write(json.dumps({"roms_dir": roms_dir, "names": [set_name]}) + "\n")
+        process.stdin.flush()
+        line = process.stdout.readline()
+    finally:
+        watchdog.cancel()
+    if not line:
+        raise BrokenPipeError
+    payload = json.loads(line)
+    if not isinstance(payload, dict):
+        raise ValueError(line.strip())
+    return payload
+
+
+def _stop_helper() -> None:
+    global _helper
+    if _helper is None:
+        return
+    process = _helper[1]
+    _helper = None
+    try:
+        if process.stdin is not None:
+            process.stdin.close()
+    except OSError:
+        pass
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+    if process.stdout is not None:
+        process.stdout.close()
+
+
+atexit.register(_stop_helper)
 
 
 def clear_cache() -> None:
     """For tests."""
     _cache.clear()
+    with _helper_lock:
+        _stop_helper()

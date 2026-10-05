@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from common import apps, service_errors
@@ -467,6 +469,22 @@ def launch_apps() -> dict[str, Any]:
                       "suffixes": list(app.claim.suffixes),
                       "accepts_keys": app.claim.accepts_keys}
                      for app in apps.all_apps()]}
+
+
+def read_ahead() -> None:
+    """Read every table on a thread of its own, so the ROM audit and the share's first
+    touch are paid before the first page asks for them."""
+    threading.Thread(target=_read_ahead, daemon=True, name="tables-read-ahead").start()
+
+
+def _read_ahead() -> None:
+    started_at = perf_counter()
+    try:
+        total = library_rows()["total"]
+    except Exception:
+        logger.exception("tables: could not read ahead; the first page to ask reads them")
+        return
+    logger.info("Tables: %s rows read ahead in %.2fs", total, perf_counter() - started_at)
 
 
 def library_rows(limit: int = 0, offset: int = 0, game: str = "",

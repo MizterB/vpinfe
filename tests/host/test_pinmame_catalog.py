@@ -7,11 +7,13 @@ which is exactly the availability story the feature itself tells.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
 import sys
 import unittest
+import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
@@ -123,6 +125,7 @@ class WorkerContractTests(unittest.TestCase):
             binary.write_bytes(b"elf")
 
             pinmame_catalog.clear_cache()
+            self.addCleanup(pinmame_catalog.clear_cache)
             with self.assertLogs("vpinfe.common.host.pinmame_catalog", level="WARNING"):
                 entry = pinmame_catalog.lookup(str(binary), tmp, "afm_113b")
 
@@ -135,14 +138,117 @@ class WorkerContractTests(unittest.TestCase):
             (Path(tmp) / "libpinmame.so").write_bytes(b"so")
 
             pinmame_catalog.clear_cache()
-            fake = mock.Mock(return_value=mock.Mock(
-                stdout=json.dumps({"afm_113b": {"catalog": True, "found": False}})))
-            with mock.patch.object(pinmame_catalog.subprocess, "run", fake):
+            fake = mock.Mock(return_value={"afm_113b": {"catalog": True, "found": False}})
+            with mock.patch.object(pinmame_catalog, "_ask", fake):
                 first = pinmame_catalog.lookup(str(binary), tmp, "afm_113b")
                 second = pinmame_catalog.lookup(str(binary), tmp, "afm_113b")
 
         self.assertEqual(first, second)
         self.assertEqual(fake.call_count, 1, "the second answer came from the cache")
+
+    def test_many_lookups_share_one_helper_process(self) -> None:
+        answers = iter(json.dumps({name: {"catalog": True, "found": True}}) + "\n"
+                       for name in ("afm_113b", "mm_109c", "tz_92"))
+        process = mock.Mock()
+        process.poll.return_value = None
+        process.stdout.readline.side_effect = lambda: next(answers)
+        with TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "VPinballX_BGFX"
+            binary.write_bytes(b"elf")
+            (Path(tmp) / "libpinmame.so").write_bytes(b"so")
+
+            pinmame_catalog.clear_cache()
+            self.addCleanup(pinmame_catalog.clear_cache)
+            with mock.patch.object(pinmame_catalog.subprocess, "Popen",
+                                   return_value=process) as popen:
+                found = [pinmame_catalog.lookup(str(binary), tmp, name)
+                         for name in ("afm_113b", "mm_109c", "tz_92")]
+
+        self.assertTrue(all(entry["found"] for entry in found))
+        self.assertEqual(popen.call_count, 1)
+
+    def test_a_helper_that_stops_answering_is_replaced_for_the_next_lookup(self) -> None:
+        dead = mock.Mock()
+        dead.poll.return_value = None
+        dead.stdout.readline.return_value = ""
+        live = mock.Mock()
+        live.poll.return_value = None
+        live.stdout.readline.return_value = json.dumps(
+            {"mm_109c": {"catalog": True, "found": True}}) + "\n"
+        with TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "VPinballX_BGFX"
+            binary.write_bytes(b"elf")
+            (Path(tmp) / "libpinmame.so").write_bytes(b"so")
+
+            pinmame_catalog.clear_cache()
+            self.addCleanup(pinmame_catalog.clear_cache)
+            with mock.patch.object(pinmame_catalog.subprocess, "Popen",
+                                   side_effect=[dead, live]):
+                with self.assertLogs("vpinfe.common.host.pinmame_catalog", level="WARNING"):
+                    first = pinmame_catalog.lookup(str(binary), tmp, "afm_113b")
+                second = pinmame_catalog.lookup(str(binary), tmp, "mm_109c")
+
+        self.assertIsNone(first)
+        self.assertTrue(second["found"])
+
+
+    def test_an_answer_that_is_not_an_object_is_no_answer(self) -> None:
+        process = mock.Mock()
+        process.poll.return_value = None
+        process.stdout.readline.return_value = "42\n"
+        with TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "VPinballX_BGFX"
+            binary.write_bytes(b"elf")
+            (Path(tmp) / "libpinmame.so").write_bytes(b"so")
+
+            pinmame_catalog.clear_cache()
+            self.addCleanup(pinmame_catalog.clear_cache)
+            with mock.patch.object(pinmame_catalog.subprocess, "Popen",
+                                   return_value=process):
+                with self.assertLogs("vpinfe.common.host.pinmame_catalog", level="WARNING"):
+                    entry = pinmame_catalog.lookup(str(binary), tmp, "afm_113b")
+
+        self.assertIsNone(entry)
+
+
+class ServeTests(unittest.TestCase):
+    def _serve(self, requests: list[str], audit: mock.Mock | Exception) -> list[dict]:
+        out = io.StringIO()
+        patch = (mock.patch.object(pinmame_worker, "Audit", side_effect=audit)
+                 if isinstance(audit, Exception)
+                 else mock.patch.object(pinmame_worker, "Audit", return_value=audit))
+        with patch:
+            pinmame_worker.serve("ignored", requests, out)
+        return [json.loads(line) for line in out.getvalue().splitlines()]
+
+    def test_one_answer_per_request_line_over_one_open_library(self) -> None:
+        audit = mock.Mock()
+        audit.lookup.side_effect = lambda roms, names: {names[0]: {"catalog": True, "roms": roms}}
+
+        answers = self._serve(
+            [json.dumps({"roms_dir": "/a", "names": ["afm_113b"]}),
+             json.dumps({"roms_dir": "/b", "names": ["mm_109c"]})], audit)
+
+        self.assertEqual(answers, [{"afm_113b": {"catalog": True, "roms": "/a"}},
+                                   {"mm_109c": {"catalog": True, "roms": "/b"}}])
+        audit.close.assert_called_once()
+
+    def test_a_bad_request_is_answered_and_the_next_still_served(self) -> None:
+        audit = mock.Mock()
+        audit.lookup.return_value = {"afm_113b": {"catalog": False}}
+
+        answers = self._serve(["not json",
+                               json.dumps({"roms_dir": "/a", "names": ["afm_113b"]})], audit)
+
+        self.assertIn("error", answers[0])
+        self.assertEqual(answers[1], {"afm_113b": {"catalog": False}})
+
+    def test_a_library_that_will_not_open_is_one_error_line(self) -> None:
+        answers = self._serve([json.dumps({"roms_dir": "/a", "names": ["x"]})],
+                              OSError("no such library"))
+
+        self.assertEqual(len(answers), 1)
+        self.assertIn("no such library", answers[0]["error"])
 
 
 def _shipped_library() -> str | None:
@@ -186,6 +292,25 @@ class RealLibraryTests(unittest.TestCase):
 
         self.assertTrue(result["afm_113b"]["catalog"])
         self.assertEqual([], left)
+
+    def test_a_served_lookup_answers_as_the_one_shot_does_across_folders(self) -> None:
+        with TemporaryDirectory() as stocked, TemporaryDirectory() as empty:
+            with zipfile.ZipFile(Path(stocked) / "mm_109c.zip", "w") as archive:
+                archive.writestr("mm_109c.u6", b"\0")
+            repo = Path(__file__).resolve().parents[2]
+            asked = [(stocked, "mm_109c"), (empty, "mm_109c"), (stocked, "mm_109c")]
+            requests = "".join(json.dumps({"roms_dir": roms, "names": [name]}) + "\n"
+                               for roms, name in asked)
+            proc = subprocess.run(
+                [sys.executable, "-m", "common.host.pinmame_worker", "--serve",
+                 _shipped_library()],
+                input=requests, capture_output=True, text=True, timeout=60, cwd=str(repo))
+            one_shot = [self._run_worker(roms, name) for roms, name in asked]
+
+        self.assertEqual([json.loads(line) for line in proc.stdout.splitlines()], one_shot)
+        self.assertEqual([item["mm_109c"]["found"] for item in one_shot],
+                         [one_shot[0]["mm_109c"]["found"], False,
+                          one_shot[0]["mm_109c"]["found"]])
 
     def test_an_empty_roms_folder_audits_as_not_found(self) -> None:
         with TemporaryDirectory() as tmp:

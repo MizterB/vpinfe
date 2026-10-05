@@ -316,6 +316,12 @@ try:
 except Exception:
     logger.exception("Could not start reading the library's media ahead")
 
+try:
+    from common.games import table_lens
+    table_lens.read_ahead()
+except Exception:
+    logger.exception("Could not start reading the library's tables ahead")
+
 # And keep looking, if the user asked us to. Off by default: a check re-reads every
 # game folder, which is nothing locally and real traffic on a share.
 try:
