@@ -6,6 +6,7 @@ so an update can tell its own files from theirs.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -86,6 +87,8 @@ class ThemeInstallStore:
             if os.path.lexists(aside):
                 os.remove(aside)
         os.rename(installed, aside)
+        with contextlib.suppress(OSError):
+            os.utime(aside)
         return aside
 
     def install_zip(self, theme_key: str, base_url: str, zip_data: BytesIO) -> None:

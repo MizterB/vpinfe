@@ -188,7 +188,7 @@ def restore_library(
             continue
         info_path = _info_path(game_dir)
         try:
-            _restore_file(info_path, chosen, keep_id=keep_ids)
+            restore_file(info_path, chosen, keep_id=keep_ids)
         except OSError as exc:
             result["failed"] += 1
             result["failures"].append((game_dir.name, why(exc)))
@@ -204,7 +204,7 @@ def restore_library(
         if chosen:
             target = copied_from(chosen)
             try:
-                _restore_file(target, chosen)
+                restore_file(target, chosen)
                 result["collections_restored"] = True
                 log("Restored your collections.")
             except OSError as exc:
@@ -216,28 +216,31 @@ def restore_library(
     return result
 
 
-def _restore_file(path: str | Path, backup: str | Path, keep_id: bool = False) -> None:
-    """Put `backup` in place at `path`, keeping what is there now.
+def restore_file(path: str | Path, backup: str | Path, keep_id: bool = False) -> str | None:
+    """Put `backup` in place at `path`, keeping what is there now. Returns the copy it
+    kept, or None where there was nothing at `path`.
 
     With `keep_id`, a game's `.info` keeps the id it has: the copy was taken before the id
     existed or under another, and the id is what holds the game in its collections and its
     play history under each player.
     """
-    kept_id = _game_id_in(path) if keep_id and Path(path).suffix == ".info" else ""
-    if Path(path).exists():
-        copy_aside(str(path), RESTORE, restoring=backup)
-    if kept_id and _game_id_in(backup) != kept_id:
+    kept_id = game_id_in(path) if keep_id and Path(path).suffix == ".info" else ""
+    data = None
+    if kept_id and game_id_in(backup) != kept_id:
         data = json.loads(Path(backup).read_text(encoding="utf-8"))
-        if isinstance(data, dict):
-            section = data.get(VPINFE_SECTION)
-            data[VPINFE_SECTION] = {**(section if isinstance(section, dict) else {}),
-                                    GAME_ID_KEY: kept_id}
-            write_json_atomic(path, data)
-            return
+    kept = (copy_aside(str(path), RESTORE, restoring=backup)
+            if Path(path).exists() else None)
+    if isinstance(data, dict):
+        section = data.get(VPINFE_SECTION)
+        data[VPINFE_SECTION] = {**(section if isinstance(section, dict) else {}),
+                                GAME_ID_KEY: kept_id}
+        write_json_atomic(path, data)
+        return kept
     replace_atomic(backup, path)
+    return kept
 
 
-def _game_id_in(path: str | Path) -> str:
+def game_id_in(path: str | Path) -> str:
     """The game id a `.info` holds, or nothing when it has none or cannot be read."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))

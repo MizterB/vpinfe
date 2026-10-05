@@ -226,6 +226,9 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/launchers/{id}/config/backups` | Copies of the program's own settings file, newest first. `files` names what a copy takes and `kept_in` says where the copies are |
 | POST | `/api/v1/launchers/{id}/config/backups` | Take a copy now. `{"label": "..."}` is optional |
 | POST | `/api/v1/launchers/{id}/config/backups/{name}/restore` | Put a copy back. What is there now is copied first, and comes back as `safety_copy` |
+| GET | `/api/v1/backups` | Every copy VPinFE has kept, newest first: a game's `.info`, the settings and records in the config folder, a launcher's settings file, and a theme's `.previous` folder. Each carries an opaque `id`, what it is `of` (`of_kind`, `of_id`, `of_name`), its `kind`, when it was `taken`, who `written_by`, `why` it was taken, an optional `note`, its `size`, and `gone` where the thing it is a copy of no longer exists. `pending` lists the ids that go in when VPinFE next closes |
+| POST | `/api/v1/backups/{id}/restore` | Put a copy back. What it replaces is kept as another copy and returned as `kept`, so an undo is this call on that id. A game's, a launcher's and a theme's go in at once; the config folder's wait for VPinFE to close, and say so with `pending`. A launcher's is refused with `409` while a table plays |
+| DELETE | `/api/v1/backups/{id}` | Delete one copy |
 | PUT | `/api/v1/launchers/mappings/{table_id}` | Point one table at a launcher, `{"launcher_id": "..."}`. An empty `launcher_id` puts it back on the default |
 | GET | `/api/v1/players` | Every player on this install and who is up - see [Players](#players). The same as `players.changed` carries |
 | GET | `/api/v1/players/{id}` | One player, as the list has them |

@@ -24,6 +24,7 @@ from common.games.info_migration import (
     backup_why,
     copied_from,
     copy_aside,
+    is_importer_bak,
     is_versioned,
     keep_newest,
     migrate,
@@ -351,6 +352,12 @@ class BackupTests(TempTree):
             self.assertEqual(backup_why(path), why)
             self.assertEqual(copied_from(path), Path("/games/X/X.info"))
         self.assertEqual(backup_why("/games/X/X.info.vpinfe-20260729T143022Z"), OF_2X)
+
+    def test_the_importers_old_single_copy_is_a_copy_of_its_info(self):
+        self.assertTrue(is_importer_bak("X.info.bak", "X.info"))
+        self.assertFalse(is_importer_bak("Y.info.bak", "X.info"))
+        self.assertFalse(is_importer_bak("X.info", "X.info"))
+        self.assertEqual(copied_from("/games/X/X.info.bak"), Path("/games/X/X.info"))
 
     def test_the_stamp_still_sorts_with_a_word_after_it(self):
         names = ["X.info.vpinfe-20260729T143022Z", "X.info.vpinfe-20260730T010101Z-restore"]

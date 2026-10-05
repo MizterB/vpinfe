@@ -38,6 +38,8 @@ GUIDES_KEY = "guides"
 GUIDE_ORIGIN = "origin"
 FROM_CATALOG = "vps"
 BACKUP_MARKER = ".vpinfe-"
+# The importer's one copy of a merged `.info`, `<name>.info.bak`. Nothing writes it now.
+IMPORTER_BAK = ".bak"
 # What a copy VPinFE took was for, the word after the stamp. A copy of a 2.x file has none,
 # so it keeps the bare `<file>.vpinfe-<UTC>` that 2.x looks for.
 OF_2X = ""
@@ -262,9 +264,16 @@ def backup_why(backup: str | Path) -> str:
     return (found.group("why") or "") if found else ""
 
 
+def is_importer_bak(name: str | Path, info_name: str) -> bool:
+    """Whether a name is the importer's old single copy of this `.info`."""
+    return Path(name).name == info_name + IMPORTER_BAK
+
+
 def copied_from(backup: str | Path) -> Path:
     """The file this copy was taken of."""
     path = Path(backup)
+    if path.name.endswith(IMPORTER_BAK) and BACKUP_MARKER not in path.name:
+        return path.with_name(path.name[:-len(IMPORTER_BAK)])
     return path.with_name(path.name.rsplit(BACKUP_MARKER, 1)[0])
 
 

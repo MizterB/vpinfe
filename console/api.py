@@ -1106,6 +1106,18 @@ class ApiClient:
         return dict(self._post(
             f"/launchers/{launcher_id}/config/backups/{name}/restore", {}) or {})
 
+    def backups(self) -> dict:
+        """Every copy VPinFE has kept, and which of them wait on a close."""
+        said = self._get("/backups") or {}
+        return {"copies": list(said.get("copies") or []),
+                "pending": list(said.get("pending") or [])}
+
+    def restore_backup(self, copy_id: str) -> dict:
+        return dict(self._post(f"/backups/{copy_id}/restore", {}) or {})
+
+    def delete_backup(self, copy_id: str) -> None:
+        self._delete(f"/backups/{copy_id}")
+
     def write_launcher_config(self, launcher_id: str, values: dict, *,
                               table: str = "", scope: str = "launcher",
                               create: bool = False) -> dict:

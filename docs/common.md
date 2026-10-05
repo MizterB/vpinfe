@@ -59,6 +59,15 @@ something. `docs/extensions.md` is the contract an author reads.
 - `score_parser.py`: PinMAME NVRAM score extraction.
 - `game_service.py`, `game_index_service.py`, `media_service.py`, `asset_registry.py`, `archive_service.py`, `export_bundle.py`: workflows over a game and its media - rating, re-matching, the cached row index, media lookup and invalidation, and packing a game for export.
 
+**`common/backups/`** - every copy VPinFE keeps of a file, listed in one place.
+
+- `copies.py`: a copy as a row, and the opaque id a client holds for it. The id carries where it is kept and is checked there, so one made by hand reaches nothing.
+- `places.py`: where each kind is kept - beside a game's `.info`, in the config folder, under a launcher's backups, beside VPX's own ini, as a theme's `.previous` - and how each is read off the disk.
+- `ops.py`: restore and delete. A restore keeps what it replaces as another copy.
+- `pending.py`: restores of the config folder's files that wait for VPinFE to close, because the running app writes them back.
+
+Depends on `common/games/`, `common/online/` and `common/host/`.
+
 **`common/uploads/`** - getting files into the library.
 
 - `upload_session_service.py`: an upload in progress. Files arrive in chunks into a session directory and every path is checked against it, so an upload naming `../` is refused rather than resolved.

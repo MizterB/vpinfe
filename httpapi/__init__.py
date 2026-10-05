@@ -16,6 +16,7 @@ from . import (
     actions,
     assets,
     auth,
+    backups,
     capabilities,
     capture,
     collections,
@@ -123,6 +124,7 @@ def create_api_app() -> FastAPI:
     api.include_router(preferences.router)
     api.include_router(config.router)
     api.include_router(launchers.router)
+    api.include_router(backups.router)
     api.include_router(players.router)
     api.include_router(player_accounts.router)
     api.include_router(locations.router)

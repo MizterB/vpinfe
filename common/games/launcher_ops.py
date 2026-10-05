@@ -397,7 +397,7 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
             else "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
             keys=(", ".join(refused))))
 
-    if body.get("create") and scope == SCOPE_LAUNCHER and not _config_files(found):
+    if body.get("create") and scope == SCOPE_LAUNCHER and not config_files(found):
         # Only when asked: a write on its own refuses where the program has no file yet.
         make = getattr(config, "create", None)
         if make is None:
@@ -421,7 +421,7 @@ def _cannot_write(launcher: launchers.Launcher) -> service_errors.RefusedError:
         "error.launchers.cannot_write_settings", app_name=apps.app_name(launcher.app)))
 
 
-def _config_files(launcher: launchers.Launcher) -> dict[str, str]:
+def config_files(launcher: launchers.Launcher) -> dict[str, str]:
     config = _app_settings_surface(launcher)
     naming = getattr(config, "files", None)
     return dict(naming(_launcher_settings(launcher))) if naming else {}
@@ -437,7 +437,7 @@ def backups(launcher_id: str) -> dict[str, Any]:
     return {
         "backups": [_as_backup(one) for one in
                     config_backups.held(launcher_id, found.display_name)],
-        "files": _config_files(found),
+        "files": config_files(found),
         # Said rather than left to be discovered: somebody who wants one of these
         # outside VPinFE has to be told where they are.
         "kept_in": config_backups.home_for(launcher_id, found.display_name),
@@ -446,7 +446,7 @@ def backups(launcher_id: str) -> dict[str, Any]:
 
 def take_backup(launcher_id: str, label: str = "") -> dict[str, Any]:
     found = launcher_or_refuse(launcher_id)
-    files = _config_files(found)
+    files = config_files(found)
     if not files:
         raise service_errors.RefusedError(
             t("error.launchers.cannot_copy_settings", app_name=(apps.app_name(found.app))))
@@ -464,7 +464,7 @@ def restore_backup(launcher_id: str, name: str) -> dict[str, Any]:
     somebody makes once, and without that copy it is the last one they get to make."""
     found = launcher_or_refuse(launcher_id)
     try:
-        safety = config_backups.restore(launcher_id, name, _config_files(found),
+        safety = config_backups.restore(launcher_id, name, config_files(found),
                                         named=found.display_name)
     except FileNotFoundError as exc:
         raise service_errors.NotFoundError(why(exc)) from exc

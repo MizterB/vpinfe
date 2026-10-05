@@ -56,7 +56,7 @@ class Backup:
     size: int = 0
 
 
-def _safe(label: str) -> str:
+def safe(label: str) -> str:
     return _LABEL.sub("-", str(label or "").strip()).strip("-.")[:64]
 
 
@@ -68,8 +68,8 @@ def _home(launcher_id: str, named: str = "") -> Path:
     should not have to work out which of two ten-character ids is theirs - and the id is
     what keeps two launchers with one name apart.
     """
-    stem = _safe(launcher_id) or "unknown"
-    return BACKUPS_DIR / (f"{_safe(named)}--{stem}" if _safe(named) else stem)
+    stem = safe(launcher_id) or "unknown"
+    return BACKUPS_DIR / (f"{safe(named)}--{stem}" if safe(named) else stem)
 
 
 def home_for(launcher_id: str, named: str = "") -> str:
@@ -88,12 +88,12 @@ def take(launcher_id: str, files: dict[str, str], *, label: str = "",
         if not source.is_file():
             continue
         parts = [source.stem, when, MANUAL]
-        if _safe(label):
-            parts.append(_safe(label))
+        if safe(label):
+            parts.append(safe(label))
         target = home / f"{'--'.join(parts)}{source.suffix}"
         home.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-        taken.append(_described(target))
+        taken.append(described(target))
     return taken
 
 
@@ -102,37 +102,38 @@ def held(launcher_id: str, named: str = "") -> list[Backup]:
     home = _home(launcher_id, named)
     if not home.is_dir():
         return []
-    found = [_described(path) for path in home.iterdir() if path.is_file()]
+    found = [described(path) for path in home.iterdir() if path.is_file()]
     return sorted(found, key=lambda one: one.taken_at, reverse=True)
 
 
 def restore(launcher_id: str, name: str, files: dict[str, str],
-            named: str = "") -> Backup | None:
-    """Put a copy back, over a copy of what is there now.
+            named: str = "", *, home: Path | None = None) -> Backup | None:
+    """Put a copy back, over a copy of what is there now. `home` is the folder the copy is
+    in, for a launcher renamed since the copy was taken.
 
     Returns the safety copy it took first, so a caller can say what it did rather than
     only that it did it.
     """
-    home = _home(launcher_id, named)
+    home = home or _home(launcher_id, named)
     source = home / Path(str(name or "")).name
     if not source.is_file() or source.parent != home:
         raise FileNotFoundError(t("error.launchers.copy_gone"))
 
-    target = _target_for(source, files)
+    target = target_for(source, files)
     if target is None:
         raise ValueError(t("error.launchers.copy_unmatched"))
 
     safety = None
     if target.is_file():
         home.mkdir(parents=True, exist_ok=True)
-        safety = _described(Path(copy_aside(target, RESTORE, into=home, restoring=source)))
+        safety = described(Path(copy_aside(target, RESTORE, into=home, restoring=source)))
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target)
     logger.info("Restored %s over %s", source.name, target)
     return safety
 
 
-def _target_for(source: Path, files: dict[str, str]) -> Path | None:
+def target_for(source: Path, files: dict[str, str]) -> Path | None:
     """Which of the app's files this copy came from, by the name it was taken under."""
     if is_copy(source):
         name = copied_from(source).name
@@ -147,7 +148,7 @@ def _target_for(source: Path, files: dict[str, str]) -> Path | None:
     return None
 
 
-def _described(path: Path) -> Backup:
+def described(path: Path) -> Backup:
     if is_copy(path):
         stamp = backup_stamp(path)
         return Backup(

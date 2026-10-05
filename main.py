@@ -461,6 +461,13 @@ runtime.shutdown_services(
 )
 serving.withdraw(config_dir)
 
+# Restores of the config folder's files wait for here, where nothing is left to write them.
+try:
+    from common.backups import pending as pending_restores
+    pending_restores.apply(config_dir)
+except Exception:
+    logger.exception("Restores waiting on a close were not all carried out")
+
 # Last, so a command that puts the machine back runs after everything it might be
 # putting back has actually stopped. Before the restart check, because a restart is
 # another run and the pair has to close before the next one opens.
