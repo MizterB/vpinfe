@@ -119,6 +119,12 @@ def look(kind: str) -> Look:
                 cfg_bool(config, "console", "list_art_frame", True))
 
 
+def person_look() -> Look:
+    """How a list draws a person: a circle, so square and on its own ground, at the height
+    the lists are set to whatever their Show, Shape and Frame say."""
+    return replace(look(""), shape=SQUARE, framed=True)
+
+
 def heading() -> str:
     """The name of the settings the lists' art is chosen in, for a link to them."""
     option = config_schema.option("console", "list_art")
@@ -185,8 +191,8 @@ def frame_js(glyph: str, size: str = LIST) -> str:
 
 
 def circle_js(glyph: str) -> str:
-    """`frame_js` for a person: always a circle, at the smallest height whatever the Media
-    settings say, holding the row's `initials` where there is no picture, else `glyph`."""
+    """`frame_js` for a person: always a circle, sized by the grid's `person_look`, holding
+    the row's `initials` where there is no picture, else `glyph`."""
     opened = f'<span class="{_PICTURED}"><span class="{_BOX} {_BOX}--list {_BOX}--circle'
     with_picture = json.dumps(f'{opened}"><img {_IMG} src="')
     without = json.dumps(f'{opened} {_GLYPH_BOX}">')

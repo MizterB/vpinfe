@@ -159,6 +159,7 @@ def _list_art(option: dict, value: Any, save: Callable[[Any], Any], *,
               **_: Any) -> Callable[[], None]:
     """The kinds the library keeps, and the one already chosen."""
     hidden = (suggestions or {}).get(config_schema.EDITOR_LIST_ART) or set()
+    value = value_for(option, value)
     named = option.get("choice_labels") or {}
     offered = {choice: named.get(choice, choice) for choice in option.get("choices") or ()
                if choice not in hidden or choice == str(value)}
@@ -323,7 +324,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         if named and not isinstance(choices, dict):
             choices = {value: named.get(value, value) for value in choices}
         return panel.select(choices if isinstance(choices, dict) else list(choices),
-                            str(value or ""), lambda e: save(e.value), disabled=off,
+                            "" if varies else str(value_for(option, value)),
+                            lambda e: save(e.value), disabled=off,
                             describes=option.get("describes"))
     if kind == "color":
         return panel.swatch(str(value or ""), save, disabled=off)

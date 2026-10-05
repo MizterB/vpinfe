@@ -218,14 +218,16 @@ async def _fill(library: Library, state: dict[str, Any],
 
     built = rows(roster, played)
     guests = [one for one in roster if one.get("guest")]
-    fields = [definition["field"] for definition in COLUMNS]
+    columns = grid.with_art(COLUMNS, list_art.person_look())
+    fields = [definition["field"] for definition in columns]
 
     with body:
         with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                               "console-panel console-grid-bar"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
-                library, SCOPE, PLAYER_VIEWS, fields, COLUMNS, bar=bar)
+                library, SCOPE, PLAYER_VIEWS, fields, columns, bar=bar,
+                art_in_lists=True)
             describe()
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.players.search_players"))
@@ -269,7 +271,7 @@ async def _fill(library: Library, state: dict[str, Any],
                                  accounts=held.get(player_id) or [], after=changed_here))
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table = grid.build(COLUMNS, built, SCOPE, on_context=fill, view_of=showing)
+            table = grid.build(columns, built, SCOPE, on_context=fill, view_of=showing)
             menu = ui.context_menu()
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
@@ -594,7 +596,7 @@ async def details(context: dict[str, Any]) -> None:
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         await changed(context)
 
-    entries: list[tuple[Any, Any]] = [(panel.FULL, partial(_picture_slot, context))]
+    entries: list[tuple[Any, Any]] = []
     if alert := same_initials(player, roster):
         entries.append(_alert(alert))
     entries += [
@@ -610,6 +612,7 @@ async def details(context: dict[str, Any]) -> None:
         entries.append((t("console.players.up"), panel.switch(
             bool(player.get("up")), lambda event: flip(bool(event.value)), disabled=stays,
             hint=t("console.players.owner_up_alone") if stays else "")))
+    entries.append((t("console.players.picture"), partial(_picture_slot, context)))
     with ui.column().classes("gap-0 console-form"):
         panel.facts(ui, entries)
 
@@ -624,10 +627,9 @@ def _picture_slot(context: dict[str, Any]) -> None:
     initials = str(player.get("initials") or "").strip()
     label = t("console.players.picture")
 
-    with ui.column().classes("w-full gap-1 console-slot p-2"):
-        ui.label(label).classes("console-card-title") \
-            .tooltip(t("console.players.picture.help"))
-        with ui.element("div").classes("console-slot-art console-slot-art--person"):
+    with ui.column().classes("w-full gap-1 min-w-0"):
+        with ui.element("div").classes("console-slot-art console-slot-art--person") \
+                .tooltip(t("console.players.picture.help")):
             with ui.column().classes("console-slot-blank items-center gap-1"):
                 if initials:
                     context["picture_initials"] = ui.label(initials) \

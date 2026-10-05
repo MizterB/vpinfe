@@ -254,6 +254,9 @@ class PlayersDrive(unittest.TestCase):
             seen["owner_lines_h"] = await browser.evaluate(
                 f"(el => el ? el.getBoundingClientRect().height : null)(document.querySelector("
                 f"{json.dumps(_cell(owner, NAME_LINES + ' > span'))}))")
+            seen["owner_row_h"] = await browser.evaluate(
+                f"(el => el ? el.getBoundingClientRect().height : null)(document.querySelector("
+                f"{json.dumps(_cell(owner, '.console-cell-identifier'))}))")
             seen["acts_before"] = await browser.evaluate(f"{SHOWN_ACTS}.map({SAYS})")
             await press(ACTS, "Add")
             await browser.wait_for(DIALOG_UP)
@@ -479,7 +482,7 @@ class PlayersDrive(unittest.TestCase):
 
     def test_the_initials_fit_the_circle_and_the_name_keeps_one_line(self) -> None:
         self.assertEqual(self.seen["initials_px"], "13px")
-        self.assertLess(self.seen["owner_lines_h"], 50)
+        self.assertLess(self.seen["owner_lines_h"], self.seen["owner_row_h"] * 1.5)
 
     def test_the_row_draws_the_picture_in_a_circle(self) -> None:
         radius, width, height = self.seen["row_circle"]

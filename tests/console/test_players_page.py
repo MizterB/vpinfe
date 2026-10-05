@@ -3,16 +3,18 @@ where the page sits and is addressed."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import unittest
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import requests
+from nicegui import ui
 
 from common import install_identity
 from common.i18n import t
-from console import deeplink, page, players, workbench
+from console import deeplink, grid, list_art, page, panel, players, workbench
 from console.api import ApiClient
 
 OWNER = {"id": "p-own", "name": "", "initials": "OWN", "owner": True, "guest": False,
@@ -91,6 +93,53 @@ class ThePicture(unittest.TestCase):
     def test_an_id_that_needs_quoting_is_quoted(self) -> None:
         self.assertIn("/players/a%2Fb/picture",
                       players.picture_address(_player("a/b", picture_version="v1")))
+
+
+class TheCircleInTheGrid(unittest.TestCase):
+    """A row's circle is drawn at the height the lists are set to, as the other grids' art is."""
+
+    def _look(self, **chosen: str) -> list_art.Look:
+        with patch.object(list_art, "cfg_get",
+                          side_effect=lambda _config, _section, key, *_: chosen.get(key, "")):
+            return list_art.person_look()
+
+    def test_it_takes_the_height_the_lists_are_set_to(self) -> None:
+        sized = {height: grid.with_art(players.COLUMNS, self._look(list_art_height=height))
+                 for height in ("small", "medium", "large")}
+
+        self.assertEqual({height: grid.base_row_px(columns) for height, columns in sized.items()},
+                         {"small": 56, "medium": 64, "large": 88})
+
+    def test_it_is_a_circle_whatever_shape_the_lists_draw(self) -> None:
+        for shape in ("auto", "square", "wide"):
+            with self.subTest(shape=shape):
+                self.assertEqual(self._look(list_art_shape=shape).shape, list_art.SQUARE)
+
+    def test_it_keeps_its_ground_when_the_lists_are_unframed(self) -> None:
+        with patch.object(list_art, "cfg_bool", return_value=False):
+            self.assertTrue(list_art.person_look().framed)
+
+    def test_a_blank_setting_reads_as_the_default_height(self) -> None:
+        self.assertEqual(self._look(list_art_height="").height, list_art.SMALL)
+
+
+class TheDetails(unittest.TestCase):
+    def test_the_picture_comes_after_the_fields(self) -> None:
+        roster = [OWNER, _player("p-jor", name="Jordan", initials="JOR")]
+        context = {"library": Mock(), "player": roster[1], "roster": roster}
+
+        holder = ui.card()
+
+        async def inside() -> None:
+            with holder:
+                await players.details(context)
+
+        with patch.object(panel, "facts") as facts:
+            asyncio.run(inside())
+
+        drawn = [label for label, _draw in facts.call_args.args[1]]
+        self.assertEqual(drawn, [t("word.name"), t("console.players.initials"),
+                                 t("console.players.up"), t("console.players.picture")])
 
 
 class WhatCanBeDone(unittest.TestCase):

@@ -92,6 +92,24 @@ class OfferedTests(unittest.TestCase):
         select.assert_called_once()
         return select
 
+    def test_a_blank_stored_value_reads_as_the_default(self) -> None:
+        """A settings file that carries the key empty must still draw the page."""
+        select = self._offered("", set())
+
+        self.assertEqual("wheel", select.call_args.args[1])
+
+    def test_a_blank_shape_or_height_reads_as_the_default(self) -> None:
+        block = next(block for block in _blocks() if block["name"] == "console")
+
+        with patch.object(panel, "select") as select:
+            settings.section_rows(Mock(), "console", block["options"],
+                                  {"console": {"list_art_shape": "", "list_art_height": ""}},
+                                  True, lambda: None)
+
+        sized = {tuple(one.args[0]): one.args[1] for one in select.call_args_list}
+        self.assertEqual((sized[("auto", "square", "wide")], sized[("small", "medium", "large")]),
+                         ("auto", "small"))
+
     def test_every_kind_is_offered_where_media_kinds_keeps_them_all(self) -> None:
         select = self._offered("wheel", set())
 
