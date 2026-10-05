@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import shutil
 from pathlib import Path
 from typing import NamedTuple
 
@@ -12,7 +13,7 @@ from common.atomic_write import staged_for
 from common.i18n import t
 from common.paths import CONFIG_DIR
 
-logger = logging.getLogger("vpinfe.common.games.sized_media")
+logger = logging.getLogger("vpinfe.common.sized_media")
 
 # The longest edge in pixels. Each one is another copy of every picture on disk.
 THUMBNAIL = 256
@@ -67,9 +68,18 @@ def served(source: Path, size: int | None) -> Served:
     return Served(_copy(source, size, current) or source, current)
 
 
+def _folder(source: Path) -> Path:
+    return ROOT / hashlib.blake2b(str(source.resolve()).encode("utf-8"),
+                                  digest_size=8).hexdigest()
+
+
+def forget(source: Path) -> None:
+    """Delete the sized copies of a source that is going away."""
+    shutil.rmtree(_folder(source), ignore_errors=True)
+
+
 def _copy(source: Path, size: int, current: str) -> Path | None:
-    folder = ROOT / hashlib.blake2b(str(source.resolve()).encode("utf-8"),
-                                    digest_size=8).hexdigest()
+    folder = _folder(source)
     target = folder / f"{size}-{current}.webp"
     if target.is_file():
         return target

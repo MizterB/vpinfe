@@ -484,6 +484,8 @@ class PlayerResource(ApiModel):
     guest: bool = False
     up: bool = False
     shares_initials_with: list[str] = Field(default_factory=list)
+    picture_version: str | None = Field(
+        None, description="The `v` for `/players/{id}/picture`; null when they have none")
 
 
 class PlayerRoster(ApiModel):

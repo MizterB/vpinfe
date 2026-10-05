@@ -13,9 +13,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import events, service_errors
+from common import events, player_pictures, service_errors
 from common.extensions import store as extension_store
-from common.players import OWNER_MIGRATION, Roster, names_nobody, same_initials
+from common.players import OWNER_MIGRATION, Player, Roster, names_nobody, same_initials
+from tests.support.pictures import BLUE, RED, animation, banded, png
 
 
 def _config(initials: str | None = None) -> ConfigParser:
@@ -472,9 +473,11 @@ class ChangedEventTests(_RosterCase):
         self.assertEqual(self.heard[-1], self.roster.state())
         self.assertEqual(self.heard[-1]["players"], [
             {"id": owner.player_id, "name": "", "initials": "OWN", "owner": True,
-             "guest": False, "up": False, "shares_initials_with": []},
+             "guest": False, "up": False, "picture_version": None,
+             "shares_initials_with": []},
             {"id": guest.player_id, "name": "", "initials": "ABC", "owner": False,
-             "guest": True, "up": True, "shares_initials_with": []},
+             "guest": True, "up": True, "picture_version": None,
+             "shares_initials_with": []},
         ])
 
     def test_each_kind_of_change_is_announced(self) -> None:
@@ -609,6 +612,193 @@ class CardGuestTests(_RosterCase):
         self.assertEqual(self.roster.up(), [guest])
         self.assertEqual((self.roster.sharing(guest.player_id, "sample"),
                           self.roster.sharing(guest.player_id, "elsewhere")), (True, False))
+
+
+def _near(got: tuple[int, ...], want: tuple[int, ...]) -> bool:
+    """Whether a pixel is a color WebP would give back for `want`."""
+    return all(abs(one - other) < 12 for one, other in zip(got, want, strict=True))
+
+
+class PictureTests(_RosterCase):
+    """A kept player's picture: the centre square as WebP, in a folder beside the roster."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.roster.ensure_owner(_config("OWN"))
+        self.alex = self.roster.add_player("Alex", "ABC")
+        self.heard: list[dict] = []
+        handler = events.subscribe(events.PLAYERS_CHANGED,
+                                   lambda **payload: self.heard.append(payload["state"]))
+        self.addCleanup(events.unsubscribe, events.PLAYERS_CHANGED, handler)
+
+    def _stored(self, player: Player | None = None):
+        from PIL import Image
+
+        folder = self.roster.pictures_dir
+        found = sorted(folder.iterdir()) if folder.exists() else []
+        self.assertEqual([one.name for one in found],
+                         [f"{(player or self.alex).player_id}.webp"])
+        return Image.open(found[0])
+
+    def _version(self, player: Player | None = None) -> str | None:
+        return self.roster.player_state((player or self.alex).player_id)["picture_version"]
+
+    def test_a_wide_picture_is_cropped_to_its_centre_square_as_webp(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "face.png", banded(600, 300))
+
+        with self._stored() as stored:
+            self.assertEqual((stored.format, stored.size), ("WEBP", (300, 300)))
+            self.assertTrue(_near(stored.convert("RGB").getpixel((150, 150)), BLUE))
+            self.assertTrue(_near(stored.convert("RGB").getpixel((5, 5)), BLUE))
+
+    def test_a_large_picture_is_scaled_to_at_most_1024_and_a_small_one_is_not_enlarged(
+            self) -> None:
+        self.roster.set_picture(self.alex.player_id, "big.jpg", png(3000, 2000, fmt="JPEG"))
+        with self._stored() as big:
+            self.assertEqual(big.size, (1024, 1024))
+
+        self.roster.set_picture(self.alex.player_id, "small.png", png(100, 60))
+        with self._stored() as small:
+            self.assertEqual(small.size, (60, 60))
+
+    def test_an_animation_keeps_its_first_frame(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "spin.gif", animation())
+
+        with self._stored() as stored:
+            self.assertTrue(_near(stored.convert("RGB").getpixel((10, 10)), RED))
+
+    def test_a_replacement_leaves_one_file_whatever_the_upload_was(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "one.png", png(50, 50))
+        self.roster.set_picture(self.alex.player_id, "two.jpeg", png(70, 70, BLUE, "JPEG"))
+
+        with self._stored() as stored:
+            self.assertEqual(stored.size, (70, 70))
+
+    def test_the_version_is_none_without_a_picture_and_changes_on_a_replacement(self) -> None:
+        self.assertIsNone(self._version())
+
+        self.roster.set_picture(self.alex.player_id, "one.png", png(50, 50))
+        first = self._version()
+        self.roster.set_picture(self.alex.player_id, "two.png", png(60, 60, BLUE))
+
+        self.assertTrue(first)
+        self.assertNotEqual(self._version(), first)
+
+    def test_a_change_is_announced_with_the_version_in_the_roster(self) -> None:
+        before = len(self.heard)
+        self.roster.set_picture(self.alex.player_id, "one.png", png(50, 50))
+        self.roster.clear_picture(self.alex.player_id)
+        self.roster.clear_picture(self.alex.player_id)
+
+        heard = [next(one for one in state["players"] if one["id"] == self.alex.player_id)
+                 ["picture_version"] for state in self.heard[before:]]
+        self.assertEqual(len(heard), 2)
+        self.assertTrue(heard[0])
+        self.assertIsNone(heard[1])
+
+    def test_clearing_deletes_the_file(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "one.png", png(50, 50))
+
+        self.roster.clear_picture(self.alex.player_id)
+
+        self.assertEqual(list(self.roster.pictures_dir.iterdir()), [])
+        self.assertIsNone(self._version())
+
+    def test_the_picture_is_served_at_the_size_asked_for_with_the_version(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "big.png", png(900, 900))
+
+        original = self.roster.picture(self.alex.player_id)
+        thumbnail = self.roster.picture(self.alex.player_id, 256)
+
+        self.assertEqual(original.version, self._version())
+        self.assertEqual(thumbnail.version, original.version)
+        from PIL import Image
+
+        with Image.open(thumbnail.path) as served:
+            self.assertEqual(served.size, (256, 256))
+
+    def test_a_player_with_no_picture_has_none_to_serve(self) -> None:
+        with self.assertRaises(service_errors.NotFoundError):
+            self.roster.picture(self.alex.player_id)
+        with self.assertRaises(service_errors.NotFoundError):
+            self.roster.picture("nobody")
+
+    def test_an_unknown_size_is_refused(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "one.png", png(50, 50))
+
+        with self.assertRaises(service_errors.RefusedError):
+            self.roster.picture(self.alex.player_id, 99)
+
+    def test_a_guest_cannot_have_one_and_an_unknown_id_is_not_found(self) -> None:
+        guest = self.roster.add_guest("GST")
+
+        with self.assertRaises(service_errors.RefusedError):
+            self.roster.set_picture(guest.player_id, "one.png", png(50, 50))
+        with self.assertRaises(service_errors.RefusedError):
+            self.roster.clear_picture(guest.player_id)
+        with self.assertRaises(service_errors.NotFoundError):
+            self.roster.set_picture("nobody", "one.png", png(50, 50))
+        self.assertFalse(self.roster.pictures_dir.exists())
+
+    def test_what_is_not_an_image_is_refused_and_nothing_is_written(self) -> None:
+        refused = [("face.png", b""), ("face.png", b"not an image at all"),
+                   ("face.heic", png(50, 50)), ("face.txt", png(50, 50))]
+        for filename, content in refused:
+            with self.assertRaises(service_errors.RefusedError, msg=filename):
+                self.roster.set_picture(self.alex.player_id, filename, content)
+
+        self.assertFalse(self.roster.pictures_dir.exists())
+
+    def test_a_format_outside_the_list_is_refused_whatever_the_name_says(self) -> None:
+        tiff = png(50, 50, fmt="TIFF")
+
+        with self.assertRaises(service_errors.RefusedError):
+            self.roster.set_picture(self.alex.player_id, "face.png", tiff)
+        self.assertFalse(self.roster.pictures_dir.exists())
+
+    def test_a_picture_with_too_many_pixels_is_refused(self) -> None:
+        with mock.patch.object(player_pictures, "_MAX_PIXELS", 100), \
+                self.assertRaises(service_errors.RefusedError):
+            self.roster.set_picture(self.alex.player_id, "face.png", png(11, 11))
+        self.assertFalse(self.roster.pictures_dir.exists())
+
+    def test_the_sized_copies_go_with_the_picture(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "one.png", png(600, 600))
+        served = self.roster.picture(self.alex.player_id, 256)
+        self.assertNotEqual(served.path, self.roster.picture(self.alex.player_id).path)
+        self.assertTrue(served.path.is_file())
+
+        self.roster.clear_picture(self.alex.player_id)
+
+        self.assertFalse(served.path.exists())
+
+    def test_a_refused_replacement_leaves_the_picture_as_it_was(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "one.png", png(50, 50))
+        kept = self._version()
+
+        with self.assertRaises(service_errors.RefusedError):
+            self.roster.set_picture(self.alex.player_id, "two.png", b"broken")
+
+        self.assertEqual(self._version(), kept)
+
+    def test_it_survives_a_restart(self) -> None:
+        self.roster.set_picture(self.alex.player_id, "one.png", png(50, 50))
+        kept = self._version()
+
+        self.assertEqual(self._restart().player_state(self.alex.player_id)["picture_version"],
+                         kept)
+
+    def test_an_id_that_cannot_name_a_file_is_refused(self) -> None:
+        self._write_players([{"id": "../escape", "name": "X", "initials": "XXX"}])
+
+        with self.assertRaises(service_errors.RefusedError):
+            self.roster.set_picture("../escape", "one.png", png(50, 50))
+        self.assertFalse((Path(self.tmp.name) / "escape.webp").exists())
+
+    def _write_players(self, rows: list[dict]) -> None:
+        held = self._file()
+        held["players"] = held["players"] + rows
+        self.path.write_text(json.dumps(held), encoding="utf-8")
 
 
 if __name__ == "__main__":

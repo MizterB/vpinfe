@@ -11,7 +11,8 @@ from PIL import Image
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import pictures, sized_media
+from common import sized_media
+from common.games import pictures
 from tests.support.library import TempTree, fake_game, write_game
 
 GAME_ID = "Pictures0001"

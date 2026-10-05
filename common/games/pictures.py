@@ -11,8 +11,8 @@ from typing import Any
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
+from common import sized_media
 from common.atomic_write import staged_for
-from common.games import sized_media
 
 FOLDER = "pictures"
 SUFFIX = ".png"

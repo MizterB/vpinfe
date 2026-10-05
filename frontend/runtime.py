@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import discovery, install_setup, serving, settings_waiting, shutdown
+from common import discovery, install_setup, player_pictures, serving, settings_waiting, shutdown
 from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
@@ -167,6 +167,8 @@ def build_mount_points(base_path: str, config_dir: Path,
     collection_icons_dir = str(config_dir / "collection_icons")
     os.makedirs(themes_dir, exist_ok=True)
     os.makedirs(collection_icons_dir, exist_ok=True)
+    player_pictures_dir = str(config_dir / player_pictures.FOLDER)
+    os.makedirs(player_pictures_dir, exist_ok=True)
     core_dir = os.path.join(base_path, "frontend", "static")
     mount_points = {
         "/core/": core_dir,
@@ -177,6 +179,7 @@ def build_mount_points(base_path: str, config_dir: Path,
         "/web/": core_dir,
         "/themes/": themes_dir,
         "/collection_icons/": collection_icons_dir,
+        player_pictures.ROUTE: player_pictures_dir,
     }
     settings = SettingsConfig.from_config(iniconfig)
 

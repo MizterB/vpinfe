@@ -167,6 +167,17 @@ class LeavingTests(_RecordsCase):
         self.assertEqual(self.store.accounts("scores_site"), {})
         self.assertFalse((self.root / f"{self.kept.player_id}.json").exists())
 
+    def test_a_kept_player_s_picture_goes_with_them(self) -> None:
+        from tests.support.pictures import png
+
+        self.roster.set_picture(self.kept.player_id, "face.png", png(80, 80))
+        kept = self.roster.pictures_dir / f"{self.kept.player_id}.webp"
+        self.assertTrue(kept.is_file())
+
+        player_records.remove_player(self.kept.player_id)
+
+        self.assertFalse(kept.exists())
+
     def test_a_guest_signs_out_with_their_account_and_record(self) -> None:
         self._holding(self.guest)
 

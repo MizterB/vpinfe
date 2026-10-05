@@ -224,6 +224,26 @@ class PlayEventTests(unittest.TestCase):
             events.emit(events.TABLE_LAUNCHED, game=None, ini_config=None)
 
 
+class PlayersForThemesTests(unittest.TestCase):
+    def test_a_theme_gets_an_address_for_a_picture_and_never_the_version(self) -> None:
+        state = {"players": [
+            {"id": "Kid0000001", "name": "Kid", "picture_version": "abc123"},
+            {"id": "Guest00001", "name": "", "picture_version": None}]}
+
+        seen = play_events.players_for_themes(state)
+
+        self.assertEqual(seen["players"], [
+            {"id": "Kid0000001", "name": "Kid",
+             "picture": "/player_pictures/Kid0000001.webp?v=abc123"},
+            {"id": "Guest00001", "name": "", "picture": None}])
+
+    def test_an_id_that_cannot_name_a_file_has_no_address(self) -> None:
+        seen = play_events.players_for_themes(
+            {"players": [{"id": "../x", "picture_version": "abc123"}]})
+
+        self.assertIsNone(seen["players"][0]["picture"])
+
+
 class LifecycleMessageSpellingTests(unittest.TestCase):
     """Both spellings of a renamed message have to reach the windows.
 

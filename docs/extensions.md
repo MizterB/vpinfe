@@ -528,7 +528,7 @@ the owner, the other players, the guests, who is up - and an extension holds an 
 any of them it can: a user id and key at a scores site, a name a leaderboard posts under.
 
 `ctx.players` reads the roster as plain data, the rows `players.changed` carries: `id`,
-`name`, `initials`, `owner`, `guest`, `up`, `shares_initials_with`. Reading it needs
+`name`, `initials`, `owner`, `guest`, `up`, `shares_initials_with`, `picture_version`. Reading it needs
 `players:read` in the manifest's `scopes`, because names and initials are about people.
 
 | call | answers |

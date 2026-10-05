@@ -22,6 +22,7 @@ from common.i18n import t
 from httpapi import auth, scopes
 from httpapi import events as event_stream
 from tests.support.library import fake_game, write_game
+from tests.support.pictures import RED, png
 
 
 def _owner_config() -> ConfigParser:
@@ -72,7 +73,8 @@ class ReadTests(_PlayersCase):
     def test_an_install_of_one_lists_its_owner_up(self) -> None:
         self.assertEqual(self._roster(), [
             {"id": self.owner, "name": "", "initials": "OWN", "owner": True,
-             "guest": False, "up": True, "shares_initials_with": []}])
+             "guest": False, "up": True, "shares_initials_with": [],
+             "picture_version": None}])
 
     def test_one_player_reads_as_the_roster_lists_them(self) -> None:
         response = self.client.get(f"/players/{self.owner}")
@@ -307,6 +309,75 @@ class RecordTests(_PlayersCase):
 
         self.assertEqual(player_records.get_records().games(held), {})
         self.assertFalse(self.records_dir.exists())
+
+
+class PictureTests(_PlayersCase):
+    def _put(self, player_id: str, content: bytes, name: str = "me.png"):
+        return self.client.put(f"/players/{player_id}/picture",
+                               files={"file": (name, content, "image/png")})
+
+    def test_a_player_has_none_until_one_is_set(self) -> None:
+        self.assertIsNone(self._roster()[0]["picture_version"])
+        self._refused(self.client.get(f"/players/{self.owner}/picture"), 404, "not_found",
+                      t("error.players.no_picture"))
+
+    def test_setting_one_answers_the_player_with_its_version_and_serves_it(self) -> None:
+        response = self._put(self.owner, png(400, 300))
+
+        self.assertEqual(response.status_code, 200, response.text)
+        version = response.json()["picture_version"]
+        self.assertTrue(version)
+        self.assertEqual(self._roster()[0]["picture_version"], version)
+        served = self.client.get(f"/players/{self.owner}/picture", params={"v": version})
+        self.assertEqual(served.status_code, 200)
+        self.assertEqual(served.headers["content-type"], "image/webp")
+        self.assertIn("immutable", served.headers["cache-control"])
+
+    def test_a_size_is_served_and_another_is_refused(self) -> None:
+        self._put(self.owner, png(600, 600))
+
+        small = self.client.get(f"/players/{self.owner}/picture", params={"size": 256})
+        self.assertEqual(small.status_code, 200)
+        self.assertEqual(self.client.get(f"/players/{self.owner}/picture",
+                                         params={"size": 100}).status_code, 400)
+
+    def test_a_replacement_changes_the_version(self) -> None:
+        first = self._put(self.owner, png(300, 300)).json()["picture_version"]
+        second = self._put(self.owner, png(300, 300, RED, "JPEG"), "me.jpg").json()
+        self.assertNotEqual(first, second["picture_version"])
+
+    def test_clearing_answers_the_player_with_none(self) -> None:
+        self._put(self.owner, png(300, 300))
+
+        response = self.client.delete(f"/players/{self.owner}/picture")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["picture_version"])
+        self.assertEqual(self.client.get(f"/players/{self.owner}/picture").status_code, 404)
+
+    def test_a_file_that_is_not_an_image_is_refused_and_changes_nothing(self) -> None:
+        self._refused(self._put(self.owner, b"not a picture", "me.png"), 400,
+                      "invalid_request", t("error.players.picture_not_image"))
+        self.assertIsNone(self._roster()[0]["picture_version"])
+
+    def test_a_guest_cannot_have_one(self) -> None:
+        guest = self._guest("GST")
+
+        self._refused(self._put(guest, png(300, 300)), 400, "invalid_request",
+                      t("error.players.picture_guest"))
+
+    def test_a_player_nobody_has_is_a_404(self) -> None:
+        self._refused(self._put("Nobody0000", png(300, 300)), 404, "not_found",
+                      t("error.players.no_player", player_id="Nobody0000"))
+
+    def test_a_player_taken_away_takes_their_picture(self) -> None:
+        kid = self._add("Kid", "KID")
+        self._put(kid, png(300, 300))
+        folder = players.get_roster().pictures_dir
+
+        self.client.delete(f"/players/{kid}")
+
+        self.assertEqual(list(folder.glob("*")), [])
 
 
 class ContractTests(_PlayersCase):

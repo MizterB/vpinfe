@@ -6,7 +6,8 @@ roster.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Body, File, Request, Response, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from common import events
 from common.games import game_lens, player_records
@@ -16,6 +17,7 @@ from common.players import get_roster
 from . import models, scopes
 from .auth import requires
 from .events import declare_snapshot
+from .responses import ART_SIZE, ART_VERSION, art_file
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -73,6 +75,30 @@ def set_up(player_id: str,
            body: models.PlayerUpRequest = Body(...)) -> models.PlayerRoster:
     get_roster().set_up(player_id, body.up)
     return _roster()
+
+
+@router.get("/{player_id}/picture", summary="A player's picture",
+            dependencies=[requires(scopes.PLAYERS_READ)])
+def get_picture(player_id: str, request: Request, size: int | None = ART_SIZE,
+                v: str = ART_VERSION) -> Response:
+    return art_file(get_roster().picture(player_id, size), request, v)
+
+
+@router.put("/{player_id}/picture", summary="Set a player's picture",
+            dependencies=[requires(scopes.PLAYERS_WRITE)])
+async def set_picture(player_id: str,
+                      file: UploadFile = File(...)) -> models.PlayerResource:
+    """Cropped to the centre square and kept at most 1024 pixels. A guest has none."""
+    content = await file.read()
+    await run_in_threadpool(get_roster().set_picture, player_id, file.filename or "", content)
+    return _player(player_id)
+
+
+@router.delete("/{player_id}/picture", summary="Clear a player's picture",
+               dependencies=[requires(scopes.PLAYERS_WRITE)])
+def clear_picture(player_id: str) -> models.PlayerResource:
+    get_roster().clear_picture(player_id)
+    return _player(player_id)
 
 
 @router.get("/{player_id}/record", summary="What a player has done with each game",

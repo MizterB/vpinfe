@@ -19,13 +19,12 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from common import collation
+from common import collation, sized_media
 from common.games import (
     asset_origin,
     asset_resolver,
     game_repository,
     media_service,
-    sized_media,
     table_lens,
 )
 from common.games.game_metadata import effective_vps_id

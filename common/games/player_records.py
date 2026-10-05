@@ -15,7 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import events, service_errors
+from common import events, player_pictures, service_errors
 from common.atomic_write import write_atomic
 from common.games import high_scores
 from common.games.game_metadata import normalize_rating
@@ -253,6 +253,7 @@ def remove_player(player_id: str) -> Player:
     gone = get_roster().remove(player_id)
     accounts.forget(gone.player_id)
     get_records().forget(gone.player_id)
+    player_pictures.remove(get_roster().pictures_dir, gone.player_id)
     return gone
 
 

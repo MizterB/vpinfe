@@ -15,12 +15,13 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from common import events, service_errors
+from common import events, player_pictures, service_errors
 from common.atomic_write import write_atomic
 from common.config_access import ConfigSource, cfg_get
 from common.i18n import t
 from common.install_identity import mint_id
 from common.paths import CONFIG_DIR
+from common.sized_media import Served
 
 logger = logging.getLogger("vpinfe.common.players")
 
@@ -162,6 +163,10 @@ class Roster:
             return up[0] if len(up) == 1 else None
         return self.whose(initials)
 
+    @property
+    def pictures_dir(self) -> Path:
+        return self.path.parent / player_pictures.FOLDER
+
     def state(self) -> dict[str, Any]:
         """The whole roster, as `players.changed` carries it."""
         with self._lock:
@@ -169,6 +174,7 @@ class Roster:
             up = {p.player_id for p in self._up_among(everyone)}
         return {"players": [
             {**p.as_payload(), "up": p.player_id in up,
+             "picture_version": player_pictures.version(self.pictures_dir, p.player_id),
              "shares_initials_with": [other.player_id for other in everyone
                                       if other.player_id != p.player_id
                                       and same_initials(other.initials, p.initials)]}
@@ -290,6 +296,29 @@ class Roster:
                     return changed
         raise _no_player(wanted)
 
+    def set_picture(self, player_id: str, filename: str, content: bytes) -> Player:
+        """Give a kept player a picture, replacing theirs. A guest has none to give: they
+        leave at sign-out and a file would outlive them."""
+        self._kept_for_picture(player_id)
+        prepared = player_pictures.prepare(filename, content)
+        with self._changing():
+            found = self._kept_for_picture(player_id)
+            player_pictures.write(self.pictures_dir, found.player_id, prepared)
+            return found
+
+    def clear_picture(self, player_id: str) -> Player:
+        """Take a player's picture away. Clearing none is not a change."""
+        with self._changing():
+            found = self._kept_for_picture(player_id)
+            player_pictures.remove(self.pictures_dir, found.player_id)
+            return found
+
+    def picture(self, player_id: str, size: int | None = None) -> Served:
+        """A player's picture at `size`. Raises NotFoundError for an id nobody has or a
+        player with no picture."""
+        found = self.player(player_id)
+        return player_pictures.served(self.pictures_dir, found.player_id, size)
+
     def remove(self, player_id: str) -> Player:
         """Remove a kept player, or sign a guest out. The owner cannot be removed.
 
@@ -384,6 +413,16 @@ class Roster:
         first = next((p.player_id for p in kept if p.owner), None)
         return sorted((p if p.player_id == first or not p.owner else replace(p, owner=False)
                        for p in kept), key=lambda p: not p.owner)
+
+    def _kept_for_picture(self, player_id: str) -> Player:
+        """A kept player. Raises NotFoundError for an id nobody has, and refuses a guest."""
+        wanted = (player_id or "").strip()
+        found = next((p for p in self._kept() if p.player_id == wanted), None)
+        if found is not None:
+            return found
+        if any(p.player_id == wanted for p in self._guests):
+            raise service_errors.RefusedError(t("error.players.picture_guest"))
+        raise _no_player(wanted)
 
     def _migrations(self) -> list[str]:
         raw = self._read().get(MIGRATIONS_KEY)

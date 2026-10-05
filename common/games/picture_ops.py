@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from common import service_errors
-from common.games import game_lens, pictures, sized_media
+from common import service_errors, sized_media
+from common.games import game_lens, pictures
 from common.i18n import t
 
 

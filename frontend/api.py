@@ -901,13 +901,17 @@ class API:
 
     def get_players(self) -> dict[str, Any]:
         """Everyone on this install and who is up, as `PlayersChanged` carries it."""
-        return get_roster().state()
+        from frontend.play_events import players_for_themes
+
+        return players_for_themes(get_roster().state())
 
     def set_player_up(self, player_id: Any, up: Any = True) -> dict[str, Any]:
         """Put one player up, or take them down. The main menu's Player list; a theme
         reads who is up rather than setting it."""
+        from frontend.play_events import players_for_themes
+
         get_roster().set_up(str(player_id or "").strip(), bool(up))
-        return get_roster().state()
+        return players_for_themes(get_roster().state())
 
     def get_player_rating(self, player_id: Any, index: Any) -> int:
         """A player's own rating (0-5) for a game index, for the main menu's Rating

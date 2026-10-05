@@ -233,6 +233,9 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/players/guests` | Add a guest from their initials, `{"initials"}`, and put them up alone. `201` |
 | PATCH | `/api/v1/players/{id}` | Rename a player or change their initials, `{"name", "initials"}`. A field left out is left alone |
 | DELETE | `/api/v1/players/{id}` | Remove a player, or sign a guest out. `204`. Their accounts and record go with them. The owner cannot be removed |
+| GET | `/api/v1/players/{id}/picture` | A player's picture, a WEBP. `?size=` takes 256 or 1024, and `?v=` the player's `picture_version`, which is kept for good. `404` while they have none |
+| PUT | `/api/v1/players/{id}/picture` | Set it, as multipart `file`. Cropped to the centre square and kept at most 1024 pixels; a GIF keeps its first frame. Answers the player. `400` for a file that is not an image, and for a guest, who has none |
+| DELETE | `/api/v1/players/{id}/picture` | Take it away. Answers the player |
 | PUT | `/api/v1/players/{id}/up` | Put one player up beside whoever is, `{"up": true}`, or take them down. Answers with the whole list |
 | PUT | `/api/v1/players/up` | Say exactly who is up, `{"ids": [...]}`. An id nobody has is a `404` and changes nothing. Answers with the whole list |
 | GET | `/api/v1/players/{id}/record` | What a player other than the owner has done with each game - see [Records](#records) |
@@ -1497,9 +1500,9 @@ memory and is gone when VPinFE closes.
 ```json
 {"players": [
   {"id": "Pq7Lm2Xa9B", "name": "", "initials": "OWN", "owner": true, "guest": false,
-   "up": false, "shares_initials_with": []},
+   "up": false, "shares_initials_with": [], "picture_version": "1b7f3c9a2e"},
   {"id": "Hc4Rt8Wv1N", "name": "", "initials": "ABC", "owner": false, "guest": true,
-   "up": true, "shares_initials_with": []}
+   "up": true, "shares_initials_with": [], "picture_version": null}
 ]}
 ```
 
@@ -1529,6 +1532,12 @@ to.
 The library's own counts - how often a game was played, for how long, and its score - are
 the owner's. They move only for a game the owner was up for. Every other player's are in a
 record of their own - see [Records](#records).
+
+**A picture is a circle's worth of a player.** `picture_version` is the `v` for
+`/players/{id}/picture`, and null while they have none. It changes when the picture does,
+so an address carrying it can be kept for good. A guest has none, because a guest leaves
+when they sign out; removing a player deletes theirs. Themes are not given the version but
+an address - see `vpin.players` in the theme guide.
 
 A refusal - removing the owner, initials taken or not three characters, a guest with none -
 is `invalid_request` with the reason as its message. An id nobody has is `not_found`.

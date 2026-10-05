@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import quote
 
-from common import media_probe
+from common import media_probe, sized_media
 from common.config_access import MediaConfig
-from common.games import asset_origin, sized_media
+from common.games import asset_origin
 from common.games.game import GameRecord
 from common.games.game_metadata import reorder_leading_article, vpinfe_section
 from common.games.game_repository import all_games

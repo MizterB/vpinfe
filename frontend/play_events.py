@@ -15,7 +15,7 @@ import sys
 import threading
 from typing import TYPE_CHECKING, Any
 
-from common import events
+from common import events, player_pictures
 from common.config_store import ConfigStore
 from common.games.game import GameRecord
 from common.host import launch_state
@@ -140,10 +140,19 @@ def on_game_changed(**_payload: Any) -> None:
         _change_timer.start()
 
 
+def players_for_themes(state: dict | None) -> dict[str, Any]:
+    """The roster as a theme reads it: each player's `picture_version` becomes the
+    address of the picture, or None where they have none."""
+    return {"players": [
+        {**{key: value for key, value in one.items() if key != "picture_version"},
+         "picture": player_pictures.address(one["id"], one.get("picture_version"))}
+        for one in (state or {}).get("players", [])]}
+
+
 def on_players_changed(*, state: dict | None = None, **_payload: Any) -> None:
     """Who is kept, who is a guest, and who is up. Forwarded into every overlay iframe
     as well as the theme windows, which is how the main menu's Player list keeps up."""
-    _broadcast({"type": "PlayersChanged", "state": state or {"players": []}})
+    _broadcast({"type": "PlayersChanged", "state": players_for_themes(state)})
 
 
 def _flush_game_changes() -> None:

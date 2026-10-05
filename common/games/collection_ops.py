@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from typing import Any
 from urllib.parse import quote
 
-from common import service_errors
+from common import service_errors, sized_media
 from common.failures import why
 from common.games import (
     entry_lens,
@@ -28,7 +28,6 @@ from common.games import (
     game_lens,
     game_repository,
     rankings,
-    sized_media,
     table_lens,
 )
 from common.games.collection_filters import (
