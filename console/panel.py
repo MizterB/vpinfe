@@ -13,6 +13,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 from nicegui import ui
@@ -938,9 +939,14 @@ def number(value: Any, on_change: Callable[[Any], Any], *,
            disabled: bool = False, whole: bool = True,
            low: Any = None, high: Any = None, step: Any = None,
            placeholder: str = "", unit: str = "",
-           on_control: Callable[[Any], Any] | None = None) -> Callable[[], None]:
+           on_control: Callable[[Any], Any] | None = None,
+           on_leave: bool = False) -> Callable[[], None]:
     """A number. Narrow, because a four-digit box in a full-width field says the value
     might be long.
+
+    With `on_leave`, `on_change` is called when the field is left or Enter is pressed and
+    not on each keystroke: a value that is checked when it is saved has not been typed
+    yet at "8" on the way to "8005".
 
     `whole` because not every number is a count: a port is, and a theme's scale factor
     is not. Formatting a fraction as an integer does not round it on the way in - it
@@ -958,8 +964,20 @@ def number(value: Any, on_change: Callable[[Any], Any], *,
                                 placeholder=placeholder or None,
                                 format="%d" if whole else None,
                                 min=low, max=high, step=step, suffix=unit or None,
-                                on_change=on_change) \
-                .props("dense borderless").classes("console-edit-field console-edit-narrow")
+                                on_change=None if on_leave else on_change) \
+                .props("dense borderless debounce=0" if on_leave else "dense borderless") \
+                .classes("console-edit-field console-edit-narrow")
+            if on_leave:
+                held = {"was": control.value}
+
+                def leave() -> Any:
+                    if control.value == held["was"]:
+                        return None
+                    held["was"] = control.value
+                    return on_change(SimpleNamespace(value=control.value))
+
+                control.on("blur", leave)
+                control.on("keydown.enter", lambda: control.run_method("blur"))
             if placeholder:
                 control.style(f"--blank: {len(placeholder) + 1}ch")
             if disabled:

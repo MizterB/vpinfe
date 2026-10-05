@@ -99,6 +99,9 @@ def put_values(values: dict[str, dict[str, Any]] = Body(...)) -> models.ConfigVa
         raise InvalidRequestError(
             t("error.config.unknown_keys",
               keys=", ".join(exc.keys))) from exc
+    except config_service.RefusedSettingsError as exc:
+        raise InvalidRequestError("; ".join(exc.reasons.values()),
+                                  details={"settings": exc.reasons}) from exc
     except config_service.ReadOnlySettingsError as exc:
         raise InvalidRequestError(
             t("error.config.read_only",

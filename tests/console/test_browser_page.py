@@ -31,11 +31,10 @@ PLAYS_ALL = dict.fromkeys(NO_H264, True)
 
 class Served:
     """The Console's client, answered by this install's API in-process, with a frontend
-    whose running and restarting the test holds."""
+    whose restarting the test holds."""
 
     def __init__(self, client: TestClient) -> None:
         self._client = client
-        self.running = True
         self.perform_action = Mock(return_value={})
 
     @staticmethod
@@ -59,8 +58,8 @@ class Served:
     def frontend_browser(self) -> dict:
         return dict(self._answered(self._client.get("/frontend/browser")))
 
-    def frontend_state(self) -> dict:
-        return {"running": self.running, "collection": "", "game": ""}
+    def config_waiting(self) -> dict:
+        return dict(self._answered(self._client.get("/config/waiting")))
 
 
 class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
@@ -201,7 +200,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(line.call_args.args[0], t("console.settings.browser_failed"))
         self.assertIn(t("config.chromium.path.label"), self._labels(entries))
 
-    async def test_use_google_chrome_sets_browser_program_and_restarts_the_frontend(
+    async def test_use_google_chrome_sets_browser_program_and_restarts_nothing(
             self) -> None:
         self._reported(NO_H264)
         use = self._use_google_chrome(await self._drawn())
@@ -209,19 +208,20 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         await press(use)
 
         self.assertEqual(self._program(), CHROME)
-        self.served.perform_action.assert_called_once_with("frontend", "restart", "")
-
-    async def test_a_closed_frontend_is_left_closed(self) -> None:
-        self.served.running = False
-        self._reported(NO_H264)
-
-        await press(self._use_google_chrome(await self._drawn()))
-
-        self.assertEqual(self._program(), CHROME)
         self.served.perform_action.assert_not_called()
 
-    async def test_undo_puts_the_previous_browser_program_back_and_restarts_again(
-            self) -> None:
+    async def test_once_chosen_it_says_so_in_place_of_offering_it_again(self) -> None:
+        self._reported(NO_H264)
+        await press(self._use_google_chrome(await self._drawn()))
+        self.ui.label.reset_mock()
+
+        entries = await self._drawn()
+
+        self.assertIsNone(self._use_google_chrome(entries))
+        said = [call.args[0] for call in self.ui.label.call_args_list]
+        self.assertIn(t("console.settings.chrome_chosen"), said)
+
+    async def test_undo_puts_the_previous_browser_program_back(self) -> None:
         self.served.put_config({"chromium": {"path": str(self.in_use)}})
         self._reported(NO_H264)
         await press(self._use_google_chrome(await self._drawn()))
@@ -231,7 +231,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(said, t("console.settings.chrome_active"))
         self.assertEqual(self._program(), str(self.in_use))
-        self.assertEqual(self.served.perform_action.call_count, 2)
+        self.served.perform_action.assert_not_called()
         self.offer.assert_called_once()
 
     async def test_it_is_offered_only_where_chrome_is_installed_and_not_in_use(self) -> None:

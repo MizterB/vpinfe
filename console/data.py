@@ -742,10 +742,6 @@ class Library:
     def discard_proposals(self) -> dict:
         return self._client.discard_proposals()
 
-    def frontend_running(self) -> bool:
-        found = self._client.frontend_state()
-        return bool(found and found.get("running"))
-
     def logs(self, limit: int = 200, level: str = "", contains: str = "",
              source: str = "") -> dict:
         """Never cached, obviously: the whole question is what has happened since."""

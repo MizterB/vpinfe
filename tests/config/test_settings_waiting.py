@@ -8,9 +8,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from common import events, extensions, lifecycle, settings_waiting
+from common import config_service, events, extensions, lifecycle, port_checks, settings_waiting
 from common.config_store import ConfigStore
 from common.extensions import host as extension_host
+from common.online import theme_service
 
 PORT = "network.http_port"
 ROTATION = "windows.playfield.rotation"
@@ -124,6 +125,15 @@ class WaitingTests(_Base):
             with self.subTest(performable=performable), \
                     mock.patch.object(lifecycle, "performable", return_value=performable):
                 self.assertIs(settings_waiting.answer()["reopen"], performable)
+
+
+class ActiveThemeTests(_Base):
+    def test_making_a_theme_active_joins_what_is_waiting(self) -> None:
+        with mock.patch.object(config_service, "get_ini_config", lambda: self.store), \
+                mock.patch.object(port_checks, "get_ini_config", lambda: self.store):
+            theme_service.set_active_theme("Another")
+
+        self.assertEqual(self._keys(), {"themes.active": "restart"})
 
 
 class WaitingEventTests(_Base):

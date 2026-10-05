@@ -141,6 +141,9 @@ class ConfigOption:
     default_is: str = ""
     # One of `UNITS`: what the number counts.
     unit: str = ""
+    # A change to this can put the Console out of reach of the device making it, so a
+    # surface on such a device asks before saving.
+    cuts_off_console: bool = False
     # One of `APPLIES`: when a change reaches what it governs. `now` is a setting read
     # each time it is used, or one whose change is acted on as it is saved; anything
     # else is a claim about where the setting is read, so check that read before
@@ -221,7 +224,8 @@ DEFAULT_COMMUNITY = "community"
 DEFAULT_VPINFE = "vpinfe"
 DEFAULTS_ARE = (DEFAULT_COMMUNITY, DEFAULT_VPINFE)
 UNIT_SECONDS = "seconds"
-UNITS = (UNIT_SECONDS,)
+UNIT_PORT = "port"
+UNITS = (UNIT_SECONDS, UNIT_PORT)
 
 # When a saved change takes effect. `table` is the next table to start, `windows` the
 # next time the frontend's windows open, `restart` the next time VPinFE starts.
@@ -1039,6 +1043,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "theme_assets_port",
             applies=APPLIES_RESTART,
+            unit=UNIT_PORT,
             group=setting_groups.LOCAL_SERVICES,
             type="int",
             default="8000",
@@ -1054,6 +1059,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "ws_port",
             applies=APPLIES_RESTART,
+            unit=UNIT_PORT,
             group=setting_groups.LOCAL_SERVICES,
             type="int",
             default="8002",
@@ -1062,6 +1068,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "http_port",
             applies=APPLIES_RESTART,
+            unit=UNIT_PORT,
             group=setting_groups.LOCAL_SERVICES,
             type="int",
             default="8001",
@@ -1085,6 +1092,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "http_bind",
             applies=APPLIES_RESTART,
+            cuts_off_console=True,
             group=setting_groups.LOCAL_SERVICES,
             type="string",
             default="0.0.0.0",

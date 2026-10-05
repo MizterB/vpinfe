@@ -2457,6 +2457,16 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
    short, and the help under it takes the same measure, so the value column reads as one
    column. */
 .console-fact-edit { max-width: var(--measure); }
+/* A setting that waits on a restart or a reopen carries its chip beside the control. The
+   control keeps the row; a number or a switch is short, so the chip sits against it. */
+.console-waiting-row { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: var(--measure); }
+.console-waiting-row > .console-fact-edit { flex: 1 1 auto; }
+.console-waiting-row > .console-fact-edit:has(input[type="number"]),
+.console-waiting-row > .console-fact-edit:has(.q-toggle) { flex: 0 1 auto; }
+.console-waiting-row > .console-tier { flex: none; }
+/* Quasar draws a refusal below the field without making room for it. */
+.console-waiting-row:has(.q-field--error) { margin-bottom: 16px; }
+.console-waiting-row .q-field__bottom { white-space: nowrap; }
 /* Text, a path, a list: the whole measure, because a value that truncates is unreadable
    and these are the ones that run long. */
 .console-fact-edit .q-textarea,

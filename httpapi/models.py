@@ -721,9 +721,11 @@ class ConfigOptionInfo(ApiModel):
     lines: int = 0
     # Whose the default is - `community`, or `vpinfe` where no standard exists - for a
     # client that reminds a person of it; empty where none does. `unit` is what a number
-    # counts: `seconds`, or empty.
+    # counts: `seconds`, `port`, or empty.
     default_is: str = ""
     unit: str = ""
+    # Whether a change can put this install's Console out of reach of the device making it.
+    cuts_off_console: bool = False
     # When a saved change reaches what it governs: `now`, `table` (the next table to
     # start), `windows` (the next time the frontend's windows open) or `restart`.
     applies: str = "now"

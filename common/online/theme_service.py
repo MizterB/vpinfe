@@ -12,8 +12,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from common import theme_options
-from common.config_access import cfg_get, cfg_set
+from common import config_service, theme_options
+from common.config_access import cfg_get
 from common.config_store import ConfigStore
 from common.i18n import t
 from common.online.themes import ThemeRegistry
@@ -30,9 +30,8 @@ def get_active_theme() -> str:
 
 
 def set_active_theme(theme_key: str) -> None:
-    config = ConfigStore(str(VPINFE_INI_PATH))
-    cfg_set(config, "general", "theme", theme_key)
-    config.save()
+    """Through the settings write, so what is waiting on a restart is told of it."""
+    config_service.set_values({"themes": {"active": theme_key}})
 
 
 def load_registry(previous: ThemeRegistry | None = None) -> ThemeRegistry:

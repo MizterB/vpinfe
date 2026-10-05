@@ -37,6 +37,7 @@ from common.i18n import size, t
 from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
+    binding_table,
     busy,
     confirm,
     deeplink,
@@ -78,25 +79,63 @@ SOURCES_NOTE = (t("console.settings.sources_note"))
 CHECKS_NOTE = t("console.settings.checks_note")
 
 
+class Refusal:
+    """The field a refused write says why at, instead of in a toast."""
+
+    def __init__(self) -> None:
+        self.control: Any = None
+
+    def attach(self, control: Any) -> None:
+        self.control = control
+
+    def show(self, reason: str) -> None:
+        control = self.control
+        if control is None or control.is_deleted:
+            return
+        if reason:
+            control.props["error"] = True
+            control.props["error-message"] = reason
+        else:
+            control.props(remove="error error-message")
+        control.update()
+
+    def reason_for(self, exc: Exception, section: str, key: str) -> str:
+        """What the API said about this setting, or empty where it said nothing about it."""
+        refused = getattr(exc, "details", {}).get("settings") or {}
+        return str(refused.get(f"{section}.{key}") or "")
+
+
 @on_page
-async def _write_many(library: Library, changes: dict[str, dict[str, Any]]) -> bool:
+async def _write_many(library: Library, changes: dict[str, dict[str, Any]],
+                      refusal: Refusal | None = None) -> bool:
     """Settings, written when they are set. One request, so a change that is several
     settings is kept whole or not at all.
 
     No save bar: a control that changes a value writes it, which is what every other
     control in the Console does. The reason a write failed is the API's own message, never
     the status line - `raise_for_status` throws the body away.
+
+    With a `refusal`, a refusal of its one setting is said at that field and not in a toast.
     """
     try:
         await run.io_bound(library.put_config, changes)
     except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+        if refusal is not None:
+            (section, entries), = changes.items()
+            reason = refusal.reason_for(exc, section, next(iter(entries)))
+            if reason:
+                refusal.show(reason)
+                return False
         ui.notify(t("console.settings.save_failed"), caption=why(exc), type="negative")
         return False
+    if refusal is not None:
+        refusal.show("")
     return True
 
 
-async def _write(library: Library, section: str, key: str, value: Any) -> bool:
-    return await _write_many(library, {section: {key: value}})
+async def _write(library: Library, section: str, key: str, value: Any,
+                 refusal: Refusal | None = None) -> bool:
+    return await _write_many(library, {section: {key: value}}, refusal)
 
 
 # Tools a setting can ask for by name, where a control cannot do the job. Routed the way
@@ -212,7 +251,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                 suggestions: dict[str, Any] | None = None,
                 section_values: dict[str, Any] | None = None,
                 varies: bool = False,
-                browse: Callable[..., dict] | None = None) -> Callable[[], None]:
+                browse: Callable[..., dict] | None = None,
+                refusal: Refusal | None = None) -> Callable[[], None]:
     """The control a declared value's type asks for.
 
     Driven by the declaration, never by the key's name: something added to the schema -
@@ -229,6 +269,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     `browse` is the Console's own `library.folders`, offered to whichever field declares
     a `path` so its control can draw Browse. A call site with nothing path-shaped to draw
     still passes it - the field, not the caller, decides whether it is used.
+
+    `refusal` is where a number says why its value was refused, beside the number.
     """
     editor = EDITORS.get(str(option.get("editor") or ""))
     if editor is not None:
@@ -293,7 +335,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
     if kind == "int":
         return panel.number(
             value, lambda e: save("" if e.value is None else int(e.value)), disabled=off,
-            placeholder=blank)
+            placeholder=blank, on_control=refusal.attach if refusal else None,
+            on_leave=refusal is not None)
     if kind == "number":
         # Not `int`: a theme declares scale factors and opacities, and a control that
         # formats them as whole numbers shows a value that is not the one stored.
@@ -343,12 +386,104 @@ def by_group(options: list[dict]) -> list[dict]:
     return [option for group in ordered.values() for option in group] + loose
 
 
-def _saver(source: Any, section: str, key: str) -> Callable[[Any], Any]:
+def _saver(source: Any, section: str, key: str,
+           refusal: Refusal | None = None) -> Callable[[Any], Any]:
     """Write one setting to a config section, for the control grammar to call."""
     async def save(value: Any) -> bool:
-        return await _write(source, section, key, value)
+        return await _write(source, section, key, value, refusal)
 
     return save
+
+
+class Waiting:
+    """A chip beside each setting that is saved and not yet in effect.
+
+    Drawn from the server's own answer, and asked again after each save of a setting that
+    can wait, so the chip appears when a change is made and clears when it is changed back.
+    """
+
+    def __init__(self, source: Any, found: dict[str, Any] | None = None) -> None:
+        self.source = source
+        self.entries: dict[str, str] = {}
+        self.chips: dict[str, Any] = {}
+        self.take(found or {})
+
+    def take(self, found: dict[str, Any]) -> None:
+        self.entries = {f"{one['section']}.{one['key']}": str(one.get("waits_for") or "")
+                        for one in found.get("waiting") or []
+                        if one.get("kind") == "setting"}
+
+    def beside(self, draw: Callable[[], None], option: dict) -> Callable[[], None]:
+        key = f"{option['section']}.{option['key']}"
+
+        return _Chipped(self, draw, key)
+
+    def after(self, save: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        async def saved(value: Any) -> bool:
+            done = bool(await save(value))
+            if done:
+                await self.refresh()
+            return done
+
+        return saved
+
+    async def refresh(self) -> None:
+        try:
+            self.take(await offload.io(self.source.config_waiting))
+        except Exception as exc:  # noqa: BLE001 - a chip not redrawn is not a failed save
+            logger.warning("Could not read what is waiting: %s", why(exc))
+            return
+        for key in self.chips:
+            self.show(key)
+
+    def show(self, key: str) -> None:
+        chip = self.chips[key]
+        if chip.is_deleted:
+            return
+        waits = self.entries.get(key)
+        chip.set_visibility(bool(waits))
+        if waits:
+            chip.set_text(t("console.settings.chip_reopen" if waits == "reopen"
+                            else "console.settings.chip_restart"))
+
+
+class _Chipped:
+    """A control drawn with its waiting chip after it. What the control carries - a picker's
+    value, its offered choices - stays reachable through this."""
+
+    def __init__(self, waiting: Waiting, draw: Callable[[], None], key: str) -> None:
+        self.waiting = waiting
+        self.draw = draw
+        self.key = key
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.draw, name)
+
+    def __call__(self) -> None:
+        with ui.element("div").classes("console-waiting-row"):
+            self.draw()
+            self.waiting.chips[self.key] = ui.label().classes(
+                "console-member-chip console-tier console-tier--warn")
+            self.waiting.show(self.key)
+
+
+def _asked_first(option: dict, save: Callable[[Any], Any],
+                 rerender: Callable[[], None]) -> Callable[[Any], Any]:
+    """`save`, once the person has been told what it will cost them: this setting decides
+    where the Console can be reached from, and the page asking is on another device."""
+    async def asked(value: Any) -> bool:
+        if str(value).strip() in ("", str(option.get("default"))):
+            return bool(await save(value))
+        if not await confirm.ask(
+                t("console.settings.bind_title",
+                  setting=option.get("label") or option["key"]),
+                detail=t("console.settings.bind_detail"),
+                confirm=t("word.change"), icon=verbs.SAVE, danger=False):
+            rerender()
+            return False
+        return bool(await save(value))
+
+    return asked
 
 
 def _kind_page(library: Library, rerender: Callable[[], None], note: str,
@@ -547,7 +682,7 @@ def _browser_rows(found: dict[str, Any], chosen: str) -> list[tuple[Any, Any]]:
 
 
 def _browser_finding(library: Library, rerender: Callable[[], None],
-                     found: dict[str, Any]) -> None:
+                     found: dict[str, Any], chosen: str = "") -> None:
     """What is wrong, the fix in words, and the act where VPinFE can do it."""
     fix = found.get("fix") or {}
     chrome = str(fix.get("chrome_path") or "")
@@ -558,8 +693,6 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
         before = str(((held.get("chromium") or {}).get("path")) or "")
         try:
             await offload.io(library.put_config, {"chromium": {"path": path}})
-            if await offload.io(library.frontend_running):
-                await offload.io(library.perform_action, "frontend", "restart")
         except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
             ui.notify(t("console.settings.switch_failed"), caption=why(exc),
                       type="negative")
@@ -580,7 +713,9 @@ def _browser_finding(library: Library, rerender: Callable[[], None],
                         .classes("console-member-table")
                     panel.link(t("console.settings.page_recording"),
                                to=address_for(recording.SECTION))()
-        if fix.get("action") == "use_chrome" and chrome:
+        if fix.get("action") == "use_chrome" and chrome and chrome == chosen:
+            ui.label(t("console.settings.chrome_chosen")).classes("console-member-table")
+        elif fix.get("action") == "use_chrome" and chrome:
             panel.action(t("console.settings.use_chrome"),
                          lambda: use(chrome, t("console.settings.chrome_active")),
                          icon=verbs.CHOOSE,
@@ -596,9 +731,10 @@ async def _browser_head(library: Library, rerender: Callable[[], None],
         return [panel.intro(t("console.settings.browser_failed"), hint=why(exc))]
     if not found:
         return []
-    rows = _browser_rows(found, str((values.get("chromium") or {}).get("path") or ""))
+    chosen = str((values.get("chromium") or {}).get("path") or "")
+    rows = _browser_rows(found, chosen)
     if found.get("finding"):
-        rows.insert(0, (panel.FULL, lambda: _browser_finding(library, rerender, found)))
+        rows.insert(0, (panel.FULL, lambda: _browser_finding(library, rerender, found, chosen)))
     return rows
 
 
@@ -1219,6 +1355,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  suggestions: dict[str, Any] | None = None,
                  resolved: dict[str, str] | None = None,
                  browse: Callable[..., dict] | None = None,
+                 waiting: Waiting | None = None,
+                 from_elsewhere: bool = False,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1248,15 +1386,24 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             entries.append((panel.HEADING, group))
         heading = group
         value = current.get(option["key"], option.get("default"))
-        save, note = _noted(option, value, _saver(source, section, option["key"]),
+        refusal = Refusal() if option.get("unit") == config_schema.UNIT_PORT else None
+        save, note = _noted(option, value, _saver(source, section, option["key"], refusal),
                             (resolved or {}).get(option["key"], ""))
+        if option.get("cuts_off_console") and from_elsewhere:
+            save = _asked_first(option, save, rerender)
+        chipped = waiting if option.get("applies") in (
+            config_schema.APPLIES_RESTART, config_schema.APPLIES_WINDOWS) else None
+        if chipped is not None:
+            save = chipped.after(save)
+        control = control_for(
+            option, value, save,
+            writable=writable, rerender=rerender,
+            check=(checks or {}).get((section, option["key"])),
+            suggestions=suggestions,
+            section_values=effective, browse=browse, refusal=refusal)
         entries.append((option.get("label") or humanize(option["key"]),
-                        control_for(
-                            option, value, save,
-                            writable=writable, rerender=rerender,
-                            check=(checks or {}).get((section, option["key"])),
-                            suggestions=suggestions,
-                            section_values=effective, browse=browse)))
+                        chipped.beside(control, option) if chipped is not None
+                        else control))
         if note is not None:
             entries.append(note)
         for text, fix in option.get("findings") or ():
@@ -1278,7 +1425,8 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             suggestions: dict[str, Any] | None = None,
                             blocks: list[tuple[str, list]] | None = None,
                             browse: Callable[..., dict] | None = None,
-                            drawn_elsewhere: bool = False) -> None:
+                            drawn_elsewhere: bool = False,
+                            waiting: Waiting | None = None) -> None:
     """One page of a device's settings, drawn exactly as this install's are.
 
     Several config sections can make one page - a machine's screens are four of them -
@@ -1309,6 +1457,8 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
         panel.facts(ui, [panel.intro(t("console.settings.page_empty"))])
         return
 
+    # Read before the first wait: the page being drawn is only known to the client until then.
+    from_elsewhere = source is context.get("library") and binding_table.opened_elsewhere()
     entries: list[tuple[Any, Any]] = []
     for block in drawn:
         name = str(block.get("name"))
@@ -1326,7 +1476,8 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                                 bool(block.get("writable")), rerender, checks,
                                 suggestions,
                                 resolved=resolves(offered) if resolves else None,
-                                browse=browse)
+                                browse=browse, waiting=waiting,
+                                from_elsewhere=from_elsewhere)
         foot = FOOTERS.get(name)
         if foot is not None and source is context.get("library"):
             entries += await foot(source, rerender, offered=offered)
@@ -1476,7 +1627,16 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         await build_device_page(library, {"library": library, "rebuild": redraw},
                                 schema, values, sections, checks=marks,
                                 suggestions=offered, blocks=blocks, browse=library.folders,
-                                drawn_elsewhere=key == displays.KEY)
+                                drawn_elsewhere=key == displays.KEY,
+                                waiting=Waiting(library, await _waiting(library)))
+
+
+async def _waiting(library: Library) -> dict[str, Any]:
+    try:
+        return await offload.io(library.config_waiting)
+    except Exception as exc:  # noqa: BLE001 - the page is drawn without its chips
+        logger.warning("Could not read what is waiting: %s", why(exc))
+        return {}
 
 
 def _with_windows(sections: tuple[str, ...], schema: list[dict]) -> tuple[str, ...]:

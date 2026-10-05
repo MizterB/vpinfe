@@ -23,6 +23,11 @@ def bound(field: Port, port: int) -> None:
     _bound[field] = int(port)
 
 
+def bound_ports() -> set[int]:
+    """The ports this process is listening on."""
+    return set(_bound.values())
+
+
 def network(config: Any) -> NetworkConfig:
     """The network settings as this process serves them: each port a server here was
     started on, and the setting for one nothing here has started."""

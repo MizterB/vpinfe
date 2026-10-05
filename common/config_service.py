@@ -16,7 +16,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from common import config_schema, events, install_presence, path_checks
+from common import config_schema, events, install_presence, path_checks, port_checks
 from common.failures import why
 from common.paths import get_ini_config
 
@@ -45,6 +45,15 @@ class ReadOnlySettingsError(ValueError):
     def __init__(self, keys: list[str]) -> None:
         self.keys = sorted(keys)
         super().__init__(", ".join(self.keys))
+
+
+class RefusedSettingsError(ValueError):
+    """Values a setting cannot hold on this machine. `reasons` says why, keyed
+    `section.key`."""
+
+    def __init__(self, reasons: dict[str, str]) -> None:
+        self.reasons = dict(reasons)
+        super().__init__("; ".join(reasons.values()))
 
 
 def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
@@ -78,6 +87,7 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         "lines": option.lines,
         "default_is": option.default_is,
         "unit": option.unit,
+        "cuts_off_console": option.cuts_off_console,
         "applies": option.applies,
         "blank": option.blank,
         "home": option.home,
@@ -171,6 +181,8 @@ def set_values(wanted: dict[str, dict[str, Any]] | None,
         raise ReadOnlySettingsError(refused)
     if not staged:
         return values(windows)
+    if reasons := port_checks.refused(wanted):
+        raise RefusedSettingsError(reasons)
 
     changed: list[str] = []
     for section, key, value in staged:

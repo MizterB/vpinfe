@@ -400,17 +400,7 @@ async def _install(library: Library, key: str, again: Callable[[], Any]) -> None
 
 @on_page
 async def _activate(library: Library, theme: dict[str, Any], again: Callable[[], Any]) -> None:
-    """Asked first, and the question says when it happens.
-
-    The Manager UI restarts VPinFE here. This does not: a setting and a restart are two
-    acts, and taking the second without asking is how somebody loses what they were
-    doing on another screen.
-    """
-    if not await confirm.ask(
-            t("console.themes.activate_confirm", name=theme["name"]),
-            detail=t("console.themes.activate_detail"),
-            confirm=t("word.make_active"), icon=verbs.ACTIVATE, danger=False):
-        return
+    """Saved, and left for the next start: nothing restarts."""
     try:
         await run.io_bound(library.activate_theme, theme["key"])
     except Exception as exc:  # noqa: BLE001
