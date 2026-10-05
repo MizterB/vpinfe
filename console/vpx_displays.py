@@ -1,9 +1,9 @@
 """Launchers > Visual Pinball X > Displays: the screens picture over that launcher's ini.
 
-The picture is the one VPinFE's own Displays page draws, with a topper above the backglass
-and a part's menu offering to draw it inside the playfield. It writes this launcher's ini
-only. Where it disagrees with VPinFE's screens the page says so and offers to match them;
-a change to VPinFE's screens moves this one only where it still matched (`follow`).
+The picture is the one VPinFE's own Displays page draws, with a part's menu offering to draw
+it inside the playfield. It writes this launcher's ini only. Where it disagrees with
+VPinFE's screens the page says so and offers to match them; a change to VPinFE's screens
+moves this one only where it still matched (`follow`).
 """
 
 from __future__ import annotations
@@ -207,13 +207,16 @@ class Page:
         return True
 
     async def match(self) -> None:
-        """VPinFE's parts and arrow, with the topper left where it is unless a part now
-        needs its screen."""
+        """VPinFE's parts and arrow. With no topper screen in VPinFE, the topper is left
+        where it is unless a part now needs its screen."""
         wanted = {part: self.vpinfe.on.get(part)
                   for part in (vpx.BACKGLASS, vpx.SCORE_VIEW, vpx.PLAYFIELD)}
+        has_topper = self.vpinfe.on.get(vpx.TOPPER) is not None
+        if has_topper:
+            wanted[vpx.TOPPER] = self.vpinfe.on[vpx.TOPPER]
         moved = {part: where for part, where in wanted.items() if self.on.get(part) != where}
         topper = self.on.get(vpx.TOPPER)
-        if isinstance(topper, int) and topper in wanted.values():
+        if not has_topper and isinstance(topper, int) and topper in wanted.values():
             moved[vpx.TOPPER] = None
         after = {**self.on, **moved}
         turn = self.vpinfe.turn if self.arrows else None
@@ -410,7 +413,7 @@ def filling(standing: displays.Standing, here: Sequence[Screen], logged: Sequenc
         return not (one.get("set_here") and str(one.get("value") or "").strip())
 
     moved = {part: where for part, where in standing.on.items()
-             if part != vpx.TOPPER and where is not None and open_to_answer(part)}
+             if where is not None and open_to_answer(part)}
     keys = vpx.answer(moved, {**vpx.placed(flat, here), **moved}, here, logged, flat,
                       turn=standing.turn if vpx.PLAYFIELD in moved else None).keys \
         if moved else {}

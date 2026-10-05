@@ -88,8 +88,8 @@ def vpinfe_parts() -> tuple[Part, ...]:
 
 
 def vpx_parts() -> tuple[Part, ...]:
-    """Visual Pinball's: a topper above the backglass, and each but the playfield able to
-    be drawn inside the playfield."""
+    """Visual Pinball's: VPinFE's four, each but the playfield able to be drawn inside the
+    playfield."""
     return (Part(TOPPER, t("console.screens.topper"), inside=True),
             Part(BACKGLASS, t("console.screens.backglass"), inside=True),
             Part(SCORE_VIEW, t("console.screens.score_view"),

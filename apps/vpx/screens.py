@@ -189,17 +189,27 @@ def windows(moved: Mapping[str, Placement], screens: Sequence[Seen],
 
 
 def differs(vpinfe: Mapping[str, Placement], vpx: Mapping[str, Placement]) -> list[str]:
-    """The parts VPX has somewhere other than VPinFE does. Topper is VPX's alone."""
-    return [part for part in (BACKGLASS, SCORE_VIEW, PLAYFIELD)
-            if vpinfe.get(part) != vpx.get(part)]
+    """The parts VPX has somewhere other than VPinFE does. A topper differs only where
+    VPinFE has a screen for one: with none, VPX's is as the person set it."""
+    return [part for part in (TOPPER, BACKGLASS, SCORE_VIEW, PLAYFIELD)
+            if vpinfe.get(part) != vpx.get(part)
+            and (part != TOPPER or vpinfe.get(TOPPER) is not None)]
 
 
 def followed(before: Mapping[str, Placement], moved: Mapping[str, Placement],
              vpx: Mapping[str, Placement]) -> dict[str, Placement]:
     """Of the parts VPinFE moved, those VPX has where VPinFE had them: a part VPX has
-    set apart stays where it was put."""
-    return {part: where for part, where in moved.items()
-            if part != TOPPER and vpx.get(part) == before.get(part)}
+    set apart stays where it was put.
+
+    A topper VPinFE no longer has a screen for stays too, unless a part that moved takes
+    its screen, which leaves it with none.
+    """
+    found = {part: where for part, where in moved.items()
+             if vpx.get(part) == before.get(part) and (part != TOPPER or where is not None)}
+    held = vpx.get(TOPPER)
+    if TOPPER not in found and isinstance(held, int) and held in found.values():
+        found[TOPPER] = None
+    return found
 
 
 # The edge of the output that faces the player when VPinFE turns its page clockwise by

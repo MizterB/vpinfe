@@ -215,10 +215,16 @@ class DifferencesTests(unittest.TestCase):
 
         self.assertEqual(page.differences()[0], ["backglass"])
 
-    def test_a_topper_is_visual_pinball_s_alone_so_it_never_differs(self) -> None:
+    def test_a_topper_with_no_screen_in_vpinfe_is_visual_pinball_s_alone(self) -> None:
         page = _page(flat=_flat(Topper__TopperOutput="1", Topper__TopperDisplay=CVT))
 
         self.assertEqual(page.differences(), ([], False))
+
+    def test_a_topper_on_another_screen_than_vpinfe_s_differs(self) -> None:
+        page = _page(flat=_flat(Topper__TopperOutput="1", Topper__TopperDisplay=CVT),
+                     vpinfe=_standing({"topper": 4}))
+
+        self.assertEqual(page.differences(), (["topper"], False))
 
     def test_the_arrow_differs_where_the_turn_is_known_and_is_not_the_one_vpinfe_gives(
             self) -> None:
@@ -447,6 +453,16 @@ class MatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Topper.TopperOutput", self._written())
         self.assertEqual(page.on["topper"], 3)
 
+    async def test_vpinfe_s_topper_screen_is_matched_floating(self) -> None:
+        page = _page(self.library, vpinfe=_standing({"topper": 4}))
+
+        await press(page.match)
+
+        written = self._written()
+        self.assertEqual(written["Topper.TopperDisplay"], LG)
+        self.assertEqual(written["Topper.TopperOutput"], "1")
+        self.assertEqual(page.on["topper"], 4)
+
     async def test_a_topper_on_a_screen_vpinfe_uses_is_cleared(self) -> None:
         page = _page(self.library, flat=_flat(Topper__TopperOutput="1",
                                               Topper__TopperDisplay=DELL,
@@ -610,10 +626,25 @@ class FollowingTests(unittest.TestCase):
 
         self.assertNotIn("Backglass.BackglassDisplay", keys)
 
-    def test_the_topper_is_never_moved(self) -> None:
-        keys = self._keys(_standing({"topper": 3}), _standing({"topper": 4}))
+    def test_a_topper_vpinfe_moved_moves_a_launcher_that_had_it_there(self) -> None:
+        keys = self._keys(_standing({"topper": 3}), _standing({"topper": 4}),
+                          _flat(Topper__TopperOutput="1", Topper__TopperDisplay=CVT))
+
+        self.assertEqual(keys["Topper.TopperDisplay"], LG)
+        self.assertEqual(keys["Topper.TopperOutput"], "1")
+
+    def test_a_topper_vpinfe_stops_having_is_left_alone(self) -> None:
+        keys = self._keys(_standing({"topper": 3}), _standing({"topper": None}),
+                          _flat(Topper__TopperOutput="1", Topper__TopperDisplay=CVT))
 
         self.assertFalse([key for key in keys if key.startswith("Topper")])
+
+    def test_a_topper_vpinfe_stops_having_is_cleared_when_a_part_takes_its_screen(self) -> None:
+        keys = self._keys(_standing({"topper": 3}),
+                          _standing({"topper": None, "backglass": 3}),
+                          _flat(Topper__TopperOutput="1", Topper__TopperDisplay=CVT))
+
+        self.assertEqual(keys["Topper.TopperOutput"], "0")
 
     def test_nothing_changed_is_nothing_to_write(self) -> None:
         self.assertEqual(self._keys(_standing(), _standing()), {})

@@ -174,6 +174,15 @@ class AgreeingWithVpinfeTests(unittest.TestCase):
     ON = {"playfield": 1, "backglass": 2, "score_view": 3}
 
     def test_parts_in_the_same_place_do_not_differ(self) -> None:
+        self.assertEqual(vs.differs({**self.ON, "topper": 4}, {**self.ON, "topper": 4}), [])
+
+    def test_a_topper_on_another_screen_than_vpinfe_s_differs(self) -> None:
+        self.assertEqual(vs.differs({**self.ON, "topper": 4}, {**self.ON, "topper": 2}),
+                         ["topper"])
+        self.assertEqual(vs.differs({**self.ON, "topper": 4}, {**self.ON, "topper": None}),
+                         ["topper"])
+
+    def test_a_topper_with_no_screen_in_vpinfe_is_as_the_person_set_it(self) -> None:
         self.assertEqual(vs.differs(self.ON, {**self.ON, "topper": 2}), [])
 
     def test_a_part_somewhere_else_differs(self) -> None:
@@ -189,8 +198,25 @@ class AgreeingWithVpinfeTests(unittest.TestCase):
 
         self.assertEqual(got, {"backglass": 3})
 
-    def test_the_topper_never_follows(self) -> None:
-        self.assertEqual(vs.followed({}, {"topper": 2}, {}), {})
+    def test_a_topper_follows_where_vpx_had_it_with_vpinfe(self) -> None:
+        self.assertEqual(vs.followed({"topper": 4}, {"topper": 2}, {"topper": 4}),
+                         {"topper": 2})
+        self.assertEqual(vs.followed({}, {"topper": 2}, {}), {"topper": 2})
+
+    def test_a_topper_vpx_has_set_apart_stays(self) -> None:
+        self.assertEqual(vs.followed({"topper": 4}, {"topper": 2}, {"topper": 3}), {})
+
+    def test_a_topper_vpinfe_stops_having_stays_where_the_person_has_it(self) -> None:
+        self.assertEqual(vs.followed({"topper": 4}, {"topper": None}, {"topper": 4}), {})
+
+    def test_a_topper_on_the_screen_a_followed_part_moves_to_is_cleared(self) -> None:
+        got = vs.followed({"backglass": 2, "topper": 4}, {"backglass": 4, "topper": None},
+                          {"backglass": 2, "topper": 4})
+
+        self.assertEqual(got, {"backglass": 4, "topper": None})
+        self.assertEqual(vs.followed({"backglass": 2}, {"backglass": 4},
+                                     {"backglass": 2, "topper": 4}),
+                         {"backglass": 4, "topper": None})
 
 
 class TheTurnTests(unittest.TestCase):

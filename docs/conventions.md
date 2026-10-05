@@ -1101,12 +1101,13 @@ config goes in on **Add it** only, and **I'll add it myself** shows it with a co
 only option when the config cannot be written. Screens that cannot be read leave both actions
 refused, since rules that place nothing would replace working ones.
 
-A launcher that keeps its own screens draws the same picture over its own storage. It adds
-the parts VPinFE has no window for, such as Visual Pinball's topper, and **In the playfield**
-joins a part's menu where the program can draw a window inside the playfield's. Where the
-launcher's screens are not VPinFE's, the part's name takes the *differs* color and a line
-under the picture says **Different from VPinFE** beside **Match VPinFE**. A change to
-VPinFE's screens moves the launcher's only where it still matched.
+A launcher that keeps its own screens draws the same picture over its own storage, and
+**In the playfield** joins a part's menu where the program can draw a window inside the
+playfield's. Where the launcher's screens are not VPinFE's, the part's name takes the
+*differs* color and a line under the picture says **Different from VPinFE** beside **Match
+VPinFE**. A change to VPinFE's screens moves the launcher's only where it still matched. A
+topper is compared only where VPinFE has a screen for one; with none, the launcher's is as
+the person set it.
 
 A length that is a setting of the computer, such as a screen's size, is shown in centimeters
 or inches by Settings > Console > Units, which follows the region until it is set. The page

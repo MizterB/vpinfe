@@ -66,6 +66,19 @@ class FillingTests(unittest.TestCase):
         self.assertNotIn("TableOverride.ViewCabRotation", keys)
         self.assertIn("Backglass.BackglassDisplay", keys)
 
+    def test_the_topper_goes_to_vpinfe_s_topper_screen_floating(self) -> None:
+        strip = Screen(3, "CVT DVI", 1280, 390, 4080, 0)
+
+        keys = vpx_displays.filling(_standing({"topper": 3}), [*HERE, strip], [], {}, "")
+
+        self.assertEqual("CVT DVI [4080, 0]", keys["Topper.TopperDisplay"])
+        self.assertEqual("1", keys["Topper.TopperOutput"])
+
+    def test_no_topper_screen_in_vpinfe_leaves_the_topper_as_the_person_set_it(self) -> None:
+        keys = vpx_displays.filling(_standing({"topper": None}), HERE, [], {}, "")
+
+        self.assertFalse([key for key in keys if key.startswith("Topper")])
+
     def test_a_part_with_no_screen_writes_nothing(self) -> None:
         keys = vpx_displays.filling(_standing({"backglass": None}), HERE, [], {}, "")
 
