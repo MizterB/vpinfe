@@ -885,9 +885,19 @@ body::before {
   display: flex; flex-direction: column;
 }
 .console-field-row > .console-fact-edit { flex: 1 1 auto; min-width: 0; }
-.console-field-line > .console-field-row { flex: 1 1 auto; min-width: 0; }
-/* Held open on a row with nothing to clear too. */
-.console-field-line > .console-row-action { min-width: var(--target-inline); justify-content: center; }
+/* Reset sits against the control it undoes, and is drawn only where the value is
+   changed, so it never waits behind a hover. */
+.console-field-line > .console-field-row { flex: 0 1 auto; min-width: 0; }
+.console-field-line > .console-row-action {
+  min-width: var(--target-inline); justify-content: center; opacity: 1;
+}
+/* A value at VPX's default reads as background. Colour, not opacity: a dimmed input
+   would fall under the contrast the rest of the page is held to. */
+.console-field-row.console-field-row--default :is(.q-field__native, .q-field__input,
+    .q-select__dropdown-icon, .q-toggle__label, .q-slider__text, .q-field__suffix,
+    .q-field__prefix) {
+  color: var(--ink-3);
+}
 .console-field-line > .console-row-action .q-btn {
   width: var(--target-inline); height: var(--target-inline);
   min-width: var(--target-inline); min-height: var(--target-inline);
@@ -1292,10 +1302,7 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
 @media (hover: hover) and (pointer: fine) {
   .console-row-action { opacity: 0; }
   .console-member-row:hover .console-row-action,
-  .console-member-row:focus-within .console-row-action,
-  .console-field-line:hover .console-row-action,
-  .console-field-line:focus-within .console-row-action,
-  .console-fact-label:hover + .console-field-line .console-row-action { opacity: 1; }
+  .console-member-row:focus-within .console-row-action { opacity: 1; }
   /* A row in a state somebody has to act on keeps its action visible. Hover-revealing
      it is right where the row is mostly read and the act is occasional; it is wrong
      where the row exists in order to be acted on, which is what these states are. */

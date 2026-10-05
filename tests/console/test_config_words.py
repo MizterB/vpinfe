@@ -132,17 +132,23 @@ class WhoseValueTests(unittest.TestCase):
     def test_nobody_set_it(self) -> None:
         self.assertEqual(self.whose(), "Visual Pinball X's default")
 
-    def test_set_here(self) -> None:
+    def test_set_to_something_else_says_what_it_changed_from(self) -> None:
         self.assertEqual(self.whose(set_here=True, in_effect=True, scope="launcher",
-                                    value="0"), "Set here")
+                                    value="0"),
+                         "Changed from On - Visual Pinball X's default")
 
-    def test_set_here_to_the_default_is_still_set_here_and_says_so(self) -> None:
-        """It is in the file, and it will not follow a later default."""
+    def test_set_to_what_it_would_be_anyway_is_the_default_s(self) -> None:
+        """In the file, but nothing was changed, so the hover says what the row says."""
         for value in ("1", "1.0"):
             with self.subTest(value=value):
                 self.assertEqual(self.whose(set_here=True, in_effect=True,
                                             scope="launcher", value=value),
-                                 "Same as Visual Pinball X's default")
+                                 "Visual Pinball X's default")
+
+    def test_changed_from_another_scope_s_value_names_that_scope(self) -> None:
+        self.assertEqual(self.whose(set_here=True, in_effect=True, scope="folder", value="0",
+                                    fallback_scope="launcher", fallback="1"),
+                         "Changed from On - All Tables")
 
     def test_followed_from_another_scope(self) -> None:
         self.assertEqual(self.whose(scope="launcher", value="0"), "All Tables")

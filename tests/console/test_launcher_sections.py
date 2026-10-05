@@ -139,20 +139,26 @@ class AllSettingsTests(unittest.TestCase):
         self.assertEqual(self._found(area="more"), [
             ("Player", ["Player.BallTrail"]), ("DMD", ["DMD.Profile1Legacy"])])
 
-    def test_set_here_is_what_this_launcher_s_file_holds(self) -> None:
-        values = {"Player.BallTrail": {"value": "1", "set_here": True},
-                  "Backglass.BackglassOutput": {"value": "1", "set_here": False}}
-
-        self.assertEqual(self._found(values, set_here=True),
-                         [("Player", ["Player.BallTrail"])])
-
-    def test_different_from_default_is_about_the_value_not_where_it_is_set(self) -> None:
+    def test_changed_is_a_value_set_here_that_differs_from_what_it_would_follow(self) -> None:
         values = {"Player.BallTrail": {"value": "1.0", "set_here": True},
                   "Backglass.BackglassOutput": {"value": "1", "set_here": False},
-                  "Player.PlayfieldFullScreen": {"value": "", "set_here": False}}
+                  "Player.PlayfieldFullScreen": {"value": "", "set_here": False},
+                  "DMD.Profile1Legacy": {"value": "2", "set_here": True}}
 
         self.assertEqual(self._found(values, differs=True),
-                         [("Backglass", ["Backglass.BackglassOutput"])])
+                         [("DMD", ["DMD.Profile1Legacy"])])
+
+    def test_changed_follows_the_scope_it_is_read_from(self) -> None:
+        inherited = {"value": "1", "set_here": True, "in_effect": True,
+                     "fallback": "0", "fallback_scope": "launcher"}
+        values = {"Player.PlayfieldFullScreen": inherited,
+                  "Backglass.BackglassOutput": {"value": "0", "set_here": True,
+                                                "in_effect": True, "fallback": "0",
+                                                "fallback_scope": "launcher"},
+                  "DMD.Profile1Legacy": {"value": "", "set_here": True, "varies": True}}
+
+        self.assertEqual(self._found(values, differs=True), [
+            ("Player", ["Player.PlayfieldFullScreen"]), ("DMD", ["DMD.Profile1Legacy"])])
 
     def test_a_pair_is_found_whole_where_either_of_its_rows_is(self) -> None:
         video_mode = SimpleNamespace(key="video_mode", keys=("Topper.TopperFSWidth",
@@ -165,11 +171,25 @@ class AllSettingsTests(unittest.TestCase):
         values = {"Topper.TopperFSHeight": {"value": "1200", "set_here": True}}
         pair = [("Topper", ["Topper.TopperFSWidth", "Topper.TopperFSHeight"])]
 
-        for wanted in ({"query": "height"}, {"set_here": True}, {"differs": True}):
+        for wanted in ({"query": "height"}, {"differs": True}):
             with self.subTest(**wanted):
                 self.assertEqual([(section, [f.key for f in fields]) for section, fields in
                                   workbench.found_settings(groups, values, wanted)], pair)
         self.assertEqual(workbench.curated_pairs(groups), [video_mode])
+
+    def test_changed_counts_a_pair_once_and_only_in_the_area_asked(self) -> None:
+        video_mode = SimpleNamespace(key="video_mode", keys=("Topper.TopperFSWidth",
+                                                             "Topper.TopperFSHeight"))
+        groups = [_group("displays", _setting("Topper.TopperFSWidth", "Width", default="1920"),
+                         _setting("Topper.TopperFSHeight", "Height", default="1080"),
+                         curated=[_heading("topper", *video_mode.keys, pairs=[video_mode])]),
+                  _group("more", _setting("Player.BallTrail", "Ball Trail", default="1"))]
+        values = {key: {"value": "1", "set_here": True} for key in
+                  ("Topper.TopperFSWidth", "Topper.TopperFSHeight", "Player.BallTrail")}
+        values["Player.BallTrail"]["value"] = "0"
+
+        self.assertEqual(workbench.changed_count(groups, values), 2)
+        self.assertEqual(workbench.changed_count(groups, values, area="more"), 1)
 
     def test_a_section_reads_as_words(self) -> None:
         self.assertEqual(workbench.section_title("ScoreView", {}), "Score View")
@@ -691,8 +711,8 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
     def test_it_is_drawn_on_the_value_s_line_and_not_under_it(self) -> None:
         icon_action, action = self._drawn(self.SET)
 
-        self.assertEqual(icon_action.call_args.args, (t("word.clear"), self.wipe))
-        self.assertEqual(icon_action.call_args.kwargs["icon"], workbench.verbs.CLEAR)
+        self.assertEqual(icon_action.call_args.args, (t("word.reset"), self.wipe))
+        self.assertEqual(icon_action.call_args.kwargs["icon"], workbench.verbs.RESET)
         action.assert_not_called()
 
     def test_its_hover_says_what_it_goes_back_to(self) -> None:
@@ -713,6 +733,12 @@ class ClearTests(unittest.IsolatedAsyncioTestCase):
 
         icon_action.assert_not_called()
         action.assert_not_called()
+
+    def test_a_value_set_to_what_it_would_be_anyway_has_none(self) -> None:
+        """Nothing was changed, so there is nothing to put back."""
+        icon_action, _ = self._drawn({**self.SET, "value": "2"})
+
+        icon_action.assert_not_called()
 
     async def test_each_row_s_clear_empties_its_own_key(self) -> None:
         library = Mock()
@@ -823,6 +849,11 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
                               self.APP, joiner="×", clear=AsyncMock())()
         return ui, icon_action
 
+    @property
+    def _changed(self) -> str:
+        return t("console.workbench.changed_link",
+                 whose=t("console.workbench.app_default", app=self.APP))
+
     def _part(self, field: SimpleNamespace, said: str) -> str:
         return t("console.workbench.part_said", label=field.label, said=said)
 
@@ -888,13 +919,13 @@ class PairTests(unittest.IsolatedAsyncioTestCase):
     def test_its_hover_says_whose_once_where_both_agree(self) -> None:
         ui, _ = self._drawn(self.SET, self.SET)
 
-        self.assertEqual(ui.tooltip.return_value.text, t("console.workbench.set_2"))
+        self.assertEqual(ui.tooltip.return_value.text, self._changed)
 
     def test_its_hover_says_whose_each_is_where_they_differ(self) -> None:
         ui, _ = self._drawn(self.SET, self.UNSET)
 
         self.assertEqual(ui.tooltip.return_value.text, "\n".join((
-            self._part(self.WIDTH, t("console.workbench.set_2")),
+            self._part(self.WIDTH, self._changed),
             self._part(self.HEIGHT, t("console.workbench.app_default", app=self.APP)))))
 
     def test_clear_s_hover_names_the_number_it_clears_where_it_is_one(self) -> None:
@@ -2327,6 +2358,7 @@ class CatalogLabelTests(unittest.IsolatedAsyncioTestCase):
                                      new=AsyncMock(return_value=[])), \
                         patch.object(workbench.settings_page, "control_for"), \
                         patch.object(workbench.panel, "search"), \
+                        patch.object(workbench.panel, "action"), \
                         patch.object(workbench.panel, "facts") as facts:
                     await workbench._config_rows(context, group)
 

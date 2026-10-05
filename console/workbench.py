@@ -4705,13 +4705,14 @@ def _marked(parts: Sequence[Part], app_name: str,
             on_leave: Callable[[], Any] | None = None,
             clear: Callable[[], Awaitable[None]] | None = None,
             playing: bool = False) -> Callable[[], None]:
-    """One value, or a pair with `joiner` between them, as `(control, held, field)`: a
-    dot before it where this scope sets any of them, whose each is on hover, and `clear`
-    at the line's end while this scope sets any of them. Each draw adds to `redraws`
-    what brings the dot, the hover and Clear up to each `held` without drawing the
-    controls again. `on_leave` runs when focus leaves the line.
+    """One value, or a pair with `joiner` between them, as `(control, held, field)`. A
+    value at the default is drawn quiet and unmarked. Where this scope sets any of them
+    to something else, a dot comes before it, whose each is on hover, and `clear` after
+    the control. Each draw adds to `redraws` what brings the dot, the hover and Reset up to
+    each `held` without drawing the controls again. `on_leave` runs when focus leaves the
+    line.
 
-    Clear only where there is something to clear: on an untouched row it would be a
+    Reset only where there is something to reset: on an untouched row it would be a
     control that does nothing, and a column of inert verbs teaches people to stop reading
     them.
     """
@@ -4732,24 +4733,24 @@ def _marked(parts: Sequence[Part], app_name: str,
             row.on("focusout", on_leave)
 
         def show() -> None:
-            held_here = [held for _, held, _ in parts if held.get("set_here")]
-            dot.set_visibility(bool(held_here))
-            off = bool(held_here) and not any(held.get("in_effect", True)
-                                              for held in held_here)
+            changed = [(held, field) for _, held, field in parts if _changed(held, field)]
+            dot.set_visibility(bool(changed))
+            off = any(not held.get("in_effect", True) for held, _ in changed)
             dot.classes(add="console-named-mark--off" if off else None,
                         remove=None if off else "console-named-mark--off")
+            row.classes(add=None if changed else "console-field-row--default",
+                        remove="console-field-row--default" if changed else None)
             whose.text = _each_said(
                 [(field, _whose_value(held, field, app_name)) for _, held, field in parts],
                 len(parts))
             end.clear()
-            if clear is not None and held_here:
+            if clear is not None and changed:
                 with end:
-                    panel.icon_action(t("word.clear"), clear, icon=verbs.CLEAR,
+                    panel.icon_action(t("word.reset"), clear, icon=verbs.RESET,
                                       enabled=not playing,
                                       hint=t(PLAYING_NOTE) if playing else _each_said(
                                           [(field, _clear_hint(held, field, app_name))
-                                           for _, held, field in parts
-                                           if held.get("set_here")], len(parts)))()
+                                           for held, field in changed], len(parts)))()
 
         show()
         if redraws is not None:
@@ -4787,10 +4788,12 @@ def _whose_value(held: dict, field: Any, app_name: str) -> str:
             return t("console.workbench.override_value", whose=whose, value=said)
         return t("console.workbench.override", whose=whose)
     if held.get("set_here"):
-        if not held.get("varies") and _same_value(field, held.get("value") or "",
-                                                  str(field.default or "")):
-            return t("console.workbench.same_default", app=app_name)
-        return t("console.workbench.set_2")
+        value, follows = _follows(held, field, app_name)
+        if not _changed(held, field):
+            return follows
+        if value:
+            return t("console.workbench.changed_from", value=value, whose=follows)
+        return t("console.workbench.changed_link", whose=follows)
     if held.get("scope"):
         return whose
     if not held.get("value") and (said := getattr(field, "left_empty", "")):
@@ -4821,15 +4824,34 @@ def _said_value(field: Any, value: str) -> str:
     return value
 
 
-def _clear_hint(held: dict, field: Any, app_name: str) -> str:
-    """What clearing it will leave in force, and whose value that is."""
+def _leaves(held: dict, field: Any) -> str:
+    """The value that is in force once this scope stops naming one."""
+    if held.get("fallback_scope"):
+        return str(held.get("fallback") or "")
+    return str(field.default or "")
+
+
+def _follows(held: dict, field: Any, app_name: str) -> tuple[str, str]:
+    """`_leaves` as somebody reads it, and whose it is."""
     where = held.get("fallback_scope") or ""
-    if where:
-        whose = t(CAME_FROM.get(where, "console.workbench.inherited"))
-        value = _said_value(field, held.get("fallback") or "")
-    else:
-        whose = t("console.workbench.app_default", app=app_name)
-        value = _said_value(field, field.default)
+    whose = (t(CAME_FROM.get(where, "console.workbench.inherited")) if where
+             else t("console.workbench.app_default", app=app_name))
+    return _said_value(field, _leaves(held, field)), whose
+
+
+def _changed(held: dict, field: Any) -> bool:
+    """A value this scope sets that is not the one it would follow without it. One that
+    something narrower answers over counts: it is the exception most worth seeing."""
+    if not held.get("set_here"):
+        return False
+    if held.get("varies") or not held.get("in_effect", True):
+        return True
+    return not _same_value(field, str(held.get("value") or ""), _leaves(held, field))
+
+
+def _clear_hint(held: dict, field: Any, app_name: str) -> str:
+    """What resetting it will leave in force, and whose value that is."""
+    value, whose = _follows(held, field, app_name)
     if value:
         return t("console.workbench.back_to", value=value, whose=whose)
     return t("console.workbench.back_link", whose=whose)
@@ -4898,8 +4920,8 @@ async def _config_rows(context: dict[str, Any], group: Any) -> None:
         with ui.column().classes("gap-0 console-form"):
             panel.facts(ui, vpx_input.entries(context, group, await _config_values(context)))
         return
-    _area_search(context)
     values = await _config_values(context)
+    _area_search(context, group, values)
     shown = curated_blocks(group, values)
     if vpx_displays.applies(group):
         entries = await vpx_displays.entries(
@@ -4991,11 +5013,31 @@ def _is_on(field: Any, held: dict[str, Any]) -> bool:
     return value not in ("", "0", "false", "off", "no")
 
 
-def _area_search(context: dict[str, Any]) -> None:
-    """Any setting, found from any area: what is typed here carries on in All Settings."""
-    with ui.row().classes("console-section-bar"):
+def _area_search(context: dict[str, Any], group: Any, values: dict[str, Any]) -> None:
+    """Any setting, found from any area: what is typed here carries on in All Settings, and
+    so does what differs from the default in this area."""
+    app_name = str(context["launcher"].get("app_name") or "")
+    with ui.row().classes("items-center gap-x-4 console-section-bar"):
         search = panel.search(t("console.app_settings.search_settings")) \
             .props("debounce=250")
+        holder = ui.row().classes("items-center")
+
+    def draw_changed(changed: int) -> None:
+        holder.clear()
+        with holder:
+            panel.action(t("console.workbench.changed_filter_count", count=changed),
+                         lambda: _open_all_settings(context, area=group.key, differs=True),
+                         icon=verbs.FILTER, enabled=bool(changed),
+                         hint=t("console.workbench.changed_filter.help" if changed
+                                else "console.workbench.changed_filter.none",
+                                app=app_name))()
+
+    async def recount() -> None:
+        if not holder.is_deleted:
+            draw_changed(changed_count([group], await _config_values(context)))
+
+    draw_changed(changed_count([group], values))
+    context["recount_changed"] = recount
 
     def find(typed: Any) -> None:
         if said := str(typed or "").strip():
@@ -5145,6 +5187,8 @@ async def _setting_entries(context: dict[str, Any],
                 held.update(fresh.get(other) or {})
             for redraw in redraws:
                 redraw()
+            if (recount := context.get("recount_changed")) is not None:
+                await recount()
             return True
         return write
 
@@ -5382,7 +5426,7 @@ def _listed_groups(context: dict[str, Any]) -> list[Any]:
 
 async def _all_settings(context: dict[str, Any]) -> None:
     """Every setting the program keeps, in its own words, found by typing or narrowed
-    to what is set here, what differs from its default, or one area."""
+    to what differs from its default, or one area."""
     wanted: dict[str, Any] = context["state"].setdefault("all_settings", {})
     groups = _listed_groups(context)
     names = _plugin_names(groups)
@@ -5390,6 +5434,8 @@ async def _all_settings(context: dict[str, Any]) -> None:
     if wanted.get("area") not in areas:
         wanted["area"] = ""
 
+    app_name = str(context["launcher"].get("app_name") or "")
+    changed = changed_count(groups, await _config_values(context))
     with ui.row().classes("items-center gap-x-4 gap-y-2 console-section-bar"):
         search = panel.search(t("console.app_settings.search_settings")) \
             .props("debounce=250")
@@ -5398,13 +5444,18 @@ async def _all_settings(context: dict[str, Any]) -> None:
             search.props("autofocus")
         area = ui.select(areas, value=wanted["area"]) \
             .props("dense outlined options-dense").classes("w-40")
-        set_here = ui.checkbox(t("console.workbench.set_here_filter"),
-                               value=bool(wanted.get("set_here"))) \
-            .props("dense").classes("whitespace-nowrap")
-        differs = ui.checkbox(t("console.workbench.differs_filter"),
+        differs = ui.checkbox(t("console.workbench.changed_filter_count", count=changed),
                               value=bool(wanted.get("differs"))) \
             .props("dense").classes("whitespace-nowrap")
+        differs.tooltip(t("console.workbench.changed_filter.help", app=app_name))
     results = ui.column().classes("gap-0 w-full")
+
+    async def recount() -> None:
+        if not differs.is_deleted:
+            differs.set_text(t("console.workbench.changed_filter_count",
+                               count=changed_count(groups, await _config_values(context))))
+
+    context["recount_changed"] = recount
 
     async def draw() -> None:
         found = found_settings(groups, await _config_values(context), wanted)
@@ -5422,7 +5473,6 @@ async def _all_settings(context: dict[str, Any]) -> None:
 
     search.on_value_change(lambda e: narrow("query", e.value))
     area.on_value_change(lambda e: narrow("area", e.value))
-    set_here.on_value_change(lambda e: narrow("set_here", e.value))
     differs.on_value_change(lambda e: narrow("differs", e.value))
     await draw()
 
@@ -5435,8 +5485,7 @@ def found_settings(groups: Sequence[Any], values: dict[str, Any],
 
     def wanted_here(field: Any) -> bool:
         held = values.get(field.key) or {}
-        return not ((wanted.get("set_here") and not held.get("set_here"))
-                    or (wanted.get("differs") and not differs_from_default(field, held))
+        return not ((wanted.get("differs") and not _changed(held, field))
                     or (terms and not _says_all(field, terms)))
 
     listed = [field for group in groups
@@ -5463,15 +5512,16 @@ def _says_all(field: Any, terms: Sequence[str]) -> bool:
     return all(term in said for term in terms)
 
 
-def differs_from_default(field: Any, held: dict[str, Any]) -> bool:
-    value = str(held.get("value") or "")
-    if not value:
-        return False
-    default = str(field.default or "")
-    try:
-        return float(value) != float(default)
-    except ValueError:
-        return value != default
+def changed_count(groups: Sequence[Any], values: dict[str, Any], area: str = "") -> int:
+    """How many rows the Changed filter would list: a pair is one row."""
+    keys = {field.key for group in groups if not area or group.key == area
+            for field in group.settings
+            if _changed(values.get(field.key) or {}, field)}
+    rows = len(keys)
+    for pair in curated_pairs(groups):
+        if taken := keys.intersection(pair.keys):
+            rows -= len(taken) - 1
+    return rows
 
 
 def _plugin_names(groups: Sequence[Any]) -> dict[str, str]:
