@@ -10,13 +10,17 @@ Slow: boots a real instance and a real browser. VPinPlay talks to a stand-in ser
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import unittest
+import urllib.error
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from tests.support import vpinplay_stub
+from PIL import Image
+
+from tests.support import pictures, vpinplay_stub
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
@@ -54,8 +58,21 @@ DIALOG_TEXT = ("(() => { const box = [...document.querySelectorAll('.q-dialog')]
                " return box ? box.innerText.trim() : null; })()")
 
 
+NAME_LINES = ".console-cell-identifier .console-cell-lines"
+CIRCLE = ".console-cell-identifier .console-cell-art-box--circle"
+PERSON = f"{WORK} .console-slot-art--person"
+NOTICE = ".q-notification"
+
+
 def _cell(player_id: str, part: str) -> str:
     return f".ag-row[row-id={json.dumps(player_id)}] {part}"
+
+
+def _centre(data: bytes) -> tuple[int, int, int]:
+    """The color at the middle of a picture."""
+    with Image.open(io.BytesIO(data)) as shown:
+        rgb = shown.convert("RGB")
+        return rgb.getpixel((rgb.width // 2, rgb.height // 2))
 
 
 def _text(selector: str) -> str:
@@ -147,7 +164,7 @@ class PlayersDrive(unittest.TestCase):
 
             await walk.visit("/console?view=players")
             seen["purpose"] = await browser.wait_for(_text(".console-page-purpose"))
-            owner_name = _text(_cell(owner, ".console-cell-identifier"))
+            owner_name = _text(_cell(owner, NAME_LINES))
             seen["alone"] = await browser.wait_for(owner_name)
 
             # A key with no `claimed` marker resolves once against the stub; this id
@@ -181,7 +198,7 @@ class PlayersDrive(unittest.TestCase):
             await press(FOOTER, "Add")
             await browser.wait_for(f"{TITLE} === 'Jordan'")
             jordan = named("Jordan")
-            jordan_name = _text(_cell(jordan, ".console-cell-identifier"))
+            jordan_name = _text(_cell(jordan, NAME_LINES))
             seen["added"] = roster()[jordan]
             seen["jordan_row"] = await browser.wait_for(jordan_name)
             seen["owner_row"] = await browser.wait_for(owner_name)
@@ -193,6 +210,88 @@ class PlayersDrive(unittest.TestCase):
             await browser.wait_for(
                 f"{_text(_cell(jordan, '.ag-cell[col-id=initials]'))} === 'XYZ'")
             seen["renamed"] = roster()[jordan]
+
+            # A picture: added, replaced and undone, removed and undone.
+            red, blue = saved / "red.png", saved / "blue.png"
+            red.write_bytes(pictures.png(80, 60, pictures.RED))
+            blue.write_bytes(pictures.png(80, 60, pictures.BLUE))
+            in_row = json.dumps(_cell(jordan, f"{CIRCLE} img"))
+
+            def stored() -> tuple[int, int, int] | None:
+                try:
+                    with urllib.request.urlopen(instance.console_url(
+                            f"/api/v1/players/{jordan}/picture"), timeout=10) as held:
+                        return _centre(held.read())
+                except urllib.error.HTTPError:
+                    return None
+
+            async def stored_is(color: tuple[int, int, int] | None) -> bool:
+                for _ in range(100):
+                    now = stored()
+                    if (now is None and color is None) or (
+                            now is not None and color is not None
+                            and all(abs(a - b) < 16 for a, b in zip(now, color, strict=True))):
+                        return True
+                    await asyncio.sleep(0.05)
+                return False
+
+            async def noticed(said: str) -> None:
+                await browser.wait_for(
+                    f"[...document.querySelectorAll('{NOTICE}')]"
+                    f".some(n => n.innerText.includes({json.dumps(said)}))")
+
+            async def undo_notice(said: str) -> None:
+                await browser.evaluate(
+                    f"[...document.querySelectorAll('{NOTICE}')]"
+                    f".find(n => n.innerText.includes({json.dumps(said)}))"
+                    ".querySelector('.q-btn').click()")
+
+            seen["row_before"] = await browser.wait_for(_text(_cell(jordan, CIRCLE)))
+            seen["slot_before"] = await browser.wait_for(_text(PERSON))
+            seen["initials_px"] = await browser.evaluate(
+                f"(el => el ? getComputedStyle(el).fontSize : null)(document.querySelector("
+                f"{json.dumps(_cell(jordan, '.console-circle-initials'))}))")
+            seen["owner_lines_h"] = await browser.evaluate(
+                f"(el => el ? el.getBoundingClientRect().height : null)(document.querySelector("
+                f"{json.dumps(_cell(owner, NAME_LINES + ' > span'))}))")
+            seen["acts_before"] = await browser.evaluate(f"{SHOWN_ACTS}.map({SAYS})")
+            await press(ACTS, "Add")
+            await browser.wait_for(DIALOG_UP)
+            await pick(f"{DIALOG} .q-uploader input[type=file]", red)
+            await browser.wait_for(f"!document.querySelector('{DIALOG}')")
+            await browser.wait_for(f"!!document.querySelector({in_row})")
+            await browser.wait_for(f"!!document.querySelector('{PERSON} img')")
+            await noticed("Picture added")
+            seen["added_red"] = await stored_is(pictures.RED)
+            seen["acts_after"] = await browser.evaluate(f"{SHOWN_ACTS}.map({SAYS})")
+            seen["row_circle"] = await browser.evaluate(
+                f"(el => el ? [getComputedStyle(el).borderRadius, el.getBoundingClientRect()"
+                f".width, el.getBoundingClientRect().height] : null)("
+                f"document.querySelector({json.dumps(_cell(jordan, CIRCLE))}))")
+
+            await press(ACTS, "Replace")
+            await browser.wait_for(DIALOG_UP)
+            await pick(f"{DIALOG} .q-uploader input[type=file]", blue)
+            await browser.wait_for(f"!document.querySelector('{DIALOG}')")
+            await noticed("Picture replaced")
+            seen["replaced_blue"] = await stored_is(pictures.BLUE)
+            await undo_notice("Picture replaced")
+            seen["undone_to_red"] = await stored_is(pictures.RED)
+            await browser.wait_for(
+                f"(img => !!img && img.src.includes('v={roster()[jordan]['picture_version']}'))"
+                f"(document.querySelector('{PERSON} img'))")
+
+            await press(ACTS, "Remove")
+            await noticed("Picture removed")
+            await browser.wait_for(f"!document.querySelector({in_row})")
+            seen["removed_picture"] = roster()[jordan]["picture_version"]
+            seen["acts_removed"] = await browser.evaluate(f"{SHOWN_ACTS}.map({SAYS})")
+            await undo_notice("Picture removed")
+            await browser.wait_for(f"!!document.querySelector({in_row})")
+            seen["removal_undone"] = await stored_is(pictures.RED)
+            await browser.wait_for(
+                f"(img => !!img && img.src.includes('v={roster()[jordan]['picture_version']}'))"
+                f"(document.querySelector('{PERSON} img'))")
 
             # Up, and down again.
             await browser.click(f"{WORK} .q-toggle")
@@ -208,9 +307,11 @@ class PlayersDrive(unittest.TestCase):
             await type_into(f"{DIALOG} input:not([type=file])", 0, "xyz")
             await press(FOOTER, "Add")
             await browser.wait_for(f"{TITLE} === 'XYZ'")
+            seen["guest_slot"] = await browser.wait_for(_text(PERSON))
+            seen["guest_acts"] = await browser.evaluate(f"{SHOWN_ACTS}.map({SAYS})")
             guest = next(key for key, one in roster().items() if one["guest"])
             seen["guest_row"] = await browser.wait_for(
-                _text(_cell(guest, ".console-cell-identifier")))
+                _text(_cell(guest, NAME_LINES)))
             seen["shared"] = [await browser.wait_for(
                 f"(said => said && said.includes('Same') ? said : null)"
                 f"({_text(_cell(one, '.ag-cell[col-id=initials]'))})")
@@ -368,6 +469,35 @@ class PlayersDrive(unittest.TestCase):
     def test_the_panel_renames_and_changes_initials(self) -> None:
         self.assertEqual((self.seen["renamed"]["name"], self.seen["renamed"]["initials"]),
                          ("Sam", "XYZ"))
+
+    def test_a_picture_is_added_in_the_row_and_in_details(self) -> None:
+        self.assertEqual(self.seen["row_before"], "XYZ")
+        self.assertEqual(self.seen["slot_before"], "XYZ")
+        self.assertEqual(self.seen["acts_before"], ["Add"])
+        self.assertTrue(self.seen["added_red"])
+        self.assertEqual(self.seen["acts_after"], ["Replace", "Remove"])
+
+    def test_the_initials_fit_the_circle_and_the_name_keeps_one_line(self) -> None:
+        self.assertEqual(self.seen["initials_px"], "13px")
+        self.assertLess(self.seen["owner_lines_h"], 50)
+
+    def test_the_row_draws_the_picture_in_a_circle(self) -> None:
+        radius, width, height = self.seen["row_circle"]
+        self.assertEqual((width, height), (40, 40))
+        self.assertEqual(radius, "50%")
+
+    def test_a_replaced_picture_is_put_back_by_undo(self) -> None:
+        self.assertTrue(self.seen["replaced_blue"])
+        self.assertTrue(self.seen["undone_to_red"])
+
+    def test_a_removed_picture_goes_and_undo_brings_it_back(self) -> None:
+        self.assertIsNone(self.seen["removed_picture"])
+        self.assertEqual(self.seen["acts_removed"], ["Add"])
+        self.assertTrue(self.seen["removal_undone"])
+
+    def test_a_guest_has_no_picture_to_set(self) -> None:
+        self.assertEqual(self.seen["guest_slot"], "XYZ")
+        self.assertEqual(self.seen["guest_acts"], [])
 
     def test_up_goes_on_and_off(self) -> None:
         self.assertTrue(all(self.seen["up"].values()))

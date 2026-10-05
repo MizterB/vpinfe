@@ -76,6 +76,23 @@ class TheRows(unittest.TestCase):
                                                {"rating": 4}]), 3)
 
 
+class ThePicture(unittest.TestCase):
+    def test_a_row_addresses_the_picture_at_list_size_with_its_version(self) -> None:
+        kept = _player("p-jor", name="Jordan", picture_version="abc123")
+        made = players.rows([OWNER, kept])
+        self.assertEqual([row["picture"] for row in made],
+                         ["", "/api/v1/players/p-jor/picture?size=256&v=abc123"])
+
+    def test_the_panel_asks_for_the_larger_size(self) -> None:
+        kept = _player("p-jor", picture_version="abc123")
+        self.assertEqual(players.picture_address(kept, 1024),
+                         "/api/v1/players/p-jor/picture?size=1024&v=abc123")
+
+    def test_an_id_that_needs_quoting_is_quoted(self) -> None:
+        self.assertIn("/players/a%2Fb/picture",
+                      players.picture_address(_player("a/b", picture_version="v1")))
+
+
 class WhatCanBeDone(unittest.TestCase):
     def acts(self, player: dict[str, Any]) -> list:
         return players.acts(object(), {}, player, lambda: None)  # type: ignore[arg-type]
@@ -249,6 +266,10 @@ class TheClient(unittest.TestCase):
              ("POST", "/players/p-1/accounts/vpinplay/acts/claim", {})),
             (lambda c: c.player_card("p-1", "vpinplay"),
              ("GET", "/players/p-1/accounts/vpinplay/card", None)),
+            (lambda c: c.set_player_picture("a/b", "me.png", b"x"),
+             ("PUT", "/players/a%2Fb/picture", None)),
+            (lambda c: c.clear_player_picture("p-1"), ("DELETE", "/players/p-1/picture", None)),
+            (lambda c: c.player_picture_bytes("p-1"), ("GET", "/players/p-1/picture", None)),
             (lambda c: c.account_available("vpinplay", "/available", "jordan"),
              ("GET", "/ext/vpinplay/available?candidate=jordan", None)),
         ]

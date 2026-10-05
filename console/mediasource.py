@@ -1409,6 +1409,30 @@ class _Image(_OneFile):
         await self.finish(t("console.mediasource.label_saved", label=self.label))
 
 
+class _PlayerPicture(_Image):
+    """A player's picture: a file from this computer or from the host. A player has no
+    games to borrow a wheel from."""
+
+    games = False
+
+    def __init__(self, library: Any, label: str, save: Callable) -> None:
+        super().__init__(library, "", label, save)
+
+    def title(self) -> str:
+        return t("console.mediasource.title_player", kind=self.label)
+
+    @on_page
+    async def took(self, name: str, data: bytes) -> None:
+        try:
+            redraw = await self.done(name, data)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("console.mediasource.image_failed"), caption=why(exc),
+                      type="negative")
+            return
+        self.dialog.close()
+        await redraw()
+
+
 def _attention(said: str) -> None:
     with ui.element("div").classes("console-attention w-full"):
         ui.icon("error_outline").classes("console-attention-icon")
@@ -1486,3 +1510,8 @@ def take_table_drops(element: Any, context: dict[str, Any], done: Callable) -> N
 
 def open_image_sources(library: Any, name: str, label: str, done: Callable) -> None:
     _Image(library, name, label, done).open()
+
+
+def open_player_picture_sources(library: Any, label: str, save: Callable) -> None:
+    """`save(name, data)` keeps the file and raises with its reason if it cannot."""
+    _PlayerPicture(library, label, save).open()

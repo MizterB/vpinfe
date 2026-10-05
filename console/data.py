@@ -537,6 +537,15 @@ class Library:
     def set_player_up(self, player_id: str, up: bool) -> list[dict]:
         return self._client.set_player_up(player_id, up)
 
+    def set_player_picture(self, player_id: str, filename: str, content: bytes) -> dict:
+        return self._client.set_player_picture(player_id, filename, content)
+
+    def clear_player_picture(self, player_id: str) -> dict:
+        return self._client.clear_player_picture(player_id)
+
+    def player_picture_bytes(self, player_id: str) -> bytes | None:
+        return self._client.player_picture_bytes(player_id)
+
     def player_record(self, player_id: str) -> list[dict]:
         return self._client.player_record(player_id)
 

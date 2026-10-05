@@ -2811,6 +2811,19 @@ a.console-tag:hover { background: var(--wash-hover); }
    the same room the art would, so picking an empty slot does not resize the panel. */
 /* A collection's wheel is drawn square, the canvas a game's wheel comes on. */
 .console-slot-art--wheel { aspect-ratio: 1; width: 100%; max-width: 220px; align-self: center; }
+/* A person's picture is a circle, filled by the square the API keeps. */
+.console-slot-art--person {
+  position: relative; aspect-ratio: 1; width: 100%; max-width: 160px; align-self: center;
+}
+.console-slot-art--person .console-slot-blank {
+  border-radius: 50%; border-style: solid; background: var(--art-ground);
+}
+.console-slot-art--person .console-person-picture { position: absolute; inset: 0; }
+.console-slot-art--person .console-person-picture img {
+  display: block; width: 100%; height: 100%; max-height: none; object-fit: cover;
+  border-radius: 50%; border: 0;
+}
+.console-person-initials { font-size: 36px; font-weight: 600; color: var(--ink-3); }
 .console-wheel-mosaic {
   display: grid; grid-template: 1fr 1fr / 1fr 1fr; gap: 6px;
   width: 100%; height: 100%; place-items: center;
@@ -3299,6 +3312,15 @@ a.console-tag:hover { background: var(--wash-hover); }
 }
 .console-cell-art-box:not(.console-cell-art-box--glyph) > .console-cell-noart { display: none; }
 .console-cell-art-box img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+/* A person's picture is a circle however the lists are set to draw art. */
+.console-cell-art-box--circle {
+  width: var(--art-h, 40px); border-radius: 50%; background: var(--art-ground);
+}
+.console-cell-art-box--circle.console-cell-art-box--glyph { background: var(--art-ground); }
+.console-cell-art-box--circle img { width: 100%; height: 100%; object-fit: cover; }
+.console-cell-art-box--circle .console-circle-initials {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-3);
+}
 .console-cell-lines { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .console-cell-noart { font-size: var(--icon-slot-small); color: var(--ink-3); }
 svg.console-cell-noart {

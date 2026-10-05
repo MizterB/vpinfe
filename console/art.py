@@ -32,6 +32,10 @@ def collection(name: str, *, version: str | None = None, size: int | None = None
     return _with(f"/api/v1/collections/{quote(name, safe='')}/image", version, size)
 
 
+def player(player_id: str, *, version: str | None = None, size: int | None = None) -> str:
+    return _with(f"/api/v1/players/{quote(player_id, safe='')}/picture", version, size)
+
+
 def sized(url: str, size: int) -> str:
     """An art address the API handed over, at `size`."""
     return _with(url, None, size)

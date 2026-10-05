@@ -44,6 +44,7 @@ _BOX = "console-cell-art-box"
 _SIZED = {LIST: f"{_BOX} {_BOX}--list", PREVIEW: _BOX}
 _GLYPH_BOX = f"{_BOX}--glyph"
 _NO_ART = "console-cell-noart"
+_INITIALS = "console-circle-initials"
 _LINES = "console-cell-lines"
 _PATH_DATA = re.compile(r"^[Mm]\s?[-+]?\.?\d")
 # A picture that fails to load gives way to the glyph.
@@ -181,6 +182,20 @@ def frame_js(glyph: str, size: str = LIST) -> str:
     beside = json.dumps(f'{glyph_html(glyph)}</span><span class="{_LINES}">')
     return (f"(art ? {with_picture} + esc(art) + '\">' : {without})"
             f" + {beside} + lines + '</span></span>'")
+
+
+def circle_js(glyph: str) -> str:
+    """`frame_js` for a person: always a circle, at the smallest height whatever the Media
+    settings say, holding the row's `initials` where there is no picture, else `glyph`."""
+    opened = f'<span class="{_PICTURED}"><span class="{_BOX} {_BOX}--list {_BOX}--circle'
+    with_picture = json.dumps(f'{opened}"><img {_IMG} src="')
+    without = json.dumps(f'{opened} {_GLYPH_BOX}">')
+    initials = json.dumps(f'<span class="{_NO_ART} {_INITIALS}">')
+    person = json.dumps(glyph_html(glyph))
+    beside = json.dumps(f'</span><span class="{_LINES}">')
+    return (f"(art ? {with_picture} + esc(art) + '\">' : {without})"
+            f" + (initials ? {initials} + esc(initials) + '</span>' : {person})"
+            f" + {beside} + '<span>' + lines + '</span></span></span>'")
 
 
 def frame_html(address: str, glyph: str, *, to: str = "") -> str:

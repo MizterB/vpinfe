@@ -897,6 +897,34 @@ class ApiClient:
         said = self._put(f"/players/{quote(player_id, safe='')}/up", {"up": bool(up)})
         return list((said or {}).get("players") or [])
 
+    def _player_picture_path(self, player_id: str) -> str:
+        return f"/players/{quote(player_id, safe='')}/picture"
+
+    def set_player_picture(self, player_id: str, filename: str, content: bytes) -> dict:
+        route = self._player_picture_path(player_id)
+        _refuse_the_event_loop(route)
+        response = self._session.put(f"{self._base}{route}",
+                                     files={"file": (filename, content)}, timeout=_TIMEOUT)
+        self._answered(response)
+        return response.json()
+
+    def clear_player_picture(self, player_id: str) -> dict:
+        route = self._player_picture_path(player_id)
+        _refuse_the_event_loop(route)
+        response = self._session.delete(f"{self._base}{route}", timeout=_TIMEOUT)
+        self._answered(response)
+        return response.json()
+
+    def player_picture_bytes(self, player_id: str) -> bytes | None:
+        """The stored picture, or None for a player with none."""
+        route = self._player_picture_path(player_id)
+        _refuse_the_event_loop(route)
+        response = self._session.get(f"{self._base}{route}", timeout=_TIMEOUT)
+        if response.status_code == 404:
+            return None
+        self._answered(response)
+        return response.content
+
     def player_record(self, player_id: str) -> list[dict]:
         """What a player other than the owner has played, most recently first."""
         return list(self._get(f"/players/{quote(player_id, safe='')}/record")

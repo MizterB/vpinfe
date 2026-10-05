@@ -7,6 +7,7 @@ player's rail are built as the panel opens, from what is running then.
 from __future__ import annotations
 
 import base64
+import html
 import inspect
 import json
 import logging
@@ -20,15 +21,18 @@ from common import icons
 from common.failures import why
 from common.i18n import t
 from console import (
+    art,
     busy,
     confirm,
     deeplink,
     game_tables,
     grid,
     list_art,
+    mediasource,
     mediaview,
     offload,
     panel,
+    undo,
     verbs,
     views,
 )
@@ -57,22 +61,26 @@ _ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt
 
 _CHIPS = {kind: {"label": t(label), "tip": t(tip)} for kind, (label, tip) in KINDS.items()}
 
+PERSON = "person"
+
 _NAME = (
     "params => {" + _ESCAPE +
     f" const kinds = {json.dumps(_CHIPS)};"
     f" const up = esc({json.dumps(t('console.players.up'))});"
     f" const upTip = esc({json.dumps(t('console.players.up.help'))});"
     " const d = params.data || {};"
-    " let said = esc(params.value == null ? '' : params.value);"
+    " const art = d.picture || '';"
+    " const initials = d.initials || '';"
+    " let lines = esc(params.value == null ? '' : params.value);"
     " const kind = kinds[d.kind];"
-    " if (kind) said += ' <span class=\"console-member-chip console-cell-chip"
+    " if (kind) lines += ' <span class=\"console-member-chip console-cell-chip"
     " console-chip-quiet\" title=\"' + esc(kind.tip) + '\">' + esc(kind.label) + '</span>';"
-    " if (d.up) said += ' <span class=\"console-member-chip console-cell-chip"
+    " if (d.up) lines += ' <span class=\"console-member-chip console-cell-chip"
     " console-tier console-tier--on\""
     " title=\"' + upTip + '\">' + up + '</span>';"
-    " if (d.session) said += ' <span class=\"console-cell-quiet\">' + esc(d.session)"
+    " if (d.session) lines += ' <span class=\"console-cell-quiet\">' + esc(d.session)"
     " + '</span>';"
-    " return said; }"
+    f" return {list_art.circle_js(PERSON)}; }}"
 )
 
 _INITIALS = (
@@ -119,6 +127,14 @@ def kind_word(player: dict[str, Any]) -> str:
     return t(KINDS[kind][0]) if kind else t("console.players.player")
 
 
+def picture_address(player: dict[str, Any], size: int = art.CELL) -> str:
+    """Where their picture is served, or "" for a player with none."""
+    version = player.get("picture_version")
+    if not version:
+        return ""
+    return art.player(str(player.get("id") or ""), version=str(version), size=size)
+
+
 def same_initials(player: dict[str, Any], roster: list[dict[str, Any]]) -> str:
     """The alert for a player sharing initials with another, or "" for one who is not."""
     named = [shown_name(one) for one in roster
@@ -141,6 +157,7 @@ def rows(roster: list[dict[str, Any]],
             "id": str(player.get("id") or ""),
             "name": shown_name(player),
             "initials": str(player.get("initials") or ""),
+            "picture": picture_address(player),
             "kind": kind_of(player),
             "up": bool(player.get("up")) and not alone,
             "shared": same_initials(player, roster),
@@ -562,6 +579,9 @@ async def details(context: dict[str, Any]) -> None:
             return why(exc)
         sharing_before = bool(player.get("shares_initials_with"))
         player.update(now)
+        drawn = context.get("picture_initials")
+        if drawn is not None and not drawn.is_deleted:
+            drawn.set_text(str(player.get("initials") or "").strip())
         # The finding at the top of this section comes or goes with it.
         await changed(context, again=sharing_before != bool(now.get("shares_initials_with")))
         return ""
@@ -574,7 +594,7 @@ async def details(context: dict[str, Any]) -> None:
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         await changed(context)
 
-    entries: list[tuple[Any, Any]] = []
+    entries: list[tuple[Any, Any]] = [(panel.FULL, partial(_picture_slot, context))]
     if alert := same_initials(player, roster):
         entries.append(_alert(alert))
     entries += [
@@ -592,6 +612,96 @@ async def details(context: dict[str, Any]) -> None:
             hint=t("console.players.owner_up_alone") if stays else "")))
     with ui.column().classes("gap-0 console-form"):
         panel.facts(ui, entries)
+
+
+# -- the picture ---------------------------------------------------------------
+
+def _picture_slot(context: dict[str, Any]) -> None:
+    """Their picture at panel size, with what can be done to it. A guest has none to
+    set, so theirs is the circle alone."""
+    player = _of(context)
+    present = bool(player.get("picture_version"))
+    initials = str(player.get("initials") or "").strip()
+    label = t("console.players.picture")
+
+    with ui.column().classes("w-full gap-1 console-slot p-2"):
+        ui.label(label).classes("console-card-title") \
+            .tooltip(t("console.players.picture.help"))
+        with ui.element("div").classes("console-slot-art console-slot-art--person"):
+            with ui.column().classes("console-slot-blank items-center gap-1"):
+                if initials:
+                    context["picture_initials"] = ui.label(initials) \
+                        .classes("console-person-initials")
+                else:
+                    ui.icon(PERSON).classes("console-slot-blank-icon")
+            if present:
+                address = html.escape(picture_address(player, art.PANEL))
+                ui.html(f'<img src="{address}" alt="" draggable="false" '
+                        'onerror="this.remove()">', sanitize=False, tag="span") \
+                    .classes("console-person-picture")
+        if player.get("guest"):
+            return
+        with ui.row().classes("items-center gap-2 w-full console-slot-actions"):
+            panel.action(
+                t("word.replace") if present else t("word.add"),
+                lambda: mediasource.open_player_picture_sources(
+                    context["library"], label, partial(set_picture, context)),
+                icon=verbs.REPLACE if present else verbs.ADD,
+                hint=t("console.players.picture_replace.help") if present
+                else t("console.players.picture_add.help"))()
+            if present:
+                panel.action(t("word.remove"), partial(remove_picture, context),
+                             icon=verbs.REMOVE, danger=True,
+                             hint=t("console.players.picture_remove.help"))()
+
+
+async def _picture_written(context: dict[str, Any], player_id: str) -> None:
+    """The grid read again, and the panel redrawn if it is still on this player: an Undo
+    can be pressed after the panel has moved on."""
+    state = context["state"]
+    if state.get("player") == player_id:
+        await context["rebuild"]()
+    else:
+        await _refresh(state)
+
+
+def _picture_undo(context: dict[str, Any], said: str, before: bytes | None) -> None:
+    library, player_id = context["library"], _of(context)["id"]
+
+    async def put_back() -> None:
+        if before is None:
+            await offload.io(library.clear_player_picture, player_id)
+        else:
+            await offload.io(library.set_player_picture, player_id, "picture.webp", before)
+        await _picture_written(context, player_id)
+
+    undo.offer(said, put_back)
+
+
+@on_page
+async def set_picture(context: dict[str, Any], name: str, data: bytes) -> Callable:
+    """Saved at once, with Undo holding what it replaced. Raises with the API's reason
+    where the file is not a picture, so the dialog that offered it can say so. Returns
+    the redraw, for the dialog to run once it has closed."""
+    library, player_id = context["library"], _of(context)["id"]
+    before = await run.io_bound(library.player_picture_bytes, player_id)
+    await offload.io(library.set_player_picture, player_id, name, data)
+    _picture_undo(context, t("console.players.picture_replaced" if before is not None
+                             else "console.players.picture_added"), before)
+    return partial(_picture_written, context, player_id)
+
+
+@on_page
+async def remove_picture(context: dict[str, Any]) -> None:
+    library, player_id = context["library"], _of(context)["id"]
+    try:
+        before = await run.io_bound(library.player_picture_bytes, player_id)
+        await offload.io(library.clear_player_picture, player_id)
+    except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+        return
+    _picture_undo(context, t("console.players.picture_removed"), before)
+    await _picture_written(context, player_id)
 
 
 # -- accounts ------------------------------------------------------------------
