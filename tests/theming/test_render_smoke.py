@@ -19,6 +19,9 @@ import asyncio
 import sys
 import unittest
 
+import requests
+
+from tests.support import pictures
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.library import TempTree, write_game
 from tests.support.live_instance import LiveInstance
@@ -362,6 +365,63 @@ class RenderSmokeTests(TempTree):
         "?.querySelectorAll('.player-choice') || [])].map(el => ["
         "el.dataset.playerId, el.classList.contains('selected'),"
         " el.classList.contains('player-choice-up')])")
+
+    # Each row's circle: [player id, has a picture, initials, round]. Null until every
+    # picture drawn has loaded.
+    PLAYER_AVATARS = (
+        "(rows => rows.length && rows.every(r => { const i = r.querySelector('img');"
+        " return !i || i.naturalWidth > 0; }) ? rows.map(r => {"
+        " const a = r.querySelector('.player-avatar');"
+        " return [r.dataset.playerId, !!a.querySelector('img'), a.dataset.initials || '',"
+        " getComputedStyle(a).borderRadius]; }) : null)"
+        "([...(document.getElementById('menu-frame')?.contentDocument"
+        "?.querySelectorAll('.player-choice') || [])])")
+
+    def test_the_player_list_draws_a_circle_before_each_name(self) -> None:
+        async def run(instance):
+            async with BrowserSession(chromium_path()) as browser:
+                await self._open_menu(browser, instance)
+                await browser.press("ArrowDown", "ArrowDown")
+                await browser.wait_for(
+                    f"({self.SELECTED}) === 'player-item' && ({self.PLAYER_ITEM_TEXT})")
+                await browser.press("Enter", "Enter")
+                circles = await browser.wait_for(self.PLAYER_AVATARS)
+                # Start toggles the row under the cursor; its circle stays.
+                await browser.press("ArrowDown", "ArrowDown")
+                moved = await browser.wait_for(
+                    f"(({self.PLAYER_ROWS}).find(r => r[1]) || [])[0]")
+                before_up = next(row[2] for row in await browser.evaluate(self.PLAYER_ROWS)
+                                 if row[0] == moved)
+                await browser.press("Enter", "Enter")
+                await browser.wait_for(
+                    f"(({self.PLAYER_ROWS}).find(r => r[0] === {moved!r}) || [])[2]"
+                    f" !== {str(before_up).lower()}")
+                kept = await browser.evaluate(self.PLAYER_AVATARS)
+                # A picture that will not load leaves the initials.
+                fell_back = await browser.evaluate(
+                    "new Promise(resolve => { const doc = document.getElementById("
+                    "'menu-frame').contentDocument; const img = doc.querySelector("
+                    "'.player-choice img'); const circle = img.closest('.player-avatar');"
+                    " img.addEventListener('error', () => setTimeout(() => resolve("
+                    "[!circle.querySelector('img'), circle.dataset.initials]), 0));"
+                    " img.src = 'data:image/png;base64,AAAA'; })")
+                return circles, kept, fell_back
+
+        with LiveInstance(self.root) as instance:
+            instance.wait_for_api()
+            kid = instance.post("/api/v1/players", {"name": "Kid", "initials": "KID"})["id"]
+            requests.put(
+                instance.console_url(f"/api/v1/players/{kid}/picture"),
+                files={"file": ("red.png", pictures.png(80, 60, pictures.RED), "image/png")},
+                timeout=10).raise_for_status()
+            circles, kept, fell_back = asyncio.run(run(instance))
+
+        with_picture = [row[0] for row in circles if row[1]]
+        self.assertEqual(with_picture, [kid])
+        self.assertTrue(all(row[3] == "50%" for row in circles))
+        self.assertEqual({row[2] for row in circles if row[0] == kid}, {"KID"})
+        self.assertEqual([row[:2] for row in kept], [row[:2] for row in circles])
+        self.assertEqual(fell_back, [True, "KID"])
 
     def test_the_player_item_is_hidden_with_one_player(self) -> None:
         """The roster holds only the owner until a test, or a person, adds someone."""

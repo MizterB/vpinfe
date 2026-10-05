@@ -217,6 +217,55 @@ li.menu-item:active {
     drop-shadow(0 0.24vh 0.52vh rgba(0,0,0,0.4));
 }
 
+/* A player's circle before their name: the picture, else their initials. */
+.player-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box;
+  width: 2.4em;
+  height: 2.4em;
+  margin-right: 1em;
+  vertical-align: middle;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 0.15vh rgba(255, 216, 77, 0.55);
+  text-align: center;
+  font-size: 0.6em;
+  line-height: 1;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+.player-avatar[data-initials]::before {
+  content: attr(data-initials);
+}
+
+.player-avatar:has(> img)::before {
+  visibility: hidden;
+}
+
+.player-avatar-none:has(> img) {
+  background-image: none;
+}
+
+.player-avatar-none {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffd84d'%3E%3Ccircle cx='12' cy='9' r='4'/%3E%3Cpath d='M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8z'/%3E%3C/svg%3E");
+  background-size: 70% 70%;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.player-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 #overlay-root {
   opacity: 0;
   transition: opacity 0.3s ease;

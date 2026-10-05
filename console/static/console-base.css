@@ -98,6 +98,27 @@
   flex-shrink: 0;
 }
 .remote-identity-icon { font-size: var(--icon-nav); }
+/* A player's circle on the Remote: the picture over their initials. */
+.remote-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--art-ground);
+}
+.remote-identity .remote-avatar { width: 28px; height: 28px; }
+.remote-avatar-initials { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.remote-avatar-glyph { font-size: var(--icon-mark); color: var(--ink-3); }
+.remote-avatar:has(img) > :not(.remote-avatar-picture) { visibility: hidden; }
+.remote-avatar-picture { position: absolute; inset: 0; }
+.remote-avatar-picture img {
+  display: block; width: 100%; height: 100%; object-fit: cover;
+}
 .remote-body { padding-bottom: 4px; }
 .remote-tabs {
   border-top: 1px solid var(--line);

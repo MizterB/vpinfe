@@ -17,8 +17,10 @@ import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import requests
+
 from common.i18n import t
-from tests.support import vpinplay_stub
+from tests.support import pictures, vpinplay_stub
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.console_walk import ConsoleWalk
 from tests.support.library import game_info, write_game
@@ -38,6 +40,7 @@ INDEX_OF = ("[...document.querySelectorAll(%s)].findIndex(el => el.innerText.spl
             ".map(line => line.trim()).includes(%s))")
 SHEET_OPEN = "!!document.querySelector('.remote-sheet')"
 NOTHING_OPEN = "!document.querySelector('.remote-sheet')"
+SHEET_CIRCLES = ".remote-sheet .remote-avatar"
 DIALOG_FOOTER = ".console-dialog-footer .q-btn"
 # A dialog that has finished sliding or scaling in: Quasar animates it, and a click on
 # the way in lands somewhere else. Not a `.remote-sheet` - those are covered by
@@ -106,6 +109,12 @@ class RemotePlayersDrive(unittest.TestCase):
         kid = _call(instance, "POST", "/api/v1/players",
                    {"name": KID_NAME, "initials": KID_INITIALS})["id"]
         seen: dict = {}
+        # Kid has a picture; the owner does not.
+        put = requests.put(
+            instance.console_url(f"/api/v1/players/{kid}/picture"),
+            files={"file": ("red.png", pictures.png(80, 60, pictures.RED), "image/png")},
+            timeout=10)
+        put.raise_for_status()
 
         def roster() -> dict[str, dict]:
             return {one["id"]: one for one in _call(instance, "GET", "/api/v1/players")
@@ -243,10 +252,20 @@ class RemotePlayersDrive(unittest.TestCase):
             await open_identity()
             seen["nobody_said_sheet"] = await browser.evaluate(
                 "document.querySelector('.remote-sheet').innerText")
+            seen["sheet_circles"] = await browser.wait_for(
+                f"(c => c.length && c.every(el => el.querySelector('img') ? "
+                f"el.querySelector('img').naturalWidth > 0 : true) ? c.map(el => "
+                f"[el.textContent.trim(), !!el.querySelector('img')]) : null)"
+                f"([...document.querySelectorAll({json.dumps(SHEET_CIRCLES)})])")
             await click_text(".remote-action", KID_NAME)
             await sheet_closed()
             seen["header_shows_kid"] = await browser.wait_for(
                 "document.querySelector('.remote-identity-initials')?.innerText")
+            seen["header_picture"] = await browser.wait_for(
+                "(img => img && img.naturalWidth > 0 ? "
+                "{icon: !!document.querySelector('.remote-identity-icon'),"
+                " round: getComputedStyle(img.closest('.remote-avatar')).borderRadius}"
+                " : null)(document.querySelector('.remote-identity .remote-avatar img'))")
 
             await walk.visit("/remote?screen=play")
             await browser.wait_for("document.body.innerText.includes('Alpha')")
@@ -274,6 +293,23 @@ class RemotePlayersDrive(unittest.TestCase):
             # open dialog with it the same way a person moving on would.
             await walk.visit("/remote?screen=now")
             await browser.wait_for("document.querySelectorAll('.remote-up-row').length === 2")
+            seen["up_circles"] = await browser.wait_for(
+                "(rows => rows.every(r => r.querySelector('.remote-avatar img') ? "
+                "r.querySelector('.remote-avatar img').naturalWidth > 0 : true) ? "
+                "rows.map(r => [r.querySelector('.remote-row-name').innerText.trim(),"
+                " !!r.querySelector('.remote-avatar img'),"
+                " r.querySelector('.remote-avatar-initials, .remote-avatar-glyph') ? "
+                "r.querySelector('.remote-avatar-initials, .remote-avatar-glyph')"
+                ".textContent.trim() : null]) : null)"
+                "([...document.querySelectorAll('.remote-up-row')])")
+            # An address that will not load leaves the initials, not a broken image.
+            seen["broken_falls_back"] = await browser.evaluate(
+                "new Promise(resolve => { const img = document.querySelector("
+                "'.remote-up-row .remote-avatar img'); const circle = img.closest("
+                "'.remote-avatar'); img.addEventListener('error', () => setTimeout(() => "
+                "resolve([!circle.querySelector('img'),"
+                " circle.querySelector('.remote-avatar-initials').textContent.trim()]), 0)); "
+                "img.src = 'data:image/png;base64,AAAA'; })")
             await browser.click(".remote-up-row .q-toggle", nth=1)
             await walk.drawn()
             seen["kid_up_after_toggle"] = roster()[kid]["up"]
@@ -359,6 +395,30 @@ class RemotePlayersDrive(unittest.TestCase):
 
     def test_nobody_said_offers_this_is_me_for_the_kept_player(self) -> None:
         self.assertIn(KID_NAME, self.seen["nobody_said_sheet"])
+
+    # -- A player's circle -----------------------------------------------------------
+
+    def test_this_is_me_draws_a_circle_before_each_name_and_a_picture_where_there_is_one(
+            self) -> None:
+        circles = dict((text, has_picture) for text, has_picture
+                       in self.seen["sheet_circles"])
+        self.assertEqual(circles[KID_INITIALS], True)
+        self.assertEqual(sum(circles.values()), 1)
+
+    def test_the_header_shows_the_picture_in_place_of_the_person_icon(self) -> None:
+        shown = self.seen["header_picture"]
+        self.assertFalse(shown["icon"])
+        self.assertEqual(shown["round"], "50%")
+
+    def test_the_up_rows_draw_a_circle_and_only_the_picture_holder_has_a_picture(
+            self) -> None:
+        rows = {name: (picture, mark) for name, picture, mark in self.seen["up_circles"]}
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[KID_NAME], (True, KID_INITIALS))
+        self.assertEqual(sum(1 for picture, _ in rows.values() if picture), 1)
+
+    def test_a_picture_that_will_not_load_leaves_the_initials(self) -> None:
+        self.assertEqual(self.seen["broken_falls_back"], [True, KID_INITIALS])
 
     # -- This Is Me, Not Me ---------------------------------------------------------
 

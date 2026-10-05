@@ -16,6 +16,8 @@ A phone can say who it is, remembered per browser and per target in `console/rem
 
 The header names the target on every screen; a kept player's initials sit beside it. A guest's does not - "not shown" here is not security, since anyone can say they are anybody on an unauthenticated LAN surface, but it keeps a visitor's screen about them without dressing up a claim nobody can back with a key.
 
+A player's circle leads their name on This Is Me's list and on Now's Up rows, and the header shows the picture in place of the person icon. It is their picture where they have one and their initials where they do not, or where the image does not load. The phone fetches `GET /players/{id}/picture` itself, as an `<img>`: from the page's own origin for the install serving the Remote, and from the target's own address for another device, so a target the phone cannot reach shows initials. The route takes no credentials the Remote lacks - the API is local trust, with no tokens.
+
 ### Join
 
 Reached from the cabinet's second QR (`/remote?screen=join`) or from the identity sheet's own way in for a phone already on the page. Two choices, under both the one line said once - *you're a guest here until VPinFE closes*:
@@ -104,6 +106,7 @@ Every one of these already existed for the Console and the API; Remote adds none
 | Rate, favorite | `PUT /games/{id}/rating`, `/favorite` |
 | Add to collection | `PUT /collections/{name}/games/{game_id}` |
 | The roster, who is up | `GET /players`, `PUT /players/{id}/up` |
+| A player's circle | `GET /players/{id}/picture` (from the phone, as an image) |
 | Join with a card, or with initials | `POST /players/guests/card`, `POST /players/guests` |
 | Sign out, or leave a kept player's identity | `DELETE /players/{id}` (Not Me is local - it forgets nothing on the target) |
 | A player's rating of a game | `PUT /players/{id}/ratings/{game_id}` |

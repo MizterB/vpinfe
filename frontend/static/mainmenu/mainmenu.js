@@ -299,7 +299,14 @@ function syncMenuWidthFromLongestLabel() {
   let maxLabelWidth = 0;
   menuItems.forEach((item) => {
     ruler.textContent = item.textContent || '';
-    maxLabelWidth = Math.max(maxLabelWidth, Math.ceil(ruler.getBoundingClientRect().width));
+    const avatar = item.querySelector('.player-avatar');
+    const avatarWidth = avatar
+      ? avatar.getBoundingClientRect().width + parseFloat(getComputedStyle(avatar).marginRight || '0')
+      : 0;
+    maxLabelWidth = Math.max(
+      maxLabelWidth,
+      Math.ceil(ruler.getBoundingClientRect().width + avatarWidth)
+    );
   });
   ruler.remove();
 
@@ -510,7 +517,10 @@ function showPlayerChoices(kind, heading) {
     item.dataset.playerId = player.id;
     item.dataset.name = playerToken(player);
     if (player.up) item.classList.add('player-choice-up');
-    item.textContent = playerChoiceLabel(item);
+    const label = document.createElement('span');
+    label.className = 'player-choice-label';
+    label.textContent = playerChoiceLabel(item);
+    item.append(playerAvatar(player), label);
     list.appendChild(item);
   }
   list.classList.add('choosing');
@@ -522,6 +532,26 @@ function showPlayerChoices(kind, heading) {
   menu = null;
   updateMenu();
   scheduleMenuRelayout();
+}
+
+// The player's circle: their picture, or their initials where there is none or it will
+// not load.
+function playerAvatar(player) {
+  const avatar = document.createElement('span');
+  avatar.className = 'player-avatar';
+  avatar.setAttribute('aria-hidden', 'true');
+  const initials = String(player.initials || '').trim();
+  if (initials) avatar.dataset.initials = initials;
+  else avatar.classList.add('player-avatar-none');
+  if (player.picture) {
+    const image = document.createElement('img');
+    image.alt = '';
+    image.draggable = false;
+    image.addEventListener('error', () => image.remove());
+    image.src = player.picture;
+    avatar.appendChild(image);
+  }
+  return avatar;
 }
 
 // A check on whoever is up - the roster always has someone - a blank space of the
@@ -612,7 +642,8 @@ async function togglePlayerUp(item) {
     return;
   }
   item.classList.toggle('player-choice-up', wantUp);
-  item.textContent = playerChoiceLabel(item);
+  const label = item.querySelector('.player-choice-label');
+  if (label) label.textContent = playerChoiceLabel(item);
 }
 
 // Start on a Rating "whose" row picks that player and moves straight to the stars -

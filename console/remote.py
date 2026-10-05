@@ -17,6 +17,7 @@ Three screens, and they read as a sequence: what is happening, pick something, d
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import threading
 from collections.abc import Callable, Iterator
@@ -47,7 +48,16 @@ from console import dialog as frame
 from console.api import ApiClient, ApiError, local_base_url
 from console.data import Library
 from console.on_page import on_page
-from console.players import CARD_FILES, CLAIM, CONSENT, kind_of, save_card, shown_name
+from console.players import (
+    CARD_FILES,
+    CLAIM,
+    CONSENT,
+    PERSON,
+    kind_of,
+    picture_address,
+    save_card,
+    shown_name,
+)
 
 logger = logging.getLogger("vpinfe.console.remote")
 
@@ -327,6 +337,7 @@ async def remote_page(screen: str = "") -> None:
         "frontend": None, "rows": {}, "relist": None,
         "capture": None, "run": {}, "waiting": [], "reviewing": None,
         "players": [], "identity": None, "record": {}, "accounts": [], "result": None,
+        "local_device_id": local_device_id,
     }
 
     def client_for_target() -> ApiClient:
@@ -538,6 +549,38 @@ async def remote_page(screen: str = "") -> None:
     loading.delete()
 
 
+def picture_of(state: dict[str, Any], player: dict[str, Any]) -> str:
+    """Where the phone loads this player's picture from, or "" for none or no way there.
+
+    The install serving this page answers on this page's own origin; another device on its
+    own address, which the phone may not reach.
+    """
+    path = picture_address(player)
+    if not path:
+        return ""
+    device = state.get("target") or {}
+    if is_here(device, str(state.get("local_device_id") or "")):
+        return path
+    base = base_url_of(device, str(state.get("local_device_id") or ""))
+    return f"{base}{path}" if base else ""
+
+
+def _avatar(state: dict[str, Any], player: dict[str, Any]) -> None:
+    """A player's circle: their picture, over their initials, or a person where they have
+    none - which is also what shows while the picture loads and if it never does."""
+    initials = str(player.get("initials") or "").strip()
+    address = picture_of(state, player)
+    with ui.element("span").classes("remote-avatar"):
+        if initials:
+            ui.label(initials).classes("remote-avatar-initials")
+        else:
+            ui.icon(PERSON).classes("remote-avatar-glyph")
+        if address:
+            ui.html(f'<img src="{html.escape(address)}" alt="" draggable="false" '
+                    'onerror="this.remove()">', sanitize=False, tag="span") \
+                .classes("remote-avatar-picture")
+
+
 def _header(state: dict[str, Any], aimable: list[dict[str, Any]], aim: Any,
             client_for_target: Callable[[], Any], redraw: Callable[[], None]) -> None:
     """The target, on every screen, because every action's meaning depends on it - and
@@ -579,7 +622,10 @@ def _header(state: dict[str, Any], aimable: list[dict[str, Any]], aim: Any,
                 if identity is not None and kind_of(identity) == "":
                     ui.label(str(identity.get("initials") or "")) \
                         .classes("remote-identity-initials")
-                ui.icon("person").classes("remote-identity-icon")
+                if identity is not None and picture_of(state, identity):
+                    _avatar(state, identity)
+                else:
+                    ui.icon(PERSON).classes("remote-identity-icon")
 
 
 def _strip(state: dict[str, Any], client_for_target: Callable[[], Any],
@@ -690,10 +736,13 @@ def _identity_sheet(state: dict[str, Any], client_for_target: Callable[[], Any],
         if identity is None:
             ui.label(t("console.remote.identify")).classes("remote-headline")
             for player in (one for one in players if kind_of(one) == ""):
-                panel.remote_action(shown_name(player),
-                                    lambda _e=None, pid=player["id"]: become(pid),
-                                    icon=verbs.THIS_IS_ME,
-                                    hint=t("console.remote.this_is_me.help"))
+                with ui.row().classes("w-full items-center gap-2 no-wrap"):
+                    _avatar(state, player)
+                    panel.remote_action(shown_name(player),
+                                        lambda _e=None, pid=player["id"]: become(pid),
+                                        icon=verbs.THIS_IS_ME,
+                                        hint=t("console.remote.this_is_me.help")) \
+                        .classes("grow min-w-0")
             panel.remote_action(t("console.remote.join_guest"), go_join, icon=verbs.JOIN,
                                 hint=t("console.remote.join_guest.help"))
         else:
@@ -1070,7 +1119,9 @@ def _up_section(state: dict[str, Any], client_for_target: Callable[[], Any],
         ui.label(t("console.players.up")).classes("console-card-title")
         for player in players:
             with ui.row().classes("w-full items-center justify-between remote-up-row"):
-                ui.label(shown_name(player)).classes("remote-row-name")
+                with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
+                    _avatar(state, player)
+                    ui.label(shown_name(player)).classes("remote-row-name")
                 panel.switch(bool(player.get("up")), flip(str(player["id"])))()
 
 
