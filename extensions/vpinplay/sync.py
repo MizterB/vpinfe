@@ -86,8 +86,8 @@ def payload_for(game: dict, table: dict | None) -> dict | None:
 
 
 def payload_for_player(game: dict, table: dict | None, mine: dict, held: dict,
-                       reading: Any, initials: str, *, credited: bool = False
-                       ) -> dict | None:
+                       reading: Any, initials: str, *, credited: bool = False,
+                       rated: bool = False) -> dict | None:
     """One game, for a player other than the owner, in the shape `payload_for` builds.
 
     `mine` is their record of the game here. A send replaces their whole record for the
@@ -95,11 +95,13 @@ def payload_for_player(game: dict, table: dict | None, mine: dict, held: dict,
     record for them: the rating, unless they rated it here, the alternate title and id,
     and the score, unless `reading` carries theirs - and only their own entries in it,
     never a housemate's. `credited` says this game's new entries were theirs, which is
-    the only way a reading of one number is.
+    the only way a reading of one number is. `rated` says the send is for a rating just
+    given, where 0 is them clearing it and goes as it is.
     """
     return payload_for({
         **game,
-        "user": {"rating": mine.get("rating") or held.get("rating"),
+        "user": {"rating": (mine.get("rating") if rated
+                            else mine.get("rating") or held.get("rating")),
                  "last_played": mine.get("last_played"),
                  "play_count": mine.get("play_count"),
                  "play_time_seconds": mine.get("play_time_seconds"),

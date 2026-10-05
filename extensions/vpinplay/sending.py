@@ -222,7 +222,8 @@ class Sender:
         mine = (played.record if played and played.record is not None
                 else self._ctx.players.record(holder.player_id, game_id)) or {}
         return sync.payload_for_player(game, table, mine, held, reading, holder.initials,
-                                       credited=bool(played and played.credited))
+                                       credited=bool(played and played.credited),
+                                       rated=bool(played and played.rated))
 
     # -- the books -------------------------------------------------------------
 

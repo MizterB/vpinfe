@@ -486,6 +486,20 @@ class WhatClearingARatingSends(SendingCase):
         self.assertEqual(self.only_table()["user"]["rating"], 0)
 
 
+    def test_a_kept_player_clearing_their_rating_sends_the_clear_not_the_one_held(self) -> None:
+        kept = self.sharing(self.kept().player_id, "jordan")
+        player = players.get_roster().player(kept)
+        player_records.get_records().set_rating(player, GAME, 2)
+        self.play(kept)
+        self.send.reset_mock()
+        self.held.return_value = {"rating": 5}
+
+        player_records.get_records().set_rating(player, GAME, 0)
+        self.run_later()
+
+        self.assertEqual(self.only_table()["user"]["rating"], 0)
+
+
 class WhatShareOffDrops(SendingCase):
     def refuse(self) -> None:
         self.send.return_value = {"ok": False, "status_code": 503, "response_body": "down"}
