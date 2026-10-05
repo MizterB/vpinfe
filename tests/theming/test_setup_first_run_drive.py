@@ -132,7 +132,7 @@ class SetupFirstRunDrive(unittest.TestCase):
                 ).strip()
 
             # Each page but the last says Next, and the one it opens has another title.
-            for _ in range(6):
+            for _ in range(10):
                 title = (await browser.evaluate(TEXT_OF % json.dumps(TITLE))).strip()
                 if title == t("console.setup.tables.title"):
                     await choose_none_yet()
