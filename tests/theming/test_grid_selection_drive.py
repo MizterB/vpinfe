@@ -60,8 +60,9 @@ def serve(port: int) -> None:
             heard["calls"] += 1
 
         with ui.element("div").classes("w-full h-[600px] flex flex-col"):
-            built["table"] = grid.build([grid.identifier("name", "Name")], rows,
-                                        "drive.selection", on_select_rows=picked)
+            built["table"] = grid.build(
+                [grid.identifier("name", "Name", help="The row's name")], rows,
+                "drive.selection", on_select_rows=picked)
 
     @app.get("/heard")
     def said() -> dict:

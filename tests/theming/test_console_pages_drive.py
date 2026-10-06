@@ -27,6 +27,7 @@ from tests.support.live_instance import LiveInstance
 PICKED = "Hand Picked"
 SMART = "Smart Bally"
 VPX = "vpx-drive"
+WHOLE_PANEL = "(whole panel)"
 
 # Where each rail lives, and the address that puts a subject under it. None selects the
 # first row of that view's list, LAST its last.
@@ -176,6 +177,12 @@ class ConsolePagesDrive(unittest.TestCase):
                     found["opened"].append(name)
                     found["headings"][name] = said["count"]
                     found["problems"] += said["problems"]
+                if not found["opened"]:
+                    # A rail of one section is not drawn, so its section is the panel.
+                    said = await browser.evaluate(HEADINGS % json.dumps(""))
+                    found["opened"].append(WHOLE_PANEL)
+                    found["headings"][WHOLE_PANEL] = said["count"]
+                    found["problems"] += said["problems"]
                 headings[query + (" (last row)" if subject == LAST else "")] = found
             for path in rail:
                 if path not in drawn:
@@ -190,7 +197,7 @@ class ConsolePagesDrive(unittest.TestCase):
 
     def test_a_shadowed_location_draws_its_second_group(self) -> None:
         self.assertEqual(self.seen["headings"]["view=locations (last row)"]["headings"],
-                         {"Details": 2})
+                         {WHOLE_PANEL: 2})
 
     def test_a_vpx_install_opens_each_area_of_its_settings(self) -> None:
         self.assertEqual(self.seen["headings"][f"view=launchers&launcher={VPX}"]["opened"],
