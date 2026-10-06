@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 from urllib.parse import urlparse
 
@@ -32,6 +33,7 @@ from console import (
     panel,
     renderers,
     settings,
+    theme_sources,
     verbs,
     views,
     when,
@@ -73,8 +75,8 @@ COLUMNS: list[dict[str, Any]] = [
                 **grid.choice_filter([{"value": key, "label": label}
                                       for key, label in MADE_FOR.items()])),
     grid.column("author", t("word.author"), 140),
-    grid.column("registry", t("console.themes.registry"), 200,
-                help=t("console.themes.registry.help")),
+    grid.column("registry", t("console.themes.list"), 200,
+                help=t("console.themes.list.help")),
     grid.column("repository", t("console.themes.repository"), 280),
 ]
 _ALL = [one["field"] for one in COLUMNS]
@@ -170,12 +172,15 @@ async def _fill(library: Library, state: dict[str, Any],
 
     built = rows(list(found.get("themes") or []))
     by_id = {row["id"]: row for row in built}
+    sources = await _sources(library)
     body.clear()
     if not built:
         with body:
-            panel.facts(ui, [panel.intro(t("console.themes.sources_empty"))])
+            _finding(sources)
+            panel.facts(ui, _empty(library, redraw, sources))
         return
     with body:
+        _finding(sources)
         with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
                               "console-panel console-grid-bar"):
             bar = panel.grid_bar()
@@ -190,6 +195,9 @@ async def _fill(library: Library, state: dict[str, Any],
                 panel.refresh(lambda: _fill(library, state, on_select, redraw, body,
                                             refresh=True),
                               t("console.themes.check_updates"))
+                panel.add_action([(t("console.themes.add_theme"),
+                                   lambda: theme_sources.add_source(library, redraw))],
+                                 empty=False)
 
         async def on_header_context(col_id: str | None) -> None:
             await grid.header_menu(menu, table, COLUMNS, col_id)
@@ -232,6 +240,46 @@ async def _fill(library: Library, state: dict[str, Any],
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
+
+
+async def _sources(library: Library) -> dict[str, Any] | None:
+    """The sources as they last answered, or None when they cannot be read. Their trouble
+    is a finding on this page, so a failure to read them leaves the grid as it is."""
+    try:
+        return await offload.io(library.theme_sources)
+    except Exception:  # noqa: BLE001
+        logger.warning("console: the theme sources could not be read", exc_info=True)
+        return None
+
+
+def _finding(sources: dict[str, Any] | None) -> None:
+    unread = sum(1 for group in (theme_sources.LISTS, theme_sources.THEMES)
+                 for one in (sources or {}).get(group) or [] if one.get("level") == "bad")
+    if not unread:
+        return
+    with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel"):
+        ui.label(t("console.themes.sources_bad_one" if unread == 1
+                   else "console.themes.sources_bad_many", count=unread)) \
+            .classes("console-help text-warning")
+        panel.link(t("console.themes.sources_review"), to=settings.address_for("themes"))()
+
+
+def _empty(library: Library, redraw: Callable[[], None],
+           sources: dict[str, Any] | None) -> list[tuple[Any, Any]]:
+    """Nothing to list: no source to ask, or sources that offered nothing. Sources that
+    could not be read (None) are neither, so only the first line is drawn."""
+    add = (panel.ASIDE, panel.action(
+        t("console.theme_sources.add"), partial(theme_sources.add_source, library, redraw),
+        icon=verbs.ADD, hint=t("console.theme_sources.add.help")))
+    if sources is None:
+        return [panel.intro(t("console.themes.none_listed"))]
+    if any(sources.get(group) for group in (theme_sources.LISTS, theme_sources.THEMES)):
+        return [panel.intro(t("console.themes.none_listed")), add]
+    return [panel.intro(t("console.themes.no_sources")), add,
+            (panel.ASIDE, panel.action(
+                t("console.theme_sources.add_default"),
+                partial(theme_sources.add_default, library, redraw),
+                icon=verbs.ADD, hint=t("console.theme_sources.add_default.help")))]
 
 
 def _themes_said(shown: int, total: int) -> str:
@@ -280,11 +328,14 @@ async def details(context: dict[str, Any]) -> None:
             entries.append((t("console.themes.made_for"), MADE_FOR[str(theme["type"])]))
         if theme.get("registry"):
             registry = str(theme["registry"])
-            entries.append((t("console.themes.registry"),
+            entries.append((t("console.themes.list"),
                             panel.link_out(repo_name(registry), to=repo_page(registry))))
-        entries.append((t("console.themes.repository"),
-                        panel.link_out(repo_name(str(theme["url"])), to=str(theme["url"]))
-                        if theme.get("url") else t("console.themes.source_manual")))
+        if theme.get("url"):
+            entries.append((t("console.themes.repository"),
+                            panel.link_out(repo_name(str(theme["url"])), to=str(theme["url"]))))
+        else:
+            entries += [(t("console.themes.repository"), t("word.none")),
+                        panel.note(t("console.themes.no_source"))]
         copies = await backup_rows.listed(library, "theme", str(theme["key"]))
         if copies:
             entries.append((t("console.section.backups"), backup_rows.row(

@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from console import themes
+from console import theme_sources, themes
 from tests.support.clicks import press
 
 
@@ -66,9 +66,96 @@ class WhereItComesFrom(unittest.TestCase):
         self.assertEqual(("owner/catalog", "owner/theme", "someone"),
                          (row["registry"], row["repository"], row["author"]))
 
-    def test_a_theme_added_by_hand_has_neither(self) -> None:
+    def test_a_theme_no_source_offers_has_neither(self) -> None:
         row = themes.rows([_theme(registry="", url="")])[0]
         self.assertEqual(("", ""), (row["registry"], row["repository"]))
+
+
+LISTS, THEMES = theme_sources.LISTS, theme_sources.THEMES
+
+
+class WhenASourceTroublesThePage(unittest.TestCase):
+    def _drawn(self, sources: dict | None) -> tuple[list[str], list[str]]:
+        said: list[str] = []
+        went: list[str] = []
+
+        def label(text: str) -> Mock:
+            said.append(text)
+            return Mock()
+
+        def link(text: str, to: str) -> Mock:
+            went.append(to)
+            return Mock()
+
+        with patch.object(themes.ui, "row"), patch.object(themes.panel, "link", new=link), \
+                patch.object(themes.ui, "label", new=label):
+            themes._finding(sources)
+        return said, went
+
+    def test_a_source_that_cannot_be_read_is_one_finding_however_many_there_are(self) -> None:
+        bad, fine = {"level": "bad"}, {"level": ""}
+
+        self.assertEqual(([], []), self._drawn({LISTS: [fine], THEMES: []}))
+        self.assertEqual((["1 theme source could not be read"],
+                          [themes.settings.address_for("themes")]),
+                         self._drawn({LISTS: [fine, bad], THEMES: []}))
+        self.assertEqual((["2 theme sources could not be read"],
+                          [themes.settings.address_for("themes")]),
+                         self._drawn({LISTS: [bad], THEMES: [bad, fine]}))
+
+    def test_a_warning_is_not_a_source_that_cannot_be_read(self) -> None:
+        self.assertEqual(([], []),
+                         self._drawn({LISTS: [{"level": "warn"}, {"level": "unknown"}]}))
+
+    def test_sources_that_could_not_be_listed_draw_no_finding(self) -> None:
+        self.assertEqual(([], []), self._drawn(None))
+
+    def _empty(self, sources: dict | None) -> list:
+        with patch.object(themes.panel, "action",
+                          side_effect=lambda text, *a, **k: ("action", text)):
+            return themes._empty(Mock(), Mock(), sources)
+
+    def test_with_no_source_at_all_the_empty_page_offers_to_add_one(self) -> None:
+        rows = self._empty({LISTS: [], THEMES: []})
+
+        self.assertEqual([("action", "Add Source"), ("action", "Add the VPinFE Theme List")],
+                         [row[1] for row in rows[1:]])
+
+    def test_with_sources_that_offer_nothing_it_offers_to_add_another(self) -> None:
+        rows = self._empty({LISTS: [{"level": "bad"}], THEMES: []})
+
+        self.assertEqual([("action", "Add Source")], [row[1] for row in rows[1:]])
+
+    def test_sources_that_could_not_be_listed_are_not_an_empty_library_of_sources(self) -> None:
+        self.assertEqual(1, len(self._empty(None)))
+
+
+class TheRepositoryFact(unittest.IsolatedAsyncioTestCase):
+    async def _entries(self, theme: dict) -> list:
+        shown: list = []
+        with patch.object(themes, "_found", return_value=theme), \
+                patch.object(themes, "_status_value", return_value="status"), \
+                patch.object(themes.backup_rows, "listed", new=AsyncMock(return_value=[])), \
+                patch.object(themes, "ui"), \
+                patch.object(themes.panel, "link_out", side_effect=lambda text, to: (text, to)), \
+                patch.object(themes.panel, "note", side_effect=lambda text: ("note", text)), \
+                patch.object(themes.panel, "facts",
+                             side_effect=lambda _ui, entries: shown.extend(entries)):
+            await themes.details({"library": Mock()})
+        return shown
+
+    async def test_a_theme_no_source_offers_says_so(self) -> None:
+        entries = await self._entries(_theme(key="k", url=""))
+
+        self.assertIn(("Repository", "None"), entries)
+        self.assertIn(("note", "No source offers this theme, so it gets no updates"), entries)
+
+    async def test_a_theme_a_source_offers_links_to_its_repository(self) -> None:
+        entries = await self._entries(_theme(key="k", url="https://github.com/owner/theme"))
+
+        self.assertIn(("Repository", ("owner/theme", "https://github.com/owner/theme")),
+                      entries)
+        self.assertNotIn("None", [value for _label, value in entries if _label == "Repository"])
 
 
 class TheChangelog(unittest.TestCase):
