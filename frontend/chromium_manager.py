@@ -132,6 +132,69 @@ def get_builtin_chromium_options(
     return options
 
 
+class OptionLine(NamedTuple):
+    """One option a window is started with, and where it came from.
+
+    `source` is "window" for what places each window, "default" for VPinFE's own and
+    "yours" for an added one. `replaced` marks a window or default line that an added
+    option of the same name follows - Chrome is still given it, and the later one wins.
+    `merged` is the added feature names carried in VPinFE's `--disable-features` or
+    `--enable-features` line. `places` is a window option that decides where and which
+    window it is, which is what breaks when an added option replaces it.
+    """
+
+    text: str
+    source: str
+    replaced: bool = False
+    merged: tuple[str, ...] = ()
+    places: bool = False
+
+
+WINDOW_PLACEMENT = ("--app", "--window-name", "--class", "--window-position",
+                    "--window-size", "--user-data-dir")
+
+
+# Chrome keeps only the last of these, so an added one would switch VPinFE's own off.
+FEATURE_OPTIONS = ("--disable-features", "--enable-features")
+
+
+def option_name(option: str) -> str:
+    return option.split("=")[0]
+
+
+def option_lines(builtin: Iterable[str], added: Iterable[str]) -> list[OptionLine]:
+    """The command line a window gets, in order, with where each option came from.
+
+    An added `--disable-features` or `--enable-features` is folded into VPinFE's line of
+    that name; any other added option follows the built-in ones, and wins over a built-in
+    option of its name by being last.
+    """
+    builtin, added = list(builtin), list(added)
+    base = {option_name(flag) for flag in CHROMIUM_BASE_FLAGS}
+    theirs = {option_name(option) for option in added}
+    folded: dict[str, list[str]] = {}
+    for name in FEATURE_OPTIONS:
+        if any(option_name(flag) == name for flag in builtin):
+            folded[name] = [feature for option in added if option_name(option) == name
+                            for feature in option.partition("=")[2].split(",") if feature]
+
+    lines: list[OptionLine] = []
+    for flag in builtin:
+        name = option_name(flag)
+        source = "default" if name in base else "window"
+        if name in folded:
+            own = set(flag.partition("=")[2].split(","))
+            new = tuple(dict.fromkeys(f for f in folded[name] if f not in own))
+            text = f"{flag},{','.join(new)}" if new else flag
+            lines.append(OptionLine(text, source, merged=new))
+        else:
+            lines.append(OptionLine(flag, source, replaced=name in theirs,
+                                    places=name in WINDOW_PLACEMENT))
+    lines.extend(OptionLine(option, "yours") for option in added
+                 if option_name(option) not in folded)
+    return lines
+
+
 class LibraryEndpoint(NamedTuple):
     """Where a page dials for the library, and where it dials for this machine."""
 
@@ -508,23 +571,20 @@ class ChromiumManager:
                 if lp_orig is not None:
                     env[lp_key] = lp_orig  # restore the original, unmodified value
 
-        args = [
-            chrome_path,
-            *get_builtin_chromium_options(
-                window_name=window_name,
-                url=url,
-                monitor=monitor,
-                user_data_dir=user_data_dir,
-                mute_audio=mute_audio,
-                include_default_options=include_default_options,
-                exclude_options=parsed_or_none(exclude_options,
-                                               "general.chrome_options_exclude"),
-            ),
-        ]
+        builtin = get_builtin_chromium_options(
+            window_name=window_name,
+            url=url,
+            monitor=monitor,
+            user_data_dir=user_data_dir,
+            mute_audio=mute_audio,
+            include_default_options=include_default_options,
+            exclude_options=parsed_or_none(exclude_options,
+                                           "general.chrome_options_exclude"),
+        )
         extra_args = parsed_or_none(additional_options, "general.chrome_options")
         if extra_args:
             logger.debug("Adding Chromium options for '%s': %s", window_name, extra_args)
-            args.extend(extra_args)
+        args = [chrome_path, *(line.text for line in option_lines(builtin, extra_args))]
 
         logger.info(
             "Launching '%s' on monitor %s (%sx%s at %s,%s)",

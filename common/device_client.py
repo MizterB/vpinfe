@@ -115,6 +115,13 @@ class LocalDevice:
 
         return get_builtin_chromium_options(**kwargs)
 
+    def browser_option_lines(self, added: list[str], **kwargs: Any) -> list[Any]:
+        """The command line a window is started with, as `OptionLine`s - what a launch
+        gives the browser, with where each option came from."""
+        from frontend.chromium_manager import get_builtin_chromium_options, option_lines
+
+        return option_lines(get_builtin_chromium_options(**kwargs), added)
+
     def parse_browser_options(self, raw: str) -> list[str]:
         from frontend.chromium_manager import parse_additional_chromium_options
 
@@ -266,6 +273,9 @@ class RemoteDevice:
         raise NotThisDeviceError("Another machine's browser cannot be read from here")
 
     def browser_options(self, **kwargs: Any) -> list[str]:
+        raise NotThisDeviceError("Another machine's browser options cannot be read from here")
+
+    def browser_option_lines(self, added: list[str], **kwargs: Any) -> list[Any]:
         raise NotThisDeviceError("Another machine's browser options cannot be read from here")
 
     def parse_browser_options(self, raw: str) -> list[str]:

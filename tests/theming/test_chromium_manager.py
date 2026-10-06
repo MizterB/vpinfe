@@ -190,6 +190,30 @@ class ChromiumManagerTests(unittest.TestCase):
         self.assertIn("--disable-accelerated-video-decode", args)
         self.assertIn("--ozone-platform=x11", args)
 
+    def test_an_added_disable_features_is_folded_into_the_one_a_window_gets(self) -> None:
+        manager = ChromiumManager()
+        monitor = types.SimpleNamespace(x=10, y=20, width=800, height=600)
+
+        chromium = chromium_manager.ChromiumPath("/usr/bin/chromium", True)
+        with (
+            mock.patch("frontend.chromium_manager.get_chromium_path", return_value=chromium),
+            mock.patch("frontend.chromium_manager.os.path.exists", return_value=True),
+            mock.patch("frontend.chromium_manager.tempfile.mkdtemp",
+                       return_value="/tmp/vpinfe-profile"),
+            mock.patch("frontend.chromium_manager.subprocess.Popen",
+                       return_value=types.SimpleNamespace()) as popen,
+        ):
+            manager.launch_window(
+                "table", "http://127.0.0.1:8000/app/table", monitor, 0,
+                additional_options="--disable-features=HardwareMediaKeyHandling",
+            )
+
+        args = popen.call_args.args[0]
+        features = [arg for arg in args if arg.startswith("--disable-features=")]
+        self.assertEqual(len(features), 1)
+        self.assertTrue(features[0].endswith(",HardwareMediaKeyHandling"))
+        self.assertIn("CalculateNativeWindowOcclusion", features[0])
+
     def test_a_stray_quote_in_the_exclusions_does_not_stop_the_launch(self) -> None:
         """A typo in a text field cost the whole frontend. `chrome_options` was
         guarded and `chrome_options_exclude` was not, though both are the same

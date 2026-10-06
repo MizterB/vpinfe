@@ -1454,6 +1454,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                         else control))
         if note is not None:
             entries.append(note)
+        if previewed is not None and option["key"] == chrome_options.ADD:
+            entries.append(previewed.warning_row())
         for text, fix in option.get("findings") or ():
             entries.append(_finding(text, fix))
         if option.get("editor") == config_schema.EDITOR_CAPTURE_COMMAND:

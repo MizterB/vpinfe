@@ -6,6 +6,7 @@ run with. This is that reading, kept true as each of the three is saved.
 """
 from __future__ import annotations
 
+import html
 import json
 import logging
 import shlex
@@ -17,7 +18,7 @@ from nicegui import ui
 from common import device_client
 from common.i18n import t
 from common.values import is_truthy
-from console import about, panel
+from console import about, panel, remembered
 
 logger = logging.getLogger("vpinfe.console.chrome_options")
 
@@ -28,24 +29,49 @@ DEFAULTS = "defaults"
 KEYS = (ADD, LEAVE_OUT, DEFAULTS)
 
 
-def effective(held: Mapping[str, Any]) -> list[str]:
-    """What a window is started with, given the three settings as they stand.
+RESULT = "result"
+BREAKDOWN = "breakdown"
+VIEW = "chrome_options.view"
+MARKS = ("window", "yours", "replaced")
+
+
+def _parsed(held: Mapping[str, Any], key: str) -> list[str]:
+    try:
+        return device_client.local().parse_browser_options(str(held.get(key) or ""))
+    except ValueError:
+        return []
+
+
+def lines(held: Mapping[str, Any]) -> list[Any]:
+    """What a window is started with, given the three settings as they stand, as the
+    frontend's `OptionLine`s.
 
     A line that will not parse - an unbalanced quote - adds nothing, which is what the
     frontend does with it when it opens a window.
     """
-    client = device_client.local()
+    return device_client.local().browser_option_lines(
+        _parsed(held, ADD),
+        include_default_options=is_truthy(held.get(DEFAULTS), default=True),
+        exclude_options=_parsed(held, LEAVE_OUT))
 
-    def parsed(key: str) -> list[str]:
-        try:
-            return client.parse_browser_options(str(held.get(key) or ""))
-        except ValueError:
-            return []
 
-    return [*client.browser_options(include_default_options=is_truthy(held.get(DEFAULTS),
-                                                                      default=True),
-                                    exclude_options=parsed(LEAVE_OUT)),
-            *parsed(ADD)]
+def unmatched_quote(held: Mapping[str, Any]) -> bool:
+    try:
+        device_client.local().parse_browser_options(str(held.get(ADD) or ""))
+    except ValueError:
+        return True
+    return False
+
+
+def replaced_window_options(shown: list[Any]) -> list[str]:
+    """The options that place a window which an added option replaces. Not `--lang`,
+    which names a language and places nothing."""
+    return [option_name(line.text) for line in shown
+            if line.places and line.replaced]
+
+
+def option_name(option: str) -> str:
+    return option.split("=")[0]
 
 
 def _entries(raw: Any, names: list[str]) -> list[str]:
@@ -95,6 +121,10 @@ class Preview:
         self.held: dict[str, Any] = dict(values.get(SECTION) or {})
         self.box: Any = None
         self.picker: Any = None
+        self.listing: Any = None
+        self.copy_box: Any = None
+        self.warnings: Any = None
+        self.view = BREAKDOWN if remembered.get(VIEW) == BREAKDOWN else RESULT
         self.writable = True
 
     def after(self, key: str, save: Callable[[Any], Any]) -> Callable[[Any], Any]:
@@ -131,24 +161,90 @@ class Preview:
     def row(self) -> tuple[str, Callable[[], None]]:
         def draw() -> None:
             self.box = ui.column().classes("gap-1 w-full min-w-0")
+            with self.box:
+                self.listing = ui.column().classes("console-options w-full min-w-0 gap-0")
+                with ui.row().classes("items-center gap-2 w-full no-wrap"):
+                    ui.toggle({RESULT: t("console.settings.chrome_view.result"),
+                               BREAKDOWN: t("console.settings.chrome_view.breakdown")},
+                              value=self.view, on_change=self.choose) \
+                        .props("dense no-caps unelevated").classes("console-units shrink-0")
+                    self.copy_box = ui.element("div").classes("shrink-0")
+                    ui.label(t("console.settings.chrome_effective.help")) \
+                        .classes("console-help grow min-w-0")
             self.draw_inside()
 
         return t("console.settings.chrome_effective"), draw
 
+    def warning_row(self) -> tuple[Any, Callable[[], None]]:
+        """Under Additional Options: what is wrong with what was typed there."""
+        def draw() -> None:
+            self.warnings = ui.column().classes("gap-1 w-full min-w-0")
+            self.say_warnings(lines(self.held))
+
+        return (panel.ASIDE, draw)
+
+    def choose(self, event: Any) -> None:
+        self.view = BREAKDOWN if event.value == BREAKDOWN else RESULT
+        remembered.put(VIEW, self.view)
+        self.draw_inside()
+
     def draw_inside(self) -> None:
         if self.box is None:
             return
-        self.box.clear()
-        text = "\n".join(effective(self.held))
-        with self.box:
-            ui.textarea(value=text).props("outlined readonly autogrow") \
-                .classes("w-full console-log")
-            with ui.row().classes("items-center gap-2 w-full no-wrap"):
-                with ui.element("div").classes("shrink-0"):
-                    panel.action(t("word.copy"),
-                                 lambda event: about.copied(bool(event.args), text),
-                                 icon="content_copy",
-                                 hint=t("console.settings.chrome_copy.help"),
-                                 js=about.COPY_JS % json.dumps(text))()
-                ui.label(t("console.settings.chrome_effective.help")) \
-                    .classes("console-help grow min-w-0")
+        shown = lines(self.held)
+        text = "\n".join(line.text for line in shown)
+        self.listing.clear()
+        with self.listing:
+            for line in shown:
+                self.draw_line(line)
+            if self.view == BREAKDOWN:
+                with ui.row().classes("gap-4 pt-2"):
+                    for mark in MARKS:
+                        ui.label(t(f"console.settings.chrome_mark.{mark}")) \
+                            .classes(f"console-option--{mark}")
+        self.copy_box.clear()
+        with self.copy_box:
+            panel.action(t("word.copy"),
+                         lambda event: about.copied(bool(event.args), text),
+                         icon="content_copy",
+                         hint=t("console.settings.chrome_copy.help"),
+                         js=about.COPY_JS % json.dumps(text))()
+        self.say_warnings(shown)
+
+    def draw_line(self, line: Any) -> None:
+        """One option, broken at a comma when it does not fit - never inside a word."""
+        marked = self.view == BREAKDOWN
+        classes = "console-option"
+        tip = ""
+        text = html.escape(line.text).replace(",", ",<wbr>")
+        if marked:
+            if line.replaced:
+                classes, tip = classes + " console-option--replaced", "replaced"
+            elif line.source == "window":
+                classes, tip = classes + " console-option--window", "window"
+            elif line.source == "yours":
+                classes += " console-option--yours"
+            if line.merged:
+                head = line.text[:len(line.text) - len(",".join(line.merged))]
+                mine = html.escape(",".join(line.merged)).replace(",", ",<wbr>")
+                text = (html.escape(head).replace(",", ",<wbr>")
+                        + f'<span class="console-option--yours">{mine}</span>')
+        shown = ui.html(text, sanitize=False, tag="div").classes(classes)
+        if tip:
+            shown.tooltip(t(f"console.settings.chrome_mark.{tip}"))
+
+    def say_warnings(self, shown: list[Any]) -> None:
+        if self.warnings is None:
+            return
+        said = []
+        if unmatched_quote(self.held):
+            said.append(t("console.settings.chrome_unmatched"))
+        if replaced := replaced_window_options(shown):
+            said.append(t("console.settings.chrome_replaces_window",
+                          options=", ".join(replaced)))
+        self.warnings.clear()
+        with self.warnings:
+            for text in said:
+                with ui.element("div").classes("console-attention w-full"):
+                    ui.icon("error_outline").classes("console-attention-icon")
+                    ui.label(text).classes("console-attention-line")
