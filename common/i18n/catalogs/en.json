@@ -900,6 +900,7 @@
   "console.devices.version.help": "What answered",
   "console.devices.name.help": "What this device calls itself",
   "console.devices.features.help": "What that device is for",
+  "console.devices.features_note": "Turned on in this device's Settings",
   "console.devices.answering_view.help": "What is switched on and reachable right now",
   "console.devices.address.help": "Where it is reached",
   "console.devices.state.help": "Whether it answered when this device last asked\nAnswering - it is there\nNot answering - asked, nothing back\nCannot be asked - it has never said which port",

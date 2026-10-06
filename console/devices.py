@@ -10,7 +10,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import device_client, device_registry, lifecycle
+from common import device_client, device_registry, install_identity, lifecycle
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
@@ -30,6 +30,10 @@ IMPLIED_BY_KIND: dict[str, set[str]] = {
 }
 
 PRESENT, ABSENT, UNKNOWN = "present", "absent", "unknown"
+
+# The features a device's panel always names. Overview is a rollup, so it appears only on
+# a device that has it.
+_FEATURES_SHOWN = (install_identity.LIBRARY, install_identity.FRONTEND, install_identity.DEVICES)
 
 # What the absence costs, which is what the chip's color means everywhere else in the
 # Console: an unoffered capability is ordinary, one nothing has asked about is not.
@@ -1013,20 +1017,32 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     if not is_local(context):
         rows_out.append(panel.note(t("console.devices.name_note")))
     rows_out.append((t("console.devices.features"), _feature_chips(device.get("features"))))
+    if device.get("features"):
+        rows_out.append(panel.note(t("console.devices.features_note")))
     return rows_out
 
 
 def _feature_chips(features: Any) -> Any:
-    """One quiet chip per feature, or the plain statement that none was reported."""
-    names = settings_page.features_listed(features)
-    if not names:
+    """The three features every device may have, lit where it has one and dim where not.
+
+    A device that reported nothing at all reads "Not reported": dim says it was asked and
+    does not have the feature, which is a different claim.
+    """
+    if not features:
         return t("console.devices.not_reported")
+    has = settings_page.features_listed(features)
+    shown = [*_FEATURES_SHOWN, *(name for name in has if name not in _FEATURES_SHOWN)]
 
     def draw() -> None:
         with ui.element("div").classes("console-chips"):
-            for name in names:
-                ui.label(settings_page.feature_said(name)) \
-                    .classes("console-member-chip console-chip-quiet")
+            for name in shown:
+                lit = name in has
+                with ui.element("span").classes(
+                        "console-member-chip console-tier console-feature-chip "
+                        f"console-tier--{'on' if lit else 'off'}"):
+                    if lit:
+                        ui.icon("check").classes("console-feature-check")
+                    ui.label(settings_page.feature_said(name))
 
     return draw
 
