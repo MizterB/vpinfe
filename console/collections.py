@@ -18,7 +18,12 @@ from typing import Any
 from nicegui import run, ui
 
 from common.failures import why
-from common.games.collection_store import DIRECTION_WORDS, MANUAL_ORDER, SORT_LABELS
+from common.games.collection_store import (
+    BUILTIN_ALL,
+    DIRECTION_WORDS,
+    MANUAL_ORDER,
+    SORT_LABELS,
+)
 from common.i18n import t
 from console import (
     collection_adds,
@@ -93,7 +98,7 @@ _GAMES = (
 COLUMNS = [
     grid.identifier("name", t("word.name"), 240, pinned="left",
                     help=t("console.collections.name.help"),
-                    rowDrag=True, **{":cellRenderer": _NAME}),
+                    **{":rowDrag": "params => !params.data.pinned", ":cellRenderer": _NAME}),
     grid.column("kind", t("word.kind"), 120, help=t("console.collections.kind.help"),
                 **{**grid.choice_filter([{"value": kind, "label": word}
                                          for kind, word in _KIND_WORDS.items()]),
@@ -135,6 +140,12 @@ COLUMNS = [
                                          {"value": False, "label": t("word.no")}],
                                         formatted=True)}),
 ]
+
+# Keeps the All Games row first however the grid is sorted.
+_KEEP_FIRST = """params => {
+  const at = params.nodes.findIndex(node => node.data && node.data.pinned);
+  if (at > 0) params.nodes.unshift(...params.nodes.splice(at, 1));
+}"""
 
 _ARRANGEMENT = """(() => {
   const api = getElement(%d).api;
@@ -223,6 +234,17 @@ def rows(collections: list[dict[str, Any]], opens_on: str = "",
     return built
 
 
+def all_games_row(count: int, opens_on: str = "") -> dict[str, Any]:
+    """The whole library as the first row: not a collection anyone stores, so it has no
+    members, no rules and no order to edit. Its panel is the one place to say whether the
+    frontend opens on it."""
+    return {"id": BUILTIN_ALL, "name": t("console.collections.all_games"), "kind": "",
+            "count": count, "games_said": str(count), "missing_said": "", "hidden_said": "",
+            "added": 0, "matched": 0, "excluded": 0, "missing": 0, "hidden": 0,
+            "attention": False, "opens_on": not opens_on, "in_frontend": True,
+            "unsaved": False, "order": "", "limit": None, "pinned": True, "_raw": {}}
+
+
 def _order_line(row: dict[str, Any]) -> str:
     """How this collection is ordered, in one phrase.
 
@@ -247,8 +269,16 @@ def build(collections: list[dict[str, Any]], library: Any,
           rerender: Callable[[], None] | None = None) -> None:
     state = state if state is not None else {}
     look = library.list_art_look()
-    built = rows(collections, library.opens_on(), state.get("unsaved_rules") or set(),
-                 look is not None)
+    def with_all_games(real: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [all_games_row(len(library.games), library.opens_on()), *real]
+
+    built = with_all_games(rows(collections, library.opens_on(),
+                                state.get("unsaved_rules") or set(), look is not None))
+
+    def collections_only() -> list[dict[str, Any]]:
+        """`built` without the All Games row: what counts, moves and is selected."""
+        return [row for row in built if not row.get("pinned")]
+
     columns = grid.with_art(COLUMNS, look)
     fields = [definition["field"] for definition in columns]
 
@@ -263,7 +293,8 @@ def build(collections: list[dict[str, Any]], library: Any,
         if rerender is not None:
             rerender()
 
-    arrangement: dict[str, Any] = {"shown": [row["id"] for row in built], "sorted": ""}
+    arrangement: dict[str, Any] = {"shown": [row["id"] for row in collections_only()],
+                                   "sorted": ""}
     hint: dict[str, Any] = {}
 
     def annotate() -> None:
@@ -281,7 +312,7 @@ def build(collections: list[dict[str, Any]], library: Any,
             search = panel.search(t("console.collections.search_collections"))
         with bar.bottom, panel.bar_end():
             count = ui.label(t("console.collections.collections",
-                               count=len(built))).classes("text-xs console-label")
+                               count=len(collections_only()))).classes("text-xs console-label")
             bulk = ui.button(icon=verbs.MORE).props("flat round dense") \
                 .tooltip(t("console.collections.bulk_menu"))
             with bulk, ui.menu():
@@ -292,23 +323,24 @@ def build(collections: list[dict[str, Any]], library: Any,
             bulk.set_visibility(False)
             panel.add_action([(t("console.collections.new_collection"),
                                lambda: collection_adds.ask_new(library, reread))],
-                              empty=not built)
+                              empty=not collections_only())
 
     by_id = {row["id"]: row for row in built}
     grid.on_row_focus(SCOPE,
                       lambda event: on_select(by_id.get(grid.focused_row(event))))
     picked: list[dict[str, Any]] = []
 
-    shown: dict[str, int] = {"rows": len(built)}
+    shown: dict[str, int] = {"rows": len(collections_only())}
 
     def said() -> str:
         if picked:
             return grid.selection_said(table, len(picked), t(
                 "console.collections.selected", picked=len(picked), shown=shown["rows"]))
-        if shown["rows"] != len(built):
+        total = len(collections_only())
+        if shown["rows"] != total:
             return t("console.collections.collections_of", shown=shown["rows"],
-                     count=len(built))
-        return t("console.collections.collections", count=len(built))
+                     count=total)
+        return t("console.collections.collections", count=total)
 
     def on_selected(rows_selected: list[dict[str, Any]]) -> None:
         picked[:] = rows_selected
@@ -323,10 +355,13 @@ def build(collections: list[dict[str, Any]], library: Any,
         _fill(None, col_id=col_id, pinning=await grid.pinning(table, col_id))
 
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-        table: ui.aggrid = grid.build(columns, built, SCOPE, on_selected, on_context,
-                                      on_header_context, view_of=showing)
+        table: ui.aggrid = grid.build(columns, built, SCOPE, on_selected,
+                                      on_context, on_header_context, view_of=showing,
+                                      rows_without_a_menu=[BUILTIN_ALL],
+                                      rows_not_selectable=[BUILTIN_ALL])
         menu = ui.context_menu()
     table.options["rowDragManaged"] = True
+    table.options[":postSortRows"] = _KEEP_FIRST
     table.options[":rowDragText"] = "params => params.rowNode.data.name"
 
     async def redrawn(_next: str | None) -> None:
@@ -340,7 +375,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         with menu:
             if pinning is not None:
                 grid.column_menu(menu, table, columns, col_id, pinning)
-            elif row:
+            elif row and row["id"] != BUILTIN_ALL:
                 panel.verb_menu(menu, row["name"],
                                 moves(row["name"])
                                 + acts(library, state, row["name"], redrawn,
@@ -368,7 +403,7 @@ def build(collections: list[dict[str, Any]], library: Any,
         shown = arrangement["shown"]
         if arrangement["sorted"] or name not in shown:
             return None
-        order = [row["id"] for row in built]
+        order = [row["id"] for row in collections_only()]
         at = shown.index(name)
         if where == "top":
             if order[0] == name:
@@ -398,11 +433,11 @@ def build(collections: list[dict[str, Any]], library: Any,
     @on_page
     async def dragged() -> None:
         drawn = await ui.run_javascript(_ARRANGEMENT % table.id)
-        await arrange(list((drawn or {}).get("shown") or []))
+        await arrange([one for one in (drawn or {}).get("shown") or [] if one != BUILTIN_ALL])
 
     async def counted() -> None:
         drawn = await ui.run_javascript(_ARRANGEMENT % table.id) or {}
-        arrangement["shown"] = list(drawn.get("shown") or [])
+        arrangement["shown"] = [one for one in drawn.get("shown") or [] if one != BUILTIN_ALL]
         arrangement["sorted"] = str(drawn.get("sorted") or "")
         shown["rows"] = len(arrangement["shown"])
         count.text = said()
@@ -418,12 +453,12 @@ def build(collections: list[dict[str, Any]], library: Any,
 
     @on_page
     async def reread(focus: str = "") -> None:
-        fresh = rows(await offload.io(library.load_collections), library.opens_on(),
-                     state.get("unsaved_rules") or set(), look is not None)
-        built[:] = fresh
+        built[:] = with_all_games(rows(
+            await offload.io(library.load_collections), library.opens_on(),
+            state.get("unsaved_rules") or set(), look is not None))
         by_id.clear()
-        by_id.update({row["id"]: row for row in fresh})
-        table.run_grid_method("setGridOption", "rowData", fresh)
+        by_id.update({row["id"]: row for row in built})
+        table.run_grid_method("setGridOption", "rowData", built)
         grid.redraw(table)
         count.text = said()
         if not focus:

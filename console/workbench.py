@@ -36,6 +36,7 @@ from common.games.asset_registry import ALWAYS_KEPT as _ALWAYS_KEPT
 from common.games.asset_resolver import VPX_ASSET_KINDS
 from common.games.collection_filters import group_kind
 from common.games.collection_store import (
+    BUILTIN_ALL,
     DEFAULT_DIRECTION,
     DEFAULT_ORDER_BY,
     DIRECTION_WORDS,
@@ -366,6 +367,8 @@ def chosen_section(state: dict[str, Any], subject: str = "game",
         # Asked for by the address, so it is kept - including across a change of subject.
         # Seeding a default here would reopen a panel the address said to leave closed.
         return COLLAPSED
+    if subject == "all_games":
+        return rail[0].key
     if state.get("section") not in known:
         wanted = DEFAULT_SECTION.get(subject, "")
         state["section"] = wanted if wanted in known else rail[0].key
@@ -480,6 +483,15 @@ async def build_collection(container: ui.column, title: ui.column, library: Libr
     state = state if state is not None else {}
     await _pane_build(container, state,
                       lambda: _draw_collection(container, title, library, name, state))
+
+
+async def build_all_games(container: ui.column, title: ui.column, library: Library,
+                          state: dict[str, Any] | None = None) -> None:
+    """The panel for the whole library: not a collection, so it carries the one setting
+    that is about it and nothing a collection edits."""
+    state = state if state is not None else {}
+    await _pane_build(container, state,
+                      lambda: _draw_all_games(container, title, library, state))
 
 
 async def build_tag(container: ui.column, title: ui.column, library: Library,
@@ -1534,6 +1546,35 @@ async def _draw_collection(container: ui.column, title: ui.column, library: Libr
             lambda: build_collection(container, title, library, state.get("collection"),
                                      state))
         await _rail(context, "collection", state)
+
+
+async def _draw_all_games(container: ui.column, title: ui.column, library: Library,
+                          state: dict[str, Any]) -> None:
+    settings = await run.io_bound(library.config_values)
+    container.clear()
+    title.clear()
+    with container:
+        _title(title, t("console.collections.all_games"),
+               t("console.workbench.all_games.count", count=len(library.games)))
+        _note_unsaved(state, set())
+        context: dict[str, Any] = {"library": library, "collection": {"name": BUILTIN_ALL},
+                                   "settings": settings or {}, "state": state,
+                                   "redraws": [], "dock": None}
+        context["rebuild"] = _rebuilds(
+            context, "collection:all",
+            lambda: build_all_games(container, title, library, state))
+        await _rail(context, "all_games", state)
+
+
+async def _all_games_details(context: dict[str, Any]) -> None:
+    entries: list[tuple[Any, Any]] = [
+        (HEADING, t("console.workbench.frontend")),
+        (t("console.workbench.open_on"), _open_on(context, {"name": ""}, all_games=True)),
+        panel.note(t("console.workbench.open_on.help")),
+        panel.note(t("console.workbench.all_games.paging")),
+    ]
+    with ui.column().classes("gap-0 console-form"):
+        _rows(ui, entries)
 
 
 def _note_unsaved(state: dict[str, Any], names: set[str]) -> None:
@@ -6180,19 +6221,23 @@ def _in_frontend_switch(context: dict[str, Any], row: dict[str, Any]) -> Callabl
     return panel.switch(shown, changed, hint=t("console.workbench.in_menu.help"))
 
 
-def _open_on(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
+def _open_on(context: dict[str, Any], row: dict[str, Any], *,
+             all_games: bool = False) -> Callable[[], None]:
     """What the frontend opens on, and the one act that moves it: to this collection, or
-    back to all games. The value is the setting Settings shows, written the same way."""
+    back to all games. The value is the setting Settings shows, written the same way.
+    `all_games` is that row for the whole library, which has nothing to toggle: it can
+    only be chosen, and once chosen there is nothing left to offer."""
     name = str(row.get("name") or "")
     behavior = (context.get("settings") or {}).get("behavior") or {}
     now = str(behavior.get("startup_collection") or "").strip()
-    here = bool(name) and now == name
+    here = now == name if all_games else bool(name) and now == name
+    back = all_games or here
 
     @on_page
     async def use() -> None:
         try:
             await run.io_bound(context["library"].put_config, {"behavior": {
-                "startup_collection": "" if here else name}})
+                "startup_collection": "" if back else name}})
         except Exception as exc:
             ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
             return
@@ -6202,11 +6247,13 @@ def _open_on(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]
         with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
             ui.label(now or t("console.workbench.open_on.all_games")) \
                 .classes("console-fact-value truncate min-w-0")
+            if all_games and here:
+                return
             panel.action(
-                t("console.workbench.open_on.use_all" if here
+                t("console.workbench.open_on.use_all" if back
                   else "console.workbench.open_on.use_this"), use, inline=True,
                 icon=verbs.OPENS_ON,
-                hint=t("console.workbench.open_on.use_all.help" if here
+                hint=t("console.workbench.open_on.use_all.help" if back
                        else "console.collections.opens_on.help"))()
 
     return draw
@@ -7439,6 +7486,8 @@ SECTIONS: tuple[Section, ...] = (
             subjects=frozenset({"collection"})),
     Section("collection_games", _games_label, _collection_games,
             subjects=frozenset({"collection"})),
+    Section("all_games_details", lambda _: t("console.workbench.details"),
+            _all_games_details, subjects=frozenset({"all_games"})),
     Section("media_file", lambda _: t("word.file"), _media_file_block,
             subjects=frozenset({"media_file"}), dock=_media_has_stage),
     Section("tag_details", lambda _: t("console.workbench.details"), _tag_details,

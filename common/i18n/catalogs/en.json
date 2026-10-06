@@ -883,6 +883,7 @@
     "other": "{count} collections"
   },
   "console.collections.collections_of": "{shown} of {count} collections",
+  "console.collections.all_games": "All Games",
   "console.collections.copy_of": "{name} copy",
   "console.collections.copy_of_n": "{name} copy {n}",
   "console.collections.count_hidden": {
@@ -3119,7 +3120,7 @@
   "console.workbench.other_programs": "Other Programs",
   "console.workbench.own_done": "It is its own game now",
   "console.workbench.page_by": "Page by",
-  "console.workbench.page_by.help": "Sort Order jumps to the next letter, year or rating, following this collection's order. Fixed Count moves by the Paging Size in Settings.",
+  "console.workbench.page_by.help": "Overrides Page by in Settings for this collection only. Sort Order jumps to the next letter, year or rating. Fixed Count moves by Paging Size.",
   "console.workbench.part_said": "{label}: {said}",
   "console.workbench.past_limit": "Not shown in the frontend - limit {limit}",
   "console.workbench.path_placeholder": "/path/to/the/table file",
@@ -3193,6 +3194,11 @@
     "one": "Smart · {count} game",
     "other": "Smart · {count} games"
   },
+  "console.workbench.all_games.count": {
+    "one": "{count} game",
+    "other": "{count} games"
+  },
+  "console.workbench.all_games.paging": "Paging follows Page by and Paging Size in Settings",
   "console.workbench.source": "Source: {source_name}",
   "console.workbench.spreadsheet_differs": "The spreadsheet says something different",
   "console.workbench.start_from": "Start from",

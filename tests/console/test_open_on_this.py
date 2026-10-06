@@ -16,7 +16,8 @@ async def _now(callback: Any, *args: Any, **kwargs: Any) -> Any:
 
 
 class OpenOn(unittest.IsolatedAsyncioTestCase):
-    def _drawn(self, name: str, opens_on: str) -> tuple[str, str, Any, dict[str, Any]]:
+    def _drawn(self, name: str, opens_on: str, all_games: bool = False,
+               ) -> tuple[str, str | None, Any, dict[str, Any]]:
         """The value shown, the label of the one act, that act, and the context."""
         context = {"library": Mock(), "state": {},
                    "settings": {"behavior": {"startup_collection": opens_on}}}
@@ -47,8 +48,8 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
         with patch.object(workbench.panel, "action", new=action), \
                 patch.object(workbench.ui, "row", new=lambda: Row()), \
                 patch.object(workbench.ui, "label", new=Label):
-            workbench._open_on(context, {"name": name})()
-        label, act = acts[0]
+            workbench._open_on(context, {"name": name}, all_games=all_games)()
+        label, act = acts[0] if acts else (None, None)
         return shown[0], label, act, context
 
     async def _used(self, name: str, opens_on: str) -> dict[str, Any]:
@@ -89,6 +90,35 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
 
         context["library"].put_config.assert_called_once_with(
             {"behavior": {"startup_collection": ""}})
+
+    def test_all_games_chosen_offers_nothing_more(self) -> None:
+        shown, label, _, _ = self._drawn("", "", all_games=True)
+
+        self.assertEqual((t("console.workbench.open_on.all_games"), None), (shown, label))
+
+    def test_all_games_not_chosen_names_the_collection_and_offers_all_games(self) -> None:
+        shown, label, _, _ = self._drawn("", "Friday Night", all_games=True)
+
+        self.assertEqual(("Friday Night", t("console.workbench.open_on.use_all")),
+                         (shown, label))
+
+    async def test_using_all_games_from_its_own_row_empties_the_setting(self) -> None:
+        _, _, use, context = self._drawn("", "Friday Night", all_games=True)
+        with patch.object(workbench.run, "io_bound", new=_now), \
+                patch.object(workbench, "_written", new=AsyncMock()):
+            await press(use)
+
+        context["library"].put_config.assert_called_once_with(
+            {"behavior": {"startup_collection": ""}})
+
+
+class TheRememberedSection(unittest.TestCase):
+    def test_selecting_all_games_leaves_the_section_a_collection_was_on(self) -> None:
+        state = {"section": "collection_rules"}
+
+        workbench.chosen_section(state, "all_games")
+
+        self.assertEqual("collection_rules", state["section"])
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 
+from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from console import collections, data, grid, verbs, views
 
@@ -91,6 +92,25 @@ class TheRows(unittest.TestCase):
         self.assertEqual({"90s Bally": "Site Tables: Top Rated",
                           "Five Bally": "Site, not running"},
                          {one["name"]: one["order"] for one in collections.rows(orders)})
+
+
+class TheAllGamesRow(unittest.TestCase):
+    def test_it_is_the_whole_library_and_is_not_a_collection(self) -> None:
+        row = collections.all_games_row(149)
+
+        self.assertEqual((BUILTIN_ALL, t("console.collections.all_games"), 149, True),
+                         (row["id"], row["name"], row["count"], row["pinned"]))
+
+    def test_it_carries_the_home_mark_only_while_the_frontend_opens_on_all_games(self) -> None:
+        self.assertTrue(collections.all_games_row(3, "")["opens_on"])
+        self.assertFalse(collections.all_games_row(3, "Friday Night")["opens_on"])
+
+    def test_it_is_not_drawn_with_a_drag_handle_and_only_it_is_kept_first(self) -> None:
+        self.assertIn("pinned", str(_column("name")[":rowDrag"]))
+        self.assertIn("pinned", collections._KEEP_FIRST)
+
+    def test_collection_rows_do_not_include_it(self) -> None:
+        self.assertNotIn(BUILTIN_ALL, [one["id"] for one in collections.rows([_SMART])])
 
 
 class TheColumns(unittest.TestCase):

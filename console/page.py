@@ -21,6 +21,7 @@ from common import (
     whats_new,
 )
 from common.failures import why
+from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from console import about as about_page
@@ -1331,9 +1332,15 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         Games follows, so the panel never needs a control of its own."""
         if row and not state["workbench"]:
             show_workbench(True)
-        state["collection"] = (row or {}).get("id")
-        await workbench.build_collection(panel, workbench_title, library,
-                                         state["collection"], state)
+        chosen = (row or {}).get("id")
+        # The whole library is no collection: the Games page and the address must not
+        # be told to filter by it.
+        state["collection"] = None if chosen == BUILTIN_ALL else chosen
+        if chosen == BUILTIN_ALL:
+            await workbench.build_all_games(panel, workbench_title, library, state)
+        else:
+            await workbench.build_collection(panel, workbench_title, library,
+                                             state["collection"], state)
         deeplink.sync(state)
 
     async def show_tag(row: dict | None) -> None:
