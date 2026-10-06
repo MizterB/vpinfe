@@ -69,6 +69,11 @@ CHROMIUM_BASE_FLAGS = [
     "--test-type",
 ]
 
+# Without this Chromium asks GNOME's keyring for a password, and a cabinet that logs in
+# automatically has no one to answer the dialog.
+if platform.system() == "Linux":
+    CHROMIUM_BASE_FLAGS.append("--password-store=basic")
+
 # The windows with a high-DPI override setting, by canonical name.
 OVERRIDE_SECTIONS = {"backglass": "windows.backglass", "scoreview": "windows.score_view"}
 

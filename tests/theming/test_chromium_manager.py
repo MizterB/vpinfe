@@ -150,6 +150,23 @@ class ChromiumManagerTests(unittest.TestCase):
                        side_effect=lambda path: path == chromium):
             self.assertIsNone(chromium_manager.google_chrome_path())
 
+    def test_only_linux_stores_passwords_in_the_profile_instead_of_the_keyring(self) -> None:
+        import importlib.util
+        import platform
+
+        def flags_on(system: str) -> list[str]:
+            spec = importlib.util.spec_from_file_location(
+                "chromium_manager_probe", chromium_manager.__file__)
+            assert spec is not None and spec.loader is not None
+            probe = importlib.util.module_from_spec(spec)
+            with mock.patch.object(platform, "system", return_value=system):
+                spec.loader.exec_module(probe)
+            return list(probe.CHROMIUM_BASE_FLAGS)
+
+        self.assertIn("--password-store=basic", flags_on("Linux"))
+        for system in ("Darwin", "Windows"):
+            self.assertNotIn("--password-store=basic", flags_on(system))
+
     def test_parse_additional_chromium_options_supports_multiple_flags(self) -> None:
         options = chromium_manager.parse_additional_chromium_options(
             '--disable-accelerated-video-decode\n'
