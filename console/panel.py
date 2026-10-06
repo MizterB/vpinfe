@@ -318,6 +318,7 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                         ui.tooltip().bind_text_from(
                             control, "value", backward=lambda said: said or left_empty)
                 if status is not None or browse is not None:
+                    control.classes("console-adorned")
                     with control.add_slot("append"):
                         if status is not None:
                             status(control)
@@ -489,7 +490,7 @@ def value_state(state: str, reason: str = "") -> Callable[[Any], None]:
         if pair is None:
             return
         icon, color = pair
-        mark = ui.icon(icon, size="18px").classes(f"text-{color} console-value-state")
+        mark = ui.icon(icon).classes(f"text-{color} console-value-state")
         if reason:
             mark.tooltip(reason)
 
@@ -727,7 +728,7 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
 
     control = ui.input(placeholder=placeholder)
     control.value = value
-    control.props("outlined dense debounce=0 bottom-slots").classes(width)
+    control.props("outlined dense debounce=0 bottom-slots").classes(f"{width} console-adorned")
     with control.add_slot("append"):
         holder = ui.element("div").classes("console-value-state")
         if browse is not None:

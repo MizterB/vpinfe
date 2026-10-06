@@ -80,6 +80,7 @@ def field(value: str = "", *, placeholder: str = "", lines: int = 0,
                 if chosen and not control.is_deleted:
                     control.value = chosen
 
+            control.classes("console-adorned")
             with control.add_slot("append"):
                 panel.browse_button(browsed)
         return control
