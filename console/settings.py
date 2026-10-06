@@ -811,15 +811,28 @@ PAGE_NOTES: dict[str, str] = {
 }
 
 
-def page_head(key: str, findings: Sequence[Callable[[], None]] = ()) -> None:
+def page_head(key: str, findings: Sequence[Callable[[], None]] = (),
+              waits: str = "") -> None:
     """A page's name above its settings, and the line saying what it is for.
 
     `panel.header`'s treatment rather than a heading inside the panel: the cyan one is
     for a group within a page, and using it for the page's own name ranked the two the
-    same.
+    same. `waits` is what every setting on the page waits for, said here once.
     """
     said = PAGE_NOTES.get(key, "")
-    panel.header(_page_label(key), t(said) if said else "", findings)
+    lines = [t(said) if said else "",
+             t(f"console.settings.applies_once.{waits}") if waits else ""]
+    panel.header(_page_label(key), " ".join(line for line in lines if line), findings)
+
+
+def page_waits(schema: list[dict], sections: Sequence[str]) -> str:
+    """What every setting on a page waits for, or "" where they differ or none wait."""
+    waits = {str(option.get("applies") or config_schema.APPLIES_NOW)
+             for block in schema if str(block.get("name")) in sections
+             for option in block.get("options") or ()}
+    if len(waits) != 1 or waits == {config_schema.APPLIES_NOW}:
+        return ""
+    return next(iter(waits))
 
 
 # The two kind pages are not schema pages. What they switch is a *list* in the config,
@@ -1333,11 +1346,13 @@ def with_when(description: str, applies: Any) -> str:
 
 
 def _noted(option: dict, value: Any, save: Callable[[Any], Any],
-           resolved: str) -> tuple[Callable[[Any], Any], tuple[Any, Any] | None]:
+           resolved: str, waits_said: bool = False,
+           ) -> tuple[Callable[[Any], Any], tuple[Any, Any] | None]:
     """The line under a setting - what it does, when a change takes effect where that is
     not now, and its default - and a `save` that keeps the default's half true as the
-    value changes."""
-    described = with_when(str(option.get("description") or ""), option.get("applies"))
+    value changes. `waits_said` leaves the wait out where the page has said it."""
+    described = with_when(str(option.get("description") or ""),
+                          "" if waits_said else option.get("applies"))
 
     def said(now: Any) -> str:
         reminder = default_said(option, now, resolved)
@@ -1375,6 +1390,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  from_elsewhere: bool = False,
                  previewed: chrome_options.Preview | None = None,
                  stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
+                 waits_said: bool = False,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1412,7 +1428,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         value = current.get(option["key"], option.get("default"))
         refusal = Refusal() if option.get("unit") == config_schema.UNIT_PORT else None
         save, note = _noted(option, value, _saver(source, section, option["key"], refusal),
-                            (resolved or {}).get(option["key"], ""))
+                            (resolved or {}).get(option["key"], ""), waits_said)
         if option.get("cuts_off_console") and from_elsewhere:
             save = _asked_first(option, save, rerender)
         chipped = waiting if option.get("applies") in (
@@ -1454,6 +1470,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             drawn_elsewhere: bool = False,
                             waiting: Waiting | None = None,
                             stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
+                            waits_said: bool = False,
                             ) -> None:
     """One page of a device's settings, drawn exactly as this install's are.
 
@@ -1509,7 +1526,7 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                                 resolved=resolves(offered) if resolves else None,
                                 browse=browse, waiting=waiting,
                                 from_elsewhere=from_elsewhere, previewed=preview,
-                                stands_in=stands_in)
+                                stands_in=stands_in, waits_said=waits_said)
         if preview is not None:
             entries.append(preview.row())
         foot = FOOTERS.get(name)
@@ -1624,6 +1641,7 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         schema = with_browser_found(schema, browser)
     if play := await _play_input(library, sections):
         schema = with_play_input(schema, play, values)
+    waits = page_waits(schema, sections)
     blocks = []
     if key == input_page.KEY:
         sections = tuple(name for name in sections if name != INPUT)
@@ -1661,13 +1679,13 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
     stands_in = await _theme_sources(library, state if state is not None else {}, redraw) \
         if theme_sources.SECTION in sections else None
     with body:
-        page_head(key, findings)
+        page_head(key, findings, waits)
         await build_device_page(library, {"library": library, "rebuild": redraw},
                                 schema, values, sections, checks=marks,
                                 suggestions=offered, blocks=blocks, browse=library.folders,
                                 drawn_elsewhere=key == displays.KEY,
                                 waiting=Waiting(library, await _waiting(library)),
-                                stands_in=stands_in)
+                                stands_in=stands_in, waits_said=bool(waits))
 
 
 async def _theme_sources(library: Library, state: dict[str, Any],
