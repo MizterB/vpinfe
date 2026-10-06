@@ -220,9 +220,13 @@ def detail(game_id: str, kind: str, table_id: str = "") -> dict:
              for key, source in recorded.items()
              if str(source.get("host", "") or "").strip()}
     prefix = _prefix(game_id, table_id)
+    from common.games import backglass_ops
+
     return {
         "kind": kind,
         "family": media_family(kind),
+        "backglass_file": (backglass_ops.offer(game_id, table_id)
+                           if kind == backglass_ops.KIND else None),
         "present": path is not None,
         "file": path.name if path is not None else None,
         "path": asset_origin.path_of(game_dir, path) or None,

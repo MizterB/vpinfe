@@ -350,6 +350,11 @@ class Library:
         self.forget_media(game_id)
         return result
 
+    def draw_backglass_picture(self, game_id: str, table_id: str) -> dict:
+        result = self._client.draw_backglass_picture(game_id, table_id)
+        self.forget_media(game_id)
+        return result
+
     def retier_media(self, game_id: str, kind: str, from_table: str,
                      to_table: str) -> dict:
         """The file moves tier, so every tier's read is stale - the one it left and the

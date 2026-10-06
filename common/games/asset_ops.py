@@ -94,6 +94,17 @@ def displaced(game_id: str, kind: str, filename: str, table_id: str = "") -> dic
                                _stem(game, found_kind, table_id) + found_kind.extension)}
 
 
+def _redraw_picture(game_id: str) -> None:
+    """A new backglass file draws again the picture it made before. The file is already
+    written, so a failure costs the redraw, not the write."""
+    from common.games import backglass_ops
+
+    try:
+        backglass_ops.redraw(game_id)
+    except Exception:  # noqa: BLE001
+        logger.exception("Could not redraw the backglass picture of %s", game_id)
+
+
 def place_file(game_id: str, kind: str, table_id: str, source: Path,
                filename: str = "") -> dict:
     """Copy `source` in under this tier's name, replacing what was there.
@@ -116,6 +127,8 @@ def place_file(game_id: str, kind: str, table_id: str, source: Path,
             if other != target.name:
                 (game_dir / other).unlink()
     media_placement.record_origin(game_dir, target)
+    if found_kind.key == "backglass":
+        _redraw_picture(game_id)
     return {"written": target.name, "displaced": going}
 
 

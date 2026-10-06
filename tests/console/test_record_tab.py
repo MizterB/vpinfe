@@ -57,6 +57,33 @@ class WhichSlotsRecordTests(unittest.TestCase):
         slot.picked("upload")
         self.assertEqual(slot.chosen_extension, "")
 
+    def test_a_backglass_file_opens_an_empty_picture_slot_on_its_tab(self) -> None:
+        context = {"library": _library([]), "game_id": "g1", "game": {}, "lens": ""}
+        offer = {"path": "a.directb2s", "file": "a.directb2s", "grill": True,
+                 "version": "v1"}
+        with mock.patch.object(mediasource._Slot, "open", autospec=True) as opened:
+            mediasource.open_sources(context, "backglass", "Backglass", lambda: None,
+                                     backglass_file=offer)
+            mediasource.open_sources(context, "backglass", "Backglass", lambda: None,
+                                     "medias/bg.png", backglass_file=offer)
+            mediasource.open_sources(context, "backglass", "Backglass", lambda: None)
+
+        empty, filled, none = (call.args[0] for call in opened.call_args_list)
+        self.assertEqual((empty.backglass, empty.first), (True, "backglass"))
+        self.assertEqual((filled.backglass, filled.first), (True, ""))
+        self.assertEqual((none.backglass, none.first), (False, ""))
+
+    def test_the_file_name_follows_the_backglass_file_on_its_tab(self) -> None:
+        context = {"library": _library([]), "game_id": "g1", "game": {}, "lens": ""}
+        slot = mediasource._Slot(context, "backglass", "Backglass", lambda: None,
+                                 mediasource._media(context["library"], "backglass"),
+                                 backglass_file={"path": "a.directb2s"})
+
+        slot.picked("backglass")
+        self.assertEqual(slot.chosen_extension, ".png")
+        slot.picked("upload")
+        self.assertEqual(slot.chosen_extension, "")
+
 
 class StoppedTests(unittest.TestCase):
     def test_what_stops_record_is_said_in_order(self) -> None:

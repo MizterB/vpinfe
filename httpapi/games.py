@@ -249,6 +249,15 @@ def import_media(game_id: str, kind: str, body: models.MediaImport) -> models.Me
         **media_ops.place_file(game_id, kind, body.table, source))
 
 
+@router.post("/{game_id}/media/backglass/from-file",
+             summary="Draw the backglass file's picture into the backglass slot",
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def place_backglass_picture(game_id: str, body: models.MediaFromFile) -> models.MediaWritten:
+    """The picture as the renderer in effect shows it, recorded as drawn from the file.
+    It is drawn again whenever the file changes, for as long as nobody replaces it."""
+    return models.MediaWritten(**backglass_ops.place_picture(game_id, body.table))
+
+
 @router.post("/{game_id}/media/{kind}/fetch",
              summary="Take a file from an online catalog into a slot",
              dependencies=[requires(scopes.GAMES_WRITE), requires(scopes.VPS_READ)])

@@ -20,6 +20,7 @@ logger = logging.getLogger("vpinfe.common.games.asset_origin")
 ASSETS_KEY = "assets"
 UNKNOWN = "unknown"
 RECORDED = "capture"
+BACKGLASS_FILE = "backglass_file"
 
 
 def _key(game_dir: Path, path: Path) -> str:

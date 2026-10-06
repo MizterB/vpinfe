@@ -63,7 +63,11 @@ _LIST_MAX = 60
 
 # Where `.console-source-host` cuts the tab's label, at 20ch.
 _HOST_NAME_MAX = 20
+
 _FIND_FROM = 8
+
+# What the Backglass File tab saves, which is the name its extension is read from.
+BACKGLASS_PICTURE = "backglass.png"
 
 SIZE_NAMES = {"4k": "config.media.playfield_resolution.choice.4k",
               "1k": "config.media.playfield_resolution.choice.1k"}
@@ -146,6 +150,7 @@ class _Sources:
     games = False
     keyed = False
     records = False
+    backglass = False
     # The tab the dialog opens on, where it is not the first.
     first = ""
 
@@ -204,6 +209,9 @@ class _Sources:
     async def record_tab(self, body: ui.column) -> None:
         return None
 
+    async def backglass_tab(self, body: ui.column) -> None:
+        return None
+
     def picked(self, tab: str) -> None:
         """`tab` was opened."""
 
@@ -221,6 +229,9 @@ class _Sources:
                 if self.uploads:
                     ui.tab("upload", label=t("console.mediasource.upload"),
                            icon=verbs.FROM_FILE)
+                if self.backglass:
+                    ui.tab("backglass", label=t("console.mediasource.backglass_file"),
+                           icon=verbs.FROM_BACKGLASS_FILE)
                 if self.games:
                     ui.tab("games", label=t("console.mediasource.its_games"),
                            icon=icons.GAMES)
@@ -240,6 +251,7 @@ class _Sources:
             games_body: ui.column | None = None
             keyed_body: ui.column | None = None
             record_body: ui.column | None = None
+            backglass_body: ui.column | None = None
             first = self.first or ("upload" if self.uploads else "host")
             with ui.tab_panels(tabs, value=first).classes("w-full console-sources-panels"):
                 if self.uploads:
@@ -248,6 +260,9 @@ class _Sources:
                                                 "items-center gap-2"):
                         ui.icon(verbs.FROM_FILE).classes("console-slot-blank-icon")
                         self.zone(card)
+                if self.backglass:
+                    with ui.tab_panel("backglass"):
+                        backglass_body = ui.column().classes("w-full gap-2 console-source-fill")
                 if self.games:
                     with ui.tab_panel("games"):
                         games_body = ui.column().classes("w-full gap-2 console-source-fill")
@@ -285,7 +300,8 @@ class _Sources:
                      "online": (online_body, self.online_tab),
                      "games": (games_body, self.games_tab),
                      "keyed": (keyed_body, self.keyed_tab),
-                     "record": (record_body, self.record_tab)}
+                     "record": (record_body, self.record_tab),
+                     "backglass": (backglass_body, self.backglass_tab)}
             body, read = reads.get(event.value, (None, None))
             if body is None or read is None:
                 return
@@ -297,6 +313,11 @@ class _Sources:
             loaded.add("host")
             with box:
                 busy.fill(host_body, lambda: self.host_tab(host_body))
+        if first == "backglass" and backglass_body is not None:
+            loaded.add("backglass")
+            self.picked("backglass")
+            with box:
+                busy.fill(backglass_body, lambda: self.backglass_tab(backglass_body))
         if first == "record" and record_body is not None:
             loaded.add("record")
             self.picked("record")
@@ -476,12 +497,15 @@ class _Slot(_OneFile):
 
     def __init__(self, context: dict[str, Any], kind: str, label: str,
                  done: Callable, target: _Target, current: str = "", *,
-                 records: bool = False, first: str = "") -> None:
+                 records: bool = False, first: str = "",
+                 backglass_file: dict[str, Any] | None = None) -> None:
         super().__init__(context["library"], label, done, target.accept,
                          _on_host(context, current))
         self.target = target
         self.online = target.online
         self.records = records
+        self.backglass_file = backglass_file
+        self.backglass = bool(backglass_file)
         self.first = first
         self.context = context
         self.kind = kind
@@ -714,6 +738,35 @@ class _Slot(_OneFile):
         if self.records:
             made = record.MADE_AS.get(media_family(self.kind), "")
             self.note_extension(made if tab == "record" else "")
+        if self.backglass:
+            self.note_extension(BACKGLASS_PICTURE if tab == "backglass" else "")
+
+    async def backglass_tab(self, body: ui.column) -> None:
+        """The picture the game's backglass file draws, as one candidate."""
+        offer = self.backglass_file or {}
+
+        @on_page
+        async def take() -> None:
+            if not await self.confirmed(BACKGLASS_PICTURE):
+                return
+            try:
+                await run.io_bound(self.library.draw_backglass_picture, self.game_id,
+                                   self.destination)
+            except Exception as exc:  # noqa: BLE001 - the notice says why
+                ui.notify(t("console.mediasource.place_failed"), caption=why(exc),
+                          type="negative")
+                return
+            await self.finish(t("console.mediasource.label_saved", label=self.label))
+
+        def src(size: int) -> str:
+            return art.backglass(self.game_id, str(offer.get("path") or ""),
+                                 version=offer.get("version"), size=size,
+                                 grill=bool(offer.get("grill")))
+
+        with body:
+            candidates.row(src(art.CELL), str(offer.get("file") or ""),
+                           t("console.mediasource.backglass_grill") if offer.get("grill")
+                           else "", "", take, peek=src(art.PANEL))
 
     async def record_tab(self, body: ui.column) -> None:
         """This kind recorded on its own: Record and what it made, then the settings."""
@@ -1501,16 +1554,20 @@ def records(library: Any, kind: str) -> dict[str, Any] | None:
 
 
 def open_sources(context: dict[str, Any], kind: str, label: str,
-                 done: Callable, current: str = "", *, recording_it: bool = False) -> None:
+                 done: Callable, current: str = "", *, recording_it: bool = False,
+                 backglass_file: dict[str, Any] | None = None) -> None:
     """Open the ways to fill this slot. Returns as soon as the dialog is up.
 
     `current` is what fills it now, as a path in the game's folder. `recording_it` opens
-    it on its Record tab.
+    it on its Record tab. `backglass_file` is the picture the game's backglass file draws,
+    which adds a tab and, on an empty slot, is where the dialog opens.
     """
     library = context["library"]
+    first = "record" if recording_it else \
+        "backglass" if backglass_file and not current else ""
     _Slot(context, kind, label, done, _media(library, kind), current,
-          records=records(library, kind) is not None,
-          first="record" if recording_it else "").open()
+          records=records(library, kind) is not None, first=first,
+          backglass_file=backglass_file).open()
 
 
 def open_asset_sources(context: dict[str, Any], kind: str, label: str,

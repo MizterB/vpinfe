@@ -429,8 +429,15 @@ def update_downloaded(reporter: JobReporter | None = None,
 def start_update() -> bool:
     """Run `update_downloaded` as a job. False when a fill holds the job kind."""
     def work(job: jobs.Job) -> dict[str, int]:
-        return update_downloaded(job.reporter(),
-                                 lambda: update_enabled() and not shutdown.requested())
+        from common.games import backglass_ops
+
+        def proceed() -> bool:
+            return update_enabled() and not shutdown.requested()
+
+        redrawn = backglass_ops.redraw_all(proceed)
+        if redrawn:
+            logger.info("Updating art: %s backglass picture(s) drawn again", redrawn)
+        return update_downloaded(job.reporter(), proceed)
 
     try:
         jobs.submit(jobs.KIND_MEDIA_FILL, work)

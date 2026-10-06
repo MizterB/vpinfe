@@ -703,6 +703,11 @@ class ApiClient:
                           {"source": source, "vps_id": vps_id, "size": size,
                            "table": table_id or ""})
 
+    def draw_backglass_picture(self, game_id: str, table_id: str) -> dict:
+        """Draw the backglass file's picture into the slot."""
+        return self._post(f"/games/{game_id}/media/backglass/from-file",
+                          {"table": table_id or ""})
+
     def retier_media(self, game_id: str, kind: str, from_table: str,
                      to_table: str) -> dict:
         """Rename a placed file so it serves the other tier. No bytes move."""

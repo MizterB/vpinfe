@@ -235,6 +235,17 @@ def _game_file(table_id: str) -> str:
     return str(Path(str(game.full_path_game or "")) / filename)
 
 
+def effective_values(launcher_id: str, table: str = "") -> dict[str, str]:
+    """What the program will use for each of its settings at this table, by key. Empty
+    where the launcher's program has no settings of its own."""
+    found = launcher_or_refuse(launcher_id)
+    config = _app_settings_surface(found)
+    if config is None:
+        return {}
+    held = config.read(SCOPE_ENTRY, _game_file(table), _launcher_settings(found))
+    return {key: str(one.value or "") for key, one in held.items()}
+
+
 def app_config(launcher_id: str, table: str = "",
                scope: str = "launcher") -> dict[str, Any]:
     """The declared groups, and every value as it stands at one scope.

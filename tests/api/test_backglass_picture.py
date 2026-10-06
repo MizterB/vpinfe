@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import io
+from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
@@ -11,7 +12,8 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import sized_media
-from common.games import directb2s_parser
+from common.games import asset_origin, backglass_ops, directb2s_parser
+from common.online.vpsdb_media import file_md5
 from tests.support.library import TempTree, fake_game, write_game
 
 GAME_ID = "Glass0001"
@@ -157,3 +159,157 @@ class BackglassRoutes(TempTree):
         response = self.client.get(f"/games/{GAME_ID}/tables/nope/assets/backglass/picture")
 
         self.assertEqual(404, response.status_code)
+
+
+class BackglassFileAsPicture(BackglassRoutes):
+    """The backglass file offered as the slot's picture, and kept in step with it."""
+
+    def _settings(self, **held: str) -> None:
+        row = {"id": "t1", "filename": "t1.vpx", "launcher": "vpx",
+               "launcher_app_configurable": True}
+        for patcher in (patch.object(backglass_ops, "_table_rows", return_value=[row]),
+                        patch("common.games.launcher_ops.effective_values",
+                              return_value=held)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _placed(self) -> tuple[Path, dict]:
+        path = self.folder / "medias" / "(Backglass) t1.png"
+        return path, asset_origin.sources(self.folder).get("medias/(Backglass) t1.png", {})
+
+    def _changed(self) -> None:
+        (self.folder / "t1.directb2s").write_bytes(_directb2s(size=(90, 70)))
+        directb2s_parser._facts.clear()
+
+    def test_the_offer_names_the_file_and_its_picture(self) -> None:
+        offered = backglass_ops.offer(GAME_ID, "t1")
+
+        self.assertEqual(("t1.directb2s", "t1.directb2s"),
+                         (offered["file"], offered["path"]))
+        self.assertTrue(offered["version"])
+
+    def test_the_shared_slot_with_no_folder_file_is_offered_the_default_tables(self) -> None:
+        (self.folder / f"{FOLDER}.directb2s").unlink()
+
+        self.assertEqual("t1.directb2s", backglass_ops.offer(GAME_ID, "")["file"])
+
+    def test_a_table_with_no_file_of_its_own_is_offered_the_folders(self) -> None:
+        self.assertEqual(f"{FOLDER}.directb2s", backglass_ops.offer(GAME_ID, "t2")["file"])
+
+    def test_no_file_means_no_offer(self) -> None:
+        (self.folder / "t1.directb2s").unlink()
+        (self.folder / f"{FOLDER}.directb2s").unlink()
+
+        self.assertIsNone(backglass_ops.offer(GAME_ID, "t1"))
+
+    def test_a_damaged_file_is_not_offered(self) -> None:
+        (self.folder / "t1.directb2s").write_bytes(b"not a backglass at all")
+        directb2s_parser._facts.clear()
+
+        self.assertIsNone(backglass_ops.offer(GAME_ID, "t1"))
+
+    def test_the_grill_is_cut_unless_the_renderer_shows_it(self) -> None:
+        for held, cut in (({}, False),
+                          ({"Plugin.B2SLegacy.Enable": ""}, False),
+                          ({"Plugin.B2SLegacy.B2SHideGrill": "1"}, True),
+                          ({"Plugin.B2SLegacy.Enable": "1",
+                            "Plugin.B2SLegacy.B2SHideGrill": "0"}, False),
+                          ({"Plugin.B2SLegacy.Enable": "0"}, True),
+                          ({"Plugin.B2SLegacy.Enable": "0", "Plugin.B2S.ShowGrill": "1"}, False),
+                          ({"Plugin.B2SLegacy.Enable": "0", "Plugin.B2S.ShowGrill": "0"}, True),
+                          ({"Plugin.B2S.Enable": "1", "Plugin.B2S.ShowGrill": "1",
+                            "Plugin.B2SLegacy.B2SHideGrill": "1"}, True)):
+            with self.subTest(held=held), \
+                    patch.object(backglass_ops, "_table_rows", return_value=[
+                        {"id": "t1", "launcher": "vpx", "launcher_app_configurable": True}]), \
+                    patch("common.games.launcher_ops.effective_values", return_value=held):
+                self.assertEqual(cut, backglass_ops.grill_cut(GAME_ID, "t1"))
+
+    def test_a_table_whose_settings_cannot_be_read_is_cut(self) -> None:
+        with patch.object(backglass_ops, "_table_rows", return_value=[
+                {"id": "t1", "launcher": "vpx", "launcher_app_configurable": True}]), \
+                patch("common.games.launcher_ops.effective_values",
+                      side_effect=OSError("gone")):
+            self.assertTrue(backglass_ops.grill_cut(GAME_ID, "t1"))
+
+    def test_using_the_picture_places_it_recorded_as_the_file(self) -> None:
+        self._settings()
+
+        backglass_ops.place_picture(GAME_ID, "t1")
+
+        path, source = self._placed()
+        self.assertEqual(("backglass_file", file_md5(path)),
+                         (source.get("host"), source.get("hash")))
+
+    def test_the_route_places_the_picture(self) -> None:
+        self._settings()
+
+        response = self.client.post(f"/games/{GAME_ID}/media/backglass/from-file",
+                                    json={"table": "t1"})
+
+        self.assertEqual(200, response.status_code, response.text)
+        self.assertTrue(self._placed()[0].is_file())
+
+    def test_a_game_with_no_file_cannot_use_one(self) -> None:
+        (self.folder / "t1.directb2s").unlink()
+        (self.folder / f"{FOLDER}.directb2s").unlink()
+
+        response = self.client.post(f"/games/{GAME_ID}/media/backglass/from-file",
+                                    json={"table": "t1"})
+
+        self.assertEqual(404, response.status_code, response.text)
+
+    def test_a_changed_file_redraws_the_picture_it_made(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+        before = file_md5(self._placed()[0])
+        self._changed()
+
+        redrawn = backglass_ops.redraw(GAME_ID)
+
+        path, source = self._placed()
+        self.assertEqual(1, redrawn)
+        self.assertNotEqual(before, file_md5(path))
+        self.assertEqual(file_md5(path), source["hash"])
+
+    def test_an_unchanged_file_redraws_nothing(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+
+        self.assertEqual(0, backglass_ops.redraw(GAME_ID))
+
+    def test_a_picture_somebody_replaced_is_left(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+        path = self._placed()[0]
+        path.write_bytes(b"theirs")
+        self._changed()
+
+        self.assertEqual(0, backglass_ops.redraw(GAME_ID))
+        self.assertEqual(b"theirs", path.read_bytes())
+
+    def test_a_game_with_no_such_picture_redraws_nothing(self) -> None:
+        self.assertEqual(0, backglass_ops.redraw(GAME_ID))
+
+    def test_the_slots_detail_carries_the_offer_for_a_backglass_only(self) -> None:
+        self._settings()
+
+        one = self.client.get(f"/games/{GAME_ID}/tables/t1/media/backglass/detail").json()
+        other = self.client.get(f"/games/{GAME_ID}/tables/t1/media/wheel/detail").json()
+
+        self.assertEqual("t1.directb2s", one["backglass_file"]["file"])
+        self.assertIsNone(other["backglass_file"])
+
+    def test_a_table_named_with_a_dot_in_it_reads_its_own_file(self) -> None:
+        info = {"Info": {"Title": "Dotted"},
+                "vpinfe": {"schema": 2, "id": "Dotted0001", "default_table": "d1"},
+                "tables": {"d1": {"id": "d1", "filename": "Dotted (v1.1) - Maker.vpx"}}}
+        folder = write_game(self.root, "Dotted (Maker 1990)", info=info, vpx=False,
+                            files={"Dotted (v1.1) - Maker.vpx": b"vpx",
+                                   "Dotted (v1.1) - Maker.directb2s": _directb2s()})
+        game = fake_game(folder, "Dotted (Maker 1990)", meta=info)
+        with patch("common.games.game_repository.catalog",
+                   return_value={"Dotted0001": game}):
+            offered = backglass_ops.offer("Dotted0001", "d1")
+
+        self.assertEqual("Dotted (v1.1) - Maker.directb2s", offered["file"])

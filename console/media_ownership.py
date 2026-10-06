@@ -26,6 +26,7 @@ from common.media_specs import media_label_map
 YOU = t("console.media_ownership.you")
 UNKNOWN = t("word.unknown")
 RECORDED = t("console.media_ownership.recorded")
+BACKGLASS_FILE = t("console.media_ownership.backglass_file")
 
 
 def source_name(origin: str) -> str:
@@ -40,6 +41,8 @@ def source_name(origin: str) -> str:
         return YOU
     if origin == asset_origin.RECORDED:
         return RECORDED
+    if origin == asset_origin.BACKGLASS_FILE:
+        return BACKGLASS_FILE
     if origin == UNKNOWN.lower():
         return UNKNOWN
     from common.online import asset_sources
@@ -51,7 +54,7 @@ def source_names() -> list[str]:
     """Every source a file could report, for a filter that offers them all."""
     from common.online import asset_sources
     return sorted({source.name for source in asset_sources.BUILT_IN}
-                  | {YOU, UNKNOWN, RECORDED})
+                  | {YOU, UNKNOWN, RECORDED, BACKGLASS_FILE})
 
 
 # One .vpx owns it; the game owns it; something else is standing in; nothing is here.

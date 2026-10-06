@@ -2244,6 +2244,15 @@ class MediaTier(ApiModel):
     serves: int = 0
 
 
+class BackglassFileOffer(ApiModel):
+    """The backglass file whose picture could fill a backglass slot."""
+
+    path: str
+    file: str
+    grill: bool
+    version: str
+
+
 class MediaDetail(ApiModel):
     """One slot in the detail curation needs and playing a game never asks for.
 
@@ -2274,6 +2283,7 @@ class MediaDetail(ApiModel):
     # The file this lens is shown once a DELETE here has taken the files at its tier;
     # null when nothing would be.
     after_remove: str | None = None
+    backglass_file: BackglassFileOffer | None = None
     links: MediaEntryLinks
 
 
@@ -2385,6 +2395,13 @@ class MediaImport(ApiModel):
     and which table it should serve. Refused unless it is under a browsable root."""
 
     path: str
+    table: str = ""
+
+
+class MediaFromFile(ApiModel):
+    """Which table the backglass file's picture should serve. An empty `table` means the
+    folder's shared name, which every table in it resolves."""
+
     table: str = ""
 
 

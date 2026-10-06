@@ -2025,7 +2025,8 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                       icon=verbs.ADD_ART,
                       on_click=lambda: mediasource.open_sources(
                           context, kind, label, draw,
-                          str(detail.get("path") or entry.get("path") or ""))) \
+                          str(detail.get("path") or entry.get("path") or ""),
+                          backglass_file=detail.get("backglass_file"))) \
                 .props("flat dense no-caps size=sm").classes("console-action")
             able = mediasource.records(library, kind)
             if able is not None:
@@ -2033,7 +2034,8 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                              lambda: mediasource.open_sources(
                                  context, kind, label, draw,
                                  str(detail.get("path") or entry.get("path") or ""),
-                                 recording_it=True),
+                                 recording_it=True,
+                                 backglass_file=detail.get("backglass_file")),
                              icon=verbs.RECORD, enabled=bool(able.get("available")),
                              hint=str(able.get("reason") or ""))()
             if present:
