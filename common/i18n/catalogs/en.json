@@ -2953,6 +2953,7 @@
   "console.workbench.no_collections": "In no collections yet",
   "console.workbench.frontend": "In the Frontend",
   "console.workbench.inert_asset": "Launchers read this kind only when it is named for a table",
+  "console.workbench.shared_by_some": "Used by the tables that have no file of their own",
   "console.workbench.inherited": "Inherited",
   "console.workbench.ipdb": "IPDB",
   "console.workbench.join": {

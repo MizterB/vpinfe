@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
+from common.i18n import t
 from console import art, grid, media_ownership, workbench
 
 
@@ -74,6 +75,31 @@ class WhoUsesIt(unittest.TestCase):
 
 
 class TheLineUnderIt(unittest.TestCase):
+    def _said(self, kind: str, serves: int, tables: int, lens: str = "") -> str:
+        row = {"binding": "game", "present": True, "serves": serves, "kind": kind}
+        return workbench._asset_said(
+            {"kind": kind, "lens": lens,
+             "tables": [{"id": f"t{number}"} for number in range(tables)],
+             "served": [{"id": f"t{number}"} for number in range(serves)]},
+            workbench._file_tier(row))
+
+    def test_a_file_every_table_loads_says_so(self) -> None:
+        self.assertEqual(t("console.media_ownership.via_game"), self._said("ini", 2, 2))
+
+    def test_a_file_some_tables_have_their_own_beside_says_who_is_left(self) -> None:
+        self.assertEqual(t("console.workbench.shared_by_some"), self._said("ini", 1, 2))
+
+    def test_a_table_looking_at_the_shared_file_is_told_what_it_gets(self) -> None:
+        self.assertEqual(t("console.media_ownership.via_shared"),
+                         self._said("ini", 1, 2, lens="t1"))
+
+    def test_a_file_every_table_has_its_own_beside_is_covered_not_inert(self) -> None:
+        self.assertEqual(t(media_ownership.tier_for(media_ownership.UNUSED).why),
+                         self._said("ini", 0, 2))
+
+    def test_a_kind_the_folder_name_never_reaches_is_inert(self) -> None:
+        self.assertEqual(t("console.workbench.inert_asset"), self._said("pov", 0, 2))
+
     def test_a_folder_counts_its_files(self) -> None:
         said = workbench._asset_spec({"folder": True, "files": 12, "size_bytes": 2048})
 

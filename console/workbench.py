@@ -754,6 +754,24 @@ def _loose_media(context: dict[str, Any]) -> None:
             ui.label(t(media_ownership.tier_for(tier).why)).classes("console-help")
 
 
+def _asset_said(context: dict[str, Any], tier: str) -> str:
+    """Who uses the file in the panel, from what it serves.
+
+    Unused is two things: a kind no table loads by the folder's name, and a shared file
+    every table has its own beside.
+    """
+    lens = context["lens"]
+    if tier == media_ownership.UNUSED:
+        if any(one.key == context["kind"] and one.folder_fallback
+               for one in VPX_ASSET_KINDS):
+            return t(media_ownership.tier_for(tier).why)
+        return t("console.workbench.inert_asset")
+    if (tier == media_ownership.GAME and not lens
+            and len(context["served"]) < len(context["tables"])):
+        return t("console.workbench.shared_by_some")
+    return media_ownership.sentence(tier, viewing_a_table=bool(lens))
+
+
 async def _asset_file_block(context: dict[str, Any]) -> None:
     library, game_id, row, kind = (context["library"], context["game_id"], context["row"],
                                    context["kind"])
@@ -801,10 +819,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                     _alert(t("console.backglass.damaged"), None)()
                 elif glass:
                     panel.facts(ui, _backglass_facts(context, glass))
-                said = (t("console.workbench.inert_asset")
-                        if tier == media_ownership.UNUSED
-                        else media_ownership.sentence(tier,
-                                                      viewing_a_table=bool(context["lens"])))
+                said = _asset_said(context, tier)
                 if said:
                     ui.label(said).classes("console-help")
                 origin = str(row.get("origin") or "")

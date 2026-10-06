@@ -97,14 +97,19 @@ def whole_folders(game_dir: Path) -> set[str]:
 
 
 def _held(item: dict, kind: str, base: dict, game_dir: Path, tables: list[dict],
-          by_filename: dict, recorded: dict, hosts: dict, fallback: bool) -> dict:
-    """One file that is here: whose it is, and what is recorded about it."""
+          by_filename: dict, recorded: dict, hosts: dict, fallback: bool,
+          with_own: int) -> dict:
+    """One file that is here: whose it is, and what is recorded about it.
+
+    `with_own` is how many of the game's tables have a file of this kind of their own: they
+    load that file, so the shared one serves only the rest.
+    """
     path = game_dir / item["file"]
     owner = by_filename.get(str(item.get("table") or ""), {})
     binding = _BY_BINDING.get(item["binding"], item["binding"])
     # A folder-named file for a kind VPX resolves stem-only serves no table at all. It
     # reads as shared because of its name and is inert in fact, so the count says so.
-    serves = (len(tables) if binding == "game" and fallback
+    serves = (len(tables) - with_own if binding == "game" and fallback
               else 0 if binding in ("game", "orphaned") else 1)
     # An orphan names a table that is not here, so the inventory has no table to give
     # it. The stem is the name it was written for, which is the whole of what makes the
@@ -167,21 +172,22 @@ def listing(limit: int = 0, offset: int = 0, game: str = "",
                       if item["binding"] == asset_resolver.BINDING_SHARED]
             others = [item for item in held
                       if item["binding"] != asset_resolver.BINDING_SHARED]
+            with_own = len({str(item.get("table") or "") for item in others
+                            if item["binding"] == asset_resolver.BINDING_DEDICATED
+                            and str(item.get("table") or "") in by_filename})
             if shared:
                 found.extend(_held(item, name, base, game_dir, tables, by_filename,
-                                   recorded, hosts, fallback[name])
+                                   recorded, hosts, fallback[name], with_own)
                              for item in shared)
             else:
-                dedicated = sum(1 for item in others
-                                if item["binding"] == asset_resolver.BINDING_DEDICATED)
-                serves = len(tables) - dedicated
+                serves = len(tables) - with_own
                 # No row where nothing would use one. A folder whose every table has a
                 # file of its own is not missing the shared file, and reporting it as a
                 # gap would be the same invention as an empty per-table row.
                 if serves > 0:
                     found.append({**base, **_ABSENT, "id": f"{game_id}:{name}:"})
             found.extend(_held(item, name, base, game_dir, tables, by_filename,
-                               recorded, hosts, fallback[name])
+                               recorded, hosts, fallback[name], with_own)
                          for item in others)
 
         for name in folder_kinds:

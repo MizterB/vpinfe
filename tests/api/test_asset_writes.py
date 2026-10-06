@@ -70,6 +70,50 @@ class AssetWrites(TempTree):
                          [(row["table"], row["file"], row["binding"], row["serves"])
                           for row in rows["assets"]])
 
+    def test_a_shared_file_serves_only_the_tables_without_one_of_their_own(self) -> None:
+        (self.folder / f"{FOLDER}.directb2s").write_bytes(b"shared backglass")
+
+        rows = self.client.get("/assets", params={"game": GAME_ID,
+                                                  "kind": "backglass"}).json()
+
+        self.assertEqual([("", "game", 1), ("vr", "table", 1)],
+                         [(row["table"], row["binding"], row["serves"])
+                          for row in rows["assets"]])
+
+    def test_a_shared_file_every_table_has_its_own_beside_serves_none(self) -> None:
+        info = {"Info": {"Name": "Attack from Mars"}, "VPinFE": {"game_id": GAME_ID},
+                "tables": {"a2": {"id": "a2", "filename": "AFM Night.vpx"},
+                           "vr": {"id": "vr", "filename": "AFM VR.vpx"}}}
+        folder = write_game(self.root / "covered", FOLDER, info=info, vpx=False,
+                            files={"AFM Night.vpx": b"vpx", "AFM VR.vpx": b"vpx",
+                                   "AFM Night.directb2s": b"night",
+                                   "AFM VR.directb2s": b"vr",
+                                   f"{FOLDER}.directb2s": b"shared"})
+        with patch("common.games.game_repository.catalog",
+                   return_value={GAME_ID: fake_game(folder, FOLDER, meta=info)}):
+            rows = self.client.get("/assets", params={"game": GAME_ID,
+                                                      "kind": "backglass"}).json()
+
+        self.assertEqual([("", "game", 0), ("a2", "table", 1), ("vr", "table", 1)],
+                         [(row["table"], row["binding"], row["serves"])
+                          for row in rows["assets"]])
+
+    def test_a_table_with_no_id_is_not_counted_as_having_its_own_file(self) -> None:
+        info = {"Info": {"Name": "Attack from Mars"}, "VPinFE": {"game_id": GAME_ID},
+                "tables": {"a2": {"id": "a2", "filename": "AFM Night.vpx"},
+                           "no": {"id": "", "filename": "AFM VR.vpx"}}}
+        folder = write_game(self.root / "unnamed", FOLDER, info=info, vpx=False,
+                            files={"AFM Night.vpx": b"vpx", "AFM VR.vpx": b"vpx",
+                                   "AFM VR.directb2s": b"vr",
+                                   f"{FOLDER}.directb2s": b"shared"})
+        with patch("common.games.game_repository.catalog",
+                   return_value={GAME_ID: fake_game(folder, FOLDER, meta=info)}):
+            rows = self.client.get("/assets", params={"game": GAME_ID,
+                                                      "kind": "backglass"}).json()
+
+        self.assertEqual([1], [row["serves"] for row in rows["assets"]
+                               if row["binding"] == "game"])
+
     def test_a_point_of_view_is_offered_only_for_a_table(self) -> None:
         body = self.client.get(f"/games/{GAME_ID}/assets/pov/placements").json()
 
