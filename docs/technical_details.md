@@ -79,7 +79,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `path` | string |  | The browser the frontend's windows open in. Blank finds one on this device. |
 | `defaults` | bool | `true` | Full screen, autoplay, no Chrome prompts. Off leaves only what places a window. |
 | `options_exclude` | text |  | Leave Out |
-| `options` | text |  | Added after the defaults. Where one sets the same option, yours is used. |
+| `options` | text |  | Added after the defaults. Where one sets the same option, yours is used. For example, --ozone-platform=x11. |
 
 ### `console`
 
