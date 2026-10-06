@@ -1023,6 +1023,9 @@ async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     return rows_out
 
 
+SECTION = "vpxmobile"
+
+
 async def _sending_rows() -> list[tuple[Any, Any]]:
     """How a send goes, for every mobile device alike. These are this install's settings,
     written through the config route Settings uses: the device has nowhere to keep them."""
@@ -1032,15 +1035,15 @@ async def _sending_rows() -> list[tuple[Any, Any]]:
         values = await offload.io(client.config_values)
     except Exception as exc:
         return [panel.note(t("console.devices.sending_failed"), hint=_why(exc))]
-    declared = {str(one["key"]): one for block in schema if block.get("name") == "vpxmobile"
+    declared = {str(one["key"]): one for block in schema if block.get("name") == SECTION
                 for one in block.get("options") or []}
-    current = dict(values.get("vpxmobile") or {})
+    current = dict(values.get(SECTION) or {})
 
     def value(key: str) -> Any:
         return settings_page.value_for(declared[key], current.get(key))
 
     def save(key: str) -> Callable[[Any], Any]:
-        return settings_page.saver(client, "vpxmobile", key)
+        return settings_page.saver(client, SECTION, key)
 
     async def word(text: str) -> None:
         await save("config_mask")(text.strip().strip("."))
@@ -1053,18 +1056,18 @@ async def _sending_rows() -> list[tuple[Any, Any]]:
         await save("send_masked_config")(bool(event.value))
 
     return [
-        (t("config.vpxmobile.send_masked_config.label"),
+        (t(f"config.{SECTION}.send_masked_config.label"),
          panel.switch(bool(value("send_masked_config")), turn)),
-        panel.note(t("config.vpxmobile.send_masked_config.description")),
-        (t("config.vpxmobile.config_mask.label"),
+        panel.note(t(f"config.{SECTION}.send_masked_config.description")),
+        (t(f"config.{SECTION}.config_mask.label"),
          panel.field(str(value("config_mask")), word,
                      prefix=t("console.devices.mobile_word_before"),
                      suffix=t("console.devices.mobile_word_after"))),
-        panel.note(t("config.vpxmobile.config_mask.description")),
-        (t("config.vpxmobile.chunk_size.label"),
+        panel.note(t(f"config.{SECTION}.config_mask.description")),
+        (t(f"config.{SECTION}.chunk_size.label"),
          panel.number(value("chunk_size"), size, low=1, unit=t("console.devices.bytes"),
                       on_leave=True, on_control=lambda c: c.classes("console-edit-long"))),
-        panel.note(t("config.vpxmobile.chunk_size.description")),
+        panel.note(t(f"config.{SECTION}.chunk_size.description")),
     ]
 
 
