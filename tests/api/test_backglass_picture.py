@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import io
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from PIL import Image
 from starlette.testclient import TestClient
@@ -313,3 +313,86 @@ class BackglassFileAsPicture(BackglassRoutes):
             offered = backglass_ops.offer("Dotted0001", "d1")
 
         self.assertEqual("Dotted (v1.1) - Maker.directb2s", offered["file"])
+
+    def test_a_picture_with_another_file_at_its_tier_is_left(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+        theirs = self.folder / "medias" / "(Backglass) t1.jpg"
+        theirs.write_bytes(b"theirs")
+        before = file_md5(self._placed()[0])
+        self._changed()
+
+        self.assertEqual(0, backglass_ops.redraw(GAME_ID))
+        self.assertEqual(b"theirs", theirs.read_bytes())
+        self.assertEqual(before, file_md5(self._placed()[0]))
+
+    def test_a_folders_own_picture_is_redrawn(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "")
+        path = self.folder / "medias" / f"(Backglass) {FOLDER}.png"
+        before = file_md5(path)
+        (self.folder / f"{FOLDER}.directb2s").write_bytes(_directb2s(size=(90, 70)))
+        directb2s_parser._facts.clear()
+
+        self.assertEqual(1, backglass_ops.redraw(GAME_ID))
+        self.assertNotEqual(before, file_md5(path))
+
+    def test_placing_a_new_backglass_file_redraws_the_picture(self) -> None:
+        from common.games import asset_ops
+
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+        before = file_md5(self._placed()[0])
+        staged = self.root / "staged.directb2s"
+        staged.write_bytes(_directb2s(size=(90, 70)))
+
+        asset_ops.place_file(GAME_ID, "backglass", "t1", staged, "t1.directb2s")
+
+        self.assertNotEqual(before, file_md5(self._placed()[0]))
+
+    def test_a_failed_redraw_does_not_fail_the_placing(self) -> None:
+        from common.games import asset_ops
+
+        staged = self.root / "staged.directb2s"
+        staged.write_bytes(_directb2s())
+        with patch.object(backglass_ops, "redraw", side_effect=OSError("gone")):
+            asset_ops.place_file(GAME_ID, "backglass", "t1", staged, "t1.directb2s")
+
+        self.assertTrue((self.folder / "t1.directb2s").is_file())
+
+    def test_the_sweep_redraws_every_game_that_has_such_a_picture(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+        self._changed()
+
+        self.assertEqual(1, backglass_ops.redraw_all())
+        self.assertEqual(0, backglass_ops.redraw_all())
+
+    def test_the_sweep_stops_when_told_to(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+        self._changed()
+
+        self.assertEqual(0, backglass_ops.redraw_all(lambda: False))
+
+    def test_one_games_failure_does_not_stop_the_sweep(self) -> None:
+        self._settings()
+        backglass_ops.place_picture(GAME_ID, "t1")
+        with patch.object(backglass_ops, "redraw", side_effect=OSError("gone")):
+            self.assertEqual(0, backglass_ops.redraw_all())
+
+    def test_updating_art_runs_the_sweep_first(self) -> None:
+        from common import jobs
+        from common.games import media_fill
+
+        order: list[str] = []
+        with patch.object(jobs, "submit",
+                          side_effect=lambda kind, work, **_: work(MagicMock())), \
+                patch.object(media_fill, "update_enabled", return_value=True), \
+                patch.object(backglass_ops, "redraw_all",
+                             side_effect=lambda _proceed: order.append("sweep") or 0), \
+                patch.object(media_fill, "update_downloaded",
+                             side_effect=lambda *_: order.append("update") or {}):
+            self.assertTrue(media_fill.start_update())
+
+        self.assertEqual(["sweep", "update"], order)

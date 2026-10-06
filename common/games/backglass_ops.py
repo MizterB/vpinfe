@@ -153,7 +153,8 @@ def place_picture(game_id: str, table_id: str = "") -> dict:
 def redraw(game_id: str) -> int:
     """Draw again every picture of this game's that the file made and nobody has since
     replaced. Answers how many were redrawn. A picture whose file no longer matches the
-    hash recorded for it was changed by hand and is left."""
+    hash recorded for it was changed by hand and is left, and so is one with another file
+    of the same family at its tier: placing the redraw would delete it."""
     from common.online.vpsdb_media import file_md5
 
     game = game_lens.game_or_refuse(game_id)
@@ -170,6 +171,8 @@ def redraw(game_id: str) -> int:
         path = f"medias/{name}"
         source = held.get(path)
         if source is None or file_md5(game_dir / path) != source["hash"]:
+            continue
+        if media_placement.displaced(game_dir, KIND, table["stem"], ".png") != [game_dir / path]:
             continue
         try:
             drawn, md5 = _drawn(game_id, table["id"])
