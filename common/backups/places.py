@@ -78,6 +78,7 @@ from .copies import (
     WHY_UPGRADE,
     WHY_YOURS,
     Copy,
+    games_named,
     iso_from_stamp,
     make_id,
     make_member_id,
@@ -393,10 +394,14 @@ def _member_gone(member: archive.Member, present: _Present) -> bool:
 
 def _of_label(manifest: archive.Manifest) -> str:
     members = manifest.members
+    if manifest.name:
+        return manifest.name
     if manifest.scope == archive.SCOPE_EVERYTHING:
         return t("backups.of.everything")
+    if manifest.scope == archive.SCOPE_ALL_GAMES:
+        return t("backups.of.all_games")
     if members and all(one.kind == KIND_GAME for one in members):
-        return t("backups.of.games", count=len(members))
+        return games_named(one.of_name for one in members)
     if manifest.scope == archive.SCOPE_LAUNCHER and members:
         return members[0].of_name
     return VPINFE_NAME if members else ""

@@ -70,11 +70,9 @@
   "asset.plan.replaces_file": "řèþŀàçèš èẋîšţîñĝ ƒîŀè",
   "asset.plan.replaces_named": "řèþŀàçèš {name}",
   "asset.plan.slot_empty": "šŀöţ îš èɱþţý",
+  "backups.of.all_games": "Àŀŀ ĝàɱèš",
   "backups.of.everything": "Èṽèřýţĥîñĝ",
-  "backups.of.games": {
-    "one": "{count} ĝàɱè",
-    "other": "{count} ĝàɱèš"
-  },
+  "backups.of.several": "{name} àñđ {count} ɱöřè",
   "capture.command.alone": "{{{token}}} šţàñđš ƒöř šèṽèřàŀ àřĝûɱèñţš, šö îţ ĥàš ţö šţàñđ àŀöñè",
   "capture.command.elsewhere": "{{{token}}} ƀèŀöñĝš îñ ţĥè {command}",
   "capture.command.in": "{command}: {problem}",

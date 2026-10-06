@@ -57,33 +57,47 @@ async def listed(library: Library, of_kind: str, of_id: str) -> list[dict[str, A
 
 
 @on_page
-async def back_up(library: Library, of_kind: str, of_id: str,
+async def back_up(library: Library, of_kind: str, of_id: str, name: str,
                   after: Callable[[], Awaitable[None]]) -> None:
-    """One copy of this game or launcher's settings file, taken without asking."""
+    """One copy of this game or launcher's settings file, named as `name` suggests."""
     games = [of_id] if of_kind == kept_copies.OF_GAME else []
     launcher = of_id if of_kind == kept_copies.OF_LAUNCHER else ""
-    try:
-        await run.io_bound(lambda: library.take_backup(
-            "games" if games else "launcher", games=games, launcher=launcher))
-    except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-        ui.notify(t("console.backups.back_up_failed"), caption=why(exc), type="negative")
-        return
-    ui.notify(t("console.backups.backed_up"), type="positive")
-    await after()
+
+    @on_page
+    async def take(chosen: str, note: str) -> None:
+        try:
+            await run.io_bound(lambda: library.take_backup(
+                "games" if games else "launcher", games=games, launcher=launcher,
+                name=chosen, note=note))
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            ui.notify(t("console.backups.back_up_failed"), caption=why(exc), type="negative")
+            return
+        ui.notify(t("console.backups.backed_up"), type="positive")
+        await after()
+
+    await backups.ask_details(name, take)
 
 
 @on_page
-async def back_up_games(library: Library, game_ids: list[str],
+async def back_up_games(library: Library, games: list[dict[str, Any]],
                         after: Callable[[], Awaitable[None]] | None = None) -> None:
     """One backup of these games, chosen where the games are."""
-    try:
-        await run.io_bound(lambda: library.take_backup("games", games=game_ids))
-    except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-        ui.notify(t("console.backups.back_up_failed"), caption=why(exc), type="negative")
-        return
-    ui.notify(t("console.backups.done_games", count=len(game_ids)), type="positive")
-    if after is not None:
-        await after()
+    ids = [str(one["id"]) for one in games]
+
+    @on_page
+    async def take(chosen: str, note: str) -> None:
+        try:
+            await run.io_bound(lambda: library.take_backup(
+                "games", games=ids, name=chosen, note=note))
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            ui.notify(t("console.backups.back_up_failed"), caption=why(exc), type="negative")
+            return
+        ui.notify(t("console.backups.done_games", count=len(ids)), type="positive")
+        if after is not None:
+            await after()
+
+    await backups.ask_details(
+        kept_copies.games_named(str(one.get("name") or "") for one in games), take)
 
 
 def row(library: Library, of_kind: str, of_id: str, name: str, found: list[dict[str, Any]],
@@ -91,7 +105,7 @@ def row(library: Library, of_kind: str, of_id: str, name: str, found: list[dict[
         hint: str = "") -> Callable[[], None]:
     """The value of the Backups row. A non-empty `hint` says why both verbs are off."""
     async def take() -> None:
-        await back_up(library, of_kind, of_id, after)
+        await back_up(library, of_kind, of_id, name, after)
 
     async def choose() -> None:
         await open_for(library, of_kind, of_id, name, after)

@@ -35,9 +35,10 @@ def list_backups(of_kind: Literal["game", "launcher", "theme", ""] = "",
 @router.post("", summary="Back up now",
              dependencies=[requires(scopes.CONFIG_WRITE)])
 def take_backup(body: BackupRequest) -> dict[str, Any]:
-    """One zip of the games, records or settings named, as the copy that lists it."""
+    """One zip of the games, records or settings named, as the copy that lists it. A blank
+    `name` is left to the listing, which calls the backup after what it holds."""
     return ops.take(body.scope, game_ids=body.games, launcher_id=body.launcher,
-                    note=body.note).as_dict()
+                    note=body.note, name=body.name).as_dict()
 
 
 @router.patch("/{copy_id}", summary="Change a backup's note",

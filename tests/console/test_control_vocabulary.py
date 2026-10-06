@@ -49,8 +49,8 @@ BUDGET = {
     "about.py": (1, "the textarea a browser that will not copy falls back to"),
     "placement_panel.py": (1, "the textarea that shows the one line to copy into a "
                               "compositor config, read-only"),
-    "backups.py": (1, "the optional note typed into the Back up now dialog, which names "
-                      "the copy being made rather than holding a setting"),
+    "backups.py": (2, "the name and the optional note typed into the Back up now dialog, "
+                      "which describe the copy being made rather than holding a setting"),
     "import_dialog.py": (2, "the per-item tick in the import confirmation and the "
                             "destination picker's do-not-ask-again - a choice over a list "
                             "and a one-off promise, neither of them a fact row"),

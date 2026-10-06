@@ -89,8 +89,8 @@ def _while_nothing_plays() -> None:
         raise service_errors.BlockedError(t("error.backups.playing"))
 
 
-def take(scope: str, *, game_ids: list[str], launcher_id: str, note: str) -> Copy:
-    path = archive.take(scope, game_ids=game_ids, launcher_id=launcher_id, note=note)
+def take(scope: str, *, game_ids: list[str], launcher_id: str, note: str, name: str = "") -> Copy:
+    path = archive.take(scope, game_ids=game_ids, launcher_id=launcher_id, note=note, name=name)
     return _found(make_id(PLACE_ARCHIVE, path))
 
 

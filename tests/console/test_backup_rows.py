@@ -44,41 +44,69 @@ class Listed(unittest.TestCase):
         self.assertEqual(len(found), 1)
 
 
+def _confirmed(name: str = "", note: str = ""):
+    """A Back up now dialog answered as the person would, with what it was offered."""
+    offered: list[str] = []
+
+    async def ask(suggested: str, take) -> None:
+        offered.append(suggested)
+        await take(name or suggested, note)
+
+    return offered, patch.object(backup_rows.backups, "ask_details", ask)
+
+
 class BackUp(unittest.TestCase):
-    def _press(self, of_kind: str, of_id: str) -> tuple[Mock, AsyncMock]:
+    def _press(self, of_kind: str, of_id: str, name: str = "Attack from Mars",
+               answer: str = "", note: str = "") -> tuple[Mock, AsyncMock, list[str]]:
         library, after = Mock(), AsyncMock()
-        with patch.object(backup_rows.ui, "notify"):
-            asyncio.run(backup_rows.back_up(library, of_kind, of_id, after))
-        return library, after
+        offered, asking = _confirmed(answer, note)
+        with asking, patch.object(backup_rows.ui, "notify"):
+            asyncio.run(backup_rows.back_up(library, of_kind, of_id, name, after))
+        return library, after, offered
 
-    def test_a_game_is_backed_up_as_the_games_scope(self) -> None:
-        library, after = self._press(copies.OF_GAME, "g1")
+    def test_a_game_is_backed_up_as_the_games_scope_under_the_name_confirmed(self) -> None:
+        library, after, offered = self._press(copies.OF_GAME, "g1")
 
-        library.take_backup.assert_called_once_with("games", games=["g1"], launcher="")
+        self.assertEqual(offered, ["Attack from Mars"])
+        library.take_backup.assert_called_once_with(
+            "games", games=["g1"], launcher="", name="Attack from Mars", note="")
         after.assert_awaited_once()
 
-    def test_a_launcher_is_backed_up_as_the_launcher_scope(self) -> None:
-        library, _ = self._press(copies.OF_LAUNCHER, "l1")
+    def test_a_name_and_note_written_in_the_dialog_are_what_is_taken(self) -> None:
+        library, _, _ = self._press(copies.OF_GAME, "g1", answer="Before the patch",
+                                    note="Last good one")
 
-        library.take_backup.assert_called_once_with("launcher", games=[], launcher="l1")
+        library.take_backup.assert_called_once_with(
+            "games", games=["g1"], launcher="", name="Before the patch", note="Last good one")
+
+    def test_a_launcher_is_backed_up_as_the_launcher_scope(self) -> None:
+        library, _, _ = self._press(copies.OF_LAUNCHER, "l1", name="VPX")
+
+        library.take_backup.assert_called_once_with(
+            "launcher", games=[], launcher="l1", name="VPX", note="")
 
     def test_a_failure_is_said_and_the_panel_is_left_as_it_was(self) -> None:
         library, after = Mock(), AsyncMock()
         library.take_backup.side_effect = OSError("full")
-        with patch.object(backup_rows.ui, "notify") as notify:
-            asyncio.run(backup_rows.back_up(library, copies.OF_GAME, "g1", after))
+        _, asking = _confirmed()
+        with asking, patch.object(backup_rows.ui, "notify") as notify:
+            asyncio.run(backup_rows.back_up(library, copies.OF_GAME, "g1", "Game", after))
 
         self.assertEqual(notify.call_args.args[0], t("console.backups.back_up_failed"))
         after.assert_not_awaited()
 
-    def test_several_games_are_one_backup(self) -> None:
+    def test_several_games_are_one_backup_offered_under_the_first_and_a_count(self) -> None:
         library = Mock()
-        with patch.object(backup_rows.ui, "notify") as notify:
-            asyncio.run(backup_rows.back_up_games(library, ["g1", "g2"]))
+        offered, asking = _confirmed()
+        games = [{"id": "g2", "name": "Medieval Madness"}, {"id": "g1", "name": "Attack from Mars"},
+                 {"id": "g3", "name": "Cactus Canyon"}]
+        with asking, patch.object(backup_rows.ui, "notify") as notify:
+            asyncio.run(backup_rows.back_up_games(library, games))
 
-        library.take_backup.assert_called_once_with("games", games=["g1", "g2"])
-        self.assertEqual(notify.call_args.args[0],
-                         t("console.backups.done_games", count=2))
+        self.assertEqual(offered, [t("backups.of.several", name="Attack from Mars", count=2)])
+        library.take_backup.assert_called_once_with(
+            "games", games=["g2", "g1", "g3"], name=offered[0], note="")
+        self.assertEqual(notify.call_args.args[0], t("console.backups.done_games", count=3))
 
 
 class OpenInBackups(unittest.TestCase):

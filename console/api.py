@@ -1121,9 +1121,10 @@ class ApiClient:
                 "pending": list(said.get("pending") or [])}
 
     def take_backup(self, scope: str, *, games: list[str] | None = None, launcher: str = "",
-                    note: str = "") -> dict:
+                    note: str = "", name: str = "") -> dict:
         return dict(self._post("/backups", {"scope": scope, "games": games or [],
-                                            "launcher": launcher, "note": note}) or {})
+                                            "launcher": launcher, "note": note,
+                                            "name": name}) or {})
 
     def set_backup_note(self, copy_id: str, note: str) -> dict:
         return dict(self._patch(f"/backups/{copy_id}", {"note": note}) or {})

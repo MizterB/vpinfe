@@ -6,8 +6,11 @@ import base64
 import binascii
 import json
 import os
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from common.i18n import t
 
 # What a copy is of.
 OF_GAME = "game"
@@ -124,3 +127,12 @@ def iso_from_stamp(stamp: str) -> str:
     """`20261004T020630Z` as `2026-10-04T02:06:30Z`."""
     return (f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:8]}T{stamp[9:11]}:"
             f"{stamp[11:13]}:{stamp[13:15]}Z")
+
+
+def games_named(names: Iterable[str]) -> str:
+    """What a backup of these games is called: the one, or the first by name and a count of
+    the others."""
+    named = sorted((name for name in names if name), key=str.casefold)
+    if len(named) <= 1:
+        return named[0] if named else ""
+    return t("backups.of.several", name=named[0], count=len(named) - 1)

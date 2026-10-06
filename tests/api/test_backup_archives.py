@@ -136,6 +136,32 @@ class TakingTests(ArchiveCase):
 
 
 class ListingTests(ArchiveCase):
+    def test_a_name_given_when_taking_is_what_the_backup_is_listed_under(self) -> None:
+        self.games("Taxi", "Attack")
+
+        made = self.put(self.take("games", games=self.ids("Taxi"), name="  Before the patch "))
+
+        manifest = archive.read(pathlib.Path(made["path"]))
+        assert manifest is not None
+        self.assertEqual((manifest.name, made["of_name"]), ("Before the patch", "Before the patch"))
+
+    def test_a_backup_of_one_game_is_named_for_it(self) -> None:
+        self.games("Taxi", "Attack")
+
+        made = self.put(self.take("games", games=self.ids("Taxi")))
+
+        self.assertEqual(made["of_name"], "Taxi")
+
+    def test_two_games_of_one_name_are_both_counted(self) -> None:
+        self.assertEqual(copies.games_named(["Taxi", "Taxi", "Attack"]), "Attack and 2 more")
+
+    def test_a_backup_of_several_games_is_named_for_the_first_and_a_count(self) -> None:
+        self.games("Taxi", "Medieval Madness", "Attack")
+
+        made = self.put(self.take("games", games=self.ids("Taxi", "Medieval Madness", "Attack")))
+
+        self.assertEqual(made["of_name"], "Attack and 2 more")
+
     def test_a_zip_is_one_row_and_each_part_is_another_that_names_it(self) -> None:
         self.games("Taxi", "Medieval Madness", "Attack")
         self.put(self.take("all_games", note="Before the move"))
@@ -144,7 +170,7 @@ class ListingTests(ArchiveCase):
         parts = self.parts()
 
         self.assertEqual((whole["of_name"], whole["why"], whole["note"], whole["within"]),
-                         ("3 games", "yours", "Before the move", ""))
+                         ("All games", "yours", "Before the move", ""))
         self.assertEqual(sorted(one["of_name"] for one in parts),
                          ["Attack", "Medieval Madness", "Taxi"])
         self.assertEqual({one["within"] for one in parts}, {whole["id"]})

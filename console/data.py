@@ -637,8 +637,9 @@ class Library:
         return self._client.backups(of_kind, of_id)
 
     def take_backup(self, scope: str, *, games: list[str] | None = None,
-                    launcher: str = "", note: str = "") -> dict:
-        return self._client.take_backup(scope, games=games, launcher=launcher, note=note)
+                    launcher: str = "", note: str = "", name: str = "") -> dict:
+        return self._client.take_backup(scope, games=games, launcher=launcher, note=note,
+                                        name=name)
 
     def set_backup_note(self, copy_id: str, note: str) -> dict:
         return self._client.set_backup_note(copy_id, note)

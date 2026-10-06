@@ -522,6 +522,44 @@ async def _restart(library: Library) -> None:
         ui.run_javascript(waiting.follow_script(port))
 
 
+def _name_input(wanted: dict[str, Any], held: dict[str, Any]) -> None:
+    held["name"] = ui.input(value=wanted["name"]).props("dense outlined clearable") \
+        .classes("w-full")
+    held["name"].on_value_change(lambda e: wanted.update(name=str(e.value or "")))
+
+
+def _note_input(wanted: dict[str, Any], held: dict[str, Any]) -> None:
+    held["note"] = ui.input(placeholder=t("console.backups.note_placeholder")) \
+        .props("dense outlined clearable").classes("w-full")
+    held["note"].on_value_change(lambda e: wanted.update(note=str(e.value or "")))
+
+
+async def ask_details(suggested: str,
+                      take: Callable[[str, str], Awaitable[None]]) -> None:
+    """Back up now for something already chosen: a name to confirm or change, and a note.
+    `take` is given both, trimmed, and runs once the dialog has closed."""
+    wanted: dict[str, Any] = {"name": suggested, "note": ""}
+    held: dict[str, Any] = {}
+
+    @on_page
+    async def confirm() -> None:
+        if held.get("sent"):
+            return
+        held["sent"] = True
+        box.close()
+        await take(wanted["name"].strip(), wanted["note"].strip())
+
+    with frame.opened(t("console.backups.back_up_title")) as box:
+        panel.facts(ui, [(t("console.backups.of"), lambda: _name_input(wanted, held)),
+                         (t("console.backups.note"), lambda: _note_input(wanted, held))])
+        with frame.footer():
+            frame.cancel(box.close)
+            go = frame.answer(t("console.backups.back_up"), confirm, icon=verbs.ADD)
+    frame.enter_presses(go)
+    frame.focus(box, held["name"], select=True)
+    box.open()
+
+
 @on_page
 async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> None:
     try:
@@ -531,8 +569,21 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
         found = {}
     programs = {str(one["launcher_id"]): str(one.get("name") or one["launcher_id"])
                 for one in found.get("launchers") or []}
-    wanted = {"scope": SCOPE_ALL_GAMES, "launcher": next(iter(programs), ""), "note": ""}
+    wanted = {"scope": SCOPE_ALL_GAMES, "launcher": next(iter(programs), ""), "name": "",
+              "note": ""}
     held: dict[str, Any] = {}
+
+    def suggested() -> str:
+        if wanted["scope"] == SCOPE_LAUNCHER:
+            return programs.get(wanted["launcher"], "")
+        return t(SCOPE_WORDS[wanted["scope"]])
+
+    wanted["name"] = suggested()
+
+    def rename(before: str) -> None:
+        """The suggestion follows the choice until the name has been written over."""
+        if wanted["name"] == before:
+            held["name"].set_value(suggested())
 
     def draw_what() -> None:
         with ui.column().classes("w-full gap-1"):
@@ -541,18 +592,20 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
                          wanted["scope"], lambda e: _chose(e.value))()
             with ui.element("div").classes("w-full") as which:
                 panel.select(programs or {"": ""}, wanted["launcher"],
-                             lambda e: wanted.update(launcher=str(e.value or "")))()
+                             lambda e: _picked(str(e.value or "")))()
             which.set_visibility(False)
             held["program"] = which
 
     def _chose(scope: str) -> None:
+        before = suggested()
         wanted["scope"] = scope
         held["program"].set_visibility(scope == SCOPE_LAUNCHER)
+        rename(before)
 
-    def draw_note() -> None:
-        held["note"] = ui.input(placeholder=t("console.backups.note_placeholder")) \
-            .props("dense outlined clearable").classes("w-full")
-        held["note"].on_value_change(lambda e: wanted.update(note=str(e.value or "")))
+    def _picked(launcher: str) -> None:
+        before = suggested()
+        wanted["launcher"] = launcher
+        rename(before)
 
     @on_page
     async def take() -> None:
@@ -561,7 +614,7 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
         try:
             await offload.io(library.take_backup, scope,
                              launcher=wanted["launcher"] if scope == SCOPE_LAUNCHER else "",
-                             note=wanted["note"].strip())
+                             name=wanted["name"].strip(), note=wanted["note"].strip())
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
             ui.notify(t("console.backups.back_up_failed"), caption=why(exc), type="negative")
             return
@@ -570,7 +623,8 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
 
     with frame.opened(t("console.backups.back_up_title")) as box:
         panel.facts(ui, [(t("console.backups.what"), draw_what),
-                         (t("console.backups.note"), draw_note)])
+                         (t("console.backups.of"), lambda: _name_input(wanted, held)),
+                         (t("console.backups.note"), lambda: _note_input(wanted, held))])
         with frame.footer():
             frame.cancel(box.close)
             go = frame.answer(t("console.backups.back_up"), take, icon=verbs.ADD)

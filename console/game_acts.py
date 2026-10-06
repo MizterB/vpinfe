@@ -52,7 +52,7 @@ def game_acts(library: Any, game_id: str, name: str, collections: Collections | 
         offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
     offered.append(panel.Verb(
         t("console.backups.back_up_title"),
-        lambda: backup_rows.back_up(library, kept_copies.OF_GAME, game_id, after)))
+        lambda: backup_rows.back_up(library, kept_copies.OF_GAME, game_id, name, after)))
     if reset := reset_game(library, game_id, after):
         offered.append(reset)
     return offered

@@ -461,7 +461,7 @@ def copy_verbs(library: Library, launcher: dict, after: Callable[[], Awaitable[A
         return run_it
 
     async def take() -> None:
-        await backup_rows.back_up(library, kept_copies.OF_LAUNCHER, launcher_id, after)
+        await backup_rows.back_up(library, kept_copies.OF_LAUNCHER, launcher_id, name, after)
 
     async def choose() -> None:
         await backup_rows.open_for(library, kept_copies.OF_LAUNCHER, launcher_id, name, after)

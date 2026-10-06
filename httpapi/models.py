@@ -1684,6 +1684,7 @@ class BackupRequest(ApiModel):
     scope: Literal["games", "all_games", "records", "launcher", "everything"]
     games: list[str] = Field(default_factory=list)
     launcher: str = ""
+    name: str = ""
     note: str = ""
 
 

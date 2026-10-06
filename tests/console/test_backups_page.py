@@ -54,14 +54,14 @@ class Rows(unittest.TestCase):
         self.assertFalse(backups._waits_for_a_restart(backups.rows(found)[1]))
 
     def test_a_backup_is_found_by_the_names_of_what_is_in_it(self) -> None:
-        found = [_copy("a", of_kind=copies.OF_ARCHIVE, of_name="2 games"),
+        found = [_copy("a", of_kind=copies.OF_ARCHIVE, of_name="Attack from Mars and 1 more"),
                  _copy("a1", within="a", of_name="Attack from Mars"),
                  _copy("a2", within="a", of_name="Medieval Madness")]
 
         row = backups.rows(found)[0]
 
         self.assertEqual("Attack from Mars Medieval Madness", row["holds"])
-        self.assertEqual("2 games", row["of"])
+        self.assertEqual("Attack from Mars and 1 more", row["of"])
 
     def test_a_copy_with_no_owner_is_named_by_its_file(self) -> None:
         row = backups.rows([_copy(of_name="")])[0]

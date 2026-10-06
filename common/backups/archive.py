@@ -100,6 +100,7 @@ class Manifest:
     version: str
     scope: str
     members: tuple[Member, ...] = field(default_factory=tuple)
+    name: str = ""
 
 
 def is_archive_name(name: str) -> bool:
@@ -146,7 +147,8 @@ def read(path: Path) -> Manifest | None:
     found = (_member_from(item, held) for item in listed) if isinstance(listed, list) else ()
     return Manifest(note=str(raw.get("note") or ""), taken=str(raw.get("taken") or ""),
                     version=str(raw.get("version") or ""), scope=str(raw.get("scope") or ""),
-                    members=tuple(one for one in found if one is not None))
+                    members=tuple(one for one in found if one is not None),
+                    name=str(raw.get("name") or ""))
 
 
 def game_folder(member: Member) -> Path | None:
@@ -278,15 +280,16 @@ def _free_path(now: datetime) -> Path:
 
 
 def take(scope: str, *, game_ids: list[str] | None = None, launcher_id: str = "",
-         note: str = "") -> Path:
-    """Write one backup and return its path. Refused when there is nothing to put in it."""
+         note: str = "", name: str = "") -> Path:
+    """Write one backup and return its path. Refused when there is nothing to put in it. A
+    blank name leaves the listing to derive one from what the backup holds."""
     gathered = _gather(scope, game_ids or [], launcher_id)
     if not gathered:
         raise service_errors.RefusedError(t("error.backups.nothing"))
     now = datetime.now(UTC)
     manifest: dict[str, Any] = {
-        "format": FORMAT, "note": note.strip(), "taken": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "version": get_version(), "scope": scope,
+        "format": FORMAT, "name": name.strip(), "note": note.strip(),
+        "taken": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "version": get_version(), "scope": scope,
         "members": [asdict(one.member) for one in gathered]}
     ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
     with _TAKING:
