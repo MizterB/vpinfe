@@ -193,7 +193,7 @@
   "config.chromium.defaults.description": "What VPinFE starts every window with: full screen, video and sound without a click, none of Chrome's prompts. Off leaves only what places each window.",
   "config.chromium.defaults.label": "Default Options",
   "config.chromium.options.blank": "--disable-accelerated-video-decode\n--ozone-platform=x11",
-  "config.chromium.options.description": "Added after the defaults. Where one sets the same option as a default, yours is used.",
+  "config.chromium.options.description": "Added after the defaults. Where one sets the same option, yours is used.",
   "config.chromium.options.label": "Additional Options",
   "config.chromium.options_exclude.label": "Leave Out",
   "config.chromium.path.description": "The browser the frontend's windows open in. Blank finds one on this device.",
@@ -604,9 +604,9 @@
     "one": "1 backglass picture is drawn from its game's backglass file",
     "other": "{count} backglass pictures are drawn from their games' backglass files"
   },
-  "console.art_fill.get_art.help": "Asks, then gets this art for these games, from online sources or their backglass files",
+  "console.art_fill.get_art.help": "Asks, then gets this art for these games, online or from their backglass files",
   "console.art_fill.get_missing": "Get missing art...",
-  "console.art_fill.get_missing.help": "Opens the choice of what to get, from online sources and each game's backglass file",
+  "console.art_fill.get_missing.help": "Opens the choice of what to get, online or from each game's backglass file",
   "console.art_fill.got": {
     "one": "Got 1 file",
     "other": "Got {count} files"
