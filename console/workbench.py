@@ -7303,7 +7303,7 @@ def _game_verbs(context: dict[str, Any]) -> list[panel.Verb]:
                                   narrowed=str(context["state"].get("collection") or ""))
     return game_acts.game_acts(library, game_id, name,
                                game_acts.collections_of(offer, context["collections"]),
-                               context["rebuild"])
+                               context["rebuild"], context["state"])
 
 
 def _table_verbs(context: dict[str, Any]) -> list[panel.Verb]:

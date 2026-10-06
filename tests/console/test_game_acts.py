@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import unittest
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from nicegui import ui
 
@@ -48,12 +48,24 @@ class ForAGame(unittest.TestCase):
         verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", lambda _: None,
                                     _after_game)
 
-        self.assertEqual(["Launch", "Add to Collection", "Back up now"], _labels(verbs))
+        self.assertEqual(["Launch", "Add to Collection", "Send to device...", "Back up now"],
+                         _labels(verbs))
 
     def test_it_is_only_played_before_the_collections_are_read(self) -> None:
         verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", None, _after_game)
 
-        self.assertEqual(["Launch", "Back up now"], _labels(verbs))
+        self.assertEqual(["Launch", "Send to device...", "Back up now"], _labels(verbs))
+
+    def test_sending_asks_where_for_this_game_with_the_pages_state(self) -> None:
+        state: dict[str, Any] = {"watch_jobs": lambda: None}
+        verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", None,
+                                    _after_game, state)
+        send = next(one for one in verbs if one.label == "Send to device...")
+
+        with patch.object(game_acts.send_to_device, "ask_where") as ask:
+            send.run()
+
+        ask.assert_called_once_with([{"id": "afm"}], state)
 
     def test_the_play_record_can_be_reset_only_where_there_is_one(self) -> None:
         played = _library({"id": "afm", "user": {"play_count": 3}})
@@ -62,9 +74,11 @@ class ForAGame(unittest.TestCase):
         offered = game_acts.game_acts(played, "afm", "Attack from Mars", None, _after_game)
         quiet = game_acts.game_acts(unplayed, "afm", "Attack from Mars", None, _after_game)
 
-        self.assertEqual(["Launch", "Back up now", "Reset play record"], _labels(offered))
+        self.assertEqual(
+            ["Launch", "Send to device...", "Back up now", "Reset play record"],
+            _labels(offered))
         self.assertTrue(offered[-1].danger)
-        self.assertEqual(["Launch", "Back up now"], _labels(quiet))
+        self.assertEqual(["Launch", "Send to device...", "Back up now"], _labels(quiet))
 
 
 class ForATable(unittest.TestCase):

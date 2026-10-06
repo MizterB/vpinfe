@@ -19,7 +19,15 @@ from nicegui import run, ui
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from console import backup_rows, collection_adds, confirm, game_tables, panel, verbs
+from console import (
+    backup_rows,
+    collection_adds,
+    confirm,
+    game_tables,
+    panel,
+    send_to_device,
+    verbs,
+)
 from console.on_page import on_page
 
 After = Callable[[bool], Awaitable[None]]
@@ -34,10 +42,12 @@ def has_record(record: dict[str, Any] | None) -> bool:
 
 
 def game_acts(library: Any, game_id: str, name: str, collections: Collections | None,
-              after: Callable[[], Awaitable[None]]) -> list[panel.Verb]:
-    """What can be done to a game: play it, file it in a collection, back it up, clear its
-    play record. `after` puts the caller's surface right once the record is cleared or a
-    backup is taken."""
+              after: Callable[[], Awaitable[None]],
+              state: dict[str, Any] | None = None) -> list[panel.Verb]:
+    """What can be done to a game: play it, file it in a collection, send it to a mobile
+    device, back it up, clear its play record. `after` puts the caller's surface right once
+    the record is cleared or a backup is taken. `state` is the page's, which the transfer
+    uses to start the drawer's job watch."""
     @on_page
     async def launch() -> None:
         try:
@@ -50,6 +60,9 @@ def game_acts(library: Any, game_id: str, name: str, collections: Collections | 
     offered = [panel.Verb(t("console.games.launch"), launch)]
     if collections is not None:
         offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
+    offered.append(panel.Verb(
+        t("console.games.send_device"),
+        lambda: send_to_device.ask_where([{"id": game_id}], state)))
     offered.append(panel.Verb(
         t("console.backups.back_up_title"),
         lambda: backup_rows.back_up(library, kept_copies.OF_GAME, game_id, name, after)))
