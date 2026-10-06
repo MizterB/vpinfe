@@ -1125,6 +1125,9 @@ class ApiClient:
         return dict(self._post("/backups", {"scope": scope, "games": games or [],
                                             "launcher": launcher, "note": note}) or {})
 
+    def set_backup_note(self, copy_id: str, note: str) -> dict:
+        return dict(self._patch(f"/backups/{copy_id}", {"note": note}) or {})
+
     def restore_backup(self, copy_id: str) -> dict:
         return dict(self._post(f"/backups/{copy_id}/restore", {}) or {})
 

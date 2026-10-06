@@ -271,6 +271,16 @@ def _restore_archive(one: Copy, path: Path) -> Restored:
     return Restored(one, kept, waits, skipped)
 
 
+def set_note(copy_id: str, note: str) -> Copy:
+    """The note on a backup the user took. A file in one and a copy VPinFE took have none."""
+    _found(copy_id)
+    held = read_id(copy_id)
+    if held is None or held[0] != PLACE_ARCHIVE:
+        raise service_errors.RefusedError(t("error.backups.no_note"))
+    archive.set_note(held[1], note)
+    return _found(copy_id)
+
+
 def delete(copy_id: str) -> Copy:
     one = _found(copy_id)
     if read_member_id(copy_id) is not None:
@@ -280,7 +290,7 @@ def delete(copy_id: str) -> Copy:
     if place == PLACE_THEME:
         shutil.rmtree(path)
     else:
-        path.unlink()
+        archive.remove(path) if place == PLACE_ARCHIVE else path.unlink()
         for each in members:
             pending.drop(each.id)
     pending.drop(path)

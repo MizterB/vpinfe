@@ -6,9 +6,10 @@ import json
 import pathlib
 import zipfile
 from datetime import UTC, datetime
+from unittest.mock import patch
 
-from common.backups import archive, copies, pending
-from tests.api.test_backups import BackupsCase
+from common.backups import archive, copies, ops, pending
+from tests.api.test_backups import OLD, BackupsCase
 from tests.support.library import game_info, write_game
 
 
@@ -367,6 +368,163 @@ class DeletingAndForgeryTests(ArchiveCase):
 
         self.assertEqual(victim.read_text(), "untouched")
         self.assertEqual(self.title_in(taxi), "Taxi")
+
+
+class NoteTests(ArchiveCase):
+    def change(self, copy_id: str, note: str):
+        return self.client.patch(f"/backups/{copy_id}", json={"note": note})
+
+    def members(self, path: pathlib.Path) -> dict[str, tuple[bytes, int, int]]:
+        with zipfile.ZipFile(path) as bundle:
+            return {item.filename: (bundle.read(item), item.compress_type, item.CRC)
+                    for item in bundle.infolist() if item.filename != archive.MANIFEST}
+
+    def test_the_note_changes_and_the_listing_and_each_part_show_it(self) -> None:
+        self.games("Taxi", "Attack")
+        self.put(self.take("all_games", note="Before the move"))
+
+        body = self.put(self.change(self.whole()["id"], "  Before the new theme  "))
+
+        self.assertEqual(body["note"], "Before the new theme")
+        self.assertEqual(self.whole()["note"], "Before the new theme")
+        self.assertEqual({one["note"] for one in self.parts()}, {"Before the new theme"})
+
+    def test_an_empty_note_clears_it(self) -> None:
+        self.games("Taxi")
+        self.put(self.take("all_games", note="Before the move"))
+
+        self.put(self.change(self.whole()["id"], ""))
+
+        self.assertEqual(self.whole()["note"], "")
+
+    def test_the_name_and_with_it_the_id_and_taken_stay_and_nothing_else_is_left_beside(
+            self) -> None:
+        self.games("Taxi")
+        made = self.put(self.take("all_games", note="a"))
+        before = self.whole()
+
+        after = self.put(self.change(before["id"], "b"))
+
+        self.assertEqual((after["id"], after["file"], after["taken"]),
+                         (before["id"], before["file"], before["taken"]))
+        self.assertEqual([one.name for one in pathlib.Path(made["path"]).parent.iterdir()],
+                         [before["file"]])
+
+    def test_the_members_are_carried_over_as_they_were_and_still_go_back(self) -> None:
+        folders = self.games("Taxi", "Attack")
+        made = pathlib.Path(self.put(self.take("all_games"))["path"])
+        held = self.members(made)
+        self.retitle(folders["Taxi"], "changed since")
+
+        self.put(self.change(self.whole()["id"], "Noted"))
+
+        self.assertEqual(self.members(made), held)
+        self.put(self.client.post(f"/backups/{self.part('Taxi')['id']}/restore"))
+        self.assertEqual(self.title_in(folders["Taxi"]), "Taxi")
+
+    def test_the_other_manifest_fields_are_kept(self) -> None:
+        self.games("Taxi")
+        made = pathlib.Path(self.put(self.take("all_games", note="a"))["path"])
+        before = archive.read(made)
+
+        self.put(self.change(self.whole()["id"], "b"))
+
+        after = archive.read(made)
+        assert before is not None and after is not None
+        self.assertEqual((after.taken, after.version, after.scope, after.members),
+                         (before.taken, before.version, before.scope, before.members))
+
+    def test_the_note_travels_in_the_zip_to_a_cabinet_that_never_saw_the_edit(self) -> None:
+        self.games("Taxi")
+        made = pathlib.Path(self.put(self.take("all_games"))["path"])
+
+        self.put(self.change(self.whole()["id"], "Moved"))
+
+        with zipfile.ZipFile(made) as bundle:
+            self.assertEqual(json.loads(bundle.read("manifest.json"))["note"], "Moved")
+
+    def test_a_part_is_refused_and_its_zip_is_untouched(self) -> None:
+        self.games("Taxi")
+        made = pathlib.Path(self.put(self.take("all_games", note="a"))["path"])
+        before = made.read_bytes()
+
+        response = self.change(self.part("Taxi")["id"], "b")
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(made.read_bytes(), before)
+
+    def test_a_copy_vpinfe_took_is_refused(self) -> None:
+        folder = self.game("Taxi")
+        kept = self.kept(folder, OLD)
+
+        response = self.change(self.id_of(kept), "b")
+
+        self.assertEqual(response.status_code, 400, response.text)
+
+    def test_an_id_that_names_nothing_is_not_found(self) -> None:
+        forged = copies.make_id(copies.PLACE_ARCHIVE, self.config / "backups"
+                                / "vpinfe-backup-20261001T010203Z.zip")
+
+        self.assertEqual(self.change(forged, "b").status_code, 404)
+
+    def test_a_zip_whose_manifest_cannot_be_read_is_refused_and_left_whole(self) -> None:
+        folder = self.config / "backups"
+        folder.mkdir(exist_ok=True)
+        broken = folder / "vpinfe-backup-20261001T010203Z.zip"
+        broken.write_text("not a zip")
+
+        response = self.change(copies.make_id(copies.PLACE_ARCHIVE, broken), "b")
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(broken.read_text(), "not a zip")
+        self.assertEqual([one.name for one in folder.iterdir()], [broken.name])
+
+    def test_a_zip_deleted_before_the_edit_is_not_found_and_nothing_comes_back(self) -> None:
+        self.games("Taxi")
+        made = pathlib.Path(self.put(self.take("all_games"))["path"])
+        copy_id = self.whole()["id"]
+        made.unlink()
+
+        with patch.object(ops.places, "find", return_value=copies.Copy(
+                copy_id, "archive", "", "", "backup", made.name, str(made), "", "", "",
+                "", 0, False)):
+            response = self.change(copy_id, "b")
+
+        self.assertEqual(response.status_code, 404, response.text)
+        self.assertEqual(list(made.parent.iterdir()), [])
+
+    def test_a_write_that_fails_leaves_the_zip_as_it_was_and_nothing_beside_it(self) -> None:
+        self.games("Taxi")
+        made = pathlib.Path(self.put(self.take("all_games", note="a"))["path"])
+        before = made.read_bytes()
+
+        with patch.object(archive.shutil, "copyfileobj", side_effect=OSError("disk full")):
+            response = self.change(self.whole()["id"], "b")
+
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertEqual(made.read_bytes(), before)
+        self.assertEqual([one.name for one in made.parent.iterdir()], [made.name])
+
+    def test_the_version_that_wrote_it_is_listed_on_the_zip_and_its_parts_only(self) -> None:
+        folder = self.game("Taxi")
+        self.kept(folder, OLD)
+        with patch.object(archive, "get_version", return_value="3.0.4"):
+            self.put(self.take("all_games"))
+
+        found = {one["of_kind"] + ("-part" if one["within"] else ""): one["version"]
+                 for one in self.rows()}
+
+        self.assertEqual(found, {"archive": "3.0.4", "game-part": "3.0.4"} | {
+            "game": ""})
+
+    def test_a_zip_with_no_version_lists_it_empty(self) -> None:
+        folder = self.config / "backups"
+        folder.mkdir(exist_ok=True)
+        path = folder / "vpinfe-backup-20261001T010203Z.zip"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("manifest.json", json.dumps({"format": 1, "members": []}))
+
+        self.assertEqual([one["version"] for one in self.rows()], [""])
 
 
 class DamagedAndMismatchedTests(ArchiveCase):

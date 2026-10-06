@@ -3265,6 +3265,7 @@
   "error.backups.gone": "That copy is no longer there",
   "error.backups.member_kept": "A file in a backup is not deleted on its own. Delete the whole backup.",
   "error.backups.no_game": "No game here goes by {id}",
+  "error.backups.no_note": "Only a backup you took has a note",
   "error.backups.no_owner": "{name} is no longer a launcher on this device",
   "error.backups.nothing": "There is nothing to put in a backup",
   "error.backups.playing": "A table is playing. Put the copy back when it has closed.",

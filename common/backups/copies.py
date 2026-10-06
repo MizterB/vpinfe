@@ -71,6 +71,8 @@ class Copy:
     gone: bool
     # The id of the backup this is a part of. Empty for a copy that is a file of its own.
     within: str = ""
+    # The VPinFE that wrote the backup, from its manifest. Empty for every other copy.
+    version: str = ""
 
     def as_dict(self) -> dict:
         return asdict(self)

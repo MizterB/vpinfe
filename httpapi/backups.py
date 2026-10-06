@@ -16,7 +16,7 @@ from common.backups import ops
 
 from . import scopes
 from .auth import requires
-from .models import BackupRequest
+from .models import BackupNote, BackupRequest
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
@@ -38,6 +38,14 @@ def take_backup(body: BackupRequest) -> dict[str, Any]:
     """One zip of the games, records or settings named, as the copy that lists it."""
     return ops.take(body.scope, game_ids=body.games, launcher_id=body.launcher,
                     note=body.note).as_dict()
+
+
+@router.patch("/{copy_id}", summary="Change a backup's note",
+              dependencies=[requires(scopes.CONFIG_WRITE)])
+def change_note(copy_id: str, body: BackupNote) -> dict[str, Any]:
+    """The backup as listed, with its new note. Only a backup from `POST /backups` has one;
+    a file in it and a copy VPinFE took are refused with `400`."""
+    return ops.set_note(copy_id, body.note).as_dict()
 
 
 @router.post("/{copy_id}/restore", summary="Put a copy back",

@@ -1687,6 +1687,12 @@ class BackupRequest(ApiModel):
     note: str = ""
 
 
+class BackupNote(ApiModel):
+    """The note a backup you took carries. Empty clears it."""
+
+    note: str
+
+
 class NewGameRequest(ApiModel):
     """A game to create. `name` is the folder's name; `location` names where it goes,
     and left out it goes wherever new games are set to go."""

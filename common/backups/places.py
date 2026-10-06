@@ -413,7 +413,7 @@ def _member_copy(path: Path, manifest: archive.Manifest, member: archive.Member,
         of_name=member.of_name, kind=member.kind, file=Path(member.path).name,
         path=str(path), taken=manifest.taken, written_by=member.written_by, why=WHY_YOURS,
         note=manifest.note, size=member.size, gone=_member_gone(member, present),
-        within=make_id(PLACE_ARCHIVE, path))
+        within=make_id(PLACE_ARCHIVE, path), version=manifest.version)
 
 
 def archive_copies(path: Path, present: _Present | None = None) -> list[Copy]:
@@ -428,7 +428,8 @@ def archive_copies(path: Path, present: _Present | None = None) -> list[Copy]:
         of_name=_of_label(manifest) if manifest else "", kind=KIND_ARCHIVE, file=path.name,
         path=str(path), taken=taken, written_by=BY_3X, why=WHY_YOURS,
         note=manifest.note if manifest else "", size=_size(path),
-        gone=bool(members) and all(one.gone for one in members))
+        gone=bool(members) and all(one.gone for one in members),
+        version=manifest.version if manifest else "")
     return [whole, *members]
 
 

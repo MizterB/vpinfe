@@ -639,6 +639,9 @@ class Library:
                     launcher: str = "", note: str = "") -> dict:
         return self._client.take_backup(scope, games=games, launcher=launcher, note=note)
 
+    def set_backup_note(self, copy_id: str, note: str) -> dict:
+        return self._client.set_backup_note(copy_id, note)
+
     def restore_backup(self, copy_id: str, *, reread: bool = True) -> dict:
         """A restored game or launcher file changes what the library says, so what was
         read before is read again. A run of restores passes `reread=False` and calls

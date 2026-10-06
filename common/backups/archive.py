@@ -7,6 +7,7 @@ never from a path in the zip.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -296,6 +297,44 @@ def take(scope: str, *, game_ids: list[str] | None = None, launcher_id: str = ""
             for one in gathered:
                 bundle.writestr(one.member.name, one.data)
     return path
+
+
+def _copied(old: zipfile.ZipFile, item: zipfile.ZipInfo, new: zipfile.ZipFile) -> None:
+    """One member carried into `new` as it was: its name, its stamp and how it is packed."""
+    with old.open(item) as source, new.open(copy.copy(item), "w") as sink:
+        shutil.copyfileobj(source, sink)
+
+
+def set_note(path: Path, note: str) -> None:
+    """The backup's note replaced, and nothing else about it. The zip is written again beside
+    the old one and moved over it, so its name, and with it its id and Taken, stay."""
+    try:
+        with _TAKING, staged_for(path) as staged:
+            with zipfile.ZipFile(path) as old, zipfile.ZipFile(
+                    staged, "w", zipfile.ZIP_DEFLATED) as new:
+                info = old.getinfo(MANIFEST)
+                if info.file_size > MAX_MEMBER_BYTES:
+                    raise service_errors.RefusedError(t("error.backups.unreadable"))
+                raw = json.loads(old.read(info))
+                if not isinstance(raw, dict) or raw.get("format") != FORMAT:
+                    raise service_errors.RefusedError(t("error.backups.unreadable"))
+                raw["note"] = note.strip()
+                for item in old.infolist():
+                    if item.filename == MANIFEST:
+                        new.writestr(item.filename, json.dumps(raw, indent=2))
+                    else:
+                        _copied(old, item, new)
+    except FileNotFoundError as exc:
+        raise service_errors.NotFoundError(t("error.backups.gone")) from exc
+    except (KeyError, ValueError, *BROKEN) as exc:
+        raise service_errors.RefusedError(t("error.backups.unreadable")) from exc
+
+
+def remove(path: Path) -> None:
+    """A backup deleted. Under the lock a note edit holds, so its move over the old zip
+    cannot bring back one that was deleted while it wrote."""
+    with _TAKING:
+        path.unlink()
 
 
 def listed() -> list[Path]:
