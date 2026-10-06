@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import Query
@@ -12,6 +13,7 @@ from common import sized_media
 from common.sized_media import Served
 
 FOREVER = "public, max-age=31536000, immutable"
+HELD_LIMIT = 16 * 1024 * 1024
 
 ART_SIZE = Query(None, description="The longest edge in pixels, for an image: "
                                    + " or ".join(str(one) for one in sized_media.SIZES))
@@ -23,7 +25,7 @@ def art_file(served: Served, request: Request, sent_version: str) -> Response:
     """Kept for good when the address names the file's current version, and asked
     about every time otherwise."""
     if sent_version and sent_version == served.version:
-        return FileResponse(served.path, headers={"Cache-Control": FOREVER})
+        return _whole_file(served.path, request, {"Cache-Control": FOREVER}, revalidate=False)
     return revalidating_file(served.path, request)
 
 
@@ -38,15 +40,30 @@ def revalidating_file(path: Path, request: Request) -> Response:
     `StaticFiles`, so a bare `FileResponse` re-sends the whole file every time - which
     on a media map of thirteen tiles turns "sometimes stale" into megabytes per draw.
     """
-    # Stat here and hand it over: FileResponse only fills in etag and last-modified
-    # when it is given one, otherwise they appear while the response is being sent -
-    # too late to compare against.
-    response = FileResponse(path, stat_result=path.stat(),
-                            headers={"Cache-Control": "no-cache"})
-    sent = request.headers.get("if-none-match") if request is not None else ""
-    etag = response.headers.get("etag", "")
-    if sent and etag and etag in [tag.strip().removeprefix("W/")
-                                  for tag in sent.split(",")]:
-        return Response(status_code=304,
-                        headers={"Cache-Control": "no-cache", "ETag": etag})
-    return response
+    return _whole_file(path, request, {"Cache-Control": "no-cache"}, revalidate=True)
+
+
+def _whole_file(path: Path, request: Request, headers: dict[str, str], *,
+                revalidate: bool) -> Response:
+    """The file behind `path` as one response, its headers and body from one open handle.
+
+    A replacement renames a new file over `path`, so a `FileResponse`, which stats the path
+    and opens it again to send, can declare the old file's length over the new file's bytes
+    and the client reads a short body. A handle keeps the file it opened. A range, or a
+    file over `HELD_LIMIT`, is still sent from the path.
+    """
+    with path.open("rb") as handle:
+        info = os.fstat(handle.fileno())
+        # FileResponse only fills in etag and last-modified when it is given a stat,
+        # otherwise they appear while the response is being sent - too late to compare.
+        response = FileResponse(path, stat_result=info, headers=headers)
+        sent = request.headers.get("if-none-match") if request is not None else ""
+        etag = response.headers.get("etag", "")
+        if revalidate and sent and etag and etag in [tag.strip().removeprefix("W/")
+                                                     for tag in sent.split(",")]:
+            return Response(status_code=304, headers={**headers, "ETag": etag})
+        if info.st_size > HELD_LIMIT or (request is not None and request.headers.get("range")):
+            return response
+        content = handle.read()
+    sent_headers = {k: v for k, v in response.headers.items() if k != "content-length"}
+    return Response(content, headers=sent_headers)
