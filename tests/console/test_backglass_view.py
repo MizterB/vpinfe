@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from common.games import backglass_ops
+from common.games import backglass_ops, dmd_frame
 from console import backglass_view as view
 
 LEGACY, B2S = backglass_ops.LEGACY, backglass_ops.B2S
@@ -139,6 +139,66 @@ class TheScoreView(unittest.TestCase):
 
         self.assertEqual((10.0, 40.0, 50.0, 50.0),
                          (box.left, box.top, box.width, box.height))
+
+
+class TheBoxWritten(unittest.TestCase):
+    def test_a_legacy_box_is_written_in_1024_by_768_with_automatic_off(self) -> None:
+        screen = _backglass({f"{LEGACY}B2SHideGrill": "1"})
+
+        values = view.box_values(LEGACY, screen, view.Box(25.0, 50.0, 50.0, 25.0))
+
+        self.assertEqual({f"{LEGACY}BackglassDMDAutoPos": "0", f"{LEGACY}BackglassDMDX": "256",
+                          f"{LEGACY}BackglassDMDY": "192", f"{LEGACY}BackglassDMDW": "512",
+                          f"{LEGACY}BackglassDMDH": "192"}, values)
+
+    def test_a_b2s_box_is_written_in_the_pixels_of_the_cut_art(self) -> None:
+        held = {f"{LEGACY}Enable": "0"}
+        screen = _backglass(held)
+
+        values = view.box_values(B2S, screen, view.Box(10.0, 200 / 3, 50.0, 25.0))
+
+        self.assertEqual(("100", "50", "500", "150"),
+                         tuple(values[f"{B2S}BackglassDMD{name}"] for name in "XYWH"))
+
+    def test_the_score_view_has_its_own_keys_and_art(self) -> None:
+        held = {**TheScoreView.ON, f"{LEGACY}Enable": "0"}
+        screen = view.screens(held, _glass(score_view=(400, 100)))[1]
+
+        values = view.box_values(B2S, screen, view.Box(10.0, 40.0, 50.0, 50.0))
+
+        self.assertEqual(("40", "10", "200", "50"),
+                         tuple(values[f"{B2S}ScoreViewDMD{name}"] for name in "XYWH"))
+
+    def test_what_is_written_draws_the_same_box_again(self) -> None:
+        for plugin in (LEGACY, B2S):
+            with self.subTest(plugin=plugin):
+                base = {f"{LEGACY}Enable": "1" if plugin == LEGACY else "0",
+                        f"{LEGACY}B2SHideGrill": "1", f"{plugin}BackglassDMDOverlay": "1"}
+                box = view.Box(12.5, 30.0, 40.0, 20.0)
+
+                values = view.box_values(plugin, _backglass(base), box)
+                again = _backglass({**base, **values}).dmd
+
+                for want, got in zip((box.left, box.top, box.width, box.height),
+                                     (again.left, again.top, again.width, again.height),
+                                     strict=True):
+                    self.assertAlmostEqual(want, got, delta=0.2)
+
+    def test_a_box_cannot_be_written_outside_the_window_or_empty(self) -> None:
+        screen = _backglass({})
+
+        values = view.box_values(LEGACY, screen, view.Box(0.0, 100.0, 0.0, 0.0))
+
+        self.assertEqual(("0", "0", "1", "1"),
+                         tuple(values[f"{LEGACY}BackglassDMD{name}"] for name in "XYWH"))
+
+
+class TheFrameFound(unittest.TestCase):
+    def test_a_frame_counted_up_from_the_bottom_is_a_box_counted_down_from_the_top(self) -> None:
+        box = view.frame_box(dmd_frame.Frame(100, 50, 500, 150), (1000, 600))
+
+        self.assertEqual((10.0, 66.666667, 50.0, 25.0),
+                         tuple(round(v, 6) for v in (box.left, box.top, box.width, box.height)))
 
 
 class WhichEdition(unittest.TestCase):

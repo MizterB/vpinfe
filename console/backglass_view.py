@@ -8,15 +8,21 @@ redraws at once and the server cuts nothing.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, MutableSequence
+import contextlib
+import logging
+from collections.abc import Awaitable, Callable, Mapping, MutableSequence
 from dataclasses import dataclass
 from typing import Any
 
-from nicegui import ui
+from nicegui import run, ui
+from PIL import Image
 
-from common.games import backglass_ops
+from common.games import backglass_ops, dmd_frame
 from common.i18n import t
-from console import art, mediaview
+from console import art, mediaview, panel, verbs
+from console.on_page import on_page
+
+logger = logging.getLogger(__name__)
 
 BACKGLASS_WINDOW = "Backglass.Backglass"
 SCORE_VIEW_WINDOW = "ScoreView.ScoreView"
@@ -50,6 +56,8 @@ class Screen:
     scale: float
     dmd: Box | None
     off: bool = False
+    part: str = "Backglass"
+    space: tuple[int, int] = (1, 1)
 
 
 def flat(values: Mapping[str, Any]) -> dict[str, str]:
@@ -79,13 +87,15 @@ def screens(held: Mapping[str, str], glass: Mapping[str, Any]) -> tuple[Screen, 
     glass_screen = Screen(
         _ratio(window, (wide, kept), turns), turns, scale,
         _box(held, plugin, "Backglass", (wide, kept)),
-        off=held.get(BACKGLASS_WINDOW + "Output", "0") in ("", "0"))
+        off=held.get(BACKGLASS_WINDOW + "Output", "0") in ("", "0"),
+        space=(wide, kept))
     art_size = glass.get("score_view_art")
     if not art_size or held.get(SCORE_VIEW_WINDOW + "Output", "0") in ("", "0"):
         return glass_screen, None
     window, turns = _window(held, SCORE_VIEW_WINDOW)
     return glass_screen, Screen(_ratio(window, tuple(art_size), turns), turns, 100.0,
-                                _box(held, plugin, "ScoreView", tuple(art_size)))
+                                _box(held, plugin, "ScoreView", tuple(art_size)),
+                                part="ScoreView", space=tuple(art_size))
 
 
 def _number(held: Mapping[str, str], key: str) -> int:
@@ -127,19 +137,93 @@ def _box(held: Mapping[str, str], plugin: str, part: str, space: tuple[int, int]
     x, y, wide, high = (_number(held, prefix + name) for name in "XYWH")
     if wide <= 0 or high <= 0:
         return None
-    across, down = LEGACY_DMD_SPACE if plugin == backglass_ops.LEGACY else space
+    across, down = _counted_in(plugin, space)
     return Box(100.0 * x / across, 100.0 * (down - y - high) / down, 100.0 * wide / across,
                100.0 * high / down)
 
 
+def _counted_in(plugin: str, space: tuple[int, int]) -> tuple[int, int]:
+    return LEGACY_DMD_SPACE if plugin == backglass_ops.LEGACY else space
+
+
+def box_values(plugin: str, screen: Screen, box: Box) -> dict[str, str]:
+    """The settings that put the DMD where `box` is, with Automatic off: `_box` the other
+    way, in the renderer's own units."""
+    across, down = _counted_in(plugin, screen.space)
+    prefix = plugin + screen.part + "DMD"
+    wide, high = max(1, round(across * box.width / 100)), max(1, round(down * box.height / 100))
+    return {prefix + "AutoPos": "0",
+            prefix + "X": str(max(0, round(across * box.left / 100))),
+            prefix + "Y": str(max(0, round(down * (1 - (box.top + box.height) / 100)))),
+            prefix + "W": str(wide), prefix + "H": str(high)}
+
+
+def frame_box(frame: dmd_frame.Frame, size: tuple[int, int]) -> Box:
+    """A frame found on a picture of `size`, counted up from the bottom as Visual Pinball
+    counts it, as the box that covers it."""
+    wide, high = size
+    return Box(100.0 * frame.x / wide, 100.0 * (high - frame.y - frame.height) / high,
+               100.0 * frame.width / wide, 100.0 * frame.height / high)
+
+
+def found(game_id: str, path: str, *, look: str, edition: str, cut: bool,
+          score_view: bool) -> Box | None:
+    """Where Automatic would put the DMD on the picture the preview shows, or None where
+    the art has no window for it."""
+    served = (backglass_ops.score_view_file(game_id, path=path) if score_view
+              else backglass_ops.picture_file(game_id, look=look, version=edition, grill=cut,
+                                              path=path))
+    with Image.open(served.path) as picture:
+        frame = dmd_frame.find(picture)
+        size = picture.size
+    return frame_box(frame, size) if frame else None
+
+
 def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             held: Mapping[str, str], followers: MutableSequence[Callable[[Any], None]],
-            enlarge: Callable[[Callable[[], Any]], None]) -> None:
+            enlarge: Callable[[Callable[[], Any]], None],
+            write: Callable[[dict[str, str]], Awaitable[Any]] | None,
+            memory: dict[str, Any]) -> None:
     """The picture, drawn from `held` and drawn again whenever a write calls the function
-    added to `followers` with the settings as they now stand."""
-    state: dict[str, Any] = {"look": "on", "edition": edition_in_effect(held),
-                             "held": dict(held)}
+    added to `followers` with the settings as they now stand. A box moved or found is
+    written by `write`, which redraws the whole panel; `memory` carries the Look and
+    Version picked across that. Without `write` the box cannot be moved or found."""
+    state = memory.setdefault("preview", {"look": "on", "edition": edition_in_effect(held)})
+    state["held"] = dict(held)
     holder = ui.element("div").classes("console-bgview")
+
+    def moved(screen: Screen) -> Callable[[Box], Awaitable[None]] | None:
+        if write is None:
+            return None
+
+        async def set_box(box: Box) -> None:
+            await write(box_values(backglass_ops.renderer(state["held"]), screen, box))
+        return set_box
+
+    def finder(screen: Screen, cut: bool, score_view: bool) -> Callable[[], Awaitable[None]] | None:
+        if write is None:
+            return None
+
+        @on_page
+        async def find() -> None:
+            working = ui.notification(t("console.backglass.dmd_find.working"), spinner=True,
+                                      timeout=None)
+            try:
+                box = await run.io_bound(
+                    lambda: found(game_id, path, look=state["look"], edition=state["edition"],
+                                  cut=cut, score_view=score_view))
+            except Exception:  # noqa: BLE001 - a file that cannot be drawn says so
+                logger.exception("Could not search the backglass picture for the DMD")
+                ui.notify(t("console.backglass.damaged"), type="negative")
+                return
+            finally:
+                with contextlib.suppress(TimeoutError):
+                    await ui.run_javascript(f"getElement({working.id}).dismiss()")
+            if box is None:
+                ui.notify(t("console.backglass.dmd_find.none"), type="warning")
+                return
+            await write(box_values(backglass_ops.renderer(state["held"]), screen, box))
+        return find
 
     def draw() -> None:
         holder.clear()
@@ -154,11 +238,13 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             chrome = BAR_PX + (CAPTION_PX if both else 0)
             with ui.row().classes("console-bgview-row items-center w-full").style(
                     f"gap:{GAP_PX}px;--gap:{GAP_PX}px;--sum:{shapes:.5f};--gaps:{int(both)};--chrome:{chrome}px"):
-                _stage(glass_screen, src)
+                _stage(glass_screen, src, moved(glass_screen))
                 if score_screen is not None:
                     score = art.score_view(game_id, path, version=glass["version"],
                                            size=art.PANEL)
-                    _stage(score_screen, score, t("console.backglass.score_view"))
+                    _stage(score_screen, score, moved(score_screen),
+                           t("console.backglass.score_view"),
+                           finder(score_screen, False, True))
             with ui.row().classes("console-bgview-bar items-center gap-2 w-full"):
                 if not glass["still"] and glass["lamps"]:
                     ui.toggle({one: t(f"console.backglass.look.{one}") for one in LOOKS},
@@ -168,6 +254,8 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                     ui.toggle({one: t(f"console.backglass.edition.{one}") for one in EDITIONS},
                               value=state["edition"], on_change=_pick(state, "edition", draw)) \
                         .props("dense no-caps size=sm")
+                if glass_screen.dmd is not None and (find := finder(glass_screen, cut, False)):
+                    _find_button(find)
                 if glass_screen.off:
                     ui.label(t("console.backglass.window_off")) \
                         .classes("console-tier console-tier--unknown") \
@@ -198,7 +286,25 @@ def _pick(state: dict[str, Any], key: str, draw: Callable[[], None]) -> Callable
     return chose
 
 
-def _stage(screen: Screen, src: str, caption: str = "") -> None:
+def _find_button(act: Callable[[], Awaitable[None]], small: bool = False) -> None:
+    searching = False
+
+    async def press() -> None:
+        nonlocal searching
+        if searching:
+            return
+        searching = True
+        try:
+            await act()
+        finally:
+            searching = False
+
+    panel.action(t("console.backglass.dmd_find"), press, icon=verbs.SEARCH, inline=small,
+                 hint=t("console.backglass.dmd_find.hint"))()
+
+
+def _stage(screen: Screen, src: str, on_set: Callable[[Box], Awaitable[None]] | None,
+           caption: str = "", find: Callable[[], Awaitable[None]] | None = None) -> None:
     """One window. The content is stretched to fill the window's box, then turned: a
     quarter turn swaps the box it is stretched into."""
     sideways = screen.turns % 2 == 1
@@ -212,17 +318,109 @@ def _stage(screen: Screen, src: str, caption: str = "") -> None:
                     f"background-image:url(\"{src}\");"
                     f"background-size:100% {screen.scale:.4f}%"):
                 if screen.dmd is not None:
-                    _dmd(screen.dmd)
+                    _dmd(screen.dmd, screen.turns, on_set)
         if caption:
-            ui.label(caption).classes("console-help")
+            with ui.row().classes("items-center gap-2 no-wrap"):
+                ui.label(caption).classes("console-help")
+                if find is not None and screen.dmd is not None:
+                    _find_button(find, small=True)
 
 
-def _dmd(box: Box) -> None:
+GRIPS = ("nw", "ne", "sw", "se")
+
+# The box is moved by its body and sized by its corners, in percent of the stage it sits
+# in. A pointer's travel is turned back through the stage's quarter turns first, so a
+# drag follows the pointer on a window that is turned. Nothing is sent until it is let go.
+BOX_JS = """(() => {
+  let tries = 0;
+  const wire = () => {
+    const el = document.getElementById('c__ID__');
+    if (!el) { if (tries++ < 40) setTimeout(wire, 50); return; }
+    const stage = el.parentElement;
+    const turns = __TURNS__;
+    const cos = Math.round(Math.cos(Math.PI / 2 * turns));
+    const sin = Math.round(Math.sin(Math.PI / 2 * turns));
+    const MIN = 2;
+    const clamp = (v, lo, hi) => Math.min(Math.max(lo, hi), Math.max(lo, v));
+    const SLOP = 3;
+    let drag = null;
+    const read = () => ({left: parseFloat(el.style.left), top: parseFloat(el.style.top),
+                         width: parseFloat(el.style.width), height: parseFloat(el.style.height)});
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button) return;
+      e.preventDefault();
+      const grip = e.target.closest('[data-grip]');
+      drag = {grip: grip ? grip.dataset.grip : 'move', x: e.clientX, y: e.clientY,
+              from: read(), now: null};
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.now && Math.hypot(dx, dy) < SLOP) return;
+      const lx = (cos * dx + sin * dy) / stage.offsetWidth * 100;
+      const ly = (-sin * dx + cos * dy) / stage.offsetHeight * 100;
+      let {left, top, width, height} = drag.from;
+      const g = drag.grip;
+      if (g === 'move') {
+        left = clamp(left + lx, 0, 100 - width);
+        top = clamp(top + ly, 0, 100 - height);
+      } else {
+        if (g.includes('w')) {
+          const r = left + width;
+          left = clamp(left + lx, 0, r - MIN);
+          width = r - left;
+        }
+        if (g.includes('e')) width = clamp(width + lx, MIN, 100 - left);
+        if (g.includes('n')) {
+          const b = top + height;
+          top = clamp(top + ly, 0, b - MIN);
+          height = b - top;
+        }
+        if (g.includes('s')) height = clamp(height + ly, MIN, 100 - top);
+      }
+      drag.now = {left, top, width, height};
+      el.style.left = left + '%'; el.style.top = top + '%';
+      el.style.width = width + '%'; el.style.height = height + '%';
+    });
+    const end = (e) => {
+      if (!drag) return;
+      const done = drag.now;
+      drag = null;
+      if (done) el.dispatchEvent(new CustomEvent('boxset', {detail: done}));
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  };
+  wire();
+})()
+"""
+
+
+def _dmd(box: Box, turns: int, on_set: Callable[[Box], Awaitable[None]] | None) -> None:
     if box.auto:
         ui.label(t("console.backglass.dmd_automatic")).classes("console-bgview-auto")
         return
-    with ui.element("div").classes("console-bgview-dmd").style(
-            f"left:{box.left:.3f}%;top:{box.top:.3f}%;width:{box.width:.3f}%;"
-            f"height:{box.height:.3f}%"):
+    style = (f"left:{box.left:.3f}%;top:{box.top:.3f}%;width:{box.width:.3f}%;"
+             f"height:{box.height:.3f}%")
+    if on_set is None:
+        with ui.element("div").classes("console-bgview-dmd").style(style):
+            ui.label(t("console.backglass.dmd_sample.player"))
+            ui.label(t("console.backglass.dmd_sample.score"))
+        return
+
+    async def set_box(event: Any) -> None:
+        detail = event.args
+        await on_set(Box(float(detail["left"]), float(detail["top"]), float(detail["width"]),
+                         float(detail["height"])))
+
+    with ui.element("div").classes("console-bgview-dmd console-bgview-dmd--live") \
+            .style(style) as shape:
         ui.label(t("console.backglass.dmd_sample.player"))
         ui.label(t("console.backglass.dmd_sample.score"))
+        for grip in GRIPS:
+            ui.element("div").classes(f"console-bgview-grip console-bgview-grip--{grip}") \
+                .props(f"data-grip={grip}")
+    shape.tooltip(t("console.backglass.dmd_move.hint"))
+    shape.on("boxset", set_box, js_handler="(e) => emit(e.detail)")
+    ui.run_javascript(BOX_JS.replace("__ID__", str(shape.id)).replace("__TURNS__", str(turns)))

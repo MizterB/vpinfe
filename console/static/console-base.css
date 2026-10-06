@@ -2915,6 +2915,15 @@ a.console-tag:hover { background: var(--wash-hover); }
   font-size: 32cqh; line-height: 1.05; letter-spacing: 0.05em; white-space: nowrap;
   text-shadow: 0 0 0.3em var(--dmd-glow);
 }
+.console-bgview-dmd--live { cursor: move; touch-action: none; user-select: none; }
+.console-bgview-grip {
+  position: absolute; width: 10px; height: 10px; box-sizing: border-box;
+  background: var(--dmd-lit); border: 1px solid var(--dmd-ground); border-radius: 2px;
+}
+.console-bgview-grip--nw { left: 0; top: 0; cursor: nwse-resize; }
+.console-bgview-grip--se { right: 0; bottom: 0; cursor: nwse-resize; }
+.console-bgview-grip--ne { right: 0; top: 0; cursor: nesw-resize; }
+.console-bgview-grip--sw { left: 0; bottom: 0; cursor: nesw-resize; }
 .console-bgview-auto {
   position: absolute; left: 4%; bottom: 4%; padding: 0 6px; border-radius: 999px;
   background: var(--dmd-label); color: var(--dmd-lit); font-size: var(--fs-caption);

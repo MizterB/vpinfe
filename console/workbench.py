@@ -937,14 +937,38 @@ async def _backglass_picture(context: dict[str, Any], path: str, glass: dict[str
         except Exception:  # noqa: BLE001 - the picture stands without the settings
             logger.exception("Could not read the settings behind the backglass preview")
         else:
+            memory = inner["state"].setdefault("backglass_preview", {}).setdefault(path, {})
             backglass_view.preview(game_id, path, glass, label, held,
-                                   inner.setdefault("followers", []), _enlarge)
+                                   inner.setdefault("followers", []), _enlarge,
+                                   None if inner.get("playing") else partial(_write_overlay, inner),
+                                   memory)
             return
     with ui.element("div").classes("console-slot-art"):
         mediaview.preview(art.backglass(game_id, path, version=glass["version"],
                                         size=art.PANEL), "backglass", label)
         _enlarge(lambda: mediaview.open_image(
             art.backglass(game_id, path, version=glass["version"]), label))
+
+
+@on_page
+async def _write_overlay(inner: dict[str, Any], values: dict[str, str]) -> None:
+    """Write a box dragged or found on the preview where the settings panel beside it
+    writes, then draw the panel again from what is now held."""
+    if (write := inner.get("config_write")) is not None:
+        job = partial(write, values)
+    else:
+        job = partial(inner["library"].write_launcher_config, inner["launcher"]["launcher_id"],
+                      values, table=str(inner.get("config_table") or ""),
+                      scope=str(inner.get("config_scope") or "launcher"))
+    try:
+        wrote = await run.io_bound(job)
+    except Exception as exc:  # noqa: BLE001
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+        return
+    if cut := (wrote or {}).get("cut"):
+        no_longer_reads_game(cut, inner.get("tables"))
+    inner.pop("config_values", None)
+    await _keeping_place(ui.context.client, inner["rebuild"], next(iter(values)))
 
 
 def _backglass_chips(glass: dict[str, Any]) -> None:
