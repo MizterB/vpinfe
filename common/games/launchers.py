@@ -122,6 +122,11 @@ class Launcher:
         found = apps.get(self.app)
         return (found.fields if found is not None else ()) + OWN_FIELDS
 
+    def has_program(self) -> bool:
+        """Whether every path to a program this launcher runs has been filled in."""
+        return all(str(self.value(field.key) or "").strip()
+                   for field in self.fields() if field.path == "exe")
+
     def as_dict(self) -> dict[str, Any]:
         return {"launcher_id": self.launcher_id, "app": self.app,
                 "display_name": self.display_name, "enabled": self.enabled,

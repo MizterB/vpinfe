@@ -192,8 +192,7 @@ def _refusal(fallbacks: list[launchers.Launcher | None]) -> str:
 
 
 def _has_program(launcher: launchers.Launcher) -> bool:
-    return all(str(launcher.value(field.key) or "").strip()
-               for field in launcher.fields() if field.path == "exe")
+    return launcher.has_program()
 
 
 def _library_tables() -> Iterator[tuple[str, str]]:

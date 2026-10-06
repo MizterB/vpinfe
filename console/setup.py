@@ -140,7 +140,9 @@ async def _answer_how(session: Session, values: dict[str, Any]) -> None:
     await offload.io(client.put_config, {"presentation": {"cab_mode": cabinet}})
     # Not offload.io: no launcher at all is a real answer, not a shutdown.
     launcher = await run.io_bound(launcher_model.default_launcher, "vpx")
-    if launcher is not None:
+    # A launcher with no program has no settings file to write to; the VPX step writes
+    # BGSet when the program is chosen.
+    if launcher is not None and launcher.has_program():
         try:
             await offload.io(client.write_launcher_config, launcher.launcher_id,
                              {BGSET_KEY: "1" if cabinet else "0"})

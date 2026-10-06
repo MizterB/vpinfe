@@ -119,7 +119,8 @@ class AskHowTests(_Fresh):
 class AnswerHowTests(_Fresh):
     def _answer(self, session: setup.Session, mode: str, *, launcher: bool = True) -> Any:
         client = mock.Mock()
-        found = Launcher(launcher_id="vpx-1", app="vpx") if launcher else None
+        found = (Launcher(launcher_id="vpx-1", app="vpx", settings={"bin_path": "/opt/vpx"})
+                 if launcher else None)
         with mock.patch.object(setup, "ApiClient", return_value=client), \
              mock.patch("common.games.launchers.default_launcher", return_value=found):
             _ran(setup._answer_how(session, {"cab_mode": mode}))
@@ -143,10 +144,22 @@ class AnswerHowTests(_Fresh):
         client.put_config.assert_called_once_with({"presentation": {"cab_mode": True}})
         client.write_launcher_config.assert_not_called()
 
+    def test_a_launcher_with_no_program_writes_nothing_and_logs_nothing(self) -> None:
+        client = mock.Mock()
+        launcher = Launcher(launcher_id="vpx-1", app="vpx")
+
+        with mock.patch.object(setup, "ApiClient", return_value=client), \
+             mock.patch("common.games.launchers.default_launcher", return_value=launcher), \
+             self.assertNoLogs("vpinfe.console.setup", level="WARNING"):
+            _ran(setup._answer_how(setup.Session(again=False), {"cab_mode": "cabinet"}))
+
+        client.put_config.assert_called_once()
+        client.write_launcher_config.assert_not_called()
+
     def test_a_launcher_with_no_settings_file_warns_and_the_answer_stands(self) -> None:
         client = mock.Mock()
         client.write_launcher_config.side_effect = RuntimeError("no settings file")
-        launcher = Launcher(launcher_id="vpx-1", app="vpx")
+        launcher = Launcher(launcher_id="vpx-1", app="vpx", settings={"bin_path": "/opt/vpx"})
 
         with mock.patch.object(setup, "ApiClient", return_value=client), \
              mock.patch("common.games.launchers.default_launcher", return_value=launcher), \
