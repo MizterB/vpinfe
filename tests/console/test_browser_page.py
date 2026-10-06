@@ -100,11 +100,15 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
     def _program(self) -> str:
         return str(self.served.config_values()["chromium"]["path"])
 
-    async def _drawn(self) -> list[tuple[Any, Any]]:
+    async def _heads(self) -> list[tuple[Any, Any]]:
         self.facts.reset_mock()
         await settings._draw_system_page(self.library, Mock(), MagicMock(), BROWSER, {}, [])
         [drawn] = self.facts.call_args_list
         return list(drawn.args[1])
+
+    async def _drawn(self) -> list[tuple[Any, Any]]:
+        entries = await self._heads()
+        return entries[1:] if entries[0][0] is panel.HEADING else entries
 
     @staticmethod
     def _labels(entries: list[tuple[Any, Any]]) -> list[Any]:
@@ -128,6 +132,15 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertLess(labels.index(t("console.settings.browser")),
                         labels.index(t("config.chromium.path.label")))
+
+    async def test_the_page_opens_with_a_heading_and_the_report_sits_under_it(self) -> None:
+        self._reported(NO_H264)
+
+        entries = await self._heads()
+
+        self.assertIs(entries[0][0], panel.HEADING)
+        self.assertLess(self._labels(entries).index(t("console.settings.browser")),
+                        self._labels(entries).index(t("config.chromium.path.label")))
 
     async def test_a_finding_leads_the_page_across_both_columns(self) -> None:
         self._reported(NO_H264)

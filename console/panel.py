@@ -797,7 +797,7 @@ def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
 
 
 def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], Any], *,
-                 disabled: bool = False,
+                 disabled: bool = False, typed: bool = False, placeholder: str = "",
                  on_control: Callable[[Any], Any] | None = None) -> Callable[[], None]:
     """Several from a list, where the row is a choice rather than a fact.
 
@@ -806,15 +806,31 @@ def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], 
     dialog would push what it is for off the screen. Everything selected shows, so what
     is chosen is still readable without opening it.
 
+    `typed` lets what is typed narrow the list, for one too long to scroll, and
+    `placeholder` is what it says while nothing is chosen.
+
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.
     """
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             control = ui.select(options, value=list(value or []), multiple=True,
-                                on_change=on_change) \
+                                on_change=on_change, with_input=typed) \
                 .props("dense borderless options-dense use-chips") \
                 .classes("console-edit-field console-edit-select")
+            if typed:
+                def clear_filter(_event: Any = None) -> None:
+                    control.run_method("updateInputValue", "", True)
+
+                control.on_value_change(clear_filter)
+                control.on("blur", clear_filter)
+            if placeholder:
+                def say_empty() -> None:
+                    control.props["placeholder"] = "" if control.value else placeholder
+                    control.update()
+
+                say_empty()
+                control.on_value_change(say_empty)
             if disabled:
                 control.disable()
             if on_control is not None:

@@ -67,7 +67,7 @@ def _open(manager: ChromiumManager, screens: Sequence[Any], arrowed: int | None,
                 address(screen.number, screen.name, size, arrow=screen.number == arrowed),
                 screen, screen.number, mute_audio=True,
                 additional_options=settings.chrome_options,
-                include_default_options=not settings.disable_default_chrome_options,
+                include_default_options=settings.default_chrome_options,
                 exclude_options=cfg_get(config, "Settings", "chromeoptionsexclude", ""))
             opened += 1
         except Exception as exc:  # noqa: BLE001 - one screen failing is one screen

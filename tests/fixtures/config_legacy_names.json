@@ -367,12 +367,6 @@
   ],
   [
     "Settings",
-    "disabledefaultchromeoptions",
-    "chromium",
-    "disable_defaults"
-  ],
-  [
-    "Settings",
     "game_root_dir",
     "general",
     "game_root_dir"
@@ -478,12 +472,6 @@
     "chromeoptionsexclude",
     "chromium",
     "options_exclude"
-  ],
-  [
-    "general",
-    "disabledefaultchromeoptions",
-    "chromium",
-    "disable_defaults"
   ],
   [
     "general",

@@ -56,7 +56,7 @@ class ShowTests(unittest.TestCase):
         self.enterContext(mock.patch.object(
             screen_numbers.SettingsConfig, "from_config",
             return_value=SimpleNamespace(chrome_options="--x",
-                                         disable_default_chrome_options=False)))
+                                         default_chrome_options=True)))
         self.enterContext(mock.patch.object(screen_numbers, "cfg_get", return_value=""))
         self.sleep = self.enterContext(mock.patch.object(screen_numbers.time, "sleep"))
         self.launch = self.manager.return_value.launch_window

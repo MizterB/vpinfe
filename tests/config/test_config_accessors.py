@@ -47,7 +47,7 @@ class TypedConfigTests(unittest.TestCase):
         })
 
         self.assertEqual(SettingsConfig.from_config(parser).theme, "Revolution")
-        self.assertFalse(SettingsConfig.from_config(parser).disable_default_chrome_options)
+        self.assertTrue(SettingsConfig.from_config(parser).default_chrome_options)
         media_config = MediaConfig.from_config(parser)
         self.assertEqual(media_config.playfield_variant, "fss")
         self.assertEqual(media_config.playfield_media_priority, "image")
@@ -82,11 +82,11 @@ class TypedConfigTests(unittest.TestCase):
 
         self.assertFalse(SettingsConfig.from_config(parser).splashscreen)
 
-    def test_settings_config_reads_disable_default_chrome_options(self) -> None:
+    def test_settings_config_reads_default_chrome_options(self) -> None:
         parser = configparser.ConfigParser()
-        parser.read_dict({"Settings": {"disabledefaultchromeoptions": "yes"}})
+        parser.read_dict({"chromium": {"defaults": "no"}})
 
-        self.assertTrue(SettingsConfig.from_config(parser).disable_default_chrome_options)
+        self.assertFalse(SettingsConfig.from_config(parser).default_chrome_options)
 
 
 class DisplayGeometryNormalizationTests(unittest.TestCase):

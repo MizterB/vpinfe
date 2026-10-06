@@ -629,7 +629,7 @@ class ChromiumManager:
                     screen_id,
                     mute_audio=(window_name != self._controller),
                     additional_options=settings.chrome_options,
-                    include_default_options=not settings.disable_default_chrome_options,
+                    include_default_options=settings.default_chrome_options,
                     exclude_options=cfg_get(iniconfig, "Settings",
                                             "chromeoptionsexclude", ""),
                 )

@@ -77,9 +77,9 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `path` | string |  | The browser the frontend's windows open in. Blank finds one on this device. |
-| `options` | text |  | Additional Chrome Options |
-| `options_exclude` | text |  | Built-in options to leave off, one per line |
-| `disable_defaults` | bool | `false` | Disable Default Chrome Options |
+| `defaults` | bool | `true` | What VPinFE starts every window with: full screen, video and sound without a click, none of Chrome's prompts. Off leaves only what places each window. |
+| `options_exclude` | text |  | Leave Out |
+| `options` | text |  | Added after the defaults. Where one sets the same option as a default, yours is used. |
 
 ### `console`
 

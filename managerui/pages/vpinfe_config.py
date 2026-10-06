@@ -233,11 +233,11 @@ def render_panel(tab=None):
         if chrome_options_preview is None:
             return
         settings_inputs = inputs.get('chromium', {})
-        disable_defaults = _as_bool(
+        use_defaults = _as_bool(
             getattr(
-                settings_inputs.get('disable_defaults'),
+                settings_inputs.get('defaults'),
                 'value',
-                cfg_get(config, 'chromium', 'disable_defaults', 'false'),
+                cfg_get(config, 'chromium', 'defaults', 'true'),
             )
         )
         exclude_raw = str(
@@ -262,7 +262,7 @@ def render_panel(tab=None):
             additional_opts = []
         chrome_options_preview.value = '\n'.join(
             device_client.local().browser_options(
-                include_default_options=not disable_defaults,
+                include_default_options=use_defaults,
                 exclude_options=device_client.local().parse_browser_options(exclude_raw),
             )
             + additional_opts

@@ -216,8 +216,11 @@ EDITOR_LIST_ART = "list_art"
 # A Record or Encode Command, which only the device that runs it can check and show
 # VPinFE's own for.
 EDITOR_CAPTURE_COMMAND = "capture_command"
+# VPinFE's own browser options, picked from the list rather than typed: the names a
+# person would have to match are the ones VPinFE starts a window with.
+EDITOR_CHROME_LEAVE_OUT = "chrome_leave_out"
 EDITORS = (EDITOR_BINDING, EDITOR_CONSOLE_THEME, EDITOR_FRONTEND_THEME, EDITOR_LIST_ART,
-           EDITOR_CAPTURE_COMMAND)
+           EDITOR_CAPTURE_COMMAND, EDITOR_CHROME_LEAVE_OUT)
 
 # Whose a default is.
 DEFAULT_COMMUNITY = "community"
@@ -429,32 +432,33 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             type="string",
             path="exe",
             default="",
+            group=setting_groups.BROWSER_PROGRAM,
         ),
         ConfigOption(
-            "options",
+            "defaults",
             applies=APPLIES_WINDOWS,
-            # One flag per line, which is what the help beside it has always said and
-            # what a one-line box could not take. Parsed with shell-style quoting, so a
-            # newline is whitespace and nothing about the stored value changes.
-            type="text",
-            lines=3,
-            default="",
-            legacy=(("general", "chromeoptions"),),
+            type="bool",
+            default="true",
+            group=setting_groups.CHROME_OPTIONS,
         ),
         ConfigOption(
             "options_exclude",
             applies=APPLIES_WINDOWS,
             type="text",
-            lines=3,
             default="",
+            editor=EDITOR_CHROME_LEAVE_OUT,
+            group=setting_groups.CHROME_OPTIONS,
             legacy=(("general", "chromeoptionsexclude"),),
         ),
         ConfigOption(
-            "disable_defaults",
+            "options",
             applies=APPLIES_WINDOWS,
-            type="bool",
-            default="false",
-            legacy=(("general", "disabledefaultchromeoptions"),),
+            # Parsed with shell-style quoting, so a newline is whitespace.
+            type="text",
+            lines=3,
+            default="",
+            group=setting_groups.CHROME_OPTIONS,
+            legacy=(("general", "chromeoptions"),),
         ),
     ),
     # What the Console looks like, as against what the frontend shows a player.

@@ -163,7 +163,7 @@ class SettingsConfig:
     mute_audio: bool = False
     splashscreen: bool = False
     chrome_options: str = ""
-    disable_default_chrome_options: bool = False
+    default_chrome_options: bool = True
     hide_quit_button: bool = False
     restore_last_table: bool = True
     media_browse_dirs: tuple[str, ...] = ()
@@ -179,8 +179,7 @@ class SettingsConfig:
             mute_audio=cfg_bool(source, "Settings", "muteaudio", False),
             splashscreen=cfg_bool(source, "Settings", "splashscreen", False),
             chrome_options=cfg_get(source, "Settings", "chromeoptions", ""),
-            disable_default_chrome_options=cfg_bool(
-                source, "Settings", "disabledefaultchromeoptions", False),
+            default_chrome_options=cfg_bool(source, "chromium", "defaults", True),
             hide_quit_button=cfg_bool(source, "Settings", "MMhideQuitButton", False),
             restore_last_table=cfg_bool(source, "Settings", "restorelasttable", True),
             # Canonical section, not the "Settings" alias the rest of these carry: these

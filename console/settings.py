@@ -175,6 +175,7 @@ EDITORS: dict[str, Callable[..., Callable[[], None]]] = {
     config_schema.EDITOR_FRONTEND_THEME: _frontend_theme,
     config_schema.EDITOR_LIST_ART: _list_art,
     config_schema.EDITOR_CAPTURE_COMMAND: recording.command_editor,
+    config_schema.EDITOR_CHROME_LEAVE_OUT: chrome_options.leave_out,
 }
 
 
@@ -351,7 +352,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
             step=option.get("step"), placeholder=blank)
     if kind == "text" and option.get("lines"):
         return panel.field(str(value or ""), lambda text: save(text),
-                           lines=int(option["lines"]), disabled=off)
+                           lines=int(option["lines"]), disabled=off,
+                           placeholder=blank)
     if kind == "list":
         # One line, comma separated, which is how the file holds it. A chip editor would
         # be nicer and would need to know whether order matters; it does for some.
@@ -1437,12 +1439,16 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             save = chipped.after(save)
         if previewed is not None and option["key"] in chrome_options.KEYS:
             save = previewed.after(option["key"], save)
-        control = control_for(
-            option, value, save,
-            writable=writable, rerender=rerender,
-            check=(checks or {}).get((section, option["key"])),
-            suggestions=suggestions,
-            section_values=effective, browse=browse, refusal=refusal)
+        if previewed is not None and option.get("editor") == config_schema.EDITOR_CHROME_LEAVE_OUT:
+            control = previewed.leave_out(option, value, save, section=effective,
+                                          writable=writable)
+        else:
+            control = control_for(
+                option, value, save,
+                writable=writable, rerender=rerender,
+                check=(checks or {}).get((section, option["key"])),
+                suggestions=suggestions,
+                section_values=effective, browse=browse, refusal=refusal)
         entries.append((option.get("label") or humanize(option["key"]),
                         chipped.beside(control, option) if chipped is not None
                         else control))
@@ -1514,19 +1520,24 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
         # reach for the library, which another machine's client cannot answer for.
         offered = suggestions or {}
         head = HEADS.get(name)
+        lead: list[tuple[Any, Any]] = []
         if head is not None and source is context.get("library"):
-            entries += await head(source, rerender, values, offered=offered)
+            lead = await head(source, rerender, values, offered=offered)
         resolves = RESOLVES.get(name)
         # Where this install's own client serves the page, for the same reason as the head.
         preview = chrome_options.Preview(values) \
             if name == chrome_options.SECTION and source is context.get("library") else None
-        entries += section_rows(source, name, block["options"], values,
-                                bool(block.get("writable")), rerender, checks,
-                                suggestions,
-                                resolved=resolves(offered) if resolves else None,
-                                browse=browse, waiting=waiting,
-                                from_elsewhere=from_elsewhere, previewed=preview,
-                                stands_in=stands_in, waits_said=waits_said)
+        rows = section_rows(source, name, block["options"], values,
+                            bool(block.get("writable")), rerender, checks,
+                            suggestions,
+                            resolved=resolves(offered) if resolves else None,
+                            browse=browse, waiting=waiting,
+                            from_elsewhere=from_elsewhere, previewed=preview,
+                            stands_in=stands_in, waits_said=waits_said)
+        # A section that opens with a heading keeps its head under it: nothing sits
+        # above the first heading.
+        under = 1 if rows and rows[0][0] is panel.HEADING else 0
+        entries += [*rows[:under], *lead, *rows[under:]]
         if preview is not None:
             entries.append(preview.row())
         foot = FOOTERS.get(name)

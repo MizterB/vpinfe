@@ -24,7 +24,7 @@
     "wait": "15"
   },
   "chromium": {
-    "disable_defaults": "false",
+    "defaults": "true",
     "options": "",
     "options_exclude": "",
     "path": ""

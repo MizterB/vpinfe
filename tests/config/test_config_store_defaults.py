@@ -81,7 +81,7 @@ class TestConfigStore(unittest.TestCase):
             self.assertTrue(config.config.has_section("chromium"))
             self.assertEqual(config.config.get("chromium", "options"), "")
 
-    def test_disable_default_chrome_options_defaults_off(self) -> None:
+    def test_default_chrome_options_default_on(self) -> None:
         with TemporaryDirectory() as tmp:
             ini_path = Path(tmp) / "vpinfe.ini"
 
@@ -89,7 +89,7 @@ class TestConfigStore(unittest.TestCase):
 
             self.assertTrue(config.config.has_section("chromium"))
             self.assertEqual(
-                config.config.get("chromium", "disable_defaults"), "false")
+                config.config.get("chromium", "defaults"), "true")
 
     def test_restore_last_game_defaults_on(self) -> None:
         with TemporaryDirectory() as tmp:

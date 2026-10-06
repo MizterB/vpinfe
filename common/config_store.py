@@ -192,6 +192,20 @@ class ConfigStore:
                 self.config.remove_option(section, old)
                 changed = True
 
+        # `disabledefaultchromeoptions` said when the defaults were off and `chromium.defaults`
+        # says when they are on, so the value is inverted on the way, not just moved.
+        for section in ('Settings', 'general'):
+            if not self.config.has_option(section, 'disabledefaultchromeoptions'):
+                continue
+            announce('ini-renamed-keys', 'disabledefaultchromeoptions')
+            if not self.config.has_option('chromium', 'defaults'):
+                if not self.config.has_section('chromium'):
+                    self.config.add_section('chromium')
+                off = is_truthy(self.config.get(section, 'disabledefaultchromeoptions'))
+                self.config.set('chromium', 'defaults', 'false' if off else 'true')
+            self.config.remove_option(section, 'disabledefaultchromeoptions')
+            changed = True
+
         # Options that changed section rather than name.
         for old_section, new_section, key in _MOVED_OPTIONS:
             changed |= self._move_option(old_section, new_section, key)

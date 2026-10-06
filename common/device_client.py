@@ -120,6 +120,16 @@ class LocalDevice:
 
         return parse_additional_chromium_options(raw)
 
+    def browser_default_option_names(self) -> list[str]:
+        """The names of the options VPinFE starts every window with, which are what a
+        setting leaving one out is matched against. Empty on an install with no frontend."""
+        try:
+            from frontend.chromium_manager import CHROMIUM_BASE_FLAGS
+        except Exception:
+            logger.warning("The frontend's browser options could not be read", exc_info=True)
+            return []
+        return list(dict.fromkeys(flag.split("=")[0] for flag in CHROMIUM_BASE_FLAGS))
+
 
     def bindings(self, config: ConfigStore) -> dict[str, list[str]]:
         from frontend import input_api
@@ -259,6 +269,9 @@ class RemoteDevice:
         raise NotThisDeviceError("Another machine's browser options cannot be read from here")
 
     def parse_browser_options(self, raw: str) -> list[str]:
+        raise NotThisDeviceError("Another machine's browser options cannot be read from here")
+
+    def browser_default_option_names(self) -> list[str]:
         raise NotThisDeviceError("Another machine's browser options cannot be read from here")
 
     def bindings(self, config: ConfigStore) -> dict[str, list[str]]:
