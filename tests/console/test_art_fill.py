@@ -166,6 +166,38 @@ class KindTests(unittest.TestCase):
                 get.assert_not_awaited()
                 self.assertEqual(notify.call_args.args[0], said)
 
+    def test_no_source_on_still_asks_when_the_games_own_files_have_art(self) -> None:
+        plan = {"games": 2, "unmatched": 2, "sources": [], "unreachable": [],
+                "kinds": [{"kind": "backglass", "missing": 2, "available": 2, "local": 2}]}
+        with mock.patch.object(art_fill.offload, "io", mock.AsyncMock(return_value=plan)), \
+                mock.patch.object(art_fill.confirm, "ask",
+                                  mock.AsyncMock(return_value=False)) as ask, \
+                mock.patch.object(art_fill, "get", mock.AsyncMock()), \
+                mock.patch.object(art_fill, "ApiClient"), \
+                mock.patch.object(art_fill.ui, "notify") as notify:
+            asyncio.run(art_fill.confirm_kind(["g1", "g2"], "backglass", {}, lambda: None))
+
+        ask.assert_awaited_once()
+        notify.assert_not_called()
+
+
+class FromFilesTests(unittest.TestCase):
+    def test_a_source_or_a_file_is_something_to_ask(self) -> None:
+        local = {"kinds": [{"kind": "backglass", "local": 1}]}
+        cases = (({"sources": ["VPinMediaDB"], "kinds": []}, True),
+                 ({"sources": [], **local}, True),
+                 ({"sources": [], "kinds": [{"kind": "backglass", "local": 0}]}, False),
+                 ({}, False))
+        for found, expected in cases:
+            with self.subTest(found=found):
+                self.assertEqual(art_fill._anything_to_ask(found), expected)
+
+    def test_the_files_are_counted_across_kinds(self) -> None:
+        found = {"kinds": [{"kind": "backglass", "local": 3}, {"kind": "wheel"},
+                           {"kind": "scoreview", "local": 2}]}
+
+        self.assertEqual(art_fill._from_files(found), 5)
+
 
 if __name__ == "__main__":
     unittest.main()

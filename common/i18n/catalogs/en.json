@@ -389,7 +389,7 @@
   "config.updates.download_spreadsheet.choice.weekly": "Weekly",
   "config.updates.download_spreadsheet.description": "How often to fetch the spreadsheet. Matching and release lists read this copy.",
   "config.updates.download_spreadsheet.label": "Download Spreadsheet",
-  "config.updates.get_art_for_new_games.description": "Once a new game is matched, download the art it is missing. Art already there is never replaced. For games already here, use Get missing art on Games or Media.",
+  "config.updates.get_art_for_new_games.description": "Once a new game is added, get the art it is missing: online once matched, a backglass picture from its backglass file. Art already there is never replaced.",
   "config.updates.get_art_for_new_games.label": "Get Art for New Games",
   "config.updates.match_new_games.description": "When VPinFE finds a new game, match it to the spreadsheet from its folder name",
   "config.updates.match_new_games.label": "Match New Games",
@@ -600,9 +600,13 @@
     "other": "Get {count}"
   },
   "console.art_fill.get_art": "Get art",
-  "console.art_fill.get_art.help": "Asks, then downloads this art from online sources for these games",
+  "console.art_fill.from_files": {
+    "one": "1 backglass picture is drawn from its game's backglass file",
+    "other": "{count} backglass pictures are drawn from their games' backglass files"
+  },
+  "console.art_fill.get_art.help": "Asks, then gets this art for these games, from online sources or their backglass files",
   "console.art_fill.get_missing": "Get missing art...",
-  "console.art_fill.get_missing.help": "Opens the choice of what to get, then downloads it from online sources",
+  "console.art_fill.get_missing.help": "Opens the choice of what to get, from online sources and each game's backglass file",
   "console.art_fill.got": {
     "one": "Got 1 file",
     "other": "Got {count} files"
@@ -610,7 +614,7 @@
   "console.art_fill.got_failed": "{got}, {failed} failed",
   "console.art_fill.got_nothing": "No art found",
   "console.art_fill.missing": "{count} missing",
-  "console.art_fill.no_sources": "No online sources are switched on",
+  "console.art_fill.no_sources": "No online sources are switched on, and no game has a backglass file",
   "console.art_fill.none_available": "none available",
   "console.art_fill.none_for_kind": "No source has {kind} art for these games",
   "console.art_fill.none_missing": "none missing",
@@ -1426,7 +1430,7 @@
   "console.logs.wrap": "Wrap long lines",
   "console.media.actions": "Actions for the selected media",
   "console.media.view_orphans.help": "Art left behind when a table was renamed, replaced or deleted",
-  "console.media.view_missing.help": "The media you do not have. Filter to one kind, select the rows and get them from the online sources in one go.",
+  "console.media.view_missing.help": "The media you do not have. Filter to one kind, select the rows and get them in one go.",
   "console.media.covered": "Covered by",
   "console.media.view_everything.help": "Every row, no filter",
   "console.media.view_unused.help": "Files nothing loads, because something more specific wins",

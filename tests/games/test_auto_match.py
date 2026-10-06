@@ -329,11 +329,23 @@ class FirstSightTests(TempTree):
         self.assertEqual((result["new_matched"], result["new_unmatched"]), (0, 2))
         self.assertEqual(result["waiting_matched"], 0)
 
-    def test_the_games_now_matched_are_handed_to_the_art_fill(self) -> None:
+    def test_every_new_game_and_the_waiting_ones_now_matched_are_handed_to_the_art_fill(
+            self) -> None:
         self.refresh()
 
         (folders,), _ = self.art.call_args
-        self.assertEqual([Path(str(folder)).name for folder in folders], [NEW, SEEN])
+        self.assertEqual([Path(str(folder)).name for folder in folders],
+                         [NEW, UNKNOWN, DECLARED, SEEN])
+
+    def test_a_waiting_game_still_unmatched_is_not_handed_again(self) -> None:
+        config = configparser.ConfigParser()
+        config["updates"] = {"match_new_games": "false"}
+        with patch.object(auto_match, "get_ini_config", return_value=config):
+            self.refresh()
+
+        (folders,), _ = self.art.call_args
+        self.assertEqual([Path(str(folder)).name for folder in folders],
+                         [NEW, UNKNOWN, DECLARED])
 
 
 STALE = "Fathom (Bally 1981)"
@@ -413,10 +425,10 @@ class ImportWithoutPickTests(TempTree):
 
         self.art.assert_called_once_with([folder])
 
-    def test_an_unmatched_one_is_not(self) -> None:
-        self.imported(UNKNOWN)
+    def test_an_unmatched_one_is_too_for_its_backglass_file_needs_no_match(self) -> None:
+        _, folder = self.imported(UNKNOWN)
 
-        self.art.assert_not_called()
+        self.art.assert_called_once_with([folder])
 
     def test_the_new_game_is_matched_from_its_folder_name(self) -> None:
         report, folder = self.imported(NEW)

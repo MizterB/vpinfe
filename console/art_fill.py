@@ -71,7 +71,7 @@ async def ask(game_ids: list[str] | None, state: dict[str, Any],
     except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
         ui.notify(t("console.art_fill.read_failed"), caption=why(exc), type="warning")
         return
-    if not found.get("sources"):
+    if not _anything_to_ask(found):
         ui.notify(t("console.art_fill.no_sources"), type="warning")
         return
     kinds = await _choose(found, name)
@@ -106,7 +106,7 @@ async def confirm_kind(game_ids: list[str], kind: str, state: dict[str, Any],
     except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
         ui.notify(t("console.art_fill.read_failed"), caption=why(exc), type="warning")
         return
-    if not found.get("sources"):
+    if not _anything_to_ask(found):
         ui.notify(t("console.art_fill.no_sources"), type="warning")
         return
     label = media_label_map().get(kind, kind)
@@ -131,6 +131,16 @@ async def confirm_kind(game_ids: list[str], kind: str, state: dict[str, Any],
         await get(lambda: ApiClient().fill_media(game_ids, [kind]), state, then)
 
 
+def _anything_to_ask(found: dict[str, Any]) -> bool:
+    """Whether there is a source to ask: an online one that is on, or a game's own file."""
+    return bool(found.get("sources")) or any(
+        int(row.get("local") or 0) for row in found.get("kinds") or [])
+
+
+def _from_files(found: dict[str, Any]) -> int:
+    return sum(int(row.get("local") or 0) for row in found.get("kinds") or [])
+
+
 def _unmatched(games: int, unmatched: int) -> list[str]:
     if not unmatched:
         return []
@@ -153,7 +163,9 @@ async def _choose(found: dict[str, Any], name: str) -> list[str]:
         go.set_enabled(total() > 0)
 
     sources = list(found["sources"])
-    with frame.opened(t("console.art_fill.title", source=sources[0]) if len(sources) == 1
+    from_files = _from_files(found)
+    with frame.opened(t("console.art_fill.title", source=sources[0])
+                      if len(sources) == 1 and not from_files
                       else t("console.art_fill.title_several"), wide=True) as box:
         ui.label(name or t("console.art_fill.games", count=games)) \
             .classes("console-help px-3")
@@ -163,6 +175,9 @@ async def _choose(found: dict[str, Any], name: str) -> list[str]:
             for row in rows:
                 _kind_row(row, labels.get(str(row["kind"]), str(row["kind"])), chosen,
                           recount)
+        if from_files:
+            ui.label(t("console.art_fill.from_files", count=from_files)) \
+                .classes("console-help px-3")
         for line in _unmatched(games, unmatched):
             ui.label(line).classes("console-help px-3")
         if found.get("unreachable"):

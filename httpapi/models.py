@@ -2948,15 +2948,18 @@ class MissingMediaRequest(ApiModel):
 
 class MissingMediaKind(ApiModel):
     """`missing` counts the games with no file of this kind, and `available` those of
-    them an enabled source publishes one for."""
+    them an enabled source publishes one for or the game's own files can supply, which
+    `local` counts of them."""
 
     kind: str
     missing: int = 0
     available: int = 0
+    local: int = 0
 
 
 class MissingMedia(ApiModel):
-    """Every kind the library keeps that an enabled source publishes. `unmatched`
+    """Every kind the library keeps that an enabled source publishes, and every kind a
+    game's own files can supply, a backglass picture from its backglass file. `unmatched`
     games have no VPS match, so nothing can be looked up for them, and nothing is
     counted available from a source in `unreachable`."""
 

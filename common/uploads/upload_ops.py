@@ -423,8 +423,7 @@ def _guess(report: dict) -> None:
         game.meta_config = load_game_meta(game)
         report["vps_matched"] = auto_match.match_new([game])["matched"] > 0
         refresh_game(game_dir)
-        if report["vps_matched"]:
-            media_fill.request([game_dir])
+        media_fill.request([game_dir])
     except Exception:
         logging.getLogger("vpinfe.common.uploads.upload_ops").exception(
             "Matching the new game failed after import")

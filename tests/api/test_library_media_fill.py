@@ -13,7 +13,7 @@ from common import jobs
 from common.i18n import t
 
 PLAN = {"games": 2, "unmatched": 1, "sources": ["VPinMediaDB"], "unreachable": [],
-        "kinds": [{"kind": "wheel", "missing": 2, "available": 1}]}
+        "kinds": [{"kind": "wheel", "missing": 2, "available": 1, "local": 0}]}
 
 
 class MediaFillRouteTests(unittest.TestCase):

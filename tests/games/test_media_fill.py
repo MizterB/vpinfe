@@ -9,9 +9,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common import i18n, jobs, service_errors, timestamps
+from common import i18n, jobs, service_errors, sized_media, timestamps
 from common.games import (
     asset_origin,
+    backglass_ops,
+    directb2s_parser,
     library_policy,
     media_fill,
     media_placement,
@@ -21,6 +23,7 @@ from common.games.game import Game
 from common.online import asset_sources, vpsdb_sync
 from common.online.vpsdb import VPSdb
 from common.online.vpsdb_media import VPSMediaDownloader
+from tests.api.test_backglass_picture import _directb2s
 from tests.support.library import TempTree, fake_game, game_info, write_game
 
 FOLDER = "Fathom (Bally 1981)"
@@ -330,6 +333,135 @@ class AskedTests(_Library):
     def test_it_will_not_run_beside_another_fill(self) -> None:
         with jobs.track(jobs.KIND_MEDIA_FILL), self.assertRaises(service_errors.BlockedError):
             media_fill.start()
+
+
+class BackglassFileTests(_Library):
+    """A backglass picture drawn from the game's own backglass file, with no source."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
+        row = {"id": "tbl0000001", "filename": f"{FOLDER}.vpx", "launcher": "vpx",
+               "launcher_app_configurable": True}
+        for patcher in (patch.object(backglass_ops, "_table_rows", return_value=[row]),
+                        patch("common.games.launcher_ops.effective_values", return_value={}),
+                        patch.object(sized_media, "ROOT", self.root / "sized"),
+                        patch.object(directb2s_parser, "ROOT", self.root / "glass")):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        directb2s_parser._facts.clear()
+        self.addCleanup(directb2s_parser._facts.clear)
+        self.glass = self.folder / f"{FOLDER}.directb2s"
+        self.glass.write_bytes(_directb2s())
+        self.unmatched = self.game(OTHER, "")
+        (self.unmatched / f"{OTHER}.directb2s").write_bytes(_directb2s())
+        self.backglass = f"(Backglass) {FOLDER}.png"
+
+    def sources_off(self) -> None:
+        patcher = patch.object(asset_sources, "enabled_ids", return_value=())
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_game_with_no_match_gets_its_backglass_from_the_file(self) -> None:
+        result = media_fill.fill([self.unmatched])
+
+        self.assertIn(f"(Backglass) {OTHER}.png", self.placed(self.unmatched))
+        self.assertEqual(result["filled"], 1)
+        self.downloads.assert_not_called()
+
+    def test_with_no_source_on_the_file_still_fills(self) -> None:
+        self.sources_off()
+
+        result = media_fill.fill([self.folder])
+
+        self.assertEqual(set(self.placed()), {self.backglass})
+        self.assertEqual(result["filled"], 1)
+        self.downloads.assert_not_called()
+
+    def test_the_picture_is_recorded_as_drawn_from_the_file(self) -> None:
+        media_fill.fill([self.folder])
+
+        recorded = asset_origin.sources(self.folder)[f"medias/{self.backglass}"]
+        self.assertEqual(recorded["host"], asset_origin.BACKGLASS_FILE)
+
+    def test_the_slot_the_file_filled_is_not_fetched_online(self) -> None:
+        media_fill.fill([self.folder])
+
+        self.assertNotEqual(self.placed()[self.backglass], _url("bg-1k.png"))
+        self.assertNotIn(_url("bg-1k.png"),
+                         [call.args[0] for call in self.downloads.call_args_list])
+        self.assertEqual(self.placed()[f"(Wheel) {FOLDER}.png"], _url("wheel.png"))
+
+    def test_a_picture_already_there_is_left(self) -> None:
+        held = self.game("Held", "fathom", **{"bg.png": b"mine"})
+        (held / "Held.directb2s").write_bytes(_directb2s())
+
+        media_fill.fill([held], kinds=["backglass"])
+
+        self.assertEqual(self.placed(held), {"bg.png": "mine"})
+
+    def test_a_file_that_cannot_be_read_falls_back_to_the_online_picture(self) -> None:
+        self.glass.write_bytes(b"not a backglass at all")
+        directb2s_parser._facts.clear()
+
+        media_fill.fill([self.folder], kinds=["backglass"])
+
+        self.assertEqual(self.placed()[self.backglass], _url("bg-1k.png"))
+
+    def test_a_file_that_offers_but_fails_to_draw_falls_back_online(self) -> None:
+        with patch.object(backglass_ops, "place_picture", side_effect=OSError("gone")):
+            result = media_fill.fill([self.folder], kinds=["backglass"])
+
+        self.assertEqual(self.placed()[self.backglass], _url("bg-1k.png"))
+        self.assertEqual((result["filled"], result["failed"]), (1, 0))
+
+    def test_a_matched_game_is_not_read_for_kinds_only_a_source_can_give(self) -> None:
+        with patch.object(media_fill, "_gaps", return_value=[]) as gaps:
+            media_fill.fill([self.unmatched], kinds=["wheel"])
+
+        gaps.assert_not_called()
+
+    def test_a_hidden_backglass_is_not_drawn(self) -> None:
+        self.policy.set("hidden_media_kinds", ["backglass"])
+
+        media_fill.fill([self.unmatched])
+
+        self.assertEqual(self.placed(self.unmatched), {})
+
+    def test_the_plan_counts_the_file_as_available_and_as_local(self) -> None:
+        found = media_fill.plan()
+
+        row = next(one for one in found["kinds"] if one["kind"] == "backglass")
+        self.assertEqual((row["missing"], row["available"], row["local"]), (2, 2, 2))
+        self.assertEqual(found["unmatched"], 1)
+
+    def test_the_plan_offers_the_file_with_every_source_off(self) -> None:
+        self.sources_off()
+
+        row = next(one for one in media_fill.plan()["kinds"] if one["kind"] == "backglass")
+
+        self.assertEqual((row["available"], row["local"]), (2, 2))
+
+    def test_a_game_with_no_file_has_nothing_local(self) -> None:
+        self.glass.unlink()
+        directb2s_parser._facts.clear()
+
+        found = media_fill.plan([next(iter(self.games))])
+
+        row = next(one for one in found["kinds"] if one["kind"] == "backglass")
+        self.assertEqual((row["available"], row["local"]), (1, 0))
+
+    def test_a_fill_started_for_the_backglass_places_it(self) -> None:
+        self.sources_off()
+        job = media_fill.start(kinds=["backglass"])
+        deadline = time.monotonic() + 10
+        while job.state == jobs.RUNNING:
+            self.assertLess(time.monotonic(), deadline, "the fill never finished")
+            time.sleep(0.02)
+
+        self.assertEqual(job.result["filled"], 2)
+        self.assertIn(self.backglass, self.placed())
 
 
 def _md5(data: bytes) -> str:

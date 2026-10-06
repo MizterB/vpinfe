@@ -1,7 +1,9 @@
 """Getting a game the art it has no file for, and keeping the art we fetched current.
 
 A slot is filled only when nothing serves it. What counts as wanted is Kinds and the
-online sources that are on; the size is the one the display settings name.
+online sources that are on; the size is the one the display settings name. A backglass
+picture is also drawn from the game's own backglass file, which needs no match and no
+network, and is tried before anything is downloaded.
 """
 
 from __future__ import annotations
@@ -35,16 +37,62 @@ def enabled() -> bool:
     return cfg_bool(get_ini_config(), "updates", "get_art_for_new_games", True)
 
 
+def _hidden_kinds() -> set[str]:
+    from common.games.library_policy import get_library_policy
+
+    return set(get_library_policy().get("hidden_media_kinds"))
+
+
 def kept_kinds() -> set[str]:
     """The kinds this library collects that some enabled source publishes."""
-    from common.games.library_policy import get_library_policy
     from common.online import asset_sources
 
-    hidden = set(get_library_policy().get("hidden_media_kinds"))
+    hidden = _hidden_kinds()
     offered: set[str] = set()
     for source in asset_sources.sources(asset_sources.enabled_ids()):
         offered |= source.kinds
     return {kind for kind in _SPECS if kind not in hidden and kind in offered}
+
+
+def fillable_kinds() -> set[str]:
+    """The kinds a fill may put in an empty slot: the kept kinds, and the kinds a game's
+    own files can supply where no online source is on."""
+    return kept_kinds() | (set(_LOCAL) - _hidden_kinds())
+
+
+def _file_offers(game_id: str) -> bool:
+    """Whether the game has a backglass file that can be drawn."""
+    from common.games import backglass_ops
+
+    return backglass_ops.offer(game_id) is not None
+
+
+def _file_draws(game_id: str) -> None:
+    from common.games import backglass_ops
+
+    backglass_ops.place_picture(game_id)
+
+
+# A kind a game's own file can supply: whether it has one, and putting its picture in the
+# slot. A game with no VPS match has these as much as any other.
+_LOCAL: dict[str, tuple[Callable[[str], bool], Callable[[str], None]]] = {
+    "backglass": (_file_offers, _file_draws),
+}
+
+
+def _from_file(kind: str, game_id: str, name: str) -> bool:
+    """Whether the game's own file filled the slot. A file that offered a picture and
+    then failed to draw it leaves the slot to the online sources."""
+    offers, draws = _LOCAL.get(kind, (None, None))
+    if offers is None or draws is None or not offers(game_id):
+        return False
+    try:
+        draws(game_id)
+    except Exception as exc:  # noqa: BLE001 - the online sources are still asked
+        logger.warning("Getting art: could not draw %s for %s from its file: %s",
+                       kind, name, exc)
+        return False
+    return True
 
 
 def _reachable() -> tuple[str, ...]:
@@ -136,9 +184,10 @@ def _fill_games(targets: list[Target], live: tuple[str, ...],
                 reporter: JobReporter | None,
                 proceed: Callable[[], bool]) -> dict[str, int]:
     """Fetch each target's gaps. `filled` and `failed` count files; `unmatched` counts
-    games with no VPS id, which nothing can be looked up for."""
+    games with no VPS id, which nothing can be looked up for. With no source reachable
+    only the kinds a game's own file can supply are filled."""
     counts = {"games": len(targets), "filled": 0, "unmatched": 0, "failed": 0}
-    if not targets or not live:
+    if not targets:
         return counts
     media = MediaConfig.from_config(get_ini_config())
     for index, (game_id, game, wanted) in enumerate(targets):
@@ -148,20 +197,24 @@ def _fill_games(targets: list[Target], live: tuple[str, ...],
         if reporter:
             reporter.progress(index, len(targets), t("said.art_fetch", game=name))
         vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
-        if not vps_id:
-            counts["unmatched"] += 1
-            continue
+        counts["unmatched"] += bool(live and not vps_id)
+        reach = wanted if live and vps_id else wanted & set(_LOCAL)
         placed = 0
         try:
-            gaps = _gaps(game_id) if wanted else []
+            gaps = _gaps(game_id) if reach else []
         except Exception:
             logger.exception("Getting art: could not read what %s has", name)
             continue
         for kind in gaps:
-            asked = _asked_as(kind, media.playfield_variant) if kind in wanted else None
-            if asked is None:
+            if kind not in reach:
                 continue
             try:
+                if _from_file(kind, game_id, name):
+                    placed += 1
+                    continue
+                asked = _asked_as(kind, media.playfield_variant)
+                if asked is None or not (live and vps_id):
+                    continue
                 if _fetch(game_id, kind, asked, vps_id, _size(asked, media), live):
                     placed += 1
             except Exception as exc:
@@ -181,9 +234,9 @@ def _fill(folders: list[str], wanted: set[str], live: tuple[str, ...],
 
 def fill(folders: Iterable[str | Path], kinds: Iterable[str] | None = None,
          reporter: JobReporter | None = None) -> dict[str, int]:
-    """Fetch what each game in `folders` is missing, of `kinds` or else the kept kinds.
+    """Fetch what each game in `folders` is missing, of `kinds` or else the fillable kinds.
     Never replaces a file, and never fetches a kind the library does not keep."""
-    wanted = kept_kinds() if kinds is None else kept_kinds() & set(kinds)
+    wanted = fillable_kinds() if kinds is None else fillable_kinds() & set(kinds)
     return _fill([str(folder) for folder in folders], wanted, _reachable(), reporter,
                  lambda: True)
 
@@ -202,14 +255,16 @@ def _scope(game_ids: Iterable[str] | None) -> dict[str, Any]:
 def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
     """What getting missing art for these games would do, fetching nothing.
 
-    Per kind the library keeps: how many games have no file for it, and how many of
-    those an enabled source has one for. Reads the catalog index, never a file.
+    Per kind the library keeps: how many games have no file for it, how many of those
+    an enabled source or the game's own file has one for, and how many of that is the
+    game's own file. Reads the catalog index, and the backglass file of a game that has
+    a backglass gap.
     """
     from common.games import media_lens
     from common.online import asset_sources
 
     scope = _scope(game_ids)
-    kinds = [kind for kind in _SPECS if kind in kept_kinds()]
+    kinds = [kind for kind in _SPECS if kind in fillable_kinds()]
     variant = MediaConfig.from_config(get_ini_config()).playfield_variant
     enabled = asset_sources.sources(asset_sources.enabled_ids())
     live = tuple(source.id for source in enabled if source.reachable())
@@ -220,6 +275,7 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
             gaps.setdefault(row["game_id"], []).append(row["kind"])
     missing = dict.fromkeys(kinds, 0)
     available = dict.fromkeys(kinds, 0)
+    local = dict.fromkeys(kinds, 0)
     unmatched = 0
     for game_id, game in scope.items():
         vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
@@ -228,6 +284,10 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
             if kind not in missing:
                 continue
             missing[kind] += 1
+            if kind in _LOCAL and _LOCAL[kind][0](game_id):
+                available[kind] += 1
+                local[kind] += 1
+                continue
             asked = _asked_as(kind, variant)
             if vps_id and asked and live and asset_sources.offers(asked, vps_id, live):
                 available[kind] += 1
@@ -235,7 +295,8 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
             "sources": [source.name for source in enabled],
             "unreachable": _unanswered(live),
             "kinds": [{"kind": kind, "missing": missing[kind],
-                       "available": available[kind]} for kind in kinds]}
+                       "available": available[kind], "local": local[kind]}
+                      for kind in kinds]}
 
 
 def start(game_ids: Iterable[str] | None = None, kinds: Iterable[str] | None = None,
@@ -245,7 +306,7 @@ def start(game_ids: Iterable[str] | None = None, kinds: Iterable[str] | None = N
     `game_ids` None is the whole library and `kinds` None every kept kind. A kind the
     library does not keep is never fetched. Raises BlockedError while a fill runs.
     """
-    kept = kept_kinds()
+    kept = fillable_kinds()
     picked: dict[str, set[str]] = {}
     for game_id, kind in slots:
         picked.setdefault(game_id, set()).add(kind)
@@ -302,7 +363,7 @@ def _work(job: jobs.Job) -> dict[str, int]:
     """Drain the queue. Kinds and the sources are read once for the whole run."""
     global _running
     reporter = job.reporter()
-    wanted = kept_kinds()
+    wanted = fillable_kinds()
     live = _reachable()
     totals = {"games": 0, "filled": 0, "unmatched": 0, "failed": 0}
     while True:
