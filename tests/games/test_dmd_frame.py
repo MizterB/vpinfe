@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from PIL import Image, ImageDraw
 
@@ -52,6 +53,18 @@ class FindTests(unittest.TestCase):
 
     def test_a_picture_with_nothing_dark_has_no_frame(self) -> None:
         self.assertIsNone(dmd_frame.find(_glass()))
+
+    def test_a_large_picture_gives_what_the_full_size_passes_give(self) -> None:
+        image = Image.new("RGB", (1600, 900), LIGHT)
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((300, 250, 1259, 449), fill=(90, 90, 90))
+        draw.rectangle((440, 270, 1119, 439), fill=BLACK)
+        draw.point([(x, 300 + x % 7) for x in range(500, 1000, 37)], fill=(60, 60, 60))
+
+        found = dmd_frame.find(image, 4.0)
+        with mock.patch.object(dmd_frame, "LARGE", 10**9):
+            self.assertEqual(found, dmd_frame.find(image, 4.0))
+        self.assertIsNotNone(found)
 
     def test_alpha_and_gray_pictures_read_as_their_colors(self) -> None:
         expected = (244, HIGH - 1 - 101 - 118, 472, 118)
