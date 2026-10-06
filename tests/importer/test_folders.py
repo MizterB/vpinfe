@@ -220,7 +220,7 @@ class ReaderTests(FolderCase):
         choices = {row[0]: row[1] for row in
                    self.client.get(f"{BASE}/wizard").json()["fields"][0]["choices"]}
 
-        self.assertEqual(choices["folders"], "Folders")
+        self.assertEqual(choices["folders"], "No frontend")
         self.assertEqual(list(choices)[-1], "folders")
 
 
@@ -232,7 +232,7 @@ class StepTests(FolderCase):
 
         found = self.step(self.tables, leaving="how", how="move")
 
-        self.assertEqual(self.summary_of(found)["Reads as"], "Folders")
+        self.assertEqual(self.summary_of(found)["Reads as"], "No frontend")
 
     def test_the_second_step_works_out_the_game_files_and_leaves_the_rest_blank(self) -> None:
         self.loose("Harbor Lights")
@@ -241,10 +241,126 @@ class StepTests(FolderCase):
 
         self.assertEqual(found["step"], "sources")
         fields = {one["key"]: one for one in found["fields"]}
-        self.assertEqual(sorted(fields), ["altdata", "history", "media", "roms", "tables"])
+        self.assertEqual(sorted(fields), ["altdata", "media", "roms", "tables"])
         self.assertEqual(fields["tables"]["value"], str(self.tables))
-        for blank in ("media", "roms", "altdata", "history"):
+        for blank in ("media", "roms", "altdata"):
             self.assertEqual(fields[blank]["value"], "", blank)
+
+    def test_no_play_history_is_offered_for_a_folder_of_tables(self) -> None:
+        """Only a frontend that records plays has a history to point at, and a stats file
+        lying in the folder is not one."""
+        self.loose("Harbor Lights")
+        (self.tables / "GameStats.csv").write_text("Game,Last Played\n")
+
+        found = self.step(self.tables)
+
+        self.assertNotIn("history", [one["key"] for one in found["fields"]])
+
+    def test_a_frontend_is_still_offered_its_play_history(self) -> None:
+        source, _ = self.a_frontend()
+
+        fields = [one["key"] for one in self.step(source)["fields"]]
+
+        self.assertIn("history", fields)
+
+    def test_choosing_no_frontend_goes_straight_to_where_the_files_are(self) -> None:
+        found = self.step("", source_type="folders")
+
+        self.assertEqual(found["step"], "sources")
+        self.assertEqual(found["title"], "Where your files are")
+        self.assertNotIn("errors", found)
+        fields = {one["key"]: one for one in found["fields"]}
+        self.assertEqual(sorted(fields), ["altdata", "media", "roms", "tables"])
+        self.assertEqual({one["value"] for one in fields.values()}, {""})
+
+    def test_the_folders_pointed_at_there_are_what_is_read(self) -> None:
+        """The first step named none, so the second step's answer is the root."""
+        self.loose("Harbor Lights", "Quarry Run")
+
+        found = self.step("", leaving="sources", source_type="folders",
+                          tables=str(self.tables))
+
+        self.assertEqual(found["step"], "how")
+        self.assertEqual(found["help"].count("2"), 1, found["help"])
+
+    def test_the_tables_edited_win_over_the_folder_typed_first(self) -> None:
+        elsewhere = self.root / "Elsewhere"
+        elsewhere.mkdir()
+        self.loose("Harbor Lights")
+        self.loose("Quarry Run", where=elsewhere)
+
+        found = self.step(self.tables, leaving="how", source_type="folders",
+                          tables=str(elsewhere), how="move")
+
+        self.assertEqual(self.summary_of(found)["Folder"], str(elsewhere))
+        self.assertEqual(self.summary_of(found)["Games"], "1")
+
+    def test_the_second_step_is_checked_with_no_folder_typed_on_the_first(self) -> None:
+        """The folder is declared to core before it is read, wherever the answer came from."""
+        self.loose("Harbor Lights")
+
+        found = self.step(self.tables, leaving="sources", source_type="folders")
+
+        self.assertEqual(found["step"], "how")
+
+    def test_going_back_to_the_first_step_and_on_reads_the_tables_edited(self) -> None:
+        elsewhere = self.root / "Elsewhere"
+        elsewhere.mkdir()
+        self.loose("Quarry Run", where=elsewhere)
+
+        found = self.step(self.tables, source_type="folders", tables=str(elsewhere))
+
+        self.assertEqual(found["step"], "sources")
+        self.assertNotIn("errors", found)
+
+    def test_a_folder_that_has_gone_from_the_first_step_does_not_stop_no_frontend(self) -> None:
+        self.loose("Harbor Lights")
+
+        found = self.step(self.root / "Gone", source_type="folders",
+                          tables=str(self.tables))
+
+        self.assertEqual(found["step"], "sources")
+        self.assertNotIn("errors", found)
+
+    def test_a_folder_typed_first_is_what_the_second_step_starts_from(self) -> None:
+        self.loose("Harbor Lights")
+
+        found = self.step(self.tables, source_type="folders")
+
+        fields = {one["key"]: one for one in found["fields"]}
+        self.assertEqual(found["step"], "sources")
+        self.assertEqual(fields["tables"]["value"], str(self.tables))
+
+    def test_no_game_files_is_refused_on_the_field_that_names_them(self) -> None:
+        found = self.step("", leaving="sources", source_type="folders",
+                          tables=str(self.tables))
+
+        self.assertEqual(found["step"], "sources")
+        self.assertTrue(found["errors"]["tables"])
+        self.assertNotIn("path", found["errors"])
+
+    def test_leaving_the_files_unsaid_is_refused_there_too(self) -> None:
+        found = self.step("", leaving="sources", source_type="folders", tables="")
+
+        self.assertEqual(found["step"], "sources")
+        self.assertTrue(found["errors"]["tables"])
+
+    def test_a_folder_that_is_not_there_is_refused_on_the_tables_field(self) -> None:
+        found = self.step("", leaving="sources", source_type="folders",
+                          tables=str(self.root / "Gone"))
+
+        self.assertEqual(found["step"], "sources")
+        self.assertTrue(found["errors"]["tables"])
+
+    def test_the_import_reads_from_the_tables_it_was_pointed_at(self) -> None:
+        self.loose("Harbor Lights")
+        copies = self.root / "Copies"
+        copies.mkdir()
+
+        report = self.run_it("", source_type="folders", tables=str(self.tables),
+                             how="copy", into=str(copies))
+
+        self.assertEqual(report["games"], 1)
 
     def test_loose_tables_are_asked_how_after_the_sources(self) -> None:
         self.loose("Harbor Lights", "Quarry Run")
@@ -417,7 +533,7 @@ class StepTests(FolderCase):
 
         self.assertEqual(found["step"], "summary")
         self.assertTrue(found["ready"], found)
-        self.assertEqual(self.summary_of(found)["Reads as"], "Folders")
+        self.assertEqual(self.summary_of(found)["Reads as"], "No frontend")
         self.assertEqual(self.summary_of(found)["Used where they are"], "1 game folder")
 
 

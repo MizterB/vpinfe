@@ -169,8 +169,8 @@ class ImportALibraryDrive(unittest.TestCase):
     def test_it_asks_where_the_library_is_first(self) -> None:
         self.assertEqual(self.seen["opening"], WORDS["wizard.source.title"])
 
-    def test_the_folder_is_read_as_folders(self) -> None:
-        self.assertIn(WORDS["source.folders"], self.seen["sources"] + self.seen["how_text"])
+    def test_a_folder_of_tables_is_asked_for_by_where_its_files_are(self) -> None:
+        self.assertIn(WORDS["wizard.sources.no_frontend.title"], self.seen["sources"])
 
     def test_copy_is_the_default(self) -> None:
         checked = [name for name, on in self.seen["how_choices"] if on]

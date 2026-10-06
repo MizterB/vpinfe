@@ -9,7 +9,7 @@ there.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -83,6 +83,18 @@ def _name(ctx: Any, reader: ModuleType) -> str:
     own name where it is a product's."""
     return ctx.t("source.folders") if reader.SOURCE_ID == folders.SOURCE_ID \
         else reader.SOURCE_NAME
+
+
+def _rooted(reader: ModuleType | None, values: dict, typed: str) -> str:
+    """The folder a source is read from.
+
+    A frontend is read from the folder asked for first. No frontend has no such folder: the
+    game files are where the second step says they are, so that answer is the root once it
+    has been given.
+    """
+    if reader is folders and "tables" in values:
+        return str(values["tables"] or "").strip()
+    return typed
 
 
 def _systems(values: dict) -> list[str]:
@@ -343,20 +355,56 @@ def build(ctx: Any) -> None:
         """Whatever comes next: another question, or what it all adds up to."""
         values = body.get("values") or {}
         leaving = str(body.get("step") or "source")
-        wanted = str(values.get("path") or "").strip()
-        if not wanted:
+        typed = str(values.get("path") or "").strip()
+        no_frontend = str(values.get("source_type") or "") == folders.SOURCE_ID
+
+        if no_frontend and leaving == "source" and not typed:
+            return _sources_step(folders, plan_for.derive_sources(
+                SourceLibrary(source_id=folders.SOURCE_ID, root=""), _chosen(values)), [])
+        if not typed and not no_frontend:
             return _again(ctx.t("reason.say_where"), values)
 
-        point_at(wanted)
-        path = Path(wanted)
-        trouble = _trouble_with(ctx, path)
-        if trouble:
-            return _again(trouble, values)
         survey = _once(ctx.games.survey)
-        reader = _reader_for(values, path, survey)
+        reader: ModuleType | None = folders if no_frontend else None
+        on_tables = no_frontend and leaving != "source" and "tables" in values
+
+        def refused(reason: str) -> dict:
+            if on_tables:
+                return _sources_step(folders, plan_for.derive_sources(
+                    SourceLibrary(source_id=folders.SOURCE_ID, root=""), _chosen(values)),
+                    [], {"tables": reason})
+            return _again(reason, values)
+
+        # No frontend reads the Game files folder, so a refusal about it belongs to the
+        # step that asks for it; a path left over from step one is not what is read.
+        checked = ""
+        first = _rooted(reader, values, typed)
+        if first:
+            point_at(first)
+            checked = first
+            trouble = _trouble_with(ctx, Path(first))
+            if trouble:
+                return refused(trouble)
+        if reader is None:
+            reader = _reader_for(values, Path(typed), survey)
         if reader is None:
             return _again(ctx.t("reason.nothing_readable"), values)
-        if not reader.detect(path, survey):
+        source: ModuleType = reader
+
+        wanted = _rooted(source, values, typed)
+        if not wanted:
+            return refused(ctx.t("reason.say_tables") if on_tables
+                           else ctx.t("reason.say_where"))
+        path = Path(wanted)
+        if wanted != checked:
+            point_at(wanted)
+            trouble = _trouble_with(ctx, path)
+            if trouble:
+                return refused(trouble)
+        if reader is folders:
+            if leaving != "source" and not reader.detect(path, survey):
+                return refused(ctx.t("reason.no_tables"))
+        elif not reader.detect(path, survey):
             return _again(ctx.t("reason.not_this_source", source=_name(ctx, reader)),
                           values)
 
@@ -367,13 +415,13 @@ def build(ctx: Any) -> None:
         mode = _mode(library, values, games)
 
         if leaving == "how" and mode in ("copy", "move"):
-            refused = _refuse_how(values)
-            if refused:
-                return _how_step(reader, library, values, games, refused)
+            refused_how = _refuse_how(values)
+            if refused_how:
+                return _how_step(source, library, values, games, refused_how)
 
         for step in _after(leaving):
             if step == "sources":
-                return _sources_step(reader, library, made)
+                return _sources_step(reader, made.sources, library.systems)
             # `skip_existing` is how a caller that knows nothing here can matter, a first
             # run, starts past this question instead of being asked it.
             if step == "existing" and made.already and not values.get("skip_existing"):
@@ -394,32 +442,39 @@ def build(ctx: Any) -> None:
                 field["value"] = values[field["key"]]
         return found
 
-    def _sources_step(reader: ModuleType, library: SourceLibrary, made: Plan) -> dict:
+    def _sources_step(reader: ModuleType, sources: list[plan_for.Source],
+                      systems: Sequence[Any], errors: dict[str, str] | None = None) -> dict:
+        no_frontend = reader is folders
         fields: list[dict[str, Any]] = [{
             "key": source.key, "type": "path", "label": source.label,
             "value": source.path,
             "help": (ctx.t("wizard.sources.worked_out", help=source.help)
                      if source.derived else source.help),
-        } for source in made.sources]
+        } for source in sources]
 
         # Only where there is a choice to make. One system is not a decision, and a
         # control with a single option in it is a question that answers itself.
-        systems = [one.name for one in library.systems if one.games]
-        if len(systems) > 1:
+        named = [one.name for one in systems if one.games]
+        if len(named) > 1:
             fields.insert(0, {
                 "key": "systems", "type": "multi",
                 "label": ctx.t("wizard.sources.systems.label"),
-                "value": systems,
-                "choices": [[one, one] for one in systems],
+                "value": named,
+                "choices": [[one, one] for one in named],
                 "help": ctx.t("wizard.sources.systems.help"),
             })
 
-        return {
+        found: dict[str, Any] = {
             "step": "sources",
-            "title": ctx.t("wizard.sources.title", source=_name(ctx, reader)),
-            "help": ctx.t("wizard.sources.help"),
+            "title": (ctx.t("wizard.sources.no_frontend.title") if no_frontend
+                      else ctx.t("wizard.sources.title", source=_name(ctx, reader))),
+            "help": (ctx.t("wizard.sources.no_frontend.help") if no_frontend
+                     else ctx.t("wizard.sources.help")),
             "fields": fields,
         }
+        if errors:
+            found["errors"] = errors
+        return found
 
     def _existing_step(made: Plan) -> dict:
         return {
@@ -569,8 +624,7 @@ def build(ctx: Any) -> None:
         Progress and the outcome are on /api/v1/jobs, the same as a library scan.
         """
         values = body.get("values") or {}
-        wanted = str(values.get("path") or "").strip()
-        path = Path(wanted)
+        typed = str(values.get("path") or "").strip()
         location = str(body.get("location") or "")
         systems = _systems(values)
 
@@ -578,13 +632,19 @@ def build(ctx: Any) -> None:
             """The shape the Console reads a refusal by: not started, and why."""
             return {"started": False, "ok": False, "reason": reason}
 
-        if not wanted or not path.is_dir():
-            return refused(ctx.t("reason.nothing_readable"))
         survey = _once(ctx.games.survey)
-        point_at(wanted)
-        reader = _reader_for(values, path, survey)
+        no_frontend = str(values.get("source_type") or "") == folders.SOURCE_ID
+        if typed:
+            point_at(typed)
+        reader = folders if no_frontend else (
+            _reader_for(values, Path(typed), survey) if typed else None)
         if reader is None:
             return refused(ctx.t("reason.nothing_readable"))
+        wanted = _rooted(reader, values, typed)
+        path = Path(wanted)
+        if not wanted or not path.is_dir():
+            return refused(ctx.t("reason.nothing_readable"))
+        point_at(wanted)
 
         library = read(reader, path, values, survey)
         declare_roots(library, values)

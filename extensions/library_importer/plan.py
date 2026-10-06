@@ -25,7 +25,7 @@ from typing import Any
 
 from common.extensions.contract import words
 
-from . import gamestats, mapping
+from . import folders, gamestats, mapping
 from .source import Note, SourceGame, SourceLibrary, SourceSystem
 
 t = words("library_importer")
@@ -298,6 +298,9 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
 
     found = []
     for key in SOURCES:
+        # Nothing keeps a play history for a folder of tables, so there is none to point at.
+        if key == "history" and library.source_id == folders.SOURCE_ID:
+            continue
         said = chosen.get(key)
         path = str(said if said is not None else guessed.get(key, "") or "").strip()
         found.append(Source(key=key, label=t(f"kind.{key}.label"),
