@@ -165,6 +165,42 @@ class Deleting(unittest.IsolatedAsyncioTestCase):
         refresh.assert_awaited_once_with()
 
 
+class Columns(unittest.TestCase):
+    def test_every_column_header_has_a_tooltip(self) -> None:
+        bare = [one["field"] for one in backups.COLUMNS if not one.get("headerTooltip")]
+
+        self.assertEqual([], bare)
+
+
+class Views(unittest.TestCase):
+    def test_every_kind_a_copy_can_be_is_in_a_view_and_the_first_view_is_everything(self) -> None:
+        filtered = {kind for preset in backups.VIEWS.values()
+                    for kind in preset.filters.get("kind", {}).get("values", [])}
+
+        self.assertEqual(set(backups.KIND_WORDS), filtered)
+        self.assertEqual("console.view.everything", next(iter(backups.VIEWS)))
+
+    def test_a_view_names_only_columns_the_grid_has(self) -> None:
+        for key, preset in backups.VIEWS.items():
+            self.assertLessEqual(set(preset.columns), set(backups._ALL), key)
+
+    def test_a_view_of_one_kind_does_not_repeat_the_kind_in_a_column(self) -> None:
+        for key in ("console.view.backups_games", "console.view.backups_themes"):
+            self.assertNotIn("kind", backups.VIEWS[key].columns)
+
+    def test_a_linked_search_opens_on_everything_and_keeps_the_users_views(self) -> None:
+        library = mock.Mock(spec=Library)
+        library.preferences.return_value = {
+            "views": [{"id": "view:1", "name": "Mine"}],
+            "active": "builtin:console.view.backups_themes"}
+
+        backups._open_on_everything(library)
+
+        saved = library.put_preferences.call_args.args[1]
+        self.assertEqual("builtin:console.view.everything", saved["active"])
+        self.assertEqual(["view:1"], [one["id"] for one in saved["views"]])
+
+
 class LocalSeconds(unittest.TestCase):
     def test_two_copies_in_one_minute_read_differently(self) -> None:
         self.assertNotEqual(when.local_seconds("2026-09-09T11:09:17Z"),

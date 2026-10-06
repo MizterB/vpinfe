@@ -19,7 +19,7 @@ from common import i18n
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from console import about, busy, confirm, offload, panel, undo, verbs, waiting, when
+from console import about, busy, confirm, offload, panel, undo, verbs, views, waiting, when
 from console import dialog as frame
 from console import grid as grid_module
 from console.data import Library
@@ -77,7 +77,7 @@ _BEFORE_DAY = """(filterAt, taken) => {
 
 _SHOWN = """(() => {
   const ids = [];
-  getElement(%d).api.forEachNodeAfterFilter(node => ids.push(node.data.id));
+  getElement(%d).api.forEachNodeAfterFilterAndSort(node => ids.push(node.data.id));
   return ids;
 })()"""
 
@@ -100,18 +100,23 @@ COLUMNS = [
                               "params => [(params.data || {}).of, (params.data || {}).holds]"
                               ".filter(Boolean).join(' ')"}),
     grid_module.column("kind", t("word.kind"), 150,
+                       help=t("console.backups.kind_column.help"),
                        **grid_module.choice_filter(_choices(KIND_WORDS))),
-    grid_module.column("file", t("word.file"), 280, tooltipField="path"),
+    grid_module.column("file", t("word.file"), 280, tooltipField="path",
+                       help=t("console.backups.file.help")),
     grid_module.column("taken", t("console.backups.taken"), 190,
-                       tooltipField="taken_utc",
+                       tooltipField="taken_utc", help=t("console.backups.taken.help"),
                        **TAKEN_FILTER),
     grid_module.column("written_by", t("console.backups.written_by"), 130,
                        help=t("console.backups.written_by.help"),
                        **grid_module.choice_filter(_choices(BY_WORDS))),
     grid_module.column("why", t("console.backups.why"), 160,
+                       help=t("console.backups.why.help"),
                        **grid_module.choice_filter(_choices(WHY_WORDS))),
-    grid_module.column("note", t("console.backups.note"), 220),
+    grid_module.column("note", t("console.backups.note"), 220,
+                       help=t("console.backups.note.help")),
     grid_module.column("size", t("word.size"), 100, type="numericColumn",
+                       help=t("console.backups.size.help"),
                        **{":valueFormatter": "params => (params.data || {}).size_text || ''"}),
     grid_module.column("gone", t("console.backups.gone"), 110,
                        help=t("console.backups.gone.help"),
@@ -122,6 +127,35 @@ COLUMNS = [
                                {"value": False, "label": t("console.backups.present")}],
                               formatted=True)}),
 ]
+
+
+_ALL = [definition["field"] for definition in COLUMNS]
+_WITHOUT_KIND = tuple(field for field in _ALL if field != "kind")
+_NEWEST_FIRST = ({"colId": "taken", "sort": "desc", "sortIndex": 0},)
+# Whose records VPinFE keeps in its own config folder, which is what the VPinFE view holds.
+_OWN_RECORDS = [kept_copies.KIND_SETTINGS, kept_copies.KIND_COLLECTIONS,
+                kept_copies.KIND_DEVICES, kept_copies.KIND_PLAYERS, kept_copies.KIND_RECORDS]
+
+
+def _of_kind(kinds: list[str], *, help: str, hide_kind: bool = True) -> views.Preset:
+    return views.Preset(columns=_WITHOUT_KIND if hide_kind else tuple(_ALL),
+                        sort=_NEWEST_FIRST, filters={"kind": {"values": kinds}}, help=help)
+
+
+VIEWS: dict[str, list[str] | views.Preset] = {
+    "console.view.everything": views.Preset(
+        columns=tuple(_ALL), sort=_NEWEST_FIRST, help=t("console.backups.everything_view.help")),
+    "console.view.backups_games": _of_kind(
+        [kept_copies.KIND_GAME], help=t("console.backups.games_view.help")),
+    "console.view.backups_launchers": _of_kind(
+        [kept_copies.KIND_LAUNCHER], help=t("console.backups.launchers_view.help")),
+    "console.view.backups_themes": _of_kind(
+        [kept_copies.KIND_THEME], help=t("console.backups.themes_view.help")),
+    "console.view.backups_vpinfe": _of_kind(
+        _OWN_RECORDS, help=t("console.backups.vpinfe_view.help"), hide_kind=False),
+    "console.view.backups_yours": _of_kind(
+        [kept_copies.KIND_ARCHIVE], help=t("console.backups.yours_view.help")),
+}
 
 
 def parts_of(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -177,8 +211,19 @@ def build(library: Library, state: dict[str, Any], rerender: Callable[[], None])
     busy.fill(body, lambda: _fill(library, body, rerender, str(state.pop("find", "") or "")))
 
 
+def _open_on_everything(library: Library) -> None:
+    """A search that was linked to is read over every copy, not over the view last used."""
+    kept, _active = views.stored(library, SCOPE)
+    views.remember(library, SCOPE, kept, views.builtin_id("console.view.everything"))
+
+
 async def _fill(library: Library, body: Any, rerender: Callable[[], None],
                 find: str = "") -> None:
+    # Imported here: `games` imports `backup_rows`, which imports this module.
+    from console.games import view_control
+
+    if find:
+        await run.io_bound(_open_on_everything, library)
     try:
         found = await offload.io(library.backups)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -186,6 +231,7 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None],
             panel.facts(ui, [panel.intro(t("console.backups.read_failed"), hint=why(exc))])
         return
     built = rows(list(found.get("copies") or []))
+    columns = list(COLUMNS)
     by_id = {row["id"]: row for row in built}
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
 
@@ -193,6 +239,10 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None],
         with ui.row().classes(
                 "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel console-grid-bar"):
             bar = panel.grid_bar()
+            if built:
+                wire_views, _picker, showing, describe = view_control(
+                    library, SCOPE, VIEWS, _ALL, columns, bar=bar)
+                describe()
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.backups.search"))
                 search.value = find
@@ -243,9 +293,9 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None],
                                  check=bool(grid_module.hidden_count(table))))
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table: ui.aggrid = grid_module.build(COLUMNS, built, SCOPE,
+            table: ui.aggrid = grid_module.build(columns, built, SCOPE,
                                                  on_select_rows=on_selected,
-                                                 on_context=fill_menu)
+                                                 on_context=fill_menu, view_of=showing)
             menu: ui.context_menu = ui.context_menu()
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
@@ -259,6 +309,7 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None],
             count.text = counted_text()
 
         table.on("modelUpdated", counted)
+        wire_views(table)
 
     def picked() -> list[dict[str, Any]]:
         return [by_id[str(r["id"])] for r in grid_module.selection(table)
