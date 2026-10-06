@@ -8,7 +8,7 @@ from unittest import mock
 from common import i18n
 from common.backups import copies
 from common.i18n import t
-from console import backups, when
+from console import backups, deeplink, when
 from console.data import Library
 
 
@@ -227,6 +227,71 @@ class LocalSeconds(unittest.TestCase):
     def test_what_is_not_a_time_is_said_as_it_is(self) -> None:
         self.assertEqual("", when.local_seconds(None))
         self.assertEqual("soon", when.local_seconds("soon"))
+
+
+class ThePanel(unittest.TestCase):
+    def _row(self, **over) -> dict:
+        return backups.rows([_copy(**over)])[0]
+
+    def test_a_row_carries_what_the_panel_opens_and_reads(self) -> None:
+        row = self._row(version="3.0.1")
+
+        self.assertEqual(("g1", "3.0.1", ""), (row["of_id"], row["version"], row["within_id"]))
+        part = backups.rows([_copy("p", within="z")], parts=True)[0]
+        self.assertEqual("z", part["within_id"])
+
+    def test_how_long_a_copy_is_kept_follows_what_replaces_it(self) -> None:
+        said = {
+            "archive": backups.kept_said(self._row(of_kind=copies.OF_ARCHIVE)),
+            "theme": backups.kept_said(self._row(kind=copies.KIND_THEME)),
+            "3.0": backups.kept_said(self._row(written_by=copies.BY_3X)),
+            "2.x": backups.kept_said(self._row(written_by=copies.BY_2X)),
+            "none": backups.kept_said(self._row(written_by="")),
+        }
+
+        self.assertEqual(t("console.backups.kept.until_deleted"), said["archive"])
+        self.assertEqual(t("console.backups.kept.until_deleted"), said["none"])
+        self.assertEqual(t("console.backups.kept.theme_update"), said["theme"])
+        self.assertEqual(t("console.backups.kept.next_copy"), said["3.0"])
+        self.assertEqual(t("console.backups.kept.upgraded_again"), said["2.x"])
+
+    def test_the_importers_bak_is_kept_until_deleted_whoever_wrote_it(self) -> None:
+        row = self._row(file="Attack from Mars.info.bak", written_by=copies.BY_2X)
+
+        self.assertEqual(t("console.backups.kept.until_deleted"), backups.kept_said(row))
+
+    def test_the_whole_version_is_said_where_the_listing_has_it(self) -> None:
+        self.assertEqual(t("console.backups.by.version", version="3.0.1"),
+                         backups.written_by_said(self._row(version="3.0.1")))
+        self.assertEqual(t("console.backups.by.3x"), backups.written_by_said(self._row()))
+        self.assertEqual("", backups.written_by_said(self._row(written_by="")))
+
+    def test_every_reason_a_copy_is_taken_has_a_line(self) -> None:
+        for token in (v for k, v in vars(copies).items() if k.startswith("WHY_")):
+            if token == copies.WHY_YOURS:
+                continue
+            with self.subTest(token=token):
+                self.assertIn(token, backups.REASON_LINES)
+
+    def test_only_a_backup_with_parts_has_contents(self) -> None:
+        archive = self._row(of_kind=copies.OF_ARCHIVE)
+        self.assertTrue(backups.has_contents({"backup": archive, "parts": [archive]}))
+        self.assertFalse(backups.has_contents({"backup": archive, "parts": []}))
+        self.assertFalse(backups.has_contents({"backup": self._row(), "parts": [archive]}))
+
+    def test_the_address_names_the_backup_on_backups_only(self) -> None:
+        state = {"view": "backups", "backup": "abc", "game": "g1"}
+
+        self.assertEqual("view=backups&backup=abc", deeplink.query(state))
+        self.assertEqual("view=games&game=g1", deeplink.query({**state, "view": "games"}))
+
+    def test_an_address_names_the_backup_to_open(self) -> None:
+        state: dict = {"view": "games"}
+
+        deeplink.apply(state, {"view": "backups", "backup": " abc "},
+                       views=["games", "backups"], sections=[])
+
+        self.assertEqual(("backups", "abc"), (state["view"], state["backup"]))
 
 
 if __name__ == "__main__":

@@ -87,6 +87,7 @@ from console import (
     vpx_input,
     when,
 )
+from console import backups as backups_page
 from console import commands as commands_help
 from console import devices as devices_page
 from console import dialog as frame
@@ -1201,6 +1202,41 @@ async def _draw_location(container: ui.column, title: ui.column, library: Librar
             context, f"location:{location_id}",
             lambda: build_location(container, title, library, location_id, state))
         await _rail(context, "location", state)
+
+
+async def build_backup(container: ui.column, title: ui.column, library: Library,
+                       backup_id: str | None,
+                       state: dict[str, Any] | None = None) -> None:
+    """The panel, for a copy VPinFE keeps rather than a game."""
+    state = state if state is not None else {}
+    await _pane_build(container, state,
+                      lambda: _draw_backup(container, title, library, backup_id, state))
+
+
+async def _draw_backup(container: ui.column, title: ui.column, library: Library,
+                       backup_id: str | None, state: dict[str, Any]) -> None:
+    if not backup_id:
+        _blank(container, title, t("console.page.backup"), t("console.page.select_backup"))
+        return
+    # Read fresh: a part's `gone` and a note are answers about this moment.
+    found = await offload.io(library.backups)
+    held = backups_page.rows(list(found.get("copies") or []), parts=True)
+    row = next((one for one in held if one["id"] == backup_id and not one["within_id"]), None)
+    if row is None:
+        _blank(container, title, t("console.page.backup"), t("console.page.not_found"))
+        return
+
+    container.clear()
+    title.clear()
+    with container:
+        _title(title, backups_page.name_of(row), row["taken_text"])
+        context: dict[str, Any] = {
+            "library": library, "backup": row, "state": state, "redraws": [], "dock": None,
+            "parts": [one for one in held if one["within_id"] == backup_id]}
+        context["rebuild"] = _rebuilds(context, f"backup:{backup_id}",
+                                       lambda: build_backup(container, title, library,
+                                                            backup_id, state))
+        await _rail(context, "backup", state)
 
 
 async def build_launcher(container: ui.column, title: ui.column, library: Library,
@@ -7230,6 +7266,15 @@ def _theme_verbs(context: dict[str, Any]) -> list[panel.Verb]:
                             partial(themes_page.changed, context))
 
 
+def _backup_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    async def refresh() -> None:
+        again = context["state"].get("refresh_backups")
+        if callable(again):
+            await again()
+
+    return backups_page.acts(context["library"], [context["backup"]], refresh, many=False)
+
+
 def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     return players_page.acts(context["library"], context["state"], context["player"],
                              _page_redraw(context), accounts=context.get("accounts") or (),
@@ -7298,6 +7343,7 @@ SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
     "theme": _theme_verbs,
     "device": _device_verbs,
     "player": _player_verbs,
+    "backup": _backup_verbs,
 }
 
 
@@ -7370,4 +7416,9 @@ SECTIONS: tuple[Section, ...] = (
     Section("player_plays", lambda _: t("console.players.plays"), players_page.plays,
             subjects=frozenset({"player"}),
             shown=lambda context: players_page.has_plays(context["player"])),
+    # A copy, then what a backup holds.
+    Section("backup_details", lambda _: t("console.workbench.details"), backups_page.details,
+            subjects=frozenset({"backup"})),
+    Section("backup_contents", lambda _: t("console.backups.contents"), backups_page.contents,
+            subjects=frozenset({"backup"}), shown=backups_page.has_contents),
 )

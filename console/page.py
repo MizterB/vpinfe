@@ -325,6 +325,7 @@ EMPTY_PANE = {
     "launchers": ("console.page.launcher", "console.page.select_launcher"),
     "themes": ("console.page.theme", "console.page.select_theme"),
     "players": ("console.page.player", "console.page.select_player"),
+    "backups": ("console.page.backup", "console.page.select_backup"),
 }
 
 # The pages the pane has a role on. Media is one of them: a row is one game's slot, so
@@ -523,7 +524,8 @@ def reads_before_drawing(view: str, library: Library) -> Callable[[], Any] | Non
 async def console_page(view: str = "", game: str = "", table: str = "", section: str = "",
                    slot: str = "", page: str = "", mode: str = "",
                    collection: str = "", launcher: str = "", sets: str = "",
-                   player: str = "", setup: str = "", log: str = "", find: str = "") -> None:
+                   player: str = "", setup: str = "", log: str = "", find: str = "",
+                   backup: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -620,7 +622,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     deeplink.apply(state, {"view": view, "game": game, "table": table,
                            "section": section, "slot": slot, "page": page,
                            "collection": collection, "launcher": launcher, "sets": sets,
-                           "player": player, "log": log, "find": find},
+                           "player": player, "log": log, "find": find, "backup": backup},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
 
@@ -1362,6 +1364,16 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                      state)
         deeplink.sync(state)
 
+    @on_page
+    async def show_backup(row: dict | None) -> None:
+        """What the grid has selected is what the workbench is about, the same rule
+        every other subject follows."""
+        if row and not state["workbench"]:
+            show_workbench(True)
+        state["backup"] = (row or {}).get("id")
+        await workbench.build_backup(panel, workbench_title, library, state["backup"], state)
+        deeplink.sync(state)
+
     async def show_location(row: dict | None) -> None:
         """What the grid has selected is what the workbench is about - the same rule
         Games and Collections follow, so the panel needs no control of its own."""
@@ -1509,7 +1521,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             elif view == "logs":
                 logs_page.build(library, state, redraw)
             elif view == "backups":
-                backups_page.build(library, state, redraw)
+                state["rerender"] = redraw
+                backups_page.build(library, state, show_backup, redraw)
             elif view == "about":
                 about_page.build(library, state, redraw)
 
@@ -1635,6 +1648,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         arrival = show_launcher({"id": state["launcher"]})
     elif state["view"] == "players" and state.get("player"):
         arrival = show_player({"id": state["player"]})
+    elif state["view"] == "backups" and state.get("backup"):
+        arrival = show_backup({"id": state["backup"]})
     elif state["view"] == "devices":
         # Arriving at Devices lands on this device with its rail open, so reaching a
         # setting is the two clicks it was when Settings was a place of its own. It is
@@ -1711,6 +1726,8 @@ def _land(state: dict[str, Any]) -> None:
         grid.land_on(launchers_page.SCOPE, {"id": str(state["launcher"])})
     elif view == "players" and state.get("player"):
         grid.land_on(players_page.SCOPE, {"id": str(state["player"])})
+    elif view == "backups" and state.get("backup"):
+        grid.land_on(backups_page.SCOPE, {"id": str(state["backup"])})
     elif view == "collections" and state.get("collection"):
         grid.land_on(collections_page.SCOPE, {"id": str(state["collection"])})
 
@@ -1771,6 +1788,7 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["collection"] = None
         state["launcher"] = None
         state["player"] = None
+        state["backup"] = None
         state["sets"] = None
     state["extension"] = ""
     state["view"] = view

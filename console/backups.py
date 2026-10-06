@@ -19,7 +19,19 @@ from common import i18n
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from console import about, busy, confirm, offload, panel, undo, verbs, views, waiting, when
+from console import (
+    about,
+    busy,
+    confirm,
+    deeplink,
+    offload,
+    panel,
+    undo,
+    verbs,
+    views,
+    waiting,
+    when,
+)
 from console import dialog as frame
 from console import grid as grid_module
 from console.data import Library
@@ -181,6 +193,7 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
         "id": one["id"],
         "holds": " ".join(holds.get(str(one["id"]), [])),
         "of": one.get("of_name") or "",
+        "of_id": one.get("of_id") or "",
         "of_kind": one.get("of_kind") or "",
         "kind": one.get("kind") or "",
         "file": one.get("file") or "",
@@ -193,6 +206,8 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
         "why_text": "" if one.get("why") in (kept_copies.WHY_YOURS, None)
         else t(WHY_WORDS.get(str(one["why"]), "console.backups.why.yours")),
         "within": bool(one.get("within")),
+        "within_id": str(one.get("within") or ""),
+        "version": one.get("version") or "",
         "note": one.get("note") or "",
         "size": int(one.get("size") or 0),
         "size_text": i18n.size(int(one.get("size") or 0)),
@@ -211,9 +226,11 @@ def summary(shown: list[dict[str, Any]]) -> str:
              size=i18n.size(sum(int(one.get("size") or 0) for one in shown)))
 
 
-def build(library: Library, state: dict[str, Any], rerender: Callable[[], None]) -> None:
+def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], Any],
+          rerender: Callable[[], None]) -> None:
     body = ui.column().classes("w-full grow min-h-0 gap-0")
-    busy.fill(body, lambda: _fill(library, body, rerender, str(state.pop("find", "") or "")))
+    busy.fill(body, lambda: _fill(library, body, state, on_select, rerender,
+                                  str(state.pop("find", "") or "")))
 
 
 def _open_on_everything(library: Library) -> None:
@@ -222,7 +239,8 @@ def _open_on_everything(library: Library) -> None:
     views.remember(library, SCOPE, kept, views.builtin_id("console.view.everything"))
 
 
-async def _fill(library: Library, body: Any, rerender: Callable[[], None],
+async def _fill(library: Library, body: Any, state: dict[str, Any],
+                on_select: Callable[[Any], Any], rerender: Callable[[], None],
                 find: str = "") -> None:
     # Imported here: `games` imports `backup_rows`, which imports this module.
     from console.games import view_control
@@ -302,6 +320,8 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None],
                                                  on_select_rows=on_selected,
                                                  on_context=fill_menu, view_of=showing)
             menu: ui.context_menu = ui.context_menu()
+        grid_module.on_row_focus(
+            SCOPE, lambda event: on_select(by_id.get(grid_module.focused_row(event))))
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
@@ -321,7 +341,7 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None],
                 if str(r.get("id")) in by_id]
 
     @on_page
-    async def refresh() -> None:
+    async def reread() -> None:
         """Read the copies again into the grid in place, so a filter and a search stay."""
         try:
             fresh = rows(list((await offload.io(library.backups)).get("copies") or []))
@@ -329,12 +349,26 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None],
             ui.notify(t("console.backups.read_failed"), caption=why(exc), type="negative")
             return
         if not fresh:
+            built.clear()
+            by_id.clear()
             rerender()
             return
         built[:] = fresh
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
         table.run_grid_method("setGridOption", "rowData", fresh)
+
+    @on_page
+    async def refresh() -> None:
+        """The grid read again, and the panel drawn again on the copy it is about, or
+        emptied where that copy is gone."""
+        await reread()
+        chosen = state.get("backup")
+        if chosen and state.get("workbench"):
+            await on_select(by_id.get(chosen))
+
+    state["reread_backups"] = reread
+    state["refresh_backups"] = refresh
 
 
 def acts(library: Library, rows_on: list[dict[str, Any]],
@@ -542,3 +576,187 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
             go = frame.answer(t("console.backups.back_up"), take, icon=verbs.ADD)
     frame.enter_presses(go)
     box.open()
+
+
+# --- the panel ------------------------------------------------------------------
+
+REASON_LINES = {
+    kept_copies.WHY_UPGRADE: "console.backups.why_line.upgrade",
+    kept_copies.WHY_RESTORE: "console.backups.why_line.restore",
+    kept_copies.WHY_IMPORT: "console.backups.why_line.import",
+    kept_copies.WHY_RESET: "console.backups.why_line.reset",
+    kept_copies.WHY_FIRST_CHANGE: "console.backups.why_line.first_change",
+    kept_copies.WHY_UPDATE: "console.backups.why_line.update",
+}
+# Where the name of what a copy is of opens, per kind of owner. A theme has a page and no
+# address of its own.
+_OPENS = {
+    kept_copies.OF_GAME: lambda row: {"view": "games", "game": row["of_id"]},
+    kept_copies.OF_LAUNCHER: lambda row: {"view": "launchers", "launcher": row["of_id"]},
+    kept_copies.OF_THEME: lambda row: {"view": "themes"},
+}
+# The parts of a backup drawn at once; the rest are reached by searching.
+PARTS_SHOWN = 100
+
+
+def kept_said(row: dict[str, Any]) -> str:
+    """How long VPinFE keeps this copy, from what the listing says about it."""
+    if row["of_kind"] == kept_copies.OF_ARCHIVE:
+        return t("console.backups.kept.until_deleted")
+    if row["kind"] == kept_copies.KIND_THEME:
+        return t("console.backups.kept.theme_update")
+    if row["file"].endswith(".bak"):
+        return t("console.backups.kept.until_deleted")
+    if row["written_by"] == kept_copies.BY_3X:
+        return t("console.backups.kept.next_copy")
+    if row["written_by"] == kept_copies.BY_2X:
+        return t("console.backups.kept.upgraded_again")
+    return t("console.backups.kept.until_deleted")
+
+
+def written_by_said(row: dict[str, Any]) -> str:
+    """The whole version a backup was written by, where the column says the series."""
+    if row["version"]:
+        return t("console.backups.by.version", version=row["version"])
+    return t(BY_WORDS[row["written_by"]]) if row["written_by"] in BY_WORDS else ""
+
+
+def _taken(row: dict[str, Any]) -> Callable[[], None]:
+    def draw() -> None:
+        ui.label(row["taken_text"]).classes("console-fact-value truncate min-w-0") \
+            .tooltip(row["taken_utc"])
+    return draw
+
+
+def _file(row: dict[str, Any]) -> Callable[[], None]:
+    def draw() -> None:
+        icon = "folder" if row["kind"] == kept_copies.KIND_THEME else "description"
+        _face, menu = panel.path_face(icon, row["path"], name=t("word.file"))
+        with menu:
+            _copy_path(row["path"])(menu.close)
+    return draw
+
+
+def _name_of_owner(row: dict[str, Any]) -> None:
+    """The name of what a copy is of, opening that thing where it still is."""
+    opens = _OPENS.get(row["of_kind"])
+    if opens and row["of_id"] and not row["gone"]:
+        with ui.element("span").classes("truncate min-w-0"):
+            panel.link(name_of(row), to="/console?" + deeplink.query(opens(row)))()
+    else:
+        ui.label(name_of(row)).classes("console-fact-value console-member-name truncate min-w-0")
+    if row["gone"]:
+        ui.label(t("console.backups.gone")).tooltip(t("console.backups.gone.help")) \
+            .classes("console-member-chip console-chip-warn")
+
+
+def _of(row: dict[str, Any]) -> Callable[[], None]:
+    def draw() -> None:
+        with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
+            _name_of_owner(row)
+    return draw
+
+
+def _note(context: dict[str, Any]) -> Callable[[], None]:
+    row, library, state = context["backup"], context["library"], context["state"]
+
+    @on_page
+    async def save(text: str) -> str:
+        """Saved, and the grid's row put right behind it. The reason it was refused, or
+        empty."""
+        try:
+            await run.io_bound(library.set_backup_note, row["id"], text.strip())
+        except Exception as exc:  # noqa: BLE001
+            return why(exc)
+        reread = state.get("reread_backups")
+        if callable(reread):
+            await reread()
+        return ""
+
+    return panel.field(row["note"], save, refuses=True,
+                       placeholder=t("console.backups.note_placeholder"))
+
+
+async def details(context: dict[str, Any]) -> None:
+    row = context["backup"]
+    entries: list[tuple[Any, Any]] = []
+    if row["of_kind"] == kept_copies.OF_ARCHIVE:
+        entries.append((t("console.backups.note"), _note(context)))
+    else:
+        if row["of"]:
+            entries.append((t("console.backups.of"), _of(row)))
+        entries.append((t("word.kind"),
+                        t(KIND_WORDS.get(row["kind"], "console.backups.kind.records"))))
+        if row["why"] in REASON_LINES:
+            entries += [(t("console.backups.why"), t(WHY_WORDS[row["why"]])),
+                        panel.note(t(REASON_LINES[row["why"]]))]
+    if row["note"] and row["of_kind"] != kept_copies.OF_ARCHIVE:
+        entries.append((t("console.backups.note"), row["note"]))
+    entries.append((t("console.backups.taken"), _taken(row)))
+    if said := written_by_said(row):
+        entries.append((t("console.backups.written_by"), said))
+    entries += [(t("word.size"), i18n.size(row["size"])),
+                (t("word.file"), _file(row)),
+                (t("console.backups.kept"), kept_said(row))]
+    with ui.column().classes("gap-0 console-form w-full min-w-0"):
+        panel.facts(ui, entries)
+
+
+def has_contents(context: dict[str, Any]) -> bool:
+    return context["backup"]["of_kind"] == kept_copies.OF_ARCHIVE and bool(context["parts"])
+
+
+async def contents(context: dict[str, Any]) -> None:
+    """What a backup holds, a line per part, each restorable on its own."""
+    row, state = context["backup"], context["state"]
+    finds = state.setdefault("backup_find", {})
+
+    async def refresh() -> None:
+        again = state.get("refresh_backups")
+        if callable(again):
+            await again()
+
+    def lines() -> None:
+        shown.clear()
+        needle = str(finds.get(row["id"], "")).strip().lower()
+        found = [one for one in context["parts"]
+                 if not needle or needle in " ".join((one["of"], one["file"])).lower()]
+        with shown:
+            for part in found[:PARTS_SHOWN]:
+                _part_line(context["library"], part, refresh)
+            if len(found) > PARTS_SHOWN:
+                panel.line(t("console.backups.parts_more", shown=PARTS_SHOWN,
+                             total=len(found)), classes="console-help")
+            if not found:
+                panel.line(t("console.backups.parts_none"), classes="console-help")
+
+    with ui.column().classes("gap-0 w-full min-w-0"):
+        with ui.row().classes("items-center gap-x-4 console-section-bar"):
+            box = panel.search(t("console.backups.search_parts")).props("debounce=250")
+            box.value = str(finds.get(row["id"], ""))
+        shown = ui.column().classes("gap-0 w-full")
+        lines()
+
+        def looked() -> None:
+            finds[row["id"]] = box.value or ""
+            lines()
+
+        box.on_value_change(looked)
+
+
+def _part_line(library: Library, part: dict[str, Any],
+               refresh: Callable[[], Awaitable[None]]) -> None:
+    on = [part]
+    menu = ui.context_menu()
+    panel.verb_menu(menu, name_of(part), acts(library, on, refresh, many=False))
+    with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
+        with ui.column().classes("gap-0 grow min-w-0"):
+            with ui.row().classes("items-center gap-2 w-full no-wrap"):
+                _name_of_owner(part)
+            ui.label(t(KIND_WORDS.get(part["kind"], "console.backups.kind.records"))) \
+                .classes("console-help")
+        ui.label(i18n.size(part["size"])).classes("console-help whitespace-nowrap")
+        panel.icon_action(t("word.restore"), lambda: restore(library, on, refresh),
+                          icon=verbs.RESTORE, enabled=not part["gone"],
+                          hint=t("console.backups.owner_gone") if part["gone"]
+                          else t("word.restore"))()
