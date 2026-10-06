@@ -50,3 +50,42 @@ class I18nScriptTests(TempTree):
 
         self.assertEqual((ran.returncode, self._written()), (2, ["en.json"]))
         self.assertIn("not allowed with", ran.stderr)
+
+    def _reworded(self, **english: str) -> None:
+        self._run("--record")
+        held = json.loads((self.catalogs / "en.json").read_text(encoding="utf-8"))
+        held.update(english)
+        (self.catalogs / "en.json").write_text(json.dumps(held), encoding="utf-8")
+
+    def test_a_reworded_key_is_not_recorded_until_it_is_answered(self) -> None:
+        self._reworded(farewell="See you")
+        before = (self.catalogs / "en.hashes.json").read_text(encoding="utf-8")
+
+        ran = self._run("--record")
+
+        self.assertEqual(ran.returncode, 1)
+        self.assertIn("farewell\n    now: See you", ran.stdout)
+        self.assertEqual((self.catalogs / "en.hashes.json").read_text(encoding="utf-8"), before)
+
+    def test_a_reworded_key_named_as_fitting_is_recorded(self) -> None:
+        self._reworded(farewell="See you")
+
+        ran = self._run("--record", "--fits", "farewell")
+
+        self.assertEqual(ran.returncode, 0, ran.stderr)
+        self.assertEqual(self._run("--record").returncode, 0)
+
+    def test_a_renamed_key_needs_no_answer(self) -> None:
+        self._run("--record")
+        (self.catalogs / "en.json").write_text(
+            json.dumps({"greeting": "Hello {name}", "parting": "See you"}), encoding="utf-8")
+
+        self.assertEqual(self._run("--record").returncode, 0)
+
+    def test_naming_a_key_that_was_not_reworded_is_refused(self) -> None:
+        self._run("--record")
+
+        ran = self._run("--record", "--fits", "farewell")
+
+        self.assertEqual(ran.returncode, 1)
+        self.assertIn("Not reworded since the last record: farewell", ran.stderr)

@@ -350,6 +350,27 @@ Exempt are the keys whose leaf is data the code declares: `config.*`, `filter.*`
 `frontend.theme.*`, which theme authors read and `docs/theme.md` documents. A single exempt
 key that would pass anyway fails the test, so those only shrink.
 
+### Rewording a string
+
+A key is a translator's only view of what a string is for. When the English of a label,
+header or sentence changes, read its key again against the new words and decide:
+
+- **The key still says what the string is.** Keep it. A key is a role, not a copy of the
+  words, so `word.save` survives "Save" becoming "Keep".
+- **The key names a word or an idea the English has dropped.** Rename it in the same
+  commit: the key in `en.json`, every place that asks for it, and the tests. A translator
+  who finds `console.page.game_details` over the word "Game" has been told something
+  false.
+
+A new word for the same thing, such as art becoming media or a location becoming a library
+folder, reaches every key built on the old one, so sweep for it instead of fixing the one
+string in front of you.
+
+`python3 scripts/i18n.py --record` makes the decision visible. It refuses to record while
+a key's English differs from the last record, and lists each one. Rename the key, or pass
+the ones that still fit: `--record --fits word.save`. A renamed key is a new
+key and needs no answer. Name the keys kept in the commit message.
+
 ### Adding a string
 
 1. Call `t("...")` with a key and add the English to `en.json`.
@@ -359,7 +380,8 @@ key that would pass anyway fails the test, so those only shrink.
    invariant refuses it; a joiner such as `console.collection_rules.list_join` is the one
    allowance.
 3. `python3 scripts/i18n.py --record --pseudo`, which keeps the staleness hashes and the
-   render-check locale in step.
+   render-check locale in step. Changing the English of a key that already exists is
+   *Rewording a string*, above.
 
 `scripts/i18n.py` also answers `--missing`, `--stale`, `--unused` and `--coverage`.
 

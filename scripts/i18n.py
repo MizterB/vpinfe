@@ -121,7 +121,40 @@ def _accent(text):
     return "".join(out)
 
 
-def record():
+def reworded(directory):
+    """Keys the recorded file knows whose English is not what was recorded."""
+    path = directory / HASHES
+    recorded = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    held = load(SOURCE, directory)
+    return [k for k in sorted(held) if k in recorded and recorded[k] != digest(held[k])]
+
+
+def record(fits):
+    """Rewrite each hashes file to match its English, once every reworded key is answered.
+
+    A key whose English changed has to be either renamed or named in `--fits`, which says
+    its key was looked at and still fits. A key that is new, or renamed, is not reworded
+    as far as this can tell: the old one is gone and the new one has nothing recorded.
+    """
+    owed, named = [], set(fits)
+    for prefix, directory in owners():
+        held = load(SOURCE, directory)
+        for key in reworded(directory):
+            if prefix + key in named:
+                named.discard(prefix + key)
+            else:
+                owed.append((prefix + key, held[key]))
+    for key, text in owed:
+        print(f"{key}\n    now: {text}")
+    if owed:
+        print(f"\n{len(owed)} keys have new English and were not renamed or named in --fits. "
+              "Rename the key if its name no longer says what the string is, or pass "
+              "--fits KEY... for those it still fits.", file=sys.stderr)
+        return 1
+    if named:
+        print("Not reworded since the last record: " + ", ".join(sorted(named)),
+              file=sys.stderr)
+        return 1
     for _, directory in owners():
         held = load(SOURCE, directory)
         path = directory / HASHES
@@ -194,6 +227,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     recording = ap.add_mutually_exclusive_group()
+    ap.add_argument("--fits", metavar="KEY", nargs="+", default=[],
+                    help="with --record: keys whose English changed and whose name still fits")
     ap.add_argument("--missing", metavar="LANG", help="keys with no translation yet")
     recording.add_argument("--stale", metavar="LANG",
                            help="translations written against English that has since changed")
@@ -204,10 +239,10 @@ def main():
                     help="write the qps pseudo-locale, for the runtime leak check")
     recording.add_argument("--record", action="store_true",
                            help=f"rewrite each {HASHES} to match its {SOURCE}.json, "
-                                "after a reword")
+                                "once each reworded key is renamed or named in --fits")
     args = ap.parse_args()
 
-    actions =[(args.record, record), (args.pseudo, pseudo),
+    actions = [(args.record, lambda: record(args.fits)), (args.pseudo, pseudo),
                (args.missing, lambda: missing(args.missing)),
                (args.stale, lambda: stale(args.stale)),
                (args.unused, unused), (args.coverage, coverage)]
