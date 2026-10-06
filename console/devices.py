@@ -1038,7 +1038,7 @@ def _feature_chips(features: Any) -> Any:
             for name in shown:
                 lit = name in has
                 with ui.element("span").classes(
-                        "console-member-chip console-tier console-feature-chip "
+                        "console-tier console-feature-chip "
                         f"console-tier--{'on' if lit else 'off'}"):
                     if lit:
                         ui.icon("check").classes("console-feature-check")
