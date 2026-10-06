@@ -95,7 +95,10 @@ def _choices(words: dict[str, str]) -> list[dict[str, Any]]:
 
 COLUMNS = [
     grid_module.identifier("of", t("console.backups.of"), 220, pinned="left",
-                           help=t("console.backups.of.help")),
+                           help=t("console.backups.of.help"),
+                           **{":getQuickFilterText":
+                              "params => [(params.data || {}).of, (params.data || {}).holds]"
+                              ".filter(Boolean).join(' ')"}),
     grid_module.column("kind", t("word.kind"), 150,
                        **grid_module.choice_filter(_choices(KIND_WORDS))),
     grid_module.column("file", t("word.file"), 280, tooltipField="path"),
@@ -131,8 +134,13 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
     time is kept as the stamp and drawn from the text."""
     with_records = {str(one["within"]) for one in found
                     if one.get("within") and one.get("of_kind") == kept_copies.OF_VPINFE}
+    holds: dict[str, list[str]] = {}
+    for one in found:
+        if one.get("within") and one.get("of_name"):
+            holds.setdefault(str(one["within"]), []).append(str(one["of_name"]))
     return [{
         "id": one["id"],
+        "holds": " ".join(holds.get(str(one["id"]), [])),
         "of": one.get("of_name") or "",
         "of_kind": one.get("of_kind") or "",
         "kind": one.get("kind") or "",
