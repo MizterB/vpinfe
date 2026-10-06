@@ -27,6 +27,7 @@ from console import (
     busy,
     collection_adds,
     deeplink,
+    dropdown,
     game_acts,
     game_tables,
     grid,
@@ -1558,8 +1559,8 @@ def view_control(library: Any, scope: str,
         picker = panel.DescribedSelect(
             {view.id: _view_name(view) for view in known}, value=active,
             label=t("word.view"),
-            describes={_view_name(v): (v.help or "") for v in known}) \
-            .props("dense outlined").classes("w-52 console-view-picker")
+            describes={_view_name(v): (v.help or "") for v in known},
+            look=dropdown.OUTLINED).classes("w-52 console-view-picker")
     # Inside the button, not beside it: a q-menu anchors to its parent, and as a
     # sibling this one anchored to the toolbar row and opened 726px away.
     with top:

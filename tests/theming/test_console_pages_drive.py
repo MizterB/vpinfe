@@ -3,7 +3,8 @@
 Each is drawn once: no listener reaches a layout the browser already has, which NiceGUI
 answers by drawing all of it again. And every section a rail opens is headed properly:
 when any group in it is headed, the first one is too, and a lone heading never says the
-rail row again.
+rail row again. Every dropdown on screen is a `console.dropdown.Select`, and the text in
+each one stands at the middle of its box.
 
 Slow: boots a real instance and a real browser.
 """
@@ -89,6 +90,36 @@ HEADINGS = """(name => {
     problems.push([name, 'its one heading says the row again']);
   return {count: heads.length, problems};
 })(%s)"""
+# Every dropdown on screen. A one-line value is measured from the middle of its text to
+# the middle of its box; one that carries a label is a label over a value by design, and
+# a multiple one is chips, so neither is.
+DROPDOWNS = """(() => {
+  const shown = el => el.getClientRects().length > 0
+    && getComputedStyle(el).visibility !== 'hidden';
+  const problems = [];
+  let measured = 0;
+  for (const select of document.querySelectorAll('.q-select')) {
+    if (!shown(select)) continue;
+    const name = (select.innerText || '').trim().split('\\n')[0].slice(0, 30);
+    if (!select.classList.contains('console-select')) {
+      problems.push([name, 'is not a console Select']);
+      continue;
+    }
+    const control = select.querySelector('.q-field__control');
+    const value = select.querySelector('.q-field__native span, .q-field__native input');
+    if (select.querySelector('.q-field__label') || select.classList.contains('q-select--multiple')
+        || !control || !value) continue;
+    const text = document.createRange();
+    text.selectNodeContents(value);
+    const at = (value.tagName === 'INPUT' ? value : text).getBoundingClientRect();
+    const box = control.getBoundingClientRect();
+    if (!at.height || !box.height) continue;
+    measured += 1;
+    const off = (at.top + at.height / 2) - (box.top + box.height / 2);
+    if (Math.abs(off) >= 0.5) problems.push([name, 'sits ' + off.toFixed(1) + 'px off center']);
+  }
+  return {measured, problems};
+})()"""
 
 
 def _vpx_install(root: Path) -> dict[str, str]:
@@ -154,6 +185,13 @@ class ConsolePagesDrive(unittest.TestCase):
                 headers={"Content-Type": "application/json"}), timeout=10).close()
         headings: dict = {}
         drawn: dict[str, list[str]] = {}
+        dropdowns: dict = {"measured": 0, "problems": []}
+
+        async def look(where: str) -> None:
+            said = await browser.evaluate(DROPDOWNS)
+            dropdowns["measured"] += said["measured"]
+            dropdowns["problems"] += [[where, *one] for one in said["problems"]]
+
         async with BrowserSession(chromium_path()) as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
                                {"width": 1700, "height": 1000, "deviceScaleFactor": 1,
@@ -163,6 +201,7 @@ class ConsolePagesDrive(unittest.TestCase):
             async def visit(path: str) -> None:
                 said = await walk.visit(path, listen=True)
                 drawn.setdefault(path, []).extend(line for line in said if DRAWN_AGAIN in line)
+                await look(path)
 
             await visit("/console")
             rail = await browser.evaluate(RAIL)
@@ -177,6 +216,7 @@ class ConsolePagesDrive(unittest.TestCase):
                     found["opened"].append(name)
                     found["headings"][name] = said["count"]
                     found["problems"] += said["problems"]
+                    await look(f"{query} / {name}")
                 if not found["opened"]:
                     # A rail of one section is not drawn, so its section is the panel.
                     said = await browser.evaluate(HEADINGS % json.dumps(""))
@@ -188,7 +228,7 @@ class ConsolePagesDrive(unittest.TestCase):
                 if path not in drawn:
                     await visit(path)
             await visit("/remote")
-        return {"headings": headings, "drawn": drawn}
+        return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns}
 
     def test_every_rail_opened_something(self) -> None:
         for query, found in self.seen["headings"].items():
@@ -224,6 +264,11 @@ class ConsolePagesDrive(unittest.TestCase):
 
     def test_the_remote_is_drawn_once(self) -> None:
         self.assertEqual([], self.seen["drawn"]["/remote"])
+
+    def test_every_dropdown_is_a_console_select_with_its_text_centered(self) -> None:
+        self.assertGreater(self.seen["dropdowns"]["measured"], 20,
+                           "an empty sweep passes and measures nothing")
+        self.assertEqual([], self.seen["dropdowns"]["problems"])
 
 
 if __name__ == "__main__":

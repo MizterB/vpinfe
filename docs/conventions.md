@@ -732,6 +732,19 @@ picks the *filename* a file will be saved under, and the two candidates differ i
 of a long name. Reading them against each other is the choice. The test is not how many
 options there are — it is whether the reader has to hold one in their head to judge the next.
 
+**There is one dropdown, `console.dropdown.Select`, in two looks.** `FIELD` is the value in
+a row of a panel or dialog: a bordered box one row tall with the text centered in it.
+`OUTLINED` is a control that stands on its own, such as a toolbar's picker or a box that
+fills a panel. A call site names the look it wants and never writes `dense`, `borderless` or
+`outlined` itself; `panel.select`, `multi_select` and `combo` are the field look for a fact
+row, and every other picker class in `panel.py` and `tag_chips.py` derives from `Select`.
+Quasar sizes the text of a select for its own 40px box, so every other height has to
+correct it, and a copy styled by hand at the call site drifts. A select that carries a label
+shows it over the value by design, so its text is not centered alone.
+`tests/console/test_every_dropdown_is_one.py` fails on a raw `ui.select` in `console/`, and
+the pages drive measures the text of every one-line, unlabeled dropdown on the pages it
+visits against the middle of its box.
+
 **The row is the box, not the value.** Every value centers in a row of `--fact-row`
 whatever it holds, so the air around one does not depend on its kind. At 26px a text
 value sat 21px in the row while a chip carried its own padding and read roomier — the

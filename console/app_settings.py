@@ -258,7 +258,7 @@ def _add_picker(context: dict[str, Any], added: list[str],
     picker = panel.SettingPicker(
         labels, areas={field.key: area for field, area in offered}, headings=headings,
         label=t("console.app_settings.add")) \
-        .props('dense outlined options-dense input-debounce=0 hide-selected fill-input '
+        .props('input-debounce=0 hide-selected fill-input '
                'popup-content-class="console-picker-popup"') \
         .classes("w-full mt-2")
 

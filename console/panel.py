@@ -20,7 +20,7 @@ from nicegui import ui
 
 from common import icons
 from common.i18n import t
-from console import game_tables, list_art, offload, tag_chips, verbs
+from console import dropdown, game_tables, list_art, offload, tag_chips, verbs
 from console.on_page import on_page
 
 # Rows that are not a fact. A group's title and an action strip span both columns, so
@@ -497,7 +497,7 @@ def value_state(state: str, reason: str = "") -> Callable[[Any], None]:
     return draw
 
 
-class DescribedSelect(ui.select):
+class DescribedSelect(dropdown.Select):
     """A picker whose options each carry a line saying what they are for.
 
     `describes` maps an option's label to its line. The slot reads it as `opt.help`,
@@ -518,10 +518,11 @@ class DescribedSelect(ui.select):
 
     def __init__(self, options: Any, *, value: Any, label: str | None = None,
                  describes: dict[str, str] | None = None,
-                 on_change: Callable[[Any], Any] | None = None) -> None:
+                 on_change: Callable[[Any], Any] | None = None,
+                 look: str = dropdown.FIELD) -> None:
         # Before `super().__init__`, which builds the payload for the first time.
         self.describes: dict[str, str] = dict(describes or {})
-        super().__init__(options, value=value, label=label, on_change=on_change)
+        super().__init__(options, value=value, label=label, on_change=on_change, look=look)
         self.add_slot("option", self.SLOT)
 
     def _update_options(self) -> None:
@@ -535,7 +536,7 @@ class DescribedSelect(ui.select):
         self.update()
 
 
-class CountedSelect(ui.select):
+class CountedSelect(dropdown.Select):
     """Several from a list, each option saying how many games hold it.
 
     `counts` maps a value to its count. The chips of what is chosen carry the value
@@ -559,7 +560,6 @@ class CountedSelect(ui.select):
         self.counts = dict(counts)
         super().__init__(list(options), value=list(value), multiple=True,
                          with_input=typed)
-        self.props("use-chips")
         self.add_slot("option", self.SLOT)
 
     def _update_options(self) -> None:
@@ -568,7 +568,7 @@ class CountedSelect(ui.select):
             option["count"] = self.counts.get(str(option.get("label") or ""))
 
 
-class MarkedSelect(ui.select):
+class MarkedSelect(dropdown.Select):
     """One from a list, each option with a word in its trailing slot where `marks` has
     one, and `heading` above the option `heading_at`, where the list changes kind."""
 
@@ -587,12 +587,13 @@ class MarkedSelect(ui.select):
 
     def __init__(self, options: dict[str, str], *, value: str | None,
                  marks: dict[str, str] | None = None, heading: str = "",
-                 heading_at: str | None = None) -> None:
+                 heading_at: str | None = None,
+                 look: str = dropdown.OUTLINED) -> None:
         # Before `super().__init__`, which builds the payload for the first time.
         self.marks = dict(marks or {})
         self.heading = heading
         self.heading_at = heading_at
-        super().__init__(options, value=value)
+        super().__init__(options, value=value, look=look)
         self.add_slot("option", self.SLOT)
 
     def _update_options(self) -> None:
@@ -603,7 +604,7 @@ class MarkedSelect(ui.select):
             option["heading"] = self.heading if chosen == self.heading_at else ""
 
 
-class GamePicker(ui.select):
+class GamePicker(dropdown.Select):
     """One game from the library, typed into, each option with its maker and year. A
     game in `held` is ticked and cannot be picked. `art` is each game's list art, or None
     while the lists draw none."""
@@ -630,7 +631,8 @@ class GamePicker(ui.select):
         self.held = set(held)
         self.art = art
         super().__init__({str(game["id"]): str(game.get("name") or game["id"])
-                          for game in games}, with_input=True, label=label)
+                          for game in games}, with_input=True, label=label,
+                         look=dropdown.OUTLINED)
         self.add_slot("option", self.SLOT)
 
     def _update_options(self) -> None:
@@ -643,7 +645,7 @@ class GamePicker(ui.select):
                 option[list_art.FIELD] = self.art.get(game, "")
 
 
-class SettingPicker(ui.select):
+class SettingPicker(dropdown.Select):
     """One setting, typed into, each option with its area under it and a heading above
     the option in `headings` that starts a run. An option's `also` is its key, for
     `workbench._ADD_BOX`'s filter.
@@ -675,7 +677,7 @@ class SettingPicker(ui.select):
                 listed[self.HEADING + key] = ""
                 self.headings[self.HEADING + key] = headings[key]
             listed[key] = text
-        super().__init__(listed, with_input=True, label=label)
+        super().__init__(listed, with_input=True, label=label, look=dropdown.OUTLINED)
         self.add_slot("option", self.SLOT)
 
     def _update_options(self) -> None:
@@ -782,9 +784,7 @@ def select(options: Any, value: str, on_change: Callable[[Any], Any], *,
             control = (DescribedSelect(options, value=value, describes=describes,
                                        on_change=on_change)
                        if describes else
-                       ui.select(options, value=value, on_change=on_change)) \
-                .props("dense borderless options-dense") \
-                .classes("console-edit-field console-edit-select")
+                       dropdown.Select(options, value=value, on_change=on_change))
             if status is not None:
                 with control.add_slot("append"):
                     status(control)
@@ -815,11 +815,9 @@ def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], 
     """
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            control = ui.select(options, value=list(value or []), multiple=True,
-                                on_change=on_change, with_input=typed) \
-                .props("dense borderless options-dense use-chips "
-                       "popup-content-class=console-picks-left") \
-                .classes("console-edit-field console-edit-select console-edit-many")
+            control = dropdown.Select(options, value=list(value or []), multiple=True,
+                                      on_change=on_change, with_input=typed) \
+                .props("popup-content-class=console-picks-left")
             if typed:
                 def clear_filter(_event: Any = None) -> None:
                     control.run_method("updateInputValue", "", True)
@@ -860,13 +858,13 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
         if value and value not in offered:
             offered[value] = value
         with ui.element("div").classes("console-fact-edit"):
-            control = ui.select(offered, value=value or None, on_change=on_change,
-                                with_input=True, new_value_mode="add-unique")
-            control.props("dense borderless options-dense input-debounce=0"
+            control = dropdown.Select(offered, value=value or None, on_change=on_change,
+                                      with_input=True, new_value_mode="add-unique")
+            control.props("input-debounce=0"
                           + (" clearable clear-icon=close" if clearable else ""))
             if placeholder:
                 control.props(f'placeholder="{placeholder}"')
-            control.classes("console-edit-field console-edit-select console-edit-combo")
+            control.classes("console-edit-combo")
             if status is not None:
                 with control.add_slot("append"):
                     status(control)
@@ -926,9 +924,7 @@ def named_number(value: Any, named: dict[str, str], on_pick: Callable[[Any], Any
 
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
-            picker = ui.select({**named, "": t("word.custom")}, value=said) \
-                .props("dense borderless options-dense") \
-                .classes("console-edit-field console-edit-select")
+            picker = dropdown.Select({**named, "": t("word.custom")}, value=said)
             box = ui.number(value=None if said else value, format="%d" if whole else None,
                             min=low, max=high) \
                 .props("dense borderless").classes("console-edit-field console-edit-narrow")

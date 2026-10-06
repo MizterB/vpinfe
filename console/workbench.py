@@ -61,6 +61,7 @@ from console import (
     community,
     confirm,
     deeplink,
+    dropdown,
     folder_picker,
     game_acts,
     game_tables,
@@ -3352,9 +3353,9 @@ def _tag_picker(held: list[str], library: Library,
             if derived:
                 _derived_chips(derived, library.tag_looks())
             control = tag_chips.Picker(library.tags(), value=held,
-                                       looks=library.tag_looks(), adds=True) \
-                .props('dense outlined hide-dropdown-icon '
-                       'popup-content-class="console-picker-popup"') \
+                                       looks=library.tag_looks(), adds=True,
+                                       look=dropdown.OUTLINED) \
+                .props('hide-dropdown-icon popup-content-class="console-picker-popup"') \
                 .classes("w-full min-w-0")
         control.on_value_change(lambda: on_change(list(control.value or [])))
 
@@ -3790,9 +3791,9 @@ def _launcher_pick(context: dict[str, Any], table: dict[str, Any]) -> Callable[[
             marks={one["id"]: one["mark"] for one in offer},
             heading=t("console.workbench.other_programs"),
             heading_at=next((one["id"] for one in offer if one["other"]), None)) \
-            .props("dense outlined" + (" clearable" if named else "")) \
             .classes("w-full min-w-0")
         if named:
+            field.props("clearable")
             off = not known[named].get("enabled")
             with field.add_slot("prepend"):
                 ui.element("span").classes(
@@ -5536,8 +5537,8 @@ async def _all_settings(context: dict[str, Any]) -> None:
         search.value = wanted.get("query") or ""
         if wanted.pop("focus", False):
             search.props("autofocus")
-        area = ui.select(areas, value=wanted["area"]) \
-            .props("dense outlined options-dense").classes("w-40")
+        area = dropdown.Select(areas, value=wanted["area"], look=dropdown.OUTLINED) \
+            .classes("w-40")
         differs = ui.checkbox(t("console.workbench.changed_filter_count", count=changed),
                               value=bool(wanted.get("differs"))) \
             .props("dense").classes("whitespace-nowrap")
@@ -6402,21 +6403,17 @@ def _condition(context: dict[str, Any], index: int, row: dict[str, Any]) -> None
         del rows[index]
 
     with ui.element("div").classes("console-condition"):
-        which = ui.select({one.name: one.label for one in known
-                           if (one.name not in used and one.askable)
-                           or one.name == field.name},
-                          value=field.name) \
-            .props("dense borderless options-dense") \
-            .classes("console-edit-field console-edit-select")
+        which = dropdown.Select({one.name: one.label for one in known
+                                 if (one.name not in used and one.askable)
+                                 or one.name == field.name},
+                                value=field.name)
         which.on_value_change(lambda: _edit_rules(context, moved_to))
         if field.summary:
             which.tooltip(field.summary)
         asks = field.operators
         if len(asks) > 1:
-            how = ui.select({op: collection_rules.operator_word(op)
-                             for op in asks}, value=row.get("op")) \
-                .props("dense borderless options-dense") \
-                .classes("console-edit-field console-edit-select")
+            how = dropdown.Select({op: collection_rules.operator_word(op)
+                                   for op in asks}, value=row.get("op"))
             how.on_value_change(lambda: _edit_rules(context, put(
                 op=how.value, value=_kept_value(row, how.value))))
         else:
@@ -6450,10 +6447,8 @@ def _condition_value(context: dict[str, Any], field: collection_rules.Field,
         _many_values(context, field, value, put)
         return
     if op in (collection_rules.AT_LEAST, collection_rules.EXACTLY):
-        stars = ui.select({one: t("console.stars.5", n=one) for one in field.values},
-                          value=(value if value in field.values else None)) \
-            .props("dense borderless options-dense") \
-            .classes("console-edit-field console-edit-select")
+        stars = dropdown.Select({one: t("console.stars.5", n=one) for one in field.values},
+                                value=(value if value in field.values else None))
         stars.on_value_change(lambda: _edit_rules(context, put(value=stars.value)))
         return
     if op == collection_rules.BETWEEN:
@@ -6492,7 +6487,7 @@ def _many_values(context: dict[str, Any], field: collection_rules.Field, value: 
     closes a list that is open."""
     chosen = [str(one) for one in value or []]
     offered = [*field.values, *(one for one in chosen if one not in field.values)]
-    control: ui.select
+    control: dropdown.Select
     if field.name == "tags":
         control = tag_chips.Picker(offered, value=chosen,
                                    looks=context["library"].tag_looks(),
@@ -6500,9 +6495,8 @@ def _many_values(context: dict[str, Any], field: collection_rules.Field, value: 
     else:
         control = panel.CountedSelect(offered, field.counts, value=chosen,
                                       typed=len(offered) > 8)
-    control.props('dense borderless options-dense '
-                  'popup-content-class="console-picker-popup"') \
-        .classes("console-edit-field console-edit-many w-full min-w-0")
+    control.props('popup-content-class="console-picker-popup"') \
+        .classes("w-full min-w-0")
     held = {"open": False}
 
     def picked() -> None:
@@ -6647,16 +6641,12 @@ def _order_bar(context: dict[str, Any], row: dict[str, Any]) -> None:
     with ui.row().classes("items-center gap-x-4 gap-y-1 w-full console-order-bar"):
         with ui.row().classes("items-center gap-2 no-wrap grow"):
             ui.label(t("console.workbench.order")).classes("console-order-label")
-            ui.select(orders, value=by, on_change=ordered) \
-                .props("dense borderless options-dense") \
-                .classes("console-edit-field console-edit-select")
+            dropdown.Select(orders, value=by, on_change=ordered)
             if by in DIRECTION_WORDS:
                 words = DIRECTION_WORDS[by]
-                ui.select({way: t(words[way]) for way in ("asc", "desc")},
-                          value=direction or NATURAL_DIRECTION[by],
-                          on_change=turned) \
-                    .props("dense borderless options-dense") \
-                    .classes("console-edit-field console-edit-select")
+                dropdown.Select({way: t(words[way]) for way in ("asc", "desc")},
+                                value=direction or NATURAL_DIRECTION[by],
+                                on_change=turned)
             if ranking:
                 ui.label(read_state(ranking) if ranking.get("offered")
                          else t("console.workbench.ranked_off")) \
@@ -7187,8 +7177,7 @@ def _add_control(context: dict[str, Any], members: list[dict]) -> None:
     picker = panel.GamePicker(games, collection_adds.holds(members)[0],
                               label=t("console.workbench.add_games"),
                               art=context["library"].game_art()) \
-        .props('dense outlined options-dense input-debounce=0 '
-               'hide-selected fill-input clearable') \
+        .props('input-debounce=0 hide-selected fill-input clearable') \
         .classes("w-full mt-2")
     (context["library"].list_art_look() or list_art.Look()).in_panel() \
         .apply_to_options(picker, "console-picker-popup")

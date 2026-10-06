@@ -42,6 +42,7 @@ from console import (
     candidates,
     confirm,
     deeplink,
+    dropdown,
     game_tables,
     media_ownership,
     offload,
@@ -348,9 +349,10 @@ class _Sources:
                 return
             # The control before what it controls: built the other way round, the
             # picker sits under the folder it chose.
-            picker = (ui.select({item["path"]: _start_name(item) for item in starts},
-                                value=starts[0]["path"], label=t("console.mediasource.start"))
-                      .props("outlined dense").classes("w-full")
+            picker = (dropdown.Select({item["path"]: _start_name(item) for item in starts},
+                                      value=starts[0]["path"],
+                                      label=t("console.mediasource.start"),
+                                      look=dropdown.OUTLINED).classes("w-full")
                       if len(starts) > 1 else None)
             listing = ui.column().classes("w-full gap-1 console-source-fill")
             if picker is not None:

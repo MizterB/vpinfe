@@ -35,6 +35,7 @@ from common.labels import humanize
 from console import (
     busy,
     confirm,
+    dropdown,
     game_tables,
     offload,
     panel,
@@ -601,9 +602,8 @@ def _header(state: dict[str, Any], aimable: list[dict[str, Any]], aim: Any,
             async def chosen(event: Any) -> None:
                 await aim(by_id.get(event.value, {}))
 
-            ui.select(names, value=state["target"].get("device_id"),
-                      on_change=chosen) \
-                .props("dense borderless options-dense") \
+            dropdown.Select(names, value=state["target"].get("device_id"),
+                            on_change=chosen) \
                 .classes("remote-target grow min-w-0")
         elif aimable:
             ui.label(target_name(state["target"])).classes("remote-target-name truncate")
@@ -1404,9 +1404,9 @@ def _play(state: dict[str, Any],
         if not named:
             return
         with picker:
-            ui.select({"": t("console.remote.all_games")} | {name: name for name in named},
-                      value=state.get("collection") or "", on_change=narrow) \
-                .props("dense outlined options-dense").classes("w-full")
+            dropdown.Select({"": t("console.remote.all_games")} | {name: name for name in named},
+                            value=state.get("collection") or "", on_change=narrow,
+                            look=dropdown.OUTLINED).classes("w-full")
 
     def listed() -> None:
         listing.clear()

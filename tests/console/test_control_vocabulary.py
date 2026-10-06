@@ -23,28 +23,30 @@ from console import binding_table, panel, settings, themes
 
 CONSOLE = Path(__file__).resolve().parent.parent.parent / "console"
 
-CONTROLS = re.compile(r"ui\.(switch|checkbox|input|select|number|textarea)\(")
+# Not `select`: a dropdown is always `dropdown.Select`, which
+# `test_every_dropdown_is_one.py` holds to.
+CONTROLS = re.compile(r"ui\.(switch|checkbox|input|number|textarea)\(")
 
 # What each module draws by hand, and why it is not a fact row. `panel.py` is the home of
 # the grammar and is not counted. Raising a number is a decision: say what the control is
 # for, or use `panel`.
 BUDGET = {
-    "workbench.py": (14, "panel rows with bespoke wiring - chips, debounce - plus one "
-                         "find box. The path a table is pointed at is a "
-                         "`panel.path_field` and its launcher a `panel.MarkedSelect`, and "
-                         "neither is among them. One is a tick per detail a re-match "
-                         "would change: a multi-select would hide the old and new "
-                         "values, which are the whole of what is being decided. Eight "
-                         "are a collection's rule rows and order bar, which are rows of "
-                         "three controls rather than a label and a value. Three are "
-                         "All Settings' filter bar, the area picker and two ticks, which "
-                         "ask what to show rather than hold a value"),
-    "logs.py": (6, "the control bar above the viewport: for the log two pickers, a level and "
-                   "a find; for Jobs an outcome picker and a find"),
+    "workbench.py": (8, "panel rows with bespoke wiring - chips, debounce - plus one "
+                        "find box. The path a table is pointed at is a "
+                        "`panel.path_field` and its launcher a `panel.MarkedSelect`, and "
+                        "neither is among them. One is a tick per detail a re-match "
+                        "would change: a multi-select would hide the old and new "
+                        "values, which are the whole of what is being decided. Some "
+                        "are a collection's rule rows and order bar, which are rows of "
+                        "several controls rather than a label and a value. Three are "
+                        "All Settings' filter bar, a find and two ticks, which "
+                        "ask what to show rather than hold a value"),
+    "logs.py": (2, "the find box in the control bar above the viewport, for the log "
+                   "and for Jobs"),
     "games.py": (1, "a tick per column in the column picker, a menu rather than a fact "
                     "row. The view picker is `panel.DescribedSelect`, which is where a "
                     "picker whose options explain themselves lives"),
-    "mediasource.py": (2, "a start picker and a search, both toolbar"),
+    "mediasource.py": (1, "a search, toolbar"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
     "about.py": (1, "the textarea a browser that will not copy falls back to"),
     "placement_panel.py": (1, "the textarea that shows the one line to copy into a "
@@ -57,12 +59,9 @@ BUDGET = {
     "dialog.py": (2, "the one-line and the several-line field every dialog asks with - "
                      "the panel's own, in the frame dialogs share, answering nothing until "
                      "the dialog does"),
-    "remote.py": (3, "the target picker in the header, which says which machine every "
-                     "action on the screen is about, and the find field and collection "
-                     "picker above the game list. None is a fact row: two are questions "
-                     "about what to show and the third is about where. A library is "
-                     "longer than a screen, and a list longer than a screen is typed "
-                     "into rather than scrolled"),
+    "remote.py": (1, "the find field above the game list, a question about what to show "
+                     "rather than a fact row. A library is longer than a screen, and a "
+                     "list longer than a screen is typed into rather than scrolled"),
     "vps_match.py": (1, "the query the catalog is searched with, which starts as the "
                         "game's name and is meant to be edited. Not a fact row: it holds "
                         "what is being asked, never what the game is"),

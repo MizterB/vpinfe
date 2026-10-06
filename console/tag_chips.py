@@ -15,6 +15,7 @@ from nicegui import ui
 
 from common.games.tag_registry import COLORS, derived_color
 from common.i18n import t
+from console import dropdown
 
 BOX = "console-tags"
 CHIP = "console-tag"
@@ -62,7 +63,7 @@ def swatches(chosen: str, derived: str, on_pick: Callable[[str], Any]) -> None:
                 ui.element("span").classes(dot_class(color or derived))
 
 
-class Picker(ui.select):
+class Picker(dropdown.Select):
     """Tags to choose from, each drawn as its chip.
 
     `adds` lets a tag be typed in that nothing carries yet. `props.opt` is a bare string
@@ -100,12 +101,14 @@ class Picker(ui.select):
 
     def __init__(self, options: Sequence[str], *, value: Sequence[str],
                  looks: Mapping[str, Mapping[str, Any]], adds: bool = False,
-                 counts: Mapping[str, int] | None = None) -> None:
+                 counts: Mapping[str, int] | None = None,
+                 look: str = dropdown.FIELD) -> None:
         # Before `super().__init__`, which builds the payload for the first time.
         self.looks = dict(looks)
         self.counts = dict(counts or {})
         super().__init__(list(options), multiple=True, value=list(value),
-                         with_input=True, new_value_mode="add-unique" if adds else None)
+                         with_input=True, new_value_mode="add-unique" if adds else None,
+                         look=look)
         self.add_slot("selected-item", self.SELECTED)
         self.add_slot("option", self.OPTION)
 

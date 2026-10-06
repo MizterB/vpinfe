@@ -36,7 +36,7 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from console import about, busy, deeplink, grid, jobs_list, offload, panel, verbs
+from console import about, busy, deeplink, dropdown, grid, jobs_list, offload, panel, verbs
 from console import devices as devices_page
 from console.data import Library
 from console.on_page import on_page
@@ -199,9 +199,9 @@ def _draw_bar(bar: Any, library: Library, held: dict[str, Any],
                 deeplink.sync(state)
             return remember("source", value)
 
-        source = ui.select(_source_options(held),
-                           value=JOBS if held["view"] == JOBS else held["source"]) \
-            .props("dense outlined").classes("w-44") \
+        source = dropdown.Select(_source_options(held), look=dropdown.OUTLINED,
+                                 value=JOBS if held["view"] == JOBS else held["source"]) \
+            .classes("w-44") \
             .on_value_change(lambda e: pick(e.value or ""))
         if held["path"] and held["view"] != JOBS:
             source.tooltip(held["path"])
@@ -211,14 +211,14 @@ def _draw_bar(bar: Any, library: Library, held: dict[str, Any],
             _jobs_controls(held, remember)
             return
 
-        ui.select({STREAM: t("console.logs.stream"), DIGEST: t("console.logs.digest")},
-                  value=held["view"]) \
-            .props("dense outlined").classes("w-32") \
+        dropdown.Select({STREAM: t("console.logs.stream"), DIGEST: t("console.logs.digest")},
+                        value=held["view"], look=dropdown.OUTLINED) \
+            .classes("w-32") \
             .on_value_change(lambda e: remember("view", e.value or STREAM))
 
-        ui.select({one: (t(f"config.logger.level.choice.{one.lower()}") if one
-                         else t("console.logs.all_levels")) for one in LEVELS},
-                  value=held["level"]).props("dense outlined").classes("w-36") \
+        dropdown.Select({one: (t(f"config.logger.level.choice.{one.lower()}") if one
+                               else t("console.logs.all_levels")) for one in LEVELS},
+                        value=held["level"], look=dropdown.OUTLINED).classes("w-36") \
             .on_value_change(lambda e: remember("level", e.value or ""))
 
         ui.input(placeholder=t("console.logs.find"), value=held["contains"]) \
@@ -274,9 +274,9 @@ async def _download(library: Library, held: dict[str, Any]) -> None:
 
 def _jobs_controls(held: dict[str, Any], remember: Callable[[str, Any], Any]) -> None:
     """The jobs bar: which outcome, and a find that narrows the grid as it is typed."""
-    ui.select({"": t("console.jobs.all_outcomes"),
-               **{one: t(f"console.jobs.outcome.{one}") for one in jobs_list.OUTCOMES}},
-              value=held["outcome"]).props("dense outlined").classes("w-36") \
+    dropdown.Select({"": t("console.jobs.all_outcomes"),
+                     **{one: t(f"console.jobs.outcome.{one}") for one in jobs_list.OUTCOMES}},
+                    value=held["outcome"], look=dropdown.OUTLINED).classes("w-36") \
         .on_value_change(lambda e: remember("outcome", e.value or ""))
 
     def find(text: str) -> None:

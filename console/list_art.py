@@ -20,7 +20,7 @@ from nicegui import ui
 from common import config_schema
 from common.config_access import cfg_bool, cfg_get
 from common.paths import get_ini_config
-from console import art
+from console import art, dropdown
 
 # The row field holding the address, "" where the row has none. A row without the field
 # is drawn with no frame at all.
@@ -91,7 +91,7 @@ class Look:
         """Put the look on `element`, an ancestor of the frames it sizes."""
         element.classes(self._classes).style(f"--art-h: {_ART_PX[self.height]}px")
 
-    def apply_to_options(self, select: ui.select, popup_classes: str) -> None:
+    def apply_to_options(self, select: dropdown.Select, popup_classes: str) -> None:
         """Put the look on `select`'s options, which open in a popup outside it, beside
         the popup's own `popup_classes`."""
         select.props(f'popup-content-class="{popup_classes} {self._classes}" '
