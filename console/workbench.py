@@ -51,6 +51,7 @@ from common.online import vps_kinds
 from console import (
     art,
     art_fill,
+    backup_rows,
     busy,
     candidates,
     collection_adds,
@@ -2151,11 +2152,12 @@ async def _game_block(context: dict[str, Any]) -> None:
                if found.get("name") else [])
     held = bool(found) or not vps_id or await offload.io(library.vps_catalog_held)
     links = await offload.io(library.outside_links, context["game_id"])
+    copies = await backup_rows.listed(library, "game", context["game_id"])
     # Under Tables the table's own section leads with them, and saying each twice on
     # one panel is what teaches a reader to skip the block.
     findings = [] if context["lens"] else await _findings(context, context["tables"])
     with ui.column().classes("gap-0 console-form"):
-        _rows(ui, findings + _game_entries(context, found, differs, held, links))
+        _rows(ui, findings + _game_entries(context, found, differs, held, links, copies))
         _tables_block(context, held)
 
 
@@ -2383,7 +2385,8 @@ def _outside_lines(links: Sequence[dict[str, Any]]) -> None:
 
 def _game_entries(context: dict[str, Any], entry: dict[str, Any],
                   differs: list[dict[str, Any]], held: bool,
-                  links: Sequence[dict[str, Any]] = ()) -> list[tuple[Any, Any]]:
+                  links: Sequence[dict[str, Any]] = (),
+                  copies: list[dict[str, Any]] | None = None) -> list[tuple[Any, Any]]:
     game = context["game"]
     # The folder is the tail, not the whole path: the library root is the same for
     # every game and repeating it costs the only column that has to hold a name.
@@ -2424,6 +2427,10 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
         *_outside(links),
         (t("word.folder"), PurePosixPath(folder).name or folder or "-"),
     ]
+    if copies is not None:
+        entries.append((t("console.section.backups"), backup_rows.row(
+            context["library"], "game", context["game_id"], str(game.get("name") or folder),
+            copies, context["rebuild"])))
     return entries + _game_marks(context) + _game_frontend(context)
 
 
@@ -5727,86 +5734,30 @@ async def _launcher_details(context: dict[str, Any]) -> None:
         _rows(ui, entries)
 
 
-# Why a copy was taken, in the words somebody would use.
-BACKUP_REASONS = {"manual": t("console.workbench.taken"),
-        "before-restore": t("console.workbench.before_restore")}
-
-
 def _app_keeps_settings(context: dict[str, Any]) -> bool:
     """Whether there is a settings file to copy at all. `generic` keeps none."""
     return bool((context.get("launcher") or {}).get("has_config")) \
         and (bool(context.get("config_groups")) or _program_is_there(context))
 
 
-def _backup_when(one: dict) -> str:
-    """When it was taken, as a person reads a date, with any label beside it."""
-    said = when.ago(one.get("taken_at"), timed=True) or t("word.unknown")
-    label = str(one.get("label") or "")
-    return t("console.workbench.backup_labeled", when=said, label=label) if label else said
-
-
 async def _config_backups(context: dict[str, Any]) -> None:
-    """The settings file this launcher writes, and the copies kept of it.
-
-    Two verbs rather than a list of rows. A timestamp is not a label - putting one in
-    the label column made the section read like a log somebody had to scan. Which copy
-    to put back is a question, so it is asked where questions are asked.
-    """
+    """The settings file this launcher writes, and the copies kept of it."""
     library, launcher = context["library"], context["launcher"]
+    launcher_id = launcher["launcher_id"]
     try:
-        found = await offload.io(library.config_backups, launcher["launcher_id"])
-    except Exception as exc:  # noqa: BLE001
-        _rows(ui, [panel.note(t("console.workbench.copies_failed"), hint=why(exc))])
-        return
-
-    held = list(found.get("backups") or [])
+        found = await offload.io(library.launcher_config, launcher_id)
+    except Exception:  # noqa: BLE001 - the copies are listed apart from the settings
+        found = {}
     named = list((found.get("files") or {}).values())
+    held = await backup_rows.listed(library, "launcher", launcher_id)
     playing = bool(context.get("playing"))
-
-    def take() -> Any:
-        return take_copy(context)
-
     entries: list[tuple[Any, Any]] = []
     if named:
         entries.append((t("word.file"), _file_value(named[0])))
-    entries.append((t("console.workbench.copies"), _copies_value(held, take, found, context,
-            playing)))
-    entries.append(panel.note(
-        t("console.workbench.kept",
-                value=(found.get('kept_in') or
-                        t("console.workbench.config_folder")))))
+    entries.append((t("console.section.backups"), backup_rows.row(
+        library, "launcher", launcher_id, str(launcher.get("display_name") or launcher_id),
+        held, context["rebuild"], hint=t(PLAYING_NOTE) if playing else "")))
     _rows(ui, entries)
-
-
-@on_page
-async def take_copy(context: dict[str, Any]) -> None:
-    """A copy of the launcher's settings file as it is now. Needs `library`, `launcher`
-    and an awaitable `rebuild` in the context."""
-    try:
-        await run.io_bound(context["library"].take_config_backup,
-                           context["launcher"]["launcher_id"], "")
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.snapshot_failed"), caption=why(exc),
-                  type="negative")
-        return
-    ui.notify(t("word.copied"), type="positive")
-    await context["rebuild"]()
-
-
-@on_page
-async def choose_copy(context: dict[str, Any]) -> None:
-    """Which copy to put back, read when asked: a menu is drawn long before it is used."""
-    try:
-        found = await offload.io(context["library"].config_backups,
-                                 context["launcher"]["launcher_id"])
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.copies_failed"), caption=why(exc), type="negative")
-        return
-    held = list(found.get("backups") or [])
-    if not held:
-        ui.notify(t("console.workbench.restore_empty"), type="warning")
-        return
-    await _restore_dialog(held, context, False)
 
 
 def _file_value(path: str) -> Callable[[], None]:
@@ -5816,83 +5767,6 @@ def _file_value(path: str) -> Callable[[], None]:
     def draw() -> None:
         ui.label(_Path(path).name).classes(
             "console-fact-value truncate min-w-0").tooltip(path)
-    return draw
-
-
-def _said_count(held: list[dict]) -> str:
-    if not held:
-        return t("console.workbench.none_yet")
-    newest = _backup_when(held[0])
-    return (t("console.workbench.one_taken", newest=(newest)) if len(held) == 1
-            else t("console.workbench.some_newest", count=len(held), newest=(newest)))
-
-
-def _copies_value(held: list[dict], take: Callable, found: dict,
-                  context: dict[str, Any], playing: bool) -> Callable[[], None]:
-    async def choose() -> None:
-        await _restore_dialog(held, context, playing)
-
-    def draw() -> None:
-        with ui.row().classes("items-center gap-2 no-wrap"):
-            ui.label(_said_count(held)).classes("console-fact-value truncate min-w-0")
-            panel.action(t("console.workbench.copy_now"), take, icon=verbs.COPY,
-                         inline=True, enabled=not playing,
-                         hint=t(PLAYING_NOTE) if playing else "")()
-            panel.action(t("word.restore"), choose, icon=verbs.RESTORE, inline=True,
-                         enabled=bool(held) and not playing,
-                         hint=(t(PLAYING_NOTE) if playing
-                               else "" if held
-                               else t("console.workbench.restore_empty")))()
-    return draw
-
-
-async def _restore_dialog(held: list[dict], context: dict[str, Any],
-                          playing: bool) -> None:
-    """Which copy, asked where a question belongs rather than as a row of buttons."""
-    library = context["library"]
-    launcher_id = context["launcher"]["launcher_id"]
-
-    @on_page
-    async def put_back(name: str, dialog: Any) -> None:
-        dialog.close()
-        if not await confirm.ask(
-                t("console.workbench.restore_question"),
-                detail=t("console.workbench.restore_detail"),
-                confirm=t("word.restore"), icon=verbs.RESTORE):
-            return
-        try:
-            await run.io_bound(library.restore_config_backup, launcher_id, name)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.restore_failed"), caption=why(exc),
-                      type="negative")
-            return
-        ui.notify(t("console.workbench.restored"), type="positive")
-        await context["rebuild"]()
-
-    with frame.opened(t("console.workbench.restore_title"), wide=True) as box:
-        ui.label(t("console.workbench.restore_intro")).classes("console-help px-3")
-        with ui.column().classes("gap-0 w-full console-form px-3"):
-            _rows(ui, [(_backup_when(one),
-                        _one_copy(one, put_back, box, playing)) for one in held])
-        with frame.footer():
-            frame.cancel(box.close)
-    box.open()
-
-
-def _one_copy(one: dict, put_back: Callable, dialog: Any,
-              playing: bool) -> Callable[[], None]:
-    reason = BACKUP_REASONS.get(str(one.get("reason") or ""), "")
-
-    async def go() -> None:
-        await put_back(str(one.get("name") or ""), dialog)
-
-    def draw() -> None:
-        with ui.row().classes("items-center gap-2 no-wrap"):
-            if reason:
-                panel.state(reason, "off")()
-            panel.action(t("console.workbench.put_back"), go, icon=verbs.RESTORE,
-                         inline=True, enabled=not playing,
-                         hint=t("console.workbench.put_back.help"))()
     return draw
 
 

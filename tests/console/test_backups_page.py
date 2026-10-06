@@ -149,7 +149,7 @@ class Deleting(unittest.IsolatedAsyncioTestCase):
         with mock.patch("console.on_page.ui"), \
                 mock.patch.object(backups.confirm, "ask", mock.AsyncMock(return_value=True)), \
                 mock.patch.object(backups, "ui"):
-            await backups._delete(library, [row], refresh)
+            await backups.delete(library, [row], refresh)
 
         library.delete_backup.assert_called_once_with("c1")
         refresh.assert_awaited_once_with()

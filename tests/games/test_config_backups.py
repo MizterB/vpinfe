@@ -1,4 +1,4 @@
-"""Copies of the file an app keeps its settings in.
+"""Putting back a copy of the file an app keeps its settings in.
 
 Restoring the wrong one is a mistake somebody makes once, and without a copy of what was
 there it is the last one they get to make.
@@ -9,7 +9,6 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import mock
 
 from common.games import config_backups as backups
 
@@ -19,146 +18,77 @@ class _Case(unittest.TestCase):
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        self.home = self.root / "backups"
+        self.home.mkdir()
         self.ini = self.root / "VPinballX.ini"
         self.ini.write_text("[A]\nB = 1\n")
         self.files = {"application": str(self.ini)}
-        patch = mock.patch.object(backups, "BACKUPS_DIR", self.root / "backups")
-        patch.start()
-        self.addCleanup(patch.stop)
-
-
-class TakeTests(_Case):
-    def test_a_copy_carries_when_and_why(self) -> None:
-        taken = backups.take("L1", self.files, label="before the change")[0]
-
-        self.assertTrue(taken.taken_at)
-        self.assertEqual(taken.reason, backups.MANUAL)
-        self.assertEqual(taken.label, "before-the-change")
-
-    def test_a_file_that_is_not_there_is_not_copied(self) -> None:
-        self.assertEqual(backups.take("L1", {"x": str(self.root / "gone.ini")}), [])
-
-    def test_each_launcher_keeps_its_own(self) -> None:
-        """Two launchers on one machine each have their own file, and copies of both in
-        one folder would be told apart by a filename alone."""
-        backups.take("L1", self.files)
-        backups.take("L2", self.files)
-
-        self.assertEqual(len(backups.held("L1")), 1)
-        self.assertEqual(len(backups.held("L2")), 1)
-
-    def test_a_label_cannot_carry_anything_into_a_filename(self) -> None:
-        taken = backups.take("L1", self.files, label="../../etc/passwd")[0]
-
-        self.assertNotIn("/", taken.name)
-        self.assertNotIn("..", taken.name)
-
-
-    def test_the_folder_is_named_for_a_person_looking_in_it(self) -> None:
-        """Somebody who opens Finder should not have to work out which of two
-        ten-character ids is theirs."""
-        backups.take("a4CbR4RnyE", self.files, named="Visual Pinball X")
-
-        home = backups.home_for("a4CbR4RnyE", "Visual Pinball X")
-        self.assertTrue(home.endswith("Visual-Pinball-X--a4CbR4RnyE"))
-        self.assertTrue(Path(home).is_dir())
-
-    def test_and_the_id_still_keeps_two_of_one_name_apart(self) -> None:
-        first = backups.home_for("aaa", "Visual Pinball X")
-        second = backups.home_for("bbb", "Visual Pinball X")
-
-        self.assertNotEqual(first, second)
+        self.copy = self.home / "VPinballX.ini.vpinfe-20260101T000000Z"
+        self.copy.write_text("[A]\nB = 1\n")
 
 
 class RestoreTests(_Case):
     def test_putting_one_back_restores_what_it_held(self) -> None:
-        made = backups.take("L1", self.files)[0]
         self.ini.write_text("[A]\nB = 2\n")
 
-        backups.restore("L1", made.name, self.files)
+        backups.restore(self.copy.name, self.files, home=self.home)
 
         self.assertEqual(self.ini.read_text(), "[A]\nB = 1\n")
 
     def test_and_keeps_what_was_there_first(self) -> None:
         """So putting the wrong one back is something to undo rather than regret."""
-        made = backups.take("L1", self.files)[0]
         self.ini.write_text("[A]\nB = 2\n")
 
-        safety = backups.restore("L1", made.name, self.files)
+        safety = backups.restore(self.copy.name, self.files, home=self.home)
 
         self.assertIsNotNone(safety)
-        self.assertEqual(safety.reason, backups.BEFORE_RESTORE)
-        self.assertIn(backups.BEFORE_RESTORE, [one.reason for one in backups.held("L1")])
-
-    def test_what_was_there_is_named_for_the_file_and_says_why(self) -> None:
-        made = backups.take("L1", self.files)[0]
-        self.ini.write_text("[A]\nB = 2\n")
-
-        safety = backups.restore("L1", made.name, self.files)
-
+        self.assertEqual(safety.read_text(), "[A]\nB = 2\n")
         self.assertRegex(safety.name, r"^VPinballX\.ini\.vpinfe-\d{8}T\d{6}Z-restore$")
-        self.assertRegex(safety.taken_at, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
+    def test_a_file_that_is_not_there_is_put_back_without_a_safety_copy(self) -> None:
+        self.ini.unlink()
+
+        safety = backups.restore(self.copy.name, self.files, home=self.home)
+
+        self.assertIsNone(safety)
+        self.assertEqual(self.ini.read_text(), "[A]\nB = 1\n")
 
     def test_a_copy_taken_before_a_restore_can_be_put_back_too(self) -> None:
-        made = backups.take("L1", self.files)[0]
         self.ini.write_text("[A]\nB = 2\n")
-        safety = backups.restore("L1", made.name, self.files)
+        safety = backups.restore(self.copy.name, self.files, home=self.home)
 
-        backups.restore("L1", safety.name, self.files)
+        backups.restore(safety.name, self.files, home=self.home)
 
         self.assertEqual(self.ini.read_text(), "[A]\nB = 2\n")
 
-    def test_a_second_restore_keeps_only_the_newest_copy_it_took_and_all_of_yours(self) -> None:
-        made = backups.take("L1", self.files)[0]
-        for count in range(3):
-            self.ini.write_text(f"[A]\nB = {count + 2}\n")
-            backups.restore("L1", made.name, self.files)
-
-        held = backups.held("L1")
-        self.assertEqual([one.reason for one in held].count(backups.BEFORE_RESTORE), 1)
-        self.assertEqual([one.reason for one in held].count(backups.MANUAL), 1)
-        self.assertEqual(self.ini.read_text(), "[A]\nB = 1\n")
-
-    def test_restoring_from_an_older_safety_copy_does_not_remove_it_first(self) -> None:
-        made = backups.take("L1", self.files)[0]
-        self.ini.write_text("one")
-        first = backups.restore("L1", made.name, self.files)
-        self.ini.write_text("two")
-
-        backups.restore("L1", first.name, self.files)
-
-        self.assertEqual(self.ini.read_text(), "one")
-
-    def test_a_manual_label_that_looks_like_a_kept_copy_is_still_read_as_manual(self) -> None:
-        made = backups.take("L1", self.files, label="x.vpinfe-1")[0]
-
-        self.assertEqual(made.reason, backups.MANUAL)
-        self.assertRegex(made.taken_at, r"^\d{4}-")
-
     def test_a_name_that_is_not_there_is_refused(self) -> None:
         with self.assertRaises(FileNotFoundError):
-            backups.restore("L1", "nothing.ini", self.files)
+            backups.restore("nothing.ini", self.files, home=self.home)
 
     def test_a_name_that_climbs_out_of_the_folder_is_refused(self) -> None:
         with self.assertRaises(FileNotFoundError):
-            backups.restore("L1", "../../../etc/passwd", self.files)
+            backups.restore("../../../etc/passwd", self.files, home=self.home)
 
     def test_a_copy_of_a_file_this_app_does_not_keep_is_refused(self) -> None:
-        made = backups.take("L1", self.files)[0]
-
         with self.assertRaises(ValueError):
-            backups.restore("L1", made.name, {"other": str(self.root / "Other.ini")})
+            backups.restore(self.copy.name, {"other": str(self.root / "Other.ini")},
+                            home=self.home)
 
 
-class OrderTests(_Case):
-    def test_the_newest_is_first(self) -> None:
-        """The one somebody wants is almost always the last one taken."""
-        backups.take("L1", self.files, label="older")
-        with mock.patch.object(backups, "datetime") as clock:
-            clock.now.return_value.strftime.return_value = "20991231T235959Z"
-            backups.take("L1", self.files, label="newer")
+class TargetTests(_Case):
+    def test_the_file_is_the_one_the_copy_was_taken_under(self) -> None:
+        self.assertEqual(backups.target_for(self.copy, self.files), self.ini)
 
-        self.assertEqual(backups.held("L1")[0].label, "newer")
+    def test_a_file_the_app_does_not_keep_has_no_target(self) -> None:
+        self.assertIsNone(backups.target_for(self.copy, {"other": "/x/Other.ini"}))
+
+
+class SafeTests(unittest.TestCase):
+    def test_a_label_cannot_carry_anything_into_a_filename(self) -> None:
+        label = backups.safe("../../etc/passwd")
+
+        self.assertNotIn("/", label)
+        self.assertNotIn("..", label)
 
 
 if __name__ == "__main__":

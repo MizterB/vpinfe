@@ -64,8 +64,9 @@ class Restored:
                 "pending": self.pending, "skipped": self.skipped}
 
 
-def listing() -> dict[str, Any]:
-    return {"copies": [one.as_dict() for one in places.scan()], "pending": pending.waiting()}
+def listing(of_kind: str = "", of_id: str = "") -> dict[str, Any]:
+    return {"copies": [one.as_dict() for one in places.scan(of_kind, of_id)],
+            "pending": pending.waiting()}
 
 
 def _found(copy_id: str) -> Copy:
@@ -140,13 +141,12 @@ def _restore_launcher(one: Copy, place: str, path: Path) -> Restored:
     files = launcher_ops.config_files(owner)
     if place == PLACE_LAUNCHER:
         try:
-            safety = config_backups.restore(owner.launcher_id, path.name, files,
-                                            owner.display_name, home=path.parent)
+            safety = config_backups.restore(path.name, files, home=path.parent)
         except FileNotFoundError as exc:
             raise service_errors.NotFoundError(why(exc)) from exc
         except ValueError as exc:
             raise service_errors.RefusedError(why(exc)) from exc
-        return Restored(one, _kept(_kept_copy(safety.path if safety else None,
+        return Restored(one, _kept(_kept_copy(str(safety) if safety else None,
                                               PLACE_LAUNCHER)))
     target = _target_for_aside(place, path, files)
     if target is None:

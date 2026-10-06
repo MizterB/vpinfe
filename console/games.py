@@ -23,6 +23,7 @@ from common.media_specs import media_label_map
 from console import (
     art,
     art_fill,
+    backup_rows,
     busy,
     collection_adds,
     deeplink,
@@ -685,6 +686,9 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             # land is a different job from managing what a phone holds.
             panel.menu_entry(t("console.games.send_device"),
                              lambda: send_to_device.ask_where(chosen, state))
+            panel.menu_entry(t("console.backups.back_up_title"),
+                             lambda: backup_rows.back_up_games(
+                                 library, [str(one["id"]) for one in chosen]))
             ui.separator()
             collection_adds.draw(offer(chosen, ""), known, bulk_menu.close)
             ui.separator()

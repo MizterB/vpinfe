@@ -1094,21 +1094,11 @@ class ApiClient:
         return dict(self._get(
             f"/launchers/{launcher_id}/config?table={table}&scope={scope}") or {})
 
-    def config_backups(self, launcher_id: str) -> dict:
-        """Copies of the file this launcher's app keeps its settings in."""
-        return dict(self._get(f"/launchers/{launcher_id}/config/backups") or {})
-
-    def take_config_backup(self, launcher_id: str, label: str = "") -> dict:
-        return dict(self._post(f"/launchers/{launcher_id}/config/backups",
-                               {"label": label}) or {})
-
-    def restore_config_backup(self, launcher_id: str, name: str) -> dict:
-        return dict(self._post(
-            f"/launchers/{launcher_id}/config/backups/{name}/restore", {}) or {})
-
-    def backups(self) -> dict:
-        """Every copy VPinFE has kept, and which of them wait on a close."""
-        said = self._get("/backups") or {}
+    def backups(self, of_kind: str = "", of_id: str = "") -> dict:
+        """Every copy VPinFE has kept, or those of one game, launcher or theme, and which of
+        them wait on a close."""
+        query = f"?of_kind={quote(of_kind)}&of={quote(of_id, safe='')}" if of_kind else ""
+        said = self._get(f"/backups{query}") or {}
         return {"copies": list(said.get("copies") or []),
                 "pending": list(said.get("pending") or [])}
 

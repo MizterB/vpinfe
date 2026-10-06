@@ -1048,6 +1048,18 @@ becomes an exception to its rules - and each act hands it the reversal that puts
 exactly what it changed. What cannot be undone still asks first, through
 `console/confirm.py`.
 
+### A copy is kept in one list, and every panel opens onto it
+
+Every copy VPinFE keeps is listed once, on System > Backups, and a game, a launcher or a
+theme answers for its own on its panel. The panel's **Backups** row says how many there are
+and when the newest was taken, with **Back up now** and **Restore...**. Restore... opens
+that list in a dialog narrowed to the one thing, with **Open in Backups** for the whole
+page, so the verbs, the columns and the Undo on a restore are the ones System > Backups
+has. A new kind of copy gets a row the same way and no list of its own.
+
+Back up now takes one copy without asking, and no copy is taken on its own before an edit:
+Back up now and the Undo on a restore cover it. The row is drawn by `console/backup_rows.py`.
+
 ### A press that is somebody else's asks first, and has no Undo
 
 Giving a key to one action takes it from another, and an Undo offered after the answer would

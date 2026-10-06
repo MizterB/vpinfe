@@ -81,7 +81,7 @@ _SHOWN = """(() => {
   return ids;
 })()"""
 
-_TAKEN_FILTER: dict[str, Any] = {
+TAKEN_FILTER: dict[str, Any] = {
     ":valueFormatter": "params => (params.data || {}).taken_text || ''",
     "filter": "agDateColumnFilter",
     "filterParams": {":comparator": _BEFORE_DAY, "filterOptions": ["lessThan"],
@@ -101,7 +101,7 @@ COLUMNS = [
     grid_module.column("file", t("word.file"), 280, tooltipField="path"),
     grid_module.column("taken", t("console.backups.taken"), 190,
                        tooltipField="taken_utc",
-                       **_TAKEN_FILTER),
+                       **TAKEN_FILTER),
     grid_module.column("written_by", t("console.backups.written_by"), 130,
                        help=t("console.backups.written_by.help"),
                        **grid_module.choice_filter(_choices(BY_WORDS))),
@@ -126,8 +126,9 @@ def parts_of(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [one for one in found if not one.get("within")]
 
 
-def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One row per listed copy. The time is kept as the stamp and drawn from the text."""
+def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, Any]]:
+    """One row per listed copy, or per part of a backup as well where `parts` is set. The
+    time is kept as the stamp and drawn from the text."""
     with_records = {str(one["within"]) for one in found
                     if one.get("within") and one.get("of_kind") == kept_copies.OF_VPINFE}
     return [{
@@ -142,12 +143,15 @@ def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
         "taken_utc": str(one.get("taken") or ""),
         "written_by": one.get("written_by") or "",
         "why": one.get("why") or "",
+        "why_text": "" if one.get("why") in (kept_copies.WHY_YOURS, None)
+        else t(WHY_WORDS.get(str(one["why"]), "console.backups.why.yours")),
+        "within": bool(one.get("within")),
         "note": one.get("note") or "",
         "size": int(one.get("size") or 0),
         "size_text": i18n.size(int(one.get("size") or 0)),
         "gone": bool(one.get("gone")),
         "holds_records": one["id"] in with_records,
-    } for one in parts_of(found)]
+    } for one in (found if parts else parts_of(found))]
 
 
 def name_of(row: dict[str, Any]) -> str:
@@ -162,10 +166,11 @@ def summary(shown: list[dict[str, Any]]) -> str:
 
 def build(library: Library, state: dict[str, Any], rerender: Callable[[], None]) -> None:
     body = ui.column().classes("w-full grow min-h-0 gap-0")
-    busy.fill(body, lambda: _fill(library, body, rerender))
+    busy.fill(body, lambda: _fill(library, body, rerender, str(state.pop("find", "") or "")))
 
 
-async def _fill(library: Library, body: Any, rerender: Callable[[], None]) -> None:
+async def _fill(library: Library, body: Any, rerender: Callable[[], None],
+                find: str = "") -> None:
     try:
         found = await offload.io(library.backups)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -182,17 +187,18 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None]) -> No
             bar = panel.grid_bar()
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.backups.search"))
+                search.value = find
             with bar.bottom, panel.bar_end():
                 count = ui.label(summary(built)).classes("text-xs console-label")
                 bulk, bulk_menu = panel.menu_button(verbs.MORE,
                                                     t("console.backups.actions_selected"))
                 with bulk_menu:
                     ui.menu_item(t("word.restore"),
-                                 lambda: _restore(library, picked(), refresh,
+                                 lambda: restore(library, picked(), refresh,
                                                   check=bool(grid_module.hidden_count(table)))) \
                         .classes("console-menu-item")
                     ui.menu_item(t("word.delete"),
-                                 lambda: _delete(library, picked(), refresh)) \
+                                 lambda: delete(library, picked(), refresh)) \
                         .classes("console-menu-item console-menu-danger")
                 bulk.set_visibility(False)
                 panel.add_action([(t("console.backups.take_now"),
@@ -236,6 +242,8 @@ async def _fill(library: Library, body: Any, rerender: Callable[[], None]) -> No
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
+        if find:
+            table.run_grid_method("setGridOption", "quickFilterText", find)
 
         async def counted() -> None:
             drawn = await ui.run_javascript(_SHOWN % table.id) or []
@@ -273,13 +281,14 @@ def acts(library: Library, rows_on: list[dict[str, Any]],
     present = [one for one in rows_on if not one["gone"]]
     entries = [panel.Verb(
         t("word.restore"),
-        (lambda: _restore(library, rows_on, refresh, check=check)) if present else None,
+        (lambda: restore(library, rows_on, refresh, check=check)) if present else None,
         hint="" if present else t("console.backups.owner_gone"))]
     if not many:
         one = rows_on[0]
         entries.append(panel.Verb(t("console.backups.copy_path"), draw=_copy_path(one["path"])))
-    entries.append(panel.Verb(t("word.delete"), lambda: _delete(library, rows_on, refresh),
-                              danger=True))
+    if not any(one["within"] for one in rows_on):
+        entries.append(panel.Verb(t("word.delete"), lambda: delete(library, rows_on, refresh),
+                                  danger=True))
     return entries
 
 
@@ -301,7 +310,7 @@ def _named(rows_on: list[dict[str, Any]]) -> list[str]:
 
 
 @on_page
-async def _delete(library: Library, rows_on: list[dict[str, Any]],
+async def delete(library: Library, rows_on: list[dict[str, Any]],
                   refresh: Callable[[], Awaitable[None]]) -> None:
     if not rows_on:
         return
@@ -329,7 +338,7 @@ def _waits_for_a_restart(row: dict[str, Any]) -> bool:
 
 
 @on_page
-async def _restore(library: Library, rows_on: list[dict[str, Any]],
+async def restore(library: Library, rows_on: list[dict[str, Any]],
                    refresh: Callable[[], Awaitable[None]], *, check: bool = False) -> None:
     rows_on = [one for one in rows_on if not one["gone"]]
     if not rows_on:

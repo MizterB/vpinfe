@@ -65,28 +65,6 @@ def write_launcher_config(launcher_id: str,
     return launcher_ops.write_config(launcher_id, body)
 
 
-@router.get("/{launcher_id}/config/backups", summary="Copies of its settings file",
-            dependencies=[requires(scopes.CONFIG_READ)])
-def list_config_backups(launcher_id: str) -> dict[str, Any]:
-    return launcher_ops.backups(launcher_id)
-
-
-@router.post("/{launcher_id}/config/backups", summary="Take a copy of it now",
-             dependencies=[requires(scopes.CONFIG_WRITE)])
-def take_config_backup(launcher_id: str,
-                       body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
-    return launcher_ops.take_backup(launcher_id, str(body.get("label") or ""))
-
-
-@router.post("/{launcher_id}/config/backups/{name}/restore",
-             summary="Put a copy back",
-             dependencies=[requires(scopes.CONFIG_WRITE)])
-def restore_config_backup(launcher_id: str, name: str) -> dict[str, Any]:
-    """A copy of what is there now is taken first. Restoring the wrong one is a mistake
-    somebody makes once, and without that copy it is the last one they get to make."""
-    return launcher_ops.restore_backup(launcher_id, name)
-
-
 @router.post("/{launcher_id}/default", summary="Make it the default for its app",
              dependencies=[requires(scopes.CONFIG_WRITE)])
 def make_launcher_default(launcher_id: str) -> dict[str, Any]:

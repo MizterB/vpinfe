@@ -900,6 +900,9 @@ body::before {
 .console-dialog.console-dialog--series.q-card {
   height: min(86vh, 900px); display: flex; flex-direction: column;
 }
+.console-dialog.console-backups-card.q-card {
+  width: min(900px, 94vw); height: min(70vh, 560px); display: flex; flex-direction: column;
+}
 .console-dialog--series .console-series-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .console-dialog.console-dialog--full.q-card {
   width: 100%; height: 100%; max-height: none; border-radius: 0;

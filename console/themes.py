@@ -22,6 +22,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import t
 from console import (
+    backup_rows,
     busy,
     confirm,
     grid,
@@ -284,6 +285,11 @@ async def details(context: dict[str, Any]) -> None:
         entries.append((t("console.themes.repository"),
                         panel.link_out(repo_name(str(theme["url"])), to=str(theme["url"]))
                         if theme.get("url") else t("console.themes.source_manual")))
+        copies = await backup_rows.listed(library, "theme", str(theme["key"]))
+        if copies:
+            entries.append((t("console.section.backups"), backup_rows.row(
+                library, "theme", str(theme["key"]), str(theme.get("name") or theme["key"]),
+                copies, lambda: changed(context), back_up_now=False)))
         changes = changes_worth_showing(theme)
         if changes:
             entries += [(panel.HEADING, t("console.themes.whats_new")),

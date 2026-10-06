@@ -142,3 +142,5 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
         state["sets"] = str(params["sets"]).strip()
     if str(params.get("player") or "").strip():
         state["player"] = str(params["player"]).strip()
+    if str(params.get("find") or "").strip() and state["view"] == "backups":
+        state["find"] = str(params["find"]).strip()

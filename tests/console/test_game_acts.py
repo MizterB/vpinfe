@@ -48,12 +48,12 @@ class ForAGame(unittest.TestCase):
         verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", lambda _: None,
                                     _after_game)
 
-        self.assertEqual(["Launch", "Add to Collection"], _labels(verbs))
+        self.assertEqual(["Launch", "Add to Collection", "Back up now"], _labels(verbs))
 
     def test_it_is_only_played_before_the_collections_are_read(self) -> None:
         verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", None, _after_game)
 
-        self.assertEqual(["Launch"], _labels(verbs))
+        self.assertEqual(["Launch", "Back up now"], _labels(verbs))
 
     def test_the_play_record_can_be_reset_only_where_there_is_one(self) -> None:
         played = _library({"id": "afm", "user": {"play_count": 3}})
@@ -62,9 +62,9 @@ class ForAGame(unittest.TestCase):
         offered = game_acts.game_acts(played, "afm", "Attack from Mars", None, _after_game)
         quiet = game_acts.game_acts(unplayed, "afm", "Attack from Mars", None, _after_game)
 
-        self.assertEqual(["Launch", "Reset play record"], _labels(offered))
+        self.assertEqual(["Launch", "Back up now", "Reset play record"], _labels(offered))
         self.assertTrue(offered[-1].danger)
-        self.assertEqual(["Launch"], _labels(quiet))
+        self.assertEqual(["Launch", "Back up now"], _labels(quiet))
 
 
 class ForATable(unittest.TestCase):

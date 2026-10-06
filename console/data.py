@@ -620,17 +620,8 @@ class Library:
         return dict(self._client.launcher_config(
             launcher_id, table, scope).get("values") or {})
 
-    def config_backups(self, launcher_id: str) -> dict:
-        return self._client.config_backups(launcher_id)
-
-    def take_config_backup(self, launcher_id: str, label: str = "") -> dict:
-        return self._client.take_config_backup(launcher_id, label)
-
-    def restore_config_backup(self, launcher_id: str, name: str) -> dict:
-        return self._client.restore_config_backup(launcher_id, name)
-
-    def backups(self) -> dict:
-        return self._client.backups()
+    def backups(self, of_kind: str = "", of_id: str = "") -> dict:
+        return self._client.backups(of_kind, of_id)
 
     def take_backup(self, scope: str, *, games: list[str] | None = None,
                     launcher: str = "", note: str = "") -> dict:

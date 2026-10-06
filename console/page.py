@@ -522,7 +522,7 @@ def reads_before_drawing(view: str, library: Library) -> Callable[[], Any] | Non
 async def console_page(view: str = "", game: str = "", table: str = "", section: str = "",
                    slot: str = "", page: str = "", mode: str = "",
                    collection: str = "", launcher: str = "", sets: str = "",
-                   player: str = "", setup: str = "", log: str = "") -> None:
+                   player: str = "", setup: str = "", log: str = "", find: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -618,7 +618,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     deeplink.apply(state, {"view": view, "game": game, "table": table,
                            "section": section, "slot": slot, "page": page,
                            "collection": collection, "launcher": launcher, "sets": sets,
-                           "player": player, "log": log},
+                           "player": player, "log": log, "find": find},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
 

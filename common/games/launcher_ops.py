@@ -19,9 +19,7 @@ from typing import Any
 
 from common import apps, i18n, path_checks, service_errors
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
-from common.failures import why
-from common.games import config_backups, game_repository, launchers, tables
-from common.games.config_backups import Backup
+from common.games import game_repository, launchers, tables
 from common.games.table_identity import find_table_by_id
 from common.i18n import t
 
@@ -248,7 +246,7 @@ def app_config(launcher_id: str, table: str = "",
     config = _app_settings_surface(found)
     if config is None:
         return {"groups": [], "values": {}, "scopes": [], "shared_with_game": False,
-                "from_game": {}, "app_name": apps.app_name(found.app)}
+                "from_game": {}, "app_name": apps.app_name(found.app), "files": {}}
 
     settings = _launcher_settings(found)
     if scope not in config.scopes():
@@ -282,6 +280,7 @@ def app_config(launcher_id: str, table: str = "",
 
     return {
         "app_name": apps.app_name(found.app),
+        "files": config_files(found),
         "scopes": list(config.scopes()),
         "shared_with_game": bool(target and shares is not None and shares(target)),
         "from_game": (dict(reach(target, settings))
@@ -425,53 +424,6 @@ def config_files(launcher: launchers.Launcher) -> dict[str, str]:
     config = _app_settings_surface(launcher)
     naming = getattr(config, "files", None)
     return dict(naming(_launcher_settings(launcher))) if naming else {}
-
-
-def _as_backup(one: Backup) -> dict[str, Any]:
-    return {"name": one.name, "taken_at": one.taken_at, "reason": one.reason,
-            "label": one.label, "size": one.size}
-
-
-def backups(launcher_id: str) -> dict[str, Any]:
-    found = launcher_or_refuse(launcher_id)
-    return {
-        "backups": [_as_backup(one) for one in
-                    config_backups.held(launcher_id, found.display_name)],
-        "files": config_files(found),
-        # Said rather than left to be discovered: somebody who wants one of these
-        # outside VPinFE has to be told where they are.
-        "kept_in": config_backups.home_for(launcher_id, found.display_name),
-    }
-
-
-def take_backup(launcher_id: str, label: str = "") -> dict[str, Any]:
-    found = launcher_or_refuse(launcher_id)
-    files = config_files(found)
-    if not files:
-        raise service_errors.RefusedError(
-            t("error.launchers.cannot_copy_settings", app_name=(apps.app_name(found.app))))
-    taken = config_backups.take(launcher_id, files,
-                                label=label,
-                                named=found.display_name)
-    if not taken:
-        raise service_errors.RefusedError(
-            t("error.launchers.source_missing"))
-    return {"taken": [_as_backup(one) for one in taken]}
-
-
-def restore_backup(launcher_id: str, name: str) -> dict[str, Any]:
-    """A copy of what is there now is taken first. Restoring the wrong one is a mistake
-    somebody makes once, and without that copy it is the last one they get to make."""
-    found = launcher_or_refuse(launcher_id)
-    try:
-        safety = config_backups.restore(launcher_id, name, config_files(found),
-                                        named=found.display_name)
-    except FileNotFoundError as exc:
-        raise service_errors.NotFoundError(why(exc)) from exc
-    except ValueError as exc:
-        raise service_errors.RefusedError(why(exc)) from exc
-    return {"restored": name,
-            "safety_copy": _as_backup(safety) if safety else None}
 
 
 def make_default(launcher_id: str) -> dict[str, Any]:

@@ -445,7 +445,7 @@ class ProgramNoteTests(unittest.TestCase):
 
 
 class CopyVerbTests(unittest.TestCase):
-    """Copy now and Restore in a launcher's menus."""
+    """Back up now and Restore... in a launcher's menus."""
 
     def _acts(self, state: str, *, has_config: bool = True, playing: bool = False,
               after: Any = True) -> list:
@@ -458,24 +458,35 @@ class CopyVerbTests(unittest.TestCase):
 
     def test_a_launcher_with_a_program_and_a_settings_file_offers_both(self) -> None:
         labels = [one.label for one in self._acts(path_checks.OK)]
-        self.assertEqual(labels[1:3], [t("console.launchers.copy_now"), t("word.restore")])
+        self.assertEqual(labels[1:3], [t("console.backups.back_up_title"),
+                                       t("console.backups.restore_dialog")])
 
     def test_no_settings_file_or_no_program_offers_neither(self) -> None:
         for state, has_config in ((path_checks.MISSING, True), (path_checks.UNSET, True),
                                   (path_checks.OK, False)):
             with self.subTest(state=state, has_config=has_config):
                 labels = [one.label for one in self._acts(state, has_config=has_config)]
-                self.assertNotIn(t("word.restore"), labels)
+                self.assertNotIn(t("console.backups.restore_dialog"), labels)
 
     def test_a_menu_with_nothing_to_redraw_offers_neither(self) -> None:
         labels = [one.label for one in self._acts(path_checks.OK, after=False)]
-        self.assertNotIn(t("word.restore"), labels)
+        self.assertNotIn(t("console.backups.restore_dialog"), labels)
 
     def test_a_table_playing_refuses_both_and_says_why(self) -> None:
         copy, restore = self._acts(path_checks.OK, playing=True)[1:3]
         self.assertEqual((copy.run, restore.run), (None, None))
         self.assertEqual((copy.hint, restore.hint),
                          (t(workbench.PLAYING_NOTE), t(workbench.PLAYING_NOTE)))
+
+    def test_the_dialog_is_named_for_the_launcher_as_people_know_it(self) -> None:
+        library = Mock()
+        library.play_state.return_value = {}
+        made = launchers.copy_verbs(
+            library, {"launcher_id": "l-1", "display_name": "Main VPX"}, AsyncMock())
+        with patch.object(launchers.backup_rows, "open_for", new=AsyncMock()) as opened:
+            assert made[1].run is not None
+            asyncio.run(made[1].run())
+        self.assertEqual(opened.call_args.args[3], "Main VPX")
 
     def test_a_click_while_a_table_plays_changes_nothing(self) -> None:
         library = Mock()
@@ -485,8 +496,8 @@ class CopyVerbTests(unittest.TestCase):
             for verb in made:
                 assert verb.run is not None
                 asyncio.run(verb.run())
-        library.take_config_backup.assert_not_called()
-        library.config_backups.assert_not_called()
+        library.take_backup.assert_not_called()
+        library.backups.assert_not_called()
         self.assertEqual(notify.call_count, 2)
 
 

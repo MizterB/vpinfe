@@ -173,6 +173,34 @@ class ListingTests(BackupsCase):
 
         self.assertEqual(self.listing(), [])
 
+    def test_the_listing_narrows_to_one_game(self) -> None:
+        taxi = self.game("Taxi")
+        self.kept(taxi, OLD)
+        self.kept(self.game("Bally"), NEWER)
+
+        mine = self.client.get("/backups", params={"of_kind": "game", "of": "id-Taxi"})
+
+        self.assertEqual([one["of_id"] for one in mine.json()["copies"]], ["id-Taxi"])
+
+    def test_the_listing_narrows_to_one_theme(self) -> None:
+        for name in ("Classic", "Modern"):
+            (self.themes / f"{name}.previous").mkdir()
+            (self.themes / f"{name}.previous" / "index.html").write_text("old")
+
+        mine = self.client.get("/backups", params={"of_kind": "theme", "of": "Modern"})
+
+        self.assertEqual([one["of_id"] for one in mine.json()["copies"]], ["Modern"])
+
+    def test_a_kind_without_an_id_or_an_id_without_a_kind_is_refused(self) -> None:
+        for params in ({"of_kind": "game"}, {"of": "id-Taxi"}):
+            with self.subTest(params=params):
+                self.assertEqual(self.client.get("/backups", params=params).status_code, 422)
+
+    def test_a_kind_that_is_not_one_is_refused(self) -> None:
+        found = self.client.get("/backups", params={"of_kind": "cab", "of": "x"})
+
+        self.assertEqual(found.status_code, 422)
+
     def test_newest_comes_first(self) -> None:
         folder = self.game()
         self.kept(folder, OLD)
@@ -202,15 +230,23 @@ class LauncherListingTests(BackupsCase):
                           for one in found],
                          [("launcher", "l1", "Main VPX", "first_change")])
 
-    def test_a_copy_taken_from_the_launcher_page_is_listed_with_its_note(self) -> None:
-        taken = self.client.post("/launchers/l1/config/backups",
-                                 json={"label": "before tuning"})
+    def test_a_backup_of_the_launcher_is_listed_with_its_note_and_its_file(self) -> None:
+        taken = self.client.post("/backups", json={
+            "scope": "launcher", "launcher": "l1", "note": "before tuning"})
         self.assertEqual(taken.status_code, 200, taken.text)
 
         found = self.listing()
 
-        self.assertEqual([(one["of_id"], one["why"], one["note"]) for one in found],
-                         [("l1", "yours", "before-tuning")])
+        self.assertEqual({(one["of_kind"], one["of_id"], one["note"]) for one in found
+                          if one["kind"] == "backup"}, {("archive", "", "before tuning")})
+        self.assertIn("VPinballX.ini", {one["file"] for one in found})
+
+    def test_the_old_launcher_routes_are_gone(self) -> None:
+        for method, path in (("get", "/launchers/l1/config/backups"),
+                             ("post", "/launchers/l1/config/backups"),
+                             ("post", "/launchers/l1/config/backups/x/restore")):
+            with self.subTest(path=path, method=method):
+                self.assertEqual(getattr(self.client, method)(path).status_code, 404)
 
     def test_the_2x_folder_of_settings_copies_belongs_to_the_default_vpx(self) -> None:
         folder = self.config / "backups" / "vpx_ini"
@@ -256,18 +292,32 @@ class LauncherListingTests(BackupsCase):
 
         self.assertEqual(len(self.listing()), 1)
 
-    def test_a_copy_goes_back_for_a_launcher_renamed_since(self) -> None:
-        self.client.post("/launchers/l1/config/backups", json={"label": "tuned"})
-        copy = next(one for one in self.listing() if one["why"] == "yours")
+    def test_a_copy_beside_the_ini_goes_back_for_a_launcher_renamed_since(self) -> None:
+        first = self.ini.with_name("VPinballX.ini.vpinfe-20261001T010203Z")
+        first.write_text("[Player]\nFXAA = 0\n")
+        copy = self.listing()[0]
         self.client.put("/launchers/l1", json={
             "app": "vpx", "display_name": "Renamed",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(self.ini)}})
-        self.ini.write_text("changed")
 
         response = self.client.post(f"/backups/{copy['id']}/restore")
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(self.ini.read_text(), "[Player]\nFXAA = 1\n")
+        self.assertEqual(self.ini.read_text(), "[Player]\nFXAA = 0\n")
+
+    def test_the_listing_narrows_to_one_launcher(self) -> None:
+        self.ini.with_name("VPinballX.ini.vpinfe-20261001T010203Z").write_text("x")
+        self.client.put("/launchers/l2", json={
+            "app": "vpx", "display_name": "Second VPX",
+            "settings": {"bin_path": "/opt/vpx",
+                         "ini_path": str(self.ini.with_name("Other.ini"))}})
+        self.ini.with_name("Other.ini").write_text("y")
+        self.ini.with_name("Other.ini.vpinfe-20261002T010203Z").write_text("y")
+
+        mine = self.client.get("/backups", params={"of_kind": "launcher", "of": "l2"})
+
+        self.assertEqual([(one["of_id"], one["file"]) for one in mine.json()["copies"]],
+                         [("l2", "Other.ini.vpinfe-20261002T010203Z")])
 
 
 class RestoreTests(BackupsCase):

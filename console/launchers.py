@@ -22,9 +22,20 @@ from typing import Any
 from nicegui import run, ui
 
 from common import install_identity, path_checks
+from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from console import busy, confirm, folder_picker, grid, offload, panel, verbs, views
+from console import (
+    backup_rows,
+    busy,
+    confirm,
+    folder_picker,
+    grid,
+    offload,
+    panel,
+    verbs,
+    views,
+)
 from console import dialog as frame
 from console.data import Library
 from console.on_page import on_page
@@ -429,29 +440,36 @@ def keeps_settings(launcher: dict) -> bool:
 
 def copy_verbs(library: Library, launcher: dict, after: Callable[[], Awaitable[Any]],
                *, playing: bool = False) -> list[panel.Verb]:
-    """Copy now and Restore, for the settings file this launcher's program writes.
+    """Back up now and Restore..., for the settings file this launcher's program writes.
 
     `playing` is what the caller knew when it drew the menu; a menu outlives it, so the
     click asks again."""
     from console import workbench
 
-    context = {"library": library, "launcher": launcher, "rebuild": after}
+    launcher_id = str(launcher["launcher_id"])
+    name = str(launcher.get("display_name") or launcher_id)
 
-    def guarded(act: Callable[[dict[str, Any]], Awaitable[Any]]) -> Callable[[], Any]:
+    def guarded(act: Callable[[], Awaitable[Any]]) -> Callable[[], Any]:
         @on_page
         async def run_it() -> None:
             if await offload.io(workbench._playing, library):
                 ui.notify(t(workbench.PLAYING_NOTE), caption=t(workbench.PLAYING_WHY),
                           type="warning")
                 return
-            await act(context)
+            await act()
         return run_it
 
+    async def take() -> None:
+        await backup_rows.back_up(library, kept_copies.OF_LAUNCHER, launcher_id, after)
+
+    async def choose() -> None:
+        await backup_rows.open_for(library, kept_copies.OF_LAUNCHER, launcher_id, name, after)
+
     hint = t(workbench.PLAYING_NOTE) if playing else ""
-    return [panel.Verb(t("console.launchers.copy_now"),
-                       None if playing else guarded(workbench.take_copy), hint=hint),
-            panel.Verb(t("word.restore"),
-                       None if playing else guarded(workbench.choose_copy), hint=hint)]
+    return [panel.Verb(t("console.backups.back_up_title"),
+                       None if playing else guarded(take), hint=hint),
+            panel.Verb(t("console.backups.restore_dialog"),
+                       None if playing else guarded(choose), hint=hint)]
 
 
 def acts(library: Library, state: dict[str, Any], launcher: dict, count: int,

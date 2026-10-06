@@ -8,9 +8,9 @@ and says which, so an undo is the same call on that id.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from common.backups import ops
 
@@ -23,9 +23,13 @@ router = APIRouter(prefix="/backups", tags=["backups"])
 
 @router.get("", summary="Every copy VPinFE has kept",
             dependencies=[requires(scopes.CONFIG_READ)])
-def list_backups() -> dict[str, Any]:
-    """The copies newest first, and the ids of those that go in when VPinFE next closes."""
-    return ops.listing()
+def list_backups(of_kind: Literal["game", "launcher", "theme", ""] = "",
+                 of: str = "") -> dict[str, Any]:
+    """The copies newest first, and the ids of those that go in when VPinFE next closes.
+    `of_kind` and `of` narrow it to one game, launcher or theme."""
+    if bool(of_kind) != bool(of):
+        raise HTTPException(422, "of_kind and of go together")
+    return ops.listing(of_kind, of)
 
 
 @router.post("", summary="Back up now",

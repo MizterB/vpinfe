@@ -244,18 +244,16 @@ def _launcher_for_folder(folder: Path,
 
 
 def _app_config_copy(path: Path, held: list[launchers.Launcher]) -> Copy | None:
-    if not path.is_file():
+    if not path.is_file() or not is_copy(path):
         return None
-    described = config_backups.described(path)
     owner = _launcher_for_folder(path.parent, held)
     name = owner.display_name if owner else path.parent.name.rsplit("--", 1)[0]
     return Copy(
         id=make_id(PLACE_LAUNCHER, path), of_kind=OF_LAUNCHER,
         of_id=owner.launcher_id if owner else path.parent.name.rsplit("--", 1)[-1],
         of_name=name, kind=KIND_LAUNCHER, file=path.name, path=str(path),
-        taken=described.taken_at,
-        written_by="", why=WHY_RESTORE if described.reason == config_backups.BEFORE_RESTORE
-        else WHY_YOURS, note=described.label, size=described.size, gone=owner is None)
+        taken=iso_from_stamp(backup_stamp(path)),
+        written_by="", why=WHY_RESTORE, note="", size=_size(path), gone=owner is None)
 
 
 def _beside_copies(launcher: launchers.Launcher) -> list[Copy]:
@@ -458,12 +456,34 @@ def member_copy(copy_id: str) -> Copy | None:
 
 # --- All of it -------------------------------------------------------------------------
 
-def scan() -> list[Copy]:
-    """Every copy there is, newest first."""
-    found = [*_all_game_copies(), *_record_copies(), *_launcher_copies(), *_theme_copies(),
-             *_all_archive_copies()]
+def _ordered(found: list[Copy]) -> list[Copy]:
     unique = {one.id: one for one in found}
     return sorted(unique.values(), key=lambda one: (one.taken, one.path), reverse=True)
+
+
+def _of_one(of_kind: str, of_id: str) -> list[Copy]:
+    """What one game, launcher or theme has: its own copies and its file in each backup, read
+    without walking every other game's folder."""
+    members = [one for one in _all_archive_copies() if one.within] \
+        if of_kind in (OF_GAME, OF_LAUNCHER) else []
+    if of_kind == OF_GAME:
+        folder = game_repository.game_folder(of_id)
+        own = game_copies(folder) if folder is not None else []
+    elif of_kind == OF_LAUNCHER:
+        own = _launcher_copies()
+    elif of_kind == OF_THEME:
+        own = _theme_copies()
+    else:
+        return []
+    return [one for one in [*own, *members] if one.of_kind == of_kind and one.of_id == of_id]
+
+
+def scan(of_kind: str = "", of_id: str = "") -> list[Copy]:
+    """Every copy there is, newest first, or those of one game, launcher or theme."""
+    if of_kind:
+        return _ordered(_of_one(of_kind, of_id))
+    return _ordered([*_all_game_copies(), *_record_copies(), *_launcher_copies(),
+                     *_theme_copies(), *_all_archive_copies()])
 
 
 def find(copy_id: str) -> Copy | None:
