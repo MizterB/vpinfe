@@ -251,7 +251,7 @@
   "config.general.hidden_media_kinds.description": "Ķîñđš öƒ ɱèđîà ţĥîš ŀîƀřàřý đöèš ñöţ çöŀŀèçţ. ṼÞîñƑÈ šţöþš šĥöŵîñĝ àñđ çöûñţîñĝ ţĥèɱ; ţĥè ƒîŀèš šţàý ŵĥèřè ţĥèý àřè.",
   "config.general.hidden_media_kinds.label": "Ḿèđîà ķîñđš ţö ĥîđè",
   "config.group.appearance": "Àþþèàřàñçè",
-  "config.group.artwork": "Ḿèđîà",
+  "config.group.thumbnails": "Ţĥûɱƀñàîŀš",
   "config.group.audio": "Àûđîö",
   "config.group.browser_program": "Þřöĝřàɱ",
   "config.group.chrome_options": "Çĥřöɱè Öþţîöñš",

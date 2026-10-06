@@ -42,9 +42,9 @@ class TheSettingTests(unittest.TestCase):
                    for option in block["options"]]
 
         self.assertEqual([(option["key"], option.get("group")) for option in options[:5]],
-                         [("theme", "appearance"), ("list_art", "artwork"),
-                          ("list_art_shape", "artwork"), ("list_art_height", "artwork"),
-                          ("list_art_frame", "artwork")])
+                         [("theme", "appearance"), ("list_art", "thumbnails"),
+                          ("list_art_shape", "thumbnails"), ("list_art_height", "thumbnails"),
+                          ("list_art_frame", "thumbnails")])
 
     def test_every_console_setting_has_a_heading(self) -> None:
         """One setting without a group would be drawn under Other."""

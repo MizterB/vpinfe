@@ -251,7 +251,7 @@
   "config.general.hidden_media_kinds.description": "Kinds of media this library does not collect. VPinFE stops showing and counting them; the files stay where they are.",
   "config.general.hidden_media_kinds.label": "Media kinds to hide",
   "config.group.appearance": "Appearance",
-  "config.group.artwork": "Media",
+  "config.group.thumbnails": "Thumbnails",
   "config.group.audio": "Audio",
   "config.group.browser_program": "Program",
   "config.group.chrome_options": "Chrome Options",
