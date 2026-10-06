@@ -97,6 +97,34 @@ class RailTests(unittest.TestCase):
 
         self.assertEqual(len(devices.away_rows(with_ask)), len(devices.away_rows(without)) + 1)
 
+    def test_carrying_asks_nothing_of_a_mobile_device_not_answering(self) -> None:
+        context = _context({"state": device_client.UNREACHABLE, "reason": "It is off"},
+                           state={"ask_device": mock.AsyncMock()})
+        context["device"]["kind"] = "vpx_mobile"
+        api = mock.Mock()
+        api.device_games.side_effect = AssertionError("the games were asked of it")
+
+        with mock.patch.object(devices, "ApiClient", return_value=api), \
+                mock.patch.object(devices.panel, "note", new=lambda text, hint="": ("note", text)):
+            rows = asyncio.run(devices._carrying_rows(context))
+
+        api.device_games.assert_not_called()
+        self.assertEqual(rows[0], ("note", t("console.devices.carrying_away")))
+        self.assertEqual(len(rows), 2)
+        self.assertNotIn(t("word.state"), [label for label, _value in rows])
+
+    def test_carrying_still_asks_a_mobile_device_that_answers(self) -> None:
+        context = _context({"state": device_client.ANSWERING})
+        context["device"]["kind"] = "vpx_mobile"
+        api = mock.Mock()
+        api.device_games.return_value = []
+
+        with mock.patch.object(devices, "ApiClient", return_value=api), \
+                mock.patch.object(devices.panel, "note", new=lambda text, hint="": ("note", text)):
+            asyncio.run(devices._carrying_rows(context))
+
+        api.device_games.assert_called_once_with(OTHER)
+
     def test_a_device_that_answers_is_still_asked(self) -> None:
         self.client.logs.side_effect = None
         self.client.logs.return_value = {"records": []}

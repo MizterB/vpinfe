@@ -189,10 +189,14 @@ def away(context: dict[str, Any]) -> bool:
 def away_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """What a rail says in place of what it cannot read from a device that is not
     answering: the state and its reason, when it was last there, and Try again."""
+    return [*_state_rows(context), _last_seen_row(_of(context)), *_try_again_rows(context)]
+
+
+def _try_again_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """The way to ask the device again, where the page can ask."""
     ask = (context.get("state") or {}).get("ask_device")
-    rows = [*_state_rows(context), _last_seen_row(_of(context))]
     if ask is None:
-        return rows
+        return []
     device_id = str(_of(context).get("device_id") or "")
 
     @on_page
@@ -208,8 +212,7 @@ def away_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
             panel.action(t("console.page.try_again"), again, icon=verbs.REFRESH,
                          inline=True, hint=t("console.devices.probe_one"))()
 
-    rows.append(("", door))
-    return rows
+    return [("", door)]
 
 
 def acts(library: Any, device: dict[str, Any], rerender: Callable[[], Any] | None,
@@ -881,11 +884,14 @@ async def _playing_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """What the device holds, asked of the device.
 
-    Never remembered between visits: a phone is filled up and emptied by hand and taken
-    out of the house, so anything recorded here would be a claim about a machine that
-    has not been asked. That it takes a moment is the honest cost of the answer being
-    true.
+    Never remembered between visits: a mobile device is filled up and emptied by hand and
+    taken out of the house, so anything recorded here would be a claim about a machine
+    that has not been asked. A device that is not answering is not asked at all, so the
+    panel does not wait out the request's retries.
     """
+    if away(context):
+        # State and Last seen are already drawn under Connection, above this heading.
+        return [panel.note(t("console.devices.carrying_away")), *_try_again_rows(context)]
     device = _of(context)
     library = context.get("library")
     try:

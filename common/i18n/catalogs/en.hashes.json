@@ -817,6 +817,7 @@
   "console.devices.cannot_asked": "0bf080491607",
   "console.devices.cannot_determined": "88c85dab6ddb",
   "console.devices.carrying": "3e793b1c4b3c",
+  "console.devices.carrying_away": "a39b8b08e717",
   "console.devices.carrying_empty": "3dd524018657",
   "console.devices.carrying_failed": "3026860dd876",
   "console.devices.check_failed": "5fa0890f872f",

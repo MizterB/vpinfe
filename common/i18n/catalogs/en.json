@@ -954,6 +954,7 @@
   "console.devices.forget_failed": "Could not forget that device",
   "console.devices.forget_named_failed": "Could not forget {name}",
   "console.devices.carrying_failed": "Could not ask what it is carrying",
+  "console.devices.carrying_away": "Not listed until it answers",
   "console.devices.log_failed": "Could not read the log",
   "console.devices.save_failed": "Could not save that",
   "console.devices.update_failed": "Could not start the update",

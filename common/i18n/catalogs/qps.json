@@ -954,6 +954,7 @@
   "console.devices.forget_failed": "Çöûŀđ ñöţ ƒöřĝèţ ţĥàţ đèṽîçè",
   "console.devices.forget_named_failed": "Çöûŀđ ñöţ ƒöřĝèţ {name}",
   "console.devices.carrying_failed": "Çöûŀđ ñöţ àšķ ŵĥàţ îţ îš çàřřýîñĝ",
+  "console.devices.carrying_away": "Ñöţ ŀîšţèđ ûñţîŀ îţ àñšŵèřš",
   "console.devices.log_failed": "Çöûŀđ ñöţ řèàđ ţĥè ŀöĝ",
   "console.devices.save_failed": "Çöûŀđ ñöţ šàṽè ţĥàţ",
   "console.devices.update_failed": "Çöûŀđ ñöţ šţàřţ ţĥè ûþđàţè",
