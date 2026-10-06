@@ -40,7 +40,7 @@ _REASON_CHOICES = ([{"value": "", "label": t("word.in_use")}]
                       for word in (MISSING, ORPHAN, UNUSED)])
 
 _SCOPE_CHOICES = [{"value": "game", "label": t("word.game")},
-                  {"value": "table", "label": t("console.assets.table")}]
+                  {"value": "table", "label": t("word.table")}]
 
 _SOURCE_CHOICES = ([{"value": name, "label": name}
                     for name in media_ownership.source_names()]
@@ -79,10 +79,13 @@ _GAME = "word.game"
 _SOURCE = "word.source"
 
 COLUMNS: list[dict[str, Any]] = [
-    grid.identifier("game", t("word.name"), 240, pinned="left", group=t(_GAME),
+    grid.identifier("game", t("word.name"), 240, pinned="left", group=t(_FILE),
                 subtitle=("said", "", "said_built"), picture=list_art.FIELD,
                 glyph=icons.GAMES, built_tip=t("console.media_ownership.named_for"),
-                help=t("console.assets.game.help")),
+                help=t("console.assets.name.help")),
+    grid.column("scope", t("console.assets.scope"), 100, group=t(_FILE),
+                **grid.choice_filter(_SCOPE_CHOICES),
+                help=t("console.assets.scope.help")),
     grid.column("label", t("word.kind"), 160, group=t(_FILE),
                 help=t("console.assets.kind.help")),
     grid.column("used_by", t("word.used_by"), type="numericColumn", group=t(_FILE),
@@ -90,11 +93,6 @@ COLUMNS: list[dict[str, Any]] = [
     grid.column("reason", t("word.unused_reason"), 150, group=t(_FILE),
                 **grid.choice_filter(_REASON_CHOICES),
                 help=t("console.assets.reason.help")),
-    grid.column("scope", t("console.assets.scope"), 100, group=t(_FILE),
-                **grid.choice_filter(_SCOPE_CHOICES),
-                help=t("console.assets.scope.help")),
-    grid.column("table_file", t("console.assets.table"), 200, group=t(_FILE),
-                help=t("console.assets.table.help")),
     grid.column("path", t("word.path"), 300, group=t(_FILE),
                 help=t("console.assets.path.help")),
     grid.column("source", t("word.source"), 165, group=t(_SOURCE),
@@ -138,7 +136,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         filters={"reason": {"values": [""]}},
         help=t("console.assets.sources_view.help")),
     "console.view.everything": views.Preset(
-        columns=tuple(field for field in _ALL if field != "table_file"),
+        columns=tuple(_ALL),
         help=t("console.assets.everything_view.help")),
 }
 

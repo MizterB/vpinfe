@@ -125,13 +125,6 @@ def person_look() -> Look:
     return replace(look(""), shape=SQUARE, framed=True)
 
 
-def heading() -> str:
-    """The name of the settings the lists' art is chosen in, for a link to them."""
-    option = config_schema.option("console", "list_art")
-    assert option is not None
-    return option.group_label
-
-
 def address(row: dict[str, Any]) -> str:
     """Where a tables-listing row's art is served at list size, or "" where it has none.
 

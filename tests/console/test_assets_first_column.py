@@ -1,7 +1,7 @@
 """The first column of Assets and Media says whether a file is the game's or one table's.
 
 A version and author under the name is a file for that one table; a bare name is the
-game's. The Table column that said the same thing a second time is in no shipped view,
+game's. The Table column that said the same thing a second time is gone from the picker,
 and the chip that said it a third time is gone from the file panel.
 """
 
@@ -44,15 +44,12 @@ class NamedIn(unittest.TestCase):
 
 
 class TheShippedViews(unittest.TestCase):
-    def test_no_view_shows_the_table_column(self) -> None:
+    def test_no_grid_has_a_table_column(self) -> None:
         for lens in (assets, media):
+            self.assertNotIn("table_file", [one["field"] for one in lens.COLUMNS])
             for name, preset in lens.VIEWS.items():
                 columns = preset.columns if hasattr(preset, "columns") else preset
                 self.assertNotIn("table_file", columns, f"{lens.__name__}: {name}")
-
-    def test_the_picker_still_offers_it(self) -> None:
-        for lens in (assets, media):
-            self.assertIn("table_file", [one["field"] for one in lens.COLUMNS])
 
     def test_the_first_column_says_what_the_second_line_is(self) -> None:
         for lens in (assets, media):
@@ -83,6 +80,20 @@ class TheNameAndScopeColumns(unittest.TestCase):
             self.assertEqual(scope, game_tables.scope_of(row), row)
             self.assertEqual(scope, assets.rows([row])[0]["scope"], row)
             self.assertEqual(scope, media.rows([row])[0]["scope"], row)
+
+
+class ThePicker(unittest.TestCase):
+    def test_name_and_scope_sit_first_in_the_file_group(self) -> None:
+        for lens in (assets, media):
+            file_group = [one["field"] for one in lens.COLUMNS
+                          if one["group"] == t("word.file")]
+            self.assertEqual(["game", "scope"], file_group[:2])
+
+    def test_the_game_group_holds_only_the_games_own_facts(self) -> None:
+        for lens in (assets, media):
+            self.assertEqual(["manufacturer", "year"],
+                             [one["field"] for one in lens.COLUMNS
+                              if one["group"] == t("word.game")])
 
 
 class TheRenderer(unittest.TestCase):

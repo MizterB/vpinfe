@@ -1774,11 +1774,11 @@ def view_control(library: Any, scope: str,
                 if not view.builtin and not held["modified"]:
                     ui.menu_item(t("console.games.delete_view"), delete) \
                         .classes("console-menu-item console-menu-danger")
-                drawings(hidden)
                 if art_in_lists:
                     ui.separator()
-                    panel.menu_link(list_art.heading(),
+                    panel.menu_link(t("console.games.thumbnails"),
                                     to=settings_page.address_for("console"))
+                drawings(hidden)
                 ui.separator()
                 # An explicit column: the menu lays its children out inline otherwise,
                 # so twenty checkboxes wrap into a paragraph rather than a list.
