@@ -67,6 +67,7 @@ _WATCH = """(() => {
 
 _SHOWN = ("el => el.getClientRects().length > 0"
           " && getComputedStyle(el).visibility !== 'hidden'")
+_ON = "'console-section-on'"
 _ROWS = f"[...document.querySelectorAll('.console-section-row')].filter({_SHOWN})"
 _WORK = f"[...document.querySelectorAll('.console-section-work')].find({_SHOWN})"
 # Something a person reads or uses, outside the section's own heading and bar.
@@ -153,20 +154,33 @@ class ConsoleWalk:
 
     async def sections(self) -> AsyncIterator[str]:
         """Open each row of the rail in turn, yielding its name once its section is
-        drawn. A row that starts open closes on the click, and is opened again.
+        drawn.
 
-        Raises on a section that opened onto no content.
+        Raises on a section that opened onto no content, and on a rail whose open row
+        closes or blanks the pane when it is clicked again.
         """
         count = await self.browser.evaluate(f"{_ROWS}.length")
         for nth in range(count):
             name = await self.browser.evaluate(
                 f"{_ROWS}[{nth}].innerText.trim().split('\\n')[0]")
-            await self._press_row(nth)
-            if not await self.browser.evaluate(f"!!{_WORK}"):
+            if not await self.browser.evaluate(f"{_ROWS}[{nth}].classList.contains({_ON})"):
                 await self._press_row(nth)
             if not await self.browser.evaluate(_HAS_CONTENT):
                 raise AssertionError(f"{self.path}: {name!r} opened onto no content")
+            await self._press_open_row(nth, name)
             yield name
+
+    async def _press_open_row(self, nth: int, name: str) -> None:
+        """The open row clicked again, which must leave its section on screen."""
+        await self.browser.evaluate(
+            f"(row => (row.querySelector('.console-section-hit') || row).click())"
+            f"({_ROWS}[{nth}])")
+        await asyncio.sleep(LISTEN_MS / 1000)
+        await self.drawn()
+        if not await self.browser.evaluate(f"{_ROWS}[{nth}].classList.contains({_ON})"):
+            raise AssertionError(f"{self.path}: {name!r} is not open once clicked again")
+        if not await self.browser.evaluate(_HAS_CONTENT):
+            raise AssertionError(f"{self.path}: {name!r} went blank when clicked again")
 
     async def _press_row(self, nth: int) -> None:
         row = f"{_ROWS}[{nth}]"

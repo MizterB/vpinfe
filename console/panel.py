@@ -197,8 +197,8 @@ def _rail_row(key: str, label: str, open_now: bool,
                 mark()
         with ui.row().classes("items-center console-section-caret"):
             ui.icon("expand_more", size="18px")
-    # The whole band, name and chevron alike - a header that opens on the word but only
-    # closes on the arrow is a control with two rules to learn.
+    # The whole band, name and chevron alike - a header that answers on the word but
+    # not on the arrow is a control with two rules to learn.
     row.on("click", lambda: on_pick(key))
 
 

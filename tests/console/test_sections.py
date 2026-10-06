@@ -1,5 +1,6 @@
 import inspect
 import unittest
+from unittest import mock
 from urllib.parse import parse_qs
 
 from common.i18n import t
@@ -36,6 +37,26 @@ class ChosenSectionTests(unittest.TestCase):
         workbench.chosen_section(state, "game")
 
         self.assertEqual(workbench.chosen_section(state, "table"), workbench.COLLAPSED)
+
+
+class PickTests(unittest.TestCase):
+    """What a click on a rail row does."""
+
+    def _click(self, open_now: str, key: str) -> mock.Mock:
+        context = {"state": {"section": open_now}}
+        with mock.patch.object(workbench, "_choose") as choose:
+            workbench._pick(context, key)
+        return choose
+
+    def test_the_open_row_stays_open(self) -> None:
+        """A rail says where you are, so a second click on it must not blank the pane."""
+        self._click("assets", "assets").assert_not_called()
+
+    def test_another_row_opens(self) -> None:
+        self._click("assets", "media").assert_called_once()
+
+    def test_a_row_opens_from_every_section_closed(self) -> None:
+        self._click(workbench.COLLAPSED, "assets").assert_called_once()
 
 
 class AddressTests(unittest.TestCase):

@@ -265,7 +265,8 @@ DEFAULT_SECTION = {"game": "game_details", "table": "table_details",
                    # what is in it far more often than to rename it.
                    "collection": "collection_games",
                    "theme": "theme_details", "player": "player_details"}
-# Every section closed. Named, because it travels in the state and the address, and
+# Every section closed. No rail click reaches it, so it comes only from an address that
+# says `section=none`. Named, because it travels in the state and the address, and
 # "" appearing in either wants to be findable as a decision rather than as a blank.
 COLLAPSED = ""
 
@@ -360,8 +361,8 @@ def chosen_section(state: dict[str, Any], subject: str = "game",
     rail = sections_for(subject) if rail is None else rail
     known = {item.key for item in rail}
     if state.get("section") == COLLAPSED:
-        # Asked for, so it is kept - including across a change of subject. Seeding a
-        # default here would reopen a section the user just shut.
+        # Asked for by the address, so it is kept - including across a change of subject.
+        # Seeding a default here would reopen a panel the address said to leave closed.
         return COLLAPSED
     if state.get("section") not in known:
         wanted = DEFAULT_SECTION.get(subject, "")
@@ -1600,9 +1601,9 @@ def _section_row(context: dict[str, Any], section: Section, open_now: bool,
         # another. Beside its content it would be pointing at nothing.
         with ui.row().classes("items-center console-section-caret"):
             ui.icon("expand_more", size="18px")
-    # The whole band, name and chevron alike - a header that opens on the word but
-    # only closes on the arrow is a control with two rules to learn.
-    row.on("click", lambda key=section.key: _toggle(context, key))
+    # The whole band, name and chevron alike - a header that answers on the word but
+    # not on the arrow is a control with two rules to learn.
+    row.on("click", lambda key=section.key: _pick(context, key))
 
     async def relabel() -> None:
         # A count in the name has to follow the thing it counts.
@@ -1611,13 +1612,15 @@ def _section_row(context: dict[str, Any], section: Section, open_now: bool,
     context["redraws"].append(relabel)
 
 
-def _toggle(context: dict[str, Any], key: str) -> None:
-    """Open this section, or close it if it is the one already open."""
-    _choose(context, COLLAPSED if context["state"].get("section") == key else key)
+def _pick(context: dict[str, Any], key: str) -> None:
+    """Open this section. The row that is already open stays open: a rail names where
+    you are, so a click on it must never blank the pane."""
+    if context["state"].get("section") != key:
+        _choose(context, key)
 
 
 def _choose(context: dict[str, Any], key: str) -> None:
-    """Make it the section on screen. "" closes every one of them."""
+    """Make it the section on screen."""
     context["state"]["section"] = key
     deeplink.sync(context["state"])
     asyncio.create_task(context["rebuild"]())
