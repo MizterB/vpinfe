@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 BACKGLASS_WINDOW = "Backglass.Backglass"
 SCORE_VIEW_WINDOW = "ScoreView.ScoreView"
 BAR_PX = 46
-CAPTION_PX = 22
+CAPTION_PX = 28
 GAP_PX = 8
 LEGACY_DMD_SPACE = (1024, 768)
 LOOKS = ("off", "on", "every")
@@ -191,6 +191,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
     state = memory.setdefault("preview", {"look": "on", "edition": edition_in_effect(held)})
     state["held"] = dict(held)
     holder = ui.element("div").classes("console-bgview")
+    notes = ui.column().classes("console-bgview-notes gap-1")
 
     def moved(screen: Screen) -> Callable[[Box], Awaitable[None]] | None:
         if write is None:
@@ -235,10 +236,11 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
         with holder:
             both = score_screen is not None
             shapes = glass_screen.ratio + (score_screen.ratio if score_screen else 0)
-            chrome = BAR_PX + (CAPTION_PX if both else 0)
             with ui.row().classes("console-bgview-row items-center w-full").style(
-                    f"gap:{GAP_PX}px;--gap:{GAP_PX}px;--sum:{shapes:.5f};--gaps:{int(both)};--chrome:{chrome}px"):
-                _stage(glass_screen, src, moved(glass_screen))
+                    f"gap:{GAP_PX}px;--gap:{GAP_PX}px;--sum:{shapes:.5f};--gaps:{int(both)};"
+                    f"--chrome:{BAR_PX + CAPTION_PX}px;--cap:{CAPTION_PX}px"):
+                _stage(glass_screen, src, moved(glass_screen), t("console.backglass.glass"),
+                       finder(glass_screen, cut, False))
                 if score_screen is not None:
                     score = art.score_view(game_id, path, version=glass["version"],
                                            size=art.PANEL)
@@ -247,15 +249,14 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                            finder(score_screen, False, True))
             with ui.row().classes("console-bgview-bar items-center gap-2 w-full"):
                 if not glass["still"] and glass["lamps"]:
-                    ui.toggle({one: t(f"console.backglass.look.{one}") for one in LOOKS},
-                              value=state["look"], on_change=_pick(state, "look", draw)) \
-                        .props("dense no-caps size=sm")
+                    ui.label(t("console.backglass.lamps")).classes("console-bgview-name")
+                    panel.segmented({one: t(f"console.backglass.look.{one}") for one in LOOKS},
+                                    state["look"], _pick(state, "look", draw))
                 if glass["two_versions"]:
-                    ui.toggle({one: t(f"console.backglass.edition.{one}") for one in EDITIONS},
-                              value=state["edition"], on_change=_pick(state, "edition", draw)) \
-                        .props("dense no-caps size=sm")
-                if glass_screen.dmd is not None and (find := finder(glass_screen, cut, False)):
-                    _find_button(find)
+                    ui.label(t("console.backglass.version")).classes("console-bgview-name")
+                    panel.segmented({one: t(f"console.backglass.edition.{one}")
+                                     for one in EDITIONS},
+                                    state["edition"], _pick(state, "edition", draw))
                 if glass_screen.off:
                     ui.label(t("console.backglass.window_off")) \
                         .classes("console-tier console-tier--unknown") \
@@ -263,6 +264,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             enlarge(lambda: mediaview.open_image(
                 art.backglass(game_id, path, version=glass["version"], grill=cut,
                               look=state["look"], edition=state["edition"]), label))
+        _say(notes, glass, [glass_screen, score_screen], write is not None)
 
     def follow(values: Any) -> None:
         if holder.is_deleted:
@@ -286,7 +288,7 @@ def _pick(state: dict[str, Any], key: str, draw: Callable[[], None]) -> Callable
     return chose
 
 
-def _find_button(act: Callable[[], Awaitable[None]], small: bool = False) -> None:
+def _find_button(act: Callable[[], Awaitable[None]]) -> None:
     searching = False
 
     async def press() -> None:
@@ -299,17 +301,41 @@ def _find_button(act: Callable[[], Awaitable[None]], small: bool = False) -> Non
         finally:
             searching = False
 
-    panel.action(t("console.backglass.dmd_find"), press, icon=verbs.SEARCH, inline=small,
+    panel.action(t("console.backglass.dmd_find"), press, icon=verbs.SEARCH, inline=True,
                  hint=t("console.backglass.dmd_find.hint"))()
 
 
+def _say(notes: ui.element, glass: Mapping[str, Any], shown: list[Screen | None],
+         live: bool) -> None:
+    """The lines under the picture: what the two controls do not do, and what the DMD box
+    can be made to do."""
+    notes.clear()
+    boxes = [one.dmd for one in shown if one is not None and one.dmd is not None]
+    controls = " ".join(name for name, drawn in (
+        ("lamps", not glass["still"] and glass["lamps"]),
+        ("version", glass["two_versions"])) if drawn)
+    with notes:
+        if kind := {"lamps": "looking_lamps", "version": "version",
+                    "lamps version": "looking"}.get(controls):
+            ui.label(t(f"console.backglass.preview.{kind}")).classes("console-help")
+        if live and any(not one.auto for one in boxes):
+            ui.label(t("console.backglass.preview.dmd")).classes("console-help")
+            ui.label(t("console.backglass.preview.find")).classes("console-help")
+        if live and any(one.auto for one in boxes):
+            ui.label(t("console.backglass.preview.automatic")).classes("console-help")
+
+
 def _stage(screen: Screen, src: str, on_set: Callable[[Box], Awaitable[None]] | None,
-           caption: str = "", find: Callable[[], Awaitable[None]] | None = None) -> None:
+           caption: str, find: Callable[[], Awaitable[None]] | None = None) -> None:
     """One window. The content is stretched to fill the window's box, then turned: a
     quarter turn swaps the box it is stretched into."""
     sideways = screen.turns % 2 == 1
     across, down = ("100cqh", "100cqw") if sideways else ("100%", "100%")
     with ui.column().classes("console-bgview-fig gap-0"):
+        with ui.row().classes("console-bgview-cap items-center gap-2 no-wrap"):
+            ui.label(caption).classes("console-bgview-name")
+            if find is not None and screen.dmd is not None:
+                _find_button(find)
         with ui.element("div").classes("console-bgview-box") \
                 .style(f"aspect-ratio:{screen.ratio:.5f}"):
             with ui.element("div").classes("console-bgview-stage").style(
@@ -319,11 +345,6 @@ def _stage(screen: Screen, src: str, on_set: Callable[[Box], Awaitable[None]] | 
                     f"background-size:100% {screen.scale:.4f}%"):
                 if screen.dmd is not None:
                     _dmd(screen.dmd, screen.turns, on_set)
-        if caption:
-            with ui.row().classes("items-center gap-2 no-wrap"):
-                ui.label(caption).classes("console-help")
-                if find is not None and screen.dmd is not None:
-                    _find_button(find, small=True)
 
 
 GRIPS = ("nw", "ne", "sw", "se")

@@ -1837,11 +1837,10 @@ def view_control(library: Any, scope: str,
                 now = held["drawing"].get(fields[0], names[0])
                 ui.item_label(t("console.games.show_as", group=heading or t("word.columns"))) \
                     .props("header").classes("console-menu-header")
-                ui.toggle({name: t(renderers.REGISTRY[name].label) for name in names},
-                          value=now,
-                          on_change=lambda event, f=fields, n=names:
-                          redraw(f, n, str(event.value))) \
-                    .props("dense no-caps unelevated").classes("q-mx-sm q-mb-xs")
+                def pick(event: Any, f: list[str] = fields, n: tuple[str, ...] = names) -> Any:
+                    return redraw(f, n, str(event.value))
+                panel.segmented({name: t(renderers.REGISTRY[name].label) for name in names},
+                                now, pick).classes("q-mx-sm q-mb-xs")
 
         @on_page
         async def redraw(fields: list[str], names: tuple[str, ...], chosen: str) -> None:

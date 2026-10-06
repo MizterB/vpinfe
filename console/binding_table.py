@@ -18,7 +18,7 @@ from nicegui import ui
 
 from common import input_registry
 from common.i18n import t
-from console import binding_editor, confirm, verbs
+from console import binding_editor, confirm, panel, verbs
 from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.binding_table")
@@ -363,11 +363,11 @@ class Table:
         """How long the binding has to be down, which a gesture cannot say exactly."""
         now = input_registry.hold_ms(binding)
         with ui.menu() as menu:
-            ui.toggle({ms: t("console.binding_table.seconds", seconds=f"{ms / 1000:g}")
-                       if ms else t("console.binding_table.no_hold") for ms in stops(now)},
-                      value=now,
-                      on_change=lambda event: self._held(row, binding, int(event.value), menu)) \
-                .props("unelevated dense no-caps").classes("console-binding-hold")
+            panel.segmented({ms: t("console.binding_table.seconds", seconds=f"{ms / 1000:g}")
+                             if ms else t("console.binding_table.no_hold") for ms in stops(now)},
+                            now,
+                            lambda event: self._held(row, binding, int(event.value), menu)) \
+                .classes("console-binding-hold")
 
     def _revert_mark(self, row: Row) -> None:
         back = listed(t("console.binding_table.quoted", binding=input_registry.describe(one))

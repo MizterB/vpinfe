@@ -696,7 +696,7 @@ class _BackglassPanel(_TableCase, unittest.IsolatedAsyncioTestCase):
         with patch.object(workbench, "ui"), patch.object(workbench.panel, "facts"), \
                 patch.object(workbench.settings_page, "control_for") as control_for, \
                 patch.object(workbench, "_marked") as marked:
-            await workbench._file_settings_block({"file_settings": context})
+            await workbench._file_settings_entries({"file_settings": context})
         return control_for, marked
 
 

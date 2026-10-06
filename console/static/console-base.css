@@ -474,11 +474,8 @@ body::before {
 .q-menu .q-separator { background: var(--line); margin: 2px 0; }
 /* A menu that holds one segmented choice rather than items: how long a binding has to be
    down. `.q-item` carries its own gutters and this does not, so the margin is here. */
-.q-menu .console-binding-hold {
-  margin: 6px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
-}
-.console-binding-hold .q-btn { padding: 3px 10px; font-size: var(--fs-caption); }
-.console-binding-hold .q-btn:not(.bg-primary) { color: var(--ink-2); }
+.q-menu .console-binding-hold { margin: 6px; }
+.q-menu .console-binding-hold .q-btn { padding: 3px 10px; font-size: var(--fs-caption); }
 
 /* A picker over the whole library. Unconstrained, its menu is as wide as the longest
    title in it - which in a library with one 130-character name is the whole window -
@@ -2383,6 +2380,9 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 .console-fact-label { font-size: var(--fs-body); color: var(--ink-2); line-height: 1.3;
                       padding-block: calc((var(--fact-row) - 1.3em) / 2); }
 .console-fact-label:has(+ .console-fact-edit .q-field--with-bottom) { align-self: start; }
+/* A fact nothing sets has no control to centre in a row, so the row is the height of its
+   words and the run of them reads as one block rather than a ladder. */
+.console-fact-label.console-fact-read { padding-block: 0; }
 /* Sized to its text: a tooltip anchors to its parent, and a full-width label puts the
    bubble beside the word rather than under it. `max-width` keeps the truncation. */
 /* Under the page name, in the supporting voice: it is read once on arrival and never
@@ -2894,6 +2894,13 @@ a.console-tag:hover { background: var(--wash-hover); }
              calc((100cqw - var(--gap, 8px) * var(--gaps, 0)) / var(--sum, 1)));
 }
 .console-bgview-fig { align-items: stretch; min-width: 0; flex: none; }
+.console-bgview-cap { height: var(--cap, 28px); }
+.console-bgview-name {
+  font-size: var(--fs-caption); font-weight: 600; color: var(--ink-2); white-space: nowrap;
+}
+.console-bgview-bar .console-bgview-name:not(:first-child) { margin-left: 12px; }
+.console-bgview-notes { margin-top: 6px; }
+.console-bgview-notes .console-help { max-width: none; }
 .console-bgview-box {
   position: relative; height: max(var(--fit), 40px); overflow: hidden;
   container-type: size;
@@ -3315,8 +3322,18 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
   border-top: 1px solid var(--line-soft);
 }
 .console-screens-differs-title { color: var(--tier-table); font-size: var(--fs-body); }
+/* A choice between a few named states: one control with an edge, so it reads as a thing
+   to press and not as a row of words. The edge is the control boundary, --line-strong,
+   and the state in force is the filled segment. */
+.console-segmented {
+  border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden;
+  background: var(--surface-1);
+}
+.console-segmented .q-btn { padding: 3px 12px; font-size: var(--fs-body); color: var(--ink-2); }
+.console-segmented .q-btn + .q-btn { border-left: 1px solid var(--line-strong); }
+.console-segmented .q-btn:not(.bg-primary):hover { background: var(--surface-hover); color: var(--ink); }
 /* The cm / in choice beside a length, at the type scale of the field it sits by. */
-.console-units { margin-left: 12px; border: 1px solid var(--line-soft); border-radius: 4px; overflow: hidden; }
+.console-units { margin-left: 12px; }
 .console-units .q-btn { min-width: 36px; font-size: var(--fs-caption); }
 
 /* The command line a window starts with, one option to a line. A line breaks after a

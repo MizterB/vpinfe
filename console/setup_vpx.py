@@ -425,10 +425,9 @@ async def ask_glass(vpx: Vpx, config: Any) -> dict[str, Any]:
                                     .props("dense borderless") \
                                     .classes("console-edit-field console-edit-narrow") \
                                     .tooltip(t(f"console.vpx_displays.{tip}"))
-                    ui.toggle({units.CM: t("console.units.cm"),
-                               units.INCH: t("console.units.in")},
-                              value=now["units"], on_change=chose_units) \
-                        .props("dense no-caps unelevated").classes("console-units")
+                    panel.segmented({units.CM: t("console.units.cm"),
+                                     units.INCH: t("console.units.in")},
+                                    now["units"], chose_units).classes("console-units")
                 drawn["filling"] = False
                 if "size_says" in drawn:
                     says_size()

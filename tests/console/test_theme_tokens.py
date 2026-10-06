@@ -52,7 +52,7 @@ FOREIGN_PREFIXES = ("--ag-", "--q-")
 # the rail's collections - on an empty number box, from the words it shows, and on a
 # list's grid or row, from its Artwork settings.
 RUNTIME = {"--dock-h", "--rows", "--drops-top", "--drops-left", "--blank", "--art-h",
-           "--sum", "--gaps", "--gap", "--chrome"}
+           "--sum", "--gaps", "--gap", "--chrome", "--cap"}
 
 
 def _same_color(literal):

@@ -876,39 +876,58 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
     if context["dock"] is not None:
         with _stage(context):
             await _asset_stage(context, path, glass, str(detail.get("head") or ""), label)
-    with ui.column().classes("w-full gap-1 console-slot p-2"):
-        with ui.column().classes("w-full gap-0 console-slot-facts"):
-            if not present:
-                ui.label(t("console.workbench.missing_table", kind=label)
-                         if context["lens"]
-                         else t("console.workbench.missing_game", kind=label)) \
-                    .classes("console-help")
-            else:
-                with ui.row().classes("items-start gap-2 w-full no-wrap"):
-                    _file_line(context, kind, path, str(context.get("link_view") or ""))
-                    if tier not in media_ownership.SCOPES:
-                        media_ownership.badge(tier)
-                    if glass and not glass["damaged"]:
-                        _backglass_chips(glass)
-                spec = _asset_spec(detail)
-                if spec:
-                    ui.label(spec).classes("console-help")
-                if glass and glass["damaged"]:
-                    _alert(t("console.backglass.damaged"), None)()
-                elif glass:
-                    panel.facts(ui, _backglass_facts(context, glass))
-                said = _asset_said(context, tier)
-                if said:
-                    ui.label(said).classes("console-help")
-                origin = str(row.get("origin") or "")
-                if origin and origin not in ("unknown", "user"):
-                    ui.label(t("console.workbench.source",
-                               source_name=media_ownership.source_name(origin))) \
-                        .classes("console-help")
-                _outside_lines(links)
+
+    def identity(*, facts: bool) -> None:
+        if not present:
+            ui.label(t("console.workbench.missing_table", kind=label)
+                     if context["lens"]
+                     else t("console.workbench.missing_game", kind=label)) \
+                .classes("console-help")
+            return
+        with ui.row().classes("items-start gap-2 w-full no-wrap"):
+            _file_line(context, kind, path, str(context.get("link_view") or ""))
+            if tier not in media_ownership.SCOPES:
+                media_ownership.badge(tier)
+            if glass and not glass["damaged"]:
+                _backglass_chips(glass)
+        spec = _asset_spec(detail)
+        if spec:
+            ui.label(spec).classes("console-help")
+        if glass and glass["damaged"]:
+            _alert(t("console.backglass.damaged"), None)()
+        elif glass and facts:
+            panel.facts(ui, _backglass_facts(context, glass))
+        said = _asset_said(context, tier)
+        if said:
+            ui.label(said).classes("console-help")
+        origin = str(row.get("origin") or "")
+        if origin and origin not in ("unknown", "user"):
+            ui.label(t("console.workbench.source",
+                       source_name=media_ownership.source_name(origin))) \
+                .classes("console-help")
+        _outside_lines(links)
+
+    def acts() -> None:
         _asset_actions(context, kind, label, present, path, tier, detail)
-        if "file_settings" in context:
-            await _file_settings_block(context)
+
+    if context.get("link_view"):
+        with ui.column().classes("w-full gap-1 console-slot p-2"):
+            with ui.column().classes("w-full gap-0 console-slot-facts"):
+                identity(facts=True)
+            acts()
+        return
+    entries: list[tuple[Any, Any]] = [
+        (panel.HEADING, t("word.file")),
+        (panel.FULL, lambda: identity(facts=False))]
+    if kind in _WHOLE_FOLDER or kind in _PLACEABLE:
+        entries.append((panel.FULL, acts))
+    if glass and not glass["damaged"] and (about := _backglass_facts(context, glass)):
+        entries += [(panel.HEADING, t("console.workbench.details")),
+                    *((panel.READ, entry) for entry in about)]
+    if "file_settings" in context:
+        entries += await _file_settings_entries(context)
+    with ui.column().classes("w-full gap-0 console-form"):
+        panel.facts(ui, entries)
 
 
 async def _asset_stage(context: dict[str, Any], path: str, glass: dict[str, Any] | None,
@@ -1087,7 +1106,7 @@ async def _file_settings(library: Library, row: dict[str, Any],
     return settings
 
 
-async def _file_settings_block(context: dict[str, Any]) -> None:
+async def _file_settings_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     inner = context["file_settings"]
     values = await _config_values(inner)
     shown = [block for group in inner["tied"] for block in curated_blocks(group, values)]
@@ -1096,11 +1115,10 @@ async def _file_settings_block(context: dict[str, Any]) -> None:
         curated=True, redraw_on=switches(heading for heading, _ in shown),
         pairs=[pair for heading, _ in shown for pair in heading.pairs])
     if shared := inner.get("shared"):
-        entries.insert(0, panel.intro(
+        entries[:0] = [(panel.HEADING, t("console.section.settings")), panel.intro(
             t("console.workbench.writes_to_tables", count=len(shared)),
-            hint="\n".join(_table_line(one["table"], inner["tables"]) for one in shared)))
-    with ui.column().classes("gap-0 console-form"):
-        panel.facts(ui, entries)
+            hint="\n".join(_table_line(one["table"], inner["tables"]) for one in shared))]
+    return entries
 
 
 # The kinds VPX finds by name, which a file can be placed as and removed from.

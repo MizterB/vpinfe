@@ -719,6 +719,13 @@ A panel that shows facts uses the same control for the same kind of value, every
 | A state the user cannot set | a chip |
 | Free text the user can set | a field, with a resting edge so it does not read as text |
 | A color the user can set | a swatch of it that opens a picker, its `#RRGGBB` on hover |
+| A choice between a few named states | a segmented control with an edge (`panel.segmented`) |
+| A fact the user can only read | a row of `panel.READ`, as tall as its words |
+
+**A segmented control has a visible boundary.** A bare run of text buttons reads as a label
+until it is hovered, so the edge, the divider between segments and the filled segment for the
+one in force are drawn by `panel.segmented` and never by a call site. No module calls
+`ui.toggle` itself.
 
 Mixing them — a checkbox here, a text state and a button there — makes the reader work out
 three times what one convention says once.

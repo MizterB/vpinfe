@@ -259,9 +259,9 @@ class Page:
                     with ui.element("div").classes("console-field-pair"):
                         for at, key in enumerate(vpx.SCREEN_SIZE):
                             self._size_field(key, at, joiner, labels[at])
-                    ui.toggle({units.CM: t("console.units.cm"), units.INCH: t("console.units.in")},
-                              value=self.units, on_change=self._chose_units) \
-                        .props("dense no-caps unelevated").classes("console-units")
+                    panel.segmented({units.CM: t("console.units.cm"),
+                                     units.INCH: t("console.units.in")},
+                                    self.units, self._chose_units).classes("console-units")
 
             self.refill = fill
             fill()

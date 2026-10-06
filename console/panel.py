@@ -36,6 +36,9 @@ ASIDE = object()
 # heading and leaves room before the first row, so it reads as part of the heading
 # rather than as something between two groups.
 LEDE = object()
+# A fact that is only read, as (READ, (label, value)): no control to centre, so its row is
+# as tall as the words and a run of them sits close together.
+READ = object()
 
 # A rail row that names the rows under it rather than opening anything.
 GROUP = object()
@@ -124,6 +127,11 @@ def _fact_row(target: Any, label: Any, value: Any) -> None:
     if label is LEDE:
         with target.element("div").classes("console-fact-full console-fact-lede"):
             value()
+        return
+    if label is READ:
+        name, shown = value
+        target.label(str(name)).classes("console-fact-label console-fact-read")
+        _draw_value(target, shown)
         return
     if label is ASIDE:
         with target.element("div").classes("console-fact-aside"):
@@ -263,6 +271,13 @@ def switch(value: bool | None, on_change: Callable[[Any], Any], *,
             on_control(control)
 
     return draw
+
+
+def segmented(options: Any, value: Any, on_change: Callable[[Any], Any]) -> ui.toggle:
+    """A choice between a few named states that is one control with an edge and a
+    filled segment for the one in force, wherever it is drawn."""
+    return ui.toggle(options, value=value, on_change=on_change) \
+        .props("dense no-caps unelevated").classes("console-segmented")
 
 
 def state(text: str, level: str, *, beside: str = "",

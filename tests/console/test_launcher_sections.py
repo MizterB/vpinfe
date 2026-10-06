@@ -1101,13 +1101,12 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(workbench, "_config_values", AsyncMock(return_value={})), \
                 patch.object(workbench, "_setting_entries", AsyncMock(return_value=[])), \
-                patch.object(workbench.panel, "facts") as rows, patch.object(workbench, "ui"), \
                 patch.object(workbench.panel, "intro") as intro:
-            await workbench._file_settings_block({"file_settings": found})
+            entries = await workbench._file_settings_entries({"file_settings": found})
 
         intro.assert_called_once_with(
             "Changes here apply to the 2 tables that use this file", hint="t1\nt2")
-        self.assertEqual(rows.call_args.args[1], [intro.return_value])
+        self.assertEqual(entries, [(workbench.panel.HEADING, "Settings"), intro.return_value])
 
     async def test_nor_where_the_launcher_cannot_show_them(self) -> None:
         for state, has_config in ((path_checks.MISSING, True), (path_checks.OK, False)):

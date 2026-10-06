@@ -164,10 +164,9 @@ class Preview:
             with self.box:
                 self.listing = ui.column().classes("console-options w-full min-w-0 gap-0")
                 with ui.row().classes("items-center gap-2 w-full no-wrap"):
-                    ui.toggle({RESULT: t("console.settings.chrome_view.result"),
-                               BREAKDOWN: t("console.settings.chrome_view.breakdown")},
-                              value=self.view, on_change=self.choose) \
-                        .props("dense no-caps unelevated").classes("console-units shrink-0")
+                    panel.segmented({RESULT: t("console.settings.chrome_view.result"),
+                                     BREAKDOWN: t("console.settings.chrome_view.breakdown")},
+                                    self.view, self.choose).classes("console-units shrink-0")
                     self.copy_box = ui.element("div").classes("shrink-0")
                     ui.label(t("console.settings.chrome_effective.help")) \
                         .classes("console-help grow min-w-0")
