@@ -65,5 +65,15 @@ class BoxWriteInPlace(unittest.IsolatedAsyncioTestCase):
         redraw.assert_not_awaited()
 
 
+class TheFitButton(unittest.TestCase):
+    def test_only_the_first_number_of_a_dmd_box_carries_it(self) -> None:
+        self.assertEqual("Backglass", workbench._dmd_part("Plugin.B2S.BackglassDMDX"))
+        self.assertEqual("ScoreView", workbench._dmd_part("Plugin.B2SLegacy.ScoreViewDMDX"))
+        for key in ("Plugin.B2S.BackglassDMDY", "Plugin.B2S.BackglassDMDW",
+                    "Plugin.B2S.BackglassDMDAutoPos", "Plugin.B2S.ShowGrill",
+                    "Plugin.DMDUtil.ZeDMD", "Player.DMDX"):
+            self.assertEqual("", workbench._dmd_part(key), key)
+
+
 if __name__ == "__main__":
     unittest.main()

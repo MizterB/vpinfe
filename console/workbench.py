@@ -706,7 +706,7 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
         if settings is not None:
             context["file_settings"] = {**settings, "state": state,
                                         "rebuild": context["rebuild"],
-                                        "refresh_grid": context["saved"]}
+                                        "refresh_grid": context["saved"], "fits": {}}
         await _rail(context, "media_file" if media else "asset_file", state)
 
 
@@ -971,7 +971,7 @@ async def _backglass_picture(context: dict[str, Any], path: str, glass: dict[str
             backglass_view.preview(game_id, path, glass, label, held,
                                    inner.setdefault("followers", []), _enlarge,
                                    None if inner.get("playing") else partial(_write_overlay, inner),
-                                   memory)
+                                   memory, inner["fits"])
             return
     with ui.element("div").classes("console-slot-art"):
         mediaview.preview(art.backglass(game_id, path, version=glass["version"],
@@ -1138,12 +1138,37 @@ async def _file_settings_entries(context: dict[str, Any]) -> list[tuple[Any, Any
     entries = await _setting_entries(
         inner, [(heading.label, heading.note, fields) for heading, fields in shown],
         curated=True, redraw_on=switches(heading for heading, _ in shown),
-        pairs=[pair for heading, _ in shown for pair in heading.pairs])
+        pairs=[pair for heading, _ in shown for pair in heading.pairs],
+        ahead={field.key: [_fit_row(inner, part)] for _, fields in shown for field in fields
+               if (part := _dmd_part(field.key))})
     if shared := inner.get("shared"):
         entries[:0] = [(panel.HEADING, t("console.section.settings")), panel.intro(
             t("console.workbench.writes_to_tables", count=len(shared)),
             hint="\n".join(_table_line(one["table"], inner["tables"]) for one in shared))]
     return entries
+
+
+def _dmd_part(key: str) -> str:
+    """The window a DMD position setting belongs to, and blank for any other setting. Only
+    the first of a window's four numbers is named, so the button is drawn once."""
+    name = key.rsplit(".", 1)[-1]
+    part = name.removesuffix("DMDX") if key.startswith("Plugin.") else ""
+    return part if name.endswith("DMDX") and part in (
+        backglass_view.GLASS_PART, backglass_view.SCORE_PART) else ""
+
+
+def _fit_row(inner: dict[str, Any], part: str) -> tuple[Any, Any]:
+    """The button that sizes a window's DMD box to the picture, above the box's numbers.
+    The preview supplies the action once it is drawn."""
+    async def press() -> None:
+        if (fit := inner["fits"].get(part)) is None:
+            ui.notify(t("console.backglass.damaged"), type="warning")
+        else:
+            await fit()
+
+    return panel.FULL, panel.action(
+        t("console.backglass.dmd_fit"), press, icon=verbs.FIT,
+        hint=t("console.backglass.dmd_fit.hint"), enabled=not inner.get("playing"))
 
 
 # The kinds VPX finds by name, which a file can be placed as and removed from.

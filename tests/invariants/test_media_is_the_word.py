@@ -17,8 +17,9 @@ ART = re.compile(r"\bart(?:works?)?\b", re.IGNORECASE)
 THE_BACKGLASS_PICTURE = "the picture inside a .directb2s, as the file and the B2S plugin call it"
 ALLOWED = {
     "console.backglass.artwork": "the artist's credit, the file's own Artwork field",
-    "console.backglass.dmd_find.hint": THE_BACKGLASS_PICTURE,
-    "console.backglass.dmd_find.none": THE_BACKGLASS_PICTURE,
+    "console.backglass.dmd_fit": THE_BACKGLASS_PICTURE,
+    "console.backglass.dmd_fit.none": THE_BACKGLASS_PICTURE,
+    "console.backglass.preview.fit": THE_BACKGLASS_PICTURE,
     "console.backglass.score_art": THE_BACKGLASS_PICTURE,
     "error.backglass.score_view_absent": THE_BACKGLASS_PICTURE,
     **{f"app.vpx.field.Plugin.{plugin}.{field}.help": THE_BACKGLASS_PICTURE

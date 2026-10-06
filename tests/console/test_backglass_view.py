@@ -201,6 +201,26 @@ class TheFrameFound(unittest.TestCase):
                          tuple(round(v, 6) for v in (box.left, box.top, box.width, box.height)))
 
 
+class TheWindowFitted(unittest.TestCase):
+    def test_the_backglass_is_fitted_on_the_picture_with_the_grill_cut_when_it_is_cut(self) -> None:
+        screen, cut = view.fit_target({f"{LEGACY}B2SHideGrill": "1"}, _glass(), "Backglass")
+
+        self.assertEqual(("Backglass", True), (screen.part, cut))
+
+    def test_the_backglass_is_fitted_on_the_whole_picture_when_the_grill_stays(self) -> None:
+        screen, cut = view.fit_target({}, _glass(), "Backglass")
+
+        self.assertEqual(("Backglass", False), (screen.part, cut))
+
+    def test_the_score_view_is_fitted_even_while_its_window_is_off(self) -> None:
+        screen, cut = view.fit_target({}, _glass(score_view=(400, 100)), "ScoreView")
+
+        self.assertEqual(("ScoreView", (400, 100), False), (screen.part, screen.space, cut))
+
+    def test_a_file_with_no_score_view_art_has_nothing_to_fit_it_to(self) -> None:
+        self.assertIsNone(view.fit_target({}, _glass(), "ScoreView"))
+
+
 class WhichEdition(unittest.TestCase):
     def test_dual_mode_two_is_fantasy_under_legacy(self) -> None:
         self.assertEqual("fantasy", view.edition_in_effect({f"{LEGACY}B2SDualMode": "2"}))
