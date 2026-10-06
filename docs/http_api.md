@@ -705,6 +705,9 @@ every member, and `curated` names the few a client draws first, under headings:
 - `kinds` names the asset kinds the heading's settings are about, empty for most. A file
   of one of them draws the heading too, at the table it is the file for. B2S and
   B2SLegacy are about `backglass`.
+- `versions` names rows the heading adds for a file that holds two versions of its content,
+  empty for most, and never among `keys`. B2SLegacy's is `Plugin.B2SLegacy.B2SDualMode`,
+  offered as Authentic (`1`) and Fantasy (`2`).
 - `summarized` is true for a group said as one line rather than listed, the point of view.
   `rows` names the ones it draws as rows of their own all the same: the view mode of each
   view the table starts in, by its `Player.BGSet`, then any other view mode the table sets.

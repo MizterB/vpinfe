@@ -342,10 +342,11 @@ def _named_values(app_id: str, config: Any) -> Callable[[str], list[list[str]]]:
 
 
 def _described_field(app_id: str, field: apps.Field) -> dict[str, Any]:
+    said = apps.choice_words(app_id, field)
     return {"key": field.key, **apps.field_words(app_id, field),
             "help": apps.field_help(app_id, field), "type": field.type,
             "default": field.default,
-            "choices": [list(pair) for pair in field.choices],
+            "choices": [[value, said.get(value, label)] for value, label in field.choices],
             "choice_help": apps.choice_help(app_id, field),
             "minimum": field.minimum, "maximum": field.maximum,
             "path": field.path, "suffixes": list(field.suffixes),
@@ -367,6 +368,7 @@ def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict
                           "rivals": [key for key in heading.rivals if key in switches]
                           if switched else [],
                           "kinds": list(heading.kinds),
+                          "versions": [key for key in heading.versions if key in shown],
                           "pairs": [{"key": pair.key,
                                      **apps.pair_words(app_id, group.key, pair),
                                      "keys": list(pair.keys)}

@@ -1019,8 +1019,8 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
         return [one["id"] for one in workbench._served(row, [row, *others], self.TABLES)]
 
     async def _settings(self, row: dict, tables=None, *, state: str = path_checks.OK,
-                        has_config: bool = True,
-                        others=()) -> tuple[dict | None, Mock]:
+                        has_config: bool = True, others=(),
+                        detail: dict | None = None) -> tuple[dict | None, Mock]:
         library = Mock()
         library.launchers.return_value = {"launchers": [
             {**_launcher(state, has_config=has_config), "launcher_id": "l1"}, *others]}
@@ -1028,7 +1028,8 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
         library.play_state.return_value = {}
         self.enterContext(patch.object(workbench.run, "io_bound", new=AsyncMock(
             side_effect=lambda call, *args, **kwargs: call(*args, **kwargs))))
-        found = await workbench._file_settings(library, row, [row], tables or self.TABLES[:1])
+        found = await workbench._file_settings(library, row, [row], tables or self.TABLES[:1],
+                                               detail or {})
         return found, library
 
     def test_a_table_s_own_file_is_that_table_s(self) -> None:
@@ -1051,6 +1052,18 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([[h.key for h in g.curated] for g in found["tied"]], [["B2S"]])
         self.assertEqual((found["config_scope"], found["config_table"]), ("entry", "t1"))
         library.launcher_config.assert_called_once_with("l1", "t1", "entry")
+
+    async def test_a_file_of_two_versions_has_the_row_that_picks_one(self) -> None:
+        self.WIRE["groups"][0]["curated"][0]["versions"] = ["Plugin.B2S.Version"]
+        self.addCleanup(self.WIRE["groups"][0]["curated"][0].pop, "versions")
+        for two_versions, keys in ((True, ["Plugin.B2S.Enable", "Plugin.B2S.Version"]),
+                                   (False, ["Plugin.B2S.Enable"])):
+            with self.subTest(two_versions=two_versions):
+                found, _ = await self._settings(
+                    self._file(), detail={"backglass": {"two_versions": two_versions}})
+
+                assert found is not None
+                self.assertEqual(list(found["tied"][0].curated[0].keys), keys)
 
     async def test_a_file_several_tables_use_is_read_and_written_at_each(self) -> None:
         found, library = await self._settings(self._file("game", ""), self.TABLES)

@@ -461,6 +461,13 @@ class AreaTests(_Case):
                           ("score_view_dmd_size", (f"{score_view}W", f"{score_view}H"))])
         self.assertTrue(all(areas.is_curated(key) for key in box))
 
+    def test_the_version_pick_is_a_file_s_row_and_not_the_table_s(self) -> None:
+        dual = "Plugin.B2SLegacy.B2SDualMode"
+        heading, = areas.plugin_headings({"Plugin.B2SLegacy.Enable", dual})
+
+        self.assertEqual((heading.versions, dual in heading.keys), ((dual,), False))
+        self.assertEqual(areas.plugin_headings({"Plugin.B2SLegacy.Enable"})[0].versions, ())
+
     def test_a_dmd_pair_the_file_holds_half_of_is_left_out(self) -> None:
         heading, = areas.plugin_headings({"Plugin.B2S.Enable", "Plugin.B2S.BackglassDMDX",
                                           "Plugin.B2S.BackglassDMDY",
@@ -730,6 +737,15 @@ class RegisteredTests(_Case):
         self.assertEqual(mode.type, "choice")
         self.assertEqual(mode.default, "0")
         self.assertEqual(mode.choices[0], ("0", "Disabled"))
+
+    def test_dual_mode_is_a_choice_between_its_two_stored_numbers(self) -> None:
+        self.app_ini.write_text("[Plugin.B2SLegacy]\nB2SDualMode =\n")
+        mode = self.fields()["Plugin.B2SLegacy.B2SDualMode"]
+
+        self.assertEqual((mode.type, [value for value, _ in mode.choices]),
+                         ("choice", ["1", "2"]))
+        self.assertEqual(apps.choice_words("vpx", mode),
+                         {"1": "Authentic", "2": "Fantasy"})
 
     def test_a_plugin_s_own_switch_is_off_until_it_is_turned_on(self) -> None:
         self.assertEqual(self.fields()["Plugin.UpscaleDMD.Enable"].default, "0")

@@ -218,6 +218,9 @@ class Heading:
     # Core's asset kinds these settings are about. A file of one of them draws the
     # heading too, at the table the file is for.
     kinds: tuple[str, ...] = ()
+    # Rows of these settings a file draws only when it holds two versions of its content.
+    # Not among `keys`, so a table's settings page never draws them.
+    versions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

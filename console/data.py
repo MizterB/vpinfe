@@ -147,6 +147,7 @@ def config_groups(found: dict[str, Any]) -> list:
             keys=tuple(h["keys"]), enabled_by=h.get("enabled_by", ""),
             rivals=tuple(h.get("rivals") or ()),
             kinds=tuple(h.get("kinds") or ()),
+            versions=tuple(h.get("versions") or ()),
             pairs=tuple(SimpleNamespace(
                 key=p["key"], label=p["label"], note=p.get("note", ""),
                 joiner=p.get("joiner", ""), keys=tuple(p["keys"]))

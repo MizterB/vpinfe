@@ -675,8 +675,8 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
         return
     tables = await offload.io(library.tables_for, game_id)
     table_id = str(found.get("table") or "")
-    settings = None if media else await _file_settings(library, found, files, tables)
     detail = {} if media else await _asset_detail_of(library, game_id, found)
+    settings = None if media else await _file_settings(library, found, files, tables, detail)
     container.clear()
     title.clear()
     with container:
@@ -988,11 +988,12 @@ def _served(row: dict[str, Any], files: Sequence[dict[str, Any]],
 
 async def _file_settings(library: Library, row: dict[str, Any],
                          files: Sequence[dict[str, Any]],
-                         tables: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+                         tables: Sequence[dict[str, Any]],
+                         detail: dict[str, Any]) -> dict[str, Any] | None:
     """What a file's Settings section draws from: the program settings its tables'
-    launchers tie to the file's kind, read at each table it is the one used by. None
-    where it has none, or where one of those tables runs another program or cannot be
-    read."""
+    launchers tie to the file's kind, read at each table it is the one used by, and for a
+    file of two versions the row that picks one. None where it has none, or where one of
+    those tables runs another program or cannot be read."""
     served = _served(row, files, tables)
     if not served or not all(one.get("launcher_app_configurable") for one in served):
         return None
@@ -1012,9 +1013,12 @@ async def _file_settings(library: Library, row: dict[str, Any],
         logger.debug("No settings for %s", table_id, exc_info=True)
         return None
     groups = config_groups(found)
-    tied = [SimpleNamespace(settings=group.settings,
-                            curated=[one for one in group.curated if kind in one.kinds])
-            for group in groups]
+    versioned = bool((detail.get("backglass") or {}).get("two_versions"))
+    tied = [SimpleNamespace(
+        settings=group.settings,
+        curated=[SimpleNamespace(**{**vars(one), "keys": (*one.keys, *one.versions)})
+                 if versioned else one for one in group.curated if kind in one.kinds])
+        for group in groups]
     tied = [group for group in tied if group.curated]
     if not tied:
         return None

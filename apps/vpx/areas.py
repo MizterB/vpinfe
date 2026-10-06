@@ -144,6 +144,14 @@ PLUGIN_PAIRS: dict[str, tuple[Pair, ...]] = {plugin: _dmd_pairs(plugin)
 PLUGIN_SWITCHED: dict[str, tuple[Switched, ...]] = {plugin: _overlays(plugin)
                                                     for plugin in ("B2S", "B2SLegacy")}
 
+# Rows a file of the plugin's kinds draws only when the file holds two versions.
+PLUGIN_VERSION_ROWS: dict[str, tuple[str, ...]] = {
+    "B2SLegacy": ("Plugin.B2SLegacy.B2SDualMode",)}
+
+# Settings VPX declares as a number that are a choice between a few: the stored values,
+# with the words for them in the catalog as `field.<key>.choice.<value>.label`.
+CHOICES: dict[str, tuple[str, ...]] = {"Plugin.B2SLegacy.B2SDualMode": ("1", "2")}
+
 # The asset kinds a plugin's settings are about.
 PLUGIN_KINDS: dict[str, tuple[str, ...]] = {"B2S": ("backglass",),
                                             "B2SLegacy": ("backglass",)}
@@ -262,7 +270,9 @@ def plugin_headings(offered: set[str],
                 pairs=tuple(pair for pair in PLUGIN_PAIRS.get(plugin, ())
                             if set(pair.keys) <= set(keys)),
                 switched=kept_switched(PLUGIN_SWITCHED.get(plugin, ()), set(keys)),
-                kinds=PLUGIN_KINDS.get(plugin, ())))
+                kinds=PLUGIN_KINDS.get(plugin, ()),
+                versions=tuple(key for key in PLUGIN_VERSION_ROWS.get(plugin, ())
+                               if key in offered)))
     return tuple(sorted(found, key=lambda one: plugin_order(one.key, installed)))
 
 

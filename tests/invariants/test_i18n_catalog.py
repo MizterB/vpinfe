@@ -1758,7 +1758,7 @@ def _package_strings(app_id: str) -> set[str]:
 
 
 _FIELD_WORD = re.compile(r"field\.(.+)\.(label|description|help|blank)")
-_CHOICE_WORD = re.compile(r"field\.(.+)\.choice\.[^.]+\.help")
+_CHOICE_WORD = re.compile(r"field\.(.+)\.choice\.[^.]+\.(?:help|label)")
 _GROUP_WORD = re.compile(r"group\.([^.]+)\.label")
 _HEADING_WORD = re.compile(r"group\.([^.]+)\.(?:heading\.([^.]+)\.(?:label|note)"
                            r"|pair\.([^.]+)\.(?:label|note|joiner))")

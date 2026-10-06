@@ -171,6 +171,15 @@ def field_blank(app_id: str, field: Field) -> str:
     return i18n.literal_or("", f"app.{app_id}.field.{field.key}.blank")[0]
 
 
+def choice_words(app_id: str, field: Field) -> dict[str, str]:
+    """By stored value, the word the app's catalog has for each of a setting's choices,
+    in place of the program's own where it has one."""
+    found = {value: i18n.literal_or(
+        "", f"app.{app_id}.field.{field.key}.choice.{value}.label")[0]
+        for value, _label in field.choices}
+    return {value: said for value, said in found.items() if said}
+
+
 def choice_help(app_id: str, field: Field) -> dict[str, str]:
     """By stored value, what each of a setting's choices does, where the app's catalog
     says."""

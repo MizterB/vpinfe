@@ -835,14 +835,15 @@ def _field(one: vini.Setting) -> Field:
         # one, and the catalog has the words for the rest.
         label="" if bindings.is_mapping(one.qualified)
         else one.label if one.label != one.key else LABELS.get(one.qualified, ""),
-        type=_type_of(one),
+        type=vini.KIND_CHOICE if one.qualified in areas.CHOICES else _type_of(one),
         default=(bindings.default_of(one.qualified) if bindings.is_action(one.qualified)
                  else "" if one.qualified in FROM_THE_SCREEN | FROM_THE_TABLE
                  else _default_color(one.default) if _type_of(one) == vini.KIND_COLOR
                  else _shortest(one.default) if _type_of(one) == vini.KIND_NUMBER
                  else one.default),
         description="" if areas.is_plugin_switch(one.qualified) else one.description,
-        choices=one.choices,
+        choices=tuple((value, value) for value in areas.CHOICES[one.qualified])
+        if one.qualified in areas.CHOICES else one.choices,
         minimum=one.minimum,
         maximum=one.maximum,
         path="dir" if one.qualified in areas.FOLDERS

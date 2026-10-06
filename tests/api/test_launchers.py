@@ -552,6 +552,36 @@ class PointOfViewTests(_TableCase):
         self.assertNotIn("table_options", [g["key"] for g in got.json()["groups"]])
 
 
+class TwoVersionRowTests(_TableCase):
+    KEY = "Plugin.B2SLegacy.B2SDualMode"
+
+    def setUp(self) -> None:
+        super().setUp()
+        app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        app_ini.write_text("[Plugin.B2SLegacy]\nEnable = 1\nB2SDualMode =\n")
+        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+            "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
+
+    def _config(self) -> list[dict]:
+        got = self.client.get("/launchers/l1/config")
+        return [g for g in got.json()["groups"]
+                if any(h["key"] == "B2SLegacy" for h in g["curated"])]
+
+    def test_the_heading_names_the_row_a_file_of_two_versions_adds(self) -> None:
+        (group,) = self._config()
+        heading = next(h for h in group["curated"] if h["key"] == "B2SLegacy")
+
+        self.assertEqual(heading["versions"], [self.KEY])
+        self.assertNotIn(self.KEY, heading["keys"])
+
+    def test_the_row_offers_the_two_versions_by_name(self) -> None:
+        (group,) = self._config()
+        row = next(f for f in group["settings"] if f["key"] == self.KEY)
+
+        self.assertEqual((row["type"], row["choices"]),
+                         ("choice", [["1", "Authentic"], ["2", "Fantasy"]]))
+
+
 class BackglassPluginAtATableTests(_TableCase):
     VALUES = {"Plugin.B2S.ShowGrill": "1", "Plugin.B2S.BackglassDMDX": "120",
               "Plugin.B2S.BackglassDMDY": "40", "Plugin.B2S.BackglassDMDW": "512",
@@ -660,7 +690,7 @@ class _BackglassPanel(_TableCase, unittest.IsolatedAsyncioTestCase):
 
     async def _panel(self) -> tuple[Any, Any]:
         context = await workbench._file_settings(self.library, self.BACKGLASS,
-                                                 [self.BACKGLASS], self.TABLES)
+                                                 [self.BACKGLASS], self.TABLES, {})
         assert context is not None
         context["rebuild"] = AsyncMock()
         with patch.object(workbench, "ui"), patch.object(workbench.panel, "facts"), \
@@ -958,7 +988,7 @@ class CuratedTests(_TableCase):
             "key": "playfield", "label": "Playfield",
             "note": "Mechanical sounds - flippers, solenoids, the ball", "description": "",
             "keys": ["Player.PlaySound", "Player.Sound3D"], "enabled_by": "",
-            "rivals": [], "pairs": [], "switched": [], "kinds": []}])
+            "rivals": [], "pairs": [], "switched": [], "kinds": [], "versions": []}])
         self.assertFalse(sound["summarized"])
 
     def test_a_heading_carries_its_pairs_with_their_words(self) -> None:
