@@ -809,6 +809,19 @@ class ApiClient:
         which reaches the network - so it is asked for rather than done on every draw."""
         return dict(self._get(f"/themes?refresh={'true' if refresh else 'false'}") or {})
 
+    def theme_sources(self) -> dict:
+        """The configured theme sources and what each said when last read. Reads nothing."""
+        return dict(self._get("/themes/sources") or {})
+
+    def check_theme_source(self, address: str) -> dict:
+        """What adding `address` would be, without adding it. Reads the address, and a
+        repository may be read twice, so it is given longer than an ordinary call."""
+        _refuse_the_event_loop("/themes/sources/check")
+        response = self._session.post(f"{self._base}/themes/sources/check",
+                                      json={"address": address}, timeout=_TIMEOUT * 2)
+        self._answered(response)
+        return dict(response.json() or {})
+
     def install_theme(self, key: str) -> dict:
         """Install or update - installing over an existing copy is what an update is."""
         return dict(self._post(f"/themes/{key}/install", {}) or {})

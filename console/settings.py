@@ -51,6 +51,7 @@ from console import (
     recording,
     screens,
     theme_picker,
+    theme_sources,
     undo,
     verbs,
     vpx_displays,
@@ -1361,6 +1362,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  waiting: Waiting | None = None,
                  from_elsewhere: bool = False,
                  previewed: chrome_options.Preview | None = None,
+                 stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1368,6 +1370,9 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
     the client that reaches another machine. Which is the whole reason a device's
     settings page and this one are one page: the schema decides the controls and the
     source decides where the write lands.
+
+    `stands_in` draws other rows where a setting would be, named `section.key`, for a
+    setting whose value is better handled one entry at a time than as one field.
     """
     current = dict(values.get(section) or {})
     # What every setting in this section is *effectively* set to, defaults included. An
@@ -1389,6 +1394,9 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         if group and group != heading:
             entries.append((panel.HEADING, group))
         heading = group
+        if (replaced := (stands_in or {}).get(f"{section}.{option['key']}")) is not None:
+            entries += replaced
+            continue
         value = current.get(option["key"], option.get("default"))
         refusal = Refusal() if option.get("unit") == config_schema.UNIT_PORT else None
         save, note = _noted(option, value, _saver(source, section, option["key"], refusal),
@@ -1432,7 +1440,9 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                             blocks: list[tuple[str, list]] | None = None,
                             browse: Callable[..., dict] | None = None,
                             drawn_elsewhere: bool = False,
-                            waiting: Waiting | None = None) -> None:
+                            waiting: Waiting | None = None,
+                            stands_in: dict[str, list[tuple[Any, Any]]] | None = None,
+                            ) -> None:
     """One page of a device's settings, drawn exactly as this install's are.
 
     Several config sections can make one page - a machine's screens are four of them -
@@ -1486,7 +1496,8 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
                                 suggestions,
                                 resolved=resolves(offered) if resolves else None,
                                 browse=browse, waiting=waiting,
-                                from_elsewhere=from_elsewhere, previewed=preview)
+                                from_elsewhere=from_elsewhere, previewed=preview,
+                                stands_in=stands_in)
         if preview is not None:
             entries.append(preview.row())
         foot = FOOTERS.get(name)
@@ -1557,7 +1568,7 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
     # Later, because a page reads the schema and the values over HTTP and the draw it is
     # part of runs on the event loop, where the client refuses a call.
     busy.fill(body, lambda: _draw_system_page(library, redraw, body, known[chosen],
-                                              discovery, state.get("trouble") or []))
+                                              discovery, state.get("trouble") or [], state))
 
 
 def _said(items: Any) -> str:
@@ -1569,7 +1580,7 @@ def _said(items: Any) -> str:
 
 async def _draw_system_page(library: Library, redraw: Callable[[], None], body: Any,
                             page: DevicePage, discovery: dict[str, Any],
-                            trouble: Any) -> None:
+                            trouble: Any, state: dict[str, Any] | None = None) -> None:
     key, _label, kind, sections, _feature = page
     if key == IDENTITY:
         with body:
@@ -1633,13 +1644,31 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
                            rebuild, follow=follow),
             *placement_panel.rows(await run.io_bound(placement_panel.read, os.environ),
                                   values, schema, write, rebuild)]))
+    stands_in = await _theme_sources(library, state if state is not None else {}, redraw) \
+        if theme_sources.SECTION in sections else None
     with body:
         page_head(key, findings)
         await build_device_page(library, {"library": library, "rebuild": redraw},
                                 schema, values, sections, checks=marks,
                                 suggestions=offered, blocks=blocks, browse=library.folders,
                                 drawn_elsewhere=key == displays.KEY,
-                                waiting=Waiting(library, await _waiting(library)))
+                                waiting=Waiting(library, await _waiting(library)),
+                                stands_in=stands_in)
+
+
+async def _theme_sources(library: Library, state: dict[str, Any],
+                         redraw: Callable[[], None]) -> dict[str, list[tuple[Any, Any]]] | None:
+    """The two address fields, stood in for by the sources and what each said. Kept on the
+    page's state for the drag listeners, which are registered once and read it at the drop."""
+    try:
+        found = await offload.io(library.theme_sources)
+    except Exception as exc:  # noqa: BLE001 - the page keeps its fields rather than lose the setting
+        logger.warning("Could not read the theme sources: %s", why(exc))
+        return None
+    block = theme_sources.Block(library, found, redraw)
+    state["theme_sources"] = block
+    return {f"{theme_sources.SECTION}.{theme_sources.LISTS}": theme_sources.rows(block, found),
+            f"{theme_sources.SECTION}.{theme_sources.THEMES}": []}
 
 
 async def _waiting(library: Library) -> dict[str, Any]:

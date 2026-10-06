@@ -485,6 +485,13 @@ class Library:
         would show the state before the act that just happened."""
         return self._client.themes(refresh)
 
+    def theme_sources(self) -> dict:
+        """Never cached, for the same reason as `themes`."""
+        return self._client.theme_sources()
+
+    def check_theme_source(self, address: str) -> dict:
+        return self._client.check_theme_source(address)
+
     def install_theme(self, key: str) -> dict:
         return self._client.install_theme(key)
 
