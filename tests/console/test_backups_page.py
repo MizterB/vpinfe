@@ -188,6 +188,24 @@ class Views(unittest.TestCase):
         for key in ("console.view.backups_games", "console.view.backups_themes"):
             self.assertNotIn("kind", backups.VIEWS[key].columns)
 
+    def test_a_view_shows_its_columns_in_the_grids_order(self) -> None:
+        for key, preset in backups.VIEWS.items():
+            self.assertEqual(sorted(preset.columns, key=backups._ALL.index),
+                             list(preset.columns), key)
+
+    def test_the_file_name_is_the_last_column_and_only_everything_shows_it(self) -> None:
+        self.assertEqual("file", backups._ALL[-1])
+        for key, preset in backups.VIEWS.items():
+            self.assertEqual(key == "console.view.everything", "file" in preset.columns, key)
+
+    def test_a_view_leaves_out_a_column_that_holds_one_value_there(self) -> None:
+        vpinfe = backups.VIEWS["console.view.backups_vpinfe"].columns
+        yours = backups.VIEWS["console.view.backups_yours"].columns
+
+        self.assertNotIn("of", vpinfe)
+        self.assertIn("kind", vpinfe)
+        self.assertTrue({"why", "written_by"}.isdisjoint(yours))
+
     def test_a_linked_search_opens_on_everything_and_keeps_the_users_views(self) -> None:
         library = mock.Mock(spec=Library)
         library.preferences.return_value = {

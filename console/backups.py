@@ -102,23 +102,21 @@ COLUMNS = [
     grid_module.column("kind", t("word.kind"), 150,
                        help=t("console.backups.kind_column.help"),
                        **grid_module.choice_filter(_choices(KIND_WORDS))),
-    grid_module.column("file", t("word.file"), 280, tooltipField="path",
-                       help=t("console.backups.file.help")),
     grid_module.column("taken", t("console.backups.taken"), 190,
                        tooltipField="taken_utc", help=t("console.backups.taken.help"),
                        **TAKEN_FILTER),
-    grid_module.column("written_by", t("console.backups.written_by"), 130,
-                       help=t("console.backups.written_by.help"),
-                       **grid_module.choice_filter(_choices(BY_WORDS))),
     grid_module.column("why", t("console.backups.why"), 160,
                        help=t("console.backups.why.help"),
                        **grid_module.choice_filter(_choices(WHY_WORDS))),
     grid_module.column("note", t("console.backups.note"), 220,
                        help=t("console.backups.note.help")),
+    grid_module.column("written_by", t("console.backups.written_by"), 160,
+                       help=t("console.backups.written_by.help"),
+                       **grid_module.choice_filter(_choices(BY_WORDS))),
     grid_module.column("size", t("word.size"), 100, type="numericColumn",
                        help=t("console.backups.size.help"),
                        **{":valueFormatter": "params => (params.data || {}).size_text || ''"}),
-    grid_module.column("gone", t("console.backups.gone"), 110,
+    grid_module.column("gone", t("console.backups.gone"), 130,
                        help=t("console.backups.gone.help"),
                        **{":valueFormatter": "params => params.value ? '✓' : ''",
                           "cellClass": "console-tick",
@@ -126,35 +124,42 @@ COLUMNS = [
                               [{"value": True, "label": t("console.backups.gone")},
                                {"value": False, "label": t("console.backups.present")}],
                               formatted=True)}),
+    grid_module.column("file", t("word.file"), 280, tooltipField="path",
+                       help=t("console.backups.file.help")),
 ]
 
 
 _ALL = [definition["field"] for definition in COLUMNS]
-_WITHOUT_KIND = tuple(field for field in _ALL if field != "kind")
 _NEWEST_FIRST = ({"colId": "taken", "sort": "desc", "sortIndex": 0},)
 # Whose records VPinFE keeps in its own config folder, which is what the VPinFE view holds.
 _OWN_RECORDS = [kept_copies.KIND_SETTINGS, kept_copies.KIND_COLLECTIONS,
                 kept_copies.KIND_DEVICES, kept_copies.KIND_PLAYERS, kept_copies.KIND_RECORDS]
 
 
-def _of_kind(kinds: list[str], *, help: str, hide_kind: bool = True) -> views.Preset:
-    return views.Preset(columns=_WITHOUT_KIND if hide_kind else tuple(_ALL),
-                        sort=_NEWEST_FIRST, filters={"kind": {"values": kinds}}, help=help)
+def _of_kind(kinds: list[str], columns: tuple[str, ...], *, help: str) -> views.Preset:
+    """The order of the columns is the grid's, so `columns` is a subsequence of `_ALL`."""
+    return views.Preset(columns=columns, sort=_NEWEST_FIRST,
+                        filters={"kind": {"values": kinds}}, help=help)
 
 
 VIEWS: dict[str, list[str] | views.Preset] = {
     "console.view.everything": views.Preset(
         columns=tuple(_ALL), sort=_NEWEST_FIRST, help=t("console.backups.everything_view.help")),
     "console.view.backups_games": _of_kind(
-        [kept_copies.KIND_GAME], help=t("console.backups.games_view.help")),
+        [kept_copies.KIND_GAME], ("of", "taken", "why", "written_by", "size", "gone"),
+        help=t("console.backups.games_view.help")),
     "console.view.backups_launchers": _of_kind(
-        [kept_copies.KIND_LAUNCHER], help=t("console.backups.launchers_view.help")),
+        [kept_copies.KIND_LAUNCHER], ("of", "taken", "why", "note", "size", "gone"),
+        help=t("console.backups.launchers_view.help")),
     "console.view.backups_themes": _of_kind(
-        [kept_copies.KIND_THEME], help=t("console.backups.themes_view.help")),
+        [kept_copies.KIND_THEME], ("of", "taken", "size", "gone"),
+        help=t("console.backups.themes_view.help")),
     "console.view.backups_vpinfe": _of_kind(
-        _OWN_RECORDS, help=t("console.backups.vpinfe_view.help"), hide_kind=False),
+        _OWN_RECORDS, ("kind", "taken", "why", "written_by", "size"),
+        help=t("console.backups.vpinfe_view.help")),
     "console.view.backups_yours": _of_kind(
-        [kept_copies.KIND_ARCHIVE], help=t("console.backups.yours_view.help")),
+        [kept_copies.KIND_ARCHIVE], ("of", "taken", "note", "size", "gone"),
+        help=t("console.backups.yours_view.help")),
 }
 
 
