@@ -112,9 +112,13 @@ class PictureFromAService(unittest.TestCase):
                 """Open the Online source, press the service's button, and wait for the
                 dialog to go. Returns what the dialog said."""
                 await press(f"{DIALOG} .q-tab", "Online")
-                said = await browser.wait_for(DIALOG_TEXT)
-                # The Online panel is drawn after its tab opens and moves the card with
-                # it: a click on the way lands on the backdrop and dismisses the dialog.
+                # The Online panel is drawn after its tab opens: the dialog's text before
+                # that point is the tab bar alone, so wait for the button itself.
+                said = await browser.wait_for(
+                    f"(said => said && said.includes(\"Use Sample's Picture\") ? said : null)"
+                    f"({DIALOG_TEXT})")
+                # The panel moves the card as it draws: a click on the way lands on the
+                # backdrop and dismisses the dialog.
                 rect = ("(b => b ? JSON.stringify(b.getBoundingClientRect()) : null)"
                         "([...document.querySelectorAll('.q-dialog .q-btn')]"
                         ".find(b => b.innerText.includes(\"Use Sample's Picture\")))")

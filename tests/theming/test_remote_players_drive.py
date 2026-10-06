@@ -153,9 +153,17 @@ class RemotePlayersDrive(unittest.TestCase):
                 return str(said)
 
             async def open_identity() -> None:
-                await browser.click(".remote-identity")
-                await browser.wait_for(SHEET_OPEN)
-                await walk.drawn()
+                # A click that does not open the sheet is pressed again, as for the
+                # game sheet, rather than waited out for the whole timeout.
+                for _attempt in range(3):
+                    await browser.click(".remote-identity")
+                    try:
+                        await browser.wait_for(SHEET_OPEN, timeout=4)
+                    except TimeoutError:
+                        continue
+                    await walk.drawn()
+                    return
+                raise AssertionError("no sheet opened for the identity row")
 
             async def sheet_closed() -> None:
                 await browser.wait_for(NOTHING_OPEN)
