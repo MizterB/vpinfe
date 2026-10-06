@@ -2952,6 +2952,13 @@ a.console-tag:hover { background: var(--wash-hover); }
 }
 .console-slot-blank-icon { font-size: var(--icon-slot); opacity: 0.55; }
 
+/* A pickable fact row keeps its two cells in the list's grid, and the picked one is lit
+   the way a lit binding is - the label in the accent. */
+.console-fact-pick { display: contents; cursor: pointer; }
+.console-fact-pick:not(.console-fact-pick--on):hover > .console-fact-label { color: var(--ink); }
+.console-fact-pick--on > .console-fact-label { color: var(--accent); }
+.console-fact-pick:focus-visible > .console-fact-label { color: var(--accent); text-decoration: underline; }
+
 .console-slot-facts { min-width: 0; }
 /* The filename is the one identifier a user recognizes, so it reads first and whole -
    these names are long and the interesting half is usually the tail. */
@@ -2959,6 +2966,8 @@ a.console-tag:hover { background: var(--wash-hover); }
   font-size: var(--fs-body); color: var(--ink-2); word-break: break-all;
   line-height: 1.35;
 }
+/* Where it opens the file's own panel it is a link, so it takes the link's color. */
+a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 
 /* The losers. Set apart by a rule rather than a heading weight, because the point is
    that they are the same slot - not a new section. */

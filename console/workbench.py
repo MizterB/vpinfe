@@ -821,6 +821,19 @@ def _loose_media(context: dict[str, Any]) -> None:
             ui.label(t(media_ownership.tier_for(tier).why)).classes("console-help")
 
 
+def _file_line(context: dict[str, Any], kind: str, name: str, view: str) -> None:
+    """A file's name, which opens the file's own panel in `view` where a dock draws it.
+    `view` is "" in the file's own panel, where the name is already that panel's."""
+    classes = "console-slot-file grow min-w-0"
+    if not view:
+        ui.label(name).classes(classes)
+        return
+    table = str((context.get("row") or {}).get("table") or context["lens"] or "")
+    to = "/console?" + deeplink.query({"view": view, "game": context["game_id"],
+                                       "table": table, "slot": {"kind": kind}})
+    panel.link(name, to=to, classes=classes)()
+
+
 def _asset_said(context: dict[str, Any], tier: str) -> str:
     """Who uses the file in the panel, from what it serves.
 
@@ -860,7 +873,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                     .classes("console-help")
             else:
                 with ui.row().classes("items-start gap-2 w-full no-wrap"):
-                    ui.label(path).classes("console-slot-file grow min-w-0")
+                    _file_line(context, kind, path, str(context.get("link_view") or ""))
                     if tier not in media_ownership.SCOPES:
                         media_ownership.badge(tier)
                     if glass and not glass["damaged"]:
@@ -2109,7 +2122,7 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             if present:
                 with ui.row().classes("items-start gap-2 w-full no-wrap"):
-                    ui.label(file_name).classes("console-slot-file grow min-w-0")
+                    _file_line(context, kind, str(file_name), "media" if in_place else "")
                     via = detail.get("via") or entry.get("via")
                     if scope_chip or media_ownership.key_of(via) not in media_ownership.SCOPES:
                         media_ownership.badge(via)
@@ -3175,16 +3188,59 @@ async def _assets_block(context: dict[str, Any]) -> None:
     the table's and carry a tier; the rest belong to the folder and carry presence.
     The tiers are `media_ownership`'s - the question is the same one, which file wins.
     """
-    with ui.column().classes("gap-0 console-form"):
-        _rows(ui, _asset_entries(context))
+    holder = ui.column().classes("gap-0 console-form")
+
+    turn = [0]
+    one_at_a_time = asyncio.Lock()
+
+    async def draw() -> None:
+        # Each pick redraws on a task of its own, and a draw awaits between clearing the
+        # dock and filling it. Only the newest pick draws, so two cards never stack.
+        turn[0] += 1
+        mine = turn[0]
+        async with one_at_a_time:
+            if mine != turn[0]:
+                return
+            picked = context["slot"]["kind"]
+            holder.clear()
+            with holder:
+                _rows(ui, _asset_entries(
+                    context, lambda kind: panel.Pick(partial(_pick_slot, context, kind, draw),
+                                                     kind == picked)))
+            await _asset_dock(context, picked)
+
+    await draw()
 
 
-def _asset_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+async def _asset_dock(context: dict[str, Any], picked: str) -> None:
+    """The picked asset's card, the file panel's own, without the file's settings."""
+    dock = context.get("dock")
+    if dock is None:
+        return
+    kind = str(picked or "")
+    library, game_id = context["library"], context["game_id"]
+    files = await offload.io(library.files_of, "asset", game_id)
+    found = _same_file(files, {"kind": kind, "table": context["lens"]}) if kind else None
+    dock.clear()
+    with dock:
+        if found is None:
+            with ui.column().classes("console-dock-empty items-center gap-1"):
+                ui.label(t("console.workbench.file_panel_empty")).classes("console-empty-title")
+                ui.label(t("console.workbench.file_hint")).classes("console-help")
+            return
+        detail = await _asset_detail_of(library, game_id, found)
+        await _asset_file_block({**context, "row": found, "kind": kind, "detail": detail,
+                                 "served": _served(found, files, context["tables"]),
+                                 "link_view": "assets"})
+
+
+def _asset_entries(context: dict[str, Any],
+                   pick: Callable[[str], panel.Pick] | None = None) -> list[tuple[Any, ...]]:
     """The Assets block's rows, as `_assets_block` draws them.
 
     Kinds the library does not collect are left out entirely. A row saying an EM table
     has no ROM is not a fact about that table, it is the list answering a question this
-    library never asked.
+    library never asked. `pick` makes a kind's row pickable.
     """
     game = context["game"]
     chosen = next((item for item in context["tables"]
@@ -3193,12 +3249,15 @@ def _asset_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     resolved = _only_kept((chosen or {}).get("assets") or {}, kept)
     folder = _only_kept(game.get("assets") or {}, kept)
 
-    entries: list[tuple[Any, Any]] = []
+    entries: list[tuple[Any, ...]] = []
+
+    def row(kind: str, value: Any) -> None:
+        entries.append((_asset_name(kind), value, *((pick(kind),) if pick else ())))
+
     if chosen is not None:
         entries += [(HEADING, t("console.workbench.table_4"))]
         for kind, state in sorted(resolved.items()):
-            entries.append((_asset_name(kind),
-                            _resolved_row(context, chosen, kind, state)))
+            row(kind, _resolved_row(context, chosen, kind, state))
             if kind == "script" and state.get("resolution") != "none":
                 digest = str(chosen.get("vbs_hash") or "")
                 # The hash travels with the asset rather than sitting in a group of
@@ -3207,6 +3266,7 @@ def _asset_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
                     entries.append((t("console.workbench.script_hash"), digest))
         pinmame = (chosen.get("dependencies") or {}).get("pinmame") or {}
         if _collects("rom", kept) and (pinmame.get("effective") or pinmame.get("declared")):
+            # A declared dependency, not a file: no file panel to open, so no pick.
             entries.append((_asset_name("rom"), _rom_row(context, pinmame)))
 
     entries += [(HEADING, t("console.workbench.game_folder"))]
@@ -3217,7 +3277,7 @@ def _asset_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
             continue
         present = bool(state.get("present"))
         chip = _present_row(present)
-        entries.append((_asset_name(kind), chip if present else _with_add(context, kind, chip)))
+        row(kind, chip if present else _with_add(context, kind, chip))
     return entries
 
 
@@ -4609,7 +4669,7 @@ async def _make_default(context: dict[str, Any], table: dict[str, Any]) -> None:
     await context["rebuild"]()
 
 
-def _rows(target: Any, entries: Sequence[tuple[Any, Any]]) -> None:
+def _rows(target: Any, entries: Sequence[tuple[Any, ...]]) -> None:
     """The panel's fact list, with this surface's labels cased on the way in.
 
     The pane writes them as prose - `Made by`, `Last played` - so the casing rule is
@@ -4618,7 +4678,7 @@ def _rows(target: Any, entries: Sequence[tuple[Any, Any]]) -> None:
     """
     panel.facts(target, [(entry[0] if entry[0] in (panel.HEADING, panel.FULL,
                                                    panel.ASIDE, panel.LEDE)
-                          else field_label(str(entry[0])), entry[1])
+                          else field_label(str(entry[0])), *entry[1:])
                          for entry in entries])
 
 
@@ -7362,7 +7422,7 @@ SECTIONS: tuple[Section, ...] = (
     Section("media", _media_label, _media_block, dock=True),
     # Beside Media, not under Details: both answer "what does this game hold", one
     # for what a screen shows and one for what a launch needs.
-    Section("assets", _assets_label, _assets_block),
+    Section("assets", _assets_label, _assets_block, dock=True),
     Section("location_details", lambda _: t("console.workbench.details"), _location_details,
             subjects=frozenset({"location"})),
     # A launcher, in reading order: what it is and what it runs, then the program's own

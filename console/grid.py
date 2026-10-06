@@ -915,9 +915,14 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
         # containers, each its own .ag-row.
         #
         # A focus the follow below makes is `quiet`: the row is the one already open.
+        # Until the person's first key or press, a focus nobody caused is put back on the
+        # landed row, not reported as them choosing the row that slid under the cell.
         ":onCellFocused":
             "params => { const c = params.context; "
             "const r = params.api.getDisplayedRowAtIndex(params.rowIndex); "
+            "if (r && c.landedAt && !params.sourceEvent && r.data.id !== c.focusId "
+            "&& Date.now() - c.landedAt < 3000) { window.__hubFocusRow = null; "
+            "requestAnimationFrame(() => window.__hubFollowFocus(params.api, c)); return; } "
             "const quiet = r && c.quiet === r.data.id; c.quiet = null; "
             "if (r) { c.focusId = r.data.id; "
             "c.focusCol = params.column && params.column.getColId(); } "
@@ -994,24 +999,34 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
       window.__hubMarkFocus();
     };
     window.__hubLand = (api, c) => {
-      let node = null;
+      let node = null, at = -1;
       for (const wanted of c.landing) {
+        let place = 0;
         api.forEachNodeAfterFilterAndSort(n => {
           if (!node && Object.entries(wanted)
-              .every(([key, value]) => String(n.data[key] ?? '') === value)) node = n;
+              .every(([key, value]) => String(n.data[key] ?? '') === value)) {
+            node = n;
+            at = place;
+          }
+          place++;
         });
         if (node) break;
       }
       if (!node) return;
       c.landing = null;
+      c.landedAt = Date.now();
+      for (const kind of ['keydown', 'pointerdown']) {
+        document.addEventListener(kind, () => { c.landedAt = null; },
+                                  {capture: true, once: true});
+      }
       c.focusId = node.id;
       c.focusCol = c.identifier;
-      window.__hubFocusRow = node.rowIndex;
+      window.__hubFocusRow = at;
       api.ensureNodeVisible(node, 'middle');
       const active = document.activeElement;
       if (!active || active === document.body) {
         c.quiet = node.id;
-        api.setFocusedCell(node.rowIndex, c.identifier);
+        api.setFocusedCell(at, c.identifier);
       }
       window.__hubMarkFocus();
     };

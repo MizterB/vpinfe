@@ -62,7 +62,20 @@ def header(name: str, note: str = "",
             finding()
 
 
-def facts(target: Any, entries: Sequence[tuple[Any, Any]]) -> None:
+# A control inside the row acts on its own: Add on a missing kind must not also pick it.
+_CLICK_OUTSIDE_CONTROLS = "(e) => { if (!e.target.closest('button, a, input')) emit(); }"
+
+
+@dataclass(frozen=True)
+class Pick:
+    """A fact row that can be picked: a third element on its entry. The row's two cells
+    answer a click and a key together, and the picked one is marked."""
+
+    on_pick: Callable[[], Any]
+    picked: bool = False
+
+
+def facts(target: Any, entries: Sequence[tuple[Any, ...]]) -> None:
     """The facts of one section, as (label, value) pairs.
 
     One list for all of them, not a row each, so the label column is the width of the
@@ -74,28 +87,53 @@ def facts(target: Any, entries: Sequence[tuple[Any, Any]]) -> None:
     width without it, and the row wraps instead of ellipsing.
     """
     with target.element("div").classes("console-facts"):
-        for label, value in entries:
-            if label is HEADING:
-                target.label(str(value)).classes("console-fact-heading")
+        for entry in entries:
+            label, value = entry[0], entry[1]
+            pick = entry[2] if len(entry) > 2 else None
+            if pick is not None:
+                with _pickable(target, pick):
+                    _fact_row(target, label, value)
                 continue
-            if label is FULL:
-                with target.element("div").classes("console-fact-full"):
-                    value()
-                continue
-            if label is LEDE:
-                with target.element("div").classes("console-fact-full console-fact-lede"):
-                    value()
-                continue
-            if label is ASIDE:
-                with target.element("div").classes("console-fact-aside"):
-                    value()
-                continue
-            # As given. A label that came from a registry is already the answer, and
-            # re-casing it is how "RAR Tool Path" reached a user as "Rar Tool Path" -
-            # the casing rule is a fallback for a bare key, not a filter over finished
-            # words. A surface that writes its labels in prose cases them on the way in.
-            target.label(str(label)).classes("console-fact-label")
-            _draw_value(target, value)
+            _fact_row(target, label, value)
+
+
+def _pickable(target: Any, pick: Pick) -> Any:
+    """The row's wrapper, which takes no box of its own so the cells stay in the list's
+    grid."""
+    row = target.element("div").classes("console-fact-pick") \
+        .props('tabindex=0 role=button') \
+        .on("click", pick.on_pick, js_handler=_CLICK_OUTSIDE_CONTROLS) \
+        .on("keydown.enter.self", pick.on_pick) \
+        .on("keydown.space.self.prevent", pick.on_pick)
+    if pick.picked:
+        row.classes(add="console-fact-pick--on")
+        row.props["aria-pressed"] = "true"
+    return row
+
+
+def _fact_row(target: Any, label: Any, value: Any) -> None:
+    """One entry of `facts`: a heading, a full-width line, or a label and its value."""
+    if label is HEADING:
+        target.label(str(value)).classes("console-fact-heading")
+        return
+    if label is FULL:
+        with target.element("div").classes("console-fact-full"):
+            value()
+        return
+    if label is LEDE:
+        with target.element("div").classes("console-fact-full console-fact-lede"):
+            value()
+        return
+    if label is ASIDE:
+        with target.element("div").classes("console-fact-aside"):
+            value()
+        return
+    # As given. A label that came from a registry is already the answer, and
+    # re-casing it is how "RAR Tool Path" reached a user as "Rar Tool Path" -
+    # the casing rule is a fallback for a bare key, not a filter over finished
+    # words. A surface that writes its labels in prose cases them on the way in.
+    target.label(str(label)).classes("console-fact-label")
+    _draw_value(target, value)
 
 
 _CLIPPED_JS = """
@@ -1231,7 +1269,7 @@ def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
 
 
 def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
-         hint: str = "") -> Callable[[], None]:
+         hint: str = "", classes: str = "") -> Callable[[], None]:
     """A link to somewhere else in the Console.
 
     An anchor, never a click handler on a label. A destination has an address, so a row
@@ -1246,7 +1284,7 @@ def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
     Carries no icon; `link_out` is the one that does.
     """
     def draw() -> None:
-        row = ui.link(label, target=to).classes("console-link")
+        row = ui.link(label, target=to).classes(f"console-link {classes}".strip())
         if on_click is not None:
             row.classes("console-link--inplace")
             row.on("click", on_click)
