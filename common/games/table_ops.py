@@ -14,7 +14,7 @@ from typing import Any
 
 from common import apps, service_errors
 from common.failures import why
-from common.games import derived_tags, game_lens, locations, mods, table_lens, tables
+from common.games import derived_tags, game_lens, library_folders, mods, table_lens, tables
 from common.games.collection_resolver import visible_entries
 from common.games.game import Game
 from common.games.game_metadata import (
@@ -323,11 +323,11 @@ def add_referenced(game_id: str, path: str) -> dict:
     if apps.app_for(os.path.basename(target)) is None:
         raise service_errors.RefusedError(
             t("error.games.no_player", name=(os.path.basename(target))))
-    if locations.canonical(os.path.dirname(target)) == locations.canonical(game_dir):
+    if library_folders.canonical(os.path.dirname(target)) == library_folders.canonical(game_dir):
         raise service_errors.RefusedError(t("error.games.already_inside"))
 
     # Relative where it survives the library moving, absolute where it would not.
-    stored = locations.portable_reference(game_dir, target)
+    stored = library_folders.portable_reference(game_dir, target)
     table_id = new_id()
     if not MetaConfig(str(meta_file_path(game))).add_referenced_table(stored, table_id):
         raise service_errors.BlockedError(t("error.games.already_linked"),

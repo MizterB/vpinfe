@@ -23,7 +23,7 @@ from common.games import (
     info_maintenance,
     launcher_ops,
     launchers,
-    locations,
+    library_folders,
 )
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.game_identity import game_id as game_id_of
@@ -140,12 +140,12 @@ def _written_by_info(path: Path) -> str:
 def _is_game_folder(folder: Path) -> bool:
     """Whether a folder is one the library reads, so a copy is only ever taken to be a
     game's when it sits in one."""
-    wanted = locations.canonical(str(folder))
-    for location in locations.configured():
-        held = locations.canonical(location.path)
-        if location.kind == locations.KIND_GAME and held == wanted:
+    wanted = library_folders.canonical(str(folder))
+    for location in library_folders.configured():
+        held = library_folders.canonical(location.path)
+        if location.kind == library_folders.KIND_GAME and held == wanted:
             return True
-        if location.kind != locations.KIND_GAME and held == locations.canonical(
+        if location.kind != library_folders.KIND_GAME and held == library_folders.canonical(
                 str(folder.parent)):
             return folder.is_dir() and not folder.name.startswith(".")
     return False

@@ -24,7 +24,7 @@ from common.games import (
     game_repository,
     launcher_migration,
     launchers,
-    locations,
+    library_folders,
 )
 from common.games.info_migration import RESET, RESTORE, backup_path
 from tests.support.library import game_info, write_game
@@ -48,8 +48,8 @@ class BackupsCase(unittest.TestCase):
         self.store.mark_migration(launcher_migration.SEEDED)
         self.playing = False
         for patcher in (
-                patch.object(locations, "configured",
-                             return_value=[locations.Location("l1", str(self.library))]),
+                patch.object(library_folders, "configured",
+                             return_value=[library_folders.Location("l1", str(self.library))]),
                 patch.object(places, "CONFIG_DIR", self.config),
                 patch.object(pending, "CONFIG_DIR", self.config),
                 patch.object(ops, "CONFIG_DIR", self.config),

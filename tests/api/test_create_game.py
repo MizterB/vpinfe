@@ -17,7 +17,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common.games import game_repository, locations
+from common.games import game_repository, library_folders
 from common.games.info_file import GAME_ID_KEY
 from common.i18n import t
 from tests.support.library import write_game
@@ -34,11 +34,11 @@ class CreateGameCase(unittest.TestCase):
         self.elsewhere = self.root / "elsewhere"
         self.elsewhere.mkdir()
 
-        self.store = locations.LocationStore(os.path.join(self.tmp.name, "locations.json"))
-        patcher = patch.object(locations, "get_location_store", return_value=self.store)
+        self.store = library_folders.LocationStore(os.path.join(self.tmp.name, "locations.json"))
+        patcher = patch.object(library_folders, "get_location_store", return_value=self.store)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.store.mark_migration(locations.SEEDED)
+        self.store.mark_migration(library_folders.SEEDED)
 
         # A read allowlist of this test's own. Unpatched it is built from this machine's
         # configuration, so `within_roots` would be answering about a real library.

@@ -18,11 +18,12 @@ from typing import Any
 
 from common import service_errors
 from common.config_access import cfg_bool
-from common.games import game_identity, game_repository, locations
+from common.games import game_identity, game_repository
+from common.games import library_folders as locations
 from common.i18n import t
 from common.paths import get_ini_config
 
-logger = logging.getLogger("vpinfe.common.games.location_ops")
+logger = logging.getLogger("vpinfe.common.games.library_folder_ops")
 
 # On this device, or on a share the OS mounted.
 WHERE_LOCAL = "local"

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from common.failures import why
-from common.games import locations
+from common.games import library_folders
 from common.games.collection_store import restorable_collections_backup
 from common.games.info_file import (
     GAME_ID_KEY,
@@ -61,8 +61,8 @@ def game_dirs(game_root: str | Path | None = None,
     load_games: that raises on the first bad `.info`."""
     if game_root is None:
         found: list[Path] = []
-        for location in locations.configured():
-            if location.kind != locations.KIND_GAME:
+        for location in library_folders.configured():
+            if location.kind != library_folders.KIND_GAME:
                 found += game_dirs(location.path, game_name)
                 continue
             folder = Path(location.path)

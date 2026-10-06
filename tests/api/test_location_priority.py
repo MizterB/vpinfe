@@ -14,7 +14,7 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import game_identity, locations
+from common.games import game_identity, library_folders
 from tests.support.library import TempTree, fake_game, write_game
 
 # Lowercase `vpinfe` is where the id lives; `VPinFE` is the legacy section and does not
@@ -31,16 +31,16 @@ class _Priority(TempTree):
             folder.mkdir(parents=True, exist_ok=True)
             write_game(folder, "Attack from Mars", info=INFO, vpx=False)
 
-        self.store = locations.LocationStore(str(self.root / "locations.json"))
+        self.store = library_folders.LocationStore(str(self.root / "locations.json"))
         self.store.save([
-            locations.Location(location_id="loc1", path=str(self.here), kind="root"),
-            locations.Location(location_id="loc2", path=str(self.there), kind="root"),
+            library_folders.Location(location_id="loc1", path=str(self.here), kind="root"),
+            library_folders.Location(location_id="loc2", path=str(self.there), kind="root"),
         ])
-        store_patch = patch.object(locations, "get_location_store",
+        store_patch = patch.object(library_folders, "get_location_store",
                                    return_value=self.store)
         store_patch.start()
         self.addCleanup(store_patch.stop)
-        patch.object(locations, "configured",
+        patch.object(library_folders, "configured",
                      side_effect=lambda: self.store.locations()).start()
         self.addCleanup(patch.stopall)
 
@@ -132,7 +132,7 @@ class OrderTests(_Priority):
     def test_a_location_left_out_keeps_its_place_after_the_named_ones(self) -> None:
         """A caller working from a stale list rearranges what it knew about and loses
         nothing it did not."""
-        self.store.put(locations.Location(location_id="loc3",
+        self.store.put(library_folders.Location(location_id="loc3",
                                           path=str(self.root / "third"), kind="root"))
 
         self.client.put("/locations/order", json={"order": ["loc2", "loc1"]})

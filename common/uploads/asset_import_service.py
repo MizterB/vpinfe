@@ -273,7 +273,7 @@ def _new_games_under(location_id: str = "") -> str:
     Falls back to the root only where the location store has nothing to say, so an
     install that has not been through the seed still imports.
     """
-    from common.games.locations import KIND_ROOT, configured, destination, get_location_store
+    from common.games.library_folders import KIND_ROOT, configured, destination, get_location_store
 
     found = destination(location_id)
     if found.path:

@@ -24,10 +24,10 @@ from nicegui import run, ui
 
 from common import config_schema
 from common.failures import why
-from common.games import locations as model
+from common.games import library_folders as model
 from common.games import tables
 from common.i18n import t
-from console import arrange, confirm, locations, offload, panel, undo, verbs
+from console import arrange, confirm, library_folders, offload, panel, undo, verbs
 from console import dialog as frame
 from console.data import Library
 from console.on_page import on_page
@@ -129,8 +129,8 @@ def state_chip(folder: Folder) -> tuple[str, str, str] | None:
     """(word, level, tooltip) for a folder that is not Ready."""
     if folder.state == model.READY:
         return None
-    word = locations.state_of({"state": folder.state})
-    level = locations.STATE_TIERS.get(folder.state, "bad")
+    word = library_folders.state_of({"state": folder.state})
+    level = library_folders.STATE_TIERS.get(folder.state, "bad")
     tip = t("console.folders.read_only_cost") if folder.state == model.READ_ONLY \
         else folder.reason
     return word, level, tip
@@ -138,7 +138,7 @@ def state_chip(folder: Folder) -> tuple[str, str, str] | None:
 
 def chip_tip(folder: Folder) -> str:
     """What the New games chip says on hover, with what happens while its folder is away."""
-    where = t("console.locations.new_games.help")
+    where = t("console.folders.new_games_help")
     if folder.state == model.READ_ONLY:
         return t("console.folders.chip_then", where=where,
                  then=t("console.folders.chip_read_only"))
@@ -208,7 +208,7 @@ class Folders:
         try:
             await offload.io(self.library.set_location_write_to, location_id)
             if self.asking:
-                await offload.io(self.library.put_config, locations.NOT_ASKING)
+                await offload.io(self.library.put_config, library_folders.NOT_ASKING)
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return
@@ -221,7 +221,7 @@ class Folders:
             return
         try:
             await offload.io(self.library.put_config,
-                             locations.ASKING if wanted else locations.NOT_ASKING)
+                             library_folders.ASKING if wanted else library_folders.NOT_ASKING)
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             self.redraw()
@@ -397,18 +397,18 @@ def _caption(block: Folders, folder: Folder) -> None:
             if is_link:
                 panel.action(said, partial(_duplicates, block, folder),
                              icon=verbs.DUPLICATE, inline=True,
-                             hint=t("console.locations.shadowed.help"))()
+                             hint=t("console.folders.duplicates_help"))()
             else:
                 ui.label(said).classes("console-member-table")
 
 
 def _buttons(block: Folders, importing: dict[str, Any] | None) -> None:
     with ui.row().classes("items-center gap-2"):
-        panel.action(t("console.locations.add_folder"), block.add, icon=verbs.ADD,
+        panel.action(t("console.folders.add_folder"), block.add, icon=verbs.ADD,
                      hint=t("console.folders.add_help"))()
         if importing is not None:
             panel.action(t("console.folders.import"),
-                         partial(locations.open_importer, importing, block.redraw),
+                         partial(library_folders.open_importer, importing, block.redraw),
                          icon=verbs.IMPORT,
                          hint=t("console.folders.import_help"))()
 
@@ -420,11 +420,11 @@ def _empty(block: Folders, importing: dict[str, Any] | None) -> None:
         with ui.element("div").classes("console-attention w-full"):
             ui.icon("error_outline").classes("console-attention-icon")
             ui.label(t("console.folders.none_yet")).classes("console-attention-line grow")
-            panel.action(t("console.locations.add_folder"), block.add, icon=verbs.ADD,
+            panel.action(t("console.folders.add_folder"), block.add, icon=verbs.ADD,
                          hint=t("console.folders.add_help"))()
             if importing is not None:
                 panel.action(t("console.folders.import"),
-                             partial(locations.open_importer, importing, block.redraw),
+                             partial(library_folders.open_importer, importing, block.redraw),
                              icon=verbs.IMPORT,
                              hint=t("console.folders.import_help"))()
 
@@ -439,9 +439,9 @@ async def page(library: Library, redraw: Callable[[], None],
         found = await offload.io(library.locations)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         reason = why(exc)
-        return lambda: panel.facts(ui, [panel.intro(t("console.locations.read_failed"),
+        return lambda: panel.facts(ui, [panel.intro(t("console.folders.read_failed"),
                                                     hint=reason)])
-    importing = await locations.import_action(library)
+    importing = await library_folders.import_action(library)
     block = Folders(library, found, redraw)
     # Kept for the drag listener, which is registered once and reads it at the drop.
     state["folders"] = block
@@ -463,8 +463,8 @@ def sort_it(found: dict[str, Any], state_now: str, said: str, first: bool = Fals
     if state_now != "ok":
         return ""
     if found["kind"] == model.KIND_GAME:
-        return t("console.locations.one_game_folder")
-    return t("console.folders.first_home" if first else "console.locations.many_games")
+        return t("console.folders.one_game_folder")
+    return t("console.folders.first_home" if first else "console.folders.many_games")
 
 
 def folder_dialog(library: Library, saved: Callable[[str, str], Any], *,
@@ -506,7 +506,7 @@ def folder_dialog(library: Library, saved: Callable[[str, str], Any], *,
         wanted = (held["folder"].value or "").strip()
         if not wanted:
             held["folder"].props["error"] = True
-            held["folder"].props["error-message"] = t("console.locations.needs_name")
+            held["folder"].props["error-message"] = t("console.folders.needs_name")
             return
         box.close()
         await saved(str(found["kind"]), wanted)
@@ -514,11 +514,11 @@ def folder_dialog(library: Library, saved: Callable[[str, str], Any], *,
     entries: list[tuple[Any, ...]] = [(t("word.folder"), draw_folder)]
     if changing:
         entries.append((t("word.contains"), panel.choice(
-            [(model.KIND_ROOT, t("console.locations.many_games"), ""),
-             (model.KIND_GAME, t("console.locations.one_game_folder"), "")],
+            [(model.KIND_ROOT, t("console.folders.many_games"), ""),
+             (model.KIND_GAME, t("console.folders.one_game_folder"), "")],
             found["kind"], kind_changed, on_control=remember)))
     with frame.opened(t("console.folders.change_title") if changing
-                      else t("console.locations.add_folder")) as box:
+                      else t("console.folders.add_folder")) as box:
         panel.facts(ui, entries)
         with frame.footer():
             frame.cancel(box.close)

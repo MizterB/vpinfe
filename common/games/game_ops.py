@@ -19,7 +19,7 @@ from common.games import (
     game_lens,
     game_metadata,
     game_service,
-    locations,
+    library_folders,
 )
 from common.games.game_metadata import (
     GUIDES_FIELD,
@@ -72,9 +72,9 @@ def create(name: str, location_id: str = "") -> dict:
     # Canonically, never by spelling. Re-reading one folder resolves the path it is given,
     # so the game just created carries the real path while every game a scan found carries
     # the location's own spelling - and under /var on macOS those differ.
-    wanted = locations.canonical(str(folder))
+    wanted = library_folders.canonical(str(folder))
     made = next((game for game in game_lens.catalog().values()
-                 if locations.canonical(str(game.full_path_game)) == wanted),
+                 if library_folders.canonical(str(game.full_path_game)) == wanted),
                 None)
     if made is None:
         # The folder and its record are on disk and the library did not pick them up.
@@ -87,7 +87,7 @@ def create(name: str, location_id: str = "") -> dict:
 
 def _where_else(wanted: str) -> dict:
     """The locations that would have worked, for a refusal to offer."""
-    where = locations.destination(wanted)
+    where = library_folders.destination(wanted)
     return {"alternatives": [{"location_id": one.location_id, "name": one.name,
                               "path": one.path} for one in where.alternatives]}
 

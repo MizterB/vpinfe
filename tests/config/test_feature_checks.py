@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 
 from common import feature_checks, install_identity, path_checks
 from common.games.launchers import Launcher
-from common.games.locations import Location, state_of
+from common.games.library_folders import Location, state_of
 
 
 class RequirementTests(unittest.TestCase):

@@ -156,7 +156,7 @@ class ImportALibraryDrive(unittest.TestCase):
         return seen
 
     def test_the_page_offers_it_beside_add(self) -> None:
-        self.assertEqual(self.seen["buttons"], [t("console.locations.add_folder"),
+        self.assertEqual(self.seen["buttons"], [t("console.folders.add_folder"),
                                                  WORDS["action.import.label"]])
 
     def test_it_asks_where_the_library_is_first(self) -> None:

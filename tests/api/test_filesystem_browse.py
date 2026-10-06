@@ -155,13 +155,13 @@ class RootTests(TempTree):
     def _browsing(self, library: tuple[str, ...], configured: tuple[str, ...]):
         from common.config_access import SettingsConfig
         from common.games import media_browse as filesystem
-        from common.games.locations import Location
+        from common.games.library_folders import Location
 
         held = [Location(f"l{index}", path) for index, path in enumerate(library)]
         settings = SettingsConfig(media_browse_dirs=configured)
         with patch.object(SettingsConfig, "from_config", return_value=settings), \
                 patch("common.games.media_browse.get_ini_config", return_value=None), \
-                patch("common.games.locations.configured", return_value=held):
+                patch("common.games.library_folders.configured", return_value=held):
             yield filesystem
 
     def _roots(self, library: tuple[str, ...], configured: tuple[str, ...]):

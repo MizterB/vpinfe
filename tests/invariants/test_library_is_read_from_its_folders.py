@@ -19,8 +19,8 @@ NAMES = frozenset({"game_root_dir", "gamerootdir", "tablerootdir", "get_games_pa
 ALLOWED_FILES = frozenset({"common/paths.py", "common/config_schema.py",
                            "common/config_store.py", "common/deprecations.py"})
 # And the two reads that remain: the seed, and the fallback before it has run.
-ALLOWED_FUNCTIONS = frozenset({("common/games/locations.py", "configured"),
-                               ("common/games/locations.py", "seed")})
+ALLOWED_FUNCTIONS = frozenset({("common/games/library_folders.py", "configured"),
+                               ("common/games/library_folders.py", "seed")})
 
 
 def _mentions(node: ast.AST) -> bool:
@@ -61,7 +61,7 @@ class LibraryIsReadFromItsFoldersTests(unittest.TestCase):
             if rel not in ALLOWED_FILES:
                 offenders += _offenders(rel, trees.tree_for(path))
         self.assertEqual(offenders, [], "read the library folders instead: "
-                         "common.games.locations.configured()")
+                         "common.games.library_folders.configured()")
 
     def test_it_would_see_a_reader(self) -> None:
         """A check that finds nothing looks the same as one that cannot find anything."""

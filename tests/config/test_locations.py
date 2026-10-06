@@ -12,8 +12,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from common import mounts
-from common.games import locations
-from common.games.locations import (
+from common.games import library_folders as locations
+from common.games.library_folders import (
     KIND_GAME,
     KIND_ROOT,
     Location,

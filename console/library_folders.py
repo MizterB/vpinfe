@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from common.games import locations as model
+from common.games import library_folders as model
 from common.i18n import t
 from console import offload
 from console.data import Library

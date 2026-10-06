@@ -35,7 +35,7 @@ from common.i18n import t
 from common.install_identity import mint_id
 from common.paths import CONFIG_DIR
 
-logger = logging.getLogger("vpinfe.common.games.locations")
+logger = logging.getLogger("vpinfe.common.games.library_folders")
 
 LOCATIONS_PATH = CONFIG_DIR / "locations.json"
 SCHEMA = 2

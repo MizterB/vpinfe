@@ -14,7 +14,7 @@ import httpapi
 from common.extensions.context import ExtensionFiles
 from common.extensions.contract import ContractError
 from common.extensions.games import ExtensionGames, offered, withdraw_all
-from common.games import location_ops, locations
+from common.games import library_folder_ops, library_folders
 from tests.support.library import TempTree, write_game
 
 
@@ -116,11 +116,11 @@ class MovingTests(TempTree):
 class LibraryFolderTests(TempTree):
     def setUp(self) -> None:
         super().setUp()
-        self.store = locations.LocationStore(str(self.root / "locations.json"))
-        patcher = mock.patch.object(locations, "get_location_store", return_value=self.store)
+        self.store = library_folders.LocationStore(str(self.root / "locations.json"))
+        patcher = mock.patch.object(library_folders, "get_location_store", return_value=self.store)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.store.mark_migration(locations.SEEDED)
+        self.store.mark_migration(library_folders.SEEDED)
         withdraw_all()
         self.addCleanup(withdraw_all)
         httpapi.create_api_app()
@@ -128,16 +128,16 @@ class LibraryFolderTests(TempTree):
         self.folder.mkdir()
 
     def test_a_folder_becomes_a_library_folder(self) -> None:
-        made = location_ops.use_library_folder(str(self.folder))
+        made = library_folder_ops.use_library_folder(str(self.folder))
 
         self.assertTrue(made["location_id"])
         self.assertEqual([one.path for one in self.store.locations()],
                          [str(self.folder)])
-        self.assertEqual(made["kind"], locations.KIND_ROOT)
+        self.assertEqual(made["kind"], library_folders.KIND_ROOT)
 
     def test_asking_twice_names_one_place_once(self) -> None:
-        first = location_ops.use_library_folder(str(self.folder))
-        second = location_ops.use_library_folder(str(self.folder))
+        first = library_folder_ops.use_library_folder(str(self.folder))
+        second = library_folder_ops.use_library_folder(str(self.folder))
 
         self.assertEqual(first["location_id"], second["location_id"])
         self.assertEqual(len(self.store.locations()), 1)

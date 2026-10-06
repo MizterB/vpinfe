@@ -823,14 +823,14 @@ def create_game(name: str, location_id: str = "") -> Path:
     Raises ValueError with the sentence to show when there is nowhere to create it, and
     FileExistsError when something is already there.
     """
-    from common.games import locations
+    from common.games import library_folders
     from common.games.info_file import MetaConfig
 
     wanted = sanitize_dir_name(name)
     if not wanted:
         raise ValueError(t("error.games.name_needed"))
 
-    where = locations.destination(location_id)
+    where = library_folders.destination(location_id)
     if where.location is None:
         raise ValueError(where.reason)
 

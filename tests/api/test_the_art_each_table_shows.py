@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common.games import asset_resolver, game_repository, media_service
-from common.games.locations import KIND_ROOT, Location
+from common.games.library_folders import KIND_ROOT, Location
 from common.paths import get_ini_config
 from httpapi.responses import FOREVER
 from tests.support.library import TempTree, game_info, write_game
@@ -70,7 +70,7 @@ class _Library(TempTree):
                    medias={"wheel.png": b"the game's wheel"})
 
         held = mock.patch.object(
-            game_repository.locations, "configured",
+            game_repository.library_folders, "configured",
             return_value=[Location(location_id="test", path=str(self.root),
                                    kind=KIND_ROOT)])
         held.start()

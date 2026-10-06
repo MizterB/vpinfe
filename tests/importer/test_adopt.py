@@ -19,7 +19,7 @@ import httpapi
 from common import extensions
 from common.extensions import host, store
 from common.extensions.contract import ContractError
-from common.games import game_repository, locations
+from common.games import game_repository, library_folders
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "pinballx"
@@ -35,12 +35,12 @@ class AdoptCase(unittest.TestCase):
         self.library = self.root / "library"
         self.library.mkdir()
 
-        self.locations = locations.LocationStore(self.root / "locations.json")
-        patcher = unittest.mock.patch.object(locations, "get_location_store",
+        self.locations = library_folders.LocationStore(self.root / "locations.json")
+        patcher = unittest.mock.patch.object(library_folders, "get_location_store",
                                              return_value=self.locations)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.locations.mark_migration(locations.SEEDED)
+        self.locations.mark_migration(library_folders.SEEDED)
 
         self.store = store.ExtensionStore(self.root / "extensions.json")
         self.registry = host.Registry(self.store)

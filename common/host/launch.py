@@ -34,7 +34,7 @@ from common.games import (
     high_scores,
     info_file,
     launchers,
-    locations,
+    library_folders,
     player_records,
     score_parser,
     tables,
@@ -405,10 +405,10 @@ class ReferenceUnreachableError(LaunchUnavailableError):
 
 
 def _location_is_reachable(game: Game) -> None:
-    location = locations.get_location_store().get(game.location_id)
+    location = library_folders.get_location_store().get(game.location_id)
     if location is None:
         return
-    state = locations.states_of([location], wait=locations.MOUNT_SECONDS)[
+    state = library_folders.states_of([location], wait=library_folders.MOUNT_SECONDS)[
         location.location_id]
     if not state.reachable:
         raise ReferenceUnreachableError(t("error.library_folders.not_reachable",

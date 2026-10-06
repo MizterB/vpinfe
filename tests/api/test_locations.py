@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 import httpapi
 from common import mounts
-from common.games import locations
+from common.games import library_folders
 from tests.support.hung_folder import never_answering
 from tests.support.skips import needs_posix_permissions
 
@@ -31,13 +31,13 @@ class LocationApiTests(unittest.TestCase):
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.store = locations.LocationStore(os.path.join(self.tmp.name, "locations.json"))
-        patcher = patch.object(locations, "get_location_store", return_value=self.store)
+        self.store = library_folders.LocationStore(os.path.join(self.tmp.name, "locations.json"))
+        patcher = patch.object(library_folders, "get_location_store", return_value=self.store)
         patcher.start()
         self.addCleanup(patcher.stop)
         # Marked as already seeded: building the app runs the startup pass, and a row
         # appearing from this machine's own config would make every count here wrong.
-        self.store.mark_migration(locations.SEEDED)
+        self.store.mark_migration(library_folders.SEEDED)
         self.client = _client()
 
     def _folder(self, name: str) -> str:
@@ -180,7 +180,7 @@ class LocationApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/locations").json()["locations"], [])
 
     def test_the_listing_says_whether_an_import_asks_where_a_new_game_goes(self) -> None:
-        with patch("common.games.location_ops._asks", return_value=False):
+        with patch("common.games.library_folder_ops._asks", return_value=False):
             body = self.client.get("/locations").json()
 
         self.assertIs(body["ask_where_new_games_go"], False)
@@ -202,12 +202,12 @@ class LocationApiTests(unittest.TestCase):
 
     def test_a_share_that_is_not_answering_is_still_named(self) -> None:
         folder = self._folder("share")
-        self.store.put(locations.Location("one", folder, origin=NAS))
-        with patch.object(locations, "PROBE_SECONDS", 0.2), \
-                patch.object(locations, "MOUNT_SECONDS", 0.2), never_answering(folder):
+        self.store.put(library_folders.Location("one", folder, origin=NAS))
+        with patch.object(library_folders, "PROBE_SECONDS", 0.2), \
+                patch.object(library_folders, "MOUNT_SECONDS", 0.2), never_answering(folder):
             row = self.client.get("/locations").json()["locations"][0]
 
-        self.assertEqual(row["state"], locations.NOT_ANSWERING)
+        self.assertEqual(row["state"], library_folders.NOT_ANSWERING)
         self.assertEqual(row["origin"]["server"], "nas.lan")
 
 

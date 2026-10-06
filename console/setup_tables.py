@@ -19,13 +19,13 @@ from typing import Any
 
 from nicegui import background_tasks, ui
 
-from common.games import locations as model
+from common.games import library_folders as model
 from common.games import tables
 from common.i18n import t
 from common.path_checks import OK as PATH_OK
 from console import ext_action, offload, panel, wizard
 from console.api import ApiClient
-from console.locations import IMPORTER
+from console.library_folders import IMPORTER
 
 logger = logging.getLogger("vpinfe.console.setup_tables")
 

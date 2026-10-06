@@ -20,7 +20,7 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import launcher_migration, launchers, locations
+from common.games import launcher_migration, launchers, library_folders
 from tests.support.library import TempTree, fake_game, write_game
 
 GAME_ID = "Ref000000001"
@@ -122,9 +122,9 @@ class AddingTests(_Referenced):
         inside = self.root / "Shared" / "afm.vpx"
         inside.parent.mkdir(parents=True, exist_ok=True)
         inside.write_bytes(b"vpx")
-        here = locations.Location(location_id="l1", path=str(self.root), kind="root")
+        here = library_folders.Location(location_id="l1", path=str(self.root), kind="root")
 
-        with patch.object(locations, "configured", return_value=[here]):
+        with patch.object(library_folders, "configured", return_value=[here]):
             made = self._add(inside)
 
         self.assertEqual(made.status_code, 201, made.text)
@@ -135,9 +135,9 @@ class AddingTests(_Referenced):
     def test_and_absolute_where_it_would_not(self) -> None:
         """A relative path out of the library is a chain of `..` that means nothing once
         the library has moved, which is worse than failing honestly."""
-        here = locations.Location(location_id="l1", path=str(self.root), kind="root")
+        here = library_folders.Location(location_id="l1", path=str(self.root), kind="root")
 
-        with patch.object(locations, "configured", return_value=[here]):
+        with patch.object(library_folders, "configured", return_value=[here]):
             made = self._add()
 
         self.assertTrue(Path(made.json()["reference"]["path"]).is_absolute())

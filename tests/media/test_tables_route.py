@@ -9,7 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common.games.locations import Location
+from common.games.library_folders import Location
 from frontend.custom_http_server import CustomHTTPServer
 from tests.support.library import fake_game, write_game
 
@@ -33,7 +33,7 @@ class TablesRouteTests(unittest.TestCase):
 
         cls._patches = [
             mock.patch("common.games.game_repository.all_games", return_value=games),
-            mock.patch("common.games.locations.configured", return_value=[
+            mock.patch("common.games.library_folders.configured", return_value=[
                 Location("l1", str(first)), Location("l2", str(second))]),
         ]
         for patcher in cls._patches:

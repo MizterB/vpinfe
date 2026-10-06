@@ -25,8 +25,8 @@ from common.extensions.games import offer
 from common.games import (
     game_lens,
     game_ops,
+    library_folder_ops,
     library_vps_state,
-    location_ops,
     media_ops,
     table_ops,
 )
@@ -71,11 +71,11 @@ READS: dict[str, Callable[..., Any]] = {
 # keep: an extension that can add a library folder can already point an install at its
 # library, and should ask for that by name.
 CONFIG_READS: dict[str, Callable[..., Any]] = {
-    "new_game_destination": location_ops.destination,
+    "new_game_destination": library_folder_ops.destination,
 }
 
 CONFIG_WRITES: dict[str, Callable[..., Any]] = {
-    "use_library_folder": location_ops.use_library_folder,
+    "use_library_folder": library_folder_ops.use_library_folder,
 }
 
 LAUNCHES: dict[str, Callable[..., Any]] = {

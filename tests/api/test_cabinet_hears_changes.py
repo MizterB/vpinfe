@@ -17,7 +17,7 @@ import httpapi
 from common import events
 from common.games import game_repository
 from common.games.game_parser import GameParser
-from common.games.locations import KIND_ROOT, Location
+from common.games.library_folders import KIND_ROOT, Location
 from frontend import play_events
 from frontend.api import API
 from frontend.library_resolver import LibraryResolver
@@ -63,7 +63,7 @@ class CabinetHearsChangesTests(TempTree):
         parser = GameParser(str(self.root), config)
 
         held = mock.patch.object(
-            game_repository.locations, "configured",
+            game_repository.library_folders, "configured",
             return_value=[Location(location_id="test", path=str(self.root))])
         held.start()
         self.addCleanup(held.stop)

@@ -16,7 +16,7 @@ from fastapi import APIRouter, BackgroundTasks, Body
 from fastapi.responses import JSONResponse
 
 from common import install_identity, install_presence, install_setup
-from common.games import launcher_migration, locations
+from common.games import launcher_migration, library_folders
 from common.online import app_updater
 from common.paths import get_ini_config
 from common.vpinfe_version import get_version
@@ -46,7 +46,7 @@ def mint_identity() -> None:
         logger.warning("Could not mint this install's identity: %s", exc)
         return
     launcher_migration.ensure_seeded(config)
-    locations.ensure_seeded(config)
+    library_folders.ensure_seeded(config)
     install_presence.record_self()
 
 

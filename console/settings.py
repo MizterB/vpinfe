@@ -1307,12 +1307,12 @@ def local_trouble() -> list[Any]:
     answerable by the machine holding it, and this is that machine. Its launchers go with
     it, because whether a table can be played is now a question about one of them.
     """
-    from common.games import launchers, locations
+    from common.games import launchers, library_folders
     from common.paths import get_ini_config
 
     store = launchers.get_launcher_store()
-    held = locations.configured()
-    states = locations.states_of(held)
+    held = library_folders.configured()
+    states = library_folders.states_of(held)
     return [*feature_checks.unmet(
         get_ini_config(),
         launcher=launchers.default_for("vpx", store.launchers()),

@@ -10,7 +10,7 @@ these out of `vpinfe.ini`: a namespace in somebody else's file is a weaker form 
 than a file. One bad write took every extension's settings with it, and the switched-off
 ones came back on.
 
-Follows `common/games/locations.py`: small JSON, written whole and atomically, carrying
+Follows `common/games/library_folders.py`: small JSON, written whole and atomically, carrying
 its own schema version.
 """
 

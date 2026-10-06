@@ -44,11 +44,11 @@ class AboutTests(unittest.TestCase):
                 self.assertIn(str(value), text)
 
     def test_each_library_folder_is_listed(self) -> None:
-        from common.games.locations import KIND_GAME, Location
+        from common.games.library_folders import KIND_GAME, Location
         from common.i18n import t
 
         held = [Location("l1", "/games/first"), Location("l2", "/games/one", kind=KIND_GAME)]
-        with mock.patch("common.games.locations.configured", return_value=held):
+        with mock.patch("common.games.library_folders.configured", return_value=held):
             facts = next(group["facts"] for group in about.details(refresh=True)
                          if group["heading"] == t("about.heading.locations"))
 

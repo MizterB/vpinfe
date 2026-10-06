@@ -244,10 +244,10 @@ def _locations() -> list[tuple[str, str]]:
 
 
 def _library_folders() -> list[str]:
-    from common.games import locations
+    from common.games import library_folders
 
     try:
-        held = [one.path for one in locations.configured()]
+        held = [one.path for one in library_folders.configured()]
     except Exception:  # noqa: BLE001
         logger.debug("Could not read the library folders", exc_info=True)
         return [t("word.unknown")]

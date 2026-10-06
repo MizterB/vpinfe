@@ -26,7 +26,7 @@ import httpapi
 from common import icons
 from common.games import collection_ops, collections_service, game_repository, library_ops
 from common.games.collection_store import CollectionStore
-from common.games.locations import KIND_ROOT, Location
+from common.games.library_folders import KIND_ROOT, Location
 from common.paths import get_ini_config
 from console import panel, workbench
 from console.api import ApiClient
@@ -100,7 +100,7 @@ class _Panel(TempTree):
         self.addCleanup(held.cleanup)
         store = CollectionStore(os.path.join(held.name, "collections.json"))
         for patcher in (
-                mock.patch.object(game_repository.locations, "configured",
+                mock.patch.object(game_repository.library_folders, "configured",
                                   return_value=[Location(location_id="test",
                                                          path=str(self.root),
                                                          kind=KIND_ROOT)]),

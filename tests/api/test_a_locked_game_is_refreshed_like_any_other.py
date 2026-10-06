@@ -25,7 +25,7 @@ from common.games import (
     unwritten,
 )
 from common.games.info_maintenance import upgrade_library
-from common.games.locations import KIND_ROOT, Location
+from common.games.library_folders import KIND_ROOT, Location
 from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.online.vpsdb import VPSdb
@@ -77,7 +77,7 @@ class LockedGameRefreshTests(TempTree):
             encoding="utf-8")
         where = Location(location_id="test", path=str(games), kind=KIND_ROOT)
         for patcher in (
-                mock.patch.object(game_repository.locations, "configured",
+                mock.patch.object(game_repository.library_folders, "configured",
                                   return_value=[where]),
                 mock.patch.object(game_service, "VPSDB_JSON_PATH", catalog),
                 mock.patch.object(game_service, "_vpsdb_cache", None),

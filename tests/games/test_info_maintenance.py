@@ -21,7 +21,7 @@ from common.games.info_maintenance import (
     upgrade_library,
 )
 from common.games.info_migration import INFO_SCHEMA, backup_schema, schema_of
-from common.games.locations import KIND_GAME, Location
+from common.games.library_folders import KIND_GAME, Location
 from tests.support.library import TempTree, write_game
 
 LEGACY = {
@@ -288,7 +288,7 @@ class WalkTests(LibraryTestCase):
         write_game(first, "Dr. Dude", info=LEGACY)
         write_game(second, "Taxi", info=LEGACY)
         single = write_game(self.root / "single", "Whirlwind", info=LEGACY)
-        return patch("common.games.locations.configured", return_value=[
+        return patch("common.games.library_folders.configured", return_value=[
             Location("l1", str(first)), Location("l2", str(second)),
             Location("l3", str(single), kind=KIND_GAME)])
 

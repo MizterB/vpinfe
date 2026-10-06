@@ -117,7 +117,7 @@ class FoldersPageDrive(unittest.TestCase):
         self.assertNotIn("duplicate", self.seen["rows"][0])
 
     def test_the_page_says_which_folder_wins_and_offers_the_choice(self) -> None:
-        for key in ("console.folders.priority", "console.locations.add_folder"):
+        for key in ("console.folders.priority", "console.folders.add_folder"):
             self.assertIn(t(key), self.seen["body"])
 
     def test_the_menu_on_the_first_row_moves_down_and_never_up(self) -> None:

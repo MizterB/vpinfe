@@ -11,7 +11,7 @@ import unittest
 from typing import Any
 from unittest import mock
 
-from common.games import locations as model
+from common.games import library_folders as model
 from common.path_checks import OK as PATH_OK
 from console import setup, setup_tables
 from console.setup_tables import Tables

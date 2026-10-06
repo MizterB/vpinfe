@@ -31,12 +31,12 @@ def _watched() -> list[str]:
     """The paths worth reporting free space for: where the library lives, and where
     VPinFE keeps its own files. Those rather than every mount, because they are what
     fills up and stops something working."""
-    from common.games import locations
+    from common.games import library_folders
     from common.paths import CONFIG_DIR
 
     found = []
     try:
-        found += [one.path for one in locations.configured()]
+        found += [one.path for one in library_folders.configured()]
     except Exception:  # noqa: BLE001 - an unreadable list is not a metrics failure
         logger.debug("Could not read the library folders for metrics", exc_info=True)
     found.append(str(CONFIG_DIR))

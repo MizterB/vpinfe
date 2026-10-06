@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from typing import Any
 from unittest import mock
 
-from common.games import locations
+from common.games import library_folders
 
 
 @contextmanager
@@ -18,18 +18,18 @@ def never_answering(path: str) -> Iterator[mock.MagicMock]:
     Waits on the way out for the blocked look to finish, so no question is left in flight
     for the next test."""
     release = threading.Event()
-    real = locations._look
+    real = library_folders._look
 
-    def look(raw_path: str, recorded: Any = None) -> locations.LocationState:
+    def look(raw_path: str, recorded: Any = None) -> library_folders.LocationState:
         if raw_path == path:
             release.wait()
         return real(raw_path, recorded)
 
-    with mock.patch.object(locations, "_look", side_effect=look) as looked:
+    with mock.patch.object(library_folders, "_look", side_effect=look) as looked:
         try:
             yield looked
         finally:
             release.set()
             deadline = time.monotonic() + 5
-            while path in locations._PROBES and time.monotonic() < deadline:
+            while path in library_folders._PROBES and time.monotonic() < deadline:
                 time.sleep(0.01)

@@ -12,7 +12,7 @@ from configparser import ConfigParser
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common.games import locations
+from common.games import library_folders
 from common.i18n import t
 from tests.support.skips import needs_posix_permissions
 
@@ -31,8 +31,8 @@ class _Destinations(unittest.TestCase):
         self.root = Path(self.tmp.name)
         for name in ("first", "second", "single"):
             (self.root / name).mkdir()
-        self.store = locations.LocationStore(str(self.root / "locations.json"))
-        patcher = patch.object(locations, "get_location_store",
+        self.store = library_folders.LocationStore(str(self.root / "locations.json"))
+        patcher = patch.object(library_folders, "get_location_store",
                                return_value=self.store)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -41,7 +41,7 @@ class _Destinations(unittest.TestCase):
         self.store.save(list(rows), write_to)
 
     def _root(self, location_id, name, kind="root"):
-        return locations.Location(location_id=location_id,
+        return library_folders.Location(location_id=location_id,
                                   path=str(self.root / name), kind=kind)
 
 
@@ -50,19 +50,19 @@ class ChoiceTests(_Destinations):
         self._save(self._root("l1", "first"), self._root("l2", "second"),
                    write_to="l2")
 
-        self.assertEqual(locations.destination().path, str(self.root / "second"))
+        self.assertEqual(library_folders.destination().path, str(self.root / "second"))
 
     def test_with_nothing_chosen_the_first_writable_root_answers(self) -> None:
         """An install that has never been asked still has to be able to create."""
         self._save(self._root("l1", "first"), self._root("l2", "second"))
 
-        self.assertEqual(locations.destination().path, str(self.root / "first"))
+        self.assertEqual(library_folders.destination().path, str(self.root / "first"))
 
     def test_a_one_time_override_wins(self) -> None:
         self._save(self._root("l1", "first"), self._root("l2", "second"),
                    write_to="l1")
 
-        self.assertEqual(locations.destination("l2").path, str(self.root / "second"))
+        self.assertEqual(library_folders.destination("l2").path, str(self.root / "second"))
 
 
 class RefusalTests(_Destinations):
@@ -70,7 +70,7 @@ class RefusalTests(_Destinations):
         """Rather than quietly becoming a different folder."""
         self._save(self._root("l1", "first"), write_to="missing")
 
-        found = locations.destination()
+        found = library_folders.destination()
 
         self.assertIsNone(found.location)
         self.assertEqual(found.reason, t("error.library_folders.default_removed"))
@@ -83,7 +83,7 @@ class RefusalTests(_Destinations):
         second = self._root("l2", "second")
         self._save(self._root("l1", "first"), second, write_to="l2")
 
-        found = locations.destination()
+        found = library_folders.destination()
 
         self.assertIsNone(found.location)
         self.assertEqual(found.reason, t("error.library_folders.read_only", name=second.name))
@@ -92,7 +92,7 @@ class RefusalTests(_Destinations):
         gone = self._root("l2", "never-mounted")
         self._save(self._root("l1", "first"), gone, write_to="l2")
 
-        found = locations.destination()
+        found = library_folders.destination()
 
         self.assertEqual(found.reason, t("error.library_folders.not_reachable", name=gone.name,
                                          reason=t("error.library_folders.missing")))
@@ -102,7 +102,7 @@ class RefusalTests(_Destinations):
         this could go instead, so somebody can send it there."""
         self._save(self._root("l1", "first"), write_to="missing")
 
-        found = locations.destination()
+        found = library_folders.destination()
 
         self.assertEqual([one.location_id for one in found.alternatives], ["l1"])
 
@@ -110,7 +110,7 @@ class RefusalTests(_Destinations):
         single = self._root("l2", "single", kind="game")
         self._save(self._root("l1", "first"), single, write_to="l2")
 
-        found = locations.destination()
+        found = library_folders.destination()
 
         self.assertIsNone(found.location)
         self.assertEqual(found.reason,
@@ -120,14 +120,14 @@ class RefusalTests(_Destinations):
         """It does not fall back either. An override is somebody naming a place."""
         self._save(self._root("l1", "first"), write_to="l1")
 
-        found = locations.destination("nosuch")
+        found = library_folders.destination("nosuch")
 
         self.assertIsNone(found.location)
 
     def test_nowhere_writable_at_all_says_so(self) -> None:
         self._save()
 
-        found = locations.destination()
+        found = library_folders.destination()
 
         self.assertIsNone(found.location)
         self.assertEqual(found.reason, t("error.library_folders.nowhere_to_create"))

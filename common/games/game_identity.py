@@ -120,7 +120,7 @@ def in_priority(games: Iterable[Any], order: Sequence[str] | None = None) -> lis
     directory order is not.
     """
     if order is None:
-        from common.games.locations import configured
+        from common.games.library_folders import configured
 
         order = [one.location_id for one in configured()]
     rank = {location_id: index for index, location_id in enumerate(order)}

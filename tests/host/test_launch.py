@@ -19,7 +19,7 @@ from unittest import mock
 
 from common import events, mounts, players
 from common.games import player_records, tables
-from common.games.locations import Location, LocationStore
+from common.games.library_folders import Location, LocationStore
 from common.games.score_parser import ParsedEntry
 from common.host import commands, launch, launch_state, table_commands
 
@@ -1058,7 +1058,7 @@ class LocationNotConnectedTests(LaunchTests):
         store.put(Location("nas", "/mnt/launch-nas/tables"))
         self.origin = mounts.Origin(mounts.NFS, "nas.lan", "/export", "/mnt/launch-nas")
         for patcher in (
-                mock.patch.object(launch.locations, "get_location_store",
+                mock.patch.object(launch.library_folders, "get_location_store",
                                   return_value=store),
                 mock.patch.object(mounts, "where",
                                   return_value=mounts.Where(self.origin, connected=False))):

@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from nicegui import ui
 
 from common import install_identity
-from common.games import locations as model
+from common.games import library_folders as model
 from console import folders, offload
 from console import settings as settings_page
 from tests.support.clicks import press
@@ -500,7 +500,7 @@ class DrawTests(unittest.TestCase):
         said = self.drawn()
 
         self.assertIn(folders.t("console.folders.none_yet"), said)
-        self.assertIn(folders.t("console.locations.add_folder"), said)
+        self.assertIn(folders.t("console.folders.add_folder"), said)
         self.assertNotIn(folders.t("console.folders.import"), said)
 
     def test_the_import_button_is_offered_only_where_the_importer_runs(self) -> None:
@@ -537,17 +537,17 @@ class DialogTests(unittest.TestCase):
     def test_add_asks_for_the_folder_and_nothing_about_what_it_holds(self) -> None:
         said = self.opened()
 
-        self.assertIn(folders.t("console.locations.add_folder"), said)
+        self.assertIn(folders.t("console.folders.add_folder"), said)
         self.assertIn(folders.t("word.add"), said)
-        self.assertNotIn(folders.t("console.locations.many_games"), said)
+        self.assertNotIn(folders.t("console.folders.many_games"), said)
 
     def test_change_adds_what_the_folder_contains_and_saves(self) -> None:
         said = self.opened(current=folders.Folder.read(row("a")))
 
         self.assertIn(folders.t("console.folders.change_title"), said)
         self.assertIn(folders.t("word.save"), said)
-        self.assertIn(folders.t("console.locations.many_games"), said)
-        self.assertIn(folders.t("console.locations.one_game_folder"), said)
+        self.assertIn(folders.t("console.folders.many_games"), said)
+        self.assertIn(folders.t("console.folders.one_game_folder"), said)
         self.assertNotIn(folders.t("word.add"), said)
 
 

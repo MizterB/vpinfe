@@ -14,7 +14,7 @@ from time import perf_counter
 from typing import Any
 
 from common import events
-from common.games import derived_tags, locations, unwritten
+from common.games import derived_tags, library_folders, unwritten
 from common.games.collection_store import CollectionStore
 from common.games.game import Game
 from common.games.game_identity import ensure_unique_ids, in_priority
@@ -62,7 +62,7 @@ def _held(reload: bool) -> tuple[list[Any], bool]:
     and dropped for a location that has gone. Rebuilding on a changed list is what stops
     a second library being answered with the first one's games.
     """
-    wanted = locations.configured()
+    wanted = library_folders.configured()
     keys = {(one.path, one.kind) for one in wanted}
     for gone in [key for key in _PARSERS if key not in keys]:
         _PARSERS.pop(gone)
@@ -70,7 +70,7 @@ def _held(reload: bool) -> tuple[list[Any], bool]:
 
     unread = [one for one in wanted if reload
               or (one.path, one.kind) not in _PARSERS and (one.path, one.kind) not in _AWAY]
-    states = locations.states_of(unread, wait=locations.MOUNT_SECONDS) if unread else {}
+    states = library_folders.states_of(unread, wait=library_folders.MOUNT_SECONDS) if unread else {}
 
     games: list[Any] = []
     read = False
@@ -89,7 +89,7 @@ def _held(reload: bool) -> tuple[list[Any], bool]:
                 _PARSERS[key].load_games(reload=True)
             else:
                 _PARSERS[key] = GameParser(location.path, get_ini_config(),
-                                           one_game=location.kind == locations.KIND_GAME)
+                                           one_game=location.kind == library_folders.KIND_GAME)
         parser = _PARSERS.get(key)
         if parser is None:
             continue
@@ -134,10 +134,10 @@ def waiting_for() -> list[str]:
     """What an empty library is waiting on: each of its folders, by server where it is on
     one, while none of them can be reached. Empty once one answers, the library read
     again."""
-    wanted = locations.configured()
+    wanted = library_folders.configured()
     if not wanted or all_games():
         return []
-    states = locations.states_of(wanted)
+    states = library_folders.states_of(wanted)
     if any(state.reachable for state in states.values()):
         all_games(reload=True)
         return []

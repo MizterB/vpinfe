@@ -22,7 +22,7 @@ class OwnRowTests(unittest.TestCase):
         # Seeding writes at paths fixed at import, which a test that is about the
         # registry has no business reaching.
         self.enterContext(patch("httpapi.instance.launcher_migration.ensure_seeded"))
-        self.enterContext(patch("httpapi.instance.locations.ensure_seeded"))
+        self.enterContext(patch("httpapi.instance.library_folders.ensure_seeded"))
 
     def _start_with_config_in(self, folder: Path) -> str:
         """What building the API does, against a config that lives in `folder`."""

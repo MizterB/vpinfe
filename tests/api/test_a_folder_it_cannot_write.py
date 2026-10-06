@@ -13,7 +13,7 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common.games import game_repository, unwritten
-from common.games.locations import KIND_ROOT, Location
+from common.games.library_folders import KIND_ROOT, Location
 from tests.support.library import TempTree, write_game
 from tests.support.skips import needs_posix_permissions
 
@@ -34,7 +34,7 @@ class LockedFolderTests(TempTree):
         self.addCleanup(self.locked.chmod, 0o755)
 
         held = mock.patch.object(
-            game_repository.locations, "configured",
+            game_repository.library_folders, "configured",
             return_value=[Location(location_id="test", path=str(self.root),
                                    kind=KIND_ROOT)])
         held.start()

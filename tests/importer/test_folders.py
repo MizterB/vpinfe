@@ -20,7 +20,7 @@ from pathlib import Path
 from unittest import mock
 
 from common import jobs
-from common.games import locations, tables
+from common.games import library_folders, tables
 from tests.importer import test_adopt
 from tests.support.skips import needs_posix_permissions
 
@@ -890,7 +890,7 @@ class OrderTests(FolderCase):
         self.other.mkdir()
 
     def hold(self, *folders: Path) -> None:
-        self.locations.save([locations.Location(location_id=f"id{i}", path=str(one))
+        self.locations.save([library_folders.Location(location_id=f"id{i}", path=str(one))
                              for i, one in enumerate(folders)], write_to="")
 
     def order(self) -> list[Path]:
@@ -902,7 +902,7 @@ class OrderTests(FolderCase):
         self.run_it(self.tables, how="copy", into=str(self.library))
 
         self.assertEqual(self.order(), [self.library.resolve(), self.other.resolve()])
-        self.assertEqual(Path(locations.destination().path).resolve(), self.library.resolve())
+        self.assertEqual(Path(library_folders.destination().path).resolve(), self.library.resolve())
 
     def test_moving_in_a_folder_that_is_first_leaves_it_first(self) -> None:
         self.hold(self.tables, self.library)
@@ -910,7 +910,7 @@ class OrderTests(FolderCase):
         self.run_it(self.tables, how="move")
 
         self.assertEqual(self.order(), [self.tables.resolve(), self.library.resolve()])
-        self.assertEqual(Path(locations.destination().path).resolve(), self.tables.resolve())
+        self.assertEqual(Path(library_folders.destination().path).resolve(), self.tables.resolve())
 
     def test_a_folder_not_held_yet_goes_last(self) -> None:
         self.hold(self.library, self.other)
