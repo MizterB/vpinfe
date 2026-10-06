@@ -1494,6 +1494,7 @@ class _PlayerPicture(_Image):
 
     @on_page
     async def _copied(self, extension: str) -> None:
+        assert self.use_service is not None
         try:
             redraw = await self.use_service(extension)
         except Exception as exc:  # noqa: BLE001
