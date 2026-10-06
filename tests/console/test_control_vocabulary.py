@@ -51,8 +51,6 @@ BUDGET = {
                               "compositor config, read-only"),
     "backups.py": (1, "the optional note typed into the Back up now dialog, which names "
                       "the copy being made rather than holding a setting"),
-    "chrome_options.py": (1, "the textarea that shows the Chrome options a window opens "
-                             "with, read-only, beside its Copy button"),
     "import_dialog.py": (2, "the per-item tick in the import confirmation and the "
                             "destination picker's do-not-ask-again - a choice over a list "
                             "and a one-off promise, neither of them a fact row"),

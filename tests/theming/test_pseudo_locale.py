@@ -43,7 +43,8 @@ GAME = "Attack from Mars"
 DOTTED = re.compile(r"\b[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+\b", re.IGNORECASE)
 KEYS = {key.lower(): key for key in CATALOG}
 FIRST_ROW = ".ag-row .ag-cell"
-ICONS = ".q-icon, .material-icons { visibility: hidden !important; }"
+# The Chrome command line on the Browser page is the program's own options, not our chrome.
+ICONS = (".q-icon, .material-icons, .console-options { visibility: hidden !important; }")
 
 
 def _without_icons(expression: str) -> str:
