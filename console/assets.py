@@ -21,7 +21,7 @@ from nicegui import ui
 
 from common import icons
 from common.i18n import t
-from console import grid, list_art, media_ownership, offload, panel, views
+from console import game_tables, grid, list_art, media_ownership, offload, panel, views
 from console.games import view_control
 
 logger = logging.getLogger("vpinfe.console.assets")
@@ -38,6 +38,9 @@ MISSING = media_ownership.tier_for(media_ownership.MISSING).noun
 _REASON_CHOICES = ([{"value": "", "label": t("word.in_use")}]
                    + [{"value": word, "label": t(word)}
                       for word in (MISSING, ORPHAN, UNUSED)])
+
+_SCOPE_CHOICES = [{"value": "game", "label": t("word.game")},
+                  {"value": "table", "label": t("console.assets.table")}]
 
 _SOURCE_CHOICES = ([{"value": name, "label": name}
                     for name in media_ownership.source_names()]
@@ -62,6 +65,7 @@ def _reason(row: dict[str, Any]) -> str:
 def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The API's assets, flattened for a grid."""
     return [{**row,
+             "scope": game_tables.scope_of(row),
              "used_by": row.get("serves"),
              "reason": _reason(row),
              "source": media_ownership.source_name(str(row.get("origin") or "")),
@@ -75,7 +79,7 @@ _GAME = "word.game"
 _SOURCE = "word.source"
 
 COLUMNS: list[dict[str, Any]] = [
-    grid.identifier("game", t(_GAME), 240, pinned="left", group=t(_GAME),
+    grid.identifier("game", t("word.name"), 240, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"), picture=list_art.FIELD,
                 glyph=icons.GAMES, built_tip=t("console.media_ownership.named_for"),
                 help=t("console.assets.game.help")),
@@ -86,6 +90,9 @@ COLUMNS: list[dict[str, Any]] = [
     grid.column("reason", t("word.unused_reason"), 150, group=t(_FILE),
                 **grid.choice_filter(_REASON_CHOICES),
                 help=t("console.assets.reason.help")),
+    grid.column("scope", t("console.assets.scope"), 100, group=t(_FILE),
+                **grid.choice_filter(_SCOPE_CHOICES),
+                help=t("console.assets.scope.help")),
     grid.column("table_file", t("console.assets.table"), 200, group=t(_FILE),
                 help=t("console.assets.table.help")),
     grid.column("path", t("word.path"), 300, group=t(_FILE),

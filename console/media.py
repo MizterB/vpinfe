@@ -20,7 +20,17 @@ from common import icons
 from common.games import asset_origin
 from common.i18n import t
 from common.media_specs import media_label_map
-from console import art_fill, grid, list_art, media_ownership, offload, panel, verbs, views
+from console import (
+    art_fill,
+    game_tables,
+    grid,
+    list_art,
+    media_ownership,
+    offload,
+    panel,
+    verbs,
+    views,
+)
 from console import record as recorder
 from console.games import view_control
 from console.on_page import on_page
@@ -38,6 +48,9 @@ _REASON = {media_ownership.ORPHAN: _ORPHAN, media_ownership.UNUSED: _UNUSED}
 _REASON_CHOICES = ([{"value": "", "label": t("word.in_use")}]
                    + [{"value": word, "label": t(word)}
                       for word in (_MISSING, _ORPHAN, _UNUSED)])
+
+_SCOPE_CHOICES = [{"value": "game", "label": t("word.game")},
+                  {"value": "table", "label": t("console.media.table")}]
 
 _SOURCE_CHOICES = ([{"value": name, "label": name}
                     for name in media_ownership.source_names()]
@@ -68,6 +81,7 @@ def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
     file, name and folder together.
     """
     return [{**row,
+             "scope": game_tables.scope_of(row),
              # One path, not a name and a folder: `medias/` or the game folder is two
              # values across a whole library, which is a column that says the same
              # thing on nearly every row.
@@ -87,7 +101,7 @@ _GAME = "word.game"
 _SOURCE = "word.source"
 
 COLUMNS: list[dict[str, Any]] = [
-    grid.identifier("game", t(_GAME), 240, pinned="left", group=t(_GAME),
+    grid.identifier("game", t("word.name"), 240, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"), picture=list_art.FIELD,
                 glyph=icons.GAMES, built_tip=t("console.media_ownership.named_for"),
                 help=t("console.media.game.help")),
@@ -98,6 +112,9 @@ COLUMNS: list[dict[str, Any]] = [
     grid.column("reason", t("word.unused_reason"), 150, group=t(_FILE),
                 **grid.choice_filter(_REASON_CHOICES),
                 help=t("console.media.reason.help")),
+    grid.column("scope", t("console.media.scope"), 100, group=t(_FILE),
+                **grid.choice_filter(_SCOPE_CHOICES),
+                help=t("console.media.scope.help")),
     grid.column("table_file", t("console.media.table"), 200, group=t(_FILE),
                 help=t("console.media.table.help")),
     grid.column("path", t("word.path"), 300, group=t(_FILE),

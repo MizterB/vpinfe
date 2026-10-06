@@ -61,6 +61,30 @@ class TheShippedViews(unittest.TestCase):
             self.assertIn(t("console.media_ownership.named_for"), game[":cellRenderer"])
 
 
+class TheNameAndScopeColumns(unittest.TestCase):
+    def test_the_first_column_is_headed_name(self) -> None:
+        for lens in (assets, media):
+            first = next(one for one in lens.COLUMNS if one["field"] == "game")
+            self.assertEqual(t("word.name"), first["headerName"])
+
+    def test_scope_is_a_game_or_table_pick_list_in_the_picker_and_the_everything_view(
+            self) -> None:
+        for lens in (assets, media):
+            scope = next(one for one in lens.COLUMNS if one["field"] == "scope")
+            self.assertEqual(["game", "table"],
+                             [one["value"] for one in scope["filterParams"]["choices"]])
+            self.assertIn("scope", lens.VIEWS["console.view.everything"].columns)
+
+    def test_scope_follows_what_the_yellow_line_says(self) -> None:
+        for row, scope in (({"table": "", "table_file": ""}, "game"),
+                           ({"table": "t1", "table_file": "x.vpx"}, "table"),
+                           ({"table": "t2", "table_file": ""}, "table"),
+                           ({"table": "", "table_file": "Gone v2"}, "table")):
+            self.assertEqual(scope, game_tables.scope_of(row), row)
+            self.assertEqual(scope, assets.rows([row])[0]["scope"], row)
+            self.assertEqual(scope, media.rows([row])[0]["scope"], row)
+
+
 class TheRenderer(unittest.TestCase):
     def test_no_tip_puts_no_title_on_the_line(self) -> None:
         plain = grid.identifier("name", "Game", subtitle=("a", "", "b"))

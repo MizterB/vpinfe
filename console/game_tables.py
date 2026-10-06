@@ -198,6 +198,11 @@ def named_in(row: dict[str, Any], tables: dict[str, dict[str, Any]]) -> dict[str
     return {"said_built": stem, "said_built_file": bool(stem)}
 
 
+def scope_of(row: dict[str, Any]) -> str:
+    """`table` for a file named for one table, `game` for a file of the game's own."""
+    return "table" if row.get("table") or row.get("table_file") else "game"
+
+
 def told_apart(tables: list[dict[str, Any]]) -> dict[str, str]:
     """By id, what to add after the name of each of `tables` that reads the same as
     another: the run of its filename holding the words the rest do not all share."""
