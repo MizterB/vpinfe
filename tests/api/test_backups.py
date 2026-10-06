@@ -93,9 +93,9 @@ class BackupsCase(unittest.TestCase):
         return write_game(self.library, name, info=info or game_info(
             name, game_id="id-" + name))
 
-    def kept(self, folder: pathlib.Path, when: datetime, why: str = "",
+    def kept(self, folder: pathlib.Path, when: datetime, reason: str = "",
              info: dict | None = None) -> pathlib.Path:
-        path = pathlib.Path(backup_path(folder / f"{folder.name}.info", when, why))
+        path = pathlib.Path(backup_path(folder / f"{folder.name}.info", when, reason))
         path.write_text(json.dumps(info or {"Info": {"Title": "was"}}), encoding="utf-8")
         return path
 
@@ -121,17 +121,17 @@ class ListingTests(BackupsCase):
         found = {one["file"]: one for one in self.listing()}
 
         self.assertEqual(
-            {name: one["why"] for name, one in found.items()},
+            {name: one["reason"] for name, one in found.items()},
             {"Taxi.info.vpinfe-20261001T010203Z": "upgrade",
              "Taxi.info.vpinfe-20261002T010203Z-restore": "restore",
              "Taxi.info.vpinfe-20261003T010203Z-reset": "reset",
              "Taxi.info.bak": "import"})
         one = found["Taxi.info.vpinfe-20261001T010203Z"]
-        self.assertEqual((one["of_kind"], one["of_id"], one["of_name"], one["kind"]),
+        self.assertEqual((one["subject_kind"], one["subject_id"], one["subject_name"], one["kind"]),
                          ("game", "id-Taxi", "Taxi", "game_metadata"))
         self.assertEqual((one["taken"], one["written_by"], one["gone"]),
                          ("2026-10-01T01:02:03Z", "2.x", False))
-        self.assertEqual(found["Taxi.info.bak"]["of_name"], "Taxi")
+        self.assertEqual(found["Taxi.info.bak"]["subject_name"], "Taxi")
 
     def test_a_copy_of_a_game_whose_info_is_gone_says_so(self) -> None:
         folder = self.game()
@@ -153,7 +153,7 @@ class ListingTests(BackupsCase):
             {"vpinfe.ini": "settings", "collections.json": "collections",
              "devices.json": "devices", "players.json": "players",
              "extras.json": "records"})
-        self.assertEqual({one["of_kind"] for one in found.values()}, {"vpinfe"})
+        self.assertEqual({one["subject_kind"] for one in found.values()}, {"vpinfe"})
 
     def test_a_theme_set_aside_is_a_copy_of_that_theme(self) -> None:
         (self.themes / "Classic.previous").mkdir()
@@ -162,7 +162,7 @@ class ListingTests(BackupsCase):
 
         found = self.listing()
 
-        self.assertEqual([(one["of_kind"], one["of_id"], one["why"], one["gone"],
+        self.assertEqual([(one["subject_kind"], one["subject_id"], one["reason"], one["gone"],
                            one["size"]) for one in found],
                          [("theme", "Classic", "update", False, 3)])
 
@@ -178,26 +178,26 @@ class ListingTests(BackupsCase):
         self.kept(taxi, OLD)
         self.kept(self.game("Bally"), NEWER)
 
-        mine = self.client.get("/backups", params={"of_kind": "game", "of": "id-Taxi"})
+        mine = self.client.get("/backups", params={"subject_kind": "game", "subject_id": "id-Taxi"})
 
-        self.assertEqual([one["of_id"] for one in mine.json()["copies"]], ["id-Taxi"])
+        self.assertEqual([one["subject_id"] for one in mine.json()["copies"]], ["id-Taxi"])
 
     def test_the_listing_narrows_to_one_theme(self) -> None:
         for name in ("Classic", "Modern"):
             (self.themes / f"{name}.previous").mkdir()
             (self.themes / f"{name}.previous" / "index.html").write_text("old")
 
-        mine = self.client.get("/backups", params={"of_kind": "theme", "of": "Modern"})
+        mine = self.client.get("/backups", params={"subject_kind": "theme", "subject_id": "Modern"})
 
-        self.assertEqual([one["of_id"] for one in mine.json()["copies"]], ["Modern"])
+        self.assertEqual([one["subject_id"] for one in mine.json()["copies"]], ["Modern"])
 
     def test_a_kind_without_an_id_or_an_id_without_a_kind_is_refused(self) -> None:
-        for params in ({"of_kind": "game"}, {"of": "id-Taxi"}):
+        for params in ({"subject_kind": "game"}, {"subject_id": "id-Taxi"}):
             with self.subTest(params=params):
                 self.assertEqual(self.client.get("/backups", params=params).status_code, 422)
 
     def test_a_kind_that_is_not_one_is_refused(self) -> None:
-        found = self.client.get("/backups", params={"of_kind": "cab", "of": "x"})
+        found = self.client.get("/backups", params={"subject_kind": "cab", "subject_id": "x"})
 
         self.assertEqual(found.status_code, 422)
 
@@ -226,7 +226,8 @@ class LauncherListingTests(BackupsCase):
 
         found = self.listing()
 
-        self.assertEqual([(one["of_kind"], one["of_id"], one["of_name"], one["why"])
+        self.assertEqual([(one["subject_kind"], one["subject_id"], one["subject_name"],
+                           one["reason"])
                           for one in found],
                          [("launcher", "l1", "Main VPX", "first_change")])
 
@@ -237,7 +238,7 @@ class LauncherListingTests(BackupsCase):
 
         found = self.listing()
 
-        self.assertEqual({(one["of_kind"], one["of_id"], one["note"]) for one in found
+        self.assertEqual({(one["subject_kind"], one["subject_id"], one["note"]) for one in found
                           if one["kind"] == "backup"}, {("archive", "", "before tuning")})
         self.assertIn("VPinballX.ini", {one["file"] for one in found})
 
@@ -258,7 +259,7 @@ class LauncherListingTests(BackupsCase):
         found = {one["file"]: one for one in self.listing()}
 
         self.assertEqual(
-            {name: (one["why"], one["note"], one["of_id"]) for name, one in found.items()},
+            {name: (one["reason"], one["note"], one["subject_id"]) for name, one in found.items()},
             {"VPinballX-manual-tuning-20261001-010203.ini": ("yours", "tuning", "l1"),
              "VPinballX-pre-restore-20261002-010203.ini": ("restore", "", "l1")})
 
@@ -314,9 +315,9 @@ class LauncherListingTests(BackupsCase):
         self.ini.with_name("Other.ini").write_text("y")
         self.ini.with_name("Other.ini.vpinfe-20261002T010203Z").write_text("y")
 
-        mine = self.client.get("/backups", params={"of_kind": "launcher", "of": "l2"})
+        mine = self.client.get("/backups", params={"subject_kind": "launcher", "subject_id": "l2"})
 
-        self.assertEqual([(one["of_id"], one["file"]) for one in mine.json()["copies"]],
+        self.assertEqual([(one["subject_id"], one["file"]) for one in mine.json()["copies"]],
                          [("l2", "Other.ini.vpinfe-20261002T010203Z")])
 
 
@@ -334,7 +335,7 @@ class RestoreTests(BackupsCase):
         now = json.loads((folder / "Taxi.info").read_text())
         self.assertEqual(now["Info"]["Title"], "Taxi (old)")
         self.assertEqual(now["vpinfe"]["game_id"], "id-Taxi")
-        self.assertEqual([one["why"] for one in body["kept"]], ["restore"])
+        self.assertEqual([one["reason"] for one in body["kept"]], ["restore"])
         self.assertTrue(old.exists())
 
     def test_a_game_copy_that_cannot_be_read_is_refused_and_nothing_is_changed(self) -> None:

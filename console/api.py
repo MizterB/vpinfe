@@ -1112,10 +1112,11 @@ class ApiClient:
         return dict(self._get(
             f"/launchers/{launcher_id}/config?table={table}&scope={scope}") or {})
 
-    def backups(self, of_kind: str = "", of_id: str = "") -> dict:
+    def backups(self, subject_kind: str = "", subject_id: str = "") -> dict:
         """Every copy VPinFE has kept, or those of one game, launcher or theme, and which of
         them wait on a close."""
-        query = f"?of_kind={quote(of_kind)}&of={quote(of_id, safe='')}" if of_kind else ""
+        query = (f"?subject_kind={quote(subject_kind)}&subject_id={quote(subject_id, safe='')}"
+                 if subject_kind else "")
         said = self._get(f"/backups{query}") or {}
         return {"copies": list(said.get("copies") or []),
                 "pending": list(said.get("pending") or [])}

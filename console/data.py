@@ -633,8 +633,8 @@ class Library:
         return dict(self._client.launcher_config(
             launcher_id, table, scope).get("values") or {})
 
-    def backups(self, of_kind: str = "", of_id: str = "") -> dict:
-        return self._client.backups(of_kind, of_id)
+    def backups(self, subject_kind: str = "", subject_id: str = "") -> dict:
+        return self._client.backups(subject_kind, subject_id)
 
     def take_backup(self, scope: str, *, games: list[str] | None = None,
                     launcher: str = "", note: str = "", name: str = "") -> dict:

@@ -15,10 +15,11 @@ AGES = {backup_cleanup.YOURS: 3, backup_cleanup.AUTOMATIC: 3}
 
 
 def _row(copy_id: str, **over) -> dict:
-    found = {"id": copy_id, "of_kind": copies.OF_GAME, "of_id": "g1", "of_name": "Attack from Mars",
+    found = {"id": copy_id, "subject_kind": copies.SUBJECT_GAME, "subject_id": "g1",
+             "subject_name": "Attack from Mars",
              "kind": copies.KIND_GAME, "file": "a.info", "path": f"/library/{copy_id}",
              "taken": "2026-10-01T10:00:00Z", "written_by": copies.BY_3X,
-             "why": copies.WHY_UPGRADE, "note": "", "size": 1000, "gone": False, **over}
+             "reason": copies.REASON_UPGRADE, "note": "", "size": 1000, "gone": False, **over}
     return backups.rows([found], parts=True)[0]
 
 
@@ -56,8 +57,8 @@ class Groups(unittest.TestCase):
         self.assertEqual(["a"], _ids(found, backup_cleanup.GONE))
 
     def test_a_backup_is_gone_only_as_the_listing_says(self) -> None:
-        zips = [_row("every", of_kind=copies.OF_ARCHIVE, kind=copies.KIND_ARCHIVE, gone=True),
-                _row("some", of_kind=copies.OF_ARCHIVE, kind=copies.KIND_ARCHIVE, gone=False)]
+        archive = {"subject_kind": copies.SUBJECT_ARCHIVE, "kind": copies.KIND_ARCHIVE}
+        zips = [_row("every", **archive, gone=True), _row("some", **archive, gone=False)]
 
         found = backup_cleanup.members(zips, AGES, NOW)
 
@@ -73,9 +74,9 @@ class Groups(unittest.TestCase):
 
     def test_yours_and_automatic_each_take_their_own_age(self) -> None:
         old = "2026-06-01T00:00:00Z"
-        rows = [_row("yours", why=copies.WHY_YOURS, taken=old),
-                _row("auto", why=copies.WHY_UPGRADE, taken=old),
-                _row("fresh-yours", why=copies.WHY_YOURS), _row("fresh-auto")]
+        rows = [_row("yours", reason=copies.REASON_YOURS, taken=old),
+                _row("auto", reason=copies.REASON_UPGRADE, taken=old),
+                _row("fresh-yours", reason=copies.REASON_YOURS), _row("fresh-auto")]
 
         found = backup_cleanup.members(rows, AGES, NOW)
 

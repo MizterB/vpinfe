@@ -13,11 +13,12 @@ from console.data import Library
 
 
 def _copy(copy_id: str = "c1", **over) -> dict:
-    return {"id": copy_id, "of_kind": copies.OF_GAME, "of_id": "g1", "of_name": "Attack from Mars",
+    return {"id": copy_id, "subject_kind": copies.SUBJECT_GAME, "subject_id": "g1",
+            "subject_name": "Attack from Mars",
             "kind": copies.KIND_GAME, "file": "Attack from Mars.info.vpinfe-20260909T110917Z",
             "path": "/library/Attack from Mars/Attack from Mars.info.vpinfe-20260909T110917Z",
             "taken": "2026-09-09T11:09:17Z", "written_by": copies.BY_3X,
-            "why": copies.WHY_UPGRADE, "note": "", "size": 2048, "gone": False, **over}
+            "reason": copies.REASON_UPGRADE, "note": "", "size": 2048, "gone": False, **over}
 
 
 class Rows(unittest.TestCase):
@@ -43,9 +44,10 @@ class Rows(unittest.TestCase):
                                               row["gone"]))
 
     def test_a_backup_holding_records_says_so_and_one_without_does_not(self) -> None:
-        found = [_copy("a", of_kind=copies.OF_ARCHIVE), _copy("b", of_kind=copies.OF_ARCHIVE),
-                 _copy("a1", within="a", of_kind=copies.OF_VPINFE),
-                 _copy("b1", within="b", of_kind=copies.OF_GAME)]
+        found = [_copy("a", subject_kind=copies.SUBJECT_ARCHIVE),
+                 _copy("b", subject_kind=copies.SUBJECT_ARCHIVE),
+                 _copy("a1", within="a", subject_kind=copies.SUBJECT_VPINFE),
+                 _copy("b1", within="b", subject_kind=copies.SUBJECT_GAME)]
 
         held = {row["id"]: row["holds_records"] for row in backups.rows(found)}
 
@@ -54,24 +56,26 @@ class Rows(unittest.TestCase):
         self.assertFalse(backups._waits_for_a_restart(backups.rows(found)[1]))
 
     def test_a_backup_is_found_by_the_names_of_what_is_in_it(self) -> None:
-        found = [_copy("a", of_kind=copies.OF_ARCHIVE, of_name="Attack from Mars and 1 more"),
-                 _copy("a1", within="a", of_name="Attack from Mars"),
-                 _copy("a2", within="a", of_name="Medieval Madness")]
+        found = [_copy("a", subject_kind=copies.SUBJECT_ARCHIVE,
+                       subject_name="Attack from Mars and 1 more"),
+                 _copy("a1", within="a", subject_name="Attack from Mars"),
+                 _copy("a2", within="a", subject_name="Medieval Madness")]
 
         row = backups.rows(found)[0]
 
         self.assertEqual("Attack from Mars Medieval Madness", row["holds"])
-        self.assertEqual("Attack from Mars and 1 more", row["of"])
+        self.assertEqual("Attack from Mars and 1 more", row["name"])
 
     def test_a_copy_with_no_owner_is_named_by_its_file(self) -> None:
-        row = backups.rows([_copy(of_name="")])[0]
+        row = backups.rows([_copy(subject_name="")])[0]
 
         self.assertEqual(row["file"], backups.name_of(row))
 
     def test_every_kind_why_and_writer_has_a_word(self) -> None:
         for table, tokens in (
                 (backups.KIND_WORDS, [v for k, v in vars(copies).items() if k.startswith("KIND_")]),
-                (backups.WHY_WORDS, [v for k, v in vars(copies).items() if k.startswith("WHY_")]),
+                (backups.REASON_WORDS,
+                 [v for k, v in vars(copies).items() if k.startswith("REASON_")]),
                 (backups.BY_WORDS, [copies.BY_2X, copies.BY_3X])):
             for token in tokens:
                 with self.subTest(token=token):
@@ -202,9 +206,9 @@ class Views(unittest.TestCase):
         vpinfe = backups.VIEWS["console.view.backups_vpinfe"].columns
         yours = backups.VIEWS["console.view.backups_yours"].columns
 
-        self.assertNotIn("of", vpinfe)
+        self.assertNotIn("name", vpinfe)
         self.assertIn("kind", vpinfe)
-        self.assertTrue({"why", "written_by"}.isdisjoint(yours))
+        self.assertTrue({"reason", "written_by"}.isdisjoint(yours))
 
     def test_a_linked_search_opens_on_everything_and_keeps_the_users_views(self) -> None:
         library = mock.Mock(spec=Library)
@@ -236,13 +240,13 @@ class ThePanel(unittest.TestCase):
     def test_a_row_carries_what_the_panel_opens_and_reads(self) -> None:
         row = self._row(version="3.0.1")
 
-        self.assertEqual(("g1", "3.0.1", ""), (row["of_id"], row["version"], row["within_id"]))
+        self.assertEqual(("g1", "3.0.1", ""), (row["subject_id"], row["version"], row["within_id"]))
         part = backups.rows([_copy("p", within="z")], parts=True)[0]
         self.assertEqual("z", part["within_id"])
 
     def test_how_long_a_copy_is_kept_follows_what_replaces_it(self) -> None:
         said = {
-            "archive": backups.kept_said(self._row(of_kind=copies.OF_ARCHIVE)),
+            "archive": backups.kept_said(self._row(subject_kind=copies.SUBJECT_ARCHIVE)),
             "theme": backups.kept_said(self._row(kind=copies.KIND_THEME)),
             "3.0": backups.kept_said(self._row(written_by=copies.BY_3X)),
             "2.x": backups.kept_said(self._row(written_by=copies.BY_2X)),
@@ -267,14 +271,14 @@ class ThePanel(unittest.TestCase):
         self.assertEqual("", backups.written_by_said(self._row(written_by="")))
 
     def test_every_reason_a_copy_is_taken_has_a_line(self) -> None:
-        for token in (v for k, v in vars(copies).items() if k.startswith("WHY_")):
-            if token == copies.WHY_YOURS:
+        for token in (v for k, v in vars(copies).items() if k.startswith("REASON_")):
+            if token == copies.REASON_YOURS:
                 continue
             with self.subTest(token=token):
                 self.assertIn(token, backups.REASON_LINES)
 
     def test_only_a_backup_with_parts_has_contents(self) -> None:
-        archive = self._row(of_kind=copies.OF_ARCHIVE)
+        archive = self._row(subject_kind=copies.SUBJECT_ARCHIVE)
         self.assertTrue(backups.has_contents({"backup": archive, "parts": [archive]}))
         self.assertFalse(backups.has_contents({"backup": archive, "parts": []}))
         self.assertFalse(backups.has_contents({"backup": self._row(), "parts": [archive]}))

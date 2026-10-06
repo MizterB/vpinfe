@@ -57,14 +57,14 @@ KIND_WORDS = {
     kept_copies.KIND_THEME: "console.backups.kind.theme",
     kept_copies.KIND_ARCHIVE: "console.backups.kind.backup",
 }
-WHY_WORDS = {
-    kept_copies.WHY_UPGRADE: "console.backups.reason.upgrade",
-    kept_copies.WHY_RESTORE: "console.backups.reason.restore",
-    kept_copies.WHY_IMPORT: "console.backups.reason.import",
-    kept_copies.WHY_RESET: "console.backups.reason.reset",
-    kept_copies.WHY_FIRST_CHANGE: "console.backups.reason.first_change",
-    kept_copies.WHY_UPDATE: "console.backups.reason.update",
-    kept_copies.WHY_YOURS: "console.backups.reason.yours",
+REASON_WORDS = {
+    kept_copies.REASON_UPGRADE: "console.backups.reason.upgrade",
+    kept_copies.REASON_RESTORE: "console.backups.reason.restore",
+    kept_copies.REASON_IMPORT: "console.backups.reason.import",
+    kept_copies.REASON_RESET: "console.backups.reason.reset",
+    kept_copies.REASON_FIRST_CHANGE: "console.backups.reason.first_change",
+    kept_copies.REASON_UPDATE: "console.backups.reason.update",
+    kept_copies.REASON_YOURS: "console.backups.reason.yours",
 }
 BY_WORDS = {kept_copies.BY_2X: "console.backups.by.2x", kept_copies.BY_3X: "console.backups.by.3x"}
 
@@ -108,10 +108,10 @@ def _choices(words: dict[str, str]) -> list[dict[str, Any]]:
 
 
 COLUMNS = [
-    grid_module.identifier("of", t("console.backups.name"), 220, pinned="left",
+    grid_module.identifier("name", t("console.backups.name"), 220, pinned="left",
                            help=t("console.backups.name.help"),
                            **{":getQuickFilterText":
-                              "params => [(params.data || {}).of, (params.data || {}).holds]"
+                              "params => [(params.data || {}).name, (params.data || {}).holds]"
                               ".filter(Boolean).join(' ')"}),
     grid_module.column("kind", t("word.kind"), 150,
                        help=t("console.backups.kind_column.help"),
@@ -119,9 +119,9 @@ COLUMNS = [
     grid_module.column("taken", t("console.backups.taken"), 190,
                        tooltipField="taken_utc", help=t("console.backups.taken.help"),
                        **TAKEN_FILTER),
-    grid_module.column("why", t("console.backups.reason"), 160,
+    grid_module.column("reason", t("console.backups.reason"), 160,
                        help=t("console.backups.reason.help"),
-                       **grid_module.choice_filter(_choices(WHY_WORDS))),
+                       **grid_module.choice_filter(_choices(REASON_WORDS))),
     grid_module.column("note", t("console.backups.note"), 220,
                        help=t("console.backups.note.help")),
     grid_module.column("written_by", t("console.backups.written_by"), 160,
@@ -150,7 +150,7 @@ _OWN_RECORDS = [kept_copies.KIND_SETTINGS, kept_copies.KIND_COLLECTIONS,
                 kept_copies.KIND_DEVICES, kept_copies.KIND_PLAYERS, kept_copies.KIND_RECORDS]
 
 
-def _of_kind(kinds: list[str], columns: tuple[str, ...], *, help: str) -> views.Preset:
+def _by_kind(kinds: list[str], columns: tuple[str, ...], *, help: str) -> views.Preset:
     """The order of the columns is the grid's, so `columns` is a subsequence of `_ALL`."""
     return views.Preset(columns=columns, sort=_NEWEST_FIRST,
                         filters={"kind": {"values": kinds}}, help=help)
@@ -159,20 +159,20 @@ def _of_kind(kinds: list[str], columns: tuple[str, ...], *, help: str) -> views.
 VIEWS: dict[str, list[str] | views.Preset] = {
     "console.view.everything": views.Preset(
         columns=tuple(_ALL), sort=_NEWEST_FIRST, help=t("console.backups.everything_view.help")),
-    "console.view.backups_games": _of_kind(
-        [kept_copies.KIND_GAME], ("of", "taken", "why", "written_by", "size", "gone"),
+    "console.view.backups_games": _by_kind(
+        [kept_copies.KIND_GAME], ("name", "taken", "reason", "written_by", "size", "gone"),
         help=t("console.backups.games_view.help")),
-    "console.view.backups_launchers": _of_kind(
-        [kept_copies.KIND_LAUNCHER], ("of", "taken", "why", "note", "size", "gone"),
+    "console.view.backups_launchers": _by_kind(
+        [kept_copies.KIND_LAUNCHER], ("name", "taken", "reason", "note", "size", "gone"),
         help=t("console.backups.launchers_view.help")),
-    "console.view.backups_themes": _of_kind(
-        [kept_copies.KIND_THEME], ("of", "taken", "size", "gone"),
+    "console.view.backups_themes": _by_kind(
+        [kept_copies.KIND_THEME], ("name", "taken", "size", "gone"),
         help=t("console.backups.themes_view.help")),
-    "console.view.backups_vpinfe": _of_kind(
-        _OWN_RECORDS, ("kind", "taken", "why", "written_by", "size"),
+    "console.view.backups_vpinfe": _by_kind(
+        _OWN_RECORDS, ("kind", "taken", "reason", "written_by", "size"),
         help=t("console.backups.vpinfe_view.help")),
-    "console.view.backups_yours": _of_kind(
-        [kept_copies.KIND_ARCHIVE], ("of", "taken", "note", "size", "gone"),
+    "console.view.backups_yours": _by_kind(
+        [kept_copies.KIND_ARCHIVE], ("name", "taken", "note", "size", "gone"),
         help=t("console.backups.yours_view.help")),
 }
 
@@ -186,17 +186,17 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
     """One row per listed copy, or per part of a backup as well where `parts` is set. The
     time is kept as the stamp and drawn from the text."""
     with_records = {str(one["within"]) for one in found
-                    if one.get("within") and one.get("of_kind") == kept_copies.OF_VPINFE}
+                    if one.get("within") and one.get("subject_kind") == kept_copies.SUBJECT_VPINFE}
     holds: dict[str, list[str]] = {}
     for one in found:
-        if one.get("within") and one.get("of_name"):
-            holds.setdefault(str(one["within"]), []).append(str(one["of_name"]))
+        if one.get("within") and one.get("subject_name"):
+            holds.setdefault(str(one["within"]), []).append(str(one["subject_name"]))
     return [{
         "id": one["id"],
         "holds": " ".join(holds.get(str(one["id"]), [])),
-        "of": one.get("of_name") or "",
-        "of_id": one.get("of_id") or "",
-        "of_kind": one.get("of_kind") or "",
+        "name": one.get("subject_name") or "",
+        "subject_id": one.get("subject_id") or "",
+        "subject_kind": one.get("subject_kind") or "",
         "kind": one.get("kind") or "",
         "file": one.get("file") or "",
         "path": one.get("path") or "",
@@ -204,9 +204,9 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
         "taken_text": when.local_seconds(one.get("taken")),
         "taken_utc": str(one.get("taken") or ""),
         "written_by": one.get("written_by") or "",
-        "why": one.get("why") or "",
-        "why_text": "" if one.get("why") in (kept_copies.WHY_YOURS, None)
-        else t(WHY_WORDS.get(str(one["why"]), "console.backups.reason.yours")),
+        "reason": one.get("reason") or "",
+        "reason_text": "" if one.get("reason") in (kept_copies.REASON_YOURS, None)
+        else t(REASON_WORDS.get(str(one["reason"]), "console.backups.reason.yours")),
         "within": bool(one.get("within")),
         "within_id": str(one.get("within") or ""),
         "version": one.get("version") or "",
@@ -220,7 +220,7 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
 
 def name_of(row: dict[str, Any]) -> str:
     """What a copy is of, or its file where the server names no owner."""
-    return str(row.get("of") or row.get("file") or "")
+    return str(row.get("name") or row.get("file") or "")
 
 
 def summary(shown: list[dict[str, Any]]) -> str:
@@ -408,7 +408,7 @@ def _copy_path(path: str) -> Callable[[Callable[[], Any]], None]:
 
 
 def _named(rows_on: list[dict[str, Any]]) -> list[str]:
-    names = ["  ".join(part for part in (one["of"], one["file"]) if part) or one["id"]
+    names = ["  ".join(part for part in (one["name"], one["file"]) if part) or one["id"]
              for one in rows_on]
     if len(names) <= NAMED_AT_MOST:
         return names
@@ -440,7 +440,7 @@ async def delete(library: Library, rows_on: list[dict[str, Any]],
 
 def _waits_for_a_restart(row: dict[str, Any]) -> bool:
     """Records are put back as VPinFE closes, and a backup holds them or does not."""
-    return row["of_kind"] == kept_copies.OF_VPINFE or row["holds_records"]
+    return row["subject_kind"] == kept_copies.SUBJECT_VPINFE or row["holds_records"]
 
 
 @on_page
@@ -643,19 +643,19 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
 # --- the panel ------------------------------------------------------------------
 
 REASON_LINES = {
-    kept_copies.WHY_UPGRADE: "console.backups.reason_line.upgrade",
-    kept_copies.WHY_RESTORE: "console.backups.reason_line.restore",
-    kept_copies.WHY_IMPORT: "console.backups.reason_line.import",
-    kept_copies.WHY_RESET: "console.backups.reason_line.reset",
-    kept_copies.WHY_FIRST_CHANGE: "console.backups.reason_line.first_change",
-    kept_copies.WHY_UPDATE: "console.backups.reason_line.update",
+    kept_copies.REASON_UPGRADE: "console.backups.reason_line.upgrade",
+    kept_copies.REASON_RESTORE: "console.backups.reason_line.restore",
+    kept_copies.REASON_IMPORT: "console.backups.reason_line.import",
+    kept_copies.REASON_RESET: "console.backups.reason_line.reset",
+    kept_copies.REASON_FIRST_CHANGE: "console.backups.reason_line.first_change",
+    kept_copies.REASON_UPDATE: "console.backups.reason_line.update",
 }
 # Where the name of what a copy is of opens, per kind of owner. A theme has a page and no
 # address of its own.
 _OPENS = {
-    kept_copies.OF_GAME: lambda row: {"view": "games", "game": row["of_id"]},
-    kept_copies.OF_LAUNCHER: lambda row: {"view": "launchers", "launcher": row["of_id"]},
-    kept_copies.OF_THEME: lambda row: {"view": "themes"},
+    kept_copies.SUBJECT_GAME: lambda row: {"view": "games", "game": row["subject_id"]},
+    kept_copies.SUBJECT_LAUNCHER: lambda row: {"view": "launchers", "launcher": row["subject_id"]},
+    kept_copies.SUBJECT_THEME: lambda row: {"view": "themes"},
 }
 # The parts of a backup drawn at once; the rest are reached by searching.
 PARTS_SHOWN = 100
@@ -663,7 +663,7 @@ PARTS_SHOWN = 100
 
 def kept_said(row: dict[str, Any]) -> str:
     """How long VPinFE keeps this copy, from what the listing says about it."""
-    if row["of_kind"] == kept_copies.OF_ARCHIVE:
+    if row["subject_kind"] == kept_copies.SUBJECT_ARCHIVE:
         return t("console.backups.kept.until_deleted")
     if row["kind"] == kept_copies.KIND_THEME:
         return t("console.backups.kept.theme_update")
@@ -701,8 +701,8 @@ def _file(row: dict[str, Any]) -> Callable[[], None]:
 
 def _name_of_owner(row: dict[str, Any]) -> None:
     """The name of what a copy is of, opening that thing where it still is."""
-    opens = _OPENS.get(row["of_kind"])
-    if opens and row["of_id"] and not row["gone"]:
+    opens = _OPENS.get(row["subject_kind"])
+    if opens and row["subject_id"] and not row["gone"]:
         with ui.element("span").classes("truncate min-w-0"):
             panel.link(name_of(row), to="/console?" + deeplink.query(opens(row)))()
     else:
@@ -712,7 +712,7 @@ def _name_of_owner(row: dict[str, Any]) -> None:
             .classes("console-member-chip console-chip-warn")
 
 
-def _of(row: dict[str, Any]) -> Callable[[], None]:
+def _subject(row: dict[str, Any]) -> Callable[[], None]:
     def draw() -> None:
         with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
             _name_of_owner(row)
@@ -742,17 +742,17 @@ def _note(context: dict[str, Any]) -> Callable[[], None]:
 async def details(context: dict[str, Any]) -> None:
     row = context["backup"]
     entries: list[tuple[Any, Any]] = []
-    if row["of_kind"] == kept_copies.OF_ARCHIVE:
+    if row["subject_kind"] == kept_copies.SUBJECT_ARCHIVE:
         entries.append((t("console.backups.note"), _note(context)))
     else:
-        if row["of"]:
-            entries.append((t("console.backups.name"), _of(row)))
+        if row["name"]:
+            entries.append((t("console.backups.name"), _subject(row)))
         entries.append((t("word.kind"),
                         t(KIND_WORDS.get(row["kind"], "console.backups.kind.records"))))
-        if row["why"] in REASON_LINES:
-            entries += [(t("console.backups.reason"), t(WHY_WORDS[row["why"]])),
-                        panel.note(t(REASON_LINES[row["why"]]))]
-    if row["note"] and row["of_kind"] != kept_copies.OF_ARCHIVE:
+        if row["reason"] in REASON_LINES:
+            entries += [(t("console.backups.reason"), t(REASON_WORDS[row["reason"]])),
+                        panel.note(t(REASON_LINES[row["reason"]]))]
+    if row["note"] and row["subject_kind"] != kept_copies.SUBJECT_ARCHIVE:
         entries.append((t("console.backups.note"), row["note"]))
     entries.append((t("console.backups.taken"), _taken(row)))
     if said := written_by_said(row):
@@ -765,7 +765,8 @@ async def details(context: dict[str, Any]) -> None:
 
 
 def has_contents(context: dict[str, Any]) -> bool:
-    return context["backup"]["of_kind"] == kept_copies.OF_ARCHIVE and bool(context["parts"])
+    archive = context["backup"]["subject_kind"] == kept_copies.SUBJECT_ARCHIVE
+    return archive and bool(context["parts"])
 
 
 async def contents(context: dict[str, Any]) -> None:
@@ -782,7 +783,7 @@ async def contents(context: dict[str, Any]) -> None:
         shown.clear()
         needle = str(finds.get(row["id"], "")).strip().lower()
         found = [one for one in context["parts"]
-                 if not needle or needle in " ".join((one["of"], one["file"])).lower()]
+                 if not needle or needle in " ".join((one["name"], one["file"])).lower()]
         with shown:
             for part in found[:PARTS_SHOWN]:
                 _part_line(context["library"], part, refresh)

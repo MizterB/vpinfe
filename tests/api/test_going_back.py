@@ -136,7 +136,7 @@ class CarryOut(GoingBackCase):
         going_back.carry_out(self.config)
 
         self.assertEqual(["2.x", "3.0"], sorted(one["written_by"] for one in self.listing()
-                                                if one["of_name"] == "Taxi"))
+                                                if one["subject_name"] == "Taxi"))
 
     def test_the_collections_go_back_with_the_games(self) -> None:
         self.old_game()

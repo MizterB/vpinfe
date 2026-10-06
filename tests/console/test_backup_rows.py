@@ -56,16 +56,16 @@ def _confirmed(name: str = "", note: str = ""):
 
 
 class BackUp(unittest.TestCase):
-    def _press(self, of_kind: str, of_id: str, name: str = "Attack from Mars",
+    def _press(self, subject_kind: str, subject_id: str, name: str = "Attack from Mars",
                answer: str = "", note: str = "") -> tuple[Mock, AsyncMock, list[str]]:
         library, after = Mock(), AsyncMock()
         offered, asking = _confirmed(answer, note)
         with asking, patch.object(backup_rows.ui, "notify"):
-            asyncio.run(backup_rows.back_up(library, of_kind, of_id, name, after))
+            asyncio.run(backup_rows.back_up(library, subject_kind, subject_id, name, after))
         return library, after, offered
 
     def test_a_game_is_backed_up_as_the_games_scope_under_the_name_confirmed(self) -> None:
-        library, after, offered = self._press(copies.OF_GAME, "g1")
+        library, after, offered = self._press(copies.SUBJECT_GAME, "g1")
 
         self.assertEqual(offered, ["Attack from Mars"])
         library.take_backup.assert_called_once_with(
@@ -73,14 +73,14 @@ class BackUp(unittest.TestCase):
         after.assert_awaited_once()
 
     def test_a_name_and_note_written_in_the_dialog_are_what_is_taken(self) -> None:
-        library, _, _ = self._press(copies.OF_GAME, "g1", answer="Before the patch",
+        library, _, _ = self._press(copies.SUBJECT_GAME, "g1", answer="Before the patch",
                                     note="Last good one")
 
         library.take_backup.assert_called_once_with(
             "games", games=["g1"], launcher="", name="Before the patch", note="Last good one")
 
     def test_a_launcher_is_backed_up_as_the_launcher_scope(self) -> None:
-        library, _, _ = self._press(copies.OF_LAUNCHER, "l1", name="VPX")
+        library, _, _ = self._press(copies.SUBJECT_LAUNCHER, "l1", name="VPX")
 
         library.take_backup.assert_called_once_with(
             "launcher", games=[], launcher="l1", name="VPX", note="")
@@ -90,7 +90,7 @@ class BackUp(unittest.TestCase):
         library.take_backup.side_effect = OSError("full")
         _, asking = _confirmed()
         with asking, patch.object(backup_rows.ui, "notify") as notify:
-            asyncio.run(backup_rows.back_up(library, copies.OF_GAME, "g1", "Game", after))
+            asyncio.run(backup_rows.back_up(library, copies.SUBJECT_GAME, "g1", "Game", after))
 
         self.assertEqual(notify.call_args.args[0], t("console.backups.back_up_failed"))
         after.assert_not_awaited()
@@ -103,7 +103,7 @@ class BackUp(unittest.TestCase):
         with asking, patch.object(backup_rows.ui, "notify") as notify:
             asyncio.run(backup_rows.back_up_games(library, games))
 
-        self.assertEqual(offered, [t("backups.of.several", name="Attack from Mars", count=2)])
+        self.assertEqual(offered, [t("backups.subject.several", name="Attack from Mars", count=2)])
         library.take_backup.assert_called_once_with(
             "games", games=["g2", "g1", "g3"], name=offered[0], note="")
         self.assertEqual(notify.call_args.args[0], t("console.backups.done_games", count=3))

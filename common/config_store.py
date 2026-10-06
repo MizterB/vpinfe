@@ -22,7 +22,7 @@ from typing import Any
 from common import config_schema, input_registry
 from common.atomic_write import write_atomic
 from common.deprecations import announce
-from common.games.info_migration import OF_2X, copy_aside
+from common.games.info_migration import REASON_2X, copy_aside
 from common.values import is_truthy
 
 logger = logging.getLogger("vpinfe.common.config_store")
@@ -483,7 +483,8 @@ class ConfigStore:
         # The first save after reading an ini keeps a copy and leaves the original alone:
         # a downgrade needs the file the older build reads.
         if self._converted_from_ini and os.path.exists(self.ini_path):
-            logger.info("Kept the pre-JSON settings at %s", copy_aside(str(self.ini_path), OF_2X))
+            logger.info("Kept the pre-JSON settings at %s",
+                        copy_aside(str(self.ini_path), REASON_2X))
             self._converted_from_ini = False
         settings = _nest({section: {key: self._typed(section, key, value)
                                     for key, value in self.config.items(section)}

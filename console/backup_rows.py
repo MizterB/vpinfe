@@ -22,7 +22,7 @@ from console import grid as grid_module
 from console.data import Library
 from console.on_page import on_page
 
-SCOPE = "backups.of"
+SCOPE = "backups.subject"
 
 COLUMNS = [
     grid_module.identifier("taken", t("console.backups.taken"), 190, pinned="left",
@@ -30,7 +30,7 @@ COLUMNS = [
                            **backups.TAKEN_FILTER),
     grid_module.column("file", t("word.file"), 260, tooltipField="path",
                        help=t("console.backups.file.help")),
-    grid_module.column("why_text", t("console.backups.reason"), 150,
+    grid_module.column("reason_text", t("console.backups.reason"), 150,
                        help=t("console.backups.reason.help")),
     grid_module.column("note", t("console.backups.note"), 200,
                        help=t("console.backups.note.help")),
@@ -48,20 +48,21 @@ def said(found: list[dict[str, Any]]) -> str:
     return t("console.backups.row", count=len(found), newest=when.local_seconds(newest))
 
 
-async def listed(library: Library, of_kind: str, of_id: str) -> list[dict[str, Any]]:
+async def listed(library: Library, subject_kind: str, subject_id: str) -> list[dict[str, Any]]:
     """The copies of one thing, or none where they cannot be read: the row still draws."""
     try:
-        return list((await offload.io(library.backups, of_kind, of_id)).get("copies") or [])
+        said = await offload.io(library.backups, subject_kind, subject_id)
+        return list(said.get("copies") or [])
     except Exception:  # noqa: BLE001 - a row that cannot count says None, never breaks the panel
         return []
 
 
 @on_page
-async def back_up(library: Library, of_kind: str, of_id: str, name: str,
+async def back_up(library: Library, subject_kind: str, subject_id: str, name: str,
                   after: Callable[[], Awaitable[None]]) -> None:
     """One copy of this game or launcher's settings file, named as `name` suggests."""
-    games = [of_id] if of_kind == kept_copies.OF_GAME else []
-    launcher = of_id if of_kind == kept_copies.OF_LAUNCHER else ""
+    games = [subject_id] if subject_kind == kept_copies.SUBJECT_GAME else []
+    launcher = subject_id if subject_kind == kept_copies.SUBJECT_LAUNCHER else ""
 
     @on_page
     async def take(chosen: str, note: str) -> None:
@@ -100,15 +101,15 @@ async def back_up_games(library: Library, games: list[dict[str, Any]],
         kept_copies.games_named(str(one.get("name") or "") for one in games), take)
 
 
-def row(library: Library, of_kind: str, of_id: str, name: str, found: list[dict[str, Any]],
-        after: Callable[[], Awaitable[None]], *, back_up_now: bool = True,
-        hint: str = "") -> Callable[[], None]:
+def row(library: Library, subject_kind: str, subject_id: str, name: str,
+        found: list[dict[str, Any]], after: Callable[[], Awaitable[None]], *,
+        back_up_now: bool = True, hint: str = "") -> Callable[[], None]:
     """The value of the Backups row. A non-empty `hint` says why both verbs are off."""
     async def take() -> None:
-        await back_up(library, of_kind, of_id, name, after)
+        await back_up(library, subject_kind, subject_id, name, after)
 
     async def choose() -> None:
-        await open_for(library, of_kind, of_id, name, after)
+        await open_for(library, subject_kind, subject_id, name, after)
 
     def draw() -> None:
         with ui.row().classes("items-center gap-2 no-wrap"):
@@ -126,15 +127,15 @@ def _open_in_backups(name: str) -> None:
     ui.navigate.to("/console?" + urlencode([("view", "backups"), ("find", name)]))
 
 
-async def open_for(library: Library, of_kind: str, of_id: str, name: str,
+async def open_for(library: Library, subject_kind: str, subject_id: str, name: str,
                    after: Callable[[], Awaitable[None]]) -> None:
     """The copies of one thing, to restore from."""
-    built = backups.rows(await listed(library, of_kind, of_id), parts=True)
+    built = backups.rows(await listed(library, subject_kind, subject_id), parts=True)
     if not built:
         ui.notify(t("console.backups.nothing_to_restore"), type="warning")
         return
     by_id = {one["id"]: one for one in built}
-    seek = next((str(one["of_name"]) for one in built if one.get("of_name")), name)
+    seek = next((str(one["subject_name"]) for one in built if one.get("subject_name")), name)
 
     with frame.opened(t("console.backups.title", name=name),
                       classes="console-backups-card") as box:
@@ -163,7 +164,7 @@ async def open_for(library: Library, of_kind: str, of_id: str, name: str,
 
         @on_page
         async def refresh() -> None:
-            fresh = backups.rows(await listed(library, of_kind, of_id), parts=True)
+            fresh = backups.rows(await listed(library, subject_kind, subject_id), parts=True)
             if not fresh:
                 box.close()
             else:

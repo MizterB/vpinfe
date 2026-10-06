@@ -86,8 +86,8 @@ class Member:
 
     name: str
     kind: str
-    of_id: str
-    of_name: str
+    subject_id: str
+    subject_name: str
     path: str
     size: int = 0
     written_by: str = ""
@@ -124,8 +124,8 @@ def _member_from(item: Any, held: set[str]) -> Member | None:
         return None
     size = item.get("size")
     return Member(
-        name=name, kind=kind, of_id=str(item.get("of_id") or ""),
-        of_name=str(item.get("of_name") or ""), path=str(item.get("path") or ""),
+        name=name, kind=kind, subject_id=str(item.get("subject_id") or ""),
+        subject_name=str(item.get("subject_name") or ""), path=str(item.get("path") or ""),
         size=size if isinstance(size, int) and size >= 0 else 0,
         written_by=str(item.get("written_by") or ""))
 
@@ -154,10 +154,10 @@ def read(path: Path) -> Manifest | None:
 def game_folder(member: Member) -> Path | None:
     """The folder a game member goes back to. A member with an id goes to the game that has
     it; only a member without one is matched by its folder's name."""
-    if member.of_id:
-        folder = game_repository.game_folder(member.of_id)
+    if member.subject_id:
+        folder = game_repository.game_folder(member.subject_id)
     else:
-        game = game_repository.by_folder_name(member.of_name)
+        game = game_repository.by_folder_name(member.subject_name)
         folder = Path(str(game.full_path_game)) if game is not None else None
     return folder if folder is not None and folder.is_dir() else None
 
@@ -202,7 +202,7 @@ def _game_member(index: int, folder: Path) -> _Gathered | None:
         return None
     return _Gathered(Member(
         name=f"games/{index:04d}/{info.name}", kind=KIND_GAME,
-        of_id=info_maintenance.game_id_in(info), of_name=folder.name,
+        subject_id=info_maintenance.game_id_in(info), subject_name=folder.name,
         path=f"{folder.name}/{info.name}", size=len(data),
         written_by=_info_writer(data)), data)
 
@@ -215,7 +215,7 @@ def _record_members() -> list[_Gathered]:
         except OSError:
             continue
         found.append(_Gathered(Member(
-            name=f"records/{name}", kind=kind, of_id="", of_name=VPINFE_NAME, path=name,
+            name=f"records/{name}", kind=kind, subject_id="", subject_name=VPINFE_NAME, path=name,
             size=len(data), written_by=BY_2X if name.endswith(".ini") else BY_3X), data))
     return found
 
@@ -230,7 +230,7 @@ def _launcher_members(launcher: launchers.Launcher) -> list[_Gathered]:
             continue
         found.append(_Gathered(Member(
             name=f"launchers/{launcher.launcher_id}/{source.name}", kind=KIND_LAUNCHER,
-            of_id=launcher.launcher_id, of_name=launcher.display_name, path=source.name,
+            subject_id=launcher.launcher_id, subject_name=launcher.display_name, path=source.name,
             size=len(data)), data))
     return found
 

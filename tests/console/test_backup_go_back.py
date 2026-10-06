@@ -9,10 +9,11 @@ from console import backup_go_back, backups
 
 
 def _row(**over) -> dict:
-    found = {"id": "c", "of_kind": copies.OF_GAME, "of_id": "g1", "of_name": "Attack from Mars",
+    found = {"id": "c", "subject_kind": copies.SUBJECT_GAME, "subject_id": "g1",
+             "subject_name": "Attack from Mars",
              "kind": copies.KIND_GAME, "file": "a.info", "path": "/library/c",
              "taken": "2026-10-01T10:00:00Z", "written_by": copies.BY_2X,
-             "why": copies.WHY_UPGRADE, "note": "", "size": 1000, "gone": False, **over}
+             "reason": copies.REASON_UPGRADE, "note": "", "size": 1000, "gone": False, **over}
     return backups.rows([found], parts=True)[0]
 
 
@@ -22,7 +23,7 @@ class Available(unittest.TestCase):
 
     def test_the_collections_2x_copy_offers_it(self) -> None:
         self.assertTrue(backup_go_back.available(
-            [_row(of_kind=copies.OF_VPINFE, kind=copies.KIND_COLLECTIONS)]))
+            [_row(subject_kind=copies.SUBJECT_VPINFE, kind=copies.KIND_COLLECTIONS)]))
 
     def test_an_install_with_no_2x_copy_offers_nothing(self) -> None:
         self.assertFalse(backup_go_back.available([_row(written_by=copies.BY_3X)]))
@@ -35,7 +36,7 @@ class Available(unittest.TestCase):
 
     def test_a_2x_settings_file_is_not_one_it_puts_back(self) -> None:
         self.assertFalse(backup_go_back.available(
-            [_row(of_kind=copies.OF_VPINFE, kind=copies.KIND_SETTINGS)]))
+            [_row(subject_kind=copies.SUBJECT_VPINFE, kind=copies.KIND_SETTINGS)]))
 
 
 if __name__ == "__main__":

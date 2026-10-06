@@ -27,13 +27,13 @@ class ArchiveCase(BackupsCase):
         return self.client.get("/backups").json()["copies"]
 
     def whole(self) -> dict:
-        return next(one for one in self.rows() if one["of_kind"] == "archive")
+        return next(one for one in self.rows() if one["subject_kind"] == "archive")
 
     def parts(self) -> list[dict]:
         return [one for one in self.rows() if one["within"]]
 
     def part(self, name: str) -> dict:
-        return next(one for one in self.parts() if one["of_name"] == name)
+        return next(one for one in self.parts() if one["subject_name"] == name)
 
     def put(self, response):
         self.assertEqual(response.status_code, 200, response.text)
@@ -64,7 +64,7 @@ class TakingTests(ArchiveCase):
         manifest = archive.read(path)
         assert manifest is not None
         self.assertEqual((manifest.scope, manifest.note), ("games", "before"))
-        self.assertEqual([one.of_id for one in manifest.members], ["id-Taxi", "id-Attack"])
+        self.assertEqual([one.subject_id for one in manifest.members], ["id-Taxi", "id-Attack"])
 
     def test_every_game_takes_each_one_in_the_library(self) -> None:
         self.games("Taxi", "Medieval Madness", "Attack")
@@ -94,10 +94,10 @@ class TakingTests(ArchiveCase):
 
         self.put(self.take("everything"))
 
-        self.assertEqual(sorted((one["of_kind"], one["file"]) for one in self.parts()),
+        self.assertEqual(sorted((one["subject_kind"], one["file"]) for one in self.parts()),
                          [("game", "Taxi.info"), ("launcher", "Scratch.ini"),
                           ("vpinfe", "players.json")])
-        self.assertEqual(self.whole()["of_name"], "Everything")
+        self.assertEqual(self.whole()["subject_name"], "Everything")
 
     def test_a_launchers_backup_holds_that_launchers_files(self) -> None:
         ini = pathlib.Path(self.tmp.name) / "Scratch.ini"
@@ -108,7 +108,7 @@ class TakingTests(ArchiveCase):
 
         self.put(self.take("launcher", launcher="l1"))
 
-        self.assertEqual(self.whole()["of_name"], "Main VPX")
+        self.assertEqual(self.whole()["subject_name"], "Main VPX")
 
     def test_nothing_to_back_up_is_refused(self) -> None:
         self.assertEqual(self.take("records").status_code, 400)
@@ -143,14 +143,15 @@ class ListingTests(ArchiveCase):
 
         manifest = archive.read(pathlib.Path(made["path"]))
         assert manifest is not None
-        self.assertEqual((manifest.name, made["of_name"]), ("Before the patch", "Before the patch"))
+        self.assertEqual((manifest.name, made["subject_name"]),
+                         ("Before the patch", "Before the patch"))
 
     def test_a_backup_of_one_game_is_named_for_it(self) -> None:
         self.games("Taxi", "Attack")
 
         made = self.put(self.take("games", games=self.ids("Taxi")))
 
-        self.assertEqual(made["of_name"], "Taxi")
+        self.assertEqual(made["subject_name"], "Taxi")
 
     def test_two_games_of_one_name_are_both_counted(self) -> None:
         self.assertEqual(copies.games_named(["Taxi", "Taxi", "Attack"]), "Attack and 2 more")
@@ -160,7 +161,7 @@ class ListingTests(ArchiveCase):
 
         made = self.put(self.take("games", games=self.ids("Taxi", "Medieval Madness", "Attack")))
 
-        self.assertEqual(made["of_name"], "Attack and 2 more")
+        self.assertEqual(made["subject_name"], "Attack and 2 more")
 
     def test_a_zip_is_one_row_and_each_part_is_another_that_names_it(self) -> None:
         self.games("Taxi", "Medieval Madness", "Attack")
@@ -169,9 +170,9 @@ class ListingTests(ArchiveCase):
         whole = self.whole()
         parts = self.parts()
 
-        self.assertEqual((whole["of_name"], whole["why"], whole["note"], whole["within"]),
+        self.assertEqual((whole["subject_name"], whole["reason"], whole["note"], whole["within"]),
                          ("All games", "yours", "Before the move", ""))
-        self.assertEqual(sorted(one["of_name"] for one in parts),
+        self.assertEqual(sorted(one["subject_name"] for one in parts),
                          ["Attack", "Medieval Madness", "Taxi"])
         self.assertEqual({one["within"] for one in parts}, {whole["id"]})
 
@@ -182,7 +183,7 @@ class ListingTests(ArchiveCase):
             child.unlink()
         folders["Taxi"].rmdir()
 
-        self.assertEqual({one["of_name"]: one["gone"] for one in self.parts()},
+        self.assertEqual({one["subject_name"]: one["gone"] for one in self.parts()},
                          {"Taxi": True, "Attack": False})
         self.assertFalse(self.whole()["gone"])
 
@@ -193,7 +194,8 @@ class ListingTests(ArchiveCase):
 
         found = self.rows()
 
-        self.assertEqual([(one["of_kind"], one["of_name"], one["taken"]) for one in found],
+        self.assertEqual([(one["subject_kind"], one["subject_name"], one["taken"])
+                          for one in found],
                          [("archive", "", "2026-10-01T01:02:03Z")])
 
     def test_a_zip_that_is_not_named_like_ours_is_not_listed(self) -> None:
@@ -219,7 +221,7 @@ class RestoringTests(ArchiveCase):
 
         self.assertEqual(self.title_in(folders["Taxi"]), "Taxi")
         self.assertEqual(self.title_in(folders["Attack"]), "Attack (edited)")
-        self.assertEqual([one["why"] for one in body["kept"]], ["restore"])
+        self.assertEqual([one["reason"] for one in body["kept"]], ["restore"])
 
     def test_undoing_one_part_puts_back_what_it_replaced(self) -> None:
         folders = self.three()
@@ -383,7 +385,7 @@ class DeletingAndForgeryTests(ArchiveCase):
         path = folder / "vpinfe-backup-20261001T010203Z.zip"
         manifest = {"format": 1, "note": "", "taken": "", "version": "", "scope": "games",
                     "members": [{"name": "games/0001/Taxi.info", "kind": "game_metadata",
-                                 "of_id": "id-Taxi", "of_name": "Taxi",
+                                 "subject_id": "id-Taxi", "subject_name": "Taxi",
                                  "path": str(victim), "size": 1}]}
         with zipfile.ZipFile(path, "w") as bundle:
             bundle.writestr("manifest.json", json.dumps(manifest))
@@ -537,7 +539,7 @@ class NoteTests(ArchiveCase):
         with patch.object(archive, "get_version", return_value="3.0.4"):
             self.put(self.take("all_games"))
 
-        found = {one["of_kind"] + ("-part" if one["within"] else ""): one["version"]
+        found = {one["subject_kind"] + ("-part" if one["within"] else ""): one["version"]
                  for one in self.rows()}
 
         self.assertEqual(found, {"archive": "3.0.4", "game-part": "3.0.4"} | {
@@ -580,7 +582,8 @@ class DamagedAndMismatchedTests(ArchiveCase):
 
     def game_member(self, name: str, game_id: str = "") -> dict:
         return {"name": f"games/0001/{name}.info", "kind": "game_metadata",
-                "of_id": game_id, "of_name": name, "path": f"{name}/{name}.info", "size": 1}
+                "subject_id": game_id, "subject_name": name,
+                "path": f"{name}/{name}.info", "size": 1}
 
     def test_a_manifest_with_values_of_the_wrong_type_still_lists(self) -> None:
         self.zip_of([], {}, manifest={"format": 1, "members": 5})
@@ -656,8 +659,8 @@ class DamagedAndMismatchedTests(ArchiveCase):
         self.put(self.client.post(f"/backups/{self.part_in(good)['id']}/restore"))
         record = b'{"a": 1}'
         later = self.zip_of(
-            [{"name": "records/players.json", "kind": "players", "of_id": "",
-              "of_name": "VPinFE", "path": "players.json", "size": 8}],
+            [{"name": "records/players.json", "kind": "players", "subject_id": "",
+              "subject_name": "VPinFE", "path": "players.json", "size": 8}],
             {"records/players.json": record}, stamp="20261002T010203Z")
         self.damage(later, record)
 

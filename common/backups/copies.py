@@ -13,11 +13,11 @@ from pathlib import Path
 from common.i18n import t
 
 # What a copy is of.
-OF_GAME = "game"
-OF_LAUNCHER = "launcher"
-OF_THEME = "theme"
-OF_VPINFE = "vpinfe"
-OF_ARCHIVE = "archive"
+SUBJECT_GAME = "game"
+SUBJECT_LAUNCHER = "launcher"
+SUBJECT_THEME = "theme"
+SUBJECT_VPINFE = "vpinfe"
+SUBJECT_ARCHIVE = "archive"
 
 # What the records in the config folder are of.
 VPINFE_NAME = "VPinFE"
@@ -34,13 +34,13 @@ KIND_THEME = "theme"
 KIND_ARCHIVE = "backup"
 
 # Why it was taken.
-WHY_UPGRADE = "upgrade"
-WHY_RESTORE = "restore"
-WHY_IMPORT = "import"
-WHY_RESET = "reset"
-WHY_FIRST_CHANGE = "first_change"
-WHY_UPDATE = "update"
-WHY_YOURS = "yours"
+REASON_UPGRADE = "upgrade"
+REASON_RESTORE = "restore"
+REASON_IMPORT = "import"
+REASON_RESET = "reset"
+REASON_FIRST_CHANGE = "first_change"
+REASON_UPDATE = "update"
+REASON_YOURS = "yours"
 
 # Who wrote the file the copy holds. Empty where the file is not VPinFE's own.
 BY_2X = "2.x"
@@ -60,15 +60,15 @@ PLACE_MEMBER = "member"
 @dataclass(frozen=True)
 class Copy:
     id: str
-    of_kind: str
-    of_id: str
-    of_name: str
+    subject_kind: str
+    subject_id: str
+    subject_name: str
     kind: str
     file: str
     path: str
     taken: str
     written_by: str
-    why: str
+    reason: str
     note: str
     size: int
     gone: bool
@@ -135,4 +135,4 @@ def games_named(names: Iterable[str]) -> str:
     named = sorted((name for name in names if name), key=str.casefold)
     if len(named) <= 1:
         return named[0] if named else ""
-    return t("backups.of.several", name=named[0], count=len(named) - 1)
+    return t("backups.subject.several", name=named[0], count=len(named) - 1)

@@ -68,7 +68,7 @@ def members(rows: list[dict[str, Any]], months: dict[str, int],
         taken = when.parsed(row["taken"])
         if taken is None:
             continue
-        group = YOURS if row["why"] == kept_copies.WHY_YOURS else AUTOMATIC
+        group = YOURS if row["reason"] == kept_copies.REASON_YOURS else AUTOMATIC
         if taken < before[group]:
             found[group].append(row)
     return found

@@ -29,12 +29,12 @@ from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.game_identity import game_id as game_id_of
 from common.games.info_migration import (
     IMPORT,
-    OF_2X,
+    REASON_2X,
     RESET,
     RESTORE,
     backup_names,
+    backup_reason,
     backup_stamp,
-    backup_why,
     copied_from,
     is_copy,
     is_importer_bak,
@@ -57,11 +57,6 @@ from .copies import (
     KIND_RECORDS,
     KIND_SETTINGS,
     KIND_THEME,
-    OF_ARCHIVE,
-    OF_GAME,
-    OF_LAUNCHER,
-    OF_THEME,
-    OF_VPINFE,
     PLACE_ARCHIVE,
     PLACE_BESIDE,
     PLACE_GAME,
@@ -69,14 +64,19 @@ from .copies import (
     PLACE_RECORDS,
     PLACE_THEME,
     PLACE_VPX_2X,
+    REASON_FIRST_CHANGE,
+    REASON_IMPORT,
+    REASON_RESET,
+    REASON_RESTORE,
+    REASON_UPDATE,
+    REASON_UPGRADE,
+    REASON_YOURS,
+    SUBJECT_ARCHIVE,
+    SUBJECT_GAME,
+    SUBJECT_LAUNCHER,
+    SUBJECT_THEME,
+    SUBJECT_VPINFE,
     VPINFE_NAME,
-    WHY_FIRST_CHANGE,
-    WHY_IMPORT,
-    WHY_RESET,
-    WHY_RESTORE,
-    WHY_UPDATE,
-    WHY_UPGRADE,
-    WHY_YOURS,
     Copy,
     games_named,
     iso_from_stamp,
@@ -102,11 +102,11 @@ _RECORD_KINDS = {
     "devices.json": KIND_DEVICES, "players.json": KIND_PLAYERS,
 }
 
-_WHY_BY_WORD = {RESTORE: WHY_RESTORE, IMPORT: WHY_IMPORT, RESET: WHY_RESET}
+_REASON_BY_WORD = {RESTORE: REASON_RESTORE, IMPORT: REASON_IMPORT, RESET: REASON_RESET}
 
 
-def _why_of_name(name: str) -> str:
-    return _WHY_BY_WORD.get(backup_why(name), WHY_UPGRADE)
+def _reason_of_name(name: str) -> str:
+    return _REASON_BY_WORD.get(backup_reason(name), REASON_UPGRADE)
 
 
 def _size(path: Path) -> int:
@@ -126,7 +126,7 @@ def _mtime_iso(path: Path) -> str:
 def _written_by_info(path: Path) -> str:
     """Who wrote a `.info` copy. A copy of a 2.x file keeps the bare name 2.x looks for, so
     that one is known by its name; every other is read."""
-    if is_copy(path) and backup_why(path) == OF_2X:
+    if is_copy(path) and backup_reason(path) == REASON_2X:
         return BY_2X
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -168,14 +168,14 @@ def game_copies(folder: Path) -> list[Copy]:
     for name in held:
         path = folder / name
         if is_importer_bak(name, info_name):
-            taken, why, written_by = _mtime_iso(path), WHY_IMPORT, _written_by_info(path)
+            taken, reason, written_by = _mtime_iso(path), REASON_IMPORT, _written_by_info(path)
         else:
-            taken, why = iso_from_stamp(backup_stamp(name)), _why_of_name(name)
+            taken, reason = iso_from_stamp(backup_stamp(name)), _reason_of_name(name)
             written_by = _written_by_info(path)
         found.append(Copy(
-            id=make_id(PLACE_GAME, path), of_kind=OF_GAME, of_id=game_id,
-            of_name=folder.name, kind=KIND_GAME, file=name, path=str(path), taken=taken,
-            written_by=written_by, why=why, note="", size=_size(path), gone=gone))
+            id=make_id(PLACE_GAME, path), subject_kind=SUBJECT_GAME, subject_id=game_id,
+            subject_name=folder.name, kind=KIND_GAME, file=name, path=str(path), taken=taken,
+            written_by=written_by, reason=reason, note="", size=_size(path), gone=gone))
     return found
 
 
@@ -203,10 +203,11 @@ def _record_copy(path: Path) -> Copy | None:
     kind = _RECORD_KINDS.get(base, KIND_RECORDS)
     written_by = BY_2X if base.endswith(".ini") else BY_3X if base.endswith(".json") else ""
     return Copy(
-        id=make_id(PLACE_RECORDS, path), of_kind=OF_VPINFE, of_id="", of_name=VPINFE_NAME,
+        id=make_id(PLACE_RECORDS, path), subject_kind=SUBJECT_VPINFE, subject_id="",
+        subject_name=VPINFE_NAME,
         kind=kind, file=path.name, path=str(path),
         taken=iso_from_stamp(backup_stamp(path)), written_by=written_by,
-        why=_why_of_name(path.name), note="", size=_size(path), gone=False)
+        reason=_reason_of_name(path.name), note="", size=_size(path), gone=False)
 
 
 def _record_copies() -> list[Copy]:
@@ -250,11 +251,11 @@ def _app_config_copy(path: Path, held: list[launchers.Launcher]) -> Copy | None:
     owner = _launcher_for_folder(path.parent, held)
     name = owner.display_name if owner else path.parent.name.rsplit("--", 1)[0]
     return Copy(
-        id=make_id(PLACE_LAUNCHER, path), of_kind=OF_LAUNCHER,
-        of_id=owner.launcher_id if owner else path.parent.name.rsplit("--", 1)[-1],
-        of_name=name, kind=KIND_LAUNCHER, file=path.name, path=str(path),
+        id=make_id(PLACE_LAUNCHER, path), subject_kind=SUBJECT_LAUNCHER,
+        subject_id=owner.launcher_id if owner else path.parent.name.rsplit("--", 1)[-1],
+        subject_name=name, kind=KIND_LAUNCHER, file=path.name, path=str(path),
         taken=iso_from_stamp(backup_stamp(path)),
-        written_by="", why=WHY_RESTORE, note="", size=_size(path), gone=owner is None)
+        written_by="", reason=REASON_RESTORE, note="", size=_size(path), gone=owner is None)
 
 
 def _beside_copies(launcher: launchers.Launcher) -> list[Copy]:
@@ -273,11 +274,12 @@ def _beside_copies(launcher: launchers.Launcher) -> list[Copy]:
                 continue
             seen.add(path)
             found.append(Copy(
-                id=make_id(PLACE_BESIDE, path), of_kind=OF_LAUNCHER,
-                of_id=launcher.launcher_id, of_name=launcher.display_name,
+                id=make_id(PLACE_BESIDE, path), subject_kind=SUBJECT_LAUNCHER,
+                subject_id=launcher.launcher_id, subject_name=launcher.display_name,
                 kind=KIND_LAUNCHER, file=name, path=str(path),
                 taken=iso_from_stamp(backup_stamp(name)), written_by="",
-                why=WHY_FIRST_CHANGE if backup_why(name) == OF_2X else _why_of_name(name),
+                reason=(REASON_FIRST_CHANGE if backup_reason(name) == REASON_2X
+                        else _reason_of_name(name)),
                 note="", size=_size(path), gone=False))
     return found
 
@@ -293,11 +295,11 @@ def _x2_copy(path: Path, held: list[launchers.Launcher]) -> Copy | None:
     taken = local.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     owner = launchers.default_for("vpx", held)
     return Copy(
-        id=make_id(PLACE_VPX_2X, path), of_kind=OF_LAUNCHER,
-        of_id=owner.launcher_id if owner else "",
-        of_name=owner.display_name if owner else "", kind=KIND_LAUNCHER, file=path.name,
+        id=make_id(PLACE_VPX_2X, path), subject_kind=SUBJECT_LAUNCHER,
+        subject_id=owner.launcher_id if owner else "",
+        subject_name=owner.display_name if owner else "", kind=KIND_LAUNCHER, file=path.name,
         path=str(path), taken=taken, written_by="",
-        why=WHY_RESTORE if found.group("reason") == "pre-restore" else WHY_YOURS,
+        reason=REASON_RESTORE if found.group("reason") == "pre-restore" else REASON_YOURS,
         note=found.group("label") or "", size=_size(path), gone=owner is None)
 
 
@@ -349,9 +351,10 @@ def theme_copy(path: Path) -> Copy | None:
     if not theme or theme.startswith("."):
         return None
     return Copy(
-        id=make_id(PLACE_THEME, path), of_kind=OF_THEME, of_id=theme, of_name=theme,
+        id=make_id(PLACE_THEME, path), subject_kind=SUBJECT_THEME, subject_id=theme,
+        subject_name=theme,
         kind=KIND_THEME, file=path.name, path=str(path), taken=_mtime_iso(path),
-        written_by="", why=WHY_UPDATE, note="", size=_folder_size(path),
+        written_by="", reason=REASON_UPDATE, note="", size=_folder_size(path),
         gone=not (path.parent / theme).is_dir())
 
 
@@ -384,39 +387,40 @@ def _present() -> _Present:
 
 def _member_gone(member: archive.Member, present: _Present) -> bool:
     if member.kind == KIND_GAME:
-        if member.of_id:
-            return member.of_id not in present.game_ids
-        return member.of_name not in present.game_names
+        if member.subject_id:
+            return member.subject_id not in present.game_ids
+        return member.subject_name not in present.game_names
     if member.kind == KIND_LAUNCHER:
-        return member.of_id not in present.launcher_ids
+        return member.subject_id not in present.launcher_ids
     return False
 
 
-def _of_label(manifest: archive.Manifest) -> str:
+def _subject_label(manifest: archive.Manifest) -> str:
     members = manifest.members
     if manifest.name:
         return manifest.name
     if manifest.scope == archive.SCOPE_EVERYTHING:
-        return t("backups.of.everything")
+        return t("backups.subject.everything")
     if manifest.scope == archive.SCOPE_ALL_GAMES:
-        return t("backups.of.all_games")
+        return t("backups.subject.all_games")
     if members and all(one.kind == KIND_GAME for one in members):
-        return games_named(one.of_name for one in members)
+        return games_named(one.subject_name for one in members)
     if manifest.scope == archive.SCOPE_LAUNCHER and members:
-        return members[0].of_name
+        return members[0].subject_name
     return VPINFE_NAME if members else ""
 
 
-_OF_BY_KIND = {KIND_GAME: OF_GAME, KIND_LAUNCHER: OF_LAUNCHER}
+_SUBJECT_BY_KIND = {KIND_GAME: SUBJECT_GAME, KIND_LAUNCHER: SUBJECT_LAUNCHER}
 
 
 def _member_copy(path: Path, manifest: archive.Manifest, member: archive.Member,
                  present: _Present) -> Copy:
     return Copy(
         id=make_member_id(path, member.name),
-        of_kind=_OF_BY_KIND.get(member.kind, OF_VPINFE), of_id=member.of_id,
-        of_name=member.of_name, kind=member.kind, file=Path(member.path).name,
-        path=str(path), taken=manifest.taken, written_by=member.written_by, why=WHY_YOURS,
+        subject_kind=_SUBJECT_BY_KIND.get(member.kind, SUBJECT_VPINFE),
+        subject_id=member.subject_id, subject_name=member.subject_name, kind=member.kind,
+        file=Path(member.path).name,
+        path=str(path), taken=manifest.taken, written_by=member.written_by, reason=REASON_YOURS,
         note=manifest.note, size=member.size, gone=_member_gone(member, present),
         within=make_id(PLACE_ARCHIVE, path), version=manifest.version)
 
@@ -429,9 +433,10 @@ def archive_copies(path: Path, present: _Present | None = None) -> list[Copy]:
                if manifest else [])
     taken = (manifest.taken if manifest else "") or archive.taken_from_name(path.name)
     whole = Copy(
-        id=make_id(PLACE_ARCHIVE, path), of_kind=OF_ARCHIVE, of_id="",
-        of_name=_of_label(manifest) if manifest else "", kind=KIND_ARCHIVE, file=path.name,
-        path=str(path), taken=taken, written_by=BY_3X, why=WHY_YOURS,
+        id=make_id(PLACE_ARCHIVE, path), subject_kind=SUBJECT_ARCHIVE, subject_id="",
+        subject_name=_subject_label(manifest) if manifest else "", kind=KIND_ARCHIVE,
+        file=path.name,
+        path=str(path), taken=taken, written_by=BY_3X, reason=REASON_YOURS,
         note=manifest.note if manifest else "", size=_size(path),
         gone=bool(members) and all(one.gone for one in members),
         version=manifest.version if manifest else "")
@@ -467,27 +472,28 @@ def _ordered(found: list[Copy]) -> list[Copy]:
     return sorted(unique.values(), key=lambda one: (one.taken, one.path), reverse=True)
 
 
-def _of_one(of_kind: str, of_id: str) -> list[Copy]:
+def _for_subject(subject_kind: str, subject_id: str) -> list[Copy]:
     """What one game, launcher or theme has: its own copies and its file in each backup, read
     without walking every other game's folder."""
     members = [one for one in _all_archive_copies() if one.within] \
-        if of_kind in (OF_GAME, OF_LAUNCHER) else []
-    if of_kind == OF_GAME:
-        folder = game_repository.game_folder(of_id)
+        if subject_kind in (SUBJECT_GAME, SUBJECT_LAUNCHER) else []
+    if subject_kind == SUBJECT_GAME:
+        folder = game_repository.game_folder(subject_id)
         own = game_copies(folder) if folder is not None else []
-    elif of_kind == OF_LAUNCHER:
+    elif subject_kind == SUBJECT_LAUNCHER:
         own = _launcher_copies()
-    elif of_kind == OF_THEME:
+    elif subject_kind == SUBJECT_THEME:
         own = _theme_copies()
     else:
         return []
-    return [one for one in [*own, *members] if one.of_kind == of_kind and one.of_id == of_id]
+    return [one for one in [*own, *members]
+            if one.subject_kind == subject_kind and one.subject_id == subject_id]
 
 
-def scan(of_kind: str = "", of_id: str = "") -> list[Copy]:
+def scan(subject_kind: str = "", subject_id: str = "") -> list[Copy]:
     """Every copy there is, newest first, or those of one game, launcher or theme."""
-    if of_kind:
-        return _ordered(_of_one(of_kind, of_id))
+    if subject_kind:
+        return _ordered(_for_subject(subject_kind, subject_id))
     return _ordered([*_all_game_copies(), *_record_copies(), *_launcher_copies(),
                      *_theme_copies(), *_all_archive_copies()])
 

@@ -15,13 +15,13 @@ from common.games.info_file import MetaConfig
 from common.games.info_migration import (
     IMPORT,
     MATCHED_BY_USER,
-    OF_2X,
+    REASON_2X,
     RESET,
     RESTORE,
     VPS_MATCHED_BY_KEY,
     backup_path,
+    backup_reason,
     backup_stamp,
-    backup_why,
     copied_from,
     copy_aside,
     is_importer_bak,
@@ -338,20 +338,20 @@ class BackupTests(TempTree):
 
     def test_a_copy_of_a_2x_file_keeps_the_bare_name_2x_looks_for(self):
         path = backup_path("/games/X/X.info", datetime(2026, 7, 29, 14, 30, 22, tzinfo=UTC),
-                           OF_2X)
+                           REASON_2X)
 
         self.assertTrue(path.endswith(".info.vpinfe-20260729T143022Z"), path)
 
-    def test_a_copy_of_3_0s_own_says_why_in_one_word_after_the_stamp(self):
+    def test_a_copy_of_3_0s_own_says_its_reason_in_one_word_after_the_stamp(self):
         when = datetime(2026, 7, 29, 14, 30, 22, tzinfo=UTC)
-        for why in (RESTORE, IMPORT, RESET):
-            path = backup_path("/games/X/X.info", when, why)
+        for reason in (RESTORE, IMPORT, RESET):
+            path = backup_path("/games/X/X.info", when, reason)
 
-            self.assertTrue(path.endswith(f".info.vpinfe-20260729T143022Z-{why}"), path)
+            self.assertTrue(path.endswith(f".info.vpinfe-20260729T143022Z-{reason}"), path)
             self.assertEqual(backup_stamp(path), "20260729T143022Z")
-            self.assertEqual(backup_why(path), why)
+            self.assertEqual(backup_reason(path), reason)
             self.assertEqual(copied_from(path), Path("/games/X/X.info"))
-        self.assertEqual(backup_why("/games/X/X.info.vpinfe-20260729T143022Z"), OF_2X)
+        self.assertEqual(backup_reason("/games/X/X.info.vpinfe-20260729T143022Z"), REASON_2X)
 
     def test_the_importers_old_single_copy_is_a_copy_of_its_info(self):
         self.assertTrue(is_importer_bak("X.info.bak", "X.info"))

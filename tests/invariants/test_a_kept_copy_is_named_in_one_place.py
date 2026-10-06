@@ -1,6 +1,6 @@
 """The name of a kept copy is built by `common/games/info_migration.py`, and read there.
 
-`backup_path` makes one, `is_copy`, `copied_from`, `backup_stamp` and `backup_why` take one
+`backup_path` makes one, `is_copy`, `copied_from`, `backup_stamp` and `backup_reason` take one
 apart. A second place that spells the marker writes names the first cannot read back, and
 the listing in `common/backups/` would not show them.
 

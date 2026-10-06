@@ -25,13 +25,13 @@ router = APIRouter(prefix="/backups", tags=["backups"])
 
 @router.get("", summary="Every copy VPinFE has kept",
             dependencies=[requires(scopes.CONFIG_READ)])
-def list_backups(of_kind: Literal["game", "launcher", "theme", ""] = "",
-                 of: str = "") -> dict[str, Any]:
+def list_backups(subject_kind: Literal["game", "launcher", "theme", ""] = "",
+                 subject_id: str = "") -> dict[str, Any]:
     """The copies newest first, and the ids of those that go in when VPinFE next closes.
-    `of_kind` and `of` narrow it to one game, launcher or theme."""
-    if bool(of_kind) != bool(of):
-        raise HTTPException(422, "of_kind and of go together")
-    return ops.listing(of_kind, of)
+    `subject_kind` and `subject_id` narrow it to one game, launcher or theme."""
+    if bool(subject_kind) != bool(subject_id):
+        raise HTTPException(422, "subject_kind and subject_id go together")
+    return ops.listing(subject_kind, subject_id)
 
 
 def _quit_for_2x() -> None:

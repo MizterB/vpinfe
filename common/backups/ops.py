@@ -64,8 +64,8 @@ class Restored:
                 "pending": self.pending, "skipped": self.skipped}
 
 
-def listing(of_kind: str = "", of_id: str = "") -> dict[str, Any]:
-    return {"copies": [one.as_dict() for one in places.scan(of_kind, of_id)],
+def listing(subject_kind: str = "", subject_id: str = "") -> dict[str, Any]:
+    return {"copies": [one.as_dict() for one in places.scan(subject_kind, subject_id)],
             "pending": pending.waiting()}
 
 
@@ -129,9 +129,9 @@ def _restore_record(one: Copy, path: Path) -> Restored:
 
 
 def _launcher_of(one: Copy) -> launchers.Launcher:
-    found = launchers.get_launcher_store().get(one.of_id)
+    found = launchers.get_launcher_store().get(one.subject_id)
     if found is None:
-        raise service_errors.NotFoundError(t("error.backups.no_owner", name=one.of_name))
+        raise service_errors.NotFoundError(t("error.backups.no_owner", name=one.subject_name))
     return found
 
 
@@ -166,7 +166,7 @@ def _target_for_aside(place: str, path: Path, files: dict[str, str]) -> Path | N
 
 def _restore_theme(one: Copy, path: Path) -> Restored:
     """Swap the theme with its `.previous` folder, so each is the other's undo."""
-    live = path.parent / one.of_id
+    live = path.parent / one.subject_id
     if not live.exists():
         os.rename(path, live)
         return Restored(one)
@@ -183,7 +183,7 @@ def _restore_theme(one: Copy, path: Path) -> Restored:
 def _put_game(path: Path, member: archive.Member) -> Copy | None:
     folder = archive.game_folder(member)
     if folder is None:
-        raise service_errors.NotFoundError(t("error.backups.no_game", id=member.of_name))
+        raise service_errors.NotFoundError(t("error.backups.no_game", id=member.subject_name))
     with tempfile.TemporaryDirectory() as scratch:
         staged = archive.extract(path, member, Path(scratch))
         kept = info_maintenance.restore_file(folder / f"{folder.name}.info", staged,
@@ -193,9 +193,9 @@ def _put_game(path: Path, member: archive.Member) -> Copy | None:
 
 def _put_launcher(path: Path, member: archive.Member) -> Copy | None:
     _while_nothing_plays()
-    owner = launchers.get_launcher_store().get(member.of_id)
+    owner = launchers.get_launcher_store().get(member.subject_id)
     if owner is None:
-        raise service_errors.NotFoundError(t("error.backups.no_owner", name=member.of_name))
+        raise service_errors.NotFoundError(t("error.backups.no_owner", name=member.subject_name))
     wanted = Path(member.path).name
     target = next((Path(held).expanduser() for held in launcher_ops.config_files(owner).values()
                    if Path(held).expanduser().name == wanted), None)
@@ -260,7 +260,7 @@ def _restore_archive(one: Copy, path: Path) -> Restored:
                 try:
                     found, waiting = _put_member(path, member)
                 except (service_errors.ServiceError, OSError, ValueError) as exc:
-                    skipped.append({"name": member.of_name or member.path,
+                    skipped.append({"name": member.subject_name or member.path,
                                     "file": Path(member.path).name, "reason": why(exc)})
                     continue
                 kept += _kept(found)
