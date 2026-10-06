@@ -31,7 +31,7 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
-from common.device_client import why_not
+from common.device_client import PROBE_SECONDS, why_not
 from common.games.export_bundle import bundle_paths, prune_info
 from common.i18n import t
 from common.service_errors import BlockedError
@@ -42,9 +42,8 @@ logger = logging.getLogger("vpinfe.common.games.mobile_transfer")
 # small enough that a lost connection costs one chunk rather than the file.
 CHUNK_BYTES = 1024 * 1024
 
-# Short for the questions, long for the uploads: asking what is on a device should fail
-# quickly when it is not there, and a chunk of a table crossing a phone's wifi should
-# not.
+# Short for the folder, delete and refresh calls, long for the uploads: a chunk of a table
+# crossing a mobile device's wifi should not time out. The listing asks at PROBE_SECONDS.
 ASK_SECONDS = 10
 SEND_SECONDS = 300
 
@@ -55,13 +54,14 @@ class DeviceUnreachableError(BlockedError):
     """The device did not answer. Its own words where it gave any."""
 
 
-def carried(host: str, port: int, *, timeout: float = ASK_SECONDS) -> list[str]:
+def carried(host: str, port: int, *, timeout: float = PROBE_SECONDS) -> list[str]:
     """The folder names the device holds, sorted.
 
     Folders only: a file at the top level is not a game, and reporting one as though it
-    were would offer a delete that does nothing.
+    were would offer a delete that does nothing. Asked once: the retries in `_ask` are for
+    a chunk dropped mid-transfer.
     """
-    body = _ask(host, port, "GET", "/files", timeout=timeout)
+    body = _ask(host, port, "GET", "/files", timeout=timeout, tries=1)
     try:
         found = json.loads(body.decode("utf-8"))
     except ValueError as exc:

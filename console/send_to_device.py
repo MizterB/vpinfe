@@ -15,7 +15,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import device_registry
+from common import device_client, device_registry
 from common.failures import why
 from common.i18n import t
 from console import confirm, mobile_add, offload, panel, verbs
@@ -72,7 +72,11 @@ async def ask_where(games: list[dict[str, Any]],
             return
         found = [added]
 
-    picked = found[0] if len(found) == 1 else await _which(found)
+    answers = await _asked(found)
+    if len(found) == 1 and _is_answering(answers[_id(found[0])]):
+        picked = found[0]
+    else:
+        picked = await _which(found, answers)
     if not picked:
         return
     if not await confirm.ask(
@@ -115,14 +119,65 @@ async def send(games: list[dict[str, Any]], device: dict[str, Any],
         return
 
 
-async def _which(found: list[dict[str, Any]]) -> dict[str, Any]:
-    """Which device, when there is more than one."""
+def _id(device: dict[str, Any]) -> str:
+    return str(device.get("device_id") or "")
+
+
+def _is_answering(probed: dict[str, Any]) -> bool:
+    return probed.get("state") == device_client.ANSWERING
+
+
+async def _asked(found: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Every device asked at once, so the wait is one device's 3s and not their sum."""
+    async def ask(device: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return await offload.io(ApiClient().probe_device, _id(device))
+        except Exception as exc:  # noqa: BLE001 - not answering is an answer
+            return {"state": device_client.UNREACHABLE, "reason": why(exc)}
+
+    asking = ui.notification(t("console.devices.checking"), spinner=True, timeout=None)
+    try:
+        probed = await asyncio.gather(*(ask(device) for device in found))
+    finally:
+        asking.dismiss()
+    return {_id(device): one for device, one in zip(found, probed, strict=True)}
+
+
+async def _which(found: list[dict[str, Any]],
+                 answers: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Which device. One that did not answer stays in the list, dimmed, with its address
+    and why, and can be asked again."""
     with frame.opened(t("console.send_to_device.send_device")) as box:
-        with ui.column().classes("gap-2 px-3"):
-            for device in found:
-                panel.action(name_of(device), lambda _e=None, d=device: box.submit(d),
-                             icon=verbs.SEND,
-                             hint=t("console.send_to_device.pick_this_device.help"))()
+        rows = ui.column().classes("gap-2 px-3")
+
+        @on_page
+        async def again(device: dict[str, Any]) -> None:
+            answers.update(await _asked([device]))
+            if not rows.is_deleted:
+                draw()
+
+        def draw() -> None:
+            rows.clear()
+            with rows:
+                for device in found:
+                    _row(device, answers[_id(device)], box, again)
+
+        draw()
         with frame.footer():
             frame.cancel(lambda: box.submit(None))
     return await box or {}
+
+
+def _row(device: dict[str, Any], probed: dict[str, Any], box: Any, again: Any) -> None:
+    if _is_answering(probed):
+        panel.action(name_of(device), lambda _e=None: box.submit(device), icon=verbs.SEND,
+                     hint=t("console.send_to_device.pick_this_device.help"))()
+        return
+    with ui.column().classes("gap-0"):
+        reason = str(probed.get("reason") or "")
+        panel.action(name_of(device), icon=verbs.SEND, enabled=False, hint=reason)()
+        panel.line(f"{device.get('address')}:{device.get('port')}")
+        panel.line(reason)
+        panel.action(t("console.page.try_again"), lambda _e=None: again(device),
+                     icon=verbs.REFRESH, inline=True,
+                     hint=t("console.devices.probe_one"))()

@@ -185,6 +185,13 @@ class MobileTransferTests(unittest.TestCase):
             mobile_transfer.carried("127.0.0.1", 9, timeout=0.2)
 
         self.assertEqual(str(raised.exception), t("device.reason.refused"))
+        slept.assert_not_called()
+
+    def test_everything_but_the_listing_retries_a_dropped_connection(self) -> None:
+        with mock.patch("common.games.mobile_transfer.time.sleep") as slept, \
+                self.assertRaises(mobile_transfer.DeviceUnreachableError):
+            mobile_transfer.remove("Alpha", "127.0.0.1", 9)
+
         self.assertEqual([call.args[0] for call in slept.call_args_list], [2, 4])
 
     def test_a_game_with_nothing_to_send_is_refused_before_anything_is_made(self) -> None:

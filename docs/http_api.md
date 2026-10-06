@@ -123,7 +123,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/devices/{id}/probe` | Ask one device the same, answering with that one probe. For showing each device as it answers rather than all of them once the slowest has |
 | DELETE | `/api/v1/devices/{id}` | Forget one |
 | GET | `/api/v1/devices/{id}/games` | What a VPX Mobile device is carrying, asked of the device every time |
-| POST | `/api/v1/devices/{id}/games` | Send games to it, `{"games": [...], "everything": false}`: each game's default table and what it needs, or with `everything` its whole folder. Returns `202` and a job |
+| POST | `/api/v1/devices/{id}/games` | Send games to it, `{"games": [...], "everything": false}`: each game's default table and what it needs, or with `everything` its whole folder. Asks the device first and answers `409` with its reason when it does not answer. Returns `202` and a job |
 | DELETE | `/api/v1/devices/{id}/games/{name}` | Remove a game from it. `204` |
 | GET | `/api/v1/actions` | What this install can be asked to do to itself. Only the pairs it performs, so a headless install lists no window action. One that can run but not now stays, with `available` false and a `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
 | POST | `/api/v1/actions` | Do one. `{"scope","action","reason"}`. One that takes this process or this device down answers before it goes, so `performed` means the work was handed over |

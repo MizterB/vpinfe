@@ -27,7 +27,7 @@ logger = logging.getLogger("vpinfe.common.device_client")
 
 # A probe runs once per device on a page load, so a machine that is off should cost a
 # moment rather than the whole listing. Much shorter than the ordinary call timeout.
-_PROBE_TIMEOUT = 3
+PROBE_SECONDS = 3
 
 
 @dataclass(frozen=True)
@@ -427,7 +427,7 @@ class RemoteDevice:
         """
         from common import http_client
 
-        said = dict(http_client.get_json(self._url(""), timeout=_PROBE_TIMEOUT) or {})
+        said = dict(http_client.get_json(self._url(""), timeout=PROBE_SECONDS) or {})
         return {"state": ANSWERING,
                 "version": str(said.get("vpinfe_version") or ""),
                 "features": list(said.get("features") or []),
@@ -463,7 +463,7 @@ class MobileDevice:
         """
         from common import http_client
 
-        http_client.get_json(f"{self.base_url}/files", timeout=_PROBE_TIMEOUT)
+        http_client.get_json(f"{self.base_url}/files", timeout=PROBE_SECONDS)
         return {"state": ANSWERING, "version": "", "reason": ""}
 
 

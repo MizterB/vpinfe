@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from common import device_ops, service_errors
+from common import device_client, device_ops, service_errors
 from common import jobs as job_registry
 from common.games import game_repository, mobile_transfer
 from common.i18n import t
@@ -35,6 +35,9 @@ def send(device_id: str, game_ids: Iterable[str],
     folders = [_folder_or_refuse(game_id) for game_id in game_ids]
     if not folders:
         raise service_errors.RefusedError(t("error.devices.games_needed"))
+    heard = device_ops.probe_one(device)
+    if heard["state"] != device_client.ANSWERING:
+        raise mobile_transfer.DeviceUnreachableError(heard["reason"])
 
     def work(job: job_registry.Job) -> None:
         reporter = job.reporter()

@@ -9,13 +9,15 @@ into a name someone recognizes.
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import Mock, patch
 
 import requests
 
 import httpapi
-from common import device_client
+from common import device_client, jobs
 from common import device_registry as registry_module
+from common.games import mobile_ops
 from common.i18n import t
 from tests.support.library import TempTree
 
@@ -198,6 +200,31 @@ class DeviceRegistryApiTests(TempTree):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.client.get("/devices").json()["count"], 0)
+
+    def _send(self, answer: dict[str, str]) -> tuple[Any, Mock]:
+        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
+                                                  "address": "192.0.2.7", "port": 2112}).json()
+        submit = Mock(return_value=jobs.Job(id="j1", kind="device_send"))
+        with patch.object(device_client, "probe", return_value=answer), \
+                patch.object(mobile_ops.game_repository, "game_folder",
+                             return_value=self.root / "Alpha"), \
+                patch.object(mobile_ops.job_registry, "submit", submit):
+            return self.client.post(f"/devices/{added['device_id']}/games",
+                                    json={"games": ["g1"]}), submit
+
+    def test_a_send_to_a_device_that_does_not_answer_is_refused_before_a_job_exists(
+            self) -> None:
+        response, submit = self._send({"state": device_client.UNREACHABLE, "reason": "Asleep"})
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("Asleep", response.text)
+        submit.assert_not_called()
+
+    def test_a_send_to_a_device_that_answers_starts_the_job(self) -> None:
+        response, submit = self._send({"state": device_client.ANSWERING, "reason": ""})
+
+        self.assertEqual(response.status_code, 202)
+        submit.assert_called_once()
 
     def test_an_install_still_cannot_omit_its_id(self) -> None:
         """Minting is for devices that cannot identify themselves. An install can."""

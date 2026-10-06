@@ -211,6 +211,8 @@ class SendWithNoMobileDevice(unittest.IsolatedAsyncioTestCase):
         with patch.object(mobile_add.ui, "context", MagicMock()), \
                 patch.object(send_to_device, "ApiClient", return_value=Mock(devices=Mock())), \
                 patch.object(send_to_device.offload, "io", AsyncMock(return_value=[])), \
+                patch.object(send_to_device, "_asked",
+                             AsyncMock(return_value={"m1": ANSWERING})), \
                 patch.object(send_to_device.confirm, "ask", confirm), \
                 patch.object(send_to_device.mobile_add, "add_mobile", add), \
                 patch.object(send_to_device, "send", send):
