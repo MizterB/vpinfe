@@ -1313,10 +1313,6 @@ class ApiClient:
         """Bring every `.info` onto the current format. Returns the job to watch."""
         return self._post("/library/info/upgrade", {})
 
-    def restore_info(self) -> dict:
-        """Put back the files saved before an upgrade. Returns the job to watch."""
-        return self._post("/library/info/restore", {})
-
     def script_patches(self) -> dict:
         """What the community index publishes for this library. Reaches the network on
         the server's side, and changes nothing."""

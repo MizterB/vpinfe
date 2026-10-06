@@ -629,6 +629,29 @@ class Library:
     def restore_config_backup(self, launcher_id: str, name: str) -> dict:
         return self._client.restore_config_backup(launcher_id, name)
 
+    def backups(self) -> dict:
+        return self._client.backups()
+
+    def take_backup(self, scope: str, *, games: list[str] | None = None,
+                    launcher: str = "", note: str = "") -> dict:
+        return self._client.take_backup(scope, games=games, launcher=launcher, note=note)
+
+    def restore_backup(self, copy_id: str, *, reread: bool = True) -> dict:
+        """A restored game or launcher file changes what the library says, so what was
+        read before is read again. A run of restores passes `reread=False` and calls
+        `restored_backups` once."""
+        result = self._client.restore_backup(copy_id)
+        if reread:
+            self.restored_backups()
+        return result
+
+    def restored_backups(self) -> None:
+        self._forget_games()
+        self._table_rows = None
+
+    def delete_backup(self, copy_id: str) -> None:
+        self._client.delete_backup(copy_id)
+
     def launcher_config(self, launcher_id: str, table: str = "",
                         scope: str = "launcher") -> dict:
         return self._client.launcher_config(launcher_id, table, scope)

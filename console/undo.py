@@ -50,12 +50,13 @@ def act(said: str, label: str, run: Callable[[], Awaitable[Any]], *, warn: bool 
 
 
 def offer(said: str, reverse: Callable[[], Awaitable[Any]], *, warn: bool = False,
-          icon: str | None = None, label: str = "", done: str = "") -> ui.notification:
+          icon: str | None = None, label: str = "", done: str = "",
+          caption: str = "") -> ui.notification:
     """Say what was done, with Undo running `reverse` once: green, or amber where `warn`,
-    with `icon` in place of the kind's own. `label` names the action where Undo is not
-    the word for it, and `done` is said once it has run."""
+    with `icon` in place of the kind's own and `caption` under it. `label` names the
+    action where Undo is not the word for it, and `done` is said once it has run."""
     return act(said, label or t("word.undo"), lambda: _undo(reverse, done), warn=warn,
-               icon=icon)
+               icon=icon, caption=caption)
 
 
 @on_page

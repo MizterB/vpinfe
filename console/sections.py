@@ -16,7 +16,6 @@ from nicegui import run, ui
 
 from common.extensions.host import SWITCHED_OFF
 from common.failures import why
-from common.games.collection_store import COLLECTIONS_NAME
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import art_fill, offload, panel, verbs
@@ -204,17 +203,14 @@ def overview(library: Library, registry: list[dict], discovery: dict,
 
 # --- The library's own metadata ---------------------------------------------------
 #
-# Both operations rewrite a file in every game folder, so both ask first and both say
-# what they cost. The upgrade keeps a copy; the restore spends one.
+# The upgrade rewrites a file in every game folder, so it asks first and says what it
+# costs. It keeps a copy of each, and the Backups page puts them back.
 
 
 _ASKS = {
     "upgrade": (t("console.sections.upgrade_confirm"),
                 t("console.sections.backup_note"),
                 t("word.upgrade"), verbs.ACCEPT, False),
-    "restore": (t("console.sections.restore_confirm"),
-                t("console.sections.restore_note"),
-                t("word.restore"), verbs.RESTORE, True),
 }
 
 
@@ -235,9 +231,8 @@ def _metadata_action(library: Library, state: dict[str, Any],
         if not await confirm.ask(title, detail=detail, confirm=word, icon=icon, danger=danger):
             return
         client = ApiClient()
-        call = client.upgrade_info if which == "upgrade" else client.restore_info
         try:
-            job = await offload.io(call)
+            job = await offload.io(client.upgrade_info)
         except Exception as exc:
             ui.notify(t("said.start_failed"), caption=why(exc), type="negative")
             return
@@ -253,13 +248,10 @@ def _metadata_action(library: Library, state: dict[str, Any],
         await run.io_bound(library.read_metadata_state)
         left: list[tuple[str, str]] = []
         if found.get("state") == "failed":
-            ui.notify(t("console.sections.upgrade_failed") if which == "upgrade"
-                      else t("console.sections.restore_failed"),
+            ui.notify(t("console.sections.upgrade_failed"),
                       caption=str(found.get("error") or ""), type="negative")
         else:
-            result = found.get("result") or {}
-            said, left = (upgrade_outcome(result, library.metadata_state())
-                          if which == "upgrade" else restore_outcome(result))
+            said, left = upgrade_outcome(found.get("result") or {}, library.metadata_state())
             ui.notify(said, type="warning" if left else "positive")
         state.setdefault(_LEFT, {})[which] = left
         then()
@@ -298,19 +290,6 @@ def upgrade_outcome(result: dict[str, Any],
     return t("console.sections.upgraded", count=done), left
 
 
-def restore_outcome(result: dict[str, Any]) -> tuple[str, list[tuple[str, str]]]:
-    """What a finished restore says, and each game it could not put back, with why."""
-    left = [(t("console.sections.your_collections") if name == COLLECTIONS_NAME else name,
-             reason) for name, reason in _failures(result)]
-    games = sum(1 for name, _ in _failures(result) if name != COLLECTIONS_NAME)
-    done = int(result.get("restored") or 0)
-    if games and done:
-        return t("console.sections.restored_some", done=done, total=done + games), left
-    if games:
-        return t("console.sections.restore_count_failed", count=games), left
-    return t("console.sections.restored", count=done), left
-
-
 # --- The library's own metadata, drawn ---------------------------------------------
 #
 # Every game folder carries a `.info`: its id, its catalog match, your rating and how
@@ -318,13 +297,6 @@ def restore_outcome(result: dict[str, Any]) -> tuple[str, list[tuple[str, str]]]
 # view of it. Three things can be true of one that are worth acting on, and they are not
 # the same thing as a game being short of a rom or a wheel image - which is why this is
 # its own card rather than another row in the one above.
-
-
-def _stamp(said: str) -> str:
-    """`20260909T110917Z` as something a person reads, or "" for nothing."""
-    if len(said) < 8:
-        return ""
-    return f"{said[0:4]}-{said[4:6]}-{said[6:8]}"
 
 
 def _first_of(names: list[str], most: int) -> str:
@@ -358,14 +330,13 @@ def _metadata_row(good: bool, name: str, said: str,
 
 def metadata(state: dict[str, Any], on_start: Callable[[str], Any],
              left: Mapping[str, list[tuple[str, str]]] | None = None) -> None:
-    """What the library's metadata files need, and the two ways to act on it.
+    """What the library's metadata files need, and the way to act on it.
 
     Drawn whole rather than only when something is wrong, the same as the card above it:
     a section that comes and goes cannot be looked for, and "everything is current" is
     worth being able to check rather than infer from an absence.
 
-    `left` is each folder the last Upgrade or Restore could not write, with why, by
-    which of the two ran.
+    `left` is each folder the last Upgrade could not write, with why.
     """
     ui.label(t("console.sections.library_metadata")).classes("console-group mt-4")
     with ui.element("div").classes("console-card w-full"):
@@ -379,9 +350,7 @@ def _metadata_rows(state: dict[str, Any], on_start: Callable[[str], Any],
     unwritten = [(str(row["folder"]), str(row.get("error") or ""))
                  for row in state.get("unwritten") or []]
     newer = int(state.get("newer_than_us") or 0)
-    restorable = int(state.get("restorable") or 0)
     left = left or {}
-    not_restored = list(left.get("restore") or [])
     named = dict([*unwritten, *(left.get("upgrade") or [])])
 
     _metadata_row(
@@ -411,18 +380,6 @@ def _metadata_rows(state: dict[str, Any], on_start: Callable[[str], Any],
         _metadata_row(
             False, t("console.sections.newer_build"),
             t("console.sections.written_later", newer=(newer)))
-
-    # A fact with an action rather than a warning: having backups is not a problem,
-    # and a permanent amber row saying so would be one more thing to ignore. A
-    # restore that left something is one.
-    if restorable:
-        when = _stamp(str(state.get("newest_backup") or ""))
-        _metadata_row(
-            not not_restored, t("console.sections.backups"),
-            (t("console.sections.saved_dated", count=restorable, when=when)
-             if when else t("console.sections.saved_copy", count=restorable)),
-            (t("word.restore"), lambda: on_start("restore")),
-            lines=_folder_lines(not_restored))
 
 
 def _line_said(state: Mapping[str, Any]) -> str:

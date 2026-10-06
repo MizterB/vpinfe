@@ -42,7 +42,7 @@ class NavTests(unittest.TestCase):
         for features in (["nonsense"], [install_identity.CORE]):
             with self.subTest(features=features):
                 self.assertEqual(_rail(features), ["settings", "extensions",
-                                                   "metrics", "logs", "about"])
+                                                   "metrics", "logs", "backups", "about"])
 
     def test_a_frontend_only_install_opens_on_what_it_has(self) -> None:
         """Players, because that is the first real place such an install holds. It has
@@ -100,7 +100,7 @@ class NavTests(unittest.TestCase):
 
         self.assertEqual([key for key, *_rest in under_system[0]],
                          ["settings", "locations", "devices", "extensions",
-                          "metrics", "logs", "about"])
+                          "metrics", "logs", "backups", "about"])
 
     def test_library_folders_are_wherever_games_are_read(self) -> None:
         """A frontend-only device reads games from folders of its own too."""

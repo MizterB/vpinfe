@@ -45,6 +45,15 @@ def local(stamp: Any) -> str:
     return t("date.day_and_time", day=day(at), time=clock(at))
 
 
+def local_seconds(stamp: Any) -> str:
+    """`local` to the second, for a list where two entries of one minute are told apart."""
+    at = parsed(stamp)
+    if at is None:
+        return str(stamp or "").strip()
+    at = at.astimezone()
+    return t("date.day_and_time", day=day(at), time=clock_seconds(at))
+
+
 _settings: tuple[int, Any] | None = None
 
 

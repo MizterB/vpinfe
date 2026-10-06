@@ -20,7 +20,7 @@ from nicegui import ui
 import httpapi
 from common import jobs as job_registry
 from common.games.game_parser import GameParser
-from common.games.info_maintenance import restore_library, upgrade_library
+from common.games.info_maintenance import upgrade_library
 from common.i18n import t
 from console import sections
 from console.data import Library
@@ -88,15 +88,6 @@ class InfoRouteTests(unittest.TestCase):
         self.assertIn("job", done[0])
         self.assertIsNotNone(done[0]["job"])
 
-    def test_a_restore_is_the_same_kind_as_a_scan(self) -> None:
-        """Both rewrite a .info for every game they touch, so running them at once would
-        interleave writes to the same files."""
-        done: list = []
-        with self._start("restore_info", done):
-            answer = self.client.post("/library/info/restore")
-
-        self.assertEqual(answer.json()["kind"], job_registry.KIND_LIBRARY_SCAN)
-
     def test_one_at_a_time(self) -> None:
         """A second pass while one is running is refused rather than queued: the two
         would be rewriting the same files."""
@@ -110,15 +101,6 @@ class InfoRouteTests(unittest.TestCase):
 
 class MetadataCardTests(unittest.TestCase):
     """What the Overview says about it."""
-
-    def test_a_backup_stamp_reads_as_a_date(self) -> None:
-        """It is shown to somebody deciding whether to go back to it, and nobody reads
-        an ISO basic-format timestamp at a glance."""
-        self.assertEqual(sections._stamp("20260909T110917Z"), "2026-09-09")
-
-    def test_no_stamp_says_nothing_rather_than_guessing(self) -> None:
-        self.assertEqual(sections._stamp(""), "")
-        self.assertEqual(sections._stamp("2026"), "")
 
     def _unreadable(self, *names: str) -> list[dict]:
         """The rows the scan writes for folders whose `.info` is not valid metadata."""
@@ -152,17 +134,6 @@ class MetadataCardTests(unittest.TestCase):
         self.assertIn(one, _card({"pending_upgrade": 1}))
         self.assertIn(two, _card({"pending_upgrade": 2}))
         self.assertNotEqual(one, two.replace("2", "1"))
-
-    def test_one_game_with_a_saved_copy_reads_as_one(self) -> None:
-        for key, stamp in (("saved_copy", ""),
-                           ("saved_dated", "20260909T110917Z")):
-            with self.subTest(key=key):
-                said = {n: t(f"console.sections.{key}", count=n, when="2026-09-09")
-                        for n in (1, 2)}
-
-                for n, line in said.items():
-                    self.assertIn(line, _card({"restorable": n, "newest_backup": stamp}))
-                self.assertNotEqual(said[1], said[2].replace("2 ", "1 ", 1))
 
     def test_a_folder_fixed_and_rescanned_is_no_longer_named(self) -> None:
         name = "Malformed Info (Original 2024)"
@@ -238,7 +209,7 @@ class MetadataOutcomeTests(unittest.TestCase):
 
     def _press(self, which: str, work, *, leave: bool = False
                ) -> tuple[list[tuple[str, str, str]], dict[str, str]]:
-        """Press Upgrade or Restore over what `work` did, from inside a row of the card;
+        """Press Upgrade over what `work` did, from inside a row of the card;
         `leave` deletes that row while the job runs. Hand back each thing the Console
         said, as lead, caption and type, and the card as it is drawn afterwards."""
         job = self._job(work)
@@ -251,7 +222,7 @@ class MetadataOutcomeTests(unittest.TestCase):
             return job
 
         client = mock.Mock()
-        client.upgrade_info.return_value = client.restore_info.return_value = {"id": which}
+        client.upgrade_info.return_value = {"id": which}
         client.job.side_effect = asked
         client.info_maintenance.side_effect = self._metadata
         library = Library(client)
@@ -284,17 +255,6 @@ class MetadataOutcomeTests(unittest.TestCase):
     def test_the_folder_it_could_not_write_is_named_with_why_on_hover(self) -> None:
         _, drawn = self._upgrade()
 
-        self.assertEqual(drawn.get(LOCKED),
-                         t("said.why.no_permission_at", path=str(self.root / LOCKED)))
-
-    def test_a_restore_names_what_it_could_not_put_back(self) -> None:
-        self._job(upgrade_library)
-        self._lock(self.root / LOCKED)
-
-        said, drawn = self._press("restore", restore_library)
-
-        self.assertIn((t("console.sections.restored_some", done=1, total=2), "", "warning"),
-                      said)
         self.assertEqual(drawn.get(LOCKED),
                          t("said.why.no_permission_at", path=str(self.root / LOCKED)))
 

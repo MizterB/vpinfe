@@ -221,16 +221,8 @@ def info_maintenance() -> models.InfoMaintenance:
              status_code=202, dependencies=[requires(scopes.GAMES_WRITE)])
 def upgrade_info(response: Response) -> models.JobResource:
     """Accepted, not done. Each file is copied to `<name>.info.vpinfe-<stamp>` before it
-    is rewritten, which is what `/info/restore` puts back."""
+    is rewritten, and `/backups` lists it."""
     return _accepted(response, library_ops.one_info_pass(game_service.upgrade_info))
-
-
-@router.post("/info/restore", summary="Put back the .info files saved before an upgrade",
-             status_code=202, dependencies=[requires(scopes.GAMES_WRITE)])
-def restore_info(response: Response) -> models.JobResource:
-    """Accepted, not done. Everything written since the backup was taken goes with it - a
-    rating set afterwards is in the new file, not the old one."""
-    return _accepted(response, library_ops.one_info_pass(game_service.restore_info))
 
 
 @router.get("/patches", summary="What script fixes are published for this library",

@@ -25,6 +25,7 @@ from common.i18n import t
 from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from console import about as about_page
 from console import assets as assets_page
+from console import backups as backups_page
 from console import (
     busy,
     confirm,
@@ -169,6 +170,7 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
                    install_identity.CORE),
                   ("metrics", "console.section.metrics", "monitor_heart", install_identity.CORE),
                   ("logs", "console.section.logs", "description", install_identity.CORE),
+                  ("backups", "console.section.backups", "history", install_identity.CORE),
                   ("about", "console.section.about", "info", install_identity.CORE))),
 )
 
@@ -236,6 +238,7 @@ SECTIONS = {
     "players": "console.section.players",
     "metrics": "console.section.metrics",
     "logs": "console.section.logs",
+    "backups": "console.section.backups",
     "about": "console.section.about",
 }
 
@@ -1490,6 +1493,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 metrics_page.build(library, state, redraw)
             elif view == "logs":
                 logs_page.build(library, state, redraw)
+            elif view == "backups":
+                backups_page.build(library, state, redraw)
             elif view == "about":
                 about_page.build(library, state, redraw)
 
