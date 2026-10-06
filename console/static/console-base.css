@@ -2986,9 +2986,6 @@ a.console-tag:hover { background: var(--wash-hover); }
   border-color: var(--quiet-edge);
   background: var(--quiet-wash);
 }
-/* A feature chip on a device's panel: the tick sits inside the pill beside its word. */
-.console-feature-chip { display: inline-flex; align-items: center; gap: 3px; }
-.console-feature-check { font-size: 1.1em; }
 /* Broken, not merely absent: what this names stops the table working at all. The one
    red on the panel, so it means exactly that and nothing softer. */
 .console-tier--bad {

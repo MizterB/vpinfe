@@ -19,8 +19,8 @@ from tests.support.live_instance import LiveInstance
 PANEL = "[...document.querySelectorAll('.console-tier')].map(el => el.innerText.trim())"
 GRID = "[...document.querySelectorAll('.ag-cell')].map(el => el.innerText.trim())"
 PANEL_ANSWERS = f"{GRID}.includes('Answering') && {PANEL}.includes('Answering')"
-CHIPS = "[...document.querySelectorAll('.console-chips .console-feature-chip')]"
-FEATURES = f"{CHIPS}.map(el => el.lastElementChild.innerText.trim())"
+CHIPS = "[...document.querySelectorAll('.console-chips .console-tier')]"
+FEATURES = f"{CHIPS}.map(el => el.innerText.trim())"
 LIT = f"{CHIPS}.filter(el => el.classList.contains('console-tier--on')).length"
 FACTS = "document.querySelector('.console-workbench-body').innerText"
 
@@ -52,10 +52,11 @@ class DevicePanelReachDrive(unittest.TestCase):
     def test_the_open_panel_says_answering_once_the_device_answers(self) -> None:
         self.assertTrue(self.answered)
 
-    def test_all_three_features_are_chips_in_the_panel(self) -> None:
-        self.assertEqual(self.features, ["Library", "Frontend", "Device Management"])
+    def test_every_feature_is_a_chip_in_the_panel(self) -> None:
+        self.assertEqual(self.features,
+                         ["Library", "Frontend", "Device Management", "Overview"])
 
-    def test_a_feature_the_device_has_is_lit(self) -> None:
+    def test_the_features_the_device_has_are_lit_and_overview_is_not(self) -> None:
         self.assertEqual(self.lit, 3)
 
     def test_the_chips_say_where_features_are_turned_on(self) -> None:

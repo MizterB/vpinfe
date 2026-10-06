@@ -31,10 +31,6 @@ IMPLIED_BY_KIND: dict[str, set[str]] = {
 
 PRESENT, ABSENT, UNKNOWN = "present", "absent", "unknown"
 
-# The features a device's panel always names. Overview is a rollup, so it appears only on
-# a device that has it.
-_FEATURES_SHOWN = (install_identity.LIBRARY, install_identity.FRONTEND, install_identity.DEVICES)
-
 # What the absence costs, which is what the chip's color means everywhere else in the
 # Console: an unoffered capability is ordinary, one nothing has asked about is not.
 _CHIP = {
@@ -1023,26 +1019,22 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 
 
 def _feature_chips(features: Any) -> Any:
-    """The three features every device may have, lit where it has one and dim where not.
+    """Every feature a device may have, green where it has one and grey where not.
 
-    A device that reported nothing at all reads "Not reported": dim says it was asked and
+    A device that reported nothing at all reads "Not reported": grey says it was asked and
     does not have the feature, which is a different claim.
     """
     if not features:
         return t("console.devices.not_reported")
     has = settings_page.features_listed(features)
-    shown = [*_FEATURES_SHOWN, *(name for name in has if name not in _FEATURES_SHOWN)]
+    known = install_identity.FEATURES
+    shown = [*known, *(name for name in has if name not in known)]
 
     def draw() -> None:
         with ui.element("div").classes("console-chips"):
             for name in shown:
-                lit = name in has
-                with ui.element("span").classes(
-                        "console-tier console-feature-chip "
-                        f"console-tier--{'on' if lit else 'off'}"):
-                    if lit:
-                        ui.icon("check").classes("console-feature-check")
-                    ui.label(settings_page.feature_said(name))
+                ui.label(settings_page.feature_said(name)) \
+                    .classes(f"console-tier console-tier--{'on' if name in has else 'off'}")
 
     return draw
 
