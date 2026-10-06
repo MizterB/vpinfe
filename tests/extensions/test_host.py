@@ -166,7 +166,7 @@ class LoadTests(HostCase):
         with unittest.mock.patch.object(host, "this_platform", return_value="macos"):
             record = self.registry.load(directory)
 
-        self.assertEqual(record.reason, "Not for macOS")
+        self.assertEqual(record.reason, "It does not run on macOS")
 
     def test_a_platform_with_no_name_is_shown_as_it_arrived(self) -> None:
         directory = self.make("elsewhere", {"platforms": ["windows"]},
@@ -174,7 +174,8 @@ class LoadTests(HostCase):
         with unittest.mock.patch.object(host, "this_platform", return_value="freebsd"):
             record = self.registry.load(directory)
 
-        self.assertEqual(record.reason, "Not for freebsd")
+        self.assertEqual(record.why, host.WRONG_PLATFORM)
+        self.assertEqual(record.reason, "It does not run on freebsd")
 
     def test_an_extension_needing_a_feature_this_install_lacks_is_not_loaded(self) -> None:
         directory = self.make("watcher", {"requires_features": ["overview", "devices"]},
@@ -183,8 +184,18 @@ class LoadTests(HostCase):
             record = self.registry.load(directory)
 
         self.assertEqual(record.state, host.OFF)
-        self.assertEqual(record.reason,
-                         "This device does not do Device Management, Overview")
+        self.assertEqual(record.why, host.LACKS_FEATURES)
+        self.assertEqual(record.reason, "It needs the Device Management, Overview "
+                                        "features, which are off on this device")
+
+    def test_one_missing_feature_is_said_in_the_singular(self) -> None:
+        directory = self.make("watcher", {"requires_features": ["overview", "library"]},
+                              "def register(ctx): pass\n")
+        with unittest.mock.patch.object(host, "_features", return_value=("library",)):
+            record = self.registry.load(directory)
+
+        self.assertEqual(record.reason, "It needs the Overview feature, "
+                                        "which is off on this device")
 
     def test_the_names_follow_the_language_set(self) -> None:
         directory = self.make("elsewhere", {"platforms": ["windows"]},

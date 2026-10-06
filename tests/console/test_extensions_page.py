@@ -1,8 +1,8 @@
-"""What the Extensions page says about an extension that is not running.
+"""One extension's page in Settings, and the rows that lead to it.
 
-The words are the whole of this page: the list itself is one card per row. What is worth
-pinning is that every state the host can reach is shown, by a word or by the switch, and
-that a switch somebody set does not read as something that broke.
+What is worth pinning is that every state the host can reach is shown, by a word or by
+the switch, that a switch somebody set does not read as something that broke, and that
+the index marks only what is wrong or off.
 """
 
 from __future__ import annotations
@@ -10,102 +10,214 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 from nicegui import ui
 
-from common import i18n
+from common import feature_checks, i18n, install_identity
 from common.extensions import host
-from console import ext_page, sections, wizard
+from console import ext_page, settings, wizard
 from tests.support import lines
 
 
 class StateWordTests(unittest.TestCase):
     def test_every_state_the_switch_cannot_show_has_a_word(self) -> None:
-        """A state with no word draws no chip, so a stopped extension would look fine."""
+        """A state with no word draws no finding, so a stopped extension would look fine."""
         states = {value for name, value in vars(host).items()
                   if name.isupper() and isinstance(value, str)
                   and value in {"loaded", "failed", "disabled", "off"}}
 
-        self.assertEqual(states - {host.LOADED, host.OFF}, set(sections.STATE_WORDS))
+        self.assertEqual(states - {host.LOADED, host.OFF}, set(ext_page.STATE_WORDS))
 
-    def test_running_draws_no_chip(self) -> None:
-        """A badge on every row says nothing."""
-        self.assertNotIn(host.LOADED, sections.STATE_WORDS)
+    def test_running_draws_no_finding(self) -> None:
+        self.assertNotIn(host.LOADED, ext_page.STATE_WORDS)
 
-    def test_off_draws_no_chip_beside_the_switch_that_says_it(self) -> None:
-        self.assertNotIn(host.OFF, sections.STATE_WORDS)
-
-
-class FrontDoorTests(unittest.TestCase):
-    """What a person browsing what is installed is shown.
-
-    Not what an extension may reach. A scope is what somebody agrees to when installing
-    something; on a list of what is already installed it is jargon in front of everybody
-    who is not auditing, and it belongs on the extension's own page.
-    """
-
-    def test_the_card_does_not_name_scopes_or_capabilities(self) -> None:
-        source = Path(sections.__file__).read_text(encoding="utf-8")
-        card = source[source.index("def _extension_card"):source.index("def _actions")]
-
-        self.assertNotIn("scopes", card)
-        self.assertNotIn("capabilities", card)
-
-    def test_an_action_is_drawn_from_its_label_alone(self) -> None:
-        """The description is already the line under the extension's name."""
-        source = Path(sections.__file__).read_text(encoding="utf-8")
-        actions = source[source.index("def _actions"):]
-
-        self.assertIn("tooltip", actions)
+    def test_off_draws_no_finding_beside_the_switch_that_says_it(self) -> None:
+        self.assertNotIn(host.OFF, ext_page.STATE_WORDS)
 
 
-def _drawn(found: dict) -> tuple[list[str], list[bool]]:
-    with ui.column() as body:
-        sections._extension_card(found)
-    return ([one.text for one in body.descendants() if isinstance(one, ui.label)],
-            [bool(one.value) for one in body.descendants() if isinstance(one, ui.switch)])
-
-
-def _card(found: dict) -> list[str]:
-    return _drawn(found)[0]
-
-
-RUNNING = {"name": "sample", "state": host.LOADED, "enabled": True, "reason": "",
-           "reason_key": ""}
+RUNNING = {"name": "sample", "display_name": "Sample", "version": "1.2.0",
+           "description": "Does a thing", "state": host.LOADED, "enabled": True,
+           "reason": "", "reason_key": "", "actions": [], "surfaces": {}, "scopes": [],
+           "capabilities": []}
 SWITCHED_OFF = {**RUNNING, "state": host.OFF, "enabled": False, "reason": "Switched off",
                 "reason_key": host.SWITCHED_OFF}
+WAITING = {**SWITCHED_OFF, "enabled": True, "reason": "Starts at the next restart",
+           "reason_key": host.STARTS_AT_RESTART}
+WRONG_PLATFORM = {**RUNNING, "state": host.OFF, "reason": "It does not run on macOS",
+                  "reason_key": host.WRONG_PLATFORM}
+LACKS = {**RUNNING, "state": host.OFF, "reason": "It needs the frontend feature",
+         "reason_key": host.LACKS_FEATURES}
+BROKE = {**RUNNING, "state": host.FAILED, "reason": "It threw"}
+STOPPED = {**RUNNING, "state": host.DISABLED, "reason": "It stopped answering"}
 
 
-class CardTests(unittest.TestCase):
-    def test_one_switched_off_says_nothing_the_switch_does_not(self) -> None:
-        self.assertEqual(_drawn(SWITCHED_OFF), (["sample"], [False]))
+class Page:
+    """One extension's page drawn, and what is on it."""
 
-    def test_one_switched_on_says_it_waits_for_the_next_start(self) -> None:
-        said, switches = _drawn({
-            **SWITCHED_OFF, "enabled": True,
-            "reason": i18n.t(host.STARTS_AT_RESTART),
-            "reason_key": host.STARTS_AT_RESTART})
+    def __init__(self, found: dict, settings_read: dict | None = None,
+                 open_this_device: Any = None) -> None:
+        self.redraw = mock.Mock()
+        self.open_this_device = open_this_device or mock.Mock()
+        with ui.column() as self.body:
+            with mock.patch.object(ext_page, "ApiClient"):
+                ext_page.build(found, settings_read or {}, self.redraw,
+                               self.open_this_device)
 
-        self.assertIn(i18n.t(host.STARTS_AT_RESTART), said)
-        self.assertEqual(switches, [True])
+    def labels(self, *classes: str) -> list[str]:
+        return [one.text for one in self.body.descendants()
+                if isinstance(one, ui.label) and all(c in one.classes for c in classes)]
 
-    def test_one_off_for_another_reason_says_which(self) -> None:
-        said, switches = _drawn({
-            **RUNNING, "state": host.OFF, "reason": "Not for macOS",
-            "reason_key": "extension.reason.wrong_platform"})
+    @property
+    def headings(self) -> list[str]:
+        return self.labels("console-fact-heading")
 
-        self.assertIn("Not for macOS", said)
-        self.assertEqual(switches, [True])
+    @property
+    def rows(self) -> list[str]:
+        return self.labels("console-fact-label")
 
-    def test_one_that_broke_wears_a_chip_and_keeps_its_switch_on(self) -> None:
-        said, switches = _drawn({**RUNNING, "state": host.DISABLED,
-                                 "reason": "It threw"})
+    @property
+    def buttons(self) -> list[str]:
+        return [one.text for one in self.body.descendants() if isinstance(one, ui.button)]
 
-        self.assertEqual(said, ["sample", i18n.t("console.sections.stopped"), "It threw"])
-        self.assertEqual(switches, [True])
+    @property
+    def switches(self) -> list[bool]:
+        return [bool(one.value) for one in self.body.descendants()
+                if isinstance(one, ui.switch)]
+
+
+class HeaderTests(unittest.TestCase):
+    def test_the_name_is_the_display_name_with_the_version_under_it(self) -> None:
+        page = Page(RUNNING)
+
+        self.assertEqual(page.labels("console-workbench-title"), ["Sample"])
+        self.assertEqual(page.labels("console-workbench-label"), ["Version 1.2.0"])
+
+    def test_no_version_draws_no_caption(self) -> None:
+        page = Page({**RUNNING, "version": ""})
+
+        self.assertEqual(page.labels("console-workbench-label"), [])
+
+    def test_its_description_is_under_the_name(self) -> None:
+        self.assertEqual(Page(RUNNING).labels("console-panel-note"), ["Does a thing"])
+
+
+class FindingTests(unittest.TestCase):
+    def finding(self, found: dict) -> list[str]:
+        return Page(found).labels("console-attention-line")
+
+    def test_one_running_or_only_switched_off_says_nothing_under_its_name(self) -> None:
+        self.assertEqual(self.finding(RUNNING), [])
+        self.assertEqual(self.finding(SWITCHED_OFF), [])
+        self.assertEqual(self.finding(WAITING), [])
+
+    def test_one_that_broke_is_failed_and_says_why(self) -> None:
+        page = Page(BROKE)
+
+        self.assertEqual(page.labels("console-attention-line"),
+                         [i18n.t("console.ext_page.failed")])
+        self.assertEqual(page.labels("console-member-table"), ["It threw"])
+
+    def test_one_that_stopped_is_stopped(self) -> None:
+        self.assertEqual(self.finding(STOPPED), [i18n.t("console.ext_page.stopped")])
+
+    def test_one_that_cannot_run_here_says_so_with_nothing_to_press(self) -> None:
+        page = Page(WRONG_PLATFORM)
+
+        self.assertEqual(page.labels("console-attention-line"),
+                         [i18n.t("console.ext_page.cannot_run")])
+        self.assertEqual(page.labels("console-member-table"), ["It does not run on macOS"])
+        self.assertEqual(page.buttons, [])
+
+    def test_one_missing_a_feature_offers_this_device(self) -> None:
+        opened = mock.Mock()
+        with mock.patch.object(ext_page.panel, "action",
+                               wraps=ext_page.panel.action) as action:
+            page = Page(LACKS, open_this_device=opened)
+
+        self.assertEqual(page.buttons, [i18n.t("console.ext_page.open_device")])
+        action.call_args.args[1]()
+        opened.assert_called_once_with()
+
+
+class SettingsGroupTests(unittest.TestCase):
+    def test_enabled_is_the_first_row_under_a_headed_settings_group(self) -> None:
+        page = Page(RUNNING)
+
+        self.assertEqual(page.headings[0], i18n.t("console.ext_page.settings"))
+        self.assertEqual(page.rows[0], i18n.t("console.ext_page.enabled"))
+
+    def test_the_switch_shows_what_was_chosen_not_what_is_running(self) -> None:
+        """Switched on and waiting for a restart is on, though the state is off."""
+        self.assertEqual(Page(WAITING).switches, [True])
+        self.assertEqual(Page(SWITCHED_OFF).switches, [False])
+        self.assertEqual(Page(LACKS).switches, [True])
+
+    def test_one_waiting_for_a_restart_says_so_under_the_switch(self) -> None:
+        self.assertIn(i18n.t(host.STARTS_AT_RESTART), Page(WAITING).labels("console-help"))
+        self.assertNotIn(i18n.t(host.STARTS_AT_RESTART),
+                         Page(SWITCHED_OFF).labels("console-help"))
+
+    def test_its_own_settings_are_rows_beside_enabled(self) -> None:
+        page = Page({**RUNNING, "surfaces": {"settings": "/settings"}},
+                    {"fields": [{"key": "endpoint", "label": "Server", "value": "x"}]})
+
+        self.assertEqual(page.rows[:2], [i18n.t("console.ext_page.enabled"), "Server"])
+
+    def test_a_setting_that_would_not_read_says_why(self) -> None:
+        page = Page({**RUNNING, "surfaces": {"settings": "/settings"}},
+                    {"error": "No answer"})
+
+        self.assertIn(i18n.t("console.ext_page.list_failed"), page.labels("console-intro"))
+
+
+class ActionsGroupTests(unittest.TestCase):
+    ACTIONS = [{"key": "run", "label": "Import a library", "description": "Brings one in"}]
+
+    def test_a_running_extension_offers_its_actions_under_a_heading(self) -> None:
+        page = Page({**RUNNING, "actions": self.ACTIONS})
+
+        self.assertIn(i18n.t("word.actions"), page.headings)
+        self.assertIn("Import a library", page.buttons)
+
+    def test_one_that_is_not_running_offers_none(self) -> None:
+        page = Page({**SWITCHED_OFF, "actions": self.ACTIONS})
+
+        self.assertNotIn(i18n.t("word.actions"), page.headings)
+        self.assertNotIn("Import a library", page.buttons)
+
+    def test_one_with_none_draws_no_empty_heading(self) -> None:
+        self.assertNotIn(i18n.t("word.actions"), Page(RUNNING).headings)
+
+
+class ReachGroupTests(unittest.TestCase):
+    def test_what_it_can_reach_is_two_rows_of_chips(self) -> None:
+        page = Page({**RUNNING, "scopes": ["games:read"],
+                     "capabilities": ["net:outbound"]})
+
+        self.assertIn(i18n.t("console.ext_page.reach_title"), page.headings)
+        self.assertEqual(page.rows[-2:], [i18n.t("console.ext_page.library"),
+                                          i18n.t("console.ext_page.this_device")])
+        self.assertEqual(page.labels("console-tier", "console-tier--on"),
+                         [i18n.t("console.ext_page.read_library"),
+                          i18n.t("console.ext_page.reach_internet")])
+
+    def test_it_is_read_from_the_manifest_whatever_the_state(self) -> None:
+        page = Page({**SWITCHED_OFF, "scopes": ["games:read"]})
+
+        self.assertEqual(page.rows[-1], i18n.t("console.ext_page.library"))
+
+    def test_one_that_reaches_nothing_draws_no_heading(self) -> None:
+        self.assertNotIn(i18n.t("console.ext_page.reach_title"), Page(RUNNING).headings)
+
+    def test_a_row_with_nothing_in_it_is_not_drawn(self) -> None:
+        page = Page({**RUNNING, "scopes": ["games:read"]})
+
+        self.assertNotIn(i18n.t("console.ext_page.this_device"), page.rows)
 
 
 class SwitchTests(unittest.IsolatedAsyncioTestCase):
@@ -113,63 +225,147 @@ class SwitchTests(unittest.IsolatedAsyncioTestCase):
         # Outside the test's task, which has no page to draw into.
         self.body = ui.column()
 
-    def draw(self, found: dict, answer: object) -> tuple[mock.Mock, mock.AsyncMock]:
-        switch = self.enterContext(mock.patch.object(sections.panel, "switch"))
+    def draw(self, found: dict, answer: object) -> tuple[mock.Mock, mock.AsyncMock,
+                                                         mock.Mock]:
+        switch = self.enterContext(mock.patch.object(ext_page.panel, "switch"))
         io = self.enterContext(mock.patch.object(
-            sections.offload, "io",
+            ext_page.offload, "io",
             new=mock.AsyncMock(**({"side_effect": answer} if isinstance(answer, Exception)
                                   else {"return_value": answer}))))
+        self.client = self.enterContext(mock.patch.object(ext_page, "ApiClient")).return_value
+        redraw = mock.Mock()
         with self.body:
-            sections._extension_card(found)
-        return switch, io
+            ext_page.build(found, {}, redraw, mock.Mock())
+        return switch, io, redraw
 
-    async def press(self, switch: mock.Mock) -> None:
+    async def press(self, switch: mock.Mock, value: bool = False) -> None:
         with self.body:
-            await switch.call_args.args[1](SimpleNamespace(value=False))
+            await switch.call_args.args[1](SimpleNamespace(value=value))
 
-    async def test_it_asks_the_api_and_draws_the_answer(self) -> None:
-        switch, io = self.draw(RUNNING, SWITCHED_OFF)
+    async def test_it_asks_the_api_and_draws_the_page_again(self) -> None:
+        switch, io, redraw = self.draw(RUNNING, None)
 
         await self.press(switch)
 
         [asked] = io.await_args_list
-        self.assertEqual(asked.args[0].__name__, "set_extension_enabled")
+        self.assertIs(asked.args[0], self.client.set_extension_enabled)
         self.assertEqual(asked.args[1:], ("sample", False))
-        self.assertFalse(switch.call_args.args[0])
+        redraw.assert_called_once_with()
 
-    async def test_a_refused_switch_goes_back(self) -> None:
-        notify = self.enterContext(mock.patch.object(sections.ui, "notify"))
-        switch, _io = self.draw(RUNNING, RuntimeError("Not allowed"))
+    async def test_a_refused_switch_says_so_and_draws_the_page_as_it_is(self) -> None:
+        notify = self.enterContext(mock.patch.object(ext_page.ui, "notify"))
+        switch, _io, redraw = self.draw(RUNNING, RuntimeError("Not allowed"))
 
         await self.press(switch)
 
         notify.assert_called_once_with(i18n.t("said.off_failed"), caption="Not allowed",
                                        type="negative")
-        self.assertEqual([one.args[0] for one in switch.call_args_list], [True, True])
+        redraw.assert_called_once_with()
 
-    async def test_a_refusal_is_said_after_the_page_is_left(self) -> None:
-        notify = self.enterContext(mock.patch.object(sections.ui, "notify", wraps=ui.notify))
-        switch, io = self.draw(RUNNING, None)
-        with self.body:
-            pressed = ui.row().default_slot
+    async def test_a_refusal_to_turn_it_on_says_that(self) -> None:
+        notify = self.enterContext(mock.patch.object(ext_page.ui, "notify"))
+        switch, _io, _redraw = self.draw(SWITCHED_OFF, RuntimeError("Not allowed"))
 
-        def refused_once_left(*_args: object) -> None:
-            self.body.clear()
-            raise RuntimeError("Not allowed")
+        await self.press(switch, True)
 
-        io.side_effect = refused_once_left
-        with pressed:
-            await switch.call_args.args[1](SimpleNamespace(value=False))
-
-        notify.assert_called_once_with(i18n.t("said.off_failed"), caption="Not allowed",
+        notify.assert_called_once_with(i18n.t("said.on_failed"), caption="Not allowed",
                                        type="negative")
+
+
+class IndexTests(unittest.TestCase):
+    def test_the_group_is_last_and_lists_each_by_name(self) -> None:
+        pages = settings.system_pages(install_identity.FEATURES, [
+            {"name": "zed", "display_name": "Zed"}, {"name": "ant", "display_name": "ant"},
+            {"name": "mid", "display_name": "Mid"}])
+        tail = [(page[0], page[1]) for group, page in pages
+                if group == settings.EXTENSIONS_GROUP]
+
+        self.assertEqual(tail, [("extensions.ant", "ant"), ("extensions.mid", "Mid"),
+                                ("extensions.zed", "Zed")])
+        self.assertEqual(pages[-1][0], settings.EXTENSIONS_GROUP)
+
+    def test_a_page_key_survives_the_address_lowercasing_the_page(self) -> None:
+        self.assertEqual(ext_page.key("My_Ext"), "extensions.my_ext")
+
+    def test_none_installed_has_no_group(self) -> None:
+        pages = settings.system_pages(install_identity.FEATURES, [])
+
+        self.assertNotIn(settings.EXTENSIONS_GROUP, [group for group, _page in pages])
+
+    def test_the_group_is_there_for_an_install_with_nothing_switched_on(self) -> None:
+        pages = settings.system_pages([], [{"name": "ant", "display_name": "Ant"}])
+
+        self.assertIn(settings.EXTENSIONS_GROUP, [group for group, _page in pages])
+
+    def test_an_extension_that_broke_marks_its_page(self) -> None:
+        item = feature_checks.Unmet(feature=install_identity.CORE,
+                                    section=feature_checks.EXTENSIONS, key="sample",
+                                    state="failed", reason="It threw")
+
+        self.assertEqual(settings.pages_in_trouble([item]), {"extensions.sample": [item]})
+
+
+class TroubleTests(unittest.TestCase):
+    def trouble(self, records: list) -> list[Any]:
+        with mock.patch.object(settings.extensions, "records", return_value=records):
+            return settings._extension_trouble()
+
+    def record(self, state: str) -> Any:
+        return SimpleNamespace(name="sample", state=state, reason="said")
+
+    def test_failed_and_stopped_are_trouble(self) -> None:
+        for state in (host.FAILED, host.DISABLED):
+            [item] = self.trouble([self.record(state)])
+            self.assertEqual((item.section, item.key, item.reason),
+                             (feature_checks.EXTENSIONS, "sample", "said"))
+
+    def test_running_and_off_are_not(self) -> None:
+        self.assertEqual(self.trouble([self.record(host.LOADED),
+                                       self.record(host.OFF)]), [])
+
+
+class IndexMarkTests(unittest.TestCase):
+    def marks(self, installed: list, trouble: list) -> dict[str, Any]:
+        entries: list = []
+
+        def sections(given: list, *_args: Any, **_kwargs: Any) -> Any:
+            entries.extend(given)
+            return ui.column()
+
+        state = {"extensions": installed, "trouble": trouble,
+                 "settings_page": "extensions.sample"}
+        with mock.patch.object(settings.panel, "sections", sections), \
+                mock.patch.object(settings.busy, "fill"):
+            settings.build_system(mock.Mock(), state, mock.Mock(),
+                                  {"features": list(install_identity.FEATURES)})
+        return {entry[1]: entry[3] for entry in entries if len(entry) > 3}
+
+    def test_off_is_said_at_the_end_of_its_row_and_nowhere_else(self) -> None:
+        marks = self.marks([SWITCHED_OFF, {**RUNNING, "name": "other",
+                                           "display_name": "Other"}], [])
+
+        self.assertIsNotNone(marks["Sample"])
+        self.assertIsNone(marks["Other"])
+        self.assertIsNone(marks[settings.EXTENSIONS_GROUP])
+
+    def test_one_that_broke_wears_the_trouble_mark_and_so_does_its_group(self) -> None:
+        item = feature_checks.Unmet(feature=install_identity.CORE,
+                                    section=feature_checks.EXTENSIONS, key="sample",
+                                    state="failed", reason="It threw")
+        marks = self.marks([BROKE], [item])
+
+        self.assertIsNotNone(marks["Sample"])
+        self.assertIsNotNone(marks[settings.EXTENSIONS_GROUP])
+
+    def test_one_running_is_marked_with_nothing(self) -> None:
+        self.assertIsNone(self.marks([RUNNING], [])["Sample"])
 
 
 class SecretSettingTests(unittest.TestCase):
     """A secret is drawn empty whatever it holds, and leaving it empty keeps it."""
 
-    def _drawn(self, field: dict) -> tuple[str, object, str]:
-        given = {}
+    def _drawn(self, field: dict) -> tuple[str, Callable[[str], Any], str]:
+        given: dict[str, Any] = {}
 
         def fake(value, on_save, *, placeholder=""):
             given.update(value=value, on_save=on_save, placeholder=placeholder)
@@ -177,8 +373,7 @@ class SecretSettingTests(unittest.TestCase):
 
         client = mock.Mock()
         with mock.patch.object(ext_page.panel, "field", fake):
-            ext_page._control(client, "/ext/sample/settings", "token", field,
-                              mock.AsyncMock())
+            ext_page._control(client, "/ext/sample/settings", "token", field, mock.Mock())
         self.client = client
         return given["value"], given["on_save"], given["placeholder"]
 

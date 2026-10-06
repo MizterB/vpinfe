@@ -22,7 +22,7 @@ from nicegui import ui
 # What the address carries, and where each comes from. Ordered, so the same place
 # always produces the same address and two of them can be compared by eye.
 _FIELDS = (
-    ("view", lambda state: _view(state)),
+    ("view", lambda state: state.get("view") or ""),
     ("game", lambda state: state.get("game") or ""),
     ("table", lambda state: state.get("table") or ""),
     # "none" rather than nothing: every section closed is somewhere you asked to be,
@@ -63,15 +63,6 @@ LOG_VIEWS = ("digest", "jobs")
 # What the address calls a panel with nothing open.
 NO_SECTION = "none"
 
-# The view whose pages are named after it, `extensions:<name>`.
-EXTENSIONS = "extensions"
-
-
-def _view(state: dict[str, Any]) -> str:
-    view = str(state.get("view") or "")
-    chosen = str(state.get("extension") or "") if view == EXTENSIONS else ""
-    return f"{view}:{chosen}" if chosen else view
-
 
 def _section(state: dict[str, Any]) -> str:
     chosen = state.get("section")
@@ -87,7 +78,7 @@ def _slot_kind(state: dict[str, Any]) -> str:
 
 def query(state: dict[str, Any]) -> str:
     """The address for this state, without the path. A colon is left as it is, so a
-    view reads `extensions:vpinplay` in the bar rather than escaped."""
+    view reads `community:vpinplay:tables` in the bar rather than escaped."""
     view = state.get("view") or ""
     return urlencode([(name, read(state)) for name, read in _FIELDS
                       if view in _ONLY_ON.get(name, (view,)) and read(state)], safe=":")
@@ -111,12 +102,8 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
     def clean(name: str) -> str:
         return str(params.get(name) or "").strip().lower()
 
-    wanted = clean("view")
-    place, _colon, extension = wanted.partition(":")
-    if wanted in set(views):
-        state["view"] = wanted
-    elif place == EXTENSIONS and extension and EXTENSIONS in set(views):
-        state["view"], state["extension"] = EXTENSIONS, extension
+    if clean("view") in set(views):
+        state["view"] = clean("view")
     if str(params.get("game") or "").strip():
         state["game"] = str(params["game"]).strip()
     if str(params.get("table") or "").strip():

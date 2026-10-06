@@ -31,7 +31,6 @@ from console import (
     busy,
     confirm,
     deeplink,
-    ext_page,
     folders,
     games,
     grid,
@@ -166,8 +165,6 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
     # install knows about, then its records, then what it is.
     (NAV_SYSTEM, (("settings", "console.section.settings", "tune", install_identity.CORE),
                   ("devices", "console.section.devices", "devices", install_identity.DEVICES),
-                  ("extensions", "console.section.extensions", "extension",
-                   install_identity.CORE),
                   ("metrics", "console.section.metrics", "monitor_heart", install_identity.CORE),
                   ("logs", "console.section.logs", "description", install_identity.CORE),
                   ("backups", "console.section.backups", "history", install_identity.CORE),
@@ -230,7 +227,6 @@ SECTIONS = {
     "media": "console.section.media",
     "assets": "console.section.assets",
     "devices": "console.section.devices",
-    "extensions": "console.section.extensions",
     "settings": "console.section.settings",
     "launchers": "console.section.launchers",
     "themes": "console.section.themes",
@@ -603,16 +599,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # Set by the frontend's own window, the one place that cannot say where else Setup is.
     in_the_frontends_window = setup.strip().lower() == "window"
 
-    def show_extension(name: str) -> None:
-        """Open one extension's own page, or go back to the list."""
-        state["extension"] = str(name or "")
-        redraw()
-        deeplink.sync(state)
-
     state: dict[str, Any] = {"view": landing_view, "device": None, "mini": False,
                              "workbench": True, "settings_page": "",
                              "collection": None, "trouble": loaded["trouble"],
-                             "devices": devices,
+                             "devices": devices, "extensions": installed_extensions,
                              "ranked_orders": community_page.ranked_orders(
                                  installed_extensions)}
     # Before anything is built, so the first render is the place asked for rather than
@@ -1477,17 +1467,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             elif view == "assets":
                 assets_page.build(library.asset_rows(), library, show_slot, state,
                                   rescan=_rescan)
-            elif view == "extensions":
-                chosen = str(state.get("extension") or "")
-                # Not the rail's list: a switch may have changed one since the page
-                # loaded, and the rail keeps what it drew.
-                shown = state.get("extensions", installed_extensions)
-                found = next((one for one in shown
-                              if str(one.get("name") or "") == chosen), None)
-                if found is not None:
-                    ext_page.build(found, lambda: show_extension(""))
-                else:
-                    sections.extensions(shown, show_extension)
             elif view == "devices":
                 devices_page.build(devices, library, state, show_device,
                                    probe=_probe_devices,
@@ -1675,15 +1654,15 @@ def read_then_render(state: dict[str, Any], library: Library, content: ui.elemen
         # exactly the case this reports.
         async def read_trouble_then_draw() -> None:
             state["trouble"] = await offload.io(settings_page.local_trouble)
+            # Not the rail's list: a switch may have changed one since the page loaded,
+            # and the rail keeps what it drew.
+            try:
+                state["extensions"] = await offload.io(ApiClient().extensions)
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not read the installed extensions")
             render()
             mark_findings()
         busy.start(content, read_trouble_then_draw)
-        return
-    if state["view"] == "extensions":
-        async def read_extensions_then_draw() -> None:
-            state["extensions"] = await offload.io(ApiClient().extensions)
-            render()
-        busy.start(content, read_extensions_then_draw)
         return
     if state["view"] == "devices":
         async def read_devices_then_draw() -> None:
@@ -1789,7 +1768,6 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state.pop("slot", None)
         if state.get("section") in FILE_SECTIONS:
             state.pop("section", None)
-    state["extension"] = ""
     state["view"] = view
     remembered.put("section", view)
 

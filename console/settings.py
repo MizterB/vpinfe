@@ -24,12 +24,14 @@ from nicegui import run, ui
 
 from common import (
     config_schema,
+    extensions,
     feature_checks,
     input_registry,
     install_identity,
     path_checks,
     tokens,
 )
+from common.extensions import host as extension_host
 from common.failures import why
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
 from common.host import display_service, frontend_browser, key_reader, key_simulator, tools
@@ -44,6 +46,7 @@ from console import (
     confirm,
     deeplink,
     displays,
+    ext_page,
     folder_picker,
     folders,
     input_page,
@@ -1053,10 +1056,28 @@ IDENTITY_PAGE: DevicePage = (IDENTITY, "console.settings.page_install", BUILT_PA
 IDENTITY_GROUP = "console.settings.group_vpinfe"
 
 
-def system_pages(features: Any) -> list[tuple[str, DevicePage]]:
+EXTENSIONS_GROUP = "console.settings.group_extensions"
+
+
+def extension_pages(installed: Any) -> list[tuple[str, DevicePage]]:
+    """A page for every installed extension, last in the index and by the name it shows.
+
+    The label is the extension's own words, already in the language set, so it is not a
+    catalog key.
+    """
+    named = sorted(((str(one.get("display_name") or one.get("name") or ""), str(one["name"]))
+                    for one in installed or [] if one.get("name")),
+                   key=lambda one: (one[0].casefold(), one[1]))
+    return [(EXTENSIONS_GROUP, (ext_page.key(name), shown, BUILT_PAGE, (),
+                                install_identity.CORE))
+            for shown, name in named]
+
+
+def system_pages(features: Any, installed: Any = ()) -> list[tuple[str, DevicePage]]:
     """This install's own index: identity first, then whatever its features can answer
-    for."""
-    return [(IDENTITY_GROUP, IDENTITY_PAGE), *pages_for_features(features)]
+    for, then the extensions it has."""
+    return [(IDENTITY_GROUP, IDENTITY_PAGE), *pages_for_features(features),
+            *extension_pages(installed)]
 
 
 def _page_holding(section: str) -> str:
@@ -1091,6 +1112,9 @@ def pages_in_trouble(items: Any) -> dict[str, list[Any]]:
         # Only the ones a settings page can fix. A launcher is not a setting, and it
         # carries its own mark on the entry that leads to it.
         if item.where != feature_checks.WHERE_SETTINGS:
+            continue
+        if item.section == feature_checks.EXTENSIONS:
+            found.setdefault(ext_page.key(item.key), []).append(item)
             continue
         page = folders.KEY if item.section == feature_checks.FOLDERS \
             else _page_holding(item.section)
@@ -1277,7 +1301,7 @@ async def _browser_found(library: Library) -> dict[str, Any]:
 
 
 def local_trouble() -> list[Any]:
-    """What this install's enabled features are missing.
+    """What this install's enabled features are missing, and which of its extensions broke.
 
     Asked of this machine's own configuration rather than over the API: a path is only
     answerable by the machine holding it, and this is that machine. Its launchers go with
@@ -1289,10 +1313,21 @@ def local_trouble() -> list[Any]:
     store = launchers.get_launcher_store()
     held = locations.configured()
     states = locations.states_of(held)
-    return feature_checks.unmet(
+    return [*feature_checks.unmet(
         get_ini_config(),
         launcher=launchers.default_for("vpx", store.launchers()),
-        locations=[(one, states[one.location_id]) for one in held])
+        locations=[(one, states[one.location_id]) for one in held]),
+            *_extension_trouble()]
+
+
+def _extension_trouble() -> list[Any]:
+    """An extension that broke. One that cannot run on this device is not here: nothing is
+    wrong with it, and which features a device has is the person's choice."""
+    return [feature_checks.Unmet(feature=install_identity.CORE,
+                                 section=feature_checks.EXTENSIONS, key=record.name,
+                                 state=record.state, reason=record.reason)
+            for record in extensions.records()
+            if record.state in (extension_host.FAILED, extension_host.DISABLED)]
 
 
 def build_library_page(library: Library, rerender: Callable[[], None], key: str,
@@ -1579,7 +1614,8 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
     the install you are reading the Console from and needs nothing selected to be about
     one.
     """
-    pages = system_pages(discovery.get("features"))
+    installed = state.get("extensions") or []
+    pages = system_pages(discovery.get("features"), installed)
     known = {page[0]: page for _group, page in pages}
     chosen = str(state.get("settings_page") or "")
     # A page this install has no answer for is not a place to land: an address written
@@ -1592,6 +1628,8 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
     # it: the group, then the page, then the field's own cross.
     hurt = pages_in_trouble(state.get("trouble") or [])
     groups_hurt = {group for group, page in pages if page[0] in hurt}
+    off = {ext_page.key(str(one.get("name"))) for one in installed
+           if one.get("state") == extension_host.OFF}
 
     entries: list[tuple[Any, ...]] = []
     heading = ""
@@ -1602,17 +1640,11 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
             heading = group
         found = hurt.get(page[0]) or []
         entries.append((page[0], page[1], "",
-                        panel.trouble_mark(_said(found)) if found else None))
+                        panel.trouble_mark(_said(found)) if found
+                        else panel.quiet_mark(t("word.off")) if page[0] in off else None))
 
-    def pick(key: str) -> None:
-        state["settings_page"] = key
-        redraw()
-        # The address was read on arrival and never written again, so a page opened by
-        # hand was lost on the next reload - and a reload is not always something you
-        # chose.
-        deeplink.sync(state)
-
-    work = panel.sections(entries, chosen, pick, rail_px=RAIL_PX)
+    work = panel.sections(entries, chosen, lambda key: open_page(state, redraw, key),
+                          rail_px=RAIL_PX)
     with work:
         body = ui.column().classes("min-w-0 overflow-auto gap-0 console-workbench-body "
                                    "console-settings-body")
@@ -1620,6 +1652,16 @@ def build_system(library: Library, state: dict[str, Any], redraw: Callable[[], N
     # part of runs on the event loop, where the client refuses a call.
     busy.fill(body, lambda: _draw_system_page(library, redraw, body, known[chosen],
                                               discovery, state.get("trouble") or [], state))
+
+
+def open_page(state: dict[str, Any], redraw: Callable[[], None], key: str) -> None:
+    """Show another page of the index."""
+    state["settings_page"] = key
+    redraw()
+    # The address was read on arrival and never written again, so a page opened by
+    # hand was lost on the next reload - and a reload is not always something you
+    # chose.
+    deeplink.sync(state)
 
 
 def _said(items: Any) -> str:
@@ -1638,6 +1680,11 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
             page_head(key)
             await _identity_page(library, str(discovery.get("display_name") or ""),
                                  redraw)
+        return
+    if key.startswith(ext_page.PREFIX):
+        draw_extension = await _extension_draw(redraw, key, state or {})
+        with body:
+            draw_extension()
         return
     if kind == BUILT_PAGE and key in PAGES:
         draw = await PAGES[key](library, redraw, state if state is not None else {})
@@ -1714,6 +1761,16 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
                                 drawn_elsewhere=key == displays.KEY,
                                 waiting=Waiting(library, await _waiting(library)),
                                 stands_in=stands_in, waits_said=bool(waits))
+
+
+async def _extension_draw(redraw: Callable[[], None], key: str,
+                          state: dict[str, Any]) -> Callable[[], None]:
+    """One extension's page: read what its settings say, then hand back what draws it."""
+    found: dict[str, Any] = next((one for one in state.get("extensions") or []
+                                  if ext_page.key(str(one.get("name"))) == key), {})
+    settings = await ext_page.read(found)
+    return lambda: ext_page.build(found, settings, redraw,
+                                  lambda: open_page(state, redraw, IDENTITY))
 
 
 async def _theme_sources(library: Library, state: dict[str, Any],

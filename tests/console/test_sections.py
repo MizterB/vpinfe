@@ -147,51 +147,35 @@ class CollectionAddressTests(unittest.TestCase):
 
 
 class ExtensionAddressTests(unittest.TestCase):
-    """An extension's own page has an address, so a reload stays on it."""
+    """An extension's own page is a page of Settings, so it has an address that reloads
+    onto it."""
 
-    VIEWS = ["games", "extensions"]
-
-    def _seed(self, view: str, views: list[str] = VIEWS) -> dict:
+    def _seed(self, query: dict, views: tuple[str, ...] = ("games", "settings")) -> dict:
         state: dict = {}
-        deeplink.apply(state, {"view": view}, views=views, sections=[])
+        deeplink.apply(state, query, views=views, sections=[])
         return state
 
     def test_an_extension_s_page_survives_the_round_trip(self) -> None:
-        state = self._seed("extensions:vpinplay")
+        state = self._seed({"view": "settings", "page": "extensions.vpinplay"})
 
-        self.assertEqual((state["view"], state["extension"]), ("extensions", "vpinplay"))
-        self.assertEqual("view=extensions:vpinplay", deeplink.query(state))
-
-    def test_the_list_is_the_view_alone(self) -> None:
-        state = self._seed("extensions")
-
-        self.assertNotIn("extension", state)
-        self.assertEqual("view=extensions", deeplink.query(state))
+        self.assertEqual((state["view"], state["settings_page"]),
+                         ("settings", "extensions.vpinplay"))
+        self.assertEqual("view=settings&page=extensions.vpinplay", deeplink.query(state))
 
     def test_the_address_is_the_one_its_page_links_to(self) -> None:
         from console import ext_page
 
-        self.assertEqual("/console?view=extensions:vpinplay", ext_page.address("vpinplay"))
+        self.assertEqual("/console?view=settings&page=extensions.vpinplay",
+                         ext_page.address("vpinplay"))
 
-    def test_an_install_with_no_extensions_page_keeps_its_default(self) -> None:
-        self.assertEqual({}, self._seed("extensions:vpinplay", views=["games"]))
+    def test_the_old_view_is_not_one(self) -> None:
+        """Nothing redirects: a place that was never shipped is not kept alive."""
+        self.assertEqual({}, self._seed({"view": "extensions:vpinplay"},
+                                        views=("games", "extensions")))
 
-    def test_a_colon_after_anything_else_is_not_an_extension(self) -> None:
-        self.assertEqual({}, self._seed("games:vpinplay"))
-
-    def test_an_extension_is_noise_on_any_other_page(self) -> None:
-        self.assertEqual({"view": "games"}, _address({"view": "games", "extension": "x"}))
-
-    def test_arriving_at_extensions_lands_on_the_list(self) -> None:
-        """The rail row's own address is the list, so a page kept from an earlier visit
-        would contradict it."""
-        from console import page
-
-        state = {"view": "extensions", "extension": "vpinplay"}
-        page.leave_for(state, "games")
-        page.leave_for(state, "extensions")
-
-        self.assertEqual({"view": "extensions"}, _address(state))
+    def test_a_page_is_noise_on_any_other_view(self) -> None:
+        self.assertEqual({"view": "games"},
+                         _address({"view": "games", "settings_page": "extensions.x"}))
 
 
 class SectionTests(unittest.TestCase):

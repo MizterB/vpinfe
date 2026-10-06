@@ -46,6 +46,8 @@ OFF = "off"
 SWITCHED_OFF = "extension.reason.switched_off"
 # Switched on since this run started.
 STARTS_AT_RESTART = "extension.reason.pending_restart"
+WRONG_PLATFORM = "extension.reason.wrong_platform"
+LACKS_FEATURES = "extension.reason.lacks_features"
 
 _PLATFORMS = {"linux": "linux", "win32": "windows", "darwin": "macos"}
 PLATFORM_NAMES = {"linux": "extension.platform.linux",
@@ -397,12 +399,13 @@ def _cannot_run(manifest: Manifest) -> tuple[str, dict[str, str | tuple[str, ...
     """Why this device cannot run it whatever the switch says, or `""`."""
     platform = this_platform()
     if manifest.platforms and platform not in manifest.platforms:
-        return "extension.reason.wrong_platform", {
+        return WRONG_PLATFORM, {
             "platform": (PLATFORM_NAMES.get(platform, platform),)}
     missing = [name for name in install_identity.FEATURES
                if name in manifest.requires_features and name not in _features()]
     if missing:
-        return "extension.reason.lacks_features", {
+        return LACKS_FEATURES, {
+            "count": str(len(missing)),
             "features": tuple(install_identity.LABELS[name] for name in missing)}
     return "", {}
 

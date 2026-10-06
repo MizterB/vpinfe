@@ -37,6 +37,8 @@ WHERES = (WHERE_SETTINGS, WHERE_LAUNCHERS)
 # The section a finding about the library folders is filed under. It names no setting: the
 # folders are not config keys, and the Folders page is where it is fixed.
 FOLDERS = "folders"
+# The section a finding about an extension is filed under, with its name as the key.
+EXTENSIONS = "extensions"
 
 # What each feature needs before it can do its job. These happen to be paths, which is not
 # a rule - a requirement is anything a feature cannot work without.

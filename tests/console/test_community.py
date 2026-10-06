@@ -331,7 +331,7 @@ class WhatTheListSays(unittest.TestCase):
         self.assertEqual("", community.status_of({})["text"])
 
     def test_the_places_are_the_console_s_own_addresses(self) -> None:
-        self.assertEqual(("/console?view=players", "/console?view=extensions:site"),
+        self.assertEqual(("/console?view=players", "/console?view=settings&page=extensions.site"),
                          (community.PLACES["players"]("site"),
                           community.PLACES["settings"]("site")))
 
@@ -341,7 +341,8 @@ class WhatTheListSays(unittest.TestCase):
                                STANDING, pressed.append)
 
         self.assertEqual([("Send Now", ""), ("Open Site", "https://site.example"),
-                          (t("console.community.settings"), "/console?view=extensions:site")],
+                          (t("console.community.settings"),
+                           "/console?view=settings&page=extensions.site")],
                          [(one.label, one.to) for one in found])
         assert found[0].run is not None
         found[0].run()

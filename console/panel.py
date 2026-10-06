@@ -49,17 +49,20 @@ RAIL_PX = 152
 
 
 def header(name: str, note: str = "",
-           findings: Sequence[Callable[[], None]] = ()) -> None:
+           findings: Sequence[Callable[[], None]] = (), caption: str = "") -> None:
     """What the content under it is about, where the rail row is too far away to say it.
 
-    `note` is drawn inside the same rule as the name, and so is each of `findings`: what is
-    wrong with everything under it, before the first of its headings.
+    `caption` sits under the name, as a game's type line does in its panel. `note` is drawn
+    inside the same rule as the name, and so is each of `findings`: what is wrong with
+    everything under it, before the first of its headings.
     """
-    if not note and not findings:
+    if not note and not findings and not caption:
         ui.label(name).classes("text-base console-workbench-title console-panel-heading")
         return
     with ui.element("div").classes("console-panel-heading"):
         ui.label(name).classes("text-base console-workbench-title")
+        if caption:
+            ui.label(caption).classes("text-xs console-workbench-label")
         if note:
             ui.label(note).classes("console-help console-panel-note")
         for finding in findings:
@@ -517,6 +520,15 @@ def trouble_mark(reason: str = "") -> Callable[[], None]:
         icon = ui.icon("error", size="14px").classes("console-trouble-mark")
         if reason:
             icon.tooltip(reason)
+
+    return draw
+
+
+def quiet_mark(word: str) -> Callable[[], None]:
+    """A word in the corner a mark would take, for a row that is not in trouble but is
+    not doing anything."""
+    def draw() -> None:
+        ui.label(word).classes("console-quiet-mark")
 
     return draw
 

@@ -1273,6 +1273,15 @@ body::before {
   transform: translateY(-50%);
   right: 6px;
 }
+/* A word in that corner for a row that is not in trouble, only not running. */
+.console-quiet-mark {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 6px;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
 
 /* The sort control above the devices rail. Aligned to the rail rather than the page, so
    it reads as belonging to the list it orders. */

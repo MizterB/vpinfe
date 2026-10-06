@@ -752,7 +752,7 @@ Whether an extension is switched off stays core's record, because core has to kn
 it loads anything - reading a file per extension to answer "what am I not loading" is
 worse than reading one. An extension switched off is not loaded at all.
 
-A person switches one on its card on the Console's Extensions page, or with
+A person switches one with the switch on its page under Settings > Extensions, or with
 `PUT /api/v1/extensions/{name}/enabled`, and either writes `extensions.json`. Off is at once:
 it goes the way a broken one does, below, and says it was switched off rather than that it
 broke. On waits for the next start, because routes mount once and one that was off never

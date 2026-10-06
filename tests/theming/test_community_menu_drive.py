@@ -30,11 +30,12 @@ USER_ID = "owner-id"
 # A send needs a claimed account; claiming itself is Players' own drive.
 KEY = "k" * 64
 LIST = "/console?view=community:vpinplay:tables"
-PAGE = "/console?view=extensions:vpinplay"
+PAGE = "/console?view=settings&page=extensions.vpinplay"
 
 SHOWN = "(el => el.getClientRects().length > 0)"
 HEADING = ("(el => el ? el.innerText.trim() : null)(document.querySelector("
-           "'.console-workbench-title.console-panel-heading'))")
+           "'.console-panel-heading > .console-workbench-title,"
+           " .console-workbench-title.console-panel-heading'))")
 FIELDS = ("[...document.querySelectorAll('.console-fact-label')].filter"
           f"({SHOWN}).map(el => el.innerText.trim())")
 # The line first in the bar's end: its words, and where it links.
@@ -183,21 +184,16 @@ class CommunityMenuDrive(unittest.TestCase):
             seen["reloaded"] = [await browser.wait_for(HEADING),
                                 await browser.evaluate("location.search")]
 
-            # Opened from the list and gone back from, the address following each.
-            await walk.visit("/console?view=extensions")
+            # Opened from its row in Settings, the address following.
+            await walk.visit("/console?view=settings")
             await browser.evaluate(
-                "[...document.querySelectorAll('.console-card')].find(card =>"
-                " card.innerText.startsWith('VPinPlay')).querySelector('.q-btn.q-btn--flat')"
+                "[...document.querySelectorAll('.console-section-row')].find(el =>"
+                " el.innerText.trim().startsWith('VPinPlay'))"
                 ".setAttribute('data-drive', 'open')")
             await walk.act(lambda: browser.click("[data-drive=open]"),
-                           until="location.search === '?view=extensions:vpinplay'")
+                           until="location.search === "
+                                 "'?view=settings&page=extensions.vpinplay'")
             seen["opened"] = await browser.wait_for(HEADING)
-            await browser.evaluate(
-                "[...document.querySelectorAll('.q-btn')].find(b =>"
-                " b.innerText.trim() === 'arrow_back').setAttribute('data-drive', 'back')")
-            await walk.act(lambda: browser.click("[data-drive=back]"),
-                           until="location.search === '?view=extensions'")
-            seen["back"] = await browser.evaluate(HEADING)
 
             # Nobody holds a VPinPlay account.
             seen["no_account"] = await the_list()
@@ -277,11 +273,11 @@ class CommunityMenuDrive(unittest.TestCase):
         self.assertIn("Server", fields)
 
     def test_a_reload_keeps_it(self) -> None:
-        self.assertEqual(self.seen["reloaded"], ["VPinPlay", "?view=extensions:vpinplay"])
+        self.assertEqual(self.seen["reloaded"],
+                         ["VPinPlay", "?view=settings&page=extensions.vpinplay"])
 
-    def test_opening_it_and_going_back_write_the_address(self) -> None:
+    def test_opening_it_from_settings_writes_the_address(self) -> None:
         self.assertEqual(self.seen["opened"], "VPinPlay")
-        self.assertIsNone(self.seen["back"])
 
     # -- the line ------------------------------------------------------------------
 
@@ -307,7 +303,8 @@ class CommunityMenuDrive(unittest.TestCase):
         _line, menu = self.seen["no_account"]
         self.assertEqual(menu, [
             ["Open VPinPlay", "https://www.vpinplay.com", "_blank", "open_in_new"],
-            ["Settings", "/console?view=extensions:vpinplay", None, None]])
+            ["Settings", "/console?view=settings&page=extensions.vpinplay", None,
+             None]])
 
     def test_your_page_is_offered_once_the_owner_has_a_user_id(self) -> None:
         _line, menu = self.seen["share_off"]

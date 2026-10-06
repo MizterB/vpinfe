@@ -1,12 +1,11 @@
-
-"""One extension's own page: what it is set to, what it can be asked to do, what it holds.
+"""One extension's own page, in Settings under Extensions: whether it is on, what it is set
+to, what it can be asked to do, what it holds and what it can reach.
 
 Core draws all of it. The extension says what its settings are, what its actions are and
 what it is holding; none of the treatment is its own, so an extension's page looks like
 the Console rather than like whoever wrote it - and it keeps working if that extension
 later runs somewhere else.
 
-Three groups, in the order somebody needs them: configure it, run it, see what came of it.
 What it may reach is at the bottom, because that is a question somebody asks once and
 nobody asks while using it.
 """
@@ -18,79 +17,140 @@ from typing import Any
 
 from nicegui import run, ui
 
+from common.extensions import host
 from common.failures import why
 from common.i18n import t
 from console import busy, deeplink, ext_action, offload, panel, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
+PREFIX = "extensions."
+
+STATE_WORDS = {host.FAILED: "console.ext_page.failed",
+               host.DISABLED: "console.ext_page.stopped"}
+
+
+def key(name: str) -> str:
+    """The Settings page that is this extension's."""
+    # Lowercase: the address clean-up lowercases `page`, and a refused extension keeps its
+    # folder's name as it was written.
+    return (PREFIX + name).lower()
+
 
 def address(name: str) -> str:
     """Where one extension's page is, for a link from anywhere in the Console."""
-    return "/console?" + deeplink.query({"view": deeplink.EXTENSIONS, "extension": name})
+    return "/console?" + deeplink.query({"view": "settings", "settings_page": key(name)})
 
 
-def build(extension: dict, back: Any) -> None:
-    """Draw the page for one extension."""
-    name = str(extension.get("name") or "")
+async def read(extension: dict) -> dict[str, Any]:
+    """What its settings say, for the draw to use: nothing for one that is not running or
+    has none, and `error` for one that would not answer."""
     surfaces = dict(extension.get("surfaces") or {})
-
-    with ui.row().classes("items-center gap-2 w-full"):
-        ui.button(icon="arrow_back", on_click=lambda: back()) \
-            .props("flat dense round").tooltip(t("console.ext_page.back_extensions"))
-        ui.label(str(extension.get("display_name") or name)) \
-            .classes("text-base console-workbench-title console-panel-heading")
-        version = str(extension.get("version") or "")
-        if version:
-            ui.label(version).classes("console-help")
-    if extension.get("description"):
-        ui.label(str(extension["description"])).classes("console-help mb-2")
-    _actions(extension, name)
-
-    if surfaces.get("settings"):
-        _settings(name, surfaces)
-    if surfaces.get("state"):
-        _state(name, surfaces)
-    _reach(extension)
+    if extension.get("state") != host.LOADED or not surfaces.get("settings"):
+        return {}
+    base = f"/ext/{extension.get('name')}{surfaces['settings']}"
+    try:
+        return await offload.io(ApiClient().ext_get, base)
+    except Exception as exc:  # noqa: BLE001 - the page says why, never 500s
+        return {"error": why(exc)}
 
 
-def _settings(name: str, surfaces: dict) -> None:
-    """What the extension is configured with, saved as each field is left."""
-    ui.label(str(surfaces.get("settings_label") or t("console.ext_page.settings"))) \
-        .classes("console-group mt-4")
-    card = ui.element("div").classes("console-card w-full")
-    base = f"/ext/{name}{surfaces['settings']}"
+def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
+          open_this_device: Callable[[], None]) -> None:
+    """Draw the page for one extension, from what `read` found."""
+    name = str(extension.get("name") or "")
+    version = str(extension.get("version") or "")
+    running = extension.get("state") == host.LOADED
+    surfaces = dict(extension.get("surfaces") or {})
     client = ApiClient()
 
-    async def draw() -> None:
-        try:
-            found = await offload.io(client.ext_get, base)
-        except Exception as exc:  # noqa: BLE001
-            card.clear()
-            with card:
-                panel.line(t("console.ext_page.list_failed"), hint=why(exc))
-            return
-        card.clear()
-        with card:
-            if found.get("help"):
-                ui.label(str(found["help"])).classes("console-help mb-2")
-            entries: list[tuple[Any, Any]] = []
-            for field in found.get("fields") or []:
-                key = str(field.get("key") or "")
-                if not key:
-                    continue
-                entries.append((str(field.get("label") or key),
-                                _control(client, base, key, field, draw)))
-                if field.get("help"):
-                    entries.append((panel.ASIDE, _aside(str(field["help"]))))
-            if entries:
-                panel.facts(ui, entries)
+    panel.header(str(extension.get("display_name") or name),
+                 str(extension.get("description") or ""),
+                 _findings(extension, open_this_device),
+                 caption=t("console.ext_page.version", version=version) if version else "")
 
-    busy.fill(card, draw)
+    @on_page
+    async def flip(event: Any) -> None:
+        try:
+            await offload.io(client.set_extension_enabled, name, bool(event.value))
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.on_failed" if event.value else "said.off_failed"),
+                      caption=why(exc), type="negative")
+        redraw()
+
+    entries: list[tuple[Any, ...]] = [
+        (panel.HEADING, t("console.ext_page.settings")),
+        (t("console.ext_page.enabled"),
+         panel.switch(bool(extension.get("enabled", True)), flip))]
+    if extension.get("reason_key") == host.STARTS_AT_RESTART:
+        entries.append(panel.note(t(host.STARTS_AT_RESTART)))
+    entries += _setting_rows(client, f"/ext/{name}{surfaces.get('settings', '')}",
+                             settings, redraw)
+
+    offered = list(extension.get("actions") or []) if running else []
+    if offered:
+        entries += [(panel.HEADING, t("word.actions")),
+                    (panel.FULL, lambda: _actions(offered, name))]
+    if running and surfaces.get("state"):
+        entries += [(panel.HEADING, str(surfaces.get("state_label")
+                                        or t("console.ext_page.held"))),
+                    (panel.FULL, lambda: _state(name, surfaces))]
+    entries += _reach_rows(extension)
+    panel.facts(ui, entries)
+
+
+def _findings(extension: dict, open_this_device: Callable[[], None]
+              ) -> list[Callable[[], None]]:
+    """What stops it, under the header. Nothing for one that is running or only switched
+    off, which the switch already says."""
+    state, said = extension.get("state"), str(extension.get("reason") or "")
+    if state == host.OFF and extension.get("reason_key") in (host.WRONG_PLATFORM,
+                                                            host.LACKS_FEATURES):
+        fix = panel.action(t("console.ext_page.open_device"), open_this_device,
+                           icon=verbs.GO, hint=t("console.ext_page.open_hint")) \
+            if extension.get("reason_key") == host.LACKS_FEATURES else None
+        return [_finding(t("console.ext_page.cannot_run"), said, fix)]
+    if state in STATE_WORDS:
+        return [_finding(t(STATE_WORDS[str(state)]), said)]
+    return []
+
+
+def _finding(line: str, detail: str,
+             fix: Callable[[], None] | None = None) -> Callable[[], None]:
+    def draw() -> None:
+        with ui.element("div").classes("console-attention w-full"):
+            ui.icon("error_outline").classes("console-attention-icon")
+            with ui.column().classes("gap-0 min-w-0 grow"):
+                ui.label(line).classes("console-attention-line")
+                if detail:
+                    ui.label(detail).classes("console-member-table")
+            if fix is not None:
+                fix()
+
+    return draw
+
+
+def _setting_rows(client: Any, base: str, found: dict[str, Any],
+                  redraw: Callable[[], None]) -> list[tuple[Any, ...]]:
+    """What the extension is configured with, saved as each field is left."""
+    if found.get("error"):
+        return [panel.intro(t("console.ext_page.list_failed"), hint=str(found["error"]))]
+    entries: list[tuple[Any, ...]] = []
+    if found.get("help"):
+        entries.append(panel.intro(str(found["help"])))
+    for field in found.get("fields") or []:
+        name = str(field.get("key") or "")
+        if not name:
+            continue
+        entries.append((str(field.get("label") or name),
+                        _control(client, base, name, field, redraw)))
+        if field.get("help"):
+            entries.append(panel.note(str(field["help"])))
+    return entries
 
 
 def _control(client: Any, base: str, key: str, field: dict,
-             redraw: Callable[[], Awaitable[None]]) -> Any:
+             redraw: Callable[[], None]) -> Any:
     """One setting, in the control its type asks for."""
     kind = str(field.get("type") or "string")
     value = field.get("value")
@@ -102,7 +162,7 @@ def _control(client: Any, base: str, key: str, field: dict,
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
             return
-        await redraw()
+        redraw()
 
     if kind == "switch":
         return panel.switch(bool(value), lambda event: save(bool(event.value)))
@@ -118,16 +178,7 @@ def _control(client: Any, base: str, key: str, field: dict,
                        placeholder=str(field.get("placeholder") or ""))
 
 
-def _aside(text: str) -> Any:
-    def draw() -> None:
-        ui.label(text).classes("console-help")
-    return draw
-
-
-def _actions(extension: dict, name: str) -> None:
-    offered = list(extension.get("actions") or [])
-    if not offered:
-        return
+def _actions(offered: list[dict], name: str) -> None:
     with ui.element("div").classes("console-slot-actions"):
         for action in offered:
             panel.action(str(action.get("label") or action.get("key") or ""),
@@ -137,8 +188,6 @@ def _actions(extension: dict, name: str) -> None:
 
 def _state(name: str, surfaces: dict) -> None:
     """What the extension is holding, and the couple of things you can do to a row."""
-    ui.label(str(surfaces.get("state_label") or t("console.ext_page.held"))) \
-        .classes("console-group mt-4")
     card = ui.element("div").classes("console-card w-full")
     base = f"/ext/{name}{surfaces['state']}"
     client = ApiClient()
@@ -221,7 +270,7 @@ def _plainly(name: str) -> str:
     return t(key) if key else name
 
 
-def _reach(extension: dict) -> None:
+def _reach_rows(extension: dict) -> list[tuple[Any, ...]]:
     """What this extension may do, for whoever came looking.
 
     At the bottom and never on the list of what is installed: a scope is what somebody
@@ -229,13 +278,18 @@ def _reach(extension: dict) -> None:
     """
     reaches = [_plainly(str(one)) for one in extension.get("scopes") or []]
     uses = [_plainly(str(one)) for one in extension.get("capabilities") or []]
-    if not reaches and not uses:
-        return
-    ui.label(t("console.ext_page.reach_title")).classes("console-group mt-4")
-    with ui.element("div").classes("console-card w-full"):
-        entries: list[tuple[Any, Any]] = []
-        if reaches:
-            entries.append((t("console.ext_page.library"), ", ".join(reaches)))
-        if uses:
-            entries.append((t("console.ext_page.this_device"), ", ".join(uses)))
-        panel.facts(ui, entries)
+    entries: list[tuple[Any, ...]] = []
+    if reaches:
+        entries.append((t("console.ext_page.library"), _chips(reaches)))
+    if uses:
+        entries.append((t("console.ext_page.this_device"), _chips(uses)))
+    return [(panel.HEADING, t("console.ext_page.reach_title")), *entries] if entries else []
+
+
+def _chips(words: list[str]) -> Callable[[], None]:
+    def draw() -> None:
+        with ui.element("div").classes("console-chips"):
+            for word in words:
+                ui.label(word).classes("console-tier console-tier--on")
+
+    return draw

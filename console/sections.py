@@ -1,9 +1,9 @@
 """Strawman sections, built to be argued with.
 
-Overview and Extensions exist here to show how the shell holds together, not as
-finished pages. Where a page could use real library data it does -
-a mock number proves nothing, and the checks below are the validator registry in
-embryo: each one is a name, a sentence a person can read, and a predicate.
+Overview exists here to show how the shell holds together, not as a finished page. Where
+a page could use real library data it does - a mock number proves nothing, and the checks
+below are the validator registry in embryo: each one is a name, a sentence a person can
+read, and a predicate.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common.extensions.host import SWITCHED_OFF
 from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
@@ -536,106 +535,3 @@ def table_scripts(library: Library) -> None:
         draw()
 
     draw()
-
-
-# --- Extensions ------------------------------------------------------------------
-
-# What a state the card's switch cannot show is called on screen.
-STATE_WORDS = {"failed": "console.sections.failed",
-               "disabled": "console.sections.stopped"}
-
-
-def extensions(installed: list[dict], open_one: Callable[..., Any] | None = None) -> None:
-    if not installed:
-        with ui.element("div").classes("console-card w-full"):
-            ui.label(t("console.sections.nothing_installed")).classes("console-setting")
-        return
-
-    for found in installed:
-        _extension_card(found, open_one)
-
-
-def _extension_card(found: dict, open_one: Callable[..., Any] | None = None) -> None:
-    """One extension, as somebody browsing what is installed needs it.
-
-    Its name, what it is for, and what they can do with it. Not what it may reach: a
-    scope is what somebody agrees to when they install something, and on a list of what
-    is already installed it is a line of jargon in front of everybody who is not
-    auditing. It is on the extension's own page, at the bottom, for whoever wants it.
-    """
-    # A copy: the list handed in may be the one the rail was drawn from.
-    shown = dict(found)
-    card = ui.element("div").classes("console-card w-full mb-2")
-
-    @on_page
-    async def flip(event: Any) -> None:
-        from console.api import ApiClient
-
-        try:
-            shown.update(await offload.io(ApiClient().set_extension_enabled,
-                                          str(shown.get("name") or ""),
-                                          bool(event.value)))
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.on_failed" if event.value else "said.off_failed"),
-                      caption=why(exc), type="negative")
-        # Either way: a refused switch has to go back to where it was.
-        draw()
-
-    def draw() -> None:
-        card.clear()
-        state = str(shown.get("state") or "")
-        name = str(shown.get("display_name") or shown.get("name") or "")
-        version = str(shown.get("version") or "")
-        with card:
-            with ui.row().classes("items-center gap-2 w-full no-wrap"):
-                ui.label(" ".join(part for part in (name, version) if part)) \
-                    .classes("console-setting min-w-0 truncate")
-                if state in STATE_WORDS:
-                    ui.label(t(STATE_WORDS[state])) \
-                        .classes("console-member-chip console-chip-warn")
-                ui.space()
-                panel.switch(bool(shown.get("enabled", True)), flip)()
-            # What it is, then what happened to it. A card keeps its shape whatever
-            # state the extension is in, and the news is the line the chip points at.
-            news = ("" if shown.get("reason_key") == SWITCHED_OFF
-                    else str(shown.get("reason") or ""))
-            for line in (str(shown.get("description") or ""), news):
-                if line:
-                    ui.label(line).classes("console-help")
-            _actions(shown, open_one)
-
-    draw()
-
-
-def _actions(found: dict, open_one: Callable[..., Any] | None = None) -> None:
-    """The verbs this extension offers.
-
-    Drawn where the extension is, rather than given a place of its own in the rail: an
-    extension is a thing somebody installed, and what it offers belongs with it until
-    there is enough of it to be a destination.
-    """
-    from console import ext_action
-
-    offered = list(found.get("actions") or [])
-    name = str(found.get("name") or "")
-    # The way in is offered for anything that is running, whether or not it has an
-    # action: its settings and what it is holding live there too.
-    has_page = bool(found.get("surfaces") or offered)
-    if not offered and not has_page:
-        return
-    with ui.row().classes("items-center gap-2 w-full pt-2"):
-        for action in offered:
-            # The label is the whole of it. What the action is for is already the line
-            # under the extension's name, and saying it twice on one card is a sentence
-            # that tells nobody anything they cannot see.
-            ui.button(str(action.get("label") or action.get("key") or ""),
-                      icon=verbs.RUN,
-                      on_click=lambda _e=None, action=action:
-                          ext_action.open_action(name, action)) \
-                .props("no-caps outline") \
-                .tooltip(str(action.get("description") or ""))
-        if has_page and open_one is not None:
-            ui.space()
-            ui.button(t("console.sections.open"), icon="arrow_forward",
-                      on_click=lambda _e=None, name=name: open_one(name)) \
-                .props("flat dense no-caps")

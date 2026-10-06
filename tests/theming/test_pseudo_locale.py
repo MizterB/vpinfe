@@ -30,11 +30,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # Sections whose screens are mostly not ours to translate, and so cannot be read this
 # way: `logs` is log lines, English on purpose because a log is read by one person
-# working out what happened and moves between installs; `themes` and
-# `extensions` are third-party manifest text, and `about` is what the machine reports
-# about itself. Their chrome is covered by the static checks in
-# tests/invariants/test_i18n_catalog.py; this one would drown in their content.
-CONTENT_HEAVY = frozenset({"logs", "themes", "extensions", "about"})
+# working out what happened and moves between installs; `themes` is third-party
+# manifest text, and `about` is what the machine reports about itself. Their chrome is
+# covered by the static checks in tests/invariants/test_i18n_catalog.py; this one would
+# drown in their content.
+CONTENT_HEAVY = frozenset({"logs", "themes", "about"})
 # The collection every new install is seeded with, in each section of its panel.
 PANELS =tuple(f"view=collections&collection=Last%20Played&section={section}"
                for section in ("collection_details", "collection_games"))
@@ -177,6 +177,9 @@ class PseudoLocaleTests(unittest.TestCase):
             | {"visual", "pinball"}
             # the name the bundled VPinPlay gives its Community list, in the rail
             | {"vpinplay"}
+            # VPinPlay's Server setting, which Settings > Extensions draws as the web
+            # address it holds
+            | {"https"}
             # an art source's own name, which Library > Media lists as a source
             | {"vpinmediadb"}
             # `Last Played` is a collection *name*, written into collections.json - it

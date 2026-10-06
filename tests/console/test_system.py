@@ -41,27 +41,24 @@ class NavTests(unittest.TestCase):
         holds is the only rail an install for nothing has."""
         for features in (["nonsense"], [install_identity.CORE]):
             with self.subTest(features=features):
-                self.assertEqual(_rail(features), ["settings", "extensions",
-                                                   "metrics", "logs", "backups", "about"])
+                self.assertEqual(_rail(features),
+                                 ["settings", "metrics", "logs", "backups", "about"])
 
     def test_a_frontend_only_install_opens_on_what_it_has(self) -> None:
         """Players, because that is the first real place such an install holds. It has
-        no library, so there are no Games to open on, and Extensions is never a front
-        door."""
+        no library, so there are no Games to open on."""
         self.assertEqual(page.landing_for(_rail([install_identity.FRONTEND])),
                          "players")
 
-    def test_extensions_is_not_a_front_door(self) -> None:
-        """Guaranteed by the order rather than by an exception: Settings is `core`, so
-        it is always present and always precedes Extensions inside System."""
+    def test_an_install_for_nothing_opens_on_settings(self) -> None:
+        """Settings is `core` and first in System, so it is always present and always
+        what the rail falls back to."""
         self.assertEqual(page.landing_for(_rail([install_identity.CORE])), "settings")
         self.assertEqual(page.landing_for(_rail(install_identity.DEFAULT_FEATURES)),
                          "games")
 
-    def test_nothing_undefined_leads_the_rail_whatever_is_switched_on(self) -> None:
-        """`landing_for` used to name Extensions and skip it. Exhaustive, because the
-        exception it replaces held for every combination and an ordering has to as
-        well."""
+    def test_a_front_door_is_always_in_the_rail_whatever_is_switched_on(self) -> None:
+        """Exhaustive, because an ordering has to hold for every combination."""
         import itertools
 
         switchable = list(install_identity.FEATURES)
@@ -69,7 +66,7 @@ class NavTests(unittest.TestCase):
             for chosen in itertools.combinations(switchable, size):
                 rail = _rail([install_identity.CORE, *chosen])
                 with self.subTest(features=chosen):
-                    self.assertNotEqual("extensions", page.landing_for(rail))
+                    self.assertIn(page.landing_for(rail), rail)
 
     def test_where_you_left_off_wins_when_the_rail_still_holds_it(self) -> None:
         rail = _rail(install_identity.DEFAULT_FEATURES)
@@ -99,8 +96,7 @@ class NavTests(unittest.TestCase):
                         if parent == page.NAV_SYSTEM]
 
         self.assertEqual([key for key, *_rest in under_system[0]],
-                         ["settings", "devices", "extensions",
-                          "metrics", "logs", "backups", "about"])
+                         ["settings", "devices", "metrics", "logs", "backups", "about"])
 
     def test_what_the_frontend_owns_has_a_container_of_its_own(self) -> None:
         """The rule Library and this one make together: a feature with more than one
