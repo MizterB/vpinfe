@@ -458,12 +458,29 @@ def grid_presets(kinds: list[str], library: Any) -> dict[str, list[str] | views.
                 help=t("console.view.game_assets.help"))}
 
 
+def _nothing_yet(words: str, library: Any, state: dict[str, Any],
+                 rescan: Callable[[], Any] | None) -> None:
+    """What a page shows in place of a grid with no rows: where rows come from, and a
+    way to pick up ones that arrived by hand. A link's filter is spent here, not held
+    for the first row that appears."""
+    for key in ("arriving", "launcher", "sets"):
+        state.pop(key, None)
+    sections.metadata_line(library, state)
+    panel.facts(ui, [panel.intro(t(words, page=t("console.section.library_folders")))])
+    if rescan is not None:
+        panel.action(t("console.games.rescan"), rescan, icon=verbs.REFRESH,
+                     hint=t("console.games.rescan_hint"))()
+
+
 def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
           on_select: Callable[[dict | None], Any],
           state: dict[str, Any] | None = None,
           rerender: Callable[[], None] | None = None,
           rescan: Callable[[], Any] | None = None) -> None:
     state = state if state is not None else {}
+    if not rows:
+        _nothing_yet("console.games.empty", library, state, rescan)
+        return
     tag_chips.install(library.tag_looks())
     renderers.install_collection_looks(library.smart_collections(), ui.context.client)
     columns = grid_columns(rows, kinds, library)
@@ -1264,6 +1281,9 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     long argument about which subject each line is for.
     """
     state = state if state is not None else {}
+    if not rows:
+        _nothing_yet("console.games.empty_tables", library, state, rescan)
+        return
     tag_chips.install(library.tag_looks())
     renderers.install_setting_names(own_setting_names(library.setting_groups()))
     look = library.thumbnail_look()
