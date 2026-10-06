@@ -622,9 +622,11 @@ _SUBTITLE_RENDERER = (
     " let said = '';"
     " if (made) said += '<span class=\"console-cell-made\">' + esc(made) + '</span>';"
     " if (made && built) said += '<span class=\"console-cell-join\"> \u00b7 </span>';"
-    " if (built) said += file ? '<span class=\"console-cell-built " + FILE_CLASS + "\"><span>'"
-    " + esc(built) + '</span></span>'"
-    " : '<span class=\"console-cell-built\">' + esc(built) + '</span>';"
+    " const tip = {tip};"
+    " const hint = tip ? ' title=\"' + esc(tip) + '\"' : '';"
+    " if (built) said += file ? '<span class=\"console-cell-built " + FILE_CLASS + "\"' + hint"
+    " + '><span>' + esc(built) + '</span></span>'"
+    " : '<span class=\"console-cell-built\"' + hint + '>' + esc(built) + '</span>';"
     " const href = d['{link}_href'] || '';"
     " const away = /^https?:/.test(href) ? ' target=\"_blank\" rel=\"noopener\"' : '';"
     " const named = href ? '<a class=\"console-link\" href=\"' + esc(href) + '\"' + away"
@@ -641,7 +643,7 @@ _SUBTITLE_RENDERER = (
 def identifier(field: str, header: str, width: int = 0, help: str = "",
                subtitle: str | tuple[str, str, str] = "", link: str = "",
                picture: str = "", glyph: str = "", frame: str = list_art.LIST,
-               **extra: Any) -> dict[str, Any]:
+               built_tip: str = "", **extra: Any) -> dict[str, Any]:
     """The column this grid's rows are scanned *by*, which is not their unique key.
 
     Exactly one per grid; `build` refuses anything else.
@@ -668,6 +670,7 @@ def identifier(field: str, header: str, width: int = 0, help: str = "",
         extra.setdefault(":cellRenderer", _SUBTITLE_RENDERER
                          .replace("{picture}", f"(d['{picture}'] ?? null)" if picture else "null")
                          .replace("{link}", link or "_")
+                         .replace("{tip}", json.dumps(built_tip))
                          .replace("{made}", made)
                          .replace("{built}", f"d['{built}'] || ''" if built else "''")
                          .replace("{file}", f"!!d['{built}_file']" if built else "false")

@@ -88,7 +88,8 @@ _SOURCE = "word.source"
 
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("game", t(_GAME), 240, pinned="left", group=t(_GAME),
-                subtitle="said", picture=list_art.FIELD, glyph=icons.GAMES,
+                subtitle=("said", "", "said_built"), picture=list_art.FIELD,
+                glyph=icons.GAMES, built_tip=t("console.media_ownership.named_for"),
                 help=t("console.media.game.help")),
     grid.column("label", t("word.kind"), 160, group=t(_FILE),
                 help=t("console.media.kind.help")),
@@ -141,7 +142,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         filters={"reason": {"values": [_MISSING]}},
         help=t("console.media.view_missing.help")),
     "console.view.orphans": views.Preset(
-        columns=("game", "label", "reason", "table_file", "path"),
+        columns=("game", "label", "reason", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [_ORPHAN]}},
         help=t("console.media.view_orphans.help")),
@@ -157,7 +158,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         filters={"reason": {"values": [""]}},
         help=t("console.media.view_sources.help")),
     "console.view.everything": views.Preset(
-        columns=tuple(_ALL),
+        columns=tuple(field for field in _ALL if field != "table_file"),
         help=t("console.media.view_everything.help")),
 }
 

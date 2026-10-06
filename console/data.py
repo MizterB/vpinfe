@@ -1235,7 +1235,7 @@ class Library:
         if rows is None:
             rows = self._media_rows = self._client.all_media()
         self.load_kept_kinds()
-        self.load_list_art()
+        self.load_tables()
         return self._kept_media(rows)
 
     def media_rows(self) -> list[dict[str, Any]]:
@@ -1250,11 +1250,18 @@ class Library:
     def _kept_media(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         kept = self.kept_kinds()["media"]
         shown = self.game_art()
-        return [{**row, "said": game_tables.made(row), **_art_of(shown, row.get("game_id"))}
+        tables = self._tables_by_id()
+        return [{**row, "said": game_tables.made(row), **game_tables.named_in(row, tables),
+                 **_art_of(shown, row.get("game_id"))}
                 for row in rows if row.get("kind") in kept]
 
+    def _tables_by_id(self) -> dict[str, dict[str, Any]]:
+        """The tables as read, for naming the one a file belongs to."""
+        return {str(row.get("id") or ""): row for row in self._table_rows or []}
+
     def has_media_rows(self) -> bool:
-        return self._media_rows is not None and self._holds_list_art()
+        return (self._media_rows is not None and self._table_rows is not None
+                and self._holds_list_art())
 
     def load_asset_rows(self) -> list[dict[str, Any]]:
         """Read the asset lens, and the kept kinds it is filtered by. Off the loop."""
@@ -1262,7 +1269,7 @@ class Library:
         if rows is None:
             rows = self._asset_rows = self._client.all_assets()
         self.load_kept_kinds()
-        self.load_list_art()
+        self.load_tables()
         return self._kept_assets(rows)
 
     def asset_rows(self) -> list[dict[str, Any]]:
@@ -1272,13 +1279,15 @@ class Library:
     def _kept_assets(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         kept = self.kept_kinds()["asset"]
         shown = self.game_art()
-        return [{**row, "said": game_tables.made(row), **_art_of(shown, row.get("game_id"))}
+        tables = self._tables_by_id()
+        return [{**row, "said": game_tables.made(row), **game_tables.named_in(row, tables),
+                 **_art_of(shown, row.get("game_id"))}
                 for row in rows if row.get("kind") in kept]
 
     def files_of(self, family: str, game_id: str) -> list[dict[str, Any]]:
         """One game's rows in the media or asset lens, read fresh and kept as the whole
         lens is."""
-        self.load_list_art()
+        self.load_tables()
         if family == "media":
             return self._kept_media(self._client.media_of(game_id))
         return self._kept_assets(self._client.assets_of(game_id))
@@ -1297,7 +1306,8 @@ class Library:
         return self._client.asset_detail(game_id, path, lines)
 
     def has_asset_rows(self) -> bool:
-        return self._asset_rows is not None and self._holds_list_art()
+        return (self._asset_rows is not None and self._table_rows is not None
+                and self._holds_list_art())
 
     def high_scores(self, game_id: str, table_id: str = "") -> dict[str, Any]:
         """Asked each time the panel opens: that is when a newer score file is read."""

@@ -184,6 +184,20 @@ def table_name(table: dict[str, Any]) -> str:
     return _version_and_author(table) or _file_of(table)
 
 
+def named_in(row: dict[str, Any], tables: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """The line under a file's game that says which table it is for, as the Tables grid
+    draws it: `table_name` of the table the row names, among `tables` by id.
+
+    A file named for a table that is not here has no table to read a version from, so the
+    stem it is named for stands as a file name. A file of the game's own names none.
+    """
+    table = tables.get(str(row.get("table") or ""))
+    if table is not None:
+        return {"said_built": table_name(table), "said_built_file": names_a_file(table)}
+    stem = str(row.get("table_file") or "")
+    return {"said_built": stem, "said_built_file": bool(stem)}
+
+
 def told_apart(tables: list[dict[str, Any]]) -> dict[str, str]:
     """By id, what to add after the name of each of `tables` that reads the same as
     another: the run of its filename holding the words the rest do not all share."""

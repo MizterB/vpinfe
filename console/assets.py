@@ -76,7 +76,8 @@ _SOURCE = "word.source"
 
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("game", t(_GAME), 240, pinned="left", group=t(_GAME),
-                subtitle="said", picture=list_art.FIELD, glyph=icons.GAMES,
+                subtitle=("said", "", "said_built"), picture=list_art.FIELD,
+                glyph=icons.GAMES, built_tip=t("console.media_ownership.named_for"),
                 help=t("console.assets.game.help")),
     grid.column("label", t("word.kind"), 160, group=t(_FILE),
                 help=t("console.assets.kind.help")),
@@ -109,12 +110,12 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         filters={"reason": {"values": [MISSING]}},
         help=t("console.assets.missing_view.help")),
     "console.view.orphans": views.Preset(
-        columns=("game", "label", "reason", "table_file", "path"),
+        columns=("game", "label", "reason", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [ORPHAN]}},
         help=t("console.assets.orphans_view.help")),
     "console.view.unused": views.Preset(
-        columns=("game", "label", "reason", "used_by", "table_file", "path"),
+        columns=("game", "label", "reason", "used_by", "path"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
         filters={"reason": {"values": [UNUSED]}},
         help=t("console.assets.unused_view.help")),
@@ -125,7 +126,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         filters={"reason": {"values": [""]}},
         help=t("console.assets.sources_view.help")),
     "console.view.everything": views.Preset(
-        columns=tuple(_ALL),
+        columns=tuple(field for field in _ALL if field != "table_file"),
         help=t("console.assets.everything_view.help")),
 }
 

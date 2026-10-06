@@ -682,14 +682,15 @@ def _file_title(target: ui.column, row: dict[str, Any], game: dict[str, Any],
                                        "console-workbench-links"):
             panel.link(str(game.get("name") or ""), to="/console?" + deeplink.query(
                 {"view": "games", "game": game["id"]}))()
+        orphan = _file_tier(row) == media_ownership.ORPHAN
+        if table is None and not orphan:
+            return
         with ui.element("div").classes("console-workbench-table console-workbench-links"):
             if table is not None:
                 panel.link(_table_line(table), to="/console?" + deeplink.query(
                     {"view": "tables", "game": game["id"], "table": table["id"]}))()
-            elif _file_tier(row) == media_ownership.ORPHAN:
-                ui.label(str(row.get("table_file") or ""))
             else:
-                ui.label(t(media_ownership.tier_for(media_ownership.GAME).noun))
+                ui.label(str(row.get("table_file") or ""))
 
 
 def _file_tier(row: dict[str, Any]) -> str:
@@ -727,8 +728,8 @@ async def _media_file_block(context: dict[str, Any]) -> None:
     matched = await _match_line(context, kind, (detail or {}).get("matched_to")
                                 or entry.get("matched_to"))
     _slot(context, kind, entry, detail, context["rebuild"],
-          (overrides or {}).get(kind) or [], titled=False, in_place=False, links=links,
-          matched=matched)
+          (overrides or {}).get(kind) or [], titled=False, in_place=False, scope_chip=False,
+          links=links, matched=matched)
 
 
 def _loose_media(context: dict[str, Any]) -> None:
@@ -788,7 +789,8 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
             else:
                 with ui.row().classes("items-start gap-2 w-full no-wrap"):
                     ui.label(path).classes("console-slot-file grow min-w-0")
-                    media_ownership.badge(tier)
+                    if tier not in media_ownership.SCOPES:
+                        media_ownership.badge(tier)
                     if glass and not glass["damaged"]:
                         _backglass_chips(glass)
                 spec = _asset_spec(detail)
@@ -1876,7 +1878,7 @@ def _used_as(candidate: dict[str, Any]) -> str:
 def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
           detail: dict[str, Any] | None, draw: Any,
           differing: list[dict[str, Any]] | None = None, *,
-          titled: bool = True, in_place: bool = True,
+          titled: bool = True, in_place: bool = True, scope_chip: bool = True,
           links: Sequence[dict[str, Any]] = (), matched: str = "") -> None:
     """One slot: the art at the size of the room, and what there is to know about it.
 
@@ -1957,7 +1959,9 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
             if present:
                 with ui.row().classes("items-start gap-2 w-full no-wrap"):
                     ui.label(file_name).classes("console-slot-file grow min-w-0")
-                    media_ownership.badge(detail.get("via") or entry.get("via"))
+                    via = detail.get("via") or entry.get("via")
+                    if scope_chip or media_ownership.key_of(via) not in media_ownership.SCOPES:
+                        media_ownership.badge(via)
                 refused = plays_on.refusals(detail.get("video_codec"),
                                             context.get("devices") or [], _local_id(context))
                 if refused:

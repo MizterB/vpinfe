@@ -121,6 +121,8 @@ _TIERS = {
 # cell is not a state anybody looks up - and `STATES` is all four, for a caller that
 # has to map every one.
 STATES = (TABLE, GAME, STAND_IN, MISSING)
+# The two states that say whose file this is, as against the ones that say what is wrong.
+SCOPES = (TABLE, GAME)
 LEGEND = (TABLE, GAME, STAND_IN)
 
 
