@@ -278,7 +278,7 @@ class CollectionAddsDrive(unittest.TestCase):
             await outside()
             await said(t("console.workbench.restore_into", name=SMART), lambda: browser.click(
                 ".console-section-work .console-member-row button",
-                nth=[row for row, _b in seen["game_panel"]].index(f"{SMART} / Taken out")),
+                nth=[row for row, _b in seen["game_panel"]].index(f"{SMART} / Manually removed")),
                 drawn=newer(".console-section-work .console-member-row"))
             seen["put_back"] = refs(SMART)
 
@@ -286,7 +286,7 @@ class CollectionAddsDrive(unittest.TestCase):
             rows = [row for row, _b in await browser.evaluate(PANEL_ROWS)]
             seen["panel_x_said"] = await said("Removed from", lambda: browser.click(
                 ".console-section-work .console-member-row button",
-                nth=rows.index(f"{HAND} / Added")))
+                nth=rows.index(f"{HAND} / Manually added")))
             seen["panel_x_refs"] = refs(HAND)
             await undo("Removed from")
             seen["panel_x_undone"] = refs(HAND)
@@ -337,8 +337,8 @@ class CollectionAddsDrive(unittest.TestCase):
     def test_the_add_box_stays_open_and_focused_for_the_next(self) -> None:
         self.assertEqual([True, True], self.seen["box_after"])
 
-    def test_a_game_s_panel_shows_where_it_was_taken_out_and_puts_it_back(self) -> None:
-        self.assertIn([f"{SMART} / Taken out", True], self.seen["game_panel"])
+    def test_a_game_s_panel_shows_where_it_was_removed_and_puts_it_back(self) -> None:
+        self.assertIn([f"{SMART} / Manually removed", True], self.seen["game_panel"])
         self.assertIn(("bravo", "", "filter"), self.seen["put_back"])
 
     def test_a_game_s_panel_offers_every_collection_and_a_new_one(self) -> None:

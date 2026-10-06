@@ -2741,9 +2741,9 @@ def _score_caption(line: str) -> None:
     ui.label(line).classes("console-help")
 
 
-HELD_HOW = {"added": "console.workbench.held_added",
-            "matched": "console.workbench.held_by_rule",
-            "taken_out": "console.workbench.held_taken_out"}
+HELD_HOW = {"added": "console.workbench.held_manually_added",
+            "matched": "console.workbench.held_rule_matched",
+            "taken_out": "console.workbench.held_manually_removed"}
 
 
 async def _collections_block(context: dict[str, Any]) -> None:
@@ -2793,7 +2793,8 @@ def _collection_row(context: dict[str, Any], one: dict[str, Any]) -> None:
         with ui.row().classes("items-center gap-2 grow min-w-0 no-wrap"):
             panel.link(name, to="/console?" + deeplink.query(
                 {"view": "collections", "collection": name}))()
-            ui.label(t(HELD_HOW.get(str(one.get("how")), "console.workbench.held_added"))) \
+            ui.label(t(HELD_HOW.get(str(one.get("how")),
+                                    "console.workbench.held_manually_added"))) \
                 .classes("console-member-chip console-tier console-tier--off")
         with ui.element("div").classes("console-row-action"):
             if how == "taken_out":
@@ -6030,18 +6031,17 @@ def _location_state(row: dict[str, Any]) -> Callable[[], None]:
 
 async def _collection_details(context: dict[str, Any]) -> None:
     row = _collection(context)
-    said = ((context.get("settings") or {}).get("behavior") or {}).get("paging_size")
-    held = config_schema.option("behavior", "paging_size")
-    size = int(said or (held.default if held else 0) or 0)
     entries: list[tuple[Any, Any]] = [
         (HEADING, t("console.workbench.this_collection")),
         (t("word.name"), _text_control(context, row, "name")),
         (t("console.workbench.description"), _text_control(context, row, "description",
                 lines=3)),
         (HEADING, t("console.workbench.frontend")),
-        (t("console.workbench.frontend_visible"), _in_frontend_switch(context, row)),
-        (t("console.workbench.start_view"), _opens_on_switch(context, row)),
-        (t("console.workbench.page_buttons"), _page_buttons(context, row, size)),
+        (t("console.workbench.in_menu"), _in_frontend_switch(context, row)),
+        (t("console.workbench.open_on"), _open_on(context, row)),
+        panel.note(t("console.workbench.open_on.help")),
+        (t("console.workbench.page_by"), _page_by(context, row)),
+        panel.note(t("console.workbench.page_by.help")),
         (FULL, partial(_image_slot, context, row)),
     ]
     with ui.column().classes("gap-0 console-form"):
@@ -6117,50 +6117,57 @@ def _in_frontend_switch(context: dict[str, Any], row: dict[str, Any]) -> Callabl
         if bool(event.value) != shown:
             await _patch(context, {"in_frontend": bool(event.value)})
 
-    return panel.switch(shown, changed, hint=t("console.workbench.frontend_visible.help"))
+    return panel.switch(shown, changed, hint=t("console.workbench.in_menu.help"))
 
 
-def _opens_on_switch(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
-    """Whether the frontend opens on this collection, written to the one setting there
-    is for it: on here is off wherever it was."""
+def _open_on(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
+    """What the frontend opens on, and the one act that moves it: to this collection, or
+    back to all games. The value is the setting Settings shows, written the same way."""
     name = str(row.get("name") or "")
     behavior = (context.get("settings") or {}).get("behavior") or {}
     now = str(behavior.get("startup_collection") or "").strip()
     here = bool(name) and now == name
 
     @on_page
-    async def changed(event: Any) -> None:
-        if bool(event.value) == here:
-            return
+    async def use() -> None:
         try:
             await run.io_bound(context["library"].put_config, {"behavior": {
-                "startup_collection": name if event.value else ""}})
+                "startup_collection": "" if here else name}})
         except Exception as exc:
             ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
             return
         await _written(context)
 
-    hint = (t("console.workbench.start_view.here") if here
-            else t("console.workbench.start_view.elsewhere", name=now) if now
-            else t("console.workbench.start_view.everything"))
-    return panel.switch(here, changed, hint=hint)
+    def draw() -> None:
+        with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
+            ui.label(now or t("console.workbench.open_on.all_games")) \
+                .classes("console-fact-value truncate min-w-0")
+            panel.action(
+                t("console.workbench.open_on.use_all" if here
+                  else "console.workbench.open_on.use_this"), use, inline=True,
+                icon=verbs.OPENS_ON,
+                hint=t("console.workbench.open_on.use_all.help" if here
+                       else "console.collections.opens_on.help"))()
+
+    return draw
 
 
-_PAGE_BY_GROUP = {"letter": "console.workbench.by_letter",
-                  "year": "console.workbench.by_year",
-                  "rating": "console.workbench.by_rating"}
+_PAGE_BY_GROUP = frozenset({"letter", "year", "rating"})
 
 
-def _page_buttons(context: dict[str, Any], row: dict[str, Any],
-                  size: int) -> Callable[[], None]:
+def _page_by(context: dict[str, Any], row: dict[str, Any]) -> Callable[[], None]:
     """Where the order has no groups the frontend moves by the count, so a stored group
     is shown as that."""
     stored = row.get("paging_group") or ""
     group = group_kind(row.get("order_by") or DEFAULT_ORDER_BY)
-    options = {"": t("console.workbench.size_default")}
+    choices = config_schema.option("behavior", "paging_group")
+    said = ((context.get("settings") or {}).get("behavior") or {}).get("paging_group")
+    current = str(said or (choices.default if choices else "") or "count")
+    word = {key: t(f"config.behavior.paging_group.choice.{key}") for key in ("sort", "count")}
+    options = {"": t("console.workbench.page_by.same", choice=word.get(current, ""))}
     if group in _PAGE_BY_GROUP:
-        options["sort"] = t(_PAGE_BY_GROUP[group])
-    options["count"] = t("console.workbench.page_size", count=size)
+        options["sort"] = word["sort"]
+    options["count"] = word["count"]
     shown = stored if stored in options else "count"
 
     async def changed(event: Any) -> None:
@@ -6793,7 +6800,7 @@ def _games_list(context: dict[str, Any], row: dict[str, Any],
     # Grouped, not inline: a handful of rows somebody took out do not belong scattered
     # through forty they left in, and they are the ones most likely to be wanted back.
     if excluded:
-        ui.label(t("console.workbench.taken_3", count=(len(excluded)))) \
+        ui.label(t("console.workbench.removed_count", count=(len(excluded)))) \
             .classes("console-group mt-3")
         with ui.column().classes("gap-0 w-full"):
             for member in excluded:
@@ -6855,7 +6862,7 @@ def _games_heading(playable: int, hidden: int, taken: int) -> str:
     if hidden:
         return t("console.workbench.count_hidden", count=playable, hidden=hidden)
     if taken:
-        return t("console.workbench.count_taken", count=playable, taken=taken)
+        return t("console.workbench.count_removed", count=playable, taken=taken)
     return t("console.workbench.count_games", count=playable)
 
 
@@ -6898,7 +6905,7 @@ def _member_line(context: dict[str, Any], member: dict[str, Any], *,
                     .classes("console-member-name console-cell-identifier grow min-w-0 "
                              "truncate")
                 if smart and origin == "named":
-                    ui.label(t("console.workbench.held_added")) \
+                    ui.label(t("console.workbench.held_manually_added")) \
                         .classes("console-member-chip console-tier console-tier--off") \
                         .tooltip(t("console.workbench.added_by_hand"))
                 if gone and origin != "excluded":
@@ -6920,7 +6927,7 @@ def _member_line(context: dict[str, Any], member: dict[str, Any], *,
                         ui.label(game_tables.JOIN.strip()).classes("console-cell-join")
                     if said:
                         # The line already answers "which table does this use?", so it
-                        # is also where that is changed. Taken-out rows are not in the
+                        # is also where that is changed. Removed rows are not in the
                         # collection and have nothing to point anywhere, and a preview
                         # is not stored yet.
                         _table_choice(context, member, table, said,
@@ -7134,7 +7141,7 @@ def _member_action(context: dict[str, Any], member: dict[str, Any],
     Removing says the same word whichever way the row got here, because that is the
     one intent a reader has. Underneath it differs - a matched row has to be recorded
     as an exclusion or the rule finds it again - but the list says so by moving it
-    into "Taken out", which is better than a tooltip explaining it in advance.
+    into "Manually removed", which is better than a tooltip explaining it in advance.
     """
     library = context["library"]
     name = _collection(context)["name"]

@@ -595,7 +595,7 @@ until then the chain reports `required: null`.
   table, and one word cannot be both.
 - **Frontend** - the software a player picks a table and plays in: ours, or another one an
   import reads from. On screen it is the word for anything shown, offered or opened there
-  (*In Frontend*, *The frontend opens on this collection*), and the Console area that sets
+  (*In the Frontend*, *The frontend opens on this collection*), and the Console area that sets
   it up is named for it. A collection's `in_frontend` is the same word on the wire.
 - **Cabinet** - the physical cabinet only: Cabinet Mode, how a screen is mounted in it, a
   theme made for a cabinet rather than a desktop, and VPX's own labels. Never the frontend

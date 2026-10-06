@@ -153,7 +153,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `paging_group` | choice (sort, count) | `sort` | Page by |
 | `paging_size` | int | `10` | Paging Size |
-| `startup_collection` | string |  | The collection the frontend shows first. Empty shows all games. |
+| `startup_collection` | string |  | The collection the frontend shows first |
 | `restore_last_table` | bool | `true` | Restore Last Table |
 | `splashscreen` | bool | `false` | Enable Splash Screen |
 | `confirm` | bool | `false` | Ask before quitting VPinFE or powering off this device. Closing the frontend never asks. |

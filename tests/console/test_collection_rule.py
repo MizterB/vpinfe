@@ -227,12 +227,12 @@ class WhatTheRuleDoesNotSay(unittest.TestCase):
 
     def test_games_added_and_taken_out_are_counted_after_the_rule(self) -> None:
         self.assertEqual("Every game where you have played it, plus 1 you added, "
-                         "minus 2 you took out", _said({"played": True}, 1, 2))
+                         "minus 2 you removed", _said({"played": True}, 1, 2))
 
     def test_only_what_there_is_is_counted(self) -> None:
         self.assertEqual("Every game where you have played it, plus 1 you added",
                          _said({"played": True}, added=1))
-        self.assertEqual("Every game where you have played it, minus 1 you took out",
+        self.assertEqual("Every game where you have played it, minus 1 you removed",
                          _said({"played": True}, taken=1))
 
 

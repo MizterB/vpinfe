@@ -56,7 +56,7 @@ _ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt
 _NAME = (
     "params => {" + _ESCAPE +
     f" const tip = esc({json.dumps(t('console.collections.opens_on.help'))});"
-    f" const off = esc({json.dumps(t('console.collections.out_frontend.help'))});"
+    f" const off = esc({json.dumps(t('console.collections.out_menu.help'))});"
     f" const unsaved = esc({json.dumps(t('word.not_saved'))});"
     f" const why = esc({json.dumps(t('console.collections.not_saved.help'))});"
     " const d = params.data || {};"
@@ -106,12 +106,12 @@ COLUMNS = [
     grid.column("count", t("console.collections.games"), 170,
                 help=t("console.collections.games.help"),
                 **{**_NUMERIC, ":cellRenderer": _GAMES}),
-    grid.column("added", t("console.collections.added"), **_NUMERIC,
-                help=t("console.collections.added.help")),
-    grid.column("matched", t("console.collections.by_rule"), **_NUMERIC,
-                help=t("console.collections.by_rule.help")),
-    grid.column("excluded", t("console.collections.taken_out"), **_NUMERIC,
-                help=t("console.collections.taken_out.help")),
+    grid.column("added", t("console.collections.manually_added"), **_NUMERIC,
+                help=t("console.collections.manually_added.help")),
+    grid.column("matched", t("console.collections.rule_matched"), **_NUMERIC,
+                help=t("console.collections.rule_matched.help")),
+    grid.column("excluded", t("console.collections.manually_removed"), **_NUMERIC,
+                help=t("console.collections.manually_removed.help")),
     grid.column("order", t("console.collections.order"), 200,
                 help=t("console.collections.order.help")),
     grid.column("limit", t("console.collections.limit"), **_NUMERIC,
@@ -120,8 +120,8 @@ COLUMNS = [
                 help=t("console.collections.missing.help")),
     grid.column("hidden", t("word.hidden"), **_NUMERIC,
                 help=t("console.collections.hidden.help")),
-    grid.column("in_frontend", t("console.collections.in_frontend"),
-                help=t("console.collections.in_frontend.help"),
+    grid.column("in_frontend", t("console.collections.in_menu"),
+                help=t("console.collections.in_menu.help"),
                 **{":valueFormatter": "params => params.value ? '\u2713' : ''",
                    "cellClass": "console-tick", ":cellRenderer": None,
                    **grid.choice_filter([{"value": True, "label": t("word.yes")},
