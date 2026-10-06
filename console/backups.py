@@ -58,13 +58,13 @@ KIND_WORDS = {
     kept_copies.KIND_ARCHIVE: "console.backups.kind.backup",
 }
 WHY_WORDS = {
-    kept_copies.WHY_UPGRADE: "console.backups.why.upgrade",
-    kept_copies.WHY_RESTORE: "console.backups.why.restore",
-    kept_copies.WHY_IMPORT: "console.backups.why.import",
-    kept_copies.WHY_RESET: "console.backups.why.reset",
-    kept_copies.WHY_FIRST_CHANGE: "console.backups.why.first_change",
-    kept_copies.WHY_UPDATE: "console.backups.why.update",
-    kept_copies.WHY_YOURS: "console.backups.why.yours",
+    kept_copies.WHY_UPGRADE: "console.backups.reason.upgrade",
+    kept_copies.WHY_RESTORE: "console.backups.reason.restore",
+    kept_copies.WHY_IMPORT: "console.backups.reason.import",
+    kept_copies.WHY_RESET: "console.backups.reason.reset",
+    kept_copies.WHY_FIRST_CHANGE: "console.backups.reason.first_change",
+    kept_copies.WHY_UPDATE: "console.backups.reason.update",
+    kept_copies.WHY_YOURS: "console.backups.reason.yours",
 }
 BY_WORDS = {kept_copies.BY_2X: "console.backups.by.2x", kept_copies.BY_3X: "console.backups.by.3x"}
 
@@ -108,8 +108,8 @@ def _choices(words: dict[str, str]) -> list[dict[str, Any]]:
 
 
 COLUMNS = [
-    grid_module.identifier("of", t("console.backups.of"), 220, pinned="left",
-                           help=t("console.backups.of.help"),
+    grid_module.identifier("of", t("console.backups.name"), 220, pinned="left",
+                           help=t("console.backups.name.help"),
                            **{":getQuickFilterText":
                               "params => [(params.data || {}).of, (params.data || {}).holds]"
                               ".filter(Boolean).join(' ')"}),
@@ -119,8 +119,8 @@ COLUMNS = [
     grid_module.column("taken", t("console.backups.taken"), 190,
                        tooltipField="taken_utc", help=t("console.backups.taken.help"),
                        **TAKEN_FILTER),
-    grid_module.column("why", t("console.backups.why"), 160,
-                       help=t("console.backups.why.help"),
+    grid_module.column("why", t("console.backups.reason"), 160,
+                       help=t("console.backups.reason.help"),
                        **grid_module.choice_filter(_choices(WHY_WORDS))),
     grid_module.column("note", t("console.backups.note"), 220,
                        help=t("console.backups.note.help")),
@@ -206,7 +206,7 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
         "written_by": one.get("written_by") or "",
         "why": one.get("why") or "",
         "why_text": "" if one.get("why") in (kept_copies.WHY_YOURS, None)
-        else t(WHY_WORDS.get(str(one["why"]), "console.backups.why.yours")),
+        else t(WHY_WORDS.get(str(one["why"]), "console.backups.reason.yours")),
         "within": bool(one.get("within")),
         "within_id": str(one.get("within") or ""),
         "version": one.get("version") or "",
@@ -558,7 +558,7 @@ async def ask_details(suggested: str,
         await take(wanted["name"].strip(), wanted["note"].strip())
 
     with frame.opened(t("console.backups.back_up_title")) as box:
-        panel.facts(ui, [(t("console.backups.of"), lambda: _name_input(wanted, held)),
+        panel.facts(ui, [(t("console.backups.name"), lambda: _name_input(wanted, held)),
                          (t("console.backups.note"), lambda: _note_input(wanted, held))])
         with frame.footer():
             frame.cancel(box.close)
@@ -631,7 +631,7 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
 
     with frame.opened(t("console.backups.back_up_title")) as box:
         panel.facts(ui, [(t("console.backups.what"), draw_what),
-                         (t("console.backups.of"), lambda: _name_input(wanted, held)),
+                         (t("console.backups.name"), lambda: _name_input(wanted, held)),
                          (t("console.backups.note"), lambda: _note_input(wanted, held))])
         with frame.footer():
             frame.cancel(box.close)
@@ -643,12 +643,12 @@ async def _ask_now(library: Library, refresh: Callable[[], Awaitable[None]]) -> 
 # --- the panel ------------------------------------------------------------------
 
 REASON_LINES = {
-    kept_copies.WHY_UPGRADE: "console.backups.why_line.upgrade",
-    kept_copies.WHY_RESTORE: "console.backups.why_line.restore",
-    kept_copies.WHY_IMPORT: "console.backups.why_line.import",
-    kept_copies.WHY_RESET: "console.backups.why_line.reset",
-    kept_copies.WHY_FIRST_CHANGE: "console.backups.why_line.first_change",
-    kept_copies.WHY_UPDATE: "console.backups.why_line.update",
+    kept_copies.WHY_UPGRADE: "console.backups.reason_line.upgrade",
+    kept_copies.WHY_RESTORE: "console.backups.reason_line.restore",
+    kept_copies.WHY_IMPORT: "console.backups.reason_line.import",
+    kept_copies.WHY_RESET: "console.backups.reason_line.reset",
+    kept_copies.WHY_FIRST_CHANGE: "console.backups.reason_line.first_change",
+    kept_copies.WHY_UPDATE: "console.backups.reason_line.update",
 }
 # Where the name of what a copy is of opens, per kind of owner. A theme has a page and no
 # address of its own.
@@ -746,11 +746,11 @@ async def details(context: dict[str, Any]) -> None:
         entries.append((t("console.backups.note"), _note(context)))
     else:
         if row["of"]:
-            entries.append((t("console.backups.of"), _of(row)))
+            entries.append((t("console.backups.name"), _of(row)))
         entries.append((t("word.kind"),
                         t(KIND_WORDS.get(row["kind"], "console.backups.kind.records"))))
         if row["why"] in REASON_LINES:
-            entries += [(t("console.backups.why"), t(WHY_WORDS[row["why"]])),
+            entries += [(t("console.backups.reason"), t(WHY_WORDS[row["why"]])),
                         panel.note(t(REASON_LINES[row["why"]]))]
     if row["note"] and row["of_kind"] != kept_copies.OF_ARCHIVE:
         entries.append((t("console.backups.note"), row["note"]))

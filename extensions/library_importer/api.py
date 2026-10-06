@@ -586,7 +586,7 @@ def build(ctx: Any) -> None:
             rows.append([going_into,
                          ctx.t("wizard.summary.library_folder", folder=library.root)])
         else:
-            rows.append([going_into, ctx.t("wizard.summary.default_location")])
+            rows.append([going_into, ctx.t("wizard.summary.default_folder")])
         if need:
             rows.append([ctx.t("wizard.summary.space"),
                          ctx.t("wizard.summary.space_free", size=plan_for.size_of(need),

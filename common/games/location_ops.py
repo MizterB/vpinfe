@@ -64,7 +64,7 @@ def _shadowed() -> Any:
 def _location_or_refuse(location_id: str) -> None:
     if locations.get_location_store().get(location_id) is None:
         raise service_errors.NotFoundError(
-            t("error.locations.unknown_location", location_id=(location_id)))
+            t("error.locations.unknown_folder", location_id=(location_id)))
 
 
 def listing() -> dict[str, Any]:
@@ -188,7 +188,7 @@ def forget(location_id: str) -> dict[str, Any]:
     folder, so it leaves with the location and is there again if it comes back."""
     if not locations.get_location_store().remove(location_id):
         raise service_errors.NotFoundError(
-            t("error.locations.unknown_location", location_id=(location_id)))
+            t("error.locations.unknown_folder", location_id=(location_id)))
     return {"removed": location_id}
 
 
@@ -241,5 +241,5 @@ def adopt(location_id: str, path: str) -> dict[str, Any]:
 def set_write_to(location_id: str) -> dict[str, Any]:
     if not locations.get_location_store().set_write_to(location_id):
         raise service_errors.NotFoundError(
-            t("error.locations.unknown_location", location_id=(location_id)))
+            t("error.locations.unknown_folder", location_id=(location_id)))
     return {"write_to": location_id}

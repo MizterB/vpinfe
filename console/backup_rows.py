@@ -30,8 +30,8 @@ COLUMNS = [
                            **backups.TAKEN_FILTER),
     grid_module.column("file", t("word.file"), 260, tooltipField="path",
                        help=t("console.backups.file.help")),
-    grid_module.column("why_text", t("console.backups.why"), 150,
-                       help=t("console.backups.why.help")),
+    grid_module.column("why_text", t("console.backups.reason"), 150,
+                       help=t("console.backups.reason.help")),
     grid_module.column("note", t("console.backups.note"), 200,
                        help=t("console.backups.note.help")),
     grid_module.column("size", t("word.size"), 100, type="numericColumn",
@@ -136,7 +136,7 @@ async def open_for(library: Library, of_kind: str, of_id: str, name: str,
     by_id = {one["id"]: one for one in built}
     seek = next((str(one["of_name"]) for one in built if one.get("of_name")), name)
 
-    with frame.opened(t("console.backups.of_title", name=name),
+    with frame.opened(t("console.backups.title", name=name),
                       classes="console-backups-card") as box:
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col px-3"):
             table: ui.aggrid = grid_module.build(

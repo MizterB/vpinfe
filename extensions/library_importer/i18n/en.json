@@ -73,7 +73,7 @@
   "wizard.summary.how.move": "Moved",
   "wizard.summary.how.in_place": "Each loose table gets a folder of its own where it lies",
   "wizard.summary.going_into": "Going into",
-  "wizard.summary.default_location": "the location new games go to",
+  "wizard.summary.default_folder": "the library folder new games go to",
   "wizard.summary.library_folder": "{folder}, as a library folder",
   "wizard.summary.space": "Space needed",
   "wizard.summary.space_free": "{size}, with {free} free on {where}",
