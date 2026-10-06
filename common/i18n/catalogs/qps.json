@@ -772,6 +772,22 @@
   "console.backups.written_by": "Ŵřîţţèñ ƀý",
   "console.backups.written_by.help": "Ţĥè ṼÞîñƑÈ ţĥàţ ŵřöţè ţĥè ƒîŀè ţĥè çöþý ĥöŀđš",
   "console.backups.yours_view.help": "Ţĥè ƀàçķûþš ýöû ţööķ ŵîţĥ Ɓàçķ ûþ ñöŵ",
+  "console.backups.clean_line": "{group}: {counted}",
+  "console.backups.clean_title": "Çŀèàñ ûþ ƀàçķûþš",
+  "console.backups.clean_up": "Çŀèàñ ûþ...",
+  "console.backups.group.two_x": "2.ẋ çöþîèš",
+  "console.backups.group.two_x_help": "ṼÞîñƑÈ 2.ẋ çàñ ñö ŀöñĝèř þûţ ýöûř ŀîƀřàřý ƀàçķ.",
+  "console.backups.group.yours": "Ýöûřš öŀđèř ţĥàñ",
+  "console.backups.group.automatic": "Àûţöɱàţîç öŀđèř ţĥàñ",
+  "console.backups.group.months": "ɱöñţĥš",
+  "console.backups.group.yours_age": {
+    "one": "Ýöûřš öŀđèř ţĥàñ 1 ɱöñţĥ",
+    "other": "Ýöûřš öŀđèř ţĥàñ {count} ɱöñţĥš"
+  },
+  "console.backups.group.automatic_age": {
+    "one": "Àûţöɱàţîç öŀđèř ţĥàñ 1 ɱöñţĥ",
+    "other": "Àûţöɱàţîç öŀđèř ţĥàñ {count} ɱöñţĥš"
+  },
   "console.binding_editor.shared": "Àŀšö ƀöûñđ ţö {others} - öñŀý ţĥè ƒîřšţ öñè ĝèţš îţ",
   "console.binding_editor.remove_detail": "Öñçè řèɱöṽèđ, îţ çàññöţ ƀè ƀöûñđ àĝàîñ ƒřöɱ ţĥîš þàĝè",
   "console.binding_editor.remove_2": "Řèɱöṽè “{shown}”?",

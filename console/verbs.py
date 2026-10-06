@@ -45,6 +45,7 @@ CLEAR = "backspace"
 REMOVE = "remove"
 DELETE = "delete_outline"
 UNINSTALL = "delete_outline"
+CLEAN = "cleaning_services"
 # Keeping out what a rule would bring back.
 EXCLUDE = "close"
 

@@ -21,6 +21,7 @@ from common.failures import why
 from common.i18n import t
 from console import (
     about,
+    backup_cleanup,
     busy,
     confirm,
     deeplink,
@@ -282,6 +283,10 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                                  lambda: delete(library, picked(), refresh)) \
                         .classes("console-menu-item console-menu-danger")
                 bulk.set_visibility(False)
+                if built:
+                    panel.icon_only(verbs.CLEAN,
+                                    lambda: backup_cleanup.ask(library, built, refresh),
+                                    hint=t("console.backups.clean_up"))
                 panel.add_action([(t("console.backups.take_now"),
                                    lambda: _ask_now(library, refresh))],
                                  empty=not built)

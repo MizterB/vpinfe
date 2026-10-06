@@ -772,6 +772,22 @@
   "console.backups.written_by": "Written by",
   "console.backups.written_by.help": "The VPinFE that wrote the file the copy holds",
   "console.backups.yours_view.help": "The backups you took with Back up now",
+  "console.backups.clean_line": "{group}: {counted}",
+  "console.backups.clean_title": "Clean up backups",
+  "console.backups.clean_up": "Clean up...",
+  "console.backups.group.two_x": "2.x copies",
+  "console.backups.group.two_x_help": "VPinFE 2.x can no longer put your library back.",
+  "console.backups.group.yours": "Yours older than",
+  "console.backups.group.automatic": "Automatic older than",
+  "console.backups.group.months": "months",
+  "console.backups.group.yours_age": {
+    "one": "Yours older than 1 month",
+    "other": "Yours older than {count} months"
+  },
+  "console.backups.group.automatic_age": {
+    "one": "Automatic older than 1 month",
+    "other": "Automatic older than {count} months"
+  },
   "console.binding_editor.shared": "Also bound to {others} - only the first one gets it",
   "console.binding_editor.remove_detail": "Once removed, it cannot be bound again from this page",
   "console.binding_editor.remove_2": "Remove “{shown}”?",
