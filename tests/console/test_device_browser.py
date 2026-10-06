@@ -9,7 +9,7 @@ import requests
 
 from common.host import frontend_browser as fb
 from common.i18n import t
-from console import devices
+from console import browser_state, devices
 
 CAB = {"device_id": "Bbbb222222", "address": "192.168.1.50", "port": 8001,
        "browser": {"state": "no_h264", "name": "Chromium 145.0.7632.0",
@@ -38,7 +38,7 @@ class GridTests(unittest.TestCase):
         self.assertEqual(self._cell({"device_id": "Pppp444444"}), "")
 
     def test_only_the_states_worth_noticing_draw_a_chip(self) -> None:
-        self.assertEqual(set(devices.BROWSER_STATES),
+        self.assertEqual(set(browser_state.STATES),
                          {fb.NO_H264, fb.NO_VIDEO, fb.NO_BROWSER, fb.UNKNOWN})
 
     def test_the_column_is_in_the_view_the_page_opens_on(self) -> None:

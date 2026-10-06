@@ -38,6 +38,7 @@ from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
     binding_table,
+    browser_state,
     busy,
     chrome_options,
     confirm,
@@ -648,36 +649,21 @@ FOOTERS: dict[str, Callable] = {"updates": _vps_foot, "themes": _themes_foot,
                                  recording.SECTION: recording.foot}
 
 
-def _browser_rows(found: dict[str, Any], chosen: str) -> list[tuple[Any, Any]]:
-    """Which browser runs, from where, and what it plays, as the frontend last found."""
-    path = str(found.get("path") or "")
-
-    def came_from() -> None:
-        shown = ui.label(t("console.settings.browser_bundled") if found.get("bundled")
-                         else path).classes("console-fact-value truncate min-w-0")
-        if found.get("variant") == "slim":
-            shown.tooltip(t("console.settings.browser_slim_build"))
-        elif path:
-            shown.tooltip(path)
-
-    source = [] if path and path == chosen.strip() else \
-        [(t("console.settings.browser_from"), came_from)]
+def _browser_rows(found: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """Which browser runs and what it plays, as the frontend last found."""
+    rows: list[tuple[Any, Any]] = [(
+        t("console.settings.browser"),
+        browser_state.value(str(found.get("browser") or ""), str(found.get("state") or ""),
+                            t("word.unknown")))]
     if not found.get("reported_at"):
-        def unchecked() -> None:
-            ui.label(t("console.settings.browser_not_checked")) \
-                .classes("console-fact-value").tooltip(t("console.settings.browser_checked_when"))
-        return [(t("console.settings.browser_in_use"), unchecked), *source]
+        return rows
 
     def checked() -> None:
         stamp = str(found.get("reported_at") or "")
         ui.label(when.ago(stamp)).classes("console-fact-value").tooltip(when.local(stamp))
 
-    rows: list[tuple[Any, Any]] = [
-        (t("console.settings.browser_in_use"), str(found.get("browser") or t("word.unknown"))),
-        *source,
-        (t("console.settings.browser_plays"), ", ".join(found.get("plays") or [])
-            or t("word.none")),
-    ]
+    rows.append((t("console.settings.browser_plays"), ", ".join(found.get("plays") or [])
+                 or t("word.none")))
     if found.get("does_not_play"):
         rows.append((t("console.settings.browser_unsupported"),
                      ", ".join(found["does_not_play"])))
@@ -736,7 +722,7 @@ async def _browser_head(library: Library, rerender: Callable[[], None],
     if not found:
         return []
     chosen = str((values.get("chromium") or {}).get("path") or "")
-    rows = _browser_rows(found, chosen)
+    rows = _browser_rows(found)
     if found.get("finding"):
         rows.insert(0, (panel.FULL, lambda: _browser_finding(library, rerender, found, chosen)))
     return rows
@@ -1142,6 +1128,25 @@ def _left_empty(row: dict) -> dict[str, str]:
     return {"blank": t("word.not_found"), "left_empty": tools.words(row.get("remedy") or {})}
 
 
+def with_browser_found(schema: list[dict], found: dict[str, Any]) -> list[dict]:
+    """The Browser Program field saying, left empty, which browser the windows will open."""
+    blank = _browser_left_empty(found)
+    return [{**block, "options": [{**option, **blank} if option.get("key") == "path" else option
+                                  for option in block.get("options") or []]}
+            if block.get("name") == "chromium" else block
+            for block in schema]
+
+
+def _browser_left_empty(found: dict[str, Any]) -> dict[str, str]:
+    path = str(found.get("path") or "")
+    if found.get("state") == frontend_browser.NO_BROWSER:
+        return {"blank": t("word.not_found"),
+                "left_empty": t("console.settings.browser_slim_build")
+                if found.get("variant") == "slim" else str(found.get("fix_text") or "")}
+    return {"blank": t("console.settings.browser_found_bundled") if found.get("bundled")
+            else t("console.settings.browser_found", path=path), "left_empty": path}
+
+
 def tool_marks(found: list[dict], values: dict,
                marks: dict[tuple[str, str], dict]) -> dict[tuple[str, str], dict]:
     """`marks`, with each set Tool path whose program is there and does not run marked."""
@@ -1230,6 +1235,14 @@ async def _tools_found(library: Library, sections: tuple[str, ...]) -> list[dict
     except Exception as exc:  # noqa: BLE001 - the fields are drawn without it
         logger.warning("Could not read what the Tools found: %s", why(exc))
         return []
+
+
+async def _browser_found(library: Library) -> dict[str, Any]:
+    try:
+        return await offload.io(library.frontend_browser)
+    except Exception as exc:  # noqa: BLE001 - the field is drawn without it
+        logger.warning("Could not read the browser the frontend found: %s", why(exc))
+        return {}
 
 
 def local_trouble() -> list[Any]:
@@ -1608,6 +1621,8 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
     if found := await _tools_found(library, sections):
         schema = with_discovery(schema, found)
         marks = tool_marks(found, values, marks)
+    if "chromium" in sections and (browser := await _browser_found(library)):
+        schema = with_browser_found(schema, browser)
     if play := await _play_input(library, sections):
         schema = with_play_input(schema, play, values)
     blocks = []

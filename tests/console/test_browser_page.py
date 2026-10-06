@@ -126,7 +126,7 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
 
         labels = self._labels(await self._drawn())
 
-        self.assertLess(labels.index(t("console.settings.browser_in_use")),
+        self.assertLess(labels.index(t("console.settings.browser")),
                         labels.index(t("config.chromium.path.label")))
 
     async def test_a_finding_leads_the_page_across_both_columns(self) -> None:
@@ -148,33 +148,74 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNot(entries[0][0], panel.FULL)
         self.assertNotIn(t("console.settings.browser_unsupported"), self._labels(entries))
 
-    async def test_from_is_left_out_where_browser_program_names_the_same_path(self) -> None:
+    def _program_field(self) -> dict:
+        found = frontend_browser.current()
+        [block] = [one for one in settings.with_browser_found(
+            self.served.config_schema(), found) if one["name"] == "chromium"]
+        return next(one for one in block["options"] if one["key"] == "path")
+
+    async def test_an_empty_browser_program_says_which_browser_was_found(self) -> None:
         self._reported(PLAYS_ALL)
-        found = self._labels(await self._drawn())
 
-        self.served.put_config({"chromium": {"path": str(self.in_use)}})
-        chosen = self._labels(await self._drawn())
+        field = self._program_field()
 
-        self.assertIn(t("console.settings.browser_from"), found)
-        self.assertNotIn(t("console.settings.browser_from"), chosen)
+        self.assertEqual(field["blank"], t("console.settings.browser_found", path=self.in_use))
+        self.assertEqual(field["left_empty"], str(self.in_use))
 
     async def test_the_bundled_copy_is_said_by_name_rather_than_by_its_path(self) -> None:
         self.bundled = True
         self._reported(PLAYS_ALL)
-        self.ui.label.reset_mock()
 
-        self._value(await self._drawn(), t("console.settings.browser_from"))()
+        field = self._program_field()
 
-        self.assertEqual(self.ui.label.call_args.args[0], t("console.settings.browser_bundled"))
+        self.assertEqual(field["blank"], t("console.settings.browser_found_bundled"))
+        self.assertEqual(field["left_empty"], str(self.in_use))
+
+    async def test_no_browser_at_all_reads_not_found_with_the_fix_on_hover(self) -> None:
+        self.in_use.unlink()
+
+        with patch.object(frontend_browser, "_variant", return_value=frontend_browser.FULL):
+            field = self._program_field()
+
+        self.assertEqual(field["blank"], t("word.not_found"))
+        self.assertEqual(field["left_empty"], t("frontend_browser.fix.no_browser"))
+
+    async def test_on_a_slim_build_the_hover_says_why_there_is_no_browser_of_its_own(
+            self) -> None:
+        self.in_use.unlink()
+
+        with patch.object(frontend_browser, "_variant", return_value=frontend_browser.SLIM):
+            field = self._program_field()
+
+        self.assertEqual(field["left_empty"], t("console.settings.browser_slim_build"))
+
+    async def test_there_is_no_from_row(self) -> None:
+        self._reported(PLAYS_ALL)
+
+        self.assertNotIn("From", self._labels(await self._drawn()))
+
+    async def test_a_browser_that_plays_is_its_name_and_no_chip(self) -> None:
+        self._reported(PLAYS_ALL)
+
+        value = self._value(await self._drawn(), t("console.settings.browser"))
+
+        self.assertEqual(value, "Chromium 145.0.7632.0")
+
+    async def test_a_browser_missing_h264_is_a_chip_beside_its_name(self) -> None:
+        self._reported(NO_H264)
+        with patch.object(panel, "state") as chip:
+            await self._drawn()
+
+        chip.assert_called_once_with(
+            t("console.devices.browser_no_h264"), "warn", beside="Chromium 145.0.7632.0",
+            hint=t("frontend_browser.finding.no_h264"))
 
     async def test_a_browser_that_has_not_reported_reads_not_checked_never_a_no(self) -> None:
-        entries = await self._drawn()
-        self.ui.label.reset_mock()
+        with patch.object(panel, "state") as chip:
+            entries = await self._drawn()
 
-        self._value(entries, t("console.settings.browser_in_use"))()
-
-        self.assertEqual(self.ui.label.call_args.args[0],
-                         t("console.settings.browser_not_checked"))
+        self.assertEqual(chip.call_args.args[:2], (t("console.devices.browser_not_checked"),
+                                                   "unknown"))
         self.assertNotIn(t("console.settings.browser_unsupported"), self._labels(entries))
         self.assertIsNot(entries[0][0], panel.FULL)
 

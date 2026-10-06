@@ -17,7 +17,7 @@ from common.labels import humanize
 from console import offload, renderers, verbs
 from console.on_page import on_page
 
-from . import confirm, grid, panel, views, when
+from . import browser_state, confirm, grid, panel, views, when
 from . import settings as settings_page
 from .api import ApiClient, ApiError
 
@@ -474,19 +474,6 @@ KIND_LABELS = {"vpinfe": "VPinFE", "vpx_mobile": "VPX Mobile"}
 _KIND_CHOICES = [{"value": label, "label": label} for label in KIND_LABELS.values()]
 _STATE_CHOICES = [{"value": text, "label": t(text)} for text, _l, _c in _REACH.values()]
 
-# What a device's browser plays, where it is worth noticing. `plays` is not here: the
-# normal case draws nothing.
-BROWSER_STATES = {
-    "no_h264": {"label": t("console.devices.browser_no_h264"), "tier": "warn",
-                "why": t("frontend_browser.finding.no_h264")},
-    "no_video": {"label": t("console.devices.browser_no_video"), "tier": "bad",
-                 "why": t("frontend_browser.finding.no_video")},
-    "no_browser": {"label": t("console.devices.browser_no_browser"), "tier": "bad",
-                   "why": t("frontend_browser.finding.no_browser")},
-    "unknown": {"label": t("console.devices.browser_not_checked"), "tier": "unknown",
-                "why": t("console.devices.browser_checked_when")},
-}
-
 COLUMNS: list[dict[str, Any]] = [
     # Never shown - it exists so every built-in view can sort this device to the top.
     # A column has to be declared to be sorted on, and this one is a fact about the row
@@ -504,9 +491,9 @@ COLUMNS: list[dict[str, Any]] = [
     grid.column("browser", t("console.devices.browser"), 150,
                 help=t("console.devices.browser.help"),
                 **grid.choice_filter([{"value": key, "label": one["label"]}
-                                      for key, one in BROWSER_STATES.items()],
+                                      for key, one in browser_state.STATES.items()],
                                      formatted=True),
-                **renderers.drawable("state", states=BROWSER_STATES)),
+                **renderers.drawable("state", states=browser_state.STATES)),
     grid.column("address", t("console.devices.address"), 150,
                 help=t("console.devices.address.help")),
     grid.column("last_seen", t("word.last_seen"), 170,
@@ -591,11 +578,9 @@ def _browser_rows(device: dict[str, Any],
     if not found:
         return []
     name = str(found.get("name") or "")
-    limited = BROWSER_STATES.get(str(found.get("state") or ""))
     rows: list[tuple[Any, Any]] = [(
         t("console.devices.browser"),
-        (name or t("console.devices.not_known")) if limited is None
-        else panel.state(limited["label"], limited["tier"], beside=name, hint=limited["why"]))]
+        browser_state.value(name, str(found.get("state") or ""), t("console.devices.not_known")))]
     checked = str(found.get("checked_at") or "")
     if checked and (probe or {}).get("state") != device_client.ANSWERING:
         rows.append(panel.note(t("console.devices.last_checked",
