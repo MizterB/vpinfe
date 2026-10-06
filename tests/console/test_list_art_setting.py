@@ -22,7 +22,7 @@ def _blocks() -> list[dict]:
 
 def _option() -> dict[str, Any]:
     return next(option for block in _blocks() if block["name"] == "console"
-                for option in block["options"] if option["key"] == "list_art")
+                for option in block["options"] if option["key"] == "thumbnail")
 
 
 def _now(call: Any, *args: Any, **kwargs: Any) -> Any:
@@ -31,7 +31,7 @@ def _now(call: Any, *args: Any, **kwargs: Any) -> Any:
 
 class TheSettingTests(unittest.TestCase):
     def test_it_offers_none_then_the_four_kinds_and_starts_on_the_wheel(self) -> None:
-        option = config_schema.option("console", "list_art")
+        option = config_schema.option("console", "thumbnail")
         assert option is not None
 
         self.assertEqual(("none", *KINDS), option.choices)
@@ -42,9 +42,9 @@ class TheSettingTests(unittest.TestCase):
                    for option in block["options"]]
 
         self.assertEqual([(option["key"], option.get("group")) for option in options[:5]],
-                         [("theme", "appearance"), ("list_art", "thumbnails"),
-                          ("list_art_shape", "thumbnails"), ("list_art_height", "thumbnails"),
-                          ("list_art_frame", "thumbnails")])
+                         [("theme", "appearance"), ("thumbnail", "thumbnails"),
+                          ("thumbnail_shape", "thumbnails"), ("thumbnail_height", "thumbnails"),
+                          ("thumbnail_frame", "thumbnails")])
 
     def test_every_console_setting_has_a_heading(self) -> None:
         """One setting without a group would be drawn under Other."""
@@ -56,22 +56,22 @@ class TheSettingTests(unittest.TestCase):
 
     def test_each_kind_is_called_what_the_media_grid_calls_it(self) -> None:
         """One word per kind for a translator, so Playfield here is Playfield there."""
-        option = config_schema.option("console", "list_art")
+        option = config_schema.option("console", "thumbnail")
         assert option is not None
 
         self.assertEqual(
-            {"none": t("config.console.list_art.choice.none"),
+            {"none": t("config.console.thumbnail.choice.none"),
              **{kind: t(f"media.kind.{kind}.label") for kind in KINDS}},
             option.choice_labels)
 
     def test_its_own_words_are_in_the_catalog(self) -> None:
         for said in ("label", "description", "choice.none"):
             with self.subTest(said=said):
-                key = f"config.console.list_art.{said}"
+                key = f"config.console.thumbnail.{said}"
                 self.assertNotEqual(key, t(key))
 
     def test_the_editor_it_asks_for_is_one_the_console_serves(self) -> None:
-        option = config_schema.option("console", "list_art")
+        option = config_schema.option("console", "thumbnail")
         assert option is not None
 
         self.assertIn(option.editor, config_schema.EDITORS)
@@ -103,7 +103,7 @@ class OfferedTests(unittest.TestCase):
 
         with patch.object(panel, "select") as select:
             settings.section_rows(Mock(), "console", block["options"],
-                                  {"console": {"list_art_shape": "", "list_art_height": ""}},
+                                  {"console": {"thumbnail_shape": "", "thumbnail_height": ""}},
                                   True, lambda: None)
 
         sized = {tuple(one.args[0]): one.args[1] for one in select.call_args_list}
@@ -132,7 +132,7 @@ class OfferedTests(unittest.TestCase):
         select = self._offered("none", {"backglass"})
 
         self.assertEqual(
-            {"none": t("config.console.list_art.choice.none"),
+            {"none": t("config.console.thumbnail.choice.none"),
              **{kind: t(f"media.kind.{kind}.label")
                 for kind in ("wheel", "playfield", "logo")}},
             select.call_args.args[0])
@@ -181,7 +181,7 @@ class ReadForThePageTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(panel, "select") as select:
             settings.section_rows(library, "console", block["options"],
-                                  {"console": {"list_art": "logo"}}, True, lambda: None,
+                                  {"console": {"thumbnail": "logo"}}, True, lambda: None,
                                   suggestions=offered)
 
         art = next(one for one in select.call_args_list if "none" in one.args[0])

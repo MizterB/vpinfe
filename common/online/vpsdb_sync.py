@@ -76,7 +76,7 @@ def adopt_due(config: ConfigStore) -> bool:
 
 def art_due(config: ConfigStore, now: float | None = None) -> bool:
     """Whether downloaded art is owed its daily comparison with the catalog."""
-    if not cfg_bool(config, SCHEDULES, "update_downloaded_art", True):
+    if not cfg_bool(config, SCHEDULES, "update_downloaded_media", True):
         return False
     was = timestamps.iso_to_epoch((cfg_get(config, SECTION, "art_checked", "") or "").strip())
     if was is None:

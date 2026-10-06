@@ -104,7 +104,7 @@ class TheCircleInTheGrid(unittest.TestCase):
             return list_art.person_look()
 
     def test_it_takes_the_height_the_lists_are_set_to(self) -> None:
-        sized = {height: grid.with_art(players.COLUMNS, self._look(list_art_height=height))
+        sized = {height: grid.with_art(players.COLUMNS, self._look(thumbnail_height=height))
                  for height in ("small", "medium", "large")}
 
         self.assertEqual({height: grid.base_row_px(columns) for height, columns in sized.items()},
@@ -113,14 +113,14 @@ class TheCircleInTheGrid(unittest.TestCase):
     def test_it_is_a_circle_whatever_shape_the_lists_draw(self) -> None:
         for shape in ("auto", "square", "wide"):
             with self.subTest(shape=shape):
-                self.assertEqual(self._look(list_art_shape=shape).shape, list_art.SQUARE)
+                self.assertEqual(self._look(thumbnail_shape=shape).shape, list_art.SQUARE)
 
     def test_it_keeps_its_ground_when_the_lists_are_unframed(self) -> None:
         with patch.object(list_art, "cfg_bool", return_value=False):
             self.assertTrue(list_art.person_look().framed)
 
     def test_a_blank_setting_reads_as_the_default_height(self) -> None:
-        self.assertEqual(self._look(list_art_height="").height, list_art.SMALL)
+        self.assertEqual(self._look(thumbnail_height="").height, list_art.SMALL)
 
 
 class TheDetails(unittest.TestCase):

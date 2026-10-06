@@ -34,7 +34,7 @@ _running = False
 
 
 def enabled() -> bool:
-    return cfg_bool(get_ini_config(), "updates", "get_art_for_new_games", True)
+    return cfg_bool(get_ini_config(), "updates", "get_media_for_new_games", True)
 
 
 def _hidden_kinds() -> set[str]:
@@ -381,7 +381,7 @@ def _work(job: jobs.Job) -> dict[str, int]:
 
 
 def update_enabled() -> bool:
-    return cfg_bool(get_ini_config(), "updates", "update_downloaded_art", True)
+    return cfg_bool(get_ini_config(), "updates", "update_downloaded_media", True)
 
 
 def _update_game(game_id: str, game: Any, vps_id: str, wanted: set[str],

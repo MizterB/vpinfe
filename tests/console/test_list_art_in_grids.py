@@ -133,12 +133,12 @@ class _Drawn(TempTree):
             .raise_for_status()
         self.addCleanup(self.http.delete, f"/collections/{PICTURED}/image")
 
-    def _list_art(self, value: str, key: str = "list_art") -> None:
+    def _list_art(self, value: str, key: str = "thumbnail") -> None:
         self._write_list_art(value, key)
         self.addCleanup(self._write_list_art, "", key)
 
     @staticmethod
-    def _write_list_art(value: str, key: str = "list_art") -> None:
+    def _write_list_art(value: str, key: str = "thumbnail") -> None:
         store = get_ini_config()
         store.set_value("console", key, value)
         store.save()
@@ -337,9 +337,9 @@ class TheArtworkSettingsDrawEveryGrid(_Drawn):
         self.assertEqual((square, wide), (dict.fromkeys(GRIDS, 52), dict.fromkeys(GRIDS, 92)))
 
     def test_square_or_wide_holds_whatever_the_kind(self) -> None:
-        self._list_art("wide", "list_art_shape")
+        self._list_art("wide", "thumbnail_shape")
         wide_wheel = self._room(self._drawn("games"))
-        self._list_art("square", "list_art_shape")
+        self._list_art("square", "thumbnail_shape")
         self._list_art("backglass")
         square_backglass = self._room(self._drawn("games"))
 
@@ -348,7 +348,7 @@ class TheArtworkSettingsDrawEveryGrid(_Drawn):
     def test_each_height_sets_the_rows_their_class_and_the_room(self) -> None:
         drawn = {}
         for height in ("medium", "large"):
-            self._list_art(height, "list_art_height")
+            self._list_art(height, "thumbnail_height")
             drawn[height] = {view: self._drawn(view) for view in GRIDS}
 
         for height, rows, row_class, room in (("medium", 64, "console-grid-medium-art", 60),
@@ -361,9 +361,9 @@ class TheArtworkSettingsDrawEveryGrid(_Drawn):
 
     def test_the_grid_carries_the_look_its_frames_are_sized_from(self) -> None:
         square = self._drawn("games")
-        self._list_art("large", "list_art_height")
-        self._list_art("false", "list_art_frame")
-        self._list_art("wide", "list_art_shape")
+        self._list_art("large", "thumbnail_height")
+        self._list_art("false", "thumbnail_frame")
+        self._list_art("wide", "thumbnail_shape")
         bare = self._drawn("games")
 
         self.assertEqual((square._style.get("--art-h"), bare._style.get("--art-h")),

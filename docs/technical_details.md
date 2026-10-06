@@ -86,10 +86,10 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `theme` | choice (synthwave, dark, light, system) | `synthwave` | How the Console and remote look. System matches the computer's light or dark. |
-| `list_art` | choice (none, wheel, backglass, playfield, logo) | `wheel` | The picture beside a game, table or collection's name in the Console's lists |
-| `list_art_shape` | choice (auto, square, wide) | `auto` | Automatic draws wheels square and the rest wide |
-| `list_art_height` | choice (small, medium, large) | `small` | Taller grid rows show bigger pictures and fit fewer on a screen |
-| `list_art_frame` | bool | `true` | A dark tile behind each picture keeps light pictures readable in the light theme |
+| `thumbnail` | choice (none, wheel, backglass, playfield, logo) | `wheel` | The picture beside a game, table or collection's name in the Console's lists |
+| `thumbnail_shape` | choice (auto, square, wide) | `auto` | Automatic draws wheels square and the rest wide |
+| `thumbnail_height` | choice (small, medium, large) | `small` | Taller grid rows show bigger pictures and fit fewer on a screen |
+| `thumbnail_frame` | bool | `true` | A dark tile behind each picture keeps light pictures readable in the light theme |
 | `dates` | choice (language, iso, mm/dd/yyyy, dd/mm/yyyy, dd.mm.yyyy, yyyy/mm/dd) | `language` | How a day is written, wherever the Console shows one |
 | `times` | choice (24h, 12h) | `24h` | How a time of day is written, where the Console shows one |
 | `relative_dates` | bool | `true` | Anything from the last month says how long ago it was, whatever the format |
@@ -129,8 +129,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `match_new_games` | bool | `true` | When VPinFE finds a new game, match it to the spreadsheet from its folder name |
-| `get_art_for_new_games` | bool | `true` | Once a new game is added, get the media it is missing: online once matched, a backglass picture from its backglass file. Media already there is never replaced. |
-| `update_downloaded_art` | bool | `true` | When VPinMediaDB replaces media VPinFE downloaded for you. Media you added or changed is never touched. |
+| `get_media_for_new_games` | bool | `true` | Once a new game is added, get the media it is missing: online once matched, a backglass picture from its backglass file. Media already there is never replaced. |
+| `update_downloaded_media` | bool | `true` | When VPinMediaDB replaces media VPinFE downloaded for you. Media you added or changed is never touched. |
 | `update_game_details` | choice (never, daily, weekly, monthly) | `never` | How often to copy name, year, type, themes and guides from the spreadsheet onto matched games |
 | `refresh_minutes` | int | `0` | How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
 | `ask_where_new_games_go` | bool | `true` | On, an import that could go to more than one place asks which. Off, it goes to the place marked for new games. Never asked when there is only one. |

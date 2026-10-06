@@ -95,7 +95,7 @@ class RebuildTests(TempTree):
         folder = write_game(self.root, FOLDER, info=info)
         config = configparser.ConfigParser()
         config["Settings"] = {"gamerootdir": str(self.root)}
-        config["updates"] = {"update_downloaded_art": "false"}
+        config["updates"] = {"update_downloaded_media": "false"}
         parser = MagicMock()
         parser.single_file_extract.return_value = {"filename": f"{FOLDER}.vpx"}
         with patch("common.games.game_repository.all_games",

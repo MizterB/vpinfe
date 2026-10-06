@@ -36,10 +36,10 @@
   },
   "console": {
     "theme": "synthwave",
-    "list_art": "wheel",
-    "list_art_frame": "true",
-    "list_art_height": "small",
-    "list_art_shape": "auto",
+    "thumbnail": "wheel",
+    "thumbnail_frame": "true",
+    "thumbnail_height": "small",
+    "thumbnail_shape": "auto",
     "dates": "language",
     "relative_dates": "true",
     "times": "24h",
@@ -146,10 +146,10 @@
   "updates": {
     "ask_where_new_games_go": "true",
     "download_spreadsheet": "daily",
-    "get_art_for_new_games": "true",
+    "get_media_for_new_games": "true",
     "match_new_games": "true",
     "refresh_minutes": "0",
-    "update_downloaded_art": "true",
+    "update_downloaded_media": "true",
     "update_game_details": "never"
   },
   "vpinplay": {

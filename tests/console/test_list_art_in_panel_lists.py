@@ -125,12 +125,12 @@ class _Panel(TempTree):
     def _write(self, verb: str, path: str, body: dict) -> None:
         getattr(self.http, verb)(path, json=body).raise_for_status()
 
-    def _list_art(self, value: str, key: str = "list_art") -> None:
+    def _list_art(self, value: str, key: str = "thumbnail") -> None:
         self._write_list_art(value, key)
         self.addCleanup(self._write_list_art, "", key)
 
     @staticmethod
-    def _write_list_art(value: str, key: str = "list_art") -> None:
+    def _write_list_art(value: str, key: str = "thumbnail") -> None:
         store = get_ini_config()
         store.set_value("console", key, value)
         store.save()
@@ -275,8 +275,8 @@ class TheGamePicker(_Panel):
 class ThePanelTakesTheShapeAndFrameAtTheSmallestHeight(_Panel):
     def setUp(self) -> None:
         super().setUp()
-        self._list_art("large", "list_art_height")
-        self._list_art("false", "list_art_frame")
+        self._list_art("large", "thumbnail_height")
+        self._list_art("false", "thumbnail_frame")
 
     def test_a_row_of_a_collection_or_a_tag(self) -> None:
         pictured = [next(one for one in row.descendants()

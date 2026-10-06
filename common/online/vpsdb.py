@@ -125,7 +125,7 @@ class VPSdb:
             playfieldresolution=self.playfieldresolution,
             playfieldvideoresolution=self.playfieldvideoresolution,
             update_downloaded=cfg_bool(self._vpinfe_config_store, "updates",
-                                       "update_downloaded_art", True),
+                                       "update_downloaded_media", True),
         )
 
     def _write_manufacturer_reference(self) -> None:

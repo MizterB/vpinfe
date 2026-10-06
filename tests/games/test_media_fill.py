@@ -630,9 +630,9 @@ class BuildMetadataTests(_Replaced):
         self.own = self.folder / "medias" / f"(Wheel) {RENAMED}.png"
         self.own.write_bytes(OWN_WHEEL)
 
-    def build(self, update_downloaded_art: bool = True) -> None:
+    def build(self, update_downloaded_media: bool = True) -> None:
         self.config["Settings"] = {"gamerootdir": str(self.root)}
-        self.config["updates"] = {"update_downloaded_art": str(update_downloaded_art)}
+        self.config["updates"] = {"update_downloaded_media": str(update_downloaded_media)}
         game = next(iter(self.games.values()))
         game.wheel_image_path = str(self.own)
         vps = VPSdb.__new__(VPSdb)
@@ -640,7 +640,7 @@ class BuildMetadataTests(_Replaced):
                      "year": 1981}]
         vps._media_downloader = VPSMediaDownloader(
             REPLACED, playfieldvariant="table", playfieldresolution="4k",
-            playfieldvideoresolution="4k", update_downloaded=update_downloaded_art)
+            playfieldvideoresolution="4k", update_downloaded=update_downloaded_media)
         parser = MagicMock()
         parser.single_file_extract.return_value = {"filename": f"{RENAMED}.vpx"}
         with patch("common.games.game_repository.all_games", return_value=[game]), \
@@ -661,7 +661,7 @@ class BuildMetadataTests(_Replaced):
         self.assertNotIn(f"medias/{self.own.name}", asset_origin.sources(self.folder))
 
     def test_with_updates_off_stale_art_is_left(self) -> None:
-        self.build(update_downloaded_art=False)
+        self.build(update_downloaded_media=False)
 
         self.assertEqual(self.placed()[WHEEL], OLD_WHEEL.decode())
 
@@ -681,7 +681,7 @@ class ArtDueTests(unittest.TestCase):
         self.assertTrue(vpsdb_sync.art_due(self.config, was + 86400))
 
     def test_switched_off_is_never_due(self) -> None:
-        self.config.read_dict({"updates": {"update_downloaded_art": "false"}})
+        self.config.read_dict({"updates": {"update_downloaded_media": "false"}})
         self.assertFalse(vpsdb_sync.art_due(self.config))
 
     def test_a_running_fill_leaves_it_due(self) -> None:
@@ -713,7 +713,7 @@ class QueueTests(_Library):
         self.assertIn(f"(Wheel) {FOLDER}.png", self.placed())
 
     def test_switched_off_a_request_does_nothing(self) -> None:
-        self.config.read_dict({"updates": {"get_art_for_new_games": "false"}})
+        self.config.read_dict({"updates": {"get_media_for_new_games": "false"}})
         with patch.object(media_fill, "_start") as start:
             media_fill.request([self.folder])
 

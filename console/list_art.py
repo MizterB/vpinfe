@@ -55,9 +55,9 @@ _IMG = f'loading="lazy" alt="" draggable="false" onerror="{_SWAP}"'
 def chosen(kept: set[str]) -> str:
     """The kind the lists draw, or "" for none: None, or a kind Media Kinds does not
     keep. A value the setting does not offer reads as its default."""
-    option = config_schema.option("console", "list_art")
+    option = config_schema.option("console", "thumbnail")
     assert option is not None
-    value = cfg_get(get_ini_config(), "console", "list_art")
+    value = cfg_get(get_ini_config(), "console", "thumbnail")
     if value not in option.choices:
         value = str(option.default)
     return value if value != "none" and value in kept else ""
@@ -112,11 +112,11 @@ def look(kind: str) -> Look:
         value = cfg_get(config, "console", key)
         return value if value in option.choices else str(option.default)
 
-    shape = chose("list_art_shape")
+    shape = chose("thumbnail_shape")
     if shape not in (SQUARE, WIDE):
         shape = SQUARE if kind == "wheel" else WIDE
-    return Look(shape, chose("list_art_height"),
-                cfg_bool(config, "console", "list_art_frame", True))
+    return Look(shape, chose("thumbnail_height"),
+                cfg_bool(config, "console", "thumbnail_frame", True))
 
 
 def person_look() -> Look:
