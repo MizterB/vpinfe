@@ -1,4 +1,4 @@
-"""Get missing art: which kinds start ticked, what is kept, and what it says at the end."""
+"""Get missing media: which kinds start ticked, what is kept, and what it says at the end."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ class OutcomeTests(unittest.TestCase):
         self.assertEqual(outcome({"failed": 2}), ("Could not get 2 files", "warning"))
 
     def test_nothing_found_is_not_a_failure(self) -> None:
-        self.assertEqual(outcome({"games": 3, "filled": 0}), ("No art found", "info"))
+        self.assertEqual(outcome({"games": 3, "filled": 0}), ("No media found", "info"))
 
     def test_a_source_that_did_not_answer_is_not_nothing_found(self) -> None:
         self.assertEqual(outcome({"games": 3, "filled": 0, "unreachable": ["VPinMediaDB"]}),
@@ -86,7 +86,7 @@ class SlotTests(unittest.TestCase):
 
         ask, _get, client, _notify = self._confirm(rows)
 
-        self.assertEqual(ask.await_args.args[0], "Get art for 2 missing files?")
+        self.assertEqual(ask.await_args.args[0], "Get media for 2 missing files?")
         client.return_value.fill_media.assert_called_once_with(
             slots=(("g1", "wheel"), ("g2", "wheel")))
 
@@ -137,13 +137,13 @@ class KindTests(unittest.TestCase):
     def test_it_gets_that_kind_for_those_games(self) -> None:
         ask, _get, client, _notify = self._confirm(_plan(2, 2))
 
-        self.assertEqual(ask.await_args.args[0], "Get Playfield art for 2 games?")
+        self.assertEqual(ask.await_args.args[0], "Get Playfield media for 2 games?")
         client.return_value.fill_media.assert_called_once_with(["g1", "g2"], ["playfield"])
 
     def test_the_question_counts_what_a_source_has(self) -> None:
         ask, *_ = self._confirm(_plan(2, 1, unmatched=1))
 
-        self.assertEqual(ask.await_args.args[0], "Get Playfield art for 1 of 2 games?")
+        self.assertEqual(ask.await_args.args[0], "Get Playfield media for 1 of 2 games?")
         self.assertEqual(ask.await_args.kwargs["lines"],
                          ["1 is not matched to VPS, so nothing can be looked up for it"])
 
@@ -153,7 +153,7 @@ class KindTests(unittest.TestCase):
         get.assert_not_awaited()
 
     def test_nothing_to_get_says_why_and_asks_nothing(self) -> None:
-        cases = ((_plan(2, 0), "No source has Playfield art for these games"),
+        cases = ((_plan(2, 0), "No source has Playfield media for these games"),
                  (_plan(2, 0, unmatched=2),
                   "2 are not matched to VPS, so nothing can be looked up for those"),
                  (_plan(2, 0, unreachable=("VPinMediaDB",)),

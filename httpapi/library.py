@@ -138,7 +138,7 @@ def missing_media(payload: models.MissingMediaRequest) -> models.MissingMedia:
     return models.MissingMedia(**media_fill.plan(payload.game_ids))
 
 
-@router.post("/media/fill", summary="Get missing art", status_code=202,
+@router.post("/media/fill", summary="Get missing media", status_code=202,
              dependencies=[requires(scopes.GAMES_WRITE)])
 def fill_media(response: Response, payload: models.MediaFillRequest) -> models.JobResource:
     """Accepted, not done. Fills gaps only: a file already there is never replaced."""

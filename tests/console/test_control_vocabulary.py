@@ -66,7 +66,7 @@ BUDGET = {
     "vps_match.py": (1, "the query the catalog is searched with, which starts as the "
                         "game's name and is meant to be edited. Not a fact row: it holds "
                         "what is being asked, never what the game is"),
-    "art_fill.py": (1, "a tick per kind in Get missing art, a choice over a list like the "
+    "art_fill.py": (1, "a tick per kind in Get missing media, a choice over a list like the "
                        "import confirmation's per-item tick, not a fact row"),
     "record.py": (1, "a tick per kind in Record Media, a choice over a list as Get missing "
                      "art's is, with what the kind's slot holds beside it"),
