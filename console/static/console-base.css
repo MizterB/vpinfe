@@ -2854,17 +2854,39 @@ a.console-tag:hover { background: var(--wash-hover); }
    level, positioning it collapsed this box - which is sized by its content - and a
    size container cannot be one without a definite height, which is the thing missing.
    Excludes the blank state, which is a column that lays itself out. */
-.console-slot-art > div:not(.console-slot-zoom):not(.console-slot-blank):not(.console-wheel-mosaic):not(.console-bgview) {
+.console-slot-art > div:not(.console-slot-zoom):not(.console-slot-blank):not(.console-wheel-mosaic) {
   display: contents;
 }
+/* The file as it will be seen, in the dock. It has a size of its own, taken from the dock
+   and never from the column beside it, so a setting that reveals rows does not resize
+   the picture being watched. */
+.console-stage {
+  flex: 1 1 0; min-height: 0; min-width: 0; width: 100%; position: relative;
+  display: flex; flex-direction: column;
+}
+.console-stage .console-slot-art { flex: 1 1 0; min-height: 0; width: 100%; padding: 0; }
+.console-stage .console-slot-art img, .console-stage .console-slot-art video {
+  max-height: 100%;
+}
+.console-stage .console-file-text { max-height: none; height: 100%; }
 /* A backglass file's picture: the window as VPX draws it. The stage is stretched to the
-   box and turned about its centre, so a quarter turn is a stage of swapped size. */
-.console-slot-art:has(> .console-bgview) { flex: 0 0 auto; overflow: visible; }
-.console-bgview { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.console-bgview-row { justify-content: center; }
-.console-bgview-fig { align-items: stretch; min-width: 0; max-width: 100%; }
+   box and turned about its centre, so a quarter turn is a stage of swapped size.
+   `--fit` is the height every window is drawn at: what is left of the stage after its
+   buttons, or the width shared out by the windows' shapes where that is less. */
+.console-bgview {
+  display: flex; flex-direction: column; gap: 6px; flex: 1 1 0; min-height: 0;
+  container-type: size; position: relative;
+}
+.console-bgview:hover .console-slot-zoom { opacity: 1; }
+.console-bgview-row {
+  flex: 1 1 0; min-height: 0; justify-content: center; flex-wrap: nowrap;
+  --fit: min(calc(100cqh - var(--chrome, 46px)),
+             calc((100cqw - var(--gap, 8px) * var(--gaps, 0)) / var(--sum, 1)));
+}
+.console-bgview-fig { align-items: stretch; min-width: 0; flex: none; }
 .console-bgview-box {
-  position: relative; width: 100%; overflow: hidden; container-type: size;
+  position: relative; height: max(var(--fit), 40px); overflow: hidden;
+  container-type: size;
   border: 1px solid var(--line); border-radius: 4px; background: var(--art-ground);
 }
 .console-bgview-stage {
@@ -3674,6 +3696,22 @@ svg.console-cell-noart {
      and its content are one block, so a line between them would cut it in half. */
   .console-section-on .console-section-caret { transform: rotate(180deg); }
   .console-section-on { border-bottom-color: transparent; }
+}
+
+/* One declared section has no row to open it, so the work takes the width and the rail
+   column is not painted. Below the narrow block on purpose: the same specificity, and the
+   column there must not give the section a floor of its own. */
+.console-sections--bare {
+  display: grid; background: none;
+  grid-template-columns: minmax(0, 1fr);
+  --rail-w: 0px;
+}
+.console-sections--bare > .console-section-work { grid-column: 1; }
+@container (max-width: 519px) {
+  .console-sections--bare { display: grid; overflow: hidden; }
+  .console-sections--bare > .console-section-work {
+    flex: none; min-height: 0; border-bottom: none;
+  }
 }
 
 .console-bar { height: 6px; border-radius: 3px; background: var(--bar-track); }

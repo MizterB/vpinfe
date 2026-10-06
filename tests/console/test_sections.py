@@ -179,10 +179,11 @@ class SectionTests(unittest.TestCase):
 
     def test_only_a_section_with_two_regions_reserves_a_dock(self) -> None:
         """The room is half the panel; a section with nothing to put in it left a void.
-        Media puts the picked slot beside the map."""
+        Media puts the picked slot beside the map; a file's panel puts its picture there
+        when it has one."""
         docked = {item.key for item in workbench.SECTIONS if item.dock}
 
-        self.assertEqual(docked, {"media"})
+        self.assertEqual(docked, {"media", "media_file", "asset_file"})
 
     def test_a_key_means_one_section_across_every_rail(self) -> None:
         """The rail is per subject; the key namespace is not.

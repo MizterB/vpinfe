@@ -51,7 +51,8 @@ FOREIGN_PREFIXES = ("--ag-", "--q-")
 # them: by the drag handlers - the workbench's, and where a row dragged from a grid opens
 # the rail's collections - on an empty number box, from the words it shows, and on a
 # list's grid or row, from its Artwork settings.
-RUNTIME = {"--dock-h", "--rows", "--drops-top", "--drops-left", "--blank", "--art-h"}
+RUNTIME = {"--dock-h", "--rows", "--drops-top", "--drops-left", "--blank", "--art-h",
+           "--sum", "--gaps", "--gap", "--chrome"}
 
 
 def _same_color(literal):

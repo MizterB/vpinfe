@@ -551,8 +551,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     ui.on("hub_guide_moved", lambda event: workbench.guide_moved(state, event.args))
     for group, moved in theme_sources.MOVED.items():
         ui.on(moved, lambda event, group=group: theme_sources.moved(state, group, event))
-    ui.on("hub_dock_px", lambda event: state.__setitem__("dock_px", int(event.args))
-          if event.args else None)
+    ui.on("hub_dock_px", lambda event: workbench.dock_dragged(state, event.args))
     ui.on("hub_row_focus", grid.row_focused)
     ui.on("hub_media_zoom", lambda event: games.media_zoomed(state, event))
     ui.on("hub_rate", lambda event: games.rated(state, event))

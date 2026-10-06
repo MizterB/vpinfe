@@ -1108,16 +1108,6 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(found)
 
-    def test_it_follows_the_file_and_only_where_there_are_some(self) -> None:
-        keys = [s.key for s in workbench.sections_for("asset_file")]
-        section = next(s for s in workbench.sections_for("asset_file")
-                       if s.key == "asset_settings")
-
-        self.assertEqual(keys[keys.index("asset_file") + 1], "asset_settings")
-        assert section.shown is not None
-        self.assertFalse(section.shown({}))
-        self.assertTrue(section.shown({"file_settings": {}}))
-
     def test_kinds_travel_with_their_heading(self) -> None:
         groups = data.config_groups(self.WIRE)
 

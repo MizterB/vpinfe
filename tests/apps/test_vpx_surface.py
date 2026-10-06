@@ -43,8 +43,9 @@ BASELINE: dict[str, int] = {
     "common/games/asset_registry.py": 3,
     "common/games/asset_resolver.py": 11,
     # Reading and drawing a backglass file is the subject of these two, so the name is
-    # their import, their suffix check and the file's own tag.
-    "common/games/backglass_ops.py": 8,
+    # their import, their suffix check, the file's own tag and the calls into the parser,
+    # one per picture it draws.
+    "common/games/backglass_ops.py": 9,
     "common/games/collection_resolver.py": 3,
     "common/games/directb2s_parser.py": 4,
     "common/games/export_bundle.py": 4,

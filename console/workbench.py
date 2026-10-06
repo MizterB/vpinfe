@@ -142,8 +142,9 @@ if (!window.__hubDockGrip) {
   const done = () => {
     if (!drag) return;
     const px = parseInt(drag.main.style.getPropertyValue('--dock-h'), 10);
+    const drag_section = drag.main.dataset.dockSection || '';
     drag = null;
-    if (px) emitEvent('hub_dock_px', px);
+    if (px) emitEvent('hub_dock_px', {section: drag_section, px});
   };
   document.addEventListener('pointerup', done);
   document.addEventListener('pointercancel', done);
@@ -312,8 +313,9 @@ class Section:
     # Whether this section works on a picked thing beside its browse region. Only the
     # one that has something to pick declares it: reserving the room everywhere left
     # a section like Game details as four lines of text over an empty half-panel,
-    # with the sections under it pushed to the bottom edge.
-    dock: bool = False
+    # with the sections under it pushed to the bottom edge. A predicate on the context
+    # where it depends on the subject: a file with nothing to show has no stage.
+    dock: bool | Callable[[dict[str, Any]], bool] = False
     # A heading over the run of sections it starts. Empty for a rail short enough to
     # read without one, which every rail now is.
     group: str = ""
@@ -322,6 +324,25 @@ class Section:
 def sections_for(subject: str) -> tuple[Section, ...]:
     """The rail for this subject, in order."""
     return tuple(item for item in SECTIONS if subject in item.subjects)
+
+
+def _docked(item: Section, context: dict[str, Any]) -> bool:
+    return item.dock(context) if callable(item.dock) else item.dock
+
+
+def dock_height(state: dict[str, Any], section: str) -> int:
+    """The height the user dragged this section's dock to, or the default."""
+    return int((state.get("dock_px") or {}).get(section) or DOCK_PX)
+
+
+def dock_dragged(state: dict[str, Any], args: Any) -> None:
+    """The browser's report of a drag: the section it was in and the height it ended at."""
+    if not isinstance(args, dict):
+        return
+    section = str(args.get("section") or "")
+    px = args.get("px")
+    if section and isinstance(px, (int, float)) and px > 0:
+        state.setdefault("dock_px", {})[section] = int(px)
 
 
 def chosen_section(state: dict[str, Any], subject: str = "game",
@@ -653,6 +674,7 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
     tables = await offload.io(library.tables_for, game_id)
     table_id = str(found.get("table") or "")
     settings = None if media else await _file_settings(library, found, files, tables)
+    detail = {} if media else await _asset_detail_of(library, game_id, found)
     container.clear()
     title.clear()
     with container:
@@ -662,7 +684,7 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
                                    "tables": tables, "state": state, "lens": table_id,
                                    "redraws": [], "dock": None, "row": found,
                                    "served": _served(found, files, tables),
-                                   "kind": str(found.get("kind") or ""),
+                                   "kind": str(found.get("kind") or ""), "detail": detail,
                                    "slot": {"kind": found.get("kind")}}
         context["rebuild"] = _rebuilds(
             context, f"file:{found.get('id')}",
@@ -708,6 +730,45 @@ def _file_tier(row: dict[str, Any]) -> str:
     return media_ownership.TABLE
 
 
+async def _asset_detail_of(library: Library, game_id: str,
+                           row: dict[str, Any]) -> dict[str, Any]:
+    path = str(row.get("path") or "")
+    if not (row.get("present") and path):
+        return {}
+    try:
+        return await offload.io(library.asset_detail, game_id, path)
+    except Exception:  # noqa: BLE001 - the panel draws without what it would add
+        logger.debug("No detail for %s", path, exc_info=True)
+        return {}
+
+
+def _media_has_stage(context: dict[str, Any]) -> bool:
+    """A loose file is drawn from its path, so one with no path or no game folder has
+    nothing to put in the stage."""
+    row = context.get("row") or {}
+    if not row.get("present"):
+        return False
+    if _file_tier(row) in (media_ownership.ORPHAN, media_ownership.UNUSED):
+        return bool((context.get("game") or {}).get("folder") and row.get("path"))
+    return True
+
+
+def _asset_has_stage(context: dict[str, Any]) -> bool:
+    """A picture or the head of a text file: what is drawn from the file itself. A
+    folder, a ROM, a damaged backglass or an absent file is only an icon, which the
+    column carries."""
+    detail = context.get("detail") or {}
+    glass = detail.get("backglass") if context.get("kind") == "backglass" else None
+    return bool(glass and not glass["damaged"]) or bool(detail.get("head"))
+
+
+def _stage(context: dict[str, Any]) -> ui.element:
+    """The dock's one child: a box with a size of its own, so what is drawn in it can
+    fill it."""
+    with context["dock"]:
+        return ui.element("div").classes("console-stage")
+
+
 async def _media_file_block(context: dict[str, Any]) -> None:
     library, game_id, table_id = context["library"], context["game_id"], context["lens"]
     row, kind = context["row"], context["kind"]
@@ -728,9 +789,12 @@ async def _media_file_block(context: dict[str, Any]) -> None:
     entry = entries.get(kind) or {}
     matched = await _match_line(context, kind, (detail or {}).get("matched_to")
                                 or entry.get("matched_to"))
+    if context["dock"] is not None:
+        with _stage(context):
+            _slot_art(context, kind, entry)
     _slot(context, kind, entry, detail, context["rebuild"],
           (overrides or {}).get(kind) or [], titled=False, in_place=False, scope_chip=False,
-          links=links, matched=matched)
+          links=links, matched=matched, draw_art=False)
 
 
 def _loose_media(context: dict[str, Any]) -> None:
@@ -740,12 +804,12 @@ def _loose_media(context: dict[str, Any]) -> None:
     tier = _file_tier(row)
     folder = str(context["game"].get("folder") or "")
     path = str(row.get("path") or "")
+    if context["dock"] is not None and folder and path:
+        with _stage(context), ui.element("div").classes("console-slot-art"):
+            mediaview.preview("/api/v1/filesystem/file?" + urlencode(
+                {"path": str(PurePosixPath(folder) / path)}), kind,
+                str(row.get("label") or kind))
     with ui.column().classes("w-full gap-1 console-slot p-2"):
-        with ui.element("div").classes("console-slot-art"):
-            if folder and path:
-                mediaview.preview("/api/v1/filesystem/file?" + urlencode(
-                    {"path": str(PurePosixPath(folder) / path)}), kind,
-                    str(row.get("label") or kind))
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             with ui.row().classes("items-start gap-2 w-full no-wrap"):
                 ui.label(path or str(row.get("file") or "")) \
@@ -773,32 +837,18 @@ def _asset_said(context: dict[str, Any], tier: str) -> str:
 
 
 async def _asset_file_block(context: dict[str, Any]) -> None:
-    library, game_id, row, kind = (context["library"], context["game_id"], context["row"],
-                                   context["kind"])
+    row, kind, detail = context["row"], context["kind"], context["detail"]
     present, path = bool(row.get("present")), str(row.get("path") or "")
-    detail: dict[str, Any] = {}
-    if present and path:
-        try:
-            detail = await offload.io(library.asset_detail, game_id, path)
-        except Exception:
-            logger.debug("No detail for %s", path, exc_info=True)
+    library, game_id = context["library"], context["game_id"]
     label = str(row.get("label") or _asset_name(kind))
     tier = _file_tier(row)
     links = (await offload.io(library.outside_links, game_id, "", path)
              if present and path else [])
     glass = detail.get("backglass") if kind == "backglass" else None
+    if context["dock"] is not None:
+        with _stage(context):
+            await _asset_stage(context, path, glass, str(detail.get("head") or ""), label)
     with ui.column().classes("w-full gap-1 console-slot p-2"):
-        head = str(detail.get("head") or "")
-        if glass and not glass["damaged"]:
-            await _backglass_picture(context, path, glass, label)
-        elif head:
-            with ui.element("div").classes("console-slot-art console-slot-art--text"):
-                ui.label(head).classes("console-file-text")
-                _enlarge(lambda: _open_whole(context, path, label))
-        else:
-            with ui.element("div").classes("console-slot-art"), \
-                    ui.column().classes("console-slot-blank items-center gap-1"):
-                ui.icon(_asset_icon(kind)).classes("console-slot-blank-icon")
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             if not present:
                 ui.label(t("console.workbench.missing_table", kind=label)
@@ -829,6 +879,18 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                         .classes("console-help")
                 _outside_lines(links)
         _asset_actions(context, kind, label, present, path, tier, detail)
+        if "file_settings" in context:
+            await _file_settings_block(context)
+
+
+async def _asset_stage(context: dict[str, Any], path: str, glass: dict[str, Any] | None,
+                       head: str, label: str) -> None:
+    if glass and not glass["damaged"]:
+        await _backglass_picture(context, path, glass, label)
+        return
+    with ui.element("div").classes("console-slot-art console-slot-art--text"):
+        ui.label(head).classes("console-file-text")
+        _enlarge(lambda: _open_whole(context, path, label))
 
 
 def _enlarge(act: Callable[[], Any]) -> None:
@@ -971,15 +1033,6 @@ async def _file_settings(library: Library, row: dict[str, Any],
 
 async def _file_settings_block(context: dict[str, Any]) -> None:
     inner = context["file_settings"]
-    row = context.get("row") or {}
-    if context.get("kind") == "backglass" and row.get("present"):
-        path = str(row.get("path") or "")
-        try:
-            detail = await offload.io(context["library"].asset_detail, context["game_id"], path)
-        except Exception:  # noqa: BLE001 - the settings draw without the picture
-            detail = {}
-        if (glass := detail.get("backglass")) and not glass["damaged"]:
-            await _backglass_picture(context, path, glass, str(row.get("label") or ""))
     values = await _config_values(inner)
     shown = [block for group in inner["tied"] for block in curated_blocks(group, values)]
     entries = await _setting_entries(
@@ -1459,16 +1512,22 @@ async def _rail(context: dict[str, Any], subject: str,
     verbs_of = SUBJECT_VERBS.get(subject)
     if header is not None and verbs_of is not None:
         panel.subject_menu(header, verbs_of(context))
-    rows = tuple(item for item in context.get("rail") or sections_for(subject)
-                 if item.shown is None or item.shown(context))
+    declared = context.get("rail") or sections_for(subject)
+    rows = tuple(item for item in declared if item.shown is None or item.shown(context))
+    # One entry is a section that is always open, so it takes the width and has no row.
+    # Counted before `shown`, so a subject's rail does not come and go between two rows.
+    bare = len(declared) == 1
     section = chosen_section(state, subject, rows)
     # A section this subject has no answer for is not a place to land, so an address or a
     # remembered choice that names one opens the rail's own default instead.
-    if section != COLLAPSED and section not in {item.key for item in rows}:
+    if bare or (section != COLLAPSED and section not in {item.key for item in rows}):
         section = rows[0].key if rows else COLLAPSED
     body = None
     open_item = next((item for item in rows if item.key == section), None)
+    docked = open_item is not None and _docked(open_item, context)
     with ui.element("div").classes("w-full grow min-h-0 console-sections") as sections:
+        if bare:
+            sections.classes(add="console-sections--bare")
         if subject == "collection":
             sections._props[row_drag.TARGET] = context["collection"]["name"]
         if subject in ("game", "table"):
@@ -1476,27 +1535,29 @@ async def _rail(context: dict[str, Any], subject: str,
         # The rows are their own region so they can scroll without taking the work with
         # them. A rail longer than the panel is the ordinary case for a device, and one
         # that moves what you are reading is the wrong half to move.
-        with ui.element("div").classes("min-h-0 console-section-rail"):
-            heading = ""
-            after = 0
-            for item in rows:
-                if item.group and item.group != heading:
-                    ui.label(item.group).classes("console-group console-rail-group") \
-                        .style(f"order: {after}")
-                heading = item.group
-                _section_row(context, item, item.key == section, order=after)
-                if item.key == section:
-                    after = _AFTER_WORK
+        if not bare:
+            with ui.element("div").classes("min-h-0 console-section-rail"):
+                heading = ""
+                after = 0
+                for item in rows:
+                    if item.group and item.group != heading:
+                        ui.label(item.group).classes("console-group console-rail-group") \
+                            .style(f"order: {after}")
+                    heading = item.group
+                    _section_row(context, item, item.key == section, order=after)
+                    if item.key == section:
+                        after = _AFTER_WORK
         if open_item is not None:
             work = ui.element("div").classes("min-w-0 console-section-work") \
                 .style(f"order: {_WORK}")
-            if open_item.dock:
+            if docked:
                 work.classes(add="console-has-dock")
-                work.style(f"--dock-h: {state.get('dock_px', DOCK_PX)}px")
+                work.style(f"--dock-h: {dock_height(state, section)}px")
+                work._props["data-dock-section"] = section
             with work:
                 body = ui.column().classes("min-w-0 overflow-auto gap-0 "
                                            "console-workbench-body")
-                if open_item.dock:
+                if docked:
                     ui.element("div").classes("console-dock-grip") \
                         .tooltip(t("console.workbench.drag_resize"))
                     context["dock"] = ui.column().classes("min-w-0 gap-0 console-dock")
@@ -1912,12 +1973,37 @@ def _used_as(candidate: dict[str, Any]) -> str:
         else media_ownership.UNUSED
 
 
+def _slot_art(context: dict[str, Any], kind: str, entry: dict[str, Any]) -> None:
+    """The slot's picture, player or blank outline."""
+    game_id, table_id = context["game_id"], context["lens"]
+    label = media_label_map().get(kind, kind)
+    with ui.element("div").classes("console-slot-art"):
+        if entry.get("present"):
+            version = entry.get("version")
+            mediaview.preview(art.media(game_id, kind, table_id or "", version=version,
+                               size=art.PANEL), kind, label)
+            # On the picture, where the map puts it. Images only: a video keeps its
+            # native controls here, and those carry a full-screen button already.
+            if media_family(kind) == "image":
+                full = art.media(game_id, kind, table_id or "", version=version)
+                ui.button(icon=verbs.ENLARGE,
+                          on_click=lambda s=full, k=kind, la=label:
+                              mediaview.open_viewer(s, k, la)) \
+                    .props("flat dense round size=sm") \
+                    .classes("console-slot-zoom").tooltip(t("word.enlarge"))
+        else:
+            with ui.column().classes("console-slot-blank items-center gap-1"):
+                ui.icon(_BLANK_ICON.get(media_family(kind), "help_outline")) \
+                    .classes("console-slot-blank-icon")
+
+
 def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
           detail: dict[str, Any] | None, draw: Any,
           differing: list[dict[str, Any]] | None = None, *,
           titled: bool = True, in_place: bool = True, scope_chip: bool = True,
-          links: Sequence[dict[str, Any]] = (), matched: str = "") -> None:
+          links: Sequence[dict[str, Any]] = (), matched: str = "", draw_art: bool = True) -> None:
     """One slot: the art at the size of the room, and what there is to know about it.
+    `draw_art=False` leaves the picture to the caller, which draws it somewhere else.
 
     The picture is the subject. Everything else is one line each underneath, because
     the questions this panel answers - what is this, why this one, what else is here -
@@ -1973,24 +2059,8 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
         if titled:
             ui.label(label).classes("console-card-title")
 
-        with ui.element("div").classes("console-slot-art"):
-            if present:
-                version = entry.get("version")
-                mediaview.preview(art.media(game_id, kind, table_id or "", version=version,
-                                   size=art.PANEL), kind, label)
-                # On the picture, where the map puts it. Images only: a video keeps its
-                # native controls here, and those carry a full-screen button already.
-                if media_family(kind) == "image":
-                    full = art.media(game_id, kind, table_id or "", version=version)
-                    ui.button(icon=verbs.ENLARGE,
-                              on_click=lambda s=full, k=kind, la=label:
-                                  mediaview.open_viewer(s, k, la)) \
-                        .props("flat dense round size=sm") \
-                        .classes("console-slot-zoom").tooltip(t("word.enlarge"))
-            else:
-                with ui.column().classes("console-slot-blank items-center gap-1"):
-                    ui.icon(_BLANK_ICON.get(media_family(kind), "help_outline")) \
-                        .classes("console-slot-blank-icon")
+        if draw_art:
+            _slot_art(context, kind, entry)
 
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             if present:
@@ -7261,17 +7331,14 @@ SECTIONS: tuple[Section, ...] = (
     Section("collection_games", _games_label, _collection_games,
             subjects=frozenset({"collection"})),
     Section("media_file", lambda _: t("word.file"), _media_file_block,
-            subjects=frozenset({"media_file"})),
+            subjects=frozenset({"media_file"}), dock=_media_has_stage),
     Section("tag_details", lambda _: t("console.workbench.details"), _tag_details,
             subjects=frozenset({"tag"})),
     Section("tag_games", lambda context: t("console.tags.games_counted",
                                            count=int(context["tag"].get("games") or 0)),
             _tag_games, subjects=frozenset({"tag"})),
     Section("asset_file", lambda _: t("word.file"), _asset_file_block,
-            subjects=frozenset({"asset_file"})),
-    Section("asset_settings", lambda _: t("console.workbench.table_settings"),
-            _file_settings_block, subjects=frozenset({"asset_file"}),
-            shown=lambda context: "file_settings" in context),
+            subjects=frozenset({"asset_file"}), dock=_asset_has_stage),
     # A device, in reading order: what it is, what it is running, what it can be asked
     # for, what it has written down, and what it can be told to do. Its settings are not
     # here at all - they are a door in Details into that install's own Console, because a

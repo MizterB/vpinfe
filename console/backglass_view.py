@@ -20,8 +20,9 @@ from console import art, mediaview
 
 BACKGLASS_WINDOW = "Backglass.Backglass"
 SCORE_VIEW_WINDOW = "ScoreView.ScoreView"
-# The tallest a picture is drawn, in pixels; boxes beside each other share it.
-HEIGHT = 180
+BAR_PX = 46
+CAPTION_PX = 22
+GAP_PX = 8
 LOOKS = ("off", "on", "every")
 EDITIONS = ("authentic", "fantasy")
 
@@ -135,8 +136,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
     added to `followers` with the settings as they now stand."""
     state: dict[str, Any] = {"look": "on", "edition": edition_in_effect(held),
                              "held": dict(held)}
-    with ui.element("div").classes("console-slot-art"):
-        holder = ui.element("div").classes("console-bgview")
+    holder = ui.element("div").classes("console-bgview")
 
     def draw() -> None:
         holder.clear()
@@ -146,7 +146,11 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
         src = art.backglass(game_id, path, version=glass["version"], size=art.PANEL,
                             grill=False, look=state["look"], edition=state["edition"])
         with holder:
-            with ui.row().classes("console-bgview-row items-center gap-2 w-full"):
+            both = score_screen is not None
+            shapes = glass_screen.ratio + (score_screen.ratio if score_screen else 0)
+            chrome = BAR_PX + (CAPTION_PX if both else 0)
+            with ui.row().classes("console-bgview-row items-center w-full").style(
+                    f"gap:{GAP_PX}px;--gap:{GAP_PX}px;--sum:{shapes:.5f};--gaps:{int(both)};--chrome:{chrome}px"):
                 _stage(glass_screen, src)
                 if score_screen is not None:
                     score = art.score_view(game_id, path, version=glass["version"],
@@ -196,8 +200,7 @@ def _stage(screen: Screen, src: str, caption: str = "") -> None:
     quarter turn swaps the box it is stretched into."""
     sideways = screen.turns % 2 == 1
     across, down = ("100cqh", "100cqw") if sideways else ("100%", "100%")
-    with ui.column().classes("console-bgview-fig gap-0").style(
-            f"flex:0 1 {HEIGHT * screen.ratio:.0f}px"):
+    with ui.column().classes("console-bgview-fig gap-0"):
         with ui.element("div").classes("console-bgview-box") \
                 .style(f"aspect-ratio:{screen.ratio:.5f}"):
             with ui.element("div").classes("console-bgview-stage").style(

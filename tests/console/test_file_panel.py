@@ -113,10 +113,73 @@ class TheLineUnderIt(unittest.TestCase):
 class ItsOwnRail(unittest.TestCase):
     def test_a_file_is_answered_by_file_alone(self) -> None:
         for subject, keys in (("media_file", ["media_file"]),
-                              ("asset_file", ["asset_file", "asset_settings"])):
+                              ("asset_file", ["asset_file"])):
             with self.subTest(subject=subject):
                 self.assertEqual(keys, [item.key
                                         for item in workbench.sections_for(subject)])
+
+
+def _section(key: str) -> workbench.Section:
+    return next(item for item in workbench.SECTIONS if item.key == key)
+
+
+class TheStage(unittest.TestCase):
+    def _docked(self, key: str, context: dict) -> bool:
+        return workbench._docked(_section(key), context)
+
+    def test_a_media_file_that_is_there_has_a_stage(self) -> None:
+        self.assertTrue(self._docked("media_file", {"row": {"present": True}}))
+        self.assertFalse(self._docked("media_file", {"row": {"present": False}}))
+
+    def test_a_loose_media_file_has_one_only_where_its_path_can_be_drawn(self) -> None:
+        loose = {"present": True, "via": "orphan", "path": "media/bg.png"}
+
+        self.assertTrue(self._docked("media_file", {"row": loose,
+                                                    "game": {"folder": "/lib/g"}}))
+        self.assertFalse(self._docked("media_file", {"row": loose, "game": {}}))
+        self.assertFalse(self._docked("media_file", {"row": {**loose, "path": ""},
+                                                     "game": {"folder": "/lib/g"}}))
+
+    def test_a_backglass_has_a_stage_unless_it_is_damaged(self) -> None:
+        for damaged in (False, True):
+            with self.subTest(damaged=damaged):
+                context = {"kind": "backglass",
+                           "detail": {"backglass": _glass(damaged=damaged)}}
+
+                self.assertEqual(not damaged, self._docked("asset_file", context))
+
+    def test_a_script_has_a_stage_for_its_first_lines(self) -> None:
+        self.assertTrue(self._docked("asset_file", {"kind": "vbs", "detail": {"head": "x"}}))
+
+    def test_a_folder_or_an_absent_file_is_only_an_icon_so_has_none(self) -> None:
+        for context in ({"kind": "pup_pack", "detail": {"files": 3}},
+                        {"kind": "backglass", "detail": {}}):
+            with self.subTest(kind=context["kind"]):
+                self.assertFalse(self._docked("asset_file", context))
+
+    def test_a_dock_that_is_a_flag_is_one_still(self) -> None:
+        self.assertTrue(workbench._docked(workbench.Section("x", lambda _: "", None, dock=True),
+                                          {}))
+
+
+class TheDocksHeight(unittest.TestCase):
+    def test_each_section_keeps_its_own(self) -> None:
+        state: dict = {}
+
+        workbench.dock_dragged(state, {"section": "media_file", "px": 410})
+
+        self.assertEqual((410, workbench.DOCK_PX),
+                         (workbench.dock_height(state, "media_file"),
+                          workbench.dock_height(state, "asset_file")))
+
+    def test_a_report_with_no_section_or_height_is_ignored(self) -> None:
+        state: dict = {}
+
+        for args in (None, 300, {"px": 300}, {"section": "media_file"},
+                     {"section": "a", "px": 0}, {"section": "a", "px": "tall"}):
+            workbench.dock_dragged(state, args)
+
+        self.assertEqual({}, state.get("dock_px", {}))
 
 
 def _glass(**more: Any) -> dict:
