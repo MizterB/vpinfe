@@ -31,9 +31,12 @@ if TYPE_CHECKING:
 # and has no section and key to name.
 WHERE_SETTINGS = "settings"
 WHERE_LAUNCHERS = "launchers"
-WHERE_LOCATIONS = "locations"
 # Each is the Console's view key for that page.
-WHERES = (WHERE_SETTINGS, WHERE_LAUNCHERS, WHERE_LOCATIONS)
+WHERES = (WHERE_SETTINGS, WHERE_LAUNCHERS)
+
+# The section a finding about the library folders is filed under. It names no setting: the
+# folders are not config keys, and the Folders page is where it is fixed.
+FOLDERS = "folders"
 
 # What each feature needs before it can do its job. These happen to be paths, which is not
 # a rule - a requirement is anything a feature cannot work without.
@@ -149,8 +152,8 @@ def _no_reachable_location(on: list[str], found: Any) -> tuple[Unmet, ...]:
         reason = t("error.features.none_reachable")
     else:
         return ()
-    return tuple(Unmet(feature=feature, section="", key="", state=path_checks.UNSET,
-                       reason=reason, where=WHERE_LOCATIONS)
+    return tuple(Unmet(feature=feature, section=FOLDERS, key="", state=path_checks.UNSET,
+                       reason=reason, where=WHERE_SETTINGS)
                  for feature in wants)
 
 

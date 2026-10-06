@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from nicegui import run, ui
@@ -45,6 +45,7 @@ from console import (
     deeplink,
     displays,
     folder_picker,
+    folders,
     input_page,
     offload,
     panel,
@@ -813,6 +814,7 @@ PAGE_NOTES: dict[str, str] = {
     "frontend.presentation": "console.settings.note_presentation",
     "vpinfe.tools": "console.settings.note_tools",
     "library.updates": "console.settings.note_updates",
+    folders.KEY: "console.settings.note_folders",
 }
 
 
@@ -864,8 +866,12 @@ def _check_labels() -> dict[str, str]:
     from console.sections import CHECKS
     return {key: name for key, name, _description, _predicate in CHECKS}
 
-PAGES: dict[str, Callable[[], None]] = {}
-
+# A built page's draw: read what it shows, then hand back what draws it. The read is
+# awaited by the caller, so the draw itself never waits.
+PAGES: dict[str, Callable[[Library, Callable[[], None], dict[str, Any]],
+                          Awaitable[Callable[[], None]]]] = {
+    folders.KEY: folders.page,
+}
 
 
 def _page_label(key: str) -> str:
@@ -919,7 +925,8 @@ def _section_label(key: str) -> str:
 # renderer.
 SCHEMA_PAGE, KIND_PAGE, BUILT_PAGE = "schema", "kind", "built"
 
-DevicePage = tuple[str, str, str, tuple[str, ...], str]
+# The last is the feature the page answers for, or several where any one of them is enough.
+DevicePage = tuple[str, str, str, tuple[str, ...], str | tuple[str, ...]]
 
 DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
     # The install itself, as against the cabinet it drives, what a player sees, what it
@@ -952,6 +959,10 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
          "frontend"),
     )),
     ("console.settings.group_library", (
+        # First because everything below it acts on games found in these folders, and a
+        # device that only plays them still needs to say where they are.
+        (folders.KEY, "console.settings.page_folders", BUILT_PAGE, (),
+         (install_identity.LIBRARY, install_identity.FRONTEND)),
         ("library.media", "console.settings.page_media", SCHEMA_PAGE, ("media",), "library"),
         ("library.assets", "console.settings.page_assets", SCHEMA_PAGE, (), "library"),
         ("library.audit", "console.settings.page_audit", SCHEMA_PAGE, (), "library"),
@@ -995,7 +1006,11 @@ def pages_for_features(features: Any) -> list[tuple[str, DevicePage]]:
     held = ({str(f).strip().lower() for f in (features or [])}
             or set(install_identity.FEATURES)) | {install_identity.CORE}
     return [(group, page) for group, pages in DEVICE_INDEX for page in pages
-            if page[4] in held]
+            if held & set(_features_of(page))]
+
+
+def _features_of(page: DevicePage) -> tuple[str, ...]:
+    return (page[4],) if isinstance(page[4], str) else page[4]
 
 
 # What switching one on gets you. The name says which feature; this says what the install
@@ -1077,7 +1092,8 @@ def pages_in_trouble(items: Any) -> dict[str, list[Any]]:
         # carries its own mark on the entry that leads to it.
         if item.where != feature_checks.WHERE_SETTINGS:
             continue
-        page = _page_holding(item.section)
+        page = folders.KEY if item.section == feature_checks.FOLDERS \
+            else _page_holding(item.section)
         if not page:
             logger.warning("No settings page draws %s, so nothing can lead to %s.%s",
                            item.section, item.section, item.key)
@@ -1288,15 +1304,7 @@ def build_library_page(library: Library, rerender: Callable[[], None], key: str,
     is why they are not schema pages and are only offered on an install that holds a
     library.
     """
-    if kind == BUILT_PAGE:
-        drawn = PAGES.get(key)
-        if drawn is None:
-            panel.facts(ui, [panel.intro(t("console.settings.unbuilt"))])
-            return
-        drawn()
-        return
-
-    found = KIND_PAGES.get(key)
+    found = KIND_PAGES.get(key) if kind != BUILT_PAGE else None
     if found is None:
         panel.facts(ui, [panel.intro(t("console.settings.unbuilt"))])
         return
@@ -1630,6 +1638,12 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
             page_head(key)
             await _identity_page(library, str(discovery.get("display_name") or ""),
                                  redraw)
+        return
+    if kind == BUILT_PAGE and key in PAGES:
+        draw = await PAGES[key](library, redraw, state if state is not None else {})
+        with body:
+            page_head(key)
+            draw()
         return
     if kind != SCHEMA_PAGE:
         with body:

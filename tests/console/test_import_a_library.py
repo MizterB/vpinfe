@@ -23,29 +23,29 @@ class ImporterOnLocations(unittest.IsolatedAsyncioTestCase):
     async def test_the_importer_import_is_offered_when_it_is_running(self) -> None:
         self.library.extensions.return_value = [
             {"name": "library_importer", "actions": [ACTION]}]
-        self.assertEqual(await locations._import_action(self.library), ACTION)
+        self.assertEqual(await locations.import_action(self.library), ACTION)
 
     async def test_an_extension_with_no_actions_offers_nothing(self) -> None:
         self.library.extensions.return_value = [{"name": "library_importer", "actions": []}]
-        self.assertIsNone(await locations._import_action(self.library))
+        self.assertIsNone(await locations.import_action(self.library))
 
     async def test_an_importer_that_is_not_listed_offers_nothing(self) -> None:
         self.library.extensions.return_value = []
-        self.assertIsNone(await locations._import_action(self.library))
+        self.assertIsNone(await locations.import_action(self.library))
 
     async def test_another_extensions_import_is_not_the_importers(self) -> None:
         self.library.extensions.return_value = [
             {"name": "something_else", "actions": [ACTION]}]
-        self.assertIsNone(await locations._import_action(self.library))
+        self.assertIsNone(await locations.import_action(self.library))
 
     async def test_another_action_of_the_importer_is_not_the_import(self) -> None:
         self.library.extensions.return_value = [
             {"name": "library_importer", "actions": [{"key": "other", "label": "Other"}]}]
-        self.assertIsNone(await locations._import_action(self.library))
+        self.assertIsNone(await locations.import_action(self.library))
 
     async def test_a_list_that_will_not_load_offers_nothing(self) -> None:
         self.library.extensions.side_effect = OSError("down")
-        self.assertIsNone(await locations._import_action(self.library))
+        self.assertIsNone(await locations.import_action(self.library))
 
 
 class NameForANewFolder(unittest.TestCase):

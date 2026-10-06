@@ -20,10 +20,8 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.games import locations as model
-from common.games import tables
 from common.i18n import t
 from console import busy, offload, verbs, views
-from console import dialog as frame
 from console.data import Library
 from console.on_page import on_page
 
@@ -150,7 +148,7 @@ def build(library: Library, state: dict[str, Any],
     busy.fill(body, lambda: _fill(library, state, on_select, rerender, body))
 
 
-async def _import_action(library: Library) -> dict | None:
+async def import_action(library: Library) -> dict | None:
     """The Library Importer's import, when that extension is running - a button that
     refuses is worse than none, so an extension that is off or gone offers nothing."""
     try:
@@ -163,7 +161,7 @@ async def _import_action(library: Library) -> dict | None:
 
 
 @on_page
-async def _open_importer(action: dict, rerender: Callable[[], None] | None) -> None:
+async def open_importer(action: dict, rerender: Callable[[], None] | None) -> None:
     """The import dialog, then the page redrawn: it can add a library folder, and the list
     and its count are read when the page draws."""
     from console import ext_action
@@ -186,7 +184,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
     # so reaching for it at the top would close the loop.
     from console.games import view_control
 
-    importing = await _import_action(library)
+    importing = await import_action(library)
     held = list(found.get("locations") or [])
     built = rows(held, asking(found))
     fields = [definition["field"] for definition in COLUMNS]
@@ -216,7 +214,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                      (lambda: _ask_new(library, state, rerender, on_select)))]
                 if importing is not None:
                     choices.append((str(importing.get("label") or ""),
-                                    lambda: _open_importer(importing, rerender)))
+                                    lambda: open_importer(importing, rerender)))
                 panel.add_action(choices, empty=not built)
 
         if not built:
@@ -316,20 +314,6 @@ async def _remove_many(picked: list[dict[str, Any]], library: Library,
         rerender()
 
 
-def _sort_it(found: dict[str, Any], state_now: str, said: str) -> str:
-    """Which kind the typed folder is, decided, and the line that says so.
-
-    Only for a folder that is there: the answer is what is inside it, and a path that
-    does not resolve has nothing inside to read.
-    """
-    game = state_now == "ok" and tables.is_game_folder(said)
-    found["kind"] = model.KIND_GAME if game else model.KIND_ROOT
-    if state_now != "ok":
-        return ""
-    return t("console.locations.one_game_folder" if game
-             else "console.locations.many_games")
-
-
 def _ask_new(library: Library, state: dict[str, Any],
              rerender: Callable[[], None] | None,
              on_select: Callable[[dict | None], Any]) -> None:
@@ -339,36 +323,14 @@ def _ask_new(library: Library, state: dict[str, Any],
     launcher with no program set reads as unconfigured, but a location with no folder
     reads as *unreachable* - the same words a share that has dropped uses. A row that
     looks broken the moment it is made is worse than one more dialog.
-
-    `found` carries what `_sort_it` decided; the workbench's select is where a miss is
-    corrected.
     """
-    found: dict[str, Any] = {"kind": model.KIND_ROOT}
-    held: dict[str, Any] = {}
+    # Imported here: `folders` imports this module for the state words.
+    from console import folders
 
-    def draw_folder() -> None:
-        held["folder"] = panel.path_field(
-            placeholder="/path/to/your/games", wants="dir", width="w-full",
-            on_checked=lambda state_now, said: _sort_it(found, state_now, said),
-            browse=library.folders)
+    async def keep(kind: str, path: str) -> None:
+        await _create(library, state, rerender, on_select, kind, path)
 
-    async def keep() -> None:
-        wanted = (held["folder"].value or "").strip()
-        if not wanted:
-            held["folder"].props["error"] = True
-            held["folder"].props["error-message"] = t("console.locations.needs_name")
-            return
-        box.close()
-        await _create(library, state, rerender, on_select, found["kind"], wanted)
-
-    with frame.opened(t("console.locations.add_folder")) as box:
-        panel.facts(ui, [(t("word.folder"), draw_folder)])
-        with frame.footer():
-            frame.cancel(box.close)
-            go = frame.answer(t("word.add"), keep, icon=verbs.ADD)
-    frame.focus(box, held["folder"])
-    frame.enter_presses(go)
-    box.open()
+    folders.folder_dialog(library, keep)
 
 
 @on_page

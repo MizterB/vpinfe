@@ -86,8 +86,8 @@ class RequirementTests(unittest.TestCase):
         config = self._config()
 
         self.assertEqual(self._unmet(config, ["library", "frontend"], locations=[]),
-                         [("library", feature_checks.WHERE_LOCATIONS, path_checks.UNSET),
-                          ("frontend", feature_checks.WHERE_LOCATIONS,
+                         [("library", feature_checks.WHERE_SETTINGS, path_checks.UNSET),
+                          ("frontend", feature_checks.WHERE_SETTINGS,
                            path_checks.UNSET)])
 
     def test_one_location_among_several_being_unreachable_is_not_a_fault(self) -> None:
@@ -100,8 +100,18 @@ class RequirementTests(unittest.TestCase):
         held = self._locations(os.path.join(self.tmp.name, "never-mounted"))
 
         self.assertEqual(self._unmet(self._config(), ["library"], locations=held),
-                         [("library", feature_checks.WHERE_LOCATIONS,
+                         [("library", feature_checks.WHERE_SETTINGS,
                            path_checks.UNSET)])
+
+    def test_no_folder_is_filed_against_the_folders_page_not_a_setting(self) -> None:
+        """The fix is the Folders page, which is not a config key: the finding carries no
+        key, and its section is how the Console finds the page."""
+        found = feature_checks.unmet(self._config(), ["library"],
+                                     launcher=self._launcher_for(self.launcher),
+                                     locations=[])
+
+        self.assertEqual([(one.where, one.section, one.key) for one in found],
+                         [(feature_checks.WHERE_SETTINGS, feature_checks.FOLDERS, "")])
 
     def test_a_path_that_is_set_and_wrong_is_not_the_same_as_unset(self) -> None:
         """The reason differs, and so does the fix: one is 'fill this in', the other is

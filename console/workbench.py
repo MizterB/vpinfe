@@ -93,6 +93,7 @@ from console import backups as backups_page
 from console import commands as commands_help
 from console import devices as devices_page
 from console import dialog as frame
+from console import folders as folders_page
 from console import launchers as launchers_page
 from console import locations as locations_page
 from console import players as players_page
@@ -6151,46 +6152,14 @@ async def _shadowed_block(context: dict[str, Any], row: dict[str, Any]) -> None:
     ui.label(t("console.workbench.shadowed",
             count=count)).classes("console-card-title console-fact-heading")
     ui.label(t("console.workbench.shadowed_intro")).classes("console-help")
-    for one in held:
-        # Marked, so the action stays visible rather than waiting for a hover. Every row
-        # here is one somebody came to act on, which is the case that rule is for.
-        with ui.column().classes("gap-0 w-full console-member-row") \
-                .props('data-origin="shadowed"'):
-            with ui.row().classes("items-center gap-2 w-full no-wrap"):
-                ui.label(Path(str(one.get("path") or "")).name) \
-                    .classes("console-member-name grow min-w-0 truncate") \
-                    .tooltip(str(one.get("path") or ""))
-                with ui.element("div").classes("console-row-action"):
-                    ui.button(t("console.workbench.own_action"), icon=verbs.SPLIT,
-                              on_click=lambda _, o=one: _adopt_shadowed(context, o)) \
-                        .props("flat dense no-caps size=sm")
-            ui.label(t("console.workbench.answered", value=(one.get('used_path') or ''))) \
-                .classes("console-member-table")
 
+    @on_page
+    async def adopt(one: dict[str, Any]) -> None:
+        if await folders_page.adopt_copy(context["library"],
+                                         context["location"]["location_id"], one):
+            await _folders_changed(context)
 
-@on_page
-async def _adopt_shadowed(context: dict[str, Any], one: dict[str, Any]) -> None:
-    """Settle one of them by giving this folder an id of its own.
-
-    Confirmed because it is the only thing in any of this that writes to somebody's game
-    folder, and because it is a decision about which copy is which - the thing the
-    install deliberately refuses to make on its own.
-    """
-    if not await confirm.ask(
-            t("console.workbench.own_question"),
-            detail=t("console.workbench.own_detail"),
-            lines=[str(one.get("path") or "")],
-            confirm=t("console.workbench.make_own"), icon=verbs.SPLIT):
-        return
-    try:
-        await run.io_bound(context["library"].adopt_shadowed,
-                           context["location"]["location_id"],
-                           str(one.get("path") or ""))
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
-        return
-    ui.notify(t("console.workbench.own_done"), type="positive")
-    await _folders_changed(context)
+    folders_page.draw_copies(held, adopt)
 
 
 def _location_state(row: dict[str, Any]) -> Callable[[], None]:

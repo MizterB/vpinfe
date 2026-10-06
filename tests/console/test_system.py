@@ -203,8 +203,28 @@ class SystemIndexTests(unittest.TestCase):
         for group, pages in settings_page.DEVICE_INDEX:
             for page_item in pages:
                 with self.subTest(group=group, page=page_item[0]):
-                    self.assertIn(page_item[4],
-                                  {install_identity.CORE, *install_identity.FEATURES})
+                    named = {page_item[4]} if isinstance(page_item[4], str) \
+                        else set(page_item[4])
+                    self.assertLessEqual(
+                        named, {install_identity.CORE, *install_identity.FEATURES})
+                    self.assertTrue(named)
+
+    def test_a_page_two_features_share_is_there_for_either(self) -> None:
+        """The folders are read by a library and by a frontend, and neither needs the
+        other to have them."""
+        for features in ([install_identity.LIBRARY], [install_identity.FRONTEND],
+                         [install_identity.LIBRARY, install_identity.FRONTEND]):
+            with self.subTest(features=features):
+                self.assertIn("library.folders", _pages(features))
+
+        self.assertNotIn("library.folders", _pages([install_identity.DEVICES]))
+        self.assertNotIn("library.folders", _pages([install_identity.CORE]))
+
+    def test_the_folders_page_leads_the_library_group(self) -> None:
+        library = [one for group, one in settings_page.system_pages(
+            [install_identity.LIBRARY]) if group == "console.settings.group_library"]
+
+        self.assertEqual(library[0][0], "library.folders")
 
     def test_identity_survives_an_install_that_is_for_nothing(self) -> None:
         """The whole point of `core`: the screen that switches a feature back on is the
@@ -241,6 +261,17 @@ class TroubleTests(unittest.TestCase):
         held = settings_page.pages_in_trouble([self._unmet("network", "library_url")])
 
         self.assertEqual(list(held), ["vpinfe.network"])
+
+    def test_no_folder_is_keyed_to_the_folders_page(self) -> None:
+        """Its section names no settings page, so it is keyed by name rather than found
+        by the section's owner."""
+        found = feature_checks.Unmet(
+            feature=install_identity.LIBRARY, section=feature_checks.FOLDERS, key="",
+            state=path_checks.UNSET, reason="Nothing is there.")
+
+        held = settings_page.pages_in_trouble([found])
+
+        self.assertEqual(list(held), ["library.folders"])
 
     def test_a_section_is_drawn_by_no_more_than_one_page(self) -> None:
         """`_page_holding` answers with the first page that draws a section, so a
