@@ -2552,6 +2552,9 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 /* Quasar's error mark, the path's tick or cross and the Browse glyph share one size.
    A field that draws any of them in its append slot wears .console-adorned. */
 .console-adorned .q-field__append .q-icon { font-size: var(--icon-mark); }
+.console-adorned div.console-value-state { display: flex; align-items: center; }
+/* A refused field shows Quasar's error mark alone; the tick beside it would say the opposite. */
+.console-adorned.q-field--error .console-value-state { display: none; }
 /* No cap. 56ch was tried and cropped "/Users/.../VPinballX/10.8/VPinballX.ini" with room
    to spare beside it, which is the failure this file already describes: a cropped value
    reads as broken, not as restraint. A settings page is mostly long paths, so the width
