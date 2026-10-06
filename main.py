@@ -34,6 +34,11 @@ if "--dof-helper" in sys.argv[1:]:
     from common.host.dof_service_worker import main as _dof_helper_main
     raise SystemExit(_dof_helper_main())
 
+if "--pinmame-helper" in sys.argv[1:]:
+    from common.host.pinmame_worker import main as _pinmame_helper_main
+    sys.argv.remove("--pinmame-helper")
+    raise SystemExit(_pinmame_helper_main())
+
 
 # common.paths resolves CONFIG_DIR at import time, so --configdir has to reach
 # the environment before anything under common/ is imported. Do it first.

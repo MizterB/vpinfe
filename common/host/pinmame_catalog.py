@@ -121,6 +121,13 @@ def lookup(vpx_bin_path: str, roms_dir: str, set_name: str) -> dict | None:
         return entry
 
 
+def _helper_command(library: str) -> list[str]:
+    """A frozen build has no `-m`: its executable starts VPinFE whatever it is handed."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--pinmame-helper", "--serve", library]
+    return [sys.executable, "-m", "common.host.pinmame_worker", "--serve", library]
+
+
 def _ask(library: str, roms_dir: str, set_name: str) -> dict:
     """One request to the helper, started on first use. Held under `_helper_lock`.
 
@@ -130,7 +137,7 @@ def _ask(library: str, roms_dir: str, set_name: str) -> dict:
     if _helper is None or _helper[0] != library or _helper[1].poll() is not None:
         _stop_helper()
         process = subprocess.Popen(
-            [sys.executable, "-m", "common.host.pinmame_worker", "--serve", library],
+            _helper_command(library),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             text=True, cwd=str(Path(__file__).resolve().parents[2]),
         )

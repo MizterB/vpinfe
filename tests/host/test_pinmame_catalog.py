@@ -79,6 +79,30 @@ class LocatorTests(unittest.TestCase):
         self.assertIn("libpinmame", reason)
 
 
+class HelperCommandTests(unittest.TestCase):
+    def test_a_frozen_build_asks_its_own_executable_for_the_helper(self) -> None:
+        with mock.patch.object(sys, "frozen", True, create=True):
+            command = pinmame_catalog._helper_command("/vpx/libpinmame.so")
+
+        self.assertEqual(command, [sys.executable, "--pinmame-helper", "--serve",
+                                   "/vpx/libpinmame.so"])
+
+    def test_a_source_run_names_the_module(self) -> None:
+        command = pinmame_catalog._helper_command("/vpx/libpinmame.so")
+
+        self.assertEqual(command, [sys.executable, "-m", "common.host.pinmame_worker",
+                                   "--serve", "/vpx/libpinmame.so"])
+
+    def test_the_flag_reaches_the_worker_and_does_not_start_the_app(self) -> None:
+        repo = Path(__file__).resolve().parents[2]
+        proc = subprocess.run(
+            [sys.executable, str(repo / "main.py"), "--pinmame-helper", "--serve",
+             "/no/such/libpinmame.so"],
+            input="", capture_output=True, text=True, timeout=60, cwd=str(repo))
+
+        self.assertIn("error", json.loads(proc.stdout.splitlines()[0]))
+
+
 class AuditFoldTests(unittest.TestCase):
     def _chain(self):
         return resolve_rom_chain("afm_113b", {}, [], required=True)
