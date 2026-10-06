@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -111,8 +112,9 @@ class StubInstance(HTTPServer):
     """Something answering on the HTTP port. `name` is what its discovery document says,
     so a test can be a VPinFE or can be whatever else grabbed the port first."""
 
-    def __init__(self, name: str | None):
+    def __init__(self, name: str | None, delay: float = 0.0):
         self.name = name
+        self.delay = delay
         super().__init__(("127.0.0.1", 0), _StubHandler)
         self._thread = threading.Thread(target=self.serve_forever, daemon=True)
         self._thread.start()
@@ -130,6 +132,7 @@ class StubInstance(HTTPServer):
 class _StubHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:                                   # noqa: N802 - BaseHTTPRequestHandler
         name = self.server.name
+        time.sleep(self.server.delay)
         body = b"not json" if name is None else json.dumps({"name": name}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -495,6 +498,13 @@ class RunningInstanceTests(RevertTestCase):
                 instance = StubInstance(name)
                 self.addCleanup(instance.stop)
                 self.assertFalse(revert_3x.running_instance(instance.port))
+
+    def test_a_slow_answer_is_still_a_running_instance(self):
+        """A machine under load answers late. Taking late for none would let the reset
+        run under a live instance, which writes it straight back."""
+        instance = StubInstance("VPinFE", delay=2.0)
+        self.addCleanup(instance.stop)
+        self.assertTrue(revert_3x.running_instance(instance.port))
 
     def test_a_port_nobody_is_listening_on_is_not_a_running_instance(self):
         self.assertFalse(revert_3x.running_instance(self.closed_port))

@@ -70,12 +70,15 @@ class InstanceRunningError(RuntimeError):
     """VPinFE is up, so the reset would be undone before anyone saw it."""
 
 
-def running_instance(http_port: int, timeout: float = 1.0) -> bool:
+def running_instance(http_port: int, timeout: float = 10.0) -> bool:
     """Whether a VPinFE is serving on this install's HTTP port.
 
     Reads the discovery document rather than only opening the socket, so an unrelated
     program on that port cannot block a reset. A listening socket dies with the process
     that holds it, so there is no stale port to be fooled by.
+
+    The timeout stays long: a busy machine answers late, and a late answer judged as
+    none lets the reset through under a live instance.
     """
     try:
         with urllib.request.urlopen(
