@@ -86,8 +86,9 @@ class ThemeRegistry:
     # REGISTRY
     # =========================================================
 
-    def _catalog(self, url: str) -> dict:
-        """The themes a registry names, or {} with a reason logged and kept in `reports`.
+    def _catalog(self, url: str, previous: ThemeRegistry | None = None) -> dict:
+        """The themes a registry names. A registry that cannot be read names what it
+        named when it last could, with the reason logged and kept in `reports`.
 
         One unreachable or malformed source must not cost the user the others - that is
         the whole point of there being more than one.
@@ -98,18 +99,28 @@ class ThemeRegistry:
         except Exception as exc:
             logger.error("Theme registry %s: %s", url, exc)
             state, reason = checks.classify(exc, url)
-            self.reports[url] = checks.failed(url, checks.LIST, state, reason)
-            return {}
+            return self._catalog_kept(url, previous, state, reason)
         themes = data.get("themes")
         if not isinstance(themes, dict):
             logger.error("Theme registry %s: no themes object, so nothing to read", url)
-            self.reports[url] = checks.failed(url, checks.LIST, checks.NOT_A_THEME,
-                                              t("themes.source.no_themes"))
-            return {}
+            return self._catalog_kept(url, previous, checks.NOT_A_THEME,
+                                      t("themes.source.no_themes"))
         self.reports[url] = checks.listed(url, themes)
         return themes
 
-    def load_registry(self) -> None:
+    def _catalog_kept(self, url: str, previous: ThemeRegistry | None, state: str,
+                      reason: str) -> dict:
+        kept: dict = {}
+        if previous is not None:
+            kept = {key: entry for key, entry in previous.themes_index.items()
+                    if previous.origins.get(key) == url}
+        report = theme_source_checks.listed(url, kept)
+        report.update(state=state, reason=reason)
+        self.reports[url] = report
+        return kept
+
+    def load_registry(self, previous: ThemeRegistry | None = None) -> None:
+        """`previous` is the last read, which a source that fails now still answers from."""
         sources = self.sources
         if sources is None:
             sources = theme_sources.from_config(get_ini_config())
@@ -122,7 +133,8 @@ class ThemeRegistry:
                         for url in sources.repositories if url.strip()}
         parts = [(url, {url: theme_sources.repository_entry(url)})
                  for url in sources.repositories if url.strip()]
-        parts += [(url, self._catalog(url)) for url in sources.registries if url.strip()]
+        parts += [(url, self._catalog(url, previous))
+                  for url in sources.registries if url.strip()]
 
         self.origins = {}
         lost: dict[str, list[str]] = {}
@@ -216,6 +228,7 @@ class ThemeRegistry:
             return name, theme_info, manifest, release, index, updated, ""
 
         unreadable: dict[str, dict[str, str]] = {}
+        kept: dict[str, dict] = {}
 
         # Network-bound workload: parallelize manifest fetches. Submitted all at once, then
         # collected in source order rather than completion order - a repository's name is
@@ -254,10 +267,37 @@ class ThemeRegistry:
                 except Exception as e:
                     logger.error("%s: %s", provisional, e)
                     self._note_failure(origin, provisional, e, unreadable)
+                    self._keep_last_good(previous, origin, provisional, kept)
+
+        # After every live read has had its turn, so a theme a failing source used to
+        # offer never shadows the same name from a source that answered.
+        for key, entry in kept.items():
+            self.themes.setdefault(key, entry)
 
         for origin, names in unreadable.items():
-            self._note(origin, state=theme_source_checks.SOME_UNREADABLE,
-                       reason=theme_source_checks.unreadable(names))
+            if (self.reports.get(origin) or {}).get("state") == theme_source_checks.READY:
+                self._note(origin, state=theme_source_checks.SOME_UNREADABLE,
+                           reason=theme_source_checks.unreadable(names))
+
+    def _keep_last_good(self, previous: ThemeRegistry | None, origin: str,
+                        provisional: str, kept: dict[str, dict]) -> None:
+        """A theme that cannot be read now stays listed as it was when it last could.
+        Added to `kept`, which the caller merges once every source has been read."""
+        if previous is None:
+            return
+        single = self._is_single(origin)
+        before = previous.reports.get(origin) or {}
+        was = theme_source_checks.THEME if single else theme_source_checks.LIST
+        if before.get("kind", was) != was:
+            return
+        for key, entry in previous.themes.items():
+            if entry.get("source") != origin or not (single or key == provisional):
+                continue
+            kept.setdefault(key, dict(entry))
+            if single and before.get("kind") == theme_source_checks.THEME:
+                self._note(origin, name=before.get("name") or key,
+                           version=before.get("version") or "")
+            return
 
     def _note(self, origin: str, **fields: Any) -> None:
         """Add to what a source said. A registry built without reading its sources has no

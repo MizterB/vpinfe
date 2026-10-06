@@ -7,6 +7,7 @@ dialog, which finds out without saving.
 
 from __future__ import annotations
 
+import json
 import unittest
 from configparser import ConfigParser
 from typing import Any
@@ -413,6 +414,104 @@ class WhatAddingWouldBe(unittest.TestCase):
         self.assertEqual((said["state"], said["level"]), (checks.NOT_USED, "warn"))
 
 
+class WhatALastGoodReadKeeps(unittest.TestCase):
+    """A source that fails contributes what it said when it last could, and its state
+    says why."""
+
+    A = "https://x.net/o/a"
+    B = "https://x.net/o/b"
+    GOOD = {STOCK: {"themes": {"A": {"url": A}, "B": {"url": B, "default_install": True}}},
+            f"{A}/raw/HEAD/manifest.json": _manifest("A"),
+            f"{B}/raw/HEAD/manifest.json": _manifest("B")}
+
+    def _read(self, sources: theme_sources.ThemeSources, answers: dict,
+              previous: ThemeRegistry | None = None) -> ThemeRegistry:
+        registry = ThemeRegistry(sources=sources)
+        with _Net(answers):
+            try:
+                registry.load_registry(previous=previous)
+                registry.load_theme_manifests(dates=False, previous=previous)
+            except ThemeRegistryError:
+                pass
+        return registry
+
+    def _again(self, registry: ThemeRegistry) -> ThemeRegistry:
+        """What a restart sees: the last read through the file it is kept in."""
+        held = ThemeRegistry()
+        held.restore(json.loads(json.dumps(registry.snapshot())))
+        return held
+
+    def test_a_list_that_stops_answering_keeps_its_themes(self) -> None:
+        sources = theme_sources.ThemeSources(registries=(STOCK,))
+        before = self._read(sources, self.GOOD)
+        now = self._read(sources, {**self.GOOD, STOCK: _unreachable()}, before)
+        self.assertEqual(sorted(now.themes), ["A", "B"])
+        said = now.reports[STOCK]
+        self.assertEqual((said["state"], said["count"], said["installs"]),
+                         (checks.NOT_ANSWERING, 2, ["B"]))
+
+    def test_a_list_that_stops_being_a_list_keeps_its_themes(self) -> None:
+        sources = theme_sources.ThemeSources(registries=(STOCK,))
+        before = self._read(sources, self.GOOD)
+        now = self._read(sources, {**self.GOOD, STOCK: {"hello": 1}}, before)
+        self.assertEqual(sorted(now.themes), ["A", "B"])
+        self.assertEqual(now.reports[STOCK]["state"], checks.NOT_A_THEME)
+
+    def test_the_last_read_comes_back_from_the_file_it_is_kept_in(self) -> None:
+        sources = theme_sources.ThemeSources(registries=(STOCK,))
+        before = self._again(self._read(sources, self.GOOD))
+        now = self._read(sources, {STOCK: _http(404)}, before)
+        self.assertEqual(sorted(now.themes), ["A", "B"])
+        self.assertEqual(now.reports[STOCK]["state"], checks.NOT_FOUND)
+
+    def test_a_theme_a_failing_source_used_to_offer_does_not_shadow_a_live_one(self) -> None:
+        sources = theme_sources.ThemeSources(repositories=(SINGLE,), registries=(STOCK,))
+        answers = {f"{SINGLE}/raw/HEAD/manifest.json": _manifest("A"), **self.GOOD}
+        before = self._read(sources, answers)
+        self.assertEqual(before.themes["A"]["source"], SINGLE)
+        moved = {**self.GOOD, f"{SINGLE}/raw/HEAD/manifest.json": _unreachable()}
+        now = self._read(sources, moved, before)
+        self.assertEqual(now.themes["A"]["source"], STOCK)
+
+    def test_an_address_that_changed_kind_keeps_nothing_from_the_old_one(self) -> None:
+        before = self._read(theme_sources.ThemeSources(registries=(STOCK,)), self.GOOD)
+        now = self._read(theme_sources.ThemeSources(repositories=(STOCK,)),
+                         {f"{STOCK}/raw/HEAD/manifest.json": _unreachable()}, before)
+        self.assertEqual(now.themes, {})
+
+    def test_a_theme_that_stops_reading_stays_listed_and_the_list_says_so(self) -> None:
+        sources = theme_sources.ThemeSources(registries=(STOCK,))
+        before = self._read(sources, self.GOOD)
+        answers = {**self.GOOD, f"{self.B}/raw/HEAD/manifest.json": _unreachable()}
+        now = self._read(sources, answers, before)
+        self.assertEqual(sorted(now.themes), ["A", "B"])
+        self.assertEqual(now.reports[STOCK]["state"], checks.SOME_UNREADABLE)
+
+    def test_a_single_theme_that_stops_reading_stays_listed_under_its_name(self) -> None:
+        sources = theme_sources.ThemeSources(repositories=(SINGLE,))
+        before = self._read(sources, {f"{SINGLE}/raw/HEAD/manifest.json":
+                                      _manifest("Reference", "2.1")})
+        now = self._read(sources, {f"{SINGLE}/raw/HEAD/manifest.json": _unreachable()}, before)
+        self.assertEqual(list(now.themes), ["Reference"])
+        said = now.reports[SINGLE]
+        self.assertEqual((said["state"], said["name"], said["version"]),
+                         (checks.NOT_ANSWERING, "Reference", "2.1"))
+
+    def test_nothing_is_kept_for_a_source_no_longer_configured(self) -> None:
+        before = self._read(theme_sources.ThemeSources(registries=(STOCK,)), self.GOOD)
+        now = self._read(theme_sources.ThemeSources(registries=(OTHER,)),
+                         {OTHER: _unreachable()}, before)
+        self.assertEqual(now.themes, {})
+
+    def test_a_list_nobody_has_read_keeps_nothing(self) -> None:
+        now = self._read(theme_sources.ThemeSources(registries=(STOCK, OTHER)),
+                         {STOCK: _unreachable(), OTHER: {"themes": {"A": {"url": self.A}}},
+                          f"{self.A}/raw/HEAD/manifest.json": _manifest("A")},
+                         ThemeRegistry())
+        self.assertEqual(list(now.themes), ["A"])
+        self.assertEqual(now.reports[STOCK]["count"], 0)
+
+
 class WhenNothingAnswers(unittest.TestCase):
     """A read that finds no usable source builds no registry, and the page still has to
     say what each source said."""
@@ -431,6 +530,44 @@ class WhenNothingAnswers(unittest.TestCase):
             shown = theme_ops.sources()
         self.assertEqual((shown["registries"][0]["state"], shown["registries"][0]["level"]),
                          ("not_answering", "bad"))
+
+    def test_a_refresh_that_finds_the_list_down_keeps_what_the_last_one_listed(self) -> None:
+        config = _config(registries=(STOCK,))
+        good = WhatALastGoodReadKeeps.GOOD
+        self.addCleanup(setattr, theme_ops, "_unread", {})
+        self.addCleanup(setattr, theme_ops, "_registry", None)
+        theme_ops._registry = None
+        with mock.patch.object(theme_ops, "get_ini_config", return_value=config), \
+                mock.patch("common.online.themes.get_ini_config", return_value=config), \
+                mock.patch.object(theme_ops, "_cached", return_value=None), \
+                mock.patch.object(theme_ops, "_keep"), \
+                mock.patch.object(theme_ops.theme_sync, "stamp"):
+            with _Net(good):
+                theme_ops._readable(refresh=True)
+            with _Net({**good, STOCK: _unreachable()}):
+                again = theme_ops._readable(refresh=True)
+            shown = theme_ops.sources()
+        self.assertEqual(sorted(again.themes), ["A", "B"])
+        self.assertEqual((shown["registries"][0]["state"], shown["registries"][0]["count"]),
+                         ("not_answering", 2))
+
+    def test_a_refresh_where_every_source_failed_is_not_counted_as_a_read(self) -> None:
+        config = _config(registries=(STOCK,))
+        good = WhatALastGoodReadKeeps.GOOD
+        self.addCleanup(setattr, theme_ops, "_unread", {})
+        self.addCleanup(setattr, theme_ops, "_registry", None)
+        theme_ops._registry = None
+        with mock.patch.object(theme_ops, "get_ini_config", return_value=config), \
+                mock.patch("common.online.themes.get_ini_config", return_value=config), \
+                mock.patch.object(theme_ops, "_cached", return_value=None), \
+                mock.patch.object(theme_ops, "_keep"), \
+                mock.patch.object(theme_ops.theme_sync, "stamp") as stamp:
+            with _Net(good):
+                theme_ops._readable(refresh=True)
+            self.assertEqual(stamp.call_count, 1)
+            with _Net({**good, STOCK: _unreachable()}):
+                theme_ops._readable(refresh=True)
+        self.assertEqual(stamp.call_count, 1)
 
     def test_a_bad_address_in_the_config_costs_the_other_sources_nothing(self) -> None:
         registry = ThemeRegistry(sources=theme_sources.ThemeSources(

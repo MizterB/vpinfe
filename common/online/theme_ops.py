@@ -63,9 +63,17 @@ def _loaded(refresh: bool = False) -> ThemeRegistry:
             _unread = {}
             _carry_dates(fresh, before)
             _keep(fresh)
-            theme_sync.stamp(get_ini_config())
+            if _answered(fresh):
+                theme_sync.stamp(get_ini_config())
             _registry = fresh
         return _registry
+
+
+def _answered(registry: ThemeRegistry) -> bool:
+    """Whether any source gave an answer this read, as opposed to every one failing and
+    the listing being what an earlier read kept."""
+    states = [report["state"] for report in registry.reports.values()]
+    return not states or any(state not in theme_source_checks.BAD for state in states)
 
 
 def _sources_now() -> dict[str, list[str]]:
