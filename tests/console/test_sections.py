@@ -128,6 +128,23 @@ class CollectionAddressTests(unittest.TestCase):
 
         self.assertEqual({"view": "games"}, _address(state))
 
+    def test_leaving_a_file_for_another_kind_of_file_drops_it_from_the_address(self) -> None:
+        from console import page
+
+        state = {"view": "media", "game": "g", "table": "t", "section": "media_file",
+                 "slot": {"kind": "backglass"}}
+        page.leave_for(state, "assets")
+
+        self.assertEqual({"view": "assets"}, _address(state))
+
+    def test_leaving_a_game_keeps_the_section_a_person_was_reading(self) -> None:
+        from console import page
+
+        state = {"view": "games", "game": "g", "section": "play"}
+        page.leave_for(state, "tables")
+
+        self.assertEqual({"view": "tables", "section": "play"}, _address(state))
+
 
 class ExtensionAddressTests(unittest.TestCase):
     """An extension's own page has an address, so a reload stays on it."""

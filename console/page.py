@@ -1776,6 +1776,10 @@ def _show_group(open_now: bool, caret: Any, held: list) -> None:
             row.set_visibility(open_now)
 
 
+# Sections of a file's own panel: they name a file of the game just left.
+FILE_SECTIONS = ("media_file", "asset_file")
+
+
 def leave_for(state: dict[str, Any], view: str) -> None:
     """Point the shell at another destination, dropping what was selected on the last.
 
@@ -1790,6 +1794,9 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["player"] = None
         state["backup"] = None
         state["sets"] = None
+        state.pop("slot", None)
+        if state.get("section") in FILE_SECTIONS:
+            state.pop("section", None)
     state["extension"] = ""
     state["view"] = view
     remembered.put("section", view)
