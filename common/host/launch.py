@@ -411,7 +411,7 @@ def _location_is_reachable(game: Game) -> None:
     state = locations.states_of([location], wait=locations.MOUNT_SECONDS)[
         location.location_id]
     if not state.reachable:
-        raise ReferenceUnreachableError(t("error.locations.not_reachable",
+        raise ReferenceUnreachableError(t("error.library_folders.not_reachable",
                                           name=location.name, reason=state.reason))
 
 

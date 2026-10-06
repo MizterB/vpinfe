@@ -148,13 +148,13 @@ def _look(raw_path: str, recorded: mounts.Origin | None = None) -> LocationState
     where = mounts.where(str(path), recorded)
     origin = where.origin
     if origin is not None and not where.connected:
-        return LocationState(NOT_CONNECTED, t("error.locations.not_connected"), origin)
+        return LocationState(NOT_CONNECTED, t("error.library_folders.not_connected"), origin)
     if not there:
-        return LocationState(NOT_FOUND, t("error.locations.missing"), origin)
+        return LocationState(NOT_FOUND, t("error.library_folders.missing"), origin)
     if not path.is_dir():
-        return LocationState(NOT_FOUND, t("error.locations.is_file"), origin)
+        return LocationState(NOT_FOUND, t("error.library_folders.is_file"), origin)
     if not os.access(path, os.W_OK):
-        return LocationState(READ_ONLY, t("error.locations.unwritable"),
+        return LocationState(READ_ONLY, t("error.library_folders.unwritable"),
                              origin)
     return LocationState(READY, origin=origin)
 
@@ -165,7 +165,7 @@ class _Probe:
         self.recorded = recorded
         self.started = time.monotonic()
         self.done = threading.Event()
-        self.answer = LocationState(NOT_ANSWERING, t("error.locations.not_answering"))
+        self.answer = LocationState(NOT_ANSWERING, t("error.library_folders.not_answering"))
 
     def run(self) -> None:
         try:
@@ -479,23 +479,23 @@ def destination(location_id: str = "") -> Destination:
         # refusal: an install that has never been asked still has to be able to create.
         if writable:
             return Destination(location=writable[0])
-        return Destination(reason=t("error.locations.nowhere_to_create"))
+        return Destination(reason=t("error.library_folders.nowhere_to_create"))
 
     named = next((one for one in held if one.location_id == wanted), None)
     others = tuple(one for one in writable if one.location_id != wanted)
     if named is None:
-        return Destination(reason=t("error.locations.default_removed"),
+        return Destination(reason=t("error.library_folders.default_removed"),
                            alternatives=others)
     state = states[named.location_id]
     if named.kind != KIND_ROOT:
-        return Destination(reason=t("error.locations.single_game", name=named.name),
+        return Destination(reason=t("error.library_folders.single_game", name=named.name),
                            alternatives=others)
     if not state.reachable:
-        return Destination(reason=t("error.locations.not_reachable", name=named.name,
+        return Destination(reason=t("error.library_folders.not_reachable", name=named.name,
                                     reason=state.reason),
                            alternatives=others)
     if not state.writable:
-        return Destination(reason=t("error.locations.read_only", name=named.name),
+        return Destination(reason=t("error.library_folders.read_only", name=named.name),
                            alternatives=others)
     return Destination(location=named, alternatives=others)
 

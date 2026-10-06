@@ -151,7 +151,7 @@ class CreateTests(CreateGameCase):
 
         self.assertEqual(found.status_code, 400)
         self.assertEqual(found.json()["error"]["message"],
-                         t("error.locations.nowhere_to_create"))
+                         t("error.library_folders.nowhere_to_create"))
 
     @needs_posix_permissions
     def test_a_refusal_names_the_locations_that_would_have_worked(self) -> None:
