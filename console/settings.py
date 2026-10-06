@@ -39,6 +39,7 @@ from common.media_specs import media_label_map
 from console import (
     binding_table,
     busy,
+    chrome_options,
     confirm,
     deeplink,
     displays,
@@ -1359,6 +1360,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                  browse: Callable[..., dict] | None = None,
                  waiting: Waiting | None = None,
                  from_elsewhere: bool = False,
+                 previewed: chrome_options.Preview | None = None,
                 ) -> list[tuple[Any, Any]]:
     """One section's settings as fact rows, from whatever is serving them.
 
@@ -1397,6 +1399,8 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             config_schema.APPLIES_RESTART, config_schema.APPLIES_WINDOWS) else None
         if chipped is not None:
             save = chipped.after(save)
+        if previewed is not None and option["key"] in chrome_options.KEYS:
+            save = previewed.after(option["key"], save)
         control = control_for(
             option, value, save,
             writable=writable, rerender=rerender,
@@ -1474,12 +1478,17 @@ async def build_device_page(source: Any, context: dict[str, Any], schema: list[d
         if head is not None and source is context.get("library"):
             entries += await head(source, rerender, values, offered=offered)
         resolves = RESOLVES.get(name)
+        # Where this install's own client serves the page, for the same reason as the head.
+        preview = chrome_options.Preview(values) \
+            if name == chrome_options.SECTION and source is context.get("library") else None
         entries += section_rows(source, name, block["options"], values,
                                 bool(block.get("writable")), rerender, checks,
                                 suggestions,
                                 resolved=resolves(offered) if resolves else None,
                                 browse=browse, waiting=waiting,
-                                from_elsewhere=from_elsewhere)
+                                from_elsewhere=from_elsewhere, previewed=preview)
+        if preview is not None:
+            entries.append(preview.row())
         foot = FOOTERS.get(name)
         if foot is not None and source is context.get("library"):
             entries += await foot(source, rerender, offered=offered)
