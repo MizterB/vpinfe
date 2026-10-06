@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from common.backups import ops
+from common import lifecycle
+from common.backups import going_back, ops
+from common.host import action_ops
 
 from . import scopes
 from .auth import requires
@@ -30,6 +32,38 @@ def list_backups(of_kind: Literal["game", "launcher", "theme", ""] = "",
     if bool(of_kind) != bool(of):
         raise HTTPException(422, "of_kind and of go together")
     return ops.listing(of_kind, of)
+
+
+def _quit_for_2x() -> None:
+    """A request left behind by a quit that did not happen would turn the next ordinary exit
+    into going back."""
+    try:
+        quit_done = action_ops.perform(lifecycle.VPINFE, lifecycle.STOP, "going back to 2.x")
+    except Exception:
+        going_back.clear()
+        raise
+    if not quit_done:
+        going_back.clear()
+
+
+@router.get("/going-back", summary="What going back to 2.x would put back",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def going_back_plan() -> dict[str, Any]:
+    """`games` is how many hold a 2.x copy and `collections` whether yours do."""
+    return going_back.plan()
+
+
+@router.post("/going-back", summary="Go back to 2.x",
+             dependencies=[requires(scopes.SYSTEM_ADMIN)])
+def go_back_to_2x(background: BackgroundTasks) -> dict[str, Any]:
+    """Quit VPinFE, and put back each game's newest 2.x copy and the 2.x collections as it
+    exits. Nothing is deleted: what is replaced is kept as a copy. Refused with `400` where
+    there is no 2.x copy. Answers with what will be put back, and VPinFE quits after the
+    answer."""
+    action_ops.check(lifecycle.VPINFE, lifecycle.STOP)
+    found = going_back.request()
+    background.add_task(_quit_for_2x)
+    return found
 
 
 @router.post("", summary="Back up now",

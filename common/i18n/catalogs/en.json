@@ -787,6 +787,17 @@
     "one": "Automatic older than 1 month",
     "other": "Automatic older than {count} months"
   },
+  "console.backups.go_back": "Go back to 2.x...",
+  "console.backups.go_back_ask": "Go back to 2.x?",
+  "console.backups.go_back_collections": "Your collections go back to their 2.x copy",
+  "console.backups.go_back_confirm": "Go back",
+  "console.backups.go_back_detail": "VPinFE quits, then puts the copies back. Nothing is deleted.",
+  "console.backups.go_back_games": {
+    "one": "1 game goes back to its 2.x copy",
+    "other": "{count} games go back to their 2.x copies"
+  },
+  "console.backups.go_back_kept": "Your 3.0 settings stay as they are for a return.",
+  "console.backups.going_back": "Quitting to go back to 2.x",
   "console.binding_editor.shared": "Also bound to {others} - only the first one gets it",
   "console.binding_editor.remove_detail": "Once removed, it cannot be bound again from this page",
   "console.binding_editor.remove_2": "Remove “{shown}”?",
@@ -3316,6 +3327,7 @@
   "error.backups.scope": "A backup cannot be of {scope}",
   "error.backups.too_big": "That file in the backup is too large to put back",
   "error.backups.unreadable": "That backup could not be read",
+  "error.backups.no_2x": "There is no 2.x copy to go back to",
   "error.capabilities.check_failed": "Could not check whether it is available",
   "error.capabilities.launcher_state_unknown": "Could not tell whether a launcher is ready",
   "error.capabilities.libpinmame_state_unknown": "Could not tell whether the ROM audit can run",

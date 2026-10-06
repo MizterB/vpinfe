@@ -660,6 +660,12 @@ class Library:
     def delete_backup(self, copy_id: str) -> None:
         self._client.delete_backup(copy_id)
 
+    def going_back_plan(self) -> dict:
+        return self._client.going_back_plan()
+
+    def go_back_to_2x(self) -> dict:
+        return self._client.go_back_to_2x()
+
     def launcher_config(self, launcher_id: str, table: str = "",
                         scope: str = "launcher") -> dict:
         return self._client.launcher_config(launcher_id, table, scope)

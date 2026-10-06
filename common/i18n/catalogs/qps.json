@@ -787,6 +787,17 @@
     "one": "Àûţöɱàţîç öŀđèř ţĥàñ 1 ɱöñţĥ",
     "other": "Àûţöɱàţîç öŀđèř ţĥàñ {count} ɱöñţĥš"
   },
+  "console.backups.go_back": "Ĝö ƀàçķ ţö 2.ẋ...",
+  "console.backups.go_back_ask": "Ĝö ƀàçķ ţö 2.ẋ?",
+  "console.backups.go_back_collections": "Ýöûř çöŀŀèçţîöñš ĝö ƀàçķ ţö ţĥèîř 2.ẋ çöþý",
+  "console.backups.go_back_confirm": "Ĝö ƀàçķ",
+  "console.backups.go_back_detail": "ṼÞîñƑÈ ǫûîţš, ţĥèñ þûţš ţĥè çöþîèš ƀàçķ. Ñöţĥîñĝ îš đèŀèţèđ.",
+  "console.backups.go_back_games": {
+    "one": "1 ĝàɱè ĝöèš ƀàçķ ţö îţš 2.ẋ çöþý",
+    "other": "{count} ĝàɱèš ĝö ƀàçķ ţö ţĥèîř 2.ẋ çöþîèš"
+  },
+  "console.backups.go_back_kept": "Ýöûř 3.0 šèţţîñĝš šţàý àš ţĥèý àřè ƒöř à řèţûřñ.",
+  "console.backups.going_back": "Ǫûîţţîñĝ ţö ĝö ƀàçķ ţö 2.ẋ",
   "console.binding_editor.shared": "Àŀšö ƀöûñđ ţö {others} - öñŀý ţĥè ƒîřšţ öñè ĝèţš îţ",
   "console.binding_editor.remove_detail": "Öñçè řèɱöṽèđ, îţ çàññöţ ƀè ƀöûñđ àĝàîñ ƒřöɱ ţĥîš þàĝè",
   "console.binding_editor.remove_2": "Řèɱöṽè “{shown}”?",
@@ -3316,6 +3327,7 @@
   "error.backups.scope": "À ƀàçķûþ çàññöţ ƀè öƒ {scope}",
   "error.backups.too_big": "Ţĥàţ ƒîŀè îñ ţĥè ƀàçķûþ îš ţöö ŀàřĝè ţö þûţ ƀàçķ",
   "error.backups.unreadable": "Ţĥàţ ƀàçķûþ çöûŀđ ñöţ ƀè řèàđ",
+  "error.backups.no_2x": "Ţĥèřè îš ñö 2.ẋ çöþý ţö ĝö ƀàçķ ţö",
   "error.capabilities.check_failed": "Çöûŀđ ñöţ çĥèçķ ŵĥèţĥèř îţ îš àṽàîŀàƀŀè",
   "error.capabilities.launcher_state_unknown": "Çöûŀđ ñöţ ţèŀŀ ŵĥèţĥèř à ŀàûñçĥèř îš řèàđý",
   "error.capabilities.libpinmame_state_unknown": "Çöûŀđ ñöţ ţèŀŀ ŵĥèţĥèř ţĥè ŘÖḾ àûđîţ çàñ řûñ",

@@ -27,6 +27,10 @@ def request_app_restart(config_dir: Path) -> None:
     (config_dir / ".restart").touch()
 
 
+def cancel_app_restart(config_dir: Path) -> None:
+    (config_dir / ".restart").unlink(missing_ok=True)
+
+
 def restart_if_requested(
         config_dir: Path, logger: logging.Logger, main_script: Path | None = None,
         sleep_func: Callable[[float], None] | None = None) -> None:

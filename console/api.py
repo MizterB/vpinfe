@@ -1135,6 +1135,13 @@ class ApiClient:
     def delete_backup(self, copy_id: str) -> None:
         self._delete(f"/backups/{copy_id}")
 
+    def going_back_plan(self) -> dict:
+        return dict(self._get("/backups/going-back") or {})
+
+    def go_back_to_2x(self) -> dict:
+        """VPinFE quits after this answers."""
+        return dict(self._post("/backups/going-back", {}) or {})
+
     def write_launcher_config(self, launcher_id: str, values: dict, *,
                               table: str = "", scope: str = "launcher",
                               create: bool = False) -> dict:

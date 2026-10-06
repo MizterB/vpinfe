@@ -429,6 +429,13 @@ start_manager_ui(port=http_port, bind=http_bind)
 serving.publish(config_dir)
 reconfigure_app_logging()
 
+# A request left by a run that was killed first must not turn this run's exit into going back.
+try:
+    from common.backups import going_back
+    going_back.clear(config_dir)
+except Exception:
+    logger.exception("A leftover request to go back to 2.x was not cleared")
+
 try:
     from common.games import community_lists
     from console.api import ApiClient
@@ -467,6 +474,13 @@ try:
     pending_restores.apply(config_dir)
 except Exception:
     logger.exception("Restores waiting on a close were not all carried out")
+
+# Before the exit commands, which may unmount the library these write to.
+try:
+    from common.backups import going_back
+    going_back.carry_out(config_dir)
+except Exception:
+    logger.exception("Going back to 2.x was not carried out")
 
 # Last, so a command that puts the machine back runs after everything it might be
 # putting back has actually stopped. Before the restart check, because a restart is

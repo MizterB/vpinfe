@@ -22,6 +22,7 @@ from common.i18n import t
 from console import (
     about,
     backup_cleanup,
+    backup_go_back,
     busy,
     confirm,
     deeplink,
@@ -287,9 +288,11 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                     panel.icon_only(verbs.CLEAN,
                                     lambda: backup_cleanup.ask(library, built, refresh),
                                     hint=t("console.backups.clean_up"))
-                panel.add_action([(t("console.backups.take_now"),
-                                   lambda: _ask_now(library, refresh))],
-                                 empty=not built)
+                strip = [(t("console.backups.take_now"), lambda: _ask_now(library, refresh))]
+                if backup_go_back.available(built):
+                    strip.append((t("console.backups.go_back"),
+                                  lambda: backup_go_back.ask(library)))
+                panel.add_action(strip, empty=not built)
 
         if not built:
             panel.facts(ui, [panel.intro(t("console.backups.empty"))])
