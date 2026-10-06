@@ -213,7 +213,7 @@ def start(config: ConfigStore, on_peer: Callable[[Peer], None] | None = None) ->
     try:
         _discovery.start(config, on_peer)
     except Exception as exc:  # noqa: BLE001 - discovery is not worth a failed startup
-        logger.warning("Could not announce this install on the network: %s", exc)
+        logger.warning("Could not announce this install on the network: %r", exc)
 
 
 def peers() -> list[Peer]:

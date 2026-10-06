@@ -68,6 +68,18 @@ class ReadingAnAnnouncementTests(unittest.TestCase):
         self.assertTrue(discovery._routable_address())
 
 
+class AnnouncingTests(unittest.TestCase):
+    def test_a_failure_with_no_text_still_names_its_type(self) -> None:
+        class NoTextError(Exception):
+            pass
+
+        with patch.object(discovery._discovery, "start", side_effect=NoTextError()), \
+                self.assertLogs("vpinfe.common.discovery", level="WARNING") as seen:
+            discovery.start(object())
+
+        self.assertTrue(seen.output[0].endswith("on the network: NoTextError()"), seen.output)
+
+
 @unittest.skipIf(TestClient is None, "starlette test client unavailable")
 class DiscoveredRouteTests(TempTree):
     def setUp(self) -> None:
