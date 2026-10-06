@@ -186,7 +186,7 @@ class SystemIndexTests(unittest.TestCase):
 
         self.assertNotIn("library.media", held)
         self.assertNotIn("hardware.displays", held)
-        self.assertIn("vpinfe.vpxmobile", held)
+        self.assertIn("library.media", _pages([install_identity.LIBRARY]))
 
     def test_the_install_wide_pages_are_always_offered(self) -> None:
         """They name `core`, which is how a page says it is here on every install

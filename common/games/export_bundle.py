@@ -1,7 +1,8 @@
 """What belongs in a game export - one answer for every transport.
 
 The VPXZ download and the mobile Web Send are the same operation with different
-plumbing, and they answer the same way. The default is a standalone bundle for one
+plumbing, and they answer the same way, but for a table's settings file: the download
+keeps it and a send leaves it unless asked. The default is a standalone bundle for one
 table - export a game, not a folder - which is also what makes a multi-.vpx folder
 come out right. `everything=True` ships the whole folder as the explicit choice.
 """
@@ -81,12 +82,29 @@ def prune_info(info_text: str, bundled_arcnames: set[str]) -> str:
     return json.dumps(data, indent=2)
 
 
-def bundle_paths(game_dir: Path, *, everything: bool = False,
-                 table: str | None = None) -> Iterator[tuple[Path, str]]:
+def mobile_settings_file(game_dir: Path, word: str, table: str | None = None) -> Path | None:
+    """`<table>.<word>.ini` where the folder has one, matched the way VPX matches names."""
+    chosen = choose_table(game_dir, table)
+    if not word or not chosen:
+        return None
+    wanted = f"{Path(chosen).stem}.{word}.ini".lower()
+    try:
+        return next((entry for entry in sorted(game_dir.iterdir())
+                     if entry.is_file() and entry.name.lower() == wanted), None)
+    except OSError:
+        return None
+
+
+def bundle_paths(game_dir: Path, *, everything: bool = False, table: str | None = None,
+                 settings: bool = True, mobile_word: str = "") -> Iterator[tuple[Path, str]]:
     """(absolute path, folder-relative arcname) for everything the export holds.
 
     The .info is included here by name; writers call prune_info on its content
     rather than copying the file raw.
+
+    The settings file VPX would read goes unless `settings` is False. A mobile copy named
+    by `mobile_word` goes in its place as `<table>.ini` whichever way `settings` is set.
+    Neither applies to `everything`, which is the folder as it is.
     """
     if everything:
         for path in sorted(game_dir.rglob("*")):
@@ -110,13 +128,12 @@ def bundle_paths(game_dir: Path, *, everything: bool = False,
     # folder-named fallback, where the resolver takes the dedicated one and stops - so a
     # table with its own .directb2s would ship the shadowed one too, and the far side
     # could never load it.
-    resolved_companions = {
-        str(picked["file"]).lower()
-        for picked in resolve_for_table(
-            chosen or "", game_dir.name,
-            [entry.name for entry in entries if entry.is_file()]).values()
-        if picked.get("file")
-    }
+    resolved = resolve_for_table(chosen or "", game_dir.name,
+                                 [entry.name for entry in entries if entry.is_file()])
+    resolved_companions = {str(picked["file"]).lower()
+                           for picked in resolved.values() if picked.get("file")}
+    mobile = mobile_settings_file(game_dir, mobile_word, table)
+    settings_file = str((resolved.get("ini") or {}).get("file") or "").lower()
     for entry in entries:
         name = entry.name
         if entry.is_dir():
@@ -134,4 +151,8 @@ def bundle_paths(game_dir: Path, *, everything: bool = False,
         elif is_readme(name):
             yield entry, name
         elif lower in resolved_companions:
+            if lower == settings_file and (mobile or not settings):
+                continue
             yield entry, name
+    if mobile and chosen:
+        yield mobile, f"{Path(chosen).stem}.ini"

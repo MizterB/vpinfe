@@ -237,5 +237,82 @@ class ArchiveByIdTests(unittest.TestCase):
                 self._archive([gone], Path(tmp) / "first", "gid0000002")
 
 
+class SettingsFileTests(unittest.TestCase):
+    """The table's settings file: kept by a download, left home by a send unless asked,
+    and replaced by a mobile copy where the game has one."""
+
+    def _names(self, root, **kwargs):
+        return {arcname for _, arcname in bundle_paths(root, **kwargs)}
+
+    def _with_mobile(self, tmp, word: str = "mobile") -> Path:
+        root = _library(tmp)
+        (root / f"{Path(CHOSEN).stem}.{word}.ini").write_text("[Player]\nmobile=1",
+                                                               encoding="utf-8")
+        return root
+
+    def test_the_settings_file_goes_by_default(self) -> None:
+        with TemporaryDirectory() as tmp:
+            names = self._names(_library(tmp))
+
+        self.assertIn(f"{Path(CHOSEN).stem}.ini", names)
+
+    def test_a_send_leaves_it_home_unless_asked(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _library(tmp)
+            left = self._names(root, settings=False)
+            asked = self._names(root, settings=True)
+
+        self.assertNotIn(f"{Path(CHOSEN).stem}.ini", left)
+        self.assertIn(f"{Path(CHOSEN).stem}.ini", asked)
+
+    def test_a_mobile_copy_goes_in_its_place_under_the_name_the_table_expects(self) -> None:
+        stem = Path(CHOSEN).stem
+        with TemporaryDirectory() as tmp:
+            root = self._with_mobile(tmp)
+            sent = {arcname: path for path, arcname in
+                    bundle_paths(root, settings=False, mobile_word="mobile")}
+
+            self.assertEqual(sent[f"{stem}.ini"].read_text(encoding="utf-8"),
+                             "[Player]\nmobile=1")
+        self.assertNotIn(f"{stem}.mobile.ini", sent, "the word is not part of the sent name")
+
+    def test_a_mobile_copy_wins_over_the_settings_file_even_when_that_is_asked_for(self) -> None:
+        stem = Path(CHOSEN).stem
+        with TemporaryDirectory() as tmp:
+            root = self._with_mobile(tmp)
+            sent = [(path, arcname) for path, arcname in
+                    bundle_paths(root, settings=True, mobile_word="mobile")]
+
+            self.assertEqual([arcname for _p, arcname in sent].count(f"{stem}.ini"), 1)
+            self.assertEqual(
+                dict((arcname, path) for path, arcname in sent)[f"{stem}.ini"]
+                .read_text(encoding="utf-8"), "[Player]\nmobile=1")
+
+    def test_the_word_is_matched_without_regard_to_case(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = self._with_mobile(tmp, "Mobile")
+            sent = {arcname for _path, arcname in
+                    bundle_paths(root, settings=False, mobile_word="mobile")}
+
+        self.assertIn(f"{Path(CHOSEN).stem}.ini", sent)
+
+    def test_without_the_word_a_mobile_copy_is_not_looked_for(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = self._with_mobile(tmp)
+            sent = self._names(root, settings=False, mobile_word="")
+
+        self.assertNotIn(f"{Path(CHOSEN).stem}.ini", sent)
+        self.assertNotIn(f"{Path(CHOSEN).stem}.mobile.ini", sent)
+
+    def test_the_whole_folder_is_the_folder_as_it_is(self) -> None:
+        stem = Path(CHOSEN).stem
+        with TemporaryDirectory() as tmp:
+            root = self._with_mobile(tmp)
+            names = self._names(root, everything=True, settings=False,
+                                mobile_word="mobile")
+
+        self.assertLessEqual({f"{stem}.ini", f"{stem}.mobile.ini"}, names)
+
+
 if __name__ == "__main__":
     unittest.main()

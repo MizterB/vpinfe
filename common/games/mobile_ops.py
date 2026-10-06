@@ -12,8 +12,10 @@ from typing import Any
 
 from common import device_client, device_ops, service_errors
 from common import jobs as job_registry
-from common.games import game_identity, game_repository, mobile_transfer
+from common.config_access import cfg_bool, cfg_get
+from common.games import export_bundle, game_identity, game_repository, mobile_transfer
 from common.i18n import t
+from common.paths import get_ini_config
 
 
 def carried_by(device_id: str) -> dict[str, Any]:
@@ -29,8 +31,8 @@ def carried_by(device_id: str) -> dict[str, Any]:
             "games": [{"folder": name, "game_id": ids.get(name)} for name in found]}
 
 
-def send(device_id: str, game_ids: Iterable[str],
-         everything: bool = False) -> job_registry.Job:
+def send(device_id: str, game_ids: Iterable[str], everything: bool = False,
+         settings: bool = False) -> job_registry.Job:
     """A job, not an action.
 
     The lifecycle vocabulary is for things that happen at once - stop the table, reboot.
@@ -44,6 +46,7 @@ def send(device_id: str, game_ids: Iterable[str],
     heard = device_ops.probe_one(device)
     if heard["state"] != device_client.ANSWERING:
         raise mobile_transfer.DeviceUnreachableError(heard["reason"])
+    chunk_bytes, word = _sending()
 
     def work(job: job_registry.Job) -> None:
         reporter = job.reporter()
@@ -60,7 +63,9 @@ def send(device_id: str, game_ids: Iterable[str],
         for index, folder in enumerate(folders):
             reporter.progress(index, len(folders), t("said.sending_game", game=folder.name))
             mobile_transfer.send(folder, device.address, device.port,
-                                 everything=everything, on_progress=reporting(index))
+                                 chunk_bytes=chunk_bytes, everything=everything,
+                                 settings=settings, mobile_word=word,
+                                 on_progress=reporting(index))
         sent = t("said.send_result", count=len(folders),
                  device=device.display_name or device_id)
         reporter.progress(len(folders), len(folders), sent)
@@ -69,9 +74,41 @@ def send(device_id: str, game_ids: Iterable[str],
     return job_registry.submit(job_registry.KIND_DEVICE_SEND, work)
 
 
+def plan(device_id: str, game_ids: Iterable[str], everything: bool = False) -> dict[str, Any]:
+    """Which of these games would send a mobile settings file, for a confirm to say so.
+
+    The Console cannot read a game folder, and the folder is where the answer is.
+    """
+    device_ops.mobile_or_refuse(device_id)
+    _chunk, word = _sending()
+    ids = list(game_ids)
+    mobile = [] if everything else [
+        game_id for game_id in ids
+        if export_bundle.mobile_settings_file(_folder_or_refuse(game_id), word)]
+    return {"device_id": device_id, "mobile_settings": mobile}
+
+
 def remove(device_id: str, name: str) -> None:
     device = device_ops.mobile_or_refuse(device_id)
     mobile_transfer.remove(name, device.address, device.port)
+
+
+def _sending() -> tuple[int, str]:
+    """The chunk size and the mobile settings word, which are one value for every device.
+
+    The word is empty while the switch is off, which is what turns the mobile copy off.
+    """
+    config = get_ini_config()
+    try:
+        chunk = int(cfg_get(config, "vpxmobile", "chunk_size", "") or mobile_transfer.CHUNK_BYTES)
+    except ValueError:
+        chunk = mobile_transfer.CHUNK_BYTES
+    word = ""
+    if cfg_bool(config, "vpxmobile", "send_masked_config"):
+        word = cfg_get(config, "vpxmobile", "config_mask", "").strip().strip(".")
+        if word.lower().endswith(".ini"):
+            word = word[:-4].strip().strip(".")
+    return max(chunk, 1), word
 
 
 def _folder_or_refuse(game_id: str) -> Path:

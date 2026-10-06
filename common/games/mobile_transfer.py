@@ -10,11 +10,11 @@ nothing to announce. What it has is a small web server, and this speaks to it.
     POST /command?cmd=refresh_tables               look again
 
 **What goes in a transfer is not decided here.** `export_bundle` already answers "what
-belongs in an export", and it answers it for the archive somebody downloads as well - so
-a game sent to a device and the same game exported as a file hold the same things. Two
-answers to that question is the defect this reuse exists to avoid; the plumbing differs
-because a zip and a chunked upload are different transports, and that is all that
-differs.
+belongs in an export", and the archive somebody downloads asks it too. A send differs in
+one thing, by design: the table's settings file stays home unless the sender says it
+goes.
+Everything else is one answer; the plumbing differs because a zip and a chunked upload are
+different transports.
 
 `http.client` rather than `urllib`, because urllib re-encodes a query string and the
 device's server matches on the bytes it was given.
@@ -73,6 +73,8 @@ def carried(host: str, port: int, *, timeout: float = PROBE_SECONDS) -> list[str
 def send(game_dir: Path, host: str, port: int, *,
          chunk_bytes: int = CHUNK_BYTES,
          everything: bool = False,
+         settings: bool = False,
+         mobile_word: str = "",
          on_progress: Progress | None = None) -> int:
     """Put one game folder on the device, and say how many files it took.
 
@@ -80,7 +82,8 @@ def send(game_dir: Path, host: str, port: int, *,
     interrupted leaves a partial game in a folder of its own rather than files loose at
     the top level where the device would try to read them.
     """
-    contents = list(bundle_paths(game_dir, everything=everything))
+    contents = list(bundle_paths(game_dir, everything=everything, settings=settings,
+                                 mobile_word=mobile_word))
     if not contents:
         raise ValueError(t("error.devices.nothing_sendable", game=game_dir.name))
 

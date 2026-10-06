@@ -266,9 +266,9 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `device_ip` | string |  | Device IP |
 | `device_port` | int | `2112` | Device Port |
-| `chunk_size` | int | `1048576` | Chunk Size |
-| `send_masked_config` | bool | `false` | Where a table has no configuration file of its own, send the masked one in its place under the name the table expects |
-| `config_mask` | string |  | The word between the table name and .ini - cab sends tablename.cab.ini as tablename.ini |
+| `chunk_size` | int | `1048576` | Files go across in pieces this size; lower it if sends fail on a weak connection |
+| `send_masked_config` | bool | `false` | Where a game has a settings file made for mobile devices, named as below, that file goes to the device as the game's settings, replacing the device's own |
+| `config_mask` | string |  | To make one, copy a table's settings file in its folder and add this word to the name |
 
 ### `vpinplay`
 

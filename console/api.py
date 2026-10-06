@@ -1359,10 +1359,16 @@ class ApiClient:
         return list(self._get(f"/devices/{quote(device_id)}/games").get("games") or [])
 
     def send_to_device(self, device_id: str, game_ids: list[str], *,
-                       everything: bool = False) -> dict:
+                       everything: bool = False, settings: bool = False) -> dict:
         """Put games on a device. Returns the job to watch, not the finished work."""
         return self._post(f"/devices/{quote(device_id)}/games",
-                          {"games": game_ids, "everything": everything})
+                          {"games": game_ids, "everything": everything,
+                           "settings": settings})
+
+    def plan_send_to_device(self, device_id: str, game_ids: list[str]) -> list[str]:
+        """The ids, of these games, that would send a mobile settings file."""
+        found = self._post(f"/devices/{quote(device_id)}/games/plan", {"games": game_ids})
+        return [str(one) for one in found.get("mobile_settings") or []]
 
     def remove_from_device(self, device_id: str, name: str) -> None:
         """Take one game off a device. It answers 204, so nothing is read."""

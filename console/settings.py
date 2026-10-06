@@ -394,7 +394,7 @@ def by_group(options: list[dict]) -> list[dict]:
     return [option for group in ordered.values() for option in group] + loose
 
 
-def _saver(source: Any, section: str, key: str,
+def saver(source: Any, section: str, key: str,
            refusal: Refusal | None = None) -> Callable[[Any], Any]:
     """Write one setting to a config section, for the control grammar to call."""
     async def save(value: Any) -> bool:
@@ -810,7 +810,6 @@ PAGE_NOTES: dict[str, str] = {
     "frontend.presentation": "console.settings.note_presentation",
     "vpinfe.tools": "console.settings.note_tools",
     "library.updates": "console.settings.note_updates",
-    "vpinfe.vpxmobile": "console.settings.note_vpxmobile",
 }
 
 
@@ -938,8 +937,6 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
         # answer media, so an OS dependency belongs to the machine that has to have it.
         ("vpinfe.tools", "console.settings.page_tools", SCHEMA_PAGE, ("tools",),
                  install_identity.CORE),
-        ("vpinfe.vpxmobile", "console.settings.page_vpxmobile", SCHEMA_PAGE,
-                 ("vpxmobile",), "devices"),
     )),
     ("console.settings.group_hardware", (
         ("hardware.displays", "console.settings.page_displays", SCHEMA_PAGE,
@@ -1430,7 +1427,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             continue
         value = current.get(option["key"], option.get("default"))
         refusal = Refusal() if option.get("unit") == config_schema.UNIT_PORT else None
-        save, note = _noted(option, value, _saver(source, section, option["key"], refusal),
+        save, note = _noted(option, value, saver(source, section, option["key"], refusal),
                             (resolved or {}).get(option["key"], ""), waits_said)
         if option.get("cuts_off_console") and from_elsewhere:
             save = _asked_first(option, save, rerender)

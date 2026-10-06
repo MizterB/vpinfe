@@ -252,6 +252,14 @@ class DeviceSendRequest(ApiModel):
 
     games: list[str]
     everything: bool = False
+    settings: bool = False
+
+
+class DeviceSendPlan(ApiModel):
+    """What a send of these games would do that a person would want to know first."""
+
+    device_id: str
+    mobile_settings: list[str]
 
 
 class InputActionRequest(ApiModel):

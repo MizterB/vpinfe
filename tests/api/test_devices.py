@@ -9,6 +9,7 @@ into a name someone recognizes.
 from __future__ import annotations
 
 import unittest
+from configparser import ConfigParser
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -225,6 +226,86 @@ class DeviceRegistryApiTests(TempTree):
 
         self.assertEqual(response.status_code, 202)
         submit.assert_called_once()
+
+    def _sending_config(self, **vpxmobile: str) -> Any:
+        parser = ConfigParser()
+        parser.read_dict({"vpxmobile": vpxmobile})
+        return patch.object(mobile_ops, "get_ini_config", return_value=parser)
+
+    def test_the_mobile_word_is_nothing_while_the_switch_is_off(self) -> None:
+        with self._sending_config(config_mask="mobile"):
+            self.assertEqual(mobile_ops._sending()[1], "")
+
+    def test_the_mobile_word_is_the_mask_without_its_dots_once_the_switch_is_on(self) -> None:
+        with self._sending_config(send_masked_config="true", config_mask=".mobile.",
+                                  chunk_size="4096"):
+            self.assertEqual(mobile_ops._sending(), (4096, "mobile"))
+
+    def test_a_word_that_carries_the_extension_is_the_word_alone(self) -> None:
+        for mask in ("cab.ini", ".cab.INI", " cab .ini "):
+            with self._sending_config(send_masked_config="true", config_mask=mask):
+                self.assertEqual(mobile_ops._sending()[1], "cab", mask)
+
+    def test_the_switch_reads_as_the_console_draws_it(self) -> None:
+        for on in ("1", "yes", "on", "True"):
+            with self._sending_config(send_masked_config=on, config_mask="mobile"):
+                self.assertEqual(mobile_ops._sending()[1], "mobile", on)
+
+    def test_a_chunk_size_that_is_no_number_is_the_default(self) -> None:
+        with self._sending_config(chunk_size="lots"):
+            self.assertEqual(mobile_ops._sending()[0], mobile_ops.mobile_transfer.CHUNK_BYTES)
+
+    def test_the_plan_names_the_games_that_would_send_a_mobile_settings_file(self) -> None:
+        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
+                                                  "address": "192.0.2.7", "port": 2112}).json()
+        has = self.root / "Alpha"
+        has.mkdir()
+        (has / "Alpha.vpx").write_bytes(b"vpx")
+        (has / "Alpha.mobile.ini").write_text("[Player]", encoding="utf-8")
+        lacks = self.root / "Beta"
+        lacks.mkdir()
+        (lacks / "Beta.vpx").write_bytes(b"vpx")
+        folders = {"g1": has, "g2": lacks}
+        with self._sending_config(send_masked_config="true", config_mask="mobile"), \
+                patch.object(mobile_ops.game_repository, "game_folder",
+                             side_effect=lambda game_id: folders[game_id]):
+            body = self.client.post(f"/devices/{added['device_id']}/games/plan",
+                                    json={"games": ["g1", "g2"]}).json()
+
+        self.assertEqual(body["mobile_settings"], ["g1"])
+
+    def test_the_plan_names_nothing_while_the_switch_is_off(self) -> None:
+        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
+                                                  "address": "192.0.2.7", "port": 2112}).json()
+        has = self.root / "Alpha"
+        has.mkdir()
+        (has / "Alpha.vpx").write_bytes(b"vpx")
+        (has / "Alpha.mobile.ini").write_text("[Player]", encoding="utf-8")
+        with self._sending_config(config_mask="mobile"), \
+                patch.object(mobile_ops.game_repository, "game_folder", return_value=has):
+            body = self.client.post(f"/devices/{added['device_id']}/games/plan",
+                                    json={"games": ["g1"]}).json()
+
+        self.assertEqual(body["mobile_settings"], [])
+
+    def test_the_settings_flag_and_the_word_reach_the_transfer(self) -> None:
+        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
+                                                  "address": "192.0.2.7", "port": 2112}).json()
+        submit = Mock(return_value=jobs.Job(id="j1", kind="device_send"))
+        sent = Mock()
+        with self._sending_config(send_masked_config="true", config_mask="mobile"), \
+                patch.object(device_client, "probe",
+                             return_value={"state": device_client.ANSWERING, "reason": ""}), \
+                patch.object(mobile_ops.game_repository, "game_folder",
+                             return_value=self.root / "Alpha"), \
+                patch.object(mobile_ops.job_registry, "submit", submit), \
+                patch.object(mobile_ops.mobile_transfer, "send", sent):
+            self.client.post(f"/devices/{added['device_id']}/games",
+                             json={"games": ["g1"], "settings": True})
+            submit.call_args.args[1](Mock())
+
+        self.assertTrue(sent.call_args.kwargs["settings"])
+        self.assertEqual(sent.call_args.kwargs["mobile_word"], "mobile")
 
     def test_what_a_device_carries_says_which_library_game_each_folder_is(self) -> None:
         added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",

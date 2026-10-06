@@ -289,7 +289,8 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
           status: Callable[[Any], Any] | None = None,
           refuses: bool = False, left_empty: str = "",
           browse: Callable[[str], Any] | None = None,
-          on_control: Callable[[Any], Any] | None = None) -> Callable[[], None]:
+          on_control: Callable[[Any], Any] | None = None,
+          prefix: str = "", suffix: str = "") -> Callable[[], None]:
     """Free text the user can set.
 
     Written when you leave it or when you press Enter, and `debounce=0` is what makes
@@ -313,6 +314,9 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
     `browse` draws beside `status` in the same slot. It takes the field's current value
     and answers the path chosen, or nothing where browsing was cancelled; a path it
     answers goes through `leave` exactly as typing and leaving does.
+
+    `prefix` and `suffix` are drawn around a one-line field's text without being part of
+    it: what is typed, and what is saved, is the middle.
 
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.
@@ -349,6 +353,10 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                 control.value = value
                 control.props("dense borderless debounce=0") \
                     .classes("console-edit-field")
+                if prefix:
+                    control.props["prefix"] = prefix
+                if suffix:
+                    control.props["suffix"] = suffix
                 control.on("blur", lambda: leave(control, control.value or ""))
                 control.on("keydown.enter", lambda: control.run_method("blur"))
                 if left_empty:

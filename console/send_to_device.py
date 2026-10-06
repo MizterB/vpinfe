@@ -25,6 +25,7 @@ from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.send_to_device")
 
+_NAMED = 8
 _POLL_S = 1.0
 _POLLS = 3600
 
@@ -79,23 +80,56 @@ async def ask_where(games: list[dict[str, Any]],
         picked = await _which(found, answers)
     if not picked:
         return
-    if not await confirm.ask(
-            t("console.send_to_device.send_games", count=len(games), device=name_of(picked)),
-            detail=t("console.send_to_device.send_detail"),
-            confirm=t("console.send_to_device.send"), icon=verbs.SEND, danger=False):
+    mobile = await _with_mobile_settings(games, picked)
+    answer = await confirm.ask(
+        t("console.send_to_device.send_games", count=len(games), device=name_of(picked)),
+        detail=[t("console.send_to_device.send_detail"),
+                t("console.send_to_device.mobile_settings", count=len(mobile))
+                if mobile else ""],
+        lines=await _called(mobile, games),
+        confirm=t("console.send_to_device.send"), icon=verbs.SEND, danger=False,
+        second=(t("console.send_to_device.with_settings"), verbs.SEND))
+    if answer == confirm.Answer.CANCEL:
         return
-    await send(games, picked, state)
+    await send(games, picked, state,
+               settings=answer == confirm.Answer.SECOND)
+
+
+async def _with_mobile_settings(games: list[dict[str, Any]],
+                                device: dict[str, Any]) -> list[str]:
+    """The ids that would send a mobile settings file. A plan that cannot be read says
+    nothing rather than stopping the send: it only decides what the confirm mentions."""
+    try:
+        return await offload.io(ApiClient().plan_send_to_device, _id(device),
+                                [str(one["id"]) for one in games])
+    except Exception:  # noqa: BLE001 - the send itself is the thing that must work
+        return []
+
+
+async def _called(ids: list[str], games: list[dict[str, Any]]) -> list[str]:
+    """Names for the confirm's lines, at most a screenful: a count says the rest."""
+    known = {str(one["id"]): str(one.get("name") or "") for one in games}
+    names: list[str] = []
+    for game_id in ids[:_NAMED]:
+        name = known.get(game_id, "")
+        if not name:
+            try:
+                name = str((await offload.io(ApiClient().game, game_id)).get("name") or "")
+            except Exception:  # noqa: BLE001 - a line left out beats a confirm that fails
+                continue
+        names.append(name)
+    return names
 
 
 @on_page
 async def send(games: list[dict[str, Any]], device: dict[str, Any],
-               state: dict[str, Any] | None = None) -> None:
+               state: dict[str, Any] | None = None, *, settings: bool = False) -> None:
     """Start the transfer, and say so if it fails. The drawer's job line says how it is
     going while it runs."""
     client = ApiClient()
     try:
         job = await run.io_bound(client.send_to_device, str(device["device_id"]),
-                                 [str(one["id"]) for one in games])
+                                 [str(one["id"]) for one in games], settings=settings)
     except Exception as exc:
         ui.notify(t("console.send_to_device.failed", device=name_of(device)),
                   caption=why(exc), type="negative")

@@ -185,7 +185,7 @@ class TheAddressQuestionTests(_OnAPage):
             return Mock()
 
         with patch.object(settings, "control_for", side_effect=control_for), \
-                patch.object(settings, "_saver", return_value=self.saved):
+                patch.object(settings, "saver", return_value=self.saved):
             settings.section_rows(Mock(), "network", [_option("network", "http_bind")],
                                   {}, True, self.rerender, from_elsewhere=elsewhere)
         return handed[0]

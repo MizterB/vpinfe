@@ -915,6 +915,9 @@ async def detail_groups(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         # added beside it.
         rows_out.append((panel.HEADING, t("console.devices.carrying")))
         rows_out += await _carrying_rows(context)
+        rows_out.append((panel.HEADING, t("console.devices.sending")))
+        rows_out.append(panel.note(t("console.devices.sending_shared")))
+        rows_out += await _sending_rows()
     else:
         rows_out.append((panel.HEADING, t("console.devices.settings")))
         rows_out += settings_door(context)
@@ -1018,6 +1021,51 @@ async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     rows_out += [(names.get(str(one.get("game_id")), one["folder"]), row(one))
                  for one in held]
     return rows_out
+
+
+async def _sending_rows() -> list[tuple[Any, Any]]:
+    """How a send goes, for every mobile device alike. These are this install's settings,
+    written through the config route Settings uses: the device has nowhere to keep them."""
+    client = ApiClient()
+    try:
+        schema = await offload.io(client.config_schema)
+        values = await offload.io(client.config_values)
+    except Exception as exc:
+        return [panel.note(t("console.devices.sending_failed"), hint=_why(exc))]
+    declared = {str(one["key"]): one for block in schema if block.get("name") == "vpxmobile"
+                for one in block.get("options") or []}
+    current = dict(values.get("vpxmobile") or {})
+
+    def value(key: str) -> Any:
+        return settings_page.value_for(declared[key], current.get(key))
+
+    def save(key: str) -> Callable[[Any], Any]:
+        return settings_page.saver(client, "vpxmobile", key)
+
+    async def word(text: str) -> None:
+        await save("config_mask")(text.strip().strip("."))
+
+    async def size(event: Any) -> None:
+        await save("chunk_size")(int(declared["chunk_size"]["default"]) if event.value is None
+                                 else int(event.value))
+
+    async def turn(event: Any) -> None:
+        await save("send_masked_config")(bool(event.value))
+
+    return [
+        (t("config.vpxmobile.send_masked_config.label"),
+         panel.switch(bool(value("send_masked_config")), turn)),
+        panel.note(t("config.vpxmobile.send_masked_config.description")),
+        (t("config.vpxmobile.config_mask.label"),
+         panel.field(str(value("config_mask")), word,
+                     prefix=t("console.devices.mobile_word_before"),
+                     suffix=t("console.devices.mobile_word_after"))),
+        panel.note(t("config.vpxmobile.config_mask.description")),
+        (t("config.vpxmobile.chunk_size.label"),
+         panel.number(value("chunk_size"), size, low=1, unit=t("console.devices.bytes"),
+                      on_leave=True, on_control=lambda c: c.classes("console-edit-long"))),
+        panel.note(t("config.vpxmobile.chunk_size.description")),
+    ]
 
 
 def _send_picker(context: dict[str, Any], device: dict[str, Any],

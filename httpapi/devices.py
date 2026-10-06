@@ -106,9 +106,20 @@ def send_games(device_id: str, response: Response,
                payload: models.DeviceSendRequest = Body(...)) -> models.JobResource:
     """A job, not an action: a multi-file transfer over a phone's wifi is slow work, and
     slow work has a shape here already."""
-    job = mobile_ops.send(device_id, payload.games, payload.everything)
+    job = mobile_ops.send(device_id, payload.games, payload.everything, payload.settings)
     response.headers["Location"] = f"/api/v1/jobs/{job.id}"
     return models.JobResource(**jobs_api.resource(job))
+
+
+@router.post("/{device_id}/games/plan", summary="What sending these games would do",
+             dependencies=[requires(scopes.DEVICES_READ)])
+async def plan_send(device_id: str,
+                    payload: models.DeviceSendRequest = Body(...)) -> models.DeviceSendPlan:
+    """A read, though it is a POST for the body: which of the games would send a mobile
+    settings file, so a client can say so before it asks for the send."""
+    return models.DeviceSendPlan.model_validate(
+        await run_in_threadpool(mobile_ops.plan, device_id, payload.games,
+                                payload.everything))
 
 
 @router.delete("/{device_id}/games/{name}", summary="Remove a game from a device",

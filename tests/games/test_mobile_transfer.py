@@ -194,6 +194,28 @@ class MobileTransferTests(unittest.TestCase):
 
         self.assertEqual([call.args[0] for call in slept.call_args_list], [2, 4])
 
+    def test_the_settings_file_stays_home_unless_it_is_asked_for(self) -> None:
+        (self.game / "Alpha.ini").write_text("[Player]", encoding="utf-8")
+
+        self._send()
+        left = set(_Device.folders["Alpha (Bally 1991)"])
+        _Device.folders = {}
+        self._send(settings=True)
+        asked = set(_Device.folders["Alpha (Bally 1991)"])
+
+        self.assertNotIn("Alpha.ini", left)
+        self.assertIn("Alpha.ini", asked)
+
+    def test_a_mobile_settings_file_arrives_as_the_settings_file(self) -> None:
+        (self.game / "Alpha.ini").write_text("own", encoding="utf-8")
+        (self.game / "Alpha.mobile.ini").write_text("for mobile", encoding="utf-8")
+
+        self._send(mobile_word="mobile")
+
+        held = _Device.folders["Alpha (Bally 1991)"]
+        self.assertEqual(bytes(held["Alpha.ini"]), b"for mobile")
+        self.assertNotIn("Alpha.mobile.ini", held)
+
     def test_a_game_with_nothing_to_send_is_refused_before_anything_is_made(self) -> None:
         """Otherwise an empty folder appears on the device and reads as a broken game."""
         empty = Path(self.tmp.name) / "Empty"

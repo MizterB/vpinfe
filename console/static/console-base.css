@@ -2562,6 +2562,14 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 /* A whole number, sized for one. In a full-width box the value reads as something that
    might be long, and a page of them is a column of mostly empty boxes. */
 .console-edit-narrow { width: 96px; flex: 0 0 auto; }
+/* A count that runs to seven digits: six characters crop it, and a cropped value reads as
+   broken. */
+.console-fact-edit .console-edit-long input[type="number"] { max-width: calc(9ch + 16px); }
+/* Quasar pads text around a dense field by 6px a side on a 28px line, which sets it six
+   pixels below what is typed beside it. */
+.console-edit-field .q-field__prefix, .console-edit-field .q-field__suffix {
+  padding: 0; line-height: 24px; align-items: center;
+}
 /* A closed list of named things, sized to the names rather than to the panel. Text
    stretches because what you type has no length; a set of options does, and "daily" in
    a 1100px box says the answer might be a sentence. The floor is for the caret and the

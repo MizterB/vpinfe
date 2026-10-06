@@ -7,7 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, create_autospec, patch
 
 from common import device_client
-from console import send_to_device
+from console import confirm, send_to_device
 from console.api import ApiClient
 
 ANSWERING = {"state": device_client.ANSWERING, "version": "", "reason": ""}
@@ -16,16 +16,18 @@ TABLET = {"device_id": "m1", "kind": "vpx_mobile", "display_name": "Tablet",
           "address": "192.0.2.7", "port": 2112}
 PHONE = {"device_id": "m2", "kind": "vpx_mobile", "display_name": "Mobile",
          "address": "192.0.2.8", "port": 2112}
-GAMES = [{"id": "g1"}]
+GAMES = [{"id": "g1", "name": "Alpha"}, {"id": "g2", "name": "Beta"}]
 
 
 class _Ask:
     """`ask_where` run with the devices, their answers and each dialog stood in for."""
 
     def __init__(self, devices: list[dict[str, Any]], answers: dict[str, dict[str, Any]],
-                 picks: dict[str, Any] | None = None) -> None:
+                 picks: dict[str, Any] | None = None, *, plan: list[str] | None = None,
+                 answer: confirm.Answer = confirm.Answer.CONFIRM) -> None:
         self.which = AsyncMock(return_value=picks)
-        self.confirm = AsyncMock(return_value=True)
+        self.confirm = AsyncMock(return_value=answer)
+        self.plan = plan or []
         self.send = AsyncMock()
         self.devices = devices
         self.answers = answers
@@ -33,6 +35,7 @@ class _Ask:
     async def run(self) -> None:
         client = create_autospec(ApiClient, instance=True)
         client.devices.return_value = self.devices
+        client.plan_send_to_device.return_value = self.plan
         with patch.object(send_to_device.ui, "context", MagicMock()), \
                 patch.object(send_to_device, "ApiClient", return_value=client), \
                 patch.object(send_to_device.offload, "io", self._inline), \
@@ -75,6 +78,58 @@ class WhichDevice(unittest.IsolatedAsyncioTestCase):
 
         ask.confirm.assert_not_awaited()
         ask.send.assert_not_awaited()
+
+
+class TheConfirm(unittest.IsolatedAsyncioTestCase):
+    async def test_the_main_answer_sends_without_the_settings_file(self) -> None:
+        ask = _Ask([TABLET], {"m1": ANSWERING})
+        await ask.run()
+
+        self.assertIs(ask.send.await_args.kwargs["settings"], False)
+
+    async def test_the_second_answer_sends_with_it(self) -> None:
+        ask = _Ask([TABLET], {"m1": ANSWERING}, answer=confirm.Answer.SECOND)
+        await ask.run()
+
+        self.assertIs(ask.send.await_args.kwargs["settings"], True)
+
+    async def test_cancelling_sends_nothing(self) -> None:
+        ask = _Ask([TABLET], {"m1": ANSWERING}, answer=confirm.Answer.CANCEL)
+        await ask.run()
+
+        ask.send.assert_not_awaited()
+
+    async def test_a_game_with_a_mobile_settings_file_is_named_in_the_confirm(self) -> None:
+        ask = _Ask([TABLET], {"m1": ANSWERING}, plan=["g2"])
+        await ask.run()
+
+        kwargs = ask.confirm.await_args.kwargs
+        self.assertEqual(kwargs["lines"], ["Beta"])
+        self.assertEqual(len(kwargs["detail"]), 2)
+        self.assertTrue(kwargs["detail"][1])
+
+    async def test_with_none_the_confirm_does_not_mention_them(self) -> None:
+        ask = _Ask([TABLET], {"m1": ANSWERING})
+        await ask.run()
+
+        kwargs = ask.confirm.await_args.kwargs
+        self.assertEqual(kwargs["lines"], [])
+        self.assertFalse(kwargs["detail"][1])
+
+    async def test_a_plan_that_cannot_be_read_does_not_stop_the_send(self) -> None:
+        ask = _Ask([TABLET], {"m1": ANSWERING})
+        client = create_autospec(ApiClient, instance=True)
+        client.devices.return_value = [TABLET]
+        client.plan_send_to_device.side_effect = RuntimeError("down")
+        with patch.object(send_to_device.ui, "context", MagicMock()), \
+                patch.object(send_to_device, "ApiClient", return_value=client), \
+                patch.object(send_to_device.offload, "io", ask._inline), \
+                patch.object(send_to_device, "_asked", AsyncMock(return_value=ask.answers)), \
+                patch.object(send_to_device.confirm, "ask", ask.confirm), \
+                patch.object(send_to_device, "send", ask.send):
+            await send_to_device.ask_where(GAMES)
+
+        ask.send.assert_awaited_once()
 
 
 class AskingEveryDevice(unittest.IsolatedAsyncioTestCase):
