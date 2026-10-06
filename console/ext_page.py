@@ -86,6 +86,8 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
         entries.append(panel.note(t(host.STARTS_AT_RESTART)))
     entries += _setting_rows(client, f"/ext/{name}{surfaces.get('settings', '')}",
                              settings, redraw)
+    if extension.get("has_settings") and not running and not _cannot_run(extension):
+        entries.append(panel.note(t("console.ext_page.settings_when_running")))
 
     offered = list(extension.get("actions") or []) if running else []
     if offered:
@@ -99,13 +101,18 @@ def build(extension: dict, settings: dict[str, Any], redraw: Callable[[], None],
     panel.facts(ui, entries)
 
 
+def _cannot_run(extension: dict) -> bool:
+    """Not offered on this machine, so it never starts and its settings never show."""
+    return extension.get("state") == host.OFF and extension.get("reason_key") in (
+        host.WRONG_PLATFORM, host.LACKS_FEATURES)
+
+
 def _findings(extension: dict, open_this_device: Callable[[], None]
               ) -> list[Callable[[], None]]:
     """What stops it, under the header. Nothing for one that is running or only switched
     off, which the switch already says."""
     state, said = extension.get("state"), str(extension.get("reason") or "")
-    if state == host.OFF and extension.get("reason_key") in (host.WRONG_PLATFORM,
-                                                            host.LACKS_FEATURES):
+    if _cannot_run(extension):
         fix = panel.action(t("console.ext_page.open_device"), open_this_device,
                            icon=verbs.GO, hint=t("console.ext_page.open_hint")) \
             if extension.get("reason_key") == host.LACKS_FEATURES else None

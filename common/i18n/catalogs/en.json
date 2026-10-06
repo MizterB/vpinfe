@@ -1131,6 +1131,7 @@
   "console.ext_page.read_failed": "Could not read it",
   "console.ext_page.list_failed": "Could not read them",
   "console.ext_page.held": "Held",
+  "console.ext_page.settings_when_running": "Its other settings show here while it is running",
   "console.ext_page.config_own": "keep its own settings",
   "console.ext_page.library": "Library",
   "console.ext_page.nothing_yet": "Nothing yet",

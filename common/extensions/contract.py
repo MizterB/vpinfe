@@ -110,6 +110,10 @@ class Manifest:
     platforms: tuple[str, ...] = ()
     # Event names it publishes, without its namespace.
     events: tuple[str, ...] = ()
+    # It offers settings of its own through `ctx.ui.settings`. Declared as well as
+    # registered because only a running extension has registered, and the Console says
+    # where a stopped one's settings will be.
+    has_settings: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -124,6 +128,7 @@ class Manifest:
             "requires_features": list(self.requires_features),
             "platforms": list(self.platforms),
             "events": list(self.events),
+            "has_settings": self.has_settings,
         }
 
 
@@ -187,6 +192,7 @@ def parse(raw: Any) -> Manifest:
         requires_features=features,
         platforms=platforms,
         events=_strings(raw.get("events"), "events"),
+        has_settings=raw.get("has_settings") is True,
     )
 
 

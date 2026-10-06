@@ -551,6 +551,15 @@ class SwitchTests(HostCase):
         self.assertEqual(record.state, host.LOADED)
         self.assertIn("ext:sample:read", self.registry.granted_scopes())
 
+    def test_a_switched_off_extension_still_says_it_has_settings(self) -> None:
+        """Only a running one has `surfaces`, so the flag is what a stopped page reads."""
+        self.store.set_enabled("declares", False)
+        record = self.registry.load(self.make("declares", {"has_settings": True}))
+        found = record.as_dict()
+
+        self.assertEqual(found["surfaces"], {})
+        self.assertTrue(found["has_settings"])
+
     def test_a_name_nothing_answers_to_is_not_written(self) -> None:
         self.assertIsNone(self.registry.switch("nothing", False))
         self.assertTrue(self.store.enabled("nothing"))

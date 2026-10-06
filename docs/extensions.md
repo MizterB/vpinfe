@@ -59,6 +59,7 @@ def register(ctx):
 | `requires_features` | Install features it needs: `library`, `frontend`, `devices`, `overview` |
 | `platforms` | `linux`, `windows`, `macos`. Empty means every one |
 | `events` | Event names it publishes, without its namespace |
+| `has_settings` | Optional. `true` if it registers `ctx.ui.settings`; anything else is read as false. Only a running extension has registered, so this is how a stopped one's page says its settings show while it runs |
 
 Everything in it is a declaration a person can be shown before installing, which is why an
 unknown capability, feature or platform is refused rather than ignored: a name nobody has

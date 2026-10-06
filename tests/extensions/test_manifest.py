@@ -47,6 +47,17 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(manifest.provides, ("read",))
         self.assertEqual(manifest.as_dict()["capabilities"], ["config:own"])
 
+    def test_settings_are_declared_only_by_saying_true(self) -> None:
+        self.assertFalse(contract.parse(GOOD).has_settings)
+        self.assertTrue(contract.parse({**GOOD, "has_settings": True}).has_settings)
+        self.assertTrue(contract.parse({**GOOD, "has_settings": True}).as_dict()["has_settings"])
+        self.assertFalse(contract.parse({**GOOD, "has_settings": "yes"}).has_settings)
+
+    def test_vpinplay_declares_the_settings_it_registers(self) -> None:
+        shipped = contract.read_manifest(Path(__file__).parents[2] / "extensions" / "vpinplay")
+
+        self.assertTrue(shipped.has_settings)
+
     def test_a_display_name_left_out_stays_empty(self) -> None:
         """So the extension's own catalog can answer it, in the language now set."""
         self.assertEqual(contract.parse(_without("display_name")).display_name, "")

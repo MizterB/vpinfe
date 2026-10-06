@@ -175,6 +175,29 @@ class SettingsGroupTests(unittest.TestCase):
         self.assertIn(i18n.t("console.ext_page.list_failed"), page.labels("console-intro"))
 
 
+class StoppedSettingsLineTests(unittest.TestCase):
+    LINE = i18n.t("console.ext_page.settings_when_running")
+
+    def says(self, found: dict) -> bool:
+        return self.LINE in Page({**found, "has_settings": True}).labels("console-help")
+
+    def test_one_that_is_not_running_says_where_its_settings_will_be(self) -> None:
+        for found in (SWITCHED_OFF, WAITING, BROKE, STOPPED):
+            with self.subTest(state=found["state"]):
+                self.assertTrue(self.says(found))
+
+    def test_one_that_is_running_draws_its_settings_instead(self) -> None:
+        self.assertFalse(self.says(RUNNING))
+
+    def test_one_that_cannot_run_here_makes_no_promise(self) -> None:
+        for found in (WRONG_PLATFORM, LACKS):
+            with self.subTest(reason=found["reason_key"]):
+                self.assertFalse(self.says(found))
+
+    def test_one_that_declares_no_settings_says_nothing(self) -> None:
+        self.assertNotIn(self.LINE, Page(SWITCHED_OFF).labels("console-help"))
+
+
 class ActionsGroupTests(unittest.TestCase):
     ACTIONS = [{"key": "run", "label": "Import a library", "description": "Brings one in"}]
 

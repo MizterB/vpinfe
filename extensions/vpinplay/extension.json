@@ -15,5 +15,6 @@
   "provides": [
     "read",
     "write"
-  ]
+  ],
+  "has_settings": true
 }
