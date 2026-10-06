@@ -113,7 +113,7 @@ class NoteStartTests(TempTree):
 
         self.assertTrue(whats_new.due(again))
         payload = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
-        self.assertEqual(payload["settings"]["install"]["last_version"], "v3.1.0")
+        self.assertEqual(payload["settings"]["device"]["last_version"], "v3.1.0")
 
 
 class ReviewTests(TempTree):

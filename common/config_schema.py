@@ -467,7 +467,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "theme",
             type="choice",
-            # Not `auto` like `install.language`: this one defers to the operating system
+            # Not `auto` like `device.language`: this one defers to the operating system
             # rather than to a language the OS names outright, and the two neutral
             # palettes are the only answers an OS preference can give.
             default="synthwave",
@@ -918,7 +918,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
     ),
     *in_section(
-        "install",
+        "device",
         ConfigOption(
             "id",
             type="string",
@@ -963,7 +963,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             internal=True,
         ),
         ConfigOption(
-            "display_name",
+            "name",
             type="string",
             default="",
         ),

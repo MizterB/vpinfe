@@ -74,7 +74,7 @@ class StartupSettingTests(unittest.TestCase):
 
         found = read_only_at_startup(reads, at_startup)
 
-        self.assertIn(("install", "language"), found)
+        self.assertIn(("device", "language"), found)
         self.assertIn(("updates", "refresh_minutes"), found)
 
     def test_the_check_names_a_setting_that_claims_now(self) -> None:

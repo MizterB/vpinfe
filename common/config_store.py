@@ -76,7 +76,7 @@ _RENAMED_VALUES = {
 # `device` did; both are now the `frontend` feature, which the roles migration below
 # expands - this pass only normalizes the spelling first so one map handles it.
 _RENAMED_LIST_VALUES = {
-    ('install', 'roles'): {'player': 'device'},
+    ('device', 'roles'): {'player': 'device'},
 }
 
 
@@ -172,7 +172,7 @@ class ConfigStore:
         else:
             logger.info("Generating default settings at: %s", self.json_path)
             self.format_defaults()
-            self.config.set('install', 'setup_pending', 'true')
+            self.config.set('device', 'setup_pending', 'true')
             self.save()
 
         changed = self._converted_from_ini
@@ -279,7 +279,7 @@ class ConfigStore:
                 self.config.set(section, key, ','.join(renamed))
                 changed = True
 
-        # `install.roles` became `install.features`, and one role expands into two
+        # `device.roles` became `device.features`, and one role expands into two
         # features - the old `hub` was the library and the device list together, `device`
         # frontend - so neither _RENAMED_KEYS nor _RENAMED_LIST_VALUES can carry it.
         #
@@ -288,9 +288,9 @@ class ConfigStore:
         # runs, and matching on the key would silently never fire. An install that said
         # only `device` must not fall through to the default, which is everything - that
         # would hand a cab a library it never had.
-        if self.config.has_option('install', 'features'):
+        if self.config.has_option('device', 'features'):
             was = [v.strip().lower()
-                   for v in self.config.get('install', 'features').split(',') if v.strip()]
+                   for v in self.config.get('device', 'features').split(',') if v.strip()]
             spread = {'hub': ('library', 'devices'), 'device': ('frontend',),
                       'player': ('frontend',)}
             if any(role in spread for role in was):
@@ -304,7 +304,7 @@ class ConfigStore:
                 # the list so that an install already asking for it keeps it, and no
                 # role expands into it, so migrating never acquires one.
                 order = ('library', 'frontend', 'devices', 'overview')
-                self.config.set('install', 'features',
+                self.config.set('device', 'features',
                                 ','.join(f for f in order if f in now))
                 changed = True
 

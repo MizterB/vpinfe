@@ -29,7 +29,7 @@ class InstallIdentityTests(unittest.TestCase):
     def _on_disk(self) -> dict:
         store = self._store()
         with open(store.json_path, encoding="utf-8") as handle:
-            return json.load(handle)["settings"].get("install", {})
+            return json.load(handle)["settings"].get("device", {})
 
     def test_a_fresh_install_has_no_id_until_one_is_minted(self) -> None:
         store = self._store()
@@ -68,7 +68,7 @@ class DisplayNameTests(unittest.TestCase):
         self.assertTrue(install_identity.display_name(self.store))
 
     def test_what_was_configured_wins(self) -> None:
-        cfg_set(self.store, "install", "display_name", "basement cab")
+        cfg_set(self.store, "device", "name", "basement cab")
 
         self.assertEqual(install_identity.display_name(self.store), "basement cab")
 
@@ -77,7 +77,7 @@ class DisplayNameTests(unittest.TestCase):
         this install ever saw would prevent."""
         install_identity.display_name(self.store)
 
-        self.assertEqual(cfg_get(self.store, "install", "display_name"), "")
+        self.assertEqual(cfg_get(self.store, "device", "name"), "")
 
 
 class FeatureTests(unittest.TestCase):
@@ -87,7 +87,7 @@ class FeatureTests(unittest.TestCase):
         self.store = ConfigStore(os.path.join(self.tmp.name, "vpinfe.ini"))
 
     def _features(self, value: str) -> list[str]:
-        cfg_set(self.store, "install", "features", value)
+        cfg_set(self.store, "device", "features", value)
         return install_identity.features(self.store)
 
     def test_an_install_has_every_feature_by_default(self) -> None:
@@ -138,7 +138,7 @@ class FeatureTests(unittest.TestCase):
         self.assertEqual(self._features("core,library"), ["core", "library"])
 
     def test_has_feature_answers_for_one(self) -> None:
-        cfg_set(self.store, "install", "features", "library")
+        cfg_set(self.store, "device", "features", "library")
 
         self.assertTrue(install_identity.has_feature(self.store, "library"))
         self.assertFalse(install_identity.has_feature(self.store, "frontend"))

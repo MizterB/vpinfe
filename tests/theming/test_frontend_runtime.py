@@ -17,7 +17,7 @@ from common import shutdown
 from frontend import runtime
 from frontend.chromium_manager import ChromiumManager
 
-# `install_setup.pending()` reads this as false: no `install.setup_pending` option means
+# `install_setup.pending()` reads this as false: no `device.setup_pending` option means
 # `cfg_bool`'s own fallback answers.
 _NOT_PENDING = mock.Mock(config=configparser.ConfigParser())
 

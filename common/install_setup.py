@@ -1,10 +1,10 @@
-"""Whether this install has finished Setup: `install.setup_pending`.
+"""Whether this install has finished Setup: `device.setup_pending`.
 
 Written true only by a fresh install's own first save (`common/config_store.py`); every
 other install reads absent the same as false, so a 2.x conversion, a hand-written
 `vpinfe.json`, or an install that already ran Setup never sees it again.
 
-`install.setup_done` lists the steps already answered, so Setup reopens where it stopped.
+`device.setup_done` lists the steps already answered, so Setup reopens where it stopped.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from common.config_store import ConfigStore
 
 logger = logging.getLogger("vpinfe.common.install_setup")
 
-SECTION = "install"
+SECTION = "device"
 KEY = "setup_pending"
 DONE_KEY = "setup_done"
 

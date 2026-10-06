@@ -32,7 +32,7 @@ CARD_UP = ("[...document.querySelectorAll('.console-wizard-card')].some(card =>"
 CARD_GONE = f"!document.querySelector({json.dumps(CARD)})"
 TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerText : null; })()"
 ASKED = t("console.setup.tables.title")
-PENDING = {("install", "setup_pending"): True}
+PENDING = {("device", "setup_pending"): True}
 
 
 class SetupTablesDrive(unittest.TestCase):

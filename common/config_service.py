@@ -196,7 +196,7 @@ def set_values(wanted: dict[str, dict[str, Any]] | None,
         logger.exception("Could not write the settings file")
         raise SettingsWriteError(why(exc)) from exc
 
-    if any(section == "install" and key == "display_name" for section, key, _ in staged):
+    if any(section == "device" and key == "name" for section, key, _ in staged):
         # The registry holds a copy of what each install reported. This one just changed
         # what it reports, and every screen listing devices reads the copy.
         install_presence.record_self()

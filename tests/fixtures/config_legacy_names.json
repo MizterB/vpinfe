@@ -438,6 +438,12 @@
     "restore_last_table"
   ],
   [
+    "device",
+    "roles",
+    "device",
+    "features"
+  ],
+  [
     "displays",
     "cabmode",
     "presentation",
@@ -482,7 +488,7 @@
   [
     "general",
     "language",
-    "install",
+    "device",
     "language"
   ],
   [
@@ -520,12 +526,6 @@
     "theme",
     "themes",
     "active"
-  ],
-  [
-    "install",
-    "roles",
-    "install",
-    "features"
   ],
   [
     "libdmdutil",

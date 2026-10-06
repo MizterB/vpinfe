@@ -332,7 +332,7 @@ class RetiredInputDefaultsTests(ConfigStoreTests):
 
 
 class RetiredRoleTests(ConfigStoreTests):
-    """`install.roles` became `install.features`, and one role expands into two.
+    """`device.roles` became `device.features`, and one role expands into two.
 
     Not a key rename and not a value rename: `hub` meant the library and the device list
     together. An install that said only `device` must land on `frontend` alone - falling
@@ -340,11 +340,11 @@ class RetiredRoleTests(ConfigStoreTests):
     """
 
     def _features(self) -> list[str]:
-        return self._payload()["settings"]["install"]["features"]
+        return self._payload()["settings"]["device"]["features"]
 
     def test_a_json_written_before_the_rename_is_corrected_in_place(self) -> None:
         store = ConfigStore(str(self.ini))
-        store.config.set("install", "roles", "hub,player")
+        store.config.set("device", "roles", "hub,player")
         store.save()
 
         ConfigStore(str(self.ini))
@@ -354,7 +354,7 @@ class RetiredRoleTests(ConfigStoreTests):
     def test_a_migrating_install_does_not_acquire_overview(self) -> None:
         """Nothing expands into it, so an install coming from roles never gains a feature
         that has to be asked for."""
-        self.ini.write_text("[install]\nroles = hub,device\n", encoding="utf-8")
+        self.ini.write_text("[device]\nroles = hub,device\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))
 
@@ -362,7 +362,7 @@ class RetiredRoleTests(ConfigStoreTests):
 
     def test_an_install_already_asking_for_overview_keeps_it(self) -> None:
         """The migration reorders what it finds; it is not a filter on what is allowed."""
-        self.ini.write_text("[install]\nroles = hub,overview\n", encoding="utf-8")
+        self.ini.write_text("[device]\nroles = hub,overview\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))
 
@@ -371,7 +371,7 @@ class RetiredRoleTests(ConfigStoreTests):
     def test_a_cab_does_not_inherit_a_library_it_never_had(self) -> None:
         """The one that matters. `device` alone becomes `frontend` alone, not everything -
         the fallback is the default set, and falling through to it would be silent."""
-        self.ini.write_text("[install]\nroles = device\n", encoding="utf-8")
+        self.ini.write_text("[device]\nroles = device\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))
 
@@ -379,7 +379,7 @@ class RetiredRoleTests(ConfigStoreTests):
 
     def test_the_two_era_spelling_arrives_at_the_same_place(self) -> None:
         """`player` named the launching install before `device` did."""
-        self.ini.write_text("[install]\nroles = player\n", encoding="utf-8")
+        self.ini.write_text("[device]\nroles = player\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))
 
@@ -387,21 +387,21 @@ class RetiredRoleTests(ConfigStoreTests):
 
     def test_one_role_expands_into_two_features(self) -> None:
         """`hub` was the shared library and the list of other installs at once."""
-        self.ini.write_text("[install]\nroles = hub\n", encoding="utf-8")
+        self.ini.write_text("[device]\nroles = hub\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))
 
         self.assertEqual(self._features(), ["library", "devices"])
 
     def test_the_order_is_the_schema_order_however_it_was_written(self) -> None:
-        self.ini.write_text("[install]\nroles = player,hub\n", encoding="utf-8")
+        self.ini.write_text("[device]\nroles = player,hub\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))
 
         self.assertEqual(self._features(), ["library", "frontend", "devices"])
 
     def test_current_features_are_left_alone(self) -> None:
-        self.ini.write_text("[install]\nfeatures = frontend\n", encoding="utf-8")
+        self.ini.write_text("[device]\nfeatures = frontend\n", encoding="utf-8")
 
         ConfigStore(str(self.ini))
 
@@ -412,7 +412,7 @@ class RetiredRoleTests(ConfigStoreTests):
         without this an install reported every feature where it had asked for one."""
         from common import install_identity
 
-        self.ini.write_text("[install]\nroles = device\n", encoding="utf-8")
+        self.ini.write_text("[device]\nroles = device\n", encoding="utf-8")
 
         store = ConfigStore(str(self.ini))
 

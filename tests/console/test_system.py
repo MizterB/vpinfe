@@ -149,8 +149,8 @@ class NavTests(unittest.TestCase):
         import configparser
 
         config = configparser.ConfigParser()
-        config.add_section("install")
-        config.set("install", "features", "libary, frontnd")
+        config.add_section("device")
+        config.set("device", "features", "libary, frontnd")
 
         self.assertNotIn(install_identity.OVERVIEW,
                          install_identity.features(config))

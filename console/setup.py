@@ -5,7 +5,7 @@ person is on, answering the wizard's own protocol with local closures - there is
 boundary here for an HTTP call to cross. `STEPS` is the whole list, in the order they are
 asked: a step is one entry there and nothing else names the steps.
 
-Every answer is saved as it is given, and `install.setup_done` records which steps have
+Every answer is saved as it is given, and `device.setup_done` records which steps have
 one, so leaving and coming back costs a person nothing but their place.
 """
 

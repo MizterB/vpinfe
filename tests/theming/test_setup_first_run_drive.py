@@ -52,7 +52,7 @@ class SetupFirstRunDrive(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             fresh = Path(tmp) / "fresh"
             fresh.mkdir()
-            with LiveInstance(Path(tmp), extra_settings={("install", "setup_pending"): True}
+            with LiveInstance(Path(tmp), extra_settings={("device", "setup_pending"): True}
                               ) as instance:
                 cls.seen = asyncio.run(cls._drive(instance, binary, fresh))
 
@@ -63,7 +63,7 @@ class SetupFirstRunDrive(unittest.TestCase):
 
         def on_disk() -> object:
             saved = json.loads((instance.config_dir / "vpinfe.json").read_text(encoding="utf-8"))
-            return saved["settings"]["install"]["setup_pending"]
+            return saved["settings"]["device"]["setup_pending"]
 
         async with BrowserSession(binary) as browser:
             walk = ConsoleWalk(browser, instance)

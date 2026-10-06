@@ -1132,7 +1132,7 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     if library is not None:
         try:
             values = await offload.io(library.config_values)
-            stored = str(((values or {}).get("install") or {}).get("display_name") or "")
+            stored = str(((values or {}).get("device") or {}).get("name") or "")
         except Exception:  # noqa: BLE001 - an unreadable name is an empty field, not a 500
             library = None
 
@@ -1142,7 +1142,7 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
             return
         try:
             await run.io_bound(library.put_config,
-                               {"install": {"display_name": value.strip()}})
+                               {"device": {"name": value.strip()}})
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
             ui.notify(t("console.devices.save_failed"), caption=_why(exc), type="negative")
             return

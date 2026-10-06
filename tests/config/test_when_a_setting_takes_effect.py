@@ -46,7 +46,7 @@ class DeclaredTests(unittest.TestCase):
     def test_a_setting_read_when_something_starts_says_which(self) -> None:
         expected = {
             "restart": [("network", "http_port"), ("network", "ws_port"),
-                        ("logger", "level"), ("install", "language"),
+                        ("logger", "level"), ("device", "language"),
                         ("behavior", "startup_collection"), ("commands", "on_vpinfe_start"),
                         ("updates", "refresh_minutes"),
                         ("windows.backglass", "screen_id"), ("themes", "active")],
@@ -264,7 +264,7 @@ class HelpLineTests(unittest.TestCase):
                                  t(f"console.settings.applies.{applies}"))
 
     def test_the_language_note_says_when_too(self) -> None:
-        language = config_schema.option("install", "language")
+        language = config_schema.option("device", "language")
         assert language is not None
 
         said = settings_page.with_when(language.description, language.applies)

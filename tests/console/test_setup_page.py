@@ -330,7 +330,7 @@ class PathTests(_Fresh):
         reread = ConfigStore(str(self.root / "vpinfe.ini"))
         saved = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
         self.assertEqual(install_setup.answered(reread), ["one"])
-        self.assertEqual(saved["settings"]["install"]["setup_done"], ["one"])
+        self.assertEqual(saved["settings"]["device"]["setup_done"], ["one"])
 
 
 class OpenSetupTests(_Fresh):

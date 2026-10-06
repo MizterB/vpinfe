@@ -1,8 +1,8 @@
 """Whether this start is the first after an update, and what there is to tell about it.
 
-`install.last_version` is the release this install last started as. A start under a later
+`device.last_version` is the release this install last started as. A start under a later
 release marks the review pending, once, and reading it clears the mark.
-`install.whats_new_since` is where that review begins: the oldest version not yet read.
+`device.whats_new_since` is where that review begins: the oldest version not yet read.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from common import install_setup, migration_ledger, release_notes, upgrade_needs
 from common.config_access import ConfigSource, cfg_bool, cfg_get
 from common.config_store import ConfigStore
 
-SECTION = "install"
+SECTION = "device"
 LAST_KEY = "last_version"
 PENDING_KEY = "whats_new_pending"
 SINCE_KEY = "whats_new_since"

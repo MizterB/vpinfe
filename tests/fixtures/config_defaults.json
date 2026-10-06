@@ -45,6 +45,17 @@
     "times": "24h",
     "units": "region"
   },
+  "device": {
+    "features": "library,frontend,devices",
+    "id": "",
+    "language": "auto",
+    "last_version": "",
+    "name": "",
+    "setup_done": "",
+    "setup_pending": "false",
+    "whats_new_pending": "false",
+    "whats_new_since": ""
+  },
   "dof": {
     "config_tool_api_key": "",
     "enabled": "false"
@@ -66,17 +77,6 @@
     "select": "key:Enter,pad:standard/button:0",
     "take_picture": "",
     "tutorial": "key:KeyT"
-  },
-  "install": {
-    "display_name": "",
-    "features": "library,frontend,devices",
-    "id": "",
-    "language": "auto",
-    "last_version": "",
-    "setup_done": "",
-    "setup_pending": "false",
-    "whats_new_pending": "false",
-    "whats_new_since": ""
   },
   "logger": {
     "level": "debug",

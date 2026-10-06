@@ -1,7 +1,7 @@
-"""Stable local identity for one installation: an opaque id at `install.id`.
+"""Stable local identity for one installation: an opaque id at `device.id`.
 
 Follows `common/games/game_identity.py`: opaque id, explicit minting, reading never
-writes. Nothing resolves through `display_name`, so renaming an install is safe.
+writes. Nothing resolves through `name`, so renaming an install is safe.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from common.games.ids import new_id
 
 logger = logging.getLogger("vpinfe.common.install_identity")
 
-ID_SECTION = "install"
+ID_SECTION = "device"
 ID_KEY = "id"
 
 # What an install is *meant* to do, chosen deliberately. Roles said this before and said
@@ -33,10 +33,10 @@ FEATURES = (LIBRARY, FRONTEND, DEVICES, OVERVIEW)
 # What a person calls each. The id names the thing and the name says what you do with
 # it, which is why `devices` reads as Device Management.
 LABELS = {
-    LIBRARY: "install.feature.library",
-    FRONTEND: "install.feature.frontend",
-    DEVICES: "install.feature.devices",
-    OVERVIEW: "install.feature.overview",
+    LIBRARY: "device.feature.library",
+    FRONTEND: "device.feature.frontend",
+    DEVICES: "device.feature.devices",
+    OVERVIEW: "device.feature.overview",
 }
 
 # What every 2.x install and every desktop install already is. Not every feature: this
@@ -80,7 +80,7 @@ def ensure_id(config: ConfigStore) -> str:
 def display_name(config: ConfigStore) -> str:
     """What to call this install, falling back to the hostname. Reading never writes the
     default down, so a renamed machine follows instead of keeping its first name."""
-    configured = cfg_get(config, ID_SECTION, "display_name").strip()
+    configured = cfg_get(config, ID_SECTION, "name").strip()
     if configured:
         return configured
     return _hostname()

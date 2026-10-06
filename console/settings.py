@@ -905,7 +905,7 @@ def _section_label(key: str) -> str:
                     for part in (config_schema.window_name(key) or key).split("."))
 
 
-# `install` appears on no page below, deliberately: it is the device's identity and is
+# `device` appears on no page below, deliberately: it is the device's identity and is
 # edited in Details.
 # A device's pages, in the shape this page uses for this install's own: grouped, named in a
 # person's words, one page per topic rather than one per config section. Several sections
@@ -1030,7 +1030,7 @@ IDENTITY = "vpinfe.install"
 # page - `features` is a list in the file and a closed set on screen, and a
 # comma-separated text field is the wrong control for that.
 IDENTITY_PAGE: DevicePage = (IDENTITY, "console.settings.page_install", BUILT_PAGE,
-                             ("install",),
+                             ("device",),
                              install_identity.CORE)
 
 # The same group the rest of the install's own pages are in, so it leads them rather than
@@ -1813,11 +1813,11 @@ async def _identity_page(library: Library, reported: str,
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s
         panel.facts(ui, [panel.intro(t("said.settings_unreadable"), hint=why(exc))])
         return
-    held = dict(values.get("install") or {})
+    held = dict(values.get("device") or {})
     on = _listed(held.get("features"))
 
     async def rename(text: str) -> None:
-        await _write(library, "install", "display_name", text.strip())
+        await _write(library, "device", "name", text.strip())
 
     @on_page
     async def flip(name: str, wanted_on: bool) -> None:
@@ -1827,7 +1827,7 @@ async def _identity_page(library: Library, reported: str,
         after = (on | {name}) if wanted_on else (on - {name})
         # In the order the install declares them, so the file reads the same however the
         # switches were thrown.
-        if await _write(library, "install", "features",
+        if await _write(library, "device", "features",
                         [name for name in install_identity.FEATURES if name in after]):
             _take_the_page_again()
 
@@ -1836,18 +1836,18 @@ async def _identity_page(library: Library, reported: str,
     def flipper(name: str) -> Callable[[Any], Any]:
         return lambda event: flip(name, bool(event.value))
 
-    language = config_schema.option("install", "language")
+    language = config_schema.option("device", "language")
 
     @on_page
     async def relanguage(event: Any) -> None:
-        if await _write(library, "install", "language", event.value):
+        if await _write(library, "device", "language", event.value):
             _take_the_page_again()
 
     entries: list[tuple[Any, Any]] = [
         (panel.HEADING, t("word.identity")),
         # The name it reports with nothing set is its hostname, so the placeholder is
         # that answer rather than the word for it.
-        (t("word.name"), panel.field(str(held.get("display_name") or ""),
+        (t("word.name"), panel.field(str(held.get("name") or ""),
                                                  rename,
                              placeholder=reported)),
         panel.note(t("console.settings.name_note")),

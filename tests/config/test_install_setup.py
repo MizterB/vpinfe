@@ -1,4 +1,4 @@
-"""`install.setup_pending` is true until Setup finishes; `install.setup_done` is its progress."""
+"""`device.setup_pending` is true until Setup finishes; `device.setup_done` is its progress."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ class FinishTests(TempTree):
 
         self.assertFalse(install_setup.pending(store))
         payload = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
-        self.assertFalse(payload["settings"]["install"]["setup_pending"])
+        self.assertFalse(payload["settings"]["device"]["setup_pending"])
 
     def test_a_second_store_reading_the_same_file_also_sees_it_gone(self) -> None:
         path = self.root / "vpinfe.ini"
@@ -64,7 +64,7 @@ class AnsweredTests(TempTree):
 
         self.assertEqual(install_setup.answered(ConfigStore(str(path))), ["how", "screens"])
         payload = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
-        self.assertEqual(payload["settings"]["install"]["setup_done"], ["how", "screens"])
+        self.assertEqual(payload["settings"]["device"]["setup_done"], ["how", "screens"])
 
     def test_answering_a_step_twice_records_it_once(self) -> None:
         store = ConfigStore(str(self.root / "vpinfe.ini"))

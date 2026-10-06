@@ -391,7 +391,7 @@ is registered by a person rather than by itself. Covered by `tests/api/test_devi
 `tests/theming/test_separation.py`, which runs two live installs against a live library.
 
 **PAR-91 — An install is described by the features it has switched on.** *(machine-checked)*
-`[install] roles` is `[install] features`, migrated in place: `hub` expands to `library`
+`[device] roles` is `[device] features`, migrated in place: `hub` expands to `library`
 and `devices`, and `device` and the 2.x `player` both become `frontend`. A capability's
 `residency` - a list of places - is a nullable `feature`, and one whose feature is off is
 not served at all rather than served and reported unavailable. `overview` is a fourth
@@ -867,9 +867,9 @@ whenever the default is also the right answer. Covered by `tests/js/endpoints.te
 `tests/theming/test_chromium_manager.py`, and `tests/theming/test_render_smoke.py`, which
 runs against ports chosen at random precisely so an assumed one fails.
 
-**PAR-52 — An install has an identity of its own.** A new `[install]` section holds `id`,
-`display_name` and `features`. `id` is minted once on first start and written to the
-config; `display_name` defaults to this machine's hostname and is not written down by
+**PAR-52 — An install has an identity of its own.** A new `[device]` section holds `id`,
+`name` and `features`. `id` is minted once on first start and written to the
+config; `name` defaults to this machine's hostname and is not written down by
 reading it; `features` defaults to `library,frontend,devices`, which is what every existing
 install already does. All three are additive to `GET /api/v1`, so no client breaks and
 nothing looks different to anyone running one machine. The key was `roles` when this

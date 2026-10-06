@@ -59,7 +59,7 @@ class SetupControlsDrive(unittest.TestCase):
         if not binary:
             raise unittest.SkipTest("no Chromium on this machine")
         with TemporaryDirectory() as tmp:
-            with LiveInstance(Path(tmp), extra_settings={("install", "setup_pending"): True}
+            with LiveInstance(Path(tmp), extra_settings={("device", "setup_pending"): True}
                               ) as instance:
                 cls.seen = asyncio.run(cls._drive(instance, binary))
 
