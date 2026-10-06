@@ -136,6 +136,33 @@ class FactsTests(DirectB2SParserCase):
         assert facts is not None
         self.assertEqual(facts.lamps, 0)
 
+    def test_a_file_with_nothing_to_light_is_still(self) -> None:
+        facts = parser.read(self.write(_file()))
+        assert facts is not None
+        self.assertTrue(facts.still)
+
+    def test_a_file_with_a_visible_lamp_is_not_still(self) -> None:
+        bulbs = _bulb(1, _b64(_png((4, 4), RED)), x=0, y=0) + "\n"
+        facts = parser.read(self.write(_file(bulbs=bulbs)))
+        assert facts is not None
+        self.assertFalse(facts.still)
+
+    def test_a_file_whose_every_lamp_is_hidden_or_on_the_score_view_is_still(self) -> None:
+        lamp = _b64(_png((4, 4), RED))
+        bulbs = "\n".join([_bulb(1, lamp, x=0, y=0, visible=0),
+                           _bulb(2, lamp, x=4, y=0, parent="DMD")]) + "\n"
+        facts = parser.read(self.write(_file(bulbs=bulbs)))
+        assert facts is not None
+        self.assertTrue(facts.still)
+
+    def test_a_file_with_its_own_lit_picture_is_not_still(self) -> None:
+        images = (
+            f'    <BackglassOffImage Value="{_b64(_png((40, 30), DARK))}" />\n'
+            f'    <BackglassOnImage Value="{_b64(_png((40, 30), BLUE))}" />')
+        facts = parser.read(self.write(_file(images=images)))
+        assert facts is not None
+        self.assertFalse(facts.still)
+
     def test_score_view_art_is_sized_when_the_file_has_it(self) -> None:
         images = (
             f'    <BackglassImage Value="{_b64(_png((40, 30), DARK))}" />\n'

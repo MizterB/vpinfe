@@ -21,8 +21,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from common import collation, media_probe, service_errors
-from common.games import asset_origin, asset_resolver, game_lens, game_repository, table_lens
+from common import collation, media_probe, service_errors, sized_media
+from common.games import (
+    asset_origin,
+    asset_resolver,
+    directb2s_parser,
+    game_lens,
+    game_repository,
+    table_lens,
+)
 from common.games.asset_registry import spec_for
 from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
@@ -253,6 +260,25 @@ def file_detail(game_id: str, path: str, lines: int = HEAD_LINES) -> dict[str, A
     except OSError:
         raise service_errors.NotFoundError(t("error.assets.no_such_file", path=path),
                                            details={"path": path}) from None
-    return {**shown, "size_bytes": stat.st_size, "modified": _stamp(stat.st_mtime),
-            "format": media_probe.probe(target)["format"],
-            "head": _head(target, lines) if target.suffix.lower() in _TEXT else None}
+    detail = {**shown, "size_bytes": stat.st_size, "modified": _stamp(stat.st_mtime),
+              "format": media_probe.probe(target)["format"],
+              "head": _head(target, lines) if target.suffix.lower() in _TEXT else None}
+    if target.suffix.lower() == ".directb2s":
+        detail["backglass"] = _backglass_facts(target)
+    return detail
+
+
+def _backglass_facts(path: Path) -> dict[str, Any] | None:
+    """What a backglass file says about itself, with the file's version token for the
+    picture address. None where the file has gone."""
+    facts = directb2s_parser.read(path)
+    if facts is None:
+        return None
+    return {"author": facts.author, "artwork": facts.artwork, "rom": facts.rom,
+            "players": facts.players, "grill": facts.grill,
+            "two_versions": facts.two_versions,
+            "size": list(facts.size) if facts.size else None, "lamps": facts.lamps,
+            "still": facts.still,
+            "score_view_art": list(facts.score_view_art) if facts.score_view_art else None,
+            "problems": list(facts.problems), "damaged": directb2s_parser.damaged(facts),
+            "version": sized_media.version(path) or ""}

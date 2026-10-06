@@ -171,6 +171,8 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/games/{id}/tables/{table_id}/media/{kind}` | Place a file for one table, named for its `.vpx` (multipart: `file`) |
 | DELETE | `/api/v1/games/{id}/tables/{table_id}/media/{kind}` | Remove one table's file |
 | GET | `/api/v1/games/{id}/assets/detail?path=` | One asset file or folder: size, date and format, a folder's file count, and a text file's first lines (`lines=`, 0 for all). A path out of the game's folder is refused |
+| GET | `/api/v1/games/{id}/assets/backglass/picture?path=&look=&version=&grill=` | The picture a `.directb2s` draws: `look` is `on` (default, the lamps lit at start), `off` or `every`, `version` is `authentic` or `fantasy` for a two-version file, and `grill=true` cuts it as the cabinet's renderer does. `path` names a file in the game's folder; without it, the file the folder reads. A file with no picture to draw is not found. `size=` and `v=` as for media |
+| GET | `/api/v1/games/{id}/tables/{table_id}/assets/backglass/picture?look=&version=&grill=` | The same, for the file that table reads |
 | GET | `/api/v1/games/{id}/assets/{kind}/placements` | Where a backglass, ini, script, point of view or score view could go - the folder's own name, or one table's - and what each would replace. A point of view has no folder name |
 | GET | `/api/v1/games/{id}/assets/{kind}/displaced?filename=&table=` | What placing that file would replace, asked before the bytes are sent |
 | PUT | `/api/v1/games/{id}/assets/{kind}` | Place a file under the folder's own name, which every table without its own reads |

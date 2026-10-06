@@ -660,6 +660,7 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
         context: dict[str, Any] = {"library": library, "game": game, "game_id": game_id,
                                    "tables": tables, "state": state, "lens": table_id,
                                    "redraws": [], "dock": None, "row": found,
+                                   "served": _served(found, files, tables),
                                    "kind": str(found.get("kind") or ""),
                                    "slot": {"kind": found.get("kind")}}
         context["rebuild"] = _rebuilds(
@@ -765,15 +766,15 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
     tier = _file_tier(row)
     links = (await offload.io(library.outside_links, game_id, "", path)
              if present and path else [])
+    glass = detail.get("backglass") if kind == "backglass" else None
     with ui.column().classes("w-full gap-1 console-slot p-2"):
         head = str(detail.get("head") or "")
-        if head:
+        if glass and not glass["damaged"]:
+            _backglass_picture(game_id, path, glass, label)
+        elif head:
             with ui.element("div").classes("console-slot-art console-slot-art--text"):
                 ui.label(head).classes("console-file-text")
-                ui.button(icon=verbs.ENLARGE,
-                          on_click=lambda: _open_whole(context, path, label)) \
-                    .props("flat dense round size=sm") \
-                    .classes("console-slot-zoom").tooltip(t("word.enlarge"))
+                _enlarge(lambda: _open_whole(context, path, label))
         else:
             with ui.element("div").classes("console-slot-art"), \
                     ui.column().classes("console-slot-blank items-center gap-1"):
@@ -788,9 +789,15 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                 with ui.row().classes("items-start gap-2 w-full no-wrap"):
                     ui.label(path).classes("console-slot-file grow min-w-0")
                     media_ownership.badge(tier)
+                    if glass and not glass["damaged"]:
+                        _backglass_chips(glass)
                 spec = _asset_spec(detail)
                 if spec:
                     ui.label(spec).classes("console-help")
+                if glass and glass["damaged"]:
+                    _alert(t("console.backglass.damaged"), None)()
+                elif glass:
+                    panel.facts(ui, _backglass_facts(context, glass))
                 said = (t("console.workbench.inert_asset")
                         if tier == media_ownership.UNUSED
                         else media_ownership.sentence(tier,
@@ -804,6 +811,72 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                         .classes("console-help")
                 _outside_lines(links)
         _asset_actions(context, kind, label, present, path, tier, detail)
+
+
+def _enlarge(act: Callable[[], Any]) -> None:
+    ui.button(icon=verbs.ENLARGE, on_click=act).props("flat dense round size=sm") \
+        .classes("console-slot-zoom").tooltip(t("word.enlarge"))
+
+
+def _backglass_picture(game_id: str, path: str, glass: dict[str, Any], label: str) -> None:
+    """The file's picture as the cabinet shows it, with the lamps lit at start."""
+    with ui.element("div").classes("console-slot-art"):
+        mediaview.preview(art.backglass(game_id, path, version=glass["version"],
+                                        size=art.PANEL), "backglass", label)
+        _enlarge(lambda: mediaview.open_image(
+            art.backglass(game_id, path, version=glass["version"]), label))
+
+
+def _backglass_chips(glass: dict[str, Any]) -> None:
+    if glass["two_versions"]:
+        ui.label(t("console.backglass.two_versions")) \
+            .classes("console-tier console-tier--unknown") \
+            .tooltip(t("console.backglass.two_versions.hint"))
+    if glass["still"]:
+        ui.label(t("console.backglass.still")).classes("console-tier console-tier--unknown") \
+            .tooltip(t("console.backglass.still.hint"))
+
+
+def _backglass_roms(context: dict[str, Any]) -> list[str]:
+    """The ROMs of the tables that read this file."""
+    roms = {str(((one.get("dependencies") or {}).get("pinmame") or {})
+                .get("effective") or "") for one in context["served"]}
+    return sorted(rom for rom in roms if rom)
+
+
+def _backglass_facts(context: dict[str, Any], glass: dict[str, Any]) -> list[tuple[Any, Any]]:
+    entries: list[tuple[Any, Any]] = []
+    if glass["author"]:
+        entries.append((t("word.author"), glass["author"]))
+    if glass["artwork"] and glass["artwork"] != glass["author"]:
+        entries.append((t("console.backglass.artwork"), glass["artwork"]))
+    if glass["rom"]:
+        roms = _backglass_roms(context)
+        differs = any(rom.lower() != glass["rom"].lower() for rom in roms)
+        entries.append((t("console.backglass.rom"),
+                        _state(t("console.backglass.different"), "warn", beside=glass["rom"],
+                               hint=t("console.backglass.different.hint", rom=", ".join(roms)))
+                        if differs else glass["rom"]))
+    if glass["players"]:
+        entries.append((t("console.backglass.players"), str(glass["players"])))
+    if glass["size"]:
+        wide, high = glass["size"]
+        shown = t("console.workbench.width_by_height", width=wide, height=high)
+        entries.append((t("console.backglass.picture"), _hinted(
+            shown, t("console.backglass.picture.hint", grill=glass["grill"]))
+            if glass["grill"] else shown))
+    if glass["score_view_art"]:
+        wide, high = glass["score_view_art"]
+        entries.append((t("console.backglass.score_art"),
+                        t("console.workbench.width_by_height", width=wide, height=high)))
+    return entries
+
+
+def _hinted(text: str, hint: str) -> Callable[[], None]:
+    def draw() -> None:
+        ui.label(text).classes("console-fact-value truncate min-w-0").tooltip(hint)
+
+    return draw
 
 
 def _served(row: dict[str, Any], files: Sequence[dict[str, Any]],

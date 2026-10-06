@@ -28,6 +28,15 @@ def picture(game_id: str, name: str, *, version: str | None = None,
                  version, size)
 
 
+def backglass(game_id: str, path: str, *, version: str | None = None,
+              size: int | None = None) -> str:
+    """The picture a game's backglass file draws, lit at start and cut as the cabinet
+    cuts it."""
+    query = urlencode({"path": path, "look": "on", "grill": "true"})
+    return _with(f"/api/v1/games/{quote(game_id, safe='')}/assets/backglass/picture?{query}",
+                 version, size)
+
+
 def collection(name: str, *, version: str | None = None, size: int | None = None) -> str:
     return _with(f"/api/v1/collections/{quote(name, safe='')}/image", version, size)
 

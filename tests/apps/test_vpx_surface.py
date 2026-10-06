@@ -39,10 +39,14 @@ BASELINE: dict[str, int] = {
     "common/apps/__init__.py": 1,
     "common/config_schema.py": 2,
     "common/games/archive_service.py": 4,
-    "common/games/asset_lens.py": 3,
+    "common/games/asset_lens.py": 7,
     "common/games/asset_registry.py": 3,
     "common/games/asset_resolver.py": 11,
+    # Reading and drawing a backglass file is the subject of these two, so the name is
+    # their import, their suffix check and the file's own tag.
+    "common/games/backglass_ops.py": 6,
     "common/games/collection_resolver.py": 3,
+    "common/games/directb2s_parser.py": 4,
     "common/games/export_bundle.py": 4,
     "common/games/game.py": 2,
     "common/games/game_lens.py": 1,
@@ -105,7 +109,7 @@ BASELINE: dict[str, int] = {
     "console/vpx_find.py": 11,
     # The Input page of a Visual Pinball launcher: the file's keys are its subject.
     "console/vpx_input.py": 9,
-    "console/workbench.py": 32,
+    "console/workbench.py": 33,
     "httpapi/core_capabilities.py": 5,
     "httpapi/filesystem.py": 1,
     "httpapi/games.py": 4,

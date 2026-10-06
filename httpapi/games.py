@@ -24,6 +24,7 @@ from common.games import (
     archive_service,
     asset_lens,
     asset_ops,
+    backglass_ops,
     collection_ops,
     game_lens,
     game_ops,
@@ -80,6 +81,35 @@ def get_asset_detail(game_id: str, path: str = Query(...),
                      ) -> models.AssetDetail:
     """`lines` is how much of a text file to return; 0 is all of it."""
     return models.AssetDetail.model_validate(asset_lens.file_detail(game_id, path, lines))
+
+
+@router.get("/{game_id}/assets/backglass/picture",
+            summary="The picture a backglass file draws",
+            dependencies=[requires(scopes.GAMES_READ)])
+def get_backglass_picture(game_id: str, request: Request,
+                          look: str = Query("on", description="`on`, `off` or `every`"),
+                          version: str = Query("authentic",
+                                               description="`authentic` or `fantasy`"),
+                          grill: bool = Query(False, description="Cut as the renderer does"),
+                          path: str = Query("", description="A file in the folder; the "
+                                                            "one the folder reads if empty"),
+                          size: int | None = responses.ART_SIZE,
+                          v: str = responses.ART_VERSION) -> Response:
+    return responses.art_file(backglass_ops.picture_file(
+        game_id, "", look, version, grill, path, size), request, v)
+
+
+@router.get("/{game_id}/tables/{table_id}/assets/backglass/picture",
+            summary="The picture the table's backglass file draws",
+            dependencies=[requires(scopes.GAMES_READ)])
+def get_table_backglass_picture(game_id: str, table_id: str, request: Request,
+                                look: str = Query("on"), version: str = Query("authentic"),
+                                grill: bool = Query(False),
+                                path: str = Query(""),
+                                size: int | None = responses.ART_SIZE,
+                                v: str = responses.ART_VERSION) -> Response:
+    return responses.art_file(backglass_ops.picture_file(
+        game_id, table_id, look, version, grill, path, size), request, v)
 
 
 @router.get("/{game_id}/assets/{kind}/placements",

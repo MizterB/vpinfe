@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from console import grid, media_ownership, workbench
+from console import art, grid, media_ownership, workbench
 
 
 def _row(kind: str = "backglass", table: str = "", present: bool = True, **more: Any) -> dict:
@@ -91,6 +91,68 @@ class ItsOwnRail(unittest.TestCase):
             with self.subTest(subject=subject):
                 self.assertEqual(keys, [item.key
                                         for item in workbench.sections_for(subject)])
+
+
+def _glass(**more: Any) -> dict:
+    return {"author": "Pat Maker", "artwork": "Pat Maker", "rom": "exmpl_l1", "players": 4,
+            "grill": 0, "two_versions": False, "size": [2000, 1565], "lamps": 12, "still": False,
+            "score_view_art": None, "problems": [], "damaged": False, "version": "abc",
+            **more}
+
+
+def _rom(name: str) -> dict:
+    return {"dependencies": {"pinmame": {"effective": name}}}
+
+
+class WhatABackglassFileSays(unittest.TestCase):
+    def _facts(self, glass: dict, *served: dict) -> dict:
+        return dict(workbench._backglass_facts({"served": list(served)}, glass))
+
+    def test_an_author_who_made_the_art_too_is_said_once(self) -> None:
+        said = self._facts(_glass())
+
+        self.assertEqual({"Author", "ROM", "Players", "Picture"}, set(said))
+
+    def test_art_by_someone_else_is_named(self) -> None:
+        self.assertEqual("Sam Artist", self._facts(_glass(artwork="Sam Artist"))["Artwork"])
+
+    def test_the_picture_is_its_size(self) -> None:
+        self.assertEqual("2000 × 1565", self._facts(_glass())["Picture"])
+
+    def test_a_score_view_picture_is_there_only_when_the_file_has_one(self) -> None:
+        said = self._facts(_glass(score_view_art=[1024, 256]))
+
+        self.assertEqual("1024 × 256", said["Score View Art"])
+
+    def test_a_rom_the_table_also_reads_carries_no_chip(self) -> None:
+        said = self._facts(_glass(), _rom("EXMPL_L1"))
+
+        self.assertEqual("exmpl_l1", said["ROM"])
+
+    def test_a_rom_the_table_does_not_read_is_marked_different(self) -> None:
+        said = self._facts(_glass(), _rom("other"))
+
+        self.assertTrue(callable(said["ROM"]))
+
+    def test_a_table_with_no_rom_has_nothing_to_differ_from(self) -> None:
+        self.assertEqual("exmpl_l1", self._facts(_glass(), {})["ROM"])
+
+    def test_one_table_reading_another_rom_is_enough_to_mark_it(self) -> None:
+        said = self._facts(_glass(), _rom("exmpl_l1"), _rom("other"))
+
+        self.assertTrue(callable(said["ROM"]))
+
+    def test_the_roms_are_those_of_the_tables_that_read_it(self) -> None:
+        context = {"served": [_rom("b"), _rom("a"), _rom("b"), {}]}
+
+        self.assertEqual(["a", "b"], workbench._backglass_roms(context))
+
+    def test_the_picture_address_carries_the_files_version(self) -> None:
+        src = art.backglass("g1", "my glass.directb2s", version="abc", size=art.PANEL)
+
+        self.assertEqual(
+            "/api/v1/games/g1/assets/backglass/picture?path=my+glass.directb2s&look=on"
+            "&grill=true&size=1024&v=abc", src)
 
 
 class _Grid:

@@ -1924,9 +1924,33 @@ class OutsideLinks(ApiModel):
     links: list[OutsideLink]
 
 
+class AssetBackglass(ApiModel):
+    """What a backglass file says about itself. `size` and `score_view_art` are
+    [width, height] in pixels, `grill` the height of the bottom strip the renderer
+    cuts, `lamps` how many lamps it holds, `still` that nothing in it can light,
+    `problems` what could not be
+    read, `damaged` whether the picture cannot be drawn, and `version` the token that
+    changes with the file."""
+
+    author: str
+    artwork: str
+    rom: str
+    players: int | None = None
+    grill: int
+    two_versions: bool
+    size: list[int] | None = None
+    lamps: int
+    still: bool
+    score_view_art: list[int] | None = None
+    problems: list[str]
+    damaged: bool
+    version: str
+
+
 class AssetDetail(ApiModel):
     """One asset file, or one folder of them. `files` counts a folder's contents and is
-    null for a file; `head` is a text file's first lines and null for anything else."""
+    null for a file; `head` is a text file's first lines and null for anything else;
+    `backglass` is a backglass file's own facts."""
 
     path: str
     file: str
@@ -1936,6 +1960,7 @@ class AssetDetail(ApiModel):
     modified: str | None = None
     format: str | None = None
     head: str | None = None
+    backglass: AssetBackglass | None = None
 
 
 class AssetPlacement(ApiModel):

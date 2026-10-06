@@ -94,6 +94,7 @@ class Backglass:
     two_versions: bool
     size: tuple[int, int] | None
     lamps: int
+    still: bool
     score_view_art: tuple[int, int] | None
     problems: tuple[str, ...]
 
@@ -254,6 +255,9 @@ def _facts_of(document: _Document, data: bytes) -> Backglass:
         two_versions=values.get("DualBackglass") == "1",
         size=size,
         lamps=sum(1 for lamp in document.lamps if lamp.parent != "DMD"),
+        still="BackglassOffImage" not in document.images
+        and not any(lamp.parent != "DMD" and lamp.visible and lamp.image is not None
+                    for lamp in document.lamps),
         score_view_art=score_view,
         problems=tuple(problems),
     )
@@ -276,7 +280,8 @@ def _read_uncached(path: Path) -> Backglass:
 def _empty(problems: tuple[str, ...]) -> Backglass:
     return Backglass(
         author="", artwork="", rom="", players=None, grill=0, grill_small=None,
-        two_versions=False, size=None, lamps=0, score_view_art=None, problems=problems)
+        two_versions=False, size=None, lamps=0, still=False, score_view_art=None,
+        problems=problems)
 
 
 def read(path: Path) -> Backglass | None:
@@ -300,6 +305,12 @@ def read(path: Path) -> Backglass | None:
         while len(_facts) > _MAX_FACTS:
             _facts.pop(next(iter(_facts)))
     return facts
+
+
+def damaged(facts: Backglass) -> bool:
+    """Whether the picture cannot be drawn. A score view picture that is bad costs only
+    that picture."""
+    return any(problem != BAD_SCORE_VIEW_ART for problem in facts.problems)
 
 
 def _folder(path: Path) -> Path:
