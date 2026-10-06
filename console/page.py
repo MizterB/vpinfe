@@ -164,7 +164,7 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
     # and this is where features are switched on. Ordered configuration, then what this
     # install knows about, then its records, then what it is.
     (NAV_SYSTEM, (("settings", "console.section.settings", "tune", install_identity.CORE),
-                  ("locations", "console.section.locations", "folder_open",
+                  ("locations", "console.section.library_folders", "folder_open",
                    (install_identity.LIBRARY, install_identity.FRONTEND)),
                   ("devices", "console.section.devices", "devices", install_identity.DEVICES),
                   ("extensions", "console.section.extensions", "extension",
@@ -227,7 +227,7 @@ SECTIONS = {
     "games": "console.section.games",
     "tables": "console.section.tables",
     "tags": "console.section.tags",
-    "locations": "console.section.locations",
+    "locations": "console.section.library_folders",
     "collections": "console.section.collections",
     "media": "console.section.media",
     "assets": "console.section.assets",
@@ -314,14 +314,14 @@ window.addEventListener('beforeunload', (event) => {
 # selects: three of them select something and the rest do not, and one asking for a game
 # on a page with no games is the panel describing a different screen.
 EMPTY_PANE = {
-    "games": ("console.page.game_details", "console.page.select_game"),
-    "tables": ("console.page.table_details", "console.page.select_table"),
+    "games": ("console.page.game", "console.page.select_game"),
+    "tables": ("console.page.table", "console.page.select_table"),
     "collections": ("console.page.collection", "console.page.select_collection"),
     "tags": ("console.page.tag", "console.page.select_tag"),
     "media": ("console.page.media", "console.page.select_media"),
     "assets": ("console.page.assets", "console.page.select_asset"),
     "devices": ("console.page.device", "console.page.select_device"),
-    "locations": ("console.page.location", "console.page.select_location"),
+    "locations": ("console.page.library_folder", "console.page.select_folder"),
     "launchers": ("console.page.launcher", "console.page.select_launcher"),
     "themes": ("console.page.theme", "console.page.select_theme"),
     "players": ("console.page.player", "console.page.select_player"),
@@ -1391,7 +1391,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         # height or alignment as the selection comes and goes.
         heading, prompt = EMPTY_PANE.get(
             state["view"],
-            ("console.page.game_details", "console.page.select_game"))
+            ("console.page.game", "console.page.select_game"))
         heading, prompt = t(heading), t(prompt)
         with workbench_title:
             ui.label(heading) \

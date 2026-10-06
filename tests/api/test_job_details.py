@@ -29,7 +29,7 @@ class Describers(unittest.TestCase):
         said = job_details.of(jobs.KIND_MEDIA_FILL,
                               {"games": 5, "filled": 3, "unmatched": 1, "failed": 1})
 
-        self.assertEqual(t("said.job_art_filled", count=5, filled=3, unmatched=1, failed=1), said)
+        self.assertEqual(t("said.job_media_filled", count=5, filled=3, unmatched=1, failed=1), said)
 
     def test_a_recording_says_how_many_it_made(self) -> None:
         said = job_details.of(jobs.KIND_MEDIA_CAPTURE, {"run": {"done": 2, "of": 5}})

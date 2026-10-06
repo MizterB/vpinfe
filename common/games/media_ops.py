@@ -385,7 +385,7 @@ def fetch_file(game_id: str, kind: str, table_id: str, source: str, vps_id: str,
                                   asset_sources.enabled_ids())
     if offer is None:
         raise service_errors.NotFoundError(
-            t("error.games.no_art"),
+            t("error.games.source_lacks_media"),
             details={"source": source, "vps_id": vps_id, "kind": kind, "size": size})
     with tempfile.TemporaryDirectory() as staging:
         staged = Path(staging) / Path(offer.url).name

@@ -161,8 +161,8 @@ class PlaySectionTests(unittest.TestCase):
     def test_a_table_s_play_shows_both_records(self) -> None:
         entries = workbench._play_entries(_context(lens="beta"))
 
-        self.assertEqual(_headings(entries), [t("console.workbench.game_details"),
-                                              t("console.workbench.table_details")])
+        self.assertEqual(_headings(entries), [t("console.workbench.game_section"),
+                                              t("console.workbench.table_section")])
 
 
 if __name__ == "__main__":

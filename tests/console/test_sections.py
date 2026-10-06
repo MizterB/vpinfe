@@ -272,9 +272,9 @@ class MatchTests(unittest.TestCase):
         self.assertEqual(workbench._game_label({"game": {}}),
                          t("console.workbench.game_unmatched"))
         self.assertEqual(workbench._game_label({"game": {"vps_id": "abc"}}),
-                         t("console.workbench.game_details"))
+                         t("console.workbench.game_section"))
 
     def test_a_game_declared_in_no_catalog_is_not_flagged(self) -> None:
         declared = {"game": {"overrides": {"alt_vps_id": None}}}
         self.assertEqual(workbench._game_label(declared),
-                         t("console.workbench.game_details"))
+                         t("console.workbench.game_section"))

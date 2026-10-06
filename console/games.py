@@ -897,7 +897,7 @@ _LAUNCHER_DRAWN: dict[str, Any] = {":cellRenderer": _LAUNCHER_CELL}
 # What a table's settings file changes for it, by kind. The cell holds the kind, which a
 # filter and a saved view keep, and draws `settings_said`.
 _OWN_SETTINGS, _POINT_OF_VIEW, _FROM_GAME = "own", "point_of_view", "from_game"
-_GAME_SCOPE = t("console.workbench.folder")
+_GAME_SCOPE = t("console.workbench.this_game")
 _SETTINGS_CHOICES = [
     {"value": _OWN_SETTINGS, "label": t("console.games.filter_own")},
     {"value": _POINT_OF_VIEW, "label": t("asset.kind.pov.label")},

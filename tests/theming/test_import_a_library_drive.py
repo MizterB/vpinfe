@@ -105,7 +105,7 @@ class ImportALibraryDrive(unittest.TestCase):
 
             await walk.visit("/console?view=locations")
             await browser.wait_for("!!document.querySelector('.console-action')")
-            await browser.wait_for(counted(t("console.locations.location", count=1)))
+            await browser.wait_for(counted(t("console.locations.folder_count", count=1)))
             # A reload would take this with it.
             await browser.evaluate("window.keptThroughTheImport = true")
             await walk.act(lambda: browser.click(".console-action"),
@@ -151,7 +151,7 @@ class ImportALibraryDrive(unittest.TestCase):
             await walk.act(lambda: click_text(f"{CARD} button", t("word.close")),
                            until=f"!document.querySelector({json.dumps(CARD)})")
             try:
-                await browser.wait_for(counted(t("console.locations.location", count=2)))
+                await browser.wait_for(counted(t("console.locations.folder_count", count=2)))
             except TimeoutError:
                 pass
             seen["count_after"] = await browser.evaluate(
@@ -163,7 +163,7 @@ class ImportALibraryDrive(unittest.TestCase):
         return seen
 
     def test_the_menu_offers_it_beside_add(self) -> None:
-        self.assertEqual(self.seen["menu"], [t("console.locations.add_location"),
+        self.assertEqual(self.seen["menu"], [t("console.locations.add_folder"),
                                               WORDS["action.import.label"]])
 
     def test_it_asks_where_the_library_is_first(self) -> None:
@@ -192,7 +192,7 @@ class ImportALibraryDrive(unittest.TestCase):
 
     def test_the_folder_it_copied_into_shows_on_the_page_without_a_reload(self) -> None:
         self.assertTrue(self.seen["kept"], "the page was reloaded")
-        self.assertIn(t("console.locations.location", count=2), self.seen["count_after"])
+        self.assertIn(t("console.locations.folder_count", count=2), self.seen["count_after"])
         self.assertTrue(self.seen["listed"])
 
 

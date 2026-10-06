@@ -144,9 +144,9 @@ def _no_reachable_location(on: list[str], found: Any) -> tuple[Unmet, ...]:
 
     held = list(found or [])
     if not held:
-        reason = t("error.features.no_location")
+        reason = t("error.features.no_folder")
     elif not any(state.reachable for state in (one[1] for one in held)):
-        reason = t("error.features.no_location_reachable")
+        reason = t("error.features.none_reachable")
     else:
         return ()
     return tuple(Unmet(feature=feature, section="", key="", state=path_checks.UNSET,

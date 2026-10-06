@@ -496,7 +496,7 @@ class CollectionStore:
             return
         value = int(limit)
         if value <= 0:
-            raise ValueError(t("error.collections.cap_too_low"))
+            raise ValueError(t("error.collections.limit_too_low"))
         record[LIMIT_KEY] = value
 
     def get_excluded_refs(self, section: str) -> list[dict]:

@@ -371,7 +371,7 @@ def contain(game_id: str, table_id: str) -> dict:
         # file in the folder with nothing describing it becomes a second table on the next
         # scan, beside the reference that is still there.
         landing.unlink(missing_ok=True)
-        raise service_errors.BlockedError(t("error.games.record_failed"),
+        raise service_errors.BlockedError(t("error.games.no_info_entry"),
                                           details={"table": table_id})
     game = reread_game(game)
     return row_or_refuse(game, table_id)

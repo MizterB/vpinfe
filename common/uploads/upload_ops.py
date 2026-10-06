@@ -367,7 +367,7 @@ def _run(plan: ImportPlan, source: Path, declared: dict,
          upload_id: str) -> dict[str, Any]:
     blocked = _blocked(plan)
     if not plan.items:
-        raise NothingImportableError(t("error.uploads.no_importable_assets"),
+        raise NothingImportableError(t("error.uploads.nothing_importable"),
                                      details={"blocked": blocked})
     try:
         report = execute_import_plan(plan, source, declared=declared)

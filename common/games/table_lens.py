@@ -190,7 +190,7 @@ def art_or_refuse(art: str) -> str:
     art = (art or "").strip()
     if art and art not in LIST_ART_KINDS:
         raise service_errors.RefusedError(
-            t("error.games.not_list_art"),
+            t("error.games.not_list_media"),
             details={"unknown": art, "known": list(LIST_ART_KINDS)})
     return art
 

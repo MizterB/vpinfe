@@ -195,7 +195,7 @@ def _fill_games(targets: list[Target], live: tuple[str, ...],
             break
         name = str(game.game_dir_name or "")
         if reporter:
-            reporter.progress(index, len(targets), t("said.art_fetch", game=name))
+            reporter.progress(index, len(targets), t("said.media_fetch", game=name))
         vps_id = effective_vps_id(normalize_meta(game.meta_config or {}))
         counts["unmatched"] += bool(live and not vps_id)
         reach = wanted if live and vps_id else wanted & set(_LOCAL)
@@ -469,7 +469,7 @@ def update_downloaded(reporter: JobReporter | None = None,
             break
         name = str(game.game_dir_name or "")
         if reporter:
-            reporter.progress(index, len(games), t("said.art_update", game=name))
+            reporter.progress(index, len(games), t("said.media_update", game=name))
         try:
             updated, failed = update(game_id, game,
                                      effective_vps_id(normalize_meta(game.meta_config or {})))

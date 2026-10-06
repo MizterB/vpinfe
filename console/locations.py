@@ -199,12 +199,12 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                 library, SCOPE, LOCATION_VIEWS, fields, COLUMNS, bar=bar)
             describe()
             with bar.top, panel.bar_end():
-                search = panel.search(t("console.locations.search_locations"))
+                search = panel.search(t("console.locations.search_folders"))
             with bar.bottom, panel.bar_end():
-                count = ui.label(t("console.locations.location", count=len(built))) \
+                count = ui.label(t("console.locations.folder_count", count=len(built))) \
                     .classes("text-xs console-label")
                 bulk = ui.button(icon=verbs.MORE).props("flat round dense") \
-                    .tooltip(t("console.locations.actions_selected_locations"))
+                    .tooltip(t("console.locations.selection_actions"))
                 with bulk, ui.menu():
                     ui.menu_item(t("console.locations.remove_selected"),
                                  lambda: _remove_many(grid.selection(table), library,
@@ -212,7 +212,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                         .classes("console-menu-item console-menu-danger")
                 bulk.set_visibility(False)
                 choices: list[tuple[str, Callable[[], Any]]] = [
-                    (t("console.locations.add_location"),
+                    (t("console.locations.add_folder"),
                      (lambda: _ask_new(library, state, rerender, on_select)))]
                 if importing is not None:
                     choices.append((str(importing.get("label") or ""),
@@ -234,7 +234,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                               "console.locations.selected",
                               picked=len(rows_selected), shown=len(built)))
                           if rows_selected
-                          else t("console.locations.location", count=len(built)))
+                          else t("console.locations.folder_count", count=len(built)))
 
         by_location = {str(one.get("location_id") or ""): one for one in held}
 
@@ -361,7 +361,7 @@ def _ask_new(library: Library, state: dict[str, Any],
         box.close()
         await _create(library, state, rerender, on_select, found["kind"], wanted)
 
-    with frame.opened(t("console.locations.add_location")) as box:
+    with frame.opened(t("console.locations.add_folder")) as box:
         panel.facts(ui, [(t("word.folder"), draw_folder)])
         with frame.footer():
             frame.cancel(box.close)

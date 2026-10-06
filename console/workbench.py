@@ -407,12 +407,12 @@ async def _pane_build(container: ui.column, state: dict[str, Any],
 async def _draw(container: ui.column, title: ui.column, library: Library,
                 game_id: str | None, state: dict[str, Any], table_id: str = "") -> None:
     if game_id is None:
-        _blank(container, title, t("console.page.game_details"),
+        _blank(container, title, t("console.page.game"),
                t("console.page.select_game"))
         return
     game = next((entry for entry in library.games if entry["id"] == game_id), None)
     if game is None:
-        _blank(container, title, t("console.page.game_details"),
+        _blank(container, title, t("console.page.game"),
                t("console.page.not_library"))
         return
     # Off the loop, always. This is an HTTP call to our own process: made on the
@@ -1175,8 +1175,8 @@ async def build_location(container: ui.column, title: ui.column, library: Librar
 async def _draw_location(container: ui.column, title: ui.column, library: Library,
                          location_id: str | None, state: dict[str, Any]) -> None:
     if not location_id:
-        _blank(container, title, t("console.page.location"),
-               t("console.page.select_location"))
+        _blank(container, title, t("console.page.library_folder"),
+               t("console.page.select_folder"))
         return
     # Read fresh rather than from the grid's copy: reachable and writable are answers
     # about this moment, and the panel is where they are acted on.
@@ -1185,7 +1185,7 @@ async def _draw_location(container: ui.column, title: ui.column, library: Librar
     row = next((one for one in held
                 if one.get("location_id") == location_id), None)
     if row is None:
-        _blank(container, title, t("console.page.location"),
+        _blank(container, title, t("console.page.library_folder"),
                t("console.page.not_found"))
         return
 
@@ -1194,7 +1194,7 @@ async def _draw_location(container: ui.column, title: ui.column, library: Librar
     with container:
         _title(title, row.get("name") or "",
                t(locations_page.KIND_LABELS.get(str(row.get("kind") or "root"),
-                                                 "console.page.location")))
+                                                 "console.page.library_folder")))
         # The whole list as well as this row: priority is a fact about where this one
         # sits among the others, so it cannot be read off the row alone.
         context: dict[str, Any] = {"library": library, "location": row,
@@ -2210,7 +2210,7 @@ def _game_label(context: dict[str, Any]) -> str:
     game = context["game"]
     declared = (game.get("overrides") or {}).get("alt_vps_id", "") is None
     if game.get("vps_id") or declared:
-        return t("console.workbench.game_details")
+        return t("console.workbench.game_section")
     return t("console.workbench.game_unmatched")
 
 
@@ -2599,9 +2599,9 @@ def _play_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     chosen = _chosen_table(context)
     if chosen is None:
         return _game_play_rows(context)
-    return [(HEADING, t("console.workbench.game_details")),
+    return [(HEADING, t("console.workbench.game_section")),
             *_game_play_rows(context),
-            (HEADING, t("console.workbench.table_details")),
+            (HEADING, t("console.workbench.table_section")),
             *_table_play_rows(chosen)]
 
 
@@ -2741,7 +2741,7 @@ def _score_caption(line: str) -> None:
 
 
 HELD_HOW = {"added": "console.workbench.held_added",
-            "matched": "console.workbench.held_matched",
+            "matched": "console.workbench.held_by_rule",
             "taken_out": "console.workbench.held_taken_out"}
 
 
@@ -3726,7 +3726,7 @@ def launcher_rows(context: dict[str, Any], table: dict[str, Any]) -> list[tuple[
                 hint=t("console.workbench.nvram_note"))
 
     return [
-        (t("console.workbench.launcher_2"), _launcher_pick(context, table)),
+        (t("console.workbench.launcher"), _launcher_pick(context, table)),
         *_launcher_notes(context, table),
         (t("console.workbench.nvram_clear"), nvram),
     ]
@@ -3745,7 +3745,7 @@ def _launcher_report(context: dict[str, Any], table: dict[str, Any]) -> tuple[An
             if name and configurable and from_game
             else name or "-")
     to = "/console?" + deeplink.query({**context["state"], "section": "table_settings"})
-    return (t("console.workbench.launcher_2"),
+    return (t("console.workbench.launcher"),
             panel.link(said, to=to, on_click=partial(_choose, context, "table_settings")))
 
 
@@ -4759,8 +4759,8 @@ def _config_group_block(key: str) -> Callable[[dict[str, Any]], Any]:
 # saying so takes no word at all - an unmarked row is the untouched one, so a mark always
 # means somebody did something.
 CAME_FROM = {
-    "launcher": "console.workbench.launcher",
-    "folder": "console.workbench.folder",
+    "launcher": "console.workbench.all_tables",
+    "folder": "console.workbench.this_game",
     "entry": "console.workbench.table",
 }
 
@@ -5169,7 +5169,7 @@ def _mark_for(held: dict, scope: str, field: Any,
                            hint=t("console.app_settings.per_table.help"))
     if not held.get("set_here") or held.get("in_effect"):
         return None
-    return panel.state(t("console.app_settings.unused"), "warn",
+    return panel.state(t("console.app_settings.ignored"), "warn",
                        hint=t("console.app_settings.all_tables_only"))
 
 
@@ -5893,7 +5893,7 @@ async def _location_details(context: dict[str, Any]) -> None:
         return await folder_picker.pick_path(library.folders, current, kind="dir")
 
     entries: list[tuple[Any, Any]] = [
-        (HEADING, t("console.workbench.location")),
+        (HEADING, t("console.workbench.this_folder")),
         (t("word.folder"), panel.field(
             row["path"], save_path, refuses=True, browse=browse,
             status=panel.value_state("ok" if row["reachable"] else "missing",
@@ -7355,7 +7355,7 @@ SECTIONS: tuple[Section, ...] = (
     # The game first, then the file: a table belongs to a game, and reading down is
     # reading from the thing that contains to the thing contained.
     Section("game_details", _game_label, _game_block),
-    Section("table_details", lambda _: t("console.workbench.table_details"), _table_block,
+    Section("table_details", lambda _: t("console.workbench.table_section"), _table_block,
             subjects=frozenset({"table"})),
     Section("table_settings", lambda _: t("console.workbench.table_settings"),
             _table_settings, subjects=frozenset({"table"})),

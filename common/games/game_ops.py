@@ -106,7 +106,7 @@ def set_details(game_id: str, values: dict) -> dict:
     try:
         game_service.set_details(Path(str(game.full_path_game)), values)
     except FileNotFoundError as exc:
-        raise service_errors.BlockedError(t("error.games.no_record"),
+        raise service_errors.BlockedError(t("error.games.info_missing"),
                                           details={"path": str(exc)}) from exc
     except OSError as exc:
         raise service_errors.BlockedError(why(exc)) from exc

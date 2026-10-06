@@ -38,11 +38,11 @@ def _media_fill(result: Any) -> str:
     if not isinstance(result, dict):
         return ""
     if "filled" in result:
-        return t("said.job_art_filled", count=int(result.get("games") or 0),
+        return t("said.job_media_filled", count=int(result.get("games") or 0),
                  filled=int(result["filled"]), unmatched=int(result.get("unmatched") or 0),
                  failed=int(result.get("failed") or 0))
     if "updated" in result:
-        return t("said.job_art_replaced", count=int(result.get("games") or 0),
+        return t("said.job_media_replaced", count=int(result.get("games") or 0),
                  updated=int(result["updated"]), failed=int(result.get("failed") or 0))
     return ""
 

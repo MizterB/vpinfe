@@ -64,7 +64,7 @@ def shared_note(found: dict, folder_tables: int) -> tuple[Any, Any] | None:
 async def section(context: dict[str, Any]) -> None:
     table = next((one for one in context["tables"] if one.get("id") == context["lens"]),
                  None)
-    entries = ([(panel.HEADING, t("console.workbench.launcher_2")),
+    entries = ([(panel.HEADING, t("console.workbench.launcher")),
                 *workbench.launcher_rows(context, table),
                 *await _program_entries(context, table)]
                if table is not None else [])

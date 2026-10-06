@@ -1306,7 +1306,7 @@ class _Table(_Folder):
 
             rows: list[tuple[Any, Any]] = []
             if len(offered) > 1:
-                rows.append((t("console.workbench.launcher_2"), panel.select(
+                rows.append((t("console.workbench.launcher"), panel.select(
                     {key: str(one.get("display_name") or key) for key, one in by_id.items()},
                     str(first["launcher_id"]),
                     lambda event: chosen.update(launcher=by_id[str(event.value)]))))

@@ -816,7 +816,7 @@ class ScopeTests(unittest.IsolatedAsyncioTestCase):
             workbench._mark_for({**self.HELD, "scope": "launcher", "in_effect": False},
                                 "entry", self.INPUT, offered=False)
 
-        state.assert_called_once_with(t("console.app_settings.unused"), "warn",
+        state.assert_called_once_with(t("console.app_settings.ignored"), "warn",
                                       hint=t("console.app_settings.all_tables_only"))
 
 

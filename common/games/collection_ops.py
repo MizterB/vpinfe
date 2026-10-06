@@ -744,7 +744,7 @@ def keep_result(name: str) -> dict:
     manager = get_collections_manager()
     if not manager.has_filters(name):
         raise service_errors.BlockedError(
-            t("error.collections.no_criteria", name=(name)))
+            t("error.collections.no_rules", name=(name)))
     held = {(ref["game"], ref.get("table", "")) for ref in manager.get_member_refs(name)}
     refs: list[dict] = []
     following: set[str] = set()
@@ -804,7 +804,7 @@ def patch(name: str, *, new_name: str | None = None, games: Iterable[str] | None
         elif limit is not None:
             if limit < 1:
                 raise service_errors.RefusedError(
-                    t("error.collections.cap_too_low"))
+                    t("error.collections.limit_too_low"))
             manager.set_limit(name, limit)
 
         if description is not None:
