@@ -104,6 +104,11 @@ COLUMNS: list[dict[str, Any]] = [
 _ALL = [definition["field"] for definition in COLUMNS]
 
 VIEWS: dict[str, list[str] | views.Preset] = {
+    "console.view.have": views.Preset(
+        columns=("game", "label", "reason", "used_by", "path"),
+        sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
+        filters={"reason": {"values": ["", ORPHAN, UNUSED]}},
+        help=t("console.assets.have_view.help")),
     "console.view.missing": views.Preset(
         columns=("game", "label", "reason"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),

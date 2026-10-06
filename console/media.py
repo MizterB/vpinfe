@@ -136,6 +136,11 @@ def arrive_on_sources(library: Any) -> bool:
 
 
 VIEWS: dict[str, list[str] | views.Preset] = {
+    "console.view.have": views.Preset(
+        columns=("game", "label", "reason", "used_by", "path", "source"),
+        sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),
+        filters={"reason": {"values": ["", _ORPHAN, _UNUSED]}},
+        help=t("console.media.view_have.help")),
     "console.view.missing": views.Preset(
         columns=("game", "label", "reason"),
         sort=({"colId": "game", "sort": "asc", "sortIndex": 0},),

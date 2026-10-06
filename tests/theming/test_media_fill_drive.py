@@ -56,7 +56,11 @@ class _Library:
     def __init__(self) -> None:
         self.found = _gaps()
 
-    def preferences(self, _key: str) -> dict:
+    def preferences(self, key: str) -> dict:
+        """The grid opens on Have; these rows are all gaps, so the drive opens it on Missing."""
+        from console import media, views
+        if key == media.SCOPE + views.VIEWS_SUFFIX:
+            return {"active": views.builtin_id("console.view.missing")}
         return {}
 
     def put_preferences(self, _key: str, _value: dict) -> None:
