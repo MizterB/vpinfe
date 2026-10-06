@@ -1016,6 +1016,12 @@ TABLE_COLUMNS = [
 TABLE_ASSET_KEYS = ("backglass", "ini", "script", "pov", "scv")
 
 
+def table_asset_keys(library: Any) -> list[str]:
+    """`TABLE_ASSET_KEYS` the library collects, in the same order."""
+    kept = library.kept_kinds()["asset"]
+    return [key for key in TABLE_ASSET_KEYS if key in kept]
+
+
 def table_asset_columns(keys: list[str]) -> list[dict[str, Any]]:
     """One column per asset kind, for the tables grid, saying *whose* file answers.
 
@@ -1266,7 +1272,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     arriving = setting_their_own(rows, str(state.pop("launcher", None) or ""),
                                  str(state.pop("sets", None) or ""))
     table_columns = grid.with_art(TABLE_COLUMNS, look) \
-        + table_asset_columns(list(TABLE_ASSET_KEYS))
+        + table_asset_columns(table_asset_keys(library))
     fields = [definition["field"] for definition in table_columns]
 
     sections.metadata_line(library, state)
@@ -1276,7 +1282,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         presets = {**TABLE_VIEWS,
                    _ASSETS: views.Preset(
                        columns=("game",
-                                *[f"asset_{key}" for key in TABLE_ASSET_KEYS]),
+                                *[f"asset_{key}" for key in table_asset_keys(library)]),
                        help=t("console.view.table_assets.help"))}
 
         def annotate() -> None:

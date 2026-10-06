@@ -1176,6 +1176,20 @@ gone, a link to the newer release for a table with an update.
   is more than one table; a table's panel carries its own, and the game's section above it
   does not repeat them.
 
+### A kind switched off is on no surface
+
+Settings > Library > Assets and Media say which kinds of file a library collects, and
+every surface that reports a kind honors it: the Assets, Media, Games and Tables grids'
+columns and rows, the coverage card with its percentage, and the table panel's Assets block
+with the count in its header. A gap in a kind nobody collects is not a gap.
+
+- **The API serves every kind either way.** A theme asking for a topper still gets one, and
+  the files stay on disk. Only what the Console shows follows the setting.
+- **`table` has no switch**, and a table that will not launch still says so on the panel's
+  Will run row, whatever is switched off.
+- **A new surface joins the list** in
+  `tests/invariants/test_every_surface_honors_the_kinds_a_library_keeps.py`.
+
 ### Marks, and what color one is
 
 **A binary fact is a tick; a fact with more answers is a shaped circle.** Presence is a

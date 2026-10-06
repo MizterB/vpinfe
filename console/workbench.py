@@ -3003,13 +3003,14 @@ def _assets_label(context: dict[str, Any]) -> str:
     game = context["game"]
     chosen = next((item for item in context["tables"]
                    if item.get("id") == context["lens"]), None)
-    resolved = (chosen or {}).get("assets") or {}
+    kept = _kept_kinds(context, "asset")
+    resolved = _only_kept((chosen or {}).get("assets") or {}, kept)
     have = sum(1 for state in resolved.values()
                if state.get("resolution") != "none")
     # Skipping what the table already answered, exactly as the body does. The folder
     # reports a backglass this table resolves too, so counting both said four where
     # two rows were drawn - a header disagreeing with the list under it.
-    have += sum(1 for kind, state in (game.get("assets") or {}).items()
+    have += sum(1 for kind, state in _only_kept(game.get("assets") or {}, kept).items()
                 if kind not in resolved and state.get("present"))
     return t("console.workbench.assets_2", have=(have)) if have else t("console.workbench.assets")
 
@@ -3021,6 +3022,13 @@ async def _assets_block(context: dict[str, Any]) -> None:
     which of them the filesystem answers at. The five VPX resolves by naming rule are
     the table's and carry a tier; the rest belong to the folder and carry presence.
     The tiers are `media_ownership`'s - the question is the same one, which file wins.
+    """
+    with ui.column().classes("gap-0 console-form"):
+        _rows(ui, _asset_entries(context))
+
+
+def _asset_entries(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """The Assets block's rows, as `_assets_block` draws them.
 
     Kinds the library does not collect are left out entirely. A row saying an EM table
     has no ROM is not a fact about that table, it is the list answering a question this
@@ -3046,7 +3054,7 @@ async def _assets_block(context: dict[str, Any]) -> None:
                 if digest:
                     entries.append((t("console.workbench.script_hash"), digest))
         pinmame = (chosen.get("dependencies") or {}).get("pinmame") or {}
-        if pinmame.get("effective") or pinmame.get("declared"):
+        if _collects("rom", kept) and (pinmame.get("effective") or pinmame.get("declared")):
             entries.append((_asset_name("rom"), _rom_row(context, pinmame)))
 
     entries += [(HEADING, t("console.workbench.game_folder"))]
@@ -3058,18 +3066,17 @@ async def _assets_block(context: dict[str, Any]) -> None:
         present = bool(state.get("present"))
         chip = _present_row(present)
         entries.append((_asset_name(kind), chip if present else _with_add(context, kind, chip)))
-
-    with ui.column().classes("gap-0 console-form"):
-        _rows(ui, entries)
+    return entries
 
 
 def _only_kept(states: dict[str, Any], kept: set[str] | None) -> dict[str, Any]:
     """Drop what the library does not collect. `table` is never in the toggles and so
     is never dropped - the .vpx is the library rather than an accessory to it."""
-    if kept is None:
-        return states
-    return {kind: state for kind, state in states.items()
-            if kind in kept or kind in _ALWAYS_KEPT}
+    return {kind: state for kind, state in states.items() if _collects(kind, kept)}
+
+
+def _collects(kind: str, kept: set[str] | None) -> bool:
+    return kept is None or kind in kept or kind in _ALWAYS_KEPT
 
 
 def _asset_name(kind: str) -> str:

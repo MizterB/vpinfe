@@ -1,6 +1,7 @@
 """The built-in views, and the vocabulary they share with the workbench."""
 
 import unittest
+from unittest.mock import Mock
 
 from common import apps
 from common.games import asset_origin, asset_registry
@@ -113,7 +114,7 @@ class AssetSectionTests(unittest.TestCase):
     """The Assets section: what it counts, and the one kind that takes no tier."""
 
     def _context(self, resolved, folder):
-        return {"game": {"assets": folder}, "lens": "t1",
+        return {"library": data.Library(Mock()), "game": {"assets": folder}, "lens": "t1",
                 "tables": [{"id": "t1", "assets": resolved}]}
 
     def test_the_count_matches_the_rows_drawn(self) -> None:

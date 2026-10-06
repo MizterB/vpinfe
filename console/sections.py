@@ -115,6 +115,25 @@ def _bar(fraction: float) -> None:
 
 # --- Overview --------------------------------------------------------------------
 
+def media_coverage(library: Library) -> tuple[int, int, list[tuple[str, int]]]:
+    """Slots filled, slots in all, and how many games hold each kind, fewest first.
+
+    Only the kinds the library collects, in all three: a kind switched off is not a gap,
+    and counting its slots would hold the percentage down for a file nobody wants."""
+    kept = library.kept_kinds()["media"]
+    held = {kind: 0 for kind in library.kinds() if kind in kept}
+    present = total = 0
+    for entries in library.media.values():
+        for kind, entry in entries.items():
+            if kind not in kept:
+                continue
+            total += 1
+            if entry.get("present"):
+                present += 1
+                held[kind] += 1
+    return present, total, sorted(held.items(), key=lambda item: item[1])
+
+
 def overview(library: Library, registry: list[dict], discovery: dict,
              go: Callable[[str], None], state: dict[str, Any]) -> None:
     found = findings(library)
@@ -125,9 +144,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
         if state.get("view") == "overview":
             go("overview")
 
-    total_slots = sum(len(entries) for entries in library.media.values())
-    present = sum(1 for entries in library.media.values()
-                  for entry in entries.values() if entry.get("present"))
+    present, total_slots, counts = media_coverage(library)
     open_findings = sum(len(games) for games in found.values())
 
     with ui.row().classes("w-full gap-4 no-wrap"):
@@ -155,11 +172,7 @@ def overview(library: Library, registry: list[dict], discovery: dict,
         # A filter says which games lack a topper. Nothing in a grid says "you have no
         # toppers at all" without filtering twenty kinds one at a time, which is the
         # one thing a rollup does that a lens cannot.
-        kept = library.kept_kinds()["media"]
-        counts = [(kind, sum(1 for entries in library.media.values()
-                             if entries.get(kind, {}).get("present")))
-                  for kind in library.kinds() if kind in kept]
-        for kind, held in sorted(counts, key=lambda item: item[1]):
+        for kind, held in counts:
             with ui.row().classes("items-center gap-3 w-full no-wrap py-1"):
                 ui.label(media_label_map().get(kind, kind)) \
                     .classes("console-setting w-40 shrink-0")

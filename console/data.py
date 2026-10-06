@@ -1583,14 +1583,16 @@ class Library:
     def asset_keys(self) -> list[str]:
         """The asset kinds this library reports, in registry order where it knows them.
 
-        The games resource has an asset vocabulary of its own - `settings` for the
+        The games resource has an asset vocabulary of its own - `ini` for the
         table INI, one `alt_color` covering Serum and VNI - so the keys are taken from
-        what it sends rather than from `asset_registry`.
+        what it sends rather than from `asset_registry`. Only the kinds the library
+        collects: the resource sends every one, and a column for a kind switched off
+        would ask a question the library said it does not.
         """
         seen: set[str] = set()
         for game in self.games:
             seen.update(game.get("assets") or {})
-        return sorted(seen)
+        return sorted(seen & self.kept_kinds()["asset"])
 
     def kinds(self) -> list[str]:
         seen: set[str] = set()
