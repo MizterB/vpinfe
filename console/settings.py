@@ -889,9 +889,8 @@ def _section_label(key: str) -> str:
                     for part in (config_schema.window_name(key) or key).split("."))
 
 
-# `install` and `themes` appear on no page below, deliberately: the first is the device's
-# identity and is edited in Details, and the second is read-only over HTTP wherever it is
-# served from.
+# `install` appears on no page below, deliberately: it is the device's identity and is
+# edited in Details.
 # A device's pages, in the shape this page uses for this install's own: grouped, named in a
 # person's words, one page per topic rather than one per config section. Several sections
 # can back one page - a machine's screens are four of them - because how the config file

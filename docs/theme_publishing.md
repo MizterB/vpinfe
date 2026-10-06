@@ -139,9 +139,9 @@ saying anything.
 
 ### Publishing somewhere other than the stock registry
 
-A theme does not have to be in the registry to be installable. A user can name your
-repository directly in their config file, and VPinFE will treat it as a theme in its own
-right:
+A theme does not have to be in the registry to be installable. A user can add your
+repository as a Single Theme, and VPinFE will treat it as a theme in its own
+right. Stored in the config file it looks like this:
 
 ```json
 {
@@ -185,8 +185,8 @@ an ordinary entry in that list, so it can be reordered, replaced with a mirror, 
 removed on an install that should not reach the internet. Repositories are resolved
 before registries, so naming a repo directly wins if a name appears in both.
 
-Neither list is editable in the Manager UI. A source is a URL VPinFE fetches and installs
-code from, so adding one is a deliberate edit to the config file.
+Both lists are edited in the Console under Settings > Themes, where they are called Theme
+Lists and Single Themes. A theme runs inside VPinFE, so add sources you trust.
 
 ### Required repository contents
 

@@ -1,8 +1,7 @@
 """Themes come from wherever the user says, not from one hardcoded catalog.
 
 Two lists in the config file: registries, which name many themes, and repositories, which
-are each one theme. Both are config-file only - a source is a url VPinFE fetches and
-installs code from, so it is not a text box in the Manager UI.
+are each one theme. Only the VPinFE Theme List installs a theme on its own.
 
 What is pinned here is the behavior a second source has to have to be worth adding: one
 bad source cannot cost you the others, a name means one thing, and an install that lists

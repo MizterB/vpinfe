@@ -1,8 +1,8 @@
 """Where themes come from: the catalogs and the single-theme repos a user lists.
 
 A registry is a `themes.json` naming many themes; a repository is one theme standing in
-for a registry entry of its own, which since PAR-42 holds only a name and a url. Both
-lists are config-file only - see PAR-43 for why neither reaches the Manager UI.
+for a registry entry of its own, which since PAR-42 holds only a name and a url. Only
+the VPinFE Theme List installs a theme on its own.
 """
 
 from __future__ import annotations

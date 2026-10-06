@@ -1036,11 +1036,11 @@ may carry `#<ref>` to pin it to a branch or tag, which overrides release selecti
 still honors the contract of a declared line serving that ref. The stock
 registry is an ordinary entry in `registries` rather than a constant, so it can be
 reordered, mirrored or dropped; an install listing nothing loads no catalog and still runs
-its installed theme, while an install whose every listed source fails is an error. Neither
-list appears in the Manager UI - a source is a URL VPinFE fetches and installs code from,
-so it stays a deliberate edit. Refs are now spelled bare in every URL we build
-(`v2`, not `refs/heads/v2`), and `HEAD` is no longer rewritten to `master` - so the source
-archive for a theme with no declared release line is `archive/HEAD.zip` rather than
+its installed theme, while an install whose every listed source fails is an error. Both
+lists are edited in the Console under Settings > Themes, as Theme Lists and Single Themes,
+and only the VPinFE Theme List installs a theme on its own. Refs are now spelled bare in
+every URL we build (`v2`, not `refs/heads/v2`), and `HEAD` is no longer rewritten to
+`master` - so the source archive for a theme with no declared release line is `archive/HEAD.zip` rather than
 `archive/refs/heads/master.zip`. That is the same commit either way and the extracted
 folder is found by diffing the directory rather than by name, so all twelve published
 themes install exactly as before.
