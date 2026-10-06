@@ -9,6 +9,7 @@ migration whose marker nobody recorded here would report success while doing not
 from __future__ import annotations
 
 import json
+import socket
 import threading
 import time
 import unittest
@@ -498,6 +499,26 @@ class RunningInstanceTests(RevertTestCase):
                 instance = StubInstance(name)
                 self.addCleanup(instance.stop)
                 self.assertFalse(revert_3x.running_instance(instance.port))
+
+    def test_a_listener_that_does_not_speak_http_does_not_block_a_reset(self):
+        """It is not an answer in any shape, so it is no instance. Raising out of the probe
+        would stop the reset on a port that something unrelated happens to hold."""
+        listener = socket.socket()
+        self.addCleanup(listener.close)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+
+        def answer_with_noise() -> None:
+            connection, _ = listener.accept()
+            with connection:
+                connection.recv(1024)
+                connection.sendall(b"\x00\x01 not http at all\r\n\r\n")
+
+        thread = threading.Thread(target=answer_with_noise, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 5)
+
+        self.assertFalse(revert_3x.running_instance(listener.getsockname()[1]))
 
     def test_a_slow_answer_is_still_a_running_instance(self):
         """A machine under load answers late. Taking late for none would let the reset

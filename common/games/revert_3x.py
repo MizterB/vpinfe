@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import urllib.request
+from http.client import HTTPException
 from pathlib import Path
 
 from common import migration_ledger, serving
@@ -84,7 +85,7 @@ def running_instance(http_port: int, timeout: float = 10.0) -> bool:
         with urllib.request.urlopen(
                 f"http://127.0.0.1:{int(http_port)}/api/v1/", timeout=timeout) as handle:
             document = json.load(handle)
-    except (OSError, ValueError):
+    except (OSError, ValueError, HTTPException):
         return False
     return isinstance(document, dict) and document.get("name") == "VPinFE"
 
