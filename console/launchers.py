@@ -55,14 +55,15 @@ _STATE_CHOICES = [{"value": one, "label": one}
 _NUMERIC: dict[str, Any] = {"type": "numericColumn", "filter": "agNumberColumnFilter"}
 
 COLUMNS: list[dict[str, Any]] = [
-    grid.identifier("name", t("word.name"), 240, pinned="left", subtitle="app"),
+    grid.identifier("name", t("word.name"), 240, pinned="left", subtitle="app",
+                    help=t("console.launchers.name.help")),
     grid.column("tables", t("console.launchers.tables"),
                 help=t("console.launchers.tables.help"), **_NUMERIC),
     grid.column("state", t("word.state"), 150, **grid.choice_filter(_STATE_CHOICES),
                 help=t("console.launchers.state.help")),
     grid.column("default", t("word.default"), 110,
                 help=t("console.launchers.default.help")),
-    grid.column("app", t("word.runs"), 180),
+    grid.column("app", t("word.runs"), 180, help=t("console.launchers.app.help")),
     grid.column("program", t("word.program"), 420,
                 help=t("console.launchers.program.help")),
 ]

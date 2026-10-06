@@ -98,6 +98,7 @@ _REDRAWN: dict[str, Any] = {":equals": "() => false"}
 
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("name", t("word.name"), 260, pinned="left",
+                    help=t("console.players.name.help"),
                     **{":cellRenderer": _NAME, **_REDRAWN}),
     grid.column("initials", t("console.players.initials"), 160,
                 help=t("console.players.initials.help"),

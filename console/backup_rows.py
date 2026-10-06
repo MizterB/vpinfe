@@ -26,11 +26,16 @@ SCOPE = "backups.of"
 
 COLUMNS = [
     grid_module.identifier("taken", t("console.backups.taken"), 190, pinned="left",
-                           tooltipField="taken_utc", **backups.TAKEN_FILTER),
-    grid_module.column("file", t("word.file"), 260, tooltipField="path"),
-    grid_module.column("why_text", t("console.backups.why"), 150),
-    grid_module.column("note", t("console.backups.note"), 200),
+                           tooltipField="taken_utc", help=t("console.backups.taken.help"),
+                           **backups.TAKEN_FILTER),
+    grid_module.column("file", t("word.file"), 260, tooltipField="path",
+                       help=t("console.backups.file.help")),
+    grid_module.column("why_text", t("console.backups.why"), 150,
+                       help=t("console.backups.why.help")),
+    grid_module.column("note", t("console.backups.note"), 200,
+                       help=t("console.backups.note.help")),
     grid_module.column("size", t("word.size"), 100, type="numericColumn",
+                       help=t("console.backups.size.help"),
                        **{":valueFormatter": "params => (params.data || {}).size_text || ''"}),
 ]
 

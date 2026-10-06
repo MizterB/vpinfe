@@ -64,20 +64,23 @@ GLYPH = "palette"
 
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("name", t("console.themes.theme"), 320, subtitle="said",
+                    help=t("console.themes.theme.help"),
                     picture="preview", glyph=GLYPH, frame=list_art.PREVIEW),
-    grid.column("status", t("word.status"), 150,
+    grid.column("status", t("word.status"), 150, help=t("console.themes.status.help"),
                 **grid.choice_filter([{"value": key, "label": one["label"]}
                                       for key, one in STATES.items()], formatted=True),
                 **renderers.drawable("state", states=STATES)),
     grid.column("updated", t("console.themes.updated"), 150,
                 help=t("console.themes.updated.help"), **when.cell("updated")),
     grid.column("made_for", t("console.themes.made_for"), 150,
+                help=t("console.themes.made_for.help"),
                 **grid.choice_filter([{"value": key, "label": label}
                                       for key, label in MADE_FOR.items()])),
-    grid.column("author", t("word.author"), 140),
+    grid.column("author", t("word.author"), 140, help=t("console.themes.author.help")),
     grid.column("registry", t("console.themes.list"), 200,
                 help=t("console.themes.list.help")),
-    grid.column("repository", t("console.themes.repository"), 280),
+    grid.column("repository", t("console.themes.repository"), 280,
+                help=t("console.themes.repository.help")),
 ]
 _ALL = [one["field"] for one in COLUMNS]
 _SHOWN = ("name", "status", "updated", "made_for")

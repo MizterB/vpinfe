@@ -583,9 +583,9 @@ def column(field: str, header: str, width: int = 0, help: str = "",
     media headers that do not.
     """
     header = two_line(header)
-    # `help` earns its place only where the header does not already say it. What the
-    # column is, and what its values mean - a line that restates the header is a
-    # tooltip charged for nothing.
+    # `help` says what the column is and what its values mean, in words the header does
+    # not already carry, and is not optional: `build` refuses a column that has none, so
+    # a column the user can hover always explains itself.
     tip = {"headerTooltip": help} if help else {}
     shown = extra.get(":valueFormatter")
     search = {":getQuickFilterText": shown} if shown else {}
@@ -873,7 +873,8 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
     `view_of` names the view showing now. Given one, geometry is stored per view - the
     grid outlives a view change, so without it every view shares one set of widths.
 
-    Raises `ValueError` unless exactly one column is a `grid.identifier()`.
+    Raises `ValueError` unless exactly one column is a `grid.identifier()`, and unless
+    every column carries a header tooltip.
     """
     marked = [definition.get("field") for definition in columns
               if IDENTIFIER_CLASS in str(definition.get("cellClass") or "")]
@@ -882,6 +883,11 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
             f"{scope}: a grid declares exactly one grid.identifier() column, "
             f"the one its rows are scanned by; this one declares {len(marked)}"
             + (f" ({', '.join(str(m) for m in marked)})" if marked else ""))
+    bare = [str(definition.get("field")) for definition in columns
+            if not definition.get("headerTooltip")]
+    if bare:
+        raise ValueError(f"{scope}: every grid column carries a header tooltip, "
+                         f"passed as help=; these do not: {', '.join(bare)}")
     fit = _fit_of(columns)
     grid = ui.aggrid({
         "columnDefs": for_grid(columns),

@@ -158,7 +158,8 @@ Anything else is its own to ask for, `ctx.t("wizard.title")`, and `contract.word
 is the same for a module that is not handed `ctx`.
 
 A key the file does not have falls back to what the thing was declared by: an action to
-its key, a column or a count to its field. A word handed over in code, `title="VPinPlay"`,
+its key, a column or a count to its field. A column with no `help` gets its header as its
+tooltip, so declare one: it is what the person hovering the header reads. A word handed over in code, `title="VPinPlay"`,
 is shown as written in every language, which is for a product name.
 
 The file is served under `ext.<name>.`, so an extension adds words and never changes one of

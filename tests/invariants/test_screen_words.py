@@ -29,6 +29,7 @@ CABINET = {
     "console.setup.cabinet": "the physical cabinet, Setup's own How you play answer",
     "console.themes.both": "a theme made for a cabinet or a desktop",
     "console.themes.cabinet": "a theme made for a cabinet rather than a desktop",
+    "console.themes.made_for.help": "what a theme is made for: a cabinet, a desktop or both",
 }
 
 MACHINE: dict[str, str] = {

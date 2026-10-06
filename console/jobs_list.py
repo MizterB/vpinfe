@@ -26,13 +26,18 @@ def _said(field: str) -> dict[str, Any]:
 
 
 COLUMNS = [
-    grid.identifier("what", t("console.jobs.what"), 230, pinned="left"),
-    grid.column("started", t("console.jobs.started"), 190, filter=False, **_said("started")),
-    grid.column("took", t("console.jobs.took"), 130, filter=False, **_said("took")),
+    grid.identifier("what", t("console.jobs.what"), 230, pinned="left",
+                    help=t("console.jobs.what.help")),
+    grid.column("started", t("console.jobs.started"), 190, filter=False,
+                help=t("console.jobs.started.help"), **_said("started")),
+    grid.column("took", t("console.jobs.took"), 130, filter=False,
+                help=t("console.jobs.took.help"), **_said("took")),
     grid.column("outcome", t("console.jobs.outcome"), 120,
+                help=t("console.jobs.outcome.help"),
                 **grid.choice_filter([{"value": one, "label": t(f"console.jobs.outcome.{one}")}
                                       for one in OUTCOMES])),
-    grid.column("detail", t("console.jobs.detail"), 420),
+    grid.column("detail", t("console.jobs.detail"), 420,
+                help=t("console.jobs.detail.help")),
 ]
 
 

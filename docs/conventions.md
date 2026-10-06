@@ -1355,6 +1355,14 @@ element.
   and widest instead. Never infer the column from where it sits: pinning is a layout
   preference the header menu offers on every column, and a hierarchy resting on one moves
   when a user rearranges their grid.
+- **Every grid column explains itself in its header tooltip.** Pass `help=` to
+  `grid.column`, `grid.identifier` or `grid.list_column`: what the column is and what its
+  values mean, in words the header does not already carry. A short header is not a reason
+  to skip it: a column that is one word to its author is not to the person reading it.
+  Where the values are a few states, the tooltip names each on its own line.
+  `grid.build` raises for a column without one,
+  and `tests/invariants/test_every_grid_column_has_a_tooltip.py` finds the declaration
+  that lacks it without drawing the page.
 - **A game or table in a list reads as the grid draws it.** The name, then a line under
   it: maker and year from `game_tables.made`, then the table's version and author from
   `game_tables.table_name`, in the `console-cell-made` and `console-cell-built` colors.

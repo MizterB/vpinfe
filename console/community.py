@@ -91,7 +91,10 @@ def columns(declared: dict[str, Any]) -> list[dict[str, Any]]:
     for index, one in enumerate(declared.get("columns") or []):
         kind = str(one.get("kind") or "text")
         extra = {**_KIND.get(kind, {}), **(when.cell(one["field"]) if kind == "date" else {})}
-        header, said = str(one.get("header") or one["field"]), str(one.get("help") or "")
+        header = str(one.get("header") or one["field"])
+        # An extension that says nothing about a column still gets a page: `grid.build`
+        # refuses a column with no tooltip, and the list is the extension's to declare.
+        said = str(one.get("help") or header)
         if index == 0:
             out.append(grid.identifier(one["field"], header, FIRST_WIDTH, help=said,
                                        subtitle=UNDER, link=HELD, **extra))

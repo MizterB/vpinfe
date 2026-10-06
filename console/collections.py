@@ -92,6 +92,7 @@ _GAMES = (
 
 COLUMNS = [
     grid.identifier("name", t("word.name"), 240, pinned="left",
+                    help=t("console.collections.name.help"),
                     rowDrag=True, **{":cellRenderer": _NAME}),
     grid.column("kind", t("word.kind"), 120, help=t("console.collections.kind.help"),
                 **{**grid.choice_filter([{"value": kind, "label": word}
@@ -127,6 +128,7 @@ COLUMNS = [
                                          {"value": False, "label": t("word.no")}],
                                         formatted=True)}),
     grid.column("attention", t("console.collections.needs_attention"),
+                help=t("console.collections.needs_attention.help"),
                 **{":valueFormatter": "params => params.value ? '\u2713' : ''",
                    "cellClass": "console-tick", ":cellRenderer": None,
                    **grid.choice_filter([{"value": True, "label": t("word.yes")},
