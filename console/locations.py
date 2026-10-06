@@ -1,10 +1,5 @@
-
-"""Locations: where this install looks for games.
-
-A grid rather than a rail, for the reason Devices is one: the value of a location is
-mostly its state, and the question somebody brings to this page is a comparison across
-rows - which share is down, which is read-only, which one new games land in. A rail makes
-that a click each.
+"""What the Folders page and the Library Importer's button share: the state words and the
+importer's import action.
 
 What the disk says is read on every draw and never stored. A stored answer is wrong the
 moment a mount drops, and a mount dropping is the case plural locations exist to report.
@@ -12,69 +7,16 @@ moment a mount drops, and a mount dropping is the case plural locations exist to
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from typing import Any
 
-from nicegui import run, ui
-
-from common.failures import why
 from common.games import locations as model
 from common.i18n import t
-from console import busy, offload, verbs, views
+from console import offload
 from console.data import Library
 from console.on_page import on_page
 
-from . import confirm, grid, panel
-
-logger = logging.getLogger("vpinfe.console.locations")
-
-SCOPE = "locations"
-
 IMPORTER = "library_importer"
-
-# What a person would call each kind, rather than what the record calls it.
-KIND_LABELS = {"root": "console.locations.game_folders",
-               "game": "console.locations.one_game"}
-
-
-_KIND_CHOICES = [{"value": key, "label": t(label)} for key, label in KIND_LABELS.items()]
-
-COLUMNS = [
-    # The folder leads and is pinned. It is what a person recognizes a location by, and
-    # every other column is a fact about it.
-    grid.identifier("name", t("word.folder"), 260, pinned="left",
-                help=t("console.locations.name.help")),
-    grid.column("contains", t("word.contains"), 140,
-            **grid.choice_filter(_KIND_CHOICES),
-                help=t("console.locations.contains.help")),
-    grid.column("where", t("word.where"), 160, tooltipField="where_tip",
-                help=t("console.locations.where.help")),
-    grid.column("state", t("word.state"), 140,
-                help=t("console.locations.state.help")),
-    grid.column("new_games", t("console.locations.new_games"), 120,
-                help=t("console.locations.new_games.help")),
-    # Priority as a number rather than as position alone: the grid can be sorted by
-    # any column, so the order you are looking at is not always the order that decides.
-    grid.column("priority", t("word.priority"), 110, type="numericColumn",
-                help=t("console.locations.priority.help")),
-    grid.column("shadowed", t("console.locations.shadowed"), 120, type="numericColumn",
-                help=t("console.locations.shadowed.help")),
-    grid.column("path", t("console.locations.full_path"), 420,
-                help=t("console.locations.full_path.help")),
-]
-
-LOCATION_VIEWS: dict[str, list[str] | views.Preset] = {
-    "console.view.overview": views.Preset(
-        columns=("name", "contains", "where", "state", "new_games", "shadowed", "path"),
-        help=t("console.view.locations.help")),
-    # Its own view rather than more columns on Overview: this one is read when
-    # something is wrong, and the question is which location beats which.
-    "word.priority": views.Preset(
-        columns=("name", "priority", "shadowed", "state", "path"),
-        help=t("console.view.priority.help")),
-}
-
 
 STATE_WORDS = {model.READY: "word.ready", model.READ_ONLY: "word.read_only",
                model.NOT_CONNECTED: "word.not_connected",
@@ -82,70 +24,14 @@ STATE_WORDS = {model.READY: "word.ready", model.READ_ONLY: "word.read_only",
 # What each state costs, for its chip. Anything not listed is a location that cannot be read.
 STATE_TIERS = {model.READY: "on", model.READ_ONLY: "warn"}
 
-
-def state_of(row: dict[str, Any]) -> str:
-    """The fewest true words. Why is in the column's help and in the panel."""
-    word = STATE_WORDS.get(str(row.get("state") or ""))
-    return t(word) if word else ""
-
-
-def where_of(row: dict[str, Any]) -> str:
-    origin = row.get("origin")
-    return origin["server"] if origin else t("word.this_device")
-
-
-ASK = "ask"
 ASKING = {"updates": {"ask_where_new_games_go": True}}
 NOT_ASKING = {"updates": {"ask_where_new_games_go": False}}
 
 
-def asking(found: dict[str, Any]) -> bool:
-    """Whether an import asks where a new game goes: set to, and with a choice to make."""
-    roots = [one for one in found.get("locations") or [] if one.get("kind") == model.KIND_ROOT]
-    return bool(found.get("ask_where_new_games_go")) and len(roots) > 1
-
-
-def destinations(found: dict[str, Any]) -> tuple[dict[str, str], str]:
-    """Where new games can be sent, by id, and which of those is in force."""
-    roots = [one for one in found.get("locations") or [] if one.get("kind") == model.KIND_ROOT]
-    offered = {str(one["location_id"]): str(one.get("name") or one.get("path") or "")
-               for one in roots}
-    if len(roots) > 1:
-        offered[ASK] = t("console.locations.ask")
-    return offered, ASK if asking(found) else str(found.get("write_to") or "")
-
-
-def rows(locations: list[dict[str, Any]], asks: bool = False) -> list[dict[str, Any]]:
-    """One row per location, with the wire's flags turned into words a column shows."""
-    return [{
-        "id": one["location_id"],
-        "name": one["name"],
-        "path": one["path"],
-        "contains": t(KIND_LABELS.get(one["kind"], one["kind"])),
-        "where": where_of(one),
-        "where_tip": (one.get("origin") or {}).get("source", ""),
-        "state": state_of(one),
-        # Blank on every other row rather than "No": a column that says the same thing
-        # everywhere but once is a column about the exception.
-        "new_games": t("word.created_here") if one.get("write_to") and not asks else "",
-        # From the list order, which is what the install reads it from. 1 is highest,
-        # because a person counts places from one and this is a rank, not an index.
-        "priority": place + 1,
-        # None rather than 0, so the ordinary answer is an empty cell. A column of
-        # zeroes reads as a thing to look at.
-        "shadowed": int(one.get("shadowed") or 0) or None,
-    } for place, one in enumerate(locations)]
-
-
-def build(library: Library, state: dict[str, Any],
-          on_select: Callable[[dict | None], Any],
-          rerender: Callable[[], None] | None = None) -> None:
-    """The grid. Read on every draw, because what the disk says changes without anybody
-    editing anything."""
-    body = ui.column().classes("w-full grow min-h-0 gap-0")
-    # Later, because reading goes over HTTP and the draw it is part of runs on the event
-    # loop, where the client refuses a call.
-    busy.fill(body, lambda: _fill(library, state, on_select, rerender, body))
+def state_of(row: dict[str, Any]) -> str:
+    """The fewest true words. Why is in the row's reason."""
+    word = STATE_WORDS.get(str(row.get("state") or ""))
+    return t(word) if word else ""
 
 
 async def import_action(library: Library) -> dict | None:
@@ -168,216 +54,3 @@ async def open_importer(action: dict, rerender: Callable[[], None] | None) -> No
 
     if await ext_action.open_action(IMPORTER, action) and rerender is not None:
         rerender()
-
-
-async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[dict | None], Any],
-                rerender: Callable[[], None] | None, body: Any) -> None:
-    try:
-        found = await offload.io(library.locations)
-    except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
-        with body:
-            panel.facts(ui, [panel.intro(t("console.locations.read_failed"),
-                                         hint=why(exc))])
-        return
-
-    # Imported here: `workbench` imports this module, and `games` imports `workbench`,
-    # so reaching for it at the top would close the loop.
-    from console.games import view_control
-
-    importing = await import_action(library)
-    held = list(found.get("locations") or [])
-    built = rows(held, asking(found))
-    fields = [definition["field"] for definition in COLUMNS]
-
-    with body:
-        with ui.row().classes(
-                "w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 console-panel console-grid-bar"):
-            bar = panel.grid_bar()
-            wire_views, _picker, showing, describe = view_control(
-                library, SCOPE, LOCATION_VIEWS, fields, COLUMNS, bar=bar)
-            describe()
-            with bar.top, panel.bar_end():
-                search = panel.search(t("console.locations.search_folders"))
-            with bar.bottom, panel.bar_end():
-                count = ui.label(t("console.locations.folder_count", count=len(built))) \
-                    .classes("text-xs console-label")
-                bulk = ui.button(icon=verbs.MORE).props("flat round dense") \
-                    .tooltip(t("console.locations.selection_actions"))
-                with bulk, ui.menu():
-                    ui.menu_item(t("console.locations.remove_selected"),
-                                 lambda: _remove_many(grid.selection(table), library,
-                                                      rerender)) \
-                        .classes("console-menu-item console-menu-danger")
-                bulk.set_visibility(False)
-                choices: list[tuple[str, Callable[[], Any]]] = [
-                    (t("console.locations.add_folder"),
-                     (lambda: _ask_new(library, state, rerender, on_select)))]
-                if importing is not None:
-                    choices.append((str(importing.get("label") or ""),
-                                    lambda: open_importer(importing, rerender)))
-                panel.add_action(choices, empty=not built)
-
-        if not built:
-            panel.facts(ui, [panel.intro(
-                t("console.locations.empty"))])
-            return
-        _new_games_line(library, found, rerender)
-
-        by_id = {row["id"]: row for row in built}
-        grid.on_row_focus(SCOPE,
-                          lambda event: on_select(by_id.get(grid.focused_row(event))))
-        def on_selected(rows_selected: list[dict[str, Any]]) -> None:
-            bulk.set_visibility(bool(rows_selected))
-            count.text = (grid.selection_said(table, len(rows_selected), t(
-                              "console.locations.selected",
-                              picked=len(rows_selected), shown=len(built)))
-                          if rows_selected
-                          else t("console.locations.folder_count", count=len(built)))
-
-        by_location = {str(one.get("location_id") or ""): one for one in held}
-
-        def fill(row: dict | None) -> None:
-            location = by_location.get(str((row or {}).get("id") or ""))
-            if location is None:
-                menu.clear()
-                return
-            panel.verb_menu(menu, str(location.get("name") or location.get("path") or ""),
-                            acts(library, state, location, rerender))
-
-        with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table: ui.aggrid = grid.build(COLUMNS, built, SCOPE, on_select_rows=on_selected,
-                                          on_context=fill, view_of=showing)
-            menu: ui.context_menu = ui.context_menu()
-        search.on_value_change(
-            lambda: table.run_grid_method("setGridOption", "quickFilterText",
-                                          search.value or ""))
-        # After the grid exists: the widgets sit above it and the behavior needs it.
-        wire_views(table)
-
-
-def _new_games_line(library: Library, found: dict[str, Any],
-                    rerender: Callable[[], None] | None) -> None:
-    offered, chosen = destinations(found)
-    if not offered:
-        return
-
-    @on_page
-    async def changed(event: Any) -> None:
-        wanted = str(getattr(event, "value", "") or "")
-        if not wanted or wanted == chosen:
-            return
-        try:
-            if wanted == ASK:
-                await run.io_bound(library.put_config, ASKING)
-            else:
-                await run.io_bound(library.set_location_write_to, wanted)
-                await run.io_bound(library.put_config, NOT_ASKING)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-            return
-        if rerender is not None:
-            rerender()
-
-    with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0 no-wrap"):
-        ui.label(t("console.locations.destination")).classes("console-fact-label")
-        if len(offered) == 1:
-            ui.label(next(iter(offered.values())))
-        else:
-            panel.select(offered, chosen, changed)()
-
-
-@on_page
-async def _remove_many(picked: list[dict[str, Any]], library: Library,
-                       rerender: Callable[[], None] | None) -> None:
-    """Several at once, asked once. One selected is named rather than counted - the
-    name is on the row, and "1 locations" is not a sentence."""
-    if not picked:
-        return
-    names = [str(row.get("name") or "") for row in picked]
-    one = len(names) == 1
-    shown = [] if one else names[:8] + ([t("said.and_more", count=len(names) - 8)]
-            if len(names) > 8 else [])
-    if not await confirm.ask(
-            t("console.locations.stop_looking", name=names[0]) if one
-            else t("console.locations.stop_many", count=len(names)),
-            detail=t("console.locations.remove_one") if one
-            else t("console.locations.remove_many"),
-            lines=shown, confirm=t("word.remove"), icon=verbs.REMOVE):
-        return
-    for row in picked:
-        try:
-            await run.io_bound(library.delete_location, str(row.get("id") or ""))
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
-            return
-    if rerender is not None:
-        rerender()
-
-
-def _ask_new(library: Library, state: dict[str, Any],
-             rerender: Callable[[], None] | None,
-             on_select: Callable[[dict | None], Any]) -> None:
-    """The folder, asked before the row exists.
-
-    Not a placeholder row to edit afterwards, which is how Launchers adds one: a
-    launcher with no program set reads as unconfigured, but a location with no folder
-    reads as *unreachable* - the same words a share that has dropped uses. A row that
-    looks broken the moment it is made is worse than one more dialog.
-    """
-    # Imported here: `folders` imports this module for the state words.
-    from console import folders
-
-    async def keep(kind: str, path: str) -> None:
-        await _create(library, state, rerender, on_select, kind, path)
-
-    folders.folder_dialog(library, keep)
-
-
-@on_page
-async def _create(library: Library, state: dict[str, Any], rerender: Callable[[], None] | None,
-                  on_select: Callable[[dict | None], Any], kind: str, path: str) -> None:
-    made = model.mint_location_id()
-    try:
-        written = await run.io_bound(library.put_location, made, {"path": path, "kind": kind})
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.add_failed"), caption=why(exc), type="negative")
-        return
-    # A folder already held keeps its own id, so the new one is not the row to land on.
-    made = (written or {}).get("location_id", made)
-    state["location"] = made
-    grid.land_on(SCOPE, {"id": made})
-    if rerender is not None:
-        rerender()
-    await on_select({"id": made})
-
-
-def acts(library: Library, state: dict[str, Any], row: dict[str, Any],
-         redraw: Callable[[], None] | None) -> list[panel.Verb]:
-    """What can be done to one location."""
-    async def go() -> None:
-        if not await remove(library, row):
-            return
-        if state.get("location") == row["location_id"]:
-            state["location"] = ""
-        if redraw is not None:
-            redraw()
-
-    return [panel.Verb(t("word.remove"), go, danger=True)]
-
-
-@on_page
-async def remove(library: Library, row: dict[str, Any]) -> bool:
-    """Asked about first. The games in it leave the library, and their records go with
-    them - which is where they live, so they are there again if it comes back."""
-    if not await confirm.ask(
-            t("console.locations.stop_looking", name=row["name"]) if row.get("name")
-            else t("console.locations.stop_looking_here"),
-            detail=t("console.locations.remove_one"),
-            confirm=t("word.remove"), icon=verbs.REMOVE):
-        return False
-    try:
-        await run.io_bound(library.delete_location, row["location_id"])
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
-        return False
-    return True

@@ -42,7 +42,6 @@ CATALOG = json.loads((ROOT / "common/i18n/catalogs/en.json").read_text(encoding=
 GAME = "Attack from Mars"
 DOTTED = re.compile(r"\b[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+\b", re.IGNORECASE)
 KEYS = {key.lower(): key for key in CATALOG}
-FIRST_ROW = ".ag-row .ag-cell"
 # The Chrome command line on the Browser page is the program's own options, not our chrome.
 ICONS = (".q-icon, .material-icons, .console-options { visibility: hidden !important; }")
 
@@ -220,9 +219,6 @@ class PseudoLocaleTests(unittest.TestCase):
                     where = await browser.evaluate("location.search")
                     settings_pages.append(where)
                     read(where, await browser.evaluate(PAGE_WORDS))
-                await walk.visit("/console?view=locations")
-                await walk.open_pane(lambda: browser.click(FIRST_ROW))
-                read("a location's panel", await browser.evaluate(PAGE_WORDS))
 
         with TemporaryDirectory() as tmp:
             root = Path(tmp)

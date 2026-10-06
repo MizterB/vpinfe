@@ -136,7 +136,6 @@ class ARailClick(unittest.IsolatedAsyncioTestCase):
 BUILDS: tuple[tuple[Callable[..., Any], str], ...] = (
           (workbench.build, "_draw"), (workbench.build_collection, "_draw_collection"),
           (workbench.build_tag, "_draw_tag"), (workbench.build_file, "_draw_file"),
-          (workbench.build_location, "_draw_location"),
           (workbench.build_launcher, "_draw_launcher"),
           (workbench.build_device, "_draw_device"), (workbench.build_theme, "_draw_theme"))
 

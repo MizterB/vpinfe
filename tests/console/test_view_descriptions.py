@@ -13,7 +13,6 @@ from console import (
     devices,
     games,
     launchers,
-    locations,
     media,
     tageditor,
     themes,
@@ -30,7 +29,6 @@ DECLARED = {
     "assets": assets.VIEWS,
     "devices": devices.VIEWS,
     "collections": collections.COLLECTION_VIEWS,
-    "locations": locations.LOCATION_VIEWS,
     "launchers": launchers.LAUNCHER_VIEWS,
 }
 

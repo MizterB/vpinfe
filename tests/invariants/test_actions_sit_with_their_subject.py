@@ -28,7 +28,6 @@ GRID_OF = {
     "tag": ("tageditor.py", "acts", "tageditor.py"),
     "collection": ("collections.py", "acts", "collections.py"),
     "launcher": ("launchers.py", "acts", "launchers.py"),
-    "location": ("locations.py", "acts", "locations.py"),
     "theme": ("themes.py", "acts", "themes.py"),
     "device": ("devices.py", "acts", "devices.py"),
     "player": ("players.py", "acts", "players.py"),
@@ -39,7 +38,7 @@ GRID_OF = {
 
 # Direct `ui.button(` calls outside `panel.py`. A count that only comes down: lower it
 # when one moves to a constructor, never raise it.
-BUTTON_CEILING = 77
+BUTTON_CEILING = 74
 
 
 def _tree(path: pathlib.Path) -> ast.Module:

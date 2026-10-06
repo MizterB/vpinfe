@@ -31,16 +31,13 @@ VPX = "vpx-drive"
 WHOLE_PANEL = "(whole panel)"
 
 # Where each rail lives, and the address that puts a subject under it. None selects the
-# first row of that view's list, LAST its last.
-LAST = "last"
+# first row of that view's list.
 VIEWS = (
     ("games", "game=alpha"),
     ("tables", None),
     ("collections", f"collection={quote(PICKED)}"),
     ("collections", f"collection={quote(SMART)}"),
     ("tags", None),
-    ("locations", None),
-    ("locations", LAST),
     ("launchers", None),
     ("launchers", f"launcher={VPX}"),
     ("players", None),
@@ -54,15 +51,15 @@ DRAWN_AGAIN = "Event listeners changed after initial definition"
 RAIL = "[...document.querySelectorAll('a.console-nav-row')].map(a => a.getAttribute('href'))"
 ROWS = ("[...document.querySelectorAll('.console-section-row')]"
         ".filter(el => el.getClientRects().length).length")
-PICK = """(last => {
+PICK = """(() => {
   const rows = [...document.querySelectorAll('.ag-center-cols-container .ag-row')]
     .sort((a, b) => a.getAttribute('row-index') - b.getAttribute('row-index'));
-  const cell = (last ? rows[rows.length - 1] : rows[0])?.querySelector('.ag-cell');
+  const cell = rows[0]?.querySelector('.ag-cell');
   if (!cell) return false;
   for (const kind of ['mousedown', 'mouseup', 'click'])
     cell.dispatchEvent(new MouseEvent(kind, {bubbles: true, button: 0}));
   return true;
-})(%s)"""
+})()"""
 # The open section. A page's own name (`panel.header`, Settings) is the page, not a
 # group, and a section bar is the whole section's; both are set aside before either
 # question is asked, and so are a page's intro and the input table's live line, which each
@@ -206,10 +203,10 @@ class ConsolePagesDrive(unittest.TestCase):
             await visit("/console")
             rail = await browser.evaluate(RAIL)
             for view, subject in VIEWS:
-                query = f"view={view}" + (f"&{subject}" if subject not in (None, LAST) else "")
+                query = f"view={view}" + (f"&{subject}" if subject else "")
                 await visit(f"/console?{query}")
-                if subject == LAST or not await browser.evaluate(ROWS):
-                    await walk.open_pane(clicked(browser, PICK % json.dumps(subject == LAST)))
+                if not await browser.evaluate(ROWS):
+                    await walk.open_pane(clicked(browser, PICK))
                 found: dict = {"opened": [], "problems": [], "headings": {}}
                 async for name in walk.sections():
                     said = await browser.evaluate(HEADINGS % json.dumps(name))
@@ -223,7 +220,7 @@ class ConsolePagesDrive(unittest.TestCase):
                     found["opened"].append(WHOLE_PANEL)
                     found["headings"][WHOLE_PANEL] = said["count"]
                     found["problems"] += said["problems"]
-                headings[query + (" (last row)" if subject == LAST else "")] = found
+                headings[query] = found
             for path in rail:
                 if path not in drawn:
                     await visit(path)
@@ -234,10 +231,6 @@ class ConsolePagesDrive(unittest.TestCase):
         for query, found in self.seen["headings"].items():
             with self.subTest(query):
                 self.assertTrue(found["opened"])
-
-    def test_a_shadowed_location_draws_its_second_group(self) -> None:
-        self.assertEqual(self.seen["headings"]["view=locations (last row)"]["headings"],
-                         {WHOLE_PANEL: 2})
 
     def test_a_vpx_install_opens_each_area_of_its_settings(self) -> None:
         self.assertEqual(self.seen["headings"][f"view=launchers&launcher={VPX}"]["opened"],

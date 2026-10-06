@@ -1,4 +1,4 @@
-"""Library > Locations beside Add: Import a library, through the Folders source, in a real
+"""Settings > Library > Folders beside Add: Import a library, through the Folders source, in a real
 browser - the entry, the questions, Copy or Move, the space line, and the copy itself.
 
 Slow: boots a real instance and a real browser.
@@ -28,12 +28,10 @@ TEXT_OF = "(() => { const el = document.querySelector(%s); return el ? el.innerT
 CHOICES = (f"[...document.querySelectorAll({json.dumps(RADIO)})]"
            ".map(el => [el.innerText.trim(), el.getAttribute('aria-checked') === 'true'])")
 TABLES = ("Alpha", "Bravo")
-
-
-def counted(text: str) -> str:
-    """True once the Locations count line reads `text`."""
-    return ("[...document.querySelectorAll('.console-label')]"
-            f".some(el => el.innerText.trim() === {json.dumps(text)})")
+ADDRESS = "/console?view=settings&page=library.folders"
+ROWS = ".console-settings-body .console-member-row"
+ACTIONS = ".console-settings-body .console-action"
+ROW_COUNT = f"document.querySelectorAll({json.dumps(ROWS)}).length === %d"
 
 
 def chosen(label: str) -> str:
@@ -103,18 +101,15 @@ class ImportALibraryDrive(unittest.TestCase):
                 seen["titles"].append(title)
                 return title
 
-            await walk.visit("/console?view=locations")
-            await browser.wait_for("!!document.querySelector('.console-action')")
-            await browser.wait_for(counted(t("console.locations.folder_count", count=1)))
+            await walk.visit(ADDRESS)
+            await browser.wait_for(ROW_COUNT % 1)
+            await browser.wait_for(f"document.querySelectorAll({json.dumps(ACTIONS)}).length === 2")
             # A reload would take this with it.
             await browser.evaluate("window.keptThroughTheImport = true")
-            await walk.act(lambda: browser.click(".console-action"),
-                           until=SHOWS % json.dumps(".q-menu .console-menu-item"))
-            seen["menu"] = await browser.evaluate(
-                "[...document.querySelectorAll('.q-menu .console-menu-item')]"
-                ".map(el => el.innerText.trim())")
-            await walk.act(lambda: click_text(".q-menu .console-menu-item",
-                                              WORDS["action.import.label"]),
+            seen["buttons"] = await browser.evaluate(
+                f"[...document.querySelectorAll({json.dumps(ACTIONS)})]"
+                ".map(el => el.innerText.replace(/^[a-z_]+\\s*/, '').trim())")
+            await walk.act(lambda: click_text(ACTIONS, WORDS["action.import.label"]),
                            until=SHOWS % json.dumps(CARD))
 
             seen["opening"] = await browser.evaluate(TEXT_OF % json.dumps(TITLE))
@@ -151,20 +146,18 @@ class ImportALibraryDrive(unittest.TestCase):
             await walk.act(lambda: click_text(f"{CARD} button", t("word.close")),
                            until=f"!document.querySelector({json.dumps(CARD)})")
             try:
-                await browser.wait_for(counted(t("console.locations.folder_count", count=2)))
+                await browser.wait_for(ROW_COUNT % 2)
             except TimeoutError:
                 pass
-            seen["count_after"] = await browser.evaluate(
-                "[...document.querySelectorAll('.console-label')].map(el => el.innerText.trim())")
-            seen["listed"] = await browser.evaluate(
-                "[...document.querySelectorAll('.ag-cell')]"
-                f".some(el => el.innerText.includes({json.dumps(into.name)}))")
+            seen["rows_after"] = await browser.evaluate(
+                f"[...document.querySelectorAll({json.dumps(ROWS)})].map(el => el.innerText)")
+            seen["into"] = str(into)
             seen["kept"] = await browser.evaluate("window.keptThroughTheImport === true")
         return seen
 
-    def test_the_menu_offers_it_beside_add(self) -> None:
-        self.assertEqual(self.seen["menu"], [t("console.locations.add_folder"),
-                                              WORDS["action.import.label"]])
+    def test_the_page_offers_it_beside_add(self) -> None:
+        self.assertEqual(self.seen["buttons"], [t("console.locations.add_folder"),
+                                                 WORDS["action.import.label"]])
 
     def test_it_asks_where_the_library_is_first(self) -> None:
         self.assertEqual(self.seen["opening"], WORDS["wizard.source.title"])
@@ -192,8 +185,8 @@ class ImportALibraryDrive(unittest.TestCase):
 
     def test_the_folder_it_copied_into_shows_on_the_page_without_a_reload(self) -> None:
         self.assertTrue(self.seen["kept"], "the page was reloaded")
-        self.assertIn(t("console.locations.folder_count", count=2), self.seen["count_after"])
-        self.assertTrue(self.seen["listed"])
+        self.assertEqual(len(self.seen["rows_after"]), 2)
+        self.assertTrue(any(self.seen["into"] in row for row in self.seen["rows_after"]))
 
 
 if __name__ == "__main__":

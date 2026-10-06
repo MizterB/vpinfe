@@ -661,7 +661,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "ask_where_new_games_go",
             type="bool",
             default="true",
-            home="locations",
+            home="library.folders",
             legacy=(),
         ),
         ConfigOption(

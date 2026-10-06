@@ -62,7 +62,6 @@ from console import (
     confirm,
     deeplink,
     dropdown,
-    folder_picker,
     game_acts,
     game_tables,
     grid,
@@ -93,9 +92,7 @@ from console import backups as backups_page
 from console import commands as commands_help
 from console import devices as devices_page
 from console import dialog as frame
-from console import folders as folders_page
 from console import launchers as launchers_page
-from console import locations as locations_page
 from console import players as players_page
 from console import record as recorder
 from console import settings as settings_page
@@ -1252,56 +1249,6 @@ async def _open_whole(context: dict[str, Any], path: str, label: str) -> None:
                   type="negative")
         return
     mediaview.open_text(label, str(found.get("head") or ""))
-
-
-async def build_location(container: ui.column, title: ui.column, library: Library,
-                         location_id: str | None,
-                         state: dict[str, Any] | None = None) -> None:
-    """The panel, for a location rather than a game.
-
-    Its own entry point for the reason a collection has one: a location has no game, no
-    tables and no media lens, so everything `build` assembles would be a chain of empty
-    values threaded through to sections that never read them.
-    """
-    state = state if state is not None else {}
-    await _pane_build(container, state,
-                      lambda: _draw_location(container, title, library, location_id, state))
-
-
-async def _draw_location(container: ui.column, title: ui.column, library: Library,
-                         location_id: str | None, state: dict[str, Any]) -> None:
-    if not location_id:
-        _blank(container, title, t("console.page.library_folder"),
-               t("console.page.select_folder"))
-        return
-    # Read fresh rather than from the grid's copy: reachable and writable are answers
-    # about this moment, and the panel is where they are acted on.
-    found = await offload.io(library.locations)
-    held = list(found.get("locations") or [])
-    row = next((one for one in held
-                if one.get("location_id") == location_id), None)
-    if row is None:
-        _blank(container, title, t("console.page.library_folder"),
-               t("console.page.not_found"))
-        return
-
-    container.clear()
-    title.clear()
-    with container:
-        _title(title, row.get("name") or "",
-               t(locations_page.KIND_LABELS.get(str(row.get("kind") or "root"),
-                                                 "console.page.library_folder")))
-        # The whole list as well as this row: priority is a fact about where this one
-        # sits among the others, so it cannot be read off the row alone.
-        context: dict[str, Any] = {"library": library, "location": row,
-                                   "locations": held, "state": state,
-                                   "asking": locations_page.asking(found),
-                                   "redraws": [], "dock": None}
-
-        context["rebuild"] = _rebuilds(
-            context, f"location:{location_id}",
-            lambda: build_location(container, title, library, location_id, state))
-        await _rail(context, "location", state)
 
 
 async def build_backup(container: ui.column, title: ui.column, library: Library,
@@ -6030,144 +5977,6 @@ def _file_value(path: str) -> Callable[[], None]:
     return draw
 
 
-async def _location_details(context: dict[str, Any]) -> None:
-    """What the location is, and what the disk says about it."""
-    row = context["location"]
-    library = context["library"]
-
-    @on_page
-    async def write(**changes: Any) -> str:
-        """Saved, and the grid put right behind the panel. The reason it was refused, or
-        empty."""
-        body = {"path": row["path"], "kind": row["kind"], **changes}
-        try:
-            await run.io_bound(library.put_location, row["location_id"], body)
-        except Exception as exc:  # noqa: BLE001
-            return why(exc)
-        await _folders_changed(context)
-        return ""
-
-    @on_page
-    async def save_path(text: str) -> str:
-        wanted = str(text or "").strip()
-        if not wanted or wanted == row["path"]:
-            return ""
-        return await write(path=wanted)
-
-    @on_page
-    async def save_kind(event: Any) -> None:
-        wanted = str(getattr(event, "value", "") or "root")
-        if wanted == row["kind"]:
-            return
-        if said := await write(kind=wanted):
-            ui.notify(t("said.save_failed"), caption=said, type="negative")
-
-    async def browse(current: str) -> str | None:
-        return await folder_picker.pick_path(library.folders, current, kind="dir")
-
-    entries: list[tuple[Any, Any]] = [
-        (HEADING, t("console.workbench.this_folder")),
-        (t("word.folder"), panel.field(
-            row["path"], save_path, refuses=True, browse=browse,
-            status=panel.value_state("ok" if row["reachable"] else "missing",
-                                     row["reason"]))),
-        (t("word.contains"), panel.select(
-            {kind: t(key) for kind, key in locations_page.KIND_LABELS.items()},
-            row["kind"], save_kind)),
-        (t("word.where"), (row.get("origin") or {}).get("source")
-         or locations_page.where_of(row)),
-        (t("word.state"), _location_state(row)),
-    ]
-    if row["write_to"] and not context.get("asking"):
-        entries.append((t("console.workbench.new_games"),
-                        panel.state(t("word.created_here"), "on")))
-    # Only where there is something to outrank. With one location the row would be a
-    # control that cannot do anything and a word nobody needs to learn.
-    if len(context.get("locations") or []) > 1:
-        entries += [(t("word.priority"), _location_priority(context, row)),
-                    panel.note(t("console.workbench.priority_hint"))]
-    with ui.column().classes("gap-0 console-form"):
-        _rows(ui, entries)
-        await _shadowed_block(context, row)
-
-
-def _location_priority(context: dict[str, Any],
-                       row: dict[str, Any]) -> Callable[[], None]:
-    """Where this location sits, and the two moves that change it.
-
-    Up and down rather than a number to type: the fact somebody holds is "this one
-    should beat that one", and a rank is the arithmetic they would have to do to say it.
-    """
-    held = list(context.get("locations") or [])
-    order = [one["location_id"] for one in held]
-    place = order.index(row["location_id"]) if row["location_id"] in order else 0
-
-    @on_page
-    async def move(by: int) -> None:
-        wanted = list(order)
-        wanted.insert(place + by, wanted.pop(place))
-        try:
-            await run.io_bound(context["library"].set_location_order, wanted)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("console.workbench.reorder_failed"), caption=why(exc),
-                      type="negative")
-            return
-        await _folders_changed(context)
-
-    def draw() -> None:
-        with ui.row().classes("items-center gap-2 no-wrap"):
-            ui.label(t("console.workbench.position", place=place + 1,
-                       total=len(order))).classes("console-fact-value")
-            up = ui.button(icon=verbs.UP, on_click=lambda: move(-1)) \
-                .props("flat dense round size=sm").tooltip(t("console.workbench.higher_priority"))
-            down = ui.button(icon=verbs.DOWN, on_click=lambda: move(1)) \
-                .props("flat dense round size=sm").tooltip(t("console.workbench.lower_priority"))
-            if place == 0:
-                up.disable()
-            if place >= len(order) - 1:
-                down.disable()
-
-    return draw
-
-
-async def _shadowed_block(context: dict[str, Any], row: dict[str, Any]) -> None:
-    """The game folders here that a higher location is already answering for.
-
-    Drawn only where there are some. On the ordinary install this is nothing, and a
-    heading over an empty list is a problem invented for somebody to worry about.
-    """
-    if not int(row.get("shadowed") or 0):
-        return
-    try:
-        held = await offload.io(context["library"].shadowed_here,
-                                  row["location_id"])
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.workbench.shadowed_failed"), caption=why(exc),
-                  type="negative")
-        return
-    if not held:
-        return
-
-    count = len(held)
-    ui.label(t("console.workbench.shadowed",
-            count=count)).classes("console-card-title console-fact-heading")
-    ui.label(t("console.workbench.shadowed_intro")).classes("console-help")
-
-    @on_page
-    async def adopt(one: dict[str, Any]) -> None:
-        if await folders_page.adopt_copy(context["library"],
-                                         context["location"]["location_id"], one):
-            await _folders_changed(context)
-
-    folders_page.draw_copies(held, adopt)
-
-
-def _location_state(row: dict[str, Any]) -> Callable[[], None]:
-    return panel.state(locations_page.state_of(row),
-                       locations_page.STATE_TIERS.get(row["state"], "bad"),
-                       beside=row["reason"])
-
-
 async def _collection_details(context: dict[str, Any]) -> None:
     row = _collection(context)
     entries: list[tuple[Any, Any]] = [
@@ -7402,24 +7211,11 @@ def _page_redraw(context: dict[str, Any]) -> Callable[[], None]:
     return redraw
 
 
-async def _folders_changed(context: dict[str, Any]) -> None:
-    """The Library folders page drawn again on this folder, and its panel with it. The
-    page's draw empties the panel, so the panel is built after it."""
-    grid.land_on(locations_page.SCOPE, {"id": context["location"]["location_id"]})
-    _page_redraw(context)()
-    await context["rebuild"]()
-
-
 def _launcher_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     return launchers_page.acts(context["library"], context["state"], context["launcher"],
                                len(context.get("launchers") or []), _page_redraw(context),
                                after=context["rebuild"],
                                playing=bool(context.get("playing")))
-
-
-def _location_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    return locations_page.acts(context["library"], context["state"], context["location"],
-                               _page_redraw(context))
 
 
 def _theme_verbs(context: dict[str, Any]) -> list[panel.Verb]:
@@ -7500,7 +7296,6 @@ SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
     "tag": _tag_verbs,
     "collection": _collection_verbs,
     "launcher": _launcher_verbs,
-    "location": _location_verbs,
     "theme": _theme_verbs,
     "device": _device_verbs,
     "player": _player_verbs,
@@ -7524,8 +7319,6 @@ SECTIONS: tuple[Section, ...] = (
     # Beside Media, not under Details: both answer "what does this game hold", one
     # for what a screen shows and one for what a launch needs.
     Section("assets", _assets_label, _assets_block, dock=True),
-    Section("location_details", lambda _: t("console.workbench.details"), _location_details,
-            subjects=frozenset({"location"})),
     # A launcher, in reading order: what it is and what it runs, then the program's own
     # settings grouped as the app declares them, then the copies kept of its file.
     Section("launcher_details", lambda _: t("console.workbench.details"), _launcher_details,

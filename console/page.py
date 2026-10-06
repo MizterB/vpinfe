@@ -55,7 +55,6 @@ from console import collections as collections_page
 from console import community as community_page
 from console import devices as devices_page
 from console import launchers as launchers_page
-from console import locations as locations_page
 from console import logs as logs_page
 from console import media as media_page
 from console import metrics as metrics_page
@@ -166,8 +165,6 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
     # and this is where features are switched on. Ordered configuration, then what this
     # install knows about, then its records, then what it is.
     (NAV_SYSTEM, (("settings", "console.section.settings", "tune", install_identity.CORE),
-                  ("locations", "console.section.library_folders", "folder_open",
-                   (install_identity.LIBRARY, install_identity.FRONTEND)),
                   ("devices", "console.section.devices", "devices", install_identity.DEVICES),
                   ("extensions", "console.section.extensions", "extension",
                    install_identity.CORE),
@@ -229,7 +226,6 @@ SECTIONS = {
     "games": "console.section.games",
     "tables": "console.section.tables",
     "tags": "console.section.tags",
-    "locations": "console.section.library_folders",
     "collections": "console.section.collections",
     "media": "console.section.media",
     "assets": "console.section.assets",
@@ -323,7 +319,6 @@ EMPTY_PANE = {
     "media": ("console.page.media", "console.page.select_media"),
     "assets": ("console.page.assets", "console.page.select_asset"),
     "devices": ("console.page.device", "console.page.select_device"),
-    "locations": ("console.page.library_folder", "console.page.select_folder"),
     "launchers": ("console.page.launcher", "console.page.select_launcher"),
     "themes": ("console.page.theme", "console.page.select_theme"),
     "players": ("console.page.player", "console.page.select_player"),
@@ -1383,15 +1378,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         await workbench.build_backup(panel, workbench_title, library, state["backup"], state)
         deeplink.sync(state)
 
-    async def show_location(row: dict | None) -> None:
-        """What the grid has selected is what the workbench is about - the same rule
-        Games and Collections follow, so the panel needs no control of its own."""
-        if row and not state["workbench"]:
-            show_workbench(True)
-        state["location"] = (row or {}).get("id")
-        await workbench.build_location(panel, workbench_title, library,
-                                       state["location"], state)
-
     def clear_workbench() -> None:
         """Empty the pane. Sync, so render() can call it without awaiting a rebuild."""
         workbench_title.clear()
@@ -1509,9 +1495,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                    rerender=redraw)
             elif view == "settings":
                 settings_page.build_system(library, state, redraw, discovery)
-            elif view == "locations":
-                state["rerender"] = redraw
-                locations_page.build(library, state, show_location, redraw)
             elif view == "launchers":
                 # Copying to other machines is offered only where this install manages
                 # them, and it needs to know which row is itself.
@@ -1686,7 +1669,7 @@ def read_then_render(state: dict[str, Any], library: Library, content: ui.elemen
     client refuses an HTTP call there.
     """
     light()
-    if state["view"] in ("settings", "locations"):
+    if state["view"] == "settings":
         # Asked again on every draw, which is when a path may just have been fixed - and
         # off the loop, because it stats the disk and a share that has gone away is
         # exactly the case this reports.

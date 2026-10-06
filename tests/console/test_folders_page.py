@@ -402,6 +402,26 @@ class ActTests(unittest.IsolatedAsyncioTestCase):
         self.notified.assert_called_once()
         self.offered.assert_not_called()
 
+    async def test_a_copy_is_given_its_own_id_only_once_confirmed(self) -> None:
+        copy = {"path": "/games/b/Attack", "used_path": "/games/a/Attack"}
+        with patch.object(folders.confirm, "ask", new=AsyncMock(return_value=True)):
+            self.assertTrue(await folders.adopt_copy(self.library, "b", copy))
+
+        self.library.adopt_shadowed.assert_called_once_with("b", "/games/b/Attack")
+
+    async def test_a_declined_confirm_writes_nothing_to_the_game_folder(self) -> None:
+        with patch.object(folders.confirm, "ask", new=AsyncMock(return_value=False)):
+            self.assertFalse(await folders.adopt_copy(self.library, "b", {"path": "/x"}))
+
+        self.library.adopt_shadowed.assert_not_called()
+
+    async def test_an_adopt_that_fails_says_so_and_reports_nothing_done(self) -> None:
+        self.library.adopt_shadowed.side_effect = OSError("busy")
+        with patch.object(folders.confirm, "ask", new=AsyncMock(return_value=True)):
+            self.assertFalse(await folders.adopt_copy(self.library, "b", {"path": "/x"}))
+
+        self.notified.assert_called_once()
+
 
 class PageIndexTests(unittest.TestCase):
     def test_a_page_may_name_several_features_and_is_held_if_any_is(self) -> None:

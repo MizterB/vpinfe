@@ -1,56 +1,12 @@
-"""A location or launcher just added: the grid drawn again lands on its row, and the
-panel opens on it."""
+"""A launcher just added: the grid drawn again lands on its row, and the panel opens on it."""
 
 from __future__ import annotations
 
 import unittest
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
-from console import launchers, locations
-from tests.support.clicks import press
-
-
-class LocationAdded(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
-        self.order: list[str] = []
-        self.state: dict[str, Any] = {}
-        self.landed = self.enterContext(patch.object(
-            locations.grid, "land_on", side_effect=lambda *_: self.order.append("land")))
-        self.enterContext(patch.object(locations.model, "mint_location_id",
-                                       return_value="loc-new"))
-        self.put = self.enterContext(patch.object(
-            locations.run, "io_bound", new=AsyncMock(return_value={"location_id": "loc-new"})))
-        self.enterContext(patch.object(locations.ui, "notify"))
-        self.shown = AsyncMock(side_effect=lambda _row: self.order.append("show"))
-
-    async def add(self) -> None:
-        await press(locations._create, Mock(), self.state,
-                    lambda: self.order.append("redraw"), self.shown, "root", "/games")
-
-    async def test_the_new_row_is_landed_on_before_the_grid_is_drawn_again(self) -> None:
-        await self.add()
-        self.landed.assert_called_once_with(locations.SCOPE, {"id": "loc-new"})
-        self.assertEqual(self.order, ["land", "redraw", "show"])
-
-    async def test_the_panel_opens_on_it(self) -> None:
-        await self.add()
-        self.shown.assert_awaited_once_with({"id": "loc-new"})
-        self.assertEqual(self.state["location"], "loc-new")
-
-    async def test_a_folder_already_held_lands_on_its_own_row(self) -> None:
-        self.put.return_value = {"location_id": "loc-held"}
-        await self.add()
-        self.landed.assert_called_once_with(locations.SCOPE, {"id": "loc-held"})
-        self.shown.assert_awaited_once_with({"id": "loc-held"})
-        self.assertEqual(self.state["location"], "loc-held")
-
-    async def test_a_refused_add_lands_nowhere(self) -> None:
-        self.put.side_effect = OSError("read-only")
-        await self.add()
-        self.landed.assert_not_called()
-        self.shown.assert_not_awaited()
-        self.assertEqual(self.order, [])
+from console import launchers
 
 
 class LauncherAdded(unittest.IsolatedAsyncioTestCase):
