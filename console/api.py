@@ -1307,6 +1307,12 @@ class ApiClient:
         looking at the list."""
         return list(self._get("/devices/discovered").get("installs") or [])
 
+    def add_device(self, address: str, port: int, name: str = "") -> dict:
+        """Register a VPX Mobile device by hand. It cannot announce itself, so the
+        install mints its id."""
+        return self._put("/devices", {"kind": "vpx_mobile", "address": address,
+                                      "port": port, "display_name": name})
+
     def probe_device(self, device_id: str) -> dict:
         """Ask one device whether it is there."""
         return self._post(f"/devices/{quote(device_id)}/probe", {})

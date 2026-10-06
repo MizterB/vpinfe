@@ -14,7 +14,7 @@ from common import device_client, device_registry, install_identity, lifecycle
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
-from console import offload, renderers, verbs
+from console import mobile_add, offload, renderers, verbs
 from console.on_page import on_page
 
 from . import browser_state, confirm, grid, panel, views, when
@@ -344,6 +344,17 @@ async def _confirm_forget(library: Any, device: dict[str, Any],
                   type="negative")
         return
     ui.notify(t("console.devices.forgot", name=(name)), type="positive")
+    if rerender is not None:
+        rerender()
+
+
+@on_page
+async def _add_mobile(rerender: Callable[[], None] | None) -> None:
+    """The add dialog, and the new device's panel once it is added."""
+    added = await mobile_add.add_mobile()
+    if not added:
+        return
+    grid.land_on(SCOPE, {"id": str(added.get("device_id") or "")})
     if rerender is not None:
         rerender()
 
@@ -682,6 +693,9 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
             search = panel.search(t("console.devices.search_devices"))
         with bar.bottom, panel.bar_end():
             count = ui.label(said()).classes("text-xs console-label")
+            panel.add_action(
+                [(t("console.devices.add_mobile"), lambda: _add_mobile(rerender))],
+                empty=all(row.get("self") for row in built))
             actions, bulk_menu = panel.selection_actions(
                 t("console.devices.bulk_menu"))
             if probe is not None:

@@ -18,7 +18,7 @@ from nicegui import run, ui
 from common import device_registry
 from common.failures import why
 from common.i18n import t
-from console import confirm, offload, panel, verbs
+from console import confirm, mobile_add, offload, panel, verbs
 from console import dialog as frame
 from console.api import ApiClient
 from console.on_page import on_page
@@ -62,11 +62,15 @@ async def ask_where(games: list[dict[str, Any]],
                   type="negative")
         return
     if not found:
-        # Said rather than hidden: the answer is "not yet", and somebody who has just
-        # added a phone in Devices needs to know this is where it turns up.
-        ui.notify(t("console.send_to_device.targets_empty"),
-                  type="warning")
-        return
+        if not await confirm.ask(
+                t("console.send_to_device.no_mobile"),
+                detail=t("console.send_to_device.no_mobile_detail"),
+                confirm=t("console.devices.add_mobile"), icon=verbs.ADD, danger=False):
+            return
+        added = await mobile_add.add_mobile()
+        if not added:
+            return
+        found = [added]
 
     picked = found[0] if len(found) == 1 else await _which(found)
     if not picked:
