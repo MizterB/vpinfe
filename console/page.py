@@ -966,16 +966,18 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 await show_device(None)
 
     async def _arrived(device_id: str, found: dict) -> None:
-        """`_reached`, then what that device says it can be asked to do, for its menus."""
-        await _reached(device_id, found)
+        """What that device says it can be asked to do, for its menus, then `_reached`.
+
+        Actions first: `_reached` redraws the open panel, which reads them."""
         entry = next((one for one in devices
                       if str(one.get("device_id") or "") == device_id), None)
         if entry is not None:
             state.setdefault("device_actions", {})[device_id] = \
                 await devices_page.load_actions(library, entry, discovery.get("install_id"),
                                                 found)
-            if device_id == power_menu.local_id:
-                power_menu.refill()
+        await _reached(device_id, found)
+        if entry is not None and device_id == power_menu.local_id:
+            power_menu.refill()
 
     async def _look_for_update() -> None:
         """Mark each device with whether it answered, and Devices with how many of them
@@ -1303,13 +1305,24 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                                     state)
 
     @on_page
-    async def _probe_devices() -> None:
-        """Ask every device again, on demand. The page's own pass runs once on load;
-        this is for when you have just gone and switched one on."""
-        failed = await devices_page.ask_each(devices, _probe_one, _arrived)
+    async def _ask(entries: list[dict]) -> None:
+        failed = await devices_page.ask_each(entries, _probe_one, _arrived)
         if failed:
             ui.notify(t("console.page.devices_failed"), caption=why(failed[0]),
                       type="negative")
+
+    @on_page
+    async def _probe_devices() -> None:
+        """Ask every device again, on demand. The page's own pass runs once on load;
+        this is for when you have just gone and switched one on."""
+        await _ask(devices)
+
+    @on_page
+    async def _probe_device(device_id: str) -> None:
+        """Ask one device again, for the rail that has nothing to show until it answers."""
+        await _ask([one for one in devices if str(one.get("device_id") or "") == device_id])
+
+    state["ask_device"] = _probe_device
 
     @on_page
     async def show_collection(row: dict | None) -> None:

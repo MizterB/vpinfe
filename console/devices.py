@@ -146,31 +146,69 @@ def own_address() -> str:
     return next((host for host in addresses.hosts() if host != "localhost"), "")
 
 
+def _state_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """Whether it answers, and when it did not, why."""
+    reach = context.get("reach")
+    found = _REACH.get(str((reach or {}).get("state") or ""))
+    if found is None:
+        return [(t("word.state"), panel.state(t("console.devices.checking"), "unknown"))]
+    label, level, _color = found
+    rows: list[tuple[Any, Any]] = [(t("word.state"), panel.state(t(label), level))]
+    reason = str((reach or {}).get("reason") or "")
+    if level != "on" and reason:
+        rows.append(panel.note(reason))
+    return rows
+
+
+def _last_seen_row(device: dict[str, Any]) -> tuple[Any, Any]:
+    return (t("word.last_seen"), _when(str(device.get("last_reachable") or ""),
+                                       t("word.never")))
+
+
 def _connection_rows(context: dict[str, Any], address: str) -> list[tuple[Any, Any]]:
     """Whether it is there, when it last was, where, and since when this install has
     known it."""
     device = _of(context)
-    reach = context.get("reach")
-    rows: list[tuple[Any, Any]] = []
-
-    found = _REACH.get(str((reach or {}).get("state") or ""))
-    if found is None:
-        rows.append((t("word.state"),
-                     panel.state(t("console.devices.checking"), "unknown")))
-    else:
-        label, level, _color = found
-        rows.append((t("word.state"), panel.state(t(label), level)))
-        reason = str((reach or {}).get("reason") or "")
-        if level != "on" and reason:
-            rows.append(panel.note(reason))
-
-    rows.append((t("word.last_seen"),
-                 _when(str(device.get("last_reachable") or ""), t("word.never"))))
+    rows = [*_state_rows(context), _last_seen_row(device)]
     rows.append((t("console.devices.address"), address or t("console.devices.not_known")))
     rows.append((t("console.devices.first_seen"),
                  _when(str(device.get("first_seen") or ""), t("console.devices.not_known"))))
     if is_local(context) or context.get("library") is None:
         rows.append(panel.note(t("console.devices.self_note")))
+    return rows
+
+
+def away(context: dict[str, Any]) -> bool:
+    """Whether a rail has nothing to ask: the probe found no answer or has not landed.
+    An entry with no port is not this case, and each rail already says so."""
+    return (not is_local(context) and client_for(context) is not None
+            and (context.get("reach") or {}).get("state")
+            not in (device_client.ANSWERING, device_client.UNASKABLE))
+
+
+def away_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """What a rail says in place of what it cannot read from a device that is not
+    answering: the state and its reason, when it was last there, and Try again."""
+    ask = (context.get("state") or {}).get("ask_device")
+    rows = [*_state_rows(context), _last_seen_row(_of(context))]
+    if ask is None:
+        return rows
+    device_id = str(_of(context).get("device_id") or "")
+
+    @on_page
+    async def again() -> None:
+        asking = ui.notification(t("console.devices.checking"), spinner=True, timeout=None)
+        try:
+            await ask(device_id)
+        finally:
+            asking.dismiss()
+
+    def door() -> None:
+        with ui.element("div").classes("console-fact-edit"):
+            panel.action(t("console.page.try_again"), again, icon=verbs.REFRESH,
+                         inline=True, hint=t("console.devices.probe_one"))()
+
+    rows.append(("", door))
     return rows
 
 
@@ -1068,6 +1106,8 @@ async def software_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     """What it is running. Asked of the device rather than read from the registry,
     which holds no version at all."""
     device = _of(context)
+    if away(context):
+        return [*away_rows(context), *_browser_rows(device, context.get("reach"))]
     client = client_for(context)
     update = context.get("update")
     ask = update_checker(is_local(context), client)
@@ -1130,6 +1170,8 @@ async def log_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     client = client_for(context)
     if client is None:
         return [panel.intro(t(UNREACHABLE_NOTE))]
+    if away(context):
+        return away_rows(context)
     try:
         found = await offload.io(client.logs, LOG_LIMIT)
     except device_client.TooOldError:

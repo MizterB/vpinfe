@@ -149,7 +149,8 @@ class NobodyAnswered(unittest.IsolatedAsyncioTestCase):
     async def _rows(self, failure: Exception) -> list:
         context = {"device": {"device_id": "Bbbb222222", "address": "192.168.1.50",
                               "port": 8001},
-                   "local_device_id": "Aaaa111111"}
+                   "local_device_id": "Aaaa111111",
+                   "reach": {"state": devices.device_client.ANSWERING}}
         with patch.object(devices.offload, "io", new=AsyncMock(side_effect=failure)), \
                 patch.object(devices.panel, "state", new=lambda text, level: (text, level)), \
                 patch.object(devices.panel, "note", new=lambda text: ("note", text)), \

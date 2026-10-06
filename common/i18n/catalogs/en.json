@@ -917,6 +917,7 @@
   "console.devices.all_devices": "All devices",
   "console.devices.answering": "Answering",
   "console.devices.probe_all": "Ask every device whether it is there",
+  "console.devices.probe_one": "Ask this device whether it is there now",
   "console.devices.available": "{latest} available",
   "console.devices.available_2": "Available",
   "console.devices.close_note": "{running} is being played there and will be closed.",
