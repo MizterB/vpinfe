@@ -160,7 +160,7 @@ def _described(registry: ThemeRegistry, active: str) -> list[dict[str, Any]]:
             "updated": str(entry.get("updated") or ""),
             "installed": installed,
             "active": key == active,
-            "default_install": bool(info.get("default_install")),
+            "default_install": registry.installs_on_its_own(key),
             "update_available": bool(update.get("update_available")) and installed,
             "configurable": bool(schema and schema.get("options")),
             "origin": "registry",

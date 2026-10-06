@@ -205,7 +205,8 @@ class ThemeRegistry:
 
         theme_jobs = []
         for theme_key, theme_info in self.themes_index.items():
-            if default_only and not theme_info.get("default_install", False):
+            if default_only and not theme_sources.installs_on_its_own(
+                    theme_info, self.origins.get(theme_key, "")):
                 continue
             base_url = self._base_url(theme_info)
             if not base_url:
@@ -440,10 +441,15 @@ class ThemeRegistry:
     # INSTALLATION
     # =========================================================
 
+    def installs_on_its_own(self, theme_key: str) -> bool:
+        theme = self.themes.get(theme_key) or {}
+        return theme_sources.installs_on_its_own(theme.get("registry_info") or {},
+                                                 str(theme.get("source") or ""))
+
     def auto_install_defaults(self) -> None:
-        """Auto-install all themes marked as default_install=True"""
-        for key, theme in self.themes.items():
-            if theme["registry_info"].get("default_install", False):
+        """Auto-install the themes the VPinFE Theme List marks `default_install`."""
+        for key in self.themes:
+            if self.installs_on_its_own(key):
                 self.install_theme(key)
 
 
@@ -547,9 +553,8 @@ class ThemeRegistry:
     # =========================================================
 
     def delete_theme(self, theme_key: str) -> None:
-        """Delete an installed theme. Raises if theme has default_install=True."""
-        theme_data = self.themes.get(theme_key)
-        if theme_data and theme_data["registry_info"].get("default_install", False):
+        """Delete an installed theme. Raises for one the VPinFE Theme List installs itself."""
+        if self.installs_on_its_own(theme_key):
             raise ThemeRegistryError(t("error.themes.default_stays", key=theme_key))
 
         folder = self.get_installed_folder(theme_key)

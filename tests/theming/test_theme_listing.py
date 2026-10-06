@@ -8,6 +8,7 @@ from unittest.mock import patch
 from common.online import theme_ops, theme_sources
 
 STOCK = "https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json"
+OTHER = "https://git.example.net/someone/vpinfe-themes/raw/branch/main/themes.json"
 REPO = "https://git.example.net/someone/vpinfe-theme-reference"
 
 
@@ -26,6 +27,10 @@ class _Registry:
 
     def local_themes(self) -> dict:
         return self._local
+
+    def installs_on_its_own(self, key: str) -> bool:
+        one = self._themes[key]
+        return theme_sources.installs_on_its_own(one["registry_info"], one["source"])
 
 
 def _theme(source: str, info: dict) -> dict:
@@ -46,6 +51,14 @@ class WhereAThemeCameFrom(unittest.TestCase):
         entry = _theme(REPO, theme_sources.repository_entry(REPO))
         listed = self._listed(_Registry({"Mine": entry}))
         self.assertEqual(listed["Mine"]["registry"], "")
+
+    def test_a_mark_counts_only_from_the_stock_list(self) -> None:
+        marked = {"url": "https://x.net/o/r", "default_install": True}
+        listed = self._listed(_Registry({"Stock": _theme(STOCK, marked),
+                                         "Other": _theme(OTHER, marked)}))
+
+        self.assertEqual((True, False), (listed["Stock"]["default_install"],
+                                         listed["Other"]["default_install"]))
 
     def test_a_theme_placed_in_the_folder_names_none(self) -> None:
         listed = self._listed(_Registry({}, local={"handmade": {"name": "Handmade"}}))

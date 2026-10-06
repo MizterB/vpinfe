@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
+from common import config_schema
 from common.config_access import cfg_list
 
 logger = logging.getLogger("vpinfe.common.online.theme_sources")
@@ -152,6 +153,26 @@ def list_file(where: Address) -> str:
     if where.repo.startswith(f"https://{GITHUB}/"):
         return f"https://{GITHUB_RAW}/{where.repo.removeprefix(f'https://{GITHUB}/')}/{ref}/{LIST_FILE}"
     return f"{where.repo}/raw/{ref}/{LIST_FILE}"
+
+
+def stock_list() -> str:
+    """The address of the VPinFE Theme List, which `themes.registries` defaults to."""
+    declared = config_schema.option(SECTION, "registries")
+    default = str(declared.default if declared else "").strip()
+    where = parse(default)
+    return where.url if where is not None else default
+
+
+def is_stock(address: str) -> bool:
+    """Whether `address`, once rewritten to the address VPinFE fetches, is the VPinFE Theme List."""
+    where = parse(address)
+    return where is not None and where.url == stock_list()
+
+
+def installs_on_its_own(entry: dict, source: str) -> bool:
+    """A theme installs when VPinFE starts, and cannot be deleted, only when the VPinFE
+    Theme List marks it `default_install`. Another list's mark is ignored."""
+    return bool(entry.get("default_install")) and is_stock(source)
 
 
 def repository_entry(url: str) -> dict:

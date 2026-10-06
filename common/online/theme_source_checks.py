@@ -114,7 +114,7 @@ def _manifest_reason(exc: ManifestError) -> str:
 
 def listed(address: str, themes: dict[str, Any]) -> dict[str, Any]:
     marked = [key for key, entry in themes.items()
-              if isinstance(entry, dict) and entry.get("default_install")]
+              if isinstance(entry, dict) and theme_sources.installs_on_its_own(entry, address)]
     return result(address, LIST, count=len(themes), installs=marked)
 
 

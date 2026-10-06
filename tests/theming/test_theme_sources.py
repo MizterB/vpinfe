@@ -11,12 +11,13 @@ nothing still starts.
 
 from __future__ import annotations
 
+import json
 import unittest
 from configparser import ConfigParser
 from unittest import mock
 
 from common.i18n import t
-from common.online import theme_ops, theme_releases, theme_sources
+from common.online import theme_ops, theme_releases, theme_source_checks, theme_sources
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
 
@@ -306,6 +307,88 @@ class LoadTests(unittest.TestCase):
                 theme_sources.ThemeSources(registries=("https://gone.net/t.json",)), {})
             with self.assertRaises(ThemeRegistryError):
                 registry.load_registry()
+
+
+class WhichListInstallsOnItsOwn(unittest.TestCase):
+    """Only the VPinFE Theme List's `default_install` marks act: another list cannot put a
+    theme on the machine, or make one impossible to delete."""
+
+    THIRD_PARTY = "https://git.example.net/someone/vpinfe-themes/raw/branch/main/themes.json"
+    BASE = "https://git.example.net/someone/neon"
+    MANIFEST = {"name": "Neon", "version": "1.0", "author": "a", "description": "d",
+                "preview_image": "p.png", "type": "both", "windows": ["playfield"]}
+
+    def _read(self, address: str, mark: bool = True, *, at_start: bool = True) -> ThemeRegistry:
+        entry = {"url": self.BASE, "default_install": mark}
+        responses: dict[str, dict] = {
+            address: {"themes": {"Neon": entry}},
+            f"{self.BASE}/raw/HEAD/manifest.json": self.MANIFEST}
+
+        def fetch(url: str) -> dict:
+            if url not in responses:
+                raise ThemeRegistryError(f"unreachable: {url}")
+            return responses[url]
+
+        registry = ThemeRegistry(sources=theme_sources.ThemeSources(registries=(address,)))
+        registry._fetch_json = fetch  # type: ignore[method-assign]
+        registry._fetch_any = fetch  # type: ignore[method-assign]
+        registry.load_registry()
+        registry.load_theme_manifests(default_only=at_start, dates=False)
+        return registry
+
+    def _installed_by_start(self, registry: ThemeRegistry) -> list[str]:
+        with mock.patch.object(ThemeRegistry, "install_theme") as install:
+            registry.auto_install_defaults()
+        return [call.args[0] for call in install.call_args_list]
+
+    def test_the_stock_list_is_the_address_the_setting_defaults_to(self) -> None:
+        self.assertEqual(STOCK, theme_sources.stock_list())
+
+    def test_the_stock_list_is_still_the_stock_list_under_another_spelling(self) -> None:
+        shown = "https://github.com/superhac/vpinfe-themes/blob/master/themes.json"
+
+        self.assertTrue(theme_sources.is_stock(shown))
+        self.assertFalse(theme_sources.is_stock(self.THIRD_PARTY))
+        self.assertFalse(theme_sources.is_stock(""))
+
+    def test_a_third_party_lists_mark_installs_nothing(self) -> None:
+        at_start = self._read(self.THIRD_PARTY)
+        listed = self._read(self.THIRD_PARTY, at_start=False)
+
+        self.assertEqual([], list(at_start.themes))
+        self.assertEqual([], self._installed_by_start(listed))
+
+    def test_a_theme_from_a_third_party_list_can_be_deleted(self) -> None:
+        registry = self._read(self.THIRD_PARTY, at_start=False)
+
+        self.assertFalse(registry.installs_on_its_own("Neon"))
+        with mock.patch.object(registry, "get_installed_folder", return_value="neon"), \
+                mock.patch.object(registry.store, "delete") as delete:
+            registry.delete_theme("Neon")
+        delete.assert_called_once_with("neon")
+
+    def test_the_stock_lists_mark_still_installs_the_theme_and_keeps_it(self) -> None:
+        registry = self._read(STOCK)
+
+        self.assertEqual(["Neon"], self._installed_by_start(registry))
+        with mock.patch.object(registry, "get_installed_folder", return_value="neon"), \
+                self.assertRaises(ThemeRegistryError):
+            registry.delete_theme("Neon")
+
+    def test_the_mark_survives_a_restart_from_the_kept_read(self) -> None:
+        held = ThemeRegistry()
+        held.restore(json.loads(json.dumps(self._read(STOCK).snapshot())))
+
+        self.assertTrue(held.installs_on_its_own("Neon"))
+
+    def test_an_unmarked_theme_from_the_stock_list_installs_nothing(self) -> None:
+        self.assertEqual([], self._installed_by_start(self._read(STOCK, mark=False)))
+
+    def test_the_check_names_marks_for_the_stock_list_only(self) -> None:
+        themes = {"Neon": {"url": self.BASE, "default_install": True}}
+
+        self.assertEqual(["Neon"], theme_source_checks.listed(STOCK, themes)["installs"])
+        self.assertEqual([], theme_source_checks.listed(self.THIRD_PARTY, themes)["installs"])
 
 
 class WhenADateIsAsked(unittest.TestCase):

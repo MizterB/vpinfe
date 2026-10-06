@@ -18,7 +18,7 @@ At startup and when the Manager UI refreshes the registry, VPinFE:
 2. Reads the `themes` object in that file
 3. Fetches each theme's `manifest.json` from the `theme_manifest_url`
 4. Builds the available theme list shown in the Themes page
-5. Installs any themes marked `default_install: true`
+5. Installs the themes this list marks `default_install: true`
 
 When a user installs or updates a theme, VPinFE downloads the theme repository as a ZIP from GitHub, extracts it into the local themes directory, and renames the extracted folder to the registry key for that theme.
 
@@ -57,7 +57,7 @@ Each theme entry currently uses these fields:
 | --- | --- | --- |
 | `theme_base_url` | Yes | GitHub repository URL for the theme. |
 | `theme_manifest_url` | Yes | Raw URL to the theme's `manifest.json` on the `master` branch. |
-| `default_install` | No, but expected | If `true`, VPinFE auto-installs the theme at startup. |
+| `default_install` | No, but expected | If `true`, VPinFE auto-installs the theme at startup. Only the VPinFE Theme List's marks count; another list's are ignored. |
 
 ### Serving more than one contract
 
