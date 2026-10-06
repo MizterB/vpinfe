@@ -130,13 +130,15 @@ class AnswerHowTests(_Fresh):
         client = self._answer(setup.Session(again=False), "cabinet")
 
         client.put_config.assert_called_once_with({"presentation": {"cab_mode": True}})
-        client.write_launcher_config.assert_called_once_with("vpx-1", {setup.BGSET_KEY: "1"})
+        client.write_launcher_config.assert_called_once_with(
+            "vpx-1", {setup.BGSET_KEY: "1"}, create=True)
 
     def test_desktop_writes_bgset_zero(self) -> None:
         client = self._answer(setup.Session(again=False), "desktop")
 
         client.put_config.assert_called_once_with({"presentation": {"cab_mode": False}})
-        client.write_launcher_config.assert_called_once_with("vpx-1", {setup.BGSET_KEY: "0"})
+        client.write_launcher_config.assert_called_once_with(
+            "vpx-1", {setup.BGSET_KEY: "0"}, create=True)
 
     def test_no_launcher_yet_still_writes_the_setting(self) -> None:
         client = self._answer(setup.Session(again=False), "cabinet", launcher=False)
@@ -156,7 +158,7 @@ class AnswerHowTests(_Fresh):
         client.put_config.assert_called_once()
         client.write_launcher_config.assert_not_called()
 
-    def test_a_launcher_with_no_settings_file_warns_and_the_answer_stands(self) -> None:
+    def test_a_write_that_fails_warns_and_the_answer_stands(self) -> None:
         client = mock.Mock()
         client.write_launcher_config.side_effect = RuntimeError("no settings file")
         launcher = Launcher(launcher_id="vpx-1", app="vpx", settings={"bin_path": "/opt/vpx"})
