@@ -873,6 +873,7 @@
   "console.devices.latest": "a53636b42225",
   "console.devices.log_empty": "624b26fe5042",
   "console.devices.log_failed": "1e64db4b7947",
+  "console.devices.mobile_check": "e16fd5b3fd02",
   "console.devices.mobile_name": "d62f3162845a",
   "console.devices.name.help": "bd0ed678c952",
   "console.devices.name_note": "aff82cd19881",

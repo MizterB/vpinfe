@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from typing import Any
 
-from nicegui import run, ui
+from nicegui import background_tasks, run, ui
 
 from common import device_client, device_registry, install_identity, lifecycle
 from common.host import action_ops, addresses
@@ -170,12 +170,74 @@ def _connection_rows(context: dict[str, Any], address: str) -> list[tuple[Any, A
     known it."""
     device = _of(context)
     rows = [*_state_rows(context), _last_seen_row(device)]
-    rows.append((t("console.devices.address"), address or t("console.devices.not_known")))
+    if is_phone(context) and context.get("reach") and away(context):
+        rows.append(panel.note(t("console.devices.mobile_check")))
+    rows += _where_rows(context, address)
     rows.append((t("console.devices.first_seen"),
                  _when(str(device.get("first_seen") or ""), t("console.devices.not_known"))))
     if is_local(context) or context.get("library") is None:
         rows.append(panel.note(t("console.devices.self_note")))
     return rows
+
+
+def _where_rows(context: dict[str, Any], address: str) -> list[tuple[Any, Any]]:
+    """Where it is reached: a plain fact for an install, a field for a mobile device."""
+    library = context.get("library")
+    if not is_phone(context) or library is None:
+        return [(t("console.devices.address"), address or t("console.devices.not_known"))]
+    device = _of(context)
+
+    async def save(which: str, text: str) -> str:
+        text = text.strip()
+        if which == "address":
+            return (mobile_add.address_problem(text)
+                    or await _write_mobile(context, address=text))
+        port = mobile_add.port_of(text)
+        if port is None:
+            return t("console.devices.port_invalid")
+        return await _write_mobile(context, port=port)
+
+    return [(t("console.devices.address"), panel.field(
+                address, lambda text: save("address", text), refuses=True)),
+            (t("console.devices.port"), panel.field(
+                str(device.get("port") or ""), lambda text: save("port", text),
+                refuses=True))]
+
+
+async def _write_mobile(context: dict[str, Any], *, address: str | None = None,
+                        port: int | None = None, name: str | None = None) -> str:
+    """Rewrite a mobile device's entry with one part changed, then redraw. Answers why it
+    could not, or "" once it is written.
+
+    `device` is the page's own entry, so it is updated in place: a later edit starts from
+    what was just written, and what was probed at the old address is forgotten.
+
+    The rebuild is last: it clears the panel this runs from, and nothing after it runs.
+    """
+    device = _of(context)
+    device_id = str(device.get("device_id") or "")
+    where = str(device.get("address") or "") if address is None else address
+    at = int(device.get("port") or 0) if port is None else port
+    called = str(device.get("display_name") or "") if name is None else name
+    try:
+        await offload.io(ApiClient().edit_device, device_id, where, at, called)
+    except Exception as exc:  # noqa: BLE001 - the reason belongs under the field
+        return _why(exc)
+    device.update(address=where, port=at, display_name=called)
+    state = context.get("state") or {}
+    if address is not None or port is not None:
+        for cached in ("device_reach", "device_actions"):
+            state.get(cached, {}).pop(device_id, None)
+        context["reach"] = context["actions"] = None
+    landed, rebuild = state.get("device_landed"), context.get("rebuild")
+    ask = state.get("ask_device")
+    if ask is not None and (address is not None or port is not None):
+        background_tasks.create(ask(device_id), name="console-device-asked")
+    if landed is not None:
+        landed(device_id)
+    if rebuild is not None:
+        await rebuild()
+    return ""
 
 
 def away(context: dict[str, Any]) -> bool:
@@ -1047,13 +1109,19 @@ async def _identity_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         if rebuild is not None:
             await rebuild()
 
-    rows_out: list[tuple[Any, Any]] = [
-        (t("word.name"),
-         panel.field(stored, rename,
-                     placeholder=_hostname_placeholder(device))
-         if library is not None else device_label(device)),
-    ]
-    if not is_local(context):
+    mobile = is_phone(context) and context.get("library") is not None
+
+    async def rename_mobile(value: str) -> str:
+        return await _write_mobile(context, name=value.strip() or t("console.devices.mobile_name"))
+
+    if mobile:
+        named: Any = panel.field(str(device.get("display_name") or ""), rename_mobile,
+                                 placeholder=t("console.devices.mobile_name"), refuses=True)
+    else:
+        named = (panel.field(stored, rename, placeholder=_hostname_placeholder(device))
+                 if library is not None else device_label(device))
+    rows_out: list[tuple[Any, Any]] = [(t("word.name"), named)]
+    if not is_local(context) and not mobile:
         rows_out.append(panel.note(t("console.devices.name_note")))
     rows_out.append((t("console.devices.features"), _feature_chips(device.get("features"))))
     if device.get("features"):

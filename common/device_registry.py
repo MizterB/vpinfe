@@ -182,12 +182,15 @@ class DeviceRegistry:
 
     def record(self, device_id: str, *, kind: str = "", display_name: str = "",
                features: Iterable[str] = (), address: str = "",
-               port: int = 0) -> Device | None:
+               port: int = 0, heard: bool = True) -> Device | None:
         """Note that a device exists, or that a known one has been heard from.
 
         `first_seen` is kept from the existing entry: a device is the same device
         however many times it reconnects. Everything else is refreshed, because the
         install owns those and this is only a copy of what it last said.
+
+        `heard` is false where a person wrote the entry and nothing has answered: it
+        leaves `last_seen` and `last_reachable` as they were, blank for a new one.
 
         `kind` defaults to empty rather than to vpinfe so that a caller updating only an
         address does not restate it. A phone is written once by a person and updated
@@ -212,11 +215,11 @@ class DeviceRegistry:
                 address=address or (existing.address if existing else ""),
                 port=port or (existing.port if existing else 0),
                 first_seen=existing.first_seen if existing and existing.first_seen else now,
-                last_seen=now,
-                # Announcing proves it was there, so it counts as being seen. The two
-                # timestamps differ in what moves them, not in what they prove: this one
-                # advances from either direction, and `last_seen` only when it pushed.
-                last_reachable=now,
+                last_seen=now if heard else (existing.last_seen if existing else ""),
+                # The two timestamps differ in what moves them, not in what they prove:
+                # this one advances from either direction, and `last_seen` only when it
+                # pushed. Neither moves for an entry nobody has heard from (`heard`).
+                last_reachable=now if heard else (existing.last_reachable if existing else ""),
                 browser=existing.browser if existing else {},
                 extra=existing.extra if existing else {},
             )

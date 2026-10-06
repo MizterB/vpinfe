@@ -51,6 +51,12 @@ class MobileImportTests(unittest.TestCase):
         self.assertEqual((device.address, device.port), ("192.168.1.50", 2112))
         self.assertTrue(device.device_id, "an id was minted")
 
+    def test_an_imported_device_has_not_been_heard_from(self) -> None:
+        ensure_mobile_device(self.registry, _config(device_ip="192.168.1.50"))
+
+        device, = self.registry.devices()
+        self.assertEqual((device.last_seen, device.last_reachable), ("", ""))
+
     def test_the_port_falls_back_when_the_ini_does_not_say(self) -> None:
         ensure_mobile_device(self.registry, _config(device_ip="192.168.1.50"))
 

@@ -113,6 +113,7 @@ def announce(device_id: str, kind: str, display_name: str, features: Iterable[st
         # what that machine listens on. A device that does not say stays at 0 - what it
         # was told is read, and nobody is dialled.
         port=port,
+        heard=not is_mobile,
     )
     if device is None:
         raise service_errors.RefusedError(t("error.devices.id_needed"))

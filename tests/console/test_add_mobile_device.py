@@ -235,10 +235,10 @@ class SendWithNoMobileDevice(unittest.IsolatedAsyncioTestCase):
 
 class PortOf(unittest.TestCase):
     def test_a_port_is_a_number_in_range(self) -> None:
-        self.assertEqual(mobile_add._port_of(" 2112 "), 2112)
-        self.assertEqual(mobile_add._port_of("65535"), 65535)
+        self.assertEqual(mobile_add.port_of(" 2112 "), 2112)
+        self.assertEqual(mobile_add.port_of("65535"), 65535)
         for bad in ("", "0", "65536", "-1", "21x2", "2.5"):
-            self.assertIsNone(mobile_add._port_of(bad), bad)
+            self.assertIsNone(mobile_add.port_of(bad), bad)
 
 
 if __name__ == "__main__":

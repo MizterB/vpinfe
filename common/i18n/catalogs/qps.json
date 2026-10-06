@@ -948,6 +948,7 @@
   "console.devices.add_mobile.help": "Ţûřñ öñ ţĥè ŵèƀ šèřṽèř îñ ṼÞẊ'š šèţţîñĝš. Îţ šĥöŵš ţĥè àđđřèšš àñđ þöřţ.",
   "console.devices.add_anyway": "Àđđ àñýŵàý",
   "console.devices.address_invalid": "Öñŀý ţĥè àđđřèšš, šûçĥ àš 192.168.1.20",
+  "console.devices.mobile_check": "Çĥèçķ ţĥàţ ţĥè đèṽîçè îš àŵàķè, ṼÞẊ îš öþèñ àñđ îţš ŵèƀ šèřṽèř îš öñ",
   "console.devices.port": "Þöřţ",
   "console.devices.port_invalid": "À þöřţ îš à ñûɱƀèř ƒřöɱ 1 ţö 65535",
   "console.devices.mobile_name": "ṼÞẊ Ḿöƀîŀè",

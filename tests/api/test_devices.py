@@ -176,6 +176,22 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(moved["address"], "192.168.1.77")
         self.assertEqual(self.client.get("/devices").json()["count"], 1, "one phone")
 
+    def test_a_mobile_device_a_person_wrote_has_not_been_heard_from(self) -> None:
+        """Nothing has answered yet, so it is neither seen nor reachable, and rewriting
+        its name or address does not make it so."""
+        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPhone",
+                                                  "address": "192.168.1.50", "port": 2112}).json()
+        edited = self.client.put("/devices", json={"device_id": added["device_id"],
+                                                   "kind": "vpx_mobile", "display_name": "Tablet",
+                                                   "address": "192.168.1.77",
+                                                   "port": 2113}).json()
+
+        self.assertEqual((added["last_seen"], added["last_reachable"]), ("", ""))
+        self.assertEqual((edited["last_seen"], edited["last_reachable"]), ("", ""))
+        self.assertEqual(edited["first_seen"], added["first_seen"])
+        self.assertEqual((edited["display_name"], edited["address"], edited["port"]),
+                         ("Tablet", "192.168.1.77", 2113))
+
     def test_a_mobile_device_needs_an_address(self) -> None:
         """Its address is the only way to reach it, and nothing else will supply one."""
         response = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad"})

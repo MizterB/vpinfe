@@ -27,12 +27,21 @@ def _said(control: Any, said: str) -> None:
     control.update()
 
 
-def _port_of(text: str) -> int | None:
+def port_of(text: str) -> int | None:
     """The port a person typed, or None where it is not one."""
     text = text.strip()
     if not text.isdigit() or not 0 < int(text) < 65536:
         return None
     return int(text)
+
+
+def address_problem(address: str) -> str:
+    """Why this is not an address to reach a device at, or "" where it is one."""
+    if not address:
+        return t("error.devices.address_needed")
+    if "/" in address or ":" in address:
+        return t("console.devices.address_invalid")
+    return ""
 
 
 async def _reason_not_answering(address: str, port: int) -> str:
@@ -69,12 +78,9 @@ async def add_mobile() -> dict[str, Any] | None:
 
     async def add() -> None:
         address = str(fields["address"].value or "").strip()
-        port = _port_of(str(fields["port"].value or ""))
-        if not address:
-            _said(fields["address"], t("error.devices.address_needed"))
-            return
-        if "/" in address or ":" in address:
-            _said(fields["address"], t("console.devices.address_invalid"))
+        port = port_of(str(fields["port"].value or ""))
+        if problem := address_problem(address):
+            _said(fields["address"], problem)
             return
         if port is None:
             _said(fields["port"], t("console.devices.port_invalid"))

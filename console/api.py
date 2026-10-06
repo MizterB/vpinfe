@@ -1313,6 +1313,12 @@ class ApiClient:
         return self._put("/devices", {"kind": "vpx_mobile", "address": address,
                                       "port": port, "display_name": name})
 
+    def edit_device(self, device_id: str, address: str, port: int, name: str) -> dict:
+        """Rewrite a mobile device's name and where it is, keeping the entry."""
+        return self._put("/devices", {"device_id": device_id, "kind": "vpx_mobile",
+                                      "address": address, "port": port,
+                                      "display_name": name})
+
     def probe_device(self, device_id: str) -> dict:
         """Ask one device whether it is there."""
         return self._post(f"/devices/{quote(device_id)}/probe", {})

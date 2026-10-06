@@ -41,7 +41,7 @@ def ensure_mobile_device(registry: DeviceRegistry, config: ConfigStore) -> int:
 
     registry.record(mint_device_id(), kind=KIND_VPX_MOBILE,
                     display_name=MOBILE_DISPLAY_NAME,
-                    address=address, port=_port(config))
+                    address=address, port=_port(config), heard=False)
     registry.record_migration(MOBILE_MIGRATION)
     logger.info("Imported [mobile] %s as a device", address)
     return 1

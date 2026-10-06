@@ -948,6 +948,7 @@
   "console.devices.add_mobile.help": "Turn on the web server in VPX's settings. It shows the address and port.",
   "console.devices.add_anyway": "Add anyway",
   "console.devices.address_invalid": "Only the address, such as 192.168.1.20",
+  "console.devices.mobile_check": "Check that the device is awake, VPX is open and its web server is on",
   "console.devices.port": "Port",
   "console.devices.port_invalid": "A port is a number from 1 to 65535",
   "console.devices.mobile_name": "VPX Mobile",
