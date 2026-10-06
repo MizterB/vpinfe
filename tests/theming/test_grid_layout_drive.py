@@ -95,7 +95,8 @@ class GridLayoutDrive(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             for title in ("Alpha", "Bravo", "Charlie"):
                 write_game(Path(tmp), title,
-                           info=game_info(title, vps_id="", game_id=title.lower()))
+                           info=game_info(title, vps_id="", game_id=title.lower()),
+                       files={f"{title}.ini": b"[Player]"})
             with LiveInstance(Path(tmp)) as instance:
                 cls.seen = asyncio.run(cls._drive(instance))
 

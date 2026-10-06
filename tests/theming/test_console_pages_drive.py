@@ -127,7 +127,7 @@ class ConsolePagesDrive(unittest.TestCase):
             info["vpinfe"]["default_table"] = "t-a2"
             write_game(Path(tmp), "Alpha", info=info, vpx=False,
                        files={"Alpha 1.vpx": b"x", "Alpha 2.vpx": b"x",
-                              "pinmame/roms/alpha.zip": b"x"},
+                              "pinmame/roms/alpha.zip": b"x", "Alpha 1.ini": b"[Player]"},
                        medias={"wheel.png": b"x"})
             bravo = game_info("Bravo", vps_id="", game_id="bravo",
                               Info={"Manufacturer": "Williams", "Year": "1995"})
