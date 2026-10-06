@@ -255,6 +255,10 @@ class API:
         if startup_collection:
             try:
                 self.set_tables_by_collection(startup_collection)
+            except KeyError:
+                logger.warning("Startup collection '%s' no longer exists; showing All Games",
+                               startup_collection)
+                last_game.remember_collection(self._ini_config, BUILTIN_ALL)
             except Exception:
                 logger.exception("Could not load startup collection '%s'", startup_collection)
 

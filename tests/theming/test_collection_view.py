@@ -135,6 +135,25 @@ class CollectionViewTests(_Library):
 
                 self.assertEqual(last_game.opening_collection(api._ini_config), "")
 
+    def test_a_startup_collection_that_is_gone_opens_on_all_games(self) -> None:
+        for opens_on, state in (("Ghost", ""), (LAST_COLLECTION, "Ghost")):
+            with self.subTest(opens_on=opens_on):
+                ini = _ini()
+                ini.config.add_section("behavior")
+                ini.config.set("behavior", "startup_collection", opens_on)
+                ini.config.add_section("state")
+                ini.config.set("state", "last_collection", state)
+                library = LibraryResolver(ini, games=list(self.games))
+
+                with self.assertLogs("vpinfe.frontend.api", level="WARNING") as logged:
+                    api = API(ini, library=library)
+
+                self.assertEqual(api.current_collection, BUILTIN_ALL)
+                self.assertEqual(len(api.entries), 3)
+                self.assertEqual(len(logged.records), 1)
+                self.assertIsNone(logged.records[0].exc_info)
+                self.assertEqual(ini.config.get("state", "last_collection"), "")
+
     def test_a_curated_order_is_held_and_is_not_one_of_the_theme_sorts(self) -> None:
         """`Manual` is what the sort UI reads back, and what stops a later refresh
         sorting the curator's list alphabetically."""
