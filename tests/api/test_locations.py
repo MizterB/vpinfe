@@ -142,6 +142,31 @@ class LocationApiTests(unittest.TestCase):
         self.assertEqual([r["location_id"] for r in body["locations"] if r["write_to"]],
                          ["two"])
 
+    def test_a_chosen_folder_that_has_gone_away_is_still_the_one_named(self) -> None:
+        """`destination()` refuses rather than falling back, so the listing names the
+        folder it refuses and not the one a fallback would have picked."""
+        away = str(self.root / "never-mounted")
+        self._put("one", self._folder("share"))
+        self._put("two", away)
+        self.client.put("/locations/two/write-to")
+
+        body = self.client.get("/locations").json()
+
+        self.assertEqual(body["write_to"], "two")
+        self.assertEqual(self._put("one", self._folder("share")).json()["write_to"], False)
+        self.assertEqual(self._put("two", away).json()["write_to"], True)
+
+    def test_with_nothing_chosen_the_first_writable_folder_is_named(self) -> None:
+        self._put("gone", str(self.root / "never-mounted"))
+        self._put("one", self._folder("share"))
+
+        self.assertEqual(self.client.get("/locations").json()["write_to"], "one")
+
+    def test_a_folder_with_no_games_counts_none(self) -> None:
+        self._put("one", self._folder("share"))
+
+        self.assertEqual(self.client.get("/locations").json()["locations"][0]["games"], 0)
+
     def test_pointing_at_a_location_that_is_not_there_is_refused(self) -> None:
         self.assertEqual(self.client.put("/locations/nothing/write-to").status_code, 404)
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import Counter
 from typing import Any
 
 from common import service_errors
@@ -29,7 +30,8 @@ WHERE_SYSTEM = "system"
 
 
 def _described(location: locations.Location, write_to: str,
-               state: locations.LocationState, shadowed: int = 0) -> dict[str, Any]:
+               state: locations.LocationState, shadowed: int = 0,
+               games: int = 0) -> dict[str, Any]:
     origin = state.origin or location.origin
     return {
         "location_id": location.location_id,
@@ -48,6 +50,9 @@ def _described(location: locations.Location, write_to: str,
         # using. Nearly always zero; the case it exists for is one library reached
         # through two locations, where it is the whole count and says so.
         "shadowed": shadowed,
+        # Game folders in this location, the ones a higher location is answering for
+        # included: they are all here. Zero as well when the location cannot be read.
+        "games": games,
     }
 
 
@@ -61,6 +66,28 @@ def _shadowed() -> Any:
     return game_identity.resolve_ids(game_repository.all_games())
 
 
+def _write_to(store: locations.LocationStore) -> str:
+    """The location a new game would be created in, as `locations.destination()` uses it.
+
+    The stored choice whatever its state: an away or read-only folder stays named, and the
+    refusal that follows says why. Only where nothing is chosen, or the choice is gone, is
+    it the first writable folder of games.
+    """
+    chosen = store.chosen_write_to()
+    if chosen and store.get(chosen) is not None:
+        return chosen
+    target = store.write_to()
+    return target.location_id if target is not None else ""
+
+
+def _counted(games: Any) -> Counter[str]:
+    return Counter(str(getattr(one, "location_id", "") or "") for one in games)
+
+
+def _games_in(location_id: str) -> int:
+    return _counted(game_repository.all_games())[location_id]
+
+
 def _location_or_refuse(location_id: str) -> None:
     if locations.get_location_store().get(location_id) is None:
         raise service_errors.NotFoundError(
@@ -70,19 +97,21 @@ def _location_or_refuse(location_id: str) -> None:
 def listing() -> dict[str, Any]:
     """The locations in order, each with what the disk says about it right now.
 
-    `write_to` is named rather than left to be worked out: it falls back to the first
-    writable root when the stored choice is unreachable, and a client re-deriving that
-    is a second place for it to be wrong.
+    `write_to` is named rather than left to be worked out: a client re-deriving it is a
+    second place for it to be wrong. It is what `destination()` uses, so a chosen folder
+    that has gone away is still the one named.
     """
     store = locations.get_location_store()
     held = store.locations()
-    target = store.write_to()
-    write_to = target.location_id if target is not None else ""
-    found = _shadowed()
+    write_to = _write_to(store)
+    games = game_repository.all_games()
+    found = game_identity.resolve_ids(games)
+    held_by = _counted(games)
     states = locations.states_of(held)
     return {
         "locations": [_described(one, write_to, states[one.location_id],
-                                 len(found.under(one.location_id)))
+                                 len(found.under(one.location_id)),
+                                 held_by[one.location_id])
                       for one in held],
         "write_to": write_to,
         "kinds": list(locations.KINDS),
@@ -166,9 +195,9 @@ def put(location_id: str, path: str, kind: str = "") -> dict[str, Any]:
     except locations.FolderHeldError as held:
         raise service_errors.RefusedError(
             t("error.library_folders.duplicate", name=held.held.name)) from held
-    target = store.write_to()
-    return _described(written, target.location_id if target is not None else "",
-                      locations.state_of(written))
+    found = game_identity.resolve_ids(game_repository.all_games())
+    return _described(written, _write_to(store), locations.state_of(written),
+                      len(found.under(written.location_id)), _games_in(written.location_id))
 
 
 def use_library_folder(path: str) -> dict[str, Any]:

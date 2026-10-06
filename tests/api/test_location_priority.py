@@ -71,6 +71,17 @@ class ReportTests(_Priority):
         self.assertEqual(rows["loc1"]["shadowed"], 0)
         self.assertEqual(rows["loc2"]["shadowed"], 1)
 
+    def test_each_folder_counts_the_games_in_it_the_shadowed_one_too(self) -> None:
+        rows = self._rows()
+
+        self.assertEqual(rows["loc1"]["games"], 1)
+        self.assertEqual(rows["loc2"]["games"], 1)
+
+    def test_a_folder_changed_in_place_answers_with_its_own_counts(self) -> None:
+        put = self.client.put("/locations/loc2", json={"path": str(self.there)}).json()
+
+        self.assertEqual((put["games"], put["shadowed"]), (1, 1))
+
     def test_the_list_says_both_sides(self) -> None:
         """The question somebody brings here is which copy they meant to keep, and that
         cannot be answered by naming only one of them."""

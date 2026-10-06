@@ -271,7 +271,7 @@ the documented entry point is a plain 200. Both spellings work.
 | POST | `/api/v1/config/tools/{id}/get` | Get a Tool VPinFE can get itself, as a `202` job; the request is the consent. The build pinned for this device is downloaded into this install's own folder, kept only where its size and SHA-256 are the pin's, and run once, after which discovery finds it. `404` for a Tool VPinFE cannot get, `501` on a device it has no build for, `409` while one is being got. `config:write` |
 | GET | `/api/v1/preferences/{scope}` | A stored UI arrangement |
 | PUT | `/api/v1/preferences/{scope}` | Store one. The body is the whole value |
-| GET | `/api/v1/locations` | Every location this install looks in, in order, each with what the disk says about it now |
+| GET | `/api/v1/locations` | Every location this install looks in, in order, each with what the disk says about it now and how many game folders it holds (`games`). `write_to` is the one a new game goes to, even while it is away |
 | GET | `/api/v1/locations/destination` | Where a new game would be created, or why it could not, and where else it could go |
 | PUT | `/api/v1/locations/order` | Set which location outranks which, `{"order": [...]}` |
 | PUT | `/api/v1/locations/{id}` | Add or replace one, whole, `{"path", "kind"}` |
