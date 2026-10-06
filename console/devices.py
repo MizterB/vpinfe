@@ -14,7 +14,7 @@ from common import device_client, device_registry, install_identity, lifecycle
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
-from console import game_tables, list_art, mobile_add, offload, renderers, send_to_device, verbs
+from console import game_tables, mobile_add, offload, renderers, send_to_device, thumbnails, verbs
 from console.on_page import on_page
 
 from . import browser_state, confirm, grid, panel, views, when
@@ -1083,7 +1083,7 @@ def _send_picker(context: dict[str, Any], device: dict[str, Any],
             .props("dense outlined options-dense input-debounce=0 hide-selected "
                    "fill-input clearable") \
             .classes("w-full")
-        (library.list_art_look() or list_art.Look()).in_panel() \
+        (library.thumbnail_look() or thumbnails.Look()).in_panel() \
             .apply_to_options(picker, "console-picker-popup")
 
         @on_page

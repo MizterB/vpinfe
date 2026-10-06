@@ -19,7 +19,7 @@ from nicegui import run, ui
 
 from common import i18n
 from common.i18n import t
-from console import list_art, offload, renderers
+from console import offload, renderers, thumbnails
 from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.grid")
@@ -602,7 +602,7 @@ TWO_LINE_CLASS = "console-cell-two-line"
 FILE_CLASS = "console-file-name"
 FILE_LINE_CLASS = "console-cell-said-file"
 PICTURED_CLASS = "console-cell-art-lead"
-LIST_ART_CLASS = "console-cell-art-list"
+THUMBNAIL_CLASS = "console-cell-art-list"
 ONE_LINE_ROW_PX = 42
 TWO_LINE_ROW_PX = 56
 PICTURED_ROW_PX = 88
@@ -642,7 +642,7 @@ _SUBTITLE_RENDERER = (
 
 def identifier(field: str, header: str, width: int = 0, help: str = "",
                subtitle: str | tuple[str, str, str] = "", link: str = "",
-               picture: str = "", glyph: str = "", frame: str = list_art.LIST,
+               picture: str = "", glyph: str = "", frame: str = thumbnails.LIST,
                built_tip: str = "", **extra: Any) -> dict[str, Any]:
     """The column this grid's rows are scanned *by*, which is not their unique key.
 
@@ -666,7 +666,7 @@ def identifier(field: str, header: str, width: int = 0, help: str = "",
         made, _, built = (subtitle if isinstance(subtitle, tuple)
                           else (subtitle, "", ""))
         classes = f"{classes} {TWO_LINE_CLASS}" + (
-            f" {PICTURED_CLASS}" if picture and frame == list_art.PREVIEW else "")
+            f" {PICTURED_CLASS}" if picture and frame == thumbnails.PREVIEW else "")
         extra.setdefault(":cellRenderer", _SUBTITLE_RENDERER
                          .replace("{picture}", f"(d['{picture}'] ?? null)" if picture else "null")
                          .replace("{link}", link or "_")
@@ -675,7 +675,7 @@ def identifier(field: str, header: str, width: int = 0, help: str = "",
                          .replace("{built}", f"d['{built}'] || ''" if built else "''")
                          .replace("{file}", f"!!d['{built}_file']" if built else "false")
                          .replace("{cls}", SUBTITLE_CLASS)
-                         .replace("{frame}", list_art.frame_js(glyph, frame)
+                         .replace("{frame}", thumbnails.frame_js(glyph, frame)
                                   if picture else "lines"))
     return column(field, header, width, help, cellClass=classes, **extra)
 
@@ -684,8 +684,8 @@ def identifier(field: str, header: str, width: int = 0, help: str = "",
 # Carried on the definition so the list that declares the columns also declares their
 # order and their grouping, and stripped before the defs reach the grid.
 GROUP_KEY = "group"
-# Ours too: the `list_art.Look` an identifier's art is drawn in.
-ART_KEY = "list_art"
+# Ours too: the `thumbnails.Look` an identifier's art is drawn in.
+ART_KEY = "thumbnail"
 
 
 def for_grid(columns: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -819,7 +819,7 @@ def selection_said(table: Any, picked: int, plain: str) -> str:
     return t("console.grid.selected_hidden", count=picked, hidden=hidden) if hidden else plain
 
 
-def _art_look(columns: list[dict[str, Any]]) -> list_art.Look | None:
+def _art_look(columns: list[dict[str, Any]]) -> thumbnails.Look | None:
     return next((definition[ART_KEY] for definition in columns if ART_KEY in definition),
                 None)
 
@@ -835,13 +835,13 @@ def base_row_px(columns: list[dict[str, Any]]) -> int:
 
 
 def with_art(columns: list[dict[str, Any]],
-             look: list_art.Look | None) -> list[dict[str, Any]]:
+             look: thumbnails.Look | None) -> list[dict[str, Any]]:
     """`columns`, with the identifier declared wide enough for the art beside the name,
     and its rows tall enough for the frame, while the list draws it in `look`."""
     if look is None:
         return columns
     return [definition | {"width": definition["width"] + look.room_px,
-                          "cellClass": f"{definition['cellClass']} {LIST_ART_CLASS}",
+                          "cellClass": f"{definition['cellClass']} {THUMBNAIL_CLASS}",
                           ART_KEY: look}
             if IDENTIFIER_CLASS in str(definition.get("cellClass") or "") else definition
             for definition in columns]

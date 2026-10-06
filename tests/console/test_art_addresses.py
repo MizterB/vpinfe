@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from console import art, list_art
+from console import art, thumbnails
 from console.data import _thumb
 
 
@@ -47,11 +47,11 @@ class DrawnArtTests(unittest.TestCase):
 
     def test_a_collection_s_picture_draws_the_small_copy(self) -> None:
         self.assertEqual(
-            list_art.collection({"name": "Bally", "image": "b.png", "image_version": "abc"}),
+            thumbnails.collection({"name": "Bally", "image": "b.png", "image_version": "abc"}),
             "/api/v1/collections/Bally/image?size=256&v=abc")
 
     def test_a_collection_with_no_picture_asks_for_none(self) -> None:
-        self.assertEqual(list_art.collection({"name": "Bally", "image_version": "abc"}), "")
+        self.assertEqual(thumbnails.collection({"name": "Bally", "image_version": "abc"}), "")
 
 
 if __name__ == "__main__":

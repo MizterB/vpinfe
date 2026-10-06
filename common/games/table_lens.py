@@ -182,16 +182,16 @@ def update_available(version: str, source: dict | None) -> bool | None:
     return newer_version(listed, held) if listed and held else None
 
 
-LIST_ART_KINDS = ("wheel", "backglass", "playfield", "logo")
+THUMBNAIL_KINDS = ("wheel", "backglass", "playfield", "logo")
 
 
 def art_or_refuse(art: str) -> str:
     """One of the kinds a list shows, "" for none, or a refusal naming them."""
     art = (art or "").strip()
-    if art and art not in LIST_ART_KINDS:
+    if art and art not in THUMBNAIL_KINDS:
         raise service_errors.RefusedError(
             t("error.games.not_list_media"),
-            details={"unknown": art, "known": list(LIST_ART_KINDS)})
+            details={"unknown": art, "known": list(THUMBNAIL_KINDS)})
     return art
 
 

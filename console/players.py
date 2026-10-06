@@ -27,11 +27,11 @@ from console import (
     deeplink,
     game_tables,
     grid,
-    list_art,
     mediasource,
     mediaview,
     offload,
     panel,
+    thumbnails,
     undo,
     verbs,
     views,
@@ -80,7 +80,7 @@ _NAME = (
     " title=\"' + upTip + '\">' + up + '</span>';"
     " if (d.session) lines += ' <span class=\"console-cell-quiet\">' + esc(d.session)"
     " + '</span>';"
-    f" return {list_art.circle_js(PERSON)}; }}"
+    f" return {thumbnails.circle_js(PERSON)}; }}"
 )
 
 _INITIALS = (
@@ -219,7 +219,7 @@ async def _fill(library: Library, state: dict[str, Any],
 
     built = rows(roster, played)
     guests = [one for one in roster if one.get("guest")]
-    columns = grid.with_art(COLUMNS, list_art.person_look())
+    columns = grid.with_art(COLUMNS, thumbnails.person_look())
     fields = [definition["field"] for definition in columns]
 
     with body:
@@ -1122,10 +1122,10 @@ async def plays(context: dict[str, Any]) -> None:
                                      hint=why(exc))])
         return
     shown = [one for one in record if played_line(one)]
-    if library.list_art():
+    if library.thumbnail():
         await offload.io(library.load_tables)
     art = library.game_art()
-    look = library.list_art_look()
+    look = library.thumbnail_look()
     games = {str(one.get("id") or ""): one for one in library.games}
     with ui.column().classes("gap-0 console-form w-full min-w-0"):
         if not shown:
@@ -1135,8 +1135,8 @@ async def plays(context: dict[str, Any]) -> None:
             game = games.get(game_id)
             to = "/console?" + deeplink.query({"view": "games", "game": game_id})
             with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"), \
-                    list_art.beside(None if art is None else art.get(game_id, ""),
-                                    icons.GAMES, to=to, look=look), \
+                    thumbnails.beside(None if art is None else art.get(game_id, ""),
+                                      icons.GAMES, to=to, look=look), \
                     ui.column().classes("gap-0 grow min-w-0"):
                 if game is None:
                     ui.label(t("console.players.game_gone")).classes("console-help")

@@ -20,7 +20,7 @@ from nicegui import ui
 
 from common import icons
 from common.i18n import t
-from console import dropdown, game_tables, list_art, offload, tag_chips, verbs
+from console import dropdown, game_tables, offload, tag_chips, thumbnails, verbs
 from console.on_page import on_page
 
 # Rows that are not a fact. A group's title and an action strip span both columns, so
@@ -652,7 +652,7 @@ class MarkedSelect(dropdown.Select):
 
 class GamePicker(dropdown.Select):
     """One game from the library, typed into, each option with its maker and year. A
-    game in `held` is ticked and cannot be picked. `art` is each game's list art, or None
+    game in `held` is ticked and cannot be picked. `art` is each game's thumbnail, or None
     while the lists draw none."""
 
     LINES = """
@@ -662,7 +662,7 @@ class GamePicker(dropdown.Select):
     SLOT = f"""
         <q-item v-bind="props.itemProps">
           <q-item-section>
-            {list_art.option_html(LINES, icons.GAMES)}
+            {thumbnails.option_html(LINES, icons.GAMES)}
           </q-item-section>
           <q-item-section side class="console-pick-held">
             <q-icon v-if="props.opt.held" name="check" class="console-tick" />
@@ -688,7 +688,7 @@ class GamePicker(dropdown.Select):
             option["made"] = self.made.get(game, "")
             option["held"] = option["disable"] = game in self.held
             if self.art is not None:
-                option[list_art.FIELD] = self.art.get(game, "")
+                option[thumbnails.FIELD] = self.art.get(game, "")
 
 
 class SettingPicker(dropdown.Select):

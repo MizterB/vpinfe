@@ -27,13 +27,13 @@ from console import (
     busy,
     confirm,
     grid,
-    list_art,
     mediaview,
     offload,
     panel,
     renderers,
     settings,
     theme_sources,
+    thumbnails,
     verbs,
     views,
     when,
@@ -65,7 +65,7 @@ GLYPH = "palette"
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("name", t("console.themes.theme"), 320, subtitle="said",
                     help=t("console.themes.theme.help"),
-                    picture="preview", glyph=GLYPH, frame=list_art.PREVIEW),
+                    picture="preview", glyph=GLYPH, frame=thumbnails.PREVIEW),
     grid.column("status", t("word.status"), 150, help=t("console.themes.status.help"),
                 **grid.choice_filter([{"value": key, "label": one["label"]}
                                       for key, one in STATES.items()], formatted=True),

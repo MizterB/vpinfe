@@ -23,11 +23,11 @@ from common.media_specs import media_label_map
 from console import (
     game_tables,
     grid,
-    list_art,
     media_fill,
     media_ownership,
     offload,
     panel,
+    thumbnails,
     verbs,
     views,
 )
@@ -102,7 +102,7 @@ _SOURCE = "word.source"
 
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("game", t("word.name"), 240, pinned="left", group=t(_FILE),
-                subtitle=("said", "", "said_built"), picture=list_art.FIELD,
+                subtitle=("said", "", "said_built"), picture=thumbnails.FIELD,
                 glyph=icons.GAMES, built_tip=t("console.media_ownership.named_for"),
                 help=t("console.media.name.help")),
     grid.column("scope", t("console.media.scope"), 100, group=t(_FILE),
@@ -204,7 +204,7 @@ def build(found: list[dict[str, Any]], library: Any,
     """The media lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
     built = rows(found)
-    columns = grid.with_art(COLUMNS, library.list_art_look())
+    columns = grid.with_art(COLUMNS, library.thumbnail_look())
     selected: list[dict[str, Any]] = []
 
     # What is on screen, which on this page is rarely the whole library: the point of

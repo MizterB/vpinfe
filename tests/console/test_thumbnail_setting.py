@@ -84,7 +84,7 @@ class OfferedTests(unittest.TestCase):
     def _offered(self, value: str, hidden: set[str] | None,
                  writable: bool = True) -> Mock:
         suggestions = ({} if hidden is None
-                       else {config_schema.EDITOR_LIST_ART: hidden})
+                       else {config_schema.EDITOR_THUMBNAIL: hidden})
         self.save = AsyncMock(return_value=True)
         with patch.object(panel, "select") as select:
             settings.control_for(_option(), value, self.save, writable=writable,
@@ -171,7 +171,7 @@ class ReadForThePageTests(unittest.IsolatedAsyncioTestCase):
                 offered = await settings._suggestions(library, _blocks(), CONSOLE)
 
                 self.assertEqual({"playfield", "logo"},
-                                 offered[config_schema.EDITOR_LIST_ART])
+                                 offered[config_schema.EDITOR_THUMBNAIL])
 
     async def test_the_select_on_the_page_leaves_out_a_kind_switched_off(self) -> None:
         library = Mock()
@@ -195,7 +195,7 @@ class ReadForThePageTests(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs("vpinfe.console.settings", "WARNING"):
             offered = await settings._suggestions(library, _blocks(), CONSOLE)
 
-        self.assertNotIn(config_schema.EDITOR_LIST_ART, offered)
+        self.assertNotIn(config_schema.EDITOR_THUMBNAIL, offered)
 
     async def test_a_page_without_the_setting_does_not_ask(self) -> None:
         library = Mock()

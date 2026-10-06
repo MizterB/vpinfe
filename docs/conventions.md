@@ -1412,12 +1412,12 @@ element.
   Automatic making a wheel square and the rest wide; 40, 48 or 72px tall in grid rows of
   56, 64 or 88px; on a ground dark in every palette, or bare. A panel's list and the game
   picker take the shape and ground at 40px. An ancestor of the frame carries it
-  (`list_art.Look`), so one drawn frame takes every look. The name column is declared
+  (`thumbnails.Look`), so one drawn frame takes every look. The name column is declared
   wider by the frame and its gap (`grid.with_art`). Where the grid is too
   narrow for that, the name gives the room back until its edge and resize handle show,
   never below its width without art; a width somebody dragged stays theirs, and a fitted
-  one is never saved. `console/list_art.py` draws the frame, and
-  `tests/invariants/test_list_art_is_drawn_once.py` fails on one drawn anywhere else. It
+  one is never saved. `console/thumbnails.py` draws the frame, and
+  `tests/invariants/test_thumbnails_are_drawn_once.py` fails on one drawn anywhere else. It
   is not a control: no tooltip, no zoom, `alt=""`.
 - **Art in a list is still.** An animated file shows its first frame at list size.
 - **A missing picture is the thing's own glyph, never a broken image.** A game's, a

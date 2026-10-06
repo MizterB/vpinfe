@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from console import grid, list_art, theme
+from console import grid, theme, thumbnails
 
 
 def _columns(marked: int) -> list[dict]:
@@ -40,12 +40,12 @@ class APictureLeadsTheCell(unittest.TestCase):
 
     def test_the_drawing_reads_the_field_it_was_given(self):
         definition = grid.identifier("name", "Theme", subtitle="said", picture="preview",
-                                     frame=list_art.PREVIEW)
+                                     frame=thumbnails.PREVIEW)
         self.assertIn(grid.PICTURED_CLASS, definition["cellClass"])
         self.assertIn("d['preview']", definition[":cellRenderer"])
 
     def test_the_list_frame_keeps_the_two_line_row(self):
-        listed = [grid.identifier("name", "Game", subtitle="said", picture=list_art.FIELD)]
+        listed = [grid.identifier("name", "Game", subtitle="said", picture=thumbnails.FIELD)]
         self.assertEqual(grid.base_row_px(listed), grid.TWO_LINE_ROW_PX)
 
     def test_without_one_nothing_is_drawn_ahead(self):
@@ -55,7 +55,7 @@ class APictureLeadsTheCell(unittest.TestCase):
 
     def test_the_row_is_as_tall_as_the_stylesheet_says(self):
         pictured = [grid.identifier("name", "Theme", subtitle="said", picture="preview",
-                                    frame=list_art.PREVIEW)]
+                                    frame=thumbnails.PREVIEW)]
         self.assertEqual(grid.base_row_px(pictured), grid.PICTURED_ROW_PX)
         self.assertIn(f".console-grid-pictured {{ --ag-row-height: {grid.PICTURED_ROW_PX}px; }}",
                       theme.base_css())

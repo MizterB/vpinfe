@@ -66,7 +66,6 @@ from console import (
     game_acts,
     game_tables,
     grid,
-    list_art,
     media_fill,
     media_ownership,
     mediamap,
@@ -82,6 +81,7 @@ from console import (
     table_features,
     tag_chips,
     tageditor,
+    thumbnails,
     undo,
     verbs,
     vps_match,
@@ -610,18 +610,18 @@ async def _tag_games(context: dict[str, Any]) -> None:
     carrying = [one for one in library.games if name in _carried(one)]
     wants_tables = context["tag"].get("tables")
     listing = (await offload.io(library.load_tables)
-               if wants_tables or library.list_art() else [])
+               if wants_tables or library.thumbnail() else [])
     tables = [one for one in listing if name in _carried(one)] if wants_tables else []
     shown = library.game_art()
-    look = library.list_art_look()
+    look = library.thumbnail_look()
     with ui.column().classes("gap-0 console-form w-full min-w-0"):
         if not carrying and not tables:
             ui.label(t("console.tags.on_no_games")).classes("console-help px-3")
         for game in sorted(carrying, key=lambda one: str(one.get("name") or "").lower()):
             to = "/console?" + deeplink.query({"view": "games", "game": game["id"]})
             with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"), \
-                    list_art.beside(None if shown is None else shown.get(game["id"], ""),
-                                    icons.GAMES, to=to, look=look), \
+                    thumbnails.beside(None if shown is None else shown.get(game["id"], ""),
+                                      icons.GAMES, to=to, look=look), \
                     ui.column().classes("gap-0 grow min-w-0"):
                 panel.link(str(game.get("name") or ""), to=to)()
                 _said_line(game_tables.made(game))
@@ -632,8 +632,8 @@ async def _tag_games(context: dict[str, Any]) -> None:
                                                "game": str(table.get("game_id") or ""),
                                                "table": str(table.get("id") or "")})
             with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"), \
-                    list_art.beside(None if shown is None else list_art.address(table),
-                                    icons.TABLES, to=to, look=look), \
+                    thumbnails.beside(None if shown is None else thumbnails.address(table),
+                                      icons.TABLES, to=to, look=look), \
                     ui.column().classes("gap-0 grow min-w-0"):
                 panel.link(str(table.get("game") or table.get("name") or ""), to=to)()
                 _said_line(game_tables.made(table), table)
@@ -1495,7 +1495,7 @@ async def _draw_collection(container: ui.column, title: ui.column, library: Libr
         run.io_bound(library.collection_members, name),
         run.io_bound(library.filter_axes),
         run.io_bound(library.config_values),
-        run.io_bound(library.load_list_art))
+        run.io_bound(library.load_thumbnails))
     membership = library.with_entry_art(membership)
     known = collection_rules.fields(axes or [])
     # The rules being edited, which are not always the rules that are stored. Held on
@@ -6887,7 +6887,7 @@ def _games_list(context: dict[str, Any], row: dict[str, Any],
     # of it, and an order has to be the whole membership.
     arrange = live and not _is_dynamic(row) and not find and len(kept) > 1
     smart = _is_dynamic(row) if live else _rules_drafted(context)
-    art_look = context["library"].list_art_look()
+    art_look = context["library"].thumbnail_look()
     with ui.column().classes("gap-0 w-full console-member-list") \
             .props('data-arrange="hub_member_moved"') as listed:
         listed._props[row_drag.LIST] = True
@@ -6984,7 +6984,7 @@ def _locked_to(member: dict[str, Any]) -> str:
 
 def _member_line(context: dict[str, Any], member: dict[str, Any], *,
                  arrange: bool = False, live: bool = True, smart: bool = False,
-                 look: list_art.Look | None = None) -> None:
+                 look: thumbnails.Look | None = None) -> None:
     origin = member.get("origin") or ""
     tables = member.get("tables") or []
     table = tables[0] if tables else {}
@@ -7005,7 +7005,7 @@ def _member_line(context: dict[str, Any], member: dict[str, Any], *,
             ui.icon("drag_indicator").classes("console-drag-handle") \
                 .props('tabindex=0 role=button') \
                 .tooltip(t("console.workbench.drag_hint"))
-        with list_art.beside(member.get(list_art.FIELD), icons.GAMES, look=look), \
+        with thumbnails.beside(member.get(thumbnails.FIELD), icons.GAMES, look=look), \
                 ui.column().classes("gap-0 grow min-w-0"):
             with ui.row().classes("items-center gap-2 w-full no-wrap"):
                 ui.label(member.get("name") or member.get("game") or "") \
@@ -7293,7 +7293,7 @@ def _add_control(context: dict[str, Any], members: list[dict]) -> None:
                               art=context["library"].game_art()) \
         .props('input-debounce=0 hide-selected fill-input clearable') \
         .classes("w-full mt-2")
-    (context["library"].list_art_look() or list_art.Look()).in_panel() \
+    (context["library"].thumbnail_look() or thumbnails.Look()).in_panel() \
         .apply_to_options(picker, "console-picker-popup")
 
     async def add() -> None:

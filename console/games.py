@@ -30,7 +30,6 @@ from console import (
     game_acts,
     game_tables,
     grid,
-    list_art,
     media_fill,
     media_ownership,
     mediaview,
@@ -43,6 +42,7 @@ from console import (
     stars,
     table_features,
     tag_chips,
+    thumbnails,
     undo,
     verbs,
     views,
@@ -133,7 +133,7 @@ _TICK = {
 # to go and look at it.
 COLUMNS = [
     grid.identifier("name", t(_GAME), 280, pinned="left", group=t(_GAME),
-                subtitle="said", picture=list_art.FIELD, glyph=icons.GAMES,
+                subtitle="said", picture=thumbnails.FIELD, glyph=icons.GAMES,
                 help=t("console.games.game.help"),
                 **row_drag.source(row_drag.GAMES)),
     # Always, including 1: it is the only thing saying the row collapses its tables,
@@ -441,7 +441,7 @@ def grid_columns(rows: list[dict[str, Any]], kinds: list[str],
                  library: Any) -> list[dict[str, Any]]:
     """Every column the Games grid declares: a media column for every kind the library
     collects, whether or not any game has one yet. `kinds` are the ones some game has."""
-    return grid.with_art(with_derived_facets(COLUMNS, rows), library.list_art_look()) \
+    return grid.with_art(with_derived_facets(COLUMNS, rows), library.thumbnail_look()) \
         + asset_columns(library.asset_keys()) \
         + media_columns(sorted(library.kept_kinds()["media"]),
                         shown=_collected(kinds, library))
@@ -936,7 +936,7 @@ TABLE_COLUMN_SECTIONS = {"settings": "table_settings", OWN_SETTINGS_COLUMN: "tab
 TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
-                picture=list_art.FIELD, glyph=icons.TABLES,
+                picture=thumbnails.FIELD, glyph=icons.TABLES,
                 help=t("console.games.table_game.help"),
                 **row_drag.source(row_drag.TABLES)),
     grid.column("version", t("word.version"), group=t(_TABLE),
@@ -1141,7 +1141,7 @@ def add_index(built: list[dict[str, Any]], game_id: str,
 
 
 def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, Any]]:
-    """The API's tables, flattened for a grid, each with its list art while `art`.
+    """The API's tables, flattened for a grid, each with its thumbnail while `art`.
 
     `missing` rather than the API's `available`, so all three flags read the same way:
     true is the notable state and the tick means "this row is one of those". Sorting or
@@ -1187,7 +1187,7 @@ def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, 
              **{f"feature_{key}": (row.get("features") or {}).get(key)
                 for key in table_features.LABELS},
              "default_state": _default_cell(row, held[str(row.get("game_id") or "")]),
-             **({list_art.FIELD: list_art.address(row)} if art else {})}
+             **({thumbnails.FIELD: thumbnails.address(row)} if art else {})}
             for row in rows]
 
 
@@ -1266,7 +1266,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     state = state if state is not None else {}
     tag_chips.install(library.tag_looks())
     renderers.install_setting_names(own_setting_names(library.setting_groups()))
-    look = library.list_art_look()
+    look = library.thumbnail_look()
     built = table_rows(rows, look is not None)
     # Taken once, as the Games grid takes its own.
     arriving = setting_their_own(rows, str(state.pop("launcher", None) or ""),

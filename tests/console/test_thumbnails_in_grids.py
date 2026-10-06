@@ -133,12 +133,12 @@ class _Drawn(TempTree):
             .raise_for_status()
         self.addCleanup(self.http.delete, f"/collections/{PICTURED}/image")
 
-    def _list_art(self, value: str, key: str = "thumbnail") -> None:
-        self._write_list_art(value, key)
-        self.addCleanup(self._write_list_art, "", key)
+    def _thumbnail(self, value: str, key: str = "thumbnail") -> None:
+        self._write_thumbnail(value, key)
+        self.addCleanup(self._write_thumbnail, "", key)
 
     @staticmethod
-    def _write_list_art(value: str, key: str = "thumbnail") -> None:
+    def _write_thumbnail(value: str, key: str = "thumbnail") -> None:
         store = get_ini_config()
         store.set_value("console", key, value)
         store.save()
@@ -224,7 +224,7 @@ class ArtBesideTheName(_Drawn):
 
     def test_the_name_column_grows_by_the_frame_and_its_gap(self) -> None:
         on = {view: self._name_column(self._drawn(view))["width"] for view in GRIDS}
-        self._list_art("none")
+        self._thumbnail("none")
         off = {view: self._name_column(self._drawn(view))["width"] for view in GRIDS}
 
         self.assertEqual({view: on[view] - off[view] for view in GRIDS},
@@ -233,7 +233,7 @@ class ArtBesideTheName(_Drawn):
     def test_each_grid_gives_that_room_back_where_it_has_none_down_to_the_name_alone(
             self) -> None:
         on = {view: self._drawn(view).options["context"].get("fit") for view in GRIDS}
-        self._list_art("none")
+        self._thumbnail("none")
         drawn = {view: self._drawn(view) for view in GRIDS}
 
         self.assertEqual(on, {view: {"col": self._name_column(table)["field"],
@@ -283,7 +283,7 @@ class ArtBesideTheName(_Drawn):
                 self.assertIn(glyph, self._name_column(table)[":cellRenderer"])
 
     def test_none_draws_no_frame(self) -> None:
-        self._list_art("none")
+        self._thumbnail("none")
         for view in GRIDS:
             with self.subTest(grid=view):
                 rows = self._drawn(view).options["rowData"]
@@ -301,7 +301,7 @@ class ArtBesideTheName(_Drawn):
 
 class ACollectionCarriesItsOwnPicture(_Drawn):
     def test_whatever_kind_is_chosen(self) -> None:
-        self._list_art("backglass")
+        self._thumbnail("backglass")
 
         rows = self._rows(self._drawn("collections"))
 
@@ -314,7 +314,7 @@ class ACollectionCarriesItsOwnPicture(_Drawn):
         self.assertIn("collections_bookmark", self._name_column(table)[":cellRenderer"])
 
     def test_its_rows_go_back_to_42px_with_art_off(self) -> None:
-        self._list_art("none")
+        self._thumbnail("none")
 
         table = self._drawn("collections")
 
@@ -331,16 +331,16 @@ class TheArtworkSettingsDrawEveryGrid(_Drawn):
 
     def test_automatic_draws_a_wheel_square_and_the_other_kinds_wide(self) -> None:
         square = {view: self._room(self._drawn(view)) for view in GRIDS}
-        self._list_art("backglass")
+        self._thumbnail("backglass")
         wide = {view: self._room(self._drawn(view)) for view in GRIDS}
 
         self.assertEqual((square, wide), (dict.fromkeys(GRIDS, 52), dict.fromkeys(GRIDS, 92)))
 
     def test_square_or_wide_holds_whatever_the_kind(self) -> None:
-        self._list_art("wide", "thumbnail_shape")
+        self._thumbnail("wide", "thumbnail_shape")
         wide_wheel = self._room(self._drawn("games"))
-        self._list_art("square", "thumbnail_shape")
-        self._list_art("backglass")
+        self._thumbnail("square", "thumbnail_shape")
+        self._thumbnail("backglass")
         square_backglass = self._room(self._drawn("games"))
 
         self.assertEqual((wide_wheel, square_backglass), (92, 52))
@@ -348,7 +348,7 @@ class TheArtworkSettingsDrawEveryGrid(_Drawn):
     def test_each_height_sets_the_rows_their_class_and_the_room(self) -> None:
         drawn = {}
         for height in ("medium", "large"):
-            self._list_art(height, "thumbnail_height")
+            self._thumbnail(height, "thumbnail_height")
             drawn[height] = {view: self._drawn(view) for view in GRIDS}
 
         for height, rows, row_class, room in (("medium", 64, "console-grid-medium-art", 60),
@@ -361,9 +361,9 @@ class TheArtworkSettingsDrawEveryGrid(_Drawn):
 
     def test_the_grid_carries_the_look_its_frames_are_sized_from(self) -> None:
         square = self._drawn("games")
-        self._list_art("large", "thumbnail_height")
-        self._list_art("false", "thumbnail_frame")
-        self._list_art("wide", "thumbnail_shape")
+        self._thumbnail("large", "thumbnail_height")
+        self._thumbnail("false", "thumbnail_frame")
+        self._thumbnail("wide", "thumbnail_shape")
         bare = self._drawn("games")
 
         self.assertEqual((square._style.get("--art-h"), bare._style.get("--art-h")),
@@ -383,7 +383,7 @@ class TheArtIsReadBeforeTheDraw(_Drawn):
 
     def test_a_kind_chosen_since_is_read_before_the_next_draw(self) -> None:
         library = self._library("games")
-        self._list_art("backglass")
+        self._thumbnail("backglass")
 
         self._read_before_drawing("games", library)
 

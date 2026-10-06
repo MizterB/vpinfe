@@ -24,7 +24,7 @@ GAMES = [{"id": "g1", "name": "Alpha"}, {"id": "g2", "name": "Beta"}]
 def _context(games: list[dict[str, Any]]) -> dict[str, Any]:
     library = Mock(games=games)
     library.game_art.return_value = None
-    library.list_art_look.return_value = None
+    library.thumbnail_look.return_value = None
     return {"device": DEVICE, "local_device_id": "Aaaa111111", "library": library,
             "reach": {"state": device_client.ANSWERING}, "rebuild": AsyncMock(),
             "state": {"watch_jobs": Mock()}}
@@ -86,7 +86,7 @@ class SendingFromHere(unittest.IsolatedAsyncioTestCase):
         picker.classes.return_value = picker
         draw = devices._send_picker(context, DEVICE, GAMES, {"g1"})
         with patch.object(devices.panel, "GamePicker", return_value=picker), \
-                patch.object(devices, "list_art", MagicMock()), \
+                patch.object(devices, "thumbnails", MagicMock()), \
                 patch.object(devices, "on_page", lambda handler: handler), \
                 patch.object(devices.send_to_device, "send", send), \
                 patch.object(devices.confirm, "ask",
@@ -113,7 +113,7 @@ class SendingFromHere(unittest.IsolatedAsyncioTestCase):
         built.props.return_value = built
         built.classes.return_value = built
         with patch.object(devices.panel, "GamePicker", return_value=built) as made, \
-                patch.object(devices, "list_art", MagicMock()):
+                patch.object(devices, "thumbnails", MagicMock()):
             devices._send_picker(context, DEVICE, GAMES, {"g1"})()
 
         self.assertEqual(made.call_args.args[:2], (GAMES, {"g1"}))

@@ -3429,9 +3429,9 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 }
 .console-section-row { grid-column: 1; }
 /* The picture ahead of a name, whole, in one box every row shares so the names line
-   up; `console/list_art.py` draws it. A row chosen by looking at it takes 128 x 72 and
+   up; `console/thumbnails.py` draws it. A row chosen by looking at it takes 128 x 72 and
    `grid.PICTURED_ROW_PX`. A list's box is sized by an ancestor carrying a
-   `list_art.Look`: its height as `--art-h`, twice as wide unless the ancestor makes it
+   `thumbnails.Look`: its height as `--art-h`, twice as wide unless the ancestor makes it
    square, on a ground dark in every palette unless it is bare. With no picture the box
    holds the row's glyph on a quieter ground, and the glyph is hidden while there is a
    picture. */

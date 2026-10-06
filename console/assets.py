@@ -21,7 +21,7 @@ from nicegui import ui
 
 from common import icons
 from common.i18n import t
-from console import game_tables, grid, list_art, media_ownership, offload, panel, views
+from console import game_tables, grid, media_ownership, offload, panel, thumbnails, views
 from console.games import view_control
 
 logger = logging.getLogger("vpinfe.console.assets")
@@ -80,7 +80,7 @@ _SOURCE = "word.source"
 
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("game", t("word.name"), 240, pinned="left", group=t(_FILE),
-                subtitle=("said", "", "said_built"), picture=list_art.FIELD,
+                subtitle=("said", "", "said_built"), picture=thumbnails.FIELD,
                 glyph=icons.GAMES, built_tip=t("console.media_ownership.named_for"),
                 help=t("console.assets.name.help")),
     grid.column("scope", t("console.assets.scope"), 100, group=t(_FILE),
@@ -148,7 +148,7 @@ def build(found: list[dict[str, Any]], library: Any,
     """The asset lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
     built = rows(found)
-    columns = grid.with_art(COLUMNS, library.list_art_look())
+    columns = grid.with_art(COLUMNS, library.thumbnail_look())
     gaps = sum(1 for row in built if not row.get("present"))
     on_screen = {"rows": len(built)}
 

@@ -157,11 +157,11 @@ def _frontend_theme(option: dict, value: Any, save: Callable[[Any], Any],
     return draw
 
 
-def _list_art(option: dict, value: Any, save: Callable[[Any], Any], *,
-              writable: bool = True, suggestions: dict[str, Any] | None = None,
-              **_: Any) -> Callable[[], None]:
+def _thumbnail(option: dict, value: Any, save: Callable[[Any], Any], *,
+               writable: bool = True, suggestions: dict[str, Any] | None = None,
+               **_: Any) -> Callable[[], None]:
     """The kinds the library keeps, and the one already chosen."""
-    hidden = (suggestions or {}).get(config_schema.EDITOR_LIST_ART) or set()
+    hidden = (suggestions or {}).get(config_schema.EDITOR_THUMBNAIL) or set()
     value = value_for(option, value)
     named = option.get("choice_labels") or {}
     offered = {choice: named.get(choice, choice) for choice in option.get("choices") or ()
@@ -173,7 +173,7 @@ def _list_art(option: dict, value: Any, save: Callable[[Any], Any], *,
 EDITORS: dict[str, Callable[..., Callable[[], None]]] = {
     config_schema.EDITOR_CONSOLE_THEME: theme_picker.tiles,
     config_schema.EDITOR_FRONTEND_THEME: _frontend_theme,
-    config_schema.EDITOR_LIST_ART: _list_art,
+    config_schema.EDITOR_THUMBNAIL: _thumbnail,
     config_schema.EDITOR_CAPTURE_COMMAND: recording.command_editor,
     config_schema.EDITOR_CHROME_LEAVE_OUT: chrome_options.leave_out,
 }
@@ -1751,13 +1751,13 @@ async def _suggestions(library: Library, schema: list[dict],
         except Exception as exc:  # noqa: BLE001 - the page says it could not read it
             offered[config_schema.EDITOR_CAPTURE_COMMAND] = {"error": why(exc)}
 
-    if config_schema.EDITOR_LIST_ART in editors:
+    if config_schema.EDITOR_THUMBNAIL in editors:
         try:
             policy = await offload.io(library.library_policy)
         except Exception as exc:  # noqa: BLE001 - every kind is offered instead
             logger.warning("Could not read the media kinds the library keeps: %s", why(exc))
         else:
-            offered[config_schema.EDITOR_LIST_ART] = _listed(
+            offered[config_schema.EDITOR_THUMBNAIL] = _listed(
                 policy.get("hidden_media_kinds"))
 
     if config_schema.SUGGEST_LIBRARIES in wanted:

@@ -125,12 +125,12 @@ class _Panel(TempTree):
     def _write(self, verb: str, path: str, body: dict) -> None:
         getattr(self.http, verb)(path, json=body).raise_for_status()
 
-    def _list_art(self, value: str, key: str = "thumbnail") -> None:
-        self._write_list_art(value, key)
-        self.addCleanup(self._write_list_art, "", key)
+    def _thumbnail(self, value: str, key: str = "thumbnail") -> None:
+        self._write_thumbnail(value, key)
+        self.addCleanup(self._write_thumbnail, "", key)
 
     @staticmethod
-    def _write_list_art(value: str, key: str = "thumbnail") -> None:
+    def _write_thumbnail(value: str, key: str = "thumbnail") -> None:
         store = get_ini_config()
         store.set_value("console", key, value)
         store.save()
@@ -216,7 +216,7 @@ class ACollectionsGames(_Panel):
         self.assertNotIn("href", pictured)
 
     def test_none_draws_no_frame_and_reads_no_art(self) -> None:
-        self._list_art("none")
+        self._thumbnail("none")
 
         self.assertEqual(self._each_row(self._collection()), [None] * 4)
         self.assertEqual([path for path in self.client.read if "art=" in path], [])
@@ -240,7 +240,7 @@ class ATagsGames(_Panel):
         self.assertIn(html.escape(icons.TABLES), tables)
 
     def test_none_draws_no_frame_and_reads_no_art(self) -> None:
-        self._list_art("none")
+        self._thumbnail("none")
 
         self.assertEqual(self._each_row(self._tag()), [None] * 3)
         self.assertEqual([path for path in self.client.read if "art=" in path], [])
@@ -265,7 +265,7 @@ class TheGamePicker(_Panel):
         self.assertIn(html.escape(icons.GAMES), template)
 
     def test_none_leaves_the_options_without_art(self) -> None:
-        self._list_art("none")
+        self._thumbnail("none")
 
         options = self._picker(self._collection())._props["options"]
 
@@ -275,8 +275,8 @@ class TheGamePicker(_Panel):
 class ThePanelTakesTheShapeAndFrameAtTheSmallestHeight(_Panel):
     def setUp(self) -> None:
         super().setUp()
-        self._list_art("large", "thumbnail_height")
-        self._list_art("false", "thumbnail_frame")
+        self._thumbnail("large", "thumbnail_height")
+        self._thumbnail("false", "thumbnail_frame")
 
     def test_a_row_of_a_collection_or_a_tag(self) -> None:
         pictured = [next(one for one in row.descendants()

@@ -17,7 +17,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
-from console import collections, games, grid, list_art
+from console import collections, games, grid, thumbnails
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.console_walk import MARK, ConsoleWalk, newer
 from tests.support.library import game_info, write_game
@@ -315,7 +315,7 @@ class GridLayoutDrive(unittest.TestCase):
 def _declared(owner, art: bool) -> int:
     """The width `owner`'s grid declares for the name, with art beside it in the look a
     new install draws, or without."""
-    look = list_art.Look(list_art.SQUARE) if art else None
+    look = thumbnails.Look(thumbnails.SQUARE) if art else None
     return next(one["width"] for one in grid.with_art(owner.COLUMNS, look)
                 if one["field"] == "name")
 

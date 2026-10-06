@@ -212,14 +212,14 @@ EDITOR_CONSOLE_THEME = "console_theme"
 # Shown in Settings, chosen on the Themes page.
 EDITOR_FRONTEND_THEME = "frontend_theme"
 # The kinds of art the library keeps, which only a running install can say.
-EDITOR_LIST_ART = "list_art"
+EDITOR_THUMBNAIL = "thumbnail"
 # A Record or Encode Command, which only the device that runs it can check and show
 # VPinFE's own for.
 EDITOR_CAPTURE_COMMAND = "capture_command"
 # VPinFE's own browser options, picked from the list rather than typed: the names a
 # person would have to match are the ones VPinFE starts a window with.
 EDITOR_CHROME_LEAVE_OUT = "chrome_leave_out"
-EDITORS = (EDITOR_BINDING, EDITOR_CONSOLE_THEME, EDITOR_FRONTEND_THEME, EDITOR_LIST_ART,
+EDITORS = (EDITOR_BINDING, EDITOR_CONSOLE_THEME, EDITOR_FRONTEND_THEME, EDITOR_THUMBNAIL,
            EDITOR_CAPTURE_COMMAND, EDITOR_CHROME_LEAVE_OUT)
 
 # Whose a default is.
@@ -482,7 +482,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="wheel",
             choices=("none", "wheel", "backglass", "playfield", "logo"),
             choice_words="media.kind.{choice}.label",
-            editor=EDITOR_LIST_ART,
+            editor=EDITOR_THUMBNAIL,
             group=setting_groups.THUMBNAILS,
         ),
         ConfigOption(

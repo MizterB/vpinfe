@@ -11,9 +11,9 @@ from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
 from common.labels import field_label
 from common.media_specs import MEDIA_SPECS, media_family, media_label_map
-from console import art, game_tables, list_art, media_ownership, when
+from console import art, game_tables, media_ownership, thumbnails, when
 from console.api import ApiClient
-from console.list_art import Look
+from console.thumbnails import Look
 
 logger = logging.getLogger("vpinfe.console.data")
 
@@ -82,8 +82,8 @@ def _listed(section: dict, key: str) -> set[str]:
 
 
 def _art_of(shown: dict[str, str] | None, game_id: Any) -> dict[str, str]:
-    """A row's list art as a field: none while the lists draw none, "" for no art."""
-    return {} if shown is None else {list_art.FIELD: shown.get(str(game_id or ""), "")}
+    """A row's thumbnail as a field: none while the lists draw none, "" for no art."""
+    return {} if shown is None else {thumbnails.FIELD: shown.get(str(game_id or ""), "")}
 
 
 def _replaced(rows: list[dict[str, Any]], game_id: str,
@@ -185,7 +185,7 @@ class Library:
     # Game id to the collections holding it, read with the Games grid.
     _game_collections: dict[str, list[dict[str, Any]]] | None = None
     # The by-file lens, read on first use rather than at load: it is a second walk of
-    # every folder, and a session with list art off may never want it. Read with the
+    # every folder, and a session with thumbnails off may never want it. Read with the
     # art kind the lists draw, and each game in `_art_stale` read again before it is
     # drawn. The Games grid's rows read it for their art.
     _table_rows: list[dict[str, Any]] | None = None
@@ -904,40 +904,40 @@ class Library:
         self._media_rows = None
         self._art_stale.add(game_id)
 
-    def list_art(self) -> str:
+    def thumbnail(self) -> str:
         """The kind the lists draw beside a name, or "" for none. Asks nothing, so a
         draw on the event loop may call it."""
-        return list_art.chosen(self.kept_kinds()["media"])
+        return thumbnails.chosen(self.kept_kinds()["media"])
 
-    def list_art_look(self) -> Look | None:
+    def thumbnail_look(self) -> Look | None:
         """How the lists draw their art, or None for none. Asks nothing, like
-        `list_art`."""
-        kind = self.list_art()
-        return list_art.look(kind) if kind else None
+        `thumbnail`."""
+        kind = self.thumbnail()
+        return thumbnails.look(kind) if kind else None
 
-    def load_list_art(self) -> None:
+    def load_thumbnails(self) -> None:
         """Read what the lists draw beside a name, while they draw something. Off the
         loop."""
-        if self.list_art():
+        if self.thumbnail():
             self.load_tables()
 
-    def _holds_list_art(self) -> bool:
-        return not self.list_art() or self.has_table_rows()
+    def _holds_thumbnails(self) -> bool:
+        return not self.thumbnail() or self.has_table_rows()
 
     def game_art(self) -> dict[str, str] | None:
-        """Each game's list art, or None while the lists draw none."""
-        return list_art.by_game(self._table_rows or []) if self.list_art() else None
+        """Each game's thumbnail, or None while the lists draw none."""
+        return thumbnails.by_game(self._table_rows or []) if self.thumbnail() else None
 
     def with_entry_art(self, lens: dict[str, Any] | None) -> dict[str, Any] | None:
-        """A collection's members, each with its list art: the table it names, else its
+        """A collection's members, each with its thumbnail: the table it names, else its
         game's."""
         shown = self.game_art()
         if shown is None or not lens or "members" not in lens:
             return lens
-        named = list_art.by_table(self._table_rows or [])
+        named = thumbnails.by_table(self._table_rows or [])
         return {**lens, "members": [
-            {**one, list_art.FIELD: named.get((str(one.get("game") or ""),
-                                               str(one["ref_table"])), "")
+            {**one, thumbnails.FIELD: named.get((str(one.get("game") or ""),
+                                                str(one["ref_table"])), "")
              if one.get("ref_table") else shown.get(str(one.get("game") or ""), "")}
             for one in lens["members"]]}
 
@@ -951,7 +951,7 @@ class Library:
         return self._table_rows or []
 
     def has_table_rows(self) -> bool:
-        kind = self.list_art()
+        kind = self.thumbnail()
         return self._table_rows is not None and (
             not kind or (kind == self._table_art and not self._art_stale))
 
@@ -1075,11 +1075,11 @@ class Library:
         `again` as `load_game_collections` takes it."""
         self.load_game_collections(again)
         self._read_missing_media()
-        self.load_list_art()
+        self.load_thumbnails()
 
     def has_games_grid(self) -> bool:
         return (self.has_game_collections() and not self._media_missing()
-                and self._holds_list_art())
+                and self._holds_thumbnails())
 
     def smart_collections(self) -> set[str]:
         """The smart ones among the collections holding a game. Read with the Games grid,
@@ -1208,7 +1208,7 @@ class Library:
         per session, whole again for a new kind, and a game at a time after its media
         changed. With it, the settings of each launcher that plays one of them and keeps
         some, once each."""
-        kind = self.list_art()
+        kind = self.thumbnail()
         if self._table_rows is None or (kind and kind != self._table_art):
             self._table_rows = self._client.all_tables(art=kind)
             self._table_art = kind
@@ -1272,7 +1272,7 @@ class Library:
 
     def has_media_rows(self) -> bool:
         return (self._media_rows is not None and self._table_rows is not None
-                and self._holds_list_art())
+                and self._holds_thumbnails())
 
     def load_asset_rows(self) -> list[dict[str, Any]]:
         """Read the asset lens, and the kept kinds it is filtered by. Off the loop."""
@@ -1318,7 +1318,7 @@ class Library:
 
     def has_asset_rows(self) -> bool:
         return (self._asset_rows is not None and self._table_rows is not None
-                and self._holds_list_art())
+                and self._holds_thumbnails())
 
     def high_scores(self, game_id: str, table_id: str = "") -> dict[str, Any]:
         """Asked each time the panel opens: that is when a newer score file is read."""

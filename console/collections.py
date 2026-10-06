@@ -30,9 +30,9 @@ from console import (
     community,
     confirm,
     grid,
-    list_art,
     offload,
     panel,
+    thumbnails,
     verbs,
     views,
 )
@@ -72,10 +72,10 @@ _NAME = (
     " title=\"' + off + '\">" + verbs.HIDE + "</i>';"
     " if (d.unsaved) said += ' <span class=\"console-member-chip console-cell-chip console-tier"
     " console-tier--warn\" title=\"' + why + '\">' + unsaved + '</span>';"
-    f" const art = d['{list_art.FIELD}'] ?? null;"
+    f" const art = d['{thumbnails.FIELD}'] ?? null;"
     " if (art == null) return said;"
     " const lines = '<span class=\"console-cell-named\">' + said + '</span>';"
-    f" return {list_art.frame_js(GLYPH)}; }}"
+    f" return {thumbnails.frame_js(GLYPH)}; }}"
 )
 
 _KIND = (
@@ -206,7 +206,7 @@ def rows(collections: list[dict[str, Any]], opens_on: str = "",
             "id": row.get("name") or "",
             "name": row.get("name") or "",
             "kind": str(row.get("type") or ""),
-            **({list_art.FIELD: list_art.collection(row)} if art else {}),
+            **({thumbnails.FIELD: thumbnails.collection(row)} if art else {}),
             # Zero is an answer here, not an absence: this is what the collection
             # resolves to, and an empty collection resolves to none.
             "count": count,
@@ -268,7 +268,7 @@ def build(collections: list[dict[str, Any]], library: Any,
           state: dict[str, Any] | None = None,
           rerender: Callable[[], None] | None = None) -> None:
     state = state if state is not None else {}
-    look = library.list_art_look()
+    look = library.thumbnail_look()
     def with_all_games(real: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [all_games_row(len(library.games), library.opens_on()), *real]
 

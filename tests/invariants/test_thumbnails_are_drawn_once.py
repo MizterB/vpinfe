@@ -1,4 +1,4 @@
-"""A picture beside a name is drawn by `console/list_art.py` and nowhere else.
+"""A picture beside a name is drawn by `console/thumbnails.py` and nowhere else.
 
 Every list shows one frame: one size, one ground, the row's own glyph where there is no
 picture. The address inside it is `console/art.py`'s, which
@@ -15,7 +15,7 @@ from tests.support import trees
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 CONSOLE = REPO / "console"
-HELPER = CONSOLE / "list_art.py"
+HELPER = CONSOLE / "thumbnails.py"
 
 # The frame's own classes. The stylesheet styles them, and only the helper writes them.
 FRAME_CLASSES = ("console-cell-pictured", "console-cell-art-box", "console-cell-noart")
@@ -56,13 +56,13 @@ SLOT = f"""<q-item-section>{lines}<i class="console-cell-noart"></i></q-item-sec
 }
 
 
-class ListArtIsDrawnOnceTests(unittest.TestCase):
+class ThumbnailsAreDrawnOnceTests(unittest.TestCase):
     def test_no_console_module_draws_a_name_picture(self) -> None:
         offenders = []
         for path in sorted([*CONSOLE.rglob("*.py"), *CONSOLE.rglob("*.js")]):
             if path != HELPER:
                 offenders += _frames(path)
-        self.assertEqual(offenders, [], "draw it with console/list_art.py")
+        self.assertEqual(offenders, [], "draw it with console/thumbnails.py")
 
     def test_the_scan_finds_the_frame_in_every_shape_a_list_draws(self) -> None:
         self.assertEqual(_marked(SHAPES[".js"], ".js"), [1])
