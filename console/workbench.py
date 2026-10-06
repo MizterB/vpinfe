@@ -52,6 +52,7 @@ from console import arrange as arranging
 from console import (
     art,
     art_fill,
+    backglass_view,
     backup_rows,
     busy,
     candidates,
@@ -771,7 +772,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
     with ui.column().classes("w-full gap-1 console-slot p-2"):
         head = str(detail.get("head") or "")
         if glass and not glass["damaged"]:
-            _backglass_picture(game_id, path, glass, label)
+            await _backglass_picture(context, path, glass, label)
         elif head:
             with ui.element("div").classes("console-slot-art console-slot-art--text"):
                 ui.label(head).classes("console-file-text")
@@ -820,8 +821,20 @@ def _enlarge(act: Callable[[], Any]) -> None:
         .classes("console-slot-zoom").tooltip(t("word.enlarge"))
 
 
-def _backglass_picture(game_id: str, path: str, glass: dict[str, Any], label: str) -> None:
-    """The file's picture as the cabinet shows it, with the lamps lit at start."""
+async def _backglass_picture(context: dict[str, Any], path: str, glass: dict[str, Any],
+                             label: str) -> None:
+    """The file's picture: the window as VPX draws it where the program's settings are
+    known, and otherwise the picture with the lamps lit at start."""
+    game_id = context["game_id"]
+    if (inner := context.get("file_settings")) is not None:
+        try:
+            held = backglass_view.flat(await _config_values(inner))
+        except Exception:  # noqa: BLE001 - the picture stands without the settings
+            logger.exception("Could not read the settings behind the backglass preview")
+        else:
+            backglass_view.preview(game_id, path, glass, label, held,
+                                   inner.setdefault("followers", []), _enlarge)
+            return
     with ui.element("div").classes("console-slot-art"):
         mediaview.preview(art.backglass(game_id, path, version=glass["version"],
                                         size=art.PANEL), "backglass", label)
@@ -943,6 +956,15 @@ async def _file_settings(library: Library, row: dict[str, Any],
 
 async def _file_settings_block(context: dict[str, Any]) -> None:
     inner = context["file_settings"]
+    row = context.get("row") or {}
+    if context.get("kind") == "backglass" and row.get("present"):
+        path = str(row.get("path") or "")
+        try:
+            detail = await offload.io(context["library"].asset_detail, context["game_id"], path)
+        except Exception:  # noqa: BLE001 - the settings draw without the picture
+            detail = {}
+        if (glass := detail.get("backglass")) and not glass["damaged"]:
+            await _backglass_picture(context, path, glass, str(row.get("label") or ""))
     values = await _config_values(inner)
     shown = [block for group in inner["tied"] for block in curated_blocks(group, values)]
     entries = await _setting_entries(
@@ -5129,6 +5151,8 @@ async def _setting_entries(context: dict[str, Any],
                 held.update(fresh.get(other) or {})
             for redraw in redraws:
                 redraw()
+            for follow in list(context.get("followers", ())):
+                follow(fresh)
             if (recount := context.get("recount_changed")) is not None:
                 await recount()
             return True

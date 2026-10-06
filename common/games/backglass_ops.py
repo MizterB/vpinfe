@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -80,7 +80,20 @@ def picture_file(game_id: str, table_id: str = "", look: str = "on",
     return sized_media.Served(served.path, sized_media.version(source) or "")
 
 
+def score_view_file(game_id: str, table_id: str = "", path: str = "",
+                    size: int | None = None) -> sized_media.Served:
+    """The art the file draws on the score view window. Not found where it has none."""
+    size = sized_media.size_or_refuse(size, "image")
+    source = _file(game_id, table_id, path)
+    drawn = directb2s_parser.score_view_art(source)
+    if drawn is None:
+        raise service_errors.NotFoundError(t("error.backglass.score_view_absent"))
+    served = sized_media.served(drawn, size)
+    return sized_media.Served(served.path, sized_media.version(source) or "")
+
+
 _ON = ("1", "true")
+LEGACY, B2S = "Plugin.B2SLegacy.", "Plugin.B2S."
 
 
 def _table_rows(game: Any, table_id: str) -> list[dict]:
@@ -90,10 +103,25 @@ def _table_rows(game: Any, table_id: str) -> list[dict]:
     return [row for row in rows if row["id"] == table_id] if table_id else rows
 
 
+def renderer(held: Mapping[str, str]) -> str:
+    """The plugin that draws the backglass given the settings in effect: `Plugin.B2SLegacy.`
+    unless its Enable is off, which wins over `Plugin.B2S.`. Answers the key prefix."""
+    return LEGACY if (held.get(f"{LEGACY}Enable") or "1").lower() in _ON else B2S
+
+
+def cuts_grill(held: Mapping[str, str]) -> bool:
+    """Whether the renderer in effect cuts the grill off the picture."""
+    def on(key: str) -> bool:
+        return held.get(key, "").lower() in _ON
+
+    if renderer(held) == LEGACY:
+        return on(f"{LEGACY}B2SHideGrill")
+    return not on(f"{B2S}ShowGrill")
+
+
 def grill_cut(game_id: str, table_id: str = "") -> bool:
-    """Whether the renderer in effect cuts the grill off the picture. B2S Legacy is on
-    unless its setting says otherwise, and wins over B2S. The folder's first table answers
-    for the shared slot. Cut where the settings cannot be read."""
+    """Whether the renderer in effect cuts the grill off the picture. The folder's first
+    table answers for the shared slot. Cut where the settings cannot be read."""
     from common.games import launcher_ops
 
     game = game_lens.game_or_refuse(game_id)
@@ -106,12 +134,7 @@ def grill_cut(game_id: str, table_id: str = "") -> bool:
     except Exception:  # noqa: BLE001 - the picture is drawn without its settings
         return True
 
-    def on(key: str) -> bool:
-        return held.get(key, "").lower() in _ON
-
-    if (held.get("Plugin.B2SLegacy.Enable") or "1").lower() in _ON:
-        return on("Plugin.B2SLegacy.B2SHideGrill")
-    return not on("Plugin.B2S.ShowGrill")
+    return cuts_grill(held)
 
 
 def _drawn(game_id: str, table_id: str) -> tuple[Path, str]:
@@ -203,5 +226,5 @@ def redraw_all(proceed: Callable[[], bool] = lambda: True) -> int:
     return total
 
 
-__all__ = ["KIND", "grill_cut", "offer", "picture_file", "place_picture", "redraw",
-           "redraw_all"]
+__all__ = ["B2S", "KIND", "LEGACY", "cuts_grill", "grill_cut", "offer", "picture_file",
+           "place_picture", "redraw", "redraw_all", "renderer", "score_view_file"]

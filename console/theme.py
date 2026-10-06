@@ -491,6 +491,15 @@ _STRUCTURE = """
   /* A stat, or a welcome's title - one line that is the content, not prose. */
   --fs-display: 30px;
 
+  /* The DMD a preview draws is a lit orange display in every mode, so none of these
+     follow the palette. */
+  --dmd-ground: #0b0500;
+  --dmd-dot: #3a1a00;
+  --dmd-edge: #5a2a00;
+  --dmd-lit: #ff8a1f;
+  --dmd-glow: #ff6a00;
+  --dmd-label: rgba(0, 0, 0, 0.7);
+
   /* 44px where a finger is in scope; the Console is desk-first, so this is the floor. */
   --target-min: 32px;
   /* An action that sits beside a value rather than owning its row - see

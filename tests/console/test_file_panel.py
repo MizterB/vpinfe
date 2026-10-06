@@ -152,7 +152,7 @@ class WhatABackglassFileSays(unittest.TestCase):
 
         self.assertEqual(
             "/api/v1/games/g1/assets/backglass/picture?path=my+glass.directb2s&look=on"
-            "&grill=true&size=1024&v=abc", src)
+            "&version=authentic&grill=true&size=1024&v=abc", src)
 
 
 class _Grid:

@@ -29,11 +29,21 @@ def picture(game_id: str, name: str, *, version: str | None = None,
 
 
 def backglass(game_id: str, path: str, *, version: str | None = None,
-              size: int | None = None, grill: bool = True) -> str:
+              size: int | None = None, grill: bool = True, look: str = "on",
+              edition: str = "authentic") -> str:
     """The picture a game's backglass file draws, lit at start. `grill` is whether it is
-    cut as the cabinet cuts it."""
-    query = urlencode({"path": path, "look": "on", "grill": str(grill).lower()})
+    cut as the cabinet cuts it, and `edition` is the half of a two-version file."""
+    query = urlencode({"path": path, "look": look, "version": edition,
+                       "grill": str(grill).lower()})
     return _with(f"/api/v1/games/{quote(game_id, safe='')}/assets/backglass/picture?{query}",
+                 version, size)
+
+
+def score_view(game_id: str, path: str, *, version: str | None = None,
+               size: int | None = None) -> str:
+    """The art a game's backglass file draws on the score view window."""
+    query = urlencode({"path": path})
+    return _with(f"/api/v1/games/{quote(game_id, safe='')}/assets/backglass/score-view?{query}",
                  version, size)
 
 

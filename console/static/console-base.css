@@ -2854,9 +2854,40 @@ a.console-tag:hover { background: var(--wash-hover); }
    level, positioning it collapsed this box - which is sized by its content - and a
    size container cannot be one without a definite height, which is the thing missing.
    Excludes the blank state, which is a column that lays itself out. */
-.console-slot-art > div:not(.console-slot-zoom):not(.console-slot-blank):not(.console-wheel-mosaic) {
+.console-slot-art > div:not(.console-slot-zoom):not(.console-slot-blank):not(.console-wheel-mosaic):not(.console-bgview) {
   display: contents;
 }
+/* A backglass file's picture: the window as VPX draws it. The stage is stretched to the
+   box and turned about its centre, so a quarter turn is a stage of swapped size. */
+.console-slot-art:has(> .console-bgview) { flex: 0 0 auto; overflow: visible; }
+.console-bgview { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.console-bgview-row { justify-content: center; }
+.console-bgview-fig { align-items: stretch; min-width: 0; max-width: 100%; }
+.console-bgview-box {
+  position: relative; width: 100%; overflow: hidden; container-type: size;
+  border: 1px solid var(--line); border-radius: 4px; background: var(--art-ground);
+}
+.console-bgview-stage {
+  position: absolute; left: 50%; top: 50%;
+  background-repeat: no-repeat; background-position: top;
+}
+.console-bgview-dmd {
+  position: absolute; container-type: size; overflow: hidden; background: var(--dmd-ground);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  border: 1px solid var(--dmd-edge); box-sizing: border-box;
+  background-image: radial-gradient(circle, var(--dmd-dot) 38%, transparent 42%);
+  background-size: 0.78125% 3.125%;
+}
+.console-bgview-dmd .q-label, .console-bgview-dmd > div {
+  color: var(--dmd-lit); font-family: ui-monospace, Menlo, monospace; font-weight: 700;
+  font-size: 32cqh; line-height: 1.05; letter-spacing: 0.05em; white-space: nowrap;
+  text-shadow: 0 0 0.3em var(--dmd-glow);
+}
+.console-bgview-auto {
+  position: absolute; left: 4%; bottom: 4%; padding: 0 6px; border-radius: 999px;
+  background: var(--dmd-label); color: var(--dmd-lit); font-size: var(--fs-caption);
+}
+
 .console-slot-art img, .console-slot-art video {
   max-width: 100%; max-height: 100%; object-fit: contain;
   min-height: 0; flex: 0 1 auto;
