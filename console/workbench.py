@@ -707,7 +707,8 @@ async def _draw_file(container: ui.column, title: ui.column, library: Library,
             refresh_with="refresh_files")
         if settings is not None:
             context["file_settings"] = {**settings, "state": state,
-                                        "rebuild": context["rebuild"]}
+                                        "rebuild": context["rebuild"],
+                                        "refresh_grid": context["saved"]}
         await _rail(context, "media_file" if media else "asset_file", state)
 
 
@@ -916,18 +917,30 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                 identity(facts=True)
             acts()
         return
-    entries: list[tuple[Any, Any]] = [
-        (panel.HEADING, t("word.file")),
-        (panel.FULL, lambda: identity(facts=False))]
-    if kind in _WHOLE_FOLDER or kind in _PLACEABLE:
-        entries.append((panel.FULL, acts))
-    if glass and not glass["damaged"] and (about := _backglass_facts(context, glass)):
-        entries += [(panel.HEADING, t("console.workbench.details")),
-                    *((panel.READ, entry) for entry in about)]
+    async def form_entries() -> list[tuple[Any, Any]]:
+        entries: list[tuple[Any, Any]] = [
+            (panel.HEADING, t("word.file")),
+            (panel.FULL, lambda: identity(facts=False))]
+        if kind in _WHOLE_FOLDER or kind in _PLACEABLE:
+            entries.append((panel.FULL, acts))
+        if glass and not glass["damaged"] and (about := _backglass_facts(context, glass)):
+            entries += [(panel.HEADING, t("console.workbench.details")),
+                        *((panel.READ, entry) for entry in about)]
+        if "file_settings" in context:
+            entries += await _file_settings_entries(context)
+        return entries
+
+    first = await form_entries()
+    with ui.column().classes("w-full gap-0 console-form") as form:
+        panel.facts(ui, first)
+
+    async def redraw_form() -> None:
+        entries = await form_entries()
+        form.clear()
+        with form:
+            panel.facts(ui, entries)
     if "file_settings" in context:
-        entries += await _file_settings_entries(context)
-    with ui.column().classes("w-full gap-0 console-form"):
-        panel.facts(ui, entries)
+        context["file_settings"]["redraw_form"] = redraw_form
 
 
 async def _asset_stage(context: dict[str, Any], path: str, glass: dict[str, Any] | None,
@@ -970,9 +983,11 @@ async def _backglass_picture(context: dict[str, Any], path: str, glass: dict[str
 
 
 @on_page
-async def _write_overlay(inner: dict[str, Any], values: dict[str, str]) -> None:
+async def _write_overlay(inner: dict[str, Any], values: dict[str, str], *,
+                         in_place: bool = False) -> None:
     """Write a box dragged or found on the preview where the settings panel beside it
-    writes, then draw the panel again from what is now held."""
+    writes, then draw again from what is now held: the file's form and the preview where
+    `in_place` and the form can be drawn on its own, the whole panel otherwise."""
     if (write := inner.get("config_write")) is not None:
         job = partial(write, values)
     else:
@@ -987,6 +1002,18 @@ async def _write_overlay(inner: dict[str, Any], values: dict[str, str]) -> None:
     if cut := (wrote or {}).get("cut"):
         no_longer_reads_game(cut, inner.get("tables"))
     inner.pop("config_values", None)
+    if in_place and (redraw := inner.get("redraw_form")) is not None:
+        try:
+            fresh = await _config_values(inner)
+        except Exception:  # noqa: BLE001 - what cannot be read is drawn from the top
+            logger.exception("Could not read the settings after a box was written")
+        else:
+            for follow in list(inner.get("followers", ())):
+                follow(fresh)
+            await redraw()
+            if (behind := inner.get("refresh_grid")) is not None:
+                await behind()
+            return
     await _keeping_place(ui.context.client, inner["rebuild"], next(iter(values)))
 
 

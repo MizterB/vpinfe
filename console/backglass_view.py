@@ -182,12 +182,14 @@ def found(game_id: str, path: str, *, look: str, edition: str, cut: bool,
 def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             held: Mapping[str, str], followers: MutableSequence[Callable[[Any], None]],
             enlarge: Callable[[Callable[[], Any]], None],
-            write: Callable[[dict[str, str]], Awaitable[Any]] | None,
+            write: Callable[..., Awaitable[Any]] | None,
             memory: dict[str, Any]) -> None:
     """The picture, drawn from `held` and drawn again whenever a write calls the function
     added to `followers` with the settings as they now stand. A box moved or found is
-    written by `write`, which redraws the whole panel; `memory` carries the Look and
-    Version picked across that. Without `write` the box cannot be moved or found."""
+    written by `write`, which draws the settings beside it again and calls the followers;
+    a box that was dragged is already where the write puts it, so it is not drawn again.
+    `memory` carries the Look and Version picked across a redraw of the whole panel.
+    Without `write` the box cannot be moved or found."""
     state = memory.setdefault("preview", {"look": "on", "edition": edition_in_effect(held)})
     state["held"] = dict(held)
     holder = ui.element("div").classes("console-bgview")
@@ -198,7 +200,12 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             return None
 
         async def set_box(box: Box) -> None:
-            await write(box_values(backglass_ops.renderer(state["held"]), screen, box))
+            state["dragged"] = True
+            try:
+                await write(box_values(backglass_ops.renderer(state["held"]), screen, box),
+                            in_place=True)
+            finally:
+                state.pop("dragged", None)
         return set_box
 
     def finder(screen: Screen, cut: bool, score_view: bool) -> Callable[[], Awaitable[None]] | None:
@@ -223,7 +230,8 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             if box is None:
                 ui.notify(t("console.backglass.dmd_find.none"), type="warning")
                 return
-            await write(box_values(backglass_ops.renderer(state["held"]), screen, box))
+            await write(box_values(backglass_ops.renderer(state["held"]), screen, box),
+                        in_place=True)
         return find
 
     def draw() -> None:
@@ -274,7 +282,8 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
         state["held"] = flat(values)
         if (now := edition_in_effect(state["held"])) != before:
             state["edition"] = now
-        draw()
+        if not state.get("dragged"):
+            draw()
 
     followers.append(follow)
     draw()
