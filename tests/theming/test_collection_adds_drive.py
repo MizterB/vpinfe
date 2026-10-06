@@ -293,7 +293,7 @@ class CollectionAddsDrive(unittest.TestCase):
         return seen
 
     def test_a_first_menu_offers_the_rest_through_a_dialog(self) -> None:
-        self.assertEqual(["Launch", "Add to Collection / chevron_right"],
+        self.assertEqual(["Launch", "Add to Collection / chevron_right", "Back up now"],
                          [label for label, _inert in self.seen["first_menu"]])
         self.assertIn("Hand-picked · 2 games", self.seen["dialogs"][0])
         self.assertIn("Smart · 2 games", self.seen["dialogs"][0])
