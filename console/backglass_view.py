@@ -23,6 +23,7 @@ SCORE_VIEW_WINDOW = "ScoreView.ScoreView"
 BAR_PX = 46
 CAPTION_PX = 22
 GAP_PX = 8
+LEGACY_DMD_SPACE = (1024, 768)
 LOOKS = ("off", "on", "every")
 EDITIONS = ("authentic", "fantasy")
 
@@ -112,6 +113,8 @@ def _ratio(window: tuple[int, int] | None, art_size: tuple[int, int], turns: int
 
 
 def _box(held: Mapping[str, str], plugin: str, part: str, space: tuple[int, int]) -> Box | None:
+    """Y counts up from the window's bottom edge. B2S counts in the pixels of `space`;
+    Legacy counts in 1024x768 whatever the picture's size."""
     prefix = plugin + part + "DMD"
 
     def on(name: str) -> bool:
@@ -124,8 +127,8 @@ def _box(held: Mapping[str, str], plugin: str, part: str, space: tuple[int, int]
     x, y, wide, high = (_number(held, prefix + name) for name in "XYWH")
     if wide <= 0 or high <= 0:
         return None
-    across, down = space
-    return Box(100.0 * x / across, 100.0 * y / down, 100.0 * wide / across,
+    across, down = LEGACY_DMD_SPACE if plugin == backglass_ops.LEGACY else space
+    return Box(100.0 * x / across, 100.0 * (down - y - high) / down, 100.0 * wide / across,
                100.0 * high / down)
 
 

@@ -87,11 +87,22 @@ class TheDmd(unittest.TestCase):
     def test_automatic_has_no_box(self) -> None:
         self.assertEqual(view.Box(auto=True), self._box(Overlay="1", AutoPos="1"))
 
-    def test_a_box_is_in_percent_of_the_art_with_the_grill_cut(self) -> None:
-        box = self._box(Overlay="1", X="100", Y="300", W="500", H="150")
+    def test_a_legacy_box_is_in_percent_of_1024_by_768_counted_up_from_the_bottom(self) -> None:
+        box = self._box(Overlay="1", X="256", Y="192", W="512", H="192")
 
-        self.assertEqual((10.0, 50.0, 50.0, 25.0),
+        self.assertEqual((25.0, 50.0, 50.0, 25.0),
                          (box.left, box.top, box.width, box.height))
+
+    def test_a_b2s_box_is_in_percent_of_the_art_with_the_grill_cut_counted_up_from_the_bottom(
+            self) -> None:
+        held = {f"{LEGACY}Enable": "0", f"{B2S}ShowGrill": "0", f"{B2S}BackglassDMDOverlay": "1",
+                f"{B2S}BackglassDMDX": "100", f"{B2S}BackglassDMDY": "50",
+                f"{B2S}BackglassDMDW": "500", f"{B2S}BackglassDMDH": "150"}
+
+        box = _backglass(held).dmd
+
+        self.assertEqual((10.0, 66.666667, 50.0, 25.0),
+                         tuple(round(v, 6) for v in (box.left, box.top, box.width, box.height)))
 
     def test_a_box_with_no_size_is_not_drawn(self) -> None:
         self.assertIsNone(self._box(Overlay="1", X="1", Y="1", W="0", H="0"))
@@ -119,14 +130,14 @@ class TheScoreView(unittest.TestCase):
     def test_it_is_not_drawn_when_the_file_has_no_art(self) -> None:
         self.assertIsNone(self._second(self.ON, art=None))
 
-    def test_its_dmd_is_in_the_pixels_of_its_own_art(self) -> None:
-        held = {**self.ON, f"{LEGACY}ScoreViewDMDOverlay": "1", f"{LEGACY}ScoreViewDMDX": "40",
-                f"{LEGACY}ScoreViewDMDY": "10", f"{LEGACY}ScoreViewDMDW": "200",
-                f"{LEGACY}ScoreViewDMDH": "50"}
+    def test_a_b2s_dmd_is_in_the_pixels_of_its_own_art_counted_up_from_the_bottom(self) -> None:
+        held = {**self.ON, f"{LEGACY}Enable": "0", f"{B2S}ScoreViewDMDOverlay": "1",
+                f"{B2S}ScoreViewDMDX": "40", f"{B2S}ScoreViewDMDY": "10",
+                f"{B2S}ScoreViewDMDW": "200", f"{B2S}ScoreViewDMDH": "50"}
 
         box = self._second(held).dmd
 
-        self.assertEqual((10.0, 10.0, 50.0, 50.0),
+        self.assertEqual((10.0, 40.0, 50.0, 50.0),
                          (box.left, box.top, box.width, box.height))
 
 
