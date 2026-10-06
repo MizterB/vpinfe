@@ -45,6 +45,19 @@ class FolderCase(test_adopt.AdoptCase):
         for name in names:
             (where or self.tables).joinpath(f"{name}.vpx").write_bytes(b"t" * size)
 
+    def a_frontend(self) -> tuple[Path, Path]:
+        """A PinballX install, and the folder its config names with one real game file in
+        it. The fixture alone lists games and holds none."""
+        source = self.root / "PX"
+        shutil.copytree(test_adopt.FIXTURE, source)
+        held = self.root / "held"
+        held.mkdir()
+        (held / "Taxi.vpx").write_bytes(b"table")
+        ini = source / "Config" / "PinballX.ini"
+        ini.write_bytes(ini.read_bytes().decode("utf-16")
+                        .replace("C:\\Visual Pinball\\tables", str(held)).encode("utf-16"))
+        return source, held
+
     def game_folder(self, name: str) -> Path:
         folder = self.tables / name
         folder.mkdir()
@@ -172,7 +185,9 @@ class ReaderTests(FolderCase):
         self.assertIs(self.api.reader_for(test_adopt.FIXTURE, self.survey).SOURCE_ID
                       and self.api.reader_for(test_adopt.FIXTURE, self.survey),
                       self.api.pinballx)
-        self.assertIs(self.api.reader_for(EMULATIONSTATION, self.survey), self.api.emulationstation)
+
+    def test_an_emulationstation_folder_is_read_as_a_folder(self) -> None:
+        self.assertIs(self.api.reader_for(EMULATIONSTATION, self.survey), self.api.folders)
 
     def test_a_vpinmame_beside_the_tables_says_where_the_roms_are(self) -> None:
         install = self.root / "Visual Pinball"
@@ -276,11 +291,13 @@ class StepTests(FolderCase):
         self.assertTrue(into["help"].startswith("Needs 3.4 KB, with "), into["help"])
 
     def test_moving_a_frontends_files_says_its_list_will_point_at_nothing(self) -> None:
-        found = self.step(EMULATIONSTATION, leaving="sources")
+        source, _ = self.a_frontend()
+
+        found = self.step(source, leaving="sources")
 
         choices = found["fields"][0]["choices"]
         self.assertIn("will still point at where they were", choices[1][2])
-        self.assertIn("EmulationStation", choices[1][2])
+        self.assertIn("PinballX", choices[1][2])
 
     def test_moving_from_a_folder_names_no_frontend(self) -> None:
         self.loose("Harbor Lights")
@@ -387,11 +404,21 @@ class StepTests(FolderCase):
         self.assertIn("path", found["errors"])
 
     def test_a_frontend_is_still_read_by_its_own_reader(self) -> None:
-        found = self.step(EMULATIONSTATION, leaving="sources")
+        source, _ = self.a_frontend()
+
+        found = self.step(source, leaving="sources")
 
         self.assertEqual(found["step"], "how")
-        self.assertEqual(self.step(EMULATIONSTATION, leaving="how", how="copy",
+        self.assertEqual(self.step(source, leaving="how", how="copy",
                                    into=str(self.library))["step"], "summary")
+
+    def test_an_emulationstation_folder_reads_as_the_game_folders_it_holds(self) -> None:
+        found = self.step(EMULATIONSTATION, leaving="sources")
+
+        self.assertEqual(found["step"], "summary")
+        self.assertTrue(found["ready"], found)
+        self.assertEqual(self.summary_of(found)["Reads as"], "Folders")
+        self.assertEqual(self.summary_of(found)["Used where they are"], "1 game folder")
 
 
 class StartingPastAlreadyHereTests(FolderCase):
@@ -534,33 +561,28 @@ class RunTests(FolderCase):
         self.assertEqual(self.games_held(), ["Harbor Lights", "Quarry Run"])
 
     def test_a_move_from_a_frontend_moves_the_game_file_it_listed(self) -> None:
-        source = self.root / "ES"
-        shutil.copytree(EMULATIONSTATION, source)
-        before = source / "roms" / "afm.vpx"
-        self.assertTrue(before.is_file())
+        source, held = self.a_frontend()
+        before = held / "Taxi.vpx"
 
         report = self.run_it(source, how="move")
 
         self.assertFalse(before.exists())
         self.assertEqual(report["tables"], 1)
-        # Beside where it was: the source names its own root as the tables folder, and
-        # the games are not made there.
-        self.assertEqual(len(list((source / "roms").glob("*/afm.vpx"))), 1)
-        self.assertEqual(sorted(one.name for one in source.iterdir() if one.is_dir()),
-                         ["media", "roms"])
-        self.assertIn(str((source / "roms").resolve()), self.locations_held())
+        # Beside where it was: the config names that folder as the tables folder, and
+        # the games are not made anywhere else.
+        self.assertEqual(len(list(held.glob("*/Taxi.vpx"))), 1)
+        self.assertIn(str(held.resolve()), self.locations_held())
 
     def test_a_copy_from_a_frontend_leaves_what_it_listed(self) -> None:
-        source = self.root / "ES"
-        shutil.copytree(EMULATIONSTATION, source)
+        source, held = self.a_frontend()
         copies = self.root / "Copies"
         copies.mkdir()
 
         report = self.run_it(source, how="copy", into=str(copies))
 
         self.assertEqual(report["failed"], 0)
-        self.assertTrue((source / "roms" / "afm.vpx").is_file())
-        self.assertEqual(len(list(copies.glob("*/afm.vpx"))), 1)
+        self.assertTrue((held / "Taxi.vpx").is_file())
+        self.assertEqual(len(list(copies.glob("*/Taxi.vpx"))), 1)
 
     def test_a_copy_with_nowhere_to_go_writes_to_the_place_new_games_go(self) -> None:
         """A caller that sent no `into` still lands where a game made by hand would."""

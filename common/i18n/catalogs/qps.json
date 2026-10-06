@@ -2416,7 +2416,7 @@
   },
   "console.setup.tables.found_none": "Ñö ţàƀŀèš îñ ţĥîš ƒöŀđèř",
   "console.setup.tables.frontend": "Îñ àñöţĥèř ƒřöñţèñđ",
-  "console.setup.tables.frontend_help": "ÞîñÛÞ Þöþþèř, ÞîñƀàŀŀẊ, ÞîñƀàŀŀÝ öř ÈɱûŀàţîöñŠţàţîöñ",
+  "console.setup.tables.frontend_help": "ÞîñÛÞ Þöþþèř, ÞîñƀàŀŀẊ öř ÞîñƀàŀŀÝ",
   "console.setup.tables.have": {
     "one": "{count} ĝàɱè",
     "other": "{count} ĝàɱèš"

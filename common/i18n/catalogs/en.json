@@ -2416,7 +2416,7 @@
   },
   "console.setup.tables.found_none": "No tables in this folder",
   "console.setup.tables.frontend": "In another frontend",
-  "console.setup.tables.frontend_help": "PinUP Popper, PinballX, PinballY or EmulationStation",
+  "console.setup.tables.frontend_help": "PinUP Popper, PinballX or PinballY",
   "console.setup.tables.have": {
     "one": "{count} game",
     "other": "{count} games"

@@ -16,7 +16,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from . import adopt, emulationstation, folders, pinballx, popper
+from . import adopt, folders, pinballx, popper
 from . import plan as plan_for
 from .plan import Plan
 from .source import SourceGame, SourceLibrary
@@ -25,7 +25,7 @@ from .source import SourceGame, SourceLibrary
 # because it is the source somebody converting a pinball library actually has. Folders
 # is last: a frontend's own folder holds game folders too, and the reader that knows
 # its database should be the one that claims it.
-READERS = (pinballx, popper, emulationstation, folders)
+READERS = (pinballx, popper, folders)
 
 # Where the source is, in this extension's own settings. Not a core setting: it is a
 # fact about somebody's old machine, and it has no meaning to anything else here.
