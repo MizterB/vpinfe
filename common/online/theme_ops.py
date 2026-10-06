@@ -19,7 +19,7 @@ from common import service_errors
 from common.atomic_write import write_atomic
 from common.failures import why
 from common.i18n import t
-from common.online import theme_service, theme_sources, theme_sync
+from common.online import theme_service, theme_source_checks, theme_sources, theme_sync
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
 from common.paths import THEME_CACHE_PATH, get_ini_config
@@ -41,18 +41,26 @@ class RemoveFailedError(service_errors.ServiceError):
 
 _lock = threading.RLock()
 _registry: Any = None
+# What each source said when the last read found none of them usable. Nothing else
+# holds it: that read builds no registry to keep.
+_unread: dict[str, dict[str, Any]] = {}
 
 
 def _loaded(refresh: bool = False) -> ThemeRegistry:
     """The registry: from memory, else from the last read kept on disk, else - or when
     asked - from the sources, which is network work and not per request."""
-    global _registry
+    global _registry, _unread
     with _lock:
         if _registry is None and not refresh:
             _registry = _cached()
         if _registry is None or refresh:
             before = _registry or _cached()
-            fresh = theme_service.load_registry(previous=before)
+            try:
+                fresh = theme_service.load_registry(previous=before)
+            except theme_source_checks.NothingReadError as exc:
+                _unread = exc.reports
+                raise
+            _unread = {}
             _carry_dates(fresh, before)
             _keep(fresh)
             theme_sync.stamp(get_ini_config())
@@ -210,6 +218,134 @@ def listing(refresh: bool = False) -> dict[str, Any]:
     active = theme_service.get_active_theme()
     return {"active": active, "themes": _described(registry, active),
             "checked": theme_sync.checked_at(get_ini_config())}
+
+
+def _known() -> ThemeRegistry | None:
+    """The last read, from memory or from disk. Never reaches the network."""
+    with _lock:
+        return _registry if _registry is not None else _cached()
+
+
+def sources() -> dict[str, Any]:
+    """What each configured source said when it was last read, in the order they are
+    configured. A source never read, or added since, is Not checked.
+
+    Does not read the sources: the page that draws this asks on every visit.
+    """
+    checks = theme_source_checks
+    said = theme_sources.from_config(get_ini_config())
+    known = _known()
+    held = _unread or (known.reports if known is not None else {})
+
+    def row(address: str, kind: str) -> dict[str, Any]:
+        found = held.get(address)
+        if found is None or found["kind"] != kind:
+            found = checks.waiting(address, kind)
+        return {**found, "level": checks.level(found["state"])}
+
+    return {"registries": [row(url, checks.LIST) for url in said.registries if url.strip()],
+            "repositories": [row(url, checks.THEME) for url in said.repositories
+                             if url.strip()],
+            "checked": theme_sync.checked_at(get_ini_config())}
+
+
+def _configured_kinds() -> dict[str, str]:
+    """Every configured address, as written and as parsed, with the kind it is held as."""
+    said = theme_sources.from_config(get_ini_config())
+    held: dict[str, str] = {}
+    for kind, urls in ((theme_source_checks.LIST, said.registries),
+                       (theme_source_checks.THEME, said.repositories)):
+        for url in urls:
+            where = theme_sources.parse(url)
+            held[url] = held[where.url if where else url] = kind
+    return held
+
+
+def _read_alone(address: str, kind: str) -> tuple[dict[str, Any], ThemeRegistry]:
+    """A source read on its own, through the path the real read takes."""
+    alone = theme_sources.ThemeSources(
+        registries=(address,) if kind == theme_source_checks.LIST else (),
+        repositories=(address,) if kind == theme_source_checks.THEME else ())
+    registry = ThemeRegistry(sources=alone)
+    try:
+        registry.load_registry()
+        if kind == theme_source_checks.THEME:
+            registry.load_theme_manifests(dates=False)
+    except ThemeRegistryError:
+        pass  # every source failing is raised, and what each said is kept
+    return registry.reports[address], registry
+
+
+def check_source(address: str) -> dict[str, Any]:
+    """What adding `address` would be, found out without adding it.
+
+    Reads the address and says what it is: its kind, its state and the address it would
+    be saved under. `addable` is false for the states Add refuses. Reads JSON only; no
+    theme is downloaded.
+    """
+    checks = theme_source_checks
+    where = theme_sources.parse(str(address or ""))
+    if where is None:
+        bad = checks.failed(str(address or "").strip(), checks.THEME, checks.NOT_A_THEME,
+                            t("themes.source.bad_address"))
+        return _checked(bad)
+    held = _configured_kinds()
+    if where.url in held:
+        return _checked(checks.failed(where.url, held[where.url], checks.ALREADY_ADDED,
+                                      t("themes.source.already_added")))
+
+    kind = checks.LIST if where.is_file else checks.THEME
+    report, read = _read_alone(where.url, kind)
+    if (kind == checks.THEME and report["state"] == checks.NOT_A_THEME
+            and report["reason"] == t("themes.source.no_manifest")):
+        # No theme here, but a repository can be a list instead.
+        file = theme_sources.list_file(where)
+        added = file if file in held else _list_added_from(where, held)
+        if added:
+            return _checked(checks.failed(added, checks.LIST, checks.ALREADY_ADDED,
+                                          t("themes.source.already_added")))
+        as_list, listed = _read_alone(file, checks.LIST)
+        if as_list["state"] == checks.READY:
+            report, read = as_list, listed
+    return _checked(report, _offered_elsewhere(report, read))
+
+
+def _list_added_from(where: theme_sources.Address, held: dict[str, str]) -> str:
+    """The configured list that is this repository's `themes.json`, on whatever branch."""
+    for address, kind in held.items():
+        other = theme_sources.parse(address)
+        if (kind == theme_source_checks.LIST and other is not None and other.repo == where.repo
+                and address.endswith(f"/{theme_sources.LIST_FILE}")):
+            return address
+    return ""
+
+
+def _offered_elsewhere(report: dict[str, Any], read: ThemeRegistry) -> dict[str, Any]:
+    """What a source about to be added would meet among the themes already offered."""
+    known = _known()
+    sources_in_use = theme_sources.from_config(get_ini_config())
+    offered = {key: str(entry.get("source") or "")
+               for key, entry in (known.themes.items() if known is not None else [])}
+    if report["kind"] == theme_source_checks.THEME:
+        name = report["name"]
+        if name not in offered:
+            return {}
+        if offered[name] in sources_in_use.repositories:
+            return {"state": theme_source_checks.NOT_USED,
+                    "reason": t("themes.source.not_used", name=name)}
+        return {"replaces": [name]}
+    # A list is added below every source there is, so each name it shares is one it loses.
+    return {"took": [key for key in read.themes_index if key in offered]}
+
+
+def _checked(report: dict[str, Any], more: dict[str, Any] | None = None) -> dict[str, Any]:
+    checks = theme_source_checks
+    out = {**report, **(more or {})}
+    out.setdefault("replaces", [])
+    out["level"] = checks.level(out["state"])
+    out["group"] = "registries" if out["kind"] == checks.LIST else "repositories"
+    out["addable"] = out["state"] not in checks.REFUSED
+    return out
 
 
 def install(key: str) -> dict[str, Any]:

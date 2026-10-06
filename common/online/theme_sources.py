@@ -11,6 +11,7 @@ import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from common.config_access import cfg_list
 
@@ -46,6 +47,113 @@ def split_ref(url: str) -> tuple[str, str]:
     return base.strip().rstrip("/"), ref.strip()
 
 
+GITHUB = "github.com"
+GITHUB_RAW = "raw.githubusercontent.com"
+
+# The file a list of themes is.
+LIST_FILE = "themes.json"
+
+# Where a Forgejo or Gitea host shows a ref in a browsable path, and where it serves the file.
+_FORGEJO_SHOWN = {"branch", "tag"}
+
+
+@dataclass(frozen=True)
+class Address:
+    """A pasted address, read as the address VPinFE fetches.
+
+    `url` is what is written to the config: a repository with its pin after a `#`, or the
+    raw file of a list. `repo` is the repository page, empty for a file on a host that
+    shows none.
+    """
+
+    url: str
+    is_file: bool
+    repo: str
+    ref: str
+    display: str
+
+    @property
+    def link(self) -> str:
+        return self.repo or self.url
+
+
+def _repo_name(segment: str) -> str:
+    return segment[:-4] if segment.endswith(".git") else segment
+
+
+def _described(parts: list[str], host: str) -> str:
+    return "/".join(parts[:2]) if len(parts) >= 2 else host
+
+
+def parse(text: str) -> Address | None:
+    """Read what somebody pasted, or None where it is no address to a repository or file.
+
+    A hand-written address the table does not recognize is kept as it is, so the check
+    can say what is at it.
+    """
+    base, ref = split_ref(text)
+    try:
+        parts_of = urlsplit(base)
+    except ValueError:
+        return None
+    if parts_of.scheme not in ("http", "https") or not parts_of.netloc:
+        return None
+    host = parts_of.netloc.lower()
+    if host == f"www.{GITHUB}":
+        host = GITHUB
+    scheme = parts_of.scheme
+    parts = [one for one in parts_of.path.split("/") if one]
+
+    if host == GITHUB_RAW:
+        if len(parts) < 3:
+            return None
+        return Address(base, True, f"https://{GITHUB}/{parts[0]}/{_repo_name(parts[1])}", "",
+                       _described(parts, host))
+
+    if host == GITHUB:
+        if len(parts) < 2:
+            return None
+        owner, repo = parts[0], _repo_name(parts[1])
+        root = f"https://{GITHUB}/{owner}/{repo}"
+        if len(parts) >= 5 and parts[2] in ("blob", "raw"):
+            return Address(f"https://{GITHUB_RAW}/{owner}/{repo}/{parts[3]}/"
+                           + "/".join(parts[4:]), True, root, "", f"{owner}/{repo}")
+        if len(parts) >= 4 and parts[2] == "tree":
+            ref = ref or "/".join(parts[3:])
+        return Address(f"{root}#{ref}" if ref else root, False, root, ref,
+                       f"{owner}/{repo}")
+
+    if len(parts) >= 6 and parts[2] == "raw" and parts[3] in _FORGEJO_SHOWN:
+        return Address(base, True, f"{scheme}://{host}/{parts[0]}/{_repo_name(parts[1])}",
+                       "", _described(parts, host))
+    root = f"{scheme}://{host}/" + "/".join(parts[:2]) if len(parts) >= 2 else ""
+    if root:
+        root = root[:-4] if root.endswith(".git") else root
+    if len(parts) >= 6 and parts[2] == "src" and parts[3] in _FORGEJO_SHOWN:
+        return Address(f"{root}/raw/{parts[3]}/{parts[4]}/" + "/".join(parts[5:]), True,
+                       root, "", _described(parts, host))
+    if len(parts) == 5 and parts[2] == "src" and parts[3] in _FORGEJO_SHOWN:
+        ref = ref or parts[4]
+    elif parts and parts[-1].endswith(".json"):
+        return Address(base, True, "", "", _described(parts, host))
+    elif len(parts) > 2:
+        # Deeper than owner and repository: a host with groups, kept as it was pasted.
+        root = f"{scheme}://{host}/" + "/".join(parts)
+        root = root[:-4] if root.endswith(".git") else root
+    if not root:
+        return None
+    return Address(f"{root}#{ref}" if ref else root, False, root, ref,
+                   _described(parts, host))
+
+
+def list_file(where: Address) -> str:
+    """The `themes.json` a repository would hold, as the address a list is stored under."""
+    ref = where.ref or "HEAD"
+    if where.repo.startswith(f"https://{GITHUB}/"):
+        return f"https://{GITHUB_RAW}/{where.repo.removeprefix(f'https://{GITHUB}/')}/{ref}/{LIST_FILE}"
+    return f"{where.repo}/raw/{ref}/{LIST_FILE}"
+
+
 def repository_entry(url: str) -> dict:
     base, ref = split_ref(url)
     entry = {"url": base, NAMED_BY_MANIFEST: True}
@@ -65,21 +173,25 @@ def name_of(index_key: str, entry: dict, manifest: dict) -> str:
     return index_key
 
 
-def merge(parts: Iterable[tuple[str, dict | None]], origins: dict | None = None) -> dict:
+def merge(parts: Iterable[tuple[str, dict | None]], origins: dict | None = None,
+          lost: dict[str, list[str]] | None = None) -> dict:
     """One index from many sources, first mention winning and the loser logged.
 
     Settles registry keys only. A repository is keyed by its url until its manifest
     arrives, so `ThemeRegistry.load_theme_manifests` runs the same contest again.
 
-    `origins`, when given, is filled with the source each kept key came from.
+    `origins`, when given, is filled with the source each kept key came from, and `lost`
+    with the keys each source offered that an earlier one already held.
     """
     index: dict = {}
     origins = {} if origins is None else origins
+    lost = {} if lost is None else lost
     for origin, themes in parts:
         for key, entry in (themes or {}).items():
             if key in index:
                 logger.warning("Theme '%s' from %s is already provided by %s - keeping the first",
                                key, origin, origins[key])
+                lost.setdefault(origin, []).append(key)
                 continue
             index[key] = entry
             origins[key] = origin

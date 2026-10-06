@@ -45,6 +45,24 @@ def list_themes(refresh: bool = False) -> dict[str, Any]:
         return theme_ops.listing(refresh)
 
 
+@router.get("/sources", summary="What each theme source said when it was last read",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def sources() -> dict[str, Any]:
+    """The configured sources in their order, as `registries` (lists of themes) and
+    `repositories` (single themes). Each carries its kind, a `state`, a `level` to color
+    it by, and a `reason` in words. Reads nothing: a source never read is `not_checked`."""
+    return theme_ops.sources()
+
+
+@router.post("/sources/check", summary="What adding an address would be",
+             dependencies=[requires(scopes.CONFIG_WRITE)])
+def check_source(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Reads `address` and says what it is, without saving it: a list or a theme, the
+    address it would be stored under, and `addable`. Nothing is downloaded or installed.
+    Saving is `PUT /config`."""
+    return theme_ops.check_source(str(body.get("address") or ""))
+
+
 @router.post("/{key}/install", summary="Install or update a theme",
              dependencies=[requires(scopes.CONFIG_WRITE)])
 def install(key: str) -> dict[str, Any]:

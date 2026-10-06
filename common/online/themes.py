@@ -10,9 +10,11 @@ from dataclasses import asdict
 from io import BytesIO
 from typing import Any
 
-from common.http_client import get_json
+import requests
+
+from common.http_client import get_json, get_text
 from common.i18n import t
-from common.online import theme_dates, theme_releases, theme_sources
+from common.online import theme_dates, theme_releases, theme_source_checks, theme_sources
 from common.online.theme_installer import ASIDE_SUFFIX, ThemeInstallStore
 from common.online.theme_registry_client import ThemeRegistryClient, ThemeRegistryError
 from common.paths import CONFIG_DIR, get_ini_config
@@ -49,6 +51,8 @@ class ThemeRegistry:
         self.themes_index: dict[str, Any] = {}
         self.origins: dict[str, str] = {}
         self.themes: dict[str, Any] = {}
+        # What each source said on the last read, by the address it is configured under.
+        self.reports: dict[str, dict[str, Any]] = {}
 
         self.base_dir = str(CONFIG_DIR)
         self.themes_dir = os.path.join(self.base_dir, "themes")
@@ -65,6 +69,16 @@ class ThemeRegistry:
         """JSON that need not be an object - a host's list of commits."""
         return get_json(url, timeout=self.timeout)
 
+    def _exists(self, url: str) -> bool:
+        """Whether the host has a page at `url`. Only an answer of nothing there says no."""
+        try:
+            get_text(url, timeout=self.timeout)
+        except requests.HTTPError as exc:
+            return getattr(exc.response, "status_code", 0) not in (404, 410)
+        except Exception:  # noqa: BLE001 - a host that cannot be asked has not said no
+            return True
+        return True
+
     def _download_zip(self, url: str, max_retries: int = 3) -> BytesIO:
         return self.client.download_zip(url, max_retries=max_retries)
 
@@ -73,20 +87,26 @@ class ThemeRegistry:
     # =========================================================
 
     def _catalog(self, url: str) -> dict:
-        """The themes a registry names, or {} with a reason logged.
+        """The themes a registry names, or {} with a reason logged and kept in `reports`.
 
         One unreachable or malformed source must not cost the user the others - that is
         the whole point of there being more than one.
         """
+        checks = theme_source_checks
         try:
             data = self._fetch_json(url)
         except Exception as exc:
             logger.error("Theme registry %s: %s", url, exc)
+            state, reason = checks.classify(exc, url)
+            self.reports[url] = checks.failed(url, checks.LIST, state, reason)
             return {}
         themes = data.get("themes")
         if not isinstance(themes, dict):
             logger.error("Theme registry %s: no themes object, so nothing to read", url)
+            self.reports[url] = checks.failed(url, checks.LIST, checks.NOT_A_THEME,
+                                              t("themes.source.no_themes"))
             return {}
+        self.reports[url] = checks.listed(url, themes)
         return themes
 
     def load_registry(self) -> None:
@@ -97,14 +117,21 @@ class ThemeRegistry:
         # Repositories first: naming one repo is a more specific act than subscribing to
         # a catalog, so a user's own theme wins a name collision with a published one.
         # Keyed by url until its manifest says what it is really called.
+        self.sources = sources
+        self.reports = {url: theme_source_checks.waiting(url, theme_source_checks.THEME)
+                        for url in sources.repositories if url.strip()}
         parts = [(url, {url: theme_sources.repository_entry(url)})
                  for url in sources.repositories if url.strip()]
         parts += [(url, self._catalog(url)) for url in sources.registries if url.strip()]
 
         self.origins = {}
-        index = theme_sources.merge(parts, self.origins)
+        lost: dict[str, list[str]] = {}
+        index = theme_sources.merge(parts, self.origins, lost)
+        for origin, names in lost.items():
+            self.reports[origin]["took"] = names
         if not index and parts:
-            raise ThemeRegistryError(t("error.themes.sources_failed"))
+            raise theme_source_checks.NothingReadError(t("error.themes.sources_failed"),
+                                                       self.reports)
 
         self.themes_index = index
 
@@ -179,13 +206,16 @@ class ThemeRegistry:
             if release is None or manifest_url is None:
                 # Every release this theme offers needs a newer VPinFE than this one.
                 logger.debug("%s offers nothing this build can run", theme_key)
-                return theme_key, theme_info, None, None, None, ""
+                needs = self._needed_by(base_url, index, theme_info)
+                return theme_key, theme_info, None, None, None, "", needs
             manifest = self._fetch_json(manifest_url)
             self._validate_manifest(theme_key, manifest)
             # Only now can a repository say what it is called, so the key settles here.
             name = theme_sources.name_of(theme_key, theme_info, manifest)
             updated = self._dated(name, base_url, release, previous) if dates else ""
-            return name, theme_info, manifest, release, index, updated
+            return name, theme_info, manifest, release, index, updated, ""
+
+        unreadable: dict[str, dict[str, str]] = {}
 
         # Network-bound workload: parallelize manifest fetches. Submitted all at once, then
         # collected in source order rather than completion order - a repository's name is
@@ -195,14 +225,19 @@ class ThemeRegistry:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {job[0]: pool.submit(_load_one, job) for job in theme_jobs}
             for provisional, future in futures.items():
+                origin = self.origins.get(provisional, "")
                 try:
-                    theme_key, theme_info, manifest, release, index, updated = \
+                    theme_key, theme_info, manifest, release, index, updated, needs = \
                         future.result()
                     if manifest is None:
+                        self._note_needs_newer(origin, needs)
                         continue
-                    if theme_key in self.themes:
+                    held = theme_key in self.themes
+                    self._note_theme(origin, theme_key, manifest, used=not held)
+                    if held:
                         logger.warning("Two sources both provide '%s' - keeping the first, "
                                        "ignoring %s", theme_key, self._base_url(theme_info))
+                        self._note_took(origin, theme_key)
                         continue
                     twin = next((k for k in self.themes if k.lower() == theme_key.lower()), None)
                     if twin:
@@ -218,6 +253,89 @@ class ThemeRegistry:
                     }
                 except Exception as e:
                     logger.error("%s: %s", provisional, e)
+                    self._note_failure(origin, provisional, e, unreadable)
+
+        for origin, names in unreadable.items():
+            self._note(origin, state=theme_source_checks.SOME_UNREADABLE,
+                       reason=theme_source_checks.unreadable(names))
+
+    def _note(self, origin: str, **fields: Any) -> None:
+        """Add to what a source said. A registry built without reading its sources has no
+        reports, and nothing to add to."""
+        report = self.reports.get(origin)
+        if report is not None:
+            report.update(fields)
+
+    def _is_single(self, origin: str) -> bool:
+        return (self.reports.get(origin) or {}).get("kind") == theme_source_checks.THEME
+
+    def _note_took(self, origin: str, name: str) -> None:
+        report = self.reports.get(origin)
+        if report is not None and name not in report["took"]:
+            report["took"].append(name)
+
+    def _note_theme(self, origin: str, name: str, manifest: dict, *, used: bool) -> None:
+        """A single theme that read: what it is called, and whether it can run here."""
+        if not self._is_single(origin):
+            return
+        checks = theme_source_checks
+        needs = self._needs_newer(manifest)
+        state, reason = checks.READY, ""
+        if not used:
+            state, reason = checks.NOT_USED, t("themes.source.not_used", name=name)
+        elif needs:
+            state = checks.NEEDS_VPINFE
+            reason = t("themes.source.needs_version", name=name, needs=needs)
+        self._note(origin, name=name, version=str(manifest.get("version") or ""),
+                   state=state, reason=reason, needs=needs)
+
+    def _note_needs_newer(self, origin: str, needs: str) -> None:
+        """A single theme none of whose releases this VPinFE runs. A list's theme in the
+        same case is simply not offered."""
+        if not self._is_single(origin):
+            return
+        name = self.reports[origin]["display"]
+        reason = (t("themes.source.needs_version", name=name, needs=needs) if needs
+                  else t("themes.source.needs_newer", name=name))
+        self._note(origin, state=theme_source_checks.NEEDS_VPINFE, reason=reason, needs=needs)
+
+    def _note_failure(self, origin: str, provisional: str, exc: BaseException,
+                      unreadable: dict[str, dict[str, str]]) -> None:
+        report = self.reports.get(origin)
+        if report is None:
+            return
+        checks = theme_source_checks
+        base = self._base_url(self.themes_index.get(provisional) or {})
+        state, reason = checks.classify(exc, base)
+        if report["kind"] == checks.LIST:
+            unreadable.setdefault(origin, {})[provisional] = reason
+            return
+        if state == checks.NOT_FOUND and self._exists(base):
+            # The repository is there and the file in it is not: that is not a theme.
+            state, reason = checks.NOT_A_THEME, t("themes.source.no_manifest")
+        self._note(origin, state=state, reason=reason)
+
+    def _needs_newer(self, manifest: dict) -> str:
+        """The VPinFE a theme asks for when this one is older, else empty."""
+        needs = parse_version(manifest.get(MIN_VERSION_KEY))
+        running = parse_version(get_version())
+        if needs and running and newer_version(needs, running):
+            return str(manifest[MIN_VERSION_KEY])
+        return ""
+
+    def _needed_by(self, base_url: str, index: dict | None, entry: dict) -> str:
+        """The VPinFE the nearest line of a theme asks for, where its manifest says so."""
+        declared = theme_releases.releases_in(index)
+        if not declared:
+            return ""
+        pinned = str(entry.get("ref") or "").strip()
+        line = theme_releases.for_ref(declared, pinned) if pinned else declared[-1]
+        try:
+            manifest = self._fetch_json(theme_releases.raw_url(base_url, line.ref,
+                                                               "manifest.json"))
+        except Exception:  # noqa: BLE001 - the version is detail; the state stands without it
+            return ""
+        return str(manifest.get(MIN_VERSION_KEY) or "")
 
     def _dated(self, key: str, base_url: str, release: theme_releases.Release,
                previous: ThemeRegistry | None) -> str:
@@ -245,16 +363,14 @@ class ThemeRegistry:
         if "windows" not in manifest:
             required_fields.append("supported_screens")
 
-        for field in required_fields:
-            if field not in manifest:
-                raise ThemeRegistryError(
-                    f"{theme_key} missing required field '{field}'"
-                )
+        missing = [field for field in required_fields if field not in manifest]
+        if missing:
+            raise theme_source_checks.ManifestError(
+                f"{theme_key} missing required field '{missing[0]}'", missing)
 
         if manifest["type"] not in ("desktop", "cab", "both"):
-            raise ThemeRegistryError(
-                f"{theme_key} invalid type '{manifest['type']}'"
-            )
+            raise theme_source_checks.ManifestError(
+                f"{theme_key} invalid type '{manifest['type']}'")
 
     # =========================================================
     # INSTALL HELPERS
@@ -308,11 +424,10 @@ class ThemeRegistry:
         # working theme leaves the frontend rendering against a contract this build does
         # not serve. The theme's own gate decides which contract it *gets*; nothing was
         # deciding whether it should arrive at all.
-        needs = parse_version(manifest.get(MIN_VERSION_KEY))
-        running = parse_version(get_version())
-        if needs and running and newer_version(needs, running):
+        needs = self._needs_newer(manifest)
+        if needs:
             raise ThemeVersionError(t("error.themes.needs_newer_vpinfe", key=theme_key,
-                                      needs=manifest[MIN_VERSION_KEY], running=get_version()))
+                                      needs=needs, running=get_version()))
 
         if not force and local_version:
             if not self._is_version_newer(remote_version, local_version):
@@ -413,6 +528,7 @@ class ThemeRegistry:
     def snapshot(self) -> dict[str, Any]:
         """What the sources said, in a form that survives a restart."""
         return {"themes_index": self.themes_index, "origins": self.origins,
+                "reports": self.reports,
                 "themes": {key: {**entry, "release": asdict(entry["release"])
                                  if entry.get("release") else None}
                            for key, entry in self.themes.items()}}
@@ -420,6 +536,7 @@ class ThemeRegistry:
     def restore(self, held: dict[str, Any]) -> None:
         self.themes_index = dict(held.get("themes_index") or {})
         self.origins = dict(held.get("origins") or {})
+        self.reports = dict(held.get("reports") or {})
         self.themes = {key: {**entry, "release": theme_releases.Release(**entry["release"])
                              if entry.get("release") else None}
                        for key, entry in (held.get("themes") or {}).items()}
