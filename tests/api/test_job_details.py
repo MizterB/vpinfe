@@ -25,7 +25,7 @@ class Describers(unittest.TestCase):
 
         self.assertEqual(t("said.job_scan_found", found=9, missing=2), said)
 
-    def test_an_art_fill_counts_what_it_did(self) -> None:
+    def test_a_media_fill_counts_what_it_did(self) -> None:
         said = job_details.of(jobs.KIND_MEDIA_FILL,
                               {"games": 5, "filled": 3, "unmatched": 1, "failed": 1})
 

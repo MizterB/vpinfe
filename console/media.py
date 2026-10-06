@@ -21,10 +21,10 @@ from common.games import asset_origin
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import (
-    art_fill,
     game_tables,
     grid,
     list_art,
+    media_fill,
     media_ownership,
     offload,
     panel,
@@ -248,9 +248,9 @@ def build(found: list[dict[str, Any]], library: Any,
                 return refill(library, table, built, by_id, ids)
 
             if grid.hidden_count(table) or len(picked) < on_screen["rows"]:
-                await art_fill.confirm_slots(picked, state, placed)
+                await media_fill.confirm_slots(picked, state, placed)
                 return
-            await art_fill.ask(ids, state, placed,
+            await media_fill.ask(ids, state, placed,
                                name=str(picked[0].get("game") or "") if len(ids) == 1 else "")
 
         @on_page
@@ -270,7 +270,7 @@ def build(found: list[dict[str, Any]], library: Any,
 
         with actions:
             with ui.menu():
-                ui.menu_item(t("console.art_fill.get_missing"), get_missing_art) \
+                ui.menu_item(t("console.media_fill.get_missing"), get_missing_art) \
                     .classes("console-menu-item")
                 recorder.menu_entry(library, t("console.record.record_missing"),
                                     record_missing)

@@ -566,63 +566,63 @@
   "console.app_settings.the_tables_own": "The table's own",
   "console.app_settings.ignored": "Ignored",
   "console.app_settings.window_row": "{window} {label}",
-  "console.art_fill.also_unreachable": "{said}, {sources} could not be reached",
-  "console.art_fill.ask_kind": {
+  "console.media_fill.also_unreachable": "{said}, {sources} could not be reached",
+  "console.media_fill.ask_kind": {
     "one": "Get {kind} media for 1 game?",
     "other": "Get {kind} media for {count} games?"
   },
-  "console.art_fill.ask_kind_of": {
+  "console.media_fill.ask_kind_of": {
     "one": "Get {kind} media for 1 of {missing} games?",
     "other": "Get {kind} media for {count} of {missing} games?"
   },
-  "console.art_fill.ask_slots": {
+  "console.media_fill.ask_slots": {
     "one": "Get media for 1 missing file?",
     "other": "Get media for {count} missing files?"
   },
-  "console.art_fill.available": "{count} available",
-  "console.art_fill.get_failed": {
+  "console.media_fill.available": "{count} available",
+  "console.media_fill.get_failed": {
     "one": "Could not get 1 file",
     "other": "Could not get {count} files"
   },
-  "console.art_fill.read_failed": "Could not read what is missing",
-  "console.art_fill.could_not_start": "Could not get media",
-  "console.art_fill.failed": "Could not get media",
-  "console.art_fill.game_unmatched": "This game is not matched to VPS, so nothing can be looked up for it",
-  "console.art_fill.games": {
+  "console.media_fill.read_failed": "Could not read what is missing",
+  "console.media_fill.could_not_start": "Could not get media",
+  "console.media_fill.failed": "Could not get media",
+  "console.media_fill.game_unmatched": "This game is not matched to VPS, so nothing can be looked up for it",
+  "console.media_fill.games": {
     "one": "1 game",
     "other": "{count} games"
   },
-  "console.art_fill.get": {
+  "console.media_fill.get": {
     "one": "Get 1",
     "other": "Get {count}"
   },
-  "console.art_fill.get_art": "Get media",
-  "console.art_fill.from_files": {
+  "console.media_fill.get_media": "Get media",
+  "console.media_fill.from_files": {
     "one": "1 backglass picture is drawn from its game's backglass file",
     "other": "{count} backglass pictures are drawn from their games' backglass files"
   },
-  "console.art_fill.get_art.help": "Asks, then gets this media for these games, online or from their backglass files",
-  "console.art_fill.get_missing": "Get missing media...",
-  "console.art_fill.get_missing.help": "Opens the choice of what to get, online or from each game's backglass file",
-  "console.art_fill.got": {
+  "console.media_fill.get_media.help": "Asks, then gets this media for these games, online or from their backglass files",
+  "console.media_fill.get_missing": "Get missing media...",
+  "console.media_fill.get_missing.help": "Opens the choice of what to get, online or from each game's backglass file",
+  "console.media_fill.got": {
     "one": "Got 1 file",
     "other": "Got {count} files"
   },
-  "console.art_fill.got_failed": "{got}, {failed} failed",
-  "console.art_fill.got_nothing": "No media found",
-  "console.art_fill.missing": "{count} missing",
-  "console.art_fill.no_sources": "No online sources are switched on, and no game has a backglass file",
-  "console.art_fill.none_available": "none available",
-  "console.art_fill.none_for_kind": "No source has {kind} media for these games",
-  "console.art_fill.none_missing": "none missing",
-  "console.art_fill.nothing_missing": "Nothing selected is missing",
-  "console.art_fill.title": "Get missing media from “{source}”",
-  "console.art_fill.title_several": "Get missing media",
-  "console.art_fill.unmatched": {
+  "console.media_fill.got_failed": "{got}, {failed} failed",
+  "console.media_fill.got_nothing": "No media found",
+  "console.media_fill.missing": "{count} missing",
+  "console.media_fill.no_sources": "No online sources are switched on, and no game has a backglass file",
+  "console.media_fill.none_available": "none available",
+  "console.media_fill.none_for_kind": "No source has {kind} media for these games",
+  "console.media_fill.none_missing": "none missing",
+  "console.media_fill.nothing_missing": "Nothing selected is missing",
+  "console.media_fill.title": "Get missing media from “{source}”",
+  "console.media_fill.title_several": "Get missing media",
+  "console.media_fill.unmatched": {
     "one": "1 is not matched to VPS, so nothing can be looked up for it",
     "other": "{count} are not matched to VPS, so nothing can be looked up for those"
   },
-  "console.art_fill.unreachable": "{sources} could not be reached",
+  "console.media_fill.unreachable": "{sources} could not be reached",
   "console.assets.assets": "{shown} of {count} assets",
   "console.assets.assets_missing": "{count} assets, {gaps} missing",
   "console.assets.unused_view.help": "Correctly named files that nothing loads",

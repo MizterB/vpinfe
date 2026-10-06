@@ -89,7 +89,7 @@ def serve(port: int) -> None:
     """The Media page, drawn as the Console draws it."""
     from nicegui import app, ui
 
-    from console import api, art_fill, grid, media
+    from console import api, grid, media, media_fill
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
     library = _Library()
@@ -110,8 +110,8 @@ def serve(port: int) -> None:
                          then: Callable[[], Any]) -> None:
         await fill([str(row["game_id"]) for row in rows], state, then)
 
-    art_fill.ask = fill
-    art_fill.confirm_slots = fill_slots
+    media_fill.ask = fill
+    media_fill.confirm_slots = fill_slots
 
     @ui.page("/")
     async def page() -> None:

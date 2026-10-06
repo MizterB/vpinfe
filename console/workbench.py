@@ -51,7 +51,6 @@ from common.online import vps_kinds
 from console import arrange as arranging
 from console import (
     art,
-    art_fill,
     backglass_view,
     backup_rows,
     busy,
@@ -67,6 +66,7 @@ from console import (
     game_tables,
     grid,
     list_art,
+    media_fill,
     media_ownership,
     mediamap,
     mediasource,
@@ -1860,11 +1860,11 @@ async def _media_block(context: dict[str, Any]) -> None:
         return
     with ui.element("div").classes("console-slot-actions px-3"):
         if not context["lens"]:
-            panel.action(t("console.art_fill.get_missing"),
-                         lambda: art_fill.ask([game_id], context["state"], placed,
+            panel.action(t("console.media_fill.get_missing"),
+                         lambda: media_fill.ask([game_id], context["state"], placed,
                                               name=str(context["game"].get("name") or "")),
                          icon=verbs.FETCH,
-                         hint=t("console.art_fill.get_missing.help"))()
+                         hint=t("console.media_fill.get_missing.help"))()
         if recording is not None:
             recording()
 

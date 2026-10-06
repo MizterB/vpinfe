@@ -329,7 +329,7 @@ class FirstSightTests(TempTree):
         self.assertEqual((result["new_matched"], result["new_unmatched"]), (0, 2))
         self.assertEqual(result["waiting_matched"], 0)
 
-    def test_every_new_game_and_the_waiting_ones_now_matched_are_handed_to_the_art_fill(
+    def test_every_new_game_and_the_waiting_ones_now_matched_are_handed_to_the_media_fill(
             self) -> None:
         self.refresh()
 
@@ -420,7 +420,7 @@ class ImportWithoutPickTests(TempTree):
             report = upload_ops.execute("upload1", {})
         return report, folder
 
-    def test_a_matched_import_is_handed_to_the_art_fill(self) -> None:
+    def test_a_matched_import_is_handed_to_the_media_fill(self) -> None:
         _, folder = self.imported(NEW)
 
         self.art.assert_called_once_with([folder])

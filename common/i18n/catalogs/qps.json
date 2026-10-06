@@ -566,63 +566,63 @@
   "console.app_settings.the_tables_own": "Ţĥè ţàƀŀè'š öŵñ",
   "console.app_settings.ignored": "Îĝñöřèđ",
   "console.app_settings.window_row": "{window} {label}",
-  "console.art_fill.also_unreachable": "{said}, {sources} çöûŀđ ñöţ ƀè řèàçĥèđ",
-  "console.art_fill.ask_kind": {
+  "console.media_fill.also_unreachable": "{said}, {sources} çöûŀđ ñöţ ƀè řèàçĥèđ",
+  "console.media_fill.ask_kind": {
     "one": "Ĝèţ {kind} ɱèđîà ƒöř 1 ĝàɱè?",
     "other": "Ĝèţ {kind} ɱèđîà ƒöř {count} ĝàɱèš?"
   },
-  "console.art_fill.ask_kind_of": {
+  "console.media_fill.ask_kind_of": {
     "one": "Ĝèţ {kind} ɱèđîà ƒöř 1 öƒ {missing} ĝàɱèš?",
     "other": "Ĝèţ {kind} ɱèđîà ƒöř {count} öƒ {missing} ĝàɱèš?"
   },
-  "console.art_fill.ask_slots": {
+  "console.media_fill.ask_slots": {
     "one": "Ĝèţ ɱèđîà ƒöř 1 ɱîššîñĝ ƒîŀè?",
     "other": "Ĝèţ ɱèđîà ƒöř {count} ɱîššîñĝ ƒîŀèš?"
   },
-  "console.art_fill.available": "{count} àṽàîŀàƀŀè",
-  "console.art_fill.get_failed": {
+  "console.media_fill.available": "{count} àṽàîŀàƀŀè",
+  "console.media_fill.get_failed": {
     "one": "Çöûŀđ ñöţ ĝèţ 1 ƒîŀè",
     "other": "Çöûŀđ ñöţ ĝèţ {count} ƒîŀèš"
   },
-  "console.art_fill.read_failed": "Çöûŀđ ñöţ řèàđ ŵĥàţ îš ɱîššîñĝ",
-  "console.art_fill.could_not_start": "Çöûŀđ ñöţ ĝèţ ɱèđîà",
-  "console.art_fill.failed": "Çöûŀđ ñöţ ĝèţ ɱèđîà",
-  "console.art_fill.game_unmatched": "Ţĥîš ĝàɱè îš ñöţ ɱàţçĥèđ ţö ṼÞŠ, šö ñöţĥîñĝ çàñ ƀè ŀööķèđ ûþ ƒöř îţ",
-  "console.art_fill.games": {
+  "console.media_fill.read_failed": "Çöûŀđ ñöţ řèàđ ŵĥàţ îš ɱîššîñĝ",
+  "console.media_fill.could_not_start": "Çöûŀđ ñöţ ĝèţ ɱèđîà",
+  "console.media_fill.failed": "Çöûŀđ ñöţ ĝèţ ɱèđîà",
+  "console.media_fill.game_unmatched": "Ţĥîš ĝàɱè îš ñöţ ɱàţçĥèđ ţö ṼÞŠ, šö ñöţĥîñĝ çàñ ƀè ŀööķèđ ûþ ƒöř îţ",
+  "console.media_fill.games": {
     "one": "1 ĝàɱè",
     "other": "{count} ĝàɱèš"
   },
-  "console.art_fill.get": {
+  "console.media_fill.get": {
     "one": "Ĝèţ 1",
     "other": "Ĝèţ {count}"
   },
-  "console.art_fill.get_art": "Ĝèţ ɱèđîà",
-  "console.art_fill.from_files": {
+  "console.media_fill.get_media": "Ĝèţ ɱèđîà",
+  "console.media_fill.from_files": {
     "one": "1 ƀàçķĝŀàšš þîçţûřè îš đřàŵñ ƒřöɱ îţš ĝàɱè'š ƀàçķĝŀàšš ƒîŀè",
     "other": "{count} ƀàçķĝŀàšš þîçţûřèš àřè đřàŵñ ƒřöɱ ţĥèîř ĝàɱèš' ƀàçķĝŀàšš ƒîŀèš"
   },
-  "console.art_fill.get_art.help": "Àšķš, ţĥèñ ĝèţš ţĥîš ɱèđîà ƒöř ţĥèšè ĝàɱèš, öñŀîñè öř ƒřöɱ ţĥèîř ƀàçķĝŀàšš ƒîŀèš",
-  "console.art_fill.get_missing": "Ĝèţ ɱîššîñĝ ɱèđîà...",
-  "console.art_fill.get_missing.help": "Öþèñš ţĥè çĥöîçè öƒ ŵĥàţ ţö ĝèţ, öñŀîñè öř ƒřöɱ èàçĥ ĝàɱè'š ƀàçķĝŀàšš ƒîŀè",
-  "console.art_fill.got": {
+  "console.media_fill.get_media.help": "Àšķš, ţĥèñ ĝèţš ţĥîš ɱèđîà ƒöř ţĥèšè ĝàɱèš, öñŀîñè öř ƒřöɱ ţĥèîř ƀàçķĝŀàšš ƒîŀèš",
+  "console.media_fill.get_missing": "Ĝèţ ɱîššîñĝ ɱèđîà...",
+  "console.media_fill.get_missing.help": "Öþèñš ţĥè çĥöîçè öƒ ŵĥàţ ţö ĝèţ, öñŀîñè öř ƒřöɱ èàçĥ ĝàɱè'š ƀàçķĝŀàšš ƒîŀè",
+  "console.media_fill.got": {
     "one": "Ĝöţ 1 ƒîŀè",
     "other": "Ĝöţ {count} ƒîŀèš"
   },
-  "console.art_fill.got_failed": "{got}, {failed} ƒàîŀèđ",
-  "console.art_fill.got_nothing": "Ñö ɱèđîà ƒöûñđ",
-  "console.art_fill.missing": "{count} ɱîššîñĝ",
-  "console.art_fill.no_sources": "Ñö öñŀîñè šöûřçèš àřè šŵîţçĥèđ öñ, àñđ ñö ĝàɱè ĥàš à ƀàçķĝŀàšš ƒîŀè",
-  "console.art_fill.none_available": "ñöñè àṽàîŀàƀŀè",
-  "console.art_fill.none_for_kind": "Ñö šöûřçè ĥàš {kind} ɱèđîà ƒöř ţĥèšè ĝàɱèš",
-  "console.art_fill.none_missing": "ñöñè ɱîššîñĝ",
-  "console.art_fill.nothing_missing": "Ñöţĥîñĝ šèŀèçţèđ îš ɱîššîñĝ",
-  "console.art_fill.title": "Ĝèţ ɱîššîñĝ ɱèđîà ƒřöɱ “{source}”",
-  "console.art_fill.title_several": "Ĝèţ ɱîššîñĝ ɱèđîà",
-  "console.art_fill.unmatched": {
+  "console.media_fill.got_failed": "{got}, {failed} ƒàîŀèđ",
+  "console.media_fill.got_nothing": "Ñö ɱèđîà ƒöûñđ",
+  "console.media_fill.missing": "{count} ɱîššîñĝ",
+  "console.media_fill.no_sources": "Ñö öñŀîñè šöûřçèš àřè šŵîţçĥèđ öñ, àñđ ñö ĝàɱè ĥàš à ƀàçķĝŀàšš ƒîŀè",
+  "console.media_fill.none_available": "ñöñè àṽàîŀàƀŀè",
+  "console.media_fill.none_for_kind": "Ñö šöûřçè ĥàš {kind} ɱèđîà ƒöř ţĥèšè ĝàɱèš",
+  "console.media_fill.none_missing": "ñöñè ɱîššîñĝ",
+  "console.media_fill.nothing_missing": "Ñöţĥîñĝ šèŀèçţèđ îš ɱîššîñĝ",
+  "console.media_fill.title": "Ĝèţ ɱîššîñĝ ɱèđîà ƒřöɱ “{source}”",
+  "console.media_fill.title_several": "Ĝèţ ɱîššîñĝ ɱèđîà",
+  "console.media_fill.unmatched": {
     "one": "1 îš ñöţ ɱàţçĥèđ ţö ṼÞŠ, šö ñöţĥîñĝ çàñ ƀè ŀööķèđ ûþ ƒöř îţ",
     "other": "{count} àřè ñöţ ɱàţçĥèđ ţö ṼÞŠ, šö ñöţĥîñĝ çàñ ƀè ŀööķèđ ûþ ƒöř ţĥöšè"
   },
-  "console.art_fill.unreachable": "{sources} çöûŀđ ñöţ ƀè řèàçĥèđ",
+  "console.media_fill.unreachable": "{sources} çöûŀđ ñöţ ƀè řèàçĥèđ",
   "console.assets.assets": "{shown} öƒ {count} àššèţš",
   "console.assets.assets_missing": "{count} àššèţš, {gaps} ɱîššîñĝ",
   "console.assets.unused_view.help": "Çöřřèçţŀý ñàɱèđ ƒîŀèš ţĥàţ ñöţĥîñĝ ŀöàđš",

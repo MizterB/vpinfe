@@ -22,7 +22,6 @@ from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
     art,
-    art_fill,
     backup_rows,
     busy,
     collection_adds,
@@ -32,6 +31,7 @@ from console import (
     game_tables,
     grid,
     list_art,
+    media_fill,
     media_ownership,
     mediaview,
     offload,
@@ -648,7 +648,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             await run.io_bound(library.reread_media, ids)
             await refresh_games(ids)
 
-        await art_fill.ask(ids, state, placed,
+        await media_fill.ask(ids, state, placed,
                            name=str(games[0].get("name") or "") if len(games) == 1 else "")
 
     async def record_media(games: list[dict[str, Any]]) -> None:
@@ -678,7 +678,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             panel.menu_entry(t("console.games.auto_match"),
                              lambda: auto_match(chosen)) \
                 .tooltip(t("console.games.auto_match.help"))
-            panel.menu_entry(t("console.art_fill.get_missing"),
+            panel.menu_entry(t("console.media_fill.get_missing"),
                              lambda: get_missing_art(chosen))
             recorder.menu_entry(library, t("console.record.record_media"),
                                 lambda: record_media(chosen))

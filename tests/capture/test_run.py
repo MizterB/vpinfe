@@ -275,7 +275,7 @@ class ExclusiveTests(unittest.TestCase):
         jobs.reset_for_tests()
         self.addCleanup(jobs.reset_for_tests)
 
-    def test_a_recording_and_an_art_fill_never_run_together(self) -> None:
+    def test_a_recording_and_a_media_fill_never_run_together(self) -> None:
         for running, asked, key in (
                 (jobs.KIND_MEDIA_FILL, jobs.KIND_MEDIA_CAPTURE, "error.capture.fill_running"),
                 (jobs.KIND_MEDIA_CAPTURE, jobs.KIND_MEDIA_FILL, "error.media_fill.recording")):

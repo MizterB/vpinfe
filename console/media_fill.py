@@ -22,7 +22,7 @@ from console import dialog as frame
 from console.api import ApiClient
 from console.on_page import on_page
 
-TICKS = "art_fill.kinds"
+TICKS = "media_fill.kinds"
 _POLL_S = 1.0
 _POLLS = 3600
 
@@ -47,18 +47,18 @@ def outcome(result: dict[str, Any]) -> tuple[str, Literal["positive", "warning",
     got, failed = int(result.get("filled") or 0), int(result.get("failed") or 0)
     unreachable = ", ".join(str(name) for name in result.get("unreachable") or ())
     if unreachable and not (got or failed):
-        return t("console.art_fill.unreachable", sources=unreachable), "warning"
+        return t("console.media_fill.unreachable", sources=unreachable), "warning"
     if unreachable:
         said, _ = outcome({"filled": got, "failed": failed})
-        return t("console.art_fill.also_unreachable", said=said, sources=unreachable), "warning"
+        return t("console.media_fill.also_unreachable", said=said, sources=unreachable), "warning"
     if got and failed:
-        return t("console.art_fill.got_failed", got=t("console.art_fill.got", count=got),
+        return t("console.media_fill.got_failed", got=t("console.media_fill.got", count=got),
                  failed=failed), "warning"
     if got:
-        return t("console.art_fill.got", count=got), "positive"
+        return t("console.media_fill.got", count=got), "positive"
     if failed:
-        return t("console.art_fill.get_failed", count=failed), "warning"
-    return t("console.art_fill.got_nothing"), "info"
+        return t("console.media_fill.get_failed", count=failed), "warning"
+    return t("console.media_fill.got_nothing"), "info"
 
 
 @on_page
@@ -69,10 +69,10 @@ async def ask(game_ids: list[str] | None, state: dict[str, Any],
     try:
         found = await offload.io(ApiClient().missing_media, game_ids)
     except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
-        ui.notify(t("console.art_fill.read_failed"), caption=why(exc), type="warning")
+        ui.notify(t("console.media_fill.read_failed"), caption=why(exc), type="warning")
         return
     if not _anything_to_ask(found):
-        ui.notify(t("console.art_fill.no_sources"), type="warning")
+        ui.notify(t("console.media_fill.no_sources"), type="warning")
         return
     kinds = await _choose(found, name)
     if kinds:
@@ -85,13 +85,13 @@ async def confirm_slots(rows: list[dict[str, Any]], state: dict[str, Any],
     """Get art for exactly these media rows, the ones among them that have no file."""
     gaps = [row for row in rows if media_fill.is_gap(row)]
     if not gaps:
-        ui.notify(t("console.art_fill.nothing_missing"), type="info")
+        ui.notify(t("console.media_fill.nothing_missing"), type="info")
         return
     games = {str(row["game_id"]): bool(row.get("vps_id")) for row in gaps}
     if not await confirm.ask(
-            t("console.art_fill.ask_slots", count=len(gaps)),
+            t("console.media_fill.ask_slots", count=len(gaps)),
             lines=_unmatched(len(games), sum(not matched for matched in games.values())),
-            confirm=t("console.art_fill.get_art"), icon=verbs.FETCH, danger=False):
+            confirm=t("console.media_fill.get_media"), icon=verbs.FETCH, danger=False):
         return
     slots = tuple((str(row["game_id"]), str(row["kind"])) for row in gaps)
     await get(lambda: ApiClient().fill_media(slots=slots), state, then)
@@ -104,29 +104,29 @@ async def confirm_kind(game_ids: list[str], kind: str, state: dict[str, Any],
     try:
         found = await offload.io(ApiClient().missing_media, game_ids)
     except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
-        ui.notify(t("console.art_fill.read_failed"), caption=why(exc), type="warning")
+        ui.notify(t("console.media_fill.read_failed"), caption=why(exc), type="warning")
         return
     if not _anything_to_ask(found):
-        ui.notify(t("console.art_fill.no_sources"), type="warning")
+        ui.notify(t("console.media_fill.no_sources"), type="warning")
         return
     label = media_label_map().get(kind, kind)
     row: dict[str, Any] = next(
         (one for one in found.get("kinds") or [] if one.get("kind") == kind), {})
     missing, available = int(row.get("missing") or 0), int(row.get("available") or 0)
     games, unmatched = int(found.get("games") or 0), int(found.get("unmatched") or 0)
-    unreachable = ([t("console.art_fill.unreachable", sources=", ".join(found["unreachable"]))]
+    unreachable = ([t("console.media_fill.unreachable", sources=", ".join(found["unreachable"]))]
                    if found.get("unreachable") else [])
     if not available:
         said = (unreachable or (_unmatched(games, unmatched) if unmatched == games else [])
-                or [t("console.art_fill.none_for_kind", kind=label)])
+                or [t("console.media_fill.none_for_kind", kind=label)])
         ui.notify(said[0], type="warning" if unreachable else "info")
         return
-    question = (t("console.art_fill.ask_kind", kind=label, count=available)
+    question = (t("console.media_fill.ask_kind", kind=label, count=available)
                 if available == missing
-                else t("console.art_fill.ask_kind_of", kind=label, count=available,
+                else t("console.media_fill.ask_kind_of", kind=label, count=available,
                        missing=missing))
     if await confirm.ask(question, lines=_unmatched(games, unmatched) + unreachable,
-                         confirm=t("console.art_fill.get_art"), icon=verbs.FETCH,
+                         confirm=t("console.media_fill.get_media"), icon=verbs.FETCH,
                          danger=False):
         await get(lambda: ApiClient().fill_media(game_ids, [kind]), state, then)
 
@@ -144,8 +144,8 @@ def _from_files(found: dict[str, Any]) -> int:
 def _unmatched(games: int, unmatched: int) -> list[str]:
     if not unmatched:
         return []
-    return [t("console.art_fill.game_unmatched") if games == 1
-            else t("console.art_fill.unmatched", count=unmatched)]
+    return [t("console.media_fill.game_unmatched") if games == 1
+            else t("console.media_fill.unmatched", count=unmatched)]
 
 
 async def _choose(found: dict[str, Any], name: str) -> list[str]:
@@ -159,15 +159,15 @@ async def _choose(found: dict[str, Any], name: str) -> list[str]:
         return sum(offered[kind] for kind, on in chosen.items() if on)
 
     def recount() -> None:
-        go.text = t("console.art_fill.get", count=total())
+        go.text = t("console.media_fill.get", count=total())
         go.set_enabled(total() > 0)
 
     sources = list(found["sources"])
     from_files = _from_files(found)
-    with frame.opened(t("console.art_fill.title", source=sources[0])
+    with frame.opened(t("console.media_fill.title", source=sources[0])
                       if len(sources) == 1 and not from_files
-                      else t("console.art_fill.title_several"), wide=True) as box:
-        ui.label(name or t("console.art_fill.games", count=games)) \
+                      else t("console.media_fill.title_several"), wide=True) as box:
+        ui.label(name or t("console.media_fill.games", count=games)) \
             .classes("console-help px-3")
         with ui.grid(columns="minmax(0, 1fr) max-content max-content") \
                 .classes("w-full items-center gap-x-4 gap-y-1 px-3"):
@@ -176,17 +176,17 @@ async def _choose(found: dict[str, Any], name: str) -> list[str]:
                 _kind_row(row, labels.get(str(row["kind"]), str(row["kind"])), chosen,
                           recount)
         if from_files:
-            ui.label(t("console.art_fill.from_files", count=from_files)) \
+            ui.label(t("console.media_fill.from_files", count=from_files)) \
                 .classes("console-help px-3")
         for line in _unmatched(games, unmatched):
             ui.label(line).classes("console-help px-3")
         if found.get("unreachable"):
-            ui.label(t("console.art_fill.unreachable",
+            ui.label(t("console.media_fill.unreachable",
                        sources=", ".join(found["unreachable"]))) \
                 .classes("console-help px-3")
         with frame.footer():
             frame.cancel(lambda: box.submit([]))
-            go = frame.answer(t("console.art_fill.get", count=total()),
+            go = frame.answer(t("console.media_fill.get", count=total()),
                               lambda: box.submit([kind for kind, on in chosen.items()
                                                   if on and offered[kind]]),
                               icon=verbs.FETCH)
@@ -213,13 +213,13 @@ def _kind_row(row: dict[str, Any], label: str, chosen: dict[str, bool],
     box.on_value_change(lambda event: picked(bool(event.value)))
     box.set_enabled(available > 0)
     if not missing:
-        ui.label(t("console.art_fill.none_missing")).classes("console-member-qualifier")
+        ui.label(t("console.media_fill.none_missing")).classes("console-member-qualifier")
         ui.element("div")
         return
-    ui.label(t("console.art_fill.missing", count=missing)) \
+    ui.label(t("console.media_fill.missing", count=missing)) \
         .classes("console-member-qualifier")
-    ui.label(t("console.art_fill.available", count=available) if available
-             else t("console.art_fill.none_available")) \
+    ui.label(t("console.media_fill.available", count=available) if available
+             else t("console.media_fill.none_available")) \
         .classes("console-member-qualifier")
 
 
@@ -232,7 +232,7 @@ async def get(start: Callable[[], dict], state: dict[str, Any],
     try:
         job = await offload.io(start)
     except Exception as exc:  # noqa: BLE001 - said, and nothing was fetched
-        ui.notify(t("console.art_fill.could_not_start"), caption=why(exc), type="warning")
+        ui.notify(t("console.media_fill.could_not_start"), caption=why(exc), type="warning")
         return
     watch = state.get("watch_jobs")
     if callable(watch):
@@ -246,7 +246,7 @@ async def get(start: Callable[[], dict], state: dict[str, Any],
         if found.get("state") == "running":
             continue
         if found.get("state") == "failed":
-            ui.notify(t("console.art_fill.failed"), caption=str(found.get("error") or ""),
+            ui.notify(t("console.media_fill.failed"), caption=str(found.get("error") or ""),
                       type="negative")
             return
         result = found.get("result") or {}

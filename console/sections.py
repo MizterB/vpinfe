@@ -18,8 +18,8 @@ from common.extensions.host import SWITCHED_OFF
 from common.failures import why
 from common.i18n import t
 from common.media_specs import media_label_map
-from console import art_fill, offload, panel, verbs
 from console import dialog as frame
+from console import media_fill, offload, panel, verbs
 from console.data import Library
 from console.on_page import on_page
 
@@ -196,11 +196,11 @@ def overview(library: Library, registry: list[dict], discovery: dict,
                 ui.label(f"{len(games)}").classes("text-sm opacity-70 shrink-0")
                 if key in FILLS:
                     ids = [str(game["id"]) for game in games]
-                    panel.action(t("console.art_fill.get_art"),
-                                 lambda ids=ids, kind=FILLS[key]: art_fill.confirm_kind(
+                    panel.action(t("console.media_fill.get_media"),
+                                 lambda ids=ids, kind=FILLS[key]: media_fill.confirm_kind(
                                      ids, kind, state, lambda: placed(ids)),
                                  icon=verbs.FETCH, enabled=bool(games),
-                                 hint=t("console.art_fill.get_art.help"))()
+                                 hint=t("console.media_fill.get_media.help"))()
                 panel.action(t("console.sections.show"), lambda: go("games"),
                              icon=verbs.GO, enabled=bool(games),
                              hint=t("console.sections.show_finding.help"))()

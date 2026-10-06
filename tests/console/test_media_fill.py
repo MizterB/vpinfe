@@ -6,8 +6,8 @@ import asyncio
 import unittest
 from unittest import mock
 
-from console import art_fill
-from console.art_fill import outcome, remember, ticked
+from console import media_fill
+from console.media_fill import outcome, remember, ticked
 
 KINDS = [{"kind": "wheel", "missing": 12, "available": 9},
          {"kind": "backglass", "missing": 4, "available": 2},
@@ -69,12 +69,12 @@ class SlotTests(unittest.TestCase):
     """A Media grid selection: only its rows with no file are asked for."""
 
     def _confirm(self, rows: list[dict], answer: bool = True) -> tuple[mock.Mock, ...]:
-        with mock.patch.object(art_fill.confirm, "ask",
+        with mock.patch.object(media_fill.confirm, "ask",
                                mock.AsyncMock(return_value=answer)) as ask, \
-                mock.patch.object(art_fill, "get", mock.AsyncMock()) as get, \
-                mock.patch.object(art_fill, "ApiClient") as client, \
-                mock.patch.object(art_fill.ui, "notify") as notify:
-            asyncio.run(art_fill.confirm_slots(rows, {}, lambda: None))
+                mock.patch.object(media_fill, "get", mock.AsyncMock()) as get, \
+                mock.patch.object(media_fill, "ApiClient") as client, \
+                mock.patch.object(media_fill.ui, "notify") as notify:
+            asyncio.run(media_fill.confirm_slots(rows, {}, lambda: None))
             if get.await_args:
                 get.await_args.args[0]()
         return ask, get, client, notify
@@ -121,14 +121,14 @@ class KindTests(unittest.TestCase):
     """An Overview finding: one kind for its games, asked plainly."""
 
     def _confirm(self, plan: dict, answer: bool = True) -> tuple[mock.Mock, ...]:
-        with mock.patch.object(art_fill.offload, "io",
+        with mock.patch.object(media_fill.offload, "io",
                                mock.AsyncMock(return_value=plan)), \
-                mock.patch.object(art_fill.confirm, "ask",
+                mock.patch.object(media_fill.confirm, "ask",
                                   mock.AsyncMock(return_value=answer)) as ask, \
-                mock.patch.object(art_fill, "get", mock.AsyncMock()) as get, \
-                mock.patch.object(art_fill, "ApiClient") as client, \
-                mock.patch.object(art_fill.ui, "notify") as notify:
-            asyncio.run(art_fill.confirm_kind(["g1", "g2"], "playfield", {},
+                mock.patch.object(media_fill, "get", mock.AsyncMock()) as get, \
+                mock.patch.object(media_fill, "ApiClient") as client, \
+                mock.patch.object(media_fill.ui, "notify") as notify:
+            asyncio.run(media_fill.confirm_kind(["g1", "g2"], "playfield", {},
                                               lambda: None))
             if get.await_args:
                 get.await_args.args[0]()
@@ -169,13 +169,13 @@ class KindTests(unittest.TestCase):
     def test_no_source_on_still_asks_when_the_games_own_files_have_art(self) -> None:
         plan = {"games": 2, "unmatched": 2, "sources": [], "unreachable": [],
                 "kinds": [{"kind": "backglass", "missing": 2, "available": 2, "local": 2}]}
-        with mock.patch.object(art_fill.offload, "io", mock.AsyncMock(return_value=plan)), \
-                mock.patch.object(art_fill.confirm, "ask",
+        with mock.patch.object(media_fill.offload, "io", mock.AsyncMock(return_value=plan)), \
+                mock.patch.object(media_fill.confirm, "ask",
                                   mock.AsyncMock(return_value=False)) as ask, \
-                mock.patch.object(art_fill, "get", mock.AsyncMock()), \
-                mock.patch.object(art_fill, "ApiClient"), \
-                mock.patch.object(art_fill.ui, "notify") as notify:
-            asyncio.run(art_fill.confirm_kind(["g1", "g2"], "backglass", {}, lambda: None))
+                mock.patch.object(media_fill, "get", mock.AsyncMock()), \
+                mock.patch.object(media_fill, "ApiClient"), \
+                mock.patch.object(media_fill.ui, "notify") as notify:
+            asyncio.run(media_fill.confirm_kind(["g1", "g2"], "backglass", {}, lambda: None))
 
         ask.assert_awaited_once()
         notify.assert_not_called()
@@ -190,13 +190,13 @@ class FromFilesTests(unittest.TestCase):
                  ({}, False))
         for found, expected in cases:
             with self.subTest(found=found):
-                self.assertEqual(art_fill._anything_to_ask(found), expected)
+                self.assertEqual(media_fill._anything_to_ask(found), expected)
 
     def test_the_files_are_counted_across_kinds(self) -> None:
         found = {"kinds": [{"kind": "backglass", "local": 3}, {"kind": "wheel"},
                            {"kind": "scoreview", "local": 2}]}
 
-        self.assertEqual(art_fill._from_files(found), 5)
+        self.assertEqual(media_fill._from_files(found), 5)
 
 
 if __name__ == "__main__":
