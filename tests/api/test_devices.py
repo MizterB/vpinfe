@@ -226,6 +226,36 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(response.status_code, 202)
         submit.assert_called_once()
 
+    def test_what_a_device_carries_says_which_library_game_each_folder_is(self) -> None:
+        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
+                                                  "address": "192.0.2.7", "port": 2112}).json()
+        game = Mock(game_dir_name="Alpha (Bally 1991)")
+        with patch.object(mobile_ops.mobile_transfer, "carried",
+                          return_value=["Alpha (Bally 1991)", "Stray"]), \
+                patch.object(mobile_ops.game_repository, "catalog",
+                             return_value={"g1": game}):
+            body = self.client.get(f"/devices/{added['device_id']}/games").json()
+
+        self.assertEqual(body["count"], 2)
+        self.assertEqual(body["games"], [{"folder": "Alpha (Bally 1991)", "game_id": "g1"},
+                                         {"folder": "Stray", "game_id": None}])
+
+    def test_a_folder_in_two_locations_is_the_game_of_the_higher_one(self) -> None:
+        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
+                                                  "address": "192.0.2.7", "port": 2112}).json()
+        lower = Mock(game_dir_name="Alpha (Bally 1991)")
+        higher = Mock(game_dir_name="Alpha (Bally 1991)")
+        with patch.object(mobile_ops.mobile_transfer, "carried",
+                          return_value=["Alpha (Bally 1991)"]), \
+                patch.object(mobile_ops.game_repository, "catalog",
+                             return_value={"lower": lower, "higher": higher}), \
+                patch.object(mobile_ops.game_identity, "in_priority",
+                             return_value=[higher, lower]):
+            body = self.client.get(f"/devices/{added['device_id']}/games").json()
+
+        self.assertEqual(body["games"], [{"folder": "Alpha (Bally 1991)",
+                                          "game_id": "higher"}])
+
     def test_an_install_still_cannot_omit_its_id(self) -> None:
         """Minting is for devices that cannot identify themselves. An install can."""
         response = self.client.put("/devices", json={"display_name": "cab"})

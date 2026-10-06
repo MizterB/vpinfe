@@ -226,17 +226,24 @@ class ScriptPatches(ApiModel):
     checked: int
 
 
+class DeviceGame(ApiModel):
+    """One folder a device holds, and the game of this library it is, if any."""
+
+    folder: str
+    game_id: str | None = None
+
+
 class DeviceGameList(ApiModel):
     """What a device that is not an install is carrying.
 
     Folder names, because that is all such a device knows: it has no library and no
     ids, so what it can be asked is which folders it holds. Matching them back to games
-    is this end's job.
+    is this end's job, and `game_id` is null for a folder that matches none.
     """
 
     device_id: str
     count: int
-    games: list[str]
+    games: list[DeviceGame]
 
 
 class DeviceSendRequest(ApiModel):

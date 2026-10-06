@@ -12,7 +12,7 @@ from typing import Any
 
 from common import device_client, device_ops, service_errors
 from common import jobs as job_registry
-from common.games import game_repository, mobile_transfer
+from common.games import game_identity, game_repository, mobile_transfer
 from common.i18n import t
 
 
@@ -20,7 +20,13 @@ def carried_by(device_id: str) -> dict[str, Any]:
     """It is a short question and the answer is only true at the moment it is given."""
     device = device_ops.mobile_or_refuse(device_id)
     found = mobile_transfer.carried(device.address, device.port)
-    return {"device_id": device_id, "count": len(found), "games": found}
+    games = game_repository.catalog()
+    named = {id(game): game_id for game_id, game in games.items()}
+    ids: dict[str, str] = {}
+    for game in game_identity.in_priority(games.values()):
+        ids.setdefault(str(game.game_dir_name or ""), named[id(game)])
+    return {"device_id": device_id, "count": len(found),
+            "games": [{"folder": name, "game_id": ids.get(name)} for name in found]}
 
 
 def send(device_id: str, game_ids: Iterable[str],

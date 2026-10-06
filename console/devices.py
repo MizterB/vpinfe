@@ -14,7 +14,7 @@ from common import device_client, device_registry, install_identity, lifecycle
 from common.host import action_ops, addresses
 from common.i18n import t
 from common.labels import humanize
-from console import mobile_add, offload, renderers, verbs
+from console import game_tables, list_art, mobile_add, offload, renderers, send_to_device, verbs
 from console.on_page import on_page
 
 from . import browser_state, confirm, grid, panel, views, when
@@ -977,36 +977,77 @@ async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
         return [panel.note(t("console.devices.carrying_failed"), hint=_why(exc))]
 
     @on_page
-    async def forget(name: str) -> None:
+    async def forget(folder: str) -> None:
         if not await confirm.ask(
-                t("console.devices.remove", name=(name),
+                t("console.devices.remove", name=folder,
                         device_label=(device_label(device))),
                 detail=t("console.devices.remove_detail"),
                 confirm=t("word.remove"), icon=verbs.REMOVE, danger=True):
             return
         try:
             await run.io_bound(ApiClient().remove_from_device,
-                               str(device.get("device_id") or ""), name)
+                               str(device.get("device_id") or ""), folder)
         except Exception as exc:
             ui.notify(t("said.remove_failed"), caption=_why(exc), type="negative")
             return
-        if library is not None:
-            context["rerender"]()
+        await context["rebuild"]()
 
+    games = library.games if library is not None else []
+    names = {str(one["id"]): str(one.get("name") or one["id"]) for one in games}
+    on_it = {str(one["game_id"]) for one in held if one.get("game_id")}
+    rows_out: list[tuple[Any, Any]] = []
+    if games:
+        rows_out.append((panel.FULL, _send_picker(context, device, games, on_it)))
     if not held:
-        return [panel.note(t("console.devices.carrying_empty"))]
+        return [*rows_out, panel.note(t("console.devices.carrying_empty"))]
 
-    def row(name: str) -> Callable[[], None]:
+    def row(one: dict[str, Any]) -> Callable[[], None]:
         def draw() -> None:
             with ui.element("div").classes("console-slot-actions"):
+                if not one.get("game_id"):
+                    word, why = game_tables.GONE_WORDS
+                    ui.label(word).tooltip(why) \
+                        .classes("console-member-chip console-chip-warn")
                 ui.button(t("word.remove"),
-                    icon=verbs.REMOVE, on_click=lambda _e=None: forget(name)) \
+                    icon=verbs.REMOVE, on_click=lambda _e=None: forget(one["folder"])) \
                     .props("flat dense no-caps size=sm") \
                     .classes("console-action console-action--inline")
 
         return draw
 
-    return [(name, row(name)) for name in held]
+    rows_out += [(names.get(str(one.get("game_id")), one["folder"]), row(one))
+                 for one in held]
+    return rows_out
+
+
+def _send_picker(context: dict[str, Any], device: dict[str, Any],
+                 games: list[dict[str, Any]], on_it: set[str]) -> Callable[[], None]:
+    """A game typed for and sent at once, with no confirm: the confirm's question is
+    which device and whether to go, and a pick here has answered both."""
+    library = context["library"]
+
+    def draw() -> None:
+        picker = panel.GamePicker(games, on_it, label=t("console.devices.send_game"),
+                                  art=library.game_art()) \
+            .props("dense outlined options-dense input-debounce=0 hide-selected "
+                   "fill-input clearable") \
+            .classes("w-full")
+        (library.list_art_look() or list_art.Look()).in_panel() \
+            .apply_to_options(picker, "console-picker-popup")
+
+        @on_page
+        async def pick() -> None:
+            picked = str(picker.value or "")
+            if not picked:
+                return
+            picker.value = None
+            picker.disable()
+            await send_to_device.send([{"id": picked}], device, context.get("state"))
+            await context["rebuild"]()
+
+        picker.on_value_change(pick)
+
+    return draw
 
 
 # Why a device's settings are somewhere else. Said where somebody is looking for them,

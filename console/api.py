@@ -1346,8 +1346,9 @@ class ApiClient:
         """Fetch them. Returns the job to watch, not the finished work."""
         return self._post("/library/patches", {})
 
-    def device_games(self, device_id: str) -> list[str]:
-        """The folder names a VPX Mobile device is carrying, asked of the device."""
+    def device_games(self, device_id: str) -> list[dict]:
+        """What a VPX Mobile device is carrying, asked of the device: each `folder` with
+        the `game_id` of the library's game it is, None where it is none."""
         return list(self._get(f"/devices/{quote(device_id)}/games").get("games") or [])
 
     def send_to_device(self, device_id: str, game_ids: list[str], *,
