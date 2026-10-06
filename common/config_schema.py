@@ -1025,6 +1025,12 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             aliases=("lasttable",),
             internal=True,
         ),
+        ConfigOption(
+            "last_collection",
+            type="string",
+            default="",
+            internal=True,
+        ),
     ),
     *in_section(
         "pinmame_score_parser",

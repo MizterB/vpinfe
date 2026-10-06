@@ -16,7 +16,7 @@ import unittest
 
 from common import service_errors
 from common.games import collection_ops as ops
-from common.games.collection_store import MANUAL_ORDER
+from common.games.collection_store import LAST_COLLECTION, MANUAL_ORDER
 from tests.support.library import fake_game
 
 
@@ -306,6 +306,19 @@ class PatchTests(Harness):
         self.use(manager)
         with self.assertRaises(service_errors.BlockedError):
             ops.patch("Coll", new_name="Taken")
+        self.assertIsNone(manager.renamed_to)
+
+    def test_a_collection_cannot_be_named_for_the_open_on_choice(self):
+        self.use(Manager(["g1"]))
+        for name in (LAST_COLLECTION, LAST_COLLECTION.upper(), f"  {LAST_COLLECTION} "):
+            with self.subTest(name=name), self.assertRaises(service_errors.BlockedError):
+                ops.create(name)
+
+    def test_renaming_to_the_open_on_choice_is_refused(self):
+        manager = Manager(["g1"])
+        self.use(manager)
+        with self.assertRaises(service_errors.BlockedError):
+            ops.patch("Coll", new_name=LAST_COLLECTION.lower())
         self.assertIsNone(manager.renamed_to)
 
     def test_a_collection_that_is_gone(self):

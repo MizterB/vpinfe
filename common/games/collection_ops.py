@@ -53,6 +53,7 @@ from common.games.collection_store import (
     SORT_LABELS,
     CollectionStore,
     DuplicateMemberError,
+    is_reserved_name,
     normalize_direction,
     normalize_paging_group,
 )
@@ -586,6 +587,12 @@ def _one_way(by: str, direction: str | None) -> str:
     return rankings.DIRECTION
 
 
+def _not_reserved_or_refuse(name: str) -> None:
+    """`behavior.startup_collection` reads this name as the choice, not a collection."""
+    if is_reserved_name(name):
+        raise service_errors.BlockedError(t("error.collections.name_reserved", name=name))
+
+
 def create(name: str, games: Iterable[str] = (), description: str = "",
            criteria: dict | None = None,
            order: dict | None = None, copy_of: str | None = None) -> dict:
@@ -599,6 +606,7 @@ def create(name: str, games: Iterable[str] = (), description: str = "",
     if copy_of is not None and (games or description or criteria is not None):
         raise service_errors.RefusedError(t("error.collections.copy_or_contents"))
 
+    _not_reserved_or_refuse(name)
     with get_collections_manager().mutate() as manager:
         if name in manager.get_collections_name():
             raise service_errors.BlockedError(
@@ -838,6 +846,7 @@ def _rename(manager: CollectionStore, name: str, wanted: str) -> str:
     if not new_name:
         raise service_errors.RefusedError(
             t("error.collections.name_needed"))
+    _not_reserved_or_refuse(new_name)
     if new_name in manager.get_collections_name():
         raise service_errors.BlockedError(
             t("error.collections.name_taken", name=(new_name)))

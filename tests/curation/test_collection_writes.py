@@ -16,7 +16,7 @@ import threading
 import unittest
 from pathlib import Path
 
-from common.games.collection_store import CollectionStore
+from common.games.collection_store import LAST_COLLECTION, CollectionStore
 from tests.support.library import TempTree
 
 FILTERS = ("All", "All", "All", "All", "All", "false", "Alpha", "Ascending")
@@ -85,6 +85,21 @@ class CollectionWriteTests(TempTree):
                 raise ValueError("a route refusing after it looked")
 
         self.assertEqual(self._names(), ["kept"])
+
+    def test_no_way_in_names_a_collection_for_the_open_on_choice(self) -> None:
+        store = self._store()
+        store.add_collection("Mine", ["g1"])
+        attempts = (
+            lambda: store.add_collection(LAST_COLLECTION),
+            lambda: store.add_filter_collection(LAST_COLLECTION.upper(), "A", *FILTERS),
+            lambda: store.copy_collection("Mine", f" {LAST_COLLECTION} "),
+            lambda: store.rename_collection("Mine", LAST_COLLECTION.lower()),
+        )
+        for attempt in attempts:
+            with self.subTest(), self.assertRaises(ValueError):
+                attempt()
+
+        self.assertEqual(store.get_collections_name(), ["Mine"])
 
 
 if __name__ == "__main__":

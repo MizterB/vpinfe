@@ -13,8 +13,13 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from common.games.collection_store import BUILTIN_ALL, CollectionStore, public_name
-from frontend import game_state
+from common.games.collection_store import (
+    BUILTIN_ALL,
+    LAST_COLLECTION,
+    CollectionStore,
+    public_name,
+)
+from frontend import game_state, last_game
 from frontend.api import API
 from frontend.library_resolver import LibraryResolver
 from tests.support.library import TempTree
@@ -104,6 +109,31 @@ class CollectionViewTests(_Library):
 
         self.assertEqual(self._rows(api),
                          [("mm", "vpw"), ("afm", "a1"), ("mm", "jp")])
+
+    def test_the_collection_shown_is_remembered_for_last_collection(self) -> None:
+        self.collections.add_collection("Friday Night", ["mm"])
+        api = self._api()
+        api._ini_config.config.add_section("behavior")
+        api._ini_config.config.set("behavior", "startup_collection", LAST_COLLECTION)
+
+        game_state.apply_collection(api, "Friday Night")
+
+        self.assertEqual(last_game.opening_collection(api._ini_config), "Friday Night")
+
+    def test_leaving_the_collection_is_remembered_as_the_whole_library(self) -> None:
+        self.collections.add_collection("Friday Night", ["mm"])
+        for leave in (lambda api: game_state.apply_filters(api, manufacturer="Bally"),
+                      lambda api: api.reset_filters()):
+            with self.subTest():
+                api = self._api()
+                api._ini_config.config.add_section("behavior")
+                api._ini_config.config.set("behavior", "startup_collection",
+                                           LAST_COLLECTION)
+                game_state.apply_collection(api, "Friday Night")
+
+                leave(api)
+
+                self.assertEqual(last_game.opening_collection(api._ini_config), "")
 
     def test_a_curated_order_is_held_and_is_not_one_of_the_theme_sorts(self) -> None:
         """`Manual` is what the sort UI reads back, and what stops a later refresh

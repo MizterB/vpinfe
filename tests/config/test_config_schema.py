@@ -111,6 +111,7 @@ class SchemaShapeTests(unittest.TestCase):
                                     ("vpsdb", "games_updated_to"),
                                     ("vpsdb", "art_checked"),
                                     ("state", "last_table"),
+                                    ("state", "last_collection"),
                                     ("pinmame_score_parser", "roms_update_sha"),
                                     ("pinmame_score_parser", "roms_checked"),
                                     ("device", "id"),

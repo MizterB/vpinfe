@@ -312,7 +312,10 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
 
         return panel.combo(str(value or ""), offered, save_suggested, disabled=off,
                            status=state, clearable=option.get("clearable", True),
-                           placeholder=str(option.get("blank") or ""))
+                           placeholder=str(option.get("blank") or ""),
+                           first=(panel.open_on_choices()
+                                  if option["suggest"] == config_schema.SUGGEST_COLLECTIONS
+                                  else None))
 
     if kind == "bool":
         # Through the declared type, not `bool()`. A setting nobody has stored answers

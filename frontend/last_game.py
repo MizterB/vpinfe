@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from common.config_access import SettingsConfig, cfg_get
 from common.config_store import ConfigStore
 from common.games.collection_resolver import Entry
+from common.games.collection_store import LAST_COLLECTION, public_name
 from common.games.game import GameRecord
 from common.games.game_identity import game_id
 
@@ -19,6 +20,7 @@ STATE_SECTION = "state"
 # The canonical spelling; config_schema keeps "lasttable" resolving for a file
 # written before schema 2.
 STATE_KEY = "last_table"
+COLLECTION_KEY = "last_collection"
 
 
 def entry_identity(entry: Entry) -> str:
@@ -71,3 +73,41 @@ def resolve_last_table_index(ini_config: ConfigStore, entries: Sequence[Entry]) 
         if entry_identity(entry) == saved:
             return index
     return 0
+
+
+def _asks_for_last(ini_config: ConfigStore) -> bool:
+    """The name is a reserved word, so a file edited by hand may spell it any way."""
+    wanted = cfg_get(ini_config, "behavior", "startup_collection", "").strip()
+    return wanted.casefold() == LAST_COLLECTION.casefold()
+
+
+def remember_collection(ini_config: ConfigStore, name: str) -> None:
+    """Persist the collection on screen, where `startup_collection` asks for Last Collection.
+
+    Nothing is written under any other setting, so a cabinet that opens on a fixed
+    collection never touches its file for this. The whole library is saved as empty.
+    """
+    if not _asks_for_last(ini_config):
+        return
+    shown = public_name(name)
+    parser = ini_config.config
+    if not parser.has_section(STATE_SECTION):
+        parser.add_section(STATE_SECTION)
+    if parser.get(STATE_SECTION, COLLECTION_KEY, fallback="") == shown:
+        return
+    parser.set(STATE_SECTION, COLLECTION_KEY, shown)
+    try:
+        ini_config.save()
+    except Exception:
+        logger.exception("Could not persist last collection")
+
+
+def opening_collection(ini_config: ConfigStore) -> str:
+    """The collection the frontend opens on, empty for the whole library.
+
+    Last Collection is the one saved when the frontend last showed one, and the whole
+    library until it has shown any.
+    """
+    if not _asks_for_last(ini_config):
+        return cfg_get(ini_config, "behavior", "startup_collection", "").strip()
+    return cfg_get(ini_config, STATE_SECTION, COLLECTION_KEY, "").strip()

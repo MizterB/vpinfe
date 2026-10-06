@@ -134,6 +134,14 @@ LIMIT_KEY = "limit"
 # match every game, so the library comes back through the ordinary path.
 BUILTIN_ALL = "builtin:all"
 
+# What `behavior.startup_collection` holds to open on whichever collection the frontend
+# had open last. A setting value, not a collection: no collection can take the name.
+LAST_COLLECTION = "Last Collection"
+
+
+def is_reserved_name(name: str) -> bool:
+    return name.strip().casefold() == LAST_COLLECTION.casefold()
+
 BUILTIN_RECORDS = {
     BUILTIN_ALL: {"name": BUILTIN_ALL, "label": "All Games", "type": "filter",
                   "builtin": True, "image": "", "filters": {}},
@@ -572,6 +580,8 @@ class CollectionStore:
 
     def add_collection(self, section: str, members: Iterable[object] | None = None) -> None:
         """Add a collection whose membership is an explicit list of games."""
+        if is_reserved_name(section):
+            raise ValueError(t("error.collections.name_reserved", name=section))
         if self._record(section) is not None:
             raise ValueError(t("error.collections.name_taken",
                                name=section))
@@ -593,6 +603,8 @@ class CollectionStore:
         played: bool | None = None,
     ) -> None:
         """Add a filter-based collection."""
+        if is_reserved_name(section):
+            raise ValueError(t("error.collections.name_reserved", name=section))
         if self._record(section) is not None:
             raise ValueError(t("error.collections.name_taken",
                                name=section))
@@ -610,6 +622,8 @@ class CollectionStore:
                              "filters": criteria})
 
     def copy_collection(self, source: str, section: str) -> None:
+        if is_reserved_name(section):
+            raise ValueError(t("error.collections.name_reserved", name=section))
         if self._record(section) is not None:
             raise ValueError(t("error.collections.name_taken",
                                name=section))
@@ -654,6 +668,8 @@ class CollectionStore:
 
     def rename_collection(self, old_name: str, new_name: str) -> None:
         record = self._require_mutable(old_name)
+        if is_reserved_name(new_name):
+            raise ValueError(t("error.collections.name_reserved", name=new_name))
         if self._record(new_name) is not None:
             raise ValueError(t("error.collections.name_taken",
                                name=new_name))

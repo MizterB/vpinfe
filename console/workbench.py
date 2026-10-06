@@ -6245,39 +6245,55 @@ def _in_frontend_switch(context: dict[str, Any], row: dict[str, Any]) -> Callabl
     return panel.switch(shown, changed, hint=t("console.workbench.in_menu.help"))
 
 
+@on_page
+async def _write_open_on(context: dict[str, Any], value: str) -> None:
+    try:
+        await run.io_bound(context["library"].put_config, {"behavior": {
+            "startup_collection": value}})
+    except Exception as exc:
+        ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
+        return
+    await _written(context)
+
+
 def _open_on(context: dict[str, Any], row: dict[str, Any], *,
              all_games: bool = False) -> Callable[[], None]:
-    """What the frontend opens on, and the one act that moves it: to this collection, or
-    back to all games. The value is the setting Settings shows, written the same way.
-    `all_games` is that row for the whole library, which has nothing to toggle: it can
-    only be chosen, and once chosen there is nothing left to offer."""
+    """What the frontend opens on, and how it moves. A collection offers the one act: to
+    be it, or back to all games. The value is the setting Settings shows, written the
+    same way. `all_games` is the row for the whole library, which is where the choices
+    that are not a collection are made."""
     name = str(row.get("name") or "")
     behavior = (context.get("settings") or {}).get("behavior") or {}
     now = str(behavior.get("startup_collection") or "").strip()
-    here = now == name if all_games else bool(name) and now == name
-    back = all_games or here
+    choices = panel.open_on_choices()
+
+    if all_games:
+        # What is set stays on the list while it is a collection, so the control never
+        # shows a value it cannot name.
+        options = choices if not now or now in choices else {**choices, now: now}
+
+        @on_page
+        async def chosen(event: Any) -> None:
+            if str(event.value or "") != now:
+                await _write_open_on(context, str(event.value or ""))
+
+        return panel.select(options, now, chosen)
+
+    here = bool(name) and now == name
 
     @on_page
     async def use() -> None:
-        try:
-            await run.io_bound(context["library"].put_config, {"behavior": {
-                "startup_collection": "" if back else name}})
-        except Exception as exc:
-            ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
-            return
-        await _written(context)
+        await _write_open_on(context, "" if here else name)
 
     def draw() -> None:
         with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
-            ui.label(now or t("console.workbench.open_on.all_games")) \
+            ui.label(choices.get(now) or now) \
                 .classes("console-fact-value truncate min-w-0")
-            if all_games and here:
-                return
             panel.action(
-                t("console.workbench.open_on.use_all" if back
+                t("console.workbench.open_on.use_all" if here
                   else "console.workbench.open_on.use_this"), use, inline=True,
                 icon=verbs.OPENS_ON,
-                hint=t("console.workbench.open_on.use_all.help" if back
+                hint=t("console.workbench.open_on.use_all.help" if here
                        else "console.collections.opens_on.help"))()
 
     return draw

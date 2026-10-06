@@ -12,8 +12,10 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from common.config_store import ConfigStore
+from common.games.collection_store import LAST_COLLECTION
 from frontend import last_game
 
 
@@ -124,6 +126,70 @@ class EntryIdentityTests(unittest.TestCase):
 
     def test_neither_is_no_identity_rather_than_a_guess(self) -> None:
         self.assertEqual(last_game.entry_identity(_entry()), "")
+
+
+class LastCollectionTests(unittest.TestCase):
+    """`behavior.startup_collection` = Last Collection opens on the collection shown last."""
+
+    def _set(self, config: ConfigStore, opens_on: str) -> None:
+        config.config.set("behavior", "startup_collection", opens_on)
+
+    def test_it_is_remembered_only_while_the_setting_asks_for_it(self) -> None:
+        with TemporaryDirectory() as tmp:
+            config = _config(tmp)
+            self._set(config, "Friday Night")
+
+            last_game.remember_collection(config, "90s Bally")
+
+            self.assertEqual(config.config.get("state", "last_collection", fallback=""), "")
+            self.assertEqual(last_game.opening_collection(config), "Friday Night")
+
+    def test_the_collection_shown_last_is_where_it_opens(self) -> None:
+        with TemporaryDirectory() as tmp:
+            config = _config(tmp)
+            self._set(config, LAST_COLLECTION)
+
+            last_game.remember_collection(config, "90s Bally")
+            last_game.remember_collection(config, "Friday Night")
+
+            self.assertEqual(last_game.opening_collection(config), "Friday Night")
+
+    def test_the_setting_may_be_spelled_any_way(self) -> None:
+        with TemporaryDirectory() as tmp:
+            config = _config(tmp)
+            self._set(config, LAST_COLLECTION.lower())
+
+            last_game.remember_collection(config, "Friday Night")
+
+            self.assertEqual(last_game.opening_collection(config), "Friday Night")
+
+    def test_the_whole_library_is_remembered_as_empty(self) -> None:
+        with TemporaryDirectory() as tmp:
+            config = _config(tmp)
+            self._set(config, LAST_COLLECTION)
+            last_game.remember_collection(config, "Friday Night")
+
+            last_game.remember_collection(config, "builtin:all")
+
+            self.assertEqual(last_game.opening_collection(config), "")
+
+    def test_nothing_shown_yet_opens_the_whole_library(self) -> None:
+        with TemporaryDirectory() as tmp:
+            config = _config(tmp)
+            self._set(config, LAST_COLLECTION)
+
+            self.assertEqual(last_game.opening_collection(config), "")
+
+    def test_an_unchanged_collection_skips_the_disk_write(self) -> None:
+        with TemporaryDirectory() as tmp:
+            config = _config(tmp)
+            self._set(config, LAST_COLLECTION)
+            last_game.remember_collection(config, "Friday Night")
+
+            with patch.object(config, "save") as save:
+                last_game.remember_collection(config, "Friday Night")
+
+            save.assert_not_called()
 
 
 if __name__ == "__main__":

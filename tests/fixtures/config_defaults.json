@@ -120,7 +120,8 @@
     "zedmd_wifi_address": ""
   },
   "state": {
-    "last_table": ""
+    "last_table": "",
+    "last_collection": ""
   },
   "table_commands": {
     "on_exit": "",

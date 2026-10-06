@@ -21,7 +21,6 @@ from common import events, lifecycle
 from common.capture import freeze
 from common.capture import preflight as capture_preflight
 from common.capture import run as capture_run
-from common.config_access import cfg_get
 from common.deprecations import announce
 from common.extensions import temporary_profiles
 from common.failures import why
@@ -252,7 +251,7 @@ class API:
             self.library = library
         self.js_game_dict_data: str | None = None
         # Check for startup collection
-        startup_collection = cfg_get(self._ini_config, 'behavior', 'startup_collection').strip()
+        startup_collection = last_game.opening_collection(self._ini_config)
         if startup_collection:
             try:
                 self.set_tables_by_collection(startup_collection)
@@ -317,6 +316,8 @@ class API:
     @current_collection.setter
     def current_collection(self, value: str) -> None:
         self.library.current_collection = value
+        if (ini_config := getattr(self, "_ini_config", None)) is not None:
+            last_game.remember_collection(ini_config, value)
 
     @property
     def current_sort(self) -> str:
@@ -353,6 +354,7 @@ class API:
     def _reset_to_default_view(self) -> None:
         """Reset the shared view to its default order. See `View.reset_to_default`."""
         self.library.reset_to_default()
+        self.current_collection = BUILTIN_ALL
 
     def _rebuild_entries(self) -> None:
         """Recompute the shared view. Called whenever the list or its order changes."""

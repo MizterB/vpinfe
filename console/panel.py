@@ -19,6 +19,7 @@ from typing import Any
 from nicegui import ui
 
 from common import icons
+from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
 from console import dropdown, game_tables, offload, tag_chips, thumbnails, verbs
 from console.on_page import on_page
@@ -885,11 +886,44 @@ def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], 
     return draw
 
 
+def open_on_choices() -> dict[str, str]:
+    """What `behavior.startup_collection` can say besides a collection, by stored value."""
+    return {LAST_COLLECTION: t("console.workbench.open_on.last_collection"),
+            "": t("console.workbench.open_on.all_games")}
+
+
+class DividedSelect(dropdown.Select):
+    """One from a list whose first `apart` options are not like the rest, a rule under
+    them."""
+
+    SLOT = """
+        <q-item v-bind="props.itemProps">
+          <q-item-section>
+            <q-item-label>{{ props.opt.label }}</q-item-label>
+          </q-item-section>
+        </q-item>
+        <q-separator v-if="props.opt.rule" />
+    """
+
+    def __init__(self, options: Any, *, apart: int, **kwargs: Any) -> None:
+        # Before `super().__init__`, which builds the payload for the first time.
+        self.apart = apart
+        super().__init__(options, **kwargs)
+        self.add_slot("option", self.SLOT)
+
+    def _update_options(self) -> None:
+        super()._update_options()
+        for at, option in enumerate(self._props["options"]):
+            option["rule"] = at == self.apart - 1
+
+
 def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
           disabled: bool = False, status: Callable[[Any], Any] | None = None,
-          placeholder: str = "", clearable: bool = True) -> Callable[[], None]:
+          placeholder: str = "", clearable: bool = True,
+          first: dict[str, str] | None = None) -> Callable[[], None]:
     """A list to pick from that can also be typed into. Not `clearable` where the row
-    has a Clear of its own.
+    has a Clear of its own, and never where `first` names the empty choice. `first` are
+    choices that are not part of what `options` lists, set above it with a rule between.
 
     For a value something else can offer good answers to and still be wrong about - which
     installs are on the network, say. A closed select would leave a filtered network with
@@ -897,17 +931,21 @@ def combo(value: str, options: Any, on_change: Callable[[Any], Any], *,
     exercise with a URL in it.
     """
     def draw() -> None:
-        offered = dict(options or {})
+        offered = {**(first or {}), **dict(options or {})}
         # What is stored is always one of the choices, even when nothing is offering it
         # now: a machine that is switched off has to still read as the choice that was
         # made, and a value outside the list is refused outright.
         if value and value not in offered:
             offered[value] = value
+        # An empty value is a choice of its own where `first` names it.
+        shown = value if value or "" in (first or {}) else None
         with ui.element("div").classes("console-fact-edit"):
-            control = dropdown.Select(offered, value=value or None, on_change=on_change,
-                                      with_input=True, new_value_mode="add-unique")
+            kwargs: dict[str, Any] = {"value": shown, "on_change": on_change,
+                                      "with_input": True, "new_value_mode": "add-unique"}
+            control = (DividedSelect(offered, apart=len(first), **kwargs) if first
+                       else dropdown.Select(offered, **kwargs))
             control.props("input-debounce=0"
-                          + (" clearable clear-icon=close" if clearable else ""))
+                          + (" clearable clear-icon=close" if clearable and not first else ""))
             if placeholder:
                 control.props(f'placeholder="{placeholder}"')
             control.classes("console-edit-combo")

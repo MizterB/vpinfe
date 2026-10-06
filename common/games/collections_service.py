@@ -70,8 +70,13 @@ def collection_icon_path(filename: str | None) -> Path | None:
     return here if here.is_file() else None
 
 
+# The settings that name a collection: the one the frontend opens on, and the one it
+# last had open for Last Collection to reopen.
+_NAMING_SETTINGS = (("behavior", "startup_collection"), ("state", "last_collection"))
+
+
 def follow_rename_in_settings(old_name: str, new_name: str) -> None:
-    """Move `behavior.startup_collection` along with the collection it names.
+    """Move the settings that name a collection along with it.
 
     The setting holds a name because a collection has no id to hold instead, so without
     this a rename leaves it naming a collection that is not there. The frontend logs the
@@ -79,24 +84,30 @@ def follow_rename_in_settings(old_name: str, new_name: str) -> None:
     as something broken.
     """
     store = get_ini_config()
-    if str(store.value("behavior", "startup_collection") or "").strip() != old_name:
-        return
-    store.set_value("behavior", "startup_collection", new_name)
-    store.save()
+    moved = False
+    for section, key in _NAMING_SETTINGS:
+        if str(store.value(section, key) or "").strip() == old_name:
+            store.set_value(section, key, new_name)
+            moved = True
+    if moved:
+        store.save()
 
 
 def forget_in_settings(name: str) -> None:
-    """Clear `behavior.startup_collection` when the collection it names is deleted.
+    """Clear the settings that name a collection when it is deleted.
 
     The alternative is leaving it naming something gone, which shows the whole library
     and raises on every start. This shows the whole library and says so on the settings
     screen, which is the same outcome told honestly.
     """
     store = get_ini_config()
-    if str(store.value("behavior", "startup_collection") or "").strip() != name:
-        return
-    store.set_value("behavior", "startup_collection", "")
-    store.save()
+    cleared = False
+    for section, key in _NAMING_SETTINGS:
+        if str(store.value(section, key) or "").strip() == name:
+            store.set_value(section, key, "")
+            cleared = True
+    if cleared:
+        store.save()
 
 
 def collection_icon_url(filename: str | None) -> str:

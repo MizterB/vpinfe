@@ -6,6 +6,7 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
+from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
 from console import workbench
 from tests.support.clicks import press
@@ -91,25 +92,67 @@ class OpenOn(unittest.IsolatedAsyncioTestCase):
         context["library"].put_config.assert_called_once_with(
             {"behavior": {"startup_collection": ""}})
 
-    def test_all_games_chosen_offers_nothing_more(self) -> None:
-        shown, label, _, _ = self._drawn("", "", all_games=True)
+    def _all_games_select(self, opens_on: str) -> tuple[dict[str, str], str, Any, dict[str, Any]]:
+        """The options, the value and the change handler the All Games row hands the select."""
+        context = {"library": Mock(), "state": {},
+                   "settings": {"behavior": {"startup_collection": opens_on}}}
+        drawn: list[Any] = []
 
-        self.assertEqual((t("console.workbench.open_on.all_games"), None), (shown, label))
+        def select(options: dict[str, str], value: str, on_change: Any, **_: Any) -> Any:
+            drawn.append((options, value, on_change))
+            return lambda: None
 
-    def test_all_games_not_chosen_names_the_collection_and_offers_all_games(self) -> None:
-        shown, label, _, _ = self._drawn("", "Friday Night", all_games=True)
+        with patch.object(workbench.panel, "select", new=select):
+            workbench._open_on(context, {"name": ""}, all_games=True)()
+        options, value, on_change = drawn[0]
+        return options, value, on_change, context
 
-        self.assertEqual(("Friday Night", t("console.workbench.open_on.use_all")),
-                         (shown, label))
+    def test_all_games_row_offers_the_two_special_choices(self) -> None:
+        options, value, _, _ = self._all_games_select("")
 
-    async def test_using_all_games_from_its_own_row_empties_the_setting(self) -> None:
-        _, _, use, context = self._drawn("", "Friday Night", all_games=True)
+        self.assertEqual(
+            ({LAST_COLLECTION: t("console.workbench.open_on.last_collection"),
+              "": t("console.workbench.open_on.all_games")}, ""), (options, value))
+
+    def test_all_games_row_keeps_a_set_collection_on_the_list(self) -> None:
+        options, value, _, _ = self._all_games_select("Friday Night")
+
+        self.assertEqual(("Friday Night", "Friday Night"), (value, options["Friday Night"]))
+
+    def test_all_games_row_shows_last_collection_when_that_is_set(self) -> None:
+        options, value, _, _ = self._all_games_select(LAST_COLLECTION)
+
+        self.assertEqual((LAST_COLLECTION, 2), (value, len(options)))
+
+    async def _chosen(self, opens_on: str, picked: str) -> dict[str, Any]:
+        _, _, on_change, context = self._all_games_select(opens_on)
         with patch.object(workbench.run, "io_bound", new=_now), \
                 patch.object(workbench, "_written", new=AsyncMock()):
-            await press(use)
+            await press(on_change, Mock(value=picked))
+        return context
+
+    async def test_choosing_last_collection_writes_those_words(self) -> None:
+        context = await self._chosen("", LAST_COLLECTION)
+
+        context["library"].put_config.assert_called_once_with(
+            {"behavior": {"startup_collection": LAST_COLLECTION}})
+
+    async def test_choosing_all_games_empties_the_setting(self) -> None:
+        context = await self._chosen("Friday Night", "")
 
         context["library"].put_config.assert_called_once_with(
             {"behavior": {"startup_collection": ""}})
+
+    async def test_choosing_what_is_already_set_writes_nothing(self) -> None:
+        context = await self._chosen(LAST_COLLECTION, LAST_COLLECTION)
+
+        context["library"].put_config.assert_not_called()
+
+    def test_a_collection_says_last_collection_when_that_is_set(self) -> None:
+        shown, label, _, _ = self._drawn("Friday Night", LAST_COLLECTION)
+
+        self.assertEqual((t("console.workbench.open_on.last_collection"),
+                          t("console.workbench.open_on.use_this")), (shown, label))
 
 
 class TheRememberedSection(unittest.TestCase):

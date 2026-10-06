@@ -31,8 +31,9 @@ SECTION = next(o.section for o in config_schema.options()
 class _Store:
     """The settings file, as much of it as this cares about."""
 
-    def __init__(self, startup: str) -> None:
-        self.values = {(SECTION, "startup_collection"): startup}
+    def __init__(self, startup: str, remembered: str = "") -> None:
+        self.values = {(SECTION, "startup_collection"): startup,
+                       ("state", "last_collection"): remembered}
         self.saved = 0
 
     def value(self, section: str, key: str):
@@ -47,6 +48,10 @@ class _Store:
     @property
     def startup(self):
         return self.values[(SECTION, "startup_collection")]
+
+    @property
+    def remembered(self):
+        return self.values[("state", "last_collection")]
 
 
 class StartupCollectionFollowsRenameTests(unittest.TestCase):
@@ -109,6 +114,27 @@ class StartupCollectionFollowsRenameTests(unittest.TestCase):
         self._rename(store, "Friday Night", "Friday Nights")
 
         self.assertEqual(store.startup, "Friday Nights")
+
+    def test_the_remembered_collection_moves_with_it(self) -> None:
+        store = _Store("Last Collection", remembered="Friday Night")
+        self._rename(store, "Friday Night", "Friday Nights")
+
+        self.assertEqual((store.startup, store.remembered),
+                         ("Last Collection", "Friday Nights"))
+        self.assertEqual(store.saved, 1)
+
+    def test_deleting_the_remembered_collection_forgets_it(self) -> None:
+        store = _Store("Last Collection", remembered="Friday Night")
+        self._delete(store, "Friday Night")
+
+        self.assertEqual((store.startup, store.remembered), ("Last Collection", ""))
+
+    def test_another_collection_leaves_the_remembered_one_alone(self) -> None:
+        store = _Store("Last Collection", remembered="Friday Night")
+        self._rename(store, "Solid State", "Solid States")
+        self._delete(store, "Solid State")
+
+        self.assertEqual((store.remembered, store.saved), ("Friday Night", 0))
 
 
 if __name__ == "__main__":
