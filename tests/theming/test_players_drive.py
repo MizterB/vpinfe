@@ -528,7 +528,7 @@ class PlayersDrive(unittest.TestCase):
         self.assertEqual(self.seen["state1_acts"], ["Choose a User ID", "Use a Card"])
 
     def test_choosing_checks_live_and_shows_it_lower_cased(self) -> None:
-        self.assertIn("Choose a “VPinPlay” User ID", self.seen["choose_title"])
+        self.assertIn("Choose a User ID for “VPinPlay”", self.seen["choose_title"])
         self.assertIn("Available", self.seen["choose_checked"])
         self.assertIn(USER_ID, self.seen["choose_checked"])
 

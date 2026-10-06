@@ -1267,6 +1267,13 @@ class TestTheCatalogHoldsWords(unittest.TestCase):
                  if str(said) != str(said).strip()]
         self.assertEqual([], found, "take the other string as a slot")
 
+    def test_no_entry_puts_a_before_a_slot(self) -> None:
+        """Whether it is `a` or `an` depends on the word the slot is filled with."""
+        found = [key for key, value in served().items()
+                 for said in (value.values() if isinstance(value, dict) else [value])
+                 if re.search(r"\b[Aa]n? [^\w{]{0,3}\{", str(said))]
+        self.assertEqual([], found, "say `the`, or put the slot where no article reaches it")
+
 
 # An f-string reaching one of these is not a word anybody reads.
 NOT_ON_SCREEN = {
