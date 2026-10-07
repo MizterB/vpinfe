@@ -53,26 +53,27 @@ class ReadingAgainTests(unittest.TestCase):
                     "detail": "Nothing is at /usr/bin/nvidia-smi"}
         with ui.column() as cards:
             pass
-        metrics._draw_cards(cards, graphics, held)
+        metrics._draw_cards(cards, graphics, [], held)
         first = [one.id for one in cards.descendants()]
 
-        metrics._draw_cards(cards, dict(graphics), held)
+        metrics._draw_cards(cards, dict(graphics), [], held)
 
         self.assertEqual(first, [one.id for one in cards.descendants()])
-        self.assertEqual({"Not installed": "Nothing is at /usr/bin/nvidia-smi"},
-                         lines.details(cards))
+        self.assertEqual("Nothing is at /usr/bin/nvidia-smi",
+                         lines.details(cards)["Not installed"])
 
     def test_a_changed_graphics_answer_is(self) -> None:
         held: dict[str, Any] = {}
         with ui.column() as cards:
             pass
-        metrics._draw_cards(cards, {"cards": [], "reason": "Not installed", "detail": ""}, held)
+        metrics._draw_cards(cards, {"cards": [], "reason": "Not installed", "detail": ""},
+                            [], held)
 
         metrics._draw_cards(cards, {"cards": [], "reason": "Not installed",
-                                    "detail": "Nothing is at /usr/bin/nvidia-smi"}, held)
+                                    "detail": "Nothing is at /usr/bin/nvidia-smi"}, [], held)
 
-        self.assertEqual({"Not installed": "Nothing is at /usr/bin/nvidia-smi"},
-                         lines.details(cards))
+        self.assertEqual("Nothing is at /usr/bin/nvidia-smi",
+                         lines.details(cards)["Not installed"])
 
 
 if __name__ == "__main__":

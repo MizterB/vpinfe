@@ -2105,6 +2105,13 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   font-size: var(--fs-display); font-weight: 700; color: var(--ink);
   line-height: 1.1;
 }
+/* Readings as tiles: as many columns as the width holds, none narrower than a number and
+   its caption need. A group takes its tiles into the grid without being a cell. */
+.console-tiles {
+  display: grid; width: 100%; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.console-tiles-group { display: contents; }
 /* The explanation under a control, not a tooltip on it. This is the whole legibility
    argument for the settings pages, so it gets a class rather than ad-hoc utilities. */
 .console-help {

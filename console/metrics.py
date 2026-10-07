@@ -46,23 +46,23 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
     with ui.column().classes("w-full gap-3") as readings_page:
         note = ui.element("div")
         note.set_visibility(False)
-        with ui.row().classes("w-full gap-4 no-wrap items-stretch") as readings:
-            cpu = _reading_card(t("console.metrics.processor"))
-            memory = _reading_card(t("console.metrics.memory"))
+        with ui.element("div").classes("console-tiles"):
+            cpu = _tile(t("console.metrics.processor"))
+            memory = _tile(t("console.metrics.memory"))
+            cards = ui.element("div").classes("console-tiles-group")
         disks_title = ui.label(t("console.metrics.free_space")).classes("console-group mt-2")
-        disks = ui.element("div").classes("console-card w-full")
-        ui.label(t("console.metrics.graphics")).classes("console-group mt-2")
-        cards = ui.element("div").classes("console-card w-full")
+        disks = ui.element("div").classes("console-tiles")
 
-    def show(said: str, detail: str = "") -> None:
+    def show(said: str, detail: str = "", *, keep_cards: bool = False) -> None:
         if (said, detail) != held.get("said"):
             held["said"] = (said, detail)
             note.clear()
             with note:
                 panel.line(said, hint=detail)
         note.set_visibility(bool(said))
-        for element in (readings, disks_title, disks):
+        for element in (cpu["root"], memory["root"], disks_title, disks):
             element.set_visibility(not said)
+        cards.set_visibility(not said or keep_cards)
 
     async def tick() -> None:
         try:
@@ -71,131 +71,207 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
             show(t("console.metrics.read_failed"), why(exc))
             return
         now = found.get("now") or {}
+        history = found.get("history") or []
         if not now.get("measurable"):
             # Offered with the reason rather than hidden: a page that simply omits the
             # readings leaves somebody unsure whether the machine is fine or this is.
-            show(str(now.get("reason") or t("console.metrics.no_readings")))
-            _draw_cards(cards, now.get("graphics") or {}, held)
+            show(str(now.get("reason") or t("console.metrics.no_readings")), keep_cards=True)
+            _draw_cards(cards, now.get("graphics") or {}, history, held)
             return
         show("")
-        history = found.get("history") or []
         _fill(cpu, now.get("cpu_percent"),
               [one.get("cpu_percent") for one in history],
               _load_said(now.get("load")))
         _fill(memory, now.get("memory_percent"),
               [one.get("memory_percent") for one in history],
               _bytes_said(now.get("memory_used"), now.get("memory_total")))
-        _fill_disks(disks, now.get("disks") or [])
-        _draw_cards(cards, now.get("graphics") or {}, held)
+        _draw_disks(disks, now.get("disks") or [], held)
+        _draw_cards(cards, now.get("graphics") or {}, history, held)
 
     busy.fill(readings_page, tick)
     ui.timer(EVERY_SECONDS, tick, immediate=False)
 
 
-def _reading_card(title: str) -> dict[str, Any]:
+def _tile(title: str) -> dict[str, Any]:
     """The frame for one reading, kept so the tick can move the number rather than
-    build the card again."""
-    with ui.element("div").classes("console-card grow min-w-0"):
-        ui.label(title).classes("console-card-title")
+    build the tile again."""
+    with ui.element("div").classes("console-card min-w-0") as root:
+        heading = ui.label(title).classes("console-card-title truncate")
         value = ui.label("-").classes("console-kpi")
         spark = ui.row().classes("items-end gap-px w-full no-wrap").style("height:28px")
-        said = ui.label("").classes("text-xs opacity-60")
-    return {"value": value, "spark": spark, "said": said}
+        first = ui.label("").classes("text-xs opacity-60 truncate")
+        second = ui.label("").classes("text-xs opacity-60 truncate")
+    return {"root": root, "title": heading, "value": value, "spark": spark,
+            "first": first, "second": second}
 
 
-def _fill(card: dict[str, Any], value: Any, series: list[Any], said: str) -> None:
-    card["value"].text = "-" if value is None else f"{value:.0f}%"
-    card["value"].style(f"color: {_tone(value)}")
-    card["said"].text = said
-    _spark(card["spark"], [one for one in series if one is not None])
+def _fill(tile: dict[str, Any], value: Any, series: list[Any], first: str = "",
+          second: str = "") -> None:
+    tile["value"].text = "-" if value is None else f"{value:.0f}%"
+    tile["value"].style(f"color: {_tone(value)}")
+    tile["first"].text = first
+    tile["second"].text = second
+    _spark(tile["spark"], [one for one in series if one is not None])
 
 
-def _fill_disks(target: Any, disks: list[dict[str, Any]]) -> None:
-    target.clear()
-    with target:
-        for disk in disks:
-            _disk_row(disk)
+def _note_tile(title: str, reason: str, detail: str = "") -> dict[str, Any]:
+    """A tile with words where the numbers would be: a card nothing reads, or no card
+    at all. The reason is the content, so it wraps rather than truncating."""
+    with ui.element("div").classes("console-card min-w-0") as root:
+        heading = ui.label(title).classes("console-card-title truncate")
+        ui.label("-").classes("console-kpi").style("color: var(--ink-3)")
+        panel.line(reason, hint=detail)
+    return {"root": root, "title": heading}
 
 
-def _draw_cards(target: Any, graphics: dict[str, Any], held: dict[str, Any]) -> None:
-    """Per card rather than averaged: two cards averaged is a number that describes
-    neither, and a second card is why somebody opened this. Redrawn when any reading
-    moves, and untouched while the answer is the same."""
+def _draw_cards(target: Any, graphics: dict[str, Any], history: list[dict[str, Any]],
+                held: dict[str, Any]) -> None:
+    """One tile per card rather than averaged: two cards averaged is a number that
+    describes neither, and a second card is why somebody opened this. The tiles are
+    drawn again only when the cards are not the same ones; otherwise the numbers move."""
     cards = graphics.get("cards") or []
-    if graphics == held.get("graphics"):
-        return
-    held["graphics"] = graphics
-    target.clear()
-    with target:
-        if not cards:
-            # "No card" and "the program that reads one is missing" are different
-            # answers, and only the second can be acted on.
-            panel.line(str(graphics.get("reason") or t("console.metrics.no_readings")),
-                       hint=str(graphics.get("detail") or ""))
-            return
-        for card in cards:
-            _card(card)
+    shape = (graphics.get("reason"), graphics.get("detail"),
+             tuple((one.get("id"), one.get("name"), one.get("source"), one.get("reason"))
+                   for one in cards))
+    if shape != held.get("shape"):
+        held.pop("shape", None)
+        held["tiles"] = {}
+        target.clear()
+        with target:
+            if not cards:
+                # "No card" and "the program that reads one is missing" are different
+                # answers, and only the second can be acted on.
+                _note_tile(t("console.metrics.graphics"),
+                           str(graphics.get("reason") or t("console.metrics.no_readings")),
+                           str(graphics.get("detail") or ""))
+            for card in cards:
+                name = str(card.get("name") or t("word.unknown"))
+                if card.get("reason"):
+                    tile = _note_tile(name, str(card["reason"]))
+                else:
+                    tile = _tile(name)
+                    held["tiles"][card.get("id")] = tile
+                tile["title"].tooltip(_card_tip(card, name))
+        held["shape"] = shape
+    for card in cards:
+        tile = held["tiles"].get(card.get("id"))
+        if tile is None:
+            continue
+        series = [(one.get("gpus") or {}).get(card.get("id")) for one in history]
+        first, second = _card_lines(card)
+        _fill(tile, card.get("busy"), series, first, second)
 
 
-def _card(card: dict[str, Any]) -> None:
-    ui.label(str(card.get("name") or t("word.unknown"))).classes("console-setting mt-2")
-    if card.get("reason"):
-        panel.line(str(card["reason"]))
-        return
-    with ui.row().classes("items-center gap-2 w-full flex-wrap"):
-        for label, said in _readings(card):
-            with ui.element("div").classes("console-member-chip console-tier console-tier--off"):
-                ui.label(t("console.metrics.gpu_reading", label=label, value=said))
+def _card_tip(card: dict[str, Any], name: str) -> str:
+    """The whole name, which a tile may cut, and what read it."""
+    source = card.get("source")
+    if not source:
+        return name
+    named = t(f"console.metrics.source.{str(source).replace('-', '_')}")
+    return "\n".join([name, t("console.metrics.card.source", source=named)])
 
 
-def _readings(card: dict[str, Any]) -> list[tuple[str, str]]:
-    """The readings this card has, labelled and worded. One it lacks is not listed."""
-    found: list[tuple[str, str]] = []
-    if card.get("busy") is not None:
-        found.append((t("metrics.gpu.busy.label"),
-                      t("metrics.gpu.value.percent", value=card["busy"])))
+def _card_lines(card: dict[str, Any]) -> tuple[str, str]:
+    """What a card has beyond how busy it is, on two lines: what it holds, then what it
+    draws. A reading the source lacks is not listed."""
+    holds: list[str] = []
     used, total = card.get("memory_used"), card.get("memory_total")
     if used is not None and total is not None:
-        found.append((t("metrics.gpu.memory.label"),
-                      t("console.metrics.usage", used=i18n.size(used), total=i18n.size(total))))
+        holds.append(t("console.metrics.card.memory",
+                       value=t("console.metrics.usage", used=i18n.size(used),
+                               total=i18n.size(total))))
     elif used is not None:
-        found.append((t("metrics.gpu.memory.label"), i18n.size(used)))
+        holds.append(t("console.metrics.card.shared_memory", used=i18n.size(used)))
     elif card.get("memory_percent") is not None:
-        found.append((t("metrics.gpu.memory.label"),
-                      t("metrics.gpu.value.percent", value=card["memory_percent"])))
-    for key, label, unit in (("temperature", "temperature", "celsius"), ("power", "power", "watts"),
-                             ("clock", "clock", "megahertz"), ("fan_percent", "fan", "percent")):
-        if card.get(key) is not None:
-            found.append((t(f"metrics.gpu.{label}.label"),
-                          t(f"metrics.gpu.value.{unit}", value=card[key])))
-    if card.get("fan_rpm") is not None:
-        found.append((t("metrics.gpu.fan.label"),
-                      t("metrics.gpu.value.rpm", value=card["fan_rpm"])))
-    return found
+        holds.append(t("console.metrics.card.memory",
+                       value=t("metrics.gpu.value.percent", value=card["memory_percent"])))
+    if card.get("temperature") is not None:
+        holds.append(t("metrics.gpu.value.celsius", value=card["temperature"]))
+    draws: list[str] = []
+    if card.get("power") is not None:
+        draws.append(t("metrics.gpu.value.watts", value=card["power"]))
+    if card.get("clock") is not None:
+        draws.append(t("metrics.gpu.value.megahertz", value=card["clock"]))
+    if card.get("fan_percent") is not None:
+        draws.append(t("console.metrics.card.fan",
+                       value=t("metrics.gpu.value.percent", value=card["fan_percent"])))
+    elif card.get("fan_rpm") is not None:
+        draws.append(t("console.metrics.card.fan",
+                       value=t("metrics.gpu.value.rpm", value=card["fan_rpm"])))
+    return ", ".join(holds), ", ".join(draws)
 
 
-def _disk_row(disk: dict[str, Any]) -> None:
-    with ui.row().classes("items-center gap-3 w-full no-wrap py-1"):
-        with ui.column().classes("gap-0 grow min-w-0"):
-            ui.label(disk.get("path", "")).classes("console-setting truncate")
-            for also in disk.get("also") or []:
-                # Same volume, so the same numbers. Named rather than left out, or
-                # somebody looking for it concludes it is not watched.
-                ui.label(also).classes("console-help truncate")
+def _draw_disks(target: Any, disks: list[dict[str, Any]], held: dict[str, Any]) -> None:
+    """One tile per volume. The tiles are drawn again only when the volumes are not the
+    same ones; a reading that moved is redrawn inside its tile, so a tooltip held open
+    over a title is not torn down by the next tick."""
+    several = sum(1 for disk in disks for one in disk.get("holds") or []
+                  if one.get("role") == "library") > 1
+    shape = (several, tuple((disk.get("path"), tuple(disk.get("also") or []),
+                             repr(disk.get("holds"))) for disk in disks))
+    if shape != held.get("disk_shape"):
+        held.pop("disk_shape", None)
+        held["disk_readings"] = []
+        target.clear()
+        with target:
+            for disk in disks:
+                held["disk_readings"].append(_disk_tile(disk, several))
+        held["disk_shape"] = shape
+        held.pop("disk_read", None)
+    if disks != held.get("disk_read"):
+        held["disk_read"] = disks
+        for disk, reading in zip(disks, held["disk_readings"], strict=True):
+            _disk_reading(reading, disk)
+
+
+def _volume_title(disk: dict[str, Any], several_libraries: bool) -> str:
+    """What this volume is for, in the person's words. The path is the fallback and the
+    tooltip: a path says where, and the question is which of the things they keep."""
+    holds = disk.get("holds") or []
+    libraries = [one for one in holds if one.get("role") == "library"]
+    words = []
+    if libraries:
+        # Named by its folder only where there are several and this volume holds one:
+        # two volumes both titled "Library" cannot be told apart.
+        if several_libraries and len(libraries) == 1:
+            words.append(t("console.metrics.disk.library_named", name=libraries[0].get("name")))
+        else:
+            words.append(t("console.metrics.disk.library"))
+    if any(one.get("role") == "config" for one in holds):
+        words.append(t("console.metrics.disk.config"))
+    if any(one.get("role") == "cache" for one in holds):
+        words.append(t("console.metrics.disk.cache"))
+    return ", ".join(words) or str(disk.get("path") or "")
+
+
+def _disk_tile(disk: dict[str, Any], several_libraries: bool) -> ui.element:
+    """The tile for one volume, returning the part that holds its reading."""
+    with ui.element("div").classes("console-card min-w-0"):
+        title = ui.label(_volume_title(disk, several_libraries)) \
+            .classes("console-card-title truncate")
+        # Every path on the volume, so somebody looking for one finds it rather than
+        # concluding it is not watched.
+        title.tooltip("\n".join([str(disk.get("path") or ""), *(disk.get("also") or [])]))
+        return ui.element("div").classes("w-full")
+
+
+def _disk_reading(target: ui.element, disk: dict[str, Any]) -> None:
+    target.clear()
+    with target:
         if disk.get("error"):
             # A share that has gone away is exactly what this reports, and saying
             # nothing would show it as a path with no numbers.
             ui.label(t("console.metrics.cannot_read")).classes("text-xs") \
                 .style(f"color: {_tone(100)}")
             return
-        with ui.element("div").classes("w-40 shrink-0"):
+        with ui.element("div").classes("w-full mt-2"):
             _bar((disk.get("percent") or 0) / 100, _tone(disk.get("percent")))
         # The bar fills as the disk fills, so the words say full too. A bar reading
         # "used" beside a number reading "free" is two directions in one row.
         free = disk.get("free")
-        ui.label(t("console.metrics.full_free", value=(disk.get('percent') or 0),
-                free="-" if free is None else i18n.size(free))) \
-            .classes("text-xs opacity-60 shrink-0")
+        ui.label(t("console.metrics.full_free", value=(disk.get("percent") or 0),
+                   free="-" if free is None else i18n.size(free))) \
+            .classes("text-xs opacity-60 truncate mt-1")
 
 
 def _spark(target: Any, series: list[float]) -> None:
