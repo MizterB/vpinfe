@@ -129,7 +129,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `match_new_games` | bool | `true` | When VPinFE finds a new game, match it to the spreadsheet from its folder name |
-| `get_media_for_new_games` | bool | `true` | Once a new game is added, get the media it is missing: online once matched, a backglass picture from its backglass file. Media already there is never replaced. |
+| `get_media_for_new_games` | bool | `true` | Gets the media a new game is missing, online once matched or from its backglass file, and never replaces any. For games already here, use Get missing media. |
 | `update_downloaded_media` | bool | `true` | When VPinMediaDB replaces media VPinFE downloaded for you. Media you added or changed is never touched. |
 | `update_game_details` | choice (never, daily, weekly, monthly) | `never` | How often to copy name, year, type, themes and guides from the spreadsheet onto matched games |
 | `refresh_minutes` | int | `0` | How often to re-read the library from disk. It picks up media and assets, not just tables. A read walks every game folder, so it is slow over a network share. |
