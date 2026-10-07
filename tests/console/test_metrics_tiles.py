@@ -8,6 +8,7 @@ from typing import Any
 from nicegui import ui
 
 from common import i18n
+from common.host import tools
 from console import metrics
 from httpapi import metrics as wire
 
@@ -137,6 +138,23 @@ class CardTileTests(unittest.TestCase):
         self.assertEqual(["-"], _values(target))
         self.assertIn("Not readable", [one.text for one in target.descendants()
                                        if isinstance(one, ui.label)])
+
+    def test_a_card_missing_its_tool_links_the_settings_row_that_fixes_it(self) -> None:
+        target = _empty()
+        card = _card(reason="nvtop is not installed", tool="nvtop")
+
+        metrics._draw_cards(target, {"cards": [card]}, [], {})
+
+        links = [one for one in target.descendants() if isinstance(one, ui.link)]
+        self.assertEqual([one.text for one in links], [tools.hint(tools.NVTOP)])
+        self.assertIn("page=vpinfe.tools", links[0].props["href"])
+
+    def test_a_reason_with_no_tool_to_fix_it_links_nothing(self) -> None:
+        target = _empty()
+
+        metrics._draw_cards(target, {"cards": [_card(reason="Not readable")]}, [], {})
+
+        self.assertEqual([], [one for one in target.descendants() if isinstance(one, ui.link)])
 
     def test_no_card_at_all_is_one_graphics_tile_with_the_reason(self) -> None:
         target = _empty()

@@ -113,6 +113,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | `gstreamer_path` | string |  | Needed to record on KDE Plasma and GNOME. Blank finds it on this device. |
 | `wtype_path` | string |  | Needed on Wayland to press a table's keys. Blank finds it on this device. |
 | `ydotool_path` | string |  | Needed on Wayland to press a table's keys. Blank finds it on this device. |
+| `nvidia_smi_path` | string |  | Needed to read NVIDIA graphics cards. Blank finds it on this device. |
+| `nvtop_path` | string |  | Needed to read graphics cards VPinFE cannot read itself. Blank finds it on this device. |
 
 ### `capture`
 

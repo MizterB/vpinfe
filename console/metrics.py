@@ -20,8 +20,10 @@ from nicegui import ui
 
 from common import i18n
 from common.failures import why
+from common.host import tools
 from common.i18n import t
 from console import busy, offload, panel
+from console import settings as settings_page
 from console.data import Library
 
 logger = logging.getLogger("vpinfe.console.metrics")
@@ -118,14 +120,18 @@ def _fill(tile: dict[str, Any], value: Any, series: list[Any], first: str = "",
     _spark(tile["spark"], [one for one in series if one is not None])
 
 
-def _note_tile(title: str, reason: str, detail: str = "", name: str = "") -> dict[str, Any]:
+def _note_tile(title: str, reason: str, detail: str = "", name: str = "",
+               tool: str = "") -> dict[str, Any]:
     """A tile with words where the numbers would be: a card nothing reads, or no card
-    at all. The reason is the content, so it wraps rather than truncating."""
+    at all. The reason is the content, so it wraps rather than truncating. `tool` is the
+    Tool whose Settings row would fix it, linked beneath."""
     with ui.element("div").classes("console-card min-w-0") as root:
         heading = ui.label(title).classes("console-card-title truncate")
         named = ui.label(name).classes("text-sm truncate") if name else None
         ui.label("-").classes("console-kpi").style("color: var(--ink-3)")
         panel.line(reason, hint=detail)
+        if (missing := next((one for one in tools.TOOLS if one.id == tool), None)) is not None:
+            panel.link(tools.hint(missing), to=settings_page.address_for(settings_page.TOOLS))()
     return {"root": root, "title": heading, "name": named or heading}
 
 
@@ -136,8 +142,8 @@ def _draw_cards(target: Any, graphics: dict[str, Any], history: list[dict[str, A
     drawn again only when the cards are not the same ones; otherwise the numbers move."""
     cards = graphics.get("cards") or []
     shape = (graphics.get("reason"), graphics.get("detail"),
-             tuple((one.get("id"), one.get("name"), one.get("source"), one.get("reason"))
-                   for one in cards))
+             tuple((one.get("id"), one.get("name"), one.get("source"), one.get("reason"),
+                    one.get("detail"), one.get("tool")) for one in cards))
     if shape != held.get("shape"):
         held.pop("shape", None)
         held["tiles"] = {}
@@ -153,7 +159,8 @@ def _draw_cards(target: Any, graphics: dict[str, Any], history: list[dict[str, A
                 name = str(card.get("name") or t("word.unknown"))
                 if card.get("reason"):
                     tile = _note_tile(t("console.metrics.graphics"), str(card["reason"]),
-                                      name=name)
+                                      str(card.get("detail") or ""), name,
+                                      str(card.get("tool") or ""))
                 else:
                     tile = _tile(t("console.metrics.graphics"), name, t("console.metrics.busy"))
                     held["tiles"][card.get("id")] = tile

@@ -5,8 +5,10 @@ import subprocess
 import unittest
 from unittest import mock
 
-from common.host import about, graphics
+from common.host import about, graphics, tools
 from common.host.graphics import darwin, nvidia_smi, nvtop
+from common.host.tools import NVIDIA_SMI, NVTOP
+from tests.support.programs import found, missing, unusable
 
 
 def _done(text: str, code: int = 0, error: str = "") -> subprocess.CompletedProcess[str]:
@@ -32,7 +34,7 @@ class NumberTests(unittest.TestCase):
 
 class NvtopTests(unittest.TestCase):
     def _cards(self, text: str) -> list[dict]:
-        with mock.patch.object(nvtop.shutil, "which", return_value="/usr/bin/nvtop"), \
+        with mock.patch.object(graphics.tools, "resolve", return_value=found(NVTOP)), \
                 mock.patch.object(graphics.subprocess, "run", return_value=_done(text)):
             return nvtop.cards()
 
@@ -58,7 +60,7 @@ class NvtopTests(unittest.TestCase):
         self.assertEqual(self._cards('[{"temp": "40C"}]')[0]["name"], "Unknown")
 
     def test_it_says_why_it_cannot_read(self) -> None:
-        with mock.patch.object(nvtop.shutil, "which", return_value=None):
+        with mock.patch.object(graphics.tools, "resolve", return_value=missing(NVTOP)):
             with self.assertRaises(graphics.UnreadableError) as caught:
                 nvtop.cards()
         self.assertEqual(caught.exception.reason, "nvtop is not installed")
@@ -74,7 +76,7 @@ class NvidiaSmiTests(unittest.TestCase):
     ROW = "00000000:01:00.0, NVIDIA GeForce RTX 3070, 37, 1024, 8192, 52, 41.50, 1725, [N/A]"
 
     def _read(self, text: str) -> list[dict]:
-        with mock.patch.object(nvidia_smi.shutil, "which", return_value="/usr/bin/nvidia-smi"), \
+        with mock.patch.object(graphics.tools, "resolve", return_value=found(NVIDIA_SMI)), \
                 mock.patch.object(graphics.subprocess, "run", return_value=_done(text)):
             return nvidia_smi.read()
 
@@ -91,12 +93,69 @@ class NvidiaSmiTests(unittest.TestCase):
         self.assertNotIn("fan_percent", self._read(self.ROW)[0])
 
     def test_it_says_when_it_is_missing_or_prints_nothing_usable(self) -> None:
-        with mock.patch.object(nvidia_smi.shutil, "which", return_value=None), \
+        with mock.patch.object(graphics.tools, "resolve", return_value=missing(NVIDIA_SMI)), \
                 self.assertRaises(graphics.UnreadableError) as caught:
             nvidia_smi.read()
         self.assertEqual(caught.exception.reason, "nvidia-smi is not installed")
         with self.assertRaises(graphics.UnreadableError):
             self._read("garbage")
+
+
+class ProgramTests(unittest.TestCase):
+    def _program(self, answer: tools.Found) -> str:
+        with mock.patch.object(graphics.tools, "resolve", return_value=answer):
+            return graphics.program(answer.tool)
+
+    def test_a_program_that_runs_is_its_path(self) -> None:
+        self.assertEqual(self._program(found(NVTOP)), "/usr/bin/nvtop")
+
+    def test_one_that_is_not_here_names_the_tool_so_its_remedy_can_be_offered(self) -> None:
+        with self.assertRaises(graphics.UnreadableError) as caught:
+            self._program(missing(NVTOP))
+        self.assertEqual((caught.exception.reason, caught.exception.tool),
+                         ("nvtop is not installed", "nvtop"))
+
+    def test_one_that_does_not_run_says_why(self) -> None:
+        with self.assertRaises(graphics.UnreadableError) as caught:
+            self._program(unusable(NVTOP, tools.NO_SNAPSHOT))
+        self.assertEqual((caught.exception.reason, caught.exception.detail,
+                          caught.exception.tool),
+                         ("nvtop is installed but can't be used",
+                          "Too old to take a reading", "nvtop"))
+
+
+class NeededTests(unittest.TestCase):
+    def _listing(self, *cards: dict) -> None:
+        patch = mock.patch.object(graphics, "_listed", return_value=(list(cards), "", ""))
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_nvidia_smi_is_needed_beside_an_nvidia_card_only(self) -> None:
+        self._listing({"vendor": "amd", "source": "linux"})
+        self.assertFalse(graphics.needs_nvidia_smi())
+        self._listing({"vendor": "amd", "source": "linux"}, {"vendor": "nvidia"})
+        self.assertTrue(graphics.needs_nvidia_smi())
+
+    def test_nvtop_is_needed_where_a_card_has_no_reader_of_its_own(self) -> None:
+        self._listing({"vendor": "amd", "source": "linux"}, {"vendor": "nvidia"})
+        self.assertFalse(graphics.needs_nvtop())
+        self._listing({"vendor": "other"})
+        self.assertTrue(graphics.needs_nvtop())
+
+    def test_nvtop_stays_where_it_is_the_one_reading_the_card(self) -> None:
+        self._listing({"vendor": "other", "source": "nvtop"})
+        self.assertTrue(graphics.needs_nvtop())
+        self._listing({"vendor": "nvidia", "source": "nvtop"})
+        self.assertTrue(graphics.needs_nvtop())
+
+    def test_nvtop_is_not_asked_for_a_card_it_is_never_run_on(self) -> None:
+        self._listing({"vendor": "intel"}, {"vendor": "amd"})
+        self.assertFalse(graphics.needs_nvtop())
+
+    def test_neither_is_needed_where_no_card_is_listed(self) -> None:
+        self._listing()
+        self.assertFalse(graphics.needs_nvidia_smi())
+        self.assertFalse(graphics.needs_nvtop())
 
 
 class DarwinTests(unittest.TestCase):
@@ -207,6 +266,22 @@ class ReadTests(unittest.TestCase):
         self.assertEqual(card["reason"], "nvidia-smi is not installed")
         self.assertNotIn("source", card)
         self.assertNotIn("busy", card)
+
+    def test_a_card_nothing_reads_carries_what_was_said_and_the_tool_at_fault(self) -> None:
+        self._lister([{"id": "1", "pci": "0000:01:00.0", "name": "RTX", "vendor": "nvidia"}])
+        stuck = graphics.UnreadableError("nvidia-smi can't be used", "Ran but failed",
+                                         "nvidia_smi")
+        with mock.patch.object(nvidia_smi, "read", side_effect=stuck):
+            card = graphics.read()["cards"][0]
+        self.assertEqual((card["reason"], card["detail"], card["tool"]),
+                         ("nvidia-smi can't be used", "Ran but failed", "nvidia_smi"))
+
+    def test_a_reason_with_no_tool_or_detail_carries_neither(self) -> None:
+        self._lister([{"id": "1", "name": "RTX", "vendor": "nvidia"}])
+        with mock.patch.object(nvidia_smi, "read", side_effect=RuntimeError("boom")):
+            card = graphics.read()["cards"][0]
+        self.assertNotIn("tool", card)
+        self.assertNotIn("detail", card)
 
     def test_a_card_of_another_vendor_never_calls_nvidia_smi(self) -> None:
         self._lister([{"id": "1", "name": "Radeon", "vendor": "amd", "source": "nvtop"}])

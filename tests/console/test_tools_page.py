@@ -110,7 +110,8 @@ class ToolsPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({row["id"]: row["state"] for row in found},
                          {"rar": "missing", "ffmpeg": "missing", "grim": "not_here",
                           "wf_recorder": "not_here", "gstreamer": "not_here",
-                          "wtype": "not_here", "ydotool": "not_here"})
+                          "wtype": "not_here", "ydotool": "not_here",
+                          "nvidia_smi": "not_here", "nvtop": "not_here"})
         self.assertEqual(found[0]["remedy"], {"key": "tools.rar.hint.darwin", "params":
                                               {"tool": "unar"}, "setting": "tools.rar_path",
                                               "get": None})

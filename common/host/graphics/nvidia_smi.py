@@ -6,10 +6,10 @@ Fields a card does not support print as `[N/A]` or `[Not Supported]`, which read
 from __future__ import annotations
 
 import csv
-import shutil
 from typing import Any
 
-from common.host.graphics import UnreadableError, number, only_present, run
+from common.host import tools
+from common.host.graphics import UnreadableError, number, only_present, program, run
 from common.i18n import t
 
 TOOL = "nvidia-smi"
@@ -21,10 +21,8 @@ QUERY = ("pci.bus_id", "name", "utilization.gpu", "memory.used", "memory.total",
 def read() -> list[dict[str, Any]]:
     """One entry per card, in the order nvidia-smi lists them, each with its `pci`
     address so a listing can match it."""
-    found = shutil.which(TOOL)
-    if not found:
-        raise UnreadableError(t("error.graphics.tool_missing", tool=TOOL))
-    text = run(found, [f"--query-gpu={','.join(QUERY)}", "--format=csv,noheader,nounits"], TOOL)
+    text = run(program(tools.NVIDIA_SMI),
+               [f"--query-gpu={','.join(QUERY)}", "--format=csv,noheader,nounits"], TOOL)
     cards = [_card(row) for row in csv.reader(text.splitlines(), skipinitialspace=True)
              if len(row) == len(QUERY)]
     if not cards:

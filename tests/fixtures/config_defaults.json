@@ -141,6 +141,8 @@
     "wf_recorder_path": "",
     "gstreamer_path": "",
     "wtype_path": "",
+    "nvidia_smi_path": "",
+    "nvtop_path": "",
     "ydotool_path": ""
   },
   "updates": {

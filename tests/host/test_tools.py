@@ -350,7 +350,7 @@ GRIM_HELP = """Usage: grim [options...] [output-file]
 
 
 @unittest.skipUnless(POSIX, "the programs here are shell scripts")
-class RecordingToolTests(unittest.TestCase):
+class _Answering(unittest.TestCase):
     def setUp(self) -> None:
         held = tempfile.TemporaryDirectory()
         self.addCleanup(held.cleanup)
@@ -369,6 +369,9 @@ class RecordingToolTests(unittest.TestCase):
     def _args(self) -> list[str]:
         return self.asked.read_text(encoding="utf-8").splitlines()
 
+
+@unittest.skipUnless(POSIX, "the programs here are shell scripts")
+class RecordingToolTests(_Answering):
     def test_ffmpeg_says_what_it_encodes_and_reads_from(self) -> None:
         ffmpeg = _program(self.root, "ffmpeg", f"""case "$2" in
   -version) echo "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers" ;;
@@ -519,6 +522,84 @@ class KeyToolTests(unittest.TestCase):
                   mock.patch.object(tools, "here", return_value=where)):
                 self.assertIs(tools.resolve(tools.WTYPE, "").state, tools.State.NOT_HERE)
                 self.assertIs(tools.resolve(tools.YDOTOOL, "").state, tools.State.NOT_HERE)
+
+
+NVTOP_HELP = """Available options:
+  -d --delay : Select the refresh rate (1 == 0.1s)
+  -v --version : Print the version and quit
+  -s --snapshot : Output the current gpu information and quit
+"""
+
+NVTOP_OLD_HELP = """Available options:
+  -d --delay : Select the refresh rate (1 == 0.1s)
+  -v --version : Print the version and quit
+"""
+
+
+@unittest.skipUnless(POSIX, "the programs here are shell scripts")
+class GraphicsToolTests(_Answering):
+    def test_nvtop_can_snapshot_where_its_help_lists_s(self) -> None:
+        nvtop = self._answering("nvtop", **{"-h": NVTOP_HELP, "__version": "nvtop version 3.2.0\n"})
+
+        probe = tools.NVTOP.probe(nvtop)
+
+        self.assertTrue(probe.works)
+        self.assertEqual(probe.version, "3.2.0")
+        self.assertEqual(self._args(), ["-h", "--version"])
+
+    def test_an_nvtop_without_a_snapshot_is_unusable_whatever_its_version(self) -> None:
+        nvtop = self._answering("nvtop", **{"-h": NVTOP_OLD_HELP})
+
+        probe = tools.NVTOP.probe(nvtop)
+
+        self.assertEqual((probe.works, probe.reason), (False, tools.NO_SNAPSHOT))
+
+    def test_nvidia_smi_works_where_it_lists_a_driver(self) -> None:
+        smi = _program(self.root, "nvidia-smi", "echo 535.154.05")
+
+        probe = tools.NVIDIA_SMI.probe(smi)
+
+        self.assertTrue(probe.works)
+        self.assertEqual(probe.version, "535.154.05")
+
+    def test_nvidia_smi_that_lists_nothing_or_fails_is_not_usable(self) -> None:
+        for script in ("echo", "exit 9"):
+            with self.subTest(script=script):
+                smi = _program(self.root, "nvidia-smi", script)
+
+                self.assertFalse(tools.NVIDIA_SMI.probe(smi).works)
+
+    def test_nvidia_smi_is_here_on_linux_and_windows_and_nvtop_on_linux_only(self) -> None:
+        for where, smi, top in ((tools.LINUX, True, True), (tools.WINDOWS, True, False),
+                                (tools.DARWIN, False, False)):
+            with self.subTest(where=where), mock.patch.object(tools, "here", return_value=where):
+                self.assertEqual(tools.resolve(tools.NVIDIA_SMI, "").state
+                                 is not tools.State.NOT_HERE, smi)
+                self.assertEqual(tools.resolve(tools.NVTOP, "").state
+                                 is not tools.State.NOT_HERE, top)
+
+    def test_a_tool_nothing_needs_is_not_here_in_the_report_but_a_reader_still_resolves_it(
+            self) -> None:
+        tool = tools.Tool("thing", "tools.thing_path", "Thing", {tools.LINUX: ("thing",)},
+                          _works, {tools.LINUX: "tools.hint.linux"}, needed=lambda: False)
+        with mock.patch.object(tools, "here", return_value=tools.LINUX), \
+                mock.patch.object(tools, "TOOLS", (tool,)):
+            self.assertEqual(tools.report()[0]["state"], tools.State.NOT_HERE.value)
+            self.assertIsNot(tools.resolve(tool, "").state, tools.State.NOT_HERE)
+
+    def test_what_does_not_run_on_this_system_is_not_asked_whether_it_is_needed(self) -> None:
+        asked = mock.Mock(return_value=True)
+        tool = tools.Tool("thing", "tools.thing_path", "Thing", {tools.LINUX: ("thing",)},
+                          _works, {tools.LINUX: "tools.hint.linux"}, needed=asked)
+        with mock.patch.object(tools, "here", return_value=tools.WINDOWS), \
+                mock.patch.object(tools, "TOOLS", (tool,)):
+            self.assertEqual(tools.report()[0]["state"], tools.State.NOT_HERE.value)
+        asked.assert_not_called()
+
+    def test_the_nvidia_driver_is_what_the_hint_names_on_each_platform(self) -> None:
+        for where in (tools.LINUX, tools.WINDOWS):
+            with self.subTest(where=where), mock.patch.object(tools, "here", return_value=where):
+                self.assertIn("NVIDIA driver", tools.hint(tools.NVIDIA_SMI))
 
 
 class VPinOSTests(unittest.TestCase):

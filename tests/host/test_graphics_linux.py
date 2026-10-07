@@ -9,7 +9,9 @@ from pathlib import Path
 from unittest import mock
 
 from common.host import graphics
-from common.host.graphics import linux, nvtop
+from common.host.graphics import linux
+from common.host.tools import NVTOP
+from tests.support.programs import found, missing
 
 PCI_IDS = """\
 # a comment
@@ -169,15 +171,15 @@ class NvtopTests(Tree):
 
     def test_a_display_controller_that_draws_nothing_is_not_a_card(self) -> None:
         self.vendorless("display", "vc4", renders=False)
-        with mock.patch.object(nvtop.shutil, "which", return_value=None):
+        with mock.patch.object(graphics.tools, "resolve", return_value=missing(NVTOP)):
             self.assertEqual(linux.cards(), [])
 
     def test_with_nothing_in_sysfs_nvtop_lists_the_cards_and_without_it_there_are_none(
             self) -> None:
-        with mock.patch.object(nvtop.shutil, "which", return_value=None):
+        with mock.patch.object(graphics.tools, "resolve", return_value=missing(NVTOP)):
             self.assertEqual(linux.cards(), [])
         text = '[{"device_name": "Radeon", "gpu_util": "9%"}]'
-        with mock.patch.object(nvtop.shutil, "which", return_value="/usr/bin/nvtop"), \
+        with mock.patch.object(graphics.tools, "resolve", return_value=found(NVTOP)), \
                 mock.patch.object(graphics.subprocess, "run", return_value=_done(text)):
             self.assertEqual(linux.cards()[0]["source"], "nvtop")
 
@@ -187,7 +189,7 @@ class NvtopTests(Tree):
                                        {"gpu_busy_percent": "1"}))
         entries = ('[{"device_name": "Radeon", "gpu_util": "9%"},'
                    ' {"device_name": "V3D 4.2", "gpu_util": "40%", "temp": "55C"}]')
-        with mock.patch.object(nvtop.shutil, "which", return_value="/usr/bin/nvtop"), \
+        with mock.patch.object(graphics.tools, "resolve", return_value=found(NVTOP)), \
                 mock.patch.object(graphics.subprocess, "run", return_value=_done(entries)):
             mine, other = linux.cards()
         self.assertEqual((mine["source"], mine["busy"]), ("linux", 1.0))
@@ -196,11 +198,11 @@ class NvtopTests(Tree):
 
     def test_a_card_with_no_pci_vendor_says_why_where_nvtop_cannot_read_it(self) -> None:
         self.vendorless()
-        with mock.patch.object(nvtop.shutil, "which", return_value=None):
+        with mock.patch.object(graphics.tools, "resolve", return_value=missing(NVTOP)):
             card = linux.cards()[0]
         self.assertEqual((card["name"], card["vendor"], card["reason"]),
                          ("v3d", "other", "nvtop is not installed"))
-        with mock.patch.object(nvtop.shutil, "which", return_value=None), \
+        with mock.patch.object(graphics.tools, "resolve", return_value=missing(NVTOP)), \
                 mock.patch.object(graphics, "_lister", return_value=linux):
             self.assertEqual(graphics.read()["cards"][0]["reason"], "nvtop is not installed")
 

@@ -54,7 +54,7 @@ class EveryHintCanBeFollowed(unittest.TestCase):
 
     def test_every_hint_and_reason_is_in_the_catalog(self) -> None:
         catalog = served()
-        reasons = {tools.TIMED_OUT, tools.DID_NOT_START, tools.FAILED}
+        reasons = {tools.TIMED_OUT, tools.DID_NOT_START, tools.FAILED, tools.NO_SNAPSHOT}
         self.assertEqual(sorted((_hint_keys() | reasons) - set(catalog)), [])
 
     def test_no_hint_names_a_linux_package_manager(self) -> None:

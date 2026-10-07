@@ -107,16 +107,17 @@ def _read_others(found: list[dict[str, Any]]) -> None:
     try:
         entries = [one for one in nvtop.cards() if one["vendor"] == "other"]
     except UnreadableError as exc:
-        reason = exc.reason
+        said = exc
     except Exception:  # noqa: BLE001 - a reader that breaks is a reason, not a 500
         logger.debug("Could not read with nvtop", exc_info=True)
-        reason = t("error.graphics.tool_failed", tool=nvtop.TOOL)
+        said = UnreadableError(t("error.graphics.tool_failed", tool=nvtop.TOOL))
     else:
         for card, entry in pair(mine, entries):
             card.update({key: value for key, value in entry.items() if key not in ("id", "pci")})
         return
     for card in mine:
-        card["reason"] = reason
+        card.update(only_present({"reason": said.reason, "detail": said.detail or None,
+                                  "tool": said.tool or None}))
 
 
 def _amd(device: Path) -> dict[str, Any]:

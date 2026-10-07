@@ -6,7 +6,8 @@ nothing or picks the wrong one, and a setting whose program does not run is pass
 rather than trusted.
 
 Every program is run as argv, never through a shell, with a timeout and nothing on stdin.
-A probe only ever passes an argument that makes the program describe itself and exit.
+A probe only ever passes an argument that makes the program describe itself and exit,
+except where the one question a reader asks is the test of whether it can run at all.
 """
 
 from __future__ import annotations
@@ -56,6 +57,7 @@ FIX_USER = "user"
 FIX_NONE = "none"
 
 TIMED_OUT = "tools.unusable.timed_out"
+NO_SNAPSHOT = "tools.unusable.no_snapshot"
 DID_NOT_START = "tools.unusable.did_not_start"
 FAILED = "tools.unusable.failed"
 
@@ -91,6 +93,10 @@ class Tool:
     # hint that says so.
     offer: Callable[[], Mapping[str, Any] | None] | None = None
     get_hint: str = ""
+    # Whether a card or a feature on this device needs it. `report` leaves an unneeded
+    # one not here; `resolve` never asks, because a reader calls it from inside the
+    # listing this answers from.
+    needed: Callable[[], bool] | None = None
 
     @property
     def section(self) -> str:
@@ -441,7 +447,67 @@ YDOTOOL = Tool(
     hint=_ON_LINUX_ONLY,
 )
 
-TOOLS: tuple[Tool, ...] = (RAR, FFMPEG, GRIM, WF_RECORDER, GSTREAMER, WTYPE, YDOTOOL)
+# --- reading graphics cards ---------------------------------------------------------
+
+def _needs_nvidia_smi() -> bool:
+    from common.host import graphics
+
+    return graphics.needs_nvidia_smi()
+
+
+def _needs_nvtop() -> bool:
+    from common.host import graphics
+
+    return graphics.needs_nvtop()
+
+
+@probing
+def _nvidia_smi(path: Path) -> Probe:
+    """The one question the reader asks of it. A driver that is not loaded makes it exit
+    with a failure rather than list nothing."""
+    listed = [line for line in ask(path, "--query-gpu=driver_version",
+                                   "--format=csv,noheader").splitlines() if line.strip()]
+    if not listed:
+        raise _FailedError(0)
+    return Probe(True, version_in(listed[0]))
+
+
+@probing
+def _nvtop(path: Path) -> Probe:
+    """`-s`, one snapshot, is what the reader runs. An nvtop without it is a different
+    program than the one needed, whatever its version says."""
+    options = frozenset(_OPTION.findall(ask(path, "-h")))
+    if not options:
+        raise _FailedError(0)
+    if "-s" not in options:
+        return Probe(False, reason=NO_SNAPSHOT)
+    version = version_in(ask(path, "--version")) if "--version" in options else ""
+    return Probe(True, version, {OPTIONS: options})
+
+
+NVIDIA_SMI = Tool(
+    id="nvidia_smi",
+    option="tools.nvidia_smi_path",
+    name="nvidia-smi",
+    names={LINUX: ("nvidia-smi",), WINDOWS: ("nvidia-smi",)},
+    probe=_nvidia_smi,
+    hint={LINUX: "tools.nvidia_smi.hint", WINDOWS: "tools.nvidia_smi.hint"},
+    places={WINDOWS: ("${ProgramFiles}/NVIDIA Corporation/NVSMI",)},
+    needed=_needs_nvidia_smi,
+)
+
+NVTOP = Tool(
+    id="nvtop",
+    option="tools.nvtop_path",
+    name="nvtop",
+    names={LINUX: ("nvtop",)},
+    probe=_nvtop,
+    hint=_ON_LINUX_ONLY,
+    needed=_needs_nvtop,
+)
+
+TOOLS: tuple[Tool, ...] = (RAR, FFMPEG, GRIM, WF_RECORDER, GSTREAMER, WTYPE, YDOTOOL,
+                           NVIDIA_SMI, NVTOP)
 
 
 # --- what a person reads ------------------------------------------------------------
@@ -498,4 +564,9 @@ def row(found: Found) -> dict[str, Any]:
 
 
 def report() -> list[dict[str, Any]]:
-    return [row(resolve(tool)) for tool in TOOLS]
+    return [row(resolve(tool) if _wanted(tool) else Found(tool, State.NOT_HERE))
+            for tool in TOOLS]
+
+
+def _wanted(tool: Tool) -> bool:
+    return tool.needed is None or not tool.names.get(here()) or tool.needed()

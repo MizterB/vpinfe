@@ -12,7 +12,9 @@ A card on the wire:
 - `busy` (percent), `memory_used` and `memory_total` (bytes; no total where the memory is
   shared with the system), `memory_percent` (from a reader with no byte counts),
   `temperature` (°C), `power` (W), `clock` (MHz), `fan_percent`, `fan_rpm`
-- `reason`, instead of `source`, where nothing reads the card
+- `reason`, instead of `source`, where nothing reads the card, with `detail` where the
+  program said more, and `tool`, the id of the Tool whose absence or failure it is, so a
+  page can point at the setting that fixes it
 
 A lister may also set `pci`, the card's PCI address, which only matches a card to a
 reader's answer and is not sent.
@@ -27,7 +29,7 @@ import subprocess
 from typing import Any
 
 from common.failures import why
-from common.host import bundled_libraries
+from common.host import bundled_libraries, tools
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.common.host.graphics")
@@ -41,12 +43,13 @@ _NAME_VENDORS = (("nvidia", "nvidia"), ("geforce", "nvidia"), ("quadro", "nvidia
 
 class UnreadableError(Exception):
     """Nothing could be read: the reason a person is shown and, where the program said
-    one, what it said."""
+    one, what it said. `tool` is the id of the Tool that is missing or does not run."""
 
-    def __init__(self, reason: str, detail: str = "") -> None:
+    def __init__(self, reason: str, detail: str = "", tool: str = "") -> None:
         super().__init__(reason)
         self.reason = reason
         self.detail = detail
+        self.tool = tool
 
 
 def vendor_from_id(number: int) -> str:
@@ -69,6 +72,19 @@ def number(text: Any) -> float | None:
 
 def only_present(fields: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in fields.items() if value is not None}
+
+
+def program(tool: tools.Tool) -> str:
+    """Where this device runs `tool` from. Raises `UnreadableError` where nothing here
+    does, naming the Tool so its remedy can be offered."""
+    found = tools.resolve(tool)
+    if found.state is tools.State.FOUND and found.path is not None:
+        return str(found.path)
+    if found.state is tools.State.UNUSABLE:
+        why_not = (found.probe.reason if found.probe is not None else "") or tools.FAILED
+        raise UnreadableError(t("error.graphics.tool_unusable_here", tool=tool.name),
+                              tools.words({"key": why_not}), tool.id)
+    raise UnreadableError(t("error.graphics.tool_missing", tool=tool.name), tool=tool.id)
 
 
 def run(program: str, arguments: list[str], tool: str) -> str:
@@ -119,6 +135,18 @@ def _listed() -> tuple[list[dict[str, Any]], str, str]:
     return (cards, "", "") if cards else ([], t("error.graphics.none"), "")
 
 
+def needs_nvidia_smi() -> bool:
+    """An NVIDIA card is listed, and nvidia-smi is what reads it."""
+    return any(card.get("vendor") == "nvidia" for card in _listed()[0])
+
+
+def needs_nvtop() -> bool:
+    """A card of a vendor nothing built in reads is listed. One nvtop reads still counts,
+    whatever its vendor: the row stays where it works."""
+    return any(card.get("vendor") == "other" or card.get("source") == "nvtop"
+               for card in _listed()[0])
+
+
 def names() -> tuple[list[str], str]:
     """What About reports: the cards by name, and the reason where there are none."""
     cards, reason, _detail = _listed()
@@ -135,11 +163,14 @@ def read() -> dict[str, Any]:
     for card in cards:
         card.pop("pci", None)
         if "source" not in card and "reason" not in card:
-            card["reason"] = failed.get(card.get("vendor", ""), t("error.graphics.not_read"))
+            said = failed.get(card.get("vendor", "")) \
+                or UnreadableError(t("error.graphics.not_read"))
+            card.update(only_present({"reason": said.reason, "detail": said.detail or None,
+                                      "tool": said.tool or None}))
     return {"cards": cards, "reason": "", "detail": ""}
 
 
-def _overlay_nvidia_smi(cards: list[dict[str, Any]]) -> dict[str, str]:
+def _overlay_nvidia_smi(cards: list[dict[str, Any]]) -> dict[str, UnreadableError]:
     """NVIDIA's own program reads an NVIDIA card better than anything else does. Matched
     by PCI address where the listing has one, else in the order both list them. Answers
     why it could not, by vendor."""
@@ -151,10 +182,10 @@ def _overlay_nvidia_smi(cards: list[dict[str, Any]]) -> dict[str, str]:
     try:
         unused = nvidia_smi.read()
     except UnreadableError as exc:
-        return {"nvidia": exc.reason}
+        return {"nvidia": exc}
     except Exception:  # noqa: BLE001 - a reader that breaks is a reason, not a 500
         logger.debug("Could not read with nvidia-smi", exc_info=True)
-        return {"nvidia": t("error.graphics.tool_failed", tool=nvidia_smi.TOOL)}
+        return {"nvidia": UnreadableError(t("error.graphics.tool_failed", tool=nvidia_smi.TOOL))}
     for card, pick in pair(mine, unused):
         kept = {key: value for key, value in card.items() if key in ("id", "pci")}
         card.clear()

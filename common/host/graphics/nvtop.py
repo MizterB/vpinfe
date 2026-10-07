@@ -8,14 +8,15 @@ and its output is valid JSON from 3.3.2: an older nvtop answers with a reason, n
 from __future__ import annotations
 
 import json
-import shutil
 from typing import Any
 
 from common.failures import why
+from common.host import tools
 from common.host.graphics import (
     UnreadableError,
     number,
     only_present,
+    program,
     run,
     vendor_from_name,
 )
@@ -25,10 +26,7 @@ TOOL = "nvtop"
 
 
 def cards() -> list[dict[str, Any]]:
-    found = shutil.which(TOOL)
-    if not found:
-        raise UnreadableError(t("error.graphics.tool_missing", tool=TOOL))
-    text = run(found, ["-s"], TOOL)
+    text = run(program(tools.NVTOP), ["-s"], TOOL)
     try:
         snapshot = json.loads(text)
     except json.JSONDecodeError as exc:
