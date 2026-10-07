@@ -47,29 +47,29 @@ class LineTests(unittest.TestCase):
 
 
 class ReadingAgainTests(unittest.TestCase):
-    def test_the_same_graphics_reason_is_not_drawn_again(self) -> None:
-        held = {"watch_gpu": True, "gpu": {"available": False, "reason": "Not installed",
-                                           "detail": "Nothing is at /usr/bin/nvidia-smi"}}
+    def test_the_same_graphics_answer_is_not_drawn_again(self) -> None:
+        held: dict[str, Any] = {}
+        graphics = {"cards": [], "reason": "Not installed",
+                    "detail": "Nothing is at /usr/bin/nvidia-smi"}
         with ui.column() as cards:
             pass
-        metrics._draw_cards(cards, held)
+        metrics._draw_cards(cards, graphics, held)
         first = [one.id for one in cards.descendants()]
 
-        metrics._draw_cards(cards, held)
+        metrics._draw_cards(cards, dict(graphics), held)
 
         self.assertEqual(first, [one.id for one in cards.descendants()])
         self.assertEqual({"Not installed": "Nothing is at /usr/bin/nvidia-smi"},
                          lines.details(cards))
 
-    def test_a_changed_graphics_reason_is(self) -> None:
-        held: dict[str, Any] = {"watch_gpu": True, "gpu": {
-            "available": False, "reason": "Not installed", "detail": ""}}
+    def test_a_changed_graphics_answer_is(self) -> None:
+        held: dict[str, Any] = {}
         with ui.column() as cards:
             pass
-        metrics._draw_cards(cards, held)
-        held["gpu"] = {**held["gpu"], "detail": "Nothing is at /usr/bin/nvidia-smi"}
+        metrics._draw_cards(cards, {"cards": [], "reason": "Not installed", "detail": ""}, held)
 
-        metrics._draw_cards(cards, held)
+        metrics._draw_cards(cards, {"cards": [], "reason": "Not installed",
+                                    "detail": "Nothing is at /usr/bin/nvidia-smi"}, held)
 
         self.assertEqual({"Not installed": "Nothing is at /usr/bin/nvidia-smi"},
                          lines.details(cards))

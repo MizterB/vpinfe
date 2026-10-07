@@ -513,9 +513,6 @@ class Library:
     def save_theme_options(self, key: str, values: dict) -> dict:
         return self._client.save_theme_options(key, values)
 
-    def gpu_metrics(self) -> dict:
-        return self._client.gpu_metrics()
-
     def about(self, refresh: bool = False) -> dict:
         """Not cached here - the API holds it for the life of the process, and a second
         cache in front of that one only makes `refresh` mean less than it says."""

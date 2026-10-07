@@ -16,12 +16,9 @@ of zeros is a lie that looks like data.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-import platform
 import shutil
-import subprocess
 import threading
 import time
 from collections import deque
@@ -30,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from common.failures import why
+from common.host import graphics
 from common.i18n import t
 
 try:  # optional, and an install without it still runs
@@ -91,6 +88,7 @@ def read(paths: Iterable[str] = ()) -> dict[str, Any]:
     why the first reading after startup is not meaningful.
     """
     ok, reason = measurable()
+    cards = graphics.read()
     sample: dict[str, Any] = {
         "at": time.time(),
         "measurable": ok,
@@ -101,6 +99,7 @@ def read(paths: Iterable[str] = ()) -> dict[str, Any]:
         "memory_percent": None,
         "load": None,
         "disks": _disks(paths or []),
+        "graphics": cards,
     }
     if not ok:
         return sample
@@ -117,79 +116,6 @@ def read(paths: Iterable[str] = ()) -> dict[str, Any]:
     except (OSError, AttributeError):
         sample["load"] = None
     return sample
-
-
-# What nvtop reports per card, and the catalog key that names each on screen. Declared
-# rather than rendered from raw keys: `mem_util` is not a label, and a surface guessing at
-# one is a surface that renames a field the day nvtop does.
-GPU_FIELDS: tuple[tuple[str, str], ...] = (
-    ("gpu_util", "metrics.gpu.gpu_util.label"),
-    ("mem_util", "metrics.gpu.mem_util.label"),
-    ("temp", "metrics.gpu.temp.label"),
-    ("fan_speed", "metrics.gpu.fan_speed.label"),
-    ("power_draw", "metrics.gpu.power_draw.label"),
-    ("gpu_clock", "metrics.gpu.gpu_clock.label"),
-    ("mem_clock", "metrics.gpu.mem_clock.label"),
-)
-
-
-def gpu_supported() -> bool:
-    """Where asking is even meaningful. nvtop is a Linux and macOS tool, and offering
-    the switch on Windows would be offering something that can only ever fail."""
-    return platform.system() in {"Linux", "Darwin"}
-
-
-def gpu() -> dict[str, Any]:
-    """Every card nvtop can see, or the reason there are none.
-
-    Behind its own call rather than folded into `read`: it shells out, and a page that
-    is not showing GPUs should not pay for one every two seconds. Offered disabled with
-    the reason where nvtop is missing: "no GPU section" and "nvtop is not installed"
-    are different answers.
-    """
-    if not gpu_supported():
-        return _no_gpu(reason=t("error.metrics.nvtop_not_here", system=platform.system()))
-    found = shutil.which("nvtop")
-    if not found:
-        return _no_gpu(reason=t("error.metrics.nvtop_missing"))
-
-    try:
-        done = subprocess.run([found, "-s"], capture_output=True, text=True,
-                              timeout=3, check=False)
-    except subprocess.TimeoutExpired:
-        return _no_gpu(reason=t("error.metrics.nvtop_timeout"))
-    except Exception as exc:  # noqa: BLE001 - a probe must not take the page with it
-        return _no_gpu(reason=t("error.metrics.nvtop_failed"), detail=why(exc))
-
-    text = (done.stdout or "").strip()
-    if done.returncode != 0 or not text:
-        said = (done.stderr or text).strip()
-        return (_no_gpu(reason=t("error.metrics.nvtop_failed"), detail=said) if said
-                else _no_gpu(reason=t("error.metrics.nvtop_said_nothing")))
-
-    try:
-        cards = json.loads(text)
-    except json.JSONDecodeError as exc:
-        return _no_gpu(reason=t("error.metrics.nvtop_unreadable"), detail=why(exc))
-    if not isinstance(cards, list) or not cards:
-        return _no_gpu(reason=t("error.metrics.nvtop_empty"))
-
-    # Per card, not aggregated. Two cards averaged is a number describing neither, and a
-    # machine with a second card is exactly the machine somebody is looking at this for.
-    several = sum(isinstance(card, dict) for card in cards) > 1
-    found_cards = [
-        {"id": index,
-         "name": card.get("device_name") or (t("metrics.gpu.card", number=index)
-                                             if several else t("word.unknown")),
-         **{key: card.get(key) for key, _label in GPU_FIELDS}}
-        for index, card in enumerate(cards, start=1) if isinstance(card, dict)]
-    if not found_cards:
-        return _no_gpu(reason=t("error.metrics.nvtop_unusable"))
-    return {"available": True, "reason": "", "gpus": found_cards}
-
-
-def _no_gpu(*, reason: str, detail: str = "") -> dict[str, Any]:
-    return {"available": False, "reason": reason, "detail": detail, "gpus": []}
 
 
 def _disks(paths: Iterable[str]) -> list[dict[str, Any]]:
@@ -252,8 +178,10 @@ def sample(paths: Iterable[str] = ()) -> dict[str, Any]:
         found = read(asked)
         _last, _last_paths = found, asked
         if found["measurable"]:
-            _ring.add({k: v for k, v in found.items()
-                       if k in ("at", "cpu_percent", "memory_percent")})
+            _ring.add({"at": found["at"], "cpu_percent": found["cpu_percent"],
+                       "memory_percent": found["memory_percent"],
+                       "gpus": {card["id"]: card["busy"] for card in found["graphics"]["cards"]
+                                if "busy" in card}})
         return dict(found)
 
 

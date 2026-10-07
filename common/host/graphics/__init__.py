@@ -1,0 +1,168 @@
+"""Graphics cards: which there are on this machine, and what each is doing.
+
+The OS lists the cards and a reader reads each one. A reading the reader does not have is
+left out of the card, never written as 0: a card that cannot report its temperature and a
+cold one are different answers.
+
+A card on the wire:
+
+- `id` (stable within a run), `name`, `vendor` (`nvidia`, `amd`, `intel`, `apple`,
+  `other`) and `source`, the reader that answered (`nvidia-smi`, `nvtop`, or the OS:
+  `linux`, `macos`, `windows`)
+- `busy` (percent), `memory_used` and `memory_total` (bytes; no total where the memory is
+  shared with the system), `memory_percent` (from a reader with no byte counts),
+  `temperature` (°C), `power` (W), `clock` (MHz), `fan_percent`, `fan_rpm`
+- `reason`, instead of `source`, where nothing reads the card
+
+A lister may also set `pci`, the card's PCI address, which only matches a card to a
+reader's answer and is not sent.
+"""
+
+from __future__ import annotations
+
+import logging
+import platform
+import re
+import subprocess
+from typing import Any
+
+from common.failures import why
+from common.i18n import t
+
+logger = logging.getLogger("vpinfe.common.host.graphics")
+
+TIMEOUT = 3
+
+_PCI_VENDORS = {0x10DE: "nvidia", 0x1002: "amd", 0x8086: "intel", 0x106B: "apple"}
+_NAME_VENDORS = (("nvidia", "nvidia"), ("geforce", "nvidia"), ("quadro", "nvidia"),
+                 ("amd", "amd"), ("radeon", "amd"), ("intel", "intel"), ("apple", "apple"))
+
+
+class UnreadableError(Exception):
+    """Nothing could be read: the reason a person is shown and, where the program said
+    one, what it said."""
+
+    def __init__(self, reason: str, detail: str = "") -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.detail = detail
+
+
+def vendor_from_id(number: int) -> str:
+    return _PCI_VENDORS.get(number, "other")
+
+
+def vendor_from_name(name: str) -> str:
+    lowered = name.lower()
+    return next((vendor for fragment, vendor in _NAME_VENDORS if fragment in lowered), "other")
+
+
+def number(text: Any) -> float | None:
+    """The figure in `"71C"`, `"54 %"` or `"142.3"`. Anything else - `[N/A]`, `Not
+    Supported`, nothing - is a reading the source does not have."""
+    if isinstance(text, (int, float)) and not isinstance(text, bool):
+        return float(text)
+    found = re.search(r"-?\d+(?:\.\d+)?", str(text or ""))
+    return float(found.group()) if found else None
+
+
+def only_present(fields: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in fields.items() if value is not None}
+
+
+def run(program: str, arguments: list[str], tool: str) -> str:
+    """What the program printed. Raises `UnreadableError` saying why it did not."""
+    try:
+        done = subprocess.run([program, *arguments], capture_output=True, text=True,
+                              timeout=TIMEOUT, check=False)
+    except subprocess.TimeoutExpired:
+        raise UnreadableError(t("error.graphics.tool_timeout", tool=tool)) from None
+    except Exception as exc:  # noqa: BLE001 - a probe must not take the page with it
+        raise UnreadableError(t("error.graphics.tool_failed", tool=tool), why(exc)) from exc
+    text = (done.stdout or "").strip()
+    if done.returncode != 0 or not text:
+        said = (done.stderr or text).strip()
+        if said:
+            raise UnreadableError(t("error.graphics.tool_failed", tool=tool), said)
+        raise UnreadableError(t("error.graphics.tool_said_nothing", tool=tool))
+    return text
+
+
+def _lister() -> Any:
+    system = platform.system()
+    if system == "Darwin":
+        from common.host.graphics import darwin
+        return darwin
+    if system == "Linux":
+        from common.host.graphics import linux
+        return linux
+    if system == "Windows":
+        from common.host.graphics import windows
+        return windows
+    return None
+
+
+def _listed() -> tuple[list[dict[str, Any]], str, str]:
+    lister = _lister()
+    if lister is None:
+        return [], t("error.graphics.not_here", system=platform.system()), ""
+    try:
+        cards = lister.cards()
+    except UnreadableError as exc:
+        return [], exc.reason, exc.detail
+    except Exception as exc:  # noqa: BLE001 - a reader that breaks is a reason, not a 500
+        logger.debug("Could not list the graphics cards", exc_info=True)
+        return [], t("error.graphics.tool_failed", tool=lister.__name__.rsplit(".", 1)[-1]), \
+            why(exc)
+    return (cards, "", "") if cards else ([], t("error.graphics.none"), "")
+
+
+def names() -> tuple[list[str], str]:
+    """What About reports: the cards by name, and the reason where there are none."""
+    cards, reason, _detail = _listed()
+    return [str(card.get("name") or t("word.unknown")) for card in cards], reason
+
+
+def read() -> dict[str, Any]:
+    """`{cards, reason, detail}`. Each card goes to the first reader that answers for it,
+    and a card nothing reads is still listed, with the reason."""
+    cards, reason, detail = _listed()
+    if not cards:
+        return {"cards": [], "reason": reason, "detail": detail}
+    failed = _overlay_nvidia_smi(cards)
+    for card in cards:
+        card.pop("pci", None)
+        if "source" not in card:
+            card["reason"] = failed.get(card.get("vendor", ""), t("error.graphics.not_read"))
+    return {"cards": cards, "reason": "", "detail": ""}
+
+
+def _overlay_nvidia_smi(cards: list[dict[str, Any]]) -> dict[str, str]:
+    """NVIDIA's own program reads an NVIDIA card better than anything else does. Matched
+    by PCI address where the listing has one, else in the order both list them. Answers
+    why it could not, by vendor."""
+    from common.host.graphics import nvidia_smi
+
+    mine = [card for card in cards if card.get("vendor") == "nvidia"]
+    if not mine:
+        return {}
+    try:
+        unused = nvidia_smi.read()
+    except UnreadableError as exc:
+        return {"nvidia": exc.reason}
+    except Exception:  # noqa: BLE001 - a reader that breaks is a reason, not a 500
+        logger.debug("Could not read with nvidia-smi", exc_info=True)
+        return {"nvidia": t("error.graphics.tool_failed", tool=nvidia_smi.TOOL)}
+    for card in mine:
+        pick = next((one for one in unused if card.get("pci") and one.get("pci") == card["pci"]),
+                    None)
+        if pick is None and not card.get("pci") and unused:
+            pick = next((one for one in unused if one.get("name") == card.get("name")), unused[0])
+        if pick is None:
+            continue
+        unused.remove(pick)
+        kept = {key: value for key, value in card.items() if key in ("id", "pci")}
+        card.clear()
+        card.update(kept)
+        card.update({key: value for key, value in pick.items() if key != "pci"})
+    return {}

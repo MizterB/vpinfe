@@ -845,10 +845,6 @@ class ApiClient:
     def save_theme_options(self, key: str, values: dict) -> dict:
         return dict(self._put(f"/themes/{key}/options", {"values": values}) or {})
 
-    def gpu_metrics(self) -> dict:
-        """What the graphics cards are doing, asked separately because it shells out."""
-        return dict(self._get("/metrics/gpu") or {})
-
     def about(self, refresh: bool = False) -> dict:
         """What this install and this machine are, grouped, with the text to paste.
 

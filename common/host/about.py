@@ -169,13 +169,10 @@ def windowing_system() -> str:
 def _graphics() -> str:
     """One line, because a report asks whether there is a card at all. Watching one is
     what the Metrics page is for."""
-    from common.host import metrics
+    from common.host import graphics
 
-    found = metrics.gpu()
-    if not found["available"]:
-        return found["reason"] or t("about.not_reported")
-    return ", ".join(str(card.get("name") or t("word.unknown"))
-                     for card in found["gpus"]) or t("word.present")
+    names, reason = graphics.names()
+    return ", ".join(names) or reason or t("about.not_reported")
 
 
 def _browser_path() -> str:

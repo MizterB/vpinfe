@@ -40,13 +40,8 @@ WARN, BAD = 75.0, 90.0
 
 
 def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -> None:
-    """Drawn once, then updated in place.
-
-    Never cleared and rebuilt on a tick: the graphics switch is a control somebody
-    reaches for, and one replaced under their finger every two seconds cannot be
-    clicked. Only the values move.
-    """
-    held: dict[str, Any] = {"gpu": None, "watch_gpu": bool(state.get("metrics_gpu"))}
+    """Drawn once, then updated in place: only the values move on a tick."""
+    held: dict[str, Any] = {}
 
     with ui.column().classes("w-full gap-3") as readings_page:
         note = ui.element("div")
@@ -57,21 +52,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         disks_title = ui.label(t("console.metrics.free_space")).classes("console-group mt-2")
         disks = ui.element("div").classes("console-card w-full")
         ui.label(t("console.metrics.graphics")).classes("console-group mt-2")
-        with ui.element("div").classes("console-card w-full"):
-            with ui.row().classes("items-center gap-3 w-full no-wrap"):
-                ui.label(t("console.metrics.gpu_watch")) \
-                    .classes("console-setting grow min-w-0")
-                # Through the shared control, which is where "on is green" is decided.
-                # Drawn by hand here it was the default color, so the one switch on this
-                # page did not agree with every other switch in the Console.
-                panel.switch(held["watch_gpu"], lambda event: on_switch(event))()
-            cards = ui.column().classes("w-full gap-0")
-
-    def on_switch(event: Any) -> None:
-        held["watch_gpu"] = bool(event.value)
-        state["metrics_gpu"] = held["watch_gpu"]
-        held["gpu"] = None
-        _draw_cards(cards, held)
+        cards = ui.element("div").classes("console-card w-full")
 
     def show(said: str, detail: str = "") -> None:
         if (said, detail) != held.get("said"):
@@ -94,6 +75,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
             # Offered with the reason rather than hidden: a page that simply omits the
             # readings leaves somebody unsure whether the machine is fine or this is.
             show(str(now.get("reason") or t("console.metrics.no_readings")))
+            _draw_cards(cards, now.get("graphics") or {}, held)
             return
         show("")
         history = found.get("history") or []
@@ -104,18 +86,10 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
               [one.get("memory_percent") for one in history],
               _bytes_said(now.get("memory_used"), now.get("memory_total")))
         _fill_disks(disks, now.get("disks") or [])
-        if held["watch_gpu"]:
-            try:
-                held["gpu"] = await offload.io(library.gpu_metrics)
-            except Exception as exc:  # noqa: BLE001
-                held["gpu"] = {"available": False, "gpus": [],
-                               "reason": t("console.metrics.read_failed"),
-                               "detail": why(exc)}
-            _draw_cards(cards, held)
+        _draw_cards(cards, now.get("graphics") or {}, held)
 
     busy.fill(readings_page, tick)
     ui.timer(EVERY_SECONDS, tick, immediate=False)
-    _draw_cards(cards, held)
 
 
 def _reading_card(title: str) -> dict[str, Any]:
@@ -143,51 +117,61 @@ def _fill_disks(target: Any, disks: list[dict[str, Any]]) -> None:
             _disk_row(disk)
 
 
-def _draw_cards(target: Any, held: dict[str, Any]) -> None:
-    """What the switch reveals. Its own function so the switch above it is built once
-    and never replaced under somebody's finger."""
-    found = held.get("gpu")
-    said = None
-    if held["watch_gpu"] and found is not None and not found.get("available"):
-        said = (str(found.get("reason") or ""), str(found.get("detail") or ""))
-        if said == held.get("drawn"):
-            return
-    held["drawn"] = said
+def _draw_cards(target: Any, graphics: dict[str, Any], held: dict[str, Any]) -> None:
+    """Per card rather than averaged: two cards averaged is a number that describes
+    neither, and a second card is why somebody opened this. Redrawn when any reading
+    moves, and untouched while the answer is the same."""
+    cards = graphics.get("cards") or []
+    if graphics == held.get("graphics"):
+        return
+    held["graphics"] = graphics
     target.clear()
     with target:
-        if not held["watch_gpu"]:
-            ui.label(t("console.metrics.off_hint")).classes("console-help")
+        if not cards:
+            # "No card" and "the program that reads one is missing" are different
+            # answers, and only the second can be acted on.
+            panel.line(str(graphics.get("reason") or t("console.metrics.no_readings")),
+                       hint=str(graphics.get("detail") or ""))
             return
-        if found is None:
-            ui.label(t("console.metrics.reading_them")).classes("console-help")
-            return
-        if said is not None:
-            # "This machine has no graphics section" and "the tool that reads one is
-            # not installed" are different answers, and only the second can be acted on.
-            panel.line(said[0], hint=said[1])
-            return
-        for card in found.get("gpus") or []:
-            _card(card, found.get("fields") or [])
+        for card in cards:
+            _card(card)
 
 
-
-
-
-
-def _card(card: dict[str, Any], fields: list[dict[str, Any]]) -> None:
-    """One card, per card rather than averaged. Two cards averaged is a number that
-    describes neither, and a second card is why somebody opened this."""
+def _card(card: dict[str, Any]) -> None:
     ui.label(str(card.get("name") or t("word.unknown"))).classes("console-setting mt-2")
+    if card.get("reason"):
+        panel.line(str(card["reason"]))
+        return
     with ui.row().classes("items-center gap-2 w-full flex-wrap"):
-        for field in fields:
-            value = card.get(field["key"])
-            if value in (None, ""):
-                continue
-            with ui.element("div").classes("console-member-chip console-tier "
-                                           "console-tier--off"):
-                ui.label(t("console.metrics.gpu_reading", label=field["label"],
-                           value=value))
+        for label, said in _readings(card):
+            with ui.element("div").classes("console-member-chip console-tier console-tier--off"):
+                ui.label(t("console.metrics.gpu_reading", label=label, value=said))
 
+
+def _readings(card: dict[str, Any]) -> list[tuple[str, str]]:
+    """The readings this card has, labelled and worded. One it lacks is not listed."""
+    found: list[tuple[str, str]] = []
+    if card.get("busy") is not None:
+        found.append((t("metrics.gpu.busy.label"),
+                      t("metrics.gpu.value.percent", value=card["busy"])))
+    used, total = card.get("memory_used"), card.get("memory_total")
+    if used is not None and total is not None:
+        found.append((t("metrics.gpu.memory.label"),
+                      t("console.metrics.usage", used=i18n.size(used), total=i18n.size(total))))
+    elif used is not None:
+        found.append((t("metrics.gpu.memory.label"), i18n.size(used)))
+    elif card.get("memory_percent") is not None:
+        found.append((t("metrics.gpu.memory.label"),
+                      t("metrics.gpu.value.percent", value=card["memory_percent"])))
+    for key, label, unit in (("temperature", "temperature", "celsius"), ("power", "power", "watts"),
+                             ("clock", "clock", "megahertz"), ("fan_percent", "fan", "percent")):
+        if card.get(key) is not None:
+            found.append((t(f"metrics.gpu.{label}.label"),
+                          t(f"metrics.gpu.value.{unit}", value=card[key])))
+    if card.get("fan_rpm") is not None:
+        found.append((t("metrics.gpu.fan.label"),
+                      t("metrics.gpu.value.rpm", value=card["fan_rpm"])))
+    return found
 
 
 def _disk_row(disk: dict[str, Any]) -> None:
