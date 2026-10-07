@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from nicegui import ui
@@ -22,7 +23,7 @@ from common import i18n
 from common.failures import why
 from common.host import tools
 from common.i18n import t
-from console import busy, offload, panel
+from console import busy, jobs_list, offload, panel, when
 from console import settings as settings_page
 from console.data import Library
 
@@ -35,6 +36,8 @@ EVERY_SECONDS = 2.0
 # How far back the graphs reach. Ten minutes answers "did that scan do this?" without
 # turning a sparkline into a smear.
 WINDOW_SECONDS = 600
+# The newest marks a graph carries; a bulk run starts hundreds of jobs inside the window.
+MARKS_SHOWN = 24
 
 # Where a reading stops being ordinary. Two thresholds rather than a gradient: a color
 # that changes continuously says something is changing, which is not the question.
@@ -75,21 +78,20 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
             return
         now = found.get("now") or {}
         history = found.get("history") or []
+        marks = found.get("marks") or []
         if not now.get("measurable"):
             # Offered with the reason rather than hidden: a page that simply omits the
             # readings leaves somebody unsure whether the machine is fine or this is.
             show(str(now.get("reason") or t("console.metrics.no_readings")), keep_cards=True)
-            _draw_cards(cards, now.get("graphics") or {}, history, held)
+            _draw_cards(cards, now.get("graphics") or {}, history, held, marks)
             return
         show("")
-        _fill(cpu, now.get("cpu_percent"),
-              [one.get("cpu_percent") for one in history],
-              _cpu_said(now.get("cpu_temperature"), now.get("load")))
-        _fill(memory, now.get("memory_percent"),
-              [one.get("memory_percent") for one in history],
-              _bytes_said(now.get("memory_used"), now.get("memory_total")))
+        _fill(cpu, now.get("cpu_percent"), _series(history, "cpu_percent"),
+              _cpu_said(now.get("cpu_temperature"), now.get("load")), marks=marks)
+        _fill(memory, now.get("memory_percent"), _series(history, "memory_percent"),
+              _bytes_said(now.get("memory_used"), now.get("memory_total")), marks=marks)
         _draw_disks(disks, now.get("disks") or [], held)
-        _draw_cards(cards, now.get("graphics") or {}, history, held)
+        _draw_cards(cards, now.get("graphics") or {}, history, held, marks)
         _draw_programs(programs, now.get("busiest"), held)
 
     busy.fill(readings_page, tick)
@@ -106,7 +108,7 @@ def _tile(title: str, name: str = "", unit: str = "") -> dict[str, Any]:
             value = ui.label("-").classes("console-kpi")
             if unit:
                 ui.label(unit).classes("text-xs opacity-60")
-        spark = ui.row().classes("items-end gap-px w-full no-wrap").style("height:28px")
+        spark = ui.element("div").classes("console-spark w-full").style("height:28px")
         first = ui.label("").classes("text-xs opacity-60 truncate")
         second = ui.label("").classes("text-xs opacity-60 truncate")
     return {"root": root, "title": heading, "name": named or heading, "value": value,
@@ -140,13 +142,17 @@ def _draw_programs(tile: dict[str, Any], programs: list[dict[str, Any]] | None,
             ui.label(i18n.size(one.get("memory") or 0)).classes("text-xs opacity-60")
 
 
-def _fill(tile: dict[str, Any], value: Any, series: list[Any], first: str = "",
-          second: str = "") -> None:
+def _series(history: list[dict[str, Any]], field: str) -> list[tuple[float, Any]]:
+    return [(one.get("at") or 0.0, one.get(field)) for one in history]
+
+
+def _fill(tile: dict[str, Any], value: Any, series: list[tuple[float, Any]], first: str = "",
+          second: str = "", marks: list[dict[str, Any]] | None = None) -> None:
     tile["value"].text = "-" if value is None else f"{value:.0f}%"
     tile["value"].style(f"color: {_tone(value)}")
     tile["first"].text = first
     tile["second"].text = second
-    _spark(tile["spark"], [one for one in series if one is not None])
+    _spark(tile["spark"], [one for one in series if one[1] is not None], marks or [])
 
 
 def _note_tile(title: str, reason: str, detail: str = "", name: str = "",
@@ -165,7 +171,7 @@ def _note_tile(title: str, reason: str, detail: str = "", name: str = "",
 
 
 def _draw_cards(target: Any, graphics: dict[str, Any], history: list[dict[str, Any]],
-                held: dict[str, Any]) -> None:
+                held: dict[str, Any], marks: list[dict[str, Any]] | None = None) -> None:
     """One tile per card rather than averaged: two cards averaged is a number that
     describes neither, and a second card is why somebody opened this. The tiles are
     drawn again only when the cards are not the same ones; otherwise the numbers move."""
@@ -199,9 +205,10 @@ def _draw_cards(target: Any, graphics: dict[str, Any], history: list[dict[str, A
         tile = held["tiles"].get(card.get("id"))
         if tile is None:
             continue
-        series = [(one.get("gpus") or {}).get(card.get("id")) for one in history]
+        series = [(one.get("at") or 0.0, (one.get("gpus") or {}).get(card.get("id")))
+                  for one in history]
         first, second = _card_lines(card)
-        _fill(tile, card.get("busy"), series, first, second)
+        _fill(tile, card.get("busy"), series, first, second, marks)
 
 
 def _card_tip(card: dict[str, Any], name: str) -> str:
@@ -316,26 +323,74 @@ def _disk_reading(target: ui.element, disk: dict[str, Any]) -> None:
             .classes("text-xs opacity-60 truncate mt-1")
 
 
-def _spark(target: Any, series: list[float]) -> None:
+def _spark(target: Any, series: list[tuple[float, float]],
+           marks: list[dict[str, Any]] | None = None) -> None:
     """The shape of the last few minutes, drawn as bars rather than a line.
 
     A number says where it is; this says whether it got there. Nothing at all until
-    there are two points - one bar is a shape that implies a trend it cannot have.
+    there are two points - one bar is a shape that implies a trend it cannot have. A mark
+    is a line through the bars at the moment something happened, so a climb can be read
+    against what was started.
+
+    The mark elements are kept from one draw to the next and moved in place: a tooltip
+    is parented to its mark, and one rebuilt every tick closes under the pointer.
     """
-    target.clear()
-    if len(series) < 2:
+    held: dict[tuple[float, str, str], Any] = target.__dict__.setdefault("_marks_held", {})
+    if "_bars" not in target.__dict__:
         with target:
+            target.__dict__["_bars"] = ui.row().classes("items-end gap-px w-full no-wrap h-full")
+    bars = target.__dict__["_bars"]
+    bars.clear()
+    if len(series) < 2:
+        _keep_marks(target, held, {})
+        with bars:
             ui.label(t("console.metrics.collecting")).classes("text-xs opacity-40")
         return
     # Every other point at most, so a ten-minute window is a readable width rather than
     # three hundred hairlines.
     step = max(1, len(series) // 60)
     shown = series[::step][-60:]
-    with target:
-        for one in shown:
+    with bars:
+        for _, one in shown:
             ui.element("div").style(
                 f"flex:1 1 0; min-width:1px; height:{max(2, min(100, one)):.0f}%;"
                 f" background:{_tone(one)}; opacity:0.55; border-radius:1px")
+    times = [at for at, _ in shown]
+    placed: dict[tuple[float, str, str], tuple[str, dict[str, Any]]] = {}
+    for mark in (marks or [])[-MARKS_SHOWN:]:
+        happened = float(mark.get("at") or 0)
+        if happened < times[0]:
+            continue
+        before = sum(1 for at in times if at < happened)
+        key = (happened, str(mark.get("kind")), str(mark.get("name")))
+        placed[key] = (f"left:{100 * before / len(times):.2f}%;", mark)
+    _keep_marks(target, held, placed)
+
+
+def _keep_marks(target: Any, held: dict[tuple[float, str, str], Any],
+                placed: dict[tuple[float, str, str], tuple[str, dict[str, Any]]]) -> None:
+    """Move the marks already drawn, add the new ones, drop those that left the window."""
+    for key in [one for one in held if one not in placed]:
+        target.remove(held.pop(key))
+    for key, (style, mark) in placed.items():
+        if key in held:
+            held[key].style(style)
+            continue
+        with target:
+            held[key] = ui.element("div").classes("console-spark-mark").style(style)
+            held[key].tooltip(_mark_said(mark))
+
+
+def _mark_said(mark: dict[str, Any]) -> str:
+    """What happened and when: a job by what it is, a table by its game."""
+    at = datetime.fromtimestamp(float(mark.get("at") or 0)).astimezone()
+    if mark.get("kind") == "job":
+        what = jobs_list.what_ran(str(mark.get("name") or ""))
+    elif mark.get("name"):
+        what = t("console.metrics.mark.launched", name=mark["name"])
+    else:
+        what = t("console.metrics.mark.unnamed")
+    return t("console.metrics.mark_at", what=what, time=when.clock(at))
 
 
 def _bar(fraction: float, color: str) -> None:

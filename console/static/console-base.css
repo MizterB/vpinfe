@@ -2112,6 +2112,12 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 .console-tiles-group { display: contents; }
+.console-spark { position: relative; }
+/* One thin line through the bars, in a strip wide enough to point at. */
+.console-spark-mark {
+  position: absolute; top: 0; bottom: 0; z-index: 1; width: 9px; margin-left: -4px;
+  background: linear-gradient(var(--ink-3), var(--ink-3)) center / 1px 100% no-repeat;
+}
 /* A tile that is a short list: a name, a share and a size to a row. */
 .console-tile-rows {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px;

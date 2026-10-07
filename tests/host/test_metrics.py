@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from common import events, jobs
 from common.host import metrics
 
 
@@ -78,6 +79,81 @@ def _reading(label: str, current: float | None) -> mock.Mock:
 def _process(pid: int, name: str | None, cpu: float | None, rss: int | None) -> mock.Mock:
     memory = None if rss is None else mock.Mock(rss=rss)
     return mock.Mock(info={"pid": pid, "name": name, "cpu_percent": cpu, "memory_info": memory})
+
+
+class MarksTests(unittest.TestCase):
+    def setUp(self) -> None:
+        metrics.reset_for_tests()
+        jobs.reset_for_tests()
+        events.clear()
+        self.addCleanup(metrics.reset_for_tests)
+        self.addCleanup(jobs.reset_for_tests)
+        self.addCleanup(events.clear)
+        self.clock = [1000.0]
+        patch = mock.patch.object(metrics.time, "time", side_effect=lambda: self.clock[0])
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def _job(self, kind: str, started: float) -> None:
+        with jobs.track(kind):
+            pass
+        jobs.recent(1)[0].started_at = started
+
+    def test_a_launch_is_marked_with_the_games_title(self) -> None:
+        metrics.register()
+        with mock.patch("common.games.game_metadata.game_title", return_value="Attack"):
+            events.emit(events.TABLE_LAUNCHED, game=object(), private=False)
+
+        self.assertEqual([{"at": 1000.0, "kind": "table", "name": "Attack"}], metrics.marks())
+
+    def test_a_private_game_is_marked_without_its_name(self) -> None:
+        metrics.register()
+        with mock.patch("common.games.game_metadata.game_title",
+                        return_value="Attack") as named:
+            events.emit(events.TABLE_LAUNCHED, game=object(), private=True)
+
+        self.assertEqual([{"at": 1000.0, "kind": "table", "name": ""}], metrics.marks())
+        named.assert_not_called()
+
+    def test_a_game_that_cannot_be_named_is_still_marked(self) -> None:
+        metrics.register()
+        with mock.patch("common.games.game_metadata.game_title", side_effect=ValueError):
+            events.emit(events.TABLE_LAUNCHED, game=object(), private=False)
+
+        self.assertEqual([""], [one["name"] for one in metrics.marks()])
+
+    def test_registering_twice_marks_a_launch_once(self) -> None:
+        metrics.register()
+        metrics.register()
+        events.emit(events.TABLE_LAUNCHED, game=None, private=False)
+
+        self.assertEqual(1, len(metrics.marks()))
+
+    def test_a_job_is_marked_when_it_started_by_its_kind(self) -> None:
+        self._job("library_scan", 990.0)
+
+        self.assertEqual([{"at": 990.0, "kind": "job", "name": "library_scan"}],
+                         metrics.marks())
+
+    def test_jobs_and_launches_come_oldest_first_and_only_from_inside_the_window(self) -> None:
+        metrics.register()
+        self._job("old", 100.0)
+        self._job("library_scan", 900.0)
+        self.clock[0] = 950.0
+        events.emit(events.TABLE_LAUNCHED, game=None, private=False)
+        self.clock[0] = 1000.0
+
+        found = metrics.marks(200)
+
+        self.assertEqual(["library_scan", ""], [one["name"] for one in found])
+        self.assertEqual([900.0, 950.0], [one["at"] for one in found])
+        self.assertEqual(3, len(metrics.marks()))
+
+    def test_the_launches_kept_are_bounded(self) -> None:
+        for _ in range(metrics.LAUNCHES + 5):
+            metrics.on_launched(game=None)
+
+        self.assertEqual(metrics.LAUNCHES, len(metrics.marks()))
 
 
 class CpuTemperatureTests(unittest.TestCase):

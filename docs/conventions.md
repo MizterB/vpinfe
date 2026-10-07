@@ -1362,7 +1362,9 @@ element.
 
 A live number sits in a `.console-card` in a `.console-tiles` grid, which fills the width
 with columns no narrower than 260px. A tile is a title, the number, its history and at most
-two detail lines; the tooltip carries what the tile cuts, such as a full name. Where a tile's
+two detail lines; the tooltip carries what the tile cuts, such as a full name. A thing that
+happened within the history, such as a job started or a table launched, is a `.console-spark-mark`
+on every history: a 1px line at that moment, its words in a tooltip. Where a tile's
 title is the kind of reading and not what it reads - Graphics Processor, over a card - the thing read is
 named under the title and the number takes its unit beside it. A tile that cannot show a number shows
 `-` and says why where the detail lines would be. Several tiles that come and go as a group

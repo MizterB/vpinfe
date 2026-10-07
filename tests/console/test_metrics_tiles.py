@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from typing import Any
+from unittest import mock
 
 from nicegui import ui
 
@@ -325,6 +326,128 @@ class VolumeTitleTests(unittest.TestCase):
 
     def test_a_volume_that_holds_nothing_known_is_its_path(self) -> None:
         self.assertEqual("/a", metrics._volume_title({"path": "/a"}, False))
+
+
+def _marks_on(body: ui.element) -> list[ui.element]:
+    return [one for one in body.descendants() if "console-spark-mark" in one.classes]
+
+
+class SparkMarkTests(unittest.TestCase):
+    SERIES = [(100.0, 10.0), (110.0, 20.0), (120.0, 30.0), (130.0, 40.0)]
+
+    def _drawn(self, marks: list[dict[str, Any]]) -> ui.element:
+        target = _empty()
+        metrics._spark(target, self.SERIES, marks)
+        return target
+
+    def test_a_mark_is_a_line_before_the_first_bar_that_came_after_it(self) -> None:
+        target = self._drawn([{"at": 115.0, "kind": "job", "name": "library_scan"}])
+
+        self.assertEqual(4, _bars(target))
+        self.assertEqual(["50.00%"], [one._style["left"] for one in _marks_on(target)])
+
+    def test_a_mark_before_the_graph_is_not_drawn_and_one_after_it_sits_at_the_right(
+            self) -> None:
+        target = self._drawn([{"at": 50.0, "kind": "table", "name": "A"},
+                              {"at": 100.0, "kind": "table", "name": "B"},
+                              {"at": 999.0, "kind": "table", "name": "C"}])
+
+        self.assertEqual(["0.00%", "100.00%"], [one._style["left"] for one in _marks_on(target)])
+
+    def test_a_mark_drawn_again_is_the_same_element_moved_not_rebuilt(self) -> None:
+        mark = {"at": 115.0, "kind": "job", "name": "library_scan"}
+        target = self._drawn([mark])
+        first = _marks_on(target)[0]
+
+        metrics._spark(target, self.SERIES + [(140.0, 50.0)], [mark])
+
+        self.assertEqual([first.id], [one.id for one in _marks_on(target)])
+        self.assertEqual("40.00%", first._style["left"])
+        self.assertEqual(5, _bars(target))
+
+    def test_a_mark_that_left_the_window_is_dropped(self) -> None:
+        mark = {"at": 115.0, "kind": "job", "name": "library_scan"}
+        target = self._drawn([mark])
+
+        metrics._spark(target, self.SERIES[2:], [mark])
+
+        self.assertEqual([], _marks_on(target))
+
+    def test_only_the_newest_marks_are_drawn(self) -> None:
+        many = [{"at": 100.0 + i / 100, "kind": "job", "name": f"j{i}"}
+                for i in range(metrics.MARKS_SHOWN + 6)]
+
+        self.assertEqual(metrics.MARKS_SHOWN, len(_marks_on(self._drawn(many))))
+
+    def test_no_marks_is_no_lines(self) -> None:
+        self.assertEqual([], _marks_on(self._drawn([])))
+
+    def test_nothing_is_marked_before_there_is_a_graph(self) -> None:
+        target = _empty()
+        metrics._spark(target, [(1.0, 5.0)], [{"at": 1.0, "kind": "job", "name": "x"}])
+
+        self.assertEqual([], _marks_on(target))
+
+    def test_every_tile_carries_the_same_marks(self) -> None:
+        target = _empty()
+        history = [{"at": 100.0, "gpus": {"0000:01:00.0": 20}},
+                   {"at": 110.0, "gpus": {"0000:01:00.0": 30}}]
+
+        metrics._draw_cards(target, {"cards": [_card(busy=30)]}, history, {},
+                            [{"at": 105.0, "kind": "job", "name": "library_scan"}])
+
+        self.assertEqual(1, len(_marks_on(target)))
+
+
+class MarkWordsTests(unittest.TestCase):
+    AT = 1_700_000_000.0
+
+    def _time(self) -> str:
+        from datetime import datetime
+
+        from console import when
+
+        return when.clock(datetime.fromtimestamp(self.AT).astimezone())
+
+    def test_a_job_is_named_by_what_it_ran_and_when(self) -> None:
+        said = metrics._mark_said({"at": self.AT, "kind": "job", "name": "library_scan"})
+
+        self.assertEqual(f"{i18n.t('console.jobs.kind.library_scan')}, {self._time()}", said)
+
+    def test_a_kind_nothing_names_is_said_as_it_is(self) -> None:
+        said = metrics._mark_said({"at": self.AT, "kind": "job", "name": "ext.thing"})
+
+        self.assertEqual(f"ext.thing, {self._time()}", said)
+
+    def test_a_table_is_named_by_its_game(self) -> None:
+        said = metrics._mark_said({"at": self.AT, "kind": "table", "name": "Attack"})
+
+        self.assertEqual(f"{i18n.t('console.metrics.mark.launched', name='Attack')}, "
+                         f"{self._time()}", said)
+
+    def test_a_private_table_is_launched_and_nothing_more(self) -> None:
+        said = metrics._mark_said({"at": self.AT, "kind": "table", "name": ""})
+
+        self.assertEqual(f"{i18n.t('console.metrics.mark.unnamed')}, {self._time()}", said)
+
+
+class WireMarksTests(unittest.TestCase):
+    def _read(self, **more: Any) -> dict[str, Any]:
+        with mock.patch.object(wire, "_watched", return_value=[]), \
+                mock.patch.object(wire.metrics, "sample", return_value={}), \
+                mock.patch.object(wire.metrics, "marks", return_value=[{"at": 1.0}]) as marks:
+            found = wire.read(**more)
+        self.found_marks = marks
+        return found
+
+    def test_marks_come_with_the_history_and_are_cut_to_the_same_window(self) -> None:
+        found = self._read(history_seconds=600)
+
+        self.assertEqual([{"at": 1.0}], found["marks"])
+        self.found_marks.assert_called_once_with(600)
+
+    def test_a_caller_wanting_one_number_gets_no_marks(self) -> None:
+        self.assertEqual([], self._read(history_seconds=0)["marks"])
 
 
 class WireRolesTests(unittest.TestCase):

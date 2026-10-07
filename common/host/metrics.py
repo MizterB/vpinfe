@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from common import events
 from common.host import graphics
 from common.i18n import t
 
@@ -41,6 +42,10 @@ logger = logging.getLogger("vpinfe.common.host.metrics")
 # like "did that scan do this?" reaches. Bounded because it is memory, and unbounded
 # history in a process that runs for weeks is a leak with a nice name.
 HISTORY = 1800
+
+# Tables launched, kept as long as the history is: a mark older than the graph it sits on
+# has nothing to mark.
+LAUNCHES = 200
 
 # How many processes What's busy lists.
 TOP = 5
@@ -74,6 +79,9 @@ class _Ring:
 
 
 _ring = _Ring()
+_launches: deque[dict[str, Any]] = deque(maxlen=LAUNCHES)
+_registered = False
+_launch_lock = threading.Lock()
 
 # psutil answers `cpu_percent(interval=None)` with 0.0 when asked again within moments, so
 # a caller close behind another is handed the sample already taken.
@@ -260,7 +268,48 @@ def history(seconds: float = 0.0) -> list[dict[str, Any]]:
         return _ring.since(seconds)
 
 
+def register() -> None:
+    """Remember the tables launched, for the history to mark. Idempotent."""
+    global _registered
+    if _registered:
+        return
+    events.subscribe(events.TABLE_LAUNCHED, on_launched)
+    _registered = True
+
+
+def on_launched(game: Any = None, private: bool = False, **_payload: Any) -> None:
+    """A private game is marked without its name: the history is read by whoever has the
+    Console open, and Private is what keeps a game out of what others see."""
+    name = ""
+    if game is not None and not private:
+        try:
+            from common.games.game_metadata import game_title
+
+            name = game_title(game)
+        except Exception:  # noqa: BLE001 - an unnamed mark is better than a lost one
+            logger.debug("Could not name the launched table", exc_info=True)
+    with _launch_lock:
+        _launches.append({"at": time.time(), "kind": "table", "name": name})
+
+
+def marks(seconds: float = 0.0) -> list[dict[str, Any]]:
+    """What happened this session worth setting beside a graph, oldest first: each job
+    started and each table launched, as `{at, kind, name}`. A job's `name` is its kind,
+    which the page puts in words; a table's is the game's title, empty when it is private."""
+    from common import jobs
+
+    cutoff = time.time() - seconds if seconds else 0.0
+    found = [{"at": one.started_at, "kind": "job", "name": one.kind}
+             for one in jobs.recent(jobs.HISTORY_LIMIT) if one.started_at >= cutoff]
+    with _launch_lock:
+        found += [dict(one) for one in _launches if one["at"] >= cutoff]
+    return sorted(found, key=lambda one: one["at"])
+
+
 def reset_for_tests() -> None:
-    global _last, _last_paths, _listed_processes
+    global _last, _last_paths, _listed_processes, _registered
     _ring.points.clear()
+    with _launch_lock:
+        _launches.clear()
     _last, _last_paths, _listed_processes = None, [], False
+    _registered = False

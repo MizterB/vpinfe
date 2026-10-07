@@ -74,8 +74,9 @@ def read(history_seconds: float = Query(0, ge=0)) -> dict[str, Any]:
     on data nobody drew.
     """
     watched = _watched()
-    now =metrics.sample(list(dict.fromkeys(path for path, _ in watched)))
+    now = metrics.sample(list(dict.fromkeys(path for path, _ in watched)))
     now = {**now, "disks": _with_holds(now.get("disks") or [], watched)}
     return {"now": now,
             "history": metrics.history(history_seconds) if history_seconds else [],
+            "marks": metrics.marks(history_seconds) if history_seconds else [],
             "kept_seconds": metrics.HISTORY}

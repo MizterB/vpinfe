@@ -19,7 +19,7 @@ from common.capture import freeze
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig
 from common.config_store import ConfigStore
 from common.games import remote_library
-from common.host import key_reader, system_actions
+from common.host import key_reader, metrics, system_actions
 from common.host.display_service import get_display_monitors
 from frontend import ext_data, input_events, library_resolver, play_events, preview, showing
 from frontend.api import API
@@ -116,6 +116,7 @@ def create_api_instances(iniconfig: ConfigStore,
     play_events.register(ws_bridge, frontend_browser, iniconfig)
     input_events.register(ws_bridge)
     key_reader.register()
+    metrics.register()
     freeze.register()
     showing.register(ws_bridge, shared_library)
     preview.register(ws_bridge)
