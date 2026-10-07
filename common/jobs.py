@@ -53,6 +53,9 @@ KIND_DEVICE_SEND = "device.send"
 KIND_MEDIA_FILL = "library.media_fill"
 # Recording the cabinet's screens into media slots.
 KIND_MEDIA_CAPTURE = "media.capture"
+# Turning pictures and videos in place. One at a time: two turns of one file would each
+# read it as it was and the second would undo or double the first.
+KIND_MEDIA_ROTATE = "media.rotate"
 # Downloading a Tool VPinFE can get itself, into its own folder.
 KIND_TOOL_GET = "tools.get"
 # Getting the VPS catalog because there is none on disk, ahead of a read that has games to
@@ -69,6 +72,7 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_DEVICE_SEND: "error.jobs.sending_busy",
          KIND_MEDIA_FILL: "error.media_fill.busy",
          KIND_MEDIA_CAPTURE: "error.capture.busy",
+         KIND_MEDIA_ROTATE: "error.media_rotate.busy",
          KIND_TOOL_GET: "error.jobs.getting_tool",
          KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet"}
 

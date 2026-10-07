@@ -47,6 +47,13 @@ def _media_fill(result: Any) -> str:
     return ""
 
 
+def _media_rotate(result: Any) -> str:
+    if not isinstance(result, dict) or "turned" not in result:
+        return ""
+    return t("said.job_media_turned", count=int(result.get("games") or 0),
+             turned=int(result["turned"]), skipped=len(result.get("skipped") or ()))
+
+
 def _capture(result: Any) -> str:
     run = result.get("run") if isinstance(result, dict) else None
     if not isinstance(run, dict) or "of" not in run:
@@ -62,6 +69,7 @@ def _tool(result: Any) -> str:
 _KINDS: dict[str, Callable[[Any], str]] = {
     jobs.KIND_LIBRARY_SCAN: _library_scan,
     jobs.KIND_MEDIA_FILL: _media_fill,
+    jobs.KIND_MEDIA_ROTATE: _media_rotate,
     jobs.KIND_MEDIA_CAPTURE: _capture,
     jobs.KIND_TOOL_GET: _tool,
 }

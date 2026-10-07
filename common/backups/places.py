@@ -33,6 +33,7 @@ from common.games.info_migration import (
     REASON_2X,
     RESET,
     RESTORE,
+    TURN,
     backup_names,
     backup_reason,
     backup_stamp,
@@ -47,6 +48,7 @@ from common.paths import CONFIG_DIR, STATE_DIR, get_themes_dir
 
 from . import archive
 from . import folder as backup_folder
+from . import media as media_files
 from .copies import (
     BY_2X,
     BY_3X,
@@ -55,6 +57,7 @@ from .copies import (
     KIND_DEVICES,
     KIND_GAME,
     KIND_LAUNCHER,
+    KIND_MEDIA,
     KIND_PLAYERS,
     KIND_RECORDS,
     KIND_SETTINGS,
@@ -63,6 +66,7 @@ from .copies import (
     PLACE_BESIDE,
     PLACE_GAME,
     PLACE_LAUNCHER,
+    PLACE_MEDIA,
     PLACE_RECORDS,
     PLACE_THEME,
     PLACE_VPX_2X,
@@ -70,6 +74,7 @@ from .copies import (
     REASON_IMPORT,
     REASON_RESET,
     REASON_RESTORE,
+    REASON_TURN,
     REASON_UPDATE,
     REASON_UPGRADE,
     REASON_YOURS,
@@ -107,7 +112,8 @@ _RECORD_KINDS = {
     "devices.json": KIND_DEVICES, "players.json": KIND_PLAYERS,
 }
 
-_REASON_BY_WORD = {RESTORE: REASON_RESTORE, IMPORT: REASON_IMPORT, RESET: REASON_RESET}
+_REASON_BY_WORD = {RESTORE: REASON_RESTORE, IMPORT: REASON_IMPORT, RESET: REASON_RESET,
+                   TURN: REASON_TURN}
 
 
 def _reason_of_name(name: str) -> str:
@@ -376,6 +382,41 @@ def _theme_copies() -> list[Copy]:
     return [one for name in names if (one := theme_copy(get_themes_dir() / name))]
 
 
+# --- Media files -----------------------------------------------------------------------
+
+def _game_names() -> dict[str, str]:
+    return {game_id_of(game): str(game.game_dir_name) for game in game_repository.all_games()}
+
+
+def _media_copy(path: Path, names: dict[str, str]) -> Copy | None:
+    held = media_files.where(path)
+    if held is None or path.is_symlink() or not path.is_file():
+        return None
+    return Copy(
+        id=make_id(PLACE_MEDIA, path), subject_kind=SUBJECT_GAME, subject_id=held.game_id,
+        subject_name=names.get(held.game_id, held.game_id), kind=KIND_MEDIA, file=held.relative,
+        path=str(path), taken=iso_from_stamp(backup_stamp(path)), written_by="",
+        reason=_reason_of_name(path.name), note="", size=_size(path),
+        gone=held.game_id not in names)
+
+
+def _media_copies(game_id: str = "") -> list[Copy]:
+    """The media copies of every game, or of one: a game's own are under its id alone."""
+    if game_id and Path(game_id).name != game_id:
+        return []
+    found: list[Copy] = []
+    names = _game_names()
+    for place in backup_folder.listable():
+        for root, _dirs, files in os.walk(place / media_files.MEDIA / game_id):
+            found += [one for name in sorted(files)
+                      if (one := _media_copy(Path(root) / name, names))]
+    return found
+
+
+def media_copy(path: Path) -> Copy | None:
+    return _media_copy(path, _game_names())
+
+
 # --- Back up now -----------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -489,7 +530,8 @@ def _for_subject(subject_kind: str, subject_id: str) -> list[Copy]:
         if subject_kind in (SUBJECT_GAME, SUBJECT_LAUNCHER) else []
     if subject_kind == SUBJECT_GAME:
         folder = game_repository.game_folder(subject_id)
-        own = game_copies(folder) if folder is not None else []
+        own = [*(game_copies(folder) if folder is not None else []),
+               *_media_copies(subject_id)]
     elif subject_kind == SUBJECT_LAUNCHER:
         own = _launcher_copies()
     elif subject_kind == SUBJECT_THEME:
@@ -505,7 +547,7 @@ def scan(subject_kind: str = "", subject_id: str = "") -> list[Copy]:
     if subject_kind:
         return _ordered(_for_subject(subject_kind, subject_id))
     return _ordered([*_all_game_copies(), *_record_copies(), *_launcher_copies(),
-                     *_theme_copies(), *_all_archive_copies()])
+                     *_theme_copies(), *_media_copies(), *_all_archive_copies()])
 
 
 def find(copy_id: str) -> Copy | None:
@@ -527,4 +569,6 @@ def find(copy_id: str) -> Copy | None:
         return launcher_copy(place, path)
     if place == PLACE_THEME:
         return theme_copy(path)
+    if place == PLACE_MEDIA:
+        return media_copy(path)
     return None

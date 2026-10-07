@@ -25,6 +25,7 @@ from console import (
     grid,
     media_fill,
     media_ownership,
+    media_rotate,
     offload,
     panel,
     thumbnails,
@@ -268,12 +269,24 @@ def build(found: list[dict[str, Any]], library: Any,
             await recorder.ask(library, [(game_id, "") for game_id in ids], title, state,
                                placed, only=gaps)
 
+        def turn(way: str) -> Callable[[], Any]:
+            @on_page
+            async def go() -> None:
+                picked = grid.selection(table)
+                ids = list(dict.fromkeys(str(row["game_id"]) for row in picked))
+                await media_rotate.ask(picked, way, state,
+                                       lambda: refill(library, table, built, by_id, ids))
+            return go
+
         with actions:
             with ui.menu():
                 ui.menu_item(t("console.media_fill.get_missing"), get_missing_art) \
                     .classes("console-menu-item")
                 recorder.menu_entry(library, t("console.record.record_missing"),
                                     record_missing)
+                ui.separator()
+                for way, word in media_rotate.MENU:
+                    ui.menu_item(t(word), turn(way)).classes("console-menu-item")
                 ui.separator()
                 ui.menu_item(t("word.clear_selection"),
                              lambda: table.run_grid_method("deselectAll")) \

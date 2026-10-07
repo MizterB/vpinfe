@@ -19,6 +19,7 @@ from common.games import (
     game_service,
     library_ops,
     media_fill,
+    media_rotate,
     owned,
 )
 
@@ -144,6 +145,16 @@ def fill_media(response: Response, payload: models.MediaFillRequest) -> models.J
     """Accepted, not done. Fills gaps only: a file already there is never replaced."""
     slots = [(slot.game_id, slot.kind) for slot in payload.slots]
     return _accepted(response, media_fill.start(payload.game_ids, payload.kinds, slots))
+
+
+@router.post("/media/rotate", summary="Turn pictures and videos", status_code=202,
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def rotate_media(response: Response, payload: models.MediaRotateRequest) -> models.JobResource:
+    """Accepted, not done. Each file is replaced by its turned version; with `keep` the
+    file is copied into the backups folder first, and `/backups` lists it. A file that
+    cannot be turned is left as it was and named in the job's result."""
+    targets = [media_rotate.Target(one.game_id, one.path) for one in payload.files]
+    return _accepted(response, media_rotate.start(targets, payload.turn, payload.keep))
 
 
 @router.get("/watching", summary="Since when a catalog change counts as new",

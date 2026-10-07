@@ -32,6 +32,7 @@ KIND_RECORDS = "records"
 KIND_LAUNCHER = "launcher_settings"
 KIND_THEME = "theme"
 KIND_ARCHIVE = "backup"
+KIND_MEDIA = "media"
 
 # Why it was taken.
 REASON_UPGRADE = "upgrade"
@@ -41,6 +42,7 @@ REASON_RESET = "reset"
 REASON_FIRST_CHANGE = "first_change"
 REASON_UPDATE = "update"
 REASON_YOURS = "yours"
+REASON_TURN = "turn"
 
 # Who wrote the file the copy holds. Empty where the file is not VPinFE's own.
 BY_2X = "2.x"
@@ -54,6 +56,7 @@ PLACE_BESIDE = "beside"
 PLACE_VPX_2X = "vpx_2x"
 PLACE_THEME = "theme"
 PLACE_ARCHIVE = "archive"
+PLACE_MEDIA = "media"
 PLACE_MEMBER = "member"
 
 

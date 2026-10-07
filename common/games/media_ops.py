@@ -311,12 +311,12 @@ def displaced(game_id: str, kind: str, filename: str, table_id: str = "") -> dic
 
 def _wrote(game_dir: Path, kind: str, written: Path, game_id: str,
            table_id: str, table_stem: str | None) -> dict:
-    _reread(game_dir)
+    reread(game_dir)
     entries = media_service.media_map(game_dir, _prefix(game_id, table_id), table_stem)
     return {"written": written.name, "media": {kind: entries[kind]}}
 
 
-def _reread(game_dir: Path) -> None:
+def reread(game_dir: Path) -> None:
     """The loaded game is what themes and `/media` serve, so it reads the folder again."""
     media_service.invalidate_media_cache()
     game_repository.refresh_game(game_dir)
@@ -430,7 +430,7 @@ def remove(game_id: str, kind: str, table_id: str = "") -> dict:
     except OSError as exc:
         raise service_errors.BlockedError(why(exc)) from exc
     if removed:
-        _reread(game_dir)
+        reread(game_dir)
     return {"removed": removed}
 
 

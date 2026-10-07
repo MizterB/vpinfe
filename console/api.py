@@ -1219,6 +1219,12 @@ class ApiClient:
             "game_ids": game_ids, "kinds": kinds,
             "slots": [{"game_id": game_id, "kind": kind} for game_id, kind in slots]})
 
+    def rotate_media(self, files: list[tuple[str, str]], turn: str, keep: bool) -> dict:
+        """Turn these files in place. Returns the job to watch."""
+        return self._post("/library/media/rotate", {
+            "files": [{"game_id": game_id, "path": path} for game_id, path in files],
+            "turn": turn, "keep": keep})
+
     def set_table_overrides(self, game_id: str, table_id: str, changes: dict) -> dict:
         """What the user says about one file. Same patch shape as the game's."""
         return self._put(f"/games/{game_id}/tables/{table_id}/overrides", changes)

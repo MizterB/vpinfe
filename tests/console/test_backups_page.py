@@ -197,10 +197,12 @@ class Views(unittest.TestCase):
             self.assertEqual(sorted(preset.columns, key=backups._ALL.index),
                              list(preset.columns), key)
 
-    def test_the_file_name_is_the_last_column_and_only_everything_shows_it(self) -> None:
+    def test_the_file_name_is_the_last_column_and_only_everything_and_media_show_it(self) -> None:
+        """A media copy is of one picture among a game's several, so its file is what it is."""
         self.assertEqual("file", backups._ALL[-1])
+        shown = {"console.view.everything", "console.view.backups_media"}
         for key, preset in backups.VIEWS.items():
-            self.assertEqual(key == "console.view.everything", "file" in preset.columns, key)
+            self.assertEqual(key in shown, "file" in preset.columns, key)
 
     def test_a_view_leaves_out_a_column_that_holds_one_value_there(self) -> None:
         vpinfe = backups.VIEWS["console.view.backups_vpinfe"].columns

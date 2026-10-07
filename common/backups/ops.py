@@ -14,15 +14,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from common import path_state, service_errors
+from common import atomic_write, path_state, service_errors
 from common.failures import why
 from common.games import (
     config_backups,
+    game_lens,
     game_repository,
     info_maintenance,
     launcher_ops,
     launchers,
     library_folders,
+    media_ops,
 )
 from common.games.info_migration import copied_from
 from common.host import launch_state
@@ -31,6 +33,7 @@ from common.jobs import KIND_LIBRARY_SCAN, track
 
 from . import archive, pending, places
 from . import folder as backup_folder
+from . import media as media_files
 from .copies import (
     KIND_GAME,
     KIND_LAUNCHER,
@@ -38,9 +41,11 @@ from .copies import (
     PLACE_BESIDE,
     PLACE_GAME,
     PLACE_LAUNCHER,
+    PLACE_MEDIA,
     PLACE_RECORDS,
     PLACE_THEME,
     PLACE_VPX_2X,
+    REASON_RESTORE,
     Copy,
     make_id,
     make_member_id,
@@ -108,6 +113,8 @@ def restore(copy_id: str) -> Restored:
         return _restore_record(one, path)
     if place == PLACE_THEME:
         return _restore_theme(one, path)
+    if place == PLACE_MEDIA:
+        return _restore_media(one, path)
     return _restore_launcher(one, place, path)
 
 
@@ -121,6 +128,25 @@ def _restore_game(one: Copy, path: Path) -> Restored:
         raise service_errors.RefusedError(why(exc)) from exc
     game_repository.refresh_games()
     return Restored(one, _kept(_kept_copy(kept, PLACE_GAME)))
+
+
+def _restore_media(one: Copy, path: Path) -> Restored:
+    """Put a media file back where it was, keeping the file it replaces as a copy of its own."""
+    held = media_files.where(path)
+    if held is None:
+        raise service_errors.NotFoundError(t("error.backups.gone"))
+    game_dir = Path(str(game_lens.game_for_writing(held.game_id).full_path_game))
+    target = game_dir.joinpath(*held.relative.split("/"))
+    try:
+        replaced = (media_files.keep(held.folder, held.game_id, target, held.relative,
+                                     REASON_RESTORE) if target.is_file() else None)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with atomic_write.staged_for(target) as staged:
+            shutil.copy2(path, staged)
+    except OSError as exc:
+        raise service_errors.RefusedError(why(exc)) from exc
+    media_ops.reread(game_dir)
+    return Restored(one, _kept(_kept_copy(str(replaced) if replaced else None, PLACE_MEDIA)))
 
 
 def _restore_record(one: Copy, path: Path) -> Restored:
@@ -296,6 +322,8 @@ def delete(copy_id: str) -> Copy:
         shutil.rmtree(path)
     else:
         archive.remove(path) if place == PLACE_ARCHIVE else path.unlink()
+        if place == PLACE_MEDIA:
+            media_files.prune(path)
         for each in members:
             pending.drop(each.id)
     pending.drop(path)

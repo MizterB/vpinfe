@@ -3020,6 +3020,11 @@ class GameKind(ApiModel):
     kind: str
 
 
+class GameFile(ApiModel):
+    game_id: str
+    path: str
+
+
 class MediaFillRequest(ApiModel):
     """`slots` names exact game and kind pairs, and when sent the other two are not
     read. No `game_ids` is the whole library, and no `kinds` every kept kind."""
@@ -3027,6 +3032,15 @@ class MediaFillRequest(ApiModel):
     game_ids: list[str] | None = None
     kinds: list[str] | None = None
     slots: list[GameKind] = []
+
+
+class MediaRotateRequest(ApiModel):
+    """`files` are media rows' own keys: a game and a path inside its folder. `turn` is
+    `left`, `right` or `around`, and `keep` copies each file into the backups folder first."""
+
+    files: list[GameFile]
+    turn: str
+    keep: bool = True
 
 
 class ScanRequest(ApiModel):
