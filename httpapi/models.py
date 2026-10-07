@@ -2411,6 +2411,10 @@ class MediaSourceList(ApiModel):
     sources: list[MediaSource]
 
 
+class WheelSetList(ApiModel):
+    sets: list[str]
+
+
 class MediaOffer(ApiModel):
     """One file a catalog will hand over. `size` is that source's own word for a
     variant - "4k" against VPinMediaDB - and is empty for a source that publishes one

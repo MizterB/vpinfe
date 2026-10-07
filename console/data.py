@@ -338,6 +338,10 @@ class Library:
     def media_sources(self) -> list[dict]:
         return self._client.media_sources()
 
+    def wheel_sets(self) -> list[str]:
+        """Not cached: a set appears when somebody puts a folder there."""
+        return self._client.wheel_sets()
+
     def media_offers(self, vps_id: str, kind: str) -> list[dict]:
         return self._client.media_offers(vps_id, kind)
 

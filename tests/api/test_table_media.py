@@ -98,5 +98,25 @@ class TableMediaTests(TempTree):
         self.assertEqual(response.status_code, 404)
 
 
+class WheelSetsTests(TempTree):
+    def setUp(self) -> None:
+        super().setUp()
+        folder = write_game(self.root, FOLDER, info=INFO, vpx=False,
+                            files={DESKTOP: b"vpx"},
+                            medias={"wheel.png": b"\x89PNG",
+                                    "wheels/Classic/wheel.png": b"\x89PNG"})
+        game = fake_game(folder, FOLDER, meta=INFO)
+        patcher = patch("common.games.media_service.all_games", return_value=[game])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def test_the_sets_are_the_folders_under_wheels_and_the_logo_set(self) -> None:
+        response = self.client.get("/media/wheel-sets")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {"sets": ["Classic", "logo"]})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -245,7 +245,9 @@ SUGGEST_LIBRARIES = "libraries"
 SUGGEST_THEMES = "themes"
 SUGGEST_COLLECTIONS = "collections"
 SUGGEST_SCREENS = "screens"
-SUGGESTIONS = (SUGGEST_LIBRARIES, SUGGEST_THEMES, SUGGEST_COLLECTIONS, SUGGEST_SCREENS)
+SUGGEST_WHEEL_SETS = "wheel_sets"
+SUGGESTIONS = (SUGGEST_LIBRARIES, SUGGEST_THEMES, SUGGEST_COLLECTIONS, SUGGEST_SCREENS,
+               SUGGEST_WHEEL_SETS)
 
 
 def in_section(section: str, *options: ConfigOption) -> tuple[ConfigOption, ...]:
@@ -935,6 +937,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             group=setting_groups.WHEELS,
             type="string",
             default="",
+            suggest=SUGGEST_WHEEL_SETS,
         ),
         ConfigOption(
             "thumb_cache_max_mb",

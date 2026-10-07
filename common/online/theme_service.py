@@ -128,13 +128,11 @@ def _dynamic_select_options(source: str) -> list[dict[str, Any]] | None:
     """
     if source != "wheelsets":
         return None
-    from common.games import game_repository
-    from common.media_specs import list_media_sets
+    from common.games.media_service import wheel_sets
 
     names: list[str] = []
     try:
-        names = list_media_sets((game.full_path_game for game in game_repository.all_games()
-                                 if game.full_path_game), "wheel")
+        names = wheel_sets()
     except Exception:
         pass
     return ([{"label": "Default", "value": ""}]

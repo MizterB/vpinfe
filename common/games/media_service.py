@@ -19,6 +19,7 @@ from common.games.info_file import MetaConfig
 from common.media_specs import (
     MEDIA_SPECS,
     active_set_for,
+    list_media_sets,
     media_attr_kind_map,
     media_family,
     media_filename_map,
@@ -94,6 +95,12 @@ def media_contents(game_dir: Path, listing: tuple[list[str], list[str]] | None =
         except OSError:
             medias = set()
     return set(files), medias
+
+
+def wheel_sets() -> list[str]:
+    """Every wheel set the library has a folder for, and the reserved `logo`."""
+    return list_media_sets((game.full_path_game for game in all_games()
+                            if game.full_path_game), "wheel")
 
 
 def media_settings() -> tuple[str, dict[str, str] | None]:

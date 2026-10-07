@@ -2759,6 +2759,22 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 /* Anything holding words that is drawn in the value column and is not a control the
    column already caps. */
 .console-measured { max-width: var(--measure); }
+/* A long list of switches in two columns, filled down the first and on into the second.
+   `--kind-rows` is half the list, rounded up, which is what sends the rest across. A cell
+   is a label with its switch at the cell's far edge, so the switches line up in a column
+   instead of trailing each label. */
+.console-kinds {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--kind-rows), auto);
+  grid-template-columns: repeat(2, minmax(0, 15rem));
+  column-gap: 2.5rem;
+  row-gap: 8px;
+}
+.console-kind {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 0;
+}
 /* A switch is as wide as the switch. As a grid item it stretched to the value column and
    the whole line toggled it. */
 .console-fact-switch { justify-self: start; }

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from common.games import media_lens
+from common.games import media_lens, media_service
 
 from . import models, scopes
 from .auth import requires
@@ -31,3 +31,11 @@ def list_media(limit: int = Query(0, ge=0), offset: int = Query(0, ge=0),
     """
     return models.MediaSlotList.model_validate(
         media_lens.listing(limit, offset, game, kind))
+
+
+@router.get("/wheel-sets", summary="The wheel sets the library has art in",
+            dependencies=[requires(scopes.GAMES_READ)])
+def list_wheel_sets() -> models.WheelSetList:
+    """The folder names under any game's `medias/wheels/`, and the reserved `logo`, which
+    needs no folder. What `[Media] wheelset` and a theme's `wheelSet` can name."""
+    return models.WheelSetList(sets=media_service.wheel_sets())

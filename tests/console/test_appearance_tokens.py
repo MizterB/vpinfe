@@ -50,10 +50,12 @@ FOREIGN_PREFIXES = ("--ag-", "--q-")
 # Set on an element while the page runs, so the stylesheet reads them and never defines
 # them: by the drag handlers - the workbench's, and where a row dragged from a grid opens
 # the rail's collections - on an empty number box, from the words it shows, and on a
-# list's grid or row, from its Artwork settings. `--fit` is read by the rule a backglass
+# list's grid or row, from its Artwork settings, and on a page's kinds, from how many
+# rows the first column takes. `--fit` is read by the rule a backglass
 # preview writes with its two windows' shapes in it, which is not in the stylesheet.
 RUNTIME = {"--dock-h", "--rows", "--drops-top", "--drops-left", "--blank", "--art-h",
-           "--sum", "--gaps", "--gap", "--chrome", "--cap", "--stack", "--tall", "--fit"}
+           "--sum", "--gaps", "--gap", "--chrome", "--cap", "--stack", "--tall", "--fit",
+           "--kind-rows"}
 
 
 def _same_color(literal):

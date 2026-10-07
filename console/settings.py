@@ -256,6 +256,14 @@ def _browse_list(browse: Callable[..., dict] | None, kind: str) -> Callable[[str
     return browsed
 
 
+# What a suggested setting can say besides one of its suggestions, where the empty value
+# is an answer of its own.
+_FIRST_CHOICES: dict[str, Callable[[], dict[str, str]]] = {
+    config_schema.SUGGEST_COLLECTIONS: panel.open_on_choices,
+    config_schema.SUGGEST_WHEEL_SETS: lambda: {"": t("console.settings.wheel_set_none")},
+}
+
+
 def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
                 writable: bool = True, rerender: Callable[[], None] | None = None,
                 check: dict | None = None,
@@ -319,9 +327,7 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         return panel.combo(str(value or ""), offered, save_suggested, disabled=off,
                            status=state, clearable=option.get("clearable", True),
                            placeholder=str(option.get("blank") or ""),
-                           first=(panel.open_on_choices()
-                                  if option["suggest"] == config_schema.SUGGEST_COLLECTIONS
-                                  else None))
+                           first=_FIRST_CHOICES.get(option["suggest"], lambda: None)())
 
     if kind == "bool":
         # Through the declared type, not `bool()`. A setting nobody has stored answers
@@ -504,7 +510,8 @@ def _asked_first(option: dict, save: Callable[[Any], Any],
 
 
 def _kind_page(library: Library, rerender: Callable[[], None], note: str,
-               section: str, key: str, items: Callable[[Any], dict[str, str]]) -> None:
+               section: str, key: str, items: Callable[[Any], dict[str, str]],
+               columns: bool = False) -> None:
     """A switch per thing, over one list in the config.
 
     Not a schema page. What it switches is a *list*, and the switches themselves come
@@ -512,7 +519,8 @@ def _kind_page(library: Library, rerender: Callable[[], None], note: str,
     in it may import a domain package. The Console may, so the rendering lives here.
     """
     body = ui.column().classes("w-full gap-0")
-    busy.fill(body, lambda: _fill_kinds(library, rerender, body, note, section, key, items))
+    busy.fill(body, lambda: _fill_kinds(library, rerender, body, note, section, key, items,
+                                        columns))
 
 
 def _listed(value: Any) -> set[str]:
@@ -525,9 +533,13 @@ def _listed(value: Any) -> set[str]:
 
 async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any, note: str,
                       section: str, key: str,
-                      items: Callable[[Any], dict[str, str]]) -> list:
+                      items: Callable[[Any], dict[str, str]],
+                      columns: bool = False) -> list:
     """The switches, drawn into `body` - or returned when `body` is None, for a page that
-    orders them among its own settings rather than beside them."""
+    orders them among its own settings rather than beside them.
+
+    `columns` is for the long lists, the media and asset kinds: two columns, in name order
+    down the first and on into the second, so the list is a screen and not a scroll."""
     try:
         # This install's lists, read through /config like every other setting.
         policy = await offload.io(library.library_policy)
@@ -559,13 +571,29 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
         return lambda event: flip(name, bool(event.value))
 
     entries: list[tuple[Any, Any]] = [panel.lede(note)]
-    for name, label in sorted(known.items(), key=lambda pair: pair[1]):
-        entries.append((label, panel.switch(name in on, flipper(name))))
+    ordered = sorted(known.items(), key=lambda pair: pair[1])
+    if columns:
+        entries.append((panel.FULL, lambda: _kind_columns(
+            [(label, panel.switch(name in on, flipper(name))) for name, label in ordered])))
+    else:
+        for name, label in ordered:
+            entries.append((label, panel.switch(name in on, flipper(name))))
     if body is None:
         return entries
     with body:
         panel.facts(ui, entries)
     return entries
+
+
+def _kind_columns(rows: list[tuple[str, Callable[[], None]]]) -> None:
+    """A label and its switch per cell, filled down the first column and on into the
+    second."""
+    with ui.element("div").classes("console-kinds") \
+            .style(f"--kind-rows: {(len(rows) + 1) // 2}"):
+        for label, draw in rows:
+            with ui.element("div").classes("console-kind"):
+                ui.label(label).classes("console-fact-label")
+                draw()
 
 
 async def _kind_rows(library: Library, rerender: Callable[[], None],
@@ -575,7 +603,8 @@ async def _kind_rows(library: Library, rerender: Callable[[], None],
     if found is None:
         return []
     note, _section, name, items = found
-    return await _fill_kinds(library, rerender, None, note, "", name, items)
+    return await _fill_kinds(library, rerender, None, note, "", name, items,
+                             page in TWO_COLUMNS)
 
 
 async def _vps_foot(library: Library, rerender: Callable[[], None],
@@ -864,6 +893,11 @@ KIND_PAGES: dict[str, tuple[str, str, str, Callable[[Any], dict[str, str]]]] = {
     "library_checks": (CHECKS_NOTE, "", "hidden_checks",
                        lambda _: _check_labels()),
 }
+
+
+# The registries long enough to be laid out in two columns. The sources and the checks
+# are a handful, and one column reads better.
+TWO_COLUMNS = frozenset({"media_kinds", "asset_kinds"})
 
 
 def _check_labels() -> dict[str, str]:
@@ -1361,7 +1395,7 @@ def build_library_page(library: Library, rerender: Callable[[], None], key: str,
         panel.facts(ui, [panel.intro(t("console.settings.unbuilt"))])
         return
     note, _section, name, items = found
-    _kind_page(library, rerender, note, "", name, items)
+    _kind_page(library, rerender, note, "", name, items, key in TWO_COLUMNS)
 
 
 def value_words(option: dict, value: Any) -> str:
@@ -1895,6 +1929,17 @@ async def _suggestions(library: Library, schema: list[dict],
 
     if config_schema.SUGGEST_SCREENS in wanted:
         offered[config_schema.SUGGEST_SCREENS] = await offload.io(screens.connected)
+
+    if config_schema.SUGGEST_WHEEL_SETS in wanted:
+        try:
+            sets = await offload.io(library.wheel_sets)
+        except Exception as exc:  # noqa: BLE001 - a set can still be typed
+            logger.warning("Could not read the wheel sets: %s", why(exc))
+            sets = []
+        # `logo` is the one set that is not a folder, so it gets words of its own.
+        offered[config_schema.SUGGEST_WHEEL_SETS] = {
+            name: t("console.settings.wheel_set_logo") if name == "logo" else name
+            for name in sets}
 
     return offered
 

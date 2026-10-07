@@ -685,6 +685,10 @@ class ApiClient:
         """The online catalogs this install knows, and which are being asked."""
         return list(self._get("/media-sources").get("sources") or [])
 
+    def wheel_sets(self) -> list[str]:
+        """The wheel sets the library has art in, and the reserved `logo`."""
+        return [str(name) for name in self._get("/media/wheel-sets").get("sets") or []]
+
     def media_offers(self, vps_id: str, kind: str) -> list[dict]:
         """What every enabled catalog has for this game and kind."""
         return list(self._get("/media-sources/offers?"
