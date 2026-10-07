@@ -166,6 +166,8 @@ class _Sources:
         # Filled when the browser loads; the trail above a listing is written against
         # them, so a folder is named from its start rather than from "/".
         self.browse_roots: list[dict[str, Any]] = []
+        # The line in the strip over the listing that says which folder it is.
+        self.trail_label: Any = None
 
     def title(self) -> str:
         raise NotImplementedError
@@ -278,7 +280,7 @@ class _Sources:
                 if self.records:
                     with ui.tab_panel("record"):
                         record_body = ui.column().classes("w-full gap-2 console-source-fill")
-            with frame.footer():
+            with frame.footer().classes("console-dialog-footer--ruled"):
                 frame.cancel(box.close)
         if self.uploads:
             card.on("dragover", js_handler=_LIGHT)
@@ -349,12 +351,14 @@ class _Sources:
                 return
             # The control before what it controls: built the other way round, the
             # picker sits under the folder it chose.
-            picker = (dropdown.Select({item["path"]: _start_name(item) for item in starts},
-                                      value=starts[0]["path"],
-                                      label=t("console.mediasource.start"),
-                                      look=dropdown.OUTLINED).classes("w-full")
-                      if len(starts) > 1 else None)
-            listing = ui.column().classes("w-full gap-1 console-source-fill")
+            with ui.column().classes("console-picker-head gap-2"):
+                picker = (dropdown.Select({item["path"]: _start_name(item) for item in starts},
+                                          value=starts[0]["path"],
+                                          label=t("console.mediasource.start"),
+                                          look=dropdown.OUTLINED).classes("w-full")
+                          if len(starts) > 1 else None)
+                self.trail_label = ui.label().classes("console-help console-source-trail")
+            listing = ui.column().classes("console-picker-well gap-0 console-source-fill")
             if picker is not None:
                 picker.on_value_change(lambda event: self._show_folder(listing,
                                                                       event.value))
@@ -372,7 +376,8 @@ class _Sources:
             # Named from the start it was reached through rather than as an absolute
             # path: the path on a cabinet is long, and the tail is the part that says
             # where you are.
-            ui.label(self._trail(here["path"])).classes("console-help console-source-trail")
+            if self.trail_label is not None:
+                self.trail_label.set_text(self._trail(here["path"]))
             with ui.column().classes("w-full gap-1 console-source-list"):
                 if here.get("parent"):
                     self._folder_link("..", here["parent"], listing, up=True)
