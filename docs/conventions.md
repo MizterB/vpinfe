@@ -752,6 +752,16 @@ shows it over the value by design, so its text is not centered alone.
 the pages drive measures the text of every one-line, unlabeled dropdown on the pages it
 visits against the middle of its box.
 
+**A chip field offers only what is not chosen, and the x on a chip is the only way out.**
+Any control that takes several values from a list is a `dropdown.Select` with
+`multiple=True`, which draws the chosen ones as chips and drops them from the open list. A
+list that kept them would make picking one a second time remove it, so a click in the list
+means add and the x means remove. `Select` does this itself, so the tags in a panel, the
+ignored Chrome flags, Leave Out and the wizard's multi pickers all behave alike, and a new
+chip field gets it by being one. `tests/console/test_a_chosen_chip_leaves_the_list.py`
+fails on a chip field that offers a chosen option, and on a module that draws chips
+without going through `Select`.
+
 **The row is the box, not the value.** Every value centers in a row of `--fact-row`
 whatever it holds, so the air around one does not depend on its kind. At 26px a text
 value sat 21px in the row while a chip carried its own padding and read roomier — the

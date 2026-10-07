@@ -24,7 +24,11 @@ _MANY = "console-edit-many"
 
 
 class Select(ui.select):
-    """A `ui.select` in one of the two looks. `multiple` draws what is chosen as chips."""
+    """A `ui.select` in one of the two looks.
+
+    `multiple` draws what is chosen as chips, and a chosen option leaves the open list:
+    the x on its chip is the only way out.
+    """
 
     def __init__(self, *args: Any, look: str = FIELD, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -33,3 +37,10 @@ class Select(ui.select):
             self.props("use-chips")
             if look == FIELD:
                 self.classes(_MANY)
+
+    def _update_options(self) -> None:
+        super()._update_options()
+        if self.multiple:
+            chosen = self.value or []
+            self._props["options"] = [one for one in self._props["options"]
+                                      if self._values[one["value"]] not in chosen]

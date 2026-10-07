@@ -879,8 +879,7 @@ def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], 
     Closed rather than a column of checkboxes: the set here is as long as whatever it is
     over - the systems in somebody's old library - and a control that grows down the
     dialog would push what it is for off the screen. Everything selected shows, so what
-    is chosen is still readable without opening it. A chosen one leaves the list and is
-    taken out with the x on its chip, so picking is one way and unpicking is another.
+    is chosen is still readable without opening it.
 
     `typed` lets what is typed narrow the list, for one too long to scroll, and
     `placeholder` is what it says while nothing is chosen.
@@ -891,8 +890,7 @@ def multi_select(options: Any, value: Sequence[str], on_change: Callable[[Any], 
     def draw() -> None:
         with ui.element("div").classes("console-fact-edit"):
             control = dropdown.Select(options, value=list(value or []), multiple=True,
-                                      on_change=on_change, with_input=typed) \
-                .props("popup-content-class=console-picks-left")
+                                      on_change=on_change, with_input=typed)
             if typed:
                 def clear_filter(_event: Any = None) -> None:
                     control.run_method("updateInputValue", "", True)

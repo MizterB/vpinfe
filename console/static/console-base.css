@@ -2678,9 +2678,6 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 .console-edit-select.console-edit-many .q-chip { height: 20px; margin: 1px 4px 1px 0; }
 .console-edit-select.console-edit-many .q-field__native { padding: 0; }
 .console-edit-select.console-edit-many .q-field__append { height: calc(var(--field-h) - 2px); }
-/* A chosen one is taken out with the x on its chip, so it is not offered again in the
-   list, where picking it a second time would undo the first. */
-.console-picks-left .q-item[aria-selected="true"] { display: none; }
 /* The caret sits with the value rather than on the control's own baseline. */
 .console-edit-select .q-field__append {
   height: var(--field-h);
