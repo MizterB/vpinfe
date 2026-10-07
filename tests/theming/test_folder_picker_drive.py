@@ -18,7 +18,13 @@ from tests.support.console_walk import ConsoleWalk
 from tests.theming.test_grid_selection_drive import _heard, drive_page, exit_with_parent
 
 TYPED = "Games"
+MANY = 80
 DIALOG = ".q-dialog"
+# Layout height, which the dialog's opening transition does not scale.
+HEIGHT = f"document.querySelector('{DIALOG} .q-card').offsetHeight"
+# How far the Cancel row is below the bottom of the window; above zero it is cut off.
+CLIPPED = ("(() => { const b = [...document.querySelectorAll('" + DIALOG + " button')].pop();"
+           " return Math.round(b.getBoundingClientRect().bottom - innerHeight); })()")
 ASIDE = f"{DIALOG} .console-dialog-aside"
 NAMING = f"{DIALOG} .console-folder-list input"
 SHOWS = "!!document.querySelector(%s)"
@@ -47,11 +53,14 @@ def serve(port: int) -> None:
     from nicegui import app, ui
 
     from common import folder_browse
-    from console import api, folder_picker
+    from console import api, appearance, folder_picker
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
+    app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))
     base = Path(os.environ["VPINFE_CONFIG_DIR"]) / "browse"
     (base / "Existing").mkdir(parents=True, exist_ok=True)
+    for number in range(MANY):
+        (base / "Many" / f"Folder {number:03}").mkdir(parents=True, exist_ok=True)
     heard: dict = {"picked": "unasked", "base": str(base), "home": str(Path.home())}
 
     class Folders:
@@ -68,12 +77,16 @@ def serve(port: int) -> None:
 
     @ui.page("/")
     def page() -> None:
-        async def open_with(lister) -> None:
+        appearance.apply_mode()
+
+        async def open_with(lister, start: Path = base) -> None:
             heard["picked"] = "open"
-            heard["picked"] = await folder_picker.pick_path(lister, str(base))
+            heard["picked"] = await folder_picker.pick_path(lister, str(start))
 
         ui.button("Make", on_click=lambda: open_with(Folders().folders)).props("id=make")
         ui.button("Bare", on_click=lambda: open_with(only_listing)).props("id=bare")
+        ui.button("Many", on_click=lambda: open_with(only_listing, base / "Many")).props(
+            "id=many")
 
     @app.get("/heard")
     def said() -> dict:
@@ -106,6 +119,16 @@ class FolderPickerDrive(unittest.TestCase):
             await walk.act(lambda: browser.click("#bare"), until=SHOWS % json.dumps(DIALOG))
             seen["bare_buttons"] = await browser.evaluate(BUTTONS)
             seen["bare_aside"] = await browser.evaluate(SHOWS % json.dumps(ASIDE))
+            seen["few_height"] = await browser.evaluate(HEIGHT)
+            await walk.act(lambda: click_text(f"{DIALOG} button", t("word.cancel")),
+                           until=GONE % json.dumps(DIALOG))
+
+            await walk.act(lambda: browser.click("#many"), until=SHOWS % json.dumps(DIALOG))
+            seen["many_height"] = await browser.evaluate(HEIGHT)
+            seen["many_clipped"] = await browser.evaluate(CLIPPED)
+            seen["many_rows"] = await browser.evaluate(
+                f"document.querySelectorAll('{DIALOG} .console-folder-list .console-source-row')"
+                ".length")
             await walk.act(lambda: click_text(f"{DIALOG} button", t("word.cancel")),
                            until=GONE % json.dumps(DIALOG))
 
@@ -163,6 +186,14 @@ class FolderPickerDrive(unittest.TestCase):
     def test_the_picker_that_cannot_make_one_does_not_offer_it(self) -> None:
         self.assertFalse(self.seen["bare_aside"])
         self.assertNotIn(t("console.folder_picker.new_folder"), self.seen["bare_buttons"])
+
+    def test_the_dialog_is_as_tall_for_a_folder_with_two_entries_as_for_one_with_eighty(
+            self) -> None:
+        self.assertGreater(self.seen["many_rows"], 10, "the full folder was not listed")
+        self.assertEqual(self.seen["few_height"], self.seen["many_height"])
+
+    def test_the_buttons_of_a_full_folder_are_inside_the_window(self) -> None:
+        self.assertLessEqual(self.seen["many_clipped"], 0)
 
     def test_new_folder_is_offered_beside_the_answer(self) -> None:
         self.assertEqual(self.seen["aside"].split()[-2:],

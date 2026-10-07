@@ -3453,8 +3453,11 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-option--replaced { color: var(--ink-3); text-decoration: line-through; }
 
 /* The folder picker has no fixed-height ancestor to flex against, unlike the sources
-   tabs above, so its list takes an explicit cap instead. */
-.console-folder-list { max-height: 46vh; overflow-y: auto; }
+   tabs above, so its list takes an explicit height instead. A height and not a cap: a
+   cap made the dialog grow and shrink with the entries of every folder you opened, and
+   the buttons under it moved. The 370px is what the header, filter and buttons take plus
+   the dialog's own margin, so a short window shrinks the list before it cuts off Cancel. */
+.console-folder-list { height: clamp(120px, 46vh, calc(100vh - 370px)); overflow-y: auto; }
 /* The picker's three zones: where you are and how to narrow it, what is there, then the
    verbs under a rule. */
 .console-picker-head {
