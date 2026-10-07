@@ -103,7 +103,7 @@ class ImportALibraryDrive(unittest.TestCase):
 
             await walk.visit(ADDRESS)
             await browser.wait_for(ROW_COUNT % 1)
-            await browser.wait_for(f"document.querySelectorAll({json.dumps(ACTIONS)}).length === 2")
+            await browser.wait_for(f"document.querySelectorAll({json.dumps(ACTIONS)}).length === 3")
             # A reload would take this with it.
             await browser.evaluate("window.keptThroughTheImport = true")
             seen["buttons"] = await browser.evaluate(
@@ -156,8 +156,8 @@ class ImportALibraryDrive(unittest.TestCase):
         return seen
 
     def test_the_page_offers_it_beside_add(self) -> None:
-        self.assertEqual(self.seen["buttons"], [t("console.folders.add_folder"),
-                                                 WORDS["action.import.label"]])
+        self.assertEqual(self.seen["buttons"][:2], [t("console.folders.add_folder"),
+                                                     WORDS["action.import.label"]])
 
     def test_it_asks_where_the_library_is_first(self) -> None:
         self.assertEqual(self.seen["opening"], WORDS["wizard.source.title"])

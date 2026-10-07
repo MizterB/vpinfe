@@ -915,7 +915,8 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "browse_dirs",
-            group=setting_groups.LOCAL_SOURCES,
+            group=setting_groups.ADD_FROM,
+            home="library.folders",
             type="list",
             path="dir",
             default="",
@@ -925,7 +926,8 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "manufacturer_logos_dir",
             applies=APPLIES_RESTART,
-            group=setting_groups.LOCAL_SOURCES,
+            group=setting_groups.LOGOS,
+            home="library.folders",
             type="string",
             path="dir",
             default="",

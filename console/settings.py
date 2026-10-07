@@ -42,6 +42,7 @@ from common.online import theme_source_checks as online_checks
 from console import (
     appearance_picker,
     binding_table,
+    browse_folders,
     browser_state,
     busy,
     chrome_options,
@@ -904,11 +905,38 @@ def _check_labels() -> dict[str, str]:
     from console.sections import CHECKS
     return {key: name for key, name, _description, _predicate in CHECKS}
 
+async def _folders_page(library: Library, redraw: Callable[[], None],
+                        state: dict[str, Any]) -> Callable[[], None]:
+    """The library's folders, with the settings that name a folder and have this page as
+    their home drawn under them, in the same list so the two share a label column."""
+    async def below() -> list[tuple[Any, Any]]:
+        try:
+            schema = await offload.io(library.config_schema)
+            values = await offload.io(library.config_values)
+            checks = await offload.io(library.config_path_checks)
+            block = await browse_folders.read(library, values)
+        except Exception as exc:  # noqa: BLE001 - the library folders stay on the page
+            return [panel.intro(t("console.browse_folders.read_failed"), hint=why(exc))]
+        block.rerender = redraw
+        media = next((one for one in with_default_paths(schema, checks)
+                      if one.get("name") == browse_folders.SECTION), {})
+        options = [one for one in media.get("options") or []
+                   if one.get("home") == folders.KEY]
+        return section_rows(library, browse_folders.SECTION, options, values,
+                            bool(media.get("writable")), redraw,
+                            field_marks([], checks), browse=library.folders,
+                            waiting=Waiting(library, await _waiting(library)),
+                            stands_in={f"{browse_folders.SECTION}.{browse_folders.KEY}":
+                                       browse_folders.rows(block)})
+
+    return await folders.page(library, redraw, state, below)
+
+
 # A built page's draw: read what it shows, then hand back what draws it. The read is
 # awaited by the caller, so the draw itself never waits.
 PAGES: dict[str, Callable[[Library, Callable[[], None], dict[str, Any]],
                           Awaitable[Callable[[], None]]]] = {
-    folders.KEY: folders.page,
+    folders.KEY: _folders_page,
 }
 
 
@@ -1031,7 +1059,7 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
 # whole page, which the page's own name already heads.
 PAGE_KINDS: dict[str, tuple[tuple[str, str, str], ...]] = {
     "library.audit": (("library_checks", "", ""),),
-    "library.media": (("media_kinds", "console.settings.heading_kinds", "Local Sources"),
+    "library.media": (("media_kinds", "console.settings.heading_kinds", "Wheels"),
               ("media_sources", "console.settings.heading_online_sources", "Wheels")),
     "library.assets": (("asset_kinds", "", ""),),
 }

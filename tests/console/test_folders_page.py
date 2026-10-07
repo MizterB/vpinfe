@@ -7,6 +7,7 @@ asking on, several with it off, the chosen one away, the chosen one removed, non
 
 from __future__ import annotations
 
+import asyncio
 import unittest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -15,7 +16,7 @@ from nicegui import ui
 
 from common import install_identity, path_state
 from common.games import library_folders as model
-from console import folders, offload
+from console import folders, offload, panel
 from console import settings as settings_page
 from tests.support.clicks import press
 
@@ -435,8 +436,14 @@ class PageIndexTests(unittest.TestCase):
                 settings_page.pages_for_features([install_identity.DEVICES])]
         self.assertNotIn(folders.KEY, held)
 
-    def test_the_page_is_drawn_by_the_folders_module(self) -> None:
-        self.assertIs(settings_page.PAGES[folders.KEY], folders.page)
+    def test_the_page_is_drawn_by_the_folders_module_with_the_settings_it_is_home_to(self) -> None:
+        draw = AsyncMock(return_value=lambda: None)
+
+        with patch.object(folders, "page", new=draw):
+            asyncio.run(settings_page.PAGES[folders.KEY](Mock(), MagicMock(), {}))
+
+        draw.assert_awaited_once()
+        self.assertTrue(callable(draw.await_args_list[0].args[3]))
 
     def test_the_page_has_its_note(self) -> None:
         self.assertIn(folders.KEY, settings_page.PAGE_NOTES)
@@ -446,12 +453,13 @@ class DrawTests(unittest.TestCase):
     """The rows and lines the page puts on screen, read back from what was drawn."""
 
     def drawn(self, *rows: dict[str, Any], ask: bool = True,
-              importing: dict[str, Any] | None = None) -> list[str]:
+              importing: dict[str, Any] | None = None,
+              below: list[tuple[Any, ...]] | None = None) -> list[str]:
         block = make(*rows, ask=ask)
         with _PAGE, patch.object(ui, "run_javascript"):
             holder = ui.element()
             with holder:
-                folders.draw(block, importing)
+                folders.draw(block, importing, below)
         said = []
         for one in holder.descendants():
             if isinstance(one, (ui.label, ui.button)) and one.text:
@@ -513,6 +521,15 @@ class DrawTests(unittest.TestCase):
         said = self.drawn(row("a"), row("b", shadowed=2))
 
         self.assertIn("2 duplicates", said)
+
+    def test_the_library_group_is_named_once_other_groups_follow_it(self) -> None:
+        later = [(panel.HEADING, "Later"), panel.lede("A line")]
+        heading = folders.t("console.folders.heading_library")
+
+        for found in ((row("a"),), ()):
+            with self.subTest(folders=len(found)):
+                self.assertIn(heading, self.drawn(*found, below=later))
+                self.assertNotIn(heading, self.drawn(*found))
 
 
 class DialogTests(unittest.TestCase):

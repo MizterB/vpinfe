@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -332,10 +332,11 @@ def acts(block: Folders, folder: Folder, at: int, of: int) -> list[panel.Verb]:
     return found
 
 
-def draw(block: Folders, importing: dict[str, Any] | None) -> None:
+def draw(block: Folders, importing: dict[str, Any] | None,
+         below: list[tuple[Any, ...]] | None = None) -> None:
     folders = block.plan.folders
     if not folders:
-        _empty(block, importing)
+        _empty(block, importing, below)
         return
     entries: list[tuple[Any, ...]] = [(panel.FULL, partial(_list, block))]
     if len(folders) > 1:
@@ -348,7 +349,12 @@ def draw(block: Folders, importing: dict[str, Any] | None) -> None:
         if ask is not None:
             entries += [(ask.label, panel.switch(block.asking, block.ask_changed)),
                         panel.note(ask.description)]
-    panel.facts(ui, entries)
+    panel.facts(ui, [*_heading(below), *entries, *(below or [])])
+
+
+def _heading(below: list[tuple[Any, ...]] | None) -> list[tuple[Any, ...]]:
+    """The library's own group is named once other groups follow it."""
+    return [(panel.HEADING, t("console.folders.heading_library"))] if below else []
 
 
 def _list(block: Folders) -> None:
@@ -413,7 +419,8 @@ def _buttons(block: Folders, importing: dict[str, Any] | None) -> None:
                          hint=t("console.folders.import_help"))()
 
 
-def _empty(block: Folders, importing: dict[str, Any] | None) -> None:
+def _empty(block: Folders, importing: dict[str, Any] | None,
+           below: list[tuple[Any, ...]] | None = None) -> None:
     """A device with no folders finds no games, so this is a finding and leads with its
     fix."""
     def finding() -> None:
@@ -428,24 +435,30 @@ def _empty(block: Folders, importing: dict[str, Any] | None) -> None:
                              icon=verbs.IMPORT,
                              hint=t("console.folders.import_help"))()
 
-    panel.facts(ui, [(panel.FULL, finding), panel.intro(t("console.folders.none_yet_help"))])
+    panel.facts(ui, [*_heading(below), (panel.FULL, finding),
+                     panel.intro(t("console.folders.none_yet_help")), *(below or [])])
 
 
-async def page(library: Library, redraw: Callable[[], None],
-               state: dict[str, Any]) -> Callable[[], None]:
+async def page(library: Library, redraw: Callable[[], None], state: dict[str, Any],
+               below: Callable[[], Awaitable[list[tuple[Any, ...]]]] | None = None,
+               ) -> Callable[[], None]:
     """Read what the disk says, and hand back the draw that puts it on the page. The read
-    is here so the draw itself runs without waiting."""
+    is here so the draw itself runs without waiting. `below` reads the settings that live
+    on this page but belong to the schema, in the same list so they share its label
+    column."""
+    rows = await below() if below else []
     try:
         found = await offload.io(library.locations)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
         reason = why(exc)
-        return lambda: panel.facts(ui, [panel.intro(t("console.folders.read_failed"),
-                                                    hint=reason)])
+        return lambda: panel.facts(ui, [*_heading(rows),
+                                        panel.intro(t("console.folders.read_failed"),
+                                                    hint=reason), *rows])
     importing = await library_folders.import_action(library)
     block = Folders(library, found, redraw)
     # Kept for the drag listener, which is registered once and reads it at the drop.
     state["folders"] = block
-    return lambda: draw(block, importing)
+    return lambda: draw(block, importing, rows)
 
 
 def detect(state_now: str, said: str) -> str:
