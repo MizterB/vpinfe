@@ -13,11 +13,15 @@ store it replaces rather than trusted.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+from typing import Any
 
 from common import i18n, input_registry, setting_groups
+from common.apps.contract import Field
 from common.i18n import t
 from common.labels import humanize
+from common.values import is_truthy
 
 # What a page press groups by. `sort` takes the groups from whatever the list is ordered
 # by - the next letter, year or rating. `count` is a group of a fixed size, which is the
@@ -1225,6 +1229,171 @@ def options() -> tuple[ConfigOption, ...]:
 def settable() -> tuple[ConfigOption, ...]:
     """Everything a person is meant to set - what a UI or a doc should show."""
     return tuple(option for option in CONFIG_OPTIONS if not option.internal)
+
+
+class ConfigListError(ValueError):
+    """An item a list refuses. The message names the list, the field and why."""
+
+
+# Where an item of a list with a `variant` keeps the fields its kind declares.
+VARIANT_SETTINGS = "settings"
+
+
+@dataclass(frozen=True)
+class ListVariant:
+    """Items of different kinds. Both functions are called when needed, never stored:
+    extensions add kinds after the schema loads. `fields` answers None for a kind this
+    install lacks, and that item's `settings` are kept as written."""
+
+    field: str
+    kinds: Callable[[], Sequence[str]]
+    fields: Callable[[str], Sequence[Field] | None]
+
+
+@dataclass(frozen=True)
+class ConfigList:
+    """A top-level key of `vpinfe.json` that holds a list of objects.
+
+    Every item has an `id`, minted when a write brings none. Its other keys are `fields`,
+    and a write naming any other key is refused. A file without the key holds `default()`,
+    which the store writes at once; a file with it, even empty, is what the person has.
+    """
+
+    key: str
+    fields: tuple[Field, ...]
+    # The Console page that edits the list.
+    home: str = ""
+    variant: ListVariant | None = None
+    default: Callable[[], list[dict[str, Any]]] = list
+
+    def clean(self, item: Any) -> dict[str, Any]:
+        """`item` with every declared field present and typed, or a ConfigListError."""
+        if not isinstance(item, dict):
+            raise ConfigListError(t("error.config.list.item_object", list=self.key))
+        held = {field.key: field for field in self.fields}
+        extra = {VARIANT_SETTINGS} if self.variant else set()
+        unknown = sorted(str(k) for k in item if k != "id" and k not in held and k not in extra)
+        if unknown:
+            raise ConfigListError(t("error.config.list.unknown_field", list=self.key,
+                                    fields=", ".join(unknown)))
+        item_id = item.get("id")
+        if not isinstance(item_id, str) or not item_id.strip():
+            raise ConfigListError(t("error.config.list.needs_id", list=self.key))
+        out: dict[str, Any] = {"id": item_id}
+        for field in self.fields:
+            out[field.key] = _typed_field(self.key, field,
+                                          item.get(field.key, _blank(field)))
+        if self.variant:
+            kind = str(out.get(self.variant.field) or "")
+            given = item.get(VARIANT_SETTINGS, {})
+            if not isinstance(given, dict):
+                raise ConfigListError(t("error.config.list.settings_object", list=self.key))
+            kind_fields = self.variant.fields(kind) if kind else None
+            if kind_fields is None:
+                out[VARIANT_SETTINGS] = dict(given)
+            else:
+                known = {field.key: field for field in kind_fields}
+                missing = sorted(str(k) for k in given if k not in known)
+                if missing:
+                    raise ConfigListError(t("error.config.list.unknown_setting", list=self.key,
+                                            settings=", ".join(missing), kind=kind))
+                out[VARIANT_SETTINGS] = {
+                    field.key: _typed_field(self.key, field,
+                                            given.get(field.key, _blank(field)))
+                    for field in kind_fields}
+        return out
+
+
+def _blank(field: Field) -> Any:
+    """A field's default, in the type it holds."""
+    if field.type == "list":
+        return [part.strip() for part in field.default.split(",") if part.strip()]
+    if field.type == "map":
+        return {}
+    return field.default
+
+
+def _typed_field(list_key: str, field: Field, value: Any) -> Any:
+    where = f"{list_key}.{field.key}"
+    if field.type == "bool":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.strip().lower() in ("true", "false", ""):
+            return is_truthy(value)
+        raise ConfigListError(t("error.config.list.bool", field=where))
+    if field.type == "int":
+        if value is None or value == "":
+            return ""
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            raise ConfigListError(t("error.config.list.int", field=where))
+        try:
+            number = value if isinstance(value, int) else int(float(value))
+        except (ValueError, OverflowError) as exc:
+            raise ConfigListError(t("error.config.list.int", field=where)) from exc
+        if field.minimum is not None and number < field.minimum:
+            raise ConfigListError(t("error.config.list.minimum", field=where,
+                                    minimum=f"{field.minimum:g}"))
+        if field.maximum is not None and number > field.maximum:
+            raise ConfigListError(t("error.config.list.maximum", field=where,
+                                    maximum=f"{field.maximum:g}"))
+        return number
+    if field.type == "list":
+        if isinstance(value, str):
+            value = [part.strip() for part in value.split(",") if part.strip()]
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ConfigListError(t("error.config.list.text_list", field=where))
+        return list(value)
+    if field.type == "map":
+        if not isinstance(value, dict) or not all(
+                isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+            raise ConfigListError(t("error.config.list.text_map", field=where))
+        return dict(value)
+    if value is None:
+        value = ""
+    if not isinstance(value, str):
+        raise ConfigListError(t("error.config.list.text", field=where))
+    if field.type == "choice" and value not in {stored for stored, _ in field.choices}:
+        raise ConfigListError(t(
+            "error.config.list.choice", field=where,
+            choices=", ".join(stored for stored, _ in field.choices)))
+    return value
+
+
+CONFIG_LISTS: tuple[ConfigList, ...] = ()
+
+_NORMALIZERS: dict[str, Callable[[list[dict[str, Any]]], list[dict[str, Any]]]] = {}
+_SEEDS: dict[str, Callable[[Any], None]] = {}
+
+
+def lists() -> tuple[ConfigList, ...]:
+    """Every list, in declaration order."""
+    return CONFIG_LISTS
+
+
+def config_list(key: str) -> ConfigList | None:
+    return next((one for one in CONFIG_LISTS if one.key == key), None)
+
+
+def register_normalizer(key: str,
+                        fn: Callable[[list[dict[str, Any]]], list[dict[str, Any]]]) -> None:
+    """`fn` runs on a list's items at every write and answers the list to keep. It must be
+    registered before the store is made, so the owning module is imported first."""
+    _NORMALIZERS[key] = fn
+
+
+def normalize(key: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    fn = _NORMALIZERS.get(key)
+    return fn(items) if fn else items
+
+
+def register_seed(name: str, fn: Callable[[Any], None]) -> None:
+    """`fn(store)` runs once, while a 2.x ini is converted. It reads 2.x keys from
+    `store.config`, writes with `store.set_list` and removes what it read."""
+    _SEEDS[name] = fn
+
+
+def seeds() -> tuple[Callable[[Any], None], ...]:
+    return tuple(_SEEDS.values())
 
 
 _WINDOW_SECTION = re.compile(r"windows\.([A-Za-z0-9_-]+)")

@@ -24,6 +24,7 @@ from common import config_schema, input_registry
 from common.atomic_write import write_atomic
 from common.deprecations import announce
 from common.games.info_migration import REASON_2X, copy_aside
+from common.i18n import t
 from common.values import is_truthy
 
 logger = logging.getLogger("vpinfe.common.config_store")
@@ -314,6 +315,18 @@ class ConfigStore:
                 self.config.remove_option(section, key)
                 changed = True
 
+        # What a 2.x file said that a list now holds. After every key has its current name
+        # and before defaults fill in, so a seed tells a key the person set from one we
+        # supplied.
+        if self._converted_from_ini:
+            for seed in config_schema.seeds():
+                before = copy.deepcopy(self.top_level)
+                try:
+                    seed(self)
+                except Exception:
+                    self.top_level = before
+                    logger.exception("A 2.x seed failed; the keys it read stay where they were")
+
         # A retired spelling of a *value*. It resolves on read either way, so this is
         # about what the file says rather than what it does - and the file is what the
         # settings are served as, so it should not contradict the schema's choices.
@@ -392,6 +405,13 @@ class ConfigStore:
                 if not self.config.has_option(section, key):
                     self.config.set(section, key, value)
                     changed = True
+
+        # A list the file has no key for holds its default, written now. A key that is
+        # there, even empty, is what the person has.
+        for spec in config_schema.lists():
+            if spec.key not in self.top_level:
+                self.top_level[spec.key] = self._prepared(spec, spec.default())
+                changed = True
 
         # Remove legacy Logger.file option; logs always go to the standard config dir file.
         if self.config.has_option('logger', 'file'):
@@ -498,6 +518,10 @@ class ConfigStore:
             if ours.get((section, key)) == saved[(section, key)]:
                 self.config.remove_option(section, key)
         self.top_level = _merged_top_level(self.top_level, top_level, self._saved_top)
+        for spec in config_schema.lists():
+            if isinstance(self.top_level.get(spec.key), list):
+                self.top_level[spec.key] = config_schema.normalize(
+                    spec.key, self.top_level[spec.key])
         self._schema = max(self._schema, schema)
 
     def reread(self) -> None:
@@ -538,6 +562,56 @@ class ConfigStore:
         if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, key, self._as_text(value))
+
+    @staticmethod
+    def _spec(key: str) -> config_schema.ConfigList:
+        spec = config_schema.config_list(key)
+        if spec is None:
+            raise config_schema.ConfigListError(t("error.config.list.not_declared", list=key))
+        return spec
+
+    def get_list(self, key: str) -> list[dict[str, Any]]:
+        """A copy of a list's items; the list's default where the file has no such key."""
+        spec = self._spec(key)
+        held = self.top_level.get(key)
+        if isinstance(held, list):
+            return copy.deepcopy(held)
+        if held is not None:
+            logger.warning("%s in %s is not a list, so the default is read", key, self.json_path)
+            return self._prepared(spec, spec.default())
+        self.top_level[key] = self._prepared(spec, spec.default())
+        return copy.deepcopy(self.top_level[key])
+
+    def set_list(self, key: str, items: list[dict[str, Any]]) -> None:
+        """Stage a whole list. An item with no `id` is given one, an item with a field the
+        list does not declare refuses the write unless the file already holds it exactly
+        so (a newer build's field passes through), and the list's normalizer has the last
+        word on what is kept. `save()` writes the file."""
+        held = self.top_level.get(key)
+        self.top_level[key] = self._prepared(self._spec(key), items,
+                                             held if isinstance(held, list) else [])
+
+    @staticmethod
+    def _prepared(spec: config_schema.ConfigList, items: Any,
+                  held: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+        from common.install_identity import mint_id
+
+        if not isinstance(items, list):
+            raise config_schema.ConfigListError(t("error.config.list.items", list=spec.key))
+        already = [item for item in held or [] if isinstance(item, dict)]
+
+        def clean(item: Any) -> Any:
+            if not isinstance(item, dict):
+                return spec.clean(item)
+            if any(_same(item, was) for was in already):
+                return copy.deepcopy(item)
+            return spec.clean({**item, "id": item.get("id") or mint_id()})
+
+        cleaned = [clean(item) for item in items]
+        kept = config_schema.normalize(spec.key, cleaned)
+        if len({item["id"] for item in kept}) != len(kept):
+            raise config_schema.ConfigListError(t("error.config.list.shared_id", list=spec.key))
+        return kept
 
     def save(self) -> None:
         with _SAVING:

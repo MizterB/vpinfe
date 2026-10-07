@@ -17,7 +17,10 @@ from collections.abc import Sequence
 from typing import Any
 
 from common import config_schema, events, install_presence, path_state, port_checks
+from common.apps.contract import Field
 from common.failures import why
+from common.i18n import t
+from common.labels import humanize
 from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.config_service")
@@ -94,6 +97,45 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
     }
 
 
+def _said(key: str, fallback: str) -> str:
+    said = t(key)
+    return fallback if said == key else said
+
+
+def _describe_field(list_key: str, field: Field) -> dict[str, Any]:
+    words = f"config.list.{list_key}.field.{field.key}"
+    return {
+        "key": field.key,
+        "type": field.type,
+        "default": field.default,
+        "label": field.label or _said(f"{words}.label", humanize(field.key)),
+        "description": field.description or _said(f"{words}.description", ""),
+        "choices": [{"value": value, "label": label} for value, label in field.choices],
+        "lines": field.lines,
+        "minimum": field.minimum,
+        "maximum": field.maximum,
+        "path": field.path,
+        "suffixes": list(field.suffixes),
+    }
+
+
+def _describe_list(spec: config_schema.ConfigList) -> dict[str, Any]:
+    variant = spec.variant
+    return {
+        "key": spec.key,
+        "label": _said(f"config.list.{spec.key}.label", humanize(spec.key)),
+        "home": spec.home,
+        "fields": [_describe_field(spec.key, field) for field in spec.fields],
+        "variant": None if variant is None else {
+            "field": variant.field,
+            "kinds": [{"kind": kind,
+                       "fields": [_describe_field(spec.key, field)
+                                  for field in variant.fields(kind) or ()]}
+                      for kind in variant.kinds()],
+        },
+    }
+
+
 def settable(windows: Sequence[str]) -> tuple[config_schema.ConfigOption, ...]:
     """The schema's settings, with a screen for each of `windows` it does not declare
     placed after its own."""
@@ -118,7 +160,8 @@ def schema(windows: Sequence[str] = ()) -> dict[str, Any]:
                  "writable": name not in READ_ONLY_SECTIONS,
                  "options": [o for o in options if o["section"] == name]}
                 for name in dict.fromkeys(option["section"] for option in options)]
-    return {"sections": sections, "count": len(options)}
+    return {"sections": sections, "count": len(options),
+            "lists": [_describe_list(spec) for spec in config_schema.lists()]}
 
 
 def path_states() -> dict[str, Any]:

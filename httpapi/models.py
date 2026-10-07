@@ -759,12 +759,57 @@ class ConfigSection(ApiModel):
     options: list[ConfigOptionInfo]
 
 
+class ConfigListChoice(ApiModel):
+    value: str
+    label: str
+
+
+class ConfigListFieldInfo(ApiModel):
+    """One field of a list's items."""
+
+    key: str
+    type: str
+    default: str = ""
+    label: str
+    description: str = ""
+    choices: list[ConfigListChoice] = []
+    lines: int = 0
+    minimum: float | None = None
+    maximum: float | None = None
+    path: str = ""
+    suffixes: list[str] = []
+
+
+class ConfigListKind(ApiModel):
+    kind: str
+    fields: list[ConfigListFieldInfo]
+
+
+class ConfigListVariant(ApiModel):
+    """Items of different kinds: `field` holds the kind, and each kind's own fields sit
+    under the item's `settings`."""
+
+    field: str
+    kinds: list[ConfigListKind]
+
+
+class ConfigListInfo(ApiModel):
+    """A top-level list of objects, such as launchers. Every item also has an `id`."""
+
+    key: str
+    label: str
+    home: str = ""
+    fields: list[ConfigListFieldInfo]
+    variant: ConfigListVariant | None = None
+
+
 class ConfigSchema(ApiModel):
     """What this install has, not what a client thinks it has - a settings page built
     from this cannot offer a setting the install does not carry."""
 
     sections: list[ConfigSection]
     count: int
+    lists: list[ConfigListInfo] = []
 
 
 class ConfigPathCheck(ApiModel):
