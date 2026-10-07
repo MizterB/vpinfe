@@ -132,7 +132,7 @@ def read() -> dict[str, Any]:
     failed = _overlay_nvidia_smi(cards)
     for card in cards:
         card.pop("pci", None)
-        if "source" not in card:
+        if "source" not in card and "reason" not in card:
             card["reason"] = failed.get(card.get("vendor", ""), t("error.graphics.not_read"))
     return {"cards": cards, "reason": "", "detail": ""}
 
@@ -153,16 +153,36 @@ def _overlay_nvidia_smi(cards: list[dict[str, Any]]) -> dict[str, str]:
     except Exception:  # noqa: BLE001 - a reader that breaks is a reason, not a 500
         logger.debug("Could not read with nvidia-smi", exc_info=True)
         return {"nvidia": t("error.graphics.tool_failed", tool=nvidia_smi.TOOL)}
-    for card in mine:
-        pick = next((one for one in unused if card.get("pci") and one.get("pci") == card["pci"]),
-                    None)
-        if pick is None and not card.get("pci") and unused:
-            pick = next((one for one in unused if one.get("name") == card.get("name")), unused[0])
-        if pick is None:
-            continue
-        unused.remove(pick)
+    for card, pick in pair(mine, unused):
         kept = {key: value for key, value in card.items() if key in ("id", "pci")}
         card.clear()
         card.update(kept)
         card.update({key: value for key, value in pick.items() if key != "pci"})
     return {}
+
+
+def pair(cards: list[dict[str, Any]], readings: list[dict[str, Any]]
+         ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Each card with the reading that is its own: by PCI address, else by name, else in
+    the order both list them where the counts agree. A card with an address never pairs
+    by anything but it."""
+    left, waiting = list(readings), []
+    pairs: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for card in cards:
+        address = card.get("pci")
+        pick = next((one for one in left if address and one.get("pci") == address), None)
+        if pick is None and not address:
+            pick = next((one for one in left if _same_name(one, card)), None)
+        if pick is not None:
+            left.remove(pick)
+            pairs.append((card, pick))
+        elif not address:
+            waiting.append(card)
+    if waiting and len(waiting) == len(left):
+        pairs.extend(zip(waiting, left, strict=True))
+    return pairs
+
+
+def _same_name(one: dict[str, Any], other: dict[str, Any]) -> bool:
+    first, second = str(one.get("name") or "").lower(), str(other.get("name") or "").lower()
+    return bool(first and second and (first in second or second in first))

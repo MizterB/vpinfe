@@ -23,6 +23,11 @@ def _titles(body: ui.element) -> list[str]:
             if isinstance(one, ui.label) and "console-card-title" in one.classes]
 
 
+def _names(body: ui.element) -> list[str]:
+    return [one.text for one in body.descendants()
+            if isinstance(one, ui.label) and "text-sm" in one.classes]
+
+
 def _values(body: ui.element) -> list[str]:
     return [one.text for one in body.descendants()
             if isinstance(one, ui.label) and "console-kpi" in one.classes]
@@ -87,8 +92,14 @@ class CardTileTests(unittest.TestCase):
 
         metrics._draw_cards(target, graphics, [], {})
 
-        self.assertEqual(["RTX 3060", "RX 580"], _titles(target))
+        graphics = t("console.metrics.graphics")
+        self.assertEqual([graphics, graphics], _titles(target))
+        self.assertEqual(["RTX 3060", "RX 580"], _names(target))
         self.assertEqual(["40%", "7%"], _values(target))
+        self.assertEqual([t("console.metrics.busy")] * 2,
+                         [one.text for one in target.descendants()
+                          if isinstance(one, ui.label) and "text-xs" in one.classes
+                          and one.text == t("console.metrics.busy")])
 
     def test_a_card_with_no_busy_reading_shows_a_dash(self) -> None:
         target = _empty()
@@ -121,7 +132,8 @@ class CardTileTests(unittest.TestCase):
 
         metrics._draw_cards(target, {"cards": [_card(reason="Not readable")]}, [], {})
 
-        self.assertEqual(["RTX 3060"], _titles(target))
+        self.assertEqual([t("console.metrics.graphics")], _titles(target))
+        self.assertEqual(["RTX 3060"], _names(target))
         self.assertEqual(["-"], _values(target))
         self.assertIn("Not readable", [one.text for one in target.descendants()
                                        if isinstance(one, ui.label)])
@@ -151,7 +163,7 @@ class CardTileTests(unittest.TestCase):
 
         metrics._draw_cards(target, {"cards": [_card(busy=1, name="RTX 4070")]}, [], held)
 
-        self.assertEqual(["RTX 4070"], _titles(target))
+        self.assertEqual(["RTX 4070"], _names(target))
 
 
 def _disk(**more: Any) -> dict[str, Any]:

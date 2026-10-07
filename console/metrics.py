@@ -92,17 +92,21 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
     ui.timer(EVERY_SECONDS, tick, immediate=False)
 
 
-def _tile(title: str) -> dict[str, Any]:
+def _tile(title: str, name: str = "", unit: str = "") -> dict[str, Any]:
     """The frame for one reading, kept so the tick can move the number rather than
-    build the tile again."""
+    build the tile again. A `name` sits under the title, a `unit` beside the number."""
     with ui.element("div").classes("console-card min-w-0") as root:
         heading = ui.label(title).classes("console-card-title truncate")
-        value = ui.label("-").classes("console-kpi")
+        named = ui.label(name).classes("text-sm truncate") if name else None
+        with ui.row().classes("items-baseline gap-2 no-wrap"):
+            value = ui.label("-").classes("console-kpi")
+            if unit:
+                ui.label(unit).classes("text-xs opacity-60")
         spark = ui.row().classes("items-end gap-px w-full no-wrap").style("height:28px")
         first = ui.label("").classes("text-xs opacity-60 truncate")
         second = ui.label("").classes("text-xs opacity-60 truncate")
-    return {"root": root, "title": heading, "value": value, "spark": spark,
-            "first": first, "second": second}
+    return {"root": root, "title": heading, "name": named or heading, "value": value,
+            "spark": spark, "first": first, "second": second}
 
 
 def _fill(tile: dict[str, Any], value: Any, series: list[Any], first: str = "",
@@ -114,14 +118,15 @@ def _fill(tile: dict[str, Any], value: Any, series: list[Any], first: str = "",
     _spark(tile["spark"], [one for one in series if one is not None])
 
 
-def _note_tile(title: str, reason: str, detail: str = "") -> dict[str, Any]:
+def _note_tile(title: str, reason: str, detail: str = "", name: str = "") -> dict[str, Any]:
     """A tile with words where the numbers would be: a card nothing reads, or no card
     at all. The reason is the content, so it wraps rather than truncating."""
     with ui.element("div").classes("console-card min-w-0") as root:
         heading = ui.label(title).classes("console-card-title truncate")
+        named = ui.label(name).classes("text-sm truncate") if name else None
         ui.label("-").classes("console-kpi").style("color: var(--ink-3)")
         panel.line(reason, hint=detail)
-    return {"root": root, "title": heading}
+    return {"root": root, "title": heading, "name": named or heading}
 
 
 def _draw_cards(target: Any, graphics: dict[str, Any], history: list[dict[str, Any]],
@@ -147,11 +152,12 @@ def _draw_cards(target: Any, graphics: dict[str, Any], history: list[dict[str, A
             for card in cards:
                 name = str(card.get("name") or t("word.unknown"))
                 if card.get("reason"):
-                    tile = _note_tile(name, str(card["reason"]))
+                    tile = _note_tile(t("console.metrics.graphics"), str(card["reason"]),
+                                      name=name)
                 else:
-                    tile = _tile(name)
+                    tile = _tile(t("console.metrics.graphics"), name, t("console.metrics.busy"))
                     held["tiles"][card.get("id")] = tile
-                tile["title"].tooltip(_card_tip(card, name))
+                tile["name"].tooltip(_card_tip(card, name))
         held["shape"] = shape
     for card in cards:
         tile = held["tiles"].get(card.get("id"))
