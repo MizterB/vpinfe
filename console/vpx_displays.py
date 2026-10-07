@@ -355,8 +355,9 @@ async def _beside(library: Any) -> tuple[dict[str, Any], list[dict], list[Any], 
 
 @on_page
 async def _each_launcher(library: Any, act: Callable[[str], Awaitable[None]]) -> None:
-    """`act` for each enabled Visual Pinball launcher that has a settings file. One that
-    fails is named on the page and the rest still run."""
+    """`act` for each enabled Visual Pinball launcher whose program has settings. One
+    that has never run has no file yet, so the writes make it. One that fails is named on
+    the page and the rest still run."""
     try:
         found = await offload.io(library.launchers)
     except Exception:  # noqa: BLE001 - VPinFE's own change is already kept
@@ -430,7 +431,7 @@ async def _flat_values(library: Any, launcher_id: str) -> dict[str, str]:
 async def _follow_panel(library: Any, kind: str, launcher_id: str) -> None:
     keys = vpx.dmd_util(kind)
     if keys:
-        await run.io_bound(library.write_launcher_config, launcher_id, keys)
+        await run.io_bound(library.write_launcher_config, launcher_id, keys, create=True)
 
 
 async def _follow_one(library: Any, launcher_id: str, *, before: displays.Standing,
@@ -441,7 +442,7 @@ async def _follow_one(library: Any, launcher_id: str, *, before: displays.Standi
                      if one.key in vpx.DISPLAY.values() for name in one.reported})
     keys = following(before, after, here, logged, flat)
     if keys:
-        await run.io_bound(library.write_launcher_config, launcher_id, keys)
+        await run.io_bound(library.write_launcher_config, launcher_id, keys, create=True)
 
 
 def following(before: displays.Standing, after: displays.Standing, here: Sequence[Screen],

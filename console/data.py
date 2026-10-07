@@ -671,11 +671,13 @@ class Library:
         return self._client.launcher_config(launcher_id, table, scope)
 
     def write_launcher_config(self, launcher_id: str, values: dict, *,
-                              table: str = "", scope: str = "launcher") -> dict:
+                              table: str = "", scope: str = "launcher",
+                              create: bool = False) -> dict:
         """At a table, every game's tables are read again, as `assign_launcher` does:
-        each carries how many settings it has of its own."""
-        result = self._client.write_launcher_config(launcher_id, values,
-                                                    table=table, scope=scope)
+        each carries how many settings it has of its own. `create` makes the program's
+        settings file where it has none yet."""
+        result = self._client.write_launcher_config(launcher_id, values, table=table,
+                                                    scope=scope, create=create)
         if table:
             self.tables.clear()
             self._table_rows = None

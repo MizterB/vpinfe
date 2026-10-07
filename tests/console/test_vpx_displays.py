@@ -64,8 +64,8 @@ class _Library:
         return {key: {"value": value} for key, value in self.flat.items()}
 
 
-async def _inline(function: Any, *args: Any) -> Any:
-    return function(*args)
+async def _inline(function: Any, *args: Any, **kwargs: Any) -> Any:
+    return function(*args, **kwargs)
 
 
 def _page(library: Any = None, flat: dict | None = None, *, vpinfe: Any = None,
@@ -719,6 +719,12 @@ class LaunchersTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.library.write_launcher_config.call_args.args[1]
                          ["Backglass.BackglassDisplay"], CVT)
 
+    async def test_a_program_that_has_never_run_gets_its_settings_file_made(self) -> None:
+        await press(vpx_displays.follow, self.library, _standing(), _standing({"backglass": 3}),
+                    HERE)
+
+        self.assertIs(self.library.write_launcher_config.call_args.kwargs["create"], True)
+
     async def test_a_launcher_that_already_has_it_is_not_written(self) -> None:
         await press(vpx_displays.follow, self.library, _standing(), _standing(), HERE)
 
@@ -785,7 +791,8 @@ class PanelKindTests(unittest.IsolatedAsyncioTestCase):
                 await press(vpx_displays.follow_dmd, self.library, "ZeDMD")
 
                 self.library.write_launcher_config.assert_called_once_with(
-                    "vpx-1", {"Plugin.DMDUtil.Enable": "1", "Plugin.DMDUtil.ZeDMD": "1"})
+                    "vpx-1", {"Plugin.DMDUtil.Enable": "1", "Plugin.DMDUtil.ZeDMD": "1"},
+                    create=True)
 
     async def test_windows_is_told_nothing(self) -> None:
         with patch("apps.vpx.screens.sys", platform="win32"):
