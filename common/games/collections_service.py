@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
+from common.device_registry import get_device_registry
 from common.games.collection_store import CollectionStore
 from common.i18n import t
 from common.paths import COLLECTIONS_PATH, get_ini_config
@@ -70,9 +71,10 @@ def collection_icon_path(filename: str | None) -> Path | None:
     return here if here.is_file() else None
 
 
-# The settings that name a collection: the one the frontend opens on, and the one it
-# last had open for Last Collection to reopen.
-_NAMING_SETTINGS = (("behavior", "startup_collection"), ("state", "last_collection"))
+# What names a collection: the setting the frontend opens on, and the field on this
+# install's row holding the one it last had open for Last Collection to reopen.
+_STARTUP = ("behavior", "startup_collection")
+_LAST = "last_collection"
 
 
 def follow_rename_in_settings(old_name: str, new_name: str) -> None:
@@ -84,13 +86,12 @@ def follow_rename_in_settings(old_name: str, new_name: str) -> None:
     as something broken.
     """
     store = get_ini_config()
-    moved = False
-    for section, key in _NAMING_SETTINGS:
-        if str(store.value(section, key) or "").strip() == old_name:
-            store.set_value(section, key, new_name)
-            moved = True
-    if moved:
+    if str(store.value(*_STARTUP) or "").strip() == old_name:
+        store.set_value(*_STARTUP, new_name)
         store.save()
+    row = get_device_registry()
+    if str(row.self_get(_LAST, "") or "").strip() == old_name:
+        row.set_self(**{_LAST: new_name})
 
 
 def forget_in_settings(name: str) -> None:
@@ -101,13 +102,12 @@ def forget_in_settings(name: str) -> None:
     screen, which is the same outcome told honestly.
     """
     store = get_ini_config()
-    cleared = False
-    for section, key in _NAMING_SETTINGS:
-        if str(store.value(section, key) or "").strip() == name:
-            store.set_value(section, key, "")
-            cleared = True
-    if cleared:
+    if str(store.value(*_STARTUP) or "").strip() == name:
+        store.set_value(*_STARTUP, "")
         store.save()
+    row = get_device_registry()
+    if str(row.self_get(_LAST, "") or "").strip() == name:
+        row.set_self(**{_LAST: None})
 
 
 def collection_icon_url(filename: str | None) -> str:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from common import install_setup, migration_ledger, whats_new
+from common import device_registry, install_setup, migration_ledger, whats_new
 from common.config_store import ConfigStore
 from common.upgrade_needs import Need
 from tests.support.library import TempTree
@@ -23,15 +23,14 @@ class NoteStartTests(TempTree):
         return store
 
     def ran(self, store: ConfigStore, version: str) -> None:
-        store.set_value(whats_new.SECTION, whats_new.LAST_KEY, version)
-        store.save()
+        device_registry.get_device_registry().set_self(**{whats_new.LAST_KEY: version})
 
     def test_a_new_install_records_its_version_and_opens_nothing(self) -> None:
         store = self.store(setup_done=False)
 
         whats_new.note_start(store, "v3.0.0")
 
-        self.assertEqual(whats_new.last_version(store), "v3.0.0")
+        self.assertEqual(whats_new.last_version(), "v3.0.0")
         self.assertFalse(whats_new.due(store))
 
     def test_the_same_version_again_opens_nothing(self) -> None:
@@ -48,8 +47,8 @@ class NoteStartTests(TempTree):
         whats_new.note_start(store, "v3.1.0")
 
         self.assertTrue(whats_new.due(store))
-        self.assertEqual(whats_new.since(store), "v3.0.0")
-        self.assertEqual(whats_new.last_version(store), "v3.1.0")
+        self.assertEqual(whats_new.since(), "v3.0.0")
+        self.assertEqual(whats_new.last_version(), "v3.1.0")
 
     def test_an_install_with_no_record_of_a_version_opens_it_from_nothing(self) -> None:
         store = self.store()
@@ -57,7 +56,7 @@ class NoteStartTests(TempTree):
         whats_new.note_start(store, "v3.1.0")
 
         self.assertTrue(whats_new.due(store))
-        self.assertEqual(whats_new.since(store), "")
+        self.assertEqual(whats_new.since(), "")
 
     def test_skipping_a_review_keeps_the_earliest_version_not_yet_read(self) -> None:
         store = self.store()
@@ -66,18 +65,18 @@ class NoteStartTests(TempTree):
 
         whats_new.note_start(store, "v3.2.0")
 
-        self.assertEqual(whats_new.since(store), "v3.0.0")
+        self.assertEqual(whats_new.since(), "v3.0.0")
 
     def test_reading_it_clears_it_until_the_next_update(self) -> None:
         store = self.store()
         self.ran(store, "v3.0.0")
         whats_new.note_start(store, "v3.1.0")
 
-        whats_new.mark_seen(store)
+        whats_new.mark_seen()
 
         self.assertFalse(whats_new.due(store))
         whats_new.note_start(store, "v3.2.0")
-        self.assertEqual(whats_new.since(store), "v3.1.0")
+        self.assertEqual(whats_new.since(), "v3.1.0")
 
     def test_a_build_that_is_not_a_release_opens_nothing_and_records_nothing(self) -> None:
         store = self.store()
@@ -86,7 +85,7 @@ class NoteStartTests(TempTree):
         whats_new.note_start(store, "dev-abc1234")
 
         self.assertFalse(whats_new.due(store))
-        self.assertEqual(whats_new.last_version(store), "v3.0.0")
+        self.assertEqual(whats_new.last_version(), "v3.0.0")
 
     def test_going_back_to_an_earlier_version_opens_nothing(self) -> None:
         store = self.store()
@@ -95,12 +94,11 @@ class NoteStartTests(TempTree):
         whats_new.note_start(store, "v3.0.0")
 
         self.assertFalse(whats_new.due(store))
-        self.assertEqual(whats_new.last_version(store), "v3.0.0")
+        self.assertEqual(whats_new.last_version(), "v3.0.0")
 
     def test_setup_still_pending_is_not_due_whatever_was_recorded(self) -> None:
         store = self.store(setup_done=False)
-        store.set_value(whats_new.SECTION, whats_new.PENDING_KEY, True)
-        store.save()
+        device_registry.get_device_registry().set_self(**{whats_new.PENDING_KEY: True})
 
         self.assertFalse(whats_new.due(store))
 
@@ -109,11 +107,13 @@ class NoteStartTests(TempTree):
         self.ran(store, "v3.0.0")
         whats_new.note_start(store, "v3.1.0")
 
-        again = ConfigStore(self.path)
+        device_registry.reset_for_tests(self.registry_path)
 
-        self.assertTrue(whats_new.due(again))
+        self.assertTrue(whats_new.due(ConfigStore(self.path)))
         payload = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
-        self.assertEqual(payload["settings"]["device"]["last_version"], "v3.1.0")
+        self.assertNotIn("last_version", payload["settings"]["device"])
+        row = json.loads((self.registry_path).read_text(encoding="utf-8"))["devices"]
+        self.assertEqual([one["last_version"] for one in row], ["v3.1.0"])
 
 
 class ReviewTests(TempTree):
@@ -135,7 +135,7 @@ class ReviewTests(TempTree):
                                 current=self.current, ledger=self.ledger, needs=self.needs)
 
     def test_it_holds_the_notes_the_files_and_the_needs_since_the_last_version(self) -> None:
-        self.config.set_value(whats_new.SECTION, whats_new.LAST_KEY, "v3.0.0")
+        device_registry.get_device_registry().set_self(**{whats_new.LAST_KEY: "v3.0.0"})
         whats_new.note_start(self.config, "v3.1.0")
         migration_ledger.record("order_direction", "v3.1.0", 2, self.ledger)
 
@@ -148,7 +148,7 @@ class ReviewTests(TempTree):
     def test_asked_again_it_is_the_running_version_alone(self) -> None:
         migration_ledger.record("old", "v3.0.0", 1, self.ledger)
         migration_ledger.record("new", "v3.1.0", 2, self.ledger)
-        self.config.set_value(whats_new.SECTION, whats_new.SINCE_KEY, "v2.0.0")
+        device_registry.get_device_registry().set_self(**{whats_new.SINCE_KEY: "v2.0.0"})
 
         found = whats_new.review(self.config, "v3.1.0", again=True, folder=self.folder,
                                  current=self.current, ledger=self.ledger, needs=self.needs)
@@ -157,7 +157,7 @@ class ReviewTests(TempTree):
         self.assertEqual([e.name for e in found.files], ["new"])
 
     def test_a_part_with_nothing_in_it_is_empty_not_missing(self) -> None:
-        self.config.set_value(whats_new.SECTION, whats_new.LAST_KEY, "v3.0.0")
+        device_registry.get_device_registry().set_self(**{whats_new.LAST_KEY: "v3.0.0"})
         whats_new.note_start(self.config, "v3.1.0")
 
         found = self.review()

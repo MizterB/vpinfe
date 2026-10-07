@@ -16,7 +16,7 @@ from configparser import ConfigParser
 from pathlib import Path
 from unittest import mock
 
-from common import events, players
+from common import device_registry, events, players
 from common.config_store import ConfigStore
 from common.games import player_records
 from common.games.launchers import Launcher
@@ -145,6 +145,10 @@ class ARecordingIsNotAPlayTests(TempTree):
         return {path.relative_to(self.root).as_posix(): path.read_bytes()
                 for path in sorted(self.root.rglob("*")) if path.is_file()}
 
+    @staticmethod
+    def _last_game() -> str:
+        return device_registry.get_device_registry().self_get("last_table", "")
+
     def _launch(self, source: str) -> dict[str, bytes]:
         """What changed on disk, file by file. Only resolving the program is stubbed;
         the program is a process that prints its startup marker and exits."""
@@ -167,7 +171,7 @@ class ARecordingIsNotAPlayTests(TempTree):
         changed = self._launch(launch_state.SOURCE_API)
 
         self.assertIn("tables/Example/Example.info", changed, "the start count")
-        self.assertIn(Path(self.ini.json_path).name, changed, "the last game")
+        self.assertNotEqual(self._last_game(), "", "the last game")
         self.assertTrue(any(name.startswith("player_records/") for name in changed),
                         "the other player's session")
         self.assertEqual(len(self.recorded), 1)
@@ -176,6 +180,7 @@ class ARecordingIsNotAPlayTests(TempTree):
         changed = self._launch(launch_state.SOURCE_CAPTURE)
 
         self.assertEqual(sorted(changed), [])
+        self.assertEqual(self._last_game(), "")
         self.assertEqual(self.recorded, [])
 
 

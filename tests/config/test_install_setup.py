@@ -1,11 +1,12 @@
-"""`device.setup_pending` is true until Setup finishes; `device.setup_done` is its progress."""
+"""`device.setup_pending` is true until Setup finishes; `setup_done` on the self row is its
+progress."""
 
 from __future__ import annotations
 
 import json
 import unittest
 
-from common import install_setup
+from common import device_registry, install_setup
 from common.config_store import ConfigStore
 from tests.support.library import TempTree
 
@@ -54,31 +55,38 @@ class FinishTests(TempTree):
 
 class AnsweredTests(TempTree):
     def test_nothing_is_answered_on_a_fresh_install(self) -> None:
-        store = ConfigStore(str(self.root / "vpinfe.ini"))
-        self.assertEqual(install_setup.answered(store), [])
+        self.assertEqual(install_setup.answered(), [])
 
     def test_answers_keep_the_order_they_came_in_and_survive_a_reload(self) -> None:
-        path = self.root / "vpinfe.ini"
-        install_setup.answer(ConfigStore(str(path)), "how")
-        install_setup.answer(ConfigStore(str(path)), "screens")
+        install_setup.answer("how")
+        install_setup.answer("screens")
 
-        self.assertEqual(install_setup.answered(ConfigStore(str(path))), ["how", "screens"])
+        device_registry.reset_for_tests(self.registry_path)
+
+        self.assertEqual(install_setup.answered(), ["how", "screens"])
+
+    def test_answers_are_on_the_self_row_and_not_in_the_settings_file(self) -> None:
+        store = ConfigStore(str(self.root / "vpinfe.ini"))
+        install_setup.answer("how")
+        install_setup.finish(store)
+
         payload = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
-        self.assertEqual(payload["settings"]["device"]["setup_done"], ["how", "screens"])
+        self.assertNotIn("setup_done", payload["settings"]["device"])
+        rows = json.loads((self.registry_path).read_text(encoding="utf-8"))["devices"]
+        self.assertEqual([one["setup_done"] for one in rows], [["how"]])
 
     def test_answering_a_step_twice_records_it_once(self) -> None:
-        store = ConfigStore(str(self.root / "vpinfe.ini"))
-        install_setup.answer(store, "how")
-        install_setup.answer(store, "how")
+        install_setup.answer("how")
+        install_setup.answer("how")
 
-        self.assertEqual(install_setup.answered(store), ["how"])
+        self.assertEqual(install_setup.answered(), ["how"])
 
     def test_finishing_keeps_the_record_of_what_was_answered(self) -> None:
         store = ConfigStore(str(self.root / "vpinfe.ini"))
-        install_setup.answer(store, "how")
+        install_setup.answer("how")
         install_setup.finish(store)
 
-        self.assertEqual(install_setup.answered(store), ["how"])
+        self.assertEqual(install_setup.answered(), ["how"])
 
 
 class AfterFinishTests(TempTree):

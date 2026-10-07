@@ -21,8 +21,9 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from common import config_schema
+from common import config_schema, device_registry
 from common.games import collections_service
+from tests.support.library import TempTree
 
 SECTION = next(o.section for o in config_schema.options()
                if o.key == "startup_collection")
@@ -31,9 +32,8 @@ SECTION = next(o.section for o in config_schema.options()
 class _Store:
     """The settings file, as much of it as this cares about."""
 
-    def __init__(self, startup: str, remembered: str = "") -> None:
-        self.values = {(SECTION, "startup_collection"): startup,
-                       ("state", "last_collection"): remembered}
+    def __init__(self, startup: str) -> None:
+        self.values = {(SECTION, "startup_collection"): startup}
         self.saved = 0
 
     def value(self, section: str, key: str):
@@ -49,12 +49,8 @@ class _Store:
     def startup(self):
         return self.values[(SECTION, "startup_collection")]
 
-    @property
-    def remembered(self):
-        return self.values[("state", "last_collection")]
 
-
-class StartupCollectionFollowsRenameTests(unittest.TestCase):
+class StartupCollectionFollowsRenameTests(TempTree):
     def _rename(self, store, old, new):
         with mock.patch.object(collections_service, "get_ini_config",
                                return_value=store):
@@ -115,26 +111,33 @@ class StartupCollectionFollowsRenameTests(unittest.TestCase):
 
         self.assertEqual(store.startup, "Friday Nights")
 
+    @staticmethod
+    def _remembered() -> str:
+        return device_registry.get_device_registry().self_get("last_collection", "")
+
     def test_the_remembered_collection_moves_with_it(self) -> None:
-        store = _Store("Last Collection", remembered="Friday Night")
+        store = _Store("Last Collection")
+        device_registry.get_device_registry().set_self(last_collection="Friday Night")
         self._rename(store, "Friday Night", "Friday Nights")
 
-        self.assertEqual((store.startup, store.remembered),
+        self.assertEqual((store.startup, self._remembered()),
                          ("Last Collection", "Friday Nights"))
-        self.assertEqual(store.saved, 1)
+        self.assertEqual(store.saved, 0)
 
     def test_deleting_the_remembered_collection_forgets_it(self) -> None:
-        store = _Store("Last Collection", remembered="Friday Night")
+        store = _Store("Last Collection")
+        device_registry.get_device_registry().set_self(last_collection="Friday Night")
         self._delete(store, "Friday Night")
 
-        self.assertEqual((store.startup, store.remembered), ("Last Collection", ""))
+        self.assertEqual((store.startup, self._remembered()), ("Last Collection", ""))
 
     def test_another_collection_leaves_the_remembered_one_alone(self) -> None:
-        store = _Store("Last Collection", remembered="Friday Night")
+        store = _Store("Last Collection")
+        device_registry.get_device_registry().set_self(last_collection="Friday Night")
         self._rename(store, "Solid State", "Solid States")
         self._delete(store, "Solid State")
 
-        self.assertEqual((store.remembered, store.saved), ("Friday Night", 0))
+        self.assertEqual((self._remembered(), store.saved), ("Friday Night", 0))
 
 
 if __name__ == "__main__":

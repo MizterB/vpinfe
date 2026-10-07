@@ -181,5 +181,5 @@ async def open_whats_new(*, again: bool = False) -> bool:
                 under="whats_new", aside=t("word.close"), close_when_done=True)
     finally:
         if not again:
-            await run.io_bound(whats_new.mark_seen, _config())
+            await run.io_bound(whats_new.mark_seen)
     return bool(shown)

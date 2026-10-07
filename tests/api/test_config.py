@@ -97,7 +97,7 @@ class ConfigServiceTests(unittest.TestCase):
     def test_setup_state_is_refused_like_any_internal_key(self):
         """Only Setup finishing clears `device.setup_pending`; a settings write that
         could would end it, or restart it, from outside."""
-        for key in ("setup_pending", "setup_done"):
+        for key in ("setup_pending",):
             with self.subTest(key=key):
                 with self.assertRaises(config_service.UnknownSettingsError) as caught:
                     config_service.set_values({"device": {key: "false"}})
@@ -109,7 +109,6 @@ class ConfigServiceTests(unittest.TestCase):
         served = config_service.values()["values"].get("device", {})
 
         self.assertNotIn("setup_pending", served)
-        self.assertNotIn("setup_done", served)
 
     def test_a_theme_source_is_written(self):
         config_service.set_values({"themes": {"registries": "http://elsewhere"}})

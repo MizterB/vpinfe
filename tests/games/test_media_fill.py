@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common import i18n, jobs, service_errors, sized_media, timestamps
+from common import device_registry, i18n, jobs, service_errors, sized_media, timestamps
 from common.config_store import ConfigStore
 from common.games import (
     asset_origin,
@@ -667,15 +667,17 @@ class BuildMetadataTests(_Replaced):
         self.assertEqual(self.placed()[WHEEL], OLD_WHEEL.decode())
 
 
-class ArtDueTests(unittest.TestCase):
+class ArtDueTests(TempTree):
     def setUp(self) -> None:
+        super().setUp()
         self.config = configparser.ConfigParser()
 
     def test_never_compared_is_due(self) -> None:
         self.assertTrue(vpsdb_sync.art_due(self.config))
 
     def test_compared_today_is_not_due_and_yesterday_is(self) -> None:
-        self.config.read_dict({"vpsdb": {"art_checked": "2026-01-01T00:00:00Z"}})
+        device_registry.get_device_registry().set_self(
+            vps_art_checked="2026-01-01T00:00:00Z")
         was = timestamps.iso_to_epoch("2026-01-01T00:00:00Z") or 0
 
         self.assertFalse(vpsdb_sync.art_due(self.config, was + 3600))
@@ -687,12 +689,12 @@ class ArtDueTests(unittest.TestCase):
 
     def test_a_running_fill_leaves_it_due(self) -> None:
         with patch.object(media_fill, "start_update", return_value=False):
-            self.assertFalse(vpsdb_sync.update_art(self.config))
+            self.assertFalse(vpsdb_sync.update_art())
         self.assertTrue(vpsdb_sync.art_due(self.config))
 
     def test_a_started_sweep_is_stamped(self) -> None:
         with patch.object(media_fill, "start_update", return_value=True):
-            self.assertTrue(vpsdb_sync.update_art(self.config))
+            self.assertTrue(vpsdb_sync.update_art())
         self.assertFalse(vpsdb_sync.art_due(self.config))
 
 

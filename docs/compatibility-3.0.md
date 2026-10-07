@@ -472,7 +472,8 @@ answer standing, which is what a single-machine install has always used. Covered
 `tests/theming/test_chromium_manager.py` and `tests/theming/test_separation.py`.
 
 **PAR-75 — The last-launched row is remembered by id, not by path.** *(machine-checked)*
-`state.last_game` stores a table id, falling back to a game id. `save_last_game` becomes
+`last_table` on this install's row in the device registry stores a table id, falling back
+to a game id. `save_last_game` becomes
 `save_last_launched` and takes the ids; `table.launching` carries `table_id`.
 **A saved value written before this does not resolve** - the wheel opens at the first row
 once, and the next launch writes the new form. Nothing else reads the key.
@@ -1107,8 +1108,8 @@ script is exactly the kind of thing that should not need editing to survive an u
 
 **PAR-25 — `vpinfe.ini` keys are read under their old names and written under the new.**
 `tablescreenid`, `tableorientation`, `tablerotation`, `tablerootdir`, `restorelasttable`,
-`tabletype`, `tableresolution`, `tablevideoresolution`, `tablemediapriority` and
-`lasttable` become the `playfield*` and `game*` spellings. The old key is read once and
+`tabletype`, `tableresolution`, `tablevideoresolution` and `tablemediapriority`
+become the `playfield*` and `game*` spellings. The old key is read once and
 the new one written, so an existing `vpinfe.ini` keeps working and is corrected in place
 on first load. `cabmode`, `enabledof` and `splashscreen` are moved between sections by
 the same pass — that one predates 3.0.

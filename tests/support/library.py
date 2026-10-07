@@ -16,17 +16,31 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from common import device_registry
 from common.games.game import Game
 
 
+def own_registry(case: unittest.TestCase, path: Path | str) -> device_registry.DeviceRegistry:
+    """Point this install's device registry at `path` for the test. The process holds one,
+    and without this every test reads and writes the same self row."""
+    device_registry.reset_for_tests(Path(path))
+    case.addCleanup(device_registry.reset_for_tests)
+    return device_registry.get_device_registry()
+
+
 class TempTree(unittest.TestCase):
-    """A test case with `self.root`, a temporary directory cleaned up afterwards."""
+    """A test case with `self.root`, a temporary directory cleaned up afterwards, and a
+    device registry of its own, in a directory beside it, as `self.registry_path`."""
 
     def setUp(self) -> None:
         super().setUp()
         self._tmp = TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
+        kept = TemporaryDirectory()
+        self.addCleanup(kept.cleanup)
+        self.registry_path = Path(kept.name) / "devices.json"
+        own_registry(self, self.registry_path)
 
 
 def write_game(root: Path | str, name: str = "Example", *,

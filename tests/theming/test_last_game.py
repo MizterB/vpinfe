@@ -14,9 +14,11 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from common import device_registry
 from common.config_store import ConfigStore
 from common.games.collection_store import LAST_COLLECTION
 from frontend import last_game
+from tests.support.library import own_registry
 
 
 def _config(tmp: str) -> ConfigStore:
@@ -29,12 +31,22 @@ def _game(game_id: str = "", name: str = "Game"):
         meta_config={"Info": {"Title": name}, "vpinfe": {"game_id": game_id}})
 
 
+def _saved(key: str = "last_table") -> str:
+    return device_registry.get_device_registry().self_get(key, "")
+
+
 def _entry(table_id: str = "", game_id: str = "", name: str = "Game"):
     """One row of the wheel, which is what is saved and resolved."""
     return SimpleNamespace(game=_game(game_id, name), table_id=table_id)
 
 
 class LastLaunchedTests(unittest.TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        own_registry(self, Path(tmp.name) / "devices.json")
+
     def test_the_table_is_what_is_saved(self) -> None:
         with TemporaryDirectory() as tmp:
             config = _config(tmp)
@@ -43,7 +55,7 @@ class LastLaunchedTests(unittest.TestCase):
 
             last_game.save_last_launched(config, entries[1].game, "Tbl2222222")
 
-            self.assertEqual(config.config.get("state", "last_table"), "Tbl2222222")
+            self.assertEqual(_saved(), "Tbl2222222")
             self.assertEqual(last_game.resolve_last_table_index(config, entries), 1)
 
     def test_an_expanded_wheel_comes_back_to_the_table_not_the_game(self) -> None:
@@ -65,7 +77,7 @@ class LastLaunchedTests(unittest.TestCase):
 
             last_game.save_last_launched(config, entries[1].game)
 
-            self.assertEqual(config.config.get("state", "last_table"), "Gme2222222")
+            self.assertEqual(_saved(), "Gme2222222")
             self.assertEqual(last_game.resolve_last_table_index(config, entries), 1)
 
     def test_resolve_survives_reordering(self) -> None:
@@ -83,7 +95,7 @@ class LastLaunchedTests(unittest.TestCase):
     def test_a_saved_row_that_is_no_longer_there_starts_at_the_beginning(self) -> None:
         with TemporaryDirectory() as tmp:
             config = _config(tmp)
-            config.config.set("state", "last_table", "Tbl9999999")
+            device_registry.get_device_registry().set_self(last_table="Tbl9999999")
 
             self.assertEqual(
                 last_game.resolve_last_table_index(config, [_entry("Tbl1111111")]), 0)
@@ -103,7 +115,7 @@ class LastLaunchedTests(unittest.TestCase):
 
             last_game.save_last_launched(config, entries[1].game, "Tbl2222222")
 
-            self.assertEqual(config.config.get("state", "last_table"), "")
+            self.assertEqual(_saved(), "")
             self.assertEqual(last_game.resolve_last_table_index(config, entries), 0)
 
     def test_a_row_with_no_id_at_all_saves_nothing(self) -> None:
@@ -113,7 +125,7 @@ class LastLaunchedTests(unittest.TestCase):
 
             last_game.save_last_launched(config, _game())
 
-            self.assertEqual(config.config.get("state", "last_table"), "")
+            self.assertEqual(_saved(), "")
 
 
 class EntryIdentityTests(unittest.TestCase):
@@ -131,6 +143,12 @@ class EntryIdentityTests(unittest.TestCase):
 class LastCollectionTests(unittest.TestCase):
     """`behavior.startup_collection` = Last Collection opens on the collection shown last."""
 
+    def setUp(self) -> None:
+        super().setUp()
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        own_registry(self, Path(tmp.name) / "devices.json")
+
     def _set(self, config: ConfigStore, opens_on: str) -> None:
         config.config.set("behavior", "startup_collection", opens_on)
 
@@ -141,7 +159,7 @@ class LastCollectionTests(unittest.TestCase):
 
             last_game.remember_collection(config, "90s Bally")
 
-            self.assertEqual(config.config.get("state", "last_collection", fallback=""), "")
+            self.assertEqual(_saved("last_collection"), "")
             self.assertEqual(last_game.opening_collection(config), "Friday Night")
 
     def test_the_collection_shown_last_is_where_it_opens(self) -> None:
@@ -186,10 +204,10 @@ class LastCollectionTests(unittest.TestCase):
             self._set(config, LAST_COLLECTION)
             last_game.remember_collection(config, "Friday Night")
 
-            with patch.object(config, "save") as save:
+            with patch.object(device_registry.get_device_registry(), "set_self") as write:
                 last_game.remember_collection(config, "Friday Night")
 
-            save.assert_not_called()
+            write.assert_not_called()
 
 
 if __name__ == "__main__":

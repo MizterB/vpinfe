@@ -5,8 +5,9 @@ person is on, answering the wizard's own protocol with local closures - there is
 boundary here for an HTTP call to cross. `STEPS` is the whole list, in the order they are
 asked: a step is one entry there and nothing else names the steps.
 
-Every answer is saved as it is given, and `device.setup_done` records which steps have
-one, so leaving and coming back costs a person nothing but their place.
+Every answer is saved as it is given, and `setup_done` on this install's row in the device
+registry records which steps have one, so leaving and coming back costs a person nothing
+but their place.
 """
 
 from __future__ import annotations
@@ -108,7 +109,7 @@ async def _screens_here() -> int:
 
 async def _ask_how(session: Session) -> dict[str, Any]:
     config = _config()
-    if session.again or HOW in install_setup.answered(config):
+    if session.again or HOW in install_setup.answered():
         cabinet = DisplayConfig.from_config(config).cab_mode
     else:
         cabinet = await _screens_here() >= CABINET_SCREENS
@@ -257,12 +258,12 @@ def _resume(session: Session) -> Step:
     steps = _applicable(session)
     if session.again:
         return steps[0]
-    answered = install_setup.answered(_config())
+    answered = install_setup.answered()
     return next((one for one in steps if one.key not in answered), steps[-1])
 
 
 def _row(session: Session, steps: list[Step]) -> list[dict[str, Any]]:
-    answered = install_setup.answered(_config())
+    answered = install_setup.answered()
     row: list[dict[str, Any]] = []
     for one in steps:
         done = session.again or one.key in answered
@@ -303,7 +304,7 @@ async def _ask(session: Session, step: Step) -> dict[str, Any]:
 async def _answer(session: Session, step: Step, values: dict[str, Any]) -> None:
     await step.answer(session, values)
     if not session.again:
-        await run.io_bound(install_setup.answer, _config(), step.key)
+        await run.io_bound(install_setup.answer, step.key)
 
 
 async def _done(session: Session, answered: str | None = None) -> None:
@@ -311,7 +312,7 @@ async def _done(session: Session, answered: str | None = None) -> None:
     if session.again or session.finished:
         return
     if answered:
-        await run.io_bound(install_setup.answer, _config(), answered)
+        await run.io_bound(install_setup.answer, answered)
     await run.io_bound(install_setup.finish, _config())
     session.finished = True
 
@@ -372,8 +373,8 @@ async def open_setup(*, window: bool = False) -> None:
     vpx = await offload.io(setup_vpx.gather)
     session = Session(again=not install_setup.pending(_config()), window=window, vpx=vpx,
                       tables=await offload.io(setup_tables.gather, vpx.chosen))
-    session.vpx.answered = not session.again and VPX in install_setup.answered(_config())
-    session.screens.answered = not session.again and SCREENS in install_setup.answered(_config())
+    session.vpx.answered = not session.again and VPX in install_setup.answered()
+    session.screens.answered = not session.again and SCREENS in install_setup.answered()
     ran = await wizard.open_dialog(
         label=t("console.setup.title"), calls=calls(session), under="setup", mark=True,
         aside=t("word.close") if session.again else t("console.setup.finish_later"),

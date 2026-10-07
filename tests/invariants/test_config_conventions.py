@@ -104,10 +104,11 @@ class CompatibilityTests(unittest.TestCase):
 
         `Displays` and `Input` are exempt: their keys moved one at a time and carry
         their own `legacy` pairs, so neither section name outlives the move.
-        `pinmame-score-parser` held only cache stamps, which are no longer settings.
+        `pinmame-score-parser` held only cache stamps, and `State` and `VPSdb` held only
+        what an install keeps about itself, which is on its row in `devices.json`.
         """
         moved_per_key = {"Displays", "Input"}
-        left_with_the_cache = {"pinmame-score-parser"}
+        left_with_the_cache = {"pinmame-score-parser", "State", "VPSdb"}
         declared = {option.section for option in config_schema.options()}
 
         stale = sorted(section for section in TWO_X_SECTIONS

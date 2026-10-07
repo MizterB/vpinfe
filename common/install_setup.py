@@ -4,7 +4,8 @@ Written true only by a fresh install's own first save (`common/config_store.py`)
 other install reads absent the same as false, so a 2.x conversion, a hand-written
 `vpinfe.json`, or an install that already ran Setup never sees it again.
 
-`device.setup_done` lists the steps already answered, so Setup reopens where it stopped.
+`setup_done` on this install's row in the device registry lists the steps already
+answered, so Setup reopens where it stopped.
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ import os
 import threading
 from collections.abc import Callable
 
-from common.config_access import ConfigSource, cfg_bool, cfg_list
+from common import device_registry
+from common.config_access import ConfigSource, cfg_bool
 from common.config_store import ConfigStore
 
 logger = logging.getLogger("vpinfe.common.install_setup")
@@ -32,18 +34,17 @@ def pending(config: ConfigSource) -> bool:
     return cfg_bool(config, SECTION, KEY, False)
 
 
-def answered(config: ConfigSource) -> list[str]:
+def answered() -> list[str]:
     """The steps answered so far, in the order they were. Never writes."""
-    return cfg_list(config, SECTION, DONE_KEY)
+    done = device_registry.get_device_registry().self_get(DONE_KEY, [])
+    return [str(step) for step in done] if isinstance(done, list) else []
 
 
-def answer(config: ConfigStore, step: str) -> None:
+def answer(step: str) -> None:
     """Records a step as answered. Writes only when it was not already."""
-    done = answered(config)
-    if step in done:
-        return
-    config.set_value(SECTION, DONE_KEY, [*done, step])
-    config.save()
+    done = answered()
+    if step not in done:
+        device_registry.get_device_registry().set_self(**{DONE_KEY: [*done, step]})
 
 
 def after_finish(config: ConfigStore, callback: Callable[[], None]) -> None:

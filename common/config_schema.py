@@ -68,8 +68,6 @@ SECTION_RENAMES = {
     'Media': 'media',
     'Mobile': 'vpxmobile',
     'Network': 'network',
-    'State': 'state',
-    'VPSdb': 'vpsdb',
     'DOF': 'dof',
     'libdmdutil': 'real_dmd',
 }
@@ -953,34 +951,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             internal=True,
         ),
         ConfigOption(
-            "setup_done",
-            type="list",
-            default="",
-            # The keys of the Setup steps already answered.
-            internal=True,
-        ),
-        ConfigOption(
-            "last_version",
-            type="string",
-            default="",
-            # The release this install last started as (common/whats_new.py).
-            internal=True,
-        ),
-        ConfigOption(
-            "whats_new_pending",
-            type="bool",
-            default="false",
-            # An update that has not been read about yet.
-            internal=True,
-        ),
-        ConfigOption(
-            "whats_new_since",
-            type="string",
-            default="",
-            # Where the pending review begins: the oldest release not yet read.
-            internal=True,
-        ),
-        ConfigOption(
             "name",
             type="string",
             default="",
@@ -1000,39 +970,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="auto",
             choices=("auto",) + i18n.available(),
             legacy=(("general", "language"),),
-        ),
-    ),
-    *in_section(
-        "vpsdb",
-        # The spreadsheet version the games were last brought up to.
-        ConfigOption(
-            "games_updated_to",
-            type="string",
-            default="",
-            internal=True,
-        ),
-        # When downloaded art was last compared with VPinMediaDB.
-        ConfigOption(
-            "art_checked",
-            type="string",
-            default="",
-            internal=True,
-        ),
-    ),
-    *in_section(
-        "state",
-        ConfigOption(
-            "last_table",
-            type="string",
-            default="",
-            aliases=("lasttable",),
-            internal=True,
-        ),
-        ConfigOption(
-            "last_collection",
-            type="string",
-            default="",
-            internal=True,
         ),
     ),
     *in_section(

@@ -209,31 +209,9 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `setup_pending` | bool | `false` | Written true on this device's first save. Setup clears it when it finishes. |
-| `setup_done` | list |  | The Setup steps already answered. Setup reopens on the first one that is not. |
-| `last_version` | string |  | The release this device last started as. A later one opens What's new. |
-| `whats_new_pending` | bool | `false` | Written true when an update's notes have not been read |
-| `whats_new_since` | string |  | Where the unread notes begin: the oldest release not yet read |
 | `name` | string |  | What to call this device where one is listed. Defaults to its hostname. |
 | `features` | list | `library,frontend,devices` | What this device is for. Each one you add appears in the Console. |
 | `language` | choice (auto, en) | `auto` | What language VPinFE speaks. Your library's own words - table names and the rest - are never translated. |
-
-### `vpsdb`
-
-Runtime state written by VPinFE, not shown as a setting.
-
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `games_updated_to` | string |  |  |
-| `art_checked` | string |  |  |
-
-### `state`
-
-Runtime state written by VPinFE, not shown as a setting.
-
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `last_table` | string |  |  |
-| `last_collection` | string |  |  |
 
 ### `network`
 

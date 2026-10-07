@@ -5,17 +5,18 @@ from __future__ import annotations
 import configparser
 import unittest
 
-from common import cache_stamps
+from common import cache_stamps, device_registry
 from common.online import vpsdb_sync
+from tests.support.library import own_registry
 from tests.support.stamps import OwnStamps
 
 
 class _Config:
     """A ConfigStore's surface, as much of it as this reads."""
 
-    def __init__(self, schedules: dict[str, str], vpsdb: dict[str, str]) -> None:
+    def __init__(self, schedules: dict[str, str]) -> None:
         self.config = configparser.ConfigParser()
-        self.config.read_dict({"updates": schedules, "vpsdb": vpsdb})
+        self.config.read_dict({"updates": schedules})
         self.saved = 0
 
     def save(self) -> None:
@@ -24,13 +25,21 @@ class _Config:
 
 def _config(download: str = "", update_game_details: str = "", **vpsdb: str) -> _Config:
     """The two schedules a person sets. `last`, the catalog version held, goes where the
-    sync keeps it."""
+    sync keeps it, and `games_updated_to` on this install's own row."""
     wanted = {"download_spreadsheet": download, "update_game_details": update_game_details}
     cache_stamps.put("vpsdb", version=vpsdb.pop("last", ""))
-    return _Config({key: value for key, value in wanted.items() if value}, vpsdb)
+    device_registry.get_device_registry().set_self(
+        vps_games_updated_to=vpsdb.pop("games_updated_to", "") or None)
+    return _Config({key: value for key, value in wanted.items() if value})
 
 
-class WhenASweepIsOwed(OwnStamps):
+class _OwnRow(OwnStamps):
+    def setUp(self) -> None:
+        super().setUp()
+        own_registry(self, self.stamps_path.parent / "devices.json")
+
+
+class WhenASweepIsOwed(_OwnRow):
     def test_off_by_default(self) -> None:
         """Read off the schema, which is where the default actually lives. A config
         object that has never had the key set falls back to whatever the caller passed,
@@ -72,7 +81,7 @@ class WhenASweepIsOwed(OwnStamps):
                     games_updated_to="2026-01-01")))
 
 
-class TheTwoSchedulesAreSeparate(OwnStamps):
+class TheTwoSchedulesAreSeparate(_OwnRow):
     def test_fetching_daily_does_not_sweep(self) -> None:
         held = _config(download="daily", last="2026-09-22", games_updated_to="2026-01-01")
         self.assertFalse(vpsdb_sync.adopt_due(held))

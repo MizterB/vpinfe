@@ -12,7 +12,7 @@ from unittest import mock
 
 from nicegui import ui
 
-from common import install_setup
+from common import device_registry, install_setup
 from common.config_store import ConfigStore
 from common.games.launchers import Launcher
 from console import setup, setup_look, setup_tables, setup_vpx
@@ -82,7 +82,7 @@ class AskHowTests(_Fresh):
 
     def test_an_answer_already_given_beats_the_screen_count(self) -> None:
         self.store.set_value("presentation", "cab_mode", False)
-        install_setup.answer(self.store, setup.HOW)
+        install_setup.answer(setup.HOW)
 
         with self._screens(3):
             step = _ran(setup._ask_how(setup.Session(again=False)))
@@ -221,7 +221,7 @@ class PathTests(_Fresh):
         return mock.patch.object(setup, "STEPS", steps)
 
     def test_it_opens_on_the_first_step_not_answered(self) -> None:
-        install_setup.answer(self.store, "one")
+        install_setup.answer("one")
 
         with self._steps():
             step = _ran(setup.calls(setup.Session(again=False)).first(None))
@@ -230,7 +230,7 @@ class PathTests(_Fresh):
 
     def test_with_every_step_answered_it_opens_on_the_last(self) -> None:
         for key in ("one", "two", "three"):
-            install_setup.answer(self.store, key)
+            install_setup.answer(key)
 
         with self._steps():
             step = _ran(setup.calls(setup.Session(again=False)).first(None))
@@ -251,7 +251,7 @@ class PathTests(_Fresh):
         self.assertEqual(step["step"], "three")
 
     def test_the_row_marks_what_is_answered(self) -> None:
-        install_setup.answer(self.store, "one")
+        install_setup.answer("one")
 
         with self._steps():
             step = _ran(setup.calls(setup.Session(again=False)).first("two"))
@@ -273,7 +273,7 @@ class PathTests(_Fresh):
             step = _ran(setup.calls(setup.Session(again=False)).check({}, "one"))
 
         self.assertEqual(self.writes, ["one"])
-        self.assertEqual(install_setup.answered(self.store), ["one"])
+        self.assertEqual(install_setup.answered(), ["one"])
         self.assertEqual(step["step"], "two")
 
     def test_a_step_that_does_not_apply_is_neither_asked_nor_in_the_row(self) -> None:
@@ -298,7 +298,7 @@ class PathTests(_Fresh):
 
         self.assertTrue(answer["ok"])
         self.assertFalse(install_setup.pending(self.store))
-        self.assertEqual(install_setup.answered(self.store), ["three"])
+        self.assertEqual(install_setup.answered(), ["three"])
 
     def test_finish_runs_what_was_waiting_for_it(self) -> None:
         started = mock.Mock()
@@ -335,17 +335,17 @@ class PathTests(_Fresh):
             answer = _ran(setup.calls(setup.Session(again=True)).run({}, "three"))
 
         self.assertTrue(answer["ok"])
-        self.assertEqual(install_setup.answered(self.store), [])
+        self.assertEqual(install_setup.answered(), [])
         self.assertFalse(install_setup.pending(self.store))
 
     def test_progress_survives_a_new_store_reading_the_same_file(self) -> None:
         with self._steps():
             _ran(setup.calls(setup.Session(again=False)).check({}, "one"))
 
-        reread = ConfigStore(str(self.root / "vpinfe.ini"))
+        device_registry.reset_for_tests(self.registry_path)
         saved = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
-        self.assertEqual(install_setup.answered(reread), ["one"])
-        self.assertEqual(saved["settings"]["device"]["setup_done"], ["one"])
+        self.assertEqual(install_setup.answered(), ["one"])
+        self.assertNotIn("setup_done", saved["settings"]["device"])
 
 
 class OpenSetupTests(_Fresh):
@@ -390,7 +390,7 @@ class OpenSetupTests(_Fresh):
         self.restore.assert_not_called()
 
     def test_a_resumed_run_knows_the_screens_were_answered(self) -> None:
-        install_setup.answer(self.store, setup.SCREENS)
+        install_setup.answer(setup.SCREENS)
         sessions: list[setup.Session] = []
 
         def calls(session: setup.Session) -> mock.Mock:
@@ -450,7 +450,7 @@ class TheRealStepsTests(_Fresh):
         client.put_config.assert_called_once_with({"presentation": {"cab_mode": True}})
         self.assertEqual(answer["step"], setup.LOOK)
         self.assertTrue(install_setup.pending(self.store))
-        self.assertEqual(install_setup.answered(self.store), [setup.HOW])
+        self.assertEqual(install_setup.answered(), [setup.HOW])
 
     def test_the_last_page_carries_finish_and_answering_it_finishes_setup(self) -> None:
         session = setup.Session(again=False, vpx=setup_vpx.Vpx(chosen="/x/vpx", answered=True))
@@ -468,7 +468,7 @@ class TheRealStepsTests(_Fresh):
         self.assertEqual(step["confirm"], "Finish")
         self.assertEqual(answer, {"ok": True})
         self.assertFalse(install_setup.pending(self.store))
-        self.assertEqual(install_setup.answered(self.store), [setup.TABLES])
+        self.assertEqual(install_setup.answered(), [setup.TABLES])
 
     def test_not_installed_yet_makes_the_program_page_the_last(self) -> None:
         session = setup.Session(again=False, vpx=setup_vpx.Vpx(answered=True))

@@ -13,6 +13,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from common import device_registry
 from common.games.collection_store import (
     BUILTIN_ALL,
     LAST_COLLECTION,
@@ -141,8 +142,8 @@ class CollectionViewTests(_Library):
                 ini = _ini()
                 ini.config.add_section("behavior")
                 ini.config.set("behavior", "startup_collection", opens_on)
-                ini.config.add_section("state")
-                ini.config.set("state", "last_collection", state)
+                device_registry.get_device_registry().set_self(
+                    last_collection=state or None)
                 library = LibraryResolver(ini, games=list(self.games))
 
                 with self.assertLogs("vpinfe.frontend.api", level="WARNING") as logged:
@@ -152,7 +153,8 @@ class CollectionViewTests(_Library):
                 self.assertEqual(len(api.entries), 3)
                 self.assertEqual(len(logged.records), 1)
                 self.assertIsNone(logged.records[0].exc_info)
-                self.assertEqual(ini.config.get("state", "last_collection"), "")
+                self.assertEqual(
+                    device_registry.get_device_registry().self_get("last_collection", ""), "")
 
     def test_a_curated_order_is_held_and_is_not_one_of_the_theme_sorts(self) -> None:
         """`Manual` is what the sort UI reads back, and what stops a later refresh

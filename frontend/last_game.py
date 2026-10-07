@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
+from common import device_registry
 from common.config_access import SettingsConfig, cfg_get
 from common.config_store import ConfigStore
 from common.games.collection_resolver import Entry
@@ -14,11 +15,7 @@ from common.games.game_identity import game_id
 
 logger = logging.getLogger("vpinfe.frontend.last_game")
 
-# Internal state, not a user-facing setting. Kept in its own section so the
-# Manager UI (which renders every key in a shown section) never surfaces it.
-STATE_SECTION = "state"
-# The canonical spelling; config_schema keeps "lasttable" resolving for a file
-# written before schema 2.
+# Fields on this install's row in the device registry, not settings.
 STATE_KEY = "last_table"
 COLLECTION_KEY = "last_collection"
 
@@ -46,14 +43,11 @@ def save_last_launched(ini_config: ConfigStore, game: GameRecord,
                 or str(game_id(game) or "").strip())
     if not identity:
         return
-    parser = ini_config.config
-    if not parser.has_section(STATE_SECTION):
-        parser.add_section(STATE_SECTION)
-    if parser.get(STATE_SECTION, STATE_KEY, fallback="") == identity:
+    row = device_registry.get_device_registry()
+    if row.self_get(STATE_KEY, "") == identity:
         return  # unchanged; skip the disk write
-    parser.set(STATE_SECTION, STATE_KEY, identity)
     try:
-        ini_config.save()
+        row.set_self(**{STATE_KEY: identity})
     except Exception:
         logger.exception("Could not persist last game selection")
 
@@ -66,7 +60,7 @@ def resolve_last_table_index(ini_config: ConfigStore, entries: Sequence[Entry]) 
     """
     if not SettingsConfig.from_config(ini_config).restore_last_table:
         return 0
-    saved = cfg_get(ini_config, STATE_SECTION, STATE_KEY, "").strip()
+    saved = str(device_registry.get_device_registry().self_get(STATE_KEY, "") or "").strip()
     if not saved:
         return 0
     for index, entry in enumerate(entries):
@@ -90,14 +84,11 @@ def remember_collection(ini_config: ConfigStore, name: str) -> None:
     if not _asks_for_last(ini_config):
         return
     shown = public_name(name)
-    parser = ini_config.config
-    if not parser.has_section(STATE_SECTION):
-        parser.add_section(STATE_SECTION)
-    if parser.get(STATE_SECTION, COLLECTION_KEY, fallback="") == shown:
+    row = device_registry.get_device_registry()
+    if (row.self_get(COLLECTION_KEY, "") or "") == shown:
         return
-    parser.set(STATE_SECTION, COLLECTION_KEY, shown)
     try:
-        ini_config.save()
+        row.set_self(**{COLLECTION_KEY: shown or None})
     except Exception:
         logger.exception("Could not persist last collection")
 
@@ -110,4 +101,4 @@ def opening_collection(ini_config: ConfigStore) -> str:
     """
     if not _asks_for_last(ini_config):
         return cfg_get(ini_config, "behavior", "startup_collection", "").strip()
-    return cfg_get(ini_config, STATE_SECTION, COLLECTION_KEY, "").strip()
+    return str(device_registry.get_device_registry().self_get(COLLECTION_KEY, "") or "").strip()

@@ -100,15 +100,6 @@ class TestConfigStore(unittest.TestCase):
             self.assertTrue(config.config.has_section("general"))
             self.assertEqual(config.config.get("behavior", "restore_last_table"), "true")
 
-    def test_state_section_lasttable_defaults_empty(self) -> None:
-        with TemporaryDirectory() as tmp:
-            ini_path = Path(tmp) / "vpinfe.ini"
-
-            config = ConfigStore(str(ini_path))
-
-            self.assertTrue(config.config.has_section("state"))
-            self.assertEqual(config.config.get("state", "last_table"), "")
-
     def test_existing_splashscreen_setting_is_preserved(self) -> None:
         with TemporaryDirectory() as tmp:
             ini_path = Path(tmp) / "vpinfe.ini"
@@ -130,8 +121,7 @@ class TestConfigStore(unittest.TestCase):
             ini_path.write_text(
                 "[Settings]\ntablerootdir = /old/path\nrestorelasttable = false\n"
                 "[Media]\ntabletype = fss\n"
-                "[Displays]\ntablerotation = 270\n"
-                "[State]\nlasttable = Foo\n", encoding="utf-8")
+                "[Displays]\ntablerotation = 270\n", encoding="utf-8")
 
             config = ConfigStore(str(ini_path))
 
@@ -140,7 +130,6 @@ class TestConfigStore(unittest.TestCase):
             # The artwork fact went back to [media]; the rotation is the screen's.
             self.assertEqual(config.config.get("media", "playfield_variant"), "fss")
             self.assertEqual(config.config.get("windows.playfield", "rotation"), "270")
-            self.assertEqual(config.config.get("state", "last_table"), "Foo")
             self.assertFalse(config.config.has_option("general", "tablerootdir"),
                              "the old key should be gone once it has been read")
 

@@ -414,18 +414,6 @@
     "active"
   ],
   [
-    "State",
-    "lasttable",
-    "state",
-    "last_table"
-  ],
-  [
-    "VPSdb",
-    "last",
-    "vpsdb",
-    "last"
-  ],
-  [
     "behavior",
     "MMhideQuitButton",
     "behavior",
@@ -664,12 +652,6 @@
     "zedmdwifiaddr",
     "real_dmd",
     "zedmd_wifi_address"
-  ],
-  [
-    "state",
-    "lasttable",
-    "state",
-    "last_table"
   ],
   [
     "vpinplay",

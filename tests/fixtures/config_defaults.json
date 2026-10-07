@@ -52,12 +52,8 @@
   "device": {
     "features": "library,frontend,devices",
     "language": "auto",
-    "last_version": "",
     "name": "",
-    "setup_done": "",
-    "setup_pending": "false",
-    "whats_new_pending": "false",
-    "whats_new_since": ""
+    "setup_pending": "false"
   },
   "dof": {
     "config_tool_api_key": "",
@@ -122,10 +118,6 @@
     "zedmd_serial_port": "",
     "zedmd_wifi_address": ""
   },
-  "state": {
-    "last_table": "",
-    "last_collection": ""
-  },
   "table_commands": {
     "on_exit": "",
     "on_start": "",
@@ -163,10 +155,6 @@
     "machine_id": "",
     "sync_on_exit": "false",
     "user_id": ""
-  },
-  "vpsdb": {
-    "art_checked": "",
-    "games_updated_to": ""
   },
   "vpxmobile": {
     "chunk_size": "1048576",

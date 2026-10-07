@@ -101,15 +101,7 @@ class SchemaShapeTests(unittest.TestCase):
         internal = {(e.section, e.key) for e in config_schema.options() if e.internal}
 
         self.assertEqual(internal, {("backups", "earlier"),
-                                    ("vpsdb", "games_updated_to"),
-                                    ("vpsdb", "art_checked"),
-                                    ("state", "last_table"),
-                                    ("state", "last_collection"),
                                     ("device", "setup_pending"),
-                                    ("device", "setup_done"),
-                                    ("device", "last_version"),
-                                    ("device", "whats_new_pending"),
-                                    ("device", "whats_new_since"),
                                     # `locations.json` holds this now.
                                     ("general", "game_root_dir"),
                                     # The extension's own store holds these now.

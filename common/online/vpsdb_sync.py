@@ -17,15 +17,18 @@ import threading
 from collections.abc import Callable
 from datetime import timedelta
 
-from common import cache_stamps, jobs, timestamps
+from common import cache_stamps, device_registry, jobs, timestamps
 from common.config_access import cfg_bool, cfg_get
 from common.config_store import ConfigStore
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb_sync")
 
-# What this module writes. The schedules it reads are a person's, and sit in SCHEDULES.
+# What this module writes: the stamps in the cache, and two fields on this install's row.
+# The schedules it reads are a person's, and sit in SCHEDULES.
 SECTION = "vpsdb"
+GAMES_KEY = "vps_games_updated_to"
+ART_KEY = "vps_art_checked"
 SCHEDULES = "updates"
 NEVER = "never"
 
@@ -70,7 +73,7 @@ def adopt_due(config: ConfigStore) -> bool:
     if wanted == NEVER or wanted not in EVERY:
         return False
     held = cache_stamps.get(SECTION, "version")
-    taken = (cfg_get(config, SECTION, "games_updated_to", "") or "").strip()
+    taken = str(device_registry.get_device_registry().self_get(GAMES_KEY, "") or "").strip()
     return bool(held) and held != taken
 
 
@@ -78,34 +81,30 @@ def art_due(config: ConfigStore, now: float | None = None) -> bool:
     """Whether downloaded art is owed its daily comparison with the catalog."""
     if not cfg_bool(config, SCHEDULES, "update_downloaded_media", True):
         return False
-    was = timestamps.iso_to_epoch((cfg_get(config, SECTION, "art_checked", "") or "").strip())
+    stamped = device_registry.get_device_registry().self_get(ART_KEY, "")
+    was = timestamps.iso_to_epoch(str(stamped or "").strip())
     if was is None:
         return True
     moment = timestamps.iso_to_epoch(timestamps.utc_now_iso()) if now is None else now
     return (moment or 0) - was >= EVERY["daily"].total_seconds()
 
 
-def update_art(config: ConfigStore) -> bool:
+def update_art() -> bool:
     """Start the art sweep and stamp it. False, and no stamp, when a fill is running."""
-    from common.config_access import cfg_set
     from common.games import media_fill
 
     if not media_fill.start_update():
         return False
-    cfg_set(config, SECTION, "art_checked", timestamps.utc_now_iso())
-    save = getattr(config, "save", None)
-    if callable(save):
-        save()
+    device_registry.get_device_registry().set_self(**{ART_KEY: timestamps.utc_now_iso()})
     return True
 
 
-def adopt_across_library(config: ConfigStore) -> dict:
+def adopt_across_library() -> dict:
     """Take what the catalog now says, for every game already matched to it.
 
     Answers `{looked, changed}`. Skips a game with no match, and writes only fields
     that differ.
     """
-    from common.config_access import cfg_set
     from common.games import game_service
     from common.games.game_metadata import adopt_vps_details, vps_details_differ
     from common.games.game_repository import all_games
@@ -123,10 +122,8 @@ def adopt_across_library(config: ConfigStore) -> dict:
         except Exception:
             logger.warning("Could not take catalog details for %s",
                            getattr(game, "game_dir_name", "?"), exc_info=True)
-    cfg_set(config, SECTION, "games_updated_to", cache_stamps.get(SECTION, "version"))
-    save = getattr(config, "save", None)
-    if callable(save):
-        save()
+    device_registry.get_device_registry().set_self(
+        **{GAMES_KEY: cache_stamps.get(SECTION, "version") or None})
     return {"looked": looked, "changed": changed}
 
 
@@ -215,7 +212,7 @@ def start_watch(config: ConfigStore, shutdown: threading.Event | None = None) ->
                 logger.warning("VPSdb check failed; will try again", exc_info=True)
             try:
                 if adopt_due(config):
-                    took = adopt_across_library(config)
+                    took = adopt_across_library()
                     logger.info("Took catalog details for %s of %s matched games",
                                 took["changed"], took["looked"])
             except Exception:
@@ -223,7 +220,7 @@ def start_watch(config: ConfigStore, shutdown: threading.Event | None = None) ->
                                exc_info=True)
             try:
                 if art_due(config):
-                    update_art(config)
+                    update_art()
             except Exception:
                 logger.warning("Updating downloaded art failed; will try again",
                                exc_info=True)
