@@ -458,6 +458,7 @@ runtime.run_frontend_loop(
     _shutdown_event,
     logger,
     is_window_connected=ws_bridge.is_window_connected,
+    serve=lambda ini: runtime.register_window_apis(ini, ws_bridge, frontend_browser, logger),
 )
 
 # Shutdown items - wrap each in try/except so restart check always runs

@@ -55,13 +55,42 @@ def _served_windows(iniconfig: ConfigStore) -> frozenset[str]:
                      if displays.window_screen_id(key).strip())
 
 
+def register_window_apis(iniconfig: ConfigStore, ws_bridge: DeviceChannel,
+                         frontend_browser: ChromiumManager, logger: logging.Logger,
+                         library: library_resolver.LibraryResolver | None = None) -> None:
+    """Give every window that has a screen an API, once. A window with none is refused at
+    the socket, so this runs again whenever the windows open: Setup and the Console both
+    assign screens after the process booted."""
+    displays = DisplayConfig.from_config(iniconfig)
+    registered = ws_bridge.registered_windows()
+    if library is None:
+        library = next((api.library for api in ws_bridge.apis()), None)
+    if library is None:
+        library = library_resolver.LibraryResolver(iniconfig)
+    for window_name, config_key in window_configs(iniconfig):
+        if window_name in registered:
+            continue
+        if not displays.window_screen_id(config_key).strip():
+            continue
+
+        api = API(
+            ini_config=iniconfig,
+            window_name=window_name,
+            ws_bridge=ws_bridge,
+            frontend_browser=frontend_browser,
+            library=library,
+        )
+        api._finish_setup()
+        ws_bridge.register_api(window_name, api)
+        logger.debug("Registered API for window '%s'", window_name)
+
+
 def create_api_instances(iniconfig: ConfigStore,
                          logger: logging.Logger) -> tuple[DeviceChannel, ChromiumManager]:
     _apply_theme_media_sets(iniconfig, logger)
     settings_waiting.install(_own_windows, _served_windows)
     settings_waiting.record_start(iniconfig)
     network = NetworkConfig.from_config(iniconfig)
-    displays = DisplayConfig.from_config(iniconfig)
     ws_bridge = DeviceChannel(port=network.ws_port)
     serving.bound("ws_port", network.ws_port)
     frontend_browser = ChromiumManager()
@@ -79,21 +108,8 @@ def create_api_instances(iniconfig: ConfigStore,
             target=_report_shared_library, args=(shared_library, logger),
             daemon=True, name="verify-shared-library").start()
 
-    for window_name, config_key in window_configs(iniconfig):
-        screen_id_str = displays.window_screen_id(config_key).strip()
-        if not screen_id_str:
-            continue
-
-        api = API(
-            ini_config=iniconfig,
-            window_name=window_name,
-            ws_bridge=ws_bridge,
-            frontend_browser=frontend_browser,
-            library=shared_library,
-        )
-        api._finish_setup()
-        ws_bridge.register_api(window_name, api)
-        logger.debug("Registered API for window '%s'", window_name)
+    register_window_apis(iniconfig, ws_bridge, frontend_browser, logger,
+                         library=shared_library)
 
     # Once, against the shared bridge - not once per window, which would send
     # every launch message three times.
@@ -275,15 +291,19 @@ def _wait_out_setup(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
 
 def open_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
                  shutdown_event: threading.Event,
-                 is_window_connected: Callable[[str], bool] | None = None) -> bool:
+                 is_window_connected: Callable[[str], bool] | None = None,
+                 serve: Callable[[ConfigStore], None] | None = None) -> bool:
     """Open the windows the settings describe and watch them. A window closed by hand
-    ends the run, which is `shutdown_event`. True when one is up."""
+    ends the run, which is `shutdown_event`. True when one is up. `serve` is told the
+    settings first, to give any window they newly describe an API to answer from."""
     # Prime the monitor cache before any windows spawn. Each
     # window's JS calls api.get_monitors() on its own pywebview worker thread;
     # opening X11 display connections concurrently races in libXau and aborts the
     # process. Doing the one real X query here keeps those calls served from cache.
     get_display_monitors()
 
+    if serve:
+        serve(iniconfig)
     settings_waiting.windows_opened(iniconfig)
     frontend_browser.launch_all_windows(iniconfig)
     frontend_browser.watch(is_window_connected=is_window_connected,
@@ -340,8 +360,9 @@ def reopen_windows(iniconfig: ConfigStore, frontend_browser: ChromiumManager,
         # The reread above can be slow, and a quit can arrive during it.
         if shutdown_event.is_set() or shutdown.requested():
             return
-        if not open_windows(iniconfig, frontend_browser, shutdown_event,
-                            ws_bridge.is_window_connected):
+        if not open_windows(
+                iniconfig, frontend_browser, shutdown_event, ws_bridge.is_window_connected,
+                serve=lambda ini: register_window_apis(ini, ws_bridge, frontend_browser, logger)):
             logger.warning("No window opened; VPinFE keeps running without them.")
 
 
@@ -353,7 +374,8 @@ def _wait_for(shutdown_event: threading.Event) -> None:
 def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
                       frontend_browser: ChromiumManager,
                       shutdown_event: threading.Event, logger: logging.Logger,
-                      is_window_connected: Callable[[str], bool] | None = None) -> None:
+                      is_window_connected: Callable[[str], bool] | None = None,
+                      serve: Callable[[ConfigStore], None] | None = None) -> None:
     # Only headless used to handle a signal, so killing the windowed frontend died where
     # it stood and skipped shutdown_services - the play data never reached VPinPlay, and
     # Chromium runs in its own session, so its windows outlived us on screen.
@@ -397,7 +419,8 @@ def run_frontend_loop(headless: bool, iniconfig: ConfigStore,
 
     # No window up at all ends the run. Once there is one, the run belongs to the event,
     # as a headless one does, and the windows come and go under it.
-    if open_windows(iniconfig, frontend_browser, shutdown_event, is_window_connected):
+    if open_windows(iniconfig, frontend_browser, shutdown_event, is_window_connected,
+                    serve=serve):
         _wait_for(shutdown_event)
     # A no-op when a closed window already took the others down with it; the work
     # is for the signal, which leaves the windows up.

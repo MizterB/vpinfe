@@ -345,9 +345,15 @@ class ReopenWindowsTests(unittest.TestCase):
         self.config.reread.side_effect = lambda: self.order.append("reread")
         self.browser.launch_all_windows.side_effect = lambda _c: self.order.append("open")
 
+    def _served(self, *args) -> None:
+        self.order.append("serve")
+        self.served_with = args
+
     def _reopen(self, *, pending: bool = False, media_changed: bool = False) -> None:
         with mock.patch.object(runtime, "get_display_monitors", return_value=[]), \
              mock.patch.object(runtime, "install_setup") as setup, \
+             mock.patch.object(runtime, "register_window_apis",
+                               side_effect=self._served), \
              mock.patch.object(runtime, "_apply_theme_media_sets",
                                side_effect=lambda *_a: self.order.append("sets")), \
              mock.patch("common.paths.get_ini_config", return_value=mock.Mock()), \
@@ -360,8 +366,14 @@ class ReopenWindowsTests(unittest.TestCase):
     def test_the_settings_are_read_again_before_the_windows_open(self) -> None:
         self._reopen()
 
-        self.assertEqual(self.order, ["close", "reread", "sets", "open"])
+        self.assertEqual(self.order, ["close", "reread", "sets", "serve", "open"])
         self.browser.watch.assert_called_once()
+
+    def test_a_window_the_settings_newly_serve_gets_its_api_before_it_opens(self) -> None:
+        self._reopen()
+
+        self.assertIs(self.served_with[1], self.bridge)
+        self.assertIs(self.served_with[2], self.browser)
 
     def test_a_lost_window_ends_the_run_through_the_event(self) -> None:
         self._reopen()
@@ -452,6 +464,58 @@ class ReopenWindowsTests(unittest.TestCase):
         self._reopen()
 
         self.assertFalse(self.event.is_set())
+
+
+class RegisterWindowApisTests(unittest.TestCase):
+    """A window is refused at the socket until it has an API, and Setup and the Console
+    assign screens after the process has booted."""
+
+    def _register(self, bridge, screens: dict[str, str], windows=("table", "bg", "dmd")):
+        displays = mock.Mock()
+        displays.window_screen_id.side_effect = lambda key: screens.get(key, "")
+        with mock.patch.object(runtime, "DisplayConfig") as config, \
+             mock.patch.object(runtime, "window_configs",
+                               return_value=[(w, w) for w in windows]), \
+             mock.patch.object(runtime, "API") as api:
+            config.from_config.return_value = displays
+            runtime.register_window_apis(mock.Mock(), bridge, mock.Mock(), mock.Mock())
+        return api
+
+    def _bridge(self, *registered: str):
+        bridge = mock.Mock()
+        bridge.registered_windows.return_value = frozenset(registered)
+        bridge.apis.return_value = [mock.Mock()]
+        return bridge
+
+    def test_windows_that_gained_a_screen_are_registered(self) -> None:
+        bridge = self._bridge("table")
+
+        self._register(bridge, {"table": "0", "bg": "1", "dmd": "2"})
+
+        self.assertEqual([c.args[0] for c in bridge.register_api.call_args_list],
+                         ["bg", "dmd"])
+
+    def test_a_window_with_no_screen_is_left_unregistered(self) -> None:
+        bridge = self._bridge()
+
+        self._register(bridge, {"table": "0", "bg": " "})
+
+        self.assertEqual([c.args[0] for c in bridge.register_api.call_args_list], ["table"])
+
+    def test_a_registered_window_keeps_the_api_it_has(self) -> None:
+        bridge = self._bridge("table", "bg", "dmd")
+
+        api = self._register(bridge, {"table": "0", "bg": "1", "dmd": "2"})
+
+        bridge.register_api.assert_not_called()
+        api.assert_not_called()
+
+    def test_a_new_window_shares_the_library_the_others_show(self) -> None:
+        bridge = self._bridge("table")
+
+        api = self._register(bridge, {"table": "0", "bg": "1"})
+
+        self.assertIs(api.call_args.kwargs["library"], bridge.apis.return_value[0].library)
 
 
 class ThemeMediaSetTests(unittest.TestCase):

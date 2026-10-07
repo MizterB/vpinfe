@@ -57,6 +57,10 @@ class DeviceChannel:
         """Register an API instance for a window name."""
         self._api_instances[window_name] = api_instance
 
+    def registered_windows(self) -> frozenset[str]:
+        """The names of the windows that have an API."""
+        return frozenset(self._api_instances)
+
     def apis(self) -> list[API]:
         """The API of every window this process registered."""
         return list(self._api_instances.values())
