@@ -1,15 +1,15 @@
-"""Manufacturer logos: art keyed by a game's manufacturer, not by the game or a theme.
+"""Manufacturer logos: media keyed by a game's manufacturer, not by the game or a theme.
 
 A logo belongs to hundreds of tables and outlives any one theme, so it lives in a folder
 of its own - `media.manufacturer_logos_dir`, defaulting to manufacturer_logos/ under the
-config dir - served at /manufacturers/<slug>/logo. Two layers, like table media: default/
-holds a downloaded pack, user/ holds the user's own files and wins. Nothing ships in the
-tree.
+config dir - served at /manufacturers/<slug>/logo. The folder is flat: image files named
+for the manufacturer. Nothing ships in the tree.
 
-Lookup goes through a slug of the manufacturer name with corporate suffixes dropped, so
-"Williams Electronics" and "Williams" find the same file. The exceptions no rule can
-cover ("D. Gottlieb & Co.") belong in an alias map: manufacturers.json in either layer,
-{"name or slug": "canonical-slug"}, user layer winning.
+A file and a manufacturer meet at a slug of the name with case, punctuation and corporate
+suffixes dropped, so "Williams Electronics.PNG", "williams.png" and a table whose
+manufacturer is "Williams" all find each other. The exceptions no rule can cover
+("D. Gottlieb & Co.") belong in an alias map beside the images: manufacturers.json,
+{"name or slug": "canonical-slug"}.
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from pathlib import Path
 
 from common.media_specs import IMAGE_FAMILY
 
-_LAYERS = ("user", "default")
 _ALIAS_FILE = "manufacturers.json"
 _REFERENCE_FILE = "manufacturers-reference.json"
 DEFAULT_FOLDER = "manufacturer_logos"
@@ -44,10 +43,6 @@ def resolve_logos_dir(configured: str, config_dir: str | Path) -> Path:
     return Path(configured) if configured.strip() else Path(config_dir) / DEFAULT_FOLDER
 
 
-def layer_dirs(folder: Path) -> list[Path]:
-    return [folder / layer for layer in _LAYERS]
-
-
 def manufacturer_slug(name: str) -> str:
     words = re.split(r"[^a-z0-9]+", str(name or "").lower())
     kept = [w for w in words if w and w not in _SUFFIX_TOKENS]
@@ -55,31 +50,38 @@ def manufacturer_slug(name: str) -> str:
 
 
 def _alias_map(folder: Path) -> dict[str, str]:
-    merged: dict[str, str] = {}
-    for layer in reversed(_LAYERS):  # default first, user overwrites
-        try:
-            data = json.loads((folder / layer / _ALIAS_FILE).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        if isinstance(data, dict):
-            # Empty values are placeholders, not aliases - honoring one would
-            # erase a working slug.
-            merged.update({manufacturer_slug(k): str(v)
-                           for k, v in data.items()
-                           if isinstance(v, str) and v.strip()})
-    return merged
+    try:
+        data = json.loads((folder / _ALIAS_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    # Empty values are placeholders, not aliases - honoring one would erase a working slug.
+    return {manufacturer_slug(k): str(v) for k, v in data.items()
+            if isinstance(v, str) and v.strip()}
+
+
+def _logos_by_slug(folder: Path) -> dict[str, Path]:
+    """The folder's images by slug, read on every call so a file dropped in shows without
+    a restart."""
+    rank = {ext: place for place, ext in enumerate(IMAGE_FAMILY)}
+    try:
+        files = sorted((one for one in folder.iterdir()
+                        if one.suffix.lower() in rank and one.is_file()),
+                       key=lambda one: (rank[one.suffix.lower()], one.name))
+    except OSError:
+        return {}
+    found: dict[str, Path] = {}
+    for one in files:
+        found.setdefault(manufacturer_slug(one.stem), one)
+    return found
 
 
 def manufacturer_logo_file(slug: str) -> Path | None:
-    """The file a slug's logo is, user layer first, or None."""
+    """The image a slug's logo is, or None. A slug is what `manufacturer_slug` returns."""
     if _folder is None or not slug or slug != manufacturer_slug(slug):
         return None
-    for layer in _LAYERS:
-        for ext in IMAGE_FAMILY:
-            candidate = _folder / layer / f"{slug}{ext}"
-            if candidate.is_file():
-                return candidate
-    return None
+    return _logos_by_slug(_folder).get(slug)
 
 
 def _entry(name: str, aliases: dict[str, str]) -> dict:
@@ -103,7 +105,7 @@ def manufacturer_report(names: Iterable[object]) -> list[dict]:
 
     This is the lookup made visible - the answer to "what filename would this
     manufacturer find" without running the algorithm in your head, and the only
-    way to see that a pack alias is redirecting past your own file.
+    way to see that an alias is redirecting past a file you named for the manufacturer.
     """
     aliases = _alias_map(_folder) if _folder is not None else {}
     distinct = sorted({str(n).strip() for n in names if str(n or "").strip()},
@@ -125,7 +127,7 @@ def vps_manufacturer_names(vpsdb_path: str | Path) -> list[str]:
 
 
 def write_manufacturer_reference(names: Iterable[object]) -> Path | None:
-    """Generate manufacturers-reference.json beside the two layers.
+    """Generate manufacturers-reference.json in the logos folder.
 
     The reference is for people: open it to learn what slug a name computes,
     what an alias currently redirects, and which names have no logo yet. The
@@ -140,7 +142,7 @@ def write_manufacturer_reference(names: Iterable[object]) -> Path | None:
     payload = {
         "about": ("Generated by VPinFE from VPSdb. Do not edit - regenerated on "
                   "sync, and never read by the logo lookup. To alias a name, "
-                  "copy it into manufacturers.json in the user/ folder."),
+                  "copy it into manufacturers.json in this folder."),
         "manufacturers": report,
     }
     try:

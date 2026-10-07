@@ -200,15 +200,10 @@ def build_mount_points(base_path: str, config_dir: Path,
     }
     settings = SettingsConfig.from_config(iniconfig)
 
-    from common.manufacturer_logos import (
-        configure_manufacturer_logos,
-        layer_dirs,
-        resolve_logos_dir,
-    )
+    from common.manufacturer_logos import configure_manufacturer_logos, resolve_logos_dir
 
     logos_dir = resolve_logos_dir(settings.manufacturer_logos_dir, config_dir)
-    for layer in layer_dirs(logos_dir):
-        os.makedirs(layer, exist_ok=True)
+    os.makedirs(logos_dir, exist_ok=True)
     configure_manufacturer_logos(logos_dir)
 
     # Refresh the manufacturer reference from the cached VPSdb, off the boot

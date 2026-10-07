@@ -377,8 +377,7 @@ class CustomHTTPServer:
             })
 
         def _serve_manufacturer_logo(self, request_path: str) -> None:
-            """/manufacturers/<slug>/logo - the logo the payload names, from either
-            layer."""
+            """/manufacturers/<slug>/logo - the logo the payload names."""
             from common.manufacturer_logos import manufacturer_logo_file
 
             parts = [p for p in unquote(request_path)[len("/manufacturers/"):].split("/")

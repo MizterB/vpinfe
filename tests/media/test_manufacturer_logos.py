@@ -1,8 +1,8 @@
-"""Manufacturer logos, keyed by metadata and layered like media.
+"""Manufacturer logos, keyed by metadata and read from one flat folder.
 
-The rules under test: user layer beats default, the slug drops corporate
-boilerplate so VPSdb's name variants converge, and the alias map catches what
-no rule can.
+The rules under test: a file is found by its name without regard to case, the slug drops
+corporate boilerplate so VPSdb's name variants converge, and the alias map catches what no
+rule can.
 """
 
 from __future__ import annotations
@@ -26,8 +26,7 @@ from tests.support.library import fake_game
 
 def _logos(test: unittest.TestCase, tmp: str) -> Path:
     root = Path(tmp) / "manufacturer_logos"
-    for layer in ("default", "user"):
-        (root / layer).mkdir(parents=True)
+    root.mkdir(parents=True)
     configure_manufacturer_logos(root)
     test.addCleanup(configure_manufacturer_logos, None)
     return root
@@ -56,35 +55,62 @@ class SlugTests(unittest.TestCase):
 
 
 class LookupTests(unittest.TestCase):
-    def test_a_logo_is_named_by_its_slug_and_nothing_else(self) -> None:
+    def test_a_logo_is_found_by_the_manufacturers_name(self) -> None:
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "default" / "bally.png").write_bytes(b"png")
+            (root / "bally.png").write_bytes(b"png")
 
             self.assertEqual(manufacturer_logo_url("Bally Manufacturing"),
                              "/manufacturers/bally/logo")
 
-    def test_the_users_file_beats_the_downloaded_one(self) -> None:
+    def test_case_and_the_extensions_case_do_not_matter(self) -> None:
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "default" / "stern.png").write_bytes(b"png")
-            (root / "user" / "stern.jpg").write_bytes(b"jpg")
+            (root / "Data East.PNG").write_bytes(b"png")
+            (root / "WILLIAMS Electronics.jpg").write_bytes(b"jpg")
 
-            self.assertEqual(manufacturer_logo_file("stern"), root / "user" / "stern.jpg")
+            self.assertEqual(manufacturer_logo_url("data east"), "/manufacturers/data-east/logo")
+            self.assertEqual(manufacturer_logo_file("williams"),
+                             root / "WILLIAMS Electronics.jpg")
 
-    def test_the_alias_map_redirects_and_the_user_layer_wins_it_too(self) -> None:
+    def test_a_folder_that_is_not_an_image_is_not_a_logo(self) -> None:
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "default" / "manufacturers.json").write_text(
+            (root / "stern.png").mkdir()
+            (root / "stern.txt").write_bytes(b"text")
+
+            self.assertIsNone(manufacturer_logo_url("Stern"))
+
+    def test_a_file_added_later_shows_without_a_restart(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            self.assertIsNone(manufacturer_logo_url("Stern"))
+
+            (root / "stern.png").write_bytes(b"png")
+
+            self.assertEqual(manufacturer_logo_url("Stern"), "/manufacturers/stern/logo")
+
+    def test_two_images_for_one_name_pick_the_same_one_every_time(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            (root / "stern.jpg").write_bytes(b"jpg")
+            (root / "Stern.png").write_bytes(b"png")
+
+            self.assertEqual(manufacturer_logo_file("stern"), root / "Stern.png")
+
+    def test_the_alias_map_redirects(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            (root / "manufacturers.json").write_text(
                 json.dumps({"D. Gottlieb & Co.": "gottlieb"}), encoding="utf-8")
-            (root / "default" / "gottlieb.png").write_bytes(b"png")
+            (root / "gottlieb.png").write_bytes(b"png")
 
             self.assertEqual(manufacturer_logo_url("D. Gottlieb & Co."),
                              "/manufacturers/gottlieb/logo")
 
-            (root / "user" / "manufacturers.json").write_text(
+            (root / "manufacturers.json").write_text(
                 json.dumps({"d-gottlieb": "premier"}), encoding="utf-8")
-            (root / "user" / "premier.png").write_bytes(b"png")
+            (root / "premier.png").write_bytes(b"png")
 
             self.assertEqual(manufacturer_logo_url("D. Gottlieb & Co."),
                              "/manufacturers/premier/logo")
@@ -108,8 +134,8 @@ class LookupTests(unittest.TestCase):
     def test_a_broken_alias_file_degrades_to_no_aliases(self) -> None:
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "user" / "manufacturers.json").write_text("not json", encoding="utf-8")
-            (root / "default" / "bally.png").write_bytes(b"png")
+            (root / "manufacturers.json").write_text("not json", encoding="utf-8")
+            (root / "bally.png").write_bytes(b"png")
 
             self.assertEqual(manufacturer_logo_url("Bally"), "/manufacturers/bally/logo")
 
@@ -117,10 +143,10 @@ class LookupTests(unittest.TestCase):
         """A hand-edited TODO entry must never erase a working slug."""
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "user" / "manufacturers.json").write_text(
+            (root / "manufacturers.json").write_text(
                 json.dumps({"Bally Manufacturing": "", "Bally Wulff": "  "}),
                 encoding="utf-8")
-            (root / "default" / "bally.png").write_bytes(b"png")
+            (root / "bally.png").write_bytes(b"png")
 
             self.assertEqual(manufacturer_logo_url("Bally Manufacturing"),
                              "/manufacturers/bally/logo")
@@ -132,10 +158,10 @@ class ReportTests(unittest.TestCase):
 
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "default" / "manufacturers.json").write_text(
+            (root / "manufacturers.json").write_text(
                 json.dumps({"Premier Technology": "gottlieb"}), encoding="utf-8")
-            (root / "default" / "gottlieb.png").write_bytes(b"png")
-            (root / "default" / "bally.png").write_bytes(b"png")
+            (root / "gottlieb.png").write_bytes(b"png")
+            (root / "bally.png").write_bytes(b"png")
 
             rows = {row["name"]: row for row in manufacturer_report(
                 ["Bally Manufacturing", "Premier Technology", "Bally Wulff"])}
@@ -148,22 +174,22 @@ class ReportTests(unittest.TestCase):
         self.assertIsNone(rows["Bally Wulff"]["logo"],
                           "a miss is visible, never a fuzzy match")
 
-    def test_the_report_exposes_an_alias_bypassing_a_users_file(self) -> None:
-        """The invisible failure the report exists for: your file, shadowed."""
+    def test_the_report_exposes_an_alias_bypassing_the_named_file(self) -> None:
+        """The invisible failure the report exists for: your file, shadowed by an alias."""
         from common.manufacturer_logos import manufacturer_report
 
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "default" / "manufacturers.json").write_text(
+            (root / "manufacturers.json").write_text(
                 json.dumps({"Premier Technology": "gottlieb"}), encoding="utf-8")
-            (root / "default" / "gottlieb.png").write_bytes(b"png")
-            (root / "user" / "premier-technology.png").write_bytes(b"png")
+            (root / "gottlieb.png").write_bytes(b"png")
+            (root / "premier-technology.png").write_bytes(b"png")
 
             row = manufacturer_report(["Premier Technology"])[0]
 
         self.assertEqual(row["aliased_to"], "gottlieb")
         self.assertEqual(row["logo"], "/manufacturers/gottlieb/logo",
-                         "the user's own file is not what resolves")
+                         "the file named for the manufacturer is not what resolves")
 
     def test_the_report_still_slugs_with_no_folder(self) -> None:
         from common.manufacturer_logos import manufacturer_report
@@ -177,7 +203,7 @@ class ReportTests(unittest.TestCase):
 
 
 class ReferenceFileTests(unittest.TestCase):
-    def test_the_reference_is_written_beside_the_layers(self) -> None:
+    def test_the_reference_is_written_beside_the_images(self) -> None:
         from common.manufacturer_logos import write_manufacturer_reference
 
         with TemporaryDirectory() as tmp:
@@ -240,7 +266,7 @@ class PayloadTests(unittest.TestCase):
 
         with TemporaryDirectory() as tmp:
             root = _logos(self, tmp)
-            (root / "user" / "bally.png").write_bytes(b"png")
+            (root / "bally.png").write_bytes(b"png")
 
             rows = _json.loads(games_json(entries_for([game]), contract=1))
 
@@ -256,11 +282,9 @@ class RouteTests(unittest.TestCase):
 
         cls._tmp = TemporaryDirectory()
         cls.root = Path(cls._tmp.name) / "manufacturer_logos"
-        for layer in ("default", "user"):
-            (cls.root / layer).mkdir(parents=True)
-        (cls.root / "default" / "bally.png").write_bytes(b"default bally")
-        (cls.root / "user" / "bally.jpg").write_bytes(b"user bally")
-        (cls.root / "default" / "stern.png").write_bytes(b"stern")
+        cls.root.mkdir(parents=True)
+        (cls.root / "Bally.JPG").write_bytes(b"bally")
+        (cls.root / "stern.png").write_bytes(b"stern")
         configure_manufacturer_logos(cls.root)
         cls.server = CustomHTTPServer({})
         cls.server.start_file_server(port=0)
@@ -281,18 +305,16 @@ class RouteTests(unittest.TestCase):
             with exc:
                 return exc.code, exc.read(), ""
 
-    def test_the_users_logo_is_served(self) -> None:
+    def test_a_logo_is_served_whatever_the_case_of_its_file_name(self) -> None:
         self.assertEqual(self._get("/manufacturers/bally/logo"),
-                         (200, b"user bally", "image/jpeg"))
-
-    def test_a_downloaded_logo_is_served_when_the_user_has_none(self) -> None:
+                         (200, b"bally", "image/jpeg"))
         self.assertEqual(self._get("/manufacturers/stern/logo")[:2], (200, b"stern"))
 
     def test_a_manufacturer_with_no_logo_is_a_404(self) -> None:
         self.assertEqual(self._get("/manufacturers/zaccaria/logo")[0], 404)
 
     def test_a_path_out_of_the_folder_is_a_404(self) -> None:
-        self.assertEqual(self._get("/manufacturers/..%2Fdefault%2Fbally/logo")[0], 404)
+        self.assertEqual(self._get("/manufacturers/..%2Fmanufacturer_logos%2Fbally/logo")[0], 404)
         self.assertEqual(self._get("/manufacturers/bally/logo/extra")[0], 404)
 
 

@@ -227,14 +227,16 @@ def _fallback_number(option: dict, kind: str) -> Any:
     return int(number) if kind == "int" else number
 
 
-def _browse_path(browse: Callable[..., dict] | None, kind: str,
-                 suffixes: tuple[str, ...]) -> Callable[[str], Any] | None:
-    """`panel.field`'s own `browse`, opening the picker at the field's current value."""
+def _browse_path(browse: Callable[..., dict] | None, kind: str, suffixes: tuple[str, ...],
+                 opens_at: str = "") -> Callable[[str], Any] | None:
+    """`panel.field`'s own `browse`, opening the picker at the field's current value, or
+    at the folder a blank field stands for."""
     if browse is None:
         return None
 
     async def browsed(current: str) -> str | None:
-        return await folder_picker.pick_path(browse, current, kind=kind, suffixes=suffixes)
+        return await folder_picker.pick_path(browse, current or opens_at, kind=kind,
+                                             suffixes=suffixes)
 
     return browsed
 
@@ -390,7 +392,8 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         return panel.field(str(value or ""), save_path, disabled=off, status=state,
                            placeholder=blank, left_empty=str(option.get("left_empty") or ""),
                            browse=_browse_path(browse, str(option["path"]),
-                                              tuple(option.get("suffixes") or ())))
+                                              tuple(option.get("suffixes") or ()),
+                                              str(option.get("opens_at") or "")))
     return panel.field(str(value or ""), lambda text: save(text), disabled=off,
                        placeholder=blank)
 
@@ -1257,7 +1260,7 @@ def with_default_paths(schema: list[dict], checks: list[dict]) -> list[dict]:
     stands_for = {(str(check.get("section") or ""), str(check.get("key") or "")):
                   str(check["default"]) for check in checks or [] if check.get("default")}
     return [{**block, "options": [
-        {**option, "blank": found, "left_empty": found}
+        {**option, "blank": found, "left_empty": found, "opens_at": found}
         if (found := stands_for.get((str(block.get("name") or ""), str(option.get("key") or ""))))
         else option for option in block.get("options") or []]} for block in schema]
 

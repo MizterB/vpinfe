@@ -23,6 +23,10 @@ class DefaultPathsCase(unittest.TestCase):
         self.assertEqual(option["blank"], "/cfg/backups")
         self.assertEqual(option["left_empty"], "/cfg/backups")
 
+    def test_the_browse_dialog_opens_at_the_default_while_the_field_is_blank(self) -> None:
+        option = settings.with_default_paths(SCHEMA, CHECKS)[0]["options"][0]
+        self.assertEqual(option["opens_at"], "/cfg/backups")
+
     def test_a_path_without_one_is_left_as_it_was(self) -> None:
         self.assertEqual(settings.with_default_paths(SCHEMA, CHECKS)[1], SCHEMA[1])
 
