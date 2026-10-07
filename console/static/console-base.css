@@ -2112,6 +2112,14 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 .console-tiles-group { display: contents; }
+/* A tile that is a short list: a name, a share and a size to a row. */
+.console-tile-rows {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px;
+  align-items: baseline; margin-top: 8px;
+}
+.console-tile-rows > :only-child { grid-column: 1 / -1; }
+.console-tile-rows > :nth-child(3n+2),
+.console-tile-rows > :nth-child(3n) { text-align: right; font-variant-numeric: tabular-nums; }
 /* The explanation under a control, not a tooltip on it. This is the whole legibility
    argument for the settings pages, so it gets a class rather than ad-hoc utilities. */
 .console-help {

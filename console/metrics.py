@@ -52,6 +52,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
             cpu = _tile(t("console.metrics.processor"))
             memory = _tile(t("console.metrics.memory"))
             cards = ui.element("div").classes("console-tiles-group")
+            programs = _programs_tile()
         disks_title = ui.label(t("console.metrics.free_space")).classes("console-group mt-2")
         disks = ui.element("div").classes("console-tiles")
 
@@ -62,7 +63,7 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
             with note:
                 panel.line(said, hint=detail)
         note.set_visibility(bool(said))
-        for element in (cpu["root"], memory["root"], disks_title, disks):
+        for element in (cpu["root"], memory["root"], programs["root"], disks_title, disks):
             element.set_visibility(not said)
         cards.set_visibility(not said or keep_cards)
 
@@ -83,12 +84,13 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         show("")
         _fill(cpu, now.get("cpu_percent"),
               [one.get("cpu_percent") for one in history],
-              _load_said(now.get("load")))
+              _cpu_said(now.get("cpu_temperature"), now.get("load")))
         _fill(memory, now.get("memory_percent"),
               [one.get("memory_percent") for one in history],
               _bytes_said(now.get("memory_used"), now.get("memory_total")))
         _draw_disks(disks, now.get("disks") or [], held)
         _draw_cards(cards, now.get("graphics") or {}, history, held)
+        _draw_programs(programs, now.get("busiest"), held)
 
     busy.fill(readings_page, tick)
     ui.timer(EVERY_SECONDS, tick, immediate=False)
@@ -109,6 +111,33 @@ def _tile(title: str, name: str = "", unit: str = "") -> dict[str, Any]:
         second = ui.label("").classes("text-xs opacity-60 truncate")
     return {"root": root, "title": heading, "name": named or heading, "value": value,
             "spark": spark, "first": first, "second": second}
+
+
+def _programs_tile() -> dict[str, Any]:
+    """What's busy: the programs using the most of the processor, a row each."""
+    with ui.element("div").classes("console-card min-w-0") as root:
+        ui.label(t("console.metrics.busiest")).classes("console-card-title truncate")
+        rows = ui.element("div").classes("console-tile-rows")
+    return {"root": root, "rows": rows}
+
+
+def _draw_programs(tile: dict[str, Any], programs: list[dict[str, Any]] | None,
+                   held: dict[str, Any]) -> None:
+    """Redrawn only when the list is not the one already shown. None is a list not yet
+    measured: a process's first reading is 0, so the first sample does not give one."""
+    if "programs" in held and held["programs"] == programs:
+        return
+    held["programs"] = programs
+    tile["rows"].clear()
+    with tile["rows"]:
+        if programs is None:
+            ui.label(t("console.metrics.collecting")).classes("text-xs opacity-40")
+            return
+        for one in programs:
+            ui.label(str(one.get("name") or "")).classes("text-sm truncate")
+            ui.label(t("console.metrics.share", value=one.get("cpu_percent") or 0)) \
+                .classes("text-sm")
+            ui.label(i18n.size(one.get("memory") or 0)).classes("text-xs opacity-60")
 
 
 def _fill(tile: dict[str, Any], value: Any, series: list[Any], first: str = "",
@@ -331,6 +360,12 @@ def _bytes_said(used: Any, total: Any) -> str:
     if used is None or total is None:
         return ""
     return t("console.metrics.usage", used=i18n.size(used), total=i18n.size(total))
+
+
+def _cpu_said(temperature: Any, load: Any) -> str:
+    """The processor's detail line: how hot, where this platform says, then the load."""
+    heat = [] if temperature is None else [t("metrics.gpu.value.celsius", value=temperature)]
+    return ", ".join([*heat, *filter(None, [_load_said(load)])])
 
 
 def _load_said(load: Any) -> str:

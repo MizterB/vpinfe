@@ -1367,7 +1367,8 @@ title is the kind of reading and not what it reads - Graphics Processor, over a 
 named under the title and the number takes its unit beside it. A tile that cannot show a number shows
 `-` and says why where the detail lines would be. Several tiles that come and go as a group
 sit in a `.console-tiles-group`, which is not a cell of the grid, so the group can be
-redrawn without moving the tiles around it.
+redrawn without moving the tiles around it. A tile that lists rather than reads, such as
+What's busy, puts them in a `.console-tile-rows`: a name, a share and a size to a row.
 
 ### Type
 

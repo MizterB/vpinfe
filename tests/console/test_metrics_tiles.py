@@ -193,6 +193,56 @@ def _sayings(body: ui.element) -> list[str]:
     return [one.text for one in body.descendants() if isinstance(one, ui.label)]
 
 
+def _texts(body: ui.element) -> list[str]:
+    return [one.text for one in body.descendants() if isinstance(one, ui.label)]
+
+
+class ProcessorLineTests(unittest.TestCase):
+    def test_the_temperature_comes_before_the_load(self) -> None:
+        self.assertEqual("64°C, load 2.1, 1.8", metrics._cpu_said(64.2, [2.1, 1.8]))
+
+    def test_a_platform_with_neither_says_nothing(self) -> None:
+        self.assertEqual("", metrics._cpu_said(None, None))
+
+    def test_the_load_alone_reads_as_it_did(self) -> None:
+        self.assertEqual("load 2.1", metrics._cpu_said(None, [2.1]))
+
+
+class ProgramsTileTests(unittest.TestCase):
+    def _drawn(self, programs: list[dict[str, Any]] | None, held: dict[str, Any] | None = None):
+        with ui.column():
+            tile = metrics._programs_tile()
+        metrics._draw_programs(tile, programs, {} if held is None else held)
+        return tile
+
+    def test_each_program_is_a_row_of_its_name_its_share_and_its_size(self) -> None:
+        tile = self._drawn([{"name": "VPinFE", "cpu_percent": 12.34, "memory": 2 * _GB},
+                            {"name": "chrome", "cpu_percent": 0.4, "memory": _GB // 2}])
+
+        self.assertEqual([t("console.metrics.busiest")], _titles(tile["root"]))
+        self.assertEqual(["VPinFE", "12.3%", "2.0 GB", "chrome", "0.4%", "512.0 MB"],
+                         _texts(tile["rows"]))
+
+    def test_before_the_first_measurement_it_says_it_is_collecting(self) -> None:
+        tile = self._drawn(None)
+
+        self.assertEqual([t("console.metrics.collecting")], _texts(tile["rows"]))
+
+    def test_a_measurement_that_found_nothing_is_not_called_collecting(self) -> None:
+        self.assertEqual([], _texts(self._drawn([])["rows"]))
+
+    def test_the_same_programs_are_not_drawn_again(self) -> None:
+        held: dict[str, Any] = {}
+        tile = self._drawn([{"name": "a", "cpu_percent": 1.0, "memory": 1}], held)
+        before = [one.id for one in tile["rows"].descendants()]
+
+        metrics._draw_programs(tile, [{"name": "a", "cpu_percent": 1.0, "memory": 1}], held)
+        self.assertEqual(before, [one.id for one in tile["rows"].descendants()])
+
+        metrics._draw_programs(tile, [{"name": "a", "cpu_percent": 2.0, "memory": 1}], held)
+        self.assertNotEqual(before, [one.id for one in tile["rows"].descendants()])
+
+
 class VolumeTileTests(unittest.TestCase):
     def test_a_volume_says_how_full_and_how_much_is_free(self) -> None:
         target = _empty()

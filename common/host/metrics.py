@@ -42,6 +42,20 @@ logger = logging.getLogger("vpinfe.common.host.metrics")
 # history in a process that runs for weeks is a leak with a nice name.
 HISTORY = 1800
 
+# How many processes What's busy lists.
+TOP = 5
+# What VPinFE's own process is called, in place of the interpreter's name.
+OWN = "VPinFE"
+
+# Where a processor's temperature is, best first: the chip and the labels to prefer on it.
+# A label earlier in the tuple wins; a chip with no preferred label answers with its first
+# reading.
+_CPU_CHIPS = (("coretemp", ("package",)), ("k10temp", ("tctl", "tdie")),
+              ("zenpower", ("tdie", "tctl")), ("cpu_thermal", ()), ("cpu-thermal", ()))
+# The chips a platform names for its thermal zones, which stand for the processor when none
+# of the above is there. Any other chip is a drive, a card or a radio.
+_ZONES = ("acpitz", "thermal")
+
 
 @dataclass
 class _Ring:
@@ -67,6 +81,7 @@ FRESH_FOR = 1.0
 _lock = threading.Lock()
 _last: dict[str, Any] | None = None
 _last_paths: list[str] = []
+_listed_processes = False
 
 
 def measurable() -> tuple[bool, str]:
@@ -98,6 +113,8 @@ def read(paths: Iterable[str] = ()) -> dict[str, Any]:
         "memory_used": None,
         "memory_percent": None,
         "load": None,
+        "cpu_temperature": None,
+        "busiest": None,
         "disks": _disks(paths or []),
         "graphics": cards,
     }
@@ -115,7 +132,59 @@ def read(paths: Iterable[str] = ()) -> dict[str, Any]:
         sample["load"] = [round(one, 2) for one in os.getloadavg()]
     except (OSError, AttributeError):
         sample["load"] = None
+    sample["cpu_temperature"] = cpu_temperature()
+    sample["busiest"] = busiest()
     return sample
+
+
+def cpu_temperature() -> float | None:
+    """The processor's temperature in degrees C where this platform reports one, which is
+    Linux. Left out elsewhere rather than guessed."""
+    try:
+        chips = psutil.sensors_temperatures()
+        for chip, labels in _CPU_CHIPS:
+            found = [one for one in chips.get(chip) or () if one.current is not None]
+            if found:
+                return float(next((one for label in labels for one in found
+                                   if one.label.lower().startswith(label)), found[0]).current)
+        return next((float(one.current) for chip, readings in chips.items()
+                     if any(zone in chip for zone in _ZONES)
+                     for one in readings if one.current is not None), None)
+    except Exception:  # noqa: BLE001 - no sensors is not an error
+        return None
+
+
+def busiest() -> list[dict[str, Any]] | None:
+    """The `TOP` programs using the most of the processor, grouped by name so a browser's
+    many processes are one row, each as `{name, cpu_percent, memory}`.
+
+    `cpu_percent` is the share of the whole machine, so it sits beside the Processor
+    reading. Nothing the first time, and after that whatever the OS lets this process read.
+    `psutil.process_iter` keeps its `Process` objects between calls, which is what lets a
+    process's `cpu_percent` measure since the last sample: a new one always reads 0.
+    """
+    global _listed_processes
+    try:
+        cores = psutil.cpu_count() or 1
+        own = os.getpid()
+        groups: dict[str, dict[str, Any]] = {}
+        for one in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info"]):
+            info = one.info
+            if not info["pid"] or info["cpu_percent"] is None or info["memory_info"] is None:
+                continue
+            name = OWN if info["pid"] == own else info["name"] or ""
+            row = groups.setdefault(name, {"name": name, "cpu_percent": 0.0, "memory": 0})
+            row["cpu_percent"] += info["cpu_percent"] / cores
+            row["memory"] += info["memory_info"].rss
+    except Exception:  # noqa: BLE001 - a listing the OS refuses is no list, not a failure
+        logger.debug("Could not list the processes", exc_info=True)
+        return None
+    primed, _listed_processes = _listed_processes, True
+    if not primed:
+        return None
+    return sorted(({**row, "cpu_percent": round(row["cpu_percent"], 1)}
+                   for row in groups.values()),
+                  key=lambda row: (-row["cpu_percent"], -row["memory"]))[:TOP]
 
 
 def _disks(paths: Iterable[str]) -> list[dict[str, Any]]:
@@ -192,6 +261,6 @@ def history(seconds: float = 0.0) -> list[dict[str, Any]]:
 
 
 def reset_for_tests() -> None:
-    global _last, _last_paths
+    global _last, _last_paths, _listed_processes
     _ring.points.clear()
-    _last, _last_paths = None, []
+    _last, _last_paths, _listed_processes = None, [], False
