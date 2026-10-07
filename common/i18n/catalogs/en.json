@@ -1349,6 +1349,8 @@
   "console.games.own_settings": "Own Settings",
   "console.games.own_settings.help": "Which settings this table sets differently from all tables",
   "console.games.rom.help": "The PinMAME ROM this table uses",
+  "console.games.rom_state": "ROM State",
+  "console.games.rom_state.help": "Whether the ROM this table uses is installed. Unknown where VPinFE cannot check, which needs a VPX set in Settings",
   "console.games.private_game.help": "Private where the game is never sent to a community service",
   "console.games.rate_game_s": {
     "one": "Rate {count} game",

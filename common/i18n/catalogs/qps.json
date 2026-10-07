@@ -1349,6 +1349,8 @@
   "console.games.own_settings": "Öŵñ Šèţţîñĝš",
   "console.games.own_settings.help": "Ŵĥîçĥ šèţţîñĝš ţĥîš ţàƀŀè šèţš đîƒƒèřèñţŀý ƒřöɱ àŀŀ ţàƀŀèš",
   "console.games.rom.help": "Ţĥè ÞîñḾÀḾÈ ŘÖḾ ţĥîš ţàƀŀè ûšèš",
+  "console.games.rom_state": "ŘÖḾ Šţàţè",
+  "console.games.rom_state.help": "Ŵĥèţĥèř ţĥè ŘÖḾ ţĥîš ţàƀŀè ûšèš îš îñšţàŀŀèđ. Ûñķñöŵñ ŵĥèřè ṼÞîñƑÈ çàññöţ çĥèçķ, ŵĥîçĥ ñèèđš à ṼÞẊ šèţ îñ Šèţţîñĝš",
   "console.games.private_game.help": "Þřîṽàţè ŵĥèřè ţĥè ĝàɱè îš ñèṽèř šèñţ ţö à çöɱɱûñîţý šèřṽîçè",
   "console.games.rate_game_s": {
     "one": "Řàţè {count} ĝàɱè",

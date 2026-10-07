@@ -17,7 +17,7 @@ from console.data import Library
 
 HIDDEN_ASSETS = ("ini", "rom", "readme")
 HIDDEN_MEDIA = ("topper",)
-KEPT_ASSETS = ("backglass", "script")
+KEPT_ASSETS = ("backglass", "script", "pup_pack")
 KEPT_MEDIA = ("wheel",)
 TABLE = "t-1"
 
@@ -71,7 +71,7 @@ def _media_kinds_on_the_coverage_card(library: Library) -> set[str]:
 
 def _asset_kinds_in_the_games_grid(library: Library) -> set[str]:
     return {column["field"].removeprefix("asset_")
-            for column in games.asset_columns(library.asset_keys())}
+            for column in games.asset_columns(games.folder_asset_keys(library))}
 
 
 def _asset_kinds_in_the_tables_grid(library: Library) -> set[str]:
@@ -119,8 +119,8 @@ class EverySurfaceHonorsTheKinds(unittest.TestCase):
         library = _library()
         kept = {"the Assets grid": set(KEPT_ASSETS), "the Media grid": set(KEPT_MEDIA),
                 "the coverage card's bars": set(KEPT_MEDIA),
-                "the Games grid's asset columns": set(KEPT_ASSETS),
-                "the Tables grid's asset columns": set(KEPT_ASSETS),
+                "the Games grid's asset columns": set(KEPT_ASSETS) - set(games.TABLE_ASSET_KEYS),
+                "the Tables grid's asset columns": set(KEPT_ASSETS) & set(games.TABLE_ASSET_KEYS),
                 "the table panel's Assets block": set(KEPT_ASSETS)}
 
         absent = {name: kept[name] - reports(library)

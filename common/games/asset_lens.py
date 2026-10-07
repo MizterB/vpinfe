@@ -55,7 +55,13 @@ _BY_BINDING = {asset_resolver.BINDING_DEDICATED: "table",
                asset_resolver.BINDING_ORPHANED: "orphaned"}
 
 
-def _label(kind: str) -> str:
+# Every kind a row of this lens can be about: the five resolved per table, then the
+# four the folder holds whole. What a filter on the Kind column offers.
+KINDS = (*asset_resolver.PER_TABLE_KINDS, *_FOLDER_KINDS)
+
+
+def label_of(kind: str) -> str:
+    """The word a row's Kind column holds for `kind`."""
     try:
         return spec_for(kind).label
     except Exception:
@@ -66,7 +72,7 @@ def _row(game_id: str, row: dict, kind: str) -> dict:
     return {"game_id": game_id, "game": str(row.get("name") or ""),
             "manufacturer": str(row.get("manufacturer") or ""),
             "year": str(row.get("year") or ""),
-            "kind": kind, "label": _label(kind),
+            "kind": kind, "label": label_of(kind),
             "label_key": f"asset.kind.{kind}.label",
             "vps_id": str(row.get("vps_id") or "")}
 

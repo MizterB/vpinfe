@@ -6,9 +6,9 @@ countable and a bulk action can be handed one. What differs is what the files ar
 Media is what a game looks like; an asset is what it needs to play as intended, and a
 matrix that mixes them is neither.
 
-It is also the surface a recorded defect has been waiting for. The Games grid reports a
-`.directb2s` from a folder scan, so a game whose only backglass is named for one table
-reads "has one" while its sibling launches without a backglass. Here they are two rows.
+It is also where the per-table kinds are told apart: a game whose only backglass is named
+for one table has it on one row and not the other. The Games grid reports the folder's kinds
+only.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from typing import Any
 from nicegui import ui
 
 from common import icons
+from common.games import asset_lens
 from common.i18n import t
 from console import game_tables, grid, media_ownership, offload, panel, thumbnails, views
 from console.games import view_control
@@ -45,6 +46,22 @@ _SCOPE_CHOICES = [{"value": "game", "label": t("word.game")},
 _SOURCE_CHOICES = ([{"value": name, "label": name}
                     for name in media_ownership.source_names()]
                    + [{"value": "", "label": t("word.no_file")}])
+
+
+def _kind_choices(library: Any) -> list[dict[str, Any]]:
+    """The kinds a row can be about and the library collects, as a filter lists them.
+
+    Fixed, like the reasons beside it: a kind with no file yet is still one to ask about,
+    and a list built from the rows would leave out the very gap somebody came to find.
+    """
+    kept = library.kept_kinds()["asset"]
+    return [{"value": asset_lens.label_of(kind), "label": asset_lens.label_of(kind)}
+            for kind in asset_lens.KINDS if kind in kept]
+
+
+def _with_kind_filter(columns: list[dict[str, Any]], library: Any) -> list[dict[str, Any]]:
+    return [{**one, **grid.choice_filter(_kind_choices(library))}
+            if one["field"] == "label" else one for one in columns]
 
 
 def _reason(row: dict[str, Any]) -> str:
@@ -148,7 +165,7 @@ def build(found: list[dict[str, Any]], library: Any,
     """The asset lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
     built = rows(found)
-    columns = grid.with_art(COLUMNS, library.thumbnail_look())
+    columns = _with_kind_filter(grid.with_art(COLUMNS, library.thumbnail_look()), library)
     gaps = sum(1 for row in built if not row.get("present"))
     on_screen = {"rows": len(built)}
 

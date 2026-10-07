@@ -445,7 +445,7 @@ def grid_columns(rows: list[dict[str, Any]], kinds: list[str],
     """Every column the Games grid declares: a media column for every kind the library
     collects, whether or not any game has one yet. `kinds` are the ones some game has."""
     return grid.with_art(with_derived_facets(COLUMNS, rows), library.thumbnail_look()) \
-        + asset_columns(library.asset_keys()) \
+        + asset_columns(folder_asset_keys(library)) \
         + media_columns(sorted(library.kept_kinds()["media"]),
                         shown=_collected(kinds, library))
 
@@ -457,7 +457,7 @@ def grid_presets(kinds: list[str], library: Any) -> dict[str, list[str] | views.
                 columns=("name", *[f"media_{kind}" for kind in _collected(kinds, library)]),
                 help=t("console.view.game_media.help")),
             _ASSETS: views.Preset(
-                columns=("name", *[f"asset_{key}" for key in library.asset_keys()]),
+                columns=("name", *[f"asset_{key}" for key in folder_asset_keys(library)]),
                 help=t("console.view.game_assets.help"))}
 
 
@@ -954,6 +954,16 @@ GAME_RATING = "game_rating"
 # A column whose answer a panel section holds, so focusing it opens there.
 TABLE_COLUMN_SECTIONS = {"settings": "table_settings", OWN_SETTINGS_COLUMN: "table_settings"}
 
+_ROM_INSTALLED, _ROM_MISSING, _ROM_UNKNOWN = "installed", "missing", "unknown"
+
+# Tokens, not words: a filter and a saved view store what the cell holds, and the words
+# follow the language. A table that names no ROM holds nothing and is in no choice.
+_ROM_CHOICES = [
+    {"value": _ROM_INSTALLED, "label": t("word.installed")},
+    {"value": _ROM_MISSING, "label": t("console.workbench.not_installed")},
+    {"value": _ROM_UNKNOWN, "label": t("word.unknown")},
+]
+
 TABLE_COLUMNS = [
     grid.identifier("game", t(_TABLE), 300, pinned="left", group=t(_GAME),
                 subtitle=("said", "", "said_built"),
@@ -979,6 +989,9 @@ TABLE_COLUMNS = [
                 help=t("console.games.author.help")),
     grid.column("rom", t("console.games.rom"), 110, group=t(_TABLE),
                 help=t("console.games.rom.help")),
+    grid.column("rom_state", t("console.games.rom_state"), 130, group=t(_TABLE),
+                help=t("console.games.rom_state.help"),
+                **grid.choice_filter(_ROM_CHOICES)),
     grid.column("launcher", t("console.games.launcher"), group=t(_TABLE),
                 help=t("console.games.launcher.help"),
                 **_LAUNCHER_DRAWN),
@@ -1032,9 +1045,14 @@ TABLE_COLUMNS = [
     *FEATURE_COLUMNS,
 ]
 
-# The kinds `resolve_for_table` answers for. Not `library.asset_keys()`, which is the
-# folder's set - a PUP pack belongs to the game and has no per-table answer.
+# The kinds `resolve_for_table` answers for, one file per table. A game's folder holds the
+# rest - a PUP pack belongs to the game and has no per-table answer.
 TABLE_ASSET_KEYS = ("backglass", "ini", "script", "pov", "scv")
+
+
+def folder_asset_keys(library: Any) -> list[str]:
+    """The asset kinds a game's folder holds whole, which the five per-table kinds are not."""
+    return [key for key in library.asset_keys() if key not in TABLE_ASSET_KEYS]
 
 
 def table_asset_keys(library: Any) -> list[str]:
@@ -1080,8 +1098,8 @@ TABLE_VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("game", GAME_RATING, "rating", "default_state", "hidden", "filename"),
         help=t("console.view.table_file.help")),
     "console.game_tables.launch": views.Preset(
-        columns=("game", "filename", "launcher", "settings", "rom", "default_state",
-                 "hidden", "missing"),
+        columns=("game", "filename", "launcher", "settings", "rom", "rom_state",
+                 "default_state", "hidden", "missing"),
         help=t("console.view.launch.help")),
     # Its own view, not seven more columns on Play: this is a matrix, the same shape as
     # Media on the games grid, and Play stays a list somebody can read across.
@@ -1161,6 +1179,16 @@ def add_index(built: list[dict[str, Any]], game_id: str,
     transaction["addIndex"] = at + len(transaction.get("update", ()))
 
 
+def _rom_state(row: dict[str, Any]) -> str:
+    """Blank where a table names no ROM; unknown where VPinFE cannot check, which is not a fault."""
+    if not row.get("rom"):
+        return ""
+    installed = row.get("rom_installed")
+    if installed is None:
+        return _ROM_UNKNOWN
+    return _ROM_INSTALLED if installed else _ROM_MISSING
+
+
 def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, Any]]:
     """The API's tables, flattened for a grid, each with its thumbnail while `art`.
 
@@ -1184,6 +1212,7 @@ def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, 
              # do. Five kinds resolve per table; the rest belong to the folder.
              **{f"asset_{key}": _resolved_word((row.get("assets") or {}).get(key))
                 for key in TABLE_ASSET_KEYS},
+             "rom_state": _rom_state(row),
              "author": ", ".join(row.get("authors") or []),
              "on_vps": str((row.get("source") or {}).get("version") or ""),
              "update": _NEWER if row.get("update_available") else "",
@@ -1305,7 +1334,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         bar = panel.grid_bar()
         presets = {**TABLE_VIEWS,
                    _ASSETS: views.Preset(
-                       columns=("game",
+                       columns=("game", "rom", "rom_state",
                                 *[f"asset_{key}" for key in table_asset_keys(library)]),
                        help=t("console.view.table_assets.help"))}
 

@@ -1176,6 +1176,8 @@
   "console.games.revert": "d0d4e919bb58",
   "console.games.rom": "4426f84c2fa1",
   "console.games.rom.help": "c98182662e33",
+  "console.games.rom_state": "68222e8a4e31",
+  "console.games.rom_state.help": "f7c5a80732c0",
   "console.games.save": "4e8ed71335aa",
   "console.games.save_view": "3136f0c90e54",
   "console.games.saved_view": "f5852f7d55d9",

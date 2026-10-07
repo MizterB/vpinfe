@@ -58,6 +58,20 @@ _SOURCE_CHOICES = ([{"value": name, "label": name}
                    + [{"value": "", "label": t("word.no_file")}])
 
 
+def _kind_choices(library: Any) -> list[dict[str, Any]]:
+    """The kinds of media the library collects, as a filter lists them. Fixed, like the
+    reasons beside it, so a kind nothing holds yet is still one to ask about."""
+    kept = library.kept_kinds()["media"]
+    return [{"value": word, "label": word}
+            for kind, word in sorted(media_label_map().items(), key=lambda one: one[1].lower())
+            if kind in kept]
+
+
+def _with_kind_filter(columns: list[dict[str, Any]], library: Any) -> list[dict[str, Any]]:
+    return [{**one, **grid.choice_filter(_kind_choices(library))}
+            if one["field"] == "label" else one for one in columns]
+
+
 def _standing_in(via: str) -> str:
     """What is covering an empty slot on the cabinet, said short.
 
@@ -205,7 +219,7 @@ def build(found: list[dict[str, Any]], library: Any,
     """The media lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
     built = rows(found)
-    columns = grid.with_art(COLUMNS, library.thumbnail_look())
+    columns = _with_kind_filter(grid.with_art(COLUMNS, library.thumbnail_look()), library)
     selected: list[dict[str, Any]] = []
 
     # What is on screen, which on this page is rarely the whole library: the point of

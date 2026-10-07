@@ -40,6 +40,8 @@ VPX_ASSET_KINDS = tuple(
     for kind, folder_fallback in _PER_TABLE
 )
 
+PER_TABLE_KINDS = tuple(item.key for item in VPX_ASSET_KINDS)
+
 RESOLUTION_DEDICATED = "dedicated"
 RESOLUTION_SHARED = "shared"
 RESOLUTION_NONE = "none"

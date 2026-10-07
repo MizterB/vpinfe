@@ -78,6 +78,10 @@ class _Library:
     def thumbnail_look(self) -> None:
         return None
 
+    def kept_kinds(self) -> dict[str, set[str]]:
+        from common.media_specs import media_label_map
+        return {"media": set(media_label_map()), "asset": set()}
+
     def load_media_rows(self) -> list[dict]:
         return self.found
 
