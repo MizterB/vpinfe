@@ -48,6 +48,9 @@ _BY_A_PERSON = ("e => { if (String(e.source || '').startsWith('ui'))"
 _GENERATED = "ag-Grid-"
 _PIN_SIDES = ("left", "right", None)
 _BODY_AG_GRID_KEEPS_UNPINNED_PX = 50
+# A row whose data says this is true has nothing in its context menu, so right-clicking it
+# opens none.
+NO_MENU = "menuless"
 
 
 @dataclass
@@ -1097,8 +1100,8 @@ def _suppress_empty_menu(grid: Any, *, rows: bool, headers: bool,
     """Stop a right-click with nothing behind it from opening this grid's menu.
 
     `rows` and `headers` say whether this grid has a menu for each; `without` names the
-    row ids that have nothing even where the rest do. Guarded by
-    `tests/console/test_context_menus_are_guarded.py`.
+    row ids that have nothing even where the rest do, and a row whose data says `NO_MENU`
+    has nothing right now. Guarded by `tests/console/test_context_menus_are_guarded.py`.
     """
     ui.run_javascript(f"""
     (() => {{
@@ -1122,8 +1125,10 @@ def _suppress_empty_menu(grid: Any, *, rows: bool, headers: bool,
           offer = {str(headers).lower()} && !id.startsWith('ag-Grid-');
         }} else if (row) {{
           const without = {json.dumps(list(without or []))};
-          offer = {str(rows).lower()}
-                  && !without.includes(row.getAttribute('row-id') || '');
+          const id = row.getAttribute('row-id') || '';
+          const node = found.api && found.api.getRowNode(id);
+          offer = {str(rows).lower()} && !without.includes(id)
+                  && !(node && node.data && node.data[{json.dumps(NO_MENU)}]);
         }}
         if (!offer) {{
           event.stopPropagation();

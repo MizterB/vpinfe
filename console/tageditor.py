@@ -86,12 +86,20 @@ def rows_by_key(rows: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
             for group in groups.values() if len(group) > 1]
 
 
+def without_menu_where_derived(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every row the grid is given goes through this: `acts` has nothing for a derived tag,
+    and its row says so."""
+    return [{**row, grid.NO_MENU: bool(row.get("sources"))} for row in rows]
+
+
 def build(rows: list[dict[str, Any]], library: Any,
           on_select: Callable[[dict | None], Any],
           state: dict[str, Any],
           rerender: Callable[[], None] | None = None) -> None:
     """The editor. The duplicates lead, because they are what somebody came here for."""
     tag_chips.install(library.tag_looks())
+    rows = without_menu_where_derived(rows)
+
     @on_page
     async def sweep(call: Callable[..., Any], *args: Any, said: str = "") -> None:
         try:
@@ -207,7 +215,7 @@ def build(rows: list[dict[str, Any]], library: Any,
                                       search.value or ""))
 
     async def refresh_rows() -> None:
-        fresh = library.tag_rows()
+        fresh = without_menu_where_derived(library.tag_rows())
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
         tag_chips.install(library.tag_looks())

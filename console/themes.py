@@ -137,7 +137,13 @@ def _row(theme: dict[str, Any]) -> dict[str, Any]:
             "registry": repo_name(str(theme["registry"])) if theme.get("registry") else "",
             "repository": repo_name(str(theme["url"])) if theme.get("url") else "",
             "updated": str(theme.get("updated") or ""),
-            "said": theme_card.said(theme)}
+            "said": theme_card.said(theme), grid.NO_MENU: _has_no_acts(theme)}
+
+
+def _has_no_acts(theme: dict[str, Any]) -> bool:
+    """True exactly when `acts` returns nothing."""
+    return bool(theme.get("installed") and theme.get("active")
+                and not theme.get("update_available"))
 
 
 def build(library: Library, state: dict[str, Any],

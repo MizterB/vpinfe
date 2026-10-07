@@ -4,6 +4,7 @@ collection from its list."""
 
 from __future__ import annotations
 
+import inspect
 import unittest
 from typing import Any
 
@@ -78,6 +79,18 @@ class OnTheTagsPage(unittest.TestCase):
 
     def test_its_menu_offers_nothing(self) -> None:
         self.assertEqual([], tageditor.acts(_library(), DERIVED, 0, _after))
+
+    def test_a_refresh_gives_the_grid_rows_with_the_flag_too(self) -> None:
+        # Both the first draw and the refresh hand rows to the grid.
+        self.assertEqual(2, inspect.getsource(tageditor.build)
+                         .count("without_menu_where_derived("))
+
+    def test_its_row_opens_no_menu_and_another_still_does(self) -> None:
+        rows = tageditor.without_menu_where_derived(_library().tag_rows())
+
+        self.assertEqual({DERIVED: True, "Wide Body": False},
+                         {row["tag"]: row[tageditor.grid.NO_MENU] for row in rows
+                          if row["tag"] in (DERIVED, "Wide Body")})
 
     def test_another_tag_cannot_be_merged_into_it(self) -> None:
         verbs = tageditor.acts(_library(), "weekly challenge", 1, _after)
