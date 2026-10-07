@@ -28,6 +28,9 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
     ("settings.py", "_draw_system_page.rebuild"):
         "Schedules a rebuild once a part's gone screen has been replaced, and the rebuild "
         "draws through the section build that holds its own region.",
+    ("theme_sources.py", "rows.draw"):
+        "Reads the sources that have no result once their rows are drawn. The rows are "
+        "already there and say Checking themselves, so there is no region to hold busy.",
     ("about.py", "_show_to_copy"):
         "Selects the text in a dialog once the dialog has focused itself. Draws nothing.",
 }

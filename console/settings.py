@@ -36,8 +36,9 @@ from common.failures import why
 from common.games.asset_registry import ALWAYS_KEPT, ASSET_SPECS
 from common.host import display_service, frontend_browser, key_reader, key_simulator, tools
 from common.i18n import size, t
-from common.labels import humanize
+from common.labels import field_label, humanize
 from common.media_specs import media_label_map
+from common.online import theme_source_checks as online_checks
 from console import (
     binding_table,
     browser_state,
@@ -627,7 +628,7 @@ def last_checked(checked_at: str, now: Callable[[], Any]) -> tuple[Any, Any]:
             panel.action(t("console.settings.check_now"), now, icon=verbs.REFRESH, inline=True,
                          hint=t("console.settings.check_now.help"))()
 
-    return (t("console.settings.last_checked"), checked)
+    return (field_label(t("console.settings.last_checked")), checked)
 
 
 async def _themes_foot(library: Library, rerender: Callable[[], None],
@@ -1782,7 +1783,13 @@ async def _theme_sources(library: Library, state: dict[str, Any],
     except Exception as exc:  # noqa: BLE001 - the page keeps its fields rather than lose the setting
         logger.warning("Could not read the theme sources: %s", why(exc))
         return None
-    block = theme_sources.Block(library, found, redraw)
+    # Each address is read once per page, so a read that gives no result is not asked again
+    # by the redraw it causes.
+    asked: set[str] = state.setdefault("theme_sources_asked", set())
+    unread = {str(one["address"]) for group in (theme_sources.LISTS, theme_sources.THEMES)
+              for one in found.get(group) or []
+              if one["state"] == online_checks.NOT_CHECKED} - asked
+    block = theme_sources.Block(library, found, redraw, frozenset(unread), asked)
     state["theme_sources"] = block
     return {f"{theme_sources.SECTION}.{theme_sources.LISTS}": theme_sources.rows(block, found),
             f"{theme_sources.SECTION}.{theme_sources.THEMES}": []}

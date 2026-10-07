@@ -713,6 +713,7 @@ body::before {
   flex: none;
 }
 .console-drag-handle:hover { color: var(--accent); }
+.console-drag-gutter { width: 18px; flex: none; }
 /* Lifted, not swapped: the row leaves the flow and follows the pointer while the rest
    of the list holds still. Swapping moved the rows you were aiming at, so the target
    changed as you approached it. */
@@ -1325,6 +1326,12 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
    contrast: it separates, it does not decorate. */
 .console-member-row:nth-child(even) { background: var(--wash-lift); }
 .console-member-row:hover { background: var(--surface-hover); }
+/* A short list whose rows are parted by their own spacing: on one to four rows a stripe
+   reads as a selection. Opted into on the list, so the member rows elsewhere keep theirs. */
+.console-plain-rows .console-member-row:nth-child(even) { background: transparent; }
+.console-plain-rows .console-member-row:nth-child(even):hover { background: var(--surface-hover); }
+/* The runs of one list that are different kinds, parted by twice the gap between rows. */
+.nicegui-column.console-theme-kinds { display: flex; flex-direction: column; gap: 20px; }
 
 /* The row's action appears under the cursor. A column of identical glyphs down a long
    list is noise competing with the content, and the action is the same on every row.

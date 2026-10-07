@@ -20,6 +20,7 @@ from common import config_schema
 from common.failures import why
 from common.i18n import t
 from common.online import theme_source_checks as checks
+from common.online import theme_sources as online
 from console import arrange, offload, panel, undo, verbs
 from console import dialog as frame
 from console.data import Library
@@ -72,6 +73,20 @@ async def _read_again(library: Library) -> None:
 
 
 @on_page
+async def read_unread(block: Block, rows: ui.element) -> None:
+    """The read *Check now* runs, for a page that found a source with no result. It says
+    nothing: the row said Checking, and the redraw says what the read found. A page that
+    has moved on while it ran is left alone."""
+    block.asked |= block.checking
+    try:
+        await offload.io(block.library.themes, True)
+    except Exception as exc:  # noqa: BLE001 - the rows say which source failed
+        logger.warning("Could not read the theme sources: %s", why(exc))
+    if not rows.is_deleted:
+        block.rerender()
+
+
+@on_page
 async def _change(library: Library, group: str, addresses: list[str]) -> bool:
     if not await _save(library, group, addresses):
         return False
@@ -83,9 +98,12 @@ class Block:
     """The sources as the page drew them, and what the person can do to one."""
 
     def __init__(self, library: Library, sources: dict[str, Any],
-                 rerender: Callable[[], None]) -> None:
+                 rerender: Callable[[], None], checking: frozenset[str] = frozenset(),
+                 asked: set[str] | None = None) -> None:
         self.library = library
         self.rerender = rerender
+        self.checking = checking
+        self.asked = asked if asked is not None else set()
         self.addresses = {LISTS: _held(sources, LISTS), THEMES: _held(sources, THEMES)}
         self.stale = False
         self._turn = asyncio.Lock()
@@ -140,7 +158,7 @@ class Block:
             self.rerender()
 
         undo.offer(t("console.theme_sources.removed_list" if group == LISTS
-                     else "console.theme_sources.removed_theme", name=str(source["name"])),
+                     else "console.theme_sources.removed_theme", name=_title(group, source)),
                    back)
         self.rerender()
 
@@ -153,59 +171,75 @@ async def moved(state: dict[str, Any], group: str, event: Any) -> None:
 
 
 def rows(block: Block, sources: dict[str, Any]) -> list[tuple[Any, Any]]:
-    """What stands in for the two address fields: a row per group and the one Add."""
-    lists, themes = sources.get(LISTS) or [], sources.get(THEMES) or []
-    entries: list[tuple[Any, Any]] = [
-        (t("console.theme_sources.lists"), _group(block, LISTS, lists)),
-        panel.note(t("console.theme_sources.lists.help"))]
-    if themes:
-        entries += [(t("console.theme_sources.themes"), _group(block, THEMES, themes)),
-                    panel.note(t("console.theme_sources.themes.help"))]
-    entries.append((panel.ASIDE, panel.action(
-        t("console.theme_sources.add"), partial(add_source, block.library, block.rerender),
-        icon=verbs.ADD, hint=t("console.theme_sources.add.help"))))
-    return entries
+    """The Sources row and the strip under it. A source in `block.checking` has never been
+    read: its row says so, and the read that gives it a result runs as the rows are drawn."""
+    themes, lists = sources.get(THEMES) or [], sources.get(LISTS) or []
+    stock_missing = not any(online.is_stock(str(one["address"])) for one in lists)
 
-
-def _group(block: Block, group: str, found: list[dict[str, Any]]) -> Callable[[], None]:
-    def draw() -> None:
-        if not found:
-            with ui.element("div").classes("console-fact-edit"):
-                ui.label(t("console.theme_sources.no_lists")) \
-                    .classes("console-fact-value truncate min-w-0")
+    def strip() -> None:
+        with ui.row().classes("items-center gap-1 no-wrap"):
+            panel.action(t("console.theme_sources.add"),
+                         partial(add_source, block.library, block.rerender),
+                         icon=verbs.ADD, hint=t("console.theme_sources.add.help"))()
+            if stock_missing:
                 panel.action(t("console.theme_sources.add_default"),
                              partial(add_default, block.library, block.rerender),
-                             icon=verbs.ADD, inline=True,
-                             hint=t("console.theme_sources.add_default.help"))()
-            return
-        with ui.column().classes("gap-0 w-full").props(f'data-arrange="{MOVED[group]}"'):
-            for at, one in enumerate(found):
-                _row(block, group, one, at, len(found))
-        if len(found) > 1:
-            ui.run_javascript(arrange.SCRIPT)
+                             icon=verbs.ADD, hint=t("console.theme_sources.add_default.help"))()
 
-    return draw
+    def draw() -> None:
+        shown = _sources(block, themes, lists)
+        if block.checking and shown is not None:
+            ui.timer(0, partial(read_unread, block, shown), once=True)
+
+    return [(t("console.theme_sources.label"), draw), (panel.ASIDE, strip)]
 
 
-def _row(block: Block, group: str, source: dict[str, Any], at: int, of: int) -> None:
+def _sources(block: Block, themes: list[dict[str, Any]],
+             lists: list[dict[str, Any]]) -> ui.element | None:
+    """Single themes first, because one outranks every list, then the lists in their order.
+    A drag stays within its kind: each kind is its own arranged run."""
+    if not themes and not lists:
+        ui.label(t("console.theme_sources.none")).classes("console-fact-value")
+        return None
+    gutter = len(themes) > 1 or len(lists) > 1
+    with ui.column().classes("console-theme-kinds w-full") as kinds:
+        for group, found in ((THEMES, themes), (LISTS, lists)):
+            if not found:
+                continue
+            with ui.column().classes("gap-0 w-full console-plain-rows") \
+                    .props(f'data-arrange="{MOVED[group]}"'):
+                for at, one in enumerate(found):
+                    _row(block, group, one, at, len(found), gutter)
+            if len(found) > 1:
+                ui.run_javascript(arrange.SCRIPT)
+    return kinds
+
+
+def _row(block: Block, group: str, source: dict[str, Any], at: int, of: int,
+         gutter: bool) -> None:
+    """`gutter` keeps a row that cannot be dragged in line with the ones that can."""
     address = str(source["address"])
+    unread = address in block.checking
     with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
         if of > 1:
             ui.icon("drag_indicator").classes("console-drag-handle") \
                 .props("tabindex=0 role=button") \
                 .tooltip(t("console.workbench.drag_hint"))
+        elif gutter:
+            ui.element("div").classes("console-drag-gutter")
         with ui.column().classes("gap-0 grow min-w-0"):
-            _name(source)
-            if said := _detail(group, source):
+            with ui.row().classes("items-center gap-2 no-wrap min-w-0"):
+                _name(group, source)
+                if source.get("level") and not unread:
+                    chip = ui.label(_word(source)).classes(
+                        f"console-tier console-tier--{source['level']} shrink-0")
+                    if source.get("reason"):
+                        chip.tooltip(str(source["reason"]))
+            if said := t("console.theme_sources.reading") if unread else _detail(group, source):
                 line = ui.label(said).classes("console-member-table")
                 if took := source.get("took") or []:
                     line.tooltip(t("console.theme_sources.took", count=_count(
                         int(source["count"])), taken=len(took), names=", ".join(took)))
-        if source.get("level"):
-            chip = ui.label(_word(source)).classes(
-                f"console-tier console-tier--{source['level']} shrink-0")
-            if source.get("reason"):
-                chip.tooltip(str(source["reason"]))
         if of > 1:
             _moves(block, group, address, at, of)
 
@@ -217,26 +251,37 @@ def _row(block: Block, group: str, source: dict[str, Any], at: int, of: int) -> 
                               hint=t("word.remove"))()
 
 
-def _name(source: dict[str, Any]) -> None:
-    name, link = str(source["name"]), str(source.get("link") or "")
+def _name(group: str, source: dict[str, Any]) -> None:
+    name = _title(group, source)
+    link = str(source.get("link") or "")
     if link:
         panel.link_out(name, to=link)()
     else:
         ui.label(name).classes("console-fact-value truncate min-w-0")
 
 
+def _title(group: str, source: dict[str, Any]) -> str:
+    """The VPinFE Theme List is called that, wherever its address says it lives."""
+    if group == LISTS and online.is_stock(str(source["address"])):
+        return t("console.theme_sources.stock")
+    return str(source["name"])
+
+
 def _moves(block: Block, group: str, address: str, at: int, of: int) -> None:
-    """Move Up and Move Down, because a drag needs a way to do the same without a pointer."""
+    """Move Up and Move Down, because a drag needs a way to do the same without a pointer.
+    An end the row is already at is shown and refused rather than left out, so the two
+    entries keep their places from row to row."""
     _button, menu = panel.menu_button(verbs.MORE, t("console.theme_sources.move"))
     with menu:
-        if at > 0:
-            panel.menu_entry(t("console.theme_sources.move_up"),
-                             lambda: block.step(group, address, -1),
-                             mark=lambda: ui.icon(verbs.UP))
-        if at < of - 1:
-            panel.menu_entry(t("console.theme_sources.move_down"),
-                             lambda: block.step(group, address, 1),
-                             mark=lambda: ui.icon(verbs.DOWN))
+        for label, by, icon, allowed in (
+                (t("console.theme_sources.move_up"), -1, verbs.UP, at > 0),
+                (t("console.theme_sources.move_down"), 1, verbs.DOWN, at < of - 1)):
+            entry = panel.menu_entry(
+                label, partial(block.step, group, address, by) if allowed else None,
+                mark=partial(ui.icon, icon),
+                classes="" if allowed else "console-menu-blocked", auto_close=allowed)
+            if not allowed:
+                entry.props("aria-disabled=true")
 
 
 def _count(count: int) -> str:
@@ -246,10 +291,12 @@ def _count(count: int) -> str:
 
 def _detail(group: str, source: dict[str, Any]) -> str:
     """The line under a source's name: how many themes a list has, or which version of its
-    one theme, and where."""
+    one theme, and where. The stock list also says where it lives, because its name does
+    not."""
     if group == LISTS:
         count = int(source.get("count") or 0)
-        return _count(count) if count else ""
+        where = str(source.get("display") or "") if online.is_stock(str(source["address"])) else ""
+        return " · ".join(part for part in (_count(count) if count else "", where) if part)
     where = str(source.get("display") or "")
     parts = [where if where != source["name"] else "",
              str(source.get("version") or ""),
@@ -372,6 +419,8 @@ def _verdict(said: dict[str, Any], failure: str) -> None:
     if installs := said.get("installs") or []:
         ui.label(t("console.theme_sources.installs", names=", ".join(installs))) \
             .classes("console-help")
+    elif not online.is_stock(str(said.get("address") or "")):
+        ui.label(t("console.theme_sources.nothing_installs")).classes("console-help")
 
 
 def _what_it_is(said: dict[str, Any]) -> None:

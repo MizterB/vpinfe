@@ -152,20 +152,66 @@ class RowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.block = theme_sources.Block(
             Written({}), {}, MagicMock())  # type: ignore[arg-type]
-        self.enterContext(patch.object(panel, "action", side_effect=lambda *a, **k: "action"))
+        self.ui = self.enterContext(patch.object(theme_sources, "ui"))
+        self.actions = self.enterContext(patch.object(panel, "action"))
 
-    def test_the_group_of_single_themes_is_drawn_only_when_it_holds_one(self) -> None:
-        bare = theme_sources.rows(self.block, {LISTS: [source(ONE)], THEMES: []})
-        both = theme_sources.rows(self.block, {LISTS: [source(ONE)], THEMES: [source(THEME)]})
+    def _strip(self, sources: dict[str, Any]) -> list[str]:
+        self.actions.reset_mock()
+        entries = theme_sources.rows(self.block, sources)
+        entries[1][1]()
+        return [call.args[0] for call in self.actions.call_args_list]
 
-        labels = [label for label, _value in bare if isinstance(label, str)]
-        self.assertEqual(labels, [theme_sources.t("console.theme_sources.lists")])
-        self.assertEqual(len(both), len(bare) + 2)
+    def test_one_row_holds_every_source_and_one_strip_adds(self) -> None:
+        entries = theme_sources.rows(self.block, {LISTS: [source(ONE)], THEMES: [source(THEME)]})
 
-    def test_a_group_with_nothing_in_it_still_draws_its_row(self) -> None:
-        rows = theme_sources.rows(self.block, {LISTS: [], THEMES: []})
+        self.assertEqual([label for label, _value in entries[:1]],
+                         [theme_sources.t("console.theme_sources.label")])
+        self.assertIs(entries[1][0], panel.ASIDE)
+        self.assertEqual(len(entries), 2)
 
-        self.assertEqual(len([label for label, _value in rows if isinstance(label, str)]), 1)
+    def test_the_stock_list_is_offered_back_only_while_it_is_missing(self) -> None:
+        add, back = (theme_sources.t("console.theme_sources.add"),
+                     theme_sources.t("console.theme_sources.add_default"))
+        stock = theme_sources.default_list()
+
+        self.assertEqual(self._strip({LISTS: [source(ONE)], THEMES: []}), [add, back])
+        self.assertEqual(self._strip({LISTS: [], THEMES: []}), [add, back])
+        self.assertEqual(self._strip({LISTS: [source(stock)], THEMES: []}), [add])
+
+    def test_no_sources_says_so(self) -> None:
+        theme_sources.rows(self.block, {LISTS: [], THEMES: []})[0][1]()
+
+        self.ui.label.assert_called_once_with(theme_sources.t("console.theme_sources.none"))
+
+    def test_an_unread_source_reads_when_the_rows_are_drawn(self) -> None:
+        sources = {LISTS: [source(ONE, state=checks.NOT_CHECKED)], THEMES: []}
+        waiting = theme_sources.Block(Written({}), sources, MagicMock(),  # type: ignore[arg-type]
+                                      frozenset({ONE}))
+
+        theme_sources.rows(self.block, sources)[0][1]()
+        self.ui.timer.assert_not_called()
+        theme_sources.rows(waiting, sources)[0][1]()
+        self.ui.timer.assert_called_once()
+
+    def test_the_stock_list_is_named_and_says_where_it_lives(self) -> None:
+        stock = source(theme_sources.default_list(), name="superhac/vpinfe-themes",
+                       display="superhac/vpinfe-themes", count=12)
+
+        self.assertEqual(theme_sources._title(LISTS, stock), "VPinFE Theme List")
+        self.assertEqual(theme_sources._detail(LISTS, stock), "12 themes · superhac/vpinfe-themes")
+
+    def test_another_list_keeps_its_own_name_and_says_only_its_count(self) -> None:
+        other = source(ONE, name="example/one", display="example/one", count=12)
+
+        self.assertEqual(theme_sources._title(LISTS, other), "example/one")
+        self.assertEqual(theme_sources._detail(LISTS, other), "12 themes")
+
+    def test_a_single_theme_says_its_version_where_and_pin(self) -> None:
+        one = source(THEME, name="Neon", display="owner/neon", version="1.2", pinned="dev")
+
+        self.assertEqual(theme_sources._detail(THEMES, one), "owner/neon · 1.2 · Pinned to dev")
+        unread = source(THEME, name="owner/neon", display="owner/neon")
+        self.assertEqual(theme_sources._detail(THEMES, unread), "")
 
 
 class ChipTests(unittest.TestCase):
