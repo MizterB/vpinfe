@@ -2961,6 +2961,19 @@ a.console-tag:hover { background: var(--wash-hover); }
 .console-bgview-grip--se { right: 0; bottom: 0; cursor: nwse-resize; }
 .console-bgview-grip--ne { right: 0; top: 0; cursor: nesw-resize; }
 .console-bgview-grip--sw { left: 0; bottom: 0; cursor: nesw-resize; }
+/* An edge's handle is a bar along it, short enough to leave the corners to the corners. */
+.console-bgview-grip--n, .console-bgview-grip--s {
+  left: 50%; width: min(28px, 40%); height: 6px; transform: translateX(-50%);
+  cursor: ns-resize;
+}
+.console-bgview-grip--w, .console-bgview-grip--e {
+  top: 50%; height: min(28px, 40%); width: 6px; transform: translateY(-50%);
+  cursor: ew-resize;
+}
+.console-bgview-grip--n { top: 0; }
+.console-bgview-grip--s { bottom: 0; }
+.console-bgview-grip--w { left: 0; }
+.console-bgview-grip--e { right: 0; }
 .console-bgview-auto {
   position: absolute; left: 4%; bottom: 4%; padding: 0 6px; border-radius: 999px;
   background: var(--dmd-label); color: var(--dmd-lit); font-size: var(--fs-caption);

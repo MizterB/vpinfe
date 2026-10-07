@@ -398,9 +398,9 @@ def _stage(screen: Screen, src: str, on_set: Callable[[Box], Awaitable[None]] | 
                     _dmd(screen.dmd, screen.turns, on_set, units)
 
 
-GRIPS = ("nw", "ne", "sw", "se")
+GRIPS = ("nw", "ne", "sw", "se", "n", "s", "w", "e")
 
-# The box is moved by its body and sized by its corners, in percent of the stage it sits
+# The box is moved by its body and sized by its corners and edges, in percent of the stage it sits
 # in. A pointer's travel is turned back through the stage's quarter turns first, so a
 # drag follows the pointer on a window that is turned. Nothing is sent until it is let go.
 # While it moves, a readout beside it counts X, Y, W and H the way the settings do.
