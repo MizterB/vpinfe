@@ -8,19 +8,12 @@ screen a lie, and they find out by looking for a game where they expected it.
 from __future__ import annotations
 
 import unittest
-from configparser import ConfigParser
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 from common.games import library_folders
 from common.i18n import t
+from tests.support.library import own_locations
 from tests.support.skips import needs_posix_permissions
-
-
-def _configured_root(path: str) -> ConfigParser:
-    parser = ConfigParser()
-    parser["general"] = {"game_root_dir": path}
-    return parser
 
 
 class _Destinations(unittest.TestCase):
@@ -31,11 +24,7 @@ class _Destinations(unittest.TestCase):
         self.root = Path(self.tmp.name)
         for name in ("first", "second", "single"):
             (self.root / name).mkdir()
-        self.store = library_folders.LocationStore(str(self.root / "locations.json"))
-        patcher = patch.object(library_folders, "get_location_store",
-                               return_value=self.store)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        self.store = own_locations(self, self.root / "config")
 
     def _save(self, *rows, write_to=""):
         self.store.save(list(rows), write_to)
@@ -66,14 +55,23 @@ class ChoiceTests(_Destinations):
 
 
 class RefusalTests(_Destinations):
-    def test_a_chosen_location_that_is_gone_is_refused_by_name(self) -> None:
+    def test_a_one_time_override_that_is_gone_is_refused_by_name(self) -> None:
         """Rather than quietly becoming a different folder."""
-        self._save(self._root("l1", "first"), write_to="missing")
+        self._save(self._root("l1", "first"), write_to="l1")
 
-        found = library_folders.destination()
+        found = library_folders.destination("missing")
 
         self.assertIsNone(found.location)
         self.assertEqual(found.reason, t("error.library_folders.default_removed"))
+
+    def test_a_choice_whose_location_was_removed_is_no_choice(self) -> None:
+        """Removing the folder new games went to leaves the list as the way to say
+        where, so the first writable root answers rather than every create failing."""
+        self._save(self._root("l1", "first"), write_to="removed")
+
+        found = library_folders.destination()
+
+        self.assertEqual(found.path, str(self.root / "first"))
 
     @needs_posix_permissions
     def test_and_a_read_only_one_is_refused_too(self) -> None:
@@ -100,9 +98,9 @@ class RefusalTests(_Destinations):
     def test_a_refusal_offers_the_writable_ones_instead(self) -> None:
         """What a caller needs on a refusal is not only that it failed - it is where
         this could go instead, so somebody can send it there."""
-        self._save(self._root("l1", "first"), write_to="missing")
+        self._save(self._root("l1", "first"), write_to="l1")
 
-        found = library_folders.destination()
+        found = library_folders.destination("missing")
 
         self.assertEqual([one.location_id for one in found.alternatives], ["l1"])
 
@@ -144,23 +142,12 @@ class ImportTests(_Destinations):
 
         self.assertEqual(_new_games_under(), str(self.root / "second"))
 
-    def test_and_falls_back_to_the_root_where_there_are_no_locations(self) -> None:
-        """An install that has not been through the seed still imports."""
+    def test_with_no_locations_it_is_refused_rather_than_guessed(self) -> None:
         from common.uploads.asset_import_service import _new_games_under
 
         self._save()
 
-        with patch("common.paths.get_ini_config",
-                   return_value=_configured_root("/configured/root")):
-            self.assertEqual(_new_games_under(), "/configured/root")
-
-    def test_with_nothing_configured_it_is_refused_rather_than_guessed(self) -> None:
-        from common.uploads.asset_import_service import _new_games_under
-
-        self._save()
-
-        with patch("common.paths.get_ini_config", return_value=_configured_root("")), \
-                self.assertRaises(ValueError):
+        with self.assertRaises(ValueError):
             _new_games_under()
 
 

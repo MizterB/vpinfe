@@ -148,6 +148,7 @@
     "download_spreadsheet": "daily",
     "get_media_for_new_games": "true",
     "match_new_games": "true",
+    "new_games_location": "",
     "refresh_minutes": "0",
     "update_downloaded_media": "true",
     "update_game_details": "never"

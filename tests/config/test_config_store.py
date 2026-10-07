@@ -181,33 +181,33 @@ class IniConversionTests(ConfigStoreTests):
         self.ini.write_text(body, encoding="utf-8")
 
     def test_an_existing_ini_converts_and_is_kept(self) -> None:
-        self._write_ini("[Settings]\ngamerootdir = /my/tables\n")
+        self._write_ini("[Displays]\nbgwindowoverride = 1x1+0+0\n")
 
         ConfigStore(str(self.ini))
 
-        self.assertEqual(self._payload()[SETTINGS_KEY]["general"]["game_root_dir"],
-                         "/my/tables")
+        self.assertEqual(self._payload()[SETTINGS_KEY]["windows"]["backglass"]["override"],
+                         "1x1+0+0")
         self.assertTrue(self.ini.exists(), "a downgrade needs the file 2.x reads")
         backups = [n for n in os.listdir(self.root) if n.startswith("vpinfe.ini.")]
         self.assertEqual(len(backups), 1, "the pre-JSON file is copied aside once")
 
     def test_a_percent_escaped_for_the_old_ini_parser_is_one_percent(self) -> None:
-        self._write_ini("[Settings]\ngamerootdir = /tables/100%%\n")
+        self._write_ini("[Displays]\nbgwindowoverride = 100%%\n")
 
         ConfigStore(str(self.ini))
 
-        self.assertEqual(self._payload()[SETTINGS_KEY]["general"]["game_root_dir"],
-                         "/tables/100%")
+        self.assertEqual(self._payload()[SETTINGS_KEY]["windows"]["backglass"]["override"],
+                         "100%")
 
     def test_converting_still_applies_the_key_renames(self) -> None:
-        """tablerootdir became gamerootdir; an old ini must not lose the value."""
-        self._write_ini("[Settings]\ntablerootdir = /old/tables\n")
+        """An old ini must not lose a value whose key was renamed."""
+        self._write_ini("[Displays]\nbgwindowoverride = 1x1+0+0\n")
 
         ConfigStore(str(self.ini))
 
-        settings = self._payload()[SETTINGS_KEY]["general"]
-        self.assertEqual(settings["game_root_dir"], "/old/tables")
-        self.assertNotIn("tablerootdir", settings)
+        backglass = self._payload()[SETTINGS_KEY]["windows"]["backglass"]
+        self.assertEqual(backglass["override"], "1x1+0+0")
+        self.assertNotIn("bgwindowoverride", backglass)
 
     def test_the_defaults_switch_is_inverted_from_2x(self) -> None:
         """`disabledefaultchromeoptions` said when they were off, `defaults` says on."""

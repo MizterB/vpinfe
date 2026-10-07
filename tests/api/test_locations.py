@@ -17,6 +17,7 @@ import httpapi
 from common import mounts, path_state
 from common.games import library_folders
 from tests.support.hung_folder import never_answering
+from tests.support.library import own_locations
 from tests.support.skips import needs_posix_permissions
 
 NAS = mounts.Origin(mounts.NFS, "nas.lan", "/export/pinball", "/mnt/nas")
@@ -31,13 +32,7 @@ class LocationApiTests(unittest.TestCase):
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.store = library_folders.LocationStore(os.path.join(self.tmp.name, "locations.json"))
-        patcher = patch.object(library_folders, "get_location_store", return_value=self.store)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        # Marked as already seeded: building the app runs the startup pass, and a row
-        # appearing from this machine's own config would make every count here wrong.
-        self.store.mark_migration(library_folders.SEEDED)
+        self.store = own_locations(self, self.root / "config")
         self.client = _client()
 
     def _folder(self, name: str) -> str:
@@ -46,8 +41,12 @@ class LocationApiTests(unittest.TestCase):
         return str(folder)
 
     def _put(self, location_id: str, path: str, **body):
-        return self.client.put(f"/locations/{location_id}",
+        return self.client.put(f"/config/locations/{location_id}",
                                json={"path": path, **body})
+
+    def _choose(self, location_id: str):
+        return self.client.put("/config", json={
+            "settings": {"updates": {"new_games_location": location_id}}})
 
     def test_an_install_with_none_answers_an_empty_list(self) -> None:
         body = self.client.get("/locations").json()
@@ -89,9 +88,11 @@ class LocationApiTests(unittest.TestCase):
         """Two rows for one place would each report their own state."""
         path = self._folder("share")
         self._put("first", path)
-        self._put("second", path)
+        refused = self._put("second", path)
 
-        self.assertEqual(len(self.client.get("/locations").json()["locations"]), 1)
+        self.assertEqual(refused.status_code, 400)
+        self.assertEqual([row["location_id"] for row
+                          in self.client.get("/locations").json()["locations"]], ["first"])
 
     def test_a_location_needs_a_path(self) -> None:
         self.assertEqual(self._put("one", "  ").status_code, 400)
@@ -122,19 +123,18 @@ class LocationApiTests(unittest.TestCase):
         response = self._put("one", taken)
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("taken", response.json()["error"]["message"])
         self.assertEqual(len(self.client.get("/locations").json()["locations"]), 2)
 
     def test_a_kind_this_build_does_not_know_is_refused(self) -> None:
         response = self._put("one", self._folder("share"), kind="mounted-elsewhere")
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("mounted-elsewhere", response.json()["error"]["message"])
+        self.assertIn("root", response.json()["error"]["message"])
 
     def test_the_write_target_is_named_rather_than_left_to_be_derived(self) -> None:
         self._put("one", self._folder("share"))
         self._put("two", self._folder("other"))
-        self.client.put("/locations/two/write-to")
+        self._choose("two")
 
         body = self.client.get("/locations").json()
 
@@ -148,13 +148,13 @@ class LocationApiTests(unittest.TestCase):
         away = str(self.root / "never-mounted")
         self._put("one", self._folder("share"))
         self._put("two", away)
-        self.client.put("/locations/two/write-to")
+        self._choose("two")
 
         body = self.client.get("/locations").json()
 
         self.assertEqual(body["write_to"], "two")
-        self.assertEqual(self._put("one", self._folder("share")).json()["write_to"], False)
-        self.assertEqual(self._put("two", away).json()["write_to"], True)
+        self.assertEqual({row["location_id"]: row["write_to"] for row in body["locations"]},
+                         {"one": False, "two": True})
 
     def test_with_nothing_chosen_the_first_writable_folder_is_named(self) -> None:
         self._put("gone", str(self.root / "never-mounted"))
@@ -167,16 +167,22 @@ class LocationApiTests(unittest.TestCase):
 
         self.assertEqual(self.client.get("/locations").json()["locations"][0]["games"], 0)
 
-    def test_pointing_at_a_location_that_is_not_there_is_refused(self) -> None:
-        self.assertEqual(self.client.put("/locations/nothing/write-to").status_code, 404)
+    def test_a_chosen_location_that_was_removed_falls_back_to_the_first_writable(self) -> None:
+        self._put("one", self._folder("share"))
+        self._put("two", self._folder("other"))
+        self._choose("two")
+
+        self.client.delete("/config/locations/two")
+
+        self.assertEqual(self.client.get("/locations").json()["write_to"], "one")
 
     def test_forgetting_one_that_is_not_there_is_refused(self) -> None:
-        self.assertEqual(self.client.delete("/locations/nothing").status_code, 404)
+        self.assertEqual(self.client.delete("/config/locations/nothing").status_code, 404)
 
     def test_forgetting_one_removes_it(self) -> None:
         self._put("one", self._folder("share"))
 
-        self.assertEqual(self.client.delete("/locations/one").status_code, 200)
+        self.assertEqual(self.client.delete("/config/locations/one").status_code, 204)
         self.assertEqual(self.client.get("/locations").json()["locations"], [])
 
     def test_the_listing_says_whether_an_import_asks_where_a_new_game_goes(self) -> None:
@@ -202,7 +208,8 @@ class LocationApiTests(unittest.TestCase):
 
     def test_a_share_that_is_not_answering_is_still_named(self) -> None:
         folder = self._folder("share")
-        self.store.put(library_folders.Location("one", folder, origin=NAS))
+        self.store.put(library_folders.Location("one", folder))
+        self.store.record_origins({"one": NAS})
         with patch.object(path_state, "PROBE_SECONDS", 0.2), \
                 patch.object(path_state, "MOUNT_SECONDS", 0.2), never_answering(folder):
             row = self.client.get("/locations").json()["locations"][0]

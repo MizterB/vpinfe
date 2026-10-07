@@ -67,7 +67,6 @@ RECORD_KINDS = {
     COLLECTIONS_NAME: KIND_COLLECTIONS, COLLECTIONS_NAME_INI: KIND_COLLECTIONS,
     "devices.json": KIND_DEVICES, "players.json": KIND_PLAYERS,
     "tags.json": KIND_RECORDS, "launchers.json": KIND_RECORDS,
-    "locations.json": KIND_RECORDS,
     "ui-preferences.json": KIND_RECORDS,
 }
 

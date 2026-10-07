@@ -1,12 +1,8 @@
 """Where this install looks for entries, over the wire.
 
-Its own resource rather than part of `/config`, for the reason launchers are: a location
-is an object somebody adds and removes, and the config endpoints answer with a fixed set
-of settings and have nowhere to put a list of things.
-
-It keeps the config scopes. This was a setting until it moved, so reading and writing it
-is the same power it always was, and a token that could already point an install at its
-library should not need a new grant to keep doing it.
+What the list is lives under `/config/locations`, and which one new games go to is
+`updates.new_games_location`. What is here is what the disk says about each location
+right now, and the questions asked of the library through them.
 
 `common/games/library_folder_ops.py` is what answers.
 """
@@ -32,16 +28,6 @@ def list_locations() -> dict[str, Any]:
     return library_folder_ops.listing()
 
 
-@router.put("/order", summary="Set which location outranks which",
-            dependencies=[requires(scopes.CONFIG_WRITE)])
-def set_order(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """The order is the priority.
-
-    Declared above `/{location_id}`, which would otherwise match "order" as an id.
-    """
-    return library_folder_ops.reorder(body.get("order"))
-
-
 @router.get("/destination", summary="Where a new game would be created",
             dependencies=[requires(scopes.CONFIG_READ)])
 def new_game_destination() -> dict[str, Any]:
@@ -50,22 +36,6 @@ def new_game_destination() -> dict[str, Any]:
     Declared above `/{location_id}`, which would otherwise read "destination" as an id.
     """
     return library_folder_ops.destination()
-
-
-@router.put("/{location_id}", summary="Add or replace a location",
-            dependencies=[requires(scopes.CONFIG_WRITE)])
-def put_location(location_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Whole, under the id the caller names, the way a launcher arrives."""
-    return library_folder_ops.put(location_id, str(body.get("path") or ""),
-                            str(body.get("kind") or ""))
-
-
-@router.delete("/{location_id}", summary="Forget a location",
-               dependencies=[requires(scopes.CONFIG_WRITE)])
-def delete_location(location_id: str) -> dict[str, Any]:
-    """The records inside it go with it. A contained entry keeps its record in its own
-    folder, so it leaves with the location and is there again if it comes back."""
-    return library_folder_ops.forget(location_id)
 
 
 @router.get("/{location_id}/shadowed",
@@ -84,13 +54,7 @@ def adopt_shadowed(location_id: str, body: dict[str, Any] = Body(...)) -> dict[s
     """Settle one clash by making this folder a game in its own right.
 
     The other way to settle it is to remove the location, which is right when the whole
-    location is a second view of one library. That is `DELETE /locations/{id}` and it
-    writes nothing at all.
+    location is a second view of one library. That is `DELETE /config/locations/{id}` and
+    it writes nothing at all.
     """
     return library_folder_ops.adopt(location_id, str(body.get("path") or ""))
-
-
-@router.put("/{location_id}/write-to", summary="Create new games here",
-            dependencies=[requires(scopes.CONFIG_WRITE)])
-def set_write_to(location_id: str) -> dict[str, Any]:
-    return library_folder_ops.set_write_to(location_id)

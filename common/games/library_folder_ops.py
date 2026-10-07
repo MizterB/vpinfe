@@ -124,23 +124,6 @@ def listing() -> dict[str, Any]:
     }
 
 
-def reorder(order: object) -> dict[str, Any]:
-    """The order is the priority.
-
-    A game folder carries its id, so one library reached through two locations holds
-    every id twice, and the folder that answers for an id is the one in the location
-    nearer the top. Nothing is written to a game folder to settle that, which is why
-    this is the control that settles it.
-
-    Declared above `/{location_id}`, which would otherwise match "order" as an id.
-    """
-    if not isinstance(order, list) or not order:
-        raise service_errors.RefusedError(t("error.library_folders.empty_order"))
-    if not locations.get_location_store().reorder([str(one) for one in order]):
-        raise service_errors.NotFoundError(t("error.library_folders.none_on_device"))
-    return listing()
-
-
 def destination() -> dict[str, Any]:
     """Where it would go, or why it could not, and what else it could go to instead.
 
@@ -213,15 +196,6 @@ def use_library_folder(path: str) -> dict[str, Any]:
     return put(locations.mint_location_id(), path, locations.KIND_ROOT)
 
 
-def forget(location_id: str) -> dict[str, Any]:
-    """The records inside it go with it. A contained entry keeps its record in its own
-    folder, so it leaves with the location and is there again if it comes back."""
-    if not locations.get_location_store().remove(location_id):
-        raise service_errors.NotFoundError(
-            t("error.library_folders.unknown_folder", location_id=(location_id)))
-    return {"removed": location_id}
-
-
 def shadowed_in(location_id: str) -> dict[str, Any]:
     """What this location holds that is out of the library, and what took its place.
 
@@ -244,8 +218,8 @@ def adopt(location_id: str, path: str) -> dict[str, Any]:
     Anything that named the id keeps pointing at the folder that kept it.
 
     The other way to settle it is to remove the location, which is right when the whole
-    location is a second view of one library. That is `DELETE /locations/{id}` and it
-    writes nothing at all.
+    location is a second view of one library. That is `DELETE /config/locations/{id}` and
+    it writes nothing at all.
     """
     _location_or_refuse(location_id)
     wanted = path_state.canonical(str(path or ""))
@@ -266,10 +240,3 @@ def adopt(location_id: str, path: str) -> dict[str, Any]:
     if game is None:
         raise service_errors.NotFoundError(t("error.library_folders.folder_removed"))
     return {"path": one.path, "game_id": game_identity.ensure_id(game, force_new=True)}
-
-
-def set_write_to(location_id: str) -> dict[str, Any]:
-    if not locations.get_location_store().set_write_to(location_id):
-        raise service_errors.NotFoundError(
-            t("error.library_folders.unknown_folder", location_id=(location_id)))
-    return {"write_to": location_id}

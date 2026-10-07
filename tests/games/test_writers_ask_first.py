@@ -49,7 +49,7 @@ class _Library(TempTree):
         self.before = self.info.read_bytes()
         self.listing = sorted(p.name for p in self.folder.iterdir())
         game = fake_game(self.folder, FOLDER, meta=info)
-        self.store = library_folders.LocationStore(str(self.root / "locations.json"))
+        self.store = library_folders.LocationStore(self.root / "config")
         self.store.save([library_folders.Location(location_id="l1", path=str(self.library))], "")
         for patcher in (
                 mock.patch.object(library_folders, "get_location_store",

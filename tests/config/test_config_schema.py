@@ -102,7 +102,7 @@ class SchemaShapeTests(unittest.TestCase):
 
         self.assertEqual(internal, {("backups", "earlier"),
                                     ("device", "setup_pending"),
-                                    # `locations.json` holds this now.
+                                    # The `locations` list holds this now.
                                     ("general", "game_root_dir"),
                                     # The extension's own store holds these now.
                                     ("vpinplay", "sync_on_exit"),

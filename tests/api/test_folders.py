@@ -325,7 +325,8 @@ class MakeFolderApiTests(TempTree):
         scopes = {(route.methods and sorted(route.methods)[0], path): auth.route_scope(route)
                   for path, route in auth.iter_api_routes(httpapi.create_api_app())}
 
-        self.assertEqual(scopes[("POST", "/folders")], scopes[("PUT", "/locations/{location_id}")])
+        self.assertEqual(scopes[("POST", "/folders")],
+                         scopes[("PUT", "/config/{list_key}/{item_id}")])
 
 
 if __name__ == "__main__":

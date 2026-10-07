@@ -119,18 +119,17 @@ class TestConfigStore(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             ini_path = Path(tmp) / "vpinfe.ini"
             ini_path.write_text(
-                "[Settings]\ntablerootdir = /old/path\nrestorelasttable = false\n"
+                "[Settings]\nrestorelasttable = false\n"
                 "[Media]\ntabletype = fss\n"
                 "[Displays]\ntablerotation = 270\n", encoding="utf-8")
 
             config = ConfigStore(str(ini_path))
 
-            self.assertEqual(config.config.get("general", "game_root_dir"), "/old/path")
             self.assertEqual(config.config.get("behavior", "restore_last_table"), "false")
             # The artwork fact went back to [media]; the rotation is the screen's.
             self.assertEqual(config.config.get("media", "playfield_variant"), "fss")
             self.assertEqual(config.config.get("windows.playfield", "rotation"), "270")
-            self.assertFalse(config.config.has_option("general", "tablerootdir"),
+            self.assertFalse(config.config.has_option("behavior", "restorelasttable"),
                              "the old key should be gone once it has been read")
 
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 import shutil
 import tempfile
 import unittest
-import unittest.mock
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -19,7 +18,8 @@ import httpapi
 from common import extensions
 from common.extensions import host, store
 from common.extensions.contract import ContractError
-from common.games import game_repository, library_folders
+from common.games import game_repository
+from tests.support.library import own_locations
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "pinballx"
@@ -35,12 +35,7 @@ class AdoptCase(unittest.TestCase):
         self.library = self.root / "library"
         self.library.mkdir()
 
-        self.locations = library_folders.LocationStore(self.root / "locations.json")
-        patcher = unittest.mock.patch.object(library_folders, "get_location_store",
-                                             return_value=self.locations)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        self.locations.mark_migration(library_folders.SEEDED)
+        self.locations = own_locations(self, self.root / "config")
 
         self.store = store.ExtensionStore(self.root)
         self.registry = host.Registry(self.store)
@@ -51,8 +46,9 @@ class AdoptCase(unittest.TestCase):
         self.assertEqual(self.record.state, host.LOADED, self.record.reason)
 
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
-        self.client.put("/locations/one", json={"path": str(self.library)})
-        self.client.put("/locations/one/write-to", json={})
+        self.client.put("/config/locations/one", json={"path": str(self.library)})
+        self.client.put("/config", json={
+            "settings": {"updates": {"new_games_location": "one"}}})
         game_repository.all_games(reload=True)
         self.addCleanup(game_repository.all_games, True)
 

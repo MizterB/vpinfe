@@ -426,7 +426,7 @@ class EndpointBodyTests(unittest.TestCase):
         doctored = [
             '| PUT | `/api/v1/games/{id}/rating` | Rate a game, `{"stars": 3}` |',
             '| POST | `/api/v1/library/media/fill` | `{"slots": [{"game_id", "size"}]}` |',
-            '| PUT | `/api/v1/locations/{id}` | Add one, `{"path", "label"}` |',
+            '| POST | `/api/v1/locations/{id}/shadowed/adopt` | `{"path", "label"}` |',
             '| GET | `/api/v1/uploads/{id}` | Session summary → `{"file_count"}` |',
             '| POST | `/api/v1/uploads` | Begin one → `{"id": ...}` |',
         ]

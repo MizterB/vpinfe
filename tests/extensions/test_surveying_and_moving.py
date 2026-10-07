@@ -116,11 +116,10 @@ class MovingTests(TempTree):
 class LibraryFolderTests(TempTree):
     def setUp(self) -> None:
         super().setUp()
-        self.store = library_folders.LocationStore(str(self.root / "locations.json"))
+        self.store = library_folders.LocationStore(self.root / "config")
         patcher = mock.patch.object(library_folders, "get_location_store", return_value=self.store)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.store.mark_migration(library_folders.SEEDED)
         withdraw_all()
         self.addCleanup(withdraw_all)
         httpapi.create_api_app()

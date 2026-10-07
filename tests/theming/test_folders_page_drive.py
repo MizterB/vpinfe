@@ -54,7 +54,7 @@ class FoldersPageDrive(unittest.TestCase):
     async def _drive(cls, instance: LiveInstance, second: str) -> dict:
         instance.wait_for_api()
         urllib.request.urlopen(urllib.request.Request(
-            instance.console_url("/api/v1/locations/second"),
+            instance.console_url("/api/v1/config/locations/second"),
             data=json.dumps({"path": second, "kind": "root"}).encode(), method="PUT",
             headers={"Content-Type": "application/json"}), timeout=10).close()
         seen: dict = {"second": second}

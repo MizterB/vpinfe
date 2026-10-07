@@ -17,10 +17,10 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common.games import game_repository, library_folders
+from common.games import game_repository
 from common.games.info_file import GAME_ID_KEY
 from common.i18n import t
-from tests.support.library import write_game
+from tests.support.library import own_locations, write_game
 from tests.support.skips import needs_posix_permissions
 
 
@@ -34,11 +34,7 @@ class CreateGameCase(unittest.TestCase):
         self.elsewhere = self.root / "elsewhere"
         self.elsewhere.mkdir()
 
-        self.store = library_folders.LocationStore(os.path.join(self.tmp.name, "locations.json"))
-        patcher = patch.object(library_folders, "get_location_store", return_value=self.store)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        self.store.mark_migration(library_folders.SEEDED)
+        self.store = own_locations(self, self.root / "config")
 
         # A read allowlist of this test's own. Unpatched it is built from this machine's
         # configuration, so `within_roots` would be answering about a real library.
@@ -56,9 +52,14 @@ class CreateGameCase(unittest.TestCase):
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
         self.addCleanup(game_repository.all_games, True)
 
+    def put_location(self, path: Path, location_id: str) -> None:
+        """Held, and where new games go."""
+        self.client.put(f"/config/locations/{location_id}", json={"path": str(path)})
+        self.client.put("/config", json={
+            "settings": {"updates": {"new_games_location": location_id}}})
+
     def add_location(self, path: Path, location_id: str = "one") -> None:
-        self.client.put(f"/locations/{location_id}", json={"path": str(path)})
-        self.client.put(f"/locations/{location_id}/write-to", json={})
+        self.put_location(path, location_id)
         game_repository.all_games(reload=True)
 
     def create(self, name: str, **body) -> dict:
@@ -159,8 +160,7 @@ class CreateTests(CreateGameCase):
         self.add_location(self.library, "one")
         read_only = self.root / "readonly"
         read_only.mkdir()
-        self.client.put("/locations/two", json={"path": str(read_only)})
-        self.client.put("/locations/two/write-to", json={})
+        self.put_location(read_only, "two")
         os.chmod(read_only, 0o500)
         self.addCleanup(os.chmod, read_only, 0o700)
 

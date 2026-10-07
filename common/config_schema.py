@@ -342,9 +342,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     # file once. What is left here belongs to the install itself.
     *in_section(
         "general",
-        # Runtime state that happens to live in the config file. Nothing settable is left
-        # here. `locations.json` holds the library root now, and this seeds it on first
-        # run.
+        # Read only by the ini conversion, which turns it into the first location.
         ConfigOption(
             "game_root_dir",
             type="string",
@@ -683,6 +681,13 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "ask_where_new_games_go",
             type="bool",
             default="true",
+            home="library.folders",
+            legacy=(),
+        ),
+        ConfigOption(
+            "new_games_location",
+            type="string",
+            default="",
             home="library.folders",
             legacy=(),
         ),
@@ -1304,7 +1309,17 @@ def _typed_field(list_key: str, field: Field, value: Any) -> Any:
     return value
 
 
-CONFIG_LISTS: tuple[ConfigList, ...] = ()
+CONFIG_LISTS: tuple[ConfigList, ...] = (
+    ConfigList(
+        "locations",
+        (
+            Field("path", type="string", path="dir"),
+            Field("kind", type="choice", default="root",
+                  choices=(("root", "Folder of games"), ("game", "One game folder"))),
+        ),
+        home="library.folders",
+    ),
+)
 
 _NORMALIZERS: dict[str, Callable[[list[dict[str, Any]]], list[dict[str, Any]]]] = {}
 _SEEDS: dict[str, Callable[[Any], None]] = {}
@@ -1329,6 +1344,22 @@ def register_normalizer(key: str,
 def normalize(key: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     fn = _NORMALIZERS.get(key)
     return fn(items) if fn else items
+
+
+_VALIDATORS: dict[str, Callable[[list[dict[str, Any]]], None]] = {}
+
+
+def register_validator(key: str, fn: Callable[[list[dict[str, Any]]], None]) -> None:
+    """`fn` sees a list's items at every write, after each is typed, and raises
+    `ConfigListError` to refuse the write. The normalizer is for a file somebody edited,
+    which has to load; this is for a write, which can be told no."""
+    _VALIDATORS[key] = fn
+
+
+def validate(key: str, items: list[dict[str, Any]]) -> None:
+    fn = _VALIDATORS.get(key)
+    if fn:
+        fn(items)
 
 
 def register_seed(name: str, fn: Callable[[Any], None]) -> None:

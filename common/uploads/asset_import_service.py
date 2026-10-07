@@ -264,31 +264,16 @@ def _plan_media(asset: DetectedAsset, base: Path) -> PlannedItem:
 def _new_games_under(location_id: str = "") -> str:
     """The folder a new game is created in.
 
-    The location marked "create new games here", not the configured root - locations
-    replaced that key, and reading it leaves the control on screen storing a choice
-    nothing acts on. On a single-location install the two are the same folder, so that
-    goes unnoticed: the seed makes the first location out of that root and marks it as
-    the target in the same breath.
-
-    Falls back to the root only where the location store has nothing to say, so an
-    install that has not been through the seed still imports.
+    The location marked "create new games here". When none of them will take it this is
+    refused rather than landing somewhere else: the row on screen says where new games
+    go, and writing to a different one makes that row a lie.
     """
-    from common.games.library_folders import KIND_ROOT, configured, destination, get_location_store
+    from common.games.library_folders import destination
 
     found = destination(location_id)
-    if found.path:
-        return found.path
-    if get_location_store().locations():
-        # There are locations and none of them will take this. Refused rather than
-        # quietly landing somewhere else: the row on screen says where new games go,
-        # and writing to a different one makes that row a lie.
+    if not found.path:
         raise ValueError(found.reason)
-    # None at all, which is an install that has not been through the seed. It still has
-    # to be able to import, and the configured root is where it always went.
-    unseeded = next((one.path for one in configured() if one.kind == KIND_ROOT), "")
-    if not unseeded:
-        raise ValueError(found.reason)
-    return unseeded
+    return found.path
 
 
 def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,

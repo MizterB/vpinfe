@@ -280,10 +280,6 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/preferences/{scope}` | Store one. The body is the whole value |
 | GET | `/api/v1/locations` | Every location this install looks in, in order, each with what the disk says about it now and how many game folders it holds (`games`). `write_to` is the one a new game goes to, even while it is away |
 | GET | `/api/v1/locations/destination` | Where a new game would be created, or why it could not, and where else it could go |
-| PUT | `/api/v1/locations/order` | Set which location outranks which, `{"order": [...]}` |
-| PUT | `/api/v1/locations/{id}` | Add or replace one, whole, `{"path", "kind"}` |
-| DELETE | `/api/v1/locations/{id}` | Forget one. The records inside it go with it |
-| PUT | `/api/v1/locations/{id}/write-to` | Create new games here |
 | GET | `/api/v1/locations/{id}/shadowed` | Game folders here whose id another folder answers for, with both sides |
 | POST | `/api/v1/locations/{id}/shadowed/adopt` | Give one of them, `{"path"}`, an id of its own |
 | GET | `/api/v1/folders?path=` | This device's folders under a path, for a folder field's Browse button. Unbounded, unlike `/filesystem` - empty `path` starts at the home folder, `above` lists the folders above `path` (nearest first, to `/` or the drive, each `{name, path}`), `roots` names where else browsing can start (home, drives, `/`, `Volumes` on macOS). `config:write`, since picking where a library folder should be is itself a config-writing act. Answers only this device's own Console - a caller reaching the API from elsewhere is refused - and never lists a folder that is private (`.ssh`, browser profiles, keychains, and their platform equivalents), nor shows one as a child of its parent |

@@ -43,7 +43,7 @@ class _Sweep(TempTree):
                       fake_game(self.plain, PLAIN, meta=_info("Plain", []))]
         self.before = {p: p.read_bytes() for p in
                        (self.good / f"{GOOD}.info", self.dead / f"{DEAD}.info")}
-        store = library_folders.LocationStore(str(self.root / "locations.json"))
+        store = library_folders.LocationStore(self.root / "config")
         store.save([library_folders.Location(location_id="l1", path=str(self.library))], "")
         for patcher in (
                 mock.patch.object(library_folders, "get_location_store", return_value=store),

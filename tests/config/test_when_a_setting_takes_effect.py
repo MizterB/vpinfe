@@ -27,6 +27,9 @@ class Store:
     def set_value(self, section, key, value):
         self.written[(section, key)] = value
 
+    def get_list(self, key):
+        return []
+
     def save(self) -> None:
         pass
 

@@ -610,7 +610,7 @@ class Library:
     def set_location_write_to(self, location_id: str) -> dict:
         return self._client.set_location_write_to(location_id)
 
-    def set_location_order(self, order: list[str]) -> dict:
+    def set_location_order(self, order: list[str]) -> list[str]:
         """Which location outranks which. Changing it changes which folder answers for
         a shared id, so every game read since is describing the old answer."""
         result = self._client.set_location_order(order)

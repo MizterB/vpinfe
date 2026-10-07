@@ -4,10 +4,12 @@ A location is either a **root**, whose children are game folders, or a **single 
 folder**. Both kinds coexist in one list, so a library can be a share plus the two
 folders somebody keeps elsewhere without either being second class.
 
-Follows `common/games/launchers.py`: a small JSON file, written whole and atomically,
-carrying its own schema version. **Per install, not per library** - a path is a fact
-about one machine, and a share reachable from the cabinet may not be reachable from the
-laptop reading the same library.
+The list is `locations` in `vpinfe.json`, and which one new entries are created in is
+`updates.new_games_location`. **Per install, not per library** - a path is a fact about
+one machine, and a share reachable from the cabinet may not be reachable from the laptop
+reading the same library. The share a folder was last seen on is not a setting, so it is
+kept on this install's row of the device registry, where a config file carried to another
+machine does not take it along.
 
 Whether a location is reachable and whether it can be written to are asked of the disk
 when somebody looks, never stored. A stored answer is wrong the moment a mount drops,
@@ -16,7 +18,6 @@ and a mount dropping is the ordinary case this exists to report well.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import threading
@@ -25,22 +26,19 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from common import mounts, path_state, service_errors
-from common.atomic_write import write_atomic
-from common.config_access import cfg_get
+from common import config_schema, config_service, mounts, path_state, service_errors
 from common.config_store import ConfigStore
+from common.device_registry import DeviceRegistry, get_device_registry
 from common.i18n import t
 from common.install_identity import mint_id
-from common.paths import CONFIG_DIR
+from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.library_folders")
 
-LOCATIONS_PATH = CONFIG_DIR / "locations.json"
-SCHEMA = 2
-SCHEMA_KEY = "schema"
 LOCATIONS_KEY = "locations"
-WRITE_TO_KEY = "write_to"
-MIGRATIONS_KEY = "migrations"
+NEW_GAMES_SECTION = "updates"
+NEW_GAMES_KEY = "new_games_location"
+ORIGINS_KEY = "location_origins"
 
 # Its children are game folders.
 KIND_ROOT = "root"
@@ -79,23 +77,19 @@ class Location:
         parts = [p for p in Path(self.path).parts if p not in ("/", "\\")]
         return "/".join(parts[-2:]) if len(parts) > 1 else (parts[0] if parts else self.path)
 
-    def as_dict(self) -> dict[str, Any]:
-        held: dict[str, Any] = {"location_id": self.location_id, "path": self.path,
-                                "kind": self.kind}
-        if self.origin is not None:
-            held["origin"] = self.origin.as_dict()
-        return held
+    def as_item(self) -> dict[str, Any]:
+        """The row as `locations` holds it. The share it was seen on is not part of it."""
+        return {"id": self.location_id, "path": self.path, "kind": self.kind}
 
     @classmethod
-    def from_dict(cls, raw: dict) -> Location | None:
-        location_id = str(raw.get("location_id", "") or "").strip()
+    def from_item(cls, raw: dict[str, Any]) -> Location | None:
+        location_id = str(raw.get("id", "") or "").strip()
         path = str(raw.get("path", "") or "").strip()
         if not location_id or not path:
             return None
         kind = str(raw.get("kind", "") or "").strip() or KIND_ROOT
         return cls(location_id=location_id, path=path,
-                   kind=kind if kind in KINDS else KIND_ROOT,
-                   origin=mounts.Origin.from_dict(raw.get("origin")))
+                   kind=kind if kind in KINDS else KIND_ROOT)
 
 
 def states_of(held: list[Location],
@@ -123,20 +117,82 @@ def state_of(location: Location) -> path_state.PathState:
     return states_of([location])[location.location_id]
 
 
+def _one_per_place(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One row per place. A file edited by hand can hold the same folder twice, and two
+    rows for one place would each report their own state; the id is what the state, the
+    write target and the order are all keyed by. Compared as spelled, not through
+    path_state.canonical(): resolving a path on a dead mount blocks."""
+    seen: set[str] = set()
+    kept = []
+    for item in items:
+        path = str(item.get("path") or "").strip()
+        key = os.path.normpath(os.path.expanduser(path))
+        if not path or key in seen:
+            logger.warning("Ignoring a second location for %s", path)
+            continue
+        seen.add(key)
+        kept.append(item)
+    return kept
+
+
+config_schema.register_normalizer(LOCATIONS_KEY, _one_per_place)
+
+
+def _refuse_bad_places(items: list[dict[str, Any]]) -> None:
+    """A write that names no folder, a relative one, or one another row holds is
+    refused by name; the normalizer would drop the row without saying which."""
+    held: dict[str, str] = {}
+    for item in items:
+        path = str(item.get("path") or "").strip()
+        if not path:
+            raise config_schema.ConfigListError(t("error.library_folders.needs_path"))
+        if not os.path.isabs(os.path.expanduser(path)):
+            raise config_schema.ConfigListError(t("error.library_folders.not_absolute"))
+        key = path_state.canonical(path)
+        if key in held:
+            raise config_schema.ConfigListError(
+                t("error.library_folders.duplicate", name=os.path.basename(key) or key))
+        held[key] = str(item.get("id"))
+
+
+config_schema.register_validator(LOCATIONS_KEY, _refuse_bad_places)
+
+
 class LocationStore:
     """Every location this install looks in, and which one new entries are created in."""
 
-    def __init__(self, path: Path | str | None = None) -> None:
-        self.path = Path(path) if path is not None else LOCATIONS_PATH
+    def __init__(self, folder: Path | str | None = None) -> None:
+        """Without `folder` this is the install's own. With one, the list lives in its
+        `vpinfe.json` and the learned shares in its `devices.json`, so a caller that
+        relocates one cannot leave the other on this machine's."""
+        self._folder = Path(folder) if folder is not None else None
+        self._config: ConfigStore | None = None
+        self._registry: DeviceRegistry | None = None
         self._lock = threading.RLock()
+
+    def _core(self) -> ConfigStore:
+        if self._folder is None:
+            return get_ini_config()
+        if self._config is None:
+            self._folder.mkdir(parents=True, exist_ok=True)
+            self._config = ConfigStore(str(self._folder / "vpinfe.json"))
+        else:
+            self._config.reread()
+        return self._config
+
+    def _devices(self) -> DeviceRegistry:
+        if self._folder is None:
+            return get_device_registry()
+        if self._registry is None:
+            self._registry = DeviceRegistry(self._folder / "devices.json")
+        return self._registry
 
     # -- reading -------------------------------------------------------------
 
     def locations(self) -> list[Location]:
-        """Every location, in the order the file holds them. An unreadable file is an
-        empty set, never an error: a first run has none and that is not a fault."""
+        """Every location, in the order the list holds them."""
         with self._lock:
-            return self._load()[0]
+            return self._load(self._core())
 
     def get(self, location_id: str) -> Location | None:
         wanted = str(location_id or "").strip()
@@ -149,8 +205,8 @@ class LocationStore:
         """Where a new entry's folder is created. A user choice, so it is stored rather
         than derived - but it falls back to the first writable one, because an install
         that has never been asked still has to be able to create something."""
-        with self._lock:
-            held, wanted = self._load()
+        held = self.locations()
+        wanted = self.chosen_write_to()
         states = states_of(held)
         named = next((one for one in held if one.location_id == wanted), None)
         if named is not None and states[named.location_id].writable:
@@ -158,11 +214,22 @@ class LocationStore:
         return next((one for one in held
                      if one.kind == KIND_ROOT and states[one.location_id].writable), None)
 
+    def chosen_write_to(self) -> str:
+        """The location somebody chose, or "" - without `write_to`'s fallback, so a
+        destination gone read-only is refused by name, not swapped for another."""
+        with self._lock:
+            return str(self._core().value(NEW_GAMES_SECTION, NEW_GAMES_KEY) or "").strip()
+
     # -- writing -------------------------------------------------------------
 
     def save(self, locations: list[Location], write_to: str = "") -> None:
-        with self._lock:
-            self._write(locations, write_to)
+        """Replace the whole list, in the order given, and the folder new entries go to."""
+        with config_service.writing(), self._lock:
+            config = self._core()
+            config.set_list(LOCATIONS_KEY, [one.as_item() for one in locations])
+            config.set_value(NEW_GAMES_SECTION, NEW_GAMES_KEY, write_to)
+            config_service.written(config, [LOCATIONS_KEY,
+                                            f"{NEW_GAMES_SECTION}.{NEW_GAMES_KEY}"])
 
     def put(self, location: Location) -> Location:
         """Change the row that has this id, or add one last.
@@ -174,8 +241,9 @@ class LocationStore:
         holds.
         """
         wanted = path_state.canonical(location.path)
-        with self._lock:
-            held, write_to = self._load()
+        with config_service.writing(), self._lock:
+            config = self._core()
+            held = self._load(config)
             named = next((i for i, one in enumerate(held)
                           if one.location_id == location.location_id), None)
             same = next((i for i, one in enumerate(held)
@@ -184,156 +252,48 @@ class LocationStore:
                 raise FolderHeldError(held[same])
             at = named if named is not None else same
             if at is None:
-                self._write([*held, location], write_to)
+                config.set_list(LOCATIONS_KEY, [one.as_item() for one in [*held, location]])
+                config_service.written(config, [LOCATIONS_KEY])
                 return location
-            # A share's origin belongs to the folder it was seen on, not to the row.
-            origin = held[at].origin if at == same else None
             location = Location(location_id=held[at].location_id,
-                                path=location.path, kind=location.kind, origin=origin)
-            self._write([location if i == at else one for i, one in enumerate(held)],
-                        write_to)
+                                path=location.path, kind=location.kind)
+            config.set_list(LOCATIONS_KEY, [(location if i == at else one).as_item()
+                                            for i, one in enumerate(held)])
+            config_service.written(config, [LOCATIONS_KEY])
         return location
 
     def record_origins(self, origins: dict[str, mounts.Origin]) -> None:
-        """Note the share each location was just seen on. Ids it does not hold are
-        ignored, and nothing is written when nothing changed."""
+        """Note the share each location was just seen on, with the path it was seen at, so
+        a row later pointed somewhere else does not keep naming the old share. Ids it does
+        not hold are ignored, and nothing is written when nothing changed."""
         with self._lock:
-            held, write_to = self._load()
-            updated = [replace(one, origin=origins[one.location_id])
-                       if one.location_id in origins else one for one in held]
-            if updated != held:
-                self._write(updated, write_to)
+            held = {one.location_id: one for one in self.locations()}
+            kept = self._origins()
+            learned = {key: value for key, value in kept.items() if key in held}
+            learned.update({key: {"path": held[key].path, "origin": origin.as_dict()}
+                            for key, origin in origins.items() if key in held})
+            if learned != kept:
+                self._devices().set_self(**{ORIGINS_KEY: learned or None})
 
-    def remove(self, location_id: str) -> bool:
-        """Forget a location. The records inside it go with it, because a contained
-        entry keeps its record in its own folder - that is where it lives, and it is
-        still there if the location comes back."""
-        wanted = str(location_id or "").strip()
-        with self._lock:
-            held, write_to = self._load()
-            kept = [one for one in held if one.location_id != wanted]
-            if len(kept) == len(held):
-                return False
-            self._write(kept, "" if write_to == wanted else write_to)
-        return True
+    # -- the list ------------------------------------------------------------
 
-    def chosen_write_to(self) -> str:
-        """The location somebody actually chose, or "".
-
-        `write_to` answers the fallback as well, which is right when something has to
-        create a folder now. This is right when the question is what they asked for -
-        so a destination that has gone read-only can be refused by name rather than
-        quietly becoming a different folder.
-        """
-        with self._lock:
-            return self._load()[1]
-
-    def reorder(self, order: list[str]) -> bool:
-        """Put the locations in the order given. **The order is the priority.**
-
-        A game folder carries its id, so one library reached through two locations has
-        every id twice - and which folder answers is decided by which location is
-        higher. That has to be somebody's to set, which is what this is.
-
-        Any location the caller does not name keeps its place after the ones that were,
-        in the order it already had. A caller working from a stale list therefore
-        rearranges what it knew about and loses nothing it did not.
-        """
-        with self._lock:
-            held, write_to = self._load()
-            by_id = {one.location_id: one for one in held}
-            wanted = [by_id[one] for one in
-                      dict.fromkeys(str(x or "").strip() for x in order)
-                      if one in by_id]
-            if not wanted:
-                return False
-            named = {one.location_id for one in wanted}
-            self._write(wanted + [one for one in held
-                                  if one.location_id not in named], write_to)
-        return True
-
-    def set_write_to(self, location_id: str) -> bool:
-        wanted = str(location_id or "").strip()
-        with self._lock:
-            held, _ = self._load()
-            if not any(one.location_id == wanted for one in held):
-                return False
-            self._write(held, wanted)
-        return True
-
-    def migrations(self) -> list[str]:
-        """Which one-time conversions have already run against this file."""
-        with self._lock:
-            return self._stored_migrations()
-
-    def mark_migration(self, name: str) -> None:
-        """Note that one has run, so it never runs twice."""
-        wanted = str(name or "").strip()
-        if not wanted:
-            return
-        with self._lock:
-            names = self._stored_migrations()
-            if wanted in names:
-                return
-            held, write_to = self._load()
-            self._write(held, write_to, migrations=names + [wanted])
-
-    # -- the file ------------------------------------------------------------
-
-    def _load(self) -> tuple[list[Location], str]:
-        payload = self._payload()
-        held = [one for one in
-                (Location.from_dict(raw) for raw in payload.get(LOCATIONS_KEY) or []
-                 if isinstance(raw, dict))
-                if one is not None]
-        # One row per place and per id. A file edited by hand can hold the same folder
-        # twice, and two rows for one place would each report their own state; the id is
-        # what the state, the write target and the order are all keyed by. Compared as
-        # spelled, not through path_state.canonical(): resolving a path on a dead mount blocks.
-        seen: set[str] = set()
-        ids: set[str] = set()
-        unique = []
-        for one in held:
-            key = os.path.normpath(os.path.expanduser(one.path))
-            if key in seen or one.location_id in ids:
-                logger.warning("Ignoring a second location for %s", one.path)
+    def _load(self, config: ConfigStore) -> list[Location]:
+        origins = self._origins()
+        held: dict[str, Location] = {}
+        for raw in _one_per_place([item for item in config.get_list(LOCATIONS_KEY)
+                                   if isinstance(item, dict)]):
+            one = Location.from_item(raw)
+            if one is None or one.location_id in held:
                 continue
-            seen.add(key)
-            ids.add(one.location_id)
-            unique.append(one)
-        write_to = str(payload.get(WRITE_TO_KEY, "") or "").strip()
-        return unique, write_to
+            seen = origins.get(one.location_id)
+            if isinstance(seen, dict) and seen.get("path") == one.path:
+                one = replace(one, origin=mounts.Origin.from_dict(seen.get("origin")))
+            held[one.location_id] = one
+        return list(held.values())
 
-    def _payload(self) -> dict:
-        try:
-            with open(self.path, encoding="utf-8") as handle:
-                return json.load(handle) or {}
-        except FileNotFoundError:
-            return {}
-        except Exception:
-            logger.exception("Could not read %s; treating it as empty", self.path)
-            return {}
-
-    def _stored_migrations(self) -> list[str]:
-        return [str(name) for name in self._payload().get(MIGRATIONS_KEY) or []
-                if str(name).strip()]
-
-    def _write(self, locations: list[Location], write_to: str,
-               migrations: list[str] | None = None) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            SCHEMA_KEY: SCHEMA,
-            MIGRATIONS_KEY: (self._stored_migrations() if migrations is None
-                             else migrations),
-            LOCATIONS_KEY: [one.as_dict() for one in locations],
-            WRITE_TO_KEY: str(write_to or ""),
-        }
-        write_atomic(self.path, lambda handle: json.dump(payload, handle, indent=2))
-
-
-# The id every row carries while the scan still walks the configured root. Runtime
-# only: nothing stores a location id yet.
-CONFIGURED_ID = "configured"
+    def _origins(self) -> dict[str, Any]:
+        found = self._devices().self_get(ORIGINS_KEY, {})
+        return found if isinstance(found, dict) else {}
 
 
 @dataclass(frozen=True)
@@ -376,7 +336,10 @@ def destination(location_id: str = "") -> Destination:
     held = store.locations()
     states = states_of(held)
     writable = _writable_roots(held, states)
-    wanted = str(location_id or "").strip() or store.chosen_write_to()
+    chosen = store.chosen_write_to()
+    if not any(one.location_id == chosen for one in held):
+        chosen = ""
+    wanted = str(location_id or "").strip() or chosen
 
     if not wanted:
         # Nothing chosen. The first writable root is the honest default rather than a
@@ -483,55 +446,28 @@ def _inside(root: str, path: str) -> bool:
 
 
 def configured() -> list[Location]:
-    """Every location the scan walks.
-
-    The store, and the configured root only while the store has nothing and the seed has
-    not run - an install that has not started since locations arrived, or one whose file
-    was deleted. Falling back rather than reading empty means a library never disappears
-    because a seed did not run; after it has, an empty store is no locations.
-    """
-    store = get_location_store()
-    held = store.locations()
-    if held or SEEDED in store.migrations():
-        return held
-
-    from common.paths import get_games_path
-
-    root = get_games_path(default="")
-    return [Location(location_id=CONFIGURED_ID, path=root, kind=KIND_ROOT)] if root else []
+    """Every location the scan walks."""
+    return get_location_store().locations()
 
 
-SEEDED = "seeded-from-config"
+def seed(store: Any) -> None:
+    """Turn the single root a 2.x install was configured with into its first location,
+    and the folder new games go to. Runs while the ini is converted; what it read is
+    removed after the writes, so a failed one leaves the 2.x value where the conversion
+    restores it."""
+    config = store.config
+    root = str(config.get("general", "game_root_dir", fallback="") or "").strip()
+    if not root:
+        return
+    location_id = mint_location_id()
+    store.set_list(LOCATIONS_KEY, [*store.get_list(LOCATIONS_KEY),
+                                   Location(location_id, root).as_item()])
+    store.set_value(NEW_GAMES_SECTION, NEW_GAMES_KEY, location_id)
+    config.remove_option("general", "game_root_dir")
+    logger.info("Seeded the library location from the configured root: %s", root)
 
 
-def seed(store: LocationStore, config: ConfigStore) -> bool:
-    """Give an install its locations, once, from the single root it was configured with.
-
-    Marked so it never runs twice: somebody who removes a location should not find it
-    back on the next start. An install with no root configured is not marked, so the
-    first one it is given still seeds.
-    """
-    if SEEDED in store.migrations():
-        return False
-    configured = str(cfg_get(config, "general", "game_root_dir", "") or "").strip()
-    if not configured:
-        return False
-
-    location = store.put(Location(location_id=mint_location_id(), path=configured,
-                                  kind=KIND_ROOT))
-    store.set_write_to(location.location_id)
-    store.mark_migration(SEEDED)
-    logger.info("Seeded the library location from the configured root: %s", configured)
-    return True
-
-
-def ensure_seeded(config: ConfigStore) -> None:
-    """Seed at startup, and never let it be the thing that stops an install starting."""
-    try:
-        seed(get_location_store(), config)
-    except Exception:
-        logger.exception("Could not seed locations from the configuration")
-
+config_schema.register_seed("library_folders", seed)
 
 _store: LocationStore | None = None
 

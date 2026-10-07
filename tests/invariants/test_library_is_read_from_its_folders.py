@@ -19,8 +19,7 @@ NAMES = frozenset({"game_root_dir", "gamerootdir", "tablerootdir", "get_games_pa
 ALLOWED_FILES = frozenset({"common/paths.py", "common/config_schema.py",
                            "common/config_store.py", "common/deprecations.py"})
 # And the two reads that remain: the seed, and the fallback before it has run.
-ALLOWED_FUNCTIONS = frozenset({("common/games/library_folders.py", "configured"),
-                               ("common/games/library_folders.py", "seed")})
+ALLOWED_FUNCTIONS = frozenset({("common/games/library_folders.py", "seed")})
 
 
 def _mentions(node: ast.AST) -> bool:

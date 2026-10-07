@@ -144,7 +144,8 @@ class LiveInstance:
         self.ports = {"assets": free_port(), "manager": free_port(), "ws": free_port()}
 
         store = ConfigStore(str(self.config_dir / "vpinfe.ini"))
-        cfg_set(store, "general", "game_root_dir", str(self.games_root))
+        from common.games.library_folders import Location, mint_location_id
+        store.set_list("locations", [Location(mint_location_id(), str(self.games_root)).as_item()])
         cfg_set(store, "general", "theme", self.theme)
         # A window with no screen assigned gets no API instance, which is right on a
         # desktop with one monitor and wrong for a test that wants to open all three.

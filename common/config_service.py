@@ -325,6 +325,17 @@ def _announce(store: Any, changed: list[str]) -> None:
         events.emit(events.SETTINGS_CHANGED, keys=changed, ini_config=store)
 
 
+def writing() -> threading.RLock:
+    """Held by anything that reads the config file and writes it back."""
+    return _WRITING
+
+
+def written(store: Any, changed: list[str]) -> None:
+    """Save a store somebody else changed, and say which keys changed. Under `writing()`."""
+    _save(store)
+    _announce(store, changed)
+
+
 class NoSuchItemError(LookupError):
     """A list holds no item with that id."""
 

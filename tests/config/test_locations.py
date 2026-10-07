@@ -6,12 +6,13 @@ import json
 import os
 import time
 import unittest
-from configparser import ConfigParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from common import mounts, path_state
+from common.config_store import ConfigStore
+from common.device_registry import DeviceRegistry
 from common.games import library_folders as locations
 from common.games.library_folders import (
     KIND_GAME,
@@ -24,12 +25,6 @@ from tests.support.hung_folder import never_answering
 from tests.support.skips import needs_posix_permissions
 
 
-def _config(**values) -> ConfigParser:
-    parser = ConfigParser()
-    parser["general"] = {k: str(v) for k, v in values.items()}
-    return parser
-
-
 class _WithStore:
     """Shared setup. Not a TestCase, so subclassing it does not re-run its tests."""
 
@@ -37,7 +32,11 @@ class _WithStore:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.store = LocationStore(self.root / "locations.json")
+        self.folder = self.root / "config"
+        self.store = LocationStore(self.folder)
+
+    def _choose(self, location: Location) -> None:
+        self.store.save(self.store.locations(), location.location_id)
 
     def _location(self, name: str, kind: str = KIND_ROOT) -> Location:
         folder = self.root / name
@@ -49,7 +48,7 @@ class _WithStore:
 class StoreTests(_WithStore, unittest.TestCase):
     def test_a_missing_file_is_an_empty_list_rather_than_an_error(self) -> None:
         """A first run has none, and that is not a fault."""
-        self.assertEqual(LocationStore(self.root / "nope.json").locations(), [])
+        self.assertEqual(LocationStore(self.root / "nope").locations(), [])
 
     def test_roots_and_single_game_folders_coexist(self) -> None:
         self._location("share")
@@ -71,7 +70,7 @@ class StoreTests(_WithStore, unittest.TestCase):
         """The order is the priority, so asking again must not send it to the back."""
         first = self._location("first")
         second = self._location("second")
-        self.store.set_write_to(second.location_id)
+        self._choose(second)
 
         again = self.store.put(Location(location_id=locations.mint_location_id(),
                                         path=str(self.root / "first")))
@@ -112,7 +111,9 @@ class StoreTests(_WithStore, unittest.TestCase):
         self.assertEqual(self.store.locations(), [first, second])
 
     def test_moving_a_row_drops_the_share_it_was_seen_on(self) -> None:
-        held = self.store.put(Location("id", str(self.root / "share"), origin=NAS))
+        held = self.store.put(Location("id", str(self.root / "share")))
+        self.store.record_origins({"id": NAS})
+        self.assertEqual(self.store.get("id").origin, NAS)
 
         moved = self.store.put(Location("id", str(self.root / "elsewhere")))
 
@@ -123,13 +124,13 @@ class StoreTests(_WithStore, unittest.TestCase):
         """A file edited by hand can hold it twice."""
         folder = self.root / "share"
         folder.mkdir()
-        path = self.root / "locations.json"
-        path.write_text(json.dumps({"schema": 1, "locations": [
-            {"location_id": "a", "path": str(folder), "kind": KIND_ROOT},
-            {"location_id": "b", "path": str(folder), "kind": KIND_ROOT},
+        self.folder.mkdir()
+        (self.folder / "vpinfe.json").write_text(json.dumps({"locations": [
+            {"id": "a", "path": str(folder), "kind": KIND_ROOT},
+            {"id": "b", "path": str(folder), "kind": KIND_ROOT},
         ]}))
 
-        self.assertEqual([one.location_id for one in LocationStore(path).locations()],
+        self.assertEqual([one.location_id for one in LocationStore(self.folder).locations()],
                          ["a"])
 
     def test_a_second_row_under_one_id_is_dropped_on_read(self) -> None:
@@ -138,13 +139,13 @@ class StoreTests(_WithStore, unittest.TestCase):
         first, second = self.root / "first", self.root / "second"
         first.mkdir()
         second.mkdir()
-        path = self.root / "locations.json"
-        path.write_text(json.dumps({"schema": 2, "locations": [
-            {"location_id": "a", "path": str(first), "kind": KIND_ROOT},
-            {"location_id": "a", "path": str(second), "kind": KIND_ROOT},
+        self.folder.mkdir()
+        (self.folder / "vpinfe.json").write_text(json.dumps({"locations": [
+            {"id": "a", "path": str(first), "kind": KIND_ROOT},
+            {"id": "a", "path": str(second), "kind": KIND_ROOT},
         ]}))
 
-        self.assertEqual([one.path for one in LocationStore(path).locations()],
+        self.assertEqual([one.path for one in LocationStore(self.folder).locations()],
                          [str(first)])
 
     def test_reading_the_list_resolves_no_path(self) -> None:
@@ -154,28 +155,21 @@ class StoreTests(_WithStore, unittest.TestCase):
 
         self.assertEqual(held, [folder])
 
-    def test_removing_one_forgets_it_and_the_write_target_with_it(self) -> None:
-        held = self._location("share")
-        self.store.set_write_to(held.location_id)
-
-        self.assertTrue(self.store.remove(held.location_id))
-        self.assertEqual(self.store.locations(), [])
-        self.assertIsNone(self.store.write_to())
-
-    def test_removing_one_that_is_not_there_says_so(self) -> None:
-        self.assertFalse(self.store.remove("nothing"))
-
-    def test_an_unknown_id_cannot_become_the_write_target(self) -> None:
-        self.assertFalse(self.store.set_write_to("nothing"))
-
-
 class WriteTargetTests(_WithStore, unittest.TestCase):
     def test_the_named_one_wins(self) -> None:
         self._location("first")
         second = self._location("second")
-        self.store.set_write_to(second.location_id)
+        self._choose(second)
 
         self.assertEqual(self.store.write_to().location_id, second.location_id)
+
+    def test_a_target_no_longer_listed_falls_back_to_the_first_that_works(self) -> None:
+        kept = self._location("kept")
+
+        self.store.save([kept], write_to="gone")
+
+        self.assertEqual(self.store.chosen_write_to(), "gone")
+        self.assertEqual(self.store.write_to().location_id, kept.location_id)
 
     @needs_posix_permissions
     def test_an_unwritable_target_falls_back_to_one_that_works(self) -> None:
@@ -183,7 +177,7 @@ class WriteTargetTests(_WithStore, unittest.TestCase):
         something."""
         readonly = self._location("readonly")
         writable = self._location("writable")
-        self.store.set_write_to(readonly.location_id)
+        self._choose(readonly)
         os.chmod(readonly.path, 0o500)
         self.addCleanup(os.chmod, readonly.path, 0o700)
 
@@ -342,83 +336,151 @@ class ShareTests(_WithStore, unittest.TestCase):
         self.assertIsNone(self.store.get(folder.location_id).origin)
 
     def test_changing_what_a_location_holds_keeps_its_share(self) -> None:
-        held = self.store.put(Location("id", str(self.root / "share"), origin=NAS))
+        held = self.store.put(Location("id", str(self.root / "share")))
+        self.store.record_origins({"id": NAS})
         again = self.store.put(Location(locations.mint_location_id(), held.path,
                                         kind=KIND_GAME))
 
-        self.assertEqual(again.origin, NAS)
+        self.assertEqual(self.store.get(again.location_id).origin, NAS)
 
-    def test_a_share_is_kept_in_the_file(self) -> None:
-        self.store.put(Location("id", str(self.root / "share"), origin=NAS))
-        payload = json.loads(self.store.path.read_text())
+    def test_a_share_is_kept_on_this_install_and_not_in_the_config(self) -> None:
+        """A config file carried to another machine must not name the share the folder
+        was seen on here."""
+        self.store.put(Location("id", str(self.root / "share")))
+        self.store.record_origins({"id": NAS})
 
-        self.assertEqual(payload["schema"], 2)
-        self.assertEqual(LocationStore(self.store.path).locations()[0].origin, NAS)
+        self.assertNotIn("nas.lan", (self.folder / "vpinfe.json").read_text())
+        noted = DeviceRegistry(self.folder / "devices.json").self_get("location_origins")
+        self.assertEqual(noted["id"]["origin"], NAS.as_dict())
+        self.assertEqual(LocationStore(self.folder).locations()[0].origin, NAS)
+
+    def test_a_share_noted_for_a_row_is_not_kept_for_a_path_it_no_longer_has(self) -> None:
+        self.store.put(Location("id", str(self.root / "share")))
+        self.store.record_origins({"id": NAS})
+        registry = DeviceRegistry(self.folder / "devices.json")
+        noted = registry.self_get("location_origins")
+        noted["id"]["path"] = str(self.root / "somewhere-else")
+        registry.set_self(location_origins=noted)
+
+        self.assertIsNone(LocationStore(self.folder).get("id").origin)
+
+    def test_origins_for_rows_that_are_gone_are_forgotten(self) -> None:
+        self.store.put(Location("id", str(self.root / "share")))
+        self.store.record_origins({"id": NAS})
+
+        self.store.save([])
+        self.store.record_origins({})
+
+        registry = DeviceRegistry(self.folder / "devices.json")
+        self.assertIsNone(registry.self_get("location_origins", None))
 
 
 class SeedTests(_WithStore, unittest.TestCase):
+    """2.x kept the library in one setting. Converting its ini makes it the first
+    location, and the setting is not written back."""
+
+    def _converted(self, ini: str) -> ConfigStore:
+        self.folder.mkdir()
+        (self.folder / "vpinfe.ini").write_text(ini, encoding="utf-8")
+        return ConfigStore(str(self.folder / "vpinfe.json"))
+
     def test_the_configured_root_becomes_the_first_location(self) -> None:
         games = self.root / "games"
         games.mkdir()
 
-        self.assertTrue(locations.seed(self.store, _config(game_root_dir=str(games))))
+        self._converted(f"[Settings]\ntablerootdir = {games}\n")
 
-        held = self.store.locations()
+        held = LocationStore(self.folder).locations()
         self.assertEqual([one.path for one in held], [str(games)])
         self.assertEqual(held[0].kind, KIND_ROOT)
-        self.assertEqual(self.store.write_to().location_id, held[0].location_id)
+
+    def test_and_it_is_where_new_games_go(self) -> None:
+        games = self.root / "games"
+        games.mkdir()
+
+        self._converted(f"[Settings]\ntablerootdir = {games}\n")
+
+        store = LocationStore(self.folder)
+        self.assertEqual(store.chosen_write_to(), store.locations()[0].location_id)
+        self.assertEqual(store.write_to().path, str(games))
+
+    def test_the_setting_it_read_is_not_written_back(self) -> None:
+        games = self.root / "games"
+        games.mkdir()
+
+        self._converted(f"[Settings]\ntablerootdir = {games}\n")
+
+        store = ConfigStore(str(self.folder / "vpinfe.json"))
+        self.assertEqual(store.value("general", "game_root_dir"), "")
+
+    def test_an_ini_with_no_root_makes_no_location(self) -> None:
+        self._converted("[Settings]\n[Display]\nrotation = 90\n")
+
+        store = LocationStore(self.folder)
+        self.assertEqual(store.locations(), [])
+        self.assertEqual(store.chosen_write_to(), "")
 
     def test_it_runs_once(self) -> None:
         """Somebody who removes a location should not find it back on the next start."""
         games = self.root / "games"
         games.mkdir()
-        config = _config(game_root_dir=str(games))
-        locations.seed(self.store, config)
-        self.store.remove(self.store.locations()[0].location_id)
+        self._converted(f"[Settings]\ntablerootdir = {games}\n")
+        LocationStore(self.folder).save([])
 
-        self.assertFalse(locations.seed(self.store, config))
-        self.assertEqual(self.store.locations(), [])
-
-    def test_an_install_with_no_root_yet_is_not_marked(self) -> None:
-        """The first root it is given still has to seed."""
-        self.assertFalse(locations.seed(self.store, _config()))
-        self.assertEqual(self.store.migrations(), [])
-
-        games = self.root / "games"
-        games.mkdir()
-        self.assertTrue(locations.seed(self.store, _config(game_root_dir=str(games))))
+        self.assertEqual(LocationStore(self.folder).locations(), [])
+        self.assertEqual(ConfigStore(str(self.folder / "vpinfe.json")).get_list("locations"), [])
 
 
 class ConfiguredTests(_WithStore, unittest.TestCase):
+    def test_nothing_held_is_no_locations(self) -> None:
+        with patch.object(locations, "get_location_store", return_value=self.store):
+            self.assertEqual(locations.configured(), [])
+
+    def test_what_the_store_holds_is_what_is_walked(self) -> None:
+        held = self._location("share")
+        with patch.object(locations, "get_location_store", return_value=self.store):
+            self.assertEqual(locations.configured(), [held])
+
+
+class WritesAreCheckedTests(_WithStore, unittest.TestCase):
+    """A write to the list names a folder, an absolute one, that no other row holds."""
+
+    def _refused(self, *items: dict) -> str:
+        from common.config_schema import ConfigListError
+
+        with self.assertRaises(ConfigListError) as refused:
+            ConfigStore(str(self.folder / "vpinfe.json")).set_list("locations", list(items))
+        return str(refused.exception)
+
     def setUp(self) -> None:
         super().setUp()
-        patch.object(locations, "get_location_store", return_value=self.store).start()
-        self.addCleanup(patch.stopall)
+        self.folder.mkdir()
 
-    def _walked(self, config: ConfigParser) -> list[Location]:
-        with patch("common.paths.get_ini_config", return_value=config):
-            return locations.configured()
+    def test_a_row_with_no_path_is_refused(self) -> None:
+        self.assertTrue(self._refused({"id": "a", "path": "  "}))
 
-    def test_the_last_location_removed_stays_out_of_the_scan(self) -> None:
-        games = self.root / "games"
-        games.mkdir()
-        config = _config(game_root_dir=str(games))
-        locations.seed(self.store, config)
-        self.store.remove(self.store.locations()[0].location_id)
+    def test_a_relative_path_is_refused(self) -> None:
+        """It would name a different folder depending on where the install started."""
+        self.assertTrue(self._refused({"id": "a", "path": "testbed/tables"}))
 
-        self.assertEqual(self._walked(config), [])
+    def test_a_second_row_for_one_place_is_refused_by_name(self) -> None:
+        said = self._refused({"id": "a", "path": "/mnt/pinball"},
+                             {"id": "b", "path": "/mnt/pinball/"})
 
-    def test_nothing_configured_is_no_locations(self) -> None:
-        self.assertEqual(self._walked(_config()), [])
+        self.assertIn("pinball", said)
 
-    def test_before_the_seed_has_run_the_configured_root_is_walked(self) -> None:
-        games = self.root / "games"
-        games.mkdir()
+    def test_a_link_to_a_folder_another_row_holds_is_the_same_place(self) -> None:
+        real = self.root / "real"
+        real.mkdir()
+        try:
+            (self.root / "link").symlink_to(real, target_is_directory=True)
+        except OSError:
+            self.skipTest("this system will not make a symlink")
 
-        walked = self._walked(_config(game_root_dir=str(games)))
+        said = self._refused({"id": "a", "path": str(real)},
+                             {"id": "b", "path": str(self.root / "link")})
 
-        self.assertEqual([(one.location_id, one.path) for one in walked],
-                         [(locations.CONFIGURED_ID, str(games))])
+        self.assertIn("real", said)
 
 
 if __name__ == "__main__":

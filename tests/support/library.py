@@ -28,6 +28,30 @@ def own_registry(case: unittest.TestCase, path: Path | str) -> device_registry.D
     return device_registry.get_device_registry()
 
 
+def own_locations(case: unittest.TestCase, folder: Path | str):
+    """This install's locations, kept in a config folder of the test's own.
+
+    The `/config` routes write through `get_ini_config`, so that is pointed at the same
+    `vpinfe.json` the store reads - a route and the store must see one list.
+    """
+    from unittest.mock import patch
+
+    from common import config_service
+    from common.config_store import ConfigStore
+    from common.games import library_folders
+
+    kept = Path(folder)
+    kept.mkdir(parents=True, exist_ok=True)
+    store = library_folders.LocationStore(kept)
+    for target, replacement in (
+            (library_folders, ("get_location_store", lambda: store)),
+            (config_service, ("get_ini_config", lambda: ConfigStore(kept / "vpinfe.json")))):
+        patcher = patch.object(target, replacement[0], replacement[1])
+        patcher.start()
+        case.addCleanup(patcher.stop)
+    return store
+
+
 class TempTree(unittest.TestCase):
     """A test case with `self.root`, a temporary directory cleaned up afterwards, and a
     device registry of its own, in a directory beside it, as `self.registry_path`."""

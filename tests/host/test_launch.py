@@ -1054,7 +1054,7 @@ class LocationNotConnectedTests(LaunchTests):
         super().setUp()
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        store = LocationStore(pathlib.Path(tmp.name) / "locations.json")
+        store = LocationStore(pathlib.Path(tmp.name) / "config")
         store.put(Location("nas", "/mnt/launch-nas/tables"))
         self.origin = mounts.Origin(mounts.NFS, "nas.lan", "/export", "/mnt/launch-nas")
         for patcher in (

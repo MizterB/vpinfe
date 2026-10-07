@@ -752,7 +752,7 @@ class RoomTests(FolderCase):
     def test_a_run_is_asked_about_the_location_it_was_sent_to(self) -> None:
         """No `into`, but a location: the games are made there, so that is where the
         room is. The default would be answered for a folder nothing is written to."""
-        self.client.put("/locations/two", json={"path": str(self.elsewhere)})
+        self.client.put("/config/locations/two", json={"path": str(self.elsewhere)})
 
         with self.asked as room_at:
             started = self.client.post(

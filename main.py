@@ -60,6 +60,9 @@ from common import (
     whats_new,
 )
 from common.config_store import ConfigStore
+
+# Registers the seed the 2.x conversion runs, so it has to be in before the ConfigStore below.
+from common.games import library_folders  # noqa: F401
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
     stop_libdmdutil_service,

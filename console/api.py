@@ -456,7 +456,7 @@ class ApiClient:
         self._answered(response)
         return response.json()
 
-    def _put(self, path: str, body: dict) -> dict:
+    def _put(self, path: str, body: dict | list) -> Any:
         _refuse_the_event_loop(path)
         response = self._session.put(f"{self._base}{path}", json=body, timeout=_TIMEOUT)
         self._answered(response)
@@ -1083,14 +1083,24 @@ class ApiClient:
         return dict(self._get("/locations", _LIBRARY_TIMEOUT) or {})
 
     def put_location(self, location_id: str, body: dict) -> dict:
-        return dict(self._put(f"/locations/{location_id}", body) or {})
+        return dict(self._put(f"/config/locations/{location_id}", body) or {})
 
     def delete_location(self, location_id: str) -> None:
-        self._delete(f"/locations/{location_id}")
+        self._delete(f"/config/locations/{location_id}")
 
-    def set_location_order(self, order: list[str]) -> dict:
-        """Which location outranks which. The list order is the priority."""
-        return dict(self._put("/locations/order", {"order": list(order)}) or {})
+    def set_location_order(self, order: list[str]) -> list[str]:
+        """Which location outranks which. The list order is the priority.
+
+        A location the caller does not name keeps its place after the ones it did, so a
+        caller working from a stale list rearranges what it knew about and loses nothing
+        it did not.
+        """
+        held = [one for one in self._get("/config/locations") or [] if isinstance(one, dict)]
+        by_id = {str(one.get("id")): one for one in held}
+        named = [by_id[one] for one in dict.fromkeys(str(x) for x in order) if one in by_id]
+        rest = [one for one in held if one not in named]
+        return [str(one.get("id")) for one in
+                self._put("/config/locations", [*named, *rest]) or []]
 
     def shadowed_here(self, location_id: str) -> list[dict]:
         """Game folders in this location whose id a higher one already answers for."""
@@ -1108,7 +1118,7 @@ class ApiClient:
 
     def set_location_write_to(self, location_id: str) -> dict:
         """Where a new game's folder is created."""
-        return dict(self._put(f"/locations/{location_id}/write-to", {}) or {})
+        return self.put_config({"updates": {"new_games_location": location_id}})
 
     def launcher_config(self, launcher_id: str, table: str = "",
                         scope: str = "launcher") -> dict:

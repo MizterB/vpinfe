@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common.games import game_identity, library_folders
-from tests.support.library import TempTree, fake_game, write_game
+from tests.support.library import TempTree, fake_game, own_locations, write_game
 
 # Lowercase `vpinfe` is where the id lives; `VPinFE` is the legacy section and does not
 # carry it.
@@ -31,15 +31,11 @@ class _Priority(TempTree):
             folder.mkdir(parents=True, exist_ok=True)
             write_game(folder, "Attack from Mars", info=INFO, vpx=False)
 
-        self.store = library_folders.LocationStore(str(self.root / "locations.json"))
+        self.store = own_locations(self, self.root / "config")
         self.store.save([
             library_folders.Location(location_id="loc1", path=str(self.here), kind="root"),
             library_folders.Location(location_id="loc2", path=str(self.there), kind="root"),
         ])
-        store_patch = patch.object(library_folders, "get_location_store",
-                                   return_value=self.store)
-        store_patch.start()
-        self.addCleanup(store_patch.stop)
         patch.object(library_folders, "configured",
                      side_effect=lambda: self.store.locations()).start()
         self.addCleanup(patch.stopall)
@@ -57,6 +53,10 @@ class _Priority(TempTree):
 
         self.client = TestClient(httpapi.create_api_app(),
                                  raise_server_exceptions=False)
+
+    def _reorder(self, *order):
+        held = {row["id"]: row for row in self.client.get("/config/locations").json()}
+        return self.client.put("/config/locations", json=[held[one] for one in order])
 
     def _rows(self):
         got = self.client.get("/locations")
@@ -78,9 +78,11 @@ class ReportTests(_Priority):
         self.assertEqual(rows["loc2"]["games"], 1)
 
     def test_a_folder_changed_in_place_answers_with_its_own_counts(self) -> None:
-        put = self.client.put("/locations/loc2", json={"path": str(self.there)}).json()
+        self.client.put("/config/locations/loc2", json={"path": str(self.there)})
 
-        self.assertEqual((put["games"], put["shadowed"]), (1, 1))
+        row = self._rows()["loc2"]
+
+        self.assertEqual((row["games"], row["shadowed"]), (1, 1))
 
     def test_the_list_says_both_sides(self) -> None:
         """The question somebody brings here is which copy they meant to keep, and that
@@ -99,7 +101,7 @@ class ReportTests(_Priority):
     def test_the_list_is_answered_fresh_rather_than_stored(self) -> None:
         """Whether a folder is shadowed depends on the other locations, so a stored
         answer is wrong the moment one is added, removed or reordered."""
-        self.client.put("/locations/order", json={"order": ["loc2", "loc1"]})
+        self._reorder("loc2", "loc1")
 
         rows = self._rows()
 
@@ -109,36 +111,17 @@ class ReportTests(_Priority):
 
 class OrderTests(_Priority):
     def test_reordering_changes_which_folder_answers(self) -> None:
-        self.client.put("/locations/order", json={"order": ["loc2", "loc1"]})
+        self._reorder("loc2", "loc1")
 
         found = game_identity.resolve_ids(self.games)
 
         self.assertIs(found.by_id["gid0000001"], self.games[1])
 
-    def test_the_route_is_not_read_as_a_location_called_order(self) -> None:
-        """`PUT /locations/{id}` is declared for every other id, so this one has to come
-        first or it never runs."""
-        got = self.client.put("/locations/order", json={"order": ["loc2", "loc1"]})
-
-        self.assertEqual(got.status_code, 200, got.text)
-        self.assertEqual([row["location_id"] for row in got.json()["locations"]],
-                         ["loc2", "loc1"])
-
-    def test_an_order_naming_nothing_this_install_has_is_refused(self) -> None:
-        self.assertEqual(
-            self.client.put("/locations/order", json={"order": ["nope"]}).status_code,
-            404)
-
-    def test_a_location_left_out_keeps_its_place_after_the_named_ones(self) -> None:
-        """A caller working from a stale list rearranges what it knew about and loses
-        nothing it did not."""
-        self.store.put(library_folders.Location(location_id="loc3",
-                                          path=str(self.root / "third"), kind="root"))
-
-        self.client.put("/locations/order", json={"order": ["loc2", "loc1"]})
+    def test_the_list_order_is_the_priority(self) -> None:
+        self._reorder("loc2", "loc1")
 
         self.assertEqual([one.location_id for one in self.store.locations()],
-                         ["loc2", "loc1", "loc3"])
+                         ["loc2", "loc1"])
 
 
 class NothingIsWrittenTests(_Priority):
