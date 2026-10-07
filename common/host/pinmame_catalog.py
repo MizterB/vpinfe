@@ -123,9 +123,9 @@ def lookup(vpx_bin_path: str, roms_dir: str, set_name: str) -> dict | None:
 
 def _helper_command(library: str) -> list[str]:
     """A frozen build has no `-m`: its executable starts VPinFE whatever it is handed."""
-    if getattr(sys, "frozen", False):
-        return [sys.executable, "--pinmame-helper", "--serve", library]
-    return [sys.executable, "-m", "common.host.pinmame_worker", "--serve", library]
+    frozen = getattr(sys, "frozen", False)
+    helper = ["--pinmame-helper"] if frozen else ["-m", "common.host.pinmame_worker"]
+    return [sys.executable, *helper, "--serve", library]
 
 
 def _ask(library: str, roms_dir: str, set_name: str) -> dict:
