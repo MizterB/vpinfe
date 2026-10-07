@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from . import keys, tools
+from . import bundled_libraries, keys, tools
 
 logger = logging.getLogger("vpinfe.common.host.key_simulator")
 
@@ -134,7 +134,7 @@ def _ran(tool: str, argv: list[str], runner: Run, env: Mapping[str, str] | None 
     try:
         runner(argv, check=True, capture_output=True, text=True,
                stdin=subprocess.DEVNULL, timeout=tools.TIMEOUT,
-               env=dict(env) if env is not None else None)
+               env=bundled_libraries.for_child(env))
         return True
     except OSError as exc:
         logger.warning("%s could not be started: %s", tool, exc)
@@ -197,7 +197,7 @@ class YdotoolKeyboardBackend:
         return self.key_map.get(key_id)
 
     def _run_key_sequence(self, key_args: list[str]) -> bool:
-        env = os.environ.copy()
+        env = bundled_libraries.for_child()
         if self.socket_path:
             env["YDOTOOL_SOCKET"] = self.socket_path
         return _ran("ydotool", [str(self.path), "key", *key_args], self.runner, env,

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,7 +25,7 @@ from common.config_store import ConfigStore
 from common.games import tables
 from common.games.game import Game
 from common.games.launchers import Launcher
-from common.host import commands
+from common.host import bundled_libraries, commands
 from common.i18n import t
 from common.paths import CONFIG_DIR
 
@@ -118,7 +117,7 @@ def after(around: Around, *, started_at: float | None = None) -> None:
             continue
         commands.run(text, values, context=tokens.TABLE, after=True,
                      timeout=around.timeout, on_failure=commands.BEST_EFFORT,
-                     env=os.environ.copy())
+                     env=bundled_libraries.for_child())
     _forget()
 
 
@@ -131,7 +130,7 @@ def _run(text: str, around: Around, *, required: bool,
         outcome = commands.run(
             text, around.values, context=tokens.TABLE, timeout=around.timeout,
             on_failure=commands.REQUIRED if required else commands.BEST_EFFORT,
-            env=os.environ.copy())
+            env=bundled_libraries.for_child())
     except commands.CommandRefusedError as exc:
         # Whatever did run still has to be undone, so this counts as having run.
         around.ran = True

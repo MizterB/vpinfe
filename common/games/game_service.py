@@ -494,10 +494,9 @@ def extract_vbs(game_dir: Path, vpx_filename: str, table_id: str = "") -> dict:
 
     Returns {'vbs_path': str} on success. Raises on failure.
     """
-    import platform as _platform
     import subprocess
-    import sys as _sys
 
+    from common.host import bundled_libraries
     from common.host.launch import binary_for
 
     # Through the same resolution a launch uses, so the program that extracts a script is
@@ -508,13 +507,7 @@ def extract_vbs(game_dir: Path, vpx_filename: str, table_id: str = "") -> dict:
     if not vpx_file.is_file():
         raise FileNotFoundError(t("error.games.file_gone"))
 
-    # Match the launch env handling: on frozen Linux builds, restore the
-    # original LD_LIBRARY_PATH so VPX does not pick up incompatible bundled libs.
-    launch_env = os.environ.copy()
-    if _platform.system() == "Linux" and getattr(_sys, "frozen", False):
-        lp_orig = launch_env.get('LD_LIBRARY_PATH_ORIG')
-        if lp_orig is not None:
-            launch_env['LD_LIBRARY_PATH'] = lp_orig
+    launch_env = bundled_libraries.for_child()
 
     cmd = [str(vpxbin_path), "-extractvbs", str(vpx_file)]
     logger.info("Extracting VBS: %s", cmd)

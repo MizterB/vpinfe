@@ -13,12 +13,11 @@ pasted into one of these.
 from __future__ import annotations
 
 import logging
-import os
 
 from common import tokens
 from common.config_access import cfg_get, cfg_int
 from common.config_store import ConfigStore
-from common.host import commands, table_commands
+from common.host import bundled_libraries, commands, table_commands
 
 logger = logging.getLogger("vpinfe.common.host.vpinfe_commands")
 
@@ -49,6 +48,6 @@ def _run(ini_config: ConfigStore, key: str, when: str) -> None:
         text, tokens.filled(tokens.VPINFE, {}), context=tokens.VPINFE,
         timeout=cfg_int(ini_config, "commands", "timeout",
                         commands.DEFAULT_TIMEOUT),
-        on_failure=commands.BEST_EFFORT, env=os.environ.copy())
+        on_failure=commands.BEST_EFFORT, env=bundled_libraries.for_child())
     for failed in outcome.failed:
         logger.warning("A command set to run when %s did not work: %s", when, failed.said)

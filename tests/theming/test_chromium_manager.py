@@ -207,6 +207,31 @@ class ChromiumManagerTests(unittest.TestCase):
         self.assertIn("--disable-accelerated-video-decode", args)
         self.assertIn("--ozone-platform=x11", args)
 
+    def _library_path_a_window_gets(self, local_install: bool) -> str | None:
+        chromium = chromium_manager.ChromiumPath("/usr/bin/chromium", local_install)
+        monitor = types.SimpleNamespace(x=10, y=20, width=800, height=600)
+        with (
+            mock.patch("frontend.chromium_manager.get_chromium_path", return_value=chromium),
+            mock.patch("frontend.chromium_manager.os.path.exists", return_value=True),
+            mock.patch("frontend.chromium_manager.tempfile.mkdtemp",
+                       return_value="/tmp/vpinfe-profile"),
+            mock.patch("frontend.chromium_manager.subprocess.Popen",
+                       return_value=types.SimpleNamespace()) as popen,
+            mock.patch("sys.frozen", True, create=True),
+            mock.patch("platform.system", return_value="Linux"),
+            mock.patch.dict("os.environ", {"LD_LIBRARY_PATH": "/opt/vpinfe/_internal"}),
+        ):
+            ChromiumManager().launch_window("table", "http://127.0.0.1:8000/app/table",
+                                            monitor, 0)
+        return popen.call_args.kwargs["env"].get("LD_LIBRARY_PATH")
+
+    def test_a_local_chromium_does_not_get_the_bundled_library_path(self) -> None:
+        self.assertIsNone(self._library_path_a_window_gets(local_install=True))
+
+    def test_the_built_in_chromium_keeps_the_bundled_library_path(self) -> None:
+        self.assertEqual(self._library_path_a_window_gets(local_install=False),
+                         "/opt/vpinfe/_internal")
+
     def test_an_added_disable_features_is_folded_into_the_one_a_window_gets(self) -> None:
         manager = ChromiumManager()
         monitor = types.SimpleNamespace(x=10, y=20, width=800, height=600)

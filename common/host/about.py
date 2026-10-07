@@ -23,6 +23,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from common.host import bundled_libraries
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.common.host.about")
@@ -205,7 +206,7 @@ def _browser_version(path: str) -> str:
         return _windows_file_version(path)
     try:
         done = subprocess.run([path, "--version"], capture_output=True, text=True,
-                              timeout=5, check=False)
+                              timeout=5, check=False, env=bundled_libraries.for_child())
     except Exception:  # noqa: BLE001 - a browser that will not answer is not a failure
         logger.debug("Could not ask %s for its version", path, exc_info=True)
         return ""

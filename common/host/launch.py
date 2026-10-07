@@ -13,12 +13,10 @@ from __future__ import annotations
 
 import logging
 import os
-import platform
 import re
 import shlex
 import shutil
 import subprocess
-import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -47,7 +45,7 @@ from common.games.tables import (
     table_entries,
     table_names,
 )
-from common.host import commands, key_simulator, launch_state, table_commands
+from common.host import bundled_libraries, commands, key_simulator, launch_state, table_commands
 from common.host.vpx_log import delete_vpinball_log_on_start_if_configured
 from common.i18n import t
 from common.launcher_path import resolve_launcher_path
@@ -220,15 +218,8 @@ def _path_of(game: Game, entry: dict) -> str:
 
 
 def _launch_env(launcher: launchers.Launcher) -> dict:
-    env = os.environ.copy()
+    env = bundled_libraries.for_child()
     env.update(parse_launch_env_overrides(str(launcher.value("launch_env") or "")))
-
-    # PyInstaller bundles libraries that can be incompatible with the local ones,
-    # so a frozen build hands VPX back the path it started with.
-    if platform.system() == "Linux" and getattr(sys, "frozen", False):
-        original = env.get("LD_LIBRARY_PATH_ORIG")
-        if original is not None:
-            env["LD_LIBRARY_PATH"] = original
     return env
 
 

@@ -26,7 +26,7 @@ from typing import Any
 from common.i18n import t
 from common.launcher_path import resolve_launcher_path
 
-from . import get_ffmpeg, vpinos
+from . import bundled_libraries, get_ffmpeg, vpinos
 
 logger = logging.getLogger("vpinfe.common.host.tools")
 
@@ -209,7 +209,7 @@ def ask(path: Path, *args: str) -> str:
     done = subprocess.run(
         [str(path), *args], capture_output=True, text=True, errors="replace",
         stdin=subprocess.DEVNULL, timeout=TIMEOUT, check=False,
-        creationflags=NO_WINDOW)
+        creationflags=NO_WINDOW, env=bundled_libraries.for_child())
     if done.returncode != 0:
         raise _FailedError(done.returncode)
     return (done.stdout or "") + (done.stderr or "")
@@ -394,7 +394,7 @@ def said(path: Path, *args: str) -> str:
     done = subprocess.run(
         [str(path), *args], capture_output=True, text=True, errors="replace",
         stdin=subprocess.DEVNULL, timeout=TIMEOUT, check=False,
-        creationflags=NO_WINDOW)
+        creationflags=NO_WINDOW, env=bundled_libraries.for_child())
     return (done.stdout or "") + (done.stderr or "")
 
 

@@ -27,6 +27,7 @@ import subprocess
 from typing import Any
 
 from common.failures import why
+from common.host import bundled_libraries
 from common.i18n import t
 
 logger = logging.getLogger("vpinfe.common.host.graphics")
@@ -74,7 +75,8 @@ def run(program: str, arguments: list[str], tool: str) -> str:
     """What the program printed. Raises `UnreadableError` saying why it did not."""
     try:
         done = subprocess.run([program, *arguments], capture_output=True, text=True,
-                              timeout=TIMEOUT, check=False)
+                              timeout=TIMEOUT, check=False,
+                              env=bundled_libraries.for_child())
     except subprocess.TimeoutExpired:
         raise UnreadableError(t("error.graphics.tool_timeout", tool=tool)) from None
     except Exception as exc:  # noqa: BLE001 - a probe must not take the page with it

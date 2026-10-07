@@ -29,6 +29,7 @@ from common import i18n, serving
 from common.config_access import DisplayConfig, NetworkConfig, SettingsConfig, cfg_get
 from common.config_store import ConfigStore
 from common.games import remote_library
+from common.host import bundled_libraries
 from common.log_setup import include_thirdparty_logs
 from common.paths import bundled
 from frontend import theme_api, theme_windows
@@ -565,16 +566,9 @@ class ChromiumManager:
         env["GOOGLE_DEFAULT_CLIENT_ID"] = "no"
         env["GOOGLE_DEFAULT_CLIENT_SECRET"] = "no"
 
-        # Prevent usage of bundled libaries when using a local Chromium install on Linux
-        # PyInstaller bundles libaries which might be incompatible with the local files.
-        system = platform.system()
-        if (system == "Linux"):
-            if using_local_install and getattr(sys, "frozen", False):
-                logger.debug("Using local Chromium on Linux")
-                lp_key = 'LD_LIBRARY_PATH'
-                lp_orig = env.get(lp_key + '_ORIG')
-                if lp_orig is not None:
-                    env[lp_key] = lp_orig  # restore the original, unmodified value
+        # A local Chromium would load the bundled libraries ahead of its own.
+        if using_local_install:
+            env = bundled_libraries.for_child(env)
 
         builtin = get_builtin_chromium_options(
             window_name=window_name,
