@@ -4,8 +4,8 @@
 game's `themes` are what a machine is about.
 
 Reading the registry reaches the network, so it is held per process and refreshed only
-when a caller asks. Re-reading it on every draw would spend a round trip per render on a
-list that changes when somebody publishes a release.
+when a caller asks or the configured sources change. Re-reading it on every draw would
+spend a round trip per render on a list that changes when somebody publishes a release.
 """
 
 from __future__ import annotations
@@ -41,6 +41,8 @@ class RemoveFailedError(service_errors.ServiceError):
 
 _lock = threading.RLock()
 _registry: Any = None
+# The sources `_registry` was read for. Memory held for other sources is not served.
+_held_for: dict[str, list[str]] | None = None
 # What each source said when the last read found none of them usable. Nothing else
 # holds it: that read builds no registry to keep.
 _unread: dict[str, dict[str, Any]] = {}
@@ -48,12 +50,17 @@ _unread: dict[str, dict[str, Any]] = {}
 
 def _loaded(refresh: bool = False) -> ThemeRegistry:
     """The registry: from memory, else from the last read kept on disk, else - or when
-    asked - from the sources, which is network work and not per request."""
-    global _registry, _unread
+    asked, or when the sources have changed - from the sources, which is network work and
+    not per request."""
+    global _registry, _held_for, _unread
     with _lock:
-        if _registry is None and not refresh:
-            _registry = _cached()
-        if _registry is None or refresh:
+        now = _sources_now()
+        stale = _registry is not None and _held_for != now
+        if (_registry is None or stale) and not refresh:
+            cached = _cached()
+            if cached is not None:
+                _registry, _held_for, stale = cached, now, False
+        if _registry is None or refresh or stale:
             before = _registry or _cached()
             try:
                 fresh = theme_service.load_registry(previous=before)
@@ -62,10 +69,10 @@ def _loaded(refresh: bool = False) -> ThemeRegistry:
                 raise
             _unread = {}
             _carry_dates(fresh, before)
-            _keep(fresh)
+            _keep(fresh, now)
             if _answered(fresh):
                 theme_sync.stamp(get_ini_config())
-            _registry = fresh
+            _registry, _held_for = fresh, now
         return _registry
 
 
@@ -98,9 +105,9 @@ def _cached() -> ThemeRegistry | None:
         return None
 
 
-def _keep(registry: ThemeRegistry) -> None:
+def _keep(registry: ThemeRegistry, sources: dict[str, list[str]]) -> None:
     try:
-        kept = {**registry.snapshot(), "sources": _sources_now()}
+        kept = {**registry.snapshot(), "sources": sources}
         THEME_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         write_atomic(THEME_CACHE_PATH, lambda out: json.dump(kept, out))
     except Exception:  # noqa: BLE001 - an unwritten copy costs the next start a read
@@ -219,8 +226,9 @@ def _readable(refresh: bool = False) -> ThemeRegistry:
 def listing(refresh: bool = False) -> dict[str, Any]:
     """Active first, then installed, then the rest.
 
-    `refresh` re-reads the sources. Without it the answer is whatever was read when this
-    process first asked, which is right for a page that draws several times a minute.
+    `refresh` re-reads the sources. Without it the answer is the last read, which is right
+    for a page that draws several times a minute, unless the configured sources have
+    changed since: then they are read again.
     """
     registry = _readable(refresh)
     active = theme_service.get_active_theme()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import unittest
 from configparser import ConfigParser
 from unittest.mock import patch
@@ -73,7 +74,7 @@ class TheListKeptBetweenReads(TempTree):
         self.addCleanup(patcher.stop)
 
     def test_what_was_read_comes_back_the_same(self) -> None:
-        theme_ops._keep(_registry("2026-04-29T11:26:53Z", "v2"))
+        theme_ops._keep(_registry("2026-04-29T11:26:53Z", "v2"), self.sources)
 
         back = theme_ops._cached()
 
@@ -83,7 +84,7 @@ class TheListKeptBetweenReads(TempTree):
                          (entry["release"], entry["updated"], entry["manifest"]["version"]))
 
     def test_changed_sources_read_again_rather_than_answer_from_the_old_ones(self) -> None:
-        theme_ops._keep(_registry())
+        theme_ops._keep(_registry(), self.sources)
         self.sources = {"registries": ["https://y.net/themes.json"], "repositories": []}
 
         self.assertIsNone(theme_ops._cached())
@@ -99,6 +100,59 @@ class TheListKeptBetweenReads(TempTree):
         theme_ops._carry_dates(fresh, _registry("2026-04-29T11:26:53Z", ref="v2"))
 
         self.assertEqual("", fresh.themes["Revolution"]["updated"])
+
+
+class TheListHeldInMemory(TempTree):
+    def setUp(self) -> None:
+        super().setUp()
+        self.sources = {"registries": ["https://x.net/themes.json"], "repositories": []}
+        self.asked: list[ThemeRegistry] = []
+        self.before: list[ThemeRegistry | None] = []
+        for target, value in (("common.online.theme_ops.THEME_CACHE_PATH",
+                               self.root / "cache" / "themes.json"),
+                              ("common.online.theme_ops._sources_now", lambda: self.sources),
+                              ("common.online.theme_ops.theme_sync.stamp", lambda config: None),
+                              ("common.online.theme_ops.get_ini_config", ConfigParser),
+                              ("common.online.theme_ops.theme_service.load_registry",
+                               self._read)):
+            patcher = patch(target, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        for name, value in (("_registry", None), ("_held_for", None)):
+            patcher = patch.object(theme_ops, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _read(self, previous: ThemeRegistry | None = None) -> ThemeRegistry:
+        fresh = _registry()
+        self.asked.append(fresh)
+        self.before.append(previous)
+        return fresh
+
+    def test_sources_unchanged_are_answered_from_memory(self) -> None:
+        first = theme_ops._loaded()
+
+        self.assertIs(first, theme_ops._loaded())
+        self.assertEqual(1, len(self.asked))
+
+    def test_a_source_added_since_is_read_at_the_next_listing(self) -> None:
+        first = theme_ops._loaded()
+        self.sources = {**self.sources, "repositories": ["https://github.com/o/r"]}
+
+        second = theme_ops._loaded()
+
+        self.assertIsNot(first, second)
+        self.assertEqual(2, len(self.asked))
+        self.assertIs(first, self.before[1])
+        self.assertIs(second, theme_ops._loaded())
+        self.assertEqual(2, len(self.asked))
+
+    def test_the_copy_kept_is_for_the_sources_the_read_used(self) -> None:
+        theme_ops._loaded()
+
+        kept = json.loads(theme_ops.THEME_CACHE_PATH.read_text())
+
+        self.assertEqual(self.sources, kept["sources"])
 
 
 class TheSchedule(unittest.TestCase):
