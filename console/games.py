@@ -388,15 +388,18 @@ def auto_match_outcome(result: dict[str, Any]) -> tuple[str, bool]:
     """What Auto-match says when it is done, and whether any match moved."""
     moved = int(result.get("changed") or 0)
     waiting = int(result.get("unmatched") or 0)
-    if moved and waiting:
-        return t("console.games.auto_matched_some",
-                 matched=t("console.games.auto_matched", count=moved),
-                 waiting=t("console.games.unmatched", count=waiting)), True
-    if moved:
-        return t("console.games.auto_matched", count=moved), True
-    if waiting:
-        return t("console.games.unmatched", count=waiting), False
-    return t("console.vps_match.nothing_changed"), False
+    skipped = int(result.get("skipped") or 0)
+    parts = [t(key, count=count) for key, count in (
+        ("console.games.auto_matched", moved), ("console.games.unmatched", waiting),
+        ("console.games.auto_match_skipped", skipped)) if count]
+    if not parts:
+        return t("console.vps_match.nothing_changed"), False
+    if len(parts) == 1:
+        return parts[0], bool(moved)
+    if len(parts) == 2:
+        return t("console.games.auto_matched_some", matched=parts[0], waiting=parts[1]), bool(moved)
+    return t("console.games.auto_matched_all", matched=parts[0], waiting=parts[1],
+             skipped=parts[2]), True
 
 
 async def _rate(games: list[dict[str, Any]],

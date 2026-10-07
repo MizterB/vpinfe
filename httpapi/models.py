@@ -2930,12 +2930,14 @@ class AutoMatchRequest(ApiModel):
 
 class AutoMatchResult(ApiModel):
     """`changed` counts the games whose match moved, `unmatched` those still without one,
-    and `yours` those left as they were because a person made or cleared their match."""
+    and `yours` those left as they were because a person made or cleared their match.
+    `skipped` counts the games left alone because their folder cannot be written to."""
 
     games: int = 0
     changed: int = 0
     unmatched: int = 0
     yours: int = 0
+    skipped: int = 0
 
 
 class MissingMediaRequest(ApiModel):

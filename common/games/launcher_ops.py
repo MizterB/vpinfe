@@ -19,7 +19,7 @@ from typing import Any
 
 from common import apps, i18n, path_state, service_errors
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
-from common.games import game_repository, launchers, tables
+from common.games import game_repository, launchers, library_folders, tables
 from common.games.table_identity import find_table_by_id
 from common.i18n import t
 
@@ -417,11 +417,34 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
             raise _cannot_write(found) from exc
         return {"written": sorted(writing), "cleared": []}
 
+    _writable_before_writing(found, scope, table)
     try:
         cleared = config.write(scope, table, writing, settings)
     except ValueError as exc:
         raise _cannot_write(found) from exc
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
+
+
+def _writable_before_writing(launcher: launchers.Launcher, scope: str, table: str) -> None:
+    """Refuse before the write when the disk says the file or the folder it goes in cannot
+    be written to. A file that is not there yet is fine while its folder can take it, or is
+    itself still to be made."""
+    if scope != SCOPE_LAUNCHER:
+        if table:
+            library_folders.writable_game_folder(Path(table).parent)
+        return
+    for file in config_files(launcher).values():
+        found = Path(file)
+        state = path_state.look(str(found), path_state.FILE, writable=True)
+        name = found.name
+        if state.state == path_state.MISSING:
+            state = path_state.look(str(found.parent), path_state.DIR, writable=True)
+            name = found.parent.name
+            if state.state == path_state.MISSING:
+                continue
+        said = path_state.refusal(name, state)
+        if said:
+            raise service_errors.BlockedError(said)
 
 
 def _cannot_write(launcher: launchers.Launcher) -> service_errors.RefusedError:

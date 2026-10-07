@@ -78,6 +78,18 @@ class AutoMatchOutcomeTests(unittest.TestCase):
         self.assertEqual(auto_match_outcome({"changed": 0, "unmatched": 0, "yours": 4}),
                          ("Nothing changed", False))
 
+    def test_games_left_alone_are_said_beside_the_rest(self) -> None:
+        skipped = "games skipped, their folders cannot be written to"
+        self.assertEqual(auto_match_outcome({"changed": 2, "unmatched": 1, "skipped": 3}),
+                         (f"Matched 2 games. 1 still needs a match. 3 {skipped}.", True))
+        self.assertEqual(auto_match_outcome({"changed": 2, "unmatched": 0, "skipped": 3}),
+                         (f"Matched 2 games. 3 {skipped}.", True))
+        self.assertEqual(auto_match_outcome({"changed": 0, "unmatched": 2, "skipped": 1}),
+                         ("2 still need a match. 1 game skipped, its folder cannot be "
+                          "written to.", False))
+        self.assertEqual(auto_match_outcome({"changed": 0, "unmatched": 0, "skipped": 1}),
+                         ("1 game skipped, its folder cannot be written to", False))
+
 
 if __name__ == "__main__":
     unittest.main()

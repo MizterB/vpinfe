@@ -1247,6 +1247,11 @@
     "one": "Ḿàţçĥèđ 1 ĝàɱè",
     "other": "Ḿàţçĥèđ {count} ĝàɱèš"
   },
+  "console.games.auto_match_skipped": {
+    "one": "1 ĝàɱè šķîþþèđ, îţš ƒöŀđèř çàññöţ ƀè ŵřîţţèñ ţö",
+    "other": "{count} ĝàɱèš šķîþþèđ, ţĥèîř ƒöŀđèřš çàññöţ ƀè ŵřîţţèñ ţö"
+  },
+  "console.games.auto_matched_all": "{matched}. {waiting}. {skipped}.",
   "console.games.auto_matched_some": "{matched}. {waiting}.",
   "console.games.b2s": "Ɓ2Š",
   "console.games.vps_match.help": "Ɓŀàñķ ŵĥèřè ţĥè ĝàɱè îš ɱàţçĥèđ ţö à ṼÞŠ èñţřý",
@@ -3662,6 +3667,10 @@
   "error.players.record_id_unusable": "Þŀàýš àñđ řàţîñĝš çàññöţ ƀè ķèþţ ƒöř à þŀàýèř ŵîţĥ ţĥè îđ {player_id}",
   "error.table_commands.global_failed": "À çöɱɱàñđ řûñ ƀèƒöřè èṽèřý ţàƀŀè đîđ ñöţ ŵöřķ",
   "error.table_commands.launcher_command_failed": "À çöɱɱàñđ ţĥè {launcher_name} ŀàûñçĥèř řûñš ƀèƒöřè à ţàƀŀè đîđ ñöţ ŵöřķ",
+  "error.tags.sweep_blocked": {
+    "one": "Ñöţĥîñĝ ŵàš çĥàñĝèđ: {names} çàññöţ ƀè ŵřîţţèñ ţö",
+    "other": "Ñöţĥîñĝ ŵàš çĥàñĝèđ: {count} ĝàɱèš ŵîţĥ ţĥîš ţàĝ çàññöţ ƀè ŵřîţţèñ ţö ({names})"
+  },
   "error.tags.derived": "{tag} îš šèţ ƀý àñ èẋţèñšîöñ àñđ çàññöţ ƀè çĥàñĝèđ ĥèřè",
   "error.tags.no_name": "À ţàĝ ñèèđš à ñàɱè",
   "error.tags.no_such_color": "Ñö çöŀöř çàŀŀèđ {color}",
@@ -4143,6 +4152,10 @@
   "order.direction.alpha_desc": "Ž ţö À",
   "said.and_more": "...àñđ {count} ɱöřè",
   "said.assignments_lost": "ţĥè ŀàûñçĥèřš àřřîṽèđ, ţĥè àššîĝñɱèñţš đîđ ñöţ",
+  "said.patches_skipped": {
+    "one": "1 ĝàɱè šķîþþèđ, îţš ƒöŀđèř çàññöţ ƀè ŵřîţţèñ ţö",
+    "other": "{count} ĝàɱèš šķîþþèđ, ţĥèîř ƒöŀđèřš çàññöţ ƀè ŵřîţţèñ ţö"
+  },
   "said.checking_game": "Çĥèçķîñĝ {game}",
   "said.copy_result": {
     "one": "Çöþîèđ ţö 1 đèṽîçè",

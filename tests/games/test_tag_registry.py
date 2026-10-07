@@ -73,6 +73,8 @@ class TheSweepComesFirst(TempTree):
     def setUp(self) -> None:
         super().setUp()
         for target, value in (("common.paths.TAGS_PATH", self.root / "tags.json"),
+                              ("common.games.library_folders.blocked_games",
+                               lambda games: []),
                               ("common.games.game_repository.all_games",
                                lambda: [_game("g1", ["widebody"])])):
             patcher = patch(target, value)

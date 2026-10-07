@@ -15,11 +15,13 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from common import jobs as job_registry
+from common import service_errors
 from common.games import (
     derived_tags,
     entry_lens,
     game_repository,
     game_service,
+    library_folders,
     library_vps_state,
     standalone_scripts,
     tag_registry,
@@ -29,8 +31,15 @@ from common.games.collection_filters import AXES, GameListFilters
 from common.games.collection_resolver import resolve
 from common.games.collection_store import BUILTIN_ALL
 from common.games.collections_service import get_collections_manager
-from common.games.game_metadata import game_tags, normalize_tag, retag_library, table_tags
+from common.games.game_metadata import (
+    carrying,
+    game_tags,
+    normalize_tag,
+    retag_library,
+    table_tags,
+)
 from common.games.tables import table_entries
+from common.i18n import t
 
 
 def start(kind: str, work: Callable[[job_registry.Job], object]) -> job_registry.Job:
@@ -105,14 +114,33 @@ def merge_tags(sources: Iterable[str], into: str) -> dict[str, Any]:
     is a worse state than either end of the merge."""
     sources = list(sources)
     derived_tags.refuse([*sources, into])
-    changed = retag_library(game_repository.all_games(), sources, into)
+    games = game_repository.all_games()
+    survivor = normalize_tag(into)
+    _refuse_if_blocked(carrying(games, [s for s in sources if normalize_tag(s) != survivor]))
+    changed = retag_library(games, sources, into)
     tag_registry.moved(sources, into)
     return {"changed": changed}
 
 
+def _refuse_if_blocked(games: list[Any]) -> None:
+    """Refuse the whole sweep, with nothing written, when a game it would change cannot
+    be written to."""
+    blocked = library_folders.blocked_games(games)
+    if not blocked:
+        return
+    names = [str(game.game_dir_name or "") for game, _ in blocked]
+    shown = ", ".join(names[:3]) + (f" +{len(names) - 3}" if len(names) > 3 else "")
+    raise service_errors.BlockedError(
+        t("error.tags.sweep_blocked", count=len(blocked), names=shown),
+        details=[{"game": name, "reason": said}
+                 for name, (_, said) in zip(names, blocked, strict=True)])
+
+
 def drop_tag(tag: str) -> dict[str, Any]:
     derived_tags.refuse([tag])
-    changed = retag_library(game_repository.all_games(), [tag], "")
+    games = game_repository.all_games()
+    _refuse_if_blocked(carrying(games, [tag]))
+    changed = retag_library(games, [tag], "")
     tag_registry.dropped(tag)
     return {"changed": changed}
 
@@ -175,7 +203,8 @@ def auto_match(game_ids: Iterable[str]) -> dict[str, int]:
     """Match the games named again from their folder names, leaving a person's matches.
 
     On the caller's thread, under the scan's job kind: it writes a .info for every game
-    whose match moves. Ids the library does not hold are left out of the counts.
+    whose match moves. Ids the library does not hold are left out of the counts, and a
+    game whose folder cannot be written to is left alone and counted as `skipped`.
     """
     from pathlib import Path
 
@@ -184,11 +213,12 @@ def auto_match(game_ids: Iterable[str]) -> dict[str, int]:
 
     held = game_repository.catalog()
     games = [held[one] for one in dict.fromkeys(game_ids) if one in held]
+    blocked = {id(game) for game, _ in library_folders.blocked_games(games)}
     with job_registry.track(job_registry.KIND_LIBRARY_SCAN):
-        counts, moved = matching.match_again(games)
+        counts, moved = matching.match_again([g for g in games if id(g) not in blocked])
     for game in moved:
         game_repository.refresh_game(Path(str(game.full_path_game)))
-    return counts
+    return {**counts, "skipped": len(blocked)}
 
 
 def recount_vps_state() -> job_registry.Job:

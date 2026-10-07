@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -399,30 +400,49 @@ def destination(location_id: str = "") -> Destination:
     return Destination(location=named, alternatives=others)
 
 
-def writable_game_folder(game_dir: str | Path, called: str = "") -> Path:
-    """A game's folder, once the disk has said it can be written to - or a refusal.
-
-    The one question every writer into a game folder asks first, so a dropped share reads
-    as the folder it hangs off ("its share is not mounted on this device") rather than as
-    an errno halfway through a copy. Paths are compared as written and not resolved:
-    resolving touches the disk, and that is the call that hangs on a dead mount. `called`
-    names a game whose folder is not set, which has no folder name of its own to give.
-    """
-    raw = str(game_dir)
-    folder = Path(raw)
-    state = path_state.look(raw, path_state.DIR, writable=True)
+def _folder_refusal(raw: str, state: path_state.PathState, called: str = "") -> str:
+    if state.state == path_state.OK:
+        return ""
     where = os.path.normpath(raw)
     home = next((one for one in configured()
                  if one.kind == KIND_ROOT and _inside(os.path.normpath(one.path), where)),
                 None)
     # A folder that refuses writes is that folder's own fact; one that cannot be reached
     # is, as often as not, the share the whole library hangs off.
-    own = folder.name or called
+    own = Path(raw).name or called
     name = own if home is None or state.state == path_state.READ_ONLY else home.name
-    said = path_state.refusal(name, state)
+    return path_state.refusal(name, state)
+
+
+def writable_game_folder(game_dir: str | Path, called: str = "") -> Path:
+    """A game's folder, once the disk has said it can be written to - or a refusal.
+
+    The one question every writer into a game folder asks first, so a dropped share or a
+    read-only one reads as the folder it hangs off ("its share is not mounted on this
+    device") rather than as an errno halfway through a copy. Paths are compared as written
+    and not resolved: resolving touches the disk, and that is the call that hangs on a
+    dead mount. `called` names a game whose folder is not set, which has no folder name
+    of its own to give.
+    """
+    raw = str(game_dir)
+    said = _folder_refusal(raw, path_state.look(raw, path_state.DIR, writable=True), called)
     if said:
         raise service_errors.BlockedError(said)
-    return folder
+    return Path(raw)
+
+
+def blocked_games(games: Iterable[Any]) -> list[tuple[Any, str]]:
+    """The games whose folders cannot be written to, each with the reason, for a sweep
+    over many games to skip or refuse on. Every folder is asked at once."""
+    held = list(games)
+    asks = [path_state.Ask(str(g.full_path_game or ""), path_state.DIR, True) for g in held]
+    out = []
+    for game, state in zip(held, path_state.look_all(asks), strict=True):
+        said = _folder_refusal(str(game.full_path_game or ""), state,
+                               str(game.game_dir_name or ""))
+        if said:
+            out.append((game, said))
+    return out
 
 
 def portable_reference(game_dir: str, target: str) -> str:

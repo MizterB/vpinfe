@@ -54,14 +54,26 @@ class AutoMatchRouteTests(unittest.TestCase):
         counts = {"games": 1, "changed": 1, "unmatched": 0, "yours": 0}
         with patch("common.games.auto_match.match_again",
                    return_value=(counts, [self.game])) as ran, \
+                patch("common.games.library_folders.blocked_games", return_value=[]), \
                 patch("common.games.game_repository.refresh_game") as reread:
             response = self.client.post("/library/auto_match",
                                         json={"game_ids": ["g1", "gone"]})
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), counts)
+        self.assertEqual(response.json(), {**counts, "skipped": 0})
         self.assertEqual(ran.call_args[0][0], [self.game])
         reread.assert_called_once()
+
+    def test_a_game_whose_folder_cannot_be_written_to_is_counted_not_matched(self) -> None:
+        with patch("common.games.auto_match.match_again",
+                   return_value=({"games": 0}, [])) as ran, \
+                patch("common.games.library_folders.blocked_games",
+                      return_value=[(self.game, "read-only")]):
+            response = self.client.post("/library/auto_match", json={"game_ids": ["g1"]})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["skipped"], 1)
+        self.assertEqual(ran.call_args[0][0], [])
 
     def test_it_will_not_run_beside_a_scan(self) -> None:
         with jobs.track(jobs.KIND_LIBRARY_SCAN):

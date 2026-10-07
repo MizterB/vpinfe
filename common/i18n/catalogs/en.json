@@ -1247,6 +1247,11 @@
     "one": "Matched 1 game",
     "other": "Matched {count} games"
   },
+  "console.games.auto_match_skipped": {
+    "one": "1 game skipped, its folder cannot be written to",
+    "other": "{count} games skipped, their folders cannot be written to"
+  },
+  "console.games.auto_matched_all": "{matched}. {waiting}. {skipped}.",
   "console.games.auto_matched_some": "{matched}. {waiting}.",
   "console.games.b2s": "B2S",
   "console.games.vps_match.help": "Blank where the game is matched to a VPS entry",
@@ -3662,6 +3667,10 @@
   "error.players.record_id_unusable": "Plays and ratings cannot be kept for a player with the id {player_id}",
   "error.table_commands.global_failed": "A command run before every table did not work",
   "error.table_commands.launcher_command_failed": "A command the {launcher_name} launcher runs before a table did not work",
+  "error.tags.sweep_blocked": {
+    "one": "Nothing was changed: {names} cannot be written to",
+    "other": "Nothing was changed: {count} games with this tag cannot be written to ({names})"
+  },
   "error.tags.derived": "{tag} is set by an extension and cannot be changed here",
   "error.tags.no_name": "A tag needs a name",
   "error.tags.no_such_color": "No color called {color}",
@@ -4143,6 +4152,10 @@
   "order.direction.alpha_desc": "Z to A",
   "said.and_more": "...and {count} more",
   "said.assignments_lost": "the launchers arrived, the assignments did not",
+  "said.patches_skipped": {
+    "one": "1 game skipped, its folder cannot be written to",
+    "other": "{count} games skipped, their folders cannot be written to"
+  },
   "said.checking_game": "Checking {game}",
   "said.copy_result": {
     "one": "Copied to 1 device",

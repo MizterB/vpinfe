@@ -7,7 +7,7 @@ import os
 
 from common.config_access import cfg_bool
 from common.config_store import ConfigStore
-from common.games import game_identity, game_repository, media_fill
+from common.games import game_identity, game_repository, library_folders, media_fill
 from common.games.game_metadata import effective_vps_id, record_vps_match, vps_matched_by
 from common.games.info_file import MetaConfig
 from common.games.standalone_scripts import StandaloneScripts
@@ -143,5 +143,17 @@ def build_metadata(
 
 
 def apply_vpx_patches(progress_cb: ProgressCallback | None = None) -> None:
+    """Writes a `.vbs` beside each table that needs one, leaving the games whose folders
+    cannot be written to."""
     games = game_repository.all_games()
-    StandaloneScripts(games, progress_cb=progress_cb)
+    blocked = library_folders.blocked_games(games)
+    held = {id(game) for game, _ in blocked}
+    for game, said in blocked:
+        logger.warning("Skipped %s: %s", game.game_dir_name, said)
+    StandaloneScripts([g for g in games if id(g) not in held], progress_cb=progress_cb)
+    if blocked and progress_cb:
+        total = len(games)
+        try:
+            progress_cb(total, total, t("said.patches_skipped", count=len(blocked)))
+        except Exception:
+            logger.debug("Progress callback failed", exc_info=True)

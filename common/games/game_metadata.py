@@ -246,6 +246,17 @@ def set_table_tags(game: Game, native: str, tags: Iterable[str] | None) -> list[
     return stored
 
 
+def carrying(games: Iterable[Game], sources: Iterable[str]) -> list[Game]:
+    """The games a sweep over `sources` would write to - those with one of them on the
+    game or on any of its tables."""
+    wanted = {normalize_tag(name) for name in sources if normalize_tag(name)}
+    return [game for game in games
+            if wanted & set(game_tags(game))
+            or any(isinstance(entry, dict) and wanted & set(table_tags(entry))
+                   for entry in table_entries(
+                       normalize_meta(getattr(game, "meta_config", {}))).values())]
+
+
 def retag_library(games: Iterable[Game], sources: Iterable[str], into: str = "") -> int:
     """Rename, merge and delete are one sweep, and this is it.
 
