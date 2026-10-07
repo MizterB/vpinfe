@@ -82,16 +82,19 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                 with ui.column().classes("gap-0 min-w-0"):
                     ui.label(why(refused)).classes("console-attention-line")
                     ui.label(start).classes("console-help truncate")
-        path_row = ui.row().classes("items-center gap-2 w-full no-wrap px-3")
-        with ui.row().classes("items-center gap-x-4 w-full no-wrap px-3"):
-            term = ui.input(placeholder=t("console.folder_picker.filter_folders"
-                                          if kind == "dir"
-                                          else "console.folder_picker.filter")) \
-                .props("dense outlined clearable clear-icon=close").classes("grow")
-            shown = ui.checkbox(t("console.folder_picker.show_hidden"), value=False) \
-                .props("dense").classes("whitespace-nowrap")
-        listing_col = ui.column().classes("w-full gap-1 console-folder-list px-3")
-        ui.label(t("console.folder_picker.private_note")).classes("console-help px-3")
+        with ui.column().classes("console-picker-head gap-2"):
+            path_row = ui.row().classes("items-center gap-2 w-full no-wrap")
+            with ui.row().classes("items-center gap-x-4 w-full no-wrap"):
+                term = ui.input(placeholder=t("console.folder_picker.filter_folders"
+                                              if kind == "dir"
+                                              else "console.folder_picker.filter")) \
+                    .props("dense outlined clearable clear-icon=close").classes("grow")
+                shown = ui.checkbox(t("console.folder_picker.show_hidden"), value=False) \
+                    .props("dense").classes("whitespace-nowrap")
+        with ui.column().classes("console-picker-well gap-0"):
+            listing_col = ui.column().classes("w-full gap-1 console-folder-list")
+            ui.label(t("console.folder_picker.private_note")).classes(
+                "console-help console-picker-note")
 
         def draw_path() -> None:
             path_row.clear()
@@ -240,7 +243,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
         term.on_value_change(draw_listing)
         shown.on_value_change(lambda: _go(state["here"]["path"], keep_filter=True))
 
-        with frame.footer():
+        with frame.footer().classes("console-dialog-footer--ruled"):
             if make_folder is not None:
                 frame.aside(t("console.folder_picker.new_folder"), _start_naming,
                             icon=verbs.NEW_FOLDER)

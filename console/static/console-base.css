@@ -3441,6 +3441,18 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 /* The folder picker has no fixed-height ancestor to flex against, unlike the sources
    tabs above, so its list takes an explicit cap instead. */
 .console-folder-list { max-height: 46vh; overflow-y: auto; }
+/* The picker's three zones: where you are and how to narrow it, what is there, then the
+   verbs under a rule. */
+.console-picker-head {
+  width: calc(100% - 24px); margin: 0 12px; padding: 8px; border-radius: 8px;
+  background: var(--surface-lift); border: 1px solid var(--line);
+}
+.console-picker-well {
+  width: calc(100% - 24px); margin: 8px 12px 0; padding: 6px; border-radius: 8px;
+  background: var(--surface-sunken); border: 1px solid var(--line);
+}
+.console-picker-note { width: 100%; max-width: none; padding: 6px 4px 0; border-top: 1px solid var(--line); margin-top: 4px; }
+.console-dialog-footer--ruled { margin-top: 12px; border-top: 1px solid var(--line); }
 /* Where: the path is the face, drawn as the dropdown the filter field beside it is. Right
    to left so a long path gives up its start to the ellipsis and the folder you are in
    stays read; the whole path is the tooltip. */
