@@ -300,7 +300,7 @@
   "config.logger.terminal.label": "Log to Terminal",
   "config.media.browse_dirs.description": "Folders outside your library to add tables and assets from - a downloads folder, a USB stick, a share. Only these and your library folders are read.",
   "config.media.browse_dirs.label": "Folders to Add From",
-  "config.media.manufacturer_logos_dir.description": "Your own manufacturer logos. A theme uses them before the downloaded pack's.",
+  "config.media.manufacturer_logos_dir.description": "Put one image per manufacturer here, named for the manufacturer",
   "config.media.manufacturer_logos_dir.label": "Manufacturer Logos Folder",
   "config.media.playfield_resolution.choice.1k": "1K",
   "config.media.playfield_resolution.choice.4k": "4K",

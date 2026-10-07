@@ -207,7 +207,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `playfield_resolution` | choice (4k, 1k) | `4k` | Playfield Resolution |
 | `playfield_video_resolution` | choice (4k, 1k) | `1k` | Playfield Video Resolution |
 | `browse_dirs` | list |  | Folders outside your library to add tables and assets from - a downloads folder, a USB stick, a share. Only these and your library folders are read. |
-| `manufacturer_logos_dir` | string |  | Your own manufacturer logos. A theme uses them before the downloaded pack's. |
+| `manufacturer_logos_dir` | string |  | Put one image per manufacturer here, named for the manufacturer |
 | `wheelset` | string |  | An alternate wheel style, kept in a folder under medias/wheels/ in the game's folder. A game without it keeps its own wheel. A theme can override this. |
 | `thumb_cache_max_mb` | int | `500` | Thumbnail Cache Max (MB) |
 
