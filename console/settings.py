@@ -56,6 +56,7 @@ from console import (
     placement_panel,
     recording,
     screens,
+    theme_card,
     theme_picker,
     theme_sources,
     undo,
@@ -150,14 +151,14 @@ async def _write(library: Library, section: str, key: str, value: Any,
 # `type` is, so declaring one is a line in the schema rather than a branch here. A name
 # nothing serves falls back to the control for its type: a surface that has not been
 # taught the tool should still be able to edit the value badly rather than not at all.
-def _frontend_theme(option: dict, value: Any, save: Callable[[Any], Any],
+def _frontend_theme(option: dict, value: Any, save: Callable[[Any], Any], *,
+                    suggestions: dict[str, Any] | None = None,
                     **_: Any) -> Callable[[], None]:
-    """The active theme, and the way to where it is chosen."""
+    """The active theme as the Themes grid draws it, and the way to where it is chosen."""
+    known = (suggestions or {}).get(config_schema.EDITOR_FRONTEND_THEME) or {}
+
     def draw() -> None:
-        with ui.element("div").classes("console-fact-edit"):
-            ui.label(str(value or "")).classes("console-fact-value truncate min-w-0")
-            panel.link(t("console.settings.themes_link"),
-                       to="/console?view=themes")()
+        theme_card.active(str(value or ""), known.get(str(value or "")))
 
     return draw
 
@@ -1841,6 +1842,15 @@ async def _suggestions(library: Library, schema: list[dict],
             offered[config_schema.EDITOR_THUMBNAIL] = _listed(
                 policy.get("hidden_media_kinds"))
 
+    known: dict[str, Any] = {}
+    if config_schema.EDITOR_FRONTEND_THEME in editors or config_schema.SUGGEST_THEMES in wanted:
+        known = await offload.io(library.themes)
+    themes = [theme for theme in known.get("themes") or [] if theme.get("key")]
+
+    if config_schema.EDITOR_FRONTEND_THEME in editors:
+        offered[config_schema.EDITOR_FRONTEND_THEME] = {
+            str(theme["key"]): theme for theme in themes}
+
     if config_schema.SUGGEST_LIBRARIES in wanted:
         found = await offload.io(library.discovered_installs)
         # Only the ones that have a library to read. An install that just launches games
@@ -1851,12 +1861,10 @@ async def _suggestions(library: Library, schema: list[dict],
             if install_identity.LIBRARY in (install.get("features") or [])}
 
     if config_schema.SUGGEST_THEMES in wanted:
-        known = await offload.io(library.themes)
         # Keyed by what is stored, labelled by what the theme calls itself - they are
         # usually the same word and a theme is free to make them differ.
         offered[config_schema.SUGGEST_THEMES] = {
-            str(theme.get("key") or ""): str(theme.get("name") or theme.get("key") or "")
-            for theme in (known.get("themes") or []) if theme.get("key")}
+            str(theme["key"]): str(theme.get("name") or theme["key"]) for theme in themes}
 
     if config_schema.SUGGEST_COLLECTIONS in wanted:
         # `collections()` answers from what the Collections page last read, which on

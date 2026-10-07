@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from console import theme_sources, themes
+from console import theme_card, theme_sources, themes
 from tests.support.clicks import press
 
 
@@ -29,8 +29,8 @@ class ARow(unittest.TestCase):
             [_theme(key="a", type="cab"), _theme(key="b", type="")])])
 
     def test_an_update_reads_as_the_version_you_have_and_the_one_on_offer(self) -> None:
-        said = themes.version_said(_theme(installed=True, update_available=True,
-                                          installed_version="1.7", version="1.9"))
+        said = theme_card.version_said(_theme(installed=True, update_available=True,
+                                              installed_version="1.7", version="1.9"))
         self.assertIn("1.7", said)
         self.assertIn("1.9", said)
 

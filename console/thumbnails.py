@@ -197,11 +197,12 @@ def circle_js(glyph: str) -> str:
             f" + {beside} + '<span>' + lines + '</span></span></span>'")
 
 
-def frame_html(address: str, glyph: str, *, to: str = "") -> str:
-    """The list frame as HTML: the picture at `address`, or the glyph where it is "".
+def frame_html(address: str, glyph: str, *, to: str = "", size: str = LIST) -> str:
+    """A frame as HTML: the picture at `address`, or the glyph where it is "".
 
-    `to` makes it a link there, for a row whose name links there too."""
-    sized = _SIZED[LIST] + ("" if address else f" {_GLYPH_BOX}")
+    `to` makes it a link there, for a row whose name links there too. `size` is the
+    lists' frame, or the Themes grid's 128 x 72 preview."""
+    sized = _SIZED[size] + ("" if address else f" {_GLYPH_BOX}")
     picture = f'<img {_IMG} src="{html.escape(address)}">' if address else ""
     opened = (f'<a href="{html.escape(to)}" tabindex="-1" aria-hidden="true" '
               f'class="{sized}">' if to else f'<span class="{sized}">')
@@ -210,16 +211,18 @@ def frame_html(address: str, glyph: str, *, to: str = "") -> str:
 
 @contextmanager
 def beside(address: str | None, glyph: str, *, to: str = "",
-           look: Look | None = None) -> Iterator[None]:
-    """A row drawn in Python: the list frame, with what the block draws as the name's
-    lines beside it. `address` as `frame_html` takes it, or None for no frame at all.
-    `look` is the lists' look, which a panel's row takes at its own height."""
+           look: Look | None = None, size: str = LIST) -> Iterator[None]:
+    """A row drawn in Python: a frame, with what the block draws as the name's lines
+    beside it. `address` as `frame_html` takes it, or None for no frame at all.
+    `look` is the lists' look, which a panel's row takes at its own height; the preview
+    frame has a size of its own and takes none."""
     if address is None:
         yield
         return
     with ui.element("span").classes(f"{_PICTURED} grow") as pictured:
-        (look or Look()).in_panel().apply(pictured)
-        ui.html(frame_html(address, glyph, to=to), sanitize=False, tag="span")
+        if size == LIST:
+            (look or Look()).in_panel().apply(pictured)
+        ui.html(frame_html(address, glyph, to=to, size=size), sanitize=False, tag="span")
         with ui.element("span").classes(f"{_LINES} grow"):
             yield
 

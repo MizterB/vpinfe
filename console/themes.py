@@ -32,6 +32,7 @@ from console import (
     panel,
     renderers,
     settings,
+    theme_card,
     theme_sources,
     thumbnails,
     verbs,
@@ -59,13 +60,10 @@ STATES = {
 MADE_FOR = {"cab": t("console.themes.cabinet"), "desktop": t("console.themes.desktop"),
             "both": t("console.themes.both")}
 
-# A theme's own glyph, where it has no preview.
-GLYPH = "palette"
-
 COLUMNS: list[dict[str, Any]] = [
     grid.identifier("name", t("console.themes.theme"), 320, subtitle="said",
                     help=t("console.themes.theme.help"),
-                    picture="preview", glyph=GLYPH, frame=thumbnails.PREVIEW),
+                    picture="preview", glyph=theme_card.GLYPH, frame=thumbnails.PREVIEW),
     grid.column("status", t("word.status"), 150, help=t("console.themes.status.help"),
                 **grid.choice_filter([{"value": key, "label": one["label"]}
                                       for key, one in STATES.items()], formatted=True),
@@ -108,14 +106,6 @@ def status(theme: dict[str, Any]) -> str:
     return INSTALLED if theme.get("installed") else AVAILABLE
 
 
-def version_said(theme: dict[str, Any]) -> str:
-    """The version, and the one on offer where it is newer."""
-    if theme.get("update_available"):
-        return t("console.themes.version_to", now=theme.get("installed_version") or "",
-                 then=theme.get("version") or "")
-    return str(theme.get("installed_version") or theme.get("version") or "")
-
-
 def repo_name(url: str) -> str:
     """`owner/repo` for a repository on GitHub or Forgejo, or a file in one; the address
     itself for anything else."""
@@ -147,8 +137,7 @@ def _row(theme: dict[str, Any]) -> dict[str, Any]:
             "registry": repo_name(str(theme["registry"])) if theme.get("registry") else "",
             "repository": repo_name(str(theme["url"])) if theme.get("url") else "",
             "updated": str(theme.get("updated") or ""),
-            "said": " \u00b7 ".join(part for part in (str(theme.get("author") or ""),
-                                                       version_said(theme)) if part)}
+            "said": theme_card.said(theme)}
 
 
 def build(library: Library, state: dict[str, Any],
@@ -316,13 +305,13 @@ async def details(context: dict[str, Any]) -> None:
                     .props("flat dense round size=sm") \
                     .classes("console-slot-zoom").tooltip(t("word.enlarge"))
             else:
-                ui.icon(GLYPH).classes("console-theme-hero-empty")
+                ui.icon(theme_card.GLYPH).classes("console-theme-hero-empty")
         entries: list[tuple[Any, Any]] = []
         if theme.get("description"):
             entries.append(panel.intro(str(theme["description"])))
         entries.append((t("word.status"), _status_value(context, library, theme)))
-        if version_said(theme):
-            entries.append((t("word.version"), version_said(theme)))
+        if theme_card.version_said(theme):
+            entries.append((t("word.version"), theme_card.version_said(theme)))
         if theme.get("author"):
             entries.append((t("word.author"), str(theme["author"])))
         if theme.get("updated"):
