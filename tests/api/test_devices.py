@@ -38,13 +38,17 @@ PHONE = {"device_id": "Pppp444444", "display_name": "iPhone",
 class DeviceRegistryApiTests(TempTree):
     def setUp(self) -> None:
         super().setUp()
-        registry = registry_module.DeviceRegistry(self.root / "devices.json")
+        registry = self.registry = registry_module.DeviceRegistry(self.root / "devices.json")
         patcher = patch.object(registry_module, "get_device_registry", lambda: registry)
         patcher.start()
         self.addCleanup(patcher.stop)
         also = patch("common.device_ops.get_device_registry", lambda: registry)
         also.start()
         self.addCleanup(also.stop)
+        # These tests are about remote devices; this install's own row is pinned elsewhere.
+        quiet = patch.object(httpapi.instance, "mint_identity", lambda: None)
+        quiet.start()
+        self.addCleanup(quiet.stop)
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
 
     def test_a_hub_knows_nobody_until_someone_says_hello(self) -> None:
@@ -119,6 +123,15 @@ class DeviceRegistryApiTests(TempTree):
 
     def test_forgetting_one_that_was_never_there_is_a_404(self) -> None:
         self.assertEqual(self.client.delete("/devices/Nope111111").status_code, 404)
+
+    def test_the_install_you_are_using_cannot_be_forgotten(self) -> None:
+        own = self.registry.ensure_self()
+
+        response = self.client.delete(f"/devices/{own}")
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertTrue(self.registry.knows(own))
+        self.assertEqual(self.registry.self_id(), own)
 
     def test_an_unknown_kind_is_refused(self) -> None:
         """A closed set, checked at the boundary. console switches on this to decide what

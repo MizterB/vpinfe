@@ -14,8 +14,9 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from common.device_registry import Device, DeviceRegistry, browser_said
+from common.device_registry import Device, DeviceRegistry, browser_said, keep_own_row
 
 
 class DeviceRegistryTests(unittest.TestCase):
@@ -304,6 +305,141 @@ class DeviceRegistryStorageTests(unittest.TestCase):
 
         self.assertEqual([p.device_id for p in DeviceRegistry(self.path).devices()],
                          ["Aaaa111111"])
+
+
+class SelfRowTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / "state" / "devices.json"
+        self.registry = DeviceRegistry(self.path)
+
+    def test_a_fresh_file_names_nobody_and_reading_writes_nothing(self) -> None:
+        self.assertEqual(self.registry.self_id(), "")
+        self.assertFalse(self.path.exists())
+
+    def test_minting_names_this_install_and_files_its_row(self) -> None:
+        own = self.registry.ensure_self()
+
+        self.assertEqual(json.loads(self.path.read_text())["self"], own)
+        self.assertEqual([row.device_id for row in self.registry.devices()], [own])
+        self.assertEqual(DeviceRegistry(self.path).ensure_self(), own)
+
+    def test_what_an_install_keeps_about_itself_is_on_its_row(self) -> None:
+        self.registry.set_self(last_table="Taxi", port=8001)
+
+        self.assertEqual(self.registry.self_get("last_table"), "Taxi")
+        self.assertEqual(self.registry.self_get("port"), 8001)
+        self.assertEqual(self.registry.self_get("absent", "none"), "none")
+
+    def test_a_field_set_to_nothing_is_removed(self) -> None:
+        self.registry.set_self(last_table="Taxi")
+        self.registry.set_self(last_table=None)
+
+        self.assertIsNone(self.registry.self_get("last_table"))
+
+    def test_recording_other_devices_leaves_self_alone(self) -> None:
+        own = self.registry.ensure_self()
+        self.registry.record("Aaaa111111", display_name="cab")
+        self.registry.forget("Aaaa111111")
+
+        self.assertEqual(self.registry.self_id(), own)
+
+    def test_this_install_cannot_be_forgotten(self) -> None:
+        own = self.registry.ensure_self()
+
+        self.assertFalse(self.registry.forget(own))
+        self.assertTrue(self.registry.knows(own))
+
+
+class UnreadableFileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / "devices.json"
+        self.registry = DeviceRegistry(self.path)
+
+    def test_a_file_that_is_not_json_is_kept_before_a_save_replaces_it(self) -> None:
+        self.path.write_text("{ torn", encoding="utf-8")
+
+        minted = self.registry.ensure_self()
+
+        kept = [p for p in self.path.parent.iterdir() if ".unreadable-" in p.name]
+        self.assertEqual([p.read_text(encoding="utf-8") for p in kept], ["{ torn"])
+        self.assertEqual(self.registry.self_id(), minted)
+
+    def test_a_file_that_cannot_be_opened_is_not_written_over(self) -> None:
+        own = self.registry.ensure_self()
+        before = self.path.read_text(encoding="utf-8")
+
+        with patch.object(Path, "read_text", side_effect=PermissionError("sharing")):
+            with self.assertRaises(PermissionError):
+                self.registry.record("Aaaa111111", display_name="cab")
+
+        self.assertEqual(self.path.read_text(encoding="utf-8"), before)
+        self.assertEqual(self.registry.self_id(), own)
+
+    def test_holds_others_is_false_for_a_registry_of_only_this_install(self) -> None:
+        self.assertFalse(self.registry.holds_others())
+        self.registry.ensure_self()
+        self.assertFalse(self.registry.holds_others())
+
+    def test_holds_others_is_true_for_another_device_or_an_unreadable_file(self) -> None:
+        self.registry.ensure_self()
+        self.registry.record("Aaaa111111", display_name="cab")
+        self.assertTrue(self.registry.holds_others())
+
+        self.path.write_text("{ torn", encoding="utf-8")
+        self.assertTrue(self.registry.holds_others())
+
+
+class KeepOwnRowTests(unittest.TestCase):
+    """A registry put back from a backup must not make this install somebody else."""
+
+    def setUp(self) -> None:
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.current = Path(self.tmp.name) / "current.json"
+        self.incoming = Path(self.tmp.name) / "incoming.json"
+        self.here = DeviceRegistry(self.current)
+        self.there = DeviceRegistry(self.incoming)
+        self.out = Path(self.tmp.name) / "out.json"
+
+    def test_the_running_install_keeps_its_id_and_its_row(self) -> None:
+        own = self.here.ensure_self()
+        self.here.set_self(last_table="Here")
+        other = self.there.ensure_self()
+        self.there.record("Pppp444444", kind="vpx_mobile", display_name="iPhone",
+                          address="192.168.1.50")
+
+        keep_own_row(self.incoming, self.current, self.out)
+
+        saved = DeviceRegistry(self.out)
+        self.assertEqual(saved.self_id(), own)
+        self.assertEqual(saved.self_get("last_table"), "Here")
+        self.assertTrue(saved.knows("Pppp444444"), "the rest of the backup is restored")
+        self.assertTrue(saved.knows(other), "the old install is a device like any other")
+        self.assertEqual(self.there.self_id(), other, "the file it read is left alone")
+
+    def test_a_row_the_backup_holds_for_this_install_is_replaced(self) -> None:
+        own = self.here.ensure_self()
+        self.here.set_self(last_table="Here")
+        self.there.record(own, display_name="stale")
+        self.there.set_self(last_table="Old")
+
+        keep_own_row(self.incoming, self.current, self.out)
+
+        saved = DeviceRegistry(self.out)
+        self.assertEqual([row.device_id for row in saved.devices()
+                          if row.device_id == own], [own])
+        self.assertEqual(saved.self_get("last_table"), "Here")
+
+    def test_with_no_identity_here_the_backups_is_not_adopted(self) -> None:
+        self.there.ensure_self()
+
+        keep_own_row(self.incoming, self.current, self.out)
+
+        self.assertEqual(DeviceRegistry(self.out).self_id(), "")
 
 
 class DeviceTests(unittest.TestCase):

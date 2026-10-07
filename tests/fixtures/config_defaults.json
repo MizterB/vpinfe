@@ -51,7 +51,6 @@
   },
   "device": {
     "features": "library,frontend,devices",
-    "id": "",
     "language": "auto",
     "last_version": "",
     "name": "",

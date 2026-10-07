@@ -28,7 +28,7 @@ from common.games import game_repository, info_maintenance, launcher_ops, launch
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.info_migration import needs_migration
 from common.i18n import t
-from common.paths import CONFIG_DIR
+from common.paths import CONFIG_DIR, STATE_DIR
 from common.vpinfe_version import get_version
 
 from . import folder as backup_folder
@@ -74,6 +74,9 @@ RECORD_KINDS = {
 # What reading a damaged or unsupported zip can raise besides OSError.
 BROKEN = (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, RuntimeError)
 _TAKING = threading.Lock()
+
+# The records that are state, not config. A restore of one keeps this install's own row.
+STATE_RECORDS = ("devices.json",)
 
 _KINDS = {KIND_GAME, KIND_LAUNCHER, *RECORD_KINDS.values()}
 _NAME = re.compile(rf"^{re.escape(NAME_PREFIX)}\d{{8}}T\d{{6}}Z(?:-\d+)?{re.escape(NAME_SUFFIX)}$")
@@ -208,11 +211,16 @@ def _game_member(index: int, folder: Path) -> _Gathered | None:
         written_by=_info_writer(data)), data)
 
 
+def record_folder(name: str) -> Path:
+    """Where a record file lives: the state folder for the registry, else config."""
+    return STATE_DIR if name in STATE_RECORDS else CONFIG_DIR
+
+
 def _record_members() -> list[_Gathered]:
     found = []
     for name, kind in RECORD_KINDS.items():
         try:
-            data = (CONFIG_DIR / name).read_bytes()
+            data = (record_folder(name) / name).read_bytes()
         except OSError:
             continue
         found.append(_Gathered(Member(

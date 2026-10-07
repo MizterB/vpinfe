@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 import os
 import unittest
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common import install_identity
+from common import device_registry, install_identity
 from common.config_access import cfg_get, cfg_set
 from common.config_store import ConfigStore
 
@@ -21,40 +22,48 @@ class InstallIdentityTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.path = os.path.join(self.tmp.name, "vpinfe.ini")
-
-    def _store(self) -> ConfigStore:
-        return ConfigStore(self.path)
+        self.path = os.path.join(self.tmp.name, "state", "devices.json")
+        self.addCleanup(device_registry.reset_for_tests)
+        device_registry.reset_for_tests(Path(self.path))
 
     def _on_disk(self) -> dict:
-        store = self._store()
-        with open(store.json_path, encoding="utf-8") as handle:
-            return json.load(handle)["settings"].get("device", {})
+        with open(self.path, encoding="utf-8") as handle:
+            return json.load(handle)
 
     def test_a_fresh_install_has_no_id_until_one_is_minted(self) -> None:
-        store = self._store()
-        store.save()
-
-        self.assertEqual(install_identity.install_id(store), "")
-        self.assertEqual(self._on_disk().get("id", ""), "",
+        self.assertEqual(install_identity.install_id(), "")
+        self.assertFalse(os.path.exists(self.path),
                          "reading an identity must never write one")
 
     def test_minting_persists_so_the_next_start_finds_it(self) -> None:
-        minted = install_identity.ensure_id(self._store())
+        minted = install_identity.ensure_id()
 
-        self.assertEqual(self._on_disk()["id"], minted,
+        self.assertEqual(self._on_disk()["self"], minted,
                          "an id that is not on disk is not an identity")
 
     def test_a_second_start_adopts_the_id_rather_than_minting_again(self) -> None:
-        first = install_identity.ensure_id(self._store())
+        first = install_identity.ensure_id()
+        device_registry.reset_for_tests(Path(self.path))
 
-        self.assertEqual(install_identity.ensure_id(self._store()), first)
+        self.assertEqual(install_identity.ensure_id(), first)
 
     def test_an_id_is_opaque_and_readable_aloud(self) -> None:
-        minted = install_identity.ensure_id(self._store())
+        minted = install_identity.ensure_id()
 
         self.assertEqual(len(minted), 10)
         self.assertFalse(set(minted) & set("0OIl"), "these are misread out loud")
+
+    def test_minting_writes_the_registry_and_nothing_else(self) -> None:
+        install_identity.ensure_id()
+
+        self.assertEqual(sorted(os.listdir(self.tmp.name)), ["state"])
+        self.assertEqual(os.listdir(os.path.dirname(self.path)), ["devices.json"])
+
+    def test_however_often_it_starts_there_is_one_id_and_one_row(self) -> None:
+        ids = {install_identity.ensure_id() for _ in range(3)}
+
+        self.assertEqual(len(ids), 1)
+        self.assertEqual([row["device_id"] for row in self._on_disk()["devices"]], list(ids))
 
 
 class DisplayNameTests(unittest.TestCase):

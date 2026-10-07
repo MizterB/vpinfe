@@ -43,7 +43,7 @@ from common.games.info_migration import (
 )
 from common.i18n import t
 from common.online.theme_installer import ASIDE_SUFFIX
-from common.paths import CONFIG_DIR, get_themes_dir
+from common.paths import CONFIG_DIR, STATE_DIR, get_themes_dir
 
 from . import archive
 from . import folder as backup_folder
@@ -216,15 +216,18 @@ def _record_copy(path: Path) -> Copy | None:
 
 
 def _record_copies() -> list[Copy]:
-    try:
-        names = os.listdir(CONFIG_DIR)
-    except OSError:
-        return []
-    return [one for name in names if (one := _record_copy(CONFIG_DIR / name))]
+    found = []
+    for folder in (CONFIG_DIR, STATE_DIR):
+        try:
+            names = os.listdir(folder)
+        except OSError:
+            continue
+        found += [one for name in names if (one := _record_copy(folder / name))]
+    return found
 
 
 def record_copy(path: Path) -> Copy | None:
-    return _record_copy(path) if path.parent == CONFIG_DIR else None
+    return _record_copy(path) if path.parent in (CONFIG_DIR, STATE_DIR) else None
 
 
 # --- Launchers -------------------------------------------------------------------------

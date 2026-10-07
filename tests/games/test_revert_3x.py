@@ -16,8 +16,9 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from common import install_identity, install_setup, serving
+from common import install_setup, serving
 from common.config_store import ConfigStore
+from common.device_registry import DeviceRegistry
 from common.games import revert_3x
 from common.games.collection_migration import ensure_last_played, ensure_order_direction
 from common.games.collection_store import CollectionStore
@@ -86,11 +87,12 @@ def run_startup_migrations(games_root: Path, config_dir: Path) -> dict:
     work: dict[str, int | bool] = {}
 
     had_json = (config_dir / "vpinfe.json").exists()
-    config = ConfigStore(str(config_dir / "vpinfe.ini"))
+    ConfigStore(str(config_dir / "vpinfe.ini"))
     work["settings_converted"] = not had_json and (config_dir / "vpinfe.json").exists()
 
-    work["install_id_minted"] = not install_identity.install_id(config)
-    install_identity.ensure_id(config)
+    registry = DeviceRegistry(config_dir / "state" / "devices.json")
+    work["install_id_minted"] = not registry.self_id()
+    registry.ensure_self()
 
     unversioned = unversioned_count(games_root)
     table_ids = table_id_count(games_root)
@@ -174,6 +176,7 @@ class RevertTestCase(TempTree):
 
     def _reset(self, **kwargs) -> dict:
         kwargs.setdefault("http_port", self.closed_port)
+        kwargs.setdefault("state_dir", self.config_dir / "state")
         return revert_3x.reset(self.games_root, self.config_dir, **kwargs)
 
     def _migrate(self) -> dict:
@@ -189,7 +192,7 @@ class RoundTripTests(RevertTestCase):
 
         self.assertEqual(self._library_bytes(), self.original)
         self.assertEqual(self._backup_copies(), [])
-        self.assertEqual(sorted(p.name for p in self.config_dir.iterdir()),
+        self.assertEqual(sorted(p.name for p in self.config_dir.rglob("*") if p.is_file()),
                          ["collections.ini", "vpinfe.ini"])
 
     def test_every_migration_runs_again_after_a_reset(self):
@@ -256,7 +259,8 @@ class ConfigTests(RevertTestCase):
 
     def test_3x_only_files_go_whether_or_not_a_migration_wrote_them(self):
         self._migrate()
-        (self.config_dir / "devices.json").write_text("{}", encoding="utf-8")
+        (self.config_dir / "state").mkdir(exist_ok=True)
+        (self.config_dir / "state" / "devices.json").write_text("{}", encoding="utf-8")
         (self.config_dir / "manager-ui-state.json").write_text("{}", encoding="utf-8")
         options = self.config_dir / "theme_user_options"
         options.mkdir()
@@ -273,7 +277,9 @@ class ConfigTests(RevertTestCase):
         reset is the one place it can be lost for good. The file still goes - 2.x does
         not read it - but a copy stays behind, and that copy is not itself swept."""
         self._migrate()
-        (self.config_dir / "devices.json").write_text(
+        state = self.config_dir / "state"
+        state.mkdir(exist_ok=True)
+        (state / "devices.json").write_text(
             json.dumps({"schema": 1, "devices": [
                 {"device_id": "Pppp444444", "kind": "vpx_mobile",
                  "display_name": "iPhone", "address": "192.168.1.50", "port": 2112}]}),
@@ -282,14 +288,26 @@ class ConfigTests(RevertTestCase):
         result = self._reset()
 
         self.assertIn("devices.json", result["config_removed"])
-        self.assertFalse((self.config_dir / "devices.json").exists())
+        self.assertFalse((state / "devices.json").exists())
 
-        kept = [p for p in self.config_dir.glob("devices.json.vpinfe-*")]
+        kept = [p for p in state.glob("devices.json.vpinfe-*")]
         self.assertEqual(len(kept), 1, f"expected one copy, found {kept}")
         self.assertEqual(sorted(result["config_kept"]), [kept[0].name])
         saved = json.loads(kept[0].read_text(encoding="utf-8"))
         self.assertEqual(saved["devices"][0]["address"], "192.168.1.50",
                          "the phone is recoverable by hand")
+
+    def test_a_registry_holding_only_this_install_leaves_no_copy(self):
+        """The next start mints that row again, so there is nothing to recover."""
+        self._migrate()
+        state = self.config_dir / "state"
+        self.assertTrue((state / "devices.json").exists())
+
+        result = self._reset()
+
+        self.assertIn("devices.json", result["config_removed"])
+        self.assertEqual(result["config_kept"], [])
+        self.assertEqual(list(state.glob("devices.json*")), [])
 
     def test_the_roster_is_copied_aside_before_it_goes(self):
         self._migrate()
@@ -554,7 +572,8 @@ class LiveRefusalTests(unittest.TestCase):
                 port = live.ports["manager"]
                 self.assertTrue(revert_3x.running_instance(port))
                 with self.assertRaises(revert_3x.InstanceRunningError):
-                    revert_3x.reset(games, live.config_dir, http_port=port)
+                    revert_3x.reset(games, live.config_dir, http_port=port,
+                                      state_dir=Path(live.config_dir) / "state")
         self.assertFalse(revert_3x.running_instance(port))
 
 

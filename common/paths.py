@@ -10,7 +10,7 @@ import os
 import sys
 from pathlib import Path
 
-from platformdirs import user_cache_dir, user_config_dir
+from platformdirs import user_cache_dir, user_config_dir, user_state_dir
 
 from common.config_store import ConfigStore
 
@@ -43,6 +43,19 @@ def _resolve_cache_dir() -> Path:
     if os.environ.get("VPINFE_CONFIG_DIR", "").strip():
         return CONFIG_DIR / "cache"
     return Path(user_cache_dir("vpinfe", "vpinfe"))
+
+
+def _resolve_state_dir() -> Path:
+    # Where the OS keeps state apart from config (Linux), that folder. Where it answers
+    # with the config folder itself (macOS, Windows), a subfolder of it named as its
+    # neighbours are: `State` beside Windows' `Cache` and `Logs`, `state` elsewhere.
+    # An overridden config folder keeps its state beside it, like its cache.
+    if os.environ.get("VPINFE_CONFIG_DIR", "").strip():
+        return CONFIG_DIR / "state"
+    native = Path(user_state_dir("vpinfe", "vpinfe"))
+    if native != CONFIG_DIR:
+        return native
+    return CONFIG_DIR / ("State" if sys.platform == "win32" else "state")
 
 
 def _unbootstrapped_test_run() -> bool:
@@ -79,6 +92,7 @@ DERIVED_TAGS_PATH = CONFIG_DIR / "derived_tags.json"
 COLLECTIONS_INI_PATH = CONFIG_DIR / "collections.ini"
 THEMES_DIR = CONFIG_DIR / "themes"
 CACHE_DIR = _resolve_cache_dir()
+STATE_DIR = _resolve_state_dir()
 THEME_CACHE_PATH = CACHE_DIR / "themes.json"
 UPDATE_CHECK_PATH = CACHE_DIR / "update.json"
 FRONTEND_BROWSER_PATH = CACHE_DIR / "frontend_browser.json"

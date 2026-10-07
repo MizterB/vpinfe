@@ -18,9 +18,10 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common.backups import archive, copies, ops, pending, places
+from common.backups import archive, copies, pending, places
 from common.backups import folder as backup_folder
 from common.config_store import ConfigStore
+from common.device_registry import DeviceRegistry
 from common.games import (
     game_repository,
     launcher_migration,
@@ -43,7 +44,8 @@ class BackupsCase(unittest.TestCase):
         self.library = root / "library"
         self.config = root / "config"
         self.themes = root / "themes"
-        for folder in (self.library, self.config, self.themes):
+        self.state = root / "state"
+        for folder in (self.library, self.config, self.themes, self.state):
             folder.mkdir()
         self.store = launchers.LauncherStore(str(root / "launchers.json"))
         self.store.mark_migration(launcher_migration.SEEDED)
@@ -52,8 +54,10 @@ class BackupsCase(unittest.TestCase):
                 patch.object(library_folders, "configured",
                              return_value=[library_folders.Location("l1", str(self.library))]),
                 patch.object(places, "CONFIG_DIR", self.config),
+                patch.object(places, "STATE_DIR", self.state),
+                patch.object(pending, "STATE_DIR", self.state),
+                patch.object(archive, "STATE_DIR", self.state),
                 patch.object(pending, "CONFIG_DIR", self.config),
-                patch.object(ops, "CONFIG_DIR", self.config),
                 patch.object(archive, "CONFIG_DIR", self.config),
                 patch.object(backup_folder, "DEFAULT_DIR", self.config / "backups"),
                 patch.object(backup_folder, "get_ini_config",
@@ -155,6 +159,44 @@ class ListingTests(BackupsCase):
              "devices.json": "devices", "players.json": "players",
              "extras.json": "records"})
         self.assertEqual({one["subject_kind"] for one in found.values()}, {"vpinfe"})
+
+    def test_a_copy_of_the_device_registry_is_found_in_the_state_folder(self) -> None:
+        copy = self.state / "devices.json.vpinfe-20261001T010203Z"
+        copy.write_text("{}")
+
+        found = self.listing()
+
+        self.assertEqual([(one["file"], one["kind"]) for one in found],
+                         [(copy.name, "devices")])
+
+    def test_putting_back_a_device_registry_keeps_the_running_install(self) -> None:
+        live = self.state / "devices.json"
+        here = DeviceRegistry(live)
+        own = here.ensure_self()
+        copy = self.state / "devices.json.vpinfe-20261001T010203Z"
+        there = DeviceRegistry(copy)
+        other = there.ensure_self()
+        there.record("Pppp444444", kind="vpx_mobile", display_name="iPhone",
+                     address="192.168.1.50")
+
+        self.assertTrue(self.restore(copy).json()["pending"])
+        self.assertEqual(pending.apply(self.config), 1)
+
+        restored = DeviceRegistry(live)
+        self.assertEqual(restored.self_id(), own)
+        self.assertTrue(restored.knows("Pppp444444"))
+        self.assertTrue(restored.knows(other))
+        self.assertEqual(DeviceRegistry(copy).self_id(), other, "the copy is left as it was")
+
+    def test_a_registry_aimed_at_the_config_folder_is_not_put_back(self) -> None:
+        staged = self.config / pending.STAGED_DIR
+        staged.mkdir()
+        copy = staged / "devices.json"
+        DeviceRegistry(copy).ensure_self()
+        pending.add(self.config / "devices.json", copy, self.config, copy_id="staged")
+
+        self.assertEqual(pending.apply(self.config), 0)
+        self.assertFalse((self.config / "devices.json").exists())
 
     def test_a_theme_set_aside_is_a_copy_of_that_theme(self) -> None:
         (self.themes / "Classic.previous").mkdir()

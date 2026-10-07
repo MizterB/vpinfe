@@ -512,18 +512,18 @@ class MovedSectionTests(ConfigStoreTests):
 
 
 class TwoStoresTests(ConfigStoreTests):
-    def test_an_id_minted_elsewhere_survives_a_save_by_a_store_that_never_saw_it(
+    def test_a_setting_written_elsewhere_survives_a_save_by_a_store_that_never_saw_it(
             self) -> None:
-        from common import install_identity
-
         kept = ConfigStore(str(self.ini))
-        minted = install_identity.ensure_id(ConfigStore(str(self.ini)))
+        other = ConfigStore(str(self.ini))
+        other.config.set("device", "name", "cab")
+        other.save()
 
         kept.config.set("network", "http_port", "9001")
         kept.save()
 
         after = ConfigStore(str(self.ini))
-        self.assertEqual(install_identity.install_id(after), minted)
+        self.assertEqual(after.config.get("device", "name"), "cab")
         self.assertEqual(after.config.get("network", "http_port"), "9001")
 
     def test_a_save_with_nothing_changed_writes_nothing_back(self) -> None:

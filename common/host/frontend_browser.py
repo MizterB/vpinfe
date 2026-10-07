@@ -207,7 +207,7 @@ def _record_self(answer: dict[str, Any]) -> None:
     """Into this install's own registry entry, which no probe of it asks about."""
     try:
         device_registry.get_device_registry().record_reachable(
-            install_identity.install_id(paths.get_ini_config()),
+            install_identity.install_id(),
             browser=device_registry.browser_said(answer))
     except Exception:
         logger.debug("Could not keep the browser report in this install's registry entry",

@@ -41,7 +41,7 @@ def mint_identity() -> None:
     """
     try:
         config = get_ini_config()
-        install_identity.ensure_id(config)
+        install_identity.ensure_id()
     except Exception as exc:
         logger.warning("Could not mint this install's identity: %s", exc)
         return

@@ -54,10 +54,10 @@ def restore_info_files(game_name: str = None, progress_cb=None, log_cb=None):
 def reset_3x_state(config_only: bool = False, dry_run: bool = False,
                    progress_cb=None, log_cb=None):
     from common.config_access import NetworkConfig
-    from common.paths import CONFIG_DIR
+    from common.paths import CONFIG_DIR, STATE_DIR
 
     return revert_3x.reset(
-        None, CONFIG_DIR,
+        None, CONFIG_DIR, state_dir=STATE_DIR,
         http_port=NetworkConfig.from_config(config_store).http_port,
         config_only=config_only, dry_run=dry_run,
         progress_cb=progress_cb, log_cb=log_cb)
@@ -124,8 +124,8 @@ def parse_args():
     parser.add_argument("--configdir", metavar="DIR",
                         help="Use DIR as the config directory (vpinfe.ini, themes, "
                              "logs) instead of the OS default, with the caches in "
-                             "DIR/cache. Same as the VPINFE_CONFIG_DIR env var; "
-                             "applied at startup in main.py.")
+                             "DIR/cache and the state in DIR/state. Same as the "
+                             "VPINFE_CONFIG_DIR env var; applied at startup in main.py.")
     parser.add_argument("--buildmeta", action="store_true",
                         help="Builds the .info file in each game dir")
     parser.add_argument("--vpxpatch", action="store_true",

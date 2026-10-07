@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from common import path_state
 from common.backups import archive, copies, ops, pending
+from common.device_registry import DeviceRegistry
 from tests.api.test_backups import OLD, BackupsCase
 from tests.support.hung_folder import never_answering
 from tests.support.library import game_info, write_game
@@ -306,6 +307,24 @@ class RestoringTests(ArchiveCase):
         self.assertEqual(live.read_text(), '{"was": 1}')
         self.assertFalse((self.config / pending.STAGED_DIR).exists())
         self.assertEqual(self.client.get("/backups").json()["pending"], [])
+
+    def test_the_device_registry_is_taken_from_state_and_goes_back_to_it(self) -> None:
+        live = self.state / "devices.json"
+        registry = DeviceRegistry(live)
+        own = registry.ensure_self()
+        registry.record("Pppp444444", kind="vpx_mobile", address="192.168.1.50")
+        self.put(self.take("records"))
+        registry.forget("Pppp444444")
+        part = self.part("VPinFE")
+
+        self.assertEqual(part["file"], "devices.json")
+        self.put(self.client.post(f"/backups/{part['id']}/restore"))
+        self.assertEqual(pending.apply(self.config), 1)
+
+        restored = DeviceRegistry(live)
+        self.assertTrue(restored.knows("Pppp444444"))
+        self.assertEqual(restored.self_id(), own)
+        self.assertFalse((self.config / "devices.json").exists())
 
     def test_deleting_the_zip_cancels_the_wait_and_drops_what_was_staged(self) -> None:
         live = self.config / "players.json"

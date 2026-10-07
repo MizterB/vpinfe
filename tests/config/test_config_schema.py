@@ -105,7 +105,6 @@ class SchemaShapeTests(unittest.TestCase):
                                     ("vpsdb", "art_checked"),
                                     ("state", "last_table"),
                                     ("state", "last_collection"),
-                                    ("device", "id"),
                                     ("device", "setup_pending"),
                                     ("device", "setup_done"),
                                     ("device", "last_version"),

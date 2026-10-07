@@ -12,10 +12,11 @@ import logging
 import shutil
 from pathlib import Path
 
+from common import device_registry
 from common.atomic_write import write_atomic
 from common.games import info_maintenance
 from common.games.info_migration import copied_from, is_copy
-from common.paths import CONFIG_DIR
+from common.paths import CONFIG_DIR, STATE_DIR
 
 from . import archive
 
@@ -91,11 +92,12 @@ def drop(match: str | Path, config_dir: Path | None = None) -> bool:
 
 
 def _ready(target: Path, copy: Path, folder: Path) -> bool:
-    if target.parent != folder or not copy.is_file():
+    if target.parent not in (folder, STATE_DIR) or not copy.is_file():
         return False
     if copy.parent == _staged(folder):
-        return target.name in archive.RECORD_KINDS
-    return copy.parent == folder and is_copy(copy) and copied_from(copy) == target
+        return (target.name in archive.RECORD_KINDS
+                and target.parent == archive.record_folder(target.name))
+    return copy.parent == target.parent and is_copy(copy) and copied_from(copy) == target
 
 
 def apply(config_dir: Path | None = None) -> int:
@@ -110,7 +112,12 @@ def apply(config_dir: Path | None = None) -> int:
         try:
             if not _ready(Path(target), Path(one["copy"]), folder):
                 continue
-            info_maintenance.restore_file(Path(target), Path(one["copy"]))
+            source = Path(one["copy"])
+            if Path(target).name in archive.STATE_RECORDS:
+                _staged(folder).mkdir(parents=True, exist_ok=True)
+                source = _staged(folder) / f"own-row-{Path(target).name}"
+                device_registry.keep_own_row(Path(one["copy"]), Path(target), source)
+            info_maintenance.restore_file(Path(target), source)
             done += 1
         except (OSError, ValueError):
             logger.exception("Could not restore %s from %s", target, one["copy"])

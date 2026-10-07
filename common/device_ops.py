@@ -14,7 +14,6 @@ from typing import Any
 from common import device_client, device_registry, discovery, install_identity, service_errors
 from common.device_registry import Device, get_device_registry
 from common.i18n import t
-from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.device_ops")
 
@@ -127,7 +126,7 @@ def probe_one(device: Device) -> dict[str, Any]:
     timeout and nobody else's answer.
     """
     registry = get_device_registry()
-    local_id = install_identity.install_id(get_ini_config())
+    local_id = install_identity.install_id()
     client = device_client.for_device(device.as_dict(), local_id)
     found = device_client.probe(client)
     if found.get("state") == device_client.ANSWERING:
@@ -163,6 +162,10 @@ def all_devices() -> list:
 
 def forget(device_id: str) -> None:
     """Forgetting one that is still running only means it announces itself again."""
-    if not get_device_registry().forget(device_id):
+    registry = get_device_registry()
+    wanted = (device_id or "").strip()
+    if wanted and wanted == registry.self_id():
+        raise service_errors.RefusedError(t("error.devices.forget_self"))
+    if not registry.forget(device_id):
         raise service_errors.NotFoundError(
             t("error.devices.not_found", device_id=(device_id)))

@@ -26,7 +26,6 @@ from fastapi.responses import StreamingResponse
 from common import events, install_identity
 from common.games import game_identity
 from common.i18n import t
-from common.paths import get_ini_config
 
 from . import scopes
 from .auth import requires
@@ -244,7 +243,7 @@ def _install_id() -> str:
     """This install's id. Cached: `_dispatch` runs on the publishing thread and reading
     it off disk costs ~2ms, which a launch and every job tick would pay."""
     try:
-        return install_identity.install_id(get_ini_config())
+        return install_identity.install_id()
     except Exception:
         logger.debug("Could not read this install's id for an event", exc_info=True)
         return ""

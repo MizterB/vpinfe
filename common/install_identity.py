@@ -1,4 +1,4 @@
-"""Stable local identity for one installation: an opaque id at `device.id`.
+"""Stable local identity for one installation: an opaque id on the state folder's registry.
 
 Follows `common/games/game_identity.py`: opaque id, explicit minting, reading never
 writes. Nothing resolves through `name`, so renaming an install is safe.
@@ -9,14 +9,13 @@ from __future__ import annotations
 import logging
 import socket
 
-from common.config_access import cfg_get, cfg_has, cfg_list, cfg_set
+from common.config_access import cfg_get, cfg_has, cfg_list
 from common.config_store import ConfigStore
 from common.games.ids import new_id
 
 logger = logging.getLogger("vpinfe.common.install_identity")
 
 ID_SECTION = "device"
-ID_KEY = "id"
 
 # What an install is *meant* to do, chosen deliberately. Roles said this before and said
 # it badly: the two it had were trying to name both what an install does and what
@@ -51,9 +50,11 @@ DEFAULT_FEATURES = (LIBRARY, FRONTEND, DEVICES)
 CORE = "core"
 
 
-def install_id(config: ConfigStore) -> str:
+def install_id() -> str:
     """This install's id, or "" if it has not been minted. Never writes."""
-    return cfg_get(config, ID_SECTION, ID_KEY).strip()
+    from common.device_registry import get_device_registry
+
+    return get_device_registry().self_id()
 
 
 def mint_id() -> str:
@@ -63,18 +64,12 @@ def mint_id() -> str:
     return new_id()
 
 
-def ensure_id(config: ConfigStore) -> str:
+def ensure_id() -> str:
     """This install's id, minting and saving one if it has none. An id that is not on
     disk is not an identity: the next start would mint another and become someone else."""
-    existing = install_id(config)
-    if existing:
-        return existing
+    from common.device_registry import get_device_registry
 
-    minted = mint_id()
-    cfg_set(config, ID_SECTION, ID_KEY, minted)
-    config.save()
-    logger.info("Minted install id %s", minted)
-    return minted
+    return get_device_registry().ensure_self()
 
 
 def display_name(config: ConfigStore) -> str:

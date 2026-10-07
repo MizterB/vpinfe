@@ -208,7 +208,6 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `id` | string |  | Written by VPinFE on first start. Devices are told apart by this, so changing it makes this a different device. |
 | `setup_pending` | bool | `false` | Written true on this device's first save. Setup clears it when it finishes. |
 | `setup_done` | list |  | The Setup steps already answered. Setup reopens on the first one that is not. |
 | `last_version` | string |  | The release this device last started as. A later one opens What's new. |

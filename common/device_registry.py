@@ -11,6 +11,11 @@ They are two names because they answer different questions - `install_id` is wha
 installation calls itself, `device_id` is what this registry files it under - and because a
 device that is not an install has the second and never the first.
 
+This file is state, not config: it sits in the state folder, and `self` names the row that
+is this install. A fresh state folder has no `self`, so it mints one - which is what keeps an
+image that copies the config folder from cloning an identity. The row carries what VPinFE
+keeps about this install, flat, through `self_get` and `set_self`.
+
 Data only. Routing a launch to a chosen device, aggregating state across devices and
 resolving conflicts between them are separate decisions, and none of them are needed to
 tell one device from another.
@@ -20,7 +25,9 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import threading
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -28,14 +35,15 @@ from typing import Any
 
 from common.atomic_write import write_atomic
 from common.install_identity import mint_id
-from common.paths import CONFIG_DIR
+from common.paths import STATE_DIR
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.device_registry")
 
-DEVICE_REGISTRY_PATH = CONFIG_DIR / "devices.json"
+DEVICE_REGISTRY_PATH = STATE_DIR / "devices.json"
 SCHEMA = 1
 SCHEMA_KEY = "schema"
+SELF_KEY = "self"
 DEVICES_KEY = "devices"
 MIGRATIONS_KEY = "migrations"
 
@@ -257,9 +265,12 @@ class DeviceRegistry:
             return devices[wanted]
 
     def forget(self, device_id: str) -> bool:
-        """Drop a device. Returns whether there was one to drop."""
+        """Drop a device. Returns whether there was one to drop - never for this install,
+        whose row holds what it keeps about itself."""
         wanted = (device_id or "").strip()
         with self._lock:
+            if wanted and wanted == self._stored_self():
+                return False
             devices = self._load()
             remaining = [p for p in devices if p.device_id != wanted]
             if len(remaining) == len(devices):
@@ -267,6 +278,65 @@ class DeviceRegistry:
             self._save(remaining)
             logger.info("DeviceRegistry: forgot device %s", wanted)
             return True
+
+    # -- this install ----------------------------------------------------------
+
+    def self_id(self) -> str:
+        """This install's id, or "" until `ensure_self` has minted one. Never writes."""
+        with self._lock:
+            return self._stored_self()
+
+    def ensure_self(self) -> str:
+        """This install's id, minting and saving one if the file has none. An id that is
+        not on disk is not an identity: the next start would mint another."""
+        with self._lock:
+            existing = self._stored_self()
+            if existing:
+                return existing
+            minted = mint_device_id()
+            self._save(self._load(), self_id=minted)
+            self.record(minted, kind=KIND_VPINFE, heard=False)
+            logger.info("Minted install id %s", minted)
+            return minted
+
+    def self_get(self, name: str, default: Any = None) -> Any:
+        """One field of this install's row, `default` where it is not there. Never writes."""
+        with self._lock:
+            row = self.get(self._stored_self())
+            return default if row is None else row.as_dict().get(name, default)
+
+    def set_self(self, **fields: Any) -> None:
+        """Write fields on this install's row, minting the id first if there is none.
+
+        The one writer for what an install keeps about itself. A value of None removes
+        the field, so a key never holds a stored "nothing".
+        """
+        with self._lock:
+            wanted = self.ensure_self()
+            devices = {p.device_id: p for p in self._load()}
+            row = devices[wanted].as_dict()
+            for name, value in fields.items():
+                if value is None:
+                    row.pop(name, None)
+                else:
+                    row[name] = value
+            changed = Device.from_dict(row)
+            if changed is not None:
+                devices[wanted] = changed
+                self._save(list(devices.values()))
+
+    def holds_others(self) -> bool:
+        """Whether the file has anything a restart would not rebuild: a row besides this
+        install's own, or content that cannot be read."""
+        with self._lock:
+            if not self.path.exists():
+                return False
+            try:
+                json.loads(self.path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return True
+            mine = self._stored_self()
+            return any(row.device_id != mine for row in self._load())
 
     # -- one-time conversions ------------------------------------------------
 
@@ -282,15 +352,21 @@ class DeviceRegistry:
                 return
             self._save(self._load(), migrations=names + [name])
 
-    def _stored_migrations(self) -> list[str]:
+    def _stored_payload(self) -> dict[str, Any]:
         if not self.path.exists():
-            return []
+            return {}
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
         except Exception:
-            return []
-        raw = payload.get(MIGRATIONS_KEY) if isinstance(payload, dict) else None
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    def _stored_migrations(self) -> list[str]:
+        raw = self._stored_payload().get(MIGRATIONS_KEY)
         return [str(name) for name in raw or [] if str(name).strip()]
+
+    def _stored_self(self) -> str:
+        return str(self._stored_payload().get(SELF_KEY) or "").strip()
 
     # -- storage -------------------------------------------------------------
 
@@ -308,20 +384,38 @@ class DeviceRegistry:
         return [device for device in (Device.from_dict(entry) for entry in raw
                                       if isinstance(entry, dict)) if device is not None]
 
-    def _save(self, devices: list[Device], migrations: list[str] | None = None) -> None:
+    def _save(self, devices: list[Device], migrations: list[str] | None = None,
+              self_id: str | None = None) -> None:
         # Never stamp a newer file down to what this build writes - that number belongs
         # to whichever VPinFE wrote it, the same rule the config store follows.
         #
-        # Migrations are read back rather than held: every other method here reads the
-        # file fresh, so keeping this one in memory would let two writers drop each
-        # other's marker.
+        # Migrations and `self` are read back rather than held: every other method here
+        # reads the file fresh, so keeping them in memory would let two writers drop each
+        # other's marker, or a save that never minted drop the id.
         payload = {SCHEMA_KEY: SCHEMA,
+                   SELF_KEY: self._stored_self() if self_id is None else self_id,
                    MIGRATIONS_KEY: (self._stored_migrations() if migrations is None
                                     else migrations),
                    DEVICES_KEY: [device.as_dict() for device in devices]}
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._keep_what_cannot_be_read()
         write_atomic(self.path,
                      lambda handle: json.dump(payload, handle, indent=2, ensure_ascii=False))
+
+
+    def _keep_what_cannot_be_read(self) -> None:
+        """Before a save replaces the file: a file that is not JSON is copied aside first,
+        and one that cannot be opened raises, so a save never writes over what it could not
+        read. Either would otherwise take this install's id with it."""
+        if not self.path.exists():
+            return
+        try:
+            json.loads(self.path.read_text(encoding="utf-8"))
+        except ValueError:
+            stamp = time.strftime("%Y%m%dT%H%M%S")
+            kept = self.path.with_name(f"{self.path.name}.unreadable-{stamp}")
+            shutil.copy2(self.path, kept)
+            logger.warning("DeviceRegistry at %s is not JSON; kept a copy at %s", self.path, kept)
 
 
 _registry: DeviceRegistry | None = None
@@ -338,3 +432,27 @@ def get_device_registry() -> DeviceRegistry:
 def reset_for_tests(path: Path | None = None) -> None:
     global _registry
     _registry = DeviceRegistry(path) if path is not None else None
+
+
+def keep_own_row(incoming: Path, current: Path, out: Path) -> None:
+    """Write to `out` the registry in `incoming` with `self` and this install's own row
+    taken from `current`, leaving `incoming` as it is.
+
+    A backup taken on another cabinet must not make this one that cabinet. Where `current`
+    names no install, the incoming `self` is dropped rather than adopted, so the next start
+    mints one.
+    """
+    kept = DeviceRegistry(current)
+    mine = kept.self_id()
+    own = kept.get(mine) if mine else None
+    payload = DeviceRegistry(incoming)._stored_payload()
+    rows = [row for row in payload.get(DEVICES_KEY) or []
+            if isinstance(row, dict) and row.get("device_id") != mine]
+    if own is not None:
+        rows.append(own.as_dict())
+    payload[DEVICES_KEY] = rows
+    if mine:
+        payload[SELF_KEY] = mine
+    else:
+        payload.pop(SELF_KEY, None)
+    write_atomic(out, lambda handle: json.dump(payload, handle, indent=2, ensure_ascii=False))

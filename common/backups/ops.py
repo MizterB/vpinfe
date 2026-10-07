@@ -28,7 +28,6 @@ from common.games.info_migration import copied_from
 from common.host import launch_state
 from common.i18n import t
 from common.jobs import KIND_LIBRARY_SCAN, track
-from common.paths import CONFIG_DIR
 
 from . import archive, pending, places
 from . import folder as backup_folder
@@ -215,7 +214,8 @@ def _put_launcher(path: Path, member: archive.Member) -> Copy | None:
 def _put_record(path: Path, member: archive.Member) -> None:
     if member.path not in archive.RECORD_KINDS:
         raise service_errors.RefusedError(t("error.backups.unreadable"))
-    pending.stage(CONFIG_DIR / member.path, path, member, make_member_id(path, member.name))
+    pending.stage(archive.record_folder(member.path) / member.path, path, member,
+                  make_member_id(path, member.name))
 
 
 def _put_member(path: Path, member: archive.Member) -> tuple[Copy | None, bool]:

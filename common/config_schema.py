@@ -941,13 +941,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     *in_section(
         "device",
         ConfigOption(
-            "id",
-            type="string",
-            default="",
-            # Minted on first read, never by a person, and never edited afterwards.
-            internal=True,
-        ),
-        ConfigOption(
             "setup_pending",
             type="bool",
             default="false",

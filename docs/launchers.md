@@ -24,7 +24,7 @@ Extensions contribute apps through `contribute()`, and `withdraw()` takes one ba
 
 ## Where a launcher's settings live
 
-`launchers.json` in the install's config directory, beside `collections.json`, `devices.json` and `players.json`. Not a config section.
+`launchers.json` in the install's config directory, beside `collections.json` and `players.json`. Not a config section.
 
 A launcher is an object the user creates, names, duplicates, removes and switches off, rather than one of a fixed set of settings the install has. Nothing in the tree has a dynamically named config section and `config_schema` has no concept of one.
 

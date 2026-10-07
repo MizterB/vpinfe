@@ -93,7 +93,7 @@ class _Discovery:
         with self._lock:
             if self._zeroconf is not None:
                 return
-            self._mine = install_identity.install_id(config)
+            self._mine = install_identity.install_id()
             self._on_peer = on_peer
             self._zeroconf = Zeroconf()
             announced = self._announce(config)

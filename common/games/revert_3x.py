@@ -17,6 +17,7 @@ from pathlib import Path
 
 from common import migration_ledger, serving
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX
+from common.device_registry import DeviceRegistry
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
 from common.games.info_file import ASSETS_KEY, VPINFE_SECTION
 from common.games.info_maintenance import game_dirs, restore_library
@@ -36,8 +37,10 @@ logger = logging.getLogger("vpinfe.common.games.revert_3x")
 # for anything backup-shaped also eats the hand-made .bak-repro files kept beside them.
 # `watching.json` is 3.0 data with no 2.x original: a reset library that kept it would
 # measure new findings against an install that no longer exists.
-CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "devices.json", "players.json",
+CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "players.json",
                 "manager-ui-state.json", "watching.json", migration_ledger.FILE_NAME)
+# The same, in the state folder.
+STATE_FILES = ("devices.json",)
 CONFIG_DIRS = ("theme_user_options",)
 
 # Whose `.vpinfe-*` copies are ours to remove. The ini pair is what the conversion to
@@ -91,6 +94,7 @@ def running_instance(http_port: int, timeout: float = 10.0) -> bool:
 
 
 def reset(game_root: str | Path | None, config_dir: str | Path, *, http_port: int,
+          state_dir: str | Path,
           config_only: bool = False, dry_run: bool = False,
           progress_cb: ProgressCallback | None = None,
           log_cb: LogCallback | None = None) -> dict:
@@ -101,6 +105,7 @@ def reset(game_root: str | Path | None, config_dir: str | Path, *, http_port: in
     allowed either way: it writes nothing.
     """
     config_home = Path(config_dir)
+    state_home = Path(state_dir)
     reporter = JobReporter(logger, progress_cb=progress_cb, log_cb=log_cb)
 
     # The setting is where the next start would listen. A run that was started on another
@@ -127,7 +132,7 @@ def reset(game_root: str | Path | None, config_dir: str | Path, *, http_port: in
 
     if not config_only:
         _reset_library(game_root, result, reporter, dry_run)
-    _reset_config(config_home, result, dry_run)
+    _reset_config(config_home, state_home, result, dry_run)
 
     for line in _summary(result):
         reporter.log(line)
@@ -157,19 +162,26 @@ def _reset_library(game_root: str | Path | None, result: dict, reporter: JobRepo
         result["removed_backups"] += _sweep(game_dir, f"{game_dir.name}.info", result)
 
 
-def _reset_config(config_dir: Path, result: dict, dry_run: bool) -> None:
-    targets = _config_targets(config_dir)
+def _reset_config(config_dir: Path, state_dir: Path, result: dict, dry_run: bool) -> None:
+    targets = _config_targets(config_dir, state_dir)
     if dry_run:
         result["config_removed"] = sorted(path.name for path in targets)
-        result["config_kept"] = sorted(name for name in KEPT_BEFORE_REMOVAL
-                                       if (config_dir / name).exists())
+        result["config_kept"] = sorted(path.name for path in _kept_sources(config_dir, state_dir)
+                                       if path.exists())
         return
-    result["config_kept"] = _keep_aside(config_dir, result)
+    result["config_kept"] = _keep_aside(config_dir, state_dir, result)
     result["config_removed"] = sorted(path.name for path in targets
                                       if _remove(path, result))
 
 
-def _keep_aside(config_dir: Path, result: dict) -> list[str]:
+def _kept_sources(config_dir: Path, state_dir: Path) -> list[Path]:
+    sources = [(state_dir if name in STATE_FILES else config_dir) / name
+               for name in KEPT_BEFORE_REMOVAL]
+    return [path for path in sources
+            if path.name != "devices.json" or DeviceRegistry(path).holds_others()]
+
+
+def _keep_aside(config_dir: Path, state_dir: Path, result: dict) -> list[str]:
     """Copy what cannot be rebuilt, before the removal that follows. Returns the copies.
 
     A failure here is reported and does not stop the reset: the copy is a courtesy, and
@@ -177,15 +189,14 @@ def _keep_aside(config_dir: Path, result: dict) -> list[str]:
     they are trying to leave.
     """
     kept = []
-    for name in KEPT_BEFORE_REMOVAL:
-        source = config_dir / name
+    for source in _kept_sources(config_dir, state_dir):
         if not source.exists():
             continue
         try:
             kept.append(Path(copy_aside(source, RESET)).name)
         except OSError as exc:
             result["failed"] += 1
-            result["failures"].append((name, str(exc)))
+            result["failures"].append((source.name, str(exc)))
     return sorted(kept)
 
 
@@ -226,14 +237,15 @@ def _written_by_3x(info_path: Path) -> bool:
     return any(name in data for name in OUR_SECTIONS)
 
 
-def _config_targets(config_dir: Path) -> list[Path]:
-    """Everything under the config directory this removes, by name."""
+def _config_targets(config_dir: Path, state_dir: Path) -> list[Path]:
+    """Everything under the config and state directories this removes, by name."""
+    targets = [state_dir / name for name in STATE_FILES if (state_dir / name).exists()]
     try:
         names = os.listdir(config_dir)
     except OSError:
-        return []
-    targets = [config_dir / name for name in CONFIG_FILES + CONFIG_DIRS
-               if (config_dir / name).exists()]
+        return targets
+    targets += [config_dir / name for name in CONFIG_FILES + CONFIG_DIRS
+                if (config_dir / name).exists()]
     for owned in BACKED_UP_NAMES:
         targets += [config_dir / name for name in backup_names(names, owned)]
     return targets + [config_dir / name for name in names if _is_write_temp(name)]
