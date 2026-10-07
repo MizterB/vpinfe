@@ -31,6 +31,9 @@ SCORE_VIEW_WINDOW = "ScoreView.ScoreView"
 BAR_PX = 46
 CAPTION_PX = 28
 GAP_PX = 8
+# The most height the pictures ask of a column that is too short for them; past this the
+# column scrolls and the pictures stop growing with the width.
+SCROLL_FLOOR_PX = 720
 LEGACY_DMD_SPACE = (1024, 768)
 LOOKS = ("off", "on", "every")
 EDITIONS = ("authentic", "fantasy")
@@ -279,6 +282,10 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
             plugin = backglass_ops.renderer(now)
             shown = [one for one in (glass_screen, score_screen) if one is not None]
             both = len(shown) == 2
+            tall = sum(1 / one.ratio for one in shown)
+            stack = CAPTION_PX * len(shown) + GAP_PX * (len(shown) - 1) + BAR_PX
+            holder.style(f"min-height:min(calc(100cqw * {tall:.5f} + {stack}px), "
+                         f"{SCROLL_FLOOR_PX}px)")
             if both:
                 ui.html(_beside(shown[0].ratio, shown[1].ratio), sanitize=False, tag="style")
             with ui.row().classes(
@@ -287,8 +294,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                     f"gap:{GAP_PX}px;--gap:{GAP_PX}px;"
                     f"--sum:{sum(one.ratio for one in shown):.5f};--gaps:{int(both)};"
                     f"--chrome:{BAR_PX + CAPTION_PX}px;"
-                    f"--tall:{sum(1 / one.ratio for one in shown):.5f};"
-                    f"--stack:{CAPTION_PX * len(shown) + GAP_PX * (len(shown) - 1)}px;"
+                    f"--tall:{tall:.5f};--stack:{stack}px;"
                     f"--cap:{CAPTION_PX}px"):
                 _stage(glass_screen, src, moved(glass_screen), t("console.backglass.glass"),
                        _counted_in(plugin, glass_screen.space))

@@ -2885,8 +2885,12 @@ a.console-tag:hover { background: var(--wash-hover); }
    the picture being watched. */
 .console-stage {
   flex: 1 1 0; min-height: 0; min-width: 0; width: 100%; position: relative;
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; overflow-y: auto;
 }
+/* Only a stage that holds a backglass preview is a container: the preview's floor is read
+   in its width, and a container here would answer the other stages' `@container` rules
+   for the panel's width. */
+.console-stage:has(.console-bgview) { container-type: inline-size; }
 .console-stage .console-slot-art { flex: 1 1 0; min-height: 0; width: 100%; padding: 0; }
 .console-stage .console-slot-art img, .console-stage .console-slot-art video {
   max-height: 100%;
@@ -2897,7 +2901,7 @@ a.console-tag:hover { background: var(--wash-hover); }
    `--fit` is the height every window is drawn at: what is left of the stage after its
    buttons, or the width shared out by the windows' shapes where that is less. */
 .console-bgview {
-  display: flex; flex-direction: column; gap: 6px; flex: 1 1 0; min-height: 0;
+  display: flex; flex-direction: column; gap: 6px; flex: 1 0 0; min-height: 0;
   container-type: size; position: relative;
 }
 .console-bgview:hover .console-slot-zoom { opacity: 1; }
@@ -2919,7 +2923,7 @@ a.console-tag:hover { background: var(--wash-hover); }
   padding-bottom: 4px;
 }
 .console-bgview-bar .console-bgview-name:not(:first-child) { margin-left: 12px; }
-.console-bgview-notes { margin-top: 6px; }
+.console-bgview-notes { margin-top: 6px; flex: none; }
 .console-bgview-notes .console-help { max-width: none; }
 .console-bgview-box {
   position: relative; width: max(var(--wide), 80px); overflow: hidden;
