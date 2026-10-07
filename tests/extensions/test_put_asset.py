@@ -11,10 +11,13 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from common import path_state, service_errors
 from common.extensions.contract import ContractError
 from common.extensions.games import ExtensionGames
 from common.failures import why
+from tests.support.hung_folder import never_answering
 
 
 class _Files:
@@ -37,6 +40,25 @@ class PutAssetCase(unittest.TestCase):
         self.games = ExtensionGames("probe", ("games:read", "games:write"),
                                     _Files(self.source))
         self.games.folder = lambda game_id: str(self.game)
+
+
+class UnreachableFolderTests(PutAssetCase):
+    def test_a_folder_that_does_not_answer_is_refused_by_every_writer(self) -> None:
+        rom = self.source / "afm_113b.zip"
+        rom.write_bytes(b"rom")
+        picture = self.source / "wheel.png"
+        picture.write_bytes(b"png")
+        writers = {
+            "asset": lambda: self.games.put_asset("g1", "rom", rom),
+            "media": lambda: self.games.put_media("g1", "wheel", picture),
+        }
+
+        with mock.patch.object(path_state, "PROBE_SECONDS", 0.2), \
+                never_answering(str(self.game)):
+            for label, put in writers.items():
+                with self.subTest(label), self.assertRaises(service_errors.BlockedError):
+                    put()
+        self.assertEqual(list(self.game.iterdir()), [])
 
 
 class DestinationTests(PutAssetCase):

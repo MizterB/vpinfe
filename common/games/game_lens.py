@@ -11,14 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from common import service_errors
-from common.games import asset_resolver, game_repository
+from common.games import asset_resolver, game_repository, library_folders
 from common.games.asset_registry import is_readme
 from common.games.game_repository import catalog, collections_by_game_id, game_to_row
 from common.games.tables import table_names
 from common.i18n import t
 
-__all__ = ["asset_summary", "catalog", "detail", "game_or_refuse", "game_resource",
-           "inventory_assets", "listing", "resource_of"]
+__all__ = ["asset_summary", "catalog", "detail", "game_for_writing", "game_or_refuse",
+           "game_resource", "inventory_assets", "listing", "resource_of"]
 
 
 def asset_summary(row: dict) -> dict:
@@ -137,6 +137,18 @@ def game_or_refuse(game_id: str) -> Any:
     if game is None:
         raise service_errors.NotFoundError(
             t("error.games.unknown_game", game_id=(game_id)))
+    return game
+
+
+def game_for_writing(game_id: str) -> Any:
+    """`game_or_refuse`, once the game's folder has said it can be written to.
+
+    What every caller that changes a game's folder or its .info starts from, so a dropped
+    share or a read-only one is refused in the same words wherever the write came from.
+    """
+    game = game_or_refuse(game_id)
+    library_folders.writable_game_folder(str(game.full_path_game or ""),
+                                         called=str(game.game_dir_name or game_id))
     return game
 
 

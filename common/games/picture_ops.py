@@ -13,6 +13,10 @@ def _folder(game_id: str) -> Path:
     return Path(game_lens.game_or_refuse(game_id).full_path_game or "")
 
 
+def _folder_for_writing(game_id: str) -> Path:
+    return Path(game_lens.game_for_writing(game_id).full_path_game or "")
+
+
 def _named(name: str) -> str:
     if not pictures.is_name(name):
         raise service_errors.RefusedError(t("error.games.not_png", name=name))
@@ -40,13 +44,14 @@ def picture_file(game_id: str, name: str, size: int | None = None) -> sized_medi
 
 
 def remove(game_id: str, name: str) -> dict:
+    _folder_for_writing(game_id)
     _found(game_id, name).unlink()
     return {"removed": name}
 
 
 def put(game_id: str, name: str, data: bytes) -> dict:
     """Write `data` as the picture `name`, where no picture has that name."""
-    folder = _folder(game_id)
+    folder = _folder_for_writing(game_id)
     try:
         path = pictures.put(folder, _named(name), data)
     except ValueError as exc:

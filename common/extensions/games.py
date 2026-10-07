@@ -237,7 +237,7 @@ class ExtensionGames:
         extension only declared it reads from, so it needs the `fs:write` capability.
         """
         self._needs(GAMES_WRITE)
-        from common.games import game_service
+        from common.games import game_service, library_folders
         from common.games.ids import new_id
 
         if move and not (self._files is not None and self._files.may_write()):
@@ -246,8 +246,8 @@ class ExtensionGames:
                 "capability its manifest does not declare")
         source = self._source(path)
         table_id = new_id()
-        found = game_service.add_table_file(Path(self.folder(game_id)), source, table_id,
-                                            move=move)
+        folder = library_folders.writable_game_folder(self.folder(game_id))
+        found = game_service.add_table_file(folder, source, table_id, move=move)
         return {"table_id": table_id, "companions": tuple(found["companions"]),
                 "rom": found.get("rom", "")}
 
@@ -283,6 +283,7 @@ class ExtensionGames:
         self._needs(GAMES_WRITE)
         import shutil
 
+        from common.games import library_folders
         from common.uploads.asset_import_service import folder_for
 
         source = Path(str(path or "")).expanduser().resolve()
@@ -290,7 +291,7 @@ class ExtensionGames:
             raise FileNotFoundError(t("error.games.nothing_at", path=source))
         self._inside_declared(source)
 
-        game_dir = Path(self.folder(game_id))
+        game_dir = library_folders.writable_game_folder(self.folder(game_id))
         into = folder_for(kind, game_dir, rom)
         if into is None:
             raise ValueError(t("error.games.rom_needed" if kind in self.asset_kinds()
@@ -313,12 +314,12 @@ class ExtensionGames:
                   table_stem: str = "") -> str:
         """Put a file in one of an entry's media slots. Answers with what it landed as."""
         self._needs(GAMES_WRITE)
-        from common.games import media_placement
+        from common.games import library_folders, media_placement
 
         if kind not in self.kinds():
             raise ValueError(t("error.games.kind_not_found", kind=kind))
         source = self._source(path)
-        game_dir = Path(self.folder(game_id))
+        game_dir = library_folders.writable_game_folder(self.folder(game_id))
         written = media_placement.place(game_dir, kind, table_stem or game_dir.name,
                                         source)
         # Recorded as the user's, because it is: somebody's own library came across, and

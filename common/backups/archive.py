@@ -153,13 +153,14 @@ def read(path: Path) -> Manifest | None:
 
 def game_folder(member: Member) -> Path | None:
     """The folder a game member goes back to. A member with an id goes to the game that has
-    it; only a member without one is matched by its folder's name."""
+    it; only a member without one is matched by its folder's name. Whether the folder can be
+    reached is the caller's question, asked of the disk once, not answered here."""
     if member.subject_id:
         folder = game_repository.game_folder(member.subject_id)
     else:
         game = game_repository.by_folder_name(member.subject_name)
         folder = Path(str(game.full_path_game)) if game is not None else None
-    return folder if folder is not None and folder.is_dir() else None
+    return folder
 
 
 def extract(path: Path, member: Member, into: Path) -> Path:

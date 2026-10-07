@@ -8,8 +8,10 @@ import zipfile
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+from common import path_state
 from common.backups import archive, copies, ops, pending
 from tests.api.test_backups import OLD, BackupsCase
+from tests.support.hung_folder import never_answering
 from tests.support.library import game_info, write_game
 
 
@@ -264,6 +266,17 @@ class RestoringTests(ArchiveCase):
         response = self.client.post(f"/backups/{self.part('Taxi')['id']}/restore")
 
         self.assertEqual(response.status_code, 404, response.text)
+
+    def test_a_part_whose_folder_does_not_answer_is_refused_not_waited_on(self) -> None:
+        folders = self.three()
+        part = self.part("Taxi")["id"]
+
+        with patch.object(path_state, "PROBE_SECONDS", 0.2), \
+                never_answering(str(folders["Taxi"])):
+            response = self.client.post(f"/backups/{part}/restore")
+
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertEqual(self.title_in(folders["Taxi"]), "Taxi (edited)")
 
     def test_the_whole_zip_skips_a_game_that_has_gone_and_says_which(self) -> None:
         folders = self.three()

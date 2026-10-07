@@ -102,7 +102,7 @@ def set_details(game_id: str, values: dict) -> dict:
     Not where a VPS id goes. Saying which catalog record a game is claims an identity
     rather than describing a machine, and the alt_vps_id override is where that is said.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     try:
         game_service.set_details(Path(str(game.full_path_game)), values)
     except FileNotFoundError as exc:
@@ -115,7 +115,7 @@ def set_details(game_id: str, values: dict) -> dict:
 
 def set_rating(game_id: str, rating: Any) -> dict:
     """Set `User.Rating` on a game, 0-5."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     stored = set_game_rating(game, rating)
     reread_game(game)
     return {"rating": stored}
@@ -124,7 +124,7 @@ def set_rating(game_id: str, rating: Any) -> dict:
 def set_tags(game_id: str, tags: Iterable[str]) -> dict:
     """The whole set, not a bag: a repeat is dropped, and case is left alone so two
     spellings stay two tags until somebody merges them."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     derived_tags.refuse_added(game, tags := list(tags))
     stored = set_game_tags(game, tags)
     reread_game(game)
@@ -137,7 +137,7 @@ def set_guides(game_id: str, wanted: list[dict[str, Any]]) -> dict:
     the person's own."""
     from common.games.info_file import GUIDES_KEY
 
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     config = load_game_meta(game)
     config[GUIDES_KEY] = curate_guides(config.get(GUIDES_KEY) or [], wanted)
     persist_game_meta(game, config)
@@ -182,7 +182,7 @@ def curate_guides(held: list[Any], wanted: list[dict[str, Any]]) -> list[dict[st
 
 def set_favorite(game_id: str, favorite: bool) -> dict:
     """Set `User.Favorite` on a game."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     stored = set_game_favorite(game, favorite)
     reread_game(game)
     return {"favorite": stored}
@@ -190,7 +190,7 @@ def set_favorite(game_id: str, favorite: bool) -> dict:
 
 def set_private(game_id: str, private: bool) -> dict:
     """Set `vpinfe.private` on a game."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     stored = set_game_private(game, private)
     reread_game(game)
     return {"private": stored}
@@ -199,7 +199,7 @@ def set_private(game_id: str, private: bool) -> dict:
 def set_private_many(game_ids: Iterable[str], private: bool) -> dict:
     """Set `vpinfe.private` on every game named. An id the library does not hold refuses
     the lot before anything is written."""
-    games = [game_lens.game_or_refuse(one) for one in dict.fromkeys(game_ids)]
+    games = [game_lens.game_for_writing(one) for one in dict.fromkeys(game_ids)]
     wanted = bool(private)
     changed = [game for game in games if game_private(load_game_meta(game)) != wanted]
     for game in changed:
@@ -217,7 +217,7 @@ def set_play_record(game_id: str, play_count: int | None = None,
     and dropping them makes a collection that sorts by either of those wrong on arrival.
     A field left out is left alone.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     record = set_game_play_record(game, play_count=play_count,
                                   run_time_seconds=play_time_seconds,
                                   last_played=last_played)
@@ -228,7 +228,7 @@ def set_play_record(game_id: str, play_count: int | None = None,
 def reset_play_record(game_id: str) -> dict:
     """Put the counters back to nothing, leaving rating, favorite and tags alone.
     Setting a count to a number is the migration case, and is `set_play_record`."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     record = reset_game_play_record(game)
     reread_game(game)
     return record
@@ -241,7 +241,7 @@ def set_overrides(game_id: str, changes: dict) -> dict:
     time and restating the others would make every save a race with whatever another
     surface changed meanwhile.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     unknown = set(changes) - set(GAME_OVERRIDES)
     if unknown:
         raise service_errors.RefusedError(
@@ -258,7 +258,7 @@ def set_overrides(game_id: str, changes: dict) -> dict:
 
 def declare_no_match(game_id: str) -> dict:
     """Say this machine is in no catalog, and answer with the overrides that leaves."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     try:
         game_service.update_vpinfe_setting(Path(game.full_path_game), "alt_vpsid", None)
     except (OSError, ValueError) as exc:
@@ -274,7 +274,7 @@ def set_file_source(game_id: str, path: str, vps_file_id: str) -> dict:
     anything: binding a file the resolver currently passes over is legitimate, and refusing
     it would make the tier rules govern what may be recorded.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     try:
         bound = set_asset_source(game, path, vps_file_id)
     except ValueError as exc:
@@ -301,7 +301,7 @@ def adopt_details(game_id: str, fields: Iterable[str] | None = None) -> dict:
     None takes everything that differs. `Info.VPSId` is never among them - it is what
     VPS supplied, and the value a surface offers to revert a corrected match to.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     entry = game_service.matched_vps_entry(game)
     if not entry:
         raise service_errors.NotFoundError(t("error.games.unmatched"),

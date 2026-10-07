@@ -412,7 +412,7 @@ def _reference_is_reachable(game: Game, entry: dict) -> None:
     if not tables.entry_reference(entry):
         return
     path = _path_of(game, entry)
-    if path and os.path.isfile(path):
+    if path and path_state.look(path, path_state.FILE, wait=path_state.MOUNT_SECONDS).reachable:
         return
     raise ReferenceUnreachableError(t("error.launch.reference_unreachable",
                                       path=path or tables.entry_reference(entry)))

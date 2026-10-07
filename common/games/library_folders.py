@@ -24,7 +24,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from common import mounts, path_state
+from common import mounts, path_state, service_errors
 from common.atomic_write import write_atomic
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
@@ -397,6 +397,32 @@ def destination(location_id: str = "") -> Destination:
     if said:
         return Destination(reason=said, alternatives=others)
     return Destination(location=named, alternatives=others)
+
+
+def writable_game_folder(game_dir: str | Path, called: str = "") -> Path:
+    """A game's folder, once the disk has said it can be written to - or a refusal.
+
+    The one question every writer into a game folder asks first, so a dropped share reads
+    as the folder it hangs off ("its share is not mounted on this device") rather than as
+    an errno halfway through a copy. Paths are compared as written and not resolved:
+    resolving touches the disk, and that is the call that hangs on a dead mount. `called`
+    names a game whose folder is not set, which has no folder name of its own to give.
+    """
+    raw = str(game_dir)
+    folder = Path(raw)
+    state = path_state.look(raw, path_state.DIR, writable=True)
+    where = os.path.normpath(raw)
+    home = next((one for one in configured()
+                 if one.kind == KIND_ROOT and _inside(os.path.normpath(one.path), where)),
+                None)
+    # A folder that refuses writes is that folder's own fact; one that cannot be reached
+    # is, as often as not, the share the whole library hangs off.
+    own = folder.name or called
+    name = own if home is None or state.state == path_state.READ_ONLY else home.name
+    said = path_state.refusal(name, state)
+    if said:
+        raise service_errors.BlockedError(said)
+    return folder
 
 
 def portable_reference(game_dir: str, target: str) -> str:

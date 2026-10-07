@@ -51,6 +51,11 @@ class RefusedWriteTests(TempTree):
         self.game = fake_game(self.folder, FOLDER, meta=info)
         self.folder.chmod(0o555)
         self.addCleanup(self.folder.chmod, 0o755)
+        # The question asked before a write refuses this folder in its own words; these
+        # tests are about the write itself, for a folder that turns read-only after it.
+        patcher = mock.patch("common.games.library_folders.writable_game_folder")
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.source = self.root / "source"
         self.source.write_text("{}", encoding="utf-8")
 

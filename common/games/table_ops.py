@@ -81,7 +81,7 @@ def set_hidden(game_id: str, table_id: str, hidden: bool) -> dict:
     still there with its stats and its match, and a patch base that stopped being offered
     is exactly what this is for.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     filename = filename_or_refuse(game, table_id)
     MetaConfig(str(meta_file_path(game))).set_table_hidden(filename, bool(hidden))
     game = reread_game(game)
@@ -110,7 +110,7 @@ def extract_script(game_id: str, table_id: str) -> dict:
     """
     from common.games import game_service
 
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     filename = filename_or_refuse(game, table_id)
     game_dir = Path(game.full_path_game or "")
     if not (game_dir / filename).is_file():
@@ -139,7 +139,7 @@ def delete_script(game_id: str, table_id: str) -> dict:
     """
     from common.games import media_ops
 
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     game_dir = Path(game.full_path_game or "")
     script = game_dir / f"{media_ops.stem_or_refuse(game, table_id)}.vbs"
     if not script.is_file():
@@ -151,7 +151,7 @@ def delete_script(game_id: str, table_id: str) -> dict:
 
 def set_rating(game_id: str, table_id: str, rating: Any) -> dict:
     """A table's own rating, which refines the game's rather than replacing it."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     set_table_rating(game, filename_or_refuse(game, table_id), rating)
     game = reread_game(game)
     return row_or_refuse(game, table_id)
@@ -164,14 +164,14 @@ def set_source(game_id: str, table_id: str, vps_file_id: str) -> dict:
     at chance and is confidently wrong more often than not, so nothing here proposes an
     answer. An empty id takes the claim back.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     set_table_source(game, filename_or_refuse(game, table_id), vps_file_id)
     game = reread_game(game)
     return row_or_refuse(game, table_id)
 
 
 def set_tags(game_id: str, table_id: str, tags: Any) -> dict:
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     derived_tags.refuse_added(game, tags := list(tags))
     stored = set_table_tags(game, filename_or_refuse(game, table_id), tags)
     reread_game(game)
@@ -181,7 +181,7 @@ def set_tags(game_id: str, table_id: str, tags: Any) -> dict:
 def reset_play_record(game_id: str, table_id: str) -> dict:
     """One table's counters. The game's total is not touched: they are two records of two
     things, and a game played on one build has still been played."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     record = reset_table_play_record(game, filename_or_refuse(game, table_id))
     reread_game(game)
     return record
@@ -193,7 +193,7 @@ def set_default(game_id: str, table_id: str) -> dict:
     A game's default is the one a member naming only the game resolves to, so this is the
     difference between a collection playing the VR build and the desktop one.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     if table_id:
         filename_or_refuse(game, table_id)
         if table_entries(load_game_meta(game))[table_id].get("hidden") is True:
@@ -216,7 +216,7 @@ def set_overrides(game_id: str, table_id: str, changes: dict) -> dict:
     """
     from common.games import game_service
 
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     unknown = set(changes) - set(TABLE_OVERRIDES)
     if unknown:
         raise service_errors.RefusedError(
@@ -246,7 +246,7 @@ def import_file(game_id: str, path: str) -> dict:
     """
     from common.games import game_service
 
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     source = Path(path)
     if not source.is_file():
         raise service_errors.RefusedError(t("error.games.not_file"),
@@ -279,7 +279,7 @@ def add_keyed(game_id: str, app_id: str, key: str) -> dict:
     already looks it up, and better - pointing at `roms/mm.zip` would break the moment
     somebody reorganized their rompath.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     app_id = str(app_id or "").strip()
     app = apps.get(app_id)
     if app is None:
@@ -310,7 +310,7 @@ def add_referenced(game_id: str, path: str) -> dict:
     resolving later is a different thing: the location is unreachable, the entry stands,
     and nothing here is lost.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     game_dir = str(game.full_path_game or "")
     target = os.path.expanduser(str(path or "").strip())
     if not target:
@@ -344,7 +344,7 @@ def contain(game_id: str, table_id: str) -> dict:
     record on it both stay pointed at it. The file is copied and not moved: what it
     references may be read-only, shared with another game, or somebody else's.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     entry = table_entries(load_game_meta(game)).get(table_id)
     if not isinstance(entry, dict) or not tables.entry_reference(entry):
         raise service_errors.NotFoundError(t("error.games.reference_not_found"),
@@ -384,7 +384,7 @@ def forget(game_id: str, table_id: str) -> dict:
     Refused while the .vpx is on disk: that entry describes something the user owns, and
     the next refresh would mint it again anyway.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     entry = table_entries(load_game_meta(game)).get(table_id)
     if not isinstance(entry, dict):
         raise service_errors.NotFoundError(

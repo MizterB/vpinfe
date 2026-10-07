@@ -330,7 +330,7 @@ def place_file(game_id: str, kind: str, table_id: str, source: Path,
     one on this machine, one an online catalog published. Where the source is allowed to be
     is each caller's own question; this one is only about the write.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     kind = kind_or_refuse(kind)
     if not Path(source).is_file():
         raise service_errors.RefusedError(t("error.games.not_file"),
@@ -355,7 +355,7 @@ def place_upload(game_id: str, kind: str, table_id: str, staged: Path,
     Split from `place_file` because the caller owns the staging: it holds the upload, it
     decides where the temporary file lives, and it removes it whatever happens here.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     kind = kind_or_refuse(kind)
     game_dir = _folder(game)
     try:
@@ -405,7 +405,7 @@ def retier(game_id: str, kind: str, from_table: str, to_table: str) -> dict:
     The tier is the filename, so this is a rename. Either table may be empty, which means
     the folder's shared name.
     """
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     game_dir = _folder(game)
     from_stem = stem_or_refuse(game, from_table) if from_table else game_dir.name
     to_stem = stem_or_refuse(game, to_table) if to_table else game_dir.name
@@ -420,7 +420,7 @@ def retier(game_id: str, kind: str, from_table: str, to_table: str) -> dict:
 def remove(game_id: str, kind: str, table_id: str = "") -> dict:
     """Take a file out of one tier. A build's own art and the default both survive the
     folder's file going."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     game_dir = _folder(game)
     stem = stem_or_refuse(game, table_id) if table_id else game_dir.name
     try:

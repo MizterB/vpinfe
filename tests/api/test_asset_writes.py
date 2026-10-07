@@ -149,11 +149,10 @@ class AssetWrites(TempTree):
         self.folder.chmod(0o555)
         self.addCleanup(self.folder.chmod, 0o755)
 
-        with self.assertLogs("vpinfe.httpapi.errors", "WARNING"):
-            answer = self._put("backglass", "anything.directb2s", b"new backglass")
+        answer = self._put("backglass", "anything.directb2s", b"new backglass")
 
         self.assertEqual(
-            (409, "conflict", t("said.why.no_permission_at", path=str(self.folder))),
+            (409, "conflict", t("error.path.read_only", name=self.folder.name)),
             (answer.status_code, answer.json()["error"]["code"],
              answer.json()["error"]["message"]))
         self.assertEqual(b"old backglass", (self.folder / "AFM VR.directb2s").read_bytes())

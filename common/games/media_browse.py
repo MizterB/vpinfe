@@ -12,10 +12,11 @@ resolved path, so a symlink out of a root is out of a root.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Iterable
 from pathlib import Path
 
-from common import service_errors
+from common import path_state, service_errors
 from common.config_access import SettingsConfig
 from common.games import library_folders
 from common.i18n import t
@@ -41,21 +42,11 @@ def roots(game_dir: str = "") -> list[dict]:
     to already be, and it is the one starting point that is not a setting.
     """
     settings = SettingsConfig.from_config(get_ini_config())
-    found: list[dict] = []
-    seen: set[Path] = set()
+    wanted: list[tuple[str, str]] = []
 
     def offer(raw: str, source: str) -> None:
-        if not raw:
-            return
-        try:
-            path = Path(raw).expanduser().resolve()
-        except OSError:
-            return
-        if path in seen or not path.is_dir():
-            return
-        seen.add(path)
-        found.append({"path": str(path), "name": path.name or str(path),
-                      "source": source})
+        if raw:
+            wanted.append((os.path.expanduser(raw), source))
 
     if game_dir:
         offer(game_dir, "game")
@@ -63,6 +54,24 @@ def roots(game_dir: str = "") -> list[dict]:
         offer(location.path, "library")
     for extra in settings.media_browse_dirs:
         offer(extra, "configured")
+
+    # Asked of every folder at once: one that is on a share that is down costs one wait,
+    # not one per folder, and is left out rather than hanging the picker.
+    states = path_state.look_all([path_state.Ask(raw) for raw, _ in wanted])
+    found: list[dict] = []
+    seen: set[Path] = set()
+    for (raw, source), state in zip(wanted, states, strict=True):
+        if not state.reachable:
+            continue
+        try:
+            path = Path(raw).resolve()
+        except OSError:
+            continue
+        if path in seen:
+            continue
+        seen.add(path)
+        found.append({"path": str(path), "name": path.name or str(path),
+                      "source": source})
     return found
 
 
@@ -137,12 +146,17 @@ def entries(path: str, *, extensions: Iterable[str] = ()) -> dict:
     """
     also = frozenset(extension.lower() for extension in extensions)
     here = within_roots(path)
-    if not here.is_dir():
+    state = path_state.look(str(here))
+    if state.state in (path_state.MISSING, path_state.WRONG_KIND):
         raise service_errors.RefusedError(t("error.filesystem.not_folder"),
                 details={"path": path})
+    said = path_state.refusal(here.name or str(here), state)
+    if said:
+        raise service_errors.BlockedError(said, details={"path": path})
 
     folders, files = [], []
-    allowed = [Path(item["path"]) for item in roots()]
+    found = roots()
+    allowed = [Path(item["path"]) for item in found]
     try:
         for entry in sorted(here.iterdir(), key=lambda item: item.name.lower()):
             # A link out of the allowed folders is not offered, because importing it
@@ -166,6 +180,6 @@ def entries(path: str, *, extensions: Iterable[str] = ()) -> dict:
 
     # Null at a root, so a client knows where "up" stops without knowing the rules.
     parent = here.parent
-    at_root = any(here == Path(item["path"]) for item in roots())
+    at_root = any(here == root for root in allowed)
     return {"path": str(here), "parent": None if at_root else str(parent),
             "entries": folders + files}

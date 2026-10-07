@@ -117,7 +117,7 @@ def place_file(game_id: str, kind: str, table_id: str, source: Path,
     if not Path(source).is_file():
         raise service_errors.RefusedError(t("error.games.not_file"),
                                           details={"path": str(source)})
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     game_dir = _folder(game)
     target = game_dir / (_stem(game, found_kind, table_id) + found_kind.extension)
     going = _here(game_dir, target.name)
@@ -135,7 +135,7 @@ def place_file(game_id: str, kind: str, table_id: str, source: Path,
 def remove(game_id: str, path: str) -> dict:
     """Delete one asset file, or one kind's folder, named by its path in the game's
     folder."""
-    game = game_lens.game_or_refuse(game_id)
+    game = game_lens.game_for_writing(game_id)
     root = _folder(game).resolve()
     found = asset_lens.inside(root, path)
     folders = {name.lower() for name in asset_lens.whole_folders(root)}

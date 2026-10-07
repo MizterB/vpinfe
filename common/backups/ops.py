@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from common import service_errors
+from common import path_state, service_errors
 from common.failures import why
 from common.games import (
     config_backups,
@@ -22,6 +22,7 @@ from common.games import (
     info_maintenance,
     launcher_ops,
     launchers,
+    library_folders,
 )
 from common.games.info_migration import copied_from
 from common.host import launch_state
@@ -184,6 +185,7 @@ def _put_game(path: Path, member: archive.Member) -> Copy | None:
     folder = archive.game_folder(member)
     if folder is None:
         raise service_errors.NotFoundError(t("error.backups.no_game", id=member.subject_name))
+    library_folders.writable_game_folder(folder)
     with tempfile.TemporaryDirectory() as scratch:
         staged = archive.extract(path, member, Path(scratch))
         kept = info_maintenance.restore_file(folder / f"{folder.name}.info", staged,
@@ -201,6 +203,8 @@ def _put_launcher(path: Path, member: archive.Member) -> Copy | None:
                    if Path(held).expanduser().name == wanted), None)
     if target is None:
         raise service_errors.RefusedError(t("error.launchers.copy_unmatched"))
+    path_state.require(str(target.parent), path_state.DIR, writable=True,
+                       name=target.parent.name)
     with tempfile.TemporaryDirectory() as scratch:
         kept = info_maintenance.restore_file(target, archive.extract(path, member,
                                                                       Path(scratch)))

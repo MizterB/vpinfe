@@ -17,7 +17,7 @@ from pathlib import Path, PurePosixPath
 from common import tokens
 from common.atomic_write import staged_for, write_atomic
 from common.failures import why
-from common.games import media_placement
+from common.games import library_folders, media_placement
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, lens_kind, spec_for
 from common.games.game_repository import refresh_game
 from common.games.game_service import (
@@ -760,6 +760,8 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
         if base.exists():
             raise ValueError(t("error.uploads.folder_exists", name=base.name))
         base.mkdir(parents=True)
+    else:
+        library_folders.writable_game_folder(base)
 
     source = open_source(Path(source_path))
     imported: list[str] = []
