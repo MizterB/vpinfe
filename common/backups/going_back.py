@@ -57,7 +57,7 @@ def carry_out(config_dir: Path | None = None) -> bool:
     if not (folder / REQUEST_NAME).exists():
         return False
     clear(folder)
-    system_actions.cancel_app_restart(folder)
+    system_actions.cancel_app_restart()
     result = info_maintenance.restore_library(
         max_schema=SCHEMA_2X, config_dir=folder, log_cb=logger.info)
     logger.info("Went back to 2.x: %d games and %s collections put back, %d could not be.",

@@ -214,7 +214,6 @@ def create_api_instances():
     # instance owns no windows, so it is told of none and offers no action on them.
     lifecycle_host.install(
         config_store=config_store,
-        config_dir=config_dir,
         frontend_browser=frontend_browser,
         shutdown_event=_shutdown_event,
         ws_bridge=ws_bridge,
@@ -236,7 +235,7 @@ if install_setup.pending(config_store):
     http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
     http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
     start_manager_ui(port=http_port, bind=http_bind)
-    serving.publish(config_dir)
+    serving.publish()
     reconfigure_app_logging()
     # Wait for the NiceGUI server to be ready before chromium tries to load it
     runtime.wait_for_manager_ui_ready(http_port)
@@ -422,7 +421,7 @@ http_server = runtime.start_asset_server(MOUNT_POINTS, config_store)
 http_port = int(cfg_get(config_store, 'network', 'http_port', '8001'))
 http_bind = cfg_get(config_store, 'network', 'http_bind', '0.0.0.0')
 start_manager_ui(port=http_port, bind=http_bind)
-serving.publish(config_dir)
+serving.publish()
 reconfigure_app_logging()
 
 # A request left by a run that was killed first must not turn this run's exit into going back.
@@ -463,7 +462,6 @@ runtime.shutdown_services(
     nicegui_app=nicegui_app,
     stop_manager_ui=stop_manager_ui,
 )
-serving.withdraw(config_dir)
 
 # Restores of the config folder's files wait for here, where nothing is left to write them.
 try:
@@ -487,5 +485,5 @@ try:
 except Exception:
     logger.exception("Commands set to run when VPinFE exits did not all work")
 
-# Check for restart sentinel
-runtime.restart_if_requested(config_dir, logger)
+# Check for a restart request
+runtime.restart_if_requested(logger)

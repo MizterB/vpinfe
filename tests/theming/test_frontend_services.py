@@ -10,21 +10,21 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import jobs
+from common import device_registry, jobs
 from common.games import game_play_service, game_report_service
 from common.games.game_metadata import game_frontend_dof_event, set_game_rating
 from common.games.tables import entry_for_filename
 from common.host import real_dmd, system_actions
 from common.i18n import t
 from frontend import config_api, theme_api
-from tests.support.library import write_game
+from tests.support.library import own_registry, write_game
 
 
 class FrontendServiceTests(unittest.TestCase):
     def test_system_actions_restart_reexecs_when_flag_exists(self):
         with TemporaryDirectory() as temp_dir:
-            config_dir = Path(temp_dir)
-            (config_dir / ".restart").touch()
+            own_registry(self, Path(temp_dir) / "devices.json")
+            system_actions.request_app_restart()
             logger = types.SimpleNamespace(info=mock.Mock())
             calls = []
 
@@ -33,13 +33,12 @@ class FrontendServiceTests(unittest.TestCase):
                   mock.patch.object(system_actions.sys, "argv",
                                     ["main.py", "--headless", "--configdir", "/cfg"])):
                 system_actions.restart_if_requested(
-                    config_dir,
                     logger,
                     main_script=Path("/app/main.py"),
                     sleep_func=lambda _seconds: None,
                 )
 
-            self.assertFalse((config_dir / ".restart").exists())
+            self.assertFalse(device_registry.get_device_registry().self_get("restart_requested"))
             # The code passes main_script through os.path.abspath, which on Windows
             # prefixes the current drive. Expect what it actually builds.
             main_script = os.path.abspath(Path("/app/main.py"))
@@ -52,8 +51,8 @@ class FrontendServiceTests(unittest.TestCase):
 
     def test_a_frozen_build_restarts_with_its_flags(self):
         with TemporaryDirectory() as temp_dir:
-            config_dir = Path(temp_dir)
-            (config_dir / ".restart").touch()
+            own_registry(self, Path(temp_dir) / "devices.json")
+            system_actions.request_app_restart()
             calls = []
 
             with (mock.patch("common.host.system_actions.os.execvp",
@@ -61,7 +60,7 @@ class FrontendServiceTests(unittest.TestCase):
                   mock.patch.object(system_actions.sys, "frozen", True, create=True),
                   mock.patch.object(system_actions.sys, "argv", ["VPinFE", "--headless"])):
                 system_actions.restart_if_requested(
-                    config_dir, types.SimpleNamespace(info=mock.Mock()),
+                    types.SimpleNamespace(info=mock.Mock()),
                     sleep_func=lambda _seconds: None)
 
             self.assertEqual(calls, [(system_actions.sys.executable,

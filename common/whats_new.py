@@ -74,12 +74,11 @@ def mark_seen() -> None:
 
 def review(config: ConfigSource, running: str, *, again: bool = False,
            folder: Path | None = None, current: Path | None = None,
-           ledger: Path | None = None,
            needs: tuple[upgrade_needs.Need, ...] | None = None) -> Review:
     """Everything since the version this install last read about. Asked again, it is the
     running version alone: its notes, what it did to the files, and what is still open."""
     began = "" if again else since()
-    files = migration_ledger.entries(began, ledger)
+    files = migration_ledger.entries(began)
     if again:
         files = [one for one in files if one.version == running]
     return Review(

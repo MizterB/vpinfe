@@ -452,5 +452,5 @@ def shutdown_services(logger: logging.Logger, *, iniconfig: ConfigStore,
     logger.info("All services stopped.")
 
 
-def restart_if_requested(config_dir: Path, logger: logging.Logger) -> None:
-    system_actions.restart_if_requested(config_dir, logger)
+def restart_if_requested(logger: logging.Logger) -> None:
+    system_actions.restart_if_requested(logger)

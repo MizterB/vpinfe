@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import unittest
-from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -182,7 +181,6 @@ class LifecycleTests(unittest.TestCase):
         with mock.patch("common.host.system_actions.shutdown_system") as power_off:
             lifecycle_host.install(
                 config_store=None,
-                config_dir=Path("."),
                 frontend_browser=SimpleNamespace(terminate_all=lambda: None),
                 shutdown_event=SimpleNamespace(set=lambda: None),
             )
@@ -205,7 +203,7 @@ class FrontendPerformerTests(unittest.TestCase):
         self.opened = []
         extra = ({"open_windows": lambda: self.opened.append(1),
                   "close_windows": lambda: self.closed.append(1)} if windows else {})
-        lifecycle_host.install(config_store=None, config_dir=Path("."),
+        lifecycle_host.install(config_store=None,
                                frontend_browser=self.browser,
                                shutdown_event=self.shutdown, **extra)
 
@@ -279,7 +277,6 @@ class NoticeTests(unittest.TestCase):
 
         lifecycle_host.install(
             config_store=None,
-            config_dir=Path("."),
             frontend_browser=SimpleNamespace(terminate_all=lambda: None),
             shutdown_event=SimpleNamespace(set=lambda: None),
             ws_bridge=bridge,

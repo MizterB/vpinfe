@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import configparser
-import tempfile
 import unittest
-from pathlib import Path
 
-from common import install_presence, serving
+from common import device_registry, install_presence, serving
 from console import api as console_api
 from frontend import config_api
+from tests.support.library import TempTree
 
 
 def _settings(**ports: int) -> configparser.ConfigParser:
@@ -49,40 +48,36 @@ class ServingPortsTests(unittest.TestCase):
         self.assertEqual(install_presence.service_ports(), {"files": {"port": 8764}})
 
 
-class PublishedPortTests(unittest.TestCase):
+class PublishedPortTests(TempTree):
     def setUp(self) -> None:
+        super().setUp()
         serving.forget()
         self.addCleanup(serving.forget)
-        folder = tempfile.TemporaryDirectory()
-        self.addCleanup(folder.cleanup)
-        self.folder = Path(folder.name)
 
     def test_the_port_a_run_bound_is_what_a_shell_finds(self) -> None:
         serving.bound("http_port", 8765)
 
-        serving.publish(self.folder)
+        serving.publish()
 
-        self.assertEqual(serving.published(self.folder), 8765)
+        self.assertEqual(serving.published(), 8765)
+
+    def test_it_is_a_field_of_the_install_row_and_no_file_of_its_own(self) -> None:
+        serving.bound("http_port", 8765)
+
+        serving.publish()
+
+        self.assertEqual(device_registry.get_device_registry().self_get("port"), 8765)
+        self.assertEqual([p.name for p in self.root.iterdir()], [])
 
     def test_nothing_is_published_before_a_server_has_bound(self) -> None:
-        serving.publish(self.folder)
+        serving.publish()
 
-        self.assertIsNone(serving.published(self.folder))
-        self.assertFalse((self.folder / serving.PORT_FILE).exists())
+        self.assertIsNone(serving.published())
 
-    def test_a_run_that_ends_takes_it_back(self) -> None:
-        serving.bound("http_port", 8765)
-        serving.publish(self.folder)
+    def test_a_port_the_row_does_not_hold_as_a_port_is_no_port(self) -> None:
+        device_registry.get_device_registry().set_self(port="not a port")
 
-        serving.withdraw(self.folder)
-        serving.withdraw(self.folder)
-
-        self.assertIsNone(serving.published(self.folder))
-
-    def test_a_file_that_is_not_a_port_is_no_port(self) -> None:
-        (self.folder / serving.PORT_FILE).write_text("not a port", encoding="utf-8")
-
-        self.assertIsNone(serving.published(self.folder))
+        self.assertIsNone(serving.published())
 
 
 if __name__ == "__main__":

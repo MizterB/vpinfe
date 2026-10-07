@@ -15,7 +15,7 @@ import urllib.request
 from http.client import HTTPException
 from pathlib import Path
 
-from common import migration_ledger, serving
+from common import serving
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX
 from common.device_registry import DeviceRegistry
 from common.games.collection_store import COLLECTIONS_NAME, COLLECTIONS_NAME_INI
@@ -36,7 +36,7 @@ logger = logging.getLogger("vpinfe.common.games.revert_3x")
 # 3.0 wrote these and 2.x reads none of them. Named one at a time on purpose: a sweep
 # for anything backup-shaped also eats the hand-made .bak-repro files kept beside them.
 CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "players.json",
-                "manager-ui-state.json", migration_ledger.FILE_NAME)
+                "manager-ui-state.json")
 # The same, in the state folder. `watching.json` is 3.0 data with no 2.x original: a reset
 # library that kept it would measure new findings against an install that no longer exists.
 STATE_FILES = ("devices.json", "watching.json")
@@ -109,7 +109,8 @@ def reset(game_root: str | Path | None, config_dir: str | Path, *, http_port: in
 
     # The setting is where the next start would listen. A run that was started on another
     # port says where it is, so a port changed since it started does not hide it.
-    port = next((candidate for candidate in (http_port, serving.published(config_home))
+    registry = DeviceRegistry(state_home / "devices.json")
+    port = next((candidate for candidate in (http_port, serving.published(registry))
                  if candidate is not None and running_instance(candidate)), None)
     live = port is not None
     if live and not dry_run:

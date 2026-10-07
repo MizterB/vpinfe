@@ -6,12 +6,15 @@ from __future__ import annotations
 import json
 import pathlib
 import unittest
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import lifecycle
+from common import device_registry, lifecycle
 from common.backups import going_back
 from common.games.info_migration import backup_path
+from common.host import system_actions
 from tests.api.test_backups import NEWER, OLD, BackupsCase
+from tests.support.library import own_registry
 
 ASKED = lifecycle.VPINFE, lifecycle.STOP
 SCHEMA_2 = {"Info": {"Title": "now"}, "vpinfe": {"schema": 2, "game_id": "id-Taxi"}}
@@ -21,6 +24,9 @@ OLD_COLLECTIONS = "[Favorites]\nvpsids = a\n"
 class GoingBackCase(BackupsCase):
     def setUp(self) -> None:
         super().setUp()
+        kept = TemporaryDirectory()
+        self.addCleanup(kept.cleanup)
+        own_registry(self, pathlib.Path(kept.name) / "devices.json")
         patcher = patch.object(going_back, "CONFIG_DIR", self.config)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -151,11 +157,11 @@ class CarryOut(GoingBackCase):
     def test_a_restart_asked_for_as_well_is_dropped(self) -> None:
         self.old_game()
         going_back.request(self.config)
-        (self.config / ".restart").touch()
+        system_actions.request_app_restart()
 
         going_back.carry_out(self.config)
 
-        self.assertFalse((self.config / ".restart").exists())
+        self.assertFalse(device_registry.get_device_registry().self_get("restart_requested"))
 
 
 if __name__ == "__main__":

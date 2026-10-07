@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from common import events, lifecycle
@@ -83,7 +82,7 @@ def _notice(*, scope: str, action: str, surface: str, address: str,
         _bridge.send_event_all(message)
 
 
-def install(*, config_store: ConfigStore, config_dir: Path,
+def install(*, config_store: ConfigStore,
             frontend_browser: ChromiumManager, shutdown_event: threading.Event,
             ws_bridge: DeviceChannel | None = None,
             open_windows: Callable[[], None] | None = None,
@@ -105,9 +104,9 @@ def install(*, config_store: ConfigStore, config_dir: Path,
         frontend_browser.terminate_all()
 
     def restart_app(_request: lifecycle.Request) -> None:
-        # main.py checks for this after the services are down, so the sentinel has to be
-        # written before anything unblocks the loop.
-        system_actions.request_app_restart(config_dir)
+        # main.py checks for this after the services are down, so the request has to be
+        # recorded before anything unblocks the loop.
+        system_actions.request_app_restart()
         stop_app(_request)
 
     def stop_system(request: lifecycle.Request) -> None:

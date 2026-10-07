@@ -16,7 +16,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from common import install_setup, serving
+from common import install_setup
 from common.config_store import ConfigStore
 from common.device_registry import DeviceRegistry
 from common.games import revert_3x
@@ -178,6 +178,9 @@ class RevertTestCase(TempTree):
         kwargs.setdefault("http_port", self.closed_port)
         kwargs.setdefault("state_dir", self.config_dir / "state")
         return revert_3x.reset(self.games_root, self.config_dir, **kwargs)
+
+    def _say_listening_on(self, port: int) -> None:
+        DeviceRegistry(self.config_dir / "state" / "devices.json").set_self(port=port)
 
     def _migrate(self) -> dict:
         return run_startup_migrations(self.games_root, self.config_dir)
@@ -506,16 +509,14 @@ class RunningInstanceTests(RevertTestCase):
         self._migrate()
         instance = StubInstance("VPinFE")
         self.addCleanup(instance.stop)
-        (self.config_dir / serving.PORT_FILE).write_text(f"{instance.port}\n",
-                                                          encoding="utf-8")
+        self._say_listening_on(instance.port)
 
         with self.assertRaises(revert_3x.InstanceRunningError):
             self._reset(http_port=self.closed_port)
 
     def test_a_port_left_behind_by_a_run_that_is_gone_does_not_block_a_reset(self):
         self._migrate()
-        (self.config_dir / serving.PORT_FILE).write_text(f"{self.closed_port}\n",
-                                                          encoding="utf-8")
+        self._say_listening_on(self.closed_port)
 
         result = self._reset()
 

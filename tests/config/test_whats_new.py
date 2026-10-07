@@ -127,17 +127,16 @@ class ReviewTests(TempTree):
         (self.folder / f"{first}.md").write_text("### Summary\nFirst.\n", encoding="utf-8")
         self.current = self.root / "RELEASE_NOTES.md"
         self.current.write_text("### Summary\nSecond.\n", encoding="utf-8")
-        self.ledger = self.root / "migrations.json"
         self.needs = (Need("pick_thing", "v3.1.0", "needs.pick_thing", lambda config: False),)
 
     def review(self) -> whats_new.Review:
         return whats_new.review(self.config, "v3.1.0", folder=self.folder,
-                                current=self.current, ledger=self.ledger, needs=self.needs)
+                                current=self.current, needs=self.needs)
 
     def test_it_holds_the_notes_the_files_and_the_needs_since_the_last_version(self) -> None:
         device_registry.get_device_registry().set_self(**{whats_new.LAST_KEY: "v3.0.0"})
         whats_new.note_start(self.config, "v3.1.0")
-        migration_ledger.record("order_direction", "v3.1.0", 2, self.ledger)
+        migration_ledger.record("order_direction", "v3.1.0", 2)
 
         found = self.review()
 
@@ -146,12 +145,12 @@ class ReviewTests(TempTree):
         self.assertEqual([n.key for n in found.needs], ["pick_thing"])
 
     def test_asked_again_it_is_the_running_version_alone(self) -> None:
-        migration_ledger.record("old", "v3.0.0", 1, self.ledger)
-        migration_ledger.record("new", "v3.1.0", 2, self.ledger)
+        migration_ledger.record("old", "v3.0.0", 1)
+        migration_ledger.record("new", "v3.1.0", 2)
         device_registry.get_device_registry().set_self(**{whats_new.SINCE_KEY: "v2.0.0"})
 
         found = whats_new.review(self.config, "v3.1.0", again=True, folder=self.folder,
-                                 current=self.current, ledger=self.ledger, needs=self.needs)
+                                 current=self.current, needs=self.needs)
 
         self.assertEqual([r.version for r in found.releases], ["v3.1.0"])
         self.assertEqual([e.name for e in found.files], ["new"])

@@ -12,14 +12,12 @@ somebody has to work out into something that fixes itself.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from common import apps, players, tokens
-from common.atomic_write import write_atomic
+from common import apps, device_registry, players, tokens
 from common.config_access import cfg_bool, cfg_get, cfg_int
 from common.config_store import ConfigStore
 from common.games import tables
@@ -27,12 +25,11 @@ from common.games.game import Game
 from common.games.launchers import Launcher
 from common.host import bundled_libraries, commands
 from common.i18n import t
-from common.paths import CONFIG_DIR
 
 logger = logging.getLogger("vpinfe.common.host.table_commands")
 
-# What ran and has not been finished. One file: a machine plays one table at a time.
-PENDING_PATH = CONFIG_DIR / "unfinished_commands.json"
+# What ran and has not been finished. One note: a machine plays one table at a time.
+PENDING_KEY = "unfinished_commands"
 
 
 @dataclass
@@ -154,20 +151,19 @@ def _remember(around: Around) -> None:
     """Write down that the first half ran, so a VPinFE that dies here is a restart
     rather than a machine somebody has to put back by hand."""
     try:
-        PENDING_PATH.parent.mkdir(parents=True, exist_ok=True)
-        write_atomic(PENDING_PATH, lambda handle: json.dump({
+        device_registry.get_device_registry().set_self(**{PENDING_KEY: {
             "values": around.values, "timeout": around.timeout,
             "install_after": around.install_after,
             "launcher_after": around.launcher_after,
-        }, handle, indent=2))
+        }})
     except Exception:  # noqa: BLE001 - never the thing that stops a launch
         logger.exception("Could not note that the pre-table commands ran")
 
 
 def _forget() -> None:
     try:
-        PENDING_PATH.unlink(missing_ok=True)
-    except OSError:
+        device_registry.get_device_registry().set_self(**{PENDING_KEY: None})
+    except Exception:  # noqa: BLE001
         logger.exception("Could not clear the note")
 
 
@@ -177,12 +173,11 @@ def finish_unfinished() -> bool:
     A machine left muted, or with a service stopped, is otherwise something somebody has
     to work out. Returns whether there was anything to finish.
     """
-    try:
-        payload = json.loads(PENDING_PATH.read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    payload = device_registry.get_device_registry().self_get(PENDING_KEY)
+    if payload is None:
         return False
-    except Exception:  # noqa: BLE001
-        logger.exception("Could not read what was left unfinished; clearing it")
+    if not isinstance(payload, dict):
+        logger.error("What was left unfinished is not readable; clearing it")
         _forget()
         return False
 

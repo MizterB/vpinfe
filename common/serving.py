@@ -7,11 +7,10 @@ setting would send it to a port nothing is listening on.
 
 from __future__ import annotations
 
-import contextlib
 import dataclasses
-from pathlib import Path
 from typing import Any, Literal
 
+from common import device_registry
 from common.config_access import NetworkConfig
 
 Port = Literal["http_port", "ws_port", "theme_assets_port"]
@@ -39,32 +38,20 @@ def network(config: Any) -> NetworkConfig:
         theme_assets_port=_bound.get("theme_assets_port", configured.theme_assets_port))
 
 
-# Beside `.restart` in the config folder: the HTTP port this run bound, for a command run
-# from a shell, which reads the setting and so looks where the next start would listen,
-# not where this one does. Left behind by a run that was killed, which is harmless - what
-# is found at that port is checked before it is believed.
-PORT_FILE = ".http_port"
-
-
-def publish(config_dir: Path) -> None:
-    """Say which HTTP port this run is listening on."""
+def publish() -> None:
+    """Say, on this install's row, which HTTP port this run listens on. Nothing takes it
+    back at exit, so a reader checks what answers there before believing it."""
     port = _bound.get("http_port")
     if port is not None:
-        (config_dir / PORT_FILE).write_text(f"{port}\n", encoding="utf-8")
+        device_registry.get_device_registry().set_self(port=port)
 
 
-def withdraw(config_dir: Path) -> None:
-    """This run is no longer listening."""
-    with contextlib.suppress(OSError):
-        (config_dir / PORT_FILE).unlink()
-
-
-def published(config_dir: Path) -> int | None:
-    """The HTTP port a running instance of this config folder said it listens on."""
-    try:
-        return int((config_dir / PORT_FILE).read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
-        return None
+def published(registry: device_registry.DeviceRegistry | None = None) -> int | None:
+    """The HTTP port a run of this install said it listens on, from `registry` or this
+    install's own."""
+    row = registry or device_registry.get_device_registry()
+    port = row.self_get("port")
+    return port if isinstance(port, int) and port > 0 else None
 
 
 def forget() -> None:

@@ -15,6 +15,7 @@ from unittest import mock
 from common import apps, players, tokens
 from common.host import commands, table_commands
 from common.i18n import t
+from tests.support.library import own_registry
 
 
 def _config(**settings: str) -> configparser.ConfigParser:
@@ -190,10 +191,10 @@ class UnfinishedTests(unittest.TestCase):
         from pathlib import Path
         home = tempfile.TemporaryDirectory()
         self.addCleanup(home.cleanup)
-        patch = mock.patch.object(table_commands, "PENDING_PATH",
-                                  Path(home.name) / "unfinished_commands.json")
-        patch.start()
-        self.addCleanup(patch.stop)
+        self.registry = own_registry(self, Path(home.name) / "devices.json")
+
+    def owed(self) -> object:
+        return self.registry.self_get(table_commands.PENDING_KEY)
 
     def test_nothing_left_behind_is_nothing_to_do(self) -> None:
         self.assertFalse(table_commands.finish_unfinished())
@@ -205,7 +206,7 @@ class UnfinishedTests(unittest.TestCase):
                 _game(), _playing(), _launcher(on_table_exit="unmute"),
                 _config(on_start="mute", on_exit="restart-service"))
 
-        self.assertTrue(table_commands.PENDING_PATH.exists())
+        self.assertIsNotNone(self.owed())
 
         ran: list[str] = []
         with mock.patch.object(table_commands.commands, "run",
@@ -214,7 +215,7 @@ class UnfinishedTests(unittest.TestCase):
             self.assertTrue(table_commands.finish_unfinished())
 
         self.assertEqual(ran, ["unmute", "restart-service"])
-        self.assertFalse(table_commands.PENDING_PATH.exists())
+        self.assertIsNone(self.owed())
 
     def test_and_stops_owing_it_once_the_half_has_run(self) -> None:
         with mock.patch.object(table_commands.commands, "run",
@@ -224,7 +225,7 @@ class UnfinishedTests(unittest.TestCase):
                 _config(on_start="mute", on_exit="unmute"))
             table_commands.after(around, started_at=None)
 
-        self.assertFalse(table_commands.PENDING_PATH.exists())
+        self.assertIsNone(self.owed())
         self.assertFalse(table_commands.finish_unfinished())
 
 

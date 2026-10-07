@@ -13,7 +13,10 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from common import device_registry
 from common.paths import APP_ROOT
+
+RESTART_KEY = "restart_requested"
 
 
 def system_command_env() -> dict[str, str]:
@@ -23,23 +26,22 @@ def system_command_env() -> dict[str, str]:
     return env
 
 
-def request_app_restart(config_dir: Path) -> None:
-    (config_dir / ".restart").touch()
+def request_app_restart() -> None:
+    device_registry.get_device_registry().set_self(**{RESTART_KEY: True})
 
 
-def cancel_app_restart(config_dir: Path) -> None:
-    (config_dir / ".restart").unlink(missing_ok=True)
+def cancel_app_restart() -> None:
+    device_registry.get_device_registry().set_self(**{RESTART_KEY: None})
 
 
 def restart_if_requested(
-        config_dir: Path, logger: logging.Logger, main_script: Path | None = None,
+        logger: logging.Logger, main_script: Path | None = None,
         sleep_func: Callable[[float], None] | None = None) -> None:
-    restart_flag = config_dir / ".restart"
-    if not restart_flag.exists():
+    if not device_registry.get_device_registry().self_get(RESTART_KEY):
         logger.info("No restart requested, exiting.")
         return
 
-    restart_flag.unlink()
+    cancel_app_restart()
     logger.info("Restart requested, re-launching...")
     if sleep_func is None:
         import time
