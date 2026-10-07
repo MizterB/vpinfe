@@ -928,6 +928,9 @@ body::before {
    the first, never over it. */
 .console-field-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .console-field-part { display: flex; align-items: center; gap: 4px; }
+/* One width for every joiner, so the second box starts at the same place whether the pair
+   is joined by a comma or an x. */
+.console-field-part .console-cell-join { flex: none; width: 1.25em; text-align: center; }
 .console-dialog-title {
   font-size: var(--fs-body); font-weight: 600; color: var(--ink); line-height: 1.35;
   padding: 0 12px 6px; word-break: break-word;
@@ -2079,6 +2082,7 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
    them is spacing, and only spacing. */
 .console-card-title,
 .console-group,
+.console-bgview-heading,
 .console-fact-heading {
   font-size: var(--fs-caption);
   text-transform: uppercase;
@@ -2898,7 +2902,9 @@ a.console-tag:hover { background: var(--wash-hover); }
 }
 .console-bgview:hover .console-slot-zoom { opacity: 1; }
 .console-bgview-row {
-  flex: 1 1 0; min-height: 0; justify-content: center; flex-wrap: nowrap;
+  flex: 1 1 0; min-height: 0; flex-direction: column; justify-content: center;
+  flex-wrap: nowrap;
+  --wide: min(100cqw, calc((100cqh - var(--stack, 28px)) / var(--tall, 1)));
   --fit: min(calc(100cqh - var(--chrome, 46px)),
              calc((100cqw - var(--gap, 8px) * var(--gaps, 0)) / var(--sum, 1)));
 }
@@ -2907,13 +2913,24 @@ a.console-tag:hover { background: var(--wash-hover); }
 .console-bgview-name {
   font-size: var(--fs-caption); font-weight: 600; color: var(--ink-2); white-space: nowrap;
 }
+/* A picture's name: the section-heading type, with its rule the width of the picture. */
+.console-bgview-heading {
+  width: 100%; white-space: nowrap; border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 4px;
+}
 .console-bgview-bar .console-bgview-name:not(:first-child) { margin-left: 12px; }
 .console-bgview-notes { margin-top: 6px; }
 .console-bgview-notes .console-help { max-width: none; }
 .console-bgview-box {
-  position: relative; height: max(var(--fit), 40px); overflow: hidden;
+  position: relative; width: max(var(--wide), 80px); overflow: hidden;
   container-type: size;
   border: 1px solid var(--line); border-radius: 4px; background: var(--art-ground);
+}
+.console-bgview-readout {
+  position: absolute; z-index: 2; padding: 1px 8px; border-radius: 999px;
+  pointer-events: none; white-space: nowrap;
+  background: var(--dmd-label); color: var(--dmd-lit);
+  font: 600 var(--fs-caption) ui-monospace, Menlo, monospace;
 }
 .console-bgview-stage {
   position: absolute; left: 50%; top: 50%;

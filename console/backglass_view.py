@@ -276,17 +276,28 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
         src = art.backglass(game_id, path, version=glass["version"], size=art.PANEL,
                             grill=False, look=state["look"], edition=state["edition"])
         with holder:
-            both = score_screen is not None
-            shapes = glass_screen.ratio + (score_screen.ratio if score_screen else 0)
-            with ui.row().classes("console-bgview-row items-center w-full").style(
-                    f"gap:{GAP_PX}px;--gap:{GAP_PX}px;--sum:{shapes:.5f};--gaps:{int(both)};"
-                    f"--chrome:{BAR_PX + CAPTION_PX}px;--cap:{CAPTION_PX}px"):
-                _stage(glass_screen, src, moved(glass_screen), t("console.backglass.glass"))
+            plugin = backglass_ops.renderer(now)
+            shown = [one for one in (glass_screen, score_screen) if one is not None]
+            both = len(shown) == 2
+            if both:
+                ui.html(_beside(shown[0].ratio, shown[1].ratio), sanitize=False, tag="style")
+            with ui.row().classes(
+                    "console-bgview-row items-center w-full"
+                    + (" console-bgview-row--pair" if both else "")).style(
+                    f"gap:{GAP_PX}px;--gap:{GAP_PX}px;"
+                    f"--sum:{sum(one.ratio for one in shown):.5f};--gaps:{int(both)};"
+                    f"--chrome:{BAR_PX + CAPTION_PX}px;"
+                    f"--tall:{sum(1 / one.ratio for one in shown):.5f};"
+                    f"--stack:{CAPTION_PX * len(shown) + GAP_PX * (len(shown) - 1)}px;"
+                    f"--cap:{CAPTION_PX}px"):
+                _stage(glass_screen, src, moved(glass_screen), t("console.backglass.glass"),
+                       _counted_in(plugin, glass_screen.space))
                 if score_screen is not None:
                     score = art.score_view(game_id, path, version=glass["version"],
                                            size=art.PANEL)
                     _stage(score_screen, score, moved(score_screen),
-                           t("console.backglass.score_view"))
+                           t("console.backglass.score_view"),
+                           _counted_in(plugin, score_screen.space))
             with ui.row().classes("console-bgview-bar items-center gap-2 w-full"):
                 if not glass["still"] and glass["lamps"]:
                     ui.label(t("console.backglass.lamps")).classes("console-bgview-name")
@@ -350,15 +361,26 @@ def _say(notes: ui.element, glass: Mapping[str, Any], shown: list[Screen | None]
             ui.label(t("console.backglass.preview.automatic")).classes("console-help")
 
 
+def _beside(first: float, second: float) -> str:
+    """The rule that sets two windows side by side, once the stage is wider than the two
+    shapes would make a stack: the point where both layouts draw them the same size. A
+    container query takes no variable, so the threshold is written into the rule."""
+    return (f"@container (min-aspect-ratio: {(first * second) ** 0.5:.4f}) {{"
+            ".console-bgview-row--pair { flex-direction: row; }"
+            ".console-bgview-row--pair .console-bgview-box "
+            "{ width: auto; height: max(var(--fit), 40px); } }")
+
+
 def _stage(screen: Screen, src: str, on_set: Callable[[Box], Awaitable[None]] | None,
-           caption: str) -> None:
+           caption: str, units: tuple[int, int]) -> None:
     """One window. The content is stretched to fill the window's box, then turned: a
-    quarter turn swaps the box it is stretched into."""
+    quarter turn swaps the box it is stretched into. `units` is what the DMD fields count
+    in across and down."""
     sideways = screen.turns % 2 == 1
     across, down = ("100cqh", "100cqw") if sideways else ("100%", "100%")
     with ui.column().classes("console-bgview-fig gap-0"):
         with ui.row().classes("console-bgview-cap items-center gap-2 no-wrap"):
-            ui.label(caption).classes("console-bgview-name")
+            ui.label(caption).classes("console-bgview-heading")
         with ui.element("div").classes("console-bgview-box") \
                 .style(f"aspect-ratio:{screen.ratio:.5f}"):
             with ui.element("div").classes("console-bgview-stage").style(
@@ -367,7 +389,7 @@ def _stage(screen: Screen, src: str, on_set: Callable[[Box], Awaitable[None]] | 
                     f"background-image:url(\"{src}\");"
                     f"background-size:100% {screen.scale:.4f}%"):
                 if screen.dmd is not None:
-                    _dmd(screen.dmd, screen.turns, on_set)
+                    _dmd(screen.dmd, screen.turns, on_set, units)
 
 
 GRIPS = ("nw", "ne", "sw", "se")
@@ -375,6 +397,7 @@ GRIPS = ("nw", "ne", "sw", "se")
 # The box is moved by its body and sized by its corners, in percent of the stage it sits
 # in. A pointer's travel is turned back through the stage's quarter turns first, so a
 # drag follows the pointer on a window that is turned. Nothing is sent until it is let go.
+# While it moves, a readout beside it counts X, Y, W and H the way the settings do.
 BOX_JS = """(() => {
   let tries = 0;
   const wire = () => {
@@ -387,7 +410,26 @@ BOX_JS = """(() => {
     const MIN = 2;
     const clamp = (v, lo, hi) => Math.min(Math.max(lo, hi), Math.max(lo, v));
     const SLOP = 3;
-    let drag = null;
+    const across = __ACROSS__, down = __DOWN__;
+    const frame = stage.parentElement;
+    let drag = null, chip = null;
+    const readout = (b) => {
+      const w = Math.max(1, Math.round(across * b.width / 100));
+      const h = Math.max(1, Math.round(down * b.height / 100));
+      const x = Math.max(0, Math.round(across * b.left / 100));
+      const y = Math.max(0, Math.round(down * (1 - (b.top + b.height) / 100)));
+      if (!chip) {
+        chip = document.createElement('div');
+        chip.className = 'console-bgview-readout';
+        frame.appendChild(chip);
+      }
+      chip.textContent = x + ', ' + y + ' \\u00b7 ' + w + ' \\u00d7 ' + h;
+      const at = frame.getBoundingClientRect(), on = el.getBoundingClientRect();
+      const above = on.top - at.top - chip.offsetHeight - 4;
+      const top = above >= 0 ? above : on.bottom - at.top + 4;
+      chip.style.top = clamp(top, 0, frame.clientHeight - chip.offsetHeight) + 'px';
+      chip.style.left = clamp(on.left - at.left, 0, frame.clientWidth - chip.offsetWidth) + 'px';
+    };
     const read = () => ({left: parseFloat(el.style.left), top: parseFloat(el.style.top),
                          width: parseFloat(el.style.width), height: parseFloat(el.style.height)});
     el.addEventListener('pointerdown', (e) => {
@@ -426,11 +468,13 @@ BOX_JS = """(() => {
       drag.now = {left, top, width, height};
       el.style.left = left + '%'; el.style.top = top + '%';
       el.style.width = width + '%'; el.style.height = height + '%';
+      readout(drag.now);
     });
     const end = (e) => {
       if (!drag) return;
       const done = drag.now;
       drag = null;
+      if (chip) { chip.remove(); chip = null; }
       if (done) el.dispatchEvent(new CustomEvent('boxset', {detail: done}));
     };
     el.addEventListener('pointerup', end);
@@ -441,7 +485,8 @@ BOX_JS = """(() => {
 """
 
 
-def _dmd(box: Box, turns: int, on_set: Callable[[Box], Awaitable[None]] | None) -> None:
+def _dmd(box: Box, turns: int, on_set: Callable[[Box], Awaitable[None]] | None,
+         units: tuple[int, int]) -> None:
     if box.auto:
         ui.label(t("console.backglass.dmd_automatic")).classes("console-bgview-auto")
         return
@@ -467,4 +512,5 @@ def _dmd(box: Box, turns: int, on_set: Callable[[Box], Awaitable[None]] | None) 
                 .props(f"data-grip={grip}")
     shape.tooltip(t("console.backglass.dmd_move.hint"))
     shape.on("boxset", set_box, js_handler="(e) => emit(e.detail)")
-    ui.run_javascript(BOX_JS.replace("__ID__", str(shape.id)).replace("__TURNS__", str(turns)))
+    ui.run_javascript(BOX_JS.replace("__ID__", str(shape.id)).replace("__TURNS__", str(turns))
+                      .replace("__ACROSS__", str(units[0])).replace("__DOWN__", str(units[1])))

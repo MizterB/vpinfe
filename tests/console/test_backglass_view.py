@@ -221,6 +221,21 @@ class TheWindowFitted(unittest.TestCase):
         self.assertIsNone(view.fit_target({}, _glass(), "ScoreView"))
 
 
+class TheWindowsStacked(unittest.TestCase):
+    def test_two_windows_go_side_by_side_where_the_stage_is_wider_than_both_shapes_stack(
+            self) -> None:
+        rule = view._beside(1.5, 6.0)
+
+        self.assertIn("(min-aspect-ratio: 3.0000)", rule)
+        self.assertIn("flex-direction: row", rule)
+
+    def test_the_readout_counts_in_the_units_the_fields_do(self) -> None:
+        screen = view.Screen(1.0, 0, 100.0, None, part=view.SCORE_PART, space=(400, 100))
+
+        self.assertEqual((1024, 768), view._counted_in(LEGACY, screen.space))
+        self.assertEqual((400, 100), view._counted_in(B2S, screen.space))
+
+
 class WhichEdition(unittest.TestCase):
     def test_dual_mode_two_is_fantasy_under_legacy(self) -> None:
         self.assertEqual("fantasy", view.edition_in_effect({f"{LEGACY}B2SDualMode": "2"}))

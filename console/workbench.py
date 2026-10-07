@@ -4996,14 +4996,15 @@ def _marked(parts: Sequence[Part], app_name: str,
 
 
 def _pair(parts: Sequence[Part], joiner: str) -> None:
-    """Each part's control, named by its label for a screen reader, with `joiner` before
-    the second."""
+    """Each part's control, named by its label for a screen reader, with `joiner` after
+    every part but the last: where the pair wraps, the second control starts the line at
+    the first one's edge instead of being pushed in by a joiner."""
     with ui.element("div").classes("console-field-pair"):
         for index, (control, _, field) in enumerate(parts):
             with ui.element("div").classes("console-field-part") as named:
-                if index and joiner:
-                    ui.label(joiner).classes("console-cell-join").props("aria-hidden=true")
                 control()
+                if joiner and index < len(parts) - 1:
+                    ui.label(joiner).classes("console-cell-join").props("aria-hidden=true")
             named.props["role"] = "group"
             named.props["aria-label"] = field.label
             named.props["data-setting"] = field.key

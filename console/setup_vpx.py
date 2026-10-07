@@ -412,9 +412,6 @@ async def ask_glass(vpx: Vpx, config: Any) -> dict[str, Any]:
                     with ui.element("div").classes("console-field-pair"):
                         for at, tip in enumerate(("long_side", "short_side")):
                             with ui.element("div").classes("console-field-part"):
-                                if at:
-                                    ui.label("×").classes("console-cell-join") \
-                                        .props("aria-hidden=true")
                                 ui.number(
                                     value=units.shown(now["size"][at], now["units"]),
                                     format="%.1f", step=0.1,
@@ -425,6 +422,9 @@ async def ask_glass(vpx: Vpx, config: Any) -> dict[str, Any]:
                                     .props("dense borderless") \
                                     .classes("console-edit-field console-edit-narrow") \
                                     .tooltip(t(f"console.vpx_displays.{tip}"))
+                                if not at:
+                                    ui.label("×").classes("console-cell-join") \
+                                        .props("aria-hidden=true")
                     panel.segmented({units.CM: t("console.units.cm"),
                                      units.INCH: t("console.units.in")},
                                     now["units"], chose_units).classes("console-units")

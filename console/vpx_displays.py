@@ -270,8 +270,6 @@ class Page:
 
     def _size_field(self, key: str, at: int, joiner: str, label: str) -> None:
         with ui.element("div").classes("console-field-part"):
-            if at and joiner:
-                ui.label(joiner).classes("console-cell-join").props("aria-hidden=true")
             control = ui.number(value=units.shown(self.size[key], self.units), format="%.1f",
                                 step=0.1, suffix=t(f"console.units.{self.units}")) \
                 .props("dense borderless").classes("console-edit-field console-edit-narrow")
@@ -280,6 +278,8 @@ class Page:
                               else "console.vpx_displays.long_side"))
             control.on("blur", partial(self._sized, key, control))
             control.on("keydown.enter", partial(self._sized, key, control))
+            if joiner and not at:
+                ui.label(joiner).classes("console-cell-join").props("aria-hidden=true")
 
     @on_page
     async def _sized(self, key: str, control: Any, _event: Any = None) -> None:
