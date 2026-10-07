@@ -246,7 +246,12 @@ def _row(block: Block, group: str, source: dict[str, Any], at: int, of: int,
         async def remove() -> None:
             await block.remove(group, source)
 
+        async def rename() -> None:
+            await rename_source(block, group, source)
+
         with ui.element("div").classes("console-row-action"):
+            panel.icon_action(t("console.theme_sources.rename"), rename, icon=verbs.RENAME,
+                              hint=t("console.theme_sources.rename"))()
             panel.icon_action(t("word.remove"), remove, icon=verbs.REMOVE,
                               hint=t("word.remove"))()
 
@@ -260,11 +265,16 @@ def _name(group: str, source: dict[str, Any]) -> None:
         ui.label(name).classes("console-fact-value truncate min-w-0")
 
 
-def _title(group: str, source: dict[str, Any]) -> str:
-    """The VPinFE Theme List is called that, wherever its address says it lives."""
+def _own_title(group: str, source: dict[str, Any]) -> str:
+    """What a source is called until somebody names it. The VPinFE Theme List is called
+    that, wherever its address says it lives."""
     if group == LISTS and online.is_stock(str(source["address"])):
         return t("console.theme_sources.stock")
     return str(source["name"])
+
+
+def _title(group: str, source: dict[str, Any]) -> str:
+    return str(source.get("label") or "") or _own_title(group, source)
 
 
 def _moves(block: Block, group: str, address: str, at: int, of: int) -> None:
@@ -295,10 +305,11 @@ def _detail(group: str, source: dict[str, Any]) -> str:
     not."""
     if group == LISTS:
         count = int(source.get("count") or 0)
-        where = str(source.get("display") or "") if online.is_stock(str(source["address"])) else ""
+        named = online.is_stock(str(source["address"])) or bool(source.get("label"))
+        where = str(source.get("display") or "") if named else ""
         return " · ".join(part for part in (_count(count) if count else "", where) if part)
     where = str(source.get("display") or "")
-    parts = [where if where != source["name"] else "",
+    parts = [where if where != _title(group, source) else "",
              str(source.get("version") or ""),
              t("console.theme_sources.pinned", ref=source["pinned"])
              if source.get("pinned") else ""]
@@ -315,6 +326,50 @@ def _word(source: dict[str, Any]) -> str:
     return t(f"console.theme_sources.state.{_CHIP_KEY.get(state, state)}")
 
 
+def _kept(text: str, suggested: str) -> str:
+    """The name to keep for a source: none where it is blank or what it would be called
+    anyway, so that a name nobody chose goes on following the source."""
+    name = online.clean_name(text)
+    return "" if name == online.clean_name(suggested) else name
+
+
+@on_page
+async def _save_name(library: Library, address: str, name: str) -> bool:
+    try:
+        await offload.io(library.name_theme_source, address, name)
+    except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+        ui.notify(t("console.theme_sources.name_failed"), caption=why(exc), type="negative")
+        return False
+    return True
+
+
+async def rename_source(block: Block, group: str, source: dict[str, Any]) -> None:
+    """A name for one source. Clearing it, or typing what it would be called anyway, takes
+    the name back."""
+    own = _own_title(group, source)
+    shown: dict[str, Any] = {}
+
+    @on_page
+    async def save() -> None:
+        box.close()
+        if await _save_name(block.library, str(source["address"]),
+                       _kept(str(shown["name"].value or ""), own)):
+            block.rerender()
+
+    with frame.opened(t("console.theme_sources.rename_title")) as box:
+        def draw_name() -> None:
+            shown["name"] = frame.field(_title(group, source), placeholder=own)
+            shown["name"].props(f"maxlength={online.NAME_LIMIT}")
+
+        panel.facts(ui, [(t("word.name"), draw_name)])
+        with frame.footer():
+            frame.cancel(box.close)
+            go = frame.answer(t("console.theme_sources.rename"), save, icon=verbs.RENAME)
+    frame.focus(box, shown["name"], select=True)
+    frame.enter_presses(go)
+    box.open()
+
+
 @on_page
 async def add_default(library: Library, done: Callable[[], None]) -> None:
     """The VPinFE Theme List put back, in one press."""
@@ -329,6 +384,8 @@ async def add_source(library: Library, done: Callable[[], None]) -> None:
     found: dict[str, Any] = {}
     asked = {"count": 0}
     shown: dict[str, Any] = {}
+    # What the name field was last filled with, and whether anything else has been typed.
+    named: dict[str, Any] = {"suggested": "", "typed": False}
 
     def draw_address() -> None:
         control = frame.field(placeholder="https://")
@@ -338,6 +395,23 @@ async def add_source(library: Library, done: Callable[[], None]) -> None:
     def draw_result() -> None:
         shown["result"] = ui.column().classes("gap-1 w-full")
 
+    def draw_name() -> None:
+        control = frame.field()
+        control.props(f"maxlength={online.NAME_LIMIT}")
+        control.on_value_change(lambda: named.update(
+            typed=str(control.value or "") != named["suggested"]))
+        shown["name"] = control
+
+    def suggest(name: str) -> None:
+        """The name field, filled with what the source is called unless somebody has typed
+        their own."""
+        control = shown["name"]
+        if named["typed"] and control.value:
+            return
+        named["suggested"] = name
+        control.value = name
+        named["typed"] = False
+
     async def check(address: str) -> None:
         asked["count"] += 1
         mine = asked["count"]
@@ -345,6 +419,7 @@ async def add_source(library: Library, done: Callable[[], None]) -> None:
         shown["add"].disable()
         result = shown["result"]
         result.clear()
+        suggest("")
         if not address:
             return
         await asyncio.sleep(_DEBOUNCE_MS / 1000)
@@ -366,6 +441,7 @@ async def add_source(library: Library, done: Callable[[], None]) -> None:
             _verdict(said, reason)
         if said.get("addable"):
             found.update(said)
+            suggest(_suggested(said))
             shown["add"].enable()
 
     @on_page
@@ -374,14 +450,17 @@ async def add_source(library: Library, done: Callable[[], None]) -> None:
             return
         box.close()
         group, address = str(found["group"]), str(found["address"])
+        name = _kept(str(shown["name"].value or ""), named["suggested"])
         held = _held(await offload.io(library.theme_sources), group)
         if address not in held and await _change(library, group, [*held, address]):
+            await _save_name(library, address, name)
             done()
 
     with frame.opened(t("console.theme_sources.add_title")) as box:
         panel.facts(ui, [
             (t("console.theme_sources.address"), draw_address),
             (panel.ASIDE, draw_result),
+            (t("word.name"), draw_name),
             panel.note(t("console.theme_sources.trust"))])
         with frame.footer():
             frame.cancel(box.close)
@@ -390,6 +469,14 @@ async def add_source(library: Library, done: Callable[[], None]) -> None:
     frame.focus(box, shown["address"])
     frame.enter_presses(shown["add"])
     box.open()
+
+
+def _suggested(said: dict[str, Any]) -> str:
+    """What a source about to be added would be called: the theme's own name, or the
+    owner and repository of a list."""
+    if said.get("kind") == checks.LIST and online.is_stock(str(said.get("address") or "")):
+        return t("console.theme_sources.stock")
+    return str(said.get("name") or "")
 
 
 def _verdict(said: dict[str, Any], failure: str) -> None:

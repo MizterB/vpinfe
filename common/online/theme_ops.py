@@ -253,16 +253,32 @@ def sources() -> dict[str, Any]:
     known = _known()
     held = _unread or (known.reports if known is not None else {})
 
+    config = get_ini_config()
+
     def row(address: str, kind: str) -> dict[str, Any]:
         found = held.get(address)
         if found is None or found["kind"] != kind:
             found = checks.waiting(address, kind)
-        return {**found, "level": checks.level(found["state"])}
+        return {**found, "level": checks.level(found["state"]),
+                "label": theme_sources.name_of_source(config, address)}
 
     return {"registries": [row(url, checks.LIST) for url in said.registries if url.strip()],
             "repositories": [row(url, checks.THEME) for url in said.repositories
                              if url.strip()],
-            "checked": theme_sync.checked_at(get_ini_config())}
+            "checked": theme_sync.checked_at(config)}
+
+
+def rename_source(address: str, name: str) -> dict[str, Any]:
+    """Call a configured source `name`, or - given a blank - by what it is called without
+    one. Raises NotFoundError for an address that is not configured."""
+    where = theme_sources.parse(str(address or ""))
+    key = where.url if where is not None else str(address or "").strip()
+    if key not in _configured_kinds():
+        raise service_errors.NotFoundError(t("error.themes.unknown_source"))
+    store = get_ini_config()
+    theme_sources.keep_names(store, {key: name})
+    store.save()
+    return {"address": key, "label": theme_sources.name_of_source(store, key)}
 
 
 def _configured_kinds() -> dict[str, str]:

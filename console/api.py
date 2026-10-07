@@ -827,6 +827,10 @@ class ApiClient:
         self._answered(response)
         return dict(response.json() or {})
 
+    def name_theme_source(self, address: str, name: str) -> dict:
+        """Call the added source at `address` `name`; blank takes the name back."""
+        return dict(self._put("/themes/sources/name", {"address": address, "name": name}) or {})
+
     def install_theme(self, key: str) -> dict:
         """Install or update - installing over an existing copy is what an update is."""
         return dict(self._post(f"/themes/{key}/install", {}) or {})

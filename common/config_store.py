@@ -153,7 +153,8 @@ class ConfigStore:
 
         self.defaults = config_schema.defaults()
 
-        self.config = configparser.ConfigParser()
+        # No interpolation: a value is whatever was typed, and a `%` in it is not a reference.
+        self.config = configparser.ConfigParser(interpolation=None)
         # Callers pass whichever name they know; both are derived so none had to change.
         base = Path(configfilepath)
         self.json_path = base.with_suffix('.json')
@@ -168,6 +169,11 @@ class ConfigStore:
         elif os.path.exists(self.ini_path):
             logger.info("Converting %s to %s", self.ini_path, self.json_path)
             self.config.read(self.ini_path)
+            # The old parser needed a literal % written as %%; it is one % now.
+            for section in self.config.sections():
+                for option, value in self.config.items(section):
+                    if "%%" in value:
+                        self.config.set(section, option, value.replace("%%", "%"))
             self._converted_from_ini = True
         else:
             logger.info("Generating default settings at: %s", self.json_path)
@@ -402,7 +408,7 @@ class ConfigStore:
     def _read_json(self) -> tuple[int, configparser.ConfigParser]:
         with open(self.json_path, encoding='utf-8') as handle:
             payload = json.load(handle) or {}
-        parser = configparser.ConfigParser()
+        parser = configparser.ConfigParser(interpolation=None)
         for section, values in _flatten(payload.get(SETTINGS_KEY) or {}).items():
             if not parser.has_section(section):
                 parser.add_section(section)

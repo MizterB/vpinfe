@@ -83,6 +83,23 @@ class ThemeSourceTests(TempTree):
         self.assertEqual(answer.status_code, 200)
         checked.assert_called_once_with("")
 
+    def test_naming_a_source_hands_over_the_address_and_the_name(self) -> None:
+        said = {"address": "a", "label": "Mine"}
+        with patch.object(theme_ops, "rename_source", return_value=said) as named:
+            answer = self.client.put("/themes/sources/name",
+                                     json={"address": "a", "name": "Mine"})
+
+        self.assertEqual((answer.status_code, answer.json()), (200, said))
+        named.assert_called_once_with("a", "Mine")
+
+    def test_naming_a_source_that_is_not_added_is_a_404(self) -> None:
+        with patch.object(theme_ops, "_configured_kinds", return_value={}):
+            answer = self.client.put("/themes/sources/name",
+                                     json={"address": "https://example.net/t.json", "name": "x"})
+
+        self.assertEqual(answer.status_code, 404)
+        self.assertEqual(answer.json()["error"]["message"], t("error.themes.unknown_source"))
+
 
 if __name__ == "__main__":
     unittest.main()

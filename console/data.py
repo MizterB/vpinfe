@@ -498,6 +498,9 @@ class Library:
     def check_theme_source(self, address: str) -> dict:
         return self._client.check_theme_source(address)
 
+    def name_theme_source(self, address: str, name: str) -> dict:
+        return self._client.name_theme_source(address, name)
+
     def install_theme(self, key: str) -> dict:
         return self._client.install_theme(key)
 

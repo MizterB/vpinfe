@@ -213,6 +213,36 @@ class RowTests(unittest.TestCase):
         unread = source(THEME, name="owner/neon", display="owner/neon")
         self.assertEqual(theme_sources._detail(THEMES, unread), "")
 
+    def test_a_name_somebody_gave_replaces_the_one_a_source_has(self) -> None:
+        stock = source(theme_sources.default_list(), name="superhac/vpinfe-themes",
+                       display="superhac/vpinfe-themes", count=12, label="Mine")
+        other = source(ONE, name="example/one", display="example/one", count=3, label="Dave's")
+
+        self.assertEqual(theme_sources._title(LISTS, stock), "Mine")
+        self.assertEqual(theme_sources._title(LISTS, other), "Dave's")
+
+    def test_a_renamed_list_says_where_it_lives(self) -> None:
+        other = source(ONE, name="example/one", display="example/one", count=3, label="Dave's")
+
+        self.assertEqual(theme_sources._detail(LISTS, other), "3 themes · example/one")
+
+    def test_a_name_that_is_what_the_source_is_called_anyway_is_not_kept(self) -> None:
+        self.assertEqual(theme_sources._kept("  ", "Neon"), "")
+        self.assertEqual(theme_sources._kept("Neon", "Neon"), "")
+        self.assertEqual(theme_sources._kept(" My   Neon ", "Neon"), "My Neon")
+        self.assertEqual(theme_sources._kept("Neon  Pack", "Neon  Pack"), "")
+        long = "x" * 200
+        self.assertEqual(theme_sources._kept(long[:theme_sources.online.NAME_LIMIT], long), "")
+
+    def test_the_suggestion_is_the_themes_own_name_or_the_lists_repository(self) -> None:
+        self.assertEqual(theme_sources._suggested(
+            {"kind": checks.THEME, "address": THEME, "name": "Neon"}), "Neon")
+        self.assertEqual(theme_sources._suggested(
+            {"kind": checks.LIST, "address": ONE, "name": "example/one"}), "example/one")
+        self.assertEqual(theme_sources._suggested(
+            {"kind": checks.LIST, "address": theme_sources.default_list(), "name": "x/y"}),
+            "VPinFE Theme List")
+
 
 class ChipTests(unittest.TestCase):
     def test_every_state_that_carries_a_level_has_its_word(self) -> None:
@@ -248,6 +278,28 @@ class EmptiedListTests(unittest.TestCase):
 
         self.assertFalse(put.is_error, put.text)
         self.assertEqual(self._lists(), [theme_sources.default_list()])
+
+
+class NamedSourceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.enterContext(patch.object(paths, "VPINFE_INI_PATH", root / "vpinfe.ini"))
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+
+    def _label(self) -> str:
+        return str(self.client.get("/themes/sources").json()[LISTS][0]["label"])
+
+    def test_a_name_is_given_shown_and_taken_back_without_touching_the_address(self) -> None:
+        stock = theme_sources.default_list()
+
+        put = self.client.put("/themes/sources/name", json={"address": stock, "name": "Mine, 100%"})
+
+        self.assertFalse(put.is_error, put.text)
+        self.assertEqual(self._label(), "Mine, 100%")
+        self.client.put("/themes/sources/name", json={"address": stock, "name": ""})
+        self.assertEqual(self._label(), "")
+        listed = self.client.get("/themes/sources").json()[LISTS]
+        self.assertEqual([one["address"] for one in listed], [stock])
 
 
 if __name__ == "__main__":

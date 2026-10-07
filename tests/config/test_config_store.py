@@ -108,6 +108,18 @@ class RereadTests(ConfigStoreTests):
         self.assertNotEqual(store.value("Display", "rotation"), 270)
 
 
+class FreeTextTests(ConfigStoreTests):
+    def test_a_percent_sign_in_a_value_is_kept_as_typed(self) -> None:
+        store = ConfigStore(str(self.ini))
+        store.set_value("theme_source_names", "https://example.test/a", "100% themes")
+        store.save()
+
+        again = ConfigStore(str(self.ini))
+
+        self.assertEqual(again.config.get("theme_source_names", "https://example.test/a"),
+                         "100% themes")
+
+
 class TypedValueTests(ConfigStoreTests):
     def test_bools_and_ints_are_stored_as_bools_and_ints(self) -> None:
         ConfigStore(str(self.ini))
@@ -165,6 +177,14 @@ class IniConversionTests(ConfigStoreTests):
         self.assertTrue(self.ini.exists(), "a downgrade needs the file 2.x reads")
         backups = [n for n in os.listdir(self.root) if n.startswith("vpinfe.ini.")]
         self.assertEqual(len(backups), 1, "the pre-JSON file is copied aside once")
+
+    def test_a_percent_escaped_for_the_old_ini_parser_is_one_percent(self) -> None:
+        self._write_ini("[Settings]\ngamerootdir = /tables/100%%\n")
+
+        ConfigStore(str(self.ini))
+
+        self.assertEqual(self._payload()[SETTINGS_KEY]["general"]["game_root_dir"],
+                         "/tables/100%")
 
     def test_converting_still_applies_the_key_renames(self) -> None:
         """tablerootdir became gamerootdir; an old ini must not lose the value."""

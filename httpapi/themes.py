@@ -63,6 +63,16 @@ def check_source(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     return theme_ops.check_source(str(body.get("address") or ""))
 
 
+@router.put("/sources/name", summary="Call a theme source something",
+            dependencies=[requires(scopes.CONFIG_WRITE)])
+def rename_source(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Gives the added source at `address` the name `name`, which replaces what it is
+    shown as. A blank `name` takes it back to what the source is called without one.
+    The address lists in `PUT /config` are unchanged: a name is kept apart from them. An
+    address that is not added is 404."""
+    return theme_ops.rename_source(str(body.get("address") or ""), str(body.get("name") or ""))
+
+
 @router.post("/{key}/install", summary="Install or update a theme",
              dependencies=[requires(scopes.CONFIG_WRITE)])
 def install(key: str) -> dict[str, Any]:

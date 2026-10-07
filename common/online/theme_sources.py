@@ -14,11 +14,15 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from common import config_schema
-from common.config_access import cfg_list
+from common.config_access import cfg_get, cfg_list
 
 logger = logging.getLogger("vpinfe.common.online.theme_sources")
 
 SECTION = "themes"
+
+# What a person calls a source, by the address it is stored under.
+NAMES_SECTION = "theme_source_names"
+NAME_LIMIT = 80
 
 # Set on an entry whose name is not known until its manifest is read.
 NAMED_BY_MANIFEST = "named_by_manifest"
@@ -37,6 +41,36 @@ def from_config(source: Any) -> ThemeSources:
         registries=tuple(cfg_list(source, SECTION, "registries")),
         repositories=tuple(cfg_list(source, SECTION, "repositories")),
     )
+
+
+def _name_key(address: str) -> str:
+    """The key a source's name is kept under: its parsed address, lower case as option
+    keys are."""
+    where = parse(address)
+    return (where.url if where is not None else str(address or "").strip()).lower()
+
+
+def name_of_source(source: Any, address: str) -> str:
+    """What the person called this source, or "" where they have not."""
+    return cfg_get(source, NAMES_SECTION, _name_key(address)).strip()
+
+
+def clean_name(text: str) -> str:
+    """A name as it is kept: one line, spaces collapsed, at most NAME_LIMIT characters."""
+    return " ".join(str(text or "").split())[:NAME_LIMIT].strip()
+
+
+def keep_names(store: Any, names: dict[str, str]) -> None:
+    """Stage `names` (address to name, "" meaning none) on `store`. A name outlives its
+    source's removal, so Undo and adding the address again find it."""
+    if not store.config.has_section(NAMES_SECTION):
+        store.config.add_section(NAMES_SECTION)
+    for address, name in names.items():
+        key = _name_key(address)
+        if clean_name(name):
+            store.config.set(NAMES_SECTION, key, clean_name(name))
+        else:
+            store.config.remove_option(NAMES_SECTION, key)
 
 
 def split_ref(url: str) -> tuple[str, str]:
