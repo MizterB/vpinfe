@@ -51,7 +51,6 @@ BY_3X = "3.0"
 # Where it is kept. Part of the id, so a path is only ever read in the place it came from.
 PLACE_GAME = "game"
 PLACE_RECORDS = "records"
-PLACE_LAUNCHER = "launcher"
 PLACE_BESIDE = "beside"
 PLACE_VPX_2X = "vpx_2x"
 PLACE_THEME = "theme"

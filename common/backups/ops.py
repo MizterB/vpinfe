@@ -40,7 +40,6 @@ from .copies import (
     PLACE_ARCHIVE,
     PLACE_BESIDE,
     PLACE_GAME,
-    PLACE_LAUNCHER,
     PLACE_MEDIA,
     PLACE_RECORDS,
     PLACE_THEME,
@@ -166,15 +165,6 @@ def _restore_launcher(one: Copy, place: str, path: Path) -> Restored:
     _while_nothing_plays()
     owner = _launcher_of(one)
     files = launcher_ops.config_files(owner)
-    if place == PLACE_LAUNCHER:
-        try:
-            safety = config_backups.restore(path.name, files, home=path.parent)
-        except FileNotFoundError as exc:
-            raise service_errors.NotFoundError(why(exc)) from exc
-        except ValueError as exc:
-            raise service_errors.RefusedError(why(exc)) from exc
-        return Restored(one, _kept(_kept_copy(str(safety) if safety else None,
-                                              PLACE_LAUNCHER)))
     target = _target_for_aside(place, path, files)
     if target is None:
         raise service_errors.RefusedError(t("error.launchers.copy_unmatched"))

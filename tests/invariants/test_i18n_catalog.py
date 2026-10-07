@@ -163,7 +163,6 @@ READ_FOR = {
     "common/uploads/upload_session_service.py": frozenset({"raise", "refusal"}),
     "common/games/library_folders.py": frozenset({"reason"}),
     "console/metrics.py": frozenset({"reason"}),
-    "common/games/config_backups.py": frozenset({"raise", "refusal"}),
     "common/games/asset_resolver.py": frozenset({"reason"}),
     "common/games/table_lens.py": frozenset({"reason"}),
     "common/extensions/contract.py": frozenset({"raise"}),

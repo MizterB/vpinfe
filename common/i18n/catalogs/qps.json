@@ -3665,7 +3665,6 @@
   "error.launch.reference_unreachable": "Ţĥîš ţàƀŀè ŀîṽèš àţ {path}, ŵĥîçĥ îš ñöţ řèàçĥàƀŀè ƒřöɱ ĥèřè",
   "error.launchers.all_tables_only": "{app_name} řèàđš {keys} ƒöř àŀŀ ţàƀŀèš àţ öñçè, ñèṽèř ƒöř öñè",
   "error.launchers.cannot_write_settings": "{app_name} ĥàš ñö šèţţîñĝš ƒîŀè ţö ŵřîţè ţö",
-  "error.launchers.copy_gone": "Ţĥàţ çöþý îš ñö ŀöñĝèř ţĥèřè",
   "error.launchers.copy_unmatched": "Ţĥàţ çöþý đöèš ñöţ ɱàţçĥ àñý ƒîŀè ţĥîš àþþ ķèèþš",
   "error.launchers.default_unrunnable": "{name} ĥàš ñö þřöĝřàɱ. Šèţ öñè ţö ɱàķè îţ ţĥè đèƒàûŀţ.",
   "error.launchers.default_switched_off": "{name} îš šŵîţçĥèđ öƒƒ. Šŵîţçĥ îţ öñ ţö ɱàķè îţ ţĥè đèƒàûŀţ.",

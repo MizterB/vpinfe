@@ -518,7 +518,7 @@ class DeleteAndForgeryTests(BackupsCase):
     def test_an_id_naming_a_path_outside_every_place_reaches_nothing(self) -> None:
         outside = pathlib.Path(self.tmp.name) / "outside.vpinfe-20261001T010203Z"
         outside.write_text("x")
-        for place in (copies.PLACE_GAME, copies.PLACE_RECORDS, copies.PLACE_LAUNCHER,
+        for place in (copies.PLACE_GAME, copies.PLACE_RECORDS,
                       copies.PLACE_BESIDE, copies.PLACE_VPX_2X, copies.PLACE_THEME):
             with self.subTest(place=place):
                 forged = copies.make_id(place, outside)
@@ -530,7 +530,7 @@ class DeleteAndForgeryTests(BackupsCase):
         old = self.kept(folder, OLD)
         wandering = str(old.parent / ".." / old.parent.name / old.name)
 
-        for place in (copies.PLACE_GAME, copies.PLACE_THEME, copies.PLACE_LAUNCHER):
+        for place in (copies.PLACE_GAME, copies.PLACE_THEME):
             with self.subTest(place=place):
                 forged = copies.make_id(place, wandering)
                 self.assertEqual(self.client.delete(f"/backups/{forged}").status_code, 404)

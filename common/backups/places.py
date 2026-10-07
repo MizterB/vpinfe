@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import re
-from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -19,7 +18,6 @@ from pathlib import Path
 
 from common import path_state
 from common.games import (
-    config_backups,
     game_repository,
     info_maintenance,
     launcher_ops,
@@ -65,7 +63,6 @@ from .copies import (
     PLACE_ARCHIVE,
     PLACE_BESIDE,
     PLACE_GAME,
-    PLACE_LAUNCHER,
     PLACE_MEDIA,
     PLACE_RECORDS,
     PLACE_THEME,
@@ -99,9 +96,6 @@ logger = logging.getLogger("vpinfe.common.backups.places")
 INI_2X_DIR = CONFIG_DIR / "backups" / "vpx_ini"
 INI_2X_NAME = re.compile(r"^(?P<stem>.+?)-(?P<reason>manual|pre-restore)"
                           r"(?:-(?P<label>.+?))?-(?P<when>\d{8}-\d{6})$")
-
-# A folder inside a backup folder holding an app's settings copies, one folder per app.
-APP_CONFIG = "app_config"
 
 _WALK_THREADS = 16
 
@@ -251,27 +245,6 @@ def _settings_files(launcher: launchers.Launcher) -> dict[str, str]:
         return {}
 
 
-def _launcher_for_folder(folder: Path,
-                        held: Iterable[launchers.Launcher]) -> launchers.Launcher | None:
-    """The launcher a `backups/app_config/` folder is named for: `<name>--<id>`, or the id."""
-    wanted = folder.name.rsplit("--", 1)[-1]
-    return next((one for one in held if config_backups.safe(one.launcher_id) == wanted),
-                None)
-
-
-def _app_config_copy(path: Path, held: list[launchers.Launcher]) -> Copy | None:
-    if not path.is_file() or not is_copy(path):
-        return None
-    owner = _launcher_for_folder(path.parent, held)
-    name = owner.display_name if owner else path.parent.name.rsplit("--", 1)[0]
-    return Copy(
-        id=make_id(PLACE_LAUNCHER, path), subject_kind=SUBJECT_LAUNCHER,
-        subject_id=owner.launcher_id if owner else path.parent.name.rsplit("--", 1)[-1],
-        subject_name=name, kind=KIND_LAUNCHER, file=path.name, path=str(path),
-        taken=iso_from_stamp(backup_stamp(path)),
-        written_by="", reason=REASON_RESTORE, note="", size=_size(path), gone=owner is None)
-
-
 def _beside_copies(launcher: launchers.Launcher) -> list[Copy]:
     """The copies kept beside a settings file: VPX's own first-change one, and what a
     restore replaced."""
@@ -320,13 +293,6 @@ def _x2_copy(path: Path, held: list[launchers.Launcher]) -> Copy | None:
 def _launcher_copies() -> list[Copy]:
     held = _launcher_list()
     found: list[Copy] = []
-    for place in backup_folder.listable():
-        app_config = place / APP_CONFIG
-        if app_config.is_dir():
-            for folder in sorted(app_config.iterdir()):
-                if folder.is_dir():
-                    found += [one for path in sorted(folder.iterdir())
-                              if (one := _app_config_copy(path, held))]
     for each in held:
         found += _beside_copies(each)
     if INI_2X_DIR.is_dir():
@@ -336,10 +302,6 @@ def _launcher_copies() -> list[Copy]:
 
 def launcher_copy(place: str, path: Path) -> Copy | None:
     held = _launcher_list()
-    if place == PLACE_LAUNCHER:
-        return (_app_config_copy(path, held)
-                if path.parent.parent.name == APP_CONFIG
-                and backup_folder.holds(path.parent.parent.parent) else None)
     if place == PLACE_VPX_2X:
         return _x2_copy(path, held) if path.parent == INI_2X_DIR else None
     for each in held:
@@ -565,7 +527,7 @@ def find(copy_id: str) -> Copy | None:
         return game_copy(path)
     if place == PLACE_RECORDS:
         return record_copy(path)
-    if place in (PLACE_LAUNCHER, PLACE_VPX_2X, PLACE_BESIDE):
+    if place in (PLACE_VPX_2X, PLACE_BESIDE):
         return launcher_copy(place, path)
     if place == PLACE_THEME:
         return theme_copy(path)
