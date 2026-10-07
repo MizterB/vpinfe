@@ -26,14 +26,13 @@ from common.media_specs import (
     resolve_media_entries,
     resolve_media_files,
 )
-from common.paths import CONFIG_DIR, get_ini_config
+from common.paths import CACHE_DIR, get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.media_service")
 
 _media_cache: list[dict] | None = None
 _thumb_request_state: set[tuple[str, str, str]] = set()
 
-CACHE_DIR = CONFIG_DIR / "cache"
 THUMB_CACHE_ROOT = CACHE_DIR / "media_thumbs"
 THUMB_SIZE = (512, 512)
 THUMB_WARM_ROW_BATCH_SIZE = 25

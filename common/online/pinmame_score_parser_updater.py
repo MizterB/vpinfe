@@ -10,7 +10,7 @@ from pathlib import Path
 from common import http_client, timestamps
 from common.atomic_write import staged_for
 from common.config_store import ConfigStore
-from common.paths import CONFIG_DIR, USER_ROMS_PATH
+from common.paths import USER_ROMS_PATH
 
 logger = logging.getLogger("vpinfe.common.online.pinmame_score_parser_updater")
 
@@ -102,7 +102,7 @@ def _stamp(iniconfig: ConfigStore) -> None:
 
 
 def ensure_latest_roms_json(iniconfig: ConfigStore) -> dict:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    ROMS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     if not iniconfig.config.has_section(RELEASE_SECTION):
         iniconfig.config.add_section(RELEASE_SECTION)

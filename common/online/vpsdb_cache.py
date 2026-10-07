@@ -30,21 +30,21 @@ class VPSDatabaseCache:
 
     def __init__(
         self,
-        config_dir: Path,
+        cache_dir: Path,
         iniconfig: ConfigStore,
         *,
         db_url: str,
         last_update_url: str,
         filename: str = "vpsdb.json",
     ) -> None:
-        self.config_dir = config_dir
+        self.cache_dir = cache_dir
         self.iniconfig = iniconfig
         self.db_url = db_url
         self.last_update_url = last_update_url
-        self.path = config_dir / filename
+        self.path = cache_dir / filename
 
     def ensure_current(self) -> list[dict]:
-        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         version = self.fetch_last_update()
         if version:
             self._update_if_needed(version)

@@ -16,7 +16,7 @@ from fastapi import APIRouter
 from common.games import game_repository
 from common.games.game_repository import game_to_row
 from common.manufacturer_logos import manufacturer_report, vps_manufacturer_names
-from common.paths import CONFIG_DIR
+from common.paths import VPSDB_PATH
 
 from . import models, scopes
 from .auth import requires
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/manufacturers", tags=["manufacturers"])
 
 
 def _vps_names() -> list[str]:
-    return vps_manufacturer_names(CONFIG_DIR / "vpsdb.json")
+    return vps_manufacturer_names(VPSDB_PATH)
 
 
 def _library_counts() -> Counter:

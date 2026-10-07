@@ -42,8 +42,7 @@ class TestPinmameScoreParserUpdater(unittest.TestCase):
             temp_path = Path(temp_dir)
             ini = _FakeConfigStore(temp_path / "vpinfe.ini")
 
-            with mock.patch.object(updater, "CONFIG_DIR", temp_path), \
-                mock.patch.object(updater, "ROMS_JSON_PATH", temp_path / "roms.json"), \
+            with mock.patch.object(updater, "ROMS_JSON_PATH", temp_path / "roms.json"), \
                 mock.patch.object(updater, "_request_json", return_value=release_payload), \
                 mock.patch.object(updater.http_client, "download_file",
                                   side_effect=lambda url, dest, **_: dest.write_bytes(roms_bytes)):
@@ -75,8 +74,7 @@ class TestPinmameScoreParserUpdater(unittest.TestCase):
             ini = _FakeConfigStore(temp_path / "vpinfe.ini")
             ini.config.set("pinmame_score_parser", "roms_update_sha", roms_sha)
 
-            with mock.patch.object(updater, "CONFIG_DIR", temp_path), \
-                mock.patch.object(updater, "ROMS_JSON_PATH", temp_path / "roms.json"), \
+            with mock.patch.object(updater, "ROMS_JSON_PATH", temp_path / "roms.json"), \
                 mock.patch.object(updater, "_request_json", return_value=release_payload), \
                 mock.patch.object(updater.http_client, "download_file") as download:
                 result = updater.ensure_latest_roms_json(ini)
@@ -99,10 +97,9 @@ class TestAskedOnceADay(unittest.TestCase):
         self.root = Path(held.name)
         self.ini = _FakeConfigStore(self.root / "vpinfe.ini")
         self.ini.config.set("pinmame_score_parser", "roms_update_sha", "abc")
-        for one in (mock.patch.object(updater, "CONFIG_DIR", self.root),
-                    mock.patch.object(updater, "ROMS_JSON_PATH", self.root / "roms.json")):
-            one.start()
-            self.addCleanup(one.stop)
+        one = mock.patch.object(updater, "ROMS_JSON_PATH", self.root / "roms.json")
+        one.start()
+        self.addCleanup(one.stop)
 
     def _checked(self, hours_ago: float) -> None:
         self.ini.config.set("pinmame_score_parser", "roms_checked",

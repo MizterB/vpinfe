@@ -14,7 +14,7 @@ from common.games.info_file import MetaConfig
 from common.online import vpsdb_media
 from common.online.vpsdb_cache import VPinMediaDatabase, VPSDatabaseCache
 from common.online.vpsdb_media import VPSMediaDownloader
-from common.paths import CONFIG_DIR
+from common.paths import CACHE_DIR
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb")
 
@@ -93,10 +93,9 @@ class VPSdb:
         logger.info("Initializing VPSdb")
 
         self._vpinfe_config_store = vpinfe_config_store
-        self._config_dir = CONFIG_DIR
-        self._config_dir.mkdir(parents=True, exist_ok=True)
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
         self._cache = VPSDatabaseCache(
-            self._config_dir,
+            CACHE_DIR,
             self._vpinfe_config_store,
             db_url=VPSdb.VPS_DB_URL,
             last_update_url=VPSdb.VPS_LAST_UPDATE_URL,

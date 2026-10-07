@@ -212,8 +212,8 @@ special_text_score_files = {
 }
 
 def get_roms_candidate_paths() -> list[Path]:
-    # roms.json is not shipped with the build. It is downloaded into the user
-    # config dir at startup by common/pinmame_score_parser_updater.py, so that
+    # roms.json is not shipped with the build. It is downloaded into the cache
+    # dir at startup by common/online/pinmame_score_parser_updater.py, so that
     # is the only place it can be. Don't add paths under the source tree or the
     # frozen bundle back here without also adding them to build.yml.
     return [USER_ROMS_PATH]

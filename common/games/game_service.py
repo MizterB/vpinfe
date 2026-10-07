@@ -43,12 +43,12 @@ from common.games.tables import (
 from common.games.vpx_parser import VPXParser
 from common.i18n import t
 from common.jobs import LogCallback, ProgressCallback
-from common.paths import COLLECTIONS_PATH, CONFIG_DIR, VPINFE_INI_PATH
+from common.paths import COLLECTIONS_PATH, CONFIG_DIR, VPINFE_INI_PATH, VPSDB_PATH
 from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.games.game_service")
 
-VPSDB_JSON_PATH = VPINFE_INI_PATH.parent / "vpsdb.json"
+VPSDB_JSON_PATH = VPSDB_PATH
 _vpsdb_cache: list[dict] | None = None
 _release_index: dict[str, tuple[dict, dict]] = {}
 _release_index_of: list[dict] | None = None

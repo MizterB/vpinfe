@@ -121,7 +121,7 @@ NiceGUI ready to go on http://localhost:8001, and http://192.168.1.228:8001
 
 Put that URL in a browser and you land in the Console.  The ManagerUI is still there at `/manager` — it has a few things the Console hasn't grown yet.
 
-By default VPinFE keeps `vpinfe.ini`, `themes/`, caches, and logs in the OS config directory (`~/.config/vpinfe` on Linux, `~/Library/Application Support/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe` on Windows). To keep everything somewhere else — a portable copy, or separate config profiles — set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the whole config directory at `DIR`; the environment variable wins if you set both.
+By default VPinFE keeps `vpinfe.ini`, `themes/` and logs in the OS config directory (`~/.config/vpinfe` on Linux, `~/Library/Application Support/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe` on Windows). Everything it can download again, such as the VPS database, the theme list and thumbnails, goes in the OS cache directory (`~/.cache/vpinfe` on Linux, `~/Library/Caches/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe\vpinfe\Cache` on Windows), so copying or backing up the config directory does not carry it. To keep everything somewhere else — a portable copy, or separate config profiles — set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the whole config directory at `DIR`, with the caches in `DIR/cache`; the environment variable wins if you set both.
 
 ### Enabling the shutdown feature
 

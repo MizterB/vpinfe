@@ -215,9 +215,9 @@ def build_mount_points(base_path: str, config_dir: Path,
     # guaranteed refresh even when no sync happens this session.
     def _refresh_reference() -> None:
         from common.manufacturer_logos import vps_manufacturer_names, write_manufacturer_reference
-        from common.paths import CONFIG_DIR
+        from common.paths import VPSDB_PATH
 
-        names = vps_manufacturer_names(CONFIG_DIR / "vpsdb.json")
+        names = vps_manufacturer_names(VPSDB_PATH)
         if names:
             write_manufacturer_reference(names)
 

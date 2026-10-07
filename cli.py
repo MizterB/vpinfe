@@ -123,9 +123,9 @@ def parse_args():
                         help="List the games we can't match in VPSdb")
     parser.add_argument("--configdir", metavar="DIR",
                         help="Use DIR as the config directory (vpinfe.ini, themes, "
-                             "caches, logs) instead of the OS default. Same as the "
-                             "VPINFE_CONFIG_DIR env var; applied at startup in "
-                             "main.py.")
+                             "logs) instead of the OS default, with the caches in "
+                             "DIR/cache. Same as the VPINFE_CONFIG_DIR env var; "
+                             "applied at startup in main.py.")
     parser.add_argument("--buildmeta", action="store_true",
                         help="Builds the .info file in each game dir")
     parser.add_argument("--vpxpatch", action="store_true",

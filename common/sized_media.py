@@ -11,7 +11,7 @@ from typing import NamedTuple
 from common import service_errors
 from common.atomic_write import staged_for
 from common.i18n import t
-from common.paths import CONFIG_DIR
+from common.paths import CACHE_DIR
 
 logger = logging.getLogger("vpinfe.common.sized_media")
 
@@ -19,7 +19,7 @@ logger = logging.getLogger("vpinfe.common.sized_media")
 THUMBNAIL = 256
 SIZES = (THUMBNAIL, 1024)
 
-ROOT = CONFIG_DIR / "cache" / "media_sized"
+ROOT = CACHE_DIR / "media_sized"
 
 _QUALITY = 80
 

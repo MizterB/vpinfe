@@ -35,6 +35,25 @@ class TestConfigDirEnvOverride(unittest.TestCase):
         self.assertEqual(paths.THEMES_DIR, Path("/tmp/vpinfe-override/themes"))
         self.assertEqual(paths.COLLECTIONS_PATH, Path("/tmp/vpinfe-override/collections.json"))
 
+    def test_an_override_keeps_the_caches_beside_it(self) -> None:
+        os.environ[ENV_VAR] = "/tmp/vpinfe-override"
+        paths = self._reload()
+
+        self.assertEqual(paths.CACHE_DIR, Path("/tmp/vpinfe-override/cache"))
+        for cached in (paths.VPSDB_PATH, paths.USER_ROMS_PATH, paths.THEME_CACHE_PATH,
+                       paths.UPDATE_CHECK_PATH, paths.FRONTEND_BROWSER_PATH,
+                       paths.COMMUNITY_KEPT_DIR):
+            self.assertTrue(cached.is_relative_to(paths.CACHE_DIR), cached)
+
+    def test_without_an_override_caches_leave_the_config_folder(self) -> None:
+        os.environ.pop(ENV_VAR, None)
+        paths = self._reload()
+
+        self.assertNotEqual(paths.CACHE_DIR, paths.CONFIG_DIR)
+        self.assertNotEqual(paths.CACHE_DIR, paths.CONFIG_DIR / "cache")
+        self.assertEqual(paths.VPSDB_PATH, paths.CACHE_DIR / "vpsdb.json")
+        self.assertEqual(paths.USER_ROMS_PATH, paths.CACHE_DIR / "roms.json")
+
     def test_override_expands_user_home(self) -> None:
         os.environ[ENV_VAR] = "~/vpinfe-home"
         paths = self._reload()

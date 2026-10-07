@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from common import sized_media
 from common.atomic_write import staged_for
-from common.paths import CONFIG_DIR
+from common.paths import CACHE_DIR
 
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("vpinfe.common.games.directb2s_parser")
 
 # Where the pictures made from a file are kept, never beside the file itself.
-ROOT = CONFIG_DIR / "cache" / "backglass"
+ROOT = CACHE_DIR / "backglass"
 
 Look = Literal["on", "off", "every"]
 Version = Literal["authentic", "fantasy"]

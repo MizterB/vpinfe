@@ -10,15 +10,15 @@ import os
 import sys
 from pathlib import Path
 
-from platformdirs import user_config_dir
+from platformdirs import user_cache_dir, user_config_dir
 
 from common.config_store import ConfigStore
 
 
 def _resolve_config_dir() -> Path:
     # VPINFE_CONFIG_DIR lets you point the whole config directory (vpinfe.ini,
-    # themes/, caches, logs, .nicegui storage) somewhere other than the OS
-    # default. Read at import time so it also applies to frozen PyInstaller
+    # themes/, logs, .nicegui storage, and the caches in its cache/) somewhere other
+    # than the OS default. Read at import time so it also applies to frozen PyInstaller
     # builds. Falls back to the platformdirs location when unset.
     # Anchored here, once: a relative path would follow the working directory, and the
     # Manager UI changes that while it runs a script. Written back so a helper started
@@ -34,6 +34,15 @@ def _resolve_config_dir() -> Path:
             "real config folder. Run: python -m unittest discover -t . -s tests"
             " (or: python -m tests)")
     return Path(user_config_dir("vpinfe", "vpinfe"))
+
+
+def _resolve_cache_dir() -> Path:
+    # Read after _resolve_config_dir, which writes an anchored override back to the
+    # environment: an overridden config folder keeps its caches beside it, so a test, a
+    # `git instance` and a single-folder install stay whole.
+    if os.environ.get("VPINFE_CONFIG_DIR", "").strip():
+        return CONFIG_DIR / "cache"
+    return Path(user_cache_dir("vpinfe", "vpinfe"))
 
 
 def _unbootstrapped_test_run() -> bool:
@@ -69,14 +78,16 @@ DERIVED_TAGS_PATH = CONFIG_DIR / "derived_tags.json"
 # Read once and converted; kept as a name so a restore can still find its backups.
 COLLECTIONS_INI_PATH = CONFIG_DIR / "collections.ini"
 THEMES_DIR = CONFIG_DIR / "themes"
-THEME_CACHE_PATH = CONFIG_DIR / "cache" / "themes.json"
-UPDATE_CHECK_PATH = CONFIG_DIR / "cache" / "update.json"
-FRONTEND_BROWSER_PATH = CONFIG_DIR / "cache" / "frontend_browser.json"
-COMMUNITY_KEPT_DIR = CONFIG_DIR / "cache" / "community"
+CACHE_DIR = _resolve_cache_dir()
+THEME_CACHE_PATH = CACHE_DIR / "themes.json"
+UPDATE_CHECK_PATH = CACHE_DIR / "update.json"
+FRONTEND_BROWSER_PATH = CACHE_DIR / "frontend_browser.json"
+COMMUNITY_KEPT_DIR = CACHE_DIR / "community"
+VPSDB_PATH = CACHE_DIR / "vpsdb.json"
 PLUGIN_PROFILES_DIR = CONFIG_DIR / "plugin_profiles"
 UPDATES_DIR = CONFIG_DIR / "updates"
 USER_CONFIG_PATH = VPINFE_INI_PATH
-USER_ROMS_PATH = CONFIG_DIR / "roms.json"
+USER_ROMS_PATH = CACHE_DIR / "roms.json"
 
 
 def ensure_config_dir() -> Path:
