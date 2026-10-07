@@ -300,16 +300,16 @@ class ConfigRouteTests(unittest.TestCase):
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
 
     def test_a_command_that_cannot_run_is_refused_at_the_field(self) -> None:
-        response = self.client.put("/config", json={
-            "capture": {"record_command": "{recorder} {input} {video_codec} {output}"}})
+        response = self.client.put("/config", json={"settings": {
+            "capture": {"record_command": "{recorder} {input} {video_codec} {output}"}}})
 
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("{video_codec}", response.json()["error"]["message"])
         self.assertEqual(self.store.saves, 0)
 
     def test_one_that_can_is_written(self) -> None:
-        response = self.client.put("/config", json={
-            "capture": {"encode_command": "{ffmpeg} {input} {video_filters} -an {output}"}})
+        response = self.client.put("/config", json={"settings": {
+            "capture": {"encode_command": "{ffmpeg} {input} {video_filters} -an {output}"}}})
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(self.store.saves, 1)

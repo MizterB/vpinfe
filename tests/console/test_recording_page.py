@@ -43,16 +43,16 @@ class Served:
         return list(self._get("/config/schema")["sections"])
 
     def config_values(self) -> dict:
-        return dict(self._get("/config")["values"])
+        return dict(self._get("/config/settings"))
 
     def config_path_checks(self) -> list[dict]:
         return list(self._get("/config/paths")["checks"])
 
     def put_config(self, changes: dict) -> dict:
-        response = self._client.put("/config", json=changes)
+        response = self._client.put("/config", json={"settings": changes})
         if response.is_error:
             raise RuntimeError(response.text)
-        return dict(response.json()["values"])
+        return dict(response.json()["settings"])
 
     def capture_report(self) -> dict:
         return dict(self._get("/capture"))

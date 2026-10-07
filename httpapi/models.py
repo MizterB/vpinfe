@@ -820,10 +820,16 @@ class ConfigPathCheck(ApiModel):
     typed it and says what was found, because the path is right there to compare against.
     `default` is where a blank one points on this device, for a setting whose blank means a
     folder VPinFE chooses; empty for every other.
+
+    A setting is named by `section` and `key`; a field of a list's item by `list`, the
+    item's `id` and the `field`. The other three are left out.
     """
 
-    section: str
-    key: str
+    section: str | None = None
+    key: str | None = None
+    list_key: str | None = Field(default=None, alias="list")
+    item_id: str | None = Field(default=None, alias="id")
+    field: str | None = None
     path: str
     state: str
     reason: str = ""
@@ -1174,10 +1180,13 @@ class CaptureRunCurrent(ApiModel):
 
 
 class ConfigValues(ApiModel):
-    """Values keyed section then key, typed as the store types them. A setting the file
-    omits answers its default, which is what the install is running on."""
+    """The file's own shape: `settings` keyed section then key, typed as the store types
+    them (a setting the file omits answers its default, which is what the install is
+    running on), and beside it each list the schema declares, under its key."""
 
-    values: dict[str, dict[str, object]]
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    settings: dict[str, dict[str, object]]
 
 
 class ConfigWaitingEntry(ApiModel):

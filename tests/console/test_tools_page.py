@@ -40,7 +40,7 @@ class Served:
         return list(self._answered("/config/schema")["sections"])
 
     def config_values(self) -> dict:
-        return dict(self._answered("/config")["values"])
+        return dict(self._answered("/config/settings"))
 
     def config_path_checks(self) -> list[dict]:
         return list(self._answered("/config/paths")["checks"])
@@ -49,7 +49,7 @@ class Served:
         return list(self._answered("/config/tools")["tools"])
 
     def put_config(self, changes: dict) -> dict:
-        return dict(self._client.put("/config", json=changes).json()["values"])
+        return dict(self._client.put("/config", json={"settings": changes}).json()["settings"])
 
 
 @unittest.skipIf(sys.platform.startswith("win"), "the programs here are shell scripts")

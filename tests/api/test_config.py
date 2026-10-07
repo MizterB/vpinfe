@@ -106,7 +106,7 @@ class ConfigServiceTests(unittest.TestCase):
         self.assertEqual(self.store.saves, 0)
 
     def test_setup_state_is_not_among_the_values_served(self):
-        served = config_service.values()["values"].get("device", {})
+        served = config_service.values().get("device", {})
 
         self.assertNotIn("setup_pending", served)
 
@@ -168,13 +168,13 @@ class ConfigRouteTests(unittest.TestCase):
 
     def test_an_unknown_key_is_a_bad_request_naming_it(self):
         response = self.client.put("/config",
-                                   json={"general": {"not_a_setting": "x"}})
+                                   json={"settings": {"general": {"not_a_setting": "x"}}})
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("not_a_setting", response.text)
 
     def test_a_write_to_the_setup_mark_is_a_bad_request_and_changes_nothing(self):
         response = self.client.put(
-            "/config", json={"device": {"setup_pending": True, "name": "x"}})
+            "/config", json={"settings": {"device": {"setup_pending": True, "name": "x"}}})
 
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("device.setup_pending", response.text)
@@ -182,7 +182,7 @@ class ConfigRouteTests(unittest.TestCase):
 
     def test_a_theme_source_is_accepted(self):
         response = self.client.put("/config",
-                                   json={"themes": {"registries": "http://elsewhere"}})
+                                   json={"settings": {"themes": {"registries": "http://elsewhere"}}})
         self.assertEqual(response.status_code, 200, response.text)
 
 

@@ -1159,7 +1159,7 @@ class ApiClient:
 
     def config_values(self) -> dict:
         """What it is set to, typed - a bool arrives as a bool."""
-        return dict(self._get("/config").get("values") or {})
+        return dict(self._get("/config/settings") or {})
 
     def config_waiting(self) -> dict:
         """What is saved and not yet in effect: `waiting`, whether a `reopen` can be done
@@ -1193,7 +1193,7 @@ class ApiClient:
 
     def put_config(self, changes: dict) -> dict:
         """A patch, section then key. Refused whole if any key is unknown."""
-        return dict(self._put("/config", changes).get("values") or {})
+        return dict(self._put("/config", {"settings": changes}).get("settings") or {})
 
     def set_game_overrides(self, game_id: str, changes: dict) -> dict:
         """What the user says about the machine. Only the keys sent are written, so

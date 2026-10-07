@@ -591,9 +591,16 @@ class ConfigStore:
         list does not declare refuses the write unless the file already holds it exactly
         so (a newer build's field passes through), and the list's normalizer has the last
         word on what is kept. `save()` writes the file."""
-        held = self.top_level.get(key)
-        self.top_level[key] = self._prepared(self._spec(key), items,
-                                             held if isinstance(held, list) else [])
+        self.set_lists({key: items})
+
+    def set_lists(self, wanted: dict[str, list[dict[str, Any]]]) -> None:
+        """Stage several lists, all or none: one that is refused leaves every list as it was."""
+        prepared = {}
+        for key, items in wanted.items():
+            held = self.top_level.get(key)
+            prepared[key] = self._prepared(self._spec(key), items,
+                                           held if isinstance(held, list) else [])
+        self.top_level.update(prepared)
 
     @staticmethod
     def _prepared(spec: config_schema.ConfigList, items: Any,
@@ -612,6 +619,9 @@ class ConfigStore:
             return spec.clean({**item, "id": item.get("id") or mint_id()})
 
         cleaned = [clean(item) for item in items]
+        for item in cleaned:
+            if isinstance(item, dict) and "/" in str(item.get("id")):
+                raise config_schema.ConfigListError(t("error.config.list.id_slash", list=spec.key))
         kept = config_schema.normalize(spec.key, cleaned)
         if len({item["id"] for item in kept}) != len(kept):
             raise config_schema.ConfigListError(t("error.config.list.shared_id", list=spec.key))

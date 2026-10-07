@@ -12,9 +12,46 @@ import unittest
 from unittest import mock
 
 from common import config_schema, mounts, path_state, service_errors
+from common.apps.contract import Field
+from common.config_schema import ConfigList, ListVariant
+from tests.config.test_config_lists import declared
 from tests.support.hung_folder import never_answering
 from tests.support.library import TempTree
 from tests.support.skips import needs_posix_permissions
+
+GADGETS = ConfigList(
+    "gadgets", (Field("kind"), Field("home", path="dir")),
+    variant=ListVariant("kind", lambda: ("plain", "runs"),
+                        lambda kind: (Field("exe", path="exe"),) if kind == "runs" else
+                        (() if kind == "plain" else None)))
+
+
+class ItemPathTests(unittest.TestCase):
+    def test_a_path_field_of_an_item_and_of_its_kind_is_found(self) -> None:
+        items = {"gadgets": [
+            {"id": "a", "kind": "runs", "home": "/h", "settings": {"exe": "/bin/x"}},
+            {"id": "b", "kind": "plain", "home": "", "settings": {}}]}
+
+        with declared(GADGETS):
+            found = path_state.item_paths(items)
+
+        self.assertEqual([(one.list_key, one.id, one.field, one.kind, one.value)
+                          for one in found],
+                         [("gadgets", "a", "home", "dir", "/h"),
+                          ("gadgets", "a", "exe", "exe", "/bin/x"),
+                          ("gadgets", "b", "home", "dir", "")])
+
+    def test_a_kind_this_install_lacks_has_no_settings_to_check(self) -> None:
+        items = {"gadgets": [{"id": "a", "kind": "gone", "home": "",
+                              "settings": {"exe": "/bin/x"}}]}
+
+        with declared(GADGETS):
+            found = path_state.item_paths(items)
+
+        self.assertEqual([one.field for one in found], ["home"])
+
+    def test_a_list_that_is_not_declared_is_skipped(self) -> None:
+        self.assertEqual(path_state.item_paths({"gadgets": [{"id": "a"}]}), ())
 
 
 class LookTests(TempTree):

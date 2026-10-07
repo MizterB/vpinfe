@@ -13,6 +13,7 @@ its own.
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Sequence
 from typing import Any
 
@@ -26,6 +27,11 @@ from common.manufacturer_logos import resolve_logos_dir
 from common.paths import CONFIG_DIR, get_ini_config
 
 logger = logging.getLogger("vpinfe.common.config_service")
+
+_WRITING = threading.RLock()
+
+# Where the settings sit beside the lists, in the file and on the wire.
+SETTINGS = "settings"
 
 # Sections served over the API and refused a write. Empty; the refusal path below is
 # what a caller-origin check would reuse.
@@ -42,6 +48,10 @@ class UnknownSettingsError(ValueError):
 
 class SettingsWriteError(RuntimeError):
     """The settings file could not be written. The values are already in the store."""
+
+
+class MalformedPatchError(ValueError):
+    """A section of a patch that is not an object."""
 
 
 class ReadOnlySettingsError(ValueError):
@@ -178,7 +188,8 @@ def blank_stands_for() -> dict[tuple[str, str], str]:
 
 
 def path_states() -> dict[str, Any]:
-    """Every path setting, checked against this machine's disk.
+    """Every path setting and every path in a list's items, checked against this machine's
+    disk.
 
     All of them in one answer rather than one call per field: a settings page wants the
     whole column at once, and the alternative is six requests that each stat one file.
@@ -186,42 +197,77 @@ def path_states() -> dict[str, Any]:
     """
     store = get_ini_config()
     options = path_state.path_options()
+    members = path_state.item_paths({spec.key: store.get_list(spec.key)
+                                     for spec in config_schema.lists()})
     found = path_state.look_all(
-        path_state.Ask(store.value(option.section, option.key), option.path)
-        for option in options)
+        [*(path_state.Ask(store.value(option.section, option.key), option.path)
+           for option in options),
+         *(path_state.Ask(one.value, one.kind) for one in members)])
     stands_for = blank_stands_for()
-    return {"checks": [{"section": option.section, "key": option.key, "path": option.path,
-                        "state": one.state, "reason": one.reason,
-                        "default": stands_for.get((option.section, option.key), "")}
-                       for option, one in zip(options, found, strict=True)]}
+    checks: list[dict[str, Any]] = [
+        {"section": option.section, "key": option.key, "path": option.path,
+         "state": one.state, "reason": one.reason,
+         "default": stands_for.get((option.section, option.key), "")}
+        for option, one in zip(options, found[:len(options)], strict=True)]
+    checks += [{"list": member.list_key, "id": member.id, "field": member.field,
+                "path": member.kind, "state": one.state, "reason": one.reason}
+               for member, one in zip(members, found[len(options):], strict=True)]
+    return {"checks": checks}
 
 
-def values(windows: Sequence[str] = ()) -> dict[str, Any]:
-    """Current values, typed. A setting the file does not carry answers its default,
-    because that is what the install is actually running on."""
+def values(windows: Sequence[str] = ()) -> dict[str, dict[str, Any]]:
+    """Current settings by section and key, typed. A setting the file does not carry
+    answers its default, because that is what the install is actually running on."""
     store = get_ini_config()
     found: dict[str, dict[str, Any]] = {}
     for option in settable(windows):
         found.setdefault(option.section, {})[option.key] = \
             store.value(option.section, option.key)
-    return {"values": found}
+    return found
+
+
+def whole(windows: Sequence[str] = ()) -> dict[str, Any]:
+    """The settings and every declared list."""
+    store = get_ini_config()
+    return {SETTINGS: values(windows),
+            **{spec.key: store.get_list(spec.key) for spec in config_schema.lists()}}
 
 
 def set_values(wanted: dict[str, dict[str, Any]] | None,
-               windows: Sequence[str] = ()) -> dict[str, Any]:
-    """A patch: only the sections and keys given are written.
+               windows: Sequence[str] = ()) -> dict[str, dict[str, Any]]:
+    """A patch of settings alone. See `apply`."""
+    return apply({SETTINGS: wanted or {}}, windows)[SETTINGS]
 
-    Every key is checked against the schema first and the whole request is refused if any
-    of them is unknown. Half-applying a settings save leaves an install in a state nobody
-    asked for and no screen reflects.
+
+def apply(patch: dict[str, Any] | None, windows: Sequence[str] = ()) -> dict[str, Any]:
+    """A patch shaped like `whole`: `settings` is written key by key, a list replaces the
+    list. Answers `whole`.
+
+    Everything is checked first and the whole request is refused if any of it is wrong.
+    A list a write brings is checked by the store (`ConfigListError`).
     """
+    with _WRITING:
+        return _apply(patch or {}, windows)
+
+
+def require_sections(wanted: dict[str, Any]) -> None:
+    """Each section of a settings patch is an object, or nothing."""
+    for section, entries in wanted.items():
+        if entries is not None and not isinstance(entries, dict):
+            raise MalformedPatchError(t("error.config.section_object", section=section))
+
+
+def _apply(patch: dict[str, Any], windows: Sequence[str]) -> dict[str, Any]:
     store = get_ini_config()
     served = set(settable(windows))
+    declared = {spec.key for spec in config_schema.lists()}
+    wanted = patch.get(SETTINGS) or {}
+    require_sections(wanted)
     staged: list[tuple[str, str, Any]] = []
-    unknown: list[str] = []
+    unknown: list[str] = [key for key in patch if key != SETTINGS and key not in declared]
     refused: list[str] = []
 
-    for section, entries in (wanted or {}).items():
+    for section, entries in wanted.items():
         for key, value in (entries or {}).items():
             # Any spelling this setting has ever had, including a section it has since
             # moved out of. A caller written against an older name keeps working, which
@@ -239,27 +285,114 @@ def set_values(wanted: dict[str, dict[str, Any]] | None,
         raise UnknownSettingsError(unknown)
     if refused:
         raise ReadOnlySettingsError(refused)
-    if not staged:
-        return values(windows)
+    lists = {key: items for key, items in patch.items() if key in declared}
+    if not staged and not lists:
+        return whole(windows)
     if reasons := port_checks.refused(wanted):
         raise RefusedSettingsError(reasons)
 
     changed: list[str] = []
+    if lists:
+        before = {key: store.get_list(key) for key in lists}
+        store.set_lists(lists)
+        changed += [key for key in lists if store.get_list(key) != before[key]]
     for section, key, value in staged:
-        before = store.value(section, key)
+        before_value = store.value(section, key)
         store.set_value(section, key, value)
-        if store.value(section, key) != before:
+        if store.value(section, key) != before_value:
             changed.append(f"{section}.{key}")
-    try:
-        store.save()
-    except Exception as exc:
-        logger.exception("Could not write the settings file")
-        raise SettingsWriteError(why(exc)) from exc
+    _save(store)
 
     if any(section == "device" and key == "name" for section, key, _ in staged):
         # The registry holds a copy of what each install reported. This one just changed
         # what it reports, and every screen listing devices reads the copy.
         install_presence.record_self()
+    _announce(store, changed)
+    return whole(windows)
+
+
+def _save(store: Any) -> None:
+    try:
+        store.save()
+    except Exception as exc:
+        logger.exception("Could not write the settings file")
+        store.reread()
+        raise SettingsWriteError(why(exc)) from exc
+
+
+def _announce(store: Any, changed: list[str]) -> None:
     if changed:
         events.emit(events.SETTINGS_CHANGED, keys=changed, ini_config=store)
-    return values(windows)
+
+
+class NoSuchItemError(LookupError):
+    """A list holds no item with that id."""
+
+    def __init__(self, item_id: str) -> None:
+        super().__init__(item_id)
+        self.item_id = item_id
+
+
+def list_items(key: str) -> list[dict[str, Any]]:
+    """The objects of a list. Anything else a hand-edited file holds there is not an item."""
+    return [item for item in get_ini_config().get_list(key) if isinstance(item, dict)]
+
+
+def list_item(key: str, item_id: str) -> dict[str, Any]:
+    for item in list_items(key):
+        if item.get("id") == item_id:
+            return item
+    raise NoSuchItemError(item_id)
+
+
+def replace_list(key: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The whole list, in the order given. Reordering is this."""
+    with _WRITING:
+        store = get_ini_config()
+        before = store.get_list(key)
+        store.set_list(key, items)
+        after = store.get_list(key)
+        _save(store)
+        _announce(store, [key] if after != before else [])
+        return after
+
+
+def _kept(key: str, kept: list[dict[str, Any]], item_id: str) -> dict[str, Any]:
+    """The item as stored. The list's normalizer has the last word, so it may be gone."""
+    for one in kept:
+        if isinstance(one, dict) and one.get("id") == item_id:
+            return one
+    raise config_schema.ConfigListError(t("error.config.list.not_kept", list=key))
+
+
+def add_item(key: str, item: dict[str, Any]) -> dict[str, Any]:
+    """Append one item. The store mints its id; `item` brings none."""
+    with _WRITING:
+        items = list_items(key)
+        known = {one.get("id") for one in items}
+        kept = replace_list(key, [*items, item])
+        fresh = [one for one in kept if isinstance(one, dict) and one.get("id") not in known]
+        if not fresh:
+            raise config_schema.ConfigListError(t("error.config.list.not_kept", list=key))
+        return fresh[0]
+
+
+def put_item(key: str, item_id: str, item: dict[str, Any]) -> dict[str, Any]:
+    """Replace the item with that id where it stands, or append it under that id."""
+    with _WRITING:
+        items = list_items(key)
+        given = {**item, "id": item_id}
+        if any(one.get("id") == item_id for one in items):
+            items = [given if one.get("id") == item_id else one for one in items]
+        else:
+            items.append(given)
+        return _kept(key, replace_list(key, items), item_id)
+
+
+def delete_item(key: str, item_id: str) -> None:
+    with _WRITING:
+        items = list_items(key)
+        kept = [one for one in items if one.get("id") != item_id]
+        if len(kept) == len(items):
+            raise NoSuchItemError(item_id)
+        replace_list(key, kept)

@@ -7,11 +7,13 @@ itself instead of from a list it carries.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from fastapi import APIRouter, Body, Response
 
-from common import config_service, events, settings_waiting
+from common import config_schema, config_service, events, settings_waiting
 from common.capture import settings as capture_settings
 from common.failures import why
 from common.host import get_ffmpeg, tools
@@ -41,9 +43,10 @@ def get_schema() -> models.ConfigSchema:
 
 
 @router.get("/paths", summary="Whether each path setting finds anything",
-            dependencies=[requires(scopes.CONFIG_READ)])
+            dependencies=[requires(scopes.CONFIG_READ)], response_model_exclude_none=True)
 def get_path_checks() -> models.ConfigPathChecks:
-    """Every path setting, checked against this device's disk.
+    """Every path setting and every path in a list's items, checked against this device's
+    disk.
 
     The caller names no path. It asks about settings, and the install answers about the
     values it holds - so this cannot be used to ask whether a file exists somewhere a
@@ -82,32 +85,124 @@ def get_waiting() -> models.ConfigWaiting:
 @router.get("", summary="What this install is set to",
             dependencies=[requires(scopes.CONFIG_READ)])
 def get_values() -> models.ConfigValues:
-    return models.ConfigValues.model_validate(config_service.values(_windows()))
+    return models.ConfigValues.model_validate(config_service.whole(_windows()))
 
 
-@router.put("", summary="Change settings",
+@router.put("", summary="Change settings and lists",
             dependencies=[requires(scopes.CONFIG_WRITE)])
-def put_values(values: dict[str, dict[str, Any]] = Body(...)) -> models.ConfigValues:
-    """A patch: only the sections and keys sent are written."""
-    refused = capture_settings.refused(values)
+def put_values(patch: dict[str, Any] = Body(...)) -> models.ConfigValues:
+    """A patch shaped like the read: `settings` is written key by key, and a list sent
+    replaces that list."""
+    settings = patch.get(config_service.SETTINGS)
+    if settings is not None and not isinstance(settings, dict):
+        raise InvalidRequestError(t("error.config.settings_object"))
+    with _refusals():
+        config_service.require_sections(settings or {})
+    refused = capture_settings.refused(settings or {})
     if refused:
         raise InvalidRequestError(refused)
+    with _refusals():
+        return models.ConfigValues.model_validate(config_service.apply(patch, _windows()))
+
+
+@router.get("/settings", summary="Every setting by section and key",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_settings() -> dict[str, dict[str, object]]:
+    return config_service.values(_windows())
+
+
+@router.get("/settings/{section}", summary="The settings of one section",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_section(section: str) -> dict[str, object]:
+    found = config_service.values(_windows()).get(section)
+    if found is None:
+        raise NotFoundError(t("error.config.no_section", section=section))
+    return found
+
+
+def _declared(key: str) -> None:
+    if config_schema.config_list(key) is None:
+        raise NotFoundError(t("error.config.list.not_declared", list=key))
+
+
+@contextmanager
+def _refusals() -> Iterator[None]:
     try:
-        return models.ConfigValues.model_validate(
-            config_service.set_values(values, _windows()))
+        yield
     except config_service.UnknownSettingsError as exc:
         raise InvalidRequestError(
-            t("error.config.unknown_keys",
-              keys=", ".join(exc.keys))) from exc
+            t("error.config.unknown_keys", keys=", ".join(exc.keys))) from exc
     except config_service.RefusedSettingsError as exc:
         raise InvalidRequestError("; ".join(exc.reasons.values()),
                                   details={"settings": exc.reasons}) from exc
+    except config_service.MalformedPatchError as exc:
+        raise InvalidRequestError(why(exc)) from exc
     except config_service.ReadOnlySettingsError as exc:
         raise InvalidRequestError(
-            t("error.config.read_only",
-              keys=", ".join(exc.keys))) from exc
+            t("error.config.read_only", keys=", ".join(exc.keys))) from exc
+    except config_schema.ConfigListError as exc:
+        raise InvalidRequestError(why(exc)) from exc
+    except config_service.NoSuchItemError as exc:
+        raise NotFoundError(t("error.config.list.no_item", id=exc.item_id)) from exc
     except config_service.SettingsWriteError as exc:
         raise ConflictError(why(exc)) from exc
+
+
+@router.get("/{list_key}", summary="Every item of a list",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_list(list_key: str) -> list[dict[str, object]]:
+    _declared(list_key)
+    return config_service.list_items(list_key)
+
+
+@router.put("/{list_key}", summary="Replace a list",
+            dependencies=[requires(scopes.CONFIG_WRITE)])
+def put_list(list_key: str, items: list[dict[str, Any]] = Body(...)) -> list[dict[str, object]]:
+    """The whole list, in the order sent: this is how a list is reordered. An item with
+    no `id` is given one."""
+    _declared(list_key)
+    with _refusals():
+        return config_service.replace_list(list_key, items)
+
+
+@router.post("/{list_key}", summary="Add an item to a list", status_code=201,
+             dependencies=[requires(scopes.CONFIG_WRITE)])
+def post_item(list_key: str, item: dict[str, Any] = Body(...)) -> dict[str, object]:
+    """The install gives the item its `id`; `PUT /{list}/{id}` is how a caller names one."""
+    _declared(list_key)
+    if "id" in item:
+        raise InvalidRequestError(t("error.config.list.id_given", list=list_key))
+    with _refusals():
+        return config_service.add_item(list_key, item)
+
+
+@router.get("/{list_key}/{item_id}", summary="One item of a list",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_item(list_key: str, item_id: str) -> dict[str, object]:
+    _declared(list_key)
+    with _refusals():
+        return config_service.list_item(list_key, item_id)
+
+
+@router.put("/{list_key}/{item_id}", summary="Add or replace an item",
+            dependencies=[requires(scopes.CONFIG_WRITE)])
+def put_item(list_key: str, item_id: str,
+             item: dict[str, Any] = Body(...)) -> dict[str, object]:
+    """Replaces the item with that id where it stands, or adds it under that id."""
+    _declared(list_key)
+    if item.get("id", item_id) != item_id:
+        raise InvalidRequestError(t("error.config.list.id_differs"))
+    with _refusals():
+        return config_service.put_item(list_key, item_id, item)
+
+
+@router.delete("/{list_key}/{item_id}", summary="Remove an item", status_code=204,
+               dependencies=[requires(scopes.CONFIG_WRITE)])
+def delete_item(list_key: str, item_id: str) -> Response:
+    _declared(list_key)
+    with _refusals():
+        config_service.delete_item(list_key, item_id)
+    return Response(status_code=204)
 
 
 def declare_snapshots() -> None:

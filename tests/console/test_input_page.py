@@ -275,13 +275,14 @@ class _Served:
         return list(self._answered(self._client.get("/config/schema"))["sections"])
 
     def config_values(self) -> dict:
-        return dict(self._answered(self._client.get("/config"))["values"])
+        return dict(self._answered(self._client.get("/config/settings")))
 
     def config_path_checks(self) -> list[dict]:
         return list(self._answered(self._client.get("/config/paths"))["checks"])
 
     def put_config(self, changes: dict) -> dict:
-        return dict(self._answered(self._client.put("/config", json=changes))["values"])
+        sent = self._client.put("/config", json={"settings": changes})
+        return dict(self._answered(sent)["settings"])
 
 
 if __name__ == "__main__":

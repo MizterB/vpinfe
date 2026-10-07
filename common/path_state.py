@@ -16,9 +16,10 @@ from __future__ import annotations
 import os
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from common import config_schema, mounts, service_errors
 from common.failures import why
@@ -222,3 +223,38 @@ def path_options() -> tuple:
     entries are, not what the setting itself is."""
     return tuple(option for option in config_schema.CONFIG_OPTIONS
                  if option.path and option.type != "list" and not option.internal)
+
+
+@dataclass(frozen=True)
+class ItemPath:
+    """A path held by one item of a list, and what it is wanted as."""
+
+    list_key: str
+    id: str
+    field: str
+    kind: str
+    value: str
+
+
+def item_paths(lists: Mapping[str, Sequence[Mapping[str, Any]]]) -> tuple[ItemPath, ...]:
+    """Every path an item of these lists holds, in list order. A field of a variant's kind
+    is read from the item's `settings`; a kind this install lacks has none to check."""
+    found: list[ItemPath] = []
+    for key, items in lists.items():
+        spec = config_schema.config_list(key)
+        if spec is None:
+            continue
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            where = [(item, field) for field in spec.fields]
+            if spec.variant:
+                kind = str(item.get(spec.variant.field) or "")
+                given = item.get(config_schema.VARIANT_SETTINGS)
+                if not isinstance(given, Mapping):
+                    given = {}
+                where += [(given, field) for field in spec.variant.fields(kind) or ()]
+            found += [ItemPath(key, str(item.get("id") or ""), field.key, field.path,
+                               str(held.get(field.key) or ""))
+                      for held, field in where if field.path]
+    return tuple(found)

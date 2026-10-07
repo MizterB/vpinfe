@@ -269,12 +269,13 @@ class EmptiedListTests(unittest.TestCase):
     def test_an_emptied_list_stays_empty(self) -> None:
         self.assertEqual(self._lists(), [theme_sources.default_list()])
 
-        put = self.client.put("/config", json={"themes": {LISTS: []}})
+        put = self.client.put("/config", json={"settings": {"themes": {LISTS: []}}})
 
         self.assertFalse(put.is_error, put.text)
         self.assertEqual(self._lists(), [])
 
-        put = self.client.put("/config", json={"themes": {LISTS: [theme_sources.default_list()]}})
+        body = {"settings": {"themes": {LISTS: [theme_sources.default_list()]}}}
+        put = self.client.put("/config", json=body)
 
         self.assertFalse(put.is_error, put.text)
         self.assertEqual(self._lists(), [theme_sources.default_list()])

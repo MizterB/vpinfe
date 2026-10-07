@@ -69,7 +69,7 @@ class SetupControlsDrive(unittest.TestCase):
         instance.wait_for_api()
 
         def stored(key: str) -> list[str]:
-            value = instance.api("/api/v1/config")["values"]["input"][key]
+            value = instance.api("/api/v1/config/settings")["input"][key]
             return value.split(",") if isinstance(value, str) else list(value)
 
         async with BrowserSession(binary) as browser:

@@ -46,13 +46,14 @@ class Served:
         return list(self._answered(self._client.get("/config/schema"))["sections"])
 
     def config_values(self) -> dict:
-        return dict(self._answered(self._client.get("/config"))["values"])
+        return dict(self._answered(self._client.get("/config/settings")))
 
     def config_path_checks(self) -> list[dict]:
         return list(self._answered(self._client.get("/config/paths"))["checks"])
 
     def put_config(self, changes: dict) -> dict:
-        return dict(self._answered(self._client.put("/config", json=changes))["values"])
+        sent = self._client.put("/config", json={"settings": changes})
+        return dict(self._answered(sent)["settings"])
 
 
 class ATheme(unittest.TestCase):
@@ -116,24 +117,26 @@ class ServedAsSettingsTests(ATheme):
         self.assertTrue(sections["windows.topper"]["writable"])
 
     def test_a_screen_set_for_it_is_where_the_frontend_reads_it(self) -> None:
-        response = self.client.put("/config", json={"windows.topper": {"screen_id": 1}})
+        body = {"settings": {"windows.topper": {"screen_id": 1}}}
+        response = self.client.put("/config", json=body)
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(response.json()["values"]["windows.topper"], {"screen_id": 1})
+        self.assertEqual(response.json()["settings"]["windows.topper"], {"screen_id": 1})
         self.assertEqual(
             DisplayConfig.from_config(ConfigStore(self.ini)).window_screen_id(
                 theme_windows.screen_key("topper")),
             "1")
 
     def test_a_window_the_theme_does_not_declare_is_neither_served_nor_set(self) -> None:
-        response = self.client.put("/config", json={"windows.apron": {"screen_id": 1}})
+        body = {"settings": {"windows.apron": {"screen_id": 1}}}
+        response = self.client.put("/config", json=body)
 
         self.assertEqual(response.status_code, 400, response.text)
         self.assertNotIn("windows.apron", self._sections())
-        self.assertNotIn("windows.apron", self.client.get("/config").json()["values"])
+        self.assertNotIn("windows.apron", self.client.get("/config/settings").json())
 
     def test_the_screen_stored_for_a_window_no_longer_declared_is_kept(self) -> None:
-        self.client.put("/config", json={"windows.topper": {"screen_id": 1}})
+        self.client.put("/config", json={"settings": {"windows.topper": {"screen_id": 1}}})
 
         self.assertEqual(self._stored("windows.apron"), "2")
 

@@ -103,7 +103,7 @@ class PortCheckTests(unittest.TestCase):
     def test_the_api_says_which_setting_it_refused(self) -> None:
         client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
 
-        answer = client.put("/config", json={"network": {"http_port": 70000}})
+        answer = client.put("/config", json={"settings": {"network": {"http_port": 70000}}})
 
         self.assertEqual(answer.status_code, 400)
         error = answer.json()["error"]

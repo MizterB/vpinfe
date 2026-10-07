@@ -388,8 +388,7 @@ class RemoteDevice:
     def config_values(self) -> dict[str, Any]:
         from common import http_client
 
-        return dict((http_client.get_json(self._url("/config"))
-                     or {}).get("values") or {})
+        return dict(http_client.get_json(self._url("/config/settings")) or {})
 
     def put_launcher(self, launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
         """Write one whole launcher to another machine, under the id it already has.
@@ -416,8 +415,8 @@ class RemoteDevice:
         is the first thing to exercise it."""
         from common import http_client
 
-        return dict((http_client.put_json(self._url("/config"), changes)
-                     or {}).get("values") or {})
+        return dict((http_client.put_json(self._url("/config"), {"settings": changes})
+                     or {}).get("settings") or {})
 
     def probe(self) -> dict[str, Any]:
         """Discovery, which is the cheapest call that proves who answered.
