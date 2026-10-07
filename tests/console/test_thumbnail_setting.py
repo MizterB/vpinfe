@@ -37,12 +37,12 @@ class TheSettingTests(unittest.TestCase):
         self.assertEqual(("none", *KINDS), option.choices)
         self.assertEqual("wheel", option.default)
 
-    def test_it_leads_the_artwork_settings_after_the_theme(self) -> None:
+    def test_it_leads_the_artwork_settings_after_the_appearance(self) -> None:
         options = [option for block in _blocks() if block["name"] == "console"
                    for option in block["options"]]
 
         self.assertEqual([(option["key"], option.get("group")) for option in options[:5]],
-                         [("theme", "appearance"), ("thumbnail", "thumbnails"),
+                         [("appearance", "appearance"), ("thumbnail", "thumbnails"),
                           ("thumbnail_shape", "thumbnails"), ("thumbnail_height", "thumbnails"),
                           ("thumbnail_frame", "thumbnails")])
 

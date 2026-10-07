@@ -9,35 +9,35 @@ from __future__ import annotations
 from typing import Any
 
 from common.i18n import t
-from console import offload, theme, theme_picker
+from console import appearance, appearance_picker, offload
 from console.api import ApiClient
 
-KEY = "look"
+KEY = "appearance"
 
 
 def _chosen(values: dict[str, Any]) -> str:
-    return theme.mode_or_default(str(values.get(KEY) or ""))
+    return appearance.mode_or_default(str(values.get(KEY) or ""))
 
 
 def repaint(values: dict[str, Any]) -> None:
     """The page in the mode the person has just picked. Drawn only, not saved."""
-    theme.repaint(_chosen(values))
+    appearance.repaint(_chosen(values))
 
 
 def restore() -> None:
     """The page back in the look that is saved, for a Setup closed before the pick was."""
-    theme.repaint(theme.configured_mode())
+    appearance.repaint(appearance.configured_mode())
 
 
 async def ask() -> dict[str, Any]:
-    question = t("console.setup.look.title")
+    question = t("console.setup.appearance.title")
     return {
         "title": question,
-        "help": t("console.setup.look.lead"),
+        "help": t("console.setup.appearance.lead"),
         "fields": [{
             "key": KEY, "type": "choice", "label": question,
-            "value": theme.configured_mode(),
-            "choices": theme_picker.choices(),
+            "value": appearance.configured_mode(),
+            "choices": appearance_picker.choices(),
         }],
         "changed": repaint,
     }
@@ -45,5 +45,6 @@ async def ask() -> dict[str, Any]:
 
 async def answer(values: dict[str, Any]) -> None:
     mode = _chosen(values)
-    if mode != theme.configured_mode():
-        await offload.io(ApiClient().put_config, {theme.MODE_SECTION: {theme.MODE_KEY: mode}})
+    if mode != appearance.configured_mode():
+        await offload.io(ApiClient().put_config,
+                         {appearance.MODE_SECTION: {appearance.MODE_KEY: mode}})

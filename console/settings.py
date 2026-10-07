@@ -40,6 +40,7 @@ from common.labels import field_label, humanize
 from common.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from console import (
+    appearance_picker,
     binding_table,
     browser_state,
     busy,
@@ -57,7 +58,6 @@ from console import (
     recording,
     screens,
     theme_card,
-    theme_picker,
     theme_sources,
     undo,
     verbs,
@@ -177,7 +177,7 @@ def _thumbnail(option: dict, value: Any, save: Callable[[Any], Any], *,
 
 
 EDITORS: dict[str, Callable[..., Callable[[], None]]] = {
-    config_schema.EDITOR_CONSOLE_THEME: theme_picker.tiles,
+    config_schema.EDITOR_CONSOLE_APPEARANCE: appearance_picker.tiles,
     config_schema.EDITOR_FRONTEND_THEME: _frontend_theme,
     config_schema.EDITOR_THUMBNAIL: _thumbnail,
     config_schema.EDITOR_CAPTURE_COMMAND: recording.command_editor,

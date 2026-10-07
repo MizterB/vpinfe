@@ -13,7 +13,7 @@ from unittest import mock
 
 from nicegui import core, ui
 
-from console import ext_action, offload, theme, wizard
+from console import appearance, ext_action, offload, wizard
 from tests.support.clicks import said
 from tests.support.stylesheet import declarations
 
@@ -102,7 +102,7 @@ def _classed(root: ui.element, name: str) -> list[ui.element]:
 
 def _marks(root: ui.element) -> list[ui.element]:
     return [one for one in root.descendants()
-            if isinstance(one, ui.image) and one._props.get("src") == theme.LOGO]
+            if isinstance(one, ui.image) and one._props.get("src") == appearance.LOGO]
 
 
 class WelcomeTests(unittest.TestCase):

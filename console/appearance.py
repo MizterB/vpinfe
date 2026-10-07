@@ -585,7 +585,7 @@ QUASAR_DARK = {"synthwave": True, "dark": True, "light": False, SYSTEM: None}
 
 # Where the install's choice is stored. Config rather than the browser: it belongs to
 # the install as a whole and the Console has no accounts to hang it on.
-MODE_SECTION, MODE_KEY = "console", "theme"
+MODE_SECTION, MODE_KEY = "console", "appearance"
 
 
 def mode_or_default(name: str) -> str:
@@ -739,7 +739,7 @@ def token(name: str, mode: str = DEFAULT_MODE) -> str:
     Dark's rail is `var(--surface-1)` and Synthwave's is a gradient between three of
     them. Inside the page that is exactly right, because the reference resolves against
     the palette that declared it. It is wrong anywhere the value has to stand on its
-    own, and the theme picker is that place: it draws all three palettes on a page
+    own, and the appearance picker is that place: it draws all three palettes on a page
     painted in one of them, so an unexpanded reference would make every swatch show the
     colors of the mode already in use.
     """

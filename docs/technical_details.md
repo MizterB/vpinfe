@@ -92,7 +92,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `theme` | choice (synthwave, dark, light, system) | `synthwave` | How the Console and remote look |
+| `appearance` | choice (synthwave, dark, light, system) | `synthwave` | How the Console and remote look |
 | `thumbnail` | choice (none, wheel, backglass, playfield, logo) | `wheel` | The picture beside a game, table or collection's name in the Console's lists |
 | `thumbnail_shape` | choice (auto, square, wide) | `auto` | Automatic draws wheels square and the rest wide |
 | `thumbnail_height` | choice (small, medium, large) | `small` | Taller grid rows show bigger pictures and fit fewer on a screen |

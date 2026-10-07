@@ -54,7 +54,7 @@ class FirstRunTests(ConfigStoreTests):
 
     def test_a_fresh_install_starts_the_console_on_the_computers_own_look(self) -> None:
         ConfigStore(str(self.ini))
-        self.assertEqual(_flatten(self._payload()[SETTINGS_KEY])["console"]["theme"], "system")
+        self.assertEqual(_flatten(self._payload()[SETTINGS_KEY])["console"]["appearance"], "system")
 
     def test_an_install_that_was_not_fresh_keeps_the_schema_default(self) -> None:
         """Anything that arrives with a file already written - a hand-made config, a
@@ -62,7 +62,8 @@ class FirstRunTests(ConfigStoreTests):
         has always opened in until its owner picks another."""
         self.json.write_text("{}", encoding="utf-8")
         store = ConfigStore(str(self.ini))
-        self.assertEqual(store.config.get("console", "theme", fallback="synthwave"), "synthwave")
+        self.assertEqual(store.config.get("console", "appearance", fallback="synthwave"),
+                         "synthwave")
 
     def test_the_library_root_is_there_for_a_new_install_to_fill_in(self) -> None:
         """It used to check three. The other two named Visual Pinball's program and its

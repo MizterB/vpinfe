@@ -19,6 +19,6 @@ def register() -> None:
     """
     from nicegui import app as nicegui_app
 
-    from console import page, remote, theme  # noqa: F401
+    from console import appearance, page, remote  # noqa: F401
 
-    nicegui_app.add_static_files(theme.BASE_MOUNT, str(theme.BASE_CSS.parent))
+    nicegui_app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))

@@ -8,7 +8,7 @@ import unittest
 from nicegui import ui
 
 from common.games.tag_registry import COLORS, derived_color
-from console import renderers, tag_chips, theme
+from console import appearance, renderers, tag_chips
 
 
 class OneChipTwoDrawings(unittest.TestCase):
@@ -24,14 +24,14 @@ class OneChipTwoDrawings(unittest.TestCase):
                          tag_chips.dot_class("chartreuse"))
 
     def test_every_color_has_a_dot_to_wear(self) -> None:
-        css = theme.base_css()
+        css = appearance.base_css()
         for color in COLORS:
             with self.subTest(color=color):
                 self.assertIn(f".{tag_chips.DOT}--{color} {{ background: var(--tag-{color}); }}",
                               css)
 
     def test_every_color_has_an_outline_to_wear(self) -> None:
-        css = theme.base_css()
+        css = appearance.base_css()
         for color in COLORS:
             with self.subTest(color=color):
                 self.assertIn(f".{tag_chips.CHIP}--{color} {{ border-color: var(--tag-{color}); }}",

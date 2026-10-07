@@ -102,7 +102,7 @@ BASELINE: dict[str, int] = {
     # The three pages of that step: the program, the playfield glass, the buttons.
     "console/setup_vpx.py": 23,
     "console/table_features.py": 1,
-    "console/theme.py": 2,
+    "console/appearance.py": 2,
     # The Displays page of a Visual Pinball launcher: the file's keys are its subject.
     "console/vpx_displays.py": 12,
     # Where the program is on this machine: the names its builds go by are the subject.

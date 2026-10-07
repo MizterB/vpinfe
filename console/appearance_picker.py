@@ -18,31 +18,31 @@ from typing import Any
 from nicegui import ui
 
 from common.i18n import t
-from console import theme
+from console import appearance
 from console.on_page import on_page
 
 # The name each mode goes by on screen, in the order a person is offered them: the one a
 # new install starts on, then the classic look, then the two plain ones.
 NAMES = {
-    theme.SYSTEM: "config.console.theme.choice.system",
-    "synthwave": "config.console.theme.choice.synthwave",
-    "dark": "config.console.theme.choice.dark",
-    "light": "config.console.theme.choice.light",
+    appearance.SYSTEM: "config.console.appearance.choice.system",
+    "synthwave": "config.console.appearance.choice.synthwave",
+    "dark": "config.console.appearance.choice.dark",
+    "light": "config.console.appearance.choice.light",
 }
 # The few words under a name. Dark and Light say what they are; these two do not.
 HELPS = {
-    theme.SYSTEM: "config.console.theme.choice_help.system",
-    "synthwave": "config.console.theme.choice_help.synthwave",
+    appearance.SYSTEM: "config.console.appearance.choice_help.system",
+    "synthwave": "config.console.appearance.choice_help.synthwave",
 }
 # Setup draws a mode by this name in its picture slot, so the miniature is the same one.
-PICTURE_PREFIX = "look:"
+PICTURE_PREFIX = "appearance:"
 
 
 def choices() -> list[tuple[str, str, str, str]]:
     """Every mode as `(key, name, caption, picture)`, in the order they are offered. Setup
     and Settings both draw from this, so the two cannot word or order them differently."""
     return [(mode, t(NAMES[mode]), t(HELPS[mode]) if mode in HELPS else "",
-             PICTURE_PREFIX + mode) for mode in theme.MODES]
+             PICTURE_PREFIX + mode) for mode in appearance.MODES]
 
 
 def _miniature(mode: str, half: str = "") -> None:
@@ -51,30 +51,30 @@ def _miniature(mode: str, half: str = "") -> None:
     Which two regions is not arbitrary - the rail against the work area is the contrast
     the last round of palette work was all about, so it is the thing worth previewing.
     """
-    ground = theme.token("--surface-0", mode)
+    ground = appearance.token("--surface-0", mode)
     with ui.element("div").classes(f"console-swatch-part {half}") \
             .style(f"background:{ground}"):
         ui.element("div").classes("console-swatch-rail") \
-            .style(f"background:{theme.token('--nav-bg', mode)}")
+            .style(f"background:{appearance.token('--nav-bg', mode)}")
         with ui.element("div").classes("console-swatch-work") \
-                .style(f"background:{theme.token('--surface-work', mode)};"
-                       f"border-color:{theme.token('--line', mode)}"):
+                .style(f"background:{appearance.token('--surface-work', mode)};"
+                       f"border-color:{appearance.token('--line', mode)}"):
             ui.element("div").classes("console-swatch-flair") \
-                .style(f"background:{theme.token('--flair', mode)}")
+                .style(f"background:{appearance.token('--flair', mode)}")
             for width in ("70%", "45%"):
                 ui.element("div").classes("console-swatch-line") \
-                    .style(f"background:{theme.token('--ink', mode)};width:{width}")
+                    .style(f"background:{appearance.token('--ink', mode)};width:{width}")
 
 
 def swatch(mode: str) -> None:
     """The preview for one choice. `system` is the only one that is two."""
     with ui.element("div").classes("console-swatch"):
-        if mode == theme.SYSTEM:
+        if mode == appearance.SYSTEM:
             # Both of them, because that is what it is: the picture cannot show one
             # answer when the answer is the computer's to give.
             for side, palette in zip(("console-swatch-part--left",
                                       "console-swatch-part--right"),
-                                     theme.SYSTEM_PALETTES.values(), strict=True):
+                                     appearance.SYSTEM_PALETTES.values(), strict=True):
                 _miniature(palette, side)
         else:
             _miniature(mode)
@@ -92,7 +92,7 @@ def tiles(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
     reload took the settings page back to the top, which is a long way from the control
     that was just used.
     """
-    held = {"mode": theme.mode_or_default(str(value or ""))}
+    held = {"mode": appearance.mode_or_default(str(value or ""))}
 
     def draw() -> None:
         made: dict[str, Any] = {}
@@ -106,13 +106,13 @@ def tiles(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
                 tile.props(f'aria-pressed="{str(on).lower()}"')
 
         with ui.element("div").classes("console-swatches"):
-            for mode in theme.MODES:
+            for mode in appearance.MODES:
                 @on_page
                 async def pick(mode: str = mode) -> None:
                     if mode == held["mode"] or not await save(mode):
                         return
                     held["mode"] = mode
-                    theme.repaint(mode)
+                    appearance.repaint(mode)
                     mark()
 
                 tile = ui.element("button").classes("console-swatch-tile") \

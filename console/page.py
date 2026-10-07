@@ -25,9 +25,8 @@ from common.games.collection_store import BUILTIN_ALL
 from common.i18n import t
 from common.jobs import DONE, KIND_LIBRARY_SCAN, KIND_MEDIA_CAPTURE
 from console import about as about_page
-from console import assets as assets_page
-from console import backups as backups_page
 from console import (
+    appearance,
     busy,
     confirm,
     deeplink,
@@ -41,7 +40,6 @@ from console import (
     row_drag,
     sections,
     tageditor,
-    theme,
     theme_sources,
     undo,
     uploads,
@@ -50,6 +48,8 @@ from console import (
     waiting,
     workbench,
 )
+from console import assets as assets_page
+from console import backups as backups_page
 from console import collections as collections_page
 from console import community as community_page
 from console import devices as devices_page
@@ -529,8 +529,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # renders light while the tokens stay dark.
     # `?mode=` looks at one without changing what the install is set to, which is how
     # two modes get compared side by side. It is never written into the address.
-    chosen = theme.mode_or_default(mode) if mode else theme.configured_mode()
-    theme.apply_mode(chosen)
+    chosen = appearance.mode_or_default(mode) if mode else appearance.configured_mode()
+    appearance.apply_mode(chosen)
     grid.install_filters()
     panel_parts.install_fact_tooltips()
     # The shell takes the viewport once, here, and every height below it is flex. The
@@ -744,7 +744,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             # Large enough to actually read the mark. It joins `labels` so it hides with
             # the rail - an 820px square badge has nothing legible left at 57px, so
             # scaling it down there would be worse than dropping it.
-            labels.append(ui.image(theme.LOGO).classes("w-28 h-28 mx-auto"))
+            labels.append(ui.image(appearance.LOGO).classes("w-28 h-28 mx-auto"))
         with foot:
             # Where somebody finds the phone surface, which is the one thing in this
             # drawer that is about leaving it.

@@ -652,16 +652,16 @@ Two game identifiers exist and are not interchangeable:
 ## Console
 
 The stylesheet is the design system. `console/static/console-base.css` holds every class the
-Console uses and `console/theme.py` holds the palette tokens, and there is no third place a
+Console uses and `console/appearance.py` holds the palette tokens, and there is no third place a
 treatment is defined. **Grep the stylesheet before inventing one** — a heading, a chip, a state, a control. Something that looks like it needs a new class
 usually has one already, and two spellings of the same idea is how a surface stops looking
 like one product.
 
-### Themes
+### Appearance
 
 Four modes: `synthwave` (the default), `dark`, `light`, and `system`, which follows the
 operating system and resolves to one of the two neutral palettes. Set with
-`console.theme`.
+`console.appearance`.
 
 A mode is a palette and nothing else. Structure, spacing and the type scale are shared, and
 a mode may not touch them: that is what keeps four modes from becoming four layouts. A

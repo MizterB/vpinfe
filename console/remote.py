@@ -33,6 +33,7 @@ from common.host.launch_state import SOURCE_CAPTURE
 from common.i18n import t
 from common.labels import humanize
 from console import (
+    appearance,
     busy,
     confirm,
     dropdown,
@@ -42,7 +43,6 @@ from console import (
     remembered,
     remote_record,
     stars,
-    theme,
     verbs,
 )
 from console import dialog as frame
@@ -282,11 +282,11 @@ async def remote_page(screen: str = "") -> None:
     # The same setting the desk surface reads. One install, one appearance - a phone
     # showing a different palette from the workbench it is beside reads as a different
     # product.
-    chosen = theme.configured_mode()
-    ui.dark_mode(theme.QUASAR_DARK[chosen])
-    theme.apply_colors(chosen)
-    theme.apply_flair(chosen)
-    theme.apply_surface("remote")
+    chosen = appearance.configured_mode()
+    ui.dark_mode(appearance.QUASAR_DARK[chosen])
+    appearance.apply_colors(chosen)
+    appearance.apply_flair(chosen)
+    appearance.apply_surface("remote")
     # The shell takes the viewport once and everything below it is flex, the same way
     # the Console's does - a pane that subtracts a fixed header height collapses the
     # moment that header changes.

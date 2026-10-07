@@ -17,11 +17,11 @@ import re
 import unittest
 from unittest import mock
 
-from console import theme
+from console import appearance
 
 # Every block that ships, in one string - a token may be defined in one and used in
 # another, and checking them apart would report both halves as broken.
-STYLESHEET = theme.palette_css() + theme.base_css()
+STYLESHEET = appearance.palette_css() + appearance.base_css()
 
 DEFINED = re.compile(r"^\s*(--[a-z0-9-]+)\s*:", re.MULTILINE)
 USED = re.compile(r"var\(\s*(--[a-z0-9-]+)")
@@ -78,7 +78,7 @@ def _ours(names):
 class TokenTests(unittest.TestCase):
     def setUp(self) -> None:
         self.defined = _ours(set(DEFINED.findall(STYLESHEET)))
-        source = pathlib.Path(theme.__file__).read_text(encoding="utf-8")
+        source = pathlib.Path(appearance.__file__).read_text(encoding="utf-8")
         self.used = _ours(set(USED.findall(STYLESHEET))
                           | set(FROM_PYTHON.findall(source)))
 
@@ -106,22 +106,22 @@ class PaletteTests(unittest.TestCase):
 
     def test_every_palette_declares_the_same_tokens(self) -> None:
         declared = {mode: set(DEFINED.findall(block))
-                    for mode, block in theme.PALETTES.items()}
-        base = declared[theme.DEFAULT_MODE]
+                    for mode, block in appearance.PALETTES.items()}
+        base = declared[appearance.DEFAULT_MODE]
         for mode, names in declared.items():
             self.assertEqual(sorted(names ^ base), [],
                              f"{mode} does not declare the same tokens as "
-                             f"{theme.DEFAULT_MODE}")
+                             f"{appearance.DEFAULT_MODE}")
 
     def test_every_mode_renders_a_block_that_resolves(self) -> None:
         """The stylesheet is one string per mode, so a mode is only real if the rules
         can read it."""
-        rules = theme.base_css()
+        rules = appearance.base_css()
         want = _ours(set(USED.findall(rules)))
-        for mode in theme.PALETTES:
+        for mode in appearance.PALETTES:
             # Everything that ships in this mode - a few tokens are declared inside a
             # scoped rule rather than in the palette, and those resolve just as well.
-            have = _ours(set(DEFINED.findall(theme.palette_css(mode) + rules)))
+            have = _ours(set(DEFINED.findall(appearance.palette_css(mode) + rules)))
             self.assertEqual(sorted(want - have), [], f"{mode} leaves these unresolved")
 
 
@@ -133,31 +133,32 @@ class DeliveryTests(unittest.TestCase):
         not ask again inside that hour whatever the etag says. Without a URL that moves
         with the bytes, an upgrade leaves the old stylesheet on screen - which the old
         inline delivery could not do, so the cache is a cost this introduced."""
-        digest = hashlib.sha256(theme.BASE_CSS.read_bytes()).hexdigest()[:12]
-        self.assertEqual(theme.BASE_HREF,
-                         f"{theme.BASE_MOUNT}/console-base.css?v={digest}")
+        digest = hashlib.sha256(appearance.BASE_CSS.read_bytes()).hexdigest()[:12]
+        self.assertEqual(appearance.BASE_HREF,
+                         f"{appearance.BASE_MOUNT}/console-base.css?v={digest}")
 
     def test_a_changed_rule_changes_the_url(self) -> None:
         """The property that matters, stated as itself rather than as the hash."""
-        first = theme._base_href()
-        held = theme.BASE_CSS.read_bytes()
+        first = appearance._base_href()
+        held = appearance.BASE_CSS.read_bytes()
         try:
-            theme.BASE_CSS.write_bytes(held + b"\n.console-nothing { color: red; }\n")
-            self.assertNotEqual(theme._base_href(), first)
+            appearance.BASE_CSS.write_bytes(held + b"\n.console-nothing { color: red; }\n")
+            self.assertNotEqual(appearance._base_href(), first)
         finally:
-            theme.BASE_CSS.write_bytes(held)
-        self.assertEqual(theme._base_href(), first)
+            appearance.BASE_CSS.write_bytes(held)
+        self.assertEqual(appearance._base_href(), first)
 
     def test_the_page_links_the_rules_rather_than_carrying_them(self) -> None:
         """Inlining them again would work and would quietly put 127KB back into every
         page load, which is the whole reason the file exists."""
         added = []
-        with mock.patch.object(theme.ui, "add_css", side_effect=lambda css: added.append(css)), \
-             mock.patch.object(theme.ui, "add_head_html",
+        with mock.patch.object(appearance.ui, "add_css",
+                               side_effect=lambda css: added.append(css)), \
+             mock.patch.object(appearance.ui, "add_head_html",
                                side_effect=lambda html: added.append(html)):
-            theme.apply_flair()
-        self.assertTrue(any(theme.BASE_HREF in one for one in added), "no link to the file")
-        rules = theme.base_css()
+            appearance.apply_flair()
+        self.assertTrue(any(appearance.BASE_HREF in one for one in added), "no link to the file")
+        rules = appearance.base_css()
         self.assertFalse(any(rules in one for one in added), "the rules are in the page")
 
 
@@ -184,7 +185,7 @@ class LiteralTests(unittest.TestCase):
     CEILING = 0
 
     def test_no_new_color_is_typed_rather_than_named(self) -> None:
-        found = _colors_typed_in(theme.base_css())
+        found = _colors_typed_in(appearance.base_css())
 
         self.assertLessEqual(
             len(found), self.CEILING,
@@ -194,7 +195,7 @@ class LiteralTests(unittest.TestCase):
     def test_the_token_block_is_where_a_color_is_named(self) -> None:
         """The other half: if the palette held no hex either, the count above would
         be passing because it is reading the wrong string."""
-        self.assertTrue(LITERAL.findall(theme.palette_css()))
+        self.assertTrue(LITERAL.findall(appearance.palette_css()))
 
 
 if __name__ == "__main__":

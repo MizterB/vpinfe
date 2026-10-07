@@ -15,7 +15,7 @@ from nicegui import ui
 from common import device_registry, install_setup
 from common.config_store import ConfigStore
 from common.games.launchers import Launcher
-from console import setup, setup_look, setup_tables, setup_vpx
+from console import setup, setup_appearance, setup_tables, setup_vpx
 from tests.support.library import TempTree
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -359,7 +359,7 @@ class OpenSetupTests(_Fresh):
                 await setup.open_setup()
 
         with mock.patch.object(setup.wizard, "open_dialog", host), \
-             mock.patch.object(setup_look, "restore") as self.restore, \
+             mock.patch.object(setup_appearance, "restore") as self.restore, \
              mock.patch.object(ui.navigate, "reload") as reload:
             _ran(go())
         return host, reload
@@ -402,7 +402,7 @@ class OpenSetupTests(_Fresh):
                 await setup.open_setup()
 
         with mock.patch.object(setup, "calls", calls), \
-             mock.patch.object(setup_look, "restore"), \
+             mock.patch.object(setup_appearance, "restore"), \
              mock.patch.object(setup.wizard, "open_dialog", mock.AsyncMock(return_value=False)):
             _ran(go())
 
@@ -423,7 +423,7 @@ class TheRealStepsTests(_Fresh):
         with self._screens(1):
             step = _ran(setup.calls(setup.Session(again=False)).first(None))
 
-        self.assertEqual([setup.HOW, setup.LOOK, setup.SCREENS, setup.CONTROLS, setup.VPX,
+        self.assertEqual([setup.HOW, setup.APPEARANCE, setup.SCREENS, setup.CONTROLS, setup.VPX,
                           setup.GLASS, setup.VPX_KEYS, setup.TABLES],
                          [one.key for one in setup.STEPS])
         self.assertEqual(step["step"], setup.HOW)
@@ -448,7 +448,7 @@ class TheRealStepsTests(_Fresh):
             answer = _ran(setup.calls(session).check({"cab_mode": "cabinet"}, setup.HOW))
 
         client.put_config.assert_called_once_with({"presentation": {"cab_mode": True}})
-        self.assertEqual(answer["step"], setup.LOOK)
+        self.assertEqual(answer["step"], setup.APPEARANCE)
         self.assertTrue(install_setup.pending(self.store))
         self.assertEqual(install_setup.answered(), [setup.HOW])
 
@@ -473,7 +473,7 @@ class TheRealStepsTests(_Fresh):
     def test_not_installed_yet_makes_the_program_page_the_last(self) -> None:
         session = setup.Session(again=False, vpx=setup_vpx.Vpx(answered=True))
         with mock.patch.object(setup, "_cabinet", return_value=True):
-            self.assertEqual([setup.HOW, setup.LOOK, setup.SCREENS, setup.CONTROLS, setup.VPX,
+            self.assertEqual([setup.HOW, setup.APPEARANCE, setup.SCREENS, setup.CONTROLS, setup.VPX,
                               setup.TABLES],
                              [one.key for one in setup._applicable(session)])
             self.assertEqual(setup.TABLES, setup._after(session, setup._step(setup.VPX)).key)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from console import grid, theme, thumbnails
+from console import appearance, grid, thumbnails
 
 
 def _columns(marked: int) -> list[dict]:
@@ -58,7 +58,7 @@ class APictureLeadsTheCell(unittest.TestCase):
                                     frame=thumbnails.PREVIEW)]
         self.assertEqual(grid.base_row_px(pictured), grid.PICTURED_ROW_PX)
         self.assertIn(f".console-grid-pictured {{ --ag-row-height: {grid.PICTURED_ROW_PX}px; }}",
-                      theme.base_css())
+                      appearance.base_css())
 
 
 class EveryGridDeclaresExactlyOne(unittest.TestCase):

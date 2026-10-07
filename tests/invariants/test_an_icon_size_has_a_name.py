@@ -38,15 +38,15 @@ class AnIconSizeIsNamed(unittest.TestCase):
         loose = [f"{selector} -> {size}" for size, selector in _icon_sizes()
                  if "var(" not in size and not size.endswith(RELATIVE)]
 
-        self.assertEqual(loose, [], "name the size in theme.py and use the token")
+        self.assertEqual(loose, [], "name the size in appearance.py and use the token")
 
     def test_every_token_a_glyph_names_is_declared(self) -> None:
-        from console import theme
+        from console import appearance
 
         wanted = {name for size, _ in _icon_sizes()
                   for name in re.findall(r"var\((--[a-z0-9-]+)\)", size)}
-        for mode in theme.PALETTES:
-            css = theme.palette_css(mode)
+        for mode in appearance.PALETTES:
+            css = appearance.palette_css(mode)
             missing = sorted(name for name in wanted if f"{name}:" not in css)
             with self.subTest(mode=mode):
                 self.assertEqual(missing, [])

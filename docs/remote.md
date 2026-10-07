@@ -124,7 +124,7 @@ console/remote.py    Remote shell, /remote
 console/remote_record.py  its part in recording media
 console/api.py       shared client
 console/data.py      shared reads
-console/theme.py     shared tokens
+console/appearance.py     shared tokens
 console/panel.py     shared fact list
 ```
 
@@ -134,7 +134,7 @@ Two shells in one package. The shared modules are not extracted to a neutral hom
 
 ## Density
 
-Density is a per-surface token in `console/theme.py`, not a second stylesheet. `--target-min` is the Console's 32px floor and is raised to 44px where the pointer is a finger; `--star-size` is sized on its own, because five 44px boxes is a row 220px wide.
+Density is a per-surface token in `console/appearance.py`, not a second stylesheet. `--target-min` is the Console's 32px floor and is raised to 44px where the pointer is a finger; `--star-size` is sized on its own, because five 44px boxes is a row 220px wide.
 
 Palette and treatment stay shared. A second stylesheet is how one product starts looking like two.
 

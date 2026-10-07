@@ -6,7 +6,7 @@
    the large, invariant half, so the browser fetches it once and keeps it, instead of
    carrying ~120KB inside every page load.
 
-   Authored here. It used to be five Python strings in console/theme.py, which is where
+   Authored here. It used to be five Python strings in console/appearance.py, which is where
    the palette still lives.
 */
 
@@ -1170,7 +1170,7 @@ body::before {
 .console-default-mark--on { color: var(--accent); }
 .console-default-mark.cursor-pointer:hover { color: var(--ink); }
 
-/* Something to go and do, in the colour this theme keeps for exactly that. The rail is
+/* Something to go and do, in the colour this palette keeps for exactly that. The rail is
    already a lit surface, so the accent would make this one more glowing thing in it
    rather than the one worth acting on. */
 
@@ -3601,7 +3601,7 @@ svg.console-cell-noart {
 /* A chip after a grid cell's value is inline text, so `.console-member-chip`'s
    `align-self` does nothing for it. On the baseline, the Console's 12px caption caps
    beside 14px body caps leave it low by half the difference in cap height (about 0.85px);
-   the raise is that, in the chip's own em, so it follows the two sizes in `theme.py`.
+   the raise is that, in the chip's own em, so it follows the two sizes in `appearance.py`.
    The word space before the chip stays in the markup - without it a selected or
    read-aloud cell runs the name into the chip - and the margin makes up the rest of the
    gap. The vertical margins keep the chip's padding and border from growing a short
@@ -3676,7 +3676,7 @@ svg.console-cell-noart {
 .console-swatch-help { font-size: var(--fs-caption); color: var(--ink-3); max-width: 96px;
   text-align: center; }
 /* The same miniature in Setup's picture slot, where a choice's picture sits before its name. */
-.console-wizard-look { display: flex; flex: none; }
+.console-wizard-appearance { display: flex; flex: none; }
 
 /* A rail long enough to need grouping says what a run of rows is about. `.console-group`
    carries the treatment - this only puts it in the rail's column. */

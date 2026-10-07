@@ -209,7 +209,7 @@ PATH_KINDS = ("file", "dir", "exe")
 EDITOR_BINDING = "binding"
 # A palette is picked by looking at it. The names carry almost nothing on their own -
 # "Synthwave" means something only once you have seen it - so the control shows each one.
-EDITOR_CONSOLE_THEME = "console_theme"
+EDITOR_CONSOLE_APPEARANCE = "console_appearance"
 # Shown in Settings, chosen on the Themes page.
 EDITOR_FRONTEND_THEME = "frontend_theme"
 # The kinds of art the library keeps, which only a running install can say.
@@ -220,7 +220,7 @@ EDITOR_CAPTURE_COMMAND = "capture_command"
 # VPinFE's own browser options, picked from the list rather than typed: the names a
 # person would have to match are the ones VPinFE starts a window with.
 EDITOR_CHROME_LEAVE_OUT = "chrome_leave_out"
-EDITORS = (EDITOR_BINDING, EDITOR_CONSOLE_THEME, EDITOR_FRONTEND_THEME, EDITOR_THUMBNAIL,
+EDITORS = (EDITOR_BINDING, EDITOR_CONSOLE_APPEARANCE, EDITOR_FRONTEND_THEME, EDITOR_THUMBNAIL,
            EDITOR_CAPTURE_COMMAND, EDITOR_CHROME_LEAVE_OUT)
 
 # Whose a default is.
@@ -468,14 +468,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     *in_section(
         "console",
         ConfigOption(
-            "theme",
+            "appearance",
             type="choice",
             # Not `auto` like `device.language`: this one defers to the operating system
             # rather than to a language the OS names outright, and the two neutral
             # palettes are the only answers an OS preference can give.
             default="synthwave",
             choices=("synthwave", "dark", "light", "system"),
-            editor=EDITOR_CONSOLE_THEME,
+            editor=EDITOR_CONSOLE_APPEARANCE,
             legacy=(),
             group=setting_groups.APPEARANCE,
         ),

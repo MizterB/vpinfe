@@ -20,8 +20,8 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import literal_or, t
+from console import appearance, appearance_picker, more_below, panel, verbs
 from console import dialog as frame
-from console import more_below, panel, theme, theme_picker, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -294,10 +294,10 @@ class _Picks(ui.element):
 
 
 def _picture(name: str) -> None:
-    if name.startswith(theme_picker.PICTURE_PREFIX):
+    if name.startswith(appearance_picker.PICTURE_PREFIX):
         # A miniature of the Console in one appearance, drawn in that appearance's colors.
-        with ui.element("span").classes("console-wizard-look"):
-            theme_picker.swatch(name.removeprefix(theme_picker.PICTURE_PREFIX))
+        with ui.element("span").classes("console-wizard-appearance"):
+            appearance_picker.swatch(name.removeprefix(appearance_picker.PICTURE_PREFIX))
     elif name in _ART:
         ui.html(_ART[name], sanitize=False, tag="span").classes("console-wizard-art")
     elif _ICON_NAME.fullmatch(name):
@@ -493,7 +493,7 @@ def _greeting(found: dict, root: ui.element, crest: ui.element, mark: bool) -> b
     crest.clear()
     if welcome and mark:
         with crest:
-            ui.image(theme.LOGO).classes("console-wizard-mark")
+            ui.image(appearance.LOGO).classes("console-wizard-mark")
     return welcome
 
 

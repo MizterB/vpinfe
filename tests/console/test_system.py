@@ -10,7 +10,7 @@ import unittest
 from urllib.parse import parse_qs
 
 from common import feature_checks, install_identity, path_state
-from console import deeplink, page, panel, theme
+from console import appearance, deeplink, page, panel
 from console import settings as settings_page
 
 
@@ -32,7 +32,7 @@ class NavTests(unittest.TestCase):
                                 for key, *_rest in items])
 
     def test_no_row_is_drawn_deeper_than_a_page_under_its_group(self) -> None:
-        drawn = set(re.findall(r"\.console-nav-row--([a-z-]+)", theme.base_css()))
+        drawn = set(re.findall(r"\.console-nav-row--([a-z-]+)", appearance.base_css()))
 
         self.assertEqual({"nested"}, drawn)
 

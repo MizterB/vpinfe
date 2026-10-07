@@ -28,8 +28,8 @@ from common.i18n import t
 from console import (
     offload,
     screens,
+    setup_appearance,
     setup_controls,
-    setup_look,
     setup_screens,
     setup_tables,
     setup_vpx,
@@ -41,7 +41,7 @@ from console.on_page import on_page
 logger = logging.getLogger("vpinfe.console.setup")
 
 HOW = "how"
-LOOK = setup_look.KEY
+APPEARANCE = setup_appearance.KEY
 SCREENS = "screens"
 CONTROLS = "controls"
 VPX = "vpx"
@@ -158,12 +158,12 @@ def _cabinet() -> bool:
     return DisplayConfig.from_config(_config()).cab_mode
 
 
-async def _ask_look(session: Session) -> dict[str, Any]:
-    return await setup_look.ask()
+async def _ask_appearance(session: Session) -> dict[str, Any]:
+    return await setup_appearance.ask()
 
 
-async def _answer_look(session: Session, values: dict[str, Any]) -> None:
-    await setup_look.answer(values)
+async def _answer_appearance(session: Session, values: dict[str, Any]) -> None:
+    await setup_appearance.answer(values)
 
 
 async def _ask_screens(session: Session) -> dict[str, Any]:
@@ -220,7 +220,7 @@ async def _answer_tables(session: Session, values: dict[str, Any]) -> None:
 # says so with `applies`; it is not asked, and not in the row, where it does not.
 STEPS: tuple[Step, ...] = (
     Step(HOW, "console.setup.step.how", _ask_how, _answer_how),
-    Step(LOOK, "console.setup.step.look", _ask_look, _answer_look),
+    Step(APPEARANCE, "console.setup.step.appearance", _ask_appearance, _answer_appearance),
     Step(SCREENS, "console.setup.step.screens", _ask_screens, _answer_screens,
          lambda session: _cabinet()),
     Step(CONTROLS, "console.setup.step.controls", _ask_controls, _answer_controls),
@@ -383,4 +383,4 @@ async def open_setup(*, window: bool = False) -> None:
     if ran and not session.again:
         ui.navigate.reload()
     else:
-        setup_look.restore()
+        setup_appearance.restore()

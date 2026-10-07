@@ -79,10 +79,10 @@ def serve(port: int) -> None:
     """One page per flow: the real dialog host over a flow that answers one step."""
     from nicegui import app, ui
 
-    from console import api, theme, wizard
+    from console import api, appearance, wizard
 
     api.local_base_url = lambda: "http://127.0.0.1:9"
-    app.add_static_files(theme.BASE_MOUNT, str(theme.BASE_CSS.parent))
+    app.add_static_files(appearance.BASE_MOUNT, str(appearance.BASE_CSS.parent))
 
     def calls(step: dict[str, Any]) -> wizard.Calls:
         async def answer(*_args: Any) -> dict:
@@ -93,7 +93,7 @@ def serve(port: int) -> None:
     def route(path: str, step: dict[str, Any]) -> None:
         @ui.page(path)
         def drawn() -> None:
-            theme.apply_mode()
+            appearance.apply_mode()
 
             async def open_it() -> None:
                 await wizard.open_dialog(label="Drive", calls=calls(step),
