@@ -11,7 +11,7 @@ from console import devices, panel, settings
 
 SCHEMA = [{"name": "vpxmobile", "options": [
     {"key": "send_masked_config", "type": "bool", "default": "false"},
-    {"key": "config_mask", "type": "string", "default": ""},
+    {"key": "config_mask", "type": "string", "default": "mobile"},
     {"key": "chunk_size", "type": "int", "default": "1048576"},
 ]}]
 
@@ -33,7 +33,41 @@ class TheRows(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(labels, [t("config.vpxmobile.send_masked_config.label"),
                                   t("config.vpxmobile.config_mask.label"),
                                   t("config.vpxmobile.chunk_size.label")])
-        self.assertEqual(sum(label is panel.ASIDE for label, _draw in rows), 3)
+        self.assertEqual(sum(label is panel.ASIDE for label, _draw in rows), 4)
+
+    async def test_the_example_names_a_file_made_from_the_word(self) -> None:
+        for typed, said in (("mobile", "Example: Attack from Mars.mobile.ini"),
+                            (" .cab.ini ", "Example: Attack from Mars.cab.ini"),
+                            ("", "Without a word, no mobile settings file is sent"),
+                            (None, "Without a word, no mobile settings file is sent")):
+            with self.subTest(typed=typed):
+                self.assertEqual(devices._mobile_file_shape(typed), said)
+
+    async def test_the_word_starts_as_mobile(self) -> None:
+        shown: dict[str, Any] = {}
+        with patch.object(devices.panel, "field",
+                          lambda v, on, **_k: shown.setdefault("value", v)):
+            await _rows({})
+
+        self.assertEqual(shown["value"], "mobile")
+
+    async def test_the_word_a_new_install_starts_with_is_mobile(self) -> None:
+        from common import config_schema
+        option = config_schema.option("vpxmobile", "config_mask")
+        assert option is not None
+
+        self.assertEqual(option.default, "mobile")
+
+    async def test_the_page_and_the_sender_keep_the_same_word(self) -> None:
+        from configparser import ConfigParser
+
+        from common.games import mobile_ops
+        for mask in ("mobile", ".mobile.", "cab.ini", ".cab.INI", " cab .ini "):
+            parser = ConfigParser()
+            parser.read_dict({"vpxmobile": {"send_masked_config": "true", "config_mask": mask}})
+            with self.subTest(mask=mask), patch.object(mobile_ops, "get_ini_config",
+                                                       return_value=parser):
+                self.assertEqual(devices._mobile_word(mask), mobile_ops._sending()[1])
 
     async def test_the_labels_are_the_words_a_person_would_use(self) -> None:
         self.assertEqual(t("config.vpxmobile.send_masked_config.label"),

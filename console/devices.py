@@ -1026,6 +1026,20 @@ async def _carrying_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
 SECTION = "vpxmobile"
 
 
+def _mobile_word(text: str) -> str:
+    """What a person typed, as the word in `<table>.<word>.ini`."""
+    word = text.strip().strip(".")
+    if word.lower().endswith(".ini"):
+        word = word[:-4].strip().strip(".")
+    return word
+
+
+def _mobile_file_shape(text: str | None) -> str:
+    word = _mobile_word(text or "")
+    return (t("console.devices.mobile_file_shape", word=word) if word
+            else t("console.devices.mobile_file_none"))
+
+
 async def _sending_rows() -> list[tuple[Any, Any]]:
     """How a send goes, for every mobile device alike. These are this install's settings,
     written through the config route Settings uses: the device has nowhere to keep them."""
@@ -1046,7 +1060,13 @@ async def _sending_rows() -> list[tuple[Any, Any]]:
         return settings_page.saver(client, SECTION, key)
 
     async def word(text: str) -> None:
-        await save("config_mask")(text.strip().strip("."))
+        await save("config_mask")(_mobile_word(text))
+
+    typed: dict[str, Any] = {}
+
+    def example() -> None:
+        panel.line(_mobile_file_shape(str(value("config_mask")))).bind_text_from(
+            typed["control"], "value", backward=_mobile_file_shape)
 
     async def size(event: Any) -> None:
         await save("chunk_size")(int(declared["chunk_size"]["default"]) if event.value is None
@@ -1061,9 +1081,9 @@ async def _sending_rows() -> list[tuple[Any, Any]]:
         panel.note(t(f"config.{SECTION}.send_masked_config.description")),
         (t(f"config.{SECTION}.config_mask.label"),
          panel.field(str(value("config_mask")), word,
-                     prefix=t("console.devices.mobile_word_before"),
-                     suffix=t("console.devices.mobile_word_after"))),
+                     on_control=lambda control: typed.update(control=control))),
         panel.note(t(f"config.{SECTION}.config_mask.description")),
+        (panel.ASIDE, example),
         (t(f"config.{SECTION}.chunk_size.label"),
          panel.number(value("chunk_size"), size, low=1, unit=t("console.devices.bytes"),
                       on_leave=True, on_control=lambda c: c.classes("console-edit-long"))),

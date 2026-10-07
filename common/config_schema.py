@@ -1165,7 +1165,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption(
             "config_mask",
             type="string",
-            default="",
+            default="mobile",
             aliases=("renamemasktodefaultinimask",),
         ),
     ),

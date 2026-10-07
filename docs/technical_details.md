@@ -265,8 +265,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | `device_ip` | string |  | Device IP |
 | `device_port` | int | `2112` | Device Port |
 | `chunk_size` | int | `1048576` | Files go across in pieces this size; lower it if sends fail on a weak connection |
-| `send_masked_config` | bool | `false` | Where a game has a settings file made for mobile devices, named as below, that file goes to the device as the game's settings, replacing the device's own |
-| `config_mask` | string |  | To make one, copy a table's settings file in its folder and add this word to the name |
+| `send_masked_config` | bool | `false` | Where a game has a settings file made for mobile devices, named with the word below, that file goes to the device in place of its own settings |
+| `config_mask` | string | `mobile` | The word that marks a settings file made for the device. Copy a table's settings file, add the word before .ini, and the device gets that copy |
 
 ### `vpinplay`
 
