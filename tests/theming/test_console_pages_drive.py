@@ -4,7 +4,8 @@ Each is drawn once: no listener reaches a layout the browser already has, which 
 answers by drawing all of it again. And every section a rail opens is headed properly:
 when any group in it is headed, the first one is too, and a lone heading never says the
 rail row again. Every dropdown on screen is a `console.dropdown.Select`, and the text in
-each one stands at the middle of its box.
+each one stands at the middle of its box. No row, card or control in an open section is
+wider than the row measure.
 
 Slow: boots a real instance and a real browser.
 """
@@ -118,6 +119,44 @@ DROPDOWNS = """(() => {
   return {measured, problems};
 })()"""
 
+# Every row, card and control in the open section against the width a row may have. A row
+# is a surface, or a flex line holding an action at its right edge. Headings, the input
+# bar, the attention block and grids span the pane by design.
+STRETCHED = """(() => {
+  const shown = el => el.getClientRects().length > 0
+    && getComputedStyle(el).visibility !== 'hidden';
+  const area = [...document.querySelectorAll('.console-section-work')].find(shown);
+  if (!area) return {measured: 0, problems: []};
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:absolute;visibility:hidden;width:var(--row-measure)';
+  document.body.append(probe);
+  const limit = probe.getBoundingClientRect().width + 2;
+  probe.remove();
+  const BARS = '.console-panel-heading, .console-fact-heading, .console-binding-live';
+  const SPANS = '.console-attention, .ag-root-wrapper, .nicegui-aggrid';
+  const CONTROLS = '.q-field, .q-btn, .q-slider, .q-toggle, textarea, input:not([type=hidden])';
+  const found = [...area.querySelectorAll('*')].filter(el => {
+    if (!shown(el) || el.matches(BARS) || el.closest(SPANS)) return false;
+    const box = el.getBoundingClientRect();
+    if (box.width < 40 || box.height < 14) return false;
+    if (el.matches(CONTROLS)) return true;
+    const css = getComputedStyle(el);
+    const fill = css.backgroundColor;
+    if ((fill !== 'rgba(0, 0, 0, 0)' && fill !== 'transparent')
+        || css.borderTopWidth !== '0px' || css.borderBottomWidth !== '0px') return true;
+    if (css.display !== 'flex' || css.flexDirection !== 'row') return false;
+    return [...el.querySelectorAll('.q-btn, button, .q-icon')].some(
+      act => act.getBoundingClientRect().right > box.right - 40);
+  });
+  const label = el => (el.className.toString() + ' "'
+    + (el.innerText || el.value || '').trim().split('\\n')[0].slice(0, 30) + '"');
+  const width = el => Math.round(el.getBoundingClientRect().width);
+  const wide = found.filter(el => width(el) > limit);
+  const innermost = wide.filter(el => !wide.some(other => other !== el && el.contains(other)));
+  return {measured: found.length,
+          problems: innermost.map(el => label(el) + ' ' + width(el) + 'px')};
+})()"""
+
 
 def _vpx_install(root: Path) -> dict[str, str]:
     defaults = {"bool": "0", "int": "0", "number": "1.0", "string": "''",
@@ -183,11 +222,15 @@ class ConsolePagesDrive(unittest.TestCase):
         headings: dict = {}
         drawn: dict[str, list[str]] = {}
         dropdowns: dict = {"measured": 0, "problems": []}
+        stretched: dict = {"measured": 0, "problems": []}
 
         async def look(where: str) -> None:
             said = await browser.evaluate(DROPDOWNS)
             dropdowns["measured"] += said["measured"]
             dropdowns["problems"] += [[where, *one] for one in said["problems"]]
+            wide = await browser.evaluate(STRETCHED)
+            stretched["measured"] += wide["measured"]
+            stretched["problems"] += [[where, one] for one in wide["problems"]]
 
         async with BrowserSession(chromium_path()) as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
@@ -225,7 +268,8 @@ class ConsolePagesDrive(unittest.TestCase):
                 if path not in drawn:
                     await visit(path)
             await visit("/remote")
-        return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns}
+        return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns,
+                "stretched": stretched}
 
     def test_every_rail_opened_something(self) -> None:
         for query, found in self.seen["headings"].items():
@@ -262,6 +306,11 @@ class ConsolePagesDrive(unittest.TestCase):
         self.assertGreater(self.seen["dropdowns"]["measured"], 20,
                            "an empty sweep passes and measures nothing")
         self.assertEqual([], self.seen["dropdowns"]["problems"])
+
+    def test_no_row_or_control_stretches_past_the_measure(self) -> None:
+        self.assertGreater(self.seen["stretched"]["measured"], 50,
+                           "an empty sweep passes and measures nothing")
+        self.assertEqual([], self.seen["stretched"]["problems"])
 
 
 if __name__ == "__main__":

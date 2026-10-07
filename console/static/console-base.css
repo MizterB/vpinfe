@@ -2752,6 +2752,19 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 }
 /* Actions and the attention block: the width of the panel, not of a value. */
 .console-fact-full { grid-column: 1 / -1; padding: 4px 0; min-width: 0; }
+/* A row with its action pinned to the right edge stops where the controls above it end
+   at most: the label column's ceiling, its gap and the measure. Left at the pane's width
+   the action sits a screen away from the name it belongs to. Scoped to the panel because
+   a dialog sets its own width. */
+.console-section-work .console-facts :is(.console-member-row, .console-source-row) {
+  max-width: var(--row-measure);
+}
+/* Anything holding words that is drawn in the value column and is not a control the
+   column already caps. */
+.console-measured { max-width: var(--measure); }
+/* A switch is as wide as the switch. As a grid item it stretched to the value column and
+   the whole line toggled it. */
+.console-fact-switch { justify-self: start; }
 /* A heading's own line. Tight above so the two read as one thing, loose below so the
    first row is not crowded against it. The heading gives up its own gap when a lede
    follows, which is the half that makes the pair hold together. */
@@ -3316,6 +3329,7 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-screens-head { display: flex; align-items: center; gap: 12px; margin: 2px 0 12px; }
 .console-screens-head > .console-help { flex: 1; max-width: none; }
 .console-screens { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; }
+.console-screens, .console-screens-head { max-width: var(--row-measure); }
 /* A panel too narrow for both side by side puts the screens under the picture. */
 @container (max-width: 760px) {
   .console-screens { grid-template-columns: minmax(0, 1fr); }

@@ -549,6 +549,9 @@ _STRUCTURE = """
      In rem, not ch: `ch` is the element's own font size, so the same 62ch is two
      different widths on a control and on the caption under it. */
   --measure: 30rem;
+  /* How wide a row may be when it starts under the labels: the label column's ceiling,
+     the column gap and the measure. */
+  --row-measure: calc(var(--label-max) + 8px + var(--measure));
   /* The floor under a select, for the caret and the longest option name a set happens
      to hold. Text stretches because what you type has no length; a closed list of named
      things does not. */
