@@ -15,7 +15,7 @@ from nicegui import ui
 from common import install_setup
 from common.config_store import ConfigStore
 from common.games.launchers import Launcher
-from console import setup, setup_tables, setup_vpx
+from console import setup, setup_look, setup_tables, setup_vpx
 from tests.support.library import TempTree
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -359,6 +359,7 @@ class OpenSetupTests(_Fresh):
                 await setup.open_setup()
 
         with mock.patch.object(setup.wizard, "open_dialog", host), \
+             mock.patch.object(setup_look, "restore") as self.restore, \
              mock.patch.object(ui.navigate, "reload") as reload:
             _ran(go())
         return host, reload
@@ -380,6 +381,14 @@ class OpenSetupTests(_Fresh):
 
         reload.assert_not_called()
 
+    def test_leaving_before_the_look_was_saved_paints_the_page_in_the_saved_one(self) -> None:
+        self._opened(answers=False)
+        self.restore.assert_called_once_with()
+
+    def test_finishing_the_first_run_does_not_paint_over_the_reload(self) -> None:
+        self._opened(answers=True)
+        self.restore.assert_not_called()
+
     def test_a_resumed_run_knows_the_screens_were_answered(self) -> None:
         install_setup.answer(self.store, setup.SCREENS)
         sessions: list[setup.Session] = []
@@ -393,6 +402,7 @@ class OpenSetupTests(_Fresh):
                 await setup.open_setup()
 
         with mock.patch.object(setup, "calls", calls), \
+             mock.patch.object(setup_look, "restore"), \
              mock.patch.object(setup.wizard, "open_dialog", mock.AsyncMock(return_value=False)):
             _ran(go())
 
@@ -413,12 +423,12 @@ class TheRealStepsTests(_Fresh):
         with self._screens(1):
             step = _ran(setup.calls(setup.Session(again=False)).first(None))
 
-        self.assertEqual([setup.HOW, setup.SCREENS, setup.CONTROLS, setup.VPX, setup.GLASS,
-                          setup.VPX_KEYS, setup.TABLES],
+        self.assertEqual([setup.HOW, setup.LOOK, setup.SCREENS, setup.CONTROLS, setup.VPX,
+                          setup.GLASS, setup.VPX_KEYS, setup.TABLES],
                          [one.key for one in setup.STEPS])
         self.assertEqual(step["step"], setup.HOW)
         self.assertNotIn("confirm", step, "Visual Pinball's pages follow it")
-        self.assertEqual(["How you play", "Controls", "Visual Pinball", "Tables"],
+        self.assertEqual(["How you play", "Appearance", "Controls", "Visual Pinball", "Tables"],
                          [segment["label"] for segment in step["steps"]])
 
     def test_every_step_names_itself_for_the_row(self) -> None:
@@ -438,7 +448,7 @@ class TheRealStepsTests(_Fresh):
             answer = _ran(setup.calls(session).check({"cab_mode": "cabinet"}, setup.HOW))
 
         client.put_config.assert_called_once_with({"presentation": {"cab_mode": True}})
-        self.assertEqual(answer["step"], setup.CONTROLS)
+        self.assertEqual(answer["step"], setup.LOOK)
         self.assertTrue(install_setup.pending(self.store))
         self.assertEqual(install_setup.answered(self.store), [setup.HOW])
 
@@ -463,7 +473,8 @@ class TheRealStepsTests(_Fresh):
     def test_not_installed_yet_makes_the_program_page_the_last(self) -> None:
         session = setup.Session(again=False, vpx=setup_vpx.Vpx(answered=True))
         with mock.patch.object(setup, "_cabinet", return_value=True):
-            self.assertEqual([setup.HOW, setup.SCREENS, setup.CONTROLS, setup.VPX, setup.TABLES],
+            self.assertEqual([setup.HOW, setup.LOOK, setup.SCREENS, setup.CONTROLS, setup.VPX,
+                              setup.TABLES],
                              [one.key for one in setup._applicable(session)])
             self.assertEqual(setup.TABLES, setup._after(session, setup._step(setup.VPX)).key)
 

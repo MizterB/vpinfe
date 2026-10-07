@@ -234,6 +234,10 @@ class ConfigStore:
         else:
             logger.info("Generating default settings at: %s", self.json_path)
             self.format_defaults()
+            # Where a new install starts, as against an upgrade, which takes the schema's
+            # defaults: the Console follows the computer's light or dark rather than
+            # opening in the one palette that no operating system can ask for.
+            self.config.set('console', 'theme', 'system')
             self.config.set('device', 'setup_pending', 'true')
             self.save()
 

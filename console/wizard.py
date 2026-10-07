@@ -21,7 +21,7 @@ from nicegui import run, ui
 from common.failures import why
 from common.i18n import literal_or, t
 from console import dialog as frame
-from console import more_below, panel, theme, verbs
+from console import more_below, panel, theme, theme_picker, verbs
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -294,7 +294,11 @@ class _Picks(ui.element):
 
 
 def _picture(name: str) -> None:
-    if name in _ART:
+    if name.startswith(theme_picker.PICTURE_PREFIX):
+        # A miniature of the Console in one appearance, drawn in that appearance's colors.
+        with ui.element("span").classes("console-wizard-look"):
+            theme_picker.swatch(name.removeprefix(theme_picker.PICTURE_PREFIX))
+    elif name in _ART:
         ui.html(_ART[name], sanitize=False, tag="span").classes("console-wizard-art")
     elif _ICON_NAME.fullmatch(name):
         ui.icon(name).classes("console-wizard-icon")
@@ -567,6 +571,9 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
             # Whether the answer as it stands is the last, for a step that carries a
             # `confirm` but may still lead on: where it says no, the forward button is Next.
             ends: Callable[[dict[str, Any]], bool] | None = found.get("ends")
+            # Told the values after any control has written one, for a step that shows
+            # the effect of a choice as it is made.
+            changed: Callable[[dict[str, Any]], None] | None = found.get("changed")
             forward: list[Any] = []
 
             def foot() -> None:
@@ -594,6 +601,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                 go.classes(_FORWARD)
 
             def regate() -> None:
+                if changed is not None:
+                    changed(walk.values)
                 if ends is not None:
                     foot()
                 elif forward and gate:
@@ -611,7 +620,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                     found["before"]()
                 held = _controls(list(found.get("fields") or []), walk.values,
                                  client=client, errors=dict(found.get("errors") or {}),
-                                 welcome=welcome, on_change=regate if gate or ends else None)
+                                 welcome=welcome,
+                                 on_change=regate if gate or ends or changed else None)
                 if found.get("draw"):
                     found["draw"](walk.values)
                 if found.get("acts"):

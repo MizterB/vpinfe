@@ -575,7 +575,8 @@ DEFAULT_MODE = "synthwave"
 # operating system can ask for, so it is on neither side of this.
 SYSTEM = "system"
 SYSTEM_PALETTES = {"light": "light", "dark": "dark"}
-MODES = (*PALETTES, SYSTEM)
+# In the order a person is offered them: the one a new install starts on first.
+MODES = (SYSTEM, *PALETTES)
 # Whether Quasar should style its own components dark. Ours and Quasar's are two switches
 # on one decision: the tokens paint what we wrote, and this paints what the framework
 # draws for us. Synthwave is a dark palette even though it is not "Dark", and `system`

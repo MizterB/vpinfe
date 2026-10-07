@@ -45,6 +45,26 @@ class VocabularyTests(unittest.TestCase):
                 from common.i18n import t
                 self.assertNotEqual(t(key), key, "no word for this mode")
 
+    def test_the_tiles_are_offered_in_the_order_of_the_modes(self) -> None:
+        """System first: it is where a new install starts."""
+        offered = theme_picker.choices()
+        self.assertEqual([one[0] for one in offered], list(theme.MODES))
+        self.assertEqual(theme.MODES[0], theme.SYSTEM)
+
+    def test_a_tile_carries_its_word_its_caption_and_its_picture(self) -> None:
+        from common.i18n import t
+        for mode, label, help_text, picture in theme_picker.choices():
+            with self.subTest(mode=mode):
+                self.assertEqual(label, t(theme_picker.NAMES[mode]))
+                self.assertEqual(picture, theme_picker.PICTURE_PREFIX + mode)
+                if mode in theme_picker.HELPS:
+                    self.assertNotEqual(help_text, theme_picker.HELPS[mode], "no caption word")
+                else:
+                    self.assertEqual(help_text, "")
+
+    def test_the_two_ways_to_start_are_the_two_with_a_caption(self) -> None:
+        self.assertEqual(sorted(theme_picker.HELPS), sorted([theme.SYSTEM, theme.DEFAULT_MODE]))
+
     def test_the_editor_the_setting_asks_for_is_one_that_exists(self) -> None:
         option = config_schema.option(theme.MODE_SECTION, theme.MODE_KEY)
         self.assertIn(option.editor, config_schema.EDITORS)

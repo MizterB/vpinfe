@@ -21,15 +21,28 @@ from common.i18n import t
 from console import theme
 from console.on_page import on_page
 
-# The name each mode goes by on screen. Its order is the order on the page: the two
-# neutral ones together, the deliberate one first because it is the default, and the
-# one that defers last.
+# The name each mode goes by on screen, in the order a person is offered them: the one a
+# new install starts on, then the classic look, then the two plain ones.
 NAMES = {
+    theme.SYSTEM: "config.console.theme.choice.system",
     "synthwave": "config.console.theme.choice.synthwave",
     "dark": "config.console.theme.choice.dark",
     "light": "config.console.theme.choice.light",
-    theme.SYSTEM: "config.console.theme.choice.system",
 }
+# The few words under a name. Dark and Light say what they are; these two do not.
+HELPS = {
+    theme.SYSTEM: "config.console.theme.choice_help.system",
+    "synthwave": "config.console.theme.choice_help.synthwave",
+}
+# Setup draws a mode by this name in its picture slot, so the miniature is the same one.
+PICTURE_PREFIX = "look:"
+
+
+def choices() -> list[tuple[str, str, str, str]]:
+    """Every mode as `(key, name, caption, picture)`, in the order they are offered. Setup
+    and Settings both draw from this, so the two cannot word or order them differently."""
+    return [(mode, t(NAMES[mode]), t(HELPS[mode]) if mode in HELPS else "",
+             PICTURE_PREFIX + mode) for mode in theme.MODES]
 
 
 def _miniature(mode: str, half: str = "") -> None:
@@ -53,7 +66,7 @@ def _miniature(mode: str, half: str = "") -> None:
                     .style(f"background:{theme.token('--ink', mode)};width:{width}")
 
 
-def _swatch(mode: str) -> None:
+def swatch(mode: str) -> None:
     """The preview for one choice. `system` is the only one that is two."""
     with ui.element("div").classes("console-swatch"):
         if mode == theme.SYSTEM:
@@ -83,7 +96,6 @@ def tiles(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
 
     def draw() -> None:
         made: dict[str, Any] = {}
-        note = None
 
         def mark() -> None:
             """The edge on the one in use, moved rather than redrawn."""
@@ -92,8 +104,6 @@ def tiles(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
                 tile.classes(add="console-swatch-tile--active") if on \
                     else tile.classes(remove="console-swatch-tile--active")
                 tile.props(f'aria-pressed="{str(on).lower()}"')
-            if note is not None:
-                note.set_visibility(held["mode"] == theme.SYSTEM)
 
         with ui.element("div").classes("console-swatches"):
             for mode in theme.MODES:
@@ -113,11 +123,10 @@ def tiles(option: dict[str, Any], value: Any, save: Callable[[Any], Any], *,
                 else:
                     tile.props("disabled")
                 with tile:
-                    _swatch(mode)
+                    swatch(mode)
                     ui.label(t(NAMES[mode])).classes("console-swatch-name")
-        # The only one of the four whose behavior is not in its picture. Always drawn
-        # and shown for `system` alone, so picking it does not change the page's height.
-        note = ui.label(t("console.settings.theme_follows_system")).classes("console-help")
+                    if mode in HELPS:
+                        ui.label(t(HELPS[mode])).classes("console-swatch-help")
         mark()
 
     return draw

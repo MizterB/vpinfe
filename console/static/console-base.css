@@ -3622,7 +3622,7 @@ svg.console-cell-noart {
 /* Four miniatures of this surface, each in its own palette. Wrapping rather than
    scrolling: the settings pane is draggable and four tiles in a column is a legible
    shape, four tiles cut off at the third is not. */
-.console-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.console-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
 .console-swatch-tile {
   appearance: none; font: inherit; color: inherit; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -3671,6 +3671,12 @@ svg.console-cell-noart {
 .console-swatch-line { height: 2px; border-radius: 1px; opacity: 0.45; flex: none; }
 .console-swatch-name { font-size: var(--fs-caption); color: var(--ink-2); }
 .console-swatch-tile--active .console-swatch-name { color: var(--ink); }
+/* The few words under a name, held to the miniature's width so a caption wraps rather than
+   widening one tile past the others. */
+.console-swatch-help { font-size: var(--fs-caption); color: var(--ink-3); max-width: 96px;
+  text-align: center; }
+/* The same miniature in Setup's picture slot, where a choice's picture sits before its name. */
+.console-wizard-look { display: flex; flex: none; }
 
 /* A rail long enough to need grouping says what a run of rows is about. `.console-group`
    carries the treatment - this only puts it in the rail's column. */
