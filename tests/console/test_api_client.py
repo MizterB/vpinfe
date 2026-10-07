@@ -66,6 +66,13 @@ class HowLongEachReadWaitsTests(unittest.TestCase):
     def test_a_question_about_one_thing_still_gives_up_quickly(self) -> None:
         self.assertEqual(self._waited(lambda c: c.game("g1")), 15)
 
+    def test_sending_a_file_waits_as_long_as_importing_one(self) -> None:
+        """The write can finish after a short wait ends, and the person is then told a
+        placed file failed."""
+        for send in (lambda c: c.place_media("g1", "", "wheel", "a.png", b"x"),
+                     lambda c: c.place_asset("g1", "", "pov", "a.pov", b"x")):
+            self.assertGreater(self._waited(send), 60)
+
 
 if __name__ == "__main__":
     unittest.main()

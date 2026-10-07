@@ -10,6 +10,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
+from common import folder_browse, service_errors
 from httpapi import auth
 from tests.support.library import TempTree
 
@@ -327,6 +328,150 @@ class MakeFolderApiTests(TempTree):
 
         self.assertEqual(scopes[("POST", "/folders")],
                          scopes[("PUT", "/config/{list_key}/{item_id}")])
+
+
+class FileApiTests(TempTree):
+    """`GET /folders/file`: a picture, clip or sound anywhere on the disk, to this device."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = _client()
+        self.cover = self.root / "cover.png"
+        self.cover.write_bytes(b"png bytes")
+
+    def _get(self, path: object):
+        return self.client.get("/folders/file", params={"path": str(path)})
+
+    def test_media_outside_every_library_root_is_served(self) -> None:
+        response = self._get(self.cover)
+
+        self.assertEqual((response.status_code, response.content), (200, b"png bytes"))
+
+    def test_an_image_a_video_and_a_sound_are_served_in_any_case(self) -> None:
+        for name in ("clip.mp4", "song.MP3", "wheel.WebP", "loop.ogg"):
+            with self.subTest(name=name):
+                (self.root / name).write_bytes(b"x")
+                self.assertEqual(self._get(self.root / name).status_code, 200)
+
+    def test_a_file_that_is_not_media_is_refused(self) -> None:
+        for name in ("table.vpx", "notes.txt", "view.pov", "backglass.directb2s", "noext"):
+            with self.subTest(name=name):
+                (self.root / name).write_text("not media")
+                self.assertEqual(self._get(self.root / name).status_code, 400)
+
+    def test_a_network_caller_is_refused(self) -> None:
+        with patch("httpapi.folders.caller_is_local", return_value=False):
+            response = self._get(self.cover)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_a_file_in_a_private_folder_is_refused_even_when_it_looks_like_media(self) -> None:
+        private = self.root / ".ssh"
+        private.mkdir()
+        (private / "key.png").write_bytes(b"not a picture")
+
+        with patch("common.folder_browse.Path.home", return_value=self.root):
+            response = self._get(private / "key.png")
+
+        self.assertEqual(response.status_code, 400)
+
+    @unittest.skipUnless(sys.platform == "darwin", "the volumes that ignore case by default")
+    def test_a_private_folder_is_refused_under_another_spelling_of_its_name(self) -> None:
+        private = self.root / ".ssh"
+        private.mkdir()
+        (private / "key.png").write_bytes(b"not a picture")
+        variant = self.root / ".SSH" / "key.png"
+        if not variant.exists():
+            self.skipTest("this volume tells .SSH from .ssh")
+
+        with patch("common.folder_browse.Path.home", return_value=self.root):
+            response = self._get(variant)
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_a_link_is_judged_as_what_it_points_at(self) -> None:
+        private = self.root / ".ssh"
+        private.mkdir()
+        (private / "key.png").write_bytes(b"not a picture")
+        (self.root / "document.txt").write_text("not media")
+        try:
+            (self.root / "to_key.png").symlink_to(private / "key.png")
+            (self.root / "to_document.png").symlink_to(self.root / "document.txt")
+        except OSError:
+            self.skipTest("symlinks need a privilege here")
+
+        with patch("common.folder_browse.Path.home", return_value=self.root):
+            responses = {name: self._get(self.root / name).status_code
+                         for name in ("to_key.png", "to_document.png")}
+
+        self.assertEqual(responses, {"to_key.png": 400, "to_document.png": 400})
+
+    def test_a_link_to_media_is_served(self) -> None:
+        try:
+            (self.root / "alias.png").symlink_to(self.cover)
+        except OSError:
+            self.skipTest("symlinks need a privilege here")
+
+        self.assertEqual(self._get(self.root / "alias.png").content, b"png bytes")
+
+    def test_a_missing_file_and_a_folder_are_not_found(self) -> None:
+        (self.root / "folder.png").mkdir()
+
+        self.assertEqual([self._get(self.root / "nowhere.png").status_code,
+                          self._get(self.root / "folder.png").status_code], [404, 404])
+
+    def test_a_path_with_a_null_byte_is_refused_rather_than_failing(self) -> None:
+        self.assertEqual(self._get(str(self.cover) + "\x00.png").status_code, 400)
+
+    def test_it_takes_the_scope_listing_the_disk_takes(self) -> None:
+        scopes = {(route.methods and sorted(route.methods)[0], path): auth.route_scope(route)
+                  for path, route in auth.iter_api_routes(httpapi.create_api_app())}
+
+        self.assertEqual(scopes[("GET", "/folders/file")], scopes[("GET", "/folders")])
+        self.assertEqual(scopes[("GET", "/folders/file")], "config:write")
+
+
+class FileOfKindTests(TempTree):
+    """What the Console reads on this machine before it sends the bytes."""
+
+    def test_a_file_with_one_of_the_extensions_is_answered_resolved(self) -> None:
+        (self.root / "View.POV").write_bytes(b"pov")
+
+        found = folder_browse.file_of_kind(str(self.root / "View.POV"), (".pov",))
+
+        self.assertEqual(found, (self.root / "View.POV").resolve())
+
+    def test_another_extension_is_refused(self) -> None:
+        (self.root / "view.png").write_bytes(b"png")
+
+        with self.assertRaises(service_errors.RefusedError):
+            folder_browse.file_of_kind(str(self.root / "view.png"), (".pov",))
+
+    def test_a_private_folder_is_refused_whatever_the_extension(self) -> None:
+        private = self.root / ".aws"
+        private.mkdir()
+        (private / "credentials.ini").write_text("secret")
+
+        with patch("common.folder_browse.Path.home", return_value=self.root), \
+                self.assertRaises(service_errors.RefusedError):
+            folder_browse.file_of_kind(str(private / "credentials.ini"), (".ini",))
+
+    def test_a_link_into_a_private_folder_is_refused(self) -> None:
+        private = self.root / ".aws"
+        private.mkdir()
+        (private / "credentials.ini").write_text("secret")
+        try:
+            (self.root / "tweaks.ini").symlink_to(private / "credentials.ini")
+        except OSError:
+            self.skipTest("symlinks need a privilege here")
+
+        with patch("common.folder_browse.Path.home", return_value=self.root), \
+                self.assertRaises(service_errors.RefusedError):
+            folder_browse.file_of_kind(str(self.root / "tweaks.ini"), (".ini",))
+
+    def test_a_missing_file_is_not_found(self) -> None:
+        with self.assertRaises(service_errors.NotFoundError):
+            folder_browse.file_of_kind(str(self.root / "nowhere.ini"), (".ini",))
 
 
 if __name__ == "__main__":

@@ -19,8 +19,7 @@ NOT_SHOWN = {"key": placing.NOT_SHOWN, "fix": "none", "remedy": None,
 
 def _library(capabilities: list[dict[str, Any]]) -> Any:
     return SimpleNamespace(discovery=lambda: {"capabilities": capabilities},
-                           placements=None, displaced_by=None, place_media=None,
-                           import_media=None)
+                           placements=None, displaced_by=None, place_media=None)
 
 
 class WhichSlotsRecordTests(unittest.TestCase):
@@ -133,7 +132,7 @@ class Device:
     def capture_proposals(self) -> dict[str, Any]:
         return {"proposals": [{"id": "a1", "kind": "playfield_video"}]}
 
-    placements = displaced_by = place_media = import_media = None
+    placements = displaced_by = place_media = None
 
 
 def _io(call: Any, *args: Any, **kwargs: Any) -> Any:

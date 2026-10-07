@@ -12,6 +12,9 @@ model, and the few things only a request has, like an upload's bytes and a file 
 from __future__ import annotations
 
 import logging
+import os
+import secrets
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -150,19 +153,37 @@ def get_asset_displaced(game_id: str, kind: str, filename: str = Query(...),
         asset_ops.displaced(game_id, kind, filename, table))
 
 
+async def _stage(upload: UploadFile) -> Path:
+    """The upload in a real file, copied across in chunks.
+
+    `upload.read()` would hold the whole body in memory, and a video is hundreds of
+    megabytes. The parser has already spooled the upload to disk. The file is made with
+    the mode a plain copy would get: media placement copies the mode across, and a
+    private one would leave art no other user of a shared library can read.
+    """
+    path = Path(tempfile.gettempdir()) / (secrets.token_hex(12)
+                                          + Path(upload.filename or "").suffix)
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666),
+                   "wb") as staged:
+        try:
+            await run_in_threadpool(shutil.copyfileobj, upload.file, staged)
+        except BaseException:
+            staged.close()
+            path.unlink(missing_ok=True)
+            raise
+    return path
+
+
 async def _staged_asset(game_id: str, kind: str, table_id: str,
                         upload: UploadFile) -> dict:
     """The upload held in a real file for the service, and cleared whatever it does."""
     asset_ops.kind_or_refuse(kind)
-    with tempfile.NamedTemporaryFile(suffix=Path(upload.filename or "").suffix,
-                                     delete=False) as staged:
-        staged.write(await upload.read())
-        staged_path = staged.name
+    staged = await _stage(upload)
     try:
         return await run_in_threadpool(asset_ops.place_file, game_id, kind, table_id,
-                                       Path(staged_path), upload.filename or "")
+                                       staged, upload.filename or "")
     finally:
-        Path(staged_path).unlink(missing_ok=True)
+        staged.unlink(missing_ok=True)
 
 
 @router.put("/{game_id}/assets/{kind}", summary="Place a file under the folder's own name",
@@ -338,15 +359,12 @@ async def _staged_write(game_id: str, kind: str, table_id: str, stem: str,
     bytes as they arrive and clears the temporary file whatever the write does.
     """
     media_ops.kind_or_refuse(kind)
-    with tempfile.NamedTemporaryFile(suffix=Path(upload.filename or "").suffix,
-                                     delete=False) as staged:
-        staged.write(await upload.read())
-        staged_path = staged.name
+    staged = await _stage(upload)
     try:
         return await run_in_threadpool(media_ops.place_upload, game_id, kind, table_id,
-                                       Path(staged_path), stem)
+                                       staged, stem)
     finally:
-        Path(staged_path).unlink(missing_ok=True)
+        staged.unlink(missing_ok=True)
 
 
 @router.put("/{game_id}/media/{kind}", summary="Place a file every table shares",

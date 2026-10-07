@@ -9,8 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from console import confirm, mediamap, mediasource
 
-LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None,
-                          import_media=None)
+LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None)
 
 
 async def _nothing() -> None:

@@ -18,7 +18,7 @@ import mimetypes
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
-from pathlib import PurePosixPath
+from pathlib import PurePath, PurePosixPath
 from typing import Any
 
 from nicegui import run, ui
@@ -106,33 +106,27 @@ def _suffix(item: dict[str, Any]) -> str:
 
 @dataclass(frozen=True)
 class _Target:
-    """What the dialog fills: the calls that fill it, and which files on disk can."""
+    """What the dialog fills: the calls that fill it, and the files that can."""
 
     placements: Callable[..., dict]
     displaced: Callable[..., list[str]]
     place: Callable[..., dict]
-    bring: Callable[..., dict]
-    fits: Callable[[dict[str, Any]], bool]
     family: str
     online: bool
     accept: tuple[str, ...] = ()
-    lists: str = ""
 
 
 def _media(library: Any, kind: str) -> _Target:
     family = media_family(kind)
     spec = next((item for item in MEDIA_SPECS if item.kind == canonical_kind(kind)), None)
     return _Target(library.placements, library.displaced_by, library.place_media,
-                   library.import_media, lambda item: item.get("family") == family,
                    family, online=True, accept=spec.family if spec else ())
 
 
 def _asset(library: Any, kind: str) -> _Target:
-    wanted = spec_for(kind).extensions
     return _Target(library.asset_placements, library.asset_displaced_by,
-                   library.place_asset, library.import_asset,
-                   lambda item: _suffix(item) in wanted, "", online=False,
-                   accept=wanted, lists=kind)
+                   library.place_asset, "", online=False,
+                   accept=spec_for(kind).extensions)
 
 
 def _host_name(library: Any) -> str:
@@ -168,6 +162,10 @@ class _Sources:
         self.browse_roots: list[dict[str, Any]] = []
         # The line in the strip over the listing that says which folder it is.
         self.trail_label: Any = None
+        # The folder on screen and the box that narrows it: typing redraws from the
+        # folder already read, so a filter never asks the host again.
+        self.here: dict[str, Any] = {}
+        self.narrow: Any = None
 
     def title(self) -> str:
         raise NotImplementedError
@@ -358,31 +356,47 @@ class _Sources:
                                           look=dropdown.OUTLINED).classes("w-full")
                           if len(starts) > 1 else None)
                 self.trail_label = ui.label().classes("console-help console-source-trail")
+                self.narrow = ui.input(placeholder=t("console.folder_picker.filter")) \
+                    .props("dense outlined clearable clear-icon=close").classes("w-full")
             listing = ui.column().classes("console-picker-well gap-0 console-source-fill")
             if picker is not None:
                 picker.on_value_change(lambda event: self._show_folder(listing,
                                                                       event.value))
+            self.narrow.on_value_change(lambda: self._draw_folder(listing))
             await self._show_folder(listing, starts[0]["path"])
 
     async def _show_folder(self, listing: ui.column, path: str) -> None:
         listing.clear()
         try:
-            here = await offload.io(self.listing, path)
+            self.here = await offload.io(self.listing, path)
         except Exception as exc:
             with listing:
                 panel.line(t("console.mediasource.folder_failed"), hint=why(exc))
             return
+        # Named from the start it was reached through rather than as an absolute
+        # path: the path on a cabinet is long, and the tail is the part that says
+        # where you are.
+        if self.trail_label is not None:
+            self.trail_label.set_text(self._trail(self.here["path"]))
+        if self.narrow is not None and self.narrow.value:
+            # The box redraws on its own change, so a folder opened under a filter
+            # does not draw twice.
+            self.narrow.value = ""
+            return
+        self._draw_folder(listing)
+
+    def _draw_folder(self, listing: ui.column) -> None:
+        here = self.here
+        wanted = ((self.narrow.value if self.narrow is not None else "") or "") \
+            .strip().lower()
+        entries = [item for item in here["entries"] if wanted in item["name"].lower()]
+        listing.clear()
         with listing:
-            # Named from the start it was reached through rather than as an absolute
-            # path: the path on a cabinet is long, and the tail is the part that says
-            # where you are.
-            if self.trail_label is not None:
-                self.trail_label.set_text(self._trail(here["path"]))
             with ui.column().classes("w-full gap-1 console-source-list"):
                 if here.get("parent"):
                     self._folder_link("..", here["parent"], listing, up=True)
                 shown = 0
-                for item in here["entries"][:_LIST_MAX]:
+                for item in entries[:_LIST_MAX]:
                     if item["kind"] == "folder":
                         self._folder_link(item["name"], item["path"], listing)
                     elif self.fits(item):
@@ -391,11 +405,12 @@ class _Sources:
                         continue
                     shown += 1
                 if not shown:
-                    ui.label(t("console.mediasource.nothing_use", kind=self.label)) \
+                    ui.label(t("console.folder_picker.nothing_here") if wanted
+                             else t("console.mediasource.nothing_use", kind=self.label)) \
                         .classes("console-help")
-                elif len(here["entries"]) > _LIST_MAX:
+                elif len(entries) > _LIST_MAX:
                     ui.label(t("console.mediasource.overflow",
-                            count=len(here["entries"]) - _LIST_MAX)) \
+                               count=len(entries) - _LIST_MAX)) \
                         .classes("console-help")
 
     def _trail(self, path: str) -> str:
@@ -439,9 +454,33 @@ class _OneFile(_Sources):
         self.accept = accept
         self.uploader: Any = None
         self._reading_note: Any = None
+        # The game whose own folder the host tab opens on, where there is one.
+        self.game_id = ""
 
     async def took(self, name: str, data: bytes) -> None:
         raise NotImplementedError
+
+    def starts(self) -> list[dict[str, Any]]:
+        return self.library.disk_starts(self.game_id)
+
+    def listing(self, path: str) -> dict[str, Any]:
+        return self.library.disk_listing(path, self.accept)
+
+    def fits(self, item: dict[str, Any]) -> bool:
+        """The listing is held to `accept` already."""
+        return True
+
+    def preview(self, path: str) -> str:
+        """Where the browser fetches a file to show it. A file the library reads from is
+        served to any Console; one elsewhere on the disk only to this device's own."""
+        inside = any(root.get("source") and PurePath(path).is_relative_to(root["path"])
+                     for root in self.browse_roots)
+        return (self.library.browsed_file_url(path) if inside
+                else self.library.disk_file_url(path))
+
+    async def contents(self, path: str) -> bytes:
+        """A listed file's bytes, read here."""
+        return await offload.io(self.library.disk_file, path, self.accept)
 
     def before(self) -> None:
         self.uploader = ui.upload(on_upload=self._arrived, on_begin_upload=self._reading,
@@ -537,15 +576,6 @@ class _Slot(_OneFile):
     def title(self) -> str:
         return t("console.mediasource.title_table" if self.table_id
                  else "console.mediasource.title_game", kind=self.label)
-
-    def starts(self) -> list[dict[str, Any]]:
-        return self.library.browse_roots(self.game_id)
-
-    def listing(self, path: str) -> dict[str, Any]:
-        return self.library.browse(path, self.target.lists)
-
-    def fits(self, item: dict[str, Any]) -> bool:
-        return self.target.fits(item)
 
     def opened(self, above: ui.column) -> None:
         async def start() -> None:
@@ -697,8 +727,11 @@ class _Slot(_OneFile):
 
     @on_page
     async def took(self, name: str, data: bytes) -> None:
-        if not await self.confirmed(name):
-            return
+        if await self.confirmed(name):
+            await self.place(name, data)
+
+    @on_page
+    async def place(self, name: str, data: bytes) -> None:
         try:
             await run.io_bound(self.target.place, self.game_id,
                                self.destination, self.kind, name, data)
@@ -711,20 +744,20 @@ class _Slot(_OneFile):
     def file_row(self, item: dict[str, Any]) -> None:
         @on_page
         async def take() -> None:
+            # Asked before the file is read: a video is hundreds of megabytes, and a
+            # replacement somebody declines should not have cost the read.
             if not await self.confirmed(item["name"]):
                 return
             try:
-                await run.io_bound(self.target.bring, self.game_id,
-                                   self.destination, self.kind, item["path"])
+                data = await self.contents(item["path"])
             except Exception as exc:
                 ui.notify(t("console.mediasource.import_failed"), caption=why(exc),
                           type="negative")
                 return
-            await self.finish(t("console.mediasource.label_saved", label=self.label))
+            await self.place(item["name"], data)
 
         current = item["path"] == self.current
-        self.candidate(self.library.browsed_file_url(item["path"]), item["name"],
-                       _size(item.get("size_bytes")),
+        self.candidate(self.preview(item["path"]), item["name"], "",
                        "" if current else self._in_use(item["name"]), take, current)
 
     def _in_use(self, name: str) -> str:
@@ -1384,25 +1417,18 @@ class _Image(_OneFile):
     def title(self) -> str:
         return t("console.mediasource.title_collection", kind=self.label)
 
-    def starts(self) -> list[dict[str, Any]]:
-        return self.library.browse_roots()
-
-    def fits(self, item: dict[str, Any]) -> bool:
-        return item.get("family") == "image"
-
     def file_row(self, item: dict[str, Any]) -> None:
         @on_page
         async def take() -> None:
             try:
-                data = await offload.io(self.library.browsed_file, item["path"])
+                data = await self.contents(item["path"])
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.mediasource.image_failed"), caption=why(exc),
                           type="negative")
                 return
             await self.took(item["name"], data)
 
-        candidates.row(self.library.browsed_file_url(item["path"]), item["name"],
-                       _size(item.get("size_bytes")), "", take)
+        candidates.row(self.preview(item["path"]), item["name"], "", "", take)
 
     async def games_tab(self, body: ui.column) -> None:
         body.clear()

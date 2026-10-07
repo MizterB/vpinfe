@@ -3,20 +3,26 @@ and a collection's image."""
 
 from __future__ import annotations
 
+import asyncio
 import mimetypes
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from common import i18n
+from nicegui import core, ui
+
+from common import i18n, service_errors
 from common.games.collections_service import IMAGE_EXTENSIONS
 from common.media_specs import IMAGE_FAMILY
 from console import mediasource
 from console.data import Library
+from tests.support import clicks
 
 LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None,
-                          import_media=None, asset_placements=None,
-                          asset_displaced_by=None, place_asset=None, import_asset=None)
+                          asset_placements=None, asset_displaced_by=None,
+                          place_asset=None)
 
 
 async def _nothing() -> None:
@@ -29,19 +35,6 @@ def _folder(kind: str) -> mediasource._Folder:
 
 
 class WhatFits(unittest.TestCase):
-    def test_an_asset_takes_a_file_with_its_own_extension_in_any_case(self) -> None:
-        target = mediasource._asset(LIBRARY, "pov")
-        self.assertEqual([True, True, False],
-                         [target.fits({"name": name}) for name in
-                          ("view.pov", "VIEW.POV", "view.png")])
-        self.assertFalse(target.online)
-
-    def test_media_takes_a_file_of_its_family(self) -> None:
-        target = mediasource._media(LIBRARY, "wheel")
-        self.assertEqual([True, False], [target.fits({"family": "image"}),
-                                         target.fits({"family": "video"})])
-        self.assertTrue(target.online)
-
     def test_a_folder_kind_takes_an_archive_or_a_file_of_any_kind_under_it(self) -> None:
         self.assertEqual([True, True, True, False],
                          [_folder("alt_color").fits({"name": name}) for name in
@@ -52,10 +45,13 @@ class WhatFits(unittest.TestCase):
                          [_folder("pup_pack").fits({"name": name}) for name in
                           ("afm pup.7z", "screen.mp4")])
 
-    def test_a_collection_image_takes_an_image(self) -> None:
+    def test_a_file_picker_lists_only_what_it_takes_so_every_row_it_lists_fits(self) -> None:
         image = mediasource._Image(LIBRARY, "Favorites", "Image", _nothing)
-        self.assertEqual([True, False], [image.fits({"family": "image"}),
-                                         image.fits({"family": "video"})])
+        slot = mediasource._Slot({"library": LIBRARY, "game_id": "game", "game": {},
+                                  "lens": "", "tables": []}, "pov", "Point of View",
+                                 _nothing, mediasource._asset(LIBRARY, "pov"))
+        self.assertEqual([True, True], [image.fits({"name": "any.png"}),
+                                        slot.fits({"name": "any.pov"})])
 
 
 class WhatThePickerOffers(unittest.TestCase):
@@ -181,6 +177,249 @@ class TheHostTab(unittest.TestCase):
         named = mediasource._host_name(library)
 
         self.assertEqual((named, client.discovery.call_count), ("Garage", 1))
+
+
+def _library() -> mock.Mock:
+    library = mock.Mock()
+    library.displaced_by.return_value = []
+    library.place_media.return_value = {}
+    library.disk_file.return_value = b"bytes"
+    library.browsed_file_url.side_effect = lambda path: f"/api/v1/filesystem/file?path={path}"
+    library.disk_file_url.side_effect = lambda path: f"/api/v1/folders/file?path={path}"
+    return library
+
+
+def _wheel_slot(library: mock.Mock) -> mediasource._Slot:
+    return mediasource._Slot({"library": library, "game_id": "game", "game": {},
+                              "lens": "", "tables": []},
+                             "wheel", "Wheel", _nothing, mediasource._media(library, "wheel"))
+
+
+async def _now(callback, *args, **kwargs):
+    return callback(*args, **kwargs)
+
+
+class WhatThePickerLooksAt(unittest.TestCase):
+    def test_it_lists_the_whole_machine_held_to_what_the_slot_takes(self) -> None:
+        library = _library()
+        library.disk_listing.return_value = {"path": "/x", "parent": "/", "entries": []}
+
+        found = _wheel_slot(library).listing("/x")
+
+        library.disk_listing.assert_called_once_with("/x", IMAGE_FAMILY)
+        self.assertEqual(found["path"], "/x")
+
+    def test_it_starts_where_the_library_does_and_then_the_rest_of_the_machine(self) -> None:
+        client = mock.Mock()
+        client.browse_roots.return_value = [
+            {"path": "/games/Afm", "name": "Afm", "source": "game"},
+            {"path": "/Volumes/share", "name": "Home", "source": "configured"}]
+        client.folders.return_value = {"roots": [{"path": "/", "name": "/"},
+                                                 {"path": "/Volumes/share", "name": "Home"}]}
+
+        starts = Library(client).disk_starts("game")
+
+        self.assertEqual(["/games/Afm", "/Volumes/share", "/"], [one["path"] for one in starts])
+        client.browse_roots.assert_called_once_with("game")
+
+    def test_folders_come_first_and_each_entry_says_which_it_is(self) -> None:
+        client = mock.Mock()
+        client.folders.return_value = {
+            "path": "/x", "parent": "/", "above": [], "roots": [],
+            "folders": [{"name": "sub", "path": "/x/sub"}],
+            "files": [{"name": "a.png", "path": "/x/a.png"}]}
+
+        found = Library(client).disk_listing("/x", (".png",))
+
+        self.assertEqual([("folder", "sub"), ("file", "a.png")],
+                         [(one["kind"], one["name"]) for one in found["entries"]])
+        client.folders.assert_called_once_with("/x", "file", (".png",))
+
+
+class WhereAFileIsShownFrom(unittest.TestCase):
+    def setUp(self) -> None:
+        self.slot = _wheel_slot(_library())
+        self.slot.browse_roots = [{"path": "/games/Afm", "name": "Afm", "source": "game"},
+                                  {"path": "/", "name": "/"}]
+
+    def test_a_file_in_a_library_folder_is_shown_from_the_route_any_console_can_use(
+            self) -> None:
+        self.assertEqual("/api/v1/filesystem/file?path=/games/Afm/medias/a.png",
+                         self.slot.preview("/games/Afm/medias/a.png"))
+
+    def test_a_file_anywhere_else_is_shown_from_the_route_for_this_device_only(self) -> None:
+        for path in ("/Volumes/share/a.png", "/games/Afm2/a.png"):
+            with self.subTest(path=path):
+                self.assertEqual(f"/api/v1/folders/file?path={path}", self.slot.preview(path))
+
+    def test_the_top_of_the_disk_is_not_a_library_folder(self) -> None:
+        self.assertTrue(self.slot.preview("/Volumes/share/a.png").startswith("/api/v1/folders/"))
+
+
+class ReadingAFileOnThisMachine(unittest.TestCase):
+    def setUp(self) -> None:
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.root = Path(self.dir.name).resolve()
+
+    def test_the_bytes_come_from_here_not_from_the_api(self) -> None:
+        (self.root / "view.pov").write_bytes(b"pov")
+        client = mock.Mock()
+
+        data = Library(client).disk_file(str(self.root / "view.pov"), (".pov",))
+
+        self.assertEqual(b"pov", data)
+        self.assertEqual([], client.mock_calls)
+
+    def test_another_kind_of_file_is_refused(self) -> None:
+        (self.root / "view.png").write_bytes(b"png")
+
+        with self.assertRaises(service_errors.RefusedError):
+            Library(mock.Mock()).disk_file(str(self.root / "view.png"), (".pov",))
+
+    def test_a_file_in_a_private_folder_is_refused(self) -> None:
+        (self.root / ".ssh").mkdir()
+        (self.root / ".ssh" / "key.pov").write_bytes(b"key")
+
+        with mock.patch("common.folder_browse.Path.home", return_value=self.root), \
+                self.assertRaises(service_errors.RefusedError):
+            Library(mock.Mock()).disk_file(str(self.root / ".ssh" / "key.pov"), (".pov",))
+
+
+class TakingAFileFromTheDisk(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.library = _library()
+        self.slot = _wheel_slot(self.library)
+        self.finished = mock.AsyncMock()
+        self.said = mock.Mock()
+        for patched in (mock.patch("console.offload.run.io_bound", new=_now),
+                        mock.patch.object(self.slot, "finish", new=self.finished),
+                        mock.patch.object(mediasource.ui, "notify", new=self.said),
+                        mock.patch.object(mediasource.candidates, "row")):
+            patched.start()
+            self.addCleanup(patched.stop)
+
+    async def _take(self, name: str = "art.png", path: str = "/Volumes/share/art.png") -> None:
+        self.slot.file_row({"name": name, "path": path})
+        take = mediasource.candidates.row.call_args.args[4]
+        await clicks.press(take)
+
+    async def test_the_file_is_read_here_and_placed_as_bytes_under_its_name(self) -> None:
+        with mock.patch.object(mediasource.confirm, "replace",
+                               new=mock.AsyncMock(return_value=True)):
+            await self._take()
+
+        self.library.disk_file.assert_called_once_with("/Volumes/share/art.png", IMAGE_FAMILY)
+        self.library.place_media.assert_called_once_with("game", "", "wheel", "art.png",
+                                                         b"bytes")
+        self.finished.assert_awaited_once()
+
+    async def test_a_replacement_somebody_declines_costs_no_read_and_no_write(self) -> None:
+        self.library.displaced_by.return_value = ["medias/old.png"]
+
+        with mock.patch.object(mediasource.confirm, "replace",
+                               new=mock.AsyncMock(return_value=False)):
+            await self._take()
+
+        self.library.disk_file.assert_not_called()
+        self.library.place_media.assert_not_called()
+        self.finished.assert_not_awaited()
+
+    async def test_a_file_that_cannot_be_read_is_said_and_nothing_is_written(self) -> None:
+        self.library.disk_file.side_effect = service_errors.RefusedError("not for this slot")
+
+        await self._take()
+
+        self.said.assert_called_once()
+        self.assertEqual("negative", self.said.call_args.kwargs["type"])
+        self.library.place_media.assert_not_called()
+        self.finished.assert_not_awaited()
+
+    async def test_a_collection_image_reads_the_same_way_and_hands_over_name_and_bytes(
+            self) -> None:
+        image = mediasource._Image(self.library, "Favorites", "Image", _nothing)
+        taken = mock.AsyncMock()
+        with mock.patch.object(image, "took", new=taken):
+            image.file_row({"name": "art.png", "path": "/Volumes/share/art.png"})
+            await clicks.press(mediasource.candidates.row.call_args.args[4])
+
+        self.library.disk_file.assert_called_once_with("/Volumes/share/art.png", image.accept)
+        taken.assert_awaited_once_with("art.png", b"bytes")
+
+
+def _folder_of(count: int) -> dict:
+    sessions = [{"kind": "folder", "name": f"session-{n:03}", "path": f"/x/session-{n:03}"}
+                for n in range(count)]
+    return {"path": "/x", "parent": "/", "entries": [
+        *sessions,
+        {"kind": "folder", "name": "Outside-Art", "path": "/x/Outside-Art"},
+        {"kind": "file", "name": "Wheel Art.png", "path": "/x/Wheel Art.png"}]}
+
+
+class AFolderLongerThanTheListIsNarrowedByName(unittest.TestCase):
+    """Whole-disk browsing meets folders of hundreds, and what the list cuts off has
+    to stay reachable."""
+
+    def _drawn(self, wanted: str) -> tuple[list[str], list[str]]:
+        slot = _wheel_slot(_library())
+        slot.here = _folder_of(200)
+        slot.narrow = SimpleNamespace(value=wanted)
+        names: list[str] = []
+        with mock.patch.object(slot, "_folder_link",
+                               new=lambda name, *_a, up=False: up or names.append(name)), \
+                mock.patch.object(slot, "file_row",
+                                  new=lambda item: names.append(item["name"])):
+            with ui.column() as listing:
+                slot._draw_folder(listing)
+        notes = [one.text for one in listing.descendants() if isinstance(one, ui.label)]
+        return names, notes
+
+    def test_without_a_filter_the_list_is_cut_and_says_how_much(self) -> None:
+        names, notes = self._drawn("")
+
+        self.assertEqual((60, ["142 more not shown"]), (len(names), notes))
+        self.assertNotIn("Outside-Art", names)
+
+    def test_a_filter_reaches_what_the_cut_left_out(self) -> None:
+        names, notes = self._drawn("outside")
+
+        self.assertEqual((["Outside-Art"], []), (names, notes))
+
+    def test_a_filter_matches_files_and_ignores_case_and_edge_spaces(self) -> None:
+        names, _ = self._drawn("  WHEEL art ")
+
+        self.assertEqual(["Wheel Art.png"], names)
+
+    def test_a_filter_that_matches_nothing_says_so(self) -> None:
+        names, notes = self._drawn("zzz")
+
+        self.assertEqual(([], ["Nothing here"]), (names, notes))
+
+
+class OpeningAFolderUnderAFilter(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        # Built here because a coroutine has no slot to put an element in.
+        self.slot = _wheel_slot(_library())
+        self.slot.browse_roots = []
+        self.slot.listing = lambda path: {
+            "path": path, "parent": "/",
+            "entries": [{"kind": "file", "name": name, "path": f"{path}/{name}"}
+                        for name in ("a.png", "b.png")]}
+        with ui.column() as self.listing:
+            self.slot.narrow = ui.input(value="b")
+        self.slot.narrow.on_value_change(lambda: self.slot._draw_folder(self.listing))
+
+    async def test_the_filter_clears_and_the_new_folder_is_drawn_once_in_full(self) -> None:
+        drawn: list[str] = []
+        self.enterContext(mock.patch.object(core, "loop", asyncio.get_running_loop()))
+        self.enterContext(mock.patch("console.offload.run.io_bound", new=_now))
+        self.enterContext(mock.patch.object(self.slot, "_folder_link"))
+        self.enterContext(mock.patch.object(
+            self.slot, "file_row", new=lambda item: drawn.append(item["name"])))
+
+        await self.slot._show_folder(self.listing, "/y")
+
+        self.assertEqual(("", ["a.png", "b.png"]), (self.slot.narrow.value, drawn))
 
 
 if __name__ == "__main__":

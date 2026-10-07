@@ -46,7 +46,9 @@ BUDGET = {
     "games.py": (1, "a tick per column in the column picker, a menu rather than a fact "
                     "row. The view picker is `panel.DescribedSelect`, which is where a "
                     "picker whose options explain themselves lives"),
-    "mediasource.py": (1, "a search, toolbar"),
+    "mediasource.py": (2, "a search, toolbar; and the filter above the folder a file is "
+                          "picked from, a toolbar box like the folder picker's, since a "
+                          "folder on the whole disk is longer than the list drawn"),
     "launchers.py": (2, "checkboxes in the copy-to-device dialog"),
     "about.py": (1, "the textarea a browser that will not copy falls back to"),
     "placement_panel.py": (1, "the textarea that shows the one line to copy into a "

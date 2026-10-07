@@ -12,6 +12,11 @@ from pathlib import Path
 
 from common import service_errors
 from common.i18n import t
+from common.media_specs import AUDIO_FAMILY, IMAGE_FAMILY, VIDEO_FAMILY
+
+# What a picker may look at before taking a file: the media a slot holds, and nothing
+# else this route could be asked for.
+_SHOWN = IMAGE_FAMILY + VIDEO_FAMILY + AUDIO_FAMILY
 
 # Relative to home, so each resolves under whatever account runs VPinFE.
 _PRIVATE_COMMON: tuple[str, ...] = (
@@ -64,10 +69,16 @@ def _private_roots() -> tuple[Path, ...]:
                  if (candidate := home / rel).exists())
 
 
+def _comparable(path: Path) -> Path:
+    """`resolve()` keeps the case it was given, and a macOS volume reads `.SSH` as `.ssh`.
+    Windows paths already compare without case."""
+    return Path(str(path).casefold()) if sys.platform == "darwin" else path
+
+
 def _is_private(path: Path, private: tuple[Path, ...]) -> bool:
     """Resolved, so a symlink into one of these cannot read as outside it."""
-    resolved = path.resolve()
-    return any(resolved.is_relative_to(root) for root in private)
+    resolved = _comparable(path.resolve())
+    return any(resolved.is_relative_to(_comparable(root)) for root in private)
 
 
 def _is_bundle(path: Path) -> bool:
@@ -225,6 +236,39 @@ def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
     folders, files = _entries(here, private, kind, suffixes, hidden)
     return {"path": str(here), "parent": "" if parent == here else str(parent),
             "above": _above(here), "folders": folders, "files": files, "roots": _roots(kind)}
+
+
+def _on_this_device(path: str) -> Path:
+    """The file `path` names once links are followed, or a refusal.
+
+    Every check is on what the path resolves to: a link called `cover.png` that points at
+    a key or a document is judged as the key or the document.
+    """
+    try:
+        here = Path(os.path.abspath(os.path.expanduser(path))).resolve()
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise service_errors.RefusedError(t("error.filesystem.path_unreadable")) from exc
+    if _is_private(here, _private_roots()):
+        raise service_errors.RefusedError(t("error.folders.private"))
+    if not here.is_file():
+        raise service_errors.NotFoundError(t("error.folders.no_file"))
+    return here
+
+
+def media_file(path: str) -> Path:
+    """One image, video or sound on this device to look at, or a refusal."""
+    here = _on_this_device(path)
+    if here.suffix.lower() not in _SHOWN:
+        raise service_errors.RefusedError(t("error.filesystem.not_media"))
+    return here
+
+
+def file_of_kind(path: str, suffixes: tuple[str, ...]) -> Path:
+    """One file on this device to take, held to the extensions a slot accepts."""
+    here = _on_this_device(path)
+    if here.suffix.lower() not in tuple(one.lower() for one in suffixes):
+        raise service_errors.RefusedError(t("error.folders.wrong_kind"))
+    return here
 
 
 def make_folder(parent: str, name: str) -> dict:

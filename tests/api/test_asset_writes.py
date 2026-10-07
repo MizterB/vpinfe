@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+from starlette.datastructures import UploadFile
 from starlette.testclient import TestClient
 
 import httpapi
@@ -173,6 +174,44 @@ class AssetWrites(TempTree):
 
         self.assertEqual("AFM VR.pov", said["written"])
         self.assertTrue(elsewhere.exists(), "copied, not moved")
+
+    def test_the_bytes_of_a_file_go_in_as_the_path_of_it_does(self) -> None:
+        """A picker reads the file here and sends it; the result is what importing the
+        path gave, so choosing between the two changes nothing the person sees."""
+        elsewhere = self.root / "downloads" / "AFM.pov"
+        elsewhere.parent.mkdir()
+        elsewhere.write_bytes(b"pov")
+        landed = self.folder / "AFM VR.pov"
+        outcomes = []
+        for how in ("import", "bytes"):
+            with patch("common.games.media_browse.within_roots", return_value=elsewhere):
+                if how == "import":
+                    said = self.client.post(f"/games/{GAME_ID}/assets/pov/import",
+                                            json={"path": str(elsewhere), "table": "vr"})
+                else:
+                    said = self._put("pov", elsewhere.name, elsewhere.read_bytes(), "vr")
+            outcomes.append((said.status_code, said.json(), landed.read_bytes(),
+                             asset_origin.origin_of(asset_origin.ledger(self.folder),
+                                                    self.folder, landed)))
+            landed.unlink()
+
+        self.assertEqual(outcomes[0], outcomes[1])
+
+    def test_a_large_upload_is_written_in_pieces_rather_than_read_whole(self) -> None:
+        size = 3 * 1024 * 1024
+        reads: list[int] = []
+        real = UploadFile.read
+
+        async def counted(upload, size: int = -1):
+            reads.append(size)
+            return await real(upload, size)
+
+        with patch.object(UploadFile, "read", counted):
+            said = self._put("ini", "settings.ini", b"x" * size, "vr")
+
+        self.assertEqual(200, said.status_code)
+        self.assertEqual(size, (self.folder / "AFM VR.ini").stat().st_size)
+        self.assertEqual([], reads, "the whole body was read into memory")
 
     def test_removing_takes_the_one_file(self) -> None:
         response = self.client.delete(f"/games/{GAME_ID}/assets",

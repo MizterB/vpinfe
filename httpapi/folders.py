@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Query, Request
+from starlette.responses import FileResponse
 
 from common import folder_browse
 from common.i18n import t
@@ -25,6 +26,20 @@ def list_folders(request: Request, path: str = Query(""), kind: str = Query("dir
         raise ForbiddenError(t("error.folders.this_device_only"))
     return models.FolderListing.model_validate(
         folder_browse.listing(path, kind, tuple(suffix), hidden))
+
+
+@router.get("/file", summary="One image, video or sound on this device",
+            dependencies=[requires(scopes.CONFIG_WRITE)])
+def get_file(request: Request, path: str = Query(...)) -> FileResponse:
+    """The file itself, so a picker can show it before it is taken and then take it.
+
+    The listing above is the whole disk, so this is held to media by extension: without
+    that it would read any file the listing could name. `/filesystem/file` is the bounded
+    one for API clients.
+    """
+    if not caller_is_local(request):
+        raise ForbiddenError(t("error.folders.this_device_only"))
+    return FileResponse(folder_browse.media_file(path))
 
 
 @router.post("", summary="Make a folder on this device",

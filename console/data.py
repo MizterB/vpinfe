@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterable
 from typing import Any
 
+from common import folder_browse
 from common.games.asset_registry import ASSET_SPECS, lens_kind
 from common.i18n import t
 from common.labels import field_label
@@ -323,17 +324,32 @@ class Library:
     def browsed_file_url(self, path: str) -> str:
         return self._client.browsed_file_url(path)
 
-    def browsed_file(self, path: str) -> bytes:
-        return self._client.browsed_file(path)
+    def disk_file_url(self, path: str) -> str:
+        return self._client.disk_file_url(path)
+
+    def disk_starts(self, game_id: str = "") -> list[dict]:
+        """Where a picker over this machine may begin: the places the library reads from,
+        then this machine's own roots. A root the library already named keeps its name."""
+        library = self._client.browse_roots(game_id)
+        named = {item["path"] for item in library}
+        return library + [one for one in self._client.folders()["roots"]
+                          if one["path"] not in named]
+
+    def disk_listing(self, path: str, suffixes: Iterable[str]) -> dict:
+        """One folder on this machine as `browse` answers: folders, then the files that
+        end in `suffixes`."""
+        found = self._client.folders(path, "file", suffixes)
+        return {"path": found["path"], "parent": found["parent"],
+                "entries": [{"kind": "folder", **one} for one in found["folders"]]
+                           + [{"kind": "file", **one} for one in found["files"]]}
+
+    def disk_file(self, path: str, suffixes: Iterable[str]) -> bytes:
+        """A file on this machine, for a write that takes the bytes rather than the path.
+        Read here, not asked of the API: the API is never handed a path to trust."""
+        return folder_browse.file_of_kind(path, tuple(suffixes)).read_bytes()
 
     def media_file(self, game_id: str, table_id: str | None, kind: str) -> tuple[bytes, str]:
         return self._client.media_file(game_id, table_id or "", kind)
-
-    def import_media(self, game_id: str, table_id: str | None, kind: str,
-                     path: str) -> dict:
-        result = self._client.import_media(game_id, table_id or "", kind, path)
-        self.forget_media(game_id)
-        return result
 
     def media_sources(self) -> list[dict]:
         return self._client.media_sources()
@@ -395,12 +411,6 @@ class Library:
     def place_asset(self, game_id: str, table_id: str, kind: str,
                     filename: str, data: bytes) -> dict:
         result = self._client.place_asset(game_id, table_id, kind, filename, data)
-        self._forget_tables(game_id)
-        return result
-
-    def import_asset(self, game_id: str, table_id: str | None, kind: str,
-                     path: str) -> dict:
-        result = self._client.import_asset(game_id, table_id or "", kind, path)
         self._forget_tables(game_id)
         return result
 

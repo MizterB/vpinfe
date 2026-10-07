@@ -24,7 +24,8 @@ _TIMEOUT = 15
 # has gone idle the scan outlasts _TIMEOUT. Reads of one thing keep _TIMEOUT.
 _LIBRARY_TIMEOUT = 120
 # An import copies files, which is disk work rather than a question - a pup pack is
-# gigabytes and the default would give up on it partway through.
+# gigabytes and the default would give up on it partway through. Sending a file's
+# bytes shares it.
 _IMPORT_TIMEOUT = 900
 # Three of the event stream's 15-second keepalives. An install that goes away without
 # closing the connection is otherwise waited on forever.
@@ -660,13 +661,10 @@ class ApiClient:
         """Where the browser can fetch a file it is showing, so it can be looked at."""
         return "/api/v1/filesystem/file?" + urlencode({"path": path})
 
-    def browsed_file(self, path: str) -> bytes:
-        """A browsed file's bytes, for a write that takes the file rather than its path."""
-        route = "/filesystem/file?" + urlencode({"path": path})
-        _refuse_the_event_loop(route)
-        response = self._session.get(f"{self._base}{route}", timeout=_TIMEOUT)
-        self._answered(response)
-        return response.content
+    def disk_file_url(self, path: str) -> str:
+        """Where the browser fetches a file anywhere on this device, to look at it.
+        Loopback only: a Console opened from another computer is refused."""
+        return "/api/v1/folders/file?" + urlencode({"path": path})
 
     def media_file(self, game_id: str, table_id: str, kind: str) -> tuple[bytes, str]:
         """The file a slot resolves to, and the content type it is served as."""
@@ -675,11 +673,6 @@ class ApiClient:
         response = self._session.get(f"{self._base}{route}", timeout=_TIMEOUT)
         self._answered(response)
         return response.content, response.headers.get("content-type", "")
-
-    def import_media(self, game_id: str, table_id: str, kind: str, path: str) -> dict:
-        """Copy a file from elsewhere on this machine into the slot."""
-        return self._post(f"/games/{game_id}/media/{kind}/import",
-                          {"path": path, "table": table_id or ""})
 
     def media_sources(self) -> list[dict]:
         """The online catalogs this install knows, and which are being asked."""
@@ -737,7 +730,8 @@ class ApiClient:
         path = self._media_path(game_id, table_id, kind)
         _refuse_the_event_loop(path)
         response = self._session.put(f"{self._base}{path}",
-                                     files={"file": (filename, data)}, timeout=_TIMEOUT)
+                                     files={"file": (filename, data)},
+                                     timeout=_IMPORT_TIMEOUT)
         self._answered(response)
         return response.json()
 
@@ -763,13 +757,10 @@ class ApiClient:
         path = self._asset_path(game_id, table_id, kind)
         _refuse_the_event_loop(path)
         response = self._session.put(f"{self._base}{path}",
-                                     files={"file": (filename, data)}, timeout=_TIMEOUT)
+                                     files={"file": (filename, data)},
+                                     timeout=_IMPORT_TIMEOUT)
         self._answered(response)
         return response.json()
-
-    def import_asset(self, game_id: str, table_id: str, kind: str, path: str) -> dict:
-        return self._post(f"/games/{game_id}/assets/{kind}/import",
-                          {"path": path, "table": table_id or ""})
 
     def remove_asset(self, game_id: str, path: str) -> dict:
         route = f"/games/{game_id}/assets"

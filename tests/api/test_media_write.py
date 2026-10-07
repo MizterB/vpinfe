@@ -91,6 +91,33 @@ class MediaWriteTests(TempTree):
             f"/games/{GAME_ID}/tables/tbl0000002/media").json()["media"]["playfield"]
         self.assertEqual(vr["via"], "table")
 
+    def test_the_bytes_of_a_file_go_in_as_the_path_of_it_does(self) -> None:
+        """A picker reads the file here and sends it; the result is what importing the
+        path gave, so choosing between the two changes nothing the person sees."""
+        source = self.root / "downloads" / "art.png"
+        source.parent.mkdir()
+        source.write_bytes(b"\x89PNGsource")
+        landed = self.folder / "medias" / f"(Wheel) {FOLDER} - VR.png"
+        outcomes = []
+        for how in ("import", "bytes"):
+            if how == "import":
+                with patch("common.games.media_browse.within_roots", return_value=source):
+                    answer = self.client.post(f"/games/{GAME_ID}/media/wheel/import",
+                                              json={"path": str(source),
+                                                    "table": "tbl0000002"})
+            else:
+                answer = self.client.put(
+                    f"/games/{GAME_ID}/tables/tbl0000002/media/wheel",
+                    files={"file": (source.name, source.read_bytes(), "image/png")})
+            body = answer.json()
+            # A stamp of the file's modified time, which differs between two writes.
+            body["media"]["wheel"].pop("version")
+            outcomes.append((answer.status_code, body, landed.read_bytes(),
+                             landed.stat().st_mode))
+            landed.unlink()
+
+        self.assertEqual(outcomes[0], outcomes[1])
+
     def test_a_write_records_who_placed_it(self) -> None:
         entry = self.client.put(f"/games/{GAME_ID}/media/wheel",
                                 files=_png()).json()["media"]["wheel"]
