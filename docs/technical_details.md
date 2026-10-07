@@ -168,7 +168,6 @@ Runtime state written by VPinFE, not shown as a setting.
 | `registries` | list | `https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json` | Theme Lists, most trusted first. Only themes from the VPinFE Theme List are installed on their own. |
 | `repositories` | list |  | Single Themes, one repository each. They come before the Theme Lists. None is installed on its own. |
 | `refresh` | choice (never, daily, weekly, monthly) | `daily` | How often to check for new themes and updates |
-| `last_read` | string |  |  |
 
 ### `logger`
 
@@ -209,8 +208,6 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `last` | string |  |  |
-| `checked` | string |  |  |
 | `games_updated_to` | string |  |  |
 | `art_checked` | string |  |  |
 
@@ -222,15 +219,6 @@ Runtime state written by VPinFE, not shown as a setting.
 | --- | --- | --- | --- |
 | `last_table` | string |  |  |
 | `last_collection` | string |  |  |
-
-### `pinmame_score_parser`
-
-Runtime state written by VPinFE, not shown as a setting.
-
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `roms_update_sha` | string |  |  |
-| `roms_checked` | string |  |  |
 
 ### `network`
 

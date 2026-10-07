@@ -8,8 +8,7 @@ from pathlib import Path
 
 import requests
 
-from common.config_access import cfg_get, cfg_set
-from common.config_store import ConfigStore
+from common import cache_stamps
 from common.http_client import get_bytes, get_json, get_text
 
 logger = logging.getLogger("vpinfe.common.online.vpsdb_cache")
@@ -31,14 +30,12 @@ class VPSDatabaseCache:
     def __init__(
         self,
         cache_dir: Path,
-        iniconfig: ConfigStore,
         *,
         db_url: str,
         last_update_url: str,
         filename: str = "vpsdb.json",
     ) -> None:
         self.cache_dir = cache_dir
-        self.iniconfig = iniconfig
         self.db_url = db_url
         self.last_update_url = last_update_url
         self.path = cache_dir / filename
@@ -58,13 +55,12 @@ class VPSDatabaseCache:
             return None
 
     def _update_if_needed(self, version: str) -> None:
-        current = (cfg_get(self.iniconfig, "vpsdb", "last", "") or "").strip()
+        current = cache_stamps.get("vpsdb", "version")
         if self.path.exists() and not is_newer(version, current):
             logger.info("VPSdb currently at latest revision.")
             return
         if self.download_db():
-            cfg_set(self.iniconfig, "vpsdb", "last", version)
-            self.iniconfig.save()
+            cache_stamps.put("vpsdb", version=version)
 
     def download_db(self) -> bool:
         try:

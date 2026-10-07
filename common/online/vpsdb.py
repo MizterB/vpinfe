@@ -96,7 +96,6 @@ class VPSdb:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         self._cache = VPSDatabaseCache(
             CACHE_DIR,
-            self._vpinfe_config_store,
             db_url=VPSdb.VPS_DB_URL,
             last_update_url=VPSdb.VPS_LAST_UPDATE_URL,
         )

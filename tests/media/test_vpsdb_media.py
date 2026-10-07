@@ -1,4 +1,3 @@
-import configparser
 import hashlib
 import json
 import unittest
@@ -8,6 +7,7 @@ from unittest import mock
 
 import requests
 
+from common import cache_stamps
 from common.games import asset_origin
 from common.online.vpsdb_cache import VPSDatabaseCache
 from common.online.vpsdb_media import (
@@ -17,6 +17,7 @@ from common.online.vpsdb_media import (
     published_url,
 )
 from tests.support.library import fake_game
+from tests.support.stamps import OwnStamps
 
 
 def _md5(data: bytes) -> str:
@@ -344,16 +345,7 @@ class RecordingTests(unittest.TestCase):
                 str(root / "medias" / "wheel.png"), "vpinmediadb", _md5(OURS))
 
 
-class _FakeIni:
-    def __init__(self) -> None:
-        self.config = configparser.ConfigParser()
-        self.saved = False
-
-    def save(self) -> None:
-        self.saved = True
-
-
-class VpsCacheTests(unittest.TestCase):
+class VpsCacheTests(OwnStamps):
     def test_vps_cache_loads_local_list_without_network_version(self) -> None:
         with TemporaryDirectory() as tmp:
             config_dir = Path(tmp)
@@ -363,7 +355,6 @@ class VpsCacheTests(unittest.TestCase):
             )
             cache = VPSDatabaseCache(
                 config_dir,
-                _FakeIni(),
                 db_url="https://example.invalid/db.json",
                 last_update_url="https://example.invalid/last.json",
             )
@@ -372,11 +363,10 @@ class VpsCacheTests(unittest.TestCase):
                 self.assertEqual(cache.ensure_current(), [{"id": "vps-1", "name": "Example"}])
 
     def _cache(self, tmp: str, held: str | None = None) -> VPSDatabaseCache:
-        ini = _FakeIni()
         if held is not None:
-            ini.config.read_dict({"vpsdb": {"last": held}})
+            cache_stamps.put("vpsdb", version=held)
         (Path(tmp) / "vpsdb.json").write_text("[]", encoding="utf-8")
-        return VPSDatabaseCache(Path(tmp), ini, db_url="https://example.invalid/db.json",
+        return VPSDatabaseCache(Path(tmp), db_url="https://example.invalid/db.json",
                                 last_update_url="https://example.invalid/last.json")
 
     def test_a_failed_download_leaves_the_held_version(self) -> None:
@@ -387,8 +377,7 @@ class VpsCacheTests(unittest.TestCase):
             with mock.patch("common.online.vpsdb_cache.get_bytes",
                             side_effect=requests.ConnectionError("offline")):
                 cache._update_if_needed("2000")
-            self.assertEqual(cache.iniconfig.config.get("vpsdb", "last"), "1000")
-            self.assertFalse(cache.iniconfig.saved)
+            self.assertEqual(cache_stamps.get("vpsdb", "version"), "1000")
 
     def test_versions_compare_as_numbers(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -397,7 +386,7 @@ class VpsCacheTests(unittest.TestCase):
                             return_value=b"[]") as fetched:
                 cache._update_if_needed("1000")
             fetched.assert_called_once()
-            self.assertEqual(cache.iniconfig.config.get("vpsdb", "last"), "1000")
+            self.assertEqual(cache_stamps.get("vpsdb", "version"), "1000")
 
     def test_the_held_version_is_not_downloaded_again(self) -> None:
         with TemporaryDirectory() as tmp:

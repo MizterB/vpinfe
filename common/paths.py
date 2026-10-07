@@ -84,6 +84,7 @@ UPDATE_CHECK_PATH = CACHE_DIR / "update.json"
 FRONTEND_BROWSER_PATH = CACHE_DIR / "frontend_browser.json"
 COMMUNITY_KEPT_DIR = CACHE_DIR / "community"
 VPSDB_PATH = CACHE_DIR / "vpsdb.json"
+STAMPS_PATH = CACHE_DIR / "stamps.json"
 PLUGIN_PROFILES_DIR = CONFIG_DIR / "plugin_profiles"
 UPDATES_DIR = CONFIG_DIR / "updates"
 USER_CONFIG_PATH = VPINFE_INI_PATH

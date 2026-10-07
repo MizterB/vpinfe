@@ -13,15 +13,18 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from common import jobs, timestamps
+from common import cache_stamps, jobs, timestamps
 from common.online import vpsdb_sync
+from tests.support.stamps import OwnStamps
 
 
-def _config(download: str = "", **vpsdb: str) -> configparser.ConfigParser:
-    """`download` is the schedule a person sets; the rest is what the sync writes."""
+def _config(download: str = "", **stamps: str) -> configparser.ConfigParser:
+    """`download` is the schedule a person sets; `checked` and `last` (the version held)
+    are what the sync keeps beside the catalog."""
     parser = configparser.ConfigParser()
-    parser.read_dict({"updates": {"download_spreadsheet": download} if download else {},
-                      "vpsdb": vpsdb})
+    parser.read_dict({"updates": {"download_spreadsheet": download} if download else {}})
+    cache_stamps.put("vpsdb", **{{"last": "version"}.get(key, key): value
+                                 for key, value in stamps.items()})
     return parser
 
 
@@ -30,7 +33,7 @@ def _ago(seconds: float) -> str:
     return timestamps.epoch_to_iso(now - seconds)
 
 
-class DueTests(unittest.TestCase):
+class DueTests(OwnStamps):
     def test_never_checked_is_due(self) -> None:
         """A fresh install holding no catalog should not wait a day for one."""
         self.assertTrue(vpsdb_sync.due(_config(download="daily")))
@@ -56,7 +59,7 @@ class DueTests(unittest.TestCase):
         self.assertFalse(vpsdb_sync.due(_config(download="hourly")))
 
 
-class SyncTests(unittest.TestCase):
+class SyncTests(OwnStamps):
     def test_not_due_does_not_download(self) -> None:
         config = _config(download="daily", checked=_ago(60))
         with patch("common.games.game_service.ensure_vpsdb_downloaded") as fetch:
@@ -92,14 +95,15 @@ class SyncTests(unittest.TestCase):
                    return_value=False):
             vpsdb_sync.sync(config, force=True)
 
-        self.assertTrue(vpsdb_sync.checked_at(config))
+        self.assertTrue(vpsdb_sync.checked_at())
         self.assertFalse(vpsdb_sync.due(config))
 
 
-class EnsureCatalogTests(unittest.TestCase):
+class EnsureCatalogTests(OwnStamps):
     """A read with new games to match gets a catalog when there is none on disk."""
 
     def setUp(self) -> None:
+        super().setUp()
         held = tempfile.TemporaryDirectory()
         self.addCleanup(held.cleanup)
         self.catalog = Path(held.name) / "vpsdb.json"

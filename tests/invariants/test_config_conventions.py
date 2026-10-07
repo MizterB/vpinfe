@@ -104,12 +104,14 @@ class CompatibilityTests(unittest.TestCase):
 
         `Displays` and `Input` are exempt: their keys moved one at a time and carry
         their own `legacy` pairs, so neither section name outlives the move.
+        `pinmame-score-parser` held only cache stamps, which are no longer settings.
         """
         moved_per_key = {"Displays", "Input"}
+        left_with_the_cache = {"pinmame-score-parser"}
         declared = {option.section for option in config_schema.options()}
 
         stale = sorted(section for section in TWO_X_SECTIONS
-                       if section not in moved_per_key
+                       if section not in moved_per_key | left_with_the_cache
                        and config_schema.canonical_section(section) not in declared)
 
         self.assertEqual(stale, [], "add it to SECTION_RENAMES, or move its keys one at "

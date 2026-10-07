@@ -125,7 +125,7 @@ def sync_state() -> dict[str, Any]:
 
     config = get_ini_config()
     return {"schedule": vpsdb_sync.schedule(config),
-            "checked": vpsdb_sync.checked_at(config),
+            "checked": vpsdb_sync.checked_at(),
             "due": vpsdb_sync.due(config),
             "entries": len(load_vpsdb())}
 

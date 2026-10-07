@@ -5,13 +5,16 @@ from __future__ import annotations
 import json
 import unittest
 from configparser import ConfigParser
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import timestamps
+from common import cache_stamps, timestamps
 from common.online import theme_dates, theme_ops, theme_sync
 from common.online.theme_releases import Release
 from common.online.themes import ThemeRegistry
 from tests.support.library import TempTree
+from tests.support.stamps import OwnStamps
 
 
 def _registry(updated: str = "", ref: str = "HEAD") -> ThemeRegistry:
@@ -111,7 +114,7 @@ class TheListHeldInMemory(TempTree):
         for target, value in (("common.online.theme_ops.THEME_CACHE_PATH",
                                self.root / "cache" / "themes.json"),
                               ("common.online.theme_ops._sources_now", lambda: self.sources),
-                              ("common.online.theme_ops.theme_sync.stamp", lambda config: None),
+                              ("common.online.theme_ops.theme_sync.stamp", lambda: None),
                               ("common.online.theme_ops.get_ini_config", ConfigParser),
                               ("common.online.theme_ops.theme_service.load_registry",
                                self._read)):
@@ -155,12 +158,23 @@ class TheListHeldInMemory(TempTree):
         self.assertEqual(self.sources, kept["sources"])
 
 
-class TheSchedule(unittest.TestCase):
+class TheSchedule(OwnStamps):
+    def setUp(self) -> None:
+        super().setUp()
+        held = TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.themes = Path(held.name) / "themes.json"
+        self.themes.write_text("{}", encoding="utf-8")
+        patcher = patch("common.online.theme_sync.THEME_CACHE_PATH", self.themes)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def _config(self, refresh: str, checked: str = "") -> ConfigParser:
         config = ConfigParser()
         config.add_section(theme_sync.SECTION)
         config.set(theme_sync.SECTION, "refresh", refresh)
-        config.set(theme_sync.SECTION, "last_read", checked)
+        if checked:
+            cache_stamps.put(theme_sync.SECTION, read=checked)
         return config
 
     def test_never_read_is_due_and_never_is_not(self) -> None:
@@ -173,6 +187,13 @@ class TheSchedule(unittest.TestCase):
         config = self._config("daily", stamp)
         self.assertFalse(theme_sync.due(config, now=was + 3600))
         self.assertTrue(theme_sync.due(config, now=was + 86400))
+
+    def test_a_list_that_is_gone_is_due_however_recently_it_was_read(self) -> None:
+        stamp = "2026-09-20T12:00:00Z"
+        was = timestamps.iso_to_epoch(stamp) or 0
+        config = self._config("daily", stamp)
+        self.themes.unlink()
+        self.assertTrue(theme_sync.due(config, now=was + 3600))
 
 
 if __name__ == "__main__":

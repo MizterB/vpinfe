@@ -17,7 +17,7 @@ import threading
 from collections.abc import Callable
 from datetime import timedelta
 
-from common import jobs, timestamps
+from common import cache_stamps, jobs, timestamps
 from common.config_access import cfg_bool, cfg_get
 from common.config_store import ConfigStore
 from common.i18n import t
@@ -43,9 +43,9 @@ def schedule(config: ConfigStore, key: str = "download_spreadsheet",
     return (cfg_get(config, SCHEDULES, key, default) or default).strip().lower()
 
 
-def checked_at(config: ConfigStore) -> str:
+def checked_at() -> str:
     """When the catalog was last asked, ISO 8601 UTC, or "" if it never has been."""
-    return (cfg_get(config, SECTION, "checked", "") or "").strip()
+    return cache_stamps.get(SECTION, "checked")
 
 
 def due(config: ConfigStore, now: float | None = None) -> bool:
@@ -57,7 +57,7 @@ def due(config: ConfigStore, now: float | None = None) -> bool:
     wanted = schedule(config)
     if wanted == NEVER or wanted not in EVERY:
         return False
-    was = timestamps.iso_to_epoch(checked_at(config))
+    was = timestamps.iso_to_epoch(checked_at())
     if was is None:
         return True
     moment = timestamps.iso_to_epoch(timestamps.utc_now_iso()) if now is None else now
@@ -69,7 +69,7 @@ def adopt_due(config: ConfigStore) -> bool:
     wanted = schedule(config, "update_game_details", NEVER)
     if wanted == NEVER or wanted not in EVERY:
         return False
-    held = (cfg_get(config, SECTION, "last", "") or "").strip()
+    held = cache_stamps.get(SECTION, "version")
     taken = (cfg_get(config, SECTION, "games_updated_to", "") or "").strip()
     return bool(held) and held != taken
 
@@ -123,28 +123,17 @@ def adopt_across_library(config: ConfigStore) -> dict:
         except Exception:
             logger.warning("Could not take catalog details for %s",
                            getattr(game, "game_dir_name", "?"), exc_info=True)
-    cfg_set(config, SECTION, "games_updated_to",
-            (cfg_get(config, SECTION, "last", "") or "").strip())
+    cfg_set(config, SECTION, "games_updated_to", cache_stamps.get(SECTION, "version"))
     save = getattr(config, "save", None)
     if callable(save):
         save()
     return {"looked": looked, "changed": changed}
 
 
-def stamp(config: ConfigStore) -> None:
+def stamp() -> None:
     """Record that the question was asked. Written whether or not anything came back:
-    a catalog that cannot be reached must not be re-asked on every draw.
-
-    Saved here, not left to the caller. `cfg_set` only touches the parser - the cache
-    beside this does its own `save()` for the same reason, and a stamp that lived in
-    memory made every start look like a first start.
-    """
-    from common.config_access import cfg_set
-
-    cfg_set(config, SECTION, "checked", timestamps.utc_now_iso())
-    save = getattr(config, "save", None)
-    if callable(save):
-        save()
+    a catalog that cannot be reached must not be re-asked on every draw."""
+    cache_stamps.put(SECTION, checked=timestamps.utc_now_iso())
 
 
 # Held for a download, so the watch and a library read never fetch the catalog together.
@@ -161,16 +150,16 @@ def sync(config: ConfigStore, force: bool = False) -> dict:
     from common.games.game_service import ensure_vpsdb_downloaded
 
     if not force and not due(config):
-        return {"checked": False, "reason": "not_due", "at": checked_at(config)}
+        return {"checked": False, "reason": "not_due", "at": checked_at()}
     with _downloading:
-        before = (cfg_get(config, SECTION, "last", "") or "").strip()
+        before = cache_stamps.get(SECTION, "version")
         ok = ensure_vpsdb_downloaded()
-        stamp(config)
-    after = (cfg_get(config, SECTION, "last", "") or "").strip()
+        stamp()
+    after = cache_stamps.get(SECTION, "version")
     if not ok:
         logger.warning("VPSdb sync could not read the catalog")
     return {"checked": True, "ok": bool(ok), "changed": bool(after and after != before),
-            "version": after, "at": checked_at(config)}
+            "version": after, "at": checked_at()}
 
 
 def ensure_catalog(config: ConfigStore,

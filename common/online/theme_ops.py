@@ -71,7 +71,7 @@ def _loaded(refresh: bool = False) -> ThemeRegistry:
             _carry_dates(fresh, before)
             _keep(fresh, now)
             if _answered(fresh):
-                theme_sync.stamp(get_ini_config())
+                theme_sync.stamp()
             _registry, _held_for = fresh, now
         return _registry
 
@@ -233,7 +233,7 @@ def listing(refresh: bool = False) -> dict[str, Any]:
     registry = _readable(refresh)
     active = theme_service.get_active_theme()
     return {"active": active, "themes": _described(registry, active),
-            "checked": theme_sync.checked_at(get_ini_config())}
+            "checked": theme_sync.checked_at()}
 
 
 def _known() -> ThemeRegistry | None:
@@ -265,7 +265,7 @@ def sources() -> dict[str, Any]:
     return {"registries": [row(url, checks.LIST) for url in said.registries if url.strip()],
             "repositories": [row(url, checks.THEME) for url in said.repositories
                              if url.strip()],
-            "checked": theme_sync.checked_at(config)}
+            "checked": theme_sync.checked_at()}
 
 
 def rename_source(address: str, name: str) -> dict[str, Any]:

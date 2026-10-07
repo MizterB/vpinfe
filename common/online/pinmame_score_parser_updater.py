@@ -7,9 +7,8 @@ import logging
 import time
 from pathlib import Path
 
-from common import http_client, timestamps
+from common import cache_stamps, http_client, timestamps
 from common.atomic_write import staged_for
-from common.config_store import ConfigStore
 from common.paths import USER_ROMS_PATH
 
 logger = logging.getLogger("vpinfe.common.online.pinmame_score_parser_updater")
@@ -18,9 +17,7 @@ logger = logging.getLogger("vpinfe.common.online.pinmame_score_parser_updater")
 ROMS_JSON_PATH = USER_ROMS_PATH
 LATEST_RELEASE_URL = "https://api.github.com/repos/superhac/pinmame-score-parser/releases/latest"
 USER_AGENT = "VPinFE-pinmame-score-parser-updater"
-RELEASE_SECTION = "pinmame_score_parser"
-RELEASE_SHA_KEY = "roms_update_sha"
-CHECKED_KEY = "roms_checked"
+STAMPS = "roms"
 CHECK_EVERY_SECONDS = 24 * 60 * 60
 
 
@@ -96,22 +93,16 @@ def _release_fingerprint(release_payload: dict, asset: dict) -> str:
     return ""
 
 
-def _stamp(iniconfig: ConfigStore) -> None:
-    iniconfig.config.set(RELEASE_SECTION, CHECKED_KEY, timestamps.utc_now_iso())
-    iniconfig.save()
+def _stamp() -> None:
+    cache_stamps.put(STAMPS, checked=timestamps.utc_now_iso())
 
 
-def ensure_latest_roms_json(iniconfig: ConfigStore) -> dict:
+def ensure_latest_roms_json() -> dict:
     ROMS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    if not iniconfig.config.has_section(RELEASE_SECTION):
-        iniconfig.config.add_section(RELEASE_SECTION)
+    tracked_sha = cache_stamps.get(STAMPS, "release").lower()
 
-    tracked_sha = iniconfig.config.get(
-        RELEASE_SECTION, RELEASE_SHA_KEY, fallback="").strip().lower()
-
-    checked = timestamps.iso_to_epoch(
-        iniconfig.config.get(RELEASE_SECTION, CHECKED_KEY, fallback=""))
+    checked = timestamps.iso_to_epoch(cache_stamps.get(STAMPS, "checked"))
     fresh = checked is not None and time.time() - checked < CHECK_EVERY_SECONDS
     if fresh and ROMS_JSON_PATH.exists():
         logger.debug("roms.json was checked at %s; not asking again yet",
@@ -133,7 +124,7 @@ def ensure_latest_roms_json(iniconfig: ConfigStore) -> dict:
 
     if not needs_download:
         logger.info("roms.json is already up to date at %s", ROMS_JSON_PATH)
-        _stamp(iniconfig)
+        _stamp()
         return {
             "status": "up_to_date",
             "path": ROMS_JSON_PATH,
@@ -152,9 +143,8 @@ def ensure_latest_roms_json(iniconfig: ConfigStore) -> dict:
                 f"expected {expected_sha}, got {downloaded_sha.lower()}"
             )
 
-    iniconfig.config.set(
-        RELEASE_SECTION, RELEASE_SHA_KEY, fingerprint or downloaded_sha.lower())
-    _stamp(iniconfig)
+    cache_stamps.put(STAMPS, release=fingerprint or downloaded_sha.lower(),
+                     checked=timestamps.utc_now_iso())
     logger.info("Updated roms.json at %s", ROMS_JSON_PATH)
     return {
         "status": "downloaded",

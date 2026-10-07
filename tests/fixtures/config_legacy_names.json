@@ -624,24 +624,6 @@
     "ws_port"
   ],
   [
-    "pinmame-score-parser",
-    "roms_update_sha",
-    "pinmame_score_parser",
-    "roms_update_sha"
-  ],
-  [
-    "pinmame-score-parser",
-    "romsupdatesha",
-    "pinmame_score_parser",
-    "roms_update_sha"
-  ],
-  [
-    "pinmame_score_parser",
-    "romsupdatesha",
-    "pinmame_score_parser",
-    "roms_update_sha"
-  ],
-  [
     "presentation",
     "cabmode",
     "presentation",

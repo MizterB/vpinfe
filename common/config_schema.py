@@ -68,7 +68,6 @@ SECTION_RENAMES = {
     'VPSdb': 'vpsdb',
     'DOF': 'dof',
     'libdmdutil': 'real_dmd',
-    'pinmame-score-parser': 'pinmame_score_parser',
 }
 
 
@@ -834,12 +833,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="daily",
             choices=("never", "daily", "weekly", "monthly"),
         ),
-        ConfigOption(
-            "last_read",
-            type="string",
-            default="",
-            internal=True,
-        ),
     ),
     *in_section(
         "logger",
@@ -986,21 +979,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     ),
     *in_section(
         "vpsdb",
-        ConfigOption(
-            "last",
-            type="string",
-            default="",
-            internal=True,
-        ),
-        # When the catalog was last asked, not when it last changed - `last` above is
-        # the version we hold. Without this the only way to know a check is due is to
-        # make one, which is the check.
-        ConfigOption(
-            "checked",
-            type="string",
-            default="",
-            internal=True,
-        ),
         # The spreadsheet version the games were last brought up to.
         ConfigOption(
             "games_updated_to",
@@ -1027,22 +1005,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
         ConfigOption(
             "last_collection",
-            type="string",
-            default="",
-            internal=True,
-        ),
-    ),
-    *in_section(
-        "pinmame_score_parser",
-        ConfigOption(
-            "roms_update_sha",
-            type="string",
-            default="",
-            aliases=("romsupdatesha",),
-            internal=True,
-        ),
-        ConfigOption(
-            "roms_checked",
             type="string",
             default="",
             internal=True,

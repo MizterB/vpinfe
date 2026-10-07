@@ -104,7 +104,7 @@ whats_new.note_start(config_store, get_version())
 shutdown.watch_during_startup()
 
 try:
-    roms_update_result = ensure_latest_roms_json(config_store)
+    roms_update_result = ensure_latest_roms_json()
     logger.info(
         "pinmame-score-parser roms.json status=%s path=%s",
         roms_update_result.get("status"),

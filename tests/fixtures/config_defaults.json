@@ -100,10 +100,6 @@
     "verify_shared_library": "false",
     "ws_port": "8002"
   },
-  "pinmame_score_parser": {
-    "roms_checked": "",
-    "roms_update_sha": ""
-  },
   "presentation": {
     "backglass_media_priority": "video",
     "cab_mode": "false",
@@ -132,8 +128,7 @@
     "active": "Revolution",
     "registries": "https://raw.githubusercontent.com/superhac/vpinfe-themes/master/themes.json",
     "repositories": "",
-    "refresh": "daily",
-    "last_read": ""
+    "refresh": "daily"
   },
   "tools": {
     "rar_path": "",
@@ -162,9 +157,7 @@
   },
   "vpsdb": {
     "art_checked": "",
-    "checked": "",
-    "games_updated_to": "",
-    "last": ""
+    "games_updated_to": ""
   },
   "vpxmobile": {
     "chunk_size": "1048576",

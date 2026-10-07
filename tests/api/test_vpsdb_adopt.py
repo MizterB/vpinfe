@@ -5,7 +5,9 @@ from __future__ import annotations
 import configparser
 import unittest
 
+from common import cache_stamps
 from common.online import vpsdb_sync
+from tests.support.stamps import OwnStamps
 
 
 class _Config:
@@ -21,12 +23,14 @@ class _Config:
 
 
 def _config(download: str = "", update_game_details: str = "", **vpsdb: str) -> _Config:
-    """The two schedules a person sets, and the rest as the sync writes it."""
+    """The two schedules a person sets. `last`, the catalog version held, goes where the
+    sync keeps it."""
     wanted = {"download_spreadsheet": download, "update_game_details": update_game_details}
+    cache_stamps.put("vpsdb", version=vpsdb.pop("last", ""))
     return _Config({key: value for key, value in wanted.items() if value}, vpsdb)
 
 
-class WhenASweepIsOwed(unittest.TestCase):
+class WhenASweepIsOwed(OwnStamps):
     def test_off_by_default(self) -> None:
         """Read off the schema, which is where the default actually lives. A config
         object that has never had the key set falls back to whatever the caller passed,
@@ -68,7 +72,7 @@ class WhenASweepIsOwed(unittest.TestCase):
                     games_updated_to="2026-01-01")))
 
 
-class TheTwoSchedulesAreSeparate(unittest.TestCase):
+class TheTwoSchedulesAreSeparate(OwnStamps):
     def test_fetching_daily_does_not_sweep(self) -> None:
         held = _config(download="daily", last="2026-09-22", games_updated_to="2026-01-01")
         self.assertFalse(vpsdb_sync.adopt_due(held))

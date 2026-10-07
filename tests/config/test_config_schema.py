@@ -106,14 +106,10 @@ class SchemaShapeTests(unittest.TestCase):
         """
         internal = {(e.section, e.key) for e in config_schema.options() if e.internal}
 
-        self.assertEqual(internal, {("vpsdb", "last"), ("vpsdb", "checked"),
-                                    ("themes", "last_read"),
-                                    ("vpsdb", "games_updated_to"),
+        self.assertEqual(internal, {("vpsdb", "games_updated_to"),
                                     ("vpsdb", "art_checked"),
                                     ("state", "last_table"),
                                     ("state", "last_collection"),
-                                    ("pinmame_score_parser", "roms_update_sha"),
-                                    ("pinmame_score_parser", "roms_checked"),
                                     ("device", "id"),
                                     ("device", "setup_pending"),
                                     ("device", "setup_done"),
