@@ -12,6 +12,7 @@ disk carries real booleans and integers, and a schema version.
 from __future__ import annotations
 
 import configparser
+import copy
 import json
 import logging
 import os
@@ -125,6 +126,57 @@ def _flatten(tree: dict, prefix: str = '') -> dict:
 _SAVING = threading.Lock()
 
 
+def _by_id(items: Any) -> dict[str, dict] | None:
+    """A list of objects that each carry a distinct `id`, keyed by it; anything else is None."""
+    if not isinstance(items, list):
+        return None
+    keyed: dict[str, dict] = {}
+    for item in items:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            return None
+        keyed[item["id"]] = item
+    return keyed if len(keyed) == len(items) else None
+
+
+def _same(a: Any, b: Any) -> bool:
+    """JSON equality: unlike `==`, 1 and True differ."""
+    return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def _merged_list(ours: Any, theirs: Any, saved: Any) -> Any:
+    """Per item: ours where it differs from `saved` (a removal too), else the file's."""
+    mine, file, base = _by_id(ours), _by_id(theirs), _by_id(saved if saved is not None else [])
+    if mine is None or file is None or base is None:
+        return ours
+    merged: dict[str, dict] = {}
+    for item_id in {*mine, *file, *base}:
+        taken = mine.get(item_id) if not _same(mine.get(item_id), base.get(item_id)) \
+            else file.get(item_id)
+        if taken is not None:
+            merged[item_id] = taken
+    ours_order = [i for i in mine if i in base]
+    reordered = ours_order != [i for i in base if i in mine]
+    first, second = (mine, file) if reordered else (file, mine)
+    order = [*(i for i in first if i in merged),
+             *(i for i in second if i in merged and i not in first)]
+    return [merged[i] for i in order]
+
+
+def _merged_top_level(ours: dict, theirs: dict, saved: dict) -> dict:
+    absent = object()
+    out: dict = {}
+    for key in dict.fromkeys([*theirs, *ours]):
+        if (key in ours) == (key in saved) and _same(ours.get(key), saved.get(key)):
+            value = theirs.get(key, absent)
+        elif key in ours and key in theirs:
+            value = _merged_list(ours[key], theirs[key], saved.get(key))
+        else:
+            value = ours.get(key, absent)
+        if value is not absent:
+            out[key] = value
+    return out
+
+
 def _options(parser: configparser.ConfigParser) -> dict[tuple[str, str], str]:
     return {(section, key): value for section in parser.sections()
             for key, value in parser.items(section, raw=True)}
@@ -163,6 +215,9 @@ class ConfigStore:
         self._schema = CONFIG_SCHEMA
         self._converted_from_ini = False
         self._saved: dict[tuple[str, str], str] | None = None
+        # Every top-level key beside `schema` and `settings`, written back as held.
+        self.top_level: dict[str, Any] = {}
+        self._saved_top: dict[str, Any] = {}
 
         if os.path.exists(self.json_path):
             self._load_json()
@@ -370,6 +425,7 @@ class ConfigStore:
         if changed:
             self.save()
         self._saved = _options(self.config)
+        self._saved_top = copy.deepcopy(self.top_level)
 
     def _typed(self, section: str, key: str, raw: str) -> Any:
         """The value as JSON should hold it. Unknown keys stay strings.
@@ -405,7 +461,7 @@ class ConfigStore:
             return ','.join(str(v) for v in value)
         return '' if value is None else str(value)
 
-    def _read_json(self) -> tuple[int, configparser.ConfigParser]:
+    def _read_json(self) -> tuple[int, configparser.ConfigParser, dict]:
         with open(self.json_path, encoding='utf-8') as handle:
             payload = json.load(handle) or {}
         parser = configparser.ConfigParser(interpolation=None)
@@ -416,16 +472,18 @@ class ConfigStore:
                 # Any spelling a file has ever used lands under the name we store now.
                 parser.set(section, config_schema.canonical(section, key),
                            self._as_text(value))
-        return int(payload.get(SCHEMA_KEY, CONFIG_SCHEMA) or CONFIG_SCHEMA), parser
+        kept = {key: value for key, value in payload.items()
+                if key not in (SCHEMA_KEY, SETTINGS_KEY)}
+        return int(payload.get(SCHEMA_KEY, CONFIG_SCHEMA) or CONFIG_SCHEMA), parser, kept
 
     def _load_json(self) -> None:
-        self._schema, self.config = self._read_json()
+        self._schema, self.config, self.top_level = self._read_json()
 
     def _take_in_the_file(self, saved: dict[tuple[str, str], str]) -> None:
         """What the file gained, changed or lost since `saved`, for every key this store
         left alone. A key this store changed keeps this store's value."""
         try:
-            schema, current = self._read_json()
+            schema, current, top_level = self._read_json()
         except (OSError, ValueError) as exc:
             logger.warning("Could not read %s before saving, so it is written whole: %s",
                            self.json_path, exc)
@@ -439,6 +497,7 @@ class ConfigStore:
         for section, key in saved.keys() - theirs.keys():
             if ours.get((section, key)) == saved[(section, key)]:
                 self.config.remove_option(section, key)
+        self.top_level = _merged_top_level(self.top_level, top_level, self._saved_top)
         self._schema = max(self._schema, schema)
 
     def reread(self) -> None:
@@ -449,14 +508,16 @@ class ConfigStore:
         if not os.path.exists(self.json_path):
             return
         try:
-            schema, parser = self._read_json()
+            schema, parser, top_level = self._read_json()
         except (OSError, ValueError) as exc:
             logger.warning("Could not read %s again, keeping what was read: %s",
                            self.json_path, exc)
             return
         self._schema = schema
         self.config = parser
+        self.top_level = top_level
         self._saved = _options(parser)
+        self._saved_top = copy.deepcopy(top_level)
 
     def value(self, section: str, key: str) -> Any:
         """One setting, typed the way this store would write it back.
@@ -484,6 +545,7 @@ class ConfigStore:
                 self._take_in_the_file(self._saved)
             self._write()
             self._saved = _options(self.config)
+            self._saved_top = copy.deepcopy(self.top_level)
 
     def _write(self) -> None:
         # The first save after reading an ini keeps a copy and leaves the original alone:
@@ -499,6 +561,8 @@ class ConfigStore:
         # whichever VPinFE wrote it, and claiming it would say we understood the file.
         payload = {SCHEMA_KEY: max(getattr(self, '_schema', CONFIG_SCHEMA), CONFIG_SCHEMA),
                    SETTINGS_KEY: settings}
+        payload.update({key: value for key, value in self.top_level.items()
+                        if key not in payload})
         write_atomic(self.json_path,
                      lambda handle: json.dump(payload, handle, indent=2, ensure_ascii=False))
 
