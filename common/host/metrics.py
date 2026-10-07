@@ -22,6 +22,7 @@ import os
 import platform
 import shutil
 import subprocess
+import threading
 import time
 from collections import deque
 from collections.abc import Iterable
@@ -62,6 +63,13 @@ class _Ring:
 
 
 _ring = _Ring()
+
+# psutil answers `cpu_percent(interval=None)` with 0.0 when asked again within moments, so
+# a caller close behind another is handed the sample already taken.
+FRESH_FOR = 1.0
+_lock = threading.Lock()
+_last: dict[str, Any] | None = None
+_last_paths: list[str] = []
 
 
 def measurable() -> tuple[bool, str]:
@@ -228,18 +236,34 @@ def _disk(path: str) -> dict[str, Any]:
 
 
 def sample(paths: Iterable[str] = ()) -> dict[str, Any]:
-    """Read once and keep it. What a page calls on its timer."""
-    found = read(paths)
-    if found["measurable"]:
-        _ring.add({k: v for k, v in found.items()
-                   if k in ("at", "cpu_percent", "memory_percent")})
-    return found
+    """Read once and keep it. What a page calls on its timer.
+
+    Under `FRESH_FOR` seconds after the last real reading the same reading comes back and
+    nothing is added to the history. Only the volumes follow the caller's paths.
+    """
+    global _last, _last_paths
+    asked = [str(one) for one in paths]
+    with _lock:
+        if _last is not None and 0 <= time.time() - _last["at"] < FRESH_FOR:
+            found = dict(_last)
+            if asked != _last_paths:
+                found["disks"] = _disks(asked)
+            return found
+        found = read(asked)
+        _last, _last_paths = found, asked
+        if found["measurable"]:
+            _ring.add({k: v for k, v in found.items()
+                       if k in ("at", "cpu_percent", "memory_percent")})
+        return dict(found)
 
 
 def history(seconds: float = 0.0) -> list[dict[str, Any]]:
     """What has been kept this session, oldest first."""
-    return _ring.since(seconds)
+    with _lock:
+        return _ring.since(seconds)
 
 
 def reset_for_tests() -> None:
+    global _last, _last_paths
     _ring.points.clear()
+    _last, _last_paths = None, []
