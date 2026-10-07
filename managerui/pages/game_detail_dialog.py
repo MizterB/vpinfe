@@ -742,7 +742,7 @@ def _render_game_dialog(row_data: dict, on_close: Callable[[], None] | None = No
                             if not rom_name:
                                 ui.notify('ROM not found. Update metadata first.', type='warning')
                                 return
-                            dest = game_dir / 'pinmame' / 'altsound' / rom_name / e.name
+                            dest = game_dir / 'altsound' / rom_name / e.name
                             # Read content from SpooledTemporaryFile if needed
                             content = e.content.read() if hasattr(e.content, 'read') else e.content
                             game_service.save_upload_bytes(dest, content)

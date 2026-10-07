@@ -10,6 +10,7 @@ from nicegui import context, events, run, ui
 
 from common.config_store import ConfigStore
 from common.games import game_index_service, game_service
+from common.games.asset_registry import altsound_folder
 from common.games.game_metadata import (
     default_table,
     reorder_leading_article,
@@ -169,7 +170,8 @@ def parse_game_info(info_path):
             "pup_pack_exists": (Path(game_dir) / "pupvideos").is_dir(),
             "serum_exists": (Path(game_dir) / "serum").is_dir(),
             "vni_exists": (Path(game_dir) / "vni").is_dir(),
-            "alt_sound_exists": (Path(game_dir) / "pinmame" / "altsound").is_dir(),
+            "alt_sound_exists": bool(altsound_folder(
+                Path(game_dir), [one.name for one in Path(game_dir).iterdir() if one.is_dir()])),
 
             # VPinFE settings
             "delete_nvram_on_close": vpinfe.get("delete_nvram_on_close", False),

@@ -30,7 +30,7 @@ from common.games import (
     game_repository,
     table_lens,
 )
-from common.games.asset_registry import spec_for
+from common.games.asset_registry import altsound_folder, altsound_folders, spec_for
 from common.games.game_metadata import effective_vps_id
 from common.games.game_repository import game_to_row
 from common.games.tables import table_names
@@ -84,7 +84,7 @@ def _folder_state(kind: str, game_dir: Path, subdirs: list[str]) -> str:
     if kind == "alt_color":
         return next((names[key] for key in ("serum", "vni") if key in names), "")
     if kind == "alt_sound":
-        return "pinmame/altsound" if (game_dir / "pinmame" / "altsound").is_dir() else ""
+        return altsound_folder(game_dir, subdirs)
     if kind == "music":
         return names.get("music", "")
     return ""
@@ -93,7 +93,8 @@ def _folder_state(kind: str, game_dir: Path, subdirs: list[str]) -> str:
 def whole_folders(game_dir: Path) -> set[str]:
     """The folders here that hold a kind whole, named as their rows name them."""
     _, subdirs = asset_resolver.folder_listing(game_dir)
-    return {here for kind in _FOLDER_KINDS if (here := _folder_state(kind, game_dir, subdirs))}
+    found = {here for kind in _FOLDER_KINDS if (here := _folder_state(kind, game_dir, subdirs))}
+    return found | set(altsound_folders(game_dir, subdirs))
 
 
 def _held(item: dict, kind: str, base: dict, game_dir: Path, tables: list[dict],

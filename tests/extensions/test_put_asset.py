@@ -78,7 +78,7 @@ class DestinationTests(PutAssetCase):
 
         where = self.games.put_asset("g1", "altsound", bank, rom="afm_113b")
 
-        self.assertEqual(where, "pinmame/altsound/afm_113b/afm")
+        self.assertEqual(where, "altsound/afm_113b/afm")
         self.assertTrue((self.game / where / "altsound.csv").is_file())
 
     def test_a_whole_folder_comes_across(self) -> None:

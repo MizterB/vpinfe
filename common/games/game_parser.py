@@ -214,9 +214,9 @@ class GameParser:
             game.music_exists = True
         if any(name.lower().endswith(".ini") for name in game_contents):
             game.ini_exists = True
-        if "pinmame" in game_subdirs and (game_dir / "pinmame" / "altsound").is_dir():
+        from common.games.asset_registry import altsound_folder, is_readme
+        if altsound_folder(game_dir, game_subdirs):
             game.alt_sound_exists = True
-        from common.games.asset_registry import is_readme
         if any(is_readme(name) for name in game_contents):
             game.readme_exists = True
 

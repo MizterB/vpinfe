@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -91,6 +92,29 @@ _SPECS_BY_KIND = {spec.kind: spec for spec in ASSET_SPECS}
 
 _LENS_NAMES = {"altcolor_serum": "alt_color", "altcolor_vni": "alt_color",
                "altsound": "alt_sound"}
+
+
+LEGACY_ALTSOUND = "pinmame/altsound"
+
+
+def altsound_folders(game_dir: Path, subdirs: Iterable[str]) -> list[str]:
+    """Every folder a game keeps AltSound packs in, the one Visual Pinball reads first.
+
+    That is `altsound/` beside the table; `LEGACY_ALTSOUND` is where earlier versions put
+    them and still counts. `subdirs` are the names directly inside the game folder, so the
+    usual answer costs no extra look.
+    """
+    names = sorted(subdirs, key=lambda name: (name != "altsound", name))
+    found = [name for name in names[:1] if name.lower() == "altsound"]
+    beside = LEGACY_ALTSOUND.split("/")[0]
+    if any(name.lower() == beside for name in names) and (game_dir / LEGACY_ALTSOUND).is_dir():
+        found.append(LEGACY_ALTSOUND)
+    return found
+
+
+def altsound_folder(game_dir: Path, subdirs: Iterable[str]) -> str:
+    """The first of `altsound_folders`, or "" where the game has none."""
+    return next(iter(altsound_folders(game_dir, subdirs)), "")
 
 
 def lens_kind(kind: str) -> str:

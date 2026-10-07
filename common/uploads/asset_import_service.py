@@ -158,7 +158,7 @@ def _arriving_stem(assets: Iterable[DetectedAsset]) -> str:
 # game's ROM, which is why those kinds declare `requires_rom`.
 _FOLDERS: dict[str, tuple[str, ...]] = {
     "rom": ("pinmame", "roms"),
-    "altsound": ("pinmame", "altsound", "{rom}"),
+    "altsound": ("altsound", "{rom}"),
     "altcolor_serum": ("serum", "{rom}"),
     "altcolor_vni": ("vni", "{rom}"),
     "music": ("music",),
