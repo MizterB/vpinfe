@@ -282,6 +282,19 @@ class HelpLineTests(unittest.TestCase):
         self.assertIn(t("console.settings.applies.windows"), said)
         self.assertEqual(note, "What it does")
 
+    def test_the_active_theme_row_leaves_the_wait_to_the_page_that_changes_it(self) -> None:
+        schema = config_service.schema()["sections"]
+        options = next(block["options"] for block in schema if block["name"] == "themes")
+        active = next(one for one in options if one["key"] == "active")
+        self.assertEqual(active["applies"], config_schema.APPLIES_RESTART)
+
+        with mock.patch.object(panel, "note", side_effect=lambda text: text):
+            rows = settings_page.section_rows(mock.Mock(), "themes", [active], {}, True,
+                                              lambda: None)
+
+        said = [row for row in rows if isinstance(row, str)]
+        self.assertFalse([line for line in said if t("console.settings.applies.restart") in line])
+
     def test_the_three_moments_are_worded(self) -> None:
         self.assertEqual(t("console.settings.applies.restart"),
                          "Takes effect after VPinFE restarts")

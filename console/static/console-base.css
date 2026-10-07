@@ -1331,7 +1331,12 @@ body.console-menu-open .q-tooltip.console-menu-tip { display: block !important; 
 .console-plain-rows .console-member-row:nth-child(even) { background: transparent; }
 .console-plain-rows .console-member-row:nth-child(even):hover { background: var(--surface-hover); }
 /* The runs of one list that are different kinds, parted by twice the gap between rows. */
-.nicegui-column.console-theme-kinds { display: flex; flex-direction: column; gap: 20px; }
+/* Drawn in a value column: the rows' own padding comes out of the left so their text lines
+   up with the values above and below, and the list stops at the measure those values do. */
+.nicegui-column.console-theme-kinds {
+  display: flex; flex-direction: column; gap: 20px;
+  margin-left: -10px; width: calc(100% + 10px); max-width: calc(var(--measure) + 20px);
+}
 
 /* The row's action appears under the cursor. A column of identical glyphs down a long
    list is noise competing with the content, and the action is the same on every row.

@@ -1475,8 +1475,11 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             continue
         value = current.get(option["key"], option.get("default"))
         refusal = Refusal() if option.get("unit") == config_schema.UNIT_PORT else None
+        # The active theme is chosen on the Themes page, which says when that takes effect.
+        picked_elsewhere = option.get("editor") == config_schema.EDITOR_FRONTEND_THEME
         save, note = _noted(option, value, saver(source, section, option["key"], refusal),
-                            (resolved or {}).get(option["key"], ""), waits_said)
+                            (resolved or {}).get(option["key"], ""),
+                            waits_said or picked_elsewhere)
         if option.get("cuts_off_console") and from_elsewhere:
             save = _asked_first(option, save, rerender)
         chipped = waiting if option.get("applies") in (
