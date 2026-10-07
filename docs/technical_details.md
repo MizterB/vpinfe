@@ -33,7 +33,7 @@ uses an old spelling both still load.
 | `screen_id` | int |  | Screen |
 | `override` | string |  | Position and size for this window, as x,y,width,height. Empty means no override. |
 
-### `windows.score_view`
+### `windows.scoreview`
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -153,7 +153,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `playfield_media_rotation` | choice (auto, 0, 90, 180, 270) | `auto` | How far to turn playfield media so it fills the screen |
 | `playfield_media_priority` | choice (video, image) | `video` | Playfield Media Priority |
 | `backglass_media_priority` | choice (video, image) | `video` | Backglass Media Priority |
-| `score_view_media_priority` | choice (video, image) | `video` | Score View Media Priority |
+| `scoreview_media_priority` | choice (video, image) | `video` | Score View Media Priority |
 | `real_dmd_media_priority` | choice (color, video, image) | `color` | Real DMD Media Priority |
 
 ### `behavior`

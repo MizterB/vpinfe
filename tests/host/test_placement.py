@@ -55,7 +55,7 @@ class RulesTests(unittest.TestCase):
         self.assertNotIn('assign [title="^Visual\\ Pinball\\ Score\\ View$"]', text)
         self.assertNotIn("app_dmd-Default$\"] output", text)
 
-    def test_a_score_view_with_a_screen_sends_visual_pinballs_there_too(self) -> None:
+    def test_a_scoreview_with_a_screen_sends_visual_pinballs_there_too(self) -> None:
         rows = [*ROWS[:2], placement.Row("dmd", "scoreview", "HDMI-A-1")]
 
         text = placement.rules(placement.SWAY, rows, VPX)

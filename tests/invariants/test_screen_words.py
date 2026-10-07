@@ -95,8 +95,8 @@ NAMED_ASSET = {
     "/games/{game_id}/assets/{kind}/placements": LOADS,
     "/games/{game_id}/assets/backglass/picture": LOADS,
     "/games/{game_id}/tables/{table_id}/assets/backglass/picture": LOADS,
-    "/games/{game_id}/assets/backglass/score-view": LOADS,
-    "/games/{game_id}/tables/{table_id}/assets/backglass/score-view": LOADS,
+    "/games/{game_id}/assets/backglass/scoreview": LOADS,
+    "/games/{game_id}/tables/{table_id}/assets/backglass/scoreview": LOADS,
     "/games/{game_id}/tables/{table_id}/assets/{kind}": LOADS,
 }
 PATH = re.compile(r"^/[A-Za-z_{][\w/{}.-]*$")

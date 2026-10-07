@@ -34,7 +34,7 @@ _PORT_TAKEN = "address already in use"
 _START_ATTEMPTS = 3
 
 # A window's monitor is set in `windows.<name>`, except where the section is spelled apart.
-_WINDOW_SECTIONS = {"scoreview": "windows.score_view"}
+_WINDOW_SECTIONS = {"scoreview": "windows.scoreview"}
 
 
 class LiveInstance:

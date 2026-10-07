@@ -113,7 +113,7 @@
     "playfield_media_priority": "video",
     "playfield_media_rotation": "auto",
     "real_dmd_media_priority": "color",
-    "score_view_media_priority": "video"
+    "scoreview_media_priority": "video"
   },
   "real_dmd": {
     "enabled": "false",
@@ -184,7 +184,7 @@
     "rotation": "0",
     "screen_id": "0"
   },
-  "windows.score_view": {
+  "windows.scoreview": {
     "override": "",
     "screen_id": ""
   },

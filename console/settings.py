@@ -897,7 +897,7 @@ SECTION_LABELS: dict[str, str] = {
     "windows.playfield": "console.settings.section_playfield",
     "real_dmd": "console.settings.section_real_dmd",
     "windows.backglass": "console.settings.section_backglass",
-    "windows.score_view": "console.settings.section_score_view",
+    "windows.scoreview": "console.settings.section_scoreview",
     "windows.topper": "console.settings.section_topper",
 }
 
@@ -958,7 +958,7 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
     )),
     ("console.settings.group_hardware", (
         ("hardware.displays", "console.settings.page_displays", SCHEMA_PAGE,
-         ("windows.playfield", "windows.backglass", "windows.score_view", "windows.topper",
+         ("windows.playfield", "windows.backglass", "windows.scoreview", "windows.topper",
           "real_dmd"),
          "frontend"),
         ("hardware.input", "console.settings.page_input", SCHEMA_PAGE, ("input",), "frontend"),

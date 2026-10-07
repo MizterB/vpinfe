@@ -23,7 +23,7 @@ WINDOWS = (PLAYFIELD, BACKGLASS, SCOREVIEW, TOPPER)
 
 # The section each window's screen is set in.
 SCREEN_SECTIONS = {PLAYFIELD: "windows.playfield", BACKGLASS: "windows.backglass",
-                   SCOREVIEW: "windows.score_view", TOPPER: "windows.topper"}
+                   SCOREVIEW: "windows.scoreview", TOPPER: "windows.topper"}
 
 NO_SCREEN = "capture.screen.none"
 NOT_FOUND = "capture.screen.not_found"

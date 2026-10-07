@@ -120,7 +120,7 @@ class FactsTests(DirectB2SParserCase):
         self.assertEqual(facts.author, "Ann")
         self.assertEqual(facts.problems, ())
 
-    def test_counts_the_backglass_lamps_and_leaves_the_score_view_ones(self) -> None:
+    def test_counts_the_backglass_lamps_and_leaves_the_scoreview_ones(self) -> None:
         lamp = _b64(_png((4, 4), RED))
         bulbs = "\n".join([
             _bulb(1, lamp, x=0, y=0),
@@ -147,7 +147,7 @@ class FactsTests(DirectB2SParserCase):
         assert facts is not None
         self.assertFalse(facts.still)
 
-    def test_a_file_whose_every_lamp_is_hidden_or_on_the_score_view_is_still(self) -> None:
+    def test_a_file_whose_every_lamp_is_hidden_or_on_the_scoreview_is_still(self) -> None:
         lamp = _b64(_png((4, 4), RED))
         bulbs = "\n".join([_bulb(1, lamp, x=0, y=0, visible=0),
                            _bulb(2, lamp, x=4, y=0, parent="DMD")]) + "\n"
@@ -163,13 +163,13 @@ class FactsTests(DirectB2SParserCase):
         assert facts is not None
         self.assertFalse(facts.still)
 
-    def test_score_view_art_is_sized_when_the_file_has_it(self) -> None:
+    def test_scoreview_art_is_sized_when_the_file_has_it(self) -> None:
         images = (
             f'    <BackglassImage Value="{_b64(_png((40, 30), DARK))}" />\n'
             f'    <DMDImage Value="{_b64(_png((24, 8), BLUE))}" />')
         facts = parser.read(self.write(_file(images=images)))
         assert facts is not None
-        self.assertEqual(facts.score_view_art, (24, 8))
+        self.assertEqual(facts.scoreview_art, (24, 8))
 
     def test_the_size_is_the_dark_picture_in_a_file_with_an_off_image(self) -> None:
         images = (
@@ -223,15 +223,15 @@ class ProblemTests(DirectB2SParserCase):
         assert facts is not None
         self.assertEqual(facts.problems, (parser.BAD_PICTURE,))
 
-    def test_damaged_score_view_art_leaves_the_backglass_readable(self) -> None:
+    def test_damaged_scoreview_art_leaves_the_backglass_readable(self) -> None:
         images = (
             f'    <BackglassImage Value="{_b64(_png((40, 30), DARK))}" />\n'
             f'    <DMDImage Value="{_b64(b"junk")}" />')
         facts = parser.read(self.write(_file(images=images)))
         assert facts is not None
         self.assertEqual(facts.size, (40, 30))
-        self.assertIsNone(facts.score_view_art)
-        self.assertEqual(facts.problems, (parser.BAD_SCORE_VIEW_ART,))
+        self.assertIsNone(facts.scoreview_art)
+        self.assertEqual(facts.problems, (parser.BAD_SCOREVIEW_ART,))
 
     def test_a_picture_cut_off_part_way_is_named(self) -> None:
         png = _png((400, 300), DARK)
@@ -313,7 +313,7 @@ class PictureTests(DirectB2SParserCase):
         path = self.two_lamps(first={"initial": 1, "visible": 0})
         self.assertEqual(self.pixel(parser.picture(path, "every"), (5, 5)), DARK)
 
-    def test_a_score_view_lamp_is_not_on_the_backglass(self) -> None:
+    def test_a_scoreview_lamp_is_not_on_the_backglass(self) -> None:
         path = self.two_lamps(first={"initial": 1, "parent": "DMD"})
         self.assertEqual(self.pixel(parser.picture(path, "every"), (5, 5)), DARK)
 
@@ -489,22 +489,22 @@ class ScoreViewArtTests(DirectB2SParserCase):
         images = (
             f'    <BackglassImage Value="{_b64(_png((40, 30), DARK))}" />\n'
             f'    <DMDImage Value="{_b64(_png((24, 8), BLUE))}" />')
-        art = parser.score_view_art(self.write(_file(images=images)))
+        art = parser.scoreview_art(self.write(_file(images=images)))
         assert art is not None
         self.assertEqual(self.size(art), (24, 8))
         self.assertEqual(self.pixel(art, (1, 1)), BLUE)
 
     def test_none_when_the_file_has_no_art(self) -> None:
-        self.assertIsNone(parser.score_view_art(self.write(_file())))
+        self.assertIsNone(parser.scoreview_art(self.write(_file())))
 
     def test_none_when_the_art_is_damaged(self) -> None:
         images = (
             f'    <BackglassImage Value="{_b64(_png((40, 30), DARK))}" />\n'
             f'    <DMDImage Value="{_b64(b"junk")}" />')
-        self.assertIsNone(parser.score_view_art(self.write(_file(images=images))))
+        self.assertIsNone(parser.scoreview_art(self.write(_file(images=images))))
 
     def test_none_when_the_file_is_not_there(self) -> None:
-        self.assertIsNone(parser.score_view_art(self.folder / "missing.directb2s"))
+        self.assertIsNone(parser.scoreview_art(self.folder / "missing.directb2s"))
 
 
 if __name__ == "__main__":

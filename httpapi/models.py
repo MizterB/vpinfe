@@ -1968,7 +1968,7 @@ class OutsideLinks(ApiModel):
 
 
 class AssetBackglass(ApiModel):
-    """What a backglass file says about itself. `size` and `score_view_art` are
+    """What a backglass file says about itself. `size` and `scoreview_art` are
     [width, height] in pixels, `grill` the height of the bottom strip the renderer
     cuts, `lamps` how many lamps it holds, `still` that nothing in it can light,
     `problems` what could not be
@@ -1984,7 +1984,7 @@ class AssetBackglass(ApiModel):
     size: list[int] | None = None
     lamps: int
     still: bool
-    score_view_art: list[int] | None = None
+    scoreview_art: list[int] | None = None
     problems: list[str]
     damaged: bool
     version: str

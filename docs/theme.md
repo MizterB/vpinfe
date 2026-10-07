@@ -736,7 +736,7 @@ function updateScoreViewWindow() {
   const container = document.getElementById('rootContainer');
   const imageUrl = vpin.getImageURL(currentGameIndex, 'scoreview');
   const videoUrl = vpin.getVideoURL(currentGameIndex, 'scoreview');
-  renderWindowMedia(container, imageUrl, videoUrl, 'Score view');
+  renderWindowMedia(container, imageUrl, videoUrl, 'Score View');
 }
 ```
 

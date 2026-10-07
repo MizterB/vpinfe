@@ -387,7 +387,7 @@ class WindowRoleTests(unittest.TestCase):
         ini.write_text("[windows.playfield]\nscreen_id = 0\n"
                        "[windows.backglass]\nscreen_id = 1\n"
                        f"override = {self.OVERRIDES['backglass']}\n"
-                       "[windows.score_view]\nscreen_id = 2\n"
+                       "[windows.scoreview]\nscreen_id = 2\n"
                        f"override = {self.OVERRIDES['scoreview']}\n", encoding="utf-8")
         config = ConfigStore(str(ini))
         screens = [types.SimpleNamespace(x=i * 100, y=0, width=100, height=100)
@@ -480,7 +480,7 @@ class ScreenWaitTests(unittest.TestCase):
         ini = Path(self.enterContext(tempfile.TemporaryDirectory())) / "vpinfe.ini"
         ini.write_text("[windows.playfield]\nscreen_id = 0\n"
                        "[windows.backglass]\nscreen_id = 1\n"
-                       "[windows.score_view]\nscreen_id = 2\n", encoding="utf-8")
+                       "[windows.scoreview]\nscreen_id = 2\n", encoding="utf-8")
         config = ConfigStore(str(ini))
         counts = iter(answers)
         asked = 0

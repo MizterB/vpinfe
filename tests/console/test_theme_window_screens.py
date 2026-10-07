@@ -98,21 +98,21 @@ class ServedAsSettingsTests(ATheme):
     def test_its_own_window_is_served_after_the_three_every_theme_has(self) -> None:
         names = list(self._sections())
 
-        self.assertEqual(names[names.index("windows.score_view") + 1], "windows.topper")
+        self.assertEqual(names[names.index("windows.scoreview") + 1], "windows.topper")
         self.assertEqual([name for name in names if name.startswith("windows.")],
-                         ["windows.playfield", "windows.backglass", "windows.score_view",
+                         ["windows.playfield", "windows.backglass", "windows.scoreview",
                           "windows.topper"])
 
     def test_its_screen_is_picked_from_the_screens_like_the_others(self) -> None:
         sections = self._sections()
         [topper] = sections["windows.topper"]["options"]
-        [score_view] = [option for option in sections["windows.score_view"]["options"]
+        [scoreview] = [option for option in sections["windows.scoreview"]["options"]
                         if option["key"] == "screen_id"]
 
         self.assertEqual(
             {field: topper[field] for field in ("key", "type", "default", "suggest", "label")},
             {"key": "screen_id", "type": "int", "default": "",
-             "suggest": config_schema.SUGGEST_SCREENS, "label": score_view["label"]})
+             "suggest": config_schema.SUGGEST_SCREENS, "label": scoreview["label"]})
         self.assertTrue(sections["windows.topper"]["writable"])
 
     def test_a_screen_set_for_it_is_where_the_frontend_reads_it(self) -> None:
@@ -141,7 +141,7 @@ class ServedAsSettingsTests(ATheme):
         self._activate("Plain")
 
         self.assertEqual([name for name in self._sections() if name.startswith("windows.")],
-                         ["windows.playfield", "windows.backglass", "windows.score_view",
+                         ["windows.playfield", "windows.backglass", "windows.scoreview",
                           "windows.topper"])
 
 
@@ -186,7 +186,7 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self._headings(entries),
                          [t("console.settings.section_screens"),
                           t("console.settings.section_backglass"),
-                          t("console.settings.section_score_view"),
+                          t("console.settings.section_scoreview"),
                           t("console.settings.section_real_dmd")])
         self.assertEqual(entries[1][0], panel.FULL)
 
@@ -197,7 +197,7 @@ class DrawnOnDisplaysTests(ATheme, unittest.IsolatedAsyncioTestCase):
         fields = [label for label, _ in before_dmd if isinstance(label, str)]
 
         self.assertEqual(fields, [self._label_of("windows.backglass", "override"),
-                                  self._label_of("windows.score_view", "override")])
+                                  self._label_of("windows.scoreview", "override")])
 
     async def test_a_window_override_and_the_real_dmd_stay_as_fields(self) -> None:
         labels = [label for label, _ in await self._drawn() if isinstance(label, str)]

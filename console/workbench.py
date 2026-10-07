@@ -1054,8 +1054,8 @@ def _backglass_facts(context: dict[str, Any], glass: dict[str, Any]) -> list[tup
         entries.append((t("console.backglass.picture"), _hinted(
             shown, t("console.backglass.picture.hint", grill=glass["grill"]))
             if glass["grill"] else shown))
-    if glass["score_view_art"]:
-        wide, high = glass["score_view_art"]
+    if glass["scoreview_art"]:
+        wide, high = glass["scoreview_art"]
         entries.append((t("console.backglass.score_art"),
                         t("console.workbench.width_by_height", width=wide, height=high)))
     return entries

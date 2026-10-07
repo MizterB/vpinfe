@@ -13,7 +13,7 @@ from common.i18n import t
 from console import panel, screens, settings, workbench
 from frontend.chromium_manager import MonitorInfo
 
-WINDOWS = ("windows.playfield", "windows.backglass", "windows.score_view")
+WINDOWS = ("windows.playfield", "windows.backglass", "windows.scoreview")
 
 # As screeninfo reports them, which is the list the frontend opens windows by on Linux and
 # Windows...

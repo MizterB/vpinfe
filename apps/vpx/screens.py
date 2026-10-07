@@ -16,7 +16,7 @@ from typing import Protocol
 
 PLAYFIELD = "playfield"
 BACKGLASS = "backglass"
-SCORE_VIEW = "score_view"
+SCOREVIEW = "scoreview"
 TOPPER = "topper"
 
 # What a part holds when VPX draws it inside the playfield's window instead of on a screen.
@@ -26,9 +26,9 @@ INSIDE = "inside"
 Placement = int | str | None
 
 DISPLAY = {PLAYFIELD: "Player.PlayfieldDisplay", BACKGLASS: "Backglass.BackglassDisplay",
-           SCORE_VIEW: "ScoreView.ScoreViewDisplay", TOPPER: "Topper.TopperDisplay"}
+           SCOREVIEW: "ScoreView.ScoreViewDisplay", TOPPER: "Topper.TopperDisplay"}
 # The playfield always shows, so it has no output mode.
-OUTPUT = {BACKGLASS: "Backglass.BackglassOutput", SCORE_VIEW: "ScoreView.ScoreViewOutput",
+OUTPUT = {BACKGLASS: "Backglass.BackglassOutput", SCOREVIEW: "ScoreView.ScoreViewOutput",
           TOPPER: "Topper.TopperOutput"}
 DISABLED, FLOATING, EMBEDDED = "0", "1", "2"
 # The keys that place a part's window: where it sits, and how big. Drawn inside the
@@ -41,7 +41,7 @@ REGION = {part: tuple(f"{key.removesuffix('Output')}{one}"
 VIEW_CAB_ROTATION = "TableOverride.ViewCabRotation"
 
 # The Displays group's headings, by the part each is for, and the cabinet's own.
-WINDOW_HEADINGS = {"playfield": PLAYFIELD, "backglass": BACKGLASS, "scoreview": SCORE_VIEW,
+WINDOW_HEADINGS = {"playfield": PLAYFIELD, "backglass": BACKGLASS, "scoreview": SCOREVIEW,
                    "topper": TOPPER}
 CABINET_HEADING = "cabinet"
 # The playfield screen's width and height in centimeters.
@@ -191,7 +191,7 @@ def windows(moved: Mapping[str, Placement], screens: Sequence[Seen],
 def differs(vpinfe: Mapping[str, Placement], vpx: Mapping[str, Placement]) -> list[str]:
     """The parts VPX has somewhere other than VPinFE does. A topper differs only where
     VPinFE has a screen for one: with none, VPX's is as the person set it."""
-    return [part for part in (TOPPER, BACKGLASS, SCORE_VIEW, PLAYFIELD)
+    return [part for part in (TOPPER, BACKGLASS, SCOREVIEW, PLAYFIELD)
             if vpinfe.get(part) != vpx.get(part)
             and (part != TOPPER or vpinfe.get(TOPPER) is not None)]
 
@@ -274,9 +274,9 @@ def rotation_follows(before: str | None, current: str) -> bool:
 
 def two_screens_without_dmd(on: Mapping[str, Placement]) -> bool:
     """Whether exactly two screens are in use and neither is the Score View's."""
-    used = {on.get(part) for part in (PLAYFIELD, BACKGLASS, SCORE_VIEW)
+    used = {on.get(part) for part in (PLAYFIELD, BACKGLASS, SCOREVIEW)
             if isinstance(on.get(part), int)}
-    return len(used) == 2 and not isinstance(on.get(SCORE_VIEW), int)
+    return len(used) == 2 and not isinstance(on.get(SCOREVIEW), int)
 
 
 def render_priorities(on: Mapping[str, Placement]) -> dict[str, str]:
@@ -288,7 +288,7 @@ def render_priorities(on: Mapping[str, Placement]) -> dict[str, str]:
 def full_dmd(on: Mapping[str, Placement]) -> dict[str, str]:
     """Full DMD wherever a screen is the DMD. Never turned off: with the Score View gone
     the overlay has no window to draw on."""
-    return dict(FULL_DMD) if isinstance(on.get(SCORE_VIEW), int) else {}
+    return dict(FULL_DMD) if isinstance(on.get(SCOREVIEW), int) else {}
 
 
 def derived(on: Mapping[str, Placement], current: Mapping[str, str]) -> dict[str, str]:

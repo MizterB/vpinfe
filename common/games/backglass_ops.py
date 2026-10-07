@@ -80,14 +80,14 @@ def picture_file(game_id: str, table_id: str = "", look: str = "on",
     return sized_media.Served(served.path, sized_media.version(source) or "")
 
 
-def score_view_file(game_id: str, table_id: str = "", path: str = "",
+def scoreview_file(game_id: str, table_id: str = "", path: str = "",
                     size: int | None = None) -> sized_media.Served:
     """The art the file draws on the score view window. Not found where it has none."""
     size = sized_media.size_or_refuse(size, "image")
     source = _file(game_id, table_id, path)
-    drawn = directb2s_parser.score_view_art(source)
+    drawn = directb2s_parser.scoreview_art(source)
     if drawn is None:
-        raise service_errors.NotFoundError(t("error.backglass.score_view_absent"))
+        raise service_errors.NotFoundError(t("error.backglass.scoreview_absent"))
     served = sized_media.served(drawn, size)
     return sized_media.Served(served.path, sized_media.version(source) or "")
 
@@ -227,4 +227,4 @@ def redraw_all(proceed: Callable[[], bool] = lambda: True) -> int:
 
 
 __all__ = ["B2S", "KIND", "LEGACY", "cuts_grill", "grill_cut", "offer", "picture_file",
-           "place_picture", "redraw", "redraw_all", "renderer", "score_view_file"]
+           "place_picture", "redraw", "redraw_all", "renderer", "scoreview_file"]

@@ -22,7 +22,7 @@ from console.on_page import on_page
 from console.screens import Screen
 
 BACKGLASS = "backglass"
-SCORE_VIEW = "score_view"
+SCOREVIEW = "scoreview"
 PLAYFIELD = "playfield"
 TOPPER = "topper"
 INSIDE = "inside"
@@ -82,8 +82,8 @@ def vpinfe_parts() -> tuple[Part, ...]:
     screen."""
     return (Part(TOPPER, t("console.screens.topper")),
             Part(BACKGLASS, t("console.screens.backglass")),
-            Part(SCORE_VIEW, t("console.screens.score_view"),
-                 t("console.screens.score_view.help")),
+            Part(SCOREVIEW, t("console.screens.scoreview"),
+                 t("console.screens.scoreview.help")),
             Part(PLAYFIELD, t("console.screens.playfield")))
 
 
@@ -92,8 +92,8 @@ def vpx_parts() -> tuple[Part, ...]:
     playfield."""
     return (Part(TOPPER, t("console.screens.topper"), inside=True),
             Part(BACKGLASS, t("console.screens.backglass"), inside=True),
-            Part(SCORE_VIEW, t("console.screens.score_view"),
-                 t("console.screens.score_view.help"), inside=True),
+            Part(SCOREVIEW, t("console.screens.scoreview"),
+                 t("console.screens.scoreview.help"), inside=True),
             Part(PLAYFIELD, t("console.screens.playfield")))
 
 
@@ -142,7 +142,7 @@ def guess(screens: Sequence[Screen]) -> dict[str, int]:
     strips = [screen for screen in alone if screen.width >= _STRIP * screen.height]
     found: dict[str, int] = {}
     if len(strips) == 1:
-        found[SCORE_VIEW] = strips[0].number
+        found[SCOREVIEW] = strips[0].number
     rest = sorted((screen for screen in alone if screen not in strips),
                   key=lambda screen: screen.width * screen.height, reverse=True)
     for part, screen in zip((PLAYFIELD, BACKGLASS, TOPPER), rest, strict=False):

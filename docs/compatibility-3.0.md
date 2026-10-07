@@ -1571,16 +1571,15 @@ Nothing published declares contract 2, so this reshapes a surface no theme reads
 become writable.** Every settable option leaves `general` for `install`, `console`,
 `commands`, `table_commands`, `chromium`, `behavior`, `presentation`, `themes`, `media`,
 `assets`, `updates` or `tools`, and `general` keeps only the three internal keys nothing
-offers as settings. Five sections are renamed for what they hold rather than for the
+offers as settings. Four sections are renamed for what they hold rather than for the
 library or the surface behind them: `frontend` to `behavior`, `library` to `updates`,
-`libdmdutil` to `real_dmd`, `mobile` to `vpxmobile`, and `windows.scoreview` to
-`windows.score_view`.
+`libdmdutil` to `real_dmd`, and `mobile` to `vpxmobile`.
 
 The per-window sections give up what was never a screen's: the four media priorities and
 the playfield's media rotation go to `presentation`, and the playfield's artwork variant
 and two resolutions go back to `media`, which is where 2.x held them. `windows.playfield`
 keeps its screen id, mounting and rotation; `windows.backglass` and
-`windows.score_view` keep a screen id and a window override. `real_dmd` gives up its
+`windows.scoreview` keep a screen id and a window override. `real_dmd` gives up its
 priority the same way. `presentation` is a new section for what the frontend shows,
 every member of which is already served to themes over the bridge.
 

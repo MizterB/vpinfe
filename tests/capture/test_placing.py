@@ -31,11 +31,11 @@ MONITORS = [SimpleNamespace(x=3000, y=0, width=1920, height=1080, name="DVI-D-1"
             SimpleNamespace(x=1080, y=0, width=1920, height=1080, name="HDMI-A-1")]
 
 
-def _config(playfield: str = "2", backglass: str = "1", score_view: str = "0"
+def _config(playfield: str = "2", backglass: str = "1", scoreview: str = "0"
             ) -> configparser.ConfigParser:
     held = configparser.ConfigParser()
     for window, value in (("playfield", playfield), ("backglass", backglass),
-                          ("score_view", score_view)):
+                          ("scoreview", scoreview)):
         held[f"windows.{window}"] = {"screen_id": value}
     return held
 

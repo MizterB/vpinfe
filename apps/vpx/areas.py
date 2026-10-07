@@ -70,7 +70,7 @@ CURATED: dict[str, tuple[Heading, ...]] = {
 
 
 _ARTS =(("Backglass", "backglass_dmd_position", "backglass_dmd_size"),
-         ("ScoreView", "score_view_dmd_position", "score_view_dmd_size"))
+         ("ScoreView", "scoreview_dmd_position", "scoreview_dmd_size"))
 
 
 def _overlays(plugin: str) -> tuple[Switched, ...]:

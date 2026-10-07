@@ -21,7 +21,7 @@ KEY = "hardware.displays"
 # What the picture draws, by config section.
 DRAWN = {"windows.playfield": frozenset({"screen_id", "orientation", "rotation"}),
          "windows.backglass": frozenset({"screen_id"}),
-         "windows.score_view": frozenset({"screen_id"}),
+         "windows.scoreview": frozenset({"screen_id"}),
          "windows.topper": frozenset({"screen_id"})}
 
 Write = Callable[[dict[str, dict[str, Any]]], Awaitable[bool]]

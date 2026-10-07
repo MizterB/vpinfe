@@ -39,11 +39,11 @@ def backglass(game_id: str, path: str, *, version: str | None = None,
                  version, size)
 
 
-def score_view(game_id: str, path: str, *, version: str | None = None,
+def scoreview(game_id: str, path: str, *, version: str | None = None,
                size: int | None = None) -> str:
     """The art a game's backglass file draws on the score view window."""
     query = urlencode({"path": path})
-    return _with(f"/api/v1/games/{quote(game_id, safe='')}/assets/backglass/score-view?{query}",
+    return _with(f"/api/v1/games/{quote(game_id, safe='')}/assets/backglass/scoreview?{query}",
                  version, size)
 
 

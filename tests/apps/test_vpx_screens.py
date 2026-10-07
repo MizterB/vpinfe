@@ -71,7 +71,7 @@ class WhereVpxHasItsPartsTests(unittest.TestCase):
             "ScoreView.ScoreViewDisplay": "CVT DVI [5760, 0]",
             "ScoreView.ScoreViewOutput": "1"}, SCREENS)
 
-        self.assertEqual(held, {"playfield": 1, "backglass": 2, "score_view": 3,
+        self.assertEqual(held, {"playfield": 1, "backglass": 2, "scoreview": 3,
                                 "topper": None})
 
     def test_a_window_that_is_not_floating_is_on_no_screen(self) -> None:
@@ -109,7 +109,7 @@ class PuttingPartsOnScreensTests(unittest.TestCase):
             "Player.PlayfieldDisplay": "Samsung Electric Company HDMI-A-1-SAMSUNG [0, 0]"})
 
     def test_a_part_with_no_screen_is_disabled(self) -> None:
-        self.assertEqual(vs.windows({"score_view": None}, SCREENS).keys,
+        self.assertEqual(vs.windows({"scoreview": None}, SCREENS).keys,
                          {"ScoreView.ScoreViewOutput": "0"})
 
     def test_a_playfield_with_no_screen_blanks_its_display(self) -> None:
@@ -117,7 +117,7 @@ class PuttingPartsOnScreensTests(unittest.TestCase):
                          {"Player.PlayfieldDisplay": ""})
 
     def test_a_part_in_the_playfield_is_embedded_in_a_region_of_its_window(self) -> None:
-        written = vs.windows({"score_view": vs.INSIDE}, [CAB], playfield=CAB)
+        written = vs.windows({"scoreview": vs.INSIDE}, [CAB], playfield=CAB)
 
         self.assertEqual(written.keys, {
             "ScoreView.ScoreViewOutput": "2", "ScoreView.ScoreViewWndX": "54",
@@ -159,9 +159,9 @@ class PuttingPartsOnScreensTests(unittest.TestCase):
         self.assertEqual((written.keys, written.unsized), ({}, ()))
 
     def test_a_screen_with_no_name_leaves_its_part_out_and_says_so(self) -> None:
-        written = vs.windows({"score_view": 3, "backglass": 2}, SCREENS)
+        written = vs.windows({"scoreview": 3, "backglass": 2}, SCREENS)
 
-        self.assertEqual(written.unnamed, ("score_view",))
+        self.assertEqual(written.unnamed, ("scoreview",))
         self.assertNotIn("ScoreView.ScoreViewOutput", written.keys)
         self.assertNotIn("ScoreView.ScoreViewDisplay", written.keys)
         self.assertIn("Backglass.BackglassOutput", written.keys)
@@ -171,7 +171,7 @@ class PuttingPartsOnScreensTests(unittest.TestCase):
 
 
 class AgreeingWithVpinfeTests(unittest.TestCase):
-    ON = {"playfield": 1, "backglass": 2, "score_view": 3}
+    ON = {"playfield": 1, "backglass": 2, "scoreview": 3}
 
     def test_parts_in_the_same_place_do_not_differ(self) -> None:
         self.assertEqual(vs.differs({**self.ON, "topper": 4}, {**self.ON, "topper": 4}), [])
@@ -186,15 +186,15 @@ class AgreeingWithVpinfeTests(unittest.TestCase):
         self.assertEqual(vs.differs(self.ON, {**self.ON, "topper": 2}), [])
 
     def test_a_part_somewhere_else_differs(self) -> None:
-        self.assertEqual(vs.differs(self.ON, {**self.ON, "score_view": None}), ["score_view"])
+        self.assertEqual(vs.differs(self.ON, {**self.ON, "scoreview": None}), ["scoreview"])
 
     def test_a_part_vpinfe_leaves_off_and_vpx_has_differs(self) -> None:
         self.assertEqual(vs.differs({"playfield": 1}, {"playfield": 1, "backglass": 2}),
                          ["backglass"])
 
     def test_a_move_reaches_the_parts_vpx_still_has_where_vpinfe_had_them(self) -> None:
-        got = vs.followed(self.ON, {"backglass": 3, "score_view": 2},
-                          {**self.ON, "score_view": None})
+        got = vs.followed(self.ON, {"backglass": 3, "scoreview": 2},
+                          {**self.ON, "scoreview": None})
 
         self.assertEqual(got, {"backglass": 3})
 
@@ -296,7 +296,7 @@ class TheTurnTests(unittest.TestCase):
 
 class WhatTheArrangementImpliesTests(unittest.TestCase):
     def test_a_score_screen_gets_the_priorities_and_full_dmd(self) -> None:
-        got = vs.derived({"playfield": 1, "backglass": 2, "score_view": 3}, {})
+        got = vs.derived({"playfield": 1, "backglass": 2, "scoreview": 3}, {})
 
         self.assertEqual(got, {**vs.PRIORITIES, **vs.FULL_DMD})
 
@@ -315,11 +315,11 @@ class WhatTheArrangementImpliesTests(unittest.TestCase):
         self.assertEqual(vs.derived({"playfield": 1, "backglass": 2}, {}), {})
 
     def test_two_screens_with_the_dmd_embedded_get_nothing_either(self) -> None:
-        self.assertEqual(vs.derived({"playfield": 1, "backglass": 2, "score_view": "inside"},
+        self.assertEqual(vs.derived({"playfield": 1, "backglass": 2, "scoreview": "inside"},
                                     {}), {})
 
     def test_two_screens_where_one_is_the_dmd_get_everything(self) -> None:
-        got = vs.derived({"playfield": 1, "score_view": 2}, {})
+        got = vs.derived({"playfield": 1, "scoreview": 2}, {})
 
         self.assertEqual(got, {**vs.PRIORITIES, **vs.FULL_DMD})
 
@@ -327,7 +327,7 @@ class WhatTheArrangementImpliesTests(unittest.TestCase):
         self.assertEqual(vs.derived({"playfield": 1, "backglass": 1}, {}), vs.PRIORITIES)
 
     def test_a_value_vpx_holds_is_left_alone(self) -> None:
-        got = vs.derived({"playfield": 1, "score_view": 2},
+        got = vs.derived({"playfield": 1, "scoreview": 2},
                          {"ScoreView.Priority.PUP": "5", "Plugin.B2SLegacy.B2SHideGrill": "0"})
 
         self.assertNotIn("ScoreView.Priority.PUP", got)
@@ -345,7 +345,7 @@ class WhatTheArrangementImpliesTests(unittest.TestCase):
 
 
 class TheWholeAnswerTests(unittest.TestCase):
-    NOW = {"playfield": 1, "backglass": 2, "score_view": 3}
+    NOW = {"playfield": 1, "backglass": 2, "scoreview": 3}
 
     def test_it_is_the_windows_the_turn_and_what_follows(self) -> None:
         got = vs.answer(self.NOW, self.NOW, [TALL, BACK, STRIP], LOGGED, {},
@@ -378,20 +378,20 @@ class TheWholeAnswerTests(unittest.TestCase):
         self.assertNotIn("TableOverride.ViewCabRotation", got.keys)
 
     def test_a_part_put_in_the_playfield_takes_a_region_of_that_playfield(self) -> None:
-        now = {"playfield": 1, "score_view": "inside"}
+        now = {"playfield": 1, "scoreview": "inside"}
 
-        got = vs.answer({"score_view": "inside"}, now, [CAB], LOGGED, {})
+        got = vs.answer({"scoreview": "inside"}, now, [CAB], LOGGED, {})
 
         self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "2")
         self.assertEqual(got.keys["ScoreView.ScoreViewWidth"], "972")
         self.assertEqual(got.unsized, ())
 
     def test_a_part_put_in_a_playfield_with_no_screen_is_reported(self) -> None:
-        now = {"playfield": None, "score_view": "inside"}
+        now = {"playfield": None, "scoreview": "inside"}
 
-        got = vs.answer({"score_view": "inside"}, now, [CAB], LOGGED, {})
+        got = vs.answer({"scoreview": "inside"}, now, [CAB], LOGGED, {})
 
-        self.assertEqual(got.unsized, ("score_view",))
+        self.assertEqual(got.unsized, ("scoreview",))
         self.assertNotIn("ScoreView.ScoreViewOutput", got.keys)
 
     REGION_HELD = {"ScoreView.ScoreViewOutput": "2", "ScoreView.ScoreViewWndX": "54",
@@ -399,76 +399,76 @@ class TheWholeAnswerTests(unittest.TestCase):
                    "ScoreView.ScoreViewHeight": "243"}
 
     def test_a_part_leaving_the_playfield_for_a_screen_floats_with_its_region_blanked(self) -> None:
-        now = {"playfield": 1, "score_view": 3}
+        now = {"playfield": 1, "scoreview": 3}
 
-        got = vs.answer({"score_view": 3}, now, SCREENS, LOGGED, self.REGION_HELD)
+        got = vs.answer({"scoreview": 3}, now, SCREENS, LOGGED, self.REGION_HELD)
 
         self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "1")
-        self.assertEqual({key: got.keys[key] for key in vs.REGION["score_view"]},
-                         dict.fromkeys(vs.REGION["score_view"], ""))
+        self.assertEqual({key: got.keys[key] for key in vs.REGION["scoreview"]},
+                         dict.fromkeys(vs.REGION["scoreview"], ""))
 
     def test_a_part_leaving_the_playfield_for_no_screen_is_disabled_with_its_region_blanked(
             self) -> None:
-        now = {"playfield": 1, "score_view": None}
+        now = {"playfield": 1, "scoreview": None}
 
-        got = vs.answer({"score_view": None}, now, SCREENS, LOGGED, self.REGION_HELD)
+        got = vs.answer({"scoreview": None}, now, SCREENS, LOGGED, self.REGION_HELD)
 
         self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "0")
-        self.assertEqual({key: got.keys[key] for key in vs.REGION["score_view"]},
-                         dict.fromkeys(vs.REGION["score_view"], ""))
+        self.assertEqual({key: got.keys[key] for key in vs.REGION["scoreview"]},
+                         dict.fromkeys(vs.REGION["scoreview"], ""))
 
     def test_a_floating_part_that_moves_keeps_the_geometry_of_its_window(self) -> None:
         held = {"ScoreView.ScoreViewOutput": "1", "ScoreView.ScoreViewWndX": "40"}
 
         for where in (3, None):
             with self.subTest(where=where):
-                got = vs.answer({"score_view": where}, {"playfield": 1, "score_view": where},
+                got = vs.answer({"scoreview": where}, {"playfield": 1, "scoreview": where},
                                 SCREENS, LOGGED, held)
 
-                self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+                self.assertFalse(set(vs.REGION["scoreview"]) & set(got.keys))
 
     def test_a_part_that_stays_inside_keeps_its_region_as_it_is(self) -> None:
-        now = {"playfield": 1, "score_view": "inside"}
+        now = {"playfield": 1, "scoreview": "inside"}
 
         got = vs.answer({"backglass": None}, {**now, "backglass": None}, [CAB], LOGGED,
                         self.REGION_HELD)
 
-        self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+        self.assertFalse(set(vs.REGION["scoreview"]) & set(got.keys))
 
     def test_a_part_that_cannot_be_named_does_not_have_its_region_blanked(self) -> None:
-        got = vs.answer({"score_view": 3}, {"playfield": 1, "score_view": 3}, SCREENS, [],
+        got = vs.answer({"scoreview": 3}, {"playfield": 1, "scoreview": 3}, SCREENS, [],
                         self.REGION_HELD)
 
-        self.assertEqual(got.unnamed, ("score_view",))
-        self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+        self.assertEqual(got.unnamed, ("scoreview",))
+        self.assertFalse(set(vs.REGION["scoreview"]) & set(got.keys))
 
     def test_a_part_inside_follows_the_playfield_to_a_window_of_another_shape(self) -> None:
-        now = {"playfield": 1, "score_view": "inside"}
+        now = {"playfield": 1, "scoreview": "inside"}
 
         got = vs.answer({"playfield": 1}, now, [LAND], LOGGED, self.REGION_HELD)
 
         self.assertEqual(got.keys["ScoreView.ScoreViewOutput"], "2")
         x, y, width, height = vs.embedded_region(LAND)
-        self.assertEqual([got.keys[key] for key in vs.REGION["score_view"]],
+        self.assertEqual([got.keys[key] for key in vs.REGION["scoreview"]],
                          [str(x), str(y), str(width), str(height)])
         self.assertLessEqual(x + width, LAND.width)
         self.assertLessEqual(y + height, LAND.height)
         self.assertEqual(got.unsized, ())
 
     def test_a_playfield_with_no_screen_leaves_the_parts_inside_it_alone(self) -> None:
-        now = {"playfield": None, "score_view": "inside"}
+        now = {"playfield": None, "scoreview": "inside"}
 
         got = vs.answer({"playfield": None}, now, [CAB], LOGGED, self.REGION_HELD)
 
         self.assertEqual(got.unsized, ())
-        self.assertFalse(set(vs.REGION["score_view"]) & set(got.keys))
+        self.assertFalse(set(vs.REGION["scoreview"]) & set(got.keys))
 
     def test_a_part_put_inside_along_with_the_playfield_takes_the_new_window_too(self) -> None:
-        now = {"playfield": 1, "score_view": "inside", "backglass": "inside"}
+        now = {"playfield": 1, "scoreview": "inside", "backglass": "inside"}
 
         got = vs.answer({"playfield": 1, "backglass": "inside"}, now, [LAND], LOGGED, {})
 
-        for part in ("score_view", "backglass"):
+        for part in ("scoreview", "backglass"):
             self.assertEqual(got.keys[vs.OUTPUT[part]], "2")
             self.assertEqual([got.keys[key] for key in vs.REGION[part]],
                              [str(one) for one in vs.embedded_region(LAND)])
@@ -488,9 +488,9 @@ class TheWholeAnswerTests(unittest.TestCase):
             "Backglass.BackglassOutput"})
 
     def test_the_part_that_has_no_name_is_reported_and_the_rest_written(self) -> None:
-        got = vs.answer({"score_view": 3}, self.NOW, SCREENS, [], {})
+        got = vs.answer({"scoreview": 3}, self.NOW, SCREENS, [], {})
 
-        self.assertEqual(got.unnamed, ("score_view",))
+        self.assertEqual(got.unnamed, ("scoreview",))
         self.assertNotIn("ScoreView.ScoreViewOutput", got.keys)
 
 

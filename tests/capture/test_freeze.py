@@ -207,7 +207,7 @@ class AimAndGrabTests(unittest.TestCase):
         values = {("windows.playfield", "screen_id"): "0",
                   ("windows.playfield", "rotation"): rotation,
                   ("windows.backglass", "screen_id"): "1",
-                  ("windows.score_view", "screen_id"): "2"}
+                  ("windows.scoreview", "screen_id"): "2"}
         return values
 
     def _aim(self, rotation: str = "0", shown=None, windows=None):

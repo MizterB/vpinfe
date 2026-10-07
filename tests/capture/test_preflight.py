@@ -64,7 +64,7 @@ def config(**values: str) -> configparser.ConfigParser:
     held = configparser.ConfigParser()
     held["windows.playfield"] = {"screen_id": "0"}
     held["windows.backglass"] = {"screen_id": "1"}
-    held["windows.score_view"] = {"screen_id": "2"}
+    held["windows.scoreview"] = {"screen_id": "2"}
     held["capture"] = values
     return held
 

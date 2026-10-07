@@ -63,12 +63,12 @@ SECTION_DESCRIPTIONS = {
 
 # One section per window since [Displays] was split up, so a per-window control is
 # picked by (section, key) rather than by a key that spelled its window into its name.
-WINDOW_SECTIONS = ('windows.playfield', 'windows.backglass', 'windows.score_view')
+WINDOW_SECTIONS = ('windows.playfield', 'windows.backglass', 'windows.scoreview')
 
 # One key per surface, all in [presentation]. The real DMD's is picked out below
 # because it chooses a frame rather than a media kind.
 MEDIA_PRIORITY_KEYS = ('playfield_media_priority', 'backglass_media_priority',
-                       'score_view_media_priority', 'real_dmd_media_priority')
+                       'scoreview_media_priority', 'real_dmd_media_priority')
 
 
 def tracked_values(inputs, binding_inputs):

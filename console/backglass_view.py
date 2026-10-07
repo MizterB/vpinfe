@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 GLASS_PART = "Backglass"
 SCORE_PART = "ScoreView"
 BACKGLASS_WINDOW = "Backglass.Backglass"
-SCORE_VIEW_WINDOW = "ScoreView.ScoreView"
+SCOREVIEW_WINDOW = "ScoreView.ScoreView"
 BAR_PX = 46
 CAPTION_PX = 28
 GAP_PX = 8
@@ -94,10 +94,10 @@ def screens(held: Mapping[str, str], glass: Mapping[str, Any]) -> tuple[Screen, 
         _box(held, plugin, GLASS_PART, (wide, kept)),
         off=held.get(BACKGLASS_WINDOW + "Output", "0") in ("", "0"),
         space=(wide, kept))
-    art_size = glass.get("score_view_art")
-    if not art_size or held.get(SCORE_VIEW_WINDOW + "Output", "0") in ("", "0"):
+    art_size = glass.get("scoreview_art")
+    if not art_size or held.get(SCOREVIEW_WINDOW + "Output", "0") in ("", "0"):
         return glass_screen, None
-    window, turns = _window(held, SCORE_VIEW_WINDOW)
+    window, turns = _window(held, SCOREVIEW_WINDOW)
     return glass_screen, Screen(_ratio(window, tuple(art_size), turns), turns, 100.0,
                                 _box(held, plugin, SCORE_PART, tuple(art_size)),
                                 part=SCORE_PART, space=tuple(art_size))
@@ -172,10 +172,10 @@ def frame_box(frame: dmd_frame.Frame, size: tuple[int, int]) -> Box:
 
 
 def found(game_id: str, path: str, *, look: str, edition: str, cut: bool,
-          score_view: bool) -> Box | None:
+          scoreview: bool) -> Box | None:
     """Where Automatic would put the DMD on the picture the preview shows, or None where
     the art has no window for it."""
-    served = (backglass_ops.score_view_file(game_id, path=path) if score_view
+    served = (backglass_ops.scoreview_file(game_id, path=path) if scoreview
               else backglass_ops.picture_file(game_id, look=look, version=edition, grill=cut,
                                               path=path))
     with Image.open(served.path) as picture:
@@ -194,7 +194,7 @@ def fit_target(held: Mapping[str, str], glass: Mapping[str, Any],
         return glass_screen, glass_screen.scale != 100.0
     if score_screen is not None:
         return score_screen, False
-    art_size = glass.get("score_view_art")
+    art_size = glass.get("scoreview_art")
     if not art_size:
         return None
     return Screen(1.0, 0, 100.0, None, part=SCORE_PART, space=tuple(art_size)), False
@@ -252,7 +252,7 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                     box = await run.io_bound(
                         lambda: found(game_id, path, look=state["look"],
                                       edition=state["edition"], cut=cut,
-                                      score_view=part == SCORE_PART))
+                                      scoreview=part == SCORE_PART))
                 except Exception:  # noqa: BLE001 - a file that cannot be drawn says so
                     logger.exception("Could not search the backglass picture for the DMD")
                     ui.notify(t("console.backglass.damaged"), type="negative")
@@ -299,10 +299,10 @@ def preview(game_id: str, path: str, glass: dict[str, Any], label: str,
                 _stage(glass_screen, src, moved(glass_screen), t("console.backglass.glass"),
                        _counted_in(plugin, glass_screen.space))
                 if score_screen is not None:
-                    score = art.score_view(game_id, path, version=glass["version"],
+                    score = art.scoreview(game_id, path, version=glass["version"],
                                            size=art.PANEL)
                     _stage(score_screen, score, moved(score_screen),
-                           t("console.backglass.score_view"),
+                           t("console.backglass.scoreview"),
                            _counted_in(plugin, score_screen.space))
             with ui.row().classes("console-bgview-bar items-center gap-2 w-full"):
                 if not glass["still"] and glass["lamps"]:

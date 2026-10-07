@@ -307,7 +307,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
     ),
     *in_section(
-        "windows.score_view",
+        "windows.scoreview",
         ConfigOption(
             "screen_id",
             applies=APPLIES_RESTART,
@@ -727,7 +727,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             legacy=(("Media", "bgmediapriority"),),
         ),
         ConfigOption(
-            "score_view_media_priority",
+            "scoreview_media_priority",
             applies=APPLIES_WINDOWS,
             type="choice",
             default="video",

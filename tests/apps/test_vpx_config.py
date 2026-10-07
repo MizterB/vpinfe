@@ -449,16 +449,16 @@ class AreaTests(_Case):
         self.assertEqual((heading.enabled_by, heading.rivals), ("", ()))
 
     def test_a_backglass_renderer_is_about_the_backglass_and_pairs_each_dmd_box(self) -> None:
-        backglass, score_view = "Plugin.B2SLegacy.BackglassDMD", "Plugin.B2SLegacy.ScoreViewDMD"
-        box = [f"{art}{part}" for art in (backglass, score_view) for part in "XYWH"]
+        backglass, scoreview = "Plugin.B2SLegacy.BackglassDMD", "Plugin.B2SLegacy.ScoreViewDMD"
+        box = [f"{art}{part}" for art in (backglass, scoreview) for part in "XYWH"]
         heading, = areas.plugin_headings({"Plugin.B2SLegacy.Enable", *box})
 
         self.assertEqual(heading.kinds, ("backglass",))
         self.assertEqual([(pair.key, pair.keys) for pair in heading.pairs],
                          [("backglass_dmd_position", (f"{backglass}X", f"{backglass}Y")),
                           ("backglass_dmd_size", (f"{backglass}W", f"{backglass}H")),
-                          ("score_view_dmd_position", (f"{score_view}X", f"{score_view}Y")),
-                          ("score_view_dmd_size", (f"{score_view}W", f"{score_view}H"))])
+                          ("scoreview_dmd_position", (f"{scoreview}X", f"{scoreview}Y")),
+                          ("scoreview_dmd_size", (f"{scoreview}W", f"{scoreview}H"))])
         self.assertTrue(all(areas.is_curated(key) for key in box))
 
     def test_the_version_pick_is_a_file_s_row_and_not_the_table_s(self) -> None:

@@ -28,12 +28,12 @@ def _png(size: tuple[int, int], color: tuple[int, ...]) -> str:
 
 
 def _directb2s(*, size: tuple[int, int] = (40, 30), lamps: bool = True,
-               header: str = "", score_view: tuple[int, int] | None = None) -> bytes:
+               header: str = "", scoreview: tuple[int, int] | None = None) -> bytes:
     bulb = ('<Bulb Parent="Backglass" ID="1" Name="" RomID="1" RomIDType="1" '
             'InitialState="1" DualMode="0" Visible="1" LocX="2" LocY="2" Width="4" '
             f'Height="4" ZOrder="0" IsImageSnippit="0" Image="{_png((4, 4), (250, 250, 0))}" />'
             if lamps else "")
-    drawn = f'<DMDImage Value="{_png(score_view, DARK)}" />' if score_view else ""
+    drawn = f'<DMDImage Value="{_png(scoreview, DARK)}" />' if scoreview else ""
     return (
         '<DirectB2SData Version="1.2">\n'
         '  <Name Value="Example" />\n'
@@ -56,7 +56,7 @@ class BackglassRoutes(TempTree):
         self.folder = write_game(
             self.root, FOLDER, info=info, vpx=False,
             files={"t1.vpx": b"vpx", "t2.vpx": b"vpx",
-                   "t1.directb2s": _directb2s(score_view=(24, 8)),
+                   "t1.directb2s": _directb2s(scoreview=(24, 8)),
                    f"{FOLDER}.directb2s": _directb2s(size=(80, 60), lamps=False),
                    "Broken.directb2s": b"not a backglass at all",
                    "notes.txt": b"hello"})
@@ -100,20 +100,20 @@ class BackglassRoutes(TempTree):
 
         self.assertEqual((40, 30), self._drawn(response))
 
-    def test_the_score_view_art_of_a_file_is_drawn(self) -> None:
-        response = self.client.get(f"/games/{GAME_ID}/assets/backglass/score-view",
+    def test_the_scoreview_art_of_a_file_is_drawn(self) -> None:
+        response = self.client.get(f"/games/{GAME_ID}/assets/backglass/scoreview",
                                    params={"path": "t1.directb2s"})
 
         self.assertEqual((24, 8), self._drawn(response))
 
-    def test_a_file_without_score_view_art_has_none_to_draw(self) -> None:
-        response = self.client.get(f"/games/{GAME_ID}/assets/backglass/score-view",
+    def test_a_file_without_scoreview_art_has_none_to_draw(self) -> None:
+        response = self.client.get(f"/games/{GAME_ID}/assets/backglass/scoreview",
                                    params={"path": f"{FOLDER}.directb2s"})
 
         self.assertEqual(404, response.status_code)
 
-    def test_a_table_gets_the_score_view_of_the_file_named_for_it(self) -> None:
-        response = self.client.get(f"/games/{GAME_ID}/tables/t1/assets/backglass/score-view")
+    def test_a_table_gets_the_scoreview_of_the_file_named_for_it(self) -> None:
+        response = self.client.get(f"/games/{GAME_ID}/tables/t1/assets/backglass/scoreview")
 
         self.assertEqual((24, 8), self._drawn(response))
 

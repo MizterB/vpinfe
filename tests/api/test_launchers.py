@@ -613,14 +613,14 @@ class BackglassPluginAtATableTests(_TableCase):
         got = self.client.get("/launchers/l1/config?table=t1&scope=entry")
         plugins = {g["key"]: g for g in got.json()["groups"]}["plugins"]
         b2s, = plugins["curated"]
-        backglass, score_view = "Plugin.B2S.BackglassDMD", "Plugin.B2S.ScoreViewDMD"
+        backglass, scoreview = "Plugin.B2S.BackglassDMD", "Plugin.B2S.ScoreViewDMD"
 
         self.assertEqual(b2s["kinds"], ["backglass"])
         self.assertEqual([(p["label"], p["joiner"], p["keys"]) for p in b2s["pairs"]], [
             ("Backglass DMD Position", ",", [f"{backglass}X", f"{backglass}Y"]),
             ("Backglass DMD Size", "×", [f"{backglass}W", f"{backglass}H"]),
-            ("ScoreView DMD Position", ",", [f"{score_view}X", f"{score_view}Y"]),
-            ("ScoreView DMD Size", "×", [f"{score_view}W", f"{score_view}H"])])
+            ("Score View DMD Position", ",", [f"{scoreview}X", f"{scoreview}Y"]),
+            ("Score View DMD Size", "×", [f"{scoreview}W", f"{scoreview}H"])])
         self.assertTrue(set(self.VALUES) <= set(b2s["keys"]))
 
     def test_the_overlay_s_rows_are_switched_by_the_overlay(self) -> None:

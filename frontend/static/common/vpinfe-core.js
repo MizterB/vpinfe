@@ -1586,7 +1586,7 @@ class VPinFECore {
     // Only the ones a title-cased name gets wrong. Everything else - table, playfield,
     // a declared topper - reads correctly from the name itself. Kept in step with
     // theme_windows.TITLES, which does the same job for the bootstrap page.
-    const known = { bg: "BG", dmd: "DMD", scoreview: "ScoreView" };
+    const known = { bg: "BG", dmd: "DMD", scoreview: "Score View" };
     if (known[windowName]) return known[windowName];
     if (!windowName || windowName === "unknown") return "Window";
     return windowName.charAt(0).toUpperCase() + windowName.slice(1);

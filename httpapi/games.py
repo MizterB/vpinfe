@@ -112,26 +112,26 @@ def get_table_backglass_picture(game_id: str, table_id: str, request: Request,
         game_id, table_id, look, version, grill, path, size), request, v)
 
 
-@router.get("/{game_id}/assets/backglass/score-view",
+@router.get("/{game_id}/assets/backglass/scoreview",
             summary="The art a backglass file draws on the score view",
             dependencies=[requires(scopes.GAMES_READ)])
-def get_backglass_score_view(game_id: str, request: Request,
+def get_backglass_scoreview(game_id: str, request: Request,
                              path: str = Query("", description="A file in the folder; the "
                                                                "one the folder reads if empty"),
                              size: int | None = responses.ART_SIZE,
                              v: str = responses.ART_VERSION) -> Response:
-    return responses.art_file(backglass_ops.score_view_file(game_id, "", path, size), request, v)
+    return responses.art_file(backglass_ops.scoreview_file(game_id, "", path, size), request, v)
 
 
-@router.get("/{game_id}/tables/{table_id}/assets/backglass/score-view",
+@router.get("/{game_id}/tables/{table_id}/assets/backglass/scoreview",
             summary="The score view art of the table's backglass file",
             dependencies=[requires(scopes.GAMES_READ)])
-def get_table_backglass_score_view(game_id: str, table_id: str, request: Request,
+def get_table_backglass_scoreview(game_id: str, table_id: str, request: Request,
                                    path: str = Query(""),
                                    size: int | None = responses.ART_SIZE,
                                    v: str = responses.ART_VERSION) -> Response:
     return responses.art_file(
-        backglass_ops.score_view_file(game_id, table_id, path, size), request, v)
+        backglass_ops.scoreview_file(game_id, table_id, path, size), request, v)
 
 
 @router.get("/{game_id}/assets/{kind}/placements",

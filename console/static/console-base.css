@@ -3358,14 +3358,14 @@ a.console-slot-file, a.console-slot-file:visited { color: var(--accent); }
 .console-part-slot--missing { border: 1.5px solid var(--tier-table); color: var(--ink-2); cursor: grab; }
 .console-part-slot.console-drop-hot { background: var(--drop-lit); }
 .console-part--backglass .console-part-slot { width: 200px; height: 112px; }
-.console-part--score_view .console-part-slot { width: 150px; height: 44px; flex-direction: row; gap: 10px; }
+.console-part--scoreview .console-part-slot { width: 150px; height: 44px; flex-direction: row; gap: 10px; }
 .console-part--playfield .console-part-slot-wrap { perspective: 520px; }
 .console-part--playfield .console-part-slot {
   width: 210px; height: 150px; transform: rotateX(38deg); transform-origin: 50% 100%;
   margin-top: -18px;
 }
 .console-part-slot-num { font-size: 30px; font-weight: 700; line-height: 1; }
-.console-part--score_view .console-part-slot-num { font-size: 22px; }
+.console-part--scoreview .console-part-slot-num { font-size: 22px; }
 .console-part-slot-size { font-size: var(--fs-caption); color: var(--ink-2); max-width: 90%; }
 .console-part-slot-none { font-size: var(--fs-caption); }
 .console-part-slot-clear {

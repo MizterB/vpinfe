@@ -45,7 +45,7 @@ TOPPER = "topper"
 
 # Windows whose label is not just the capitalized name. The contract 1 spellings keep
 # the titles they shipped with, so a cabinet's window rules keep matching them.
-TITLES = {"bg": "BG", "dmd": "DMD", "scoreview": "ScoreView"}
+TITLES = {"bg": "BG", "dmd": "DMD", "scoreview": "Score View"}
 
 # A window name reaches the bootstrap page from the URL and is written into its HTML, so
 # it is checked rather than trusted. Theme window names are plain words by construction -

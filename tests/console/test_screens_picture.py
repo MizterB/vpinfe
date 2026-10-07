@@ -49,7 +49,7 @@ class PlacedTests(unittest.TestCase):
         self.assertEqual(on, {"backglass": 1, "playfield": 2})
 
     def test_only_the_parts_that_differ_are_changes(self) -> None:
-        before = {"backglass": 1, "playfield": 2, "score_view": None}
+        before = {"backglass": 1, "playfield": 2, "scoreview": None}
 
         self.assertEqual(picture.changes(before, picture.placed(before, "backglass", 2)),
                          {"backglass": 2, "playfield": 1})
@@ -59,24 +59,24 @@ class PlacedTests(unittest.TestCase):
 class InsideTests(unittest.TestCase):
     def test_visual_pinball_has_a_topper_above_the_backglass_and_the_playfield_last(self) -> None:
         self.assertEqual([part.key for part in picture.vpx_parts()],
-                         ["topper", "backglass", "score_view", "playfield"])
+                         ["topper", "backglass", "scoreview", "playfield"])
 
     def test_every_part_but_the_playfield_can_be_drawn_inside_it(self) -> None:
         self.assertEqual({part.key: part.inside for part in picture.vpx_parts()},
-                         {"topper": True, "backglass": True, "score_view": True,
+                         {"topper": True, "backglass": True, "scoreview": True,
                           "playfield": False})
 
     def test_vpinfe_has_a_topper_above_the_backglass_and_the_playfield_last(self) -> None:
         self.assertEqual([part.key for part in picture.vpinfe_parts()],
-                         ["topper", "backglass", "score_view", "playfield"])
+                         ["topper", "backglass", "scoreview", "playfield"])
 
     def test_vpinfe_s_parts_are_never_offered_inside(self) -> None:
         self.assertFalse([part for part in picture.vpinfe_parts() if part.inside])
 
     def test_inside_is_no_screen_and_displaces_nothing(self) -> None:
-        self.assertEqual(picture.placed({"backglass": 2, "playfield": 1}, "score_view",
+        self.assertEqual(picture.placed({"backglass": 2, "playfield": 1}, "scoreview",
                                         picture.INSIDE),
-                         {"backglass": 2, "playfield": 1, "score_view": picture.INSIDE})
+                         {"backglass": 2, "playfield": 1, "scoreview": picture.INSIDE})
 
     def test_a_screen_put_where_a_part_is_inside_sends_nothing_back(self) -> None:
         self.assertEqual(picture.placed({"backglass": picture.INSIDE, "playfield": 1},
@@ -141,14 +141,14 @@ class GuessTests(unittest.TestCase):
     def test_a_lone_screen_is_the_playfield(self) -> None:
         self.assertEqual(picture.guess([STRIP]), {"playfield": 3})
 
-    def test_a_strip_is_the_score_view_and_the_biggest_of_the_rest_the_playfield(
+    def test_a_strip_is_the_scoreview_and_the_biggest_of_the_rest_the_playfield(
             self) -> None:
         self.assertEqual(picture.guess([STRIP, BARE, BIG]),
-                         {"score_view": 3, "playfield": 1, "backglass": 4})
+                         {"scoreview": 3, "playfield": 1, "backglass": 4})
 
     def test_the_fourth_screen_is_the_topper(self) -> None:
         self.assertEqual(picture.guess([STRIP, BARE, BIG, TALL]),
-                         {"score_view": 3, "playfield": 1, "backglass": 4, "topper": 2})
+                         {"scoreview": 3, "playfield": 1, "backglass": 4, "topper": 2})
 
     def test_three_screens_leave_the_topper_unplaced(self) -> None:
         self.assertNotIn("topper", picture.guess([STRIP, BARE, BIG]))
@@ -162,7 +162,7 @@ class GuessTests(unittest.TestCase):
         twin = Screen(5, "", 1920, 1080, 0, 0)
 
         self.assertEqual(picture.guess([BARE, twin, STRIP, BIG]),
-                         {"score_view": 3, "playfield": 1})
+                         {"scoreview": 3, "playfield": 1})
 
     def test_two_strips_are_not_told_apart(self) -> None:
         other = Screen(5, "", 1920, 600, 0, 0)
@@ -170,7 +170,7 @@ class GuessTests(unittest.TestCase):
         self.assertEqual(picture.guess([STRIP, other, BIG]), {"playfield": 1})
 
     def test_an_ordinary_widescreen_is_not_a_strip(self) -> None:
-        self.assertNotIn("score_view", picture.guess([BIG, BARE]))
+        self.assertNotIn("scoreview", picture.guess([BIG, BARE]))
 
     def test_each_screen_is_given_to_one_part(self) -> None:
         found = picture.guess([STRIP, BARE, BIG, TALL])
@@ -203,7 +203,7 @@ class DrawnTests(unittest.TestCase):
         _, body = _drawn({})
 
         labels = _labels(body)
-        for word in ("console.screens.backglass", "console.screens.score_view",
+        for word in ("console.screens.backglass", "console.screens.scoreview",
                      "console.screens.playfield"):
             self.assertIn(t(word), labels)
 
@@ -303,10 +303,10 @@ class DrawnTests(unittest.TestCase):
                        if isinstance(one, ui.button)])
 
     def test_the_part_a_hint_belongs_to_carries_it(self) -> None:
-        [score] = [part for part in picture.vpinfe_parts() if part.key == picture.SCORE_VIEW]
+        [score] = [part for part in picture.vpinfe_parts() if part.key == picture.SCOREVIEW]
 
-        self.assertEqual(score.hint, t("console.screens.score_view.help"))
-        self.assertEqual(score.label, t("console.screens.score_view"))
+        self.assertEqual(score.hint, t("console.screens.scoreview.help"))
+        self.assertEqual(score.label, t("console.screens.scoreview"))
 
 
 class VpxDrawnTests(unittest.TestCase):
@@ -512,12 +512,12 @@ class ActedOnTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_swap_leaves_a_part_that_can_be_inside_where_it_is(self) -> None:
         move = AsyncMock(return_value=True)
-        control, _ = self._drawn({"score_view": picture.INSIDE, "backglass": 1},
+        control, _ = self._drawn({"scoreview": picture.INSIDE, "backglass": 1},
                                  parts=picture.vpx_parts(), move=move)
 
-        await press(control._put, "score_view", 1)
+        await press(control._put, "scoreview", 1)
 
-        move.assert_awaited_once_with({"score_view": 1, "backglass": picture.INSIDE})
+        move.assert_awaited_once_with({"scoreview": 1, "backglass": picture.INSIDE})
 
 
 if __name__ == "__main__":

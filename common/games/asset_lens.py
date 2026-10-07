@@ -292,6 +292,6 @@ def _backglass_facts(path: Path) -> dict[str, Any] | None:
             "two_versions": facts.two_versions,
             "size": list(facts.size) if facts.size else None, "lamps": facts.lamps,
             "still": facts.still,
-            "score_view_art": list(facts.score_view_art) if facts.score_view_art else None,
+            "scoreview_art": list(facts.scoreview_art) if facts.scoreview_art else None,
             "problems": list(facts.problems), "damaged": directb2s_parser.damaged(facts),
             "version": sized_media.version(path) or ""}

@@ -35,7 +35,7 @@ def _held(**keys: tuple[str, bool]) -> dict[str, Any]:
 
 
 def _standing(on: dict | None = None, turn: tuple[str, str] = ("portrait", "0")) -> Any:
-    return displays.Standing({"playfield": 1, "backglass": 2, "score_view": None,
+    return displays.Standing({"playfield": 1, "backglass": 2, "scoreview": None,
                               **(on or {})}, turn)
 
 

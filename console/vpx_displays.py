@@ -210,7 +210,7 @@ class Page:
         """VPinFE's parts and arrow. With no topper screen in VPinFE, the topper is left
         where it is unless a part now needs its screen."""
         wanted = {part: self.vpinfe.on.get(part)
-                  for part in (vpx.BACKGLASS, vpx.SCORE_VIEW, vpx.PLAYFIELD)}
+                  for part in (vpx.BACKGLASS, vpx.SCOREVIEW, vpx.PLAYFIELD)}
         has_topper = self.vpinfe.on.get(vpx.TOPPER) is not None
         if has_topper:
             wanted[vpx.TOPPER] = self.vpinfe.on[vpx.TOPPER]

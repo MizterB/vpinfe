@@ -32,13 +32,13 @@
   [
     "Displays",
     "dmdscreenid",
-    "windows.score_view",
+    "windows.scoreview",
     "screen_id"
   ],
   [
     "Displays",
     "dmdwindowoverride",
-    "windows.score_view",
+    "windows.scoreview",
     "override"
   ],
   [
@@ -237,7 +237,7 @@
     "Media",
     "dmdmediapriority",
     "presentation",
-    "score_view_media_priority"
+    "scoreview_media_priority"
   ],
   [
     "Media",

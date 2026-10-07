@@ -185,7 +185,7 @@ class TheDocksHeight(unittest.TestCase):
 def _glass(**more: Any) -> dict:
     return {"author": "Pat Maker", "artwork": "Pat Maker", "rom": "exmpl_l1", "players": 4,
             "grill": 0, "two_versions": False, "size": [2000, 1565], "lamps": 12, "still": False,
-            "score_view_art": None, "problems": [], "damaged": False, "version": "abc",
+            "scoreview_art": None, "problems": [], "damaged": False, "version": "abc",
             **more}
 
 
@@ -208,8 +208,8 @@ class WhatABackglassFileSays(unittest.TestCase):
     def test_the_picture_is_its_size(self) -> None:
         self.assertEqual("2000 × 1565", self._facts(_glass())["Picture"])
 
-    def test_a_score_view_picture_is_there_only_when_the_file_has_one(self) -> None:
-        said = self._facts(_glass(score_view_art=[1024, 256]))
+    def test_a_scoreview_picture_is_there_only_when_the_file_has_one(self) -> None:
+        said = self._facts(_glass(scoreview_art=[1024, 256]))
 
         self.assertEqual("1024 × 256", said["Score View Art"])
 

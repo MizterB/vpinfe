@@ -11,8 +11,8 @@ LEGACY, B2S = backglass_ops.LEGACY, backglass_ops.B2S
 FLOATING = {"Backglass.BackglassOutput": "1"}
 
 
-def _glass(*, size=(1000, 800), grill=200, score_view=None) -> dict:
-    return {"size": size, "grill": grill, "score_view_art": score_view}
+def _glass(*, size=(1000, 800), grill=200, scoreview=None) -> dict:
+    return {"size": size, "grill": grill, "scoreview_art": scoreview}
 
 
 def _backglass(held: dict, **glass):
@@ -119,7 +119,7 @@ class TheScoreView(unittest.TestCase):
           "ScoreView.ScoreViewHeight": "250"}
 
     def _second(self, held: dict, art=(400, 100)):
-        return view.screens(held, _glass(score_view=art))[1]
+        return view.screens(held, _glass(scoreview=art))[1]
 
     def test_it_is_drawn_when_the_file_has_art_and_the_window_is_on(self) -> None:
         self.assertAlmostEqual(4.0, self._second(self.ON).ratio)
@@ -160,9 +160,9 @@ class TheBoxWritten(unittest.TestCase):
         self.assertEqual(("100", "50", "500", "150"),
                          tuple(values[f"{B2S}BackglassDMD{name}"] for name in "XYWH"))
 
-    def test_the_score_view_has_its_own_keys_and_art(self) -> None:
+    def test_the_scoreview_has_its_own_keys_and_art(self) -> None:
         held = {**TheScoreView.ON, f"{LEGACY}Enable": "0"}
-        screen = view.screens(held, _glass(score_view=(400, 100)))[1]
+        screen = view.screens(held, _glass(scoreview=(400, 100)))[1]
 
         values = view.box_values(B2S, screen, view.Box(10.0, 40.0, 50.0, 50.0))
 
@@ -212,12 +212,12 @@ class TheWindowFitted(unittest.TestCase):
 
         self.assertEqual(("Backglass", False), (screen.part, cut))
 
-    def test_the_score_view_is_fitted_even_while_its_window_is_off(self) -> None:
-        screen, cut = view.fit_target({}, _glass(score_view=(400, 100)), "ScoreView")
+    def test_the_scoreview_is_fitted_even_while_its_window_is_off(self) -> None:
+        screen, cut = view.fit_target({}, _glass(scoreview=(400, 100)), "ScoreView")
 
         self.assertEqual(("ScoreView", (400, 100), False), (screen.part, screen.space, cut))
 
-    def test_a_file_with_no_score_view_art_has_nothing_to_fit_it_to(self) -> None:
+    def test_a_file_with_no_scoreview_art_has_nothing_to_fit_it_to(self) -> None:
         self.assertIsNone(view.fit_target({}, _glass(), "ScoreView"))
 
 

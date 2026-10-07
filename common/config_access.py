@@ -348,7 +348,7 @@ def _extra_screen_ids(source: Any) -> dict:
         sections = []
     for section in sections:
         window = section.split(".", 1)[1]
-        if window in {"playfield", "backglass", "score_view"}:
+        if window in {"playfield", "backglass", "scoreview"}:
             continue
         value = cfg_get(source, section, "screen_id").strip()
         if value:

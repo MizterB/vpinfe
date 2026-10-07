@@ -328,7 +328,7 @@ class ScreenMatchTests(unittest.TestCase):
         monitors = [_monitor(3000, 1920, 1080)]
 
         found = adapters.screen_of("scoreview", self.outputs,
-                                   _config(score_view="0"), monitors)
+                                   _config(scoreview="0"), monitors)
 
         self.assertEqual(found.output.name, "HDMI-A-1")
 

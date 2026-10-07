@@ -21,14 +21,14 @@ ALLOWED = {
     "console.backglass.dmd_fit.none": THE_BACKGLASS_PICTURE,
     "console.backglass.preview.fit": THE_BACKGLASS_PICTURE,
     "console.backglass.score_art": THE_BACKGLASS_PICTURE,
-    "error.backglass.score_view_absent": THE_BACKGLASS_PICTURE,
+    "error.backglass.scoreview_absent": THE_BACKGLASS_PICTURE,
     **{f"app.vpx.field.Plugin.{plugin}.{field}.help": THE_BACKGLASS_PICTURE
        for plugin in ("B2S", "B2SLegacy")
        for field in ("BackglassDMDAutoPos", "BackglassDMDOverlay", "ScoreViewDMDAutoPos",
                      "ScoreViewDMDOverlay")},
     "app.vpx.field.Plugin.B2S.ShowGrill.help": THE_BACKGLASS_PICTURE,
     "app.vpx.group.plugins.pair.backglass_dmd_position.note": THE_BACKGLASS_PICTURE,
-    "app.vpx.group.plugins.pair.score_view_dmd_position.note": THE_BACKGLASS_PICTURE,
+    "app.vpx.group.plugins.pair.scoreview_dmd_position.note": THE_BACKGLASS_PICTURE,
 }
 
 

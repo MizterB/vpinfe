@@ -59,15 +59,15 @@ class NumberOfTests(unittest.TestCase):
 class PlacedTests(unittest.TestCase):
     def test_each_part_is_where_its_window_is_stored(self) -> None:
         held = displays.placed(_values(playfield={"screen_id": 1}, backglass={"screen_id": 0},
-                                       score_view={"screen_id": ""}, topper={"screen_id": 2}),
+                                       scoreview={"screen_id": ""}, topper={"screen_id": 2}),
                                SCHEMA)
 
-        self.assertEqual(held, {"topper": 3, "backglass": 1, "score_view": None, "playfield": 2})
+        self.assertEqual(held, {"topper": 3, "backglass": 1, "scoreview": None, "playfield": 2})
 
     def test_a_fresh_install_has_the_playfield_on_the_first_screen_and_the_rest_on_none(
             self) -> None:
         self.assertEqual(displays.placed({}, SCHEMA),
-                         {"topper": None, "backglass": None, "score_view": None,
+                         {"topper": None, "backglass": None, "scoreview": None,
                           "playfield": 1})
 
 
@@ -77,7 +77,7 @@ class StandingTests(unittest.TestCase):
                                                     "rotation": "90"},
                                          backglass={"screen_id": 0}), SCHEMA)
 
-        self.assertEqual(held.on, {"topper": None, "backglass": 1, "score_view": None,
+        self.assertEqual(held.on, {"topper": None, "backglass": 1, "scoreview": None,
                                    "playfield": 2})
         self.assertEqual(held.turn, ("portrait", "90"))
 
@@ -100,7 +100,7 @@ class CabinetTests(unittest.TestCase):
 class WithoutDrawnTests(unittest.TestCase):
     def _blocks(self) -> list[dict]:
         return [block for block in SCHEMA if str(block.get("name")) in (
-            "windows.playfield", "windows.backglass", "windows.score_view", "windows.topper",
+            "windows.playfield", "windows.backglass", "windows.scoreview", "windows.topper",
             "real_dmd")]
 
     def test_what_the_picture_draws_is_taken_out(self) -> None:
@@ -108,7 +108,7 @@ class WithoutDrawnTests(unittest.TestCase):
                 for block in displays.without_drawn(self._blocks())}
 
         self.assertEqual(kept["windows.backglass"], ["override"])
-        self.assertEqual(kept["windows.score_view"], ["override"])
+        self.assertEqual(kept["windows.scoreview"], ["override"])
 
     def test_a_section_with_nothing_left_is_dropped(self) -> None:
         left = [block["name"] for block in displays.without_drawn(self._blocks())]
@@ -153,13 +153,13 @@ class WritesTests(unittest.TestCase):
                          {"windows.topper": {"screen_id": ""}})
 
     def test_a_part_cleared_stores_no_screen(self) -> None:
-        self.assertEqual(displays.writes({"score_view": None}, [FIRST], "0"),
-                         {"windows.score_view": {"screen_id": ""}})
+        self.assertEqual(displays.writes({"scoreview": None}, [FIRST], "0"),
+                         {"windows.scoreview": {"screen_id": ""}})
 
     def test_a_swap_is_both_windows(self) -> None:
-        self.assertEqual(displays.writes({"backglass": 2, "score_view": 1}, [FIRST, SECOND], "0"),
+        self.assertEqual(displays.writes({"backglass": 2, "scoreview": 1}, [FIRST, SECOND], "0"),
                          {"windows.backglass": {"screen_id": 1},
-                          "windows.score_view": {"screen_id": 0}})
+                          "windows.scoreview": {"screen_id": 0}})
 
     def test_the_playfield_on_another_shape_of_screen_has_its_mounting_worked_out_again(
             self) -> None:
@@ -215,7 +215,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
         screens, held = self.control.call_args.args
         self.assertEqual([(one.number, one.name) for one in screens],
                          [(1, "Dell P2419H"), (2, "")])
-        self.assertEqual(held, {"topper": None, "backglass": None, "score_view": None,
+        self.assertEqual(held, {"topper": None, "backglass": None, "scoreview": None,
                                 "playfield": 1})
 
     def test_the_topper_is_on_the_screen_stored_for_it(self) -> None:
@@ -260,7 +260,7 @@ class RowsTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(await drawn["move"]({"backglass": 1}))
         self.write.return_value = True
-        await drawn["move"]({"score_view": 2})
+        await drawn["move"]({"scoreview": 2})
 
         self.rerender.assert_called_once_with()
 

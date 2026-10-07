@@ -49,7 +49,7 @@ NOT_B2S = "not_b2s"
 UNREADABLE = "unreadable"
 NO_PICTURE = "no_picture"
 BAD_PICTURE = "bad_picture"
-BAD_SCORE_VIEW_ART = "bad_score_view_art"
+BAD_SCOREVIEW_ART = "bad_scoreview_art"
 
 _TAG = re.compile(
     rb'<([A-Za-z][\w:.-]*)((?:\s+[A-Za-z_:][\w:.-]*\s*=\s*"[^"]*")*)\s*/?>')
@@ -95,7 +95,7 @@ class Backglass:
     size: tuple[int, int] | None
     lamps: int
     still: bool
-    score_view_art: tuple[int, int] | None
+    scoreview_art: tuple[int, int] | None
     problems: tuple[str, ...]
 
 
@@ -229,13 +229,13 @@ def _facts_of(document: _Document, data: bytes) -> Backglass:
             size = _image_size(_decode(data, dark))
         except Exception:
             problems.append(BAD_PICTURE)
-    score_view = None
+    scoreview = None
     art = document.images.get("DMDImage")
     if art is not None:
         try:
-            score_view = _image_size(_decode(data, art))
+            scoreview = _image_size(_decode(data, art))
         except Exception:
-            problems.append(BAD_SCORE_VIEW_ART)
+            problems.append(BAD_SCOREVIEW_ART)
     values = document.values
     try:
         players = int(values["NumberOfPlayers"])
@@ -258,7 +258,7 @@ def _facts_of(document: _Document, data: bytes) -> Backglass:
         still="BackglassOffImage" not in document.images
         and not any(lamp.parent != "DMD" and lamp.visible and lamp.image is not None
                     for lamp in document.lamps),
-        score_view_art=score_view,
+        scoreview_art=scoreview,
         problems=tuple(problems),
     )
 
@@ -280,7 +280,7 @@ def _read_uncached(path: Path) -> Backglass:
 def _empty(problems: tuple[str, ...]) -> Backglass:
     return Backglass(
         author="", artwork="", rom="", players=None, grill=0, grill_small=None,
-        two_versions=False, size=None, lamps=0, still=False, score_view_art=None,
+        two_versions=False, size=None, lamps=0, still=False, scoreview_art=None,
         problems=problems)
 
 
@@ -310,7 +310,7 @@ def read(path: Path) -> Backglass | None:
 def damaged(facts: Backglass) -> bool:
     """Whether the picture cannot be drawn. A score view picture that is bad costs only
     that picture."""
-    return any(problem != BAD_SCORE_VIEW_ART for problem in facts.problems)
+    return any(problem != BAD_SCOREVIEW_ART for problem in facts.problems)
 
 
 def _folder(path: Path) -> Path:
@@ -445,12 +445,12 @@ def picture(path: Path, look: Look = "on", version: Version = "authentic",
         lambda target: _draw(path, look, version, cut_grill, target))
 
 
-def score_view_art(path: Path) -> Path | None:
+def scoreview_art(path: Path) -> Path | None:
     """The art drawn on the score view window as a cached file, or None when the file has
     none or it cannot be read."""
     path = Path(path)
     facts = read(path)
-    if facts is None or facts.score_view_art is None:
+    if facts is None or facts.scoreview_art is None:
         return None
     from PIL import Image
 
@@ -466,6 +466,6 @@ def score_view_art(path: Path) -> Path | None:
             opened.convert("RGBA").save(target, format="PNG", compress_level=3)
 
     try:
-        return _cached(path, "score-view", ".png", make)
+        return _cached(path, "scoreview", ".png", make)
     except (BackglassError, ValueError, OSError):
         return None

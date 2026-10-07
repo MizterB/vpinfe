@@ -44,7 +44,7 @@ def _flat(**over: str) -> dict[str, str]:
 
 
 def _standing(on: dict | None = None, turn: tuple[str, str] = ("portrait", "0")) -> Any:
-    return displays.Standing({"playfield": 1, "backglass": 2, "score_view": None,
+    return displays.Standing({"playfield": 1, "backglass": 2, "scoreview": None,
                               **(on or {})}, turn)
 
 
@@ -288,7 +288,7 @@ class MovingTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_part_put_inside_takes_a_region_of_the_playfield_s_window(self) -> None:
         page = _page(self.library)
 
-        await press(page.move, {"score_view": picture.INSIDE})
+        await press(page.move, {"scoreview": picture.INSIDE})
 
         written = self._written()
         self.assertEqual(
@@ -299,12 +299,12 @@ class MovingTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_part_put_inside_a_playfield_with_no_screen_is_left_where_it_was(self) -> None:
         page = _page(self.library, flat=_flat(Player__PlayfieldDisplay=""))
 
-        self.assertFalse(await press(page.move, {"score_view": picture.INSIDE}))
+        self.assertFalse(await press(page.move, {"scoreview": picture.INSIDE}))
 
         self.library.write_launcher_config.assert_not_called()
-        self.assertNotEqual(page.on["score_view"], picture.INSIDE)
+        self.assertNotEqual(page.on["scoreview"], picture.INSIDE)
         self.assertEqual(self.notify.call_args.args[0], t(
-            "console.vpx_displays.unsized", parts=t("console.screens.score_view")))
+            "console.vpx_displays.unsized", parts=t("console.screens.scoreview")))
 
     async def test_a_part_cleared_is_disabled(self) -> None:
         page = _page(self.library)
@@ -361,7 +361,7 @@ class MovingTests(unittest.IsolatedAsyncioTestCase):
     async def test_render_priorities_are_written_once_a_score_screen_is_placed(self) -> None:
         page = _page(self.library)
 
-        await press(page.move, {"score_view": 3})
+        await press(page.move, {"scoreview": 3})
 
         self.assertEqual(self._written()["ScoreView.Priority.PUP"], "3")
         self.assertEqual(self._written()["Plugin.B2SLegacy.B2SHideGrill"], "1")
@@ -369,7 +369,7 @@ class MovingTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_priority_visual_pinball_already_holds_is_left_alone(self) -> None:
         page = _page(self.library, flat=_flat(ScoreView__Priority__PUP="9"))
 
-        await press(page.move, {"score_view": 3})
+        await press(page.move, {"scoreview": 3})
 
         self.assertNotIn("ScoreView.Priority.PUP", self._written())
 
@@ -511,7 +511,7 @@ class DrawnTests(unittest.TestCase):
         self.assertEqual(held["backglass"], 3)
         kwargs = control.call_args.kwargs
         self.assertEqual([part.key for part in kwargs["parts"]],
-                         ["topper", "backglass", "score_view", "playfield"])
+                         ["topper", "backglass", "scoreview", "playfield"])
         self.assertEqual(kwargs["differs"], ["backglass"])
         self.assertFalse(kwargs["arrow_differs"])
         self.assertEqual(kwargs["arrow"], picture.UP)
@@ -685,7 +685,7 @@ class FollowingTests(unittest.TestCase):
                           _flat(ScoreView__ScoreViewOutput="2"))
 
         self.assertEqual(keys["ScoreView.ScoreViewOutput"], "2")
-        self.assertEqual([keys[key] for key in vpx.REGION["score_view"]],
+        self.assertEqual([keys[key] for key in vpx.REGION["scoreview"]],
                          [str(one) for one in vpx.embedded_region(TALL_TOO)])
 
 

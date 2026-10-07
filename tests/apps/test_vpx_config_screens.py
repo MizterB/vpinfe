@@ -235,7 +235,7 @@ class TheKeysTheAnswerWritesTests(_Case):
         back = Monitor(2, "DELL P2419H", 1920, 1080, 2160, 0)
         score = Monitor(3, "CVT DVI", 1280, 390, 4080, 0)
         shown = [wide, back, score]
-        arrangement = {"playfield": 1, "backglass": 2, "score_view": 3}
+        arrangement = {"playfield": 1, "backglass": 2, "scoreview": 3}
 
         written = vs.answer(arrangement, arrangement, shown, [], {}, turn=("portrait", "0"))
         self.config.write(LAUNCHER, "", written.keys, self.settings)
@@ -251,21 +251,21 @@ class TheKeysTheAnswerWritesTests(_Case):
 
     def test_a_part_in_the_playfield_reads_back_with_the_region_it_was_given(self) -> None:
         cab = Monitor(1, "SAMSUNG", 1080, 1920, 0, 0)
-        arrangement = {"playfield": 1, "score_view": vs.INSIDE}
+        arrangement = {"playfield": 1, "scoreview": vs.INSIDE}
 
-        written = vs.answer({"score_view": vs.INSIDE}, arrangement, [cab], [], {})
+        written = vs.answer({"scoreview": vs.INSIDE}, arrangement, [cab], [], {})
         self.config.write(LAUNCHER, "", written.keys, self.settings)
 
         values = {key: one.value
                   for key, one in self.config.read(LAUNCHER, "", self.settings).items()}
-        self.assertEqual(vs.placed(values, [cab])["score_view"], vs.INSIDE)
-        self.assertEqual([values[key] for key in vs.REGION["score_view"]],
+        self.assertEqual(vs.placed(values, [cab])["scoreview"], vs.INSIDE)
+        self.assertEqual([values[key] for key in vs.REGION["scoreview"]],
                          ["54", "1623", "972", "243"])
 
     def test_what_vpx_already_held_is_still_there_after_the_answer(self) -> None:
         self.app_ini.write_text(APP_INI + "\n[ScoreView]\nPriority.PUP = 9\n")
         shown = [Monitor(1, "SAMSUNG", 3840, 2160, 0, 0), Monitor(2, "CVT DVI", 1280, 390, 3840, 0)]
-        arrangement = {"playfield": 1, "score_view": 2}
+        arrangement = {"playfield": 1, "scoreview": 2}
         current = {key: one.value
                    for key, one in self.config.read(LAUNCHER, "", self.settings).items()}
 

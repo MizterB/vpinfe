@@ -76,7 +76,7 @@ if platform.system() == "Linux":
     CHROMIUM_BASE_FLAGS.append("--password-store=basic")
 
 # The windows with a high-DPI override setting, by canonical name.
-OVERRIDE_SECTIONS = {"backglass": "windows.backglass", "scoreview": "windows.score_view"}
+OVERRIDE_SECTIONS = {"backglass": "windows.backglass", "scoreview": "windows.scoreview"}
 
 
 def parse_additional_chromium_options(raw_options: str) -> list[str]:
