@@ -144,9 +144,9 @@ class _Drawn(TempTree):
         store.save()
 
     def _hide_media_kinds(self, *kinds: str) -> None:
-        self.http.put("/library/policy", json={"hidden_media_kinds": list(kinds)}) \
+        self.http.put("/config", json={"library": {"hidden_media_kinds": list(kinds)}}) \
             .raise_for_status()
-        self.addCleanup(self.http.put, "/library/policy", json={"hidden_media_kinds": []})
+        self.addCleanup(self.http.put, "/config", json={"library": {"hidden_media_kinds": []}})
 
     def _library(self, view: str) -> Library:
         """Read as a page reads before it draws `view`."""

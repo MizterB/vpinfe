@@ -146,22 +146,6 @@ def fill_media(response: Response, payload: models.MediaFillRequest) -> models.J
     return _accepted(response, media_fill.start(payload.game_ids, payload.kinds, slots))
 
 
-@router.get("/policy", summary="What this library collects",
-            dependencies=[requires(scopes.CONFIG_READ)])
-def get_policy() -> models.LibraryPolicy:
-    """The library's, not a device's - so every install reading it gets one answer rather
-    than each carrying its own copy of a question about somebody else's files."""
-    return models.LibraryPolicy(**library_ops.policy())
-
-
-@router.put("/policy", summary="Change what this library collects",
-            dependencies=[requires(scopes.CONFIG_WRITE)])
-def put_policy(payload: models.LibraryPolicyChange = Body(...)) -> models.LibraryPolicy:
-    """A patch: only the keys sent are written."""
-    return models.LibraryPolicy(
-        **library_ops.set_policy(payload.model_dump(exclude_unset=True)))
-
-
 @router.get("/watching", summary="Since when a catalog change counts as new",
             dependencies=[requires(scopes.GAMES_READ)])
 def get_watching() -> models.Watching:

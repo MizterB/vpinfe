@@ -487,6 +487,18 @@
   ],
   [
     "general",
+    "hidden_asset_kinds",
+    "library",
+    "hidden_asset_kinds"
+  ],
+  [
+    "general",
+    "hidden_media_kinds",
+    "library",
+    "hidden_media_kinds"
+  ],
+  [
+    "general",
     "language",
     "device",
     "language"

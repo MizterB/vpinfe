@@ -12,6 +12,7 @@ import unittest
 from dataclasses import dataclass, field
 from unittest.mock import patch
 
+from common.config_store import ConfigStore
 from common.games import library_policy
 from common.online import asset_sources
 from common.online.asset_sources import Offer, Source
@@ -74,7 +75,7 @@ class SwitchedOffTests(TempTree):
 
     def setUp(self) -> None:
         super().setUp()
-        self.policy = library_policy.reset_for_tests(self.root / "library.json")
+        self.policy = library_policy.reset_for_tests(ConfigStore(str(self.root / "vpinfe.ini")))
         self.addCleanup(library_policy.reset_for_tests)
         sources = patch.object(asset_sources, "BUILT_IN",
                                (_Fake(id="one"), _Fake(id="two")))

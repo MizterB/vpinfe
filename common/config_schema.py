@@ -349,24 +349,26 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             aliases=("gamerootdir",),
             internal=True,
         ),
+    ),
+    # What this library collects. Each list holds what is switched off, so empty means
+    # everything and a kind added in a later version arrives switched on. The Console
+    # draws one switch per kind from its own registries, not a text box per list.
+    *in_section(
+        "library",
         ConfigOption(
             "hidden_media_kinds",
             type="list",
             default="",
-            # The library's, not this install's - it moved to library.json, where one
-            # answer serves every install reading this library. Declared and internal so a
-            # value still in a config file keeps resolving for a build that reads it.
-            internal=True,
+            legacy=(("general", "hidden_media_kinds"),),
         ),
         ConfigOption(
             "hidden_asset_kinds",
             type="list",
             default="",
-            # The library's, not this install's - it moved to library.json, where one
-            # answer serves every install reading this library. Declared and internal so a
-            # value still in a config file keeps resolving for a build that reads it.
-            internal=True,
+            legacy=(("general", "hidden_asset_kinds"),),
         ),
+        ConfigOption("hidden_sources", type="list", default=""),
+        ConfigOption("hidden_checks", type="list", default=""),
     ),
     # Commands the install runs around itself. `table_commands` below is the same, around
     # a table, and a launcher's own are in `launchers.json`.

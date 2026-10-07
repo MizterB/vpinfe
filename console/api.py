@@ -1166,13 +1166,12 @@ class ApiClient:
         return dict(self._get("/config/waiting") or {})
 
     def library_policy(self) -> dict:
-        """What this library collects. The library's answer, not this machine's - a
-        device reading a remote library gets that library's."""
-        return dict(self._get("/library/policy") or {})
+        """What this install collects: the `library` section of the settings."""
+        return dict(self.config_values().get("library") or {})
 
     def put_library_policy(self, changes: dict) -> dict:
         """A patch. Only the keys sent are written."""
-        return dict(self._put("/library/policy", changes) or {})
+        return dict(self.put_config({"library": changes}).get("library") or {})
 
     def config_path_checks(self) -> list[dict]:
         """Whether each path setting finds anything on the machine holding it. Stats the

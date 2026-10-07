@@ -93,16 +93,10 @@ class SchemaShapeTests(unittest.TestCase):
                               f"{entry.section}.{entry.key} is not a bool default")
 
     def test_internal_state_is_not_offered_as_a_setting(self) -> None:
-        """Two reasons an option is internal, and neither is "we would rather not show
-        it" - which is what this list exists to stop.
-
-        Runtime state that happens to live in the config file: a last-played pointer, a
-        cache marker. Nobody sets these, so nothing should offer them.
-
-        A setting that moved house: the two kind lists are the library's
-        rather than this install's and live in library.json now. They stay declared so a
-        value still in somebody's config keeps resolving and the one-time adoption can
-        read it, and internal so no page offers a second place to answer the question.
+        """An option is internal when it is runtime state that happens to live in the
+        config file - a last-played pointer, a cache marker. Nobody sets these, so nothing
+        should offer them. "We would rather not show it" is not a reason, which is what
+        this list exists to stop.
         """
         internal = {(e.section, e.key) for e in config_schema.options() if e.internal}
 
@@ -116,13 +110,9 @@ class SchemaShapeTests(unittest.TestCase):
                                     ("device", "last_version"),
                                     ("device", "whats_new_pending"),
                                     ("device", "whats_new_since"),
-                                    ("general", "hidden_media_kinds"),
-                                    ("general", "hidden_asset_kinds"),
-                                    # `locations.json` holds this now, for the same
-                                    # reason and on the same terms.
+                                    # `locations.json` holds this now.
                                     ("general", "game_root_dir"),
-                                    # The extension's own store holds these now, for
-                                    # the same reason and on the same terms.
+                                    # The extension's own store holds these now.
                                     ("vpinplay", "sync_on_exit"),
                                     ("vpinplay", "api_endpoint"),
                                     ("vpinplay", "user_id"),

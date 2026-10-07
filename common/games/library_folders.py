@@ -7,8 +7,7 @@ folders somebody keeps elsewhere without either being second class.
 Follows `common/games/launchers.py`: a small JSON file, written whole and atomically,
 carrying its own schema version. **Per install, not per library** - a path is a fact
 about one machine, and a share reachable from the cabinet may not be reachable from the
-laptop reading the same library. That is why this is not in `library.json`, which holds
-what the library itself collects.
+laptop reading the same library.
 
 Whether a location is reachable and whether it can be written to are asked of the disk
 when somebody looks, never stored. A stored answer is wrong the moment a mount drops,

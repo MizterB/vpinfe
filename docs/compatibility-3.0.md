@@ -1584,8 +1584,9 @@ keeps its screen id, mounting and rotation; `windows.backglass` and
 priority the same way. `presentation` is a new section for what the frontend shows,
 every member of which is already served to themes over the bridge.
 
-A new `library.hidden_checks` in `library.json` says which library checks report, beside
-the kind lists that moved there for the same reason. Every former spelling still
+A new `library` section, not the 2.x one that became `updates`, holds four lists of what an install does not collect:
+`hidden_media_kinds`, `hidden_asset_kinds`, `hidden_sources` and `hidden_checks`. The
+first two moved there from `general`. Every former spelling still
 resolves, the 2.x `[Settings]` names included, through the same `legacy` machinery that
 carried the fourteen per-window keys, and each one is frozen in
 `tests/fixtures/config_legacy_names.json`. A config file written by 2.x reads unchanged

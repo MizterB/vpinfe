@@ -529,8 +529,7 @@ async def _fill_kinds(library: Library, rerender: Callable[[], None], body: Any,
     """The switches, drawn into `body` - or returned when `body` is None, for a page that
     orders them among its own settings rather than beside them."""
     try:
-        # The library's, not this install's: two devices reading one library would otherwise
-        # hold two answers to a question about one set of files.
+        # This install's lists, read through /config like every other setting.
         policy = await offload.io(library.library_policy)
         known = await offload.io(items, library)
     except Exception as exc:  # noqa: BLE001 - a settings page says why, never 500s

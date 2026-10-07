@@ -1,127 +1,60 @@
-"""What this library collects, which belongs to the library and not to a machine.
+"""What this install collects: media kinds, asset kinds, artwork catalogs, quiet checks.
 
-Which media kinds and asset kinds are worth having, which online catalogs are searched
-for artwork, and which checks stay quiet: answers about one library, shared by every
-device reading it. They lived in each install's config file, which is one answer per
-machine - so two installs on one library had two answers, and only the library's did
-anything.
-
-Follows `common/games/collection_store.py`: a small JSON file, written whole and
-atomically, carrying its own schema version. Owned by the library, like the games.
-
-Each list holds what is switched off, so empty means everything. A kind or a source
-added in a later version arrives switched on rather than silently absent, which is what
-an install upgrading into a longer registry needs.
+A view over the `library` section of the settings file. The Console writes through
+`PUT /config`; `set` here writes the file directly and announces nothing, which is for
+tests and for code that is not itself a settings change. Each list holds what is
+switched off, so empty means everything and a kind or a source added in a later
+version arrives switched on.
 """
 
 from __future__ import annotations
 
-import json
-import logging
 import threading
-from pathlib import Path
 from typing import Any
 
-from common.atomic_write import write_atomic
 from common.config_store import ConfigStore
-from common.paths import CONFIG_DIR
+from common.paths import get_ini_config
 
-logger = logging.getLogger("vpinfe.common.games.library_policy")
+SECTION = "library"
 
-LIBRARY_POLICY_PATH = CONFIG_DIR / "library.json"
-SCHEMA = 1
-SCHEMA_KEY = "schema"
-
-# key -> where it was read from before, so an install that has one keeps it. The config
-# entries stay declared and internal: a value still in a file has to keep resolving, and
-# a setting nobody may set is not a setting.
-MIGRATES_FROM: dict[str, tuple[str, str]] = {
-    "hidden_media_kinds": ("general", "hidden_media_kinds"),
-    "hidden_asset_kinds": ("general", "hidden_asset_kinds"),
-}
-
-# Answers this file holds that never lived in a config, so they have no prior home to
-# migrate from. `hidden_checks` is which library checks stay quiet: a gap is a fact about
-# the files, so two installs reading one library report the same gaps. `hidden_sources`
-# is which online catalogs are not asked for artwork.
-OWN_KEYS = ("hidden_sources", "hidden_checks")
-
-KEYS = tuple(MIGRATES_FROM) + OWN_KEYS
+KEYS = ("hidden_media_kinds", "hidden_asset_kinds", "hidden_sources", "hidden_checks")
 
 
 def _as_list(raw: Any) -> list[str]:
-    """However the value was stored - a JSON list, or the comma string an ini held."""
+    """However the value arrives - a list, or the comma string a parser holds."""
     if isinstance(raw, str):
         raw = raw.split(",")
     return [str(item).strip() for item in (raw or []) if str(item).strip()]
 
 
 class LibraryPolicy:
-    """What one library collects, read and written whole."""
+    """The four lists, read from and written to the settings store."""
 
-    def __init__(self, path: Path | str | None = None) -> None:
-        self.path = Path(path) if path is not None else LIBRARY_POLICY_PATH
+    def __init__(self, store: ConfigStore | None = None) -> None:
+        self._store = store
         self._lock = threading.RLock()
 
-    def _load(self) -> dict[str, list[str]]:
-        try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            return {}
-        except Exception:
-            # An unreadable file is an empty policy, never an error: empty means
-            # everything, so the library keeps working while somebody fixes the file.
-            logger.warning("%s is unreadable; treating it as empty", self.path)
-            return {}
-        return {key: _as_list(payload.get(key)) for key in KEYS}
+    def _config(self) -> ConfigStore:
+        return self._store if self._store is not None else get_ini_config()
 
     def values(self) -> dict[str, list[str]]:
-        with self._lock:
-            found = self._load()
-            return {key: found.get(key, []) for key in KEYS}
+        config = self._config()
+        return {key: _as_list(config.value(SECTION, key)) for key in KEYS}
 
     def get(self, key: str) -> list[str]:
-        return self.values().get(key, [])
+        if key not in KEYS:
+            return []
+        return _as_list(self._config().value(SECTION, key))
 
     def set(self, key: str, value: Any) -> list[str]:
+        """Stores `value`, empty included: empty is how "collect it all" is said."""
         if key not in KEYS:
             raise ValueError(f"not a library policy: {key}")
         with self._lock:
-            found = self.values()
-            found[key] = _as_list(value)
-            self._save(found)
-            return found[key]
-
-    def _save(self, values: dict[str, list[str]]) -> None:
-        payload = {SCHEMA_KEY: SCHEMA, **{key: values.get(key, []) for key in KEYS}}
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        write_atomic(self.path, lambda handle: json.dump(payload, handle, indent=2))
-
-    def adopt_from_config(self, config: ConfigStore) -> bool:
-        """Take what an install's config holds, once, and answer whether anything moved.
-
-        Only where this file does not exist: after that the library owns these, and
-        re-reading a config that still carries the old values would undo every change
-        made since. The config entries are left alone rather than cleared - a device
-        downgrading to a build that reads them still finds what it had.
-        """
-        from common.config_access import cfg_get, cfg_list
-
-        with self._lock:
-            if self.path.exists():
-                return False
-            found: dict[str, list[str]] = {}
-            for key, (section, name) in MIGRATES_FROM.items():
-                try:
-                    found[key] = [str(v).strip() for v in cfg_list(config, section, name)
-                                  if str(v).strip()]
-                except Exception:
-                    found[key] = _as_list(cfg_get(config, section, name, ""))
-            self._save(found)
-            if any(found.values()):
-                logger.info("Library policy adopted from the config file: %s",
-                            {k: v for k, v in found.items() if v})
-            return True
+            config = self._config()
+            config.set_value(SECTION, key, _as_list(value))
+            config.save()
+            return self.get(key)
 
 
 _policy: LibraryPolicy | None = None
@@ -134,7 +67,7 @@ def get_library_policy() -> LibraryPolicy:
     return _policy
 
 
-def reset_for_tests(path: Path | str | None = None) -> LibraryPolicy:
+def reset_for_tests(store: ConfigStore | None = None) -> LibraryPolicy:
     global _policy
-    _policy = LibraryPolicy(path)
+    _policy = LibraryPolicy(store)
     return _policy

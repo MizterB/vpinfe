@@ -30,7 +30,6 @@ from common.games.collection_resolver import resolve
 from common.games.collection_store import BUILTIN_ALL
 from common.games.collections_service import get_collections_manager
 from common.games.game_metadata import game_tags, normalize_tag, retag_library, table_tags
-from common.games.library_policy import get_library_policy
 from common.games.tables import table_entries
 
 
@@ -208,20 +207,6 @@ def apply_script_patches() -> job_registry.Job:
     """Each fix lands as a `.vbs` sidecar beside the table it is for."""
     return start(job_registry.KIND_LIBRARY_SCAN,
                  lambda job: game_service.apply_vpx_patches(progress_cb=job.progress))
-
-
-def policy() -> dict[str, Any]:
-    """Which kinds this library collects and which catalogs it searches."""
-    return get_library_policy().values()
-
-
-def set_policy(changes: dict) -> dict[str, Any]:
-    """A patch: an absent key is left alone, and a present empty list is stored - empty
-    means everything, so clearing one is a real answer rather than saying nothing."""
-    held = get_library_policy()
-    for key, value in changes.items():
-        held.set(key, value)
-    return held.values()
 
 
 def watching_since() -> dict[str, Any]:

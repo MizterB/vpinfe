@@ -61,9 +61,7 @@
     "enabled": "false"
   },
   "general": {
-    "game_root_dir": "",
-    "hidden_asset_kinds": "",
-    "hidden_media_kinds": ""
+    "game_root_dir": ""
   },
   "input": {
     "back": "key:Escape,key:KeyB,pad:standard/button:1",
@@ -77,6 +75,12 @@
     "select": "key:Enter,pad:standard/button:0",
     "take_picture": "",
     "tutorial": "key:KeyT"
+  },
+  "library": {
+    "hidden_asset_kinds": "",
+    "hidden_checks": "",
+    "hidden_media_kinds": "",
+    "hidden_sources": ""
   },
   "logger": {
     "level": "debug",

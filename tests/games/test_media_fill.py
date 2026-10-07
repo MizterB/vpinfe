@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from common import i18n, jobs, service_errors, sized_media, timestamps
+from common.config_store import ConfigStore
 from common.games import (
     asset_origin,
     backglass_ops,
@@ -62,7 +63,7 @@ class _Library(TempTree):
         self.folder = self.game(FOLDER, "fathom")
         self.downloads = MagicMock(side_effect=_downloaded)
         self.config = configparser.ConfigParser()
-        policy = library_policy.reset_for_tests(self.root / "library.json")
+        policy = library_policy.reset_for_tests(ConfigStore(str(self.root / "vpinfe.ini")))
         self.addCleanup(library_policy.reset_for_tests)
         self.policy = policy
         for patcher in (

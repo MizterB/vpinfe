@@ -110,7 +110,7 @@ def refresh() -> None:
 
 
 def enabled_ids() -> tuple[str, ...]:
-    """The sources the library's owner has not switched off. Empty asks none."""
+    """The sources this install has not switched off. Empty asks none."""
     from common.games.library_policy import get_library_policy
 
     off = {name.lower() for name in get_library_policy().get("hidden_sources")}

@@ -53,8 +53,15 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `game_root_dir` | string |  | The folder holding your table folders, one folder per game |
+
+### `library`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
 | `hidden_media_kinds` | list |  | Kinds of media this library does not collect. VPinFE stops showing and counting them; the files stay where they are. |
 | `hidden_asset_kinds` | list |  | Kinds of supporting file this library does not collect - an all-EM library has no ROMs. A table that will not launch still says so. |
+| `hidden_sources` | list |  | Online catalogs VPinFE does not search for media |
+| `hidden_checks` | list |  | Library checks that stay quiet. A check left on reports every table it finds a gap in. |
 
 ### `commands`
 

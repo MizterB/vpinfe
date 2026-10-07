@@ -59,7 +59,7 @@ LOADS = "the files a table loads"
 ASSETS_PAGE = "the Assets page, of the files a table loads"
 
 ASSET = {
-    "config.general.hidden_asset_kinds.label": LOADS,
+    "config.library.hidden_asset_kinds.label": LOADS,
     "config.media.browse_dirs.description": LOADS,
     "config.updates.refresh_minutes.description": LOADS,
     "console.assets.assets": LOADS,
@@ -81,6 +81,7 @@ MEANT = {"cabinet": "the frontend", "machine": "a game, this device or a compute
 # Setting names and served paths, which a person reads in a config file or a URL.
 NAMED_ASSET = {
     "general.hidden_asset_kinds": LOADS,
+    "library.hidden_asset_kinds": LOADS,
     "network.theme_assets_port": "the theme server, named as vpin.themeAssetsPort, which shipped",
     "themeassetsport": "the theme server's port in 2.x, which shipped",
     "network.theme_assets_bind": "the theme server, named with its port",

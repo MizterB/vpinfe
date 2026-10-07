@@ -264,7 +264,8 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
     from common.online import asset_sources
 
     scope = _scope(game_ids)
-    kinds = [kind for kind in _SPECS if kind in fillable_kinds()]
+    kept = fillable_kinds()
+    kinds = [kind for kind in _SPECS if kind in kept]
     variant = MediaConfig.from_config(get_ini_config()).playfield_variant
     enabled = asset_sources.sources(asset_sources.enabled_ids())
     live = tuple(source.id for source in enabled if source.reachable())

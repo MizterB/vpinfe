@@ -1,35 +1,27 @@
-"""What a library collects, which is the library's answer and not a machine's.
+"""What an install collects is the `library` section of its settings.
 
-The kind lists lived in each install's config file. One machine, no problem; two devices
-reading one library and there were two answers to a question about one set of files, and
-only the library's ever did anything.
+Four lists of what is switched off. Nothing else holds them: no file of their own, no
+route of their own.
 """
 
 from __future__ import annotations
 
-import configparser
 import json
 import unittest
 
-from common.games.library_policy import SCHEMA, SCHEMA_KEY, LibraryPolicy
-from tests.support.library import TempTree
+from common.config_store import SETTINGS_KEY, ConfigStore
+from common.games.library_policy import LibraryPolicy
+from tests.config.test_config_store import ConfigStoreTests
 
 
-def _config(values: dict[tuple[str, str], str]) -> configparser.ConfigParser:
-    """A config the accessors can read. A bare parser, which is what `cfg_get` unwraps a
-    store down to - so this exercises the same read path the real one takes."""
-    parser = configparser.ConfigParser()
-    for (section, key), value in values.items():
-        if not parser.has_section(section):
-            parser.add_section(section)
-        parser.set(section, key, value)
-    return parser
-
-
-class LibraryPolicyTests(TempTree):
+class LibraryPolicyTests(ConfigStoreTests):
     def setUp(self) -> None:
         super().setUp()
-        self.policy = LibraryPolicy(self.root / "library.json")
+        self.store = ConfigStore(str(self.ini))
+        self.policy = LibraryPolicy(self.store)
+
+    def _saved(self) -> dict:
+        return self._payload()[SETTINGS_KEY]["library"]
 
     def test_a_library_nobody_has_narrowed_collects_everything(self) -> None:
         """Empty in all of them, so a kind added in a later version arrives switched on."""
@@ -41,6 +33,11 @@ class LibraryPolicyTests(TempTree):
         self.policy.set("hidden_media_kinds", ["loading", "audio"])
 
         self.assertEqual(self.policy.get("hidden_media_kinds"), ["loading", "audio"])
+
+    def test_it_is_written_to_the_library_section_of_the_settings(self) -> None:
+        self.policy.set("hidden_sources", ["vpuniverse"])
+
+        self.assertEqual(self._saved()["hidden_sources"], ["vpuniverse"])
 
     def test_setting_one_leaves_the_others(self) -> None:
         self.policy.set("hidden_media_kinds", ["loading"])
@@ -55,9 +52,9 @@ class LibraryPolicyTests(TempTree):
         self.policy.set("hidden_asset_kinds", [])
 
         self.assertEqual(self.policy.get("hidden_asset_kinds"), [])
+        self.assertEqual(self._saved()["hidden_asset_kinds"], [])
 
     def test_a_comma_string_reads_as_a_list(self) -> None:
-        """Which is how an ini held one, and what the adoption below hands over."""
         self.policy.set("hidden_media_kinds", "loading, audio")
 
         self.assertEqual(self.policy.get("hidden_media_kinds"), ["loading", "audio"])
@@ -69,62 +66,41 @@ class LibraryPolicyTests(TempTree):
     def test_it_survives_being_reopened(self) -> None:
         self.policy.set("hidden_sources", ["vpsdb"])
 
-        self.assertEqual(LibraryPolicy(self.policy.path).get("hidden_sources"),
+        self.assertEqual(LibraryPolicy(ConfigStore(str(self.ini))).get("hidden_sources"),
                          ["vpsdb"])
 
-    def test_the_file_carries_its_own_schema(self) -> None:
+    def test_no_file_of_its_own_is_written(self) -> None:
         self.policy.set("hidden_sources", ["vpsdb"])
 
-        payload = json.loads(self.policy.path.read_text(encoding="utf-8"))
-        self.assertEqual(payload[SCHEMA_KEY], SCHEMA)
-
-    def test_an_unreadable_file_collects_everything_rather_than_failing(self) -> None:
-        """Empty means everything, so the library keeps working while somebody fixes it."""
-        self.policy.path.write_text("{ not json", encoding="utf-8")
-
-        with self.assertLogs("vpinfe.common.games.library_policy", level="WARNING"):
-            self.assertEqual(self.policy.get("hidden_sources"), [])
+        self.assertEqual(sorted(path.name for path in self.root.iterdir()),
+                         ["vpinfe.json"])
 
 
-class AdoptionTests(TempTree):
-    """The one-time move out of an install's config."""
+class MovedFromGeneralTests(ConfigStoreTests):
+    """The two lists a file written before this section still holds under `general`."""
 
-    def setUp(self) -> None:
-        super().setUp()
-        self.policy = LibraryPolicy(self.root / "library.json")
-        self.config = _config({
-            ("general", "hidden_media_kinds"): "loading,audio",
-        })
+    def _file_with(self, **held: list[str]) -> LibraryPolicy:
+        ConfigStore(str(self.ini)).save()
+        payload = self._payload()
+        payload[SETTINGS_KEY]["general"].update(held)
+        self.json.write_text(json.dumps(payload), encoding="utf-8")
+        return LibraryPolicy(ConfigStore(str(self.ini)))
 
-    def test_what_the_config_held_moves_across(self) -> None:
-        self.assertTrue(self.policy.adopt_from_config(self.config))
+    def test_what_general_held_is_still_what_is_collected(self) -> None:
+        policy = self._file_with(hidden_media_kinds=["loading", "audio"],
+                                 hidden_asset_kinds=["rom"])
 
-        self.assertEqual(self.policy.get("hidden_media_kinds"), ["loading", "audio"])
+        self.assertEqual(policy.get("hidden_media_kinds"), ["loading", "audio"])
+        self.assertEqual(policy.get("hidden_asset_kinds"), ["rom"])
 
-    def test_a_config_that_narrowed_nothing_adopts_nothing(self) -> None:
-        empty = LibraryPolicy(self.root / "other.json")
+    def test_the_next_save_writes_them_to_the_library_section(self) -> None:
+        policy = self._file_with(hidden_media_kinds=["loading"])
 
-        self.assertTrue(empty.adopt_from_config(_config({})))
-        self.assertEqual(empty.values(), {"hidden_media_kinds": [],
-                                          "hidden_asset_kinds": [],
-                                          "hidden_sources": [],
-                                          "hidden_checks": []})
+        policy.set("hidden_sources", ["vpsdb"])
 
-    def test_it_runs_once_and_never_undoes_a_later_change(self) -> None:
-        """The trap this exists to avoid: re-reading a config that still carries the old
-        values would put them back over everything changed since."""
-        self.policy.adopt_from_config(self.config)
-        self.policy.set("hidden_media_kinds", [])
-
-        self.assertFalse(self.policy.adopt_from_config(self.config))
-        self.assertEqual(self.policy.get("hidden_media_kinds"), [])
-
-    def test_the_config_is_left_alone(self) -> None:
-        """A device downgrading to a build that reads them still finds what it had."""
-        self.policy.adopt_from_config(self.config)
-
-        self.assertEqual(self.config.get("general", "hidden_media_kinds"),
-                         "loading,audio")
+        saved = self._payload()[SETTINGS_KEY]
+        self.assertEqual(saved["library"]["hidden_media_kinds"], ["loading"])
+        self.assertNotIn("hidden_media_kinds", saved["general"])
 
 
 if __name__ == "__main__":
