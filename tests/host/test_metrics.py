@@ -23,9 +23,10 @@ class OneSampleTests(unittest.TestCase):
         fake.cpu_count.return_value = 4
         fake.process_iter.return_value = []
         fake.sensors_temperatures.return_value = {}
-        patch = mock.patch.object(metrics, "psutil", fake)
-        patch.start()
-        self.addCleanup(patch.stop)
+        for name, value in (("psutil", fake), ("PER_CORE", True)):
+            patch = mock.patch.object(metrics, name, value)
+            patch.start()
+            self.addCleanup(patch.stop)
         self.graphics = {"cards": [{"id": "1", "name": "Card", "busy": 30.0, "source": "x"},
                                    {"id": "2", "name": "Other", "source": "x"}],
                          "reason": "", "detail": ""}
@@ -64,7 +65,7 @@ class OneSampleTests(unittest.TestCase):
         self.clock[0] += 2
         found = metrics.sample()
         self.assertEqual(found["cpu_temperature"], 60.0)
-        self.assertEqual(found["busiest"], [{"name": "vpx", "cpu_percent": 10.0, "memory": 7}])
+        self.assertEqual(found["busiest"], [{"name": "vpx", "cpu_percent": 40.0, "memory": 7}])
 
     def test_graphics_joins_the_sample_and_only_a_busy_reading_the_history(self) -> None:
         found = metrics.sample()
@@ -76,9 +77,11 @@ def _reading(label: str, current: float | None) -> mock.Mock:
     return mock.Mock(label=label, current=current)
 
 
-def _process(pid: int, name: str | None, cpu: float | None, rss: int | None) -> mock.Mock:
+def _process(pid: int, name: str | None, cpu: float | None, rss: int | None,
+             exe: str | None = None) -> mock.Mock:
     memory = None if rss is None else mock.Mock(rss=rss)
-    return mock.Mock(info={"pid": pid, "name": name, "cpu_percent": cpu, "memory_info": memory})
+    return mock.Mock(info={"pid": pid, "name": name, "exe": exe, "cpu_percent": cpu,
+                           "memory_info": memory})
 
 
 class MarksTests(unittest.TestCase):
@@ -202,9 +205,10 @@ class BusiestTests(unittest.TestCase):
         self.addCleanup(metrics.reset_for_tests)
         self.fake = mock.Mock()
         self.fake.cpu_count.return_value = 4
-        patch = mock.patch.object(metrics, "psutil", self.fake)
-        patch.start()
-        self.addCleanup(patch.stop)
+        for name, value in (("psutil", self.fake), ("PER_CORE", True)):
+            patch = mock.patch.object(metrics, name, value)
+            patch.start()
+            self.addCleanup(patch.stop)
 
     def _list(self, *processes: mock.Mock) -> list[dict] | None:
         self.fake.process_iter.return_value = list(processes)
@@ -213,14 +217,37 @@ class BusiestTests(unittest.TestCase):
     def test_the_first_listing_is_nothing_because_every_process_reads_zero_once(self) -> None:
         self.assertIsNone(self._list(_process(10, "chrome", 0.0, 100)))
         self.assertEqual(self._list(_process(10, "chrome", 80.0, 100)),
-                         [{"name": "chrome", "cpu_percent": 20.0, "memory": 100}])
+                         [{"name": "chrome", "cpu_percent": 80.0, "memory": 100}])
 
-    def test_processes_with_one_name_are_one_row_and_the_share_is_of_the_machine(self) -> None:
+    def test_processes_with_one_name_are_one_row_and_the_share_is_per_core(self) -> None:
         self._list()
         found = self._list(_process(10, "chrome", 40.0, 100), _process(11, "chrome", 20.0, 50),
                            _process(12, "vpx", 20.0, 500))
-        self.assertEqual(found, [{"name": "chrome", "cpu_percent": 15.0, "memory": 150},
-                                 {"name": "vpx", "cpu_percent": 5.0, "memory": 500}])
+        self.assertEqual(found, [{"name": "chrome", "cpu_percent": 60.0, "memory": 150},
+                                 {"name": "vpx", "cpu_percent": 20.0, "memory": 500}])
+
+    def test_where_the_platform_reads_the_whole_machine_the_share_is_divided_by_the_cores(
+            self) -> None:
+        self._list()
+        with mock.patch.object(metrics, "PER_CORE", False):
+            found = self._list(_process(10, "chrome", 40.0, 100), _process(11, "chrome", 20.0, 50))
+        self.assertEqual(found, [{"name": "chrome", "cpu_percent": 15.0, "memory": 150}])
+
+    def test_an_apps_helpers_are_one_row_under_the_apps_name(self) -> None:
+        app = "/Applications/Claude.app/Contents"
+        self._list()
+        found = self._list(
+            _process(10, "Claude", 10.0, 100, f"{app}/MacOS/Claude"),
+            _process(11, "Claude Helper (Renderer)", 30.0, 50,
+                     f"{app}/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper"),
+            _process(12, "claude", 5.0, 7, "/opt/tools/bin/claude"),
+            _process(13, "vpx", 1.0, 9, "C:\\Games\\vpx.exe"),
+            _process(14, "kworker", 0.5, 1, ""),
+            _process(15, "hidden", 0.4, 2, None),
+            _process(16, "bare", 0.3, 3, "/opt/.app/tool"))
+        self.assertEqual([(one["name"], one["cpu_percent"], one["memory"]) for one in found],
+                         [("Claude", 40.0, 150), ("claude", 5.0, 7), ("vpx", 1.0, 9),
+                          ("kworker", 0.5, 1), ("hidden", 0.4, 2)])
 
     def test_the_busiest_five_are_listed_and_the_ties_by_size(self) -> None:
         self._list()

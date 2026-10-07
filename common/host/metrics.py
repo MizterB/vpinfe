@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import sys
 import threading
 import time
 from collections import deque
@@ -51,6 +52,10 @@ LAUNCHES = 200
 TOP = 5
 # What VPinFE's own process is called, in place of the interpreter's name.
 OWN = "VPinFE"
+# A program's share is per core where the platform's own monitor says it that way (Activity
+# Monitor, top and htop: 100 is one core, a busy program on ten cores can read 800) and of
+# the whole machine where it does not (Task Manager).
+PER_CORE = sys.platform != "win32"
 
 # Where a processor's temperature is, best first: the chip and the labels to prefer on it.
 # A label earlier in the tuple wins; a chip with no preferred label answers with its first
@@ -163,26 +168,27 @@ def cpu_temperature() -> float | None:
 
 
 def busiest() -> list[dict[str, Any]] | None:
-    """The `TOP` programs using the most of the processor, grouped by name so a browser's
-    many processes are one row, each as `{name, cpu_percent, memory}`.
+    """The `TOP` programs using the most of the processor, each as `{name, cpu_percent,
+    memory}`, where a program is an app bundle's every process (`Claude Helper (Renderer)`
+    is Claude) or, with no bundle, every process of one name.
 
-    `cpu_percent` is the share of the whole machine, so it sits beside the Processor
-    reading. Nothing the first time, and after that whatever the OS lets this process read.
+    `cpu_percent` follows `PER_CORE`. Nothing the first time, and after that whatever the OS
+    lets this process read: a process owned by another user, root's on macOS, is skipped.
     `psutil.process_iter` keeps its `Process` objects between calls, which is what lets a
     process's `cpu_percent` measure since the last sample: a new one always reads 0.
     """
     global _listed_processes
     try:
-        cores = psutil.cpu_count() or 1
+        divisor = 1 if PER_CORE else (psutil.cpu_count() or 1)
         own = os.getpid()
         groups: dict[str, dict[str, Any]] = {}
-        for one in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info"]):
+        for one in psutil.process_iter(["pid", "name", "exe", "cpu_percent", "memory_info"]):
             info = one.info
             if not info["pid"] or info["cpu_percent"] is None or info["memory_info"] is None:
                 continue
-            name = OWN if info["pid"] == own else info["name"] or ""
+            name = OWN if info["pid"] == own else _program(info["exe"]) or info["name"] or ""
             row = groups.setdefault(name, {"name": name, "cpu_percent": 0.0, "memory": 0})
-            row["cpu_percent"] += info["cpu_percent"] / cores
+            row["cpu_percent"] += info["cpu_percent"] / divisor
             row["memory"] += info["memory_info"].rss
     except Exception:  # noqa: BLE001 - a listing the OS refuses is no list, not a failure
         logger.debug("Could not list the processes", exc_info=True)
@@ -193,6 +199,15 @@ def busiest() -> list[dict[str, Any]] | None:
     return sorted(({**row, "cpu_percent": round(row["cpu_percent"], 1)}
                    for row in groups.values()),
                   key=lambda row: (-row["cpu_percent"], -row["memory"]))[:TOP]
+
+
+def _program(exe: str | None) -> str:
+    """The app a process belongs to, from the outermost `.app` in its path: "Claude" for
+    `Claude.app/.../Claude Helper (Renderer).app/...`. Empty when it is in no bundle."""
+    for part in (exe or "").replace("\\", "/").split("/"):
+        if part.endswith(".app") and len(part) > 4:
+            return part[:-4]
+    return ""
 
 
 def _disks(paths: Iterable[str]) -> list[dict[str, Any]]:
