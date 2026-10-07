@@ -193,7 +193,7 @@ class OwnerTests(_RosterCase):
         self.assertEqual(self._file()["migrations"], [OWNER_MIGRATION])
 
     def test_the_vpinplay_extensions_own_store_is_never_read(self) -> None:
-        held = extension_store.ExtensionStore(Path(self.tmp.name) / "extensions.json")
+        held = extension_store.ExtensionStore(Path(self.tmp.name))
         held.set_setting("vpinplay", "initials", "ZZZ")
 
         with mock.patch.object(extension_store, "_store", held):

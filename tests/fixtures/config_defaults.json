@@ -59,6 +59,9 @@
     "config_tool_api_key": "",
     "enabled": "false"
   },
+  "extensions": {
+    "switched_off": ""
+  },
   "general": {
     "game_root_dir": ""
   },

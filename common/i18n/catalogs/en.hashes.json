@@ -256,6 +256,8 @@
   "config.device.setup_pending.description": "1e7bb935da09",
   "config.dof.config_tool_api_key.label": "2fab62e7864e",
   "config.dof.enabled.label": "b41395566b66",
+  "config.extensions.switched_off.description": "81ae11835326",
+  "config.extensions.switched_off.label": "72436c9abef9",
   "config.general.game_root_dir.description": "27ed97eb9c27",
   "config.general.game_root_dir.label": "beadda389e18",
   "config.group.appearance": "b69fc1f81289",

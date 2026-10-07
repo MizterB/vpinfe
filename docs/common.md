@@ -39,8 +39,8 @@ containing it when it breaks.
 - `context.py`: what `register(ctx)` is handed - a logger, a config namespace, the bus and
   a way to offer routes. Never the application.
 - `host.py`: the registry, the load path and the kill switch.
-- `store.py`: `extensions.json` - an extension's own settings, and the switch that keeps
-  one from loading.
+- `store.py`: an extension's own settings, and the `extensions.switched_off` list that
+  keeps one from loading.
 
 Depends on the infrastructure layer only. The gate that decides whether an extension's
 route may be reached is in `httpapi/extensions.py`, because that is where a scope means

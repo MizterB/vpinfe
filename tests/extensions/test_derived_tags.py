@@ -60,7 +60,7 @@ class DerivedTagCase(unittest.TestCase):
             held.forget()
             self.addCleanup(held.forget)
 
-        self.store = store.ExtensionStore(self.root / "extensions.json")
+        self.store = store.ExtensionStore(self.root)
         self.registry = host.Registry(self.store)
         extensions.set_registry(self.registry)
         self.addCleanup(extensions.set_registry, host.Registry())

@@ -49,7 +49,7 @@ def _imports(path: pathlib.Path) -> set[str]:
 # below holds that - so a new one has to be placed before this check can pass.
 STORE_CALLS_NAMING_AN_EXTENSION = {"enabled", "set_enabled", "settings", "set_setting",
                                    "forget", "accounts", "set_account"}
-STORE_CALLS_ABOUT_THE_STORE = {"migrations", "mark_migration", "forget_holder"}
+STORE_CALLS_ABOUT_THE_STORE = {"forget_holder"}
 
 
 def _names_handed_to_the_store(tree: ast.Module) -> list[tuple[int, str]]:

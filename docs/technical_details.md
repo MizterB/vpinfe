@@ -63,6 +63,12 @@ Runtime state written by VPinFE, not shown as a setting.
 | `hidden_sources` | list |  | Online catalogs VPinFE does not search for media |
 | `hidden_checks` | list |  | Library checks that stay quiet. A check left on reports every table it finds a gap in. |
 
+### `extensions`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `switched_off` | list |  | Extensions that stay unloaded. One installed later starts switched on. |
+
 ### `commands`
 
 | Key | Type | Default | Description |

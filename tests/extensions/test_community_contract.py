@@ -136,7 +136,7 @@ class HowTheListStands(unittest.TestCase):
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.store = store.ExtensionStore(Path(tmp.name) / "extensions.json")
+        self.store = store.ExtensionStore(Path(tmp.name))
         self.registry = host.Registry(self.store)
         extensions.set_registry(self.registry)
         self.addCleanup(extensions.set_registry, host.Registry())

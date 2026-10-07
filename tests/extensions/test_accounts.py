@@ -38,7 +38,7 @@ class AccountsCase(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
-        self.store = store.ExtensionStore(self.root / "extensions.json")
+        self.store = store.ExtensionStore(self.root)
         self.registry = host.Registry(self.store)
         extensions.set_registry(self.registry)
         self.addCleanup(extensions.set_registry, host.Registry())

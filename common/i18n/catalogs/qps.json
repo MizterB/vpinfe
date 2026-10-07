@@ -249,6 +249,8 @@
   "config.console.units.label": "Ûñîţš",
   "config.dof.config_tool_api_key.label": "ĐÖƑ Çöñƒîĝ Ţööŀ ÀÞÎ Ķèý",
   "config.dof.enabled.label": "Èñàƀŀè ĐÖƑ",
+  "config.extensions.switched_off.description": "Èẋţèñšîöñš ţĥàţ šţàý ûñŀöàđèđ. Öñè îñšţàŀŀèđ ŀàţèř šţàřţš šŵîţçĥèđ öñ.",
+  "config.extensions.switched_off.label": "Šŵîţçĥèđ-öƒƒ èẋţèñšîöñš",
   "config.general.game_root_dir.description": "Ţĥè ƒöŀđèř ĥöŀđîñĝ ýöûř ţàƀŀè ƒöŀđèřš, öñè ƒöŀđèř þèř ĝàɱè",
   "config.general.game_root_dir.label": "Ţàƀŀèš Đîřèçţöřý",
   "config.group.appearance": "Àþþèàřàñçè",

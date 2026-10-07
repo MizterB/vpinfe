@@ -249,6 +249,8 @@
   "config.console.units.label": "Units",
   "config.dof.config_tool_api_key.label": "DOF Config Tool API Key",
   "config.dof.enabled.label": "Enable DOF",
+  "config.extensions.switched_off.description": "Extensions that stay unloaded. One installed later starts switched on.",
+  "config.extensions.switched_off.label": "Switched-off extensions",
   "config.general.game_root_dir.description": "The folder holding your table folders, one folder per game",
   "config.general.game_root_dir.label": "Tables Directory",
   "config.group.appearance": "Appearance",

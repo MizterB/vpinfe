@@ -127,7 +127,8 @@ def set_audio_muted(api: API, muted: Any) -> bool:
 def get_vpinplay_endpoint(config: ConfigSource) -> str:
     """Where VPinPlay is, for a theme that asks.
 
-    The extension's answer, or the config's where the extension holds none. A published
+    The extension's answer, or the config's - the default, once a 2.x value has gone to the
+    extension - where the extension holds none. A published
     theme may still call this to build a URL of its own, so it answers whether or not
     the extension is loaded.
     """

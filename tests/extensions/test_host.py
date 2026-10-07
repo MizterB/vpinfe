@@ -31,7 +31,7 @@ class HostCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
-        self.store = store.ExtensionStore(self.root / "extensions.json")
+        self.store = store.ExtensionStore(self.root)
         self.registry = host.Registry(self.store)
         self.addCleanup(self.registry.clear)
         self.addCleanup(core_events.clear)
@@ -337,14 +337,24 @@ class ContextTests(HostCase):
                          {"greeting": "good evening"})
 
     def test_core_keeps_only_what_core_needs_to_know(self) -> None:
-        """Whether it is switched off is core's record - it has to know before it loads
+        """Whether it is switched off is core's setting - it has to know before it loads
         anything. What it is configured with is nobody's business but its own."""
         self.store.set_setting("sample", "greeting", "good evening")
         self.store.set_enabled("sample", False)
 
-        held = json.loads((self.root / "extensions.json").read_text(encoding="utf-8"))
+        held = json.loads((self.root / "vpinfe.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(held["extensions"]["sample"], {"enabled": False})
+        self.assertEqual(held["settings"]["extensions"]["switched_off"], ["sample"])
+        self.assertFalse((self.root / "extensions.json").exists())
+
+    def test_switching_on_takes_it_off_the_list_and_leaves_the_others(self) -> None:
+        self.store.set_enabled("sample", False)
+        self.store.set_enabled("bystander", False)
+
+        self.store.set_enabled("sample", True)
+
+        self.assertTrue(self.store.enabled("sample"))
+        self.assertFalse(self.store.enabled("bystander"))
 
     def test_one_extensions_unreadable_settings_cost_only_that_one(self) -> None:
         """The whole reason they are not in one file together."""
@@ -358,18 +368,6 @@ class ContextTests(HostCase):
         self.assertEqual(self.store.settings("bystander"), {"greeting": "hello"})
         self.assertTrue(self.store.enabled("sample"))
 
-    def test_settings_written_before_the_split_are_carried_over(self) -> None:
-        """An install that ran a build where they lived together keeps them."""
-        (self.root / "extensions.json").write_text(json.dumps({
-            "schema": 1,
-            "extensions": {"sample": {"enabled": True,
-                                      "settings": {"greeting": "from before"}}},
-        }), encoding="utf-8")
-
-        self.assertEqual(self.store.settings("sample"), {"greeting": "from before"})
-        held = json.loads((self.root / "extensions.json").read_text(encoding="utf-8"))
-        self.assertNotIn("settings", held["extensions"]["sample"])
-
     def test_forgetting_one_takes_its_file_with_it(self) -> None:
         self.store.set_setting("sample", "greeting", "good evening")
 
@@ -377,14 +375,23 @@ class ContextTests(HostCase):
 
         self.assertFalse((self.root / "extension_settings" / "sample.json").exists())
 
-    def test_the_settings_follow_the_registry_rather_than_this_machine(self) -> None:
-        """A store told where its registry is and left pointing at this machine's own
+    def test_the_store_follows_its_folder_rather_than_this_machine(self) -> None:
+        """A store told where its folder is and left pointing at this machine's own
         settings is not isolated at all - which wrote into a real config directory
         before it was caught."""
         from common.extensions import store as store_module
 
         self.assertEqual(self.store.settings_dir, self.root / "extension_settings")
         self.assertNotEqual(self.store.settings_dir, store_module.SETTINGS_DIR)
+        self.store.set_enabled("sample", False)
+        self.assertTrue((self.root / "vpinfe.json").is_file())
+
+    def test_forgetting_one_switches_it_back_on(self) -> None:
+        self.store.set_enabled("sample", False)
+
+        self.store.forget("sample")
+
+        self.assertTrue(self.store.enabled("sample"))
 
     def test_a_router_gated_on_an_undeclared_scope_is_refused(self) -> None:
         body = ("from fastapi import APIRouter\n"

@@ -50,7 +50,7 @@ class ListRatingTests(unittest.TestCase):
     def _load(self) -> TestClient:
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
-        registry = host.Registry(store.ExtensionStore(Path(folder.name) / "extensions.json"))
+        registry = host.Registry(store.ExtensionStore(Path(folder.name)))
         self.addCleanup(registry.clear)
         record = registry.load(host.BUNDLED_DIR / "vpinplay")
         self.assertEqual(record.state, host.LOADED, record.reason)

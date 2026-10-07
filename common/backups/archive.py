@@ -68,7 +68,7 @@ RECORD_KINDS = {
     "devices.json": KIND_DEVICES, "players.json": KIND_PLAYERS,
     "tags.json": KIND_RECORDS, "launchers.json": KIND_RECORDS,
     "locations.json": KIND_RECORDS,
-    "extensions.json": KIND_RECORDS, "ui-preferences.json": KIND_RECORDS,
+    "ui-preferences.json": KIND_RECORDS,
 }
 
 # What reading a damaged or unsupported zip can raise besides OSError.

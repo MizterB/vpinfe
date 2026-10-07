@@ -42,7 +42,7 @@ class AdoptCase(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.locations.mark_migration(library_folders.SEEDED)
 
-        self.store = store.ExtensionStore(self.root / "extensions.json")
+        self.store = store.ExtensionStore(self.root)
         self.registry = host.Registry(self.store)
         extensions.set_registry(self.registry)
         self.addCleanup(extensions.set_registry, host.Registry())

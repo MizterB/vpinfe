@@ -146,7 +146,7 @@ class LeavingTests(_RecordsCase):
         player_records.reset_for_tests(self.root)
         self.addCleanup(player_records.reset_for_tests)
         self.records = player_records.get_records()
-        store = ExtensionStore(self.root.parent / "extensions.json")
+        store = ExtensionStore(self.root.parent)
         extensions.set_registry(host.Registry(store))
         self.addCleanup(extensions.set_registry, host.Registry())
         accounts.reset_for_tests()

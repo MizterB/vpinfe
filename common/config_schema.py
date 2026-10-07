@@ -372,6 +372,9 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ConfigOption("hidden_sources", type="list", default=""),
         ConfigOption("hidden_checks", type="list", default=""),
     ),
+    # Extensions switched off, by name, so empty means every installed one runs and one
+    # installed later arrives on. The Extensions page draws a switch per extension.
+    *in_section("extensions", ConfigOption("switched_off", type="list", default="")),
     # Commands the install runs around itself. `table_commands` below is the same, around
     # a table, and a launcher's own are in `launchers.json`.
     *in_section(

@@ -735,27 +735,26 @@ Two homes, because there are two owners.
 
 | file | holds |
 |---|---|
-| `extensions.json` | core's record of what is installed and what is switched off |
+| `vpinfe.json`, `extensions.switched_off` | the names of the extensions switched off |
 | `extension_settings/<name>.json` | that extension's own settings |
 
-Never `vpinfe.ini` - that file holds what core is configured with, and it is where a token
-would go.
+Never the rest of `vpinfe.json` - that file holds what core is configured with, and it is
+where a token would go.
 
-A setting core used to hold for an extension is copied across once, on the first start
-after that extension exists, and core stops reading it. Core keeps the old names in its
-schema so a 2.x file still converts, and nothing writes them again.
+A setting a 2.x file held for an extension is copied across once, while that file is
+converted, and removed from it. Core keeps the old names in its schema so the file still
+converts, and nothing writes them again.
 
 A file each rather than a namespace inside one, for the same reason: a namespace in
-somebody else's file is a weaker form of "own" than a file. One unreadable
-`extensions.json` used to cost every extension its settings and switch the disabled ones
-back on. Now one extension's bad file costs that extension.
+somebody else's file is a weaker form of "own" than a file. One extension's bad file
+costs that extension and no other.
 
-Whether an extension is switched off stays core's record, because core has to know before
+Whether an extension is switched off is core's setting, because core has to know before
 it loads anything - reading a file per extension to answer "what am I not loading" is
-worse than reading one. An extension switched off is not loaded at all.
+worse than reading one list. An extension switched off is not loaded at all.
 
 A person switches one with the switch on its page under Settings > Extensions, or with
-`PUT /api/v1/extensions/{name}/enabled`, and either writes `extensions.json`. Off is at once:
+`PUT /api/v1/extensions/{name}/enabled`, and either writes `extensions.switched_off`. Off is at once:
 it goes the way a broken one does, below, and says it was switched off rather than that it
 broke. On waits for the next start, because routes mount once and one that was off never
 registered any. Until then it says it starts at the next restart.
@@ -794,7 +793,7 @@ answer, not a fault, and changes nothing.
   module of ours an extension imports.
 - `common/extensions/context.py` - what `register(ctx)` is handed.
 - `common/extensions/host.py` - loading, the registry, and the kill switch.
-- `common/extensions/store.py` - `extensions.json`, and each extension's own file.
+- `common/extensions/store.py` - the switched-off list, and each extension's own file.
 - `common/extensions/accounts.py` - where an account's values live, and the secret taken
   out of every answer.
 - `common/extensions/cards.py` - drawing a card and reading one.

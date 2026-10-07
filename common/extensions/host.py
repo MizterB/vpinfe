@@ -316,7 +316,7 @@ class Registry:
     # -- the switch ----------------------------------------------------------
 
     def switch(self, name: str, on: bool) -> Record | None:
-        """Written to `extensions.json`. None when there is no such extension."""
+        """Written to `extensions.switched_off`. None when there is no such extension."""
         with self._lock:
             record = self._switch(str(name or "").strip(), on)
         if record is not None:

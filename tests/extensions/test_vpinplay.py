@@ -13,7 +13,7 @@ from pathlib import Path
 
 from common import tokens
 from common.config_store import ConfigStore
-from common.extensions import catalogs, contributions, handover, host, store
+from common.extensions import catalogs, contributions, host, store
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -92,7 +92,7 @@ class ContributionTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
-        self.store = store.ExtensionStore(self.root / "extensions.json")
+        self.store = store.ExtensionStore(self.root)
         contributions.clear()
         self.addCleanup(contributions.clear)
         catalogs.clear()
@@ -131,40 +131,49 @@ class HandoverTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
-        self.store = store.ExtensionStore(self.root / "extensions.json")
-        self.config = ConfigStore(str(self.root / "vpinfe.ini"))
+        self.store = store.ExtensionStore(self.root)
+
+    def convert(self, vpinplay: str = "") -> ConfigStore:
+        """A 2.x file with this `[vpinplay]` section, converted the way an upgrade is."""
+        (self.root / "vpinfe.ini").write_text(f"[vpinplay]\n{vpinplay}", encoding="utf-8")
+        return ConfigStore(str(self.root / "vpinfe.ini"))
 
     def test_what_core_was_configured_with_becomes_the_extensions_own(self) -> None:
-        from common.config_access import cfg_set
-
-        cfg_set(self.config, "vpinplay", "api_endpoint", "https://mine.example:9000")
-        cfg_set(self.config, "vpinplay", "user_id", "player-one")
-        self.config.save()
-
-        handover.seed(self.store, self.config)
+        self.convert("api_endpoint = https://mine.example:9000\nuser_id = player-one\n")
 
         held = self.store.settings("vpinplay")
         self.assertEqual(held["endpoint"], "https://mine.example:9000")
         self.assertEqual(held["user_id"], "player-one")
 
-    def test_it_runs_once(self) -> None:
-        from common.config_access import cfg_set
+    def test_what_it_read_is_no_longer_in_the_file(self) -> None:
+        from common.config_access import cfg_get
 
-        cfg_set(self.config, "vpinplay", "api_endpoint", "https://mine.example:9000")
-        self.config.save()
-        handover.seed(self.store, self.config)
+        config = self.convert("user_id = player-one\nmachine_id = THEIR-CAB\n")
+
+        self.assertEqual(cfg_get(config, "vpinplay", "user_id"), "")
+        self.assertEqual(cfg_get(config, "vpinplay", "machine_id"), "")
+
+    def test_it_runs_with_the_conversion_and_not_again(self) -> None:
+        self.convert("api_endpoint = https://mine.example:9000\n")
         self.store.set_setting("vpinplay", "endpoint", "https://moved.example")
 
-        handover.seed(self.store, self.config)
+        ConfigStore(str(self.root / "vpinfe.ini"))
 
         self.assertEqual(self.store.settings("vpinplay")["endpoint"],
                          "https://moved.example")
 
+    def test_what_the_extension_already_holds_wins(self) -> None:
+        self.store.set_setting("vpinplay", "user_id", "player-two")
+
+        self.convert("user_id = player-one\n")
+
+        self.assertEqual(self.store.settings("vpinplay")["user_id"], "player-two")
+
     def test_a_shared_default_is_not_handed_over(self) -> None:
-        """A fresh config file holds every default, so "not empty" would hand over the
-        whole section - and a default in an extension's file pins it to whatever core's
-        was on the day it was installed, with the two free to drift after."""
-        handover.seed(self.store, self.config)
+        """A 2.x file holds every default, so "not empty" would hand over the whole
+        section - and a default in an extension's file pins it to whatever core's was on
+        the day it was installed, with the two free to drift after."""
+        self.convert("api_endpoint = https://api.vpinplay.com:8888\nsync_on_exit = false\n")
 
         held = self.store.settings("vpinplay")
 
@@ -174,12 +183,7 @@ class HandoverTests(unittest.TestCase):
     def test_a_machine_id_this_install_already_had_is_handed_over(self) -> None:
         """Not a default even though nobody typed it, so an install that has been
         submitting scores goes on being the same cabinet to VPinPlay."""
-        from common.config_access import cfg_set
-
-        cfg_set(self.config, "vpinplay", "machine_id", "THEIR-EXISTING-CAB-ID")
-        self.config.save()
-
-        handover.seed(self.store, self.config)
+        self.convert("machine_id = THEIR-EXISTING-CAB-ID\n")
 
         self.assertEqual(self.store.settings("vpinplay")["machine_id"],
                          "THEIR-EXISTING-CAB-ID")
@@ -188,35 +192,18 @@ class HandoverTests(unittest.TestCase):
         """2.x wrote `apiendpoint`, `userid` and `machineid`. The ini-to-json pass spells
         keys from `config_schema`, so the section has to stay declared there for an
         upgrading install to keep its account and its cabinet id."""
-        root = Path(self._tmp.name) / "upgraded"
-        root.mkdir()
-        (root / "vpinfe.ini").write_text(
-            "[vpinplay]\napiendpoint = https://theirs.example\n"
-            "userid = player-one\nmachineid = THEIR-CAB\n", encoding="utf-8")
-        old_store = store.ExtensionStore(root / "extensions.json")
+        self.convert("apiendpoint = https://theirs.example\nuserid = player-one\n"
+                     "machineid = THEIR-CAB\n")
 
-        handover.seed(old_store, ConfigStore(str(root / "vpinfe.ini")))
-
-        held = old_store.settings("vpinplay")
+        held = self.store.settings("vpinplay")
         self.assertEqual(held["endpoint"], "https://theirs.example")
         self.assertEqual(held["user_id"], "player-one")
         self.assertEqual(held["machine_id"], "THEIR-CAB")
 
     def test_an_install_that_never_had_one_is_handed_nothing(self) -> None:
-        handover.seed(self.store, self.config)
+        self.convert()
 
         self.assertNotIn("machine_id", self.store.settings("vpinplay"))
-
-    def test_the_old_section_is_left_where_it_is(self) -> None:
-        """A reverted install has to still find what its user typed."""
-        from common.config_access import cfg_get, cfg_set
-
-        cfg_set(self.config, "vpinplay", "user_id", "player-one")
-        self.config.save()
-
-        handover.seed(self.store, self.config)
-
-        self.assertEqual(cfg_get(self.config, "vpinplay", "user_id"), "player-one")
 
 
 if __name__ == "__main__":
