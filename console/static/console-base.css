@@ -2747,13 +2747,14 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
 .console-facts > .console-fact-heading:first-child {
   border-top: none; margin-top: 0; padding-top: 0;
 }
-/* Actions and the attention block: the width of the panel, not of a value. */
+/* Actions: the width of the panel, not of a value. A finding in it is capped below. */
 .console-fact-full { grid-column: 1 / -1; padding: 4px 0; min-width: 0; }
-/* A row with its action pinned to the right edge stops where the controls above it end
-   at most: the label column's ceiling, its gap and the measure. Left at the pane's width
-   the action sits a screen away from the name it belongs to. Scoped to the panel because
-   a dialog sets its own width. */
-.console-section-work .console-facts :is(.console-member-row, .console-source-row) {
+/* A row, or a finding, with its action pinned to the right edge stops where the controls
+   above it end at most: the label column's ceiling, its gap and the measure. Left at the
+   pane's width the action sits a screen away from the name it belongs to. Scoped to the
+   panel because a dialog sets its own width. */
+.console-section-work .console-facts :is(.console-member-row, .console-source-row),
+.console-section-work .console-attention {
   max-width: var(--row-measure);
 }
 /* Anything holding words that is drawn in the value column and is not a control the

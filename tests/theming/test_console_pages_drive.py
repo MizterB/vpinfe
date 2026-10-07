@@ -30,6 +30,7 @@ PICKED = "Hand Picked"
 SMART = "Smart Bally"
 VPX = "vpx-drive"
 WHOLE_PANEL = "(whole panel)"
+EMPTY_FOLDERS = "/console?view=settings&page=library.folders"
 
 # Where each rail lives, and the address that puts a subject under it. None selects the
 # first row of that view's list.
@@ -120,8 +121,8 @@ DROPDOWNS = """(() => {
 })()"""
 
 # Every row, card and control in the open section against the width a row may have. A row
-# is a surface, or a flex line holding an action at its right edge. Headings, the input
-# bar, the attention block and grids span the pane by design.
+# is a surface, or a flex line holding an action at its right edge, and a finding is one.
+# Headings, the input bar and grids span the pane by design.
 STRETCHED = """(() => {
   const shown = el => el.getClientRects().length > 0
     && getComputedStyle(el).visibility !== 'hidden';
@@ -133,7 +134,7 @@ STRETCHED = """(() => {
   const limit = probe.getBoundingClientRect().width + 2;
   probe.remove();
   const BARS = '.console-panel-heading, .console-fact-heading, .console-binding-live';
-  const SPANS = '.console-attention, .ag-root-wrapper, .nicegui-aggrid';
+  const SPANS = '.ag-root-wrapper, .nicegui-aggrid';
   const CONTROLS = '.q-field, .q-btn, .q-slider, .q-toggle, textarea, input:not([type=hidden])';
   const found = [...area.querySelectorAll('*')].filter(el => {
     if (!shown(el) || el.matches(BARS) || el.closest(SPANS)) return false;
@@ -268,6 +269,16 @@ class ConsolePagesDrive(unittest.TestCase):
                 if path not in drawn:
                     await visit(path)
             await visit("/remote")
+            # A library with no folders draws a finding where the list was, and the sweep
+            # above only ever sees a library that has some.
+            for one in json.load(urllib.request.urlopen(
+                    instance.console_url("/api/v1/locations"), timeout=10))["locations"]:
+                urllib.request.urlopen(urllib.request.Request(
+                    instance.console_url(f"/api/v1/config/locations/{one['location_id']}"),
+                    method="DELETE"), timeout=10).close()
+            await visit(EMPTY_FOLDERS)
+            stretched["finding"] = await browser.evaluate(
+                "!!document.querySelector('.console-settings-body .console-attention')")
         return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns,
                 "stretched": stretched}
 
@@ -310,6 +321,8 @@ class ConsolePagesDrive(unittest.TestCase):
     def test_no_row_or_control_stretches_past_the_measure(self) -> None:
         self.assertGreater(self.seen["stretched"]["measured"], 50,
                            "an empty sweep passes and measures nothing")
+        self.assertTrue(self.seen["stretched"]["finding"],
+                        "the empty Folders page was not drawn, so its finding was not measured")
         self.assertEqual([], self.seen["stretched"]["problems"])
 
 
