@@ -18,10 +18,12 @@ from typing import Any
 
 from common import config_schema, events, install_presence, path_state, port_checks
 from common.apps.contract import Field
+from common.backups import folder as backups_folder
 from common.failures import why
 from common.i18n import t
 from common.labels import humanize
-from common.paths import get_ini_config
+from common.manufacturer_logos import resolve_logos_dir
+from common.paths import CONFIG_DIR, get_ini_config
 
 logger = logging.getLogger("vpinfe.common.config_service")
 
@@ -164,19 +166,33 @@ def schema(windows: Sequence[str] = ()) -> dict[str, Any]:
             "lists": [_describe_list(spec) for spec in config_schema.lists()]}
 
 
+def blank_stands_for() -> dict[tuple[str, str], str]:
+    """By (section, key), the path a blank path setting falls back to on this machine.
+
+    Only a setting whose blank means a folder VPinFE picks for itself is here. A Tool or
+    the browser left blank is discovered instead, and those answer through their own
+    reports.
+    """
+    return {(backups_folder.SECTION, backups_folder.FOLDER): str(backups_folder.DEFAULT_DIR),
+            ("media", "manufacturer_logos_dir"): str(resolve_logos_dir("", CONFIG_DIR))}
+
+
 def path_states() -> dict[str, Any]:
     """Every path setting, checked against this machine's disk.
 
     All of them in one answer rather than one call per field: a settings page wants the
     whole column at once, and the alternative is six requests that each stat one file.
+    `default` is the path a blank one stands for, so the page can show where it points.
     """
     store = get_ini_config()
     options = path_state.path_options()
     found = path_state.look_all(
         path_state.Ask(store.value(option.section, option.key), option.path)
         for option in options)
+    stands_for = blank_stands_for()
     return {"checks": [{"section": option.section, "key": option.key, "path": option.path,
-                        "state": one.state, "reason": one.reason}
+                        "state": one.state, "reason": one.reason,
+                        "default": stands_for.get((option.section, option.key), "")}
                        for option, one in zip(options, found, strict=True)]}
 
 

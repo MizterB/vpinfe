@@ -1188,6 +1188,18 @@ def _left_empty(row: dict) -> dict[str, str]:
     return {"blank": t("word.not_found"), "left_empty": tools.words(row.get("remedy") or {})}
 
 
+def with_default_paths(schema: list[dict], checks: list[dict]) -> list[dict]:
+    """Each blank path setting saying, left empty, the folder it stands for: the same
+    placeholder and tooltip a discovered Tool has, with the path alone for words because
+    nothing was found, VPinFE chose it."""
+    stands_for = {(str(check.get("section") or ""), str(check.get("key") or "")):
+                  str(check["default"]) for check in checks or [] if check.get("default")}
+    return [{**block, "options": [
+        {**option, "blank": found, "left_empty": found}
+        if (found := stands_for.get((str(block.get("name") or ""), str(option.get("key") or ""))))
+        else option for option in block.get("options") or []]} for block in schema]
+
+
 def with_browser_found(schema: list[dict], found: dict[str, Any]) -> list[dict]:
     """The Browser Program field saying, left empty, which browser the windows will open."""
     blank = _browser_left_empty(found)
@@ -1720,6 +1732,7 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
     if found := await _tools_found(library, sections):
         schema = with_discovery(schema, found)
         marks = tool_marks(found, values, marks)
+    schema = with_default_paths(schema, checks)
     if "chromium" in sections and (browser := await _browser_found(library)):
         schema = with_browser_found(schema, browser)
     if play := await _play_input(library, sections):

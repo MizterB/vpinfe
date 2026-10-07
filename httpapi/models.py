@@ -818,6 +818,8 @@ class ConfigPathCheck(ApiModel):
     `state` is `unset` when the value is blank, which is not a failure - most of these
     are optional and blank means the default. `reason` is written for the person who
     typed it and says what was found, because the path is right there to compare against.
+    `default` is where a blank one points on this device, for a setting whose blank means a
+    folder VPinFE chooses; empty for every other.
     """
 
     section: str
@@ -825,6 +827,7 @@ class ConfigPathCheck(ApiModel):
     path: str
     state: str
     reason: str = ""
+    default: str = ""
 
 
 class ConfigPathChecks(ApiModel):
