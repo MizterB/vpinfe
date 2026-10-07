@@ -412,7 +412,7 @@
   "config.vpxmobile.chunk_size.description": "Ƒîŀèš ĝö àçřöšš îñ þîèçèš ţĥîš šîžè; ŀöŵèř îţ îƒ šèñđš ƒàîŀ öñ à ŵèàķ çöññèçţîöñ",
   "config.vpxmobile.chunk_size.label": "Çĥûñķ Šîžè",
   "config.vpxmobile.config_mask.description": "Ţĥè ŵöřđ ţĥàţ ɱàřķš à šèţţîñĝš ƒîŀè ɱàđè ƒöř ţĥè đèṽîçè. Çöþý à ţàƀŀè'š šèţţîñĝš ƒîŀè, àđđ ţĥè ŵöřđ ƀèƒöřè .îñî, àñđ ţĥè đèṽîçè ĝèţš ţĥàţ çöþý",
-  "config.vpxmobile.config_mask.label": "Ḿöƀîŀè Šèţţîñĝš Ƒîŀè",
+  "config.vpxmobile.config_mask.label": "Ḿöƀîŀè ÎÑÎ Ŵöřđ",
   "config.vpxmobile.device_ip.label": "Đèṽîçè ÎÞ",
   "config.vpxmobile.device_port.label": "Đèṽîçè Þöřţ",
   "config.vpxmobile.send_masked_config.description": "Ŵĥèřè à ĝàɱè ĥàš à šèţţîñĝš ƒîŀè ɱàđè ƒöř ɱöƀîŀè đèṽîçèš, ñàɱèđ ŵîţĥ ţĥè ŵöřđ ƀèŀöŵ, ţĥàţ ƒîŀè ĝöèš ţö ţĥè đèṽîçè îñ þŀàçè öƒ îţš öŵñ šèţţîñĝš",

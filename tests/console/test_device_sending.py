@@ -72,7 +72,7 @@ class TheRows(unittest.IsolatedAsyncioTestCase):
     async def test_the_labels_are_the_words_a_person_would_use(self) -> None:
         self.assertEqual(t("config.vpxmobile.send_masked_config.label"),
                          "Send Mobile Settings")
-        self.assertEqual(t("config.vpxmobile.config_mask.label"), "Mobile Settings File")
+        self.assertEqual(t("config.vpxmobile.config_mask.label"), "Mobile INI Word")
 
     async def test_a_config_that_cannot_be_read_says_so_instead_of_drawing_nothing(self) -> None:
         client = Mock()

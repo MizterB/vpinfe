@@ -410,7 +410,7 @@
   "config.vpxmobile.chunk_size.description": "f4f01a7bde8d",
   "config.vpxmobile.chunk_size.label": "79a542d781d1",
   "config.vpxmobile.config_mask.description": "8624c4ce3404",
-  "config.vpxmobile.config_mask.label": "2994d2f422ad",
+  "config.vpxmobile.config_mask.label": "f9d00b1ebd53",
   "config.vpxmobile.device_ip.label": "1066d739d065",
   "config.vpxmobile.device_port.label": "65d5ac215c36",
   "config.vpxmobile.send_masked_config.description": "2300eead66f4",

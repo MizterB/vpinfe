@@ -412,7 +412,7 @@
   "config.vpxmobile.chunk_size.description": "Files go across in pieces this size; lower it if sends fail on a weak connection",
   "config.vpxmobile.chunk_size.label": "Chunk Size",
   "config.vpxmobile.config_mask.description": "The word that marks a settings file made for the device. Copy a table's settings file, add the word before .ini, and the device gets that copy",
-  "config.vpxmobile.config_mask.label": "Mobile Settings File",
+  "config.vpxmobile.config_mask.label": "Mobile INI Word",
   "config.vpxmobile.device_ip.label": "Device IP",
   "config.vpxmobile.device_port.label": "Device Port",
   "config.vpxmobile.send_masked_config.description": "Where a game has a settings file made for mobile devices, named with the word below, that file goes to the device in place of its own settings",
