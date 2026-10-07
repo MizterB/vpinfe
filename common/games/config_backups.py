@@ -16,11 +16,8 @@ from pathlib import Path
 
 from common.games.info_migration import RESTORE, copied_from, copy_aside
 from common.i18n import t
-from common.paths import CONFIG_DIR
 
 logger = logging.getLogger("vpinfe.common.games.config_backups")
-
-BACKUPS_DIR = CONFIG_DIR / "backups" / "app_config"
 
 # A launcher id as it is spelt in a folder name.
 _LABEL = re.compile(r"[^A-Za-z0-9._-]+")

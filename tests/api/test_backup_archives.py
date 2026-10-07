@@ -660,10 +660,11 @@ class DamagedAndMismatchedTests(ArchiveCase):
     def test_two_taken_in_the_same_second_get_different_names(self) -> None:
         (self.config / "backups").mkdir(exist_ok=True)
         now = datetime(2026, 10, 1, 1, 2, 3, tzinfo=UTC)
-        first = archive._free_path(now)
+        folder = self.config / "backups"
+        first = archive._free_path(folder, now)
         first.write_text("x")
 
-        self.assertNotEqual(archive._free_path(now), first)
+        self.assertNotEqual(archive._free_path(folder, now), first)
 
     def test_a_failed_extract_leaves_an_earlier_staged_file_whole(self) -> None:
         live = self.config / "players.json"

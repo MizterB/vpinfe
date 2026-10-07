@@ -46,6 +46,7 @@ from common.online.theme_installer import ASIDE_SUFFIX
 from common.paths import CONFIG_DIR, get_themes_dir
 
 from . import archive
+from . import folder as backup_folder
 from .copies import (
     BY_2X,
     BY_3X,
@@ -93,6 +94,9 @@ logger = logging.getLogger("vpinfe.common.backups.places")
 INI_2X_DIR = CONFIG_DIR / "backups" / "vpx_ini"
 INI_2X_NAME = re.compile(r"^(?P<stem>.+?)-(?P<reason>manual|pre-restore)"
                           r"(?:-(?P<label>.+?))?-(?P<when>\d{8}-\d{6})$")
+
+# A folder inside a backup folder holding an app's settings copies, one folder per app.
+APP_CONFIG = "app_config"
 
 _WALK_THREADS = 16
 
@@ -307,12 +311,13 @@ def _x2_copy(path: Path, held: list[launchers.Launcher]) -> Copy | None:
 def _launcher_copies() -> list[Copy]:
     held = _launcher_list()
     found: list[Copy] = []
-    app_config = config_backups.BACKUPS_DIR
-    if app_config.is_dir():
-        for folder in sorted(app_config.iterdir()):
-            if folder.is_dir():
-                found += [one for path in sorted(folder.iterdir())
-                          if (one := _app_config_copy(path, held))]
+    for place in backup_folder.listable():
+        app_config = place / APP_CONFIG
+        if app_config.is_dir():
+            for folder in sorted(app_config.iterdir()):
+                if folder.is_dir():
+                    found += [one for path in sorted(folder.iterdir())
+                              if (one := _app_config_copy(path, held))]
     for each in held:
         found += _beside_copies(each)
     if INI_2X_DIR.is_dir():
@@ -324,7 +329,8 @@ def launcher_copy(place: str, path: Path) -> Copy | None:
     held = _launcher_list()
     if place == PLACE_LAUNCHER:
         return (_app_config_copy(path, held)
-                if path.parent.parent == config_backups.BACKUPS_DIR else None)
+                if path.parent.parent.name == APP_CONFIG
+                and backup_folder.holds(path.parent.parent.parent) else None)
     if place == PLACE_VPX_2X:
         return _x2_copy(path, held) if path.parent == INI_2X_DIR else None
     for each in held:
@@ -451,7 +457,7 @@ def _all_archive_copies() -> list[Copy]:
 
 
 def _is_ours(path: Path) -> bool:
-    return (path.parent == archive.ARCHIVES_DIR and archive.is_archive_name(path.name)
+    return (backup_folder.holds(path.parent) and archive.is_archive_name(path.name)
             and not path.is_symlink() and path.is_file())
 
 

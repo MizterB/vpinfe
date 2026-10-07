@@ -31,6 +31,7 @@ from common.jobs import KIND_LIBRARY_SCAN, track
 from common.paths import CONFIG_DIR
 
 from . import archive, pending, places
+from . import folder as backup_folder
 from .copies import (
     KIND_GAME,
     KIND_LAUNCHER,
@@ -67,7 +68,7 @@ class Restored:
 
 def listing(subject_kind: str = "", subject_id: str = "") -> dict[str, Any]:
     return {"copies": [one.as_dict() for one in places.scan(subject_kind, subject_id)],
-            "pending": pending.waiting()}
+            "pending": pending.waiting(), "folder": backup_folder.status()}
 
 
 def _found(copy_id: str) -> Copy:

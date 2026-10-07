@@ -868,6 +868,18 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         ),
     ),
     *in_section(
+        "backups",
+        ConfigOption(
+            "folder",
+            type="string",
+            path="dir",
+            default="",
+        ),
+        # Every folder a backup has been written to, so changing the one above leaves the
+        # copies already taken listed. Written by `common.backups.folder`, never by a person.
+        ConfigOption("earlier", type="list", default="", internal=True),
+    ),
+    *in_section(
         "media",
         ConfigOption(
             "playfield_variant",

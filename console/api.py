@@ -1119,7 +1119,8 @@ class ApiClient:
                  if subject_kind else "")
         said = self._get(f"/backups{query}") or {}
         return {"copies": list(said.get("copies") or []),
-                "pending": list(said.get("pending") or [])}
+                "pending": list(said.get("pending") or []),
+                "folder": dict(said.get("folder") or {})}
 
     def take_backup(self, scope: str, *, games: list[str] | None = None, launcher: str = "",
                     note: str = "", name: str = "") -> dict:

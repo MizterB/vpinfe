@@ -1,4 +1,8 @@
 {
+  "backups": {
+    "earlier": "",
+    "folder": ""
+  },
   "behavior": {
     "confirm": "false",
     "hide_quit_button": "false",

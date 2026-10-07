@@ -42,6 +42,8 @@ from console.on_page import on_page
 logger = logging.getLogger("vpinfe.console.backups")
 
 SCOPE = "backups"
+SETTING_ADDRESS = "/console?" + deeplink.query({"view": "settings",
+                                                "settings_page": "vpinfe.backups"})
 
 # Several rows are named in a question up to here and counted after it.
 NAMED_AT_MOST = 8
@@ -241,6 +243,19 @@ def _open_on_everything(library: Library) -> None:
     views.remember(library, SCOPE, kept, views.builtin_id("console.view.everything"))
 
 
+def _folder_line(folder: dict[str, Any]) -> None:
+    """Where a backup taken now goes, and what is wrong with it. Read-only: the setting is
+    where it changes."""
+    if not folder.get("path"):
+        return
+    with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0"):
+        ui.label(t("console.backups.kept_in", folder=folder["path"])).classes(
+            "text-xs console-label")
+        if folder.get("problem"):
+            ui.label(folder["problem"]).classes("text-xs text-negative")
+        panel.link(t("word.change"), to=SETTING_ADDRESS)()
+
+
 async def _fill(library: Library, body: Any, state: dict[str, Any],
                 on_select: Callable[[Any], Any], rerender: Callable[[], None],
                 find: str = "") -> None:
@@ -294,6 +309,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                                   lambda: backup_go_back.ask(library)))
                 panel.add_action(strip, empty=not built)
 
+        _folder_line(found.get("folder") or {})
         if not built:
             panel.facts(ui, [panel.intro(t("console.backups.empty"))])
             return

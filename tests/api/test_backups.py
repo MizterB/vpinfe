@@ -19,8 +19,9 @@ from fastapi.testclient import TestClient
 
 import httpapi
 from common.backups import archive, copies, ops, pending, places
+from common.backups import folder as backup_folder
+from common.config_store import ConfigStore
 from common.games import (
-    config_backups,
     game_repository,
     launcher_migration,
     launchers,
@@ -54,14 +55,14 @@ class BackupsCase(unittest.TestCase):
                 patch.object(pending, "CONFIG_DIR", self.config),
                 patch.object(ops, "CONFIG_DIR", self.config),
                 patch.object(archive, "CONFIG_DIR", self.config),
-                patch.object(archive, "ARCHIVES_DIR", self.config / "backups"),
+                patch.object(backup_folder, "DEFAULT_DIR", self.config / "backups"),
+                patch.object(backup_folder, "get_ini_config",
+                             return_value=ConfigStore(str(root / "vpinfe.ini"))),
                 patch.object(game_repository, "all_games", side_effect=self.library_games),
                 patch.object(game_repository, "game_folder", side_effect=self.folder_of),
                 patch.object(game_repository, "by_folder_name", side_effect=self.named),
                 patch.object(places, "INI_2X_DIR", self.config / "backups" / "vpx_ini"),
                 patch.object(places, "get_themes_dir", return_value=self.themes),
-                patch.object(config_backups, "BACKUPS_DIR",
-                             self.config / "backups" / "app_config"),
                 patch.object(launchers, "get_launcher_store", return_value=self.store),
                 patch("common.backups.ops.game_repository.refresh_games"),
                 patch("common.backups.ops.launch_state.current",

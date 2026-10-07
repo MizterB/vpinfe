@@ -31,6 +31,7 @@ from common.i18n import t
 from common.paths import CONFIG_DIR
 from common.vpinfe_version import get_version
 
+from . import folder as backup_folder
 from .copies import (
     BY_2X,
     BY_3X,
@@ -46,7 +47,6 @@ from .copies import (
 
 logger = logging.getLogger("vpinfe.common.backups.archive")
 
-ARCHIVES_DIR = CONFIG_DIR / "backups"
 NAME_PREFIX = "vpinfe-backup-"
 NAME_SUFFIX = ".zip"
 MANIFEST = "manifest.json"
@@ -271,10 +271,10 @@ def _gather(scope: str, game_ids: list[str], launcher_id: str) -> list[_Gathered
     raise service_errors.RefusedError(t("error.backups.scope", scope=scope))
 
 
-def _free_path(now: datetime) -> Path:
+def _free_path(folder: Path, now: datetime) -> Path:
     while True:
         stamp = now.strftime(STAMP)
-        path = ARCHIVES_DIR / f"{NAME_PREFIX}{stamp}{NAME_SUFFIX}"
+        path = folder / f"{NAME_PREFIX}{stamp}{NAME_SUFFIX}"
         if not path.exists():
             return path
         now += timedelta(seconds=1)
@@ -292,9 +292,9 @@ def take(scope: str, *, game_ids: list[str] | None = None, launcher_id: str = ""
         "format": FORMAT, "name": name.strip(), "note": note.strip(),
         "taken": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "version": get_version(), "scope": scope,
         "members": [asdict(one.member) for one in gathered]}
-    ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
+    folder = backup_folder.for_writing()
     with _TAKING:
-        path = _free_path(now)
+        path = _free_path(folder, now)
         with staged_for(path) as staged, zipfile.ZipFile(
                 staged, "w", zipfile.ZIP_DEFLATED) as bundle:
             bundle.writestr(MANIFEST, json.dumps(manifest, indent=2))
@@ -342,8 +342,11 @@ def remove(path: Path) -> None:
 
 
 def listed() -> list[Path]:
-    try:
-        names = os.listdir(ARCHIVES_DIR)
-    except OSError:
-        return []
-    return [ARCHIVES_DIR / name for name in sorted(names) if is_archive_name(name)]
+    found: list[Path] = []
+    for folder in backup_folder.listable():
+        try:
+            names = os.listdir(folder)
+        except OSError:
+            continue
+        found += [folder / name for name in sorted(names) if is_archive_name(name)]
+    return found

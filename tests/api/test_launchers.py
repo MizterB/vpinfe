@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common.games import config_backups, launcher_migration, launchers
+from common.games import launcher_migration, launchers
 from console import app_settings, data, workbench
 from console.api import ApiClient
 
@@ -324,9 +324,7 @@ class NeverRunTests(unittest.TestCase):
         self.store = launchers.LauncherStore(os.path.join(self.tmp.name, "launchers.json"))
         for patcher in (patch.object(launchers, "get_launcher_store", return_value=self.store),
                         patch("apps.vpx.config._machine_folders",
-                              return_value=(self.data / "VPinballX", None)),
-                        patch.object(config_backups, "BACKUPS_DIR",
-                                     pathlib.Path(self.tmp.name, "backups"))):
+                              return_value=(self.data / "VPinballX", None))):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.store.mark_migration(launcher_migration.SEEDED)

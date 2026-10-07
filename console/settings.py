@@ -943,6 +943,10 @@ DEVICE_INDEX: tuple[tuple[str, tuple[DevicePage, ...]], ...] = (
         # than for them - two things called Logs is one too many.
         ("vpinfe.logger", "console.settings.page_logger", SCHEMA_PAGE, ("logger",),
                  install_identity.CORE),
+        # Where VPinFE keeps what it copies. The copies are System's own page, as the
+        # logs are.
+        ("vpinfe.backups", "console.settings.page_backups", SCHEMA_PAGE, ("backups",),
+                 install_identity.CORE),
         ("vpinfe.console", "console.settings.page_console", SCHEMA_PAGE, ("console",),
                  install_identity.CORE),
         ("vpinfe.commands", "console.settings.page_commands", SCHEMA_PAGE, ("commands",),

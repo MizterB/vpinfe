@@ -230,7 +230,10 @@ class PseudoLocaleTests(unittest.TestCase):
             write_game(root, GAME)
             with LiveInstance(root,
                               extra_settings={("general", "language"): "qps"}) as instance:
-                allowed |= _machine_words(root, instance.config_dir, instance.home,
+                # System > Backups prints the folder a backup goes to, a path under config.
+                allowed |= _machine_words(root, instance.config_dir,
+                                          Path(instance.config_dir) / "backups",
+                                          instance.home,
                                           Path(get_chromium_path("").path))
                 asyncio.run(look(instance))
 

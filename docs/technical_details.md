@@ -185,6 +185,13 @@ Runtime state written by VPinFE, not shown as a setting.
 | `level` | choice (debug, info, warning, error) | `debug` | Log Verbosity |
 | `terminal` | bool | `true` | Log to Terminal |
 
+### `backups`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `folder` | string |  | Where Back up now keeps its backups. Blank keeps them in VPinFE's config folder. Backups already taken stay where they are and are still listed. |
+| `earlier` | list |  |  |
+
 ### `media`
 
 | Key | Type | Default | Description |

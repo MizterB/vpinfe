@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 import httpapi
 from common import path_state, service_errors
-from common.games import config_backups, launcher_migration, launcher_ops, launchers
+from common.games import launcher_migration, launcher_ops, launchers
 from common.i18n import t
 from tests.support.hung_folder import never_answering
 from tests.support.skips import needs_posix_permissions
@@ -28,9 +28,7 @@ class LauncherFileTests(unittest.TestCase):
         for patcher in (patch.object(launchers, "get_launcher_store", return_value=self.store),
                         patch("apps.vpx.config._machine_folders",
                               return_value=(self.data / "VPinballX", None)),
-                        patch.object(path_state, "PROBE_SECONDS", 0.2),
-                        patch.object(config_backups, "BACKUPS_DIR",
-                                     pathlib.Path(self.tmp.name, "backups"))):
+                        patch.object(path_state, "PROBE_SECONDS", 0.2)):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.store.mark_migration(launcher_migration.SEEDED)
