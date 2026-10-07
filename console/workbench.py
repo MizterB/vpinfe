@@ -432,6 +432,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
     await offload.io(library.media_for, game_id, None)
     # The header menu's collections, read here for the same reason as the tables.
     collections = await collection_adds.read(library, str(state.get("collection") or ""))
+    in_collections = await _collections_held(library, game_id)
 
     container.clear()
     title.clear()
@@ -457,7 +458,7 @@ async def _draw(container: ui.column, title: ui.column, library: Library,
         # and the panel answers for that.
         context = {"library": library, "game": game, "game_id": game_id,
                    "tables": tables, "launchers": launcher_listing, "state": state,
-                   "collections": collections,
+                   "collections": collections, "in_collections": in_collections,
                    "lens": table_id, "redraws": [], "slot": state["slot"]}
 
         # The subject has to survive a rebuild. Left off, every rail click fell
@@ -1747,6 +1748,7 @@ def _section_row(context: dict[str, Any], section: Section, open_now: bool,
         text.text = section.label(context)
 
     context["redraws"].append(relabel)
+    context.setdefault("relabels", []).append(relabel)
 
 
 def _pick(context: dict[str, Any], key: str) -> None:
@@ -2636,10 +2638,12 @@ def _game_marks(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     async def favorite(event: Any) -> None:
         await _write(context, context["library"].set_game_favorite,
                      context["game_id"], bool(event.value), shape=False)
+        await _recounted(context)
 
     async def private(event: Any) -> None:
         await _write(context, context["library"].set_game_private,
                      context["game_id"], bool(event.value), shape=False)
+        await _recounted(context)
 
     async def retag(chosen: list[str]) -> None:
         await _write(context, context["library"].set_game_tags,
@@ -2934,6 +2938,31 @@ async def _game_redrawn(context: dict[str, Any]) -> None:
 def _rule_sheet(context: dict[str, Any]) -> dict[str, Any]:
     slot = (context["library"].media.get(context["game_id"]) or {}).get("rule_sheet") or {}
     return slot if slot.get("present") else {}
+
+
+async def _collections_held(library: Library, game_id: str) -> int | None:
+    """How many collections hold this game; None where the read failed."""
+    try:
+        held = await offload.io(library.game_collections, game_id)
+    except Exception:  # noqa: BLE001 - a count in a label is not worth the panel
+        logger.warning("console: could not count the collections of a game", exc_info=True)
+        return None
+    return len(held["collections"])
+
+
+async def _recounted(context: dict[str, Any]) -> None:
+    """The rail's Collections count after a write that can move the game in or out of a
+    smart collection without rebuilding the panel."""
+    context["in_collections"] = await _collections_held(context["library"],
+                                                        context["game_id"])
+    for relabel in context.get("relabels", []):
+        await relabel()
+
+
+def _collections_label(context: dict[str, Any]) -> str:
+    held = context["in_collections"]
+    return t("console.workbench.collections") if held is None \
+        else t("console.workbench.collections_counted", count=held)
 
 
 def _guides_label(context: dict[str, Any]) -> str:
@@ -7338,13 +7367,12 @@ SECTIONS: tuple[Section, ...] = (
     Section("table_settings", lambda _: t("console.workbench.table_settings"),
             _table_settings, subjects=frozenset({"table"})),
     Section("play", lambda _: game_tables.PLAY, _play_block),
-    Section("collections", lambda _: t("console.workbench.collections"),
-            _collections_block),
-    Section("guides", _guides_label, _guides_block),
+    Section("collections", _collections_label, _collections_block),
     Section("media", _media_label, _media_block, dock=True),
     # Beside Media, not under Details: both answer "what does this game hold", one
     # for what a screen shows and one for what a launch needs.
     Section("assets", _assets_label, _assets_block, dock=True),
+    Section("guides", _guides_label, _guides_block),
     # A launcher, in reading order: what it is and what it runs, then the program's own
     # settings grouped as the app declares them, then the copies kept of its file.
     Section("launcher_details", lambda _: t("console.workbench.details"), _launcher_details,

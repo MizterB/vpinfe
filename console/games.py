@@ -772,12 +772,13 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
 
     async def refresh_games(ids: list[str]) -> None:
         """The Collections column of the rows an add or its Undo touched, and the panel
-        where it is showing one of them. Nothing where the grid has gone."""
+        where it is showing one of them: its rail counts them. Nothing where the grid
+        has gone."""
         if table.is_deleted or state.get("view") != "games":
             return
         wanted = set(ids)
         grid.transact(table, rows, {"update": await rows_again(wanted)}, by_id)
-        if state.get("game") in wanted and state.get("section") == "collections":
+        if state.get("game") in wanted:
             answer = on_select(by_id.get(str(state["game"])))
             if inspect.isawaitable(answer):
                 await answer
@@ -1396,10 +1397,10 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             then=partial(tables_added, [str(one["game_id"]) for one in tables]))
 
     async def tables_added(games: list[str]) -> None:
-        """The panel, where it is showing the Collections of one of these."""
+        """The panel, where it is showing one of these: its rail counts them."""
         if table.is_deleted or state.get("view") != "tables":
             return
-        if state.get("game") in games and state.get("section") == "collections":
+        if state.get("game") in games:
             answer = on_select(by_id.get(str(state.get("table") or "")))
             if inspect.isawaitable(answer):
                 await answer
