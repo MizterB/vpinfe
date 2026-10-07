@@ -47,6 +47,19 @@ class GridTests(unittest.TestCase):
         self.assertIn("browser", opens_on.columns)
         self.assertIn("browser", [one["field"] for one in devices.COLUMNS])
 
+    def test_the_all_devices_view_says_the_order_it_sorts_in(self) -> None:
+        opens_on = devices.VIEWS["console.devices.all_devices"]
+        by_state = next(one for one in opens_on.sort if one["colId"] == "state")
+        found = {f"D{index}": {"state": state}
+                 for index, state in enumerate(devices._REACH)}
+        built = devices.rows([{"device_id": key, "display_name": key, "kind": "vpinfe"}
+                              for key in found], found)
+        order = sorted(built, key=lambda row: row["state"],
+                       reverse=by_state["sort"] == "desc")
+
+        self.assertEqual(order[0]["state"], "console.devices.answering")
+        self.assertEqual(t("console.devices.all_view.help"), "Every device, answering first")
+
 
 class SoftwareTests(unittest.IsolatedAsyncioTestCase):
     async def _rows(self, device: dict, reach: str = "unreachable") -> list:

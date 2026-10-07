@@ -1045,7 +1045,7 @@
   "console.devices.devices_2": "{shown} of {count} devices",
   "console.devices.unreached_view.help": "Devices that did not answer, longest gone first",
   "console.devices.count_away": "{count} devices, {away} not answering",
-  "console.devices.all_view.help": "Every device, not answering first",
+  "console.devices.all_view.help": "Every device, answering first",
   "console.devices.everything_view.help": "Every device, every column",
   "console.devices.features": "Features",
   "console.devices.first_seen": "First seen",
