@@ -20,6 +20,7 @@ network that refuses costs discovery, never a startup, and manual entry stays.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import socket
@@ -95,17 +96,22 @@ class _Discovery:
             self._mine = install_identity.install_id(config)
             self._on_peer = on_peer
             self._zeroconf = Zeroconf()
-            self._announce(config)
+            announced = self._announce(config)
             self._browser = ServiceBrowser(self._zeroconf, SERVICE_TYPE,
                                            handlers=[self._changed])
-            logger.info("Announcing this install on %s", SERVICE_TYPE)
+            if announced:
+                logger.info("Announcing this install on %s", SERVICE_TYPE)
 
-    def _announce(self, config: ConfigStore, update: bool = False) -> None:
+    def _announce(self, config: ConfigStore, update: bool = False) -> bool:
+        """True when the announcement went out, False when there is no address to give."""
         # Both callers hold the lock and have already established this: `start` has just
         # constructed it, and `refresh` returns early without one.
         assert self._zeroconf is not None
         port = serving.network(config).http_port
         address = _routable_address()
+        if not address:
+            logger.info("No network route, so this install is not announcing itself")
+            return False
         # Keyed on the install id, which is the one name guaranteed not to collide with
         # another machine's. What a person reads is in the record, not in the key.
         self._info = ServiceInfo(
@@ -125,6 +131,7 @@ class _Discovery:
             self._zeroconf.update_service(self._info)
         else:
             self._zeroconf.register_service(self._info)
+        return True
 
     def _changed(self, zeroconf: Zeroconf, service_type: str, name: str,
                  state_change: ServiceStateChange) -> None:
@@ -243,7 +250,8 @@ def _as_peer(info: Any) -> Peer | None:
         return None
     said = {_text(key): _text(value) for key, value in (info.properties or {}).items()}
     install_id = said.get(ID, "").strip()
-    addresses = info.parsed_addresses() or []
+    addresses = [address for address in info.parsed_addresses() or []
+                 if not _is_loopback(address)]
     if not install_id or not addresses:
         return None
     return Peer(
@@ -260,8 +268,16 @@ def _text(raw: object) -> str:
     return raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw or "")
 
 
+def _is_loopback(address: str) -> bool:
+    try:
+        return ipaddress.ip_address(address).is_loopback
+    except ValueError:
+        return False
+
+
 def _routable_address() -> str:
-    """The address this machine would be reached on, without sending anything.
+    """The address this machine would be reached on, without sending anything, or "" when
+    there is no route to anywhere else.
 
     Connecting a UDP socket only picks a route, so this asks the routing table which
     interface leaves the machine and reads the address off it. The alternative - looking
@@ -271,8 +287,9 @@ def _routable_address() -> str:
     try:
         # Reserved for documentation, so it is guaranteed to be nobody.
         sock.connect(("192.0.2.1", 9))
-        return sock.getsockname()[0]
+        address = sock.getsockname()[0]
     except OSError:
-        return "127.0.0.1"
+        return ""
     finally:
         sock.close()
+    return "" if _is_loopback(address) else address
