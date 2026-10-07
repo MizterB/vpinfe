@@ -24,7 +24,7 @@ from common.games import launchers as launcher_model
 from common.games.launchers import Launcher
 from common.host import screen_size
 from common.i18n import t
-from common.path_checks import OK as PATH_OK
+from common.path_state import OK as PATH_OK
 from console import offload, panel, units, verbs, vpx_find, vpx_input, when
 from console.api import ApiClient
 from console.binding_table import Table

@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from nicegui import ui
 
-from common import install_identity
+from common import install_identity, path_state
 from common.games import library_folders as model
 from console import folders, offload
 from console import settings as settings_page
@@ -23,13 +23,13 @@ from tests.support.clicks import press
 _PAGE = ui.element()
 
 
-def row(location_id: str, *, state: str = model.READY, kind: str = model.KIND_ROOT,
+def row(location_id: str, *, state: str = path_state.OK, kind: str = model.KIND_ROOT,
         games: int = 3, shadowed: int = 0, write_to: bool = False, server: str = "",
         reason: str = "", path: str = "") -> dict[str, Any]:
-    ready = state in (model.READY, model.READ_ONLY)
+    ready = state in (path_state.OK, path_state.READ_ONLY)
     return {"location_id": location_id, "path": path or f"/games/{location_id}",
             "kind": kind, "state": state, "reason": reason, "reachable": ready,
-            "writable": state == model.READY, "games": games, "shadowed": shadowed,
+            "writable": state == path_state.OK, "games": games, "shadowed": shadowed,
             "write_to": write_to, "origin": {"server": server} if server else {}}
 
 
@@ -77,7 +77,7 @@ class ScenarioTests(unittest.TestCase):
                 self.assertIn(folders.t("console.folders.put_here"), labels(block, one))
 
     def test_asking_off_puts_the_chip_on_the_chosen_folder(self) -> None:
-        block = make(row("a"), row("b", write_to=True), row("c", state=model.NOT_ANSWERING),
+        block = make(row("a"), row("b", write_to=True), row("c", state=path_state.NOT_ANSWERING),
                      ask=False)
 
         self.assertEqual(block.plan.chip, "b")
@@ -86,7 +86,7 @@ class ScenarioTests(unittest.TestCase):
         self.assertIn(folders.t("console.folders.put_here"), labels(block, "a"))
 
     def test_a_chosen_folder_that_is_away_keeps_the_chip(self) -> None:
-        plan = folders.plan(found(row("a"), row("b", state=model.NOT_ANSWERING,
+        plan = folders.plan(found(row("a"), row("b", state=path_state.NOT_ANSWERING,
                                                 write_to=True), ask=False))
 
         self.assertEqual(plan.chip, "b")
@@ -94,7 +94,7 @@ class ScenarioTests(unittest.TestCase):
 
     def test_a_chosen_folder_that_is_read_only_keeps_the_chip_and_says_what_follows(
             self) -> None:
-        plan = folders.plan(found(row("a"), row("b", state=model.READ_ONLY, write_to=True),
+        plan = folders.plan(found(row("a"), row("b", state=path_state.READ_ONLY, write_to=True),
                                   ask=False))
         folder = plan.folders[1]
 
@@ -102,20 +102,20 @@ class ScenarioTests(unittest.TestCase):
         self.assertIn(folders.t("console.folders.chip_read_only"), folders.chip_tip(folder))
 
     def test_the_chip_of_an_away_folder_says_adding_asks_until_it_is_back(self) -> None:
-        away = folders.Folder.read(row("b", state=model.NOT_ANSWERING, write_to=True))
+        away = folders.Folder.read(row("b", state=path_state.NOT_ANSWERING, write_to=True))
 
         self.assertIn(folders.t("console.folders.chip_away"), folders.chip_tip(away))
 
     def test_a_removed_choice_moves_the_chip_to_the_first_that_can_take_one(self) -> None:
         """The API reports the first writable folder once nothing is chosen."""
-        plan = folders.plan(found(row("a", state=model.NOT_FOUND), row("b", write_to=True),
+        plan = folders.plan(found(row("a", state=path_state.MISSING), row("b", write_to=True),
                                   row("c"), ask=False))
 
         self.assertEqual(plan.chip, "b")
 
     def test_no_folder_able_to_take_a_game_has_no_chip_and_says_so(self) -> None:
-        plan = folders.plan(found(row("a", state=model.NOT_ANSWERING),
-                                  row("b", state=model.READ_ONLY),
+        plan = folders.plan(found(row("a", state=path_state.NOT_ANSWERING),
+                                  row("b", state=path_state.READ_ONLY),
                                   row("c", kind=model.KIND_GAME), ask=False))
 
         self.assertEqual(plan.chip, "")
@@ -136,7 +136,8 @@ class ScenarioTests(unittest.TestCase):
 
     def test_a_folder_that_cannot_take_one_now_has_the_verb_dimmed_with_why(self) -> None:
         block = make(row("a", write_to=True),
-                     row("b", state=model.NOT_ANSWERING, reason="No answer in time. Try later."),
+                     row("b", state=path_state.NOT_ANSWERING,
+                         reason="No answer in time. Try later."),
                      ask=False)
         folder = block.plan.folders[1]
 
@@ -147,12 +148,12 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(verb.hint, "No answer in time")
 
     def test_a_read_only_folder_is_refused_in_the_catalog_s_words(self) -> None:
-        block = make(row("a", write_to=True), row("b", state=model.READ_ONLY), ask=False)
+        block = make(row("a", write_to=True), row("b", state=path_state.READ_ONLY), ask=False)
         verb = next(one for one in folders.acts(block, block.plan.folders[1], 1, 2)
                     if one.label == folders.t("console.folders.put_here"))
 
         self.assertIsNone(verb.run)
-        self.assertEqual(verb.hint, folders.t("error.library_folders.unwritable"))
+        self.assertEqual(verb.hint, folders.t("error.path.unwritable"))
 
 
 class MenuTests(unittest.TestCase):
@@ -209,21 +210,21 @@ class RowTests(unittest.TestCase):
 
     def test_a_folder_that_cannot_be_read_gives_no_count(self) -> None:
         """Its chip says why they are missing, and a zero would say they are gone."""
-        self.assertEqual(folders.caption(self.folder(state=model.NOT_ANSWERING, games=0)), [])
+        self.assertEqual(folders.caption(self.folder(state=path_state.NOT_ANSWERING, games=0)), [])
 
     def test_a_ready_folder_has_no_chip(self) -> None:
         self.assertIsNone(folders.state_chip(self.folder()))
 
     def test_a_folder_that_is_not_ready_is_named_by_its_state(self) -> None:
         word, level, tip = folders.state_chip(self.folder(
-            state=model.NOT_FOUND, reason="Nothing is there."))  # type: ignore[misc]
+            state=path_state.MISSING, reason="Nothing is there."))  # type: ignore[misc]
 
         self.assertEqual(word, folders.t("word.not_found"))
         self.assertEqual((level, tip), ("bad", "Nothing is there."))
 
     def test_read_only_costs_scores_and_settings_and_is_a_warning(self) -> None:
         word, level, tip = folders.state_chip(self.folder(  # type: ignore[misc]
-            state=model.READ_ONLY, reason="Mounted read-only."))
+            state=path_state.READ_ONLY, reason="Mounted read-only."))
 
         self.assertEqual(word, folders.t("word.read_only"))
         self.assertEqual(level, "warn")
@@ -253,7 +254,7 @@ class RemovedWordsTests(unittest.TestCase):
                          "disk was touched")
 
     def test_a_folder_that_cannot_be_read_has_no_count_to_give(self) -> None:
-        self.assertEqual(self.said(state=model.NOT_ANSWERING, games=0),
+        self.assertEqual(self.said(state=path_state.NOT_ANSWERING, games=0),
                          "Removed /games/a. Nothing on disk was touched")
 
 
@@ -483,14 +484,14 @@ class DrawTests(unittest.TestCase):
 
     def test_a_folder_that_is_away_says_why_in_a_chip_and_gives_no_count(self) -> None:
         said = self.drawn(row("a", write_to=True),
-                          row("b", state=model.NOT_ANSWERING, games=0), ask=False)
+                          row("b", state=path_state.NOT_ANSWERING, games=0), ask=False)
 
         self.assertIn(folders.t("word.not_answering"), said)
         self.assertEqual(said.count("3 games"), 1)
         self.assertNotIn("No games", said)
 
     def test_nothing_able_to_take_a_game_says_so_under_the_priority_line(self) -> None:
-        said = self.drawn(row("a", state=model.NOT_FOUND), row("b", state=model.READ_ONLY),
+        said = self.drawn(row("a", state=path_state.MISSING), row("b", state=path_state.READ_ONLY),
                           ask=False)
 
         self.assertIn(folders.t("console.folders.nowhere"), said)

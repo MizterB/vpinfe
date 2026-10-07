@@ -16,7 +16,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from common import config_schema, events, install_presence, path_checks, port_checks
+from common import config_schema, events, install_presence, path_state, port_checks
 from common.failures import why
 from common.paths import get_ini_config
 
@@ -128,12 +128,13 @@ def path_states() -> dict[str, Any]:
     whole column at once, and the alternative is six requests that each stat one file.
     """
     store = get_ini_config()
-    checks = [{"section": option.section, "key": option.key, "path": option.path,
-               "state": state, "reason": reason}
-              for option in path_checks.path_options()
-              for state, reason in [path_checks.check_option(
-                  option, store.value(option.section, option.key))]]
-    return {"checks": checks}
+    options = path_state.path_options()
+    found = path_state.look_all(
+        path_state.Ask(store.value(option.section, option.key), option.path)
+        for option in options)
+    return {"checks": [{"section": option.section, "key": option.key, "path": option.path,
+                        "state": one.state, "reason": one.reason}
+                       for option, one in zip(options, found, strict=True)]}
 
 
 def values(windows: Sequence[str] = ()) -> dict[str, Any]:

@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from common import mounts
+from common import mounts, path_state
 from common.games import game_repository
 from common.games.library_folders import KIND_GAME, KIND_ROOT, Location
 from tests.support.hung_folder import never_answering
@@ -84,7 +84,7 @@ class ManyLocationTests(unittest.TestCase):
 
     def test_a_location_that_does_not_answer_is_skipped_within_the_bound(self) -> None:
         with self._with(self.first, self.second), never_answering(str(self.first)), \
-                mock.patch.object(game_repository.library_folders, "MOUNT_SECONDS", 0.2):
+                mock.patch.object(path_state, "MOUNT_SECONDS", 0.2):
             started = time.monotonic()
             games = game_repository.all_games()
             took = time.monotonic() - started

@@ -21,7 +21,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import install_identity, path_checks
+from common import install_identity, path_state
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
@@ -86,9 +86,9 @@ def state_of(one: dict) -> str:
     """The worse fact wins. Switched off is a choice somebody made; a launcher with no
     program to run is the one to say when a row is both."""
     program = _program_check(one)
-    if program == path_checks.UNSET:
+    if program == path_state.UNSET:
         return STATE_NO_PROGRAM
-    if program not in ("", path_checks.OK):
+    if program not in ("", path_state.OK):
         return STATE_MISSING
     return STATE_READY if one.get("enabled") else STATE_OFF
 
@@ -436,7 +436,7 @@ def keeps_settings(launcher: dict) -> bool:
     its program is on this machine."""
     checks = launcher.get("checks") or {}
     return bool(launcher.get("has_config")) \
-        and (checks.get("bin_path") or {}).get("state") == path_checks.OK
+        and (checks.get("bin_path") or {}).get("state") == path_state.OK
 
 
 def copy_verbs(library: Library, launcher: dict, after: Callable[[], Awaitable[Any]],

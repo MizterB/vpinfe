@@ -18,7 +18,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from common import install_identity, path_checks
+from common import install_identity, path_state
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
 from common.i18n import t
@@ -113,14 +113,14 @@ def unmet(config: ConfigStore, features: Iterable[str] | None = None,
             option = _option(section, key)
             if option is None or option.type == "list":
                 continue
-            state, reason = path_checks.check(option.path,
-                                              cfg_get(config, section, key))
-            if state == path_checks.OK:
+            found_state = path_state.look(cfg_get(config, section, key), option.path)
+            state, reason = found_state.state, found_state.reason
+            if state == path_state.OK:
                 continue
             # Unset is a failure here even though it is not one for the setting itself:
             # blank means "use the default" for an optional path, and these have no
             # default to fall back on.
-            if state == path_checks.UNSET:
+            if state == path_state.UNSET:
                 reason = t("error.features.not_set", label=option.label)
             found.append(Unmet(feature=feature, section=section, key=key,
                                state=state, reason=reason))
@@ -154,7 +154,7 @@ def _no_reachable_location(on: list[str], found: Any) -> tuple[Unmet, ...]:
         reason = t("error.features.none_reachable")
     else:
         return ()
-    return tuple(Unmet(feature=feature, section=FOLDERS, key="", state=path_checks.UNSET,
+    return tuple(Unmet(feature=feature, section=FOLDERS, key="", state=path_state.UNSET,
                        reason=reason, where=WHERE_SETTINGS)
                  for feature in wants)
 
@@ -174,18 +174,19 @@ def _no_working_launcher(on: list[str], found: Any) -> Unmet | None:
         return None
 
     if found is None:
-        reason, state = t("error.features.no_launcher"), path_checks.UNSET
+        reason, state = t("error.features.no_launcher"), path_state.UNSET
     else:
         configured = str(found.value("bin_path") or "").strip()
         if not configured:
             reason, state = (t("said.no_program", launcher_name=found.display_name),
-                             path_checks.UNSET)
+                             path_state.UNSET)
         else:
-            state, said = path_checks.check("exe", configured)
-            if state == path_checks.OK:
+            looked = path_state.look(configured, path_state.EXE)
+            state = looked.state
+            if state == path_state.OK:
                 return None
             reason = t("error.features.program_problem",
-                       launcher_name=found.display_name, problem=said)
+                       launcher_name=found.display_name, problem=looked.reason)
     return Unmet(feature=install_identity.FRONTEND, section="", key="",
                  state=state, reason=reason, where=WHERE_LAUNCHERS)
 
@@ -203,7 +204,7 @@ def _no_library_to_read(config: ConfigStore, on: list[str]) -> Unmet | None:
         return None
     return Unmet(feature=install_identity.FRONTEND,
                  section=LIBRARY_URL[0], key=LIBRARY_URL[1],
-                 state=path_checks.UNSET,
+                 state=path_state.UNSET,
                  reason=t("error.features.no_library"))
 
 

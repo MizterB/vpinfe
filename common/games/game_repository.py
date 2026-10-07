@@ -13,7 +13,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from common import events
+from common import events, path_state
 from common.games import derived_tags, library_folders, unwritten
 from common.games.collection_store import CollectionStore
 from common.games.game import Game
@@ -70,7 +70,7 @@ def _held(reload: bool) -> tuple[list[Any], bool]:
 
     unread = [one for one in wanted if reload
               or (one.path, one.kind) not in _PARSERS and (one.path, one.kind) not in _AWAY]
-    states = library_folders.states_of(unread, wait=library_folders.MOUNT_SECONDS) if unread else {}
+    states = library_folders.states_of(unread, wait=path_state.MOUNT_SECONDS) if unread else {}
 
     games: list[Any] = []
     read = False

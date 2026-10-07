@@ -17,7 +17,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from common import apps, i18n, path_checks, service_errors
+from common import apps, i18n, path_state, service_errors
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
 from common.games import game_repository, launchers, tables
 from common.games.table_identity import find_table_by_id
@@ -72,14 +72,11 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
 def _checks(launcher: launchers.Launcher) -> dict[str, dict[str, str]]:
     """`{field: {state, reason}}`, for the fields that name a path and only those. A
     state on every field would be a mark on every row, which says nothing."""
-    found = {}
-    for field in launcher.fields():
-        if not field.path:
-            continue
-        state, reason = path_checks.check(field.path,
-                                          str(launcher.value(field.key) or ""))
-        found[field.key] = {"state": state, "reason": reason}
-    return found
+    named = [field for field in launcher.fields() if field.path]
+    looked = path_state.look_all(
+        path_state.Ask(str(launcher.value(field.key) or ""), field.path) for field in named)
+    return {field.key: {"state": one.state, "reason": one.reason}
+            for field, one in zip(named, looked, strict=True)}
 
 
 def listing() -> dict[str, Any]:

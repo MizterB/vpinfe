@@ -15,7 +15,7 @@ from typing import Any
 from unittest.mock import ANY, AsyncMock, Mock, patch
 from urllib.parse import parse_qs
 
-from common import i18n, path_checks
+from common import i18n, path_state
 from common.i18n import t
 from console import (
     app_settings,
@@ -53,40 +53,40 @@ def _shown(context: dict) -> list[str]:
 
 class RailTests(unittest.TestCase):
     def test_a_working_launcher_offers_the_groups_its_app_declares(self) -> None:
-        shown = _shown(_context(path_checks.OK))
+        shown = _shown(_context(path_state.OK))
 
         self.assertIn("launcher_displays", shown)
         self.assertIn("launcher_details", shown)
         self.assertIn("launcher_backups", shown)
 
     def test_every_setting_is_in_all_settings_after_the_areas(self) -> None:
-        shown = _shown(_context(path_checks.OK, groups=("displays", "plugins", "more")))
+        shown = _shown(_context(path_state.OK, groups=("displays", "plugins", "more")))
 
         self.assertEqual(shown, ["launcher_details", "launcher_displays", "launcher_plugins",
                                  "launcher_all", "launcher_backups"])
 
     def test_a_program_that_is_not_there_leaves_only_what_can_fix_it(self) -> None:
-        shown = _shown(_context(path_checks.MISSING))
+        shown = _shown(_context(path_state.MISSING))
 
         self.assertEqual(shown, ["launcher_details", "launcher_backups"])
 
     def test_a_group_the_app_does_not_declare_is_absent_rather_than_empty(self) -> None:
         """An install without the plugin architecture shows fewer sections, not empty
         ones - and that follows from what the app answered rather than a version test."""
-        shown = _shown(_context(path_checks.OK, groups=("displays",)))
+        shown = _shown(_context(path_state.OK, groups=("displays",)))
 
         self.assertNotIn("launcher_plugins", shown)
         self.assertNotIn("launcher_sound", shown)
 
     def test_a_group_declared_with_nothing_in_it_is_also_absent(self) -> None:
-        context = _context(path_checks.OK)
+        context = _context(path_state.OK)
         context["config_groups"] = [SimpleNamespace(key="displays", label="Displays",
                                                     settings=[])]
 
         self.assertNotIn("launcher_displays", _shown(context))
 
     def test_an_app_with_no_settings_of_its_own_offers_no_copies(self) -> None:
-        shown = _shown(_context(path_checks.OK, groups=(), has_config=False))
+        shown = _shown(_context(path_state.OK, groups=(), has_config=False))
 
         self.assertEqual(shown, ["launcher_details"])
 
@@ -426,19 +426,19 @@ class CuratedAreaTests(unittest.TestCase):
 
 class ProgramNoteTests(unittest.TestCase):
     def test_no_program_set_says_to_set_one(self) -> None:
-        self.assertEqual(workbench._program_note(_launcher(path_checks.UNSET)),
+        self.assertEqual(workbench._program_note(_launcher(path_state.UNSET)),
                          t("console.workbench.program_hint",
                            app="Visual Pinball X"))
 
     def test_a_path_that_finds_nothing_says_so(self) -> None:
-        self.assertEqual(workbench._program_note(_launcher(path_checks.MISSING)),
+        self.assertEqual(workbench._program_note(_launcher(path_state.MISSING)),
                          t("console.workbench.app_missing", app="Visual Pinball X"))
 
     def test_a_program_that_is_there_needs_no_note(self) -> None:
-        self.assertEqual(workbench._program_note(_launcher(path_checks.OK)), "")
+        self.assertEqual(workbench._program_note(_launcher(path_state.OK)), "")
 
     def test_an_app_with_no_settings_of_its_own_gets_none(self) -> None:
-        for state in (path_checks.UNSET, path_checks.MISSING):
+        for state in (path_state.UNSET, path_state.MISSING):
             with self.subTest(state=state):
                 self.assertEqual(
                     workbench._program_note(_launcher(state, has_config=False)), "")
@@ -457,23 +457,23 @@ class CopyVerbTests(unittest.TestCase):
             lambda: None, after=done if after else None, playing=playing)
 
     def test_a_launcher_with_a_program_and_a_settings_file_offers_both(self) -> None:
-        labels = [one.label for one in self._acts(path_checks.OK)]
+        labels = [one.label for one in self._acts(path_state.OK)]
         self.assertEqual(labels[1:3], [t("console.backups.back_up_title"),
                                        t("console.backups.restore_dialog")])
 
     def test_no_settings_file_or_no_program_offers_neither(self) -> None:
-        for state, has_config in ((path_checks.MISSING, True), (path_checks.UNSET, True),
-                                  (path_checks.OK, False)):
+        for state, has_config in ((path_state.MISSING, True), (path_state.UNSET, True),
+                                  (path_state.OK, False)):
             with self.subTest(state=state, has_config=has_config):
                 labels = [one.label for one in self._acts(state, has_config=has_config)]
                 self.assertNotIn(t("console.backups.restore_dialog"), labels)
 
     def test_a_menu_with_nothing_to_redraw_offers_neither(self) -> None:
-        labels = [one.label for one in self._acts(path_checks.OK, after=False)]
+        labels = [one.label for one in self._acts(path_state.OK, after=False)]
         self.assertNotIn(t("console.backups.restore_dialog"), labels)
 
     def test_a_table_playing_refuses_both_and_says_why(self) -> None:
-        copy, restore = self._acts(path_checks.OK, playing=True)[1:3]
+        copy, restore = self._acts(path_state.OK, playing=True)[1:3]
         self.assertEqual((copy.run, restore.run), (None, None))
         self.assertEqual((copy.hint, restore.hint),
                          (t(workbench.PLAYING_NOTE), t(workbench.PLAYING_NOTE)))
@@ -1018,7 +1018,7 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
     def _served(self, row: dict, *others: dict) -> list[str]:
         return [one["id"] for one in workbench._served(row, [row, *others], self.TABLES)]
 
-    async def _settings(self, row: dict, tables=None, *, state: str = path_checks.OK,
+    async def _settings(self, row: dict, tables=None, *, state: str = path_state.OK,
                         has_config: bool = True, others=(),
                         detail: dict | None = None) -> tuple[dict | None, Mock]:
         library = Mock()
@@ -1076,7 +1076,7 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
                          (app_settings.as_one, app_settings.write_shared))
 
     async def test_nor_where_the_tables_run_different_programs(self) -> None:
-        other = {**_launcher(path_checks.OK), "launcher_id": "l2", "app": "fp"}
+        other = {**_launcher(path_state.OK), "launcher_id": "l2", "app": "fp"}
         tables = [self.TABLES[0], {**self.TABLES[1], "launcher": "l2"}]
 
         found, _ = await self._settings(self._file("game", ""), tables, others=[other])
@@ -1109,7 +1109,7 @@ class BackglassFileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(entries, [(workbench.panel.HEADING, "Settings"), intro.return_value])
 
     async def test_nor_where_the_launcher_cannot_show_them(self) -> None:
-        for state, has_config in ((path_checks.MISSING, True), (path_checks.OK, False)):
+        for state, has_config in ((path_state.MISSING, True), (path_state.OK, False)):
             with self.subTest(state=state, has_config=has_config):
                 found, _ = await self._settings(self._file(), state=state,
                                                 has_config=has_config)

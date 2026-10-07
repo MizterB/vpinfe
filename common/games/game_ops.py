@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from common import service_errors
+from common import path_state, service_errors
 from common.failures import why
 from common.games import (
     derived_tags,
@@ -72,9 +72,9 @@ def create(name: str, location_id: str = "") -> dict:
     # Canonically, never by spelling. Re-reading one folder resolves the path it is given,
     # so the game just created carries the real path while every game a scan found carries
     # the location's own spelling - and under /var on macOS those differ.
-    wanted = library_folders.canonical(str(folder))
+    wanted = path_state.canonical(str(folder))
     made = next((game for game in game_lens.catalog().values()
-                 if library_folders.canonical(str(game.full_path_game)) == wanted),
+                 if path_state.canonical(str(game.full_path_game)) == wanted),
                 None)
     if made is None:
         # The folder and its record are on disk and the library did not pick them up.

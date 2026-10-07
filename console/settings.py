@@ -28,7 +28,7 @@ from common import (
     feature_checks,
     input_registry,
     install_identity,
-    path_checks,
+    path_state,
     tokens,
 )
 from common.extensions import host as extension_host
@@ -1138,7 +1138,7 @@ def field_marks(items: Any, checks: list[dict]) -> dict[tuple[str, str], dict]:
     found = {(str(check.get("section") or ""), str(check.get("key") or "")): dict(check)
              for check in checks or []}
     for item in items:
-        state = panel.REQUIRED if item.state == path_checks.UNSET else item.state
+        state = panel.REQUIRED if item.state == path_state.UNSET else item.state
         found[(item.section, item.key)] = {"state": state, "reason": item.reason}
     return found
 
@@ -1212,7 +1212,7 @@ def tool_marks(found: list[dict], values: dict,
     for row in found:
         section, _, key = str(row.get("setting") or "").partition(".")
         if not str(held.get(key) or "").strip() \
-           or (marked.get((section, key)) or {}).get("state") != path_checks.OK:
+           or (marked.get((section, key)) or {}).get("state") != path_state.OK:
             continue
         if row.get("state") == tools.State.UNUSABLE and row.get("set_here"):
             said = tools.words(row.get("reason") or {})

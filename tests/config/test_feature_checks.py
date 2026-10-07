@@ -7,7 +7,7 @@ import os
 import unittest
 from tempfile import TemporaryDirectory
 
-from common import feature_checks, install_identity, path_checks
+from common import feature_checks, install_identity, path_state
 from common.games.launchers import Launcher
 from common.games.library_folders import Location, state_of
 
@@ -71,7 +71,7 @@ class RequirementTests(unittest.TestCase):
 
         self.assertEqual(self._unmet(config, ["frontend"], bin_path=None),
                          [("frontend", feature_checks.WHERE_LAUNCHERS,
-                           path_checks.UNSET)])
+                           path_state.UNSET)])
 
     def test_the_library_does_not_need_a_launcher(self) -> None:
         """It curates games; it never starts one. Requiring it would mark a catalog
@@ -86,9 +86,9 @@ class RequirementTests(unittest.TestCase):
         config = self._config()
 
         self.assertEqual(self._unmet(config, ["library", "frontend"], locations=[]),
-                         [("library", feature_checks.WHERE_SETTINGS, path_checks.UNSET),
+                         [("library", feature_checks.WHERE_SETTINGS, path_state.UNSET),
                           ("frontend", feature_checks.WHERE_SETTINGS,
-                           path_checks.UNSET)])
+                           path_state.UNSET)])
 
     def test_one_location_among_several_being_unreachable_is_not_a_fault(self) -> None:
         """That row's business, not the install's: the library still has the others."""
@@ -101,7 +101,7 @@ class RequirementTests(unittest.TestCase):
 
         self.assertEqual(self._unmet(self._config(), ["library"], locations=held),
                          [("library", feature_checks.WHERE_SETTINGS,
-                           path_checks.UNSET)])
+                           path_state.UNSET)])
 
     def test_no_folder_is_filed_against_the_folders_page_not_a_setting(self) -> None:
         """The fix is the Folders page, which is not a config key: the finding carries no
@@ -120,14 +120,14 @@ class RequirementTests(unittest.TestCase):
 
         self.assertEqual(self._unmet(config, ["frontend"], bin_path="/nope/vpx"),
                          [("frontend", feature_checks.WHERE_LAUNCHERS,
-                           path_checks.MISSING)])
+                           path_state.MISSING)])
 
     def test_a_frontend_with_no_library_has_to_be_told_which_one(self) -> None:
         """No silent picking, not even when exactly one is on the network."""
         config = self._config(game_root_dir=self.games)
 
         self.assertEqual(self._unmet(config, ["frontend"]),
-                         [("frontend", "library_url", path_checks.UNSET)])
+                         [("frontend", "library_url", path_state.UNSET)])
 
     def test_a_frontend_that_holds_its_own_library_needs_no_picker(self) -> None:
         """The single-machine case, which is the common one."""

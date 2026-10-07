@@ -14,7 +14,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import mounts
+from common import mounts, path_state
 from common.games import library_folders
 from tests.support.hung_folder import never_answering
 from tests.support.skips import needs_posix_permissions
@@ -203,11 +203,11 @@ class LocationApiTests(unittest.TestCase):
     def test_a_share_that_is_not_answering_is_still_named(self) -> None:
         folder = self._folder("share")
         self.store.put(library_folders.Location("one", folder, origin=NAS))
-        with patch.object(library_folders, "PROBE_SECONDS", 0.2), \
-                patch.object(library_folders, "MOUNT_SECONDS", 0.2), never_answering(folder):
+        with patch.object(path_state, "PROBE_SECONDS", 0.2), \
+                patch.object(path_state, "MOUNT_SECONDS", 0.2), never_answering(folder):
             row = self.client.get("/locations").json()["locations"][0]
 
-        self.assertEqual(row["state"], library_folders.NOT_ANSWERING)
+        self.assertEqual(row["state"], path_state.NOT_ANSWERING)
         self.assertEqual(row["origin"]["server"], "nas.lan")
 
 

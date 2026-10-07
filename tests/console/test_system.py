@@ -9,7 +9,7 @@ import re
 import unittest
 from urllib.parse import parse_qs
 
-from common import feature_checks, install_identity, path_checks
+from common import feature_checks, install_identity, path_state
 from console import deeplink, page, panel, theme
 from console import settings as settings_page
 
@@ -243,7 +243,7 @@ class AddressTests(unittest.TestCase):
 class TroubleTests(unittest.TestCase):
     """A configuration error has to lead from the nav down to the field that fixes it."""
 
-    def _unmet(self, section: str, key: str, state: str = path_checks.MISSING):
+    def _unmet(self, section: str, key: str, state: str = path_state.MISSING):
         return feature_checks.Unmet(feature=install_identity.FRONTEND, section=section,
                                     key=key, state=state, reason="Nothing is there.")
 
@@ -257,7 +257,7 @@ class TroubleTests(unittest.TestCase):
         by the section's owner."""
         found = feature_checks.Unmet(
             feature=install_identity.LIBRARY, section=feature_checks.FOLDERS, key="",
-            state=path_checks.UNSET, reason="Nothing is there.")
+            state=path_state.UNSET, reason="Nothing is there.")
 
         held = settings_page.pages_in_trouble([found])
 
@@ -291,7 +291,7 @@ class TroubleTests(unittest.TestCase):
         self.assertEqual(held, {})
 
     def test_the_disk_answers_until_a_feature_says_otherwise(self) -> None:
-        checks = [{"section": "general", "key": "vpx_bin_path", "state": path_checks.OK,
+        checks = [{"section": "general", "key": "vpx_bin_path", "state": path_state.OK,
                    "reason": ""}]
         marks = settings_page.field_marks([self._unmet("general", "vpx_bin_path")],
                                           checks)
@@ -302,10 +302,21 @@ class TroubleTests(unittest.TestCase):
     def test_blank_where_blank_is_not_allowed_draws_something(self) -> None:
         """An optional path left empty draws nothing, and this is not one of those."""
         marks = settings_page.field_marks(
-            [self._unmet("general", "vpx_bin_path", path_checks.UNSET)], [])
+            [self._unmet("general", "vpx_bin_path", path_state.UNSET)], [])
 
         self.assertEqual(marks[("general", "vpx_bin_path")]["state"], panel.REQUIRED)
         self.assertIn(panel.REQUIRED, panel._VALUE_STATES)
+
+
+class EveryPathStateDrawsAMark(unittest.TestCase):
+    def test_a_setting_can_be_in_each_state_a_look_gives_it(self) -> None:
+        """A state with no entry draws nothing, tooltip included, and reads as fine. Blank
+        draws nothing on purpose, and a setting never asks to be writable."""
+        asked = (path_state.OK, path_state.NOT_CONNECTED, path_state.MISSING,
+                 path_state.WRONG_KIND, path_state.NOT_EXECUTABLE, path_state.NOT_ANSWERING)
+
+        for state in asked:
+            self.assertIn(state, panel._VALUE_STATES, state)
 
 
 class TheInstallYouAreSittingAtReportsItsOwnUpdate(unittest.TestCase):

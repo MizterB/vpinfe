@@ -22,7 +22,7 @@ from typing import Any
 
 from nicegui import run, ui
 
-from common import config_schema
+from common import config_schema, path_state
 from common.failures import why
 from common.games import library_folders as model
 from common.games import tables
@@ -127,11 +127,11 @@ def caption(folder: Folder) -> list[tuple[str, bool]]:
 
 def state_chip(folder: Folder) -> tuple[str, str, str] | None:
     """(word, level, tooltip) for a folder that is not Ready."""
-    if folder.state == model.READY:
+    if folder.state == path_state.OK:
         return None
     word = library_folders.state_of({"state": folder.state})
     level = library_folders.STATE_TIERS.get(folder.state, "bad")
-    tip = t("console.folders.read_only_cost") if folder.state == model.READ_ONLY \
+    tip = t("console.folders.read_only_cost") if folder.state == path_state.READ_ONLY \
         else folder.reason
     return word, level, tip
 
@@ -139,7 +139,7 @@ def state_chip(folder: Folder) -> tuple[str, str, str] | None:
 def chip_tip(folder: Folder) -> str:
     """What the New games chip says on hover, with what happens while its folder is away."""
     where = t("console.folders.new_games_help")
-    if folder.state == model.READ_ONLY:
+    if folder.state == path_state.READ_ONLY:
         return t("console.folders.chip_then", where=where,
                  then=t("console.folders.chip_read_only"))
     if not folder.reachable:
@@ -154,7 +154,7 @@ def first_sentence(said: str) -> str:
 
 def refusal(folder: Folder) -> str:
     """Why a folder cannot take a new game now, in the words under its dimmed entry."""
-    return first_sentence(folder.reason) or t("error.library_folders.unwritable")
+    return first_sentence(folder.reason) or t("error.path.unwritable")
 
 
 class Folders:

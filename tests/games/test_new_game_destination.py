@@ -86,7 +86,7 @@ class RefusalTests(_Destinations):
         found = library_folders.destination()
 
         self.assertIsNone(found.location)
-        self.assertEqual(found.reason, t("error.library_folders.read_only", name=second.name))
+        self.assertEqual(found.reason, t("error.path.read_only", name=second.name))
 
     def test_an_unreachable_one_says_why_once(self) -> None:
         gone = self._root("l2", "never-mounted")
@@ -94,8 +94,8 @@ class RefusalTests(_Destinations):
 
         found = library_folders.destination()
 
-        self.assertEqual(found.reason, t("error.library_folders.not_reachable", name=gone.name,
-                                         reason=t("error.library_folders.missing")))
+        self.assertEqual(found.reason, t("error.path.not_reachable", name=gone.name,
+                                         reason=t("error.path.nothing_there")))
 
     def test_a_refusal_offers_the_writable_ones_instead(self) -> None:
         """What a caller needs on a refusal is not only that it failed - it is where

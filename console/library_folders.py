@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from common.games import library_folders as model
+from common import path_state
 from common.i18n import t
 from console import offload
 from console.data import Library
@@ -18,11 +18,12 @@ from console.on_page import on_page
 
 IMPORTER = "library_importer"
 
-STATE_WORDS = {model.READY: "word.ready", model.READ_ONLY: "word.read_only",
-               model.NOT_CONNECTED: "word.not_connected",
-               model.NOT_FOUND: "word.not_found", model.NOT_ANSWERING: "word.not_answering"}
+STATE_WORDS = {path_state.OK: "word.ready", path_state.READ_ONLY: "word.read_only",
+               path_state.NOT_CONNECTED: "word.not_connected",
+               path_state.MISSING: "word.not_found", path_state.WRONG_KIND: "word.not_found",
+               path_state.NOT_ANSWERING: "word.not_answering"}
 # What each state costs, for its chip. Anything not listed is a location that cannot be read.
-STATE_TIERS = {model.READY: "on", model.READ_ONLY: "warn"}
+STATE_TIERS = {path_state.OK: "on", path_state.READ_ONLY: "warn"}
 
 ASKING = {"updates": {"ask_where_new_games_go": True}}
 NOT_ASKING = {"updates": {"ask_where_new_games_go": False}}

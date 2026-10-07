@@ -22,7 +22,7 @@ from nicegui import background_tasks, ui
 from common.games import library_folders as model
 from common.games import tables
 from common.i18n import t
-from common.path_checks import OK as PATH_OK
+from common.path_state import OK as PATH_OK
 from console import ext_action, offload, panel, wizard
 from console.api import ApiClient
 from console.library_folders import IMPORTER

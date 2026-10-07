@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from common import path_state
 from common.games import (
     config_backups,
     game_repository,
@@ -140,12 +141,12 @@ def _written_by_info(path: Path) -> str:
 def _is_game_folder(folder: Path) -> bool:
     """Whether a folder is one the library reads, so a copy is only ever taken to be a
     game's when it sits in one."""
-    wanted = library_folders.canonical(str(folder))
+    wanted = path_state.canonical(str(folder))
     for location in library_folders.configured():
-        held = library_folders.canonical(location.path)
+        held = path_state.canonical(location.path)
         if location.kind == library_folders.KIND_GAME and held == wanted:
             return True
-        if location.kind != library_folders.KIND_GAME and held == library_folders.canonical(
+        if location.kind != library_folders.KIND_GAME and held == path_state.canonical(
                 str(folder.parent)):
             return folder.is_dir() and not folder.name.startswith(".")
     return False

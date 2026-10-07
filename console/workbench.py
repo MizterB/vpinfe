@@ -29,7 +29,7 @@ from urllib.parse import urlencode, urlparse
 
 from nicegui import run, ui
 
-from common import apps, config_schema, i18n, icons, path_checks, tokens
+from common import apps, config_schema, i18n, icons, path_state, tokens
 from common.failures import why
 from common.games import asset_registry, tag_registry
 from common.games.asset_registry import ALWAYS_KEPT as _ALWAYS_KEPT
@@ -1096,7 +1096,7 @@ async def _file_settings(library: Library, row: dict[str, Any],
     held = {one["launcher_id"]: one for one in listing.get("launchers") or []}
     runs = [launcher for table in served
             if (launcher := held.get(table.get("launcher"))) is not None
-            and launcher.get("has_config") and _program_state(launcher) == path_checks.OK]
+            and launcher.get("has_config") and _program_state(launcher) == path_state.OK]
     if len(runs) != len(served) or len({one.get("app") for one in runs}) != 1:
         return None
     launcher, table_id = runs[0], str(served[0].get("id") or "")
@@ -4860,7 +4860,7 @@ def _config_group_shown(key: str) -> Callable[[dict[str, Any]], bool]:
 def _program_is_there(context: dict[str, Any]) -> bool:
     """Whether the program this launcher names is on this machine, which is where its
     settings are read from. Details stays without it, to point it somewhere else."""
-    return _program_state(context.get("launcher") or {}) == path_checks.OK
+    return _program_state(context.get("launcher") or {}) == path_state.OK
 
 
 def _program_state(launcher: dict[str, Any]) -> str:
@@ -4872,9 +4872,9 @@ def _program_note(launcher: dict[str, Any]) -> str:
     """Why its program's own settings are not shown, or "" where they are or it has
     none to show."""
     state = _program_state(launcher)
-    if not launcher.get("has_config") or state == path_checks.OK:
+    if not launcher.get("has_config") or state == path_state.OK:
         return ""
-    if state == path_checks.UNSET:
+    if state == path_state.UNSET:
         return t("console.workbench.program_hint", app=launcher["app_name"])
     return t("console.workbench.app_missing", app=launcher["app_name"])
 

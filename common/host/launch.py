@@ -24,7 +24,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from common import apps, events, players, service_errors
+from common import apps, events, path_state, players, service_errors
 from common.config_store import ConfigStore
 from common.failures import why
 from common.games import (
@@ -408,11 +408,10 @@ def _location_is_reachable(game: Game) -> None:
     location = library_folders.get_location_store().get(game.location_id)
     if location is None:
         return
-    state = library_folders.states_of([location], wait=library_folders.MOUNT_SECONDS)[
+    state = library_folders.states_of([location], wait=path_state.MOUNT_SECONDS)[
         location.location_id]
     if not state.reachable:
-        raise ReferenceUnreachableError(t("error.library_folders.not_reachable",
-                                          name=location.name, reason=state.reason))
+        raise ReferenceUnreachableError(path_state.refusal(location.name, state))
 
 
 def _reference_is_reachable(game: Game, entry: dict) -> None:

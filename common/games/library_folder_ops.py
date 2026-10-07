@@ -16,7 +16,7 @@ import os
 from collections import Counter
 from typing import Any
 
-from common import service_errors
+from common import path_state, service_errors
 from common.config_access import cfg_bool
 from common.games import game_identity, game_repository
 from common.games import library_folders as locations
@@ -31,7 +31,7 @@ WHERE_SYSTEM = "system"
 
 
 def _described(location: locations.Location, write_to: str,
-               state: locations.LocationState, shadowed: int = 0,
+               state: path_state.PathState, shadowed: int = 0,
                games: int = 0) -> dict[str, Any]:
     origin = state.origin or location.origin
     return {
@@ -248,20 +248,20 @@ def adopt(location_id: str, path: str) -> dict[str, Any]:
     writes nothing at all.
     """
     _location_or_refuse(location_id)
-    wanted = locations.canonical(str(path or ""))
+    wanted = path_state.canonical(str(path or ""))
     if not wanted:
         raise service_errors.RefusedError(t("error.library_folders.needs_folder"))
 
     found = _shadowed()
     one = next((entry for entry in found.under(location_id)
-                if locations.canonical(entry.path) == wanted), None)
+                if path_state.canonical(entry.path) == wanted), None)
     if one is None:
         raise service_errors.NotFoundError(
             t("error.library_folders.not_shadowed"),
             details={"path": str(path or "")})
 
     game = next((held for held in game_repository.all_games()
-                 if locations.canonical(str(held.full_path_game or ""))
+                 if path_state.canonical(str(held.full_path_game or ""))
                  == wanted), None)
     if game is None:
         raise service_errors.NotFoundError(t("error.library_folders.folder_removed"))

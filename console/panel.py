@@ -18,7 +18,7 @@ from typing import Any
 
 from nicegui import ui
 
-from common import icons
+from common import icons, path_state
 from common.games.collection_store import LAST_COLLECTION
 from common.i18n import t
 from console import dropdown, game_tables, offload, tag_chips, thumbnails, verbs
@@ -546,10 +546,12 @@ UNUSABLE = "unusable"
 _VALUE_STATES = {
     REQUIRED: ("cancel", "negative"),
     UNUSABLE: ("error", "warning"),
-    "ok": ("check_circle", "positive"),
-    "missing": ("cancel", "negative"),
-    "wrong_kind": ("cancel", "negative"),
-    "not_executable": ("error", "warning"),
+    path_state.OK: ("check_circle", "positive"),
+    path_state.MISSING: ("cancel", "negative"),
+    path_state.WRONG_KIND: ("cancel", "negative"),
+    path_state.NOT_CONNECTED: ("cancel", "negative"),
+    path_state.NOT_EXECUTABLE: ("error", "warning"),
+    path_state.NOT_ANSWERING: ("error", "warning"),
 }
 
 
@@ -786,7 +788,7 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
     """A path typed by hand, saying whether it is there. Returns the input.
 
     `wants` is what should be at the end of it - `dir`, `file` or `exe`, the words
-    `path_checks` answers in. The mark draws in the control's append slot, beside the
+    `path_state` answers in. The mark draws in the control's append slot, beside the
     text it is about, and an empty box draws none.
 
     `on_checked` returns the line to show under the field - what the path turned out to
@@ -800,7 +802,6 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
     `debounce=0` stays on the input and the wait goes on a timer: a debounce here leaves
     the value stale at the moment a button is pressed.
     """
-    from common import path_checks
 
     control = ui.input(placeholder=placeholder)
     control.value = value
@@ -824,12 +825,12 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
         if said == seen["was"]:
             return
         seen["was"] = said
-        state, why = await offload.io(path_checks.check, wants, said)
+        found = await offload.io(path_state.look, said, wants)
         holder.clear()
         with holder:
-            value_state(state, why)(control)
+            value_state(found.state, found.reason)(control)
         if on_checked is not None:
-            hint(control, on_checked(state, said))
+            hint(control, on_checked(found.state, said))
 
     # One timer comparing against what it last asked about, rather than one restarted
     # per keystroke: a cancelled one-shot leaves an element behind and the restarts stop

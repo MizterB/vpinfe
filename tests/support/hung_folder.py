@@ -6,10 +6,9 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
 from unittest import mock
 
-from common.games import library_folders
+from common import path_state
 
 
 @contextmanager
@@ -18,18 +17,19 @@ def never_answering(path: str) -> Iterator[mock.MagicMock]:
     Waits on the way out for the blocked look to finish, so no question is left in flight
     for the next test."""
     release = threading.Event()
-    real = library_folders._look
+    real = path_state._look
 
-    def look(raw_path: str, recorded: Any = None) -> library_folders.LocationState:
-        if raw_path == path:
+    def look(ask: path_state.Ask) -> path_state.PathState:
+        if ask.path == path:
             release.wait()
-        return real(raw_path, recorded)
+        return real(ask)
 
-    with mock.patch.object(library_folders, "_look", side_effect=look) as looked:
+    with mock.patch.object(path_state, "_look", side_effect=look) as looked:
         try:
             yield looked
         finally:
             release.set()
             deadline = time.monotonic() + 5
-            while path in library_folders._PROBES and time.monotonic() < deadline:
+            while any(key[0] == path for key in path_state._PROBES) \
+                    and time.monotonic() < deadline:
                 time.sleep(0.01)

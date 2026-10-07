@@ -11,14 +11,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from common import mounts
+from common import mounts, path_state
 from common.games import library_folders as locations
 from common.games.library_folders import (
     KIND_GAME,
     KIND_ROOT,
     Location,
     LocationStore,
-    canonical,
     state_of,
 )
 from tests.support.hung_folder import never_answering
@@ -202,7 +201,7 @@ class StateTests(unittest.TestCase):
     def test_a_folder_that_is_not_there_is_unreachable_with_a_reason(self) -> None:
         state = state_of(Location("id", "/nowhere/at/all"))
 
-        self.assertEqual(state.state, locations.NOT_FOUND)
+        self.assertEqual(state.state, path_state.MISSING)
         self.assertFalse(state.reachable)
         self.assertTrue(state.reason)
 
@@ -232,7 +231,7 @@ class StateTests(unittest.TestCase):
 class FolderThatDoesNotAnswerTests(_WithStore, unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
-        patcher = patch.object(locations, "PROBE_SECONDS", 0.2)
+        patcher = patch.object(path_state, "PROBE_SECONDS", 0.2)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -243,7 +242,7 @@ class FolderThatDoesNotAnswerTests(_WithStore, unittest.TestCase):
             state = state_of(hung)
             took = time.monotonic() - started
 
-        self.assertEqual(state.state, locations.NOT_ANSWERING)
+        self.assertEqual(state.state, path_state.NOT_ANSWERING)
         self.assertFalse(state.reachable)
         self.assertTrue(state.reason)
         self.assertLess(took, 1.0)
@@ -256,7 +255,7 @@ class FolderThatDoesNotAnswerTests(_WithStore, unittest.TestCase):
             state = state_of(hung)
             took = time.monotonic() - started
 
-        self.assertEqual(state.state, locations.NOT_ANSWERING)
+        self.assertEqual(state.state, path_state.NOT_ANSWERING)
         self.assertLess(took, 0.1)
         self.assertEqual(looked.call_count, 1)
 
@@ -266,8 +265,8 @@ class FolderThatDoesNotAnswerTests(_WithStore, unittest.TestCase):
         with never_answering(hung.path):
             states = locations.states_of([hung, here])
 
-        self.assertEqual(states["hung"].state, locations.NOT_ANSWERING)
-        self.assertEqual(states[here.location_id].state, locations.READY)
+        self.assertEqual(states["hung"].state, path_state.NOT_ANSWERING)
+        self.assertEqual(states[here.location_id].state, path_state.OK)
 
     def test_new_games_go_to_the_next_folder_that_answers(self) -> None:
         hung = self._location("hung")
@@ -295,14 +294,14 @@ class ShareTests(_WithStore, unittest.TestCase):
                           return_value=mounts.Where(NAS, connected=False)):
             state = state_of(Location("id", "/mnt/nas/not-connected"))
 
-        self.assertEqual(state.state, locations.NOT_CONNECTED)
+        self.assertEqual(state.state, path_state.NOT_CONNECTED)
         self.assertFalse(state.reachable)
         self.assertEqual(state.origin, NAS)
 
     def test_the_share_a_folder_is_seen_on_is_kept_for_when_it_is_down(self) -> None:
         folder = self._location("share")
         with patch.object(mounts, "where", return_value=mounts.Where(NAS)):
-            self.assertEqual(state_of(folder).state, locations.READY)
+            self.assertEqual(state_of(folder).state, path_state.OK)
         recorded = self.store.get(folder.location_id)
         asked = []
 
@@ -314,7 +313,7 @@ class ShareTests(_WithStore, unittest.TestCase):
             state = state_of(recorded)
 
         self.assertEqual(asked, [NAS])
-        self.assertEqual(state.state, locations.NOT_CONNECTED)
+        self.assertEqual(state.state, path_state.NOT_CONNECTED)
 
     def test_the_folder_is_touched_before_the_mount_table_is_read(self) -> None:
         """Touching an automounted share is what mounts it."""
@@ -355,19 +354,6 @@ class ShareTests(_WithStore, unittest.TestCase):
 
         self.assertEqual(payload["schema"], 2)
         self.assertEqual(LocationStore(self.store.path).locations()[0].origin, NAS)
-
-
-class CanonicalTests(unittest.TestCase):
-    def test_one_spelling_per_place(self) -> None:
-        with TemporaryDirectory() as tmp:
-            inner = Path(tmp) / "share"
-            inner.mkdir()
-
-            self.assertEqual(canonical(str(inner)),
-                             canonical(f"{tmp}/./share/"))
-
-    def test_nothing_canonicalizes_to_nothing(self) -> None:
-        self.assertEqual(canonical("   "), "")
 
 
 class SeedTests(_WithStore, unittest.TestCase):

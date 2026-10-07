@@ -21,16 +21,14 @@ import json
 import logging
 import os
 import threading
-import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from common import mounts
+from common import mounts, path_state
 from common.atomic_write import write_atomic
 from common.config_access import cfg_get
 from common.config_store import ConfigStore
-from common.failures import why
 from common.i18n import t
 from common.install_identity import mint_id
 from common.paths import CONFIG_DIR
@@ -53,16 +51,6 @@ KINDS = (KIND_ROOT, KIND_GAME)
 
 def mint_location_id() -> str:
     return mint_id()
-
-
-def canonical(path: str) -> str:
-    """One spelling per place on disk, so a folder reached directly and through a parent
-    root is recognized as the same one. Symlinks resolved, case left alone: a
-    case-insensitive filesystem is not a reason to rewrite what somebody typed."""
-    wanted = str(path or "").strip()
-    if not wanted:
-        return ""
-    return os.path.normpath(os.path.realpath(os.path.expanduser(wanted)))
 
 
 class FolderHeldError(ValueError):
@@ -110,112 +98,28 @@ class Location:
                    origin=mounts.Origin.from_dict(raw.get("origin")))
 
 
-READY = "ready"
-READ_ONLY = "read_only"
-NOT_CONNECTED = "not_connected"
-NOT_FOUND = "not_found"
-NOT_ANSWERING = "not_answering"
-
-# How long a caller waits for the disk before calling a location Not answering.
-PROBE_SECONDS = 2.0
-# How long the scan and a launch wait for a folder.
-MOUNT_SECONDS = 30.0
-
-
-@dataclass(frozen=True)
-class LocationState:
-    """What the disk says about a location right now."""
-
-    state: str
-    reason: str = ""
-    # The share it is on, or None on this device or when it did not answer.
-    origin: mounts.Origin | None = None
-
-    @property
-    def reachable(self) -> bool:
-        return self.state in (READY, READ_ONLY)
-
-    @property
-    def writable(self) -> bool:
-        return self.state == READY
-
-
-def _look(raw_path: str, recorded: mounts.Origin | None = None) -> LocationState:
-    # Resolved the same way `canonical` resolves it. Reading the raw string would call
-    # `~/tables` unreachable while the scan happily walked it.
-    path = Path(canonical(raw_path) or raw_path)
-    there = path.exists()
-    where = mounts.where(str(path), recorded)
-    origin = where.origin
-    if origin is not None and not where.connected:
-        return LocationState(NOT_CONNECTED, t("error.library_folders.not_connected"), origin)
-    if not there:
-        return LocationState(NOT_FOUND, t("error.library_folders.missing"), origin)
-    if not path.is_dir():
-        return LocationState(NOT_FOUND, t("error.library_folders.is_file"), origin)
-    if not os.access(path, os.W_OK):
-        return LocationState(READ_ONLY, t("error.library_folders.unwritable"),
-                             origin)
-    return LocationState(READY, origin=origin)
-
-
-class _Probe:
-    def __init__(self, raw_path: str, recorded: mounts.Origin | None) -> None:
-        self.raw_path = raw_path
-        self.recorded = recorded
-        self.started = time.monotonic()
-        self.done = threading.Event()
-        self.answer = LocationState(NOT_ANSWERING, t("error.library_folders.not_answering"))
-
-    def run(self) -> None:
-        try:
-            self.answer = _look(self.raw_path, self.recorded)
-        except (OSError, ValueError) as exc:
-            self.answer = LocationState(NOT_FOUND, why(exc, self.raw_path))
-        finally:
-            with _PROBES_LOCK:
-                if _PROBES.get(self.raw_path) is self:
-                    del _PROBES[self.raw_path]
-            self.done.set()
-
-
-_PROBES: dict[str, _Probe] = {}
-_PROBES_LOCK = threading.Lock()
-
-
-def _probe(location: Location) -> _Probe:
-    """The question in flight for this path, or a new one. Nothing cancels a stat on a
-    dead mount, so a second question would be a second thread lost to it."""
-    with _PROBES_LOCK:
-        probe = _PROBES.get(location.path)
-        if probe is None:
-            probe = _PROBES[location.path] = _Probe(location.path, location.origin)
-            threading.Thread(target=probe.run, daemon=True,
-                             name="location-probe").start()
-    return probe
-
-
 def states_of(held: list[Location],
-              wait: float | None = None) -> dict[str, LocationState]:
+              wait: float | None = None) -> dict[str, path_state.PathState]:
     """What the disk says about each location, keyed by id, asked of all of them at once.
 
-    `wait` counts from when the question was first asked, not from this call, so a
-    question already out that long answers Not answering at once.
+    Asked as a folder that can be written to: a location nothing can be written to is Read
+    only, which still reads and is not the same as one that is away.
     """
-    limit = PROBE_SECONDS if wait is None else wait
-    probes = {one.location_id: _probe(one) for one in held}
-    for probe in probes.values():
-        probe.done.wait(max(0.0, probe.started + limit - time.monotonic()))
-    answers = {location_id: probe.answer for location_id, probe in probes.items()}
+    answers = dict(zip((one.location_id for one in held),
+                       path_state.look_all(
+                           [path_state.Ask(one.path, path_state.DIR, writable=True,
+                                           recorded=one.origin) for one in held], wait),
+                       strict=True))
     seen = {one.location_id: origin for one in held
             if (origin := answers[one.location_id].origin) is not None
-            and answers[one.location_id].state != NOT_CONNECTED and origin != one.origin}
+            and answers[one.location_id].state != path_state.NOT_CONNECTED
+            and origin != one.origin}
     if seen:
         get_location_store().record_origins(seen)
     return answers
 
 
-def state_of(location: Location) -> LocationState:
+def state_of(location: Location) -> path_state.PathState:
     return states_of([location])[location.location_id]
 
 
@@ -269,13 +173,13 @@ class LocationStore:
         Raises `FolderHeldError` when this id's row is moved onto a folder another row
         holds.
         """
-        wanted = canonical(location.path)
+        wanted = path_state.canonical(location.path)
         with self._lock:
             held, write_to = self._load()
             named = next((i for i, one in enumerate(held)
                           if one.location_id == location.location_id), None)
-            same = next((i for i, one in enumerate(held) if canonical(one.path) == wanted),
-                        None)
+            same = next((i for i, one in enumerate(held)
+                         if path_state.canonical(one.path) == wanted), None)
             if named is not None and same not in (None, named):
                 raise FolderHeldError(held[same])
             at = named if named is not None else same
@@ -385,7 +289,7 @@ class LocationStore:
         # One row per place and per id. A file edited by hand can hold the same folder
         # twice, and two rows for one place would each report their own state; the id is
         # what the state, the write target and the order are all keyed by. Compared as
-        # spelled, not through canonical(): resolving a path on a dead mount blocks.
+        # spelled, not through path_state.canonical(): resolving a path on a dead mount blocks.
         seen: set[str] = set()
         ids: set[str] = set()
         unique = []
@@ -452,7 +356,7 @@ class Destination:
 
 
 def _writable_roots(held: list[Location],
-                    states: dict[str, LocationState]) -> tuple[Location, ...]:
+                    states: dict[str, path_state.PathState]) -> tuple[Location, ...]:
     return tuple(one for one in held
                  if one.kind == KIND_ROOT and states[one.location_id].writable)
 
@@ -490,13 +394,9 @@ def destination(location_id: str = "") -> Destination:
     if named.kind != KIND_ROOT:
         return Destination(reason=t("error.library_folders.single_game", name=named.name),
                            alternatives=others)
-    if not state.reachable:
-        return Destination(reason=t("error.library_folders.not_reachable", name=named.name,
-                                    reason=state.reason),
-                           alternatives=others)
-    if not state.writable:
-        return Destination(reason=t("error.library_folders.read_only", name=named.name),
-                           alternatives=others)
+    said = path_state.refusal(named.name, state)
+    if said:
+        return Destination(reason=said, alternatives=others)
     return Destination(location=named, alternatives=others)
 
 
@@ -512,12 +412,12 @@ def portable_reference(game_dir: str, target: str) -> str:
     """
     from common.games.tables import stored_reference
 
-    wanted = canonical(target)
-    home = canonical(game_dir)
+    wanted = path_state.canonical(target)
+    home = path_state.canonical(game_dir)
     if not wanted or not home:
         return stored_reference(target)
     for location in configured():
-        root = canonical(location.path)
+        root = path_state.canonical(location.path)
         if not root:
             continue
         # Compared canonically, because two spellings of one place have to be recognized

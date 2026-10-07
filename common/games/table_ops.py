@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from common import apps, service_errors
+from common import apps, path_state, service_errors
 from common.failures import why
 from common.games import derived_tags, game_lens, library_folders, mods, table_lens, tables
 from common.games.collection_resolver import visible_entries
@@ -323,7 +323,7 @@ def add_referenced(game_id: str, path: str) -> dict:
     if apps.app_for(os.path.basename(target)) is None:
         raise service_errors.RefusedError(
             t("error.games.no_player", name=(os.path.basename(target))))
-    if library_folders.canonical(os.path.dirname(target)) == library_folders.canonical(game_dir):
+    if path_state.canonical(os.path.dirname(target)) == path_state.canonical(game_dir):
         raise service_errors.RefusedError(t("error.games.already_inside"))
 
     # Relative where it survives the library moving, absolute where it would not.
