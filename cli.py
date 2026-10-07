@@ -122,9 +122,9 @@ def parse_args():
     parser.add_argument("--listunknown", action="store_true",
                         help="List the games we can't match in VPSdb")
     parser.add_argument("--configdir", metavar="DIR",
-                        help="Use DIR as the config directory (vpinfe.ini, themes, "
-                             "logs) instead of the OS default, with the caches in "
-                             "DIR/cache and the state in DIR/state. Same as the "
+                        help="Use DIR as the config directory (vpinfe.ini, themes) "
+                             "instead of the OS default, with the caches in DIR/cache, "
+                             "the state in DIR/state and the logs in DIR/logs. Same as the "
                              "VPINFE_CONFIG_DIR env var; applied at startup in main.py.")
     parser.add_argument("--buildmeta", action="store_true",
                         help="Builds the .info file in each game dir")

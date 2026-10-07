@@ -10,15 +10,15 @@ import os
 import sys
 from pathlib import Path
 
-from platformdirs import user_cache_dir, user_config_dir, user_state_dir
+from platformdirs import user_cache_dir, user_config_dir, user_log_dir, user_state_dir
 
 from common.config_store import ConfigStore
 
 
 def _resolve_config_dir() -> Path:
     # VPINFE_CONFIG_DIR lets you point the whole config directory (vpinfe.ini,
-    # themes/, logs, .nicegui storage, and the caches in its cache/) somewhere other
-    # than the OS default. Read at import time so it also applies to frozen PyInstaller
+    # themes/, and the cache/, state/ and logs/ beside them) somewhere other than the
+    # OS default. Read at import time so it also applies to frozen PyInstaller
     # builds. Falls back to the platformdirs location when unset.
     # Anchored here, once: a relative path would follow the working directory, and the
     # Manager UI changes that while it runs a script. Written back so a helper started
@@ -58,6 +58,14 @@ def _resolve_state_dir() -> Path:
     return CONFIG_DIR / ("State" if sys.platform == "win32" else "state")
 
 
+def _resolve_log_dir() -> Path:
+    # Where the OS keeps logs, which on every platform is a folder of its own; an
+    # overridden config folder keeps them beside it, like its cache and state.
+    if os.environ.get("VPINFE_CONFIG_DIR", "").strip():
+        return CONFIG_DIR / "logs"
+    return Path(user_log_dir("vpinfe", "vpinfe"))
+
+
 def _unbootstrapped_test_run() -> bool:
     """A `python -m unittest` run that never imported tests/, which sets the override."""
     main = sys.modules.get("__main__")
@@ -87,12 +95,14 @@ CONFIG_DIR = _resolve_config_dir()
 VPINFE_INI_PATH = CONFIG_DIR / "vpinfe.ini"
 COLLECTIONS_PATH = CONFIG_DIR / "collections.json"
 TAGS_PATH = CONFIG_DIR / "tags.json"
-DERIVED_TAGS_PATH = CONFIG_DIR / "derived_tags.json"
 # Read once and converted; kept as a name so a restore can still find its backups.
 COLLECTIONS_INI_PATH = CONFIG_DIR / "collections.ini"
 THEMES_DIR = CONFIG_DIR / "themes"
 CACHE_DIR = _resolve_cache_dir()
 STATE_DIR = _resolve_state_dir()
+LOG_DIR = _resolve_log_dir()
+CAPTURE_DIR = STATE_DIR / "capture"
+DERIVED_TAGS_PATH = CACHE_DIR / "derived_tags.json"
 THEME_CACHE_PATH = CACHE_DIR / "themes.json"
 UPDATE_CHECK_PATH = CACHE_DIR / "update.json"
 FRONTEND_BROWSER_PATH = CACHE_DIR / "frontend_browser.json"
@@ -100,7 +110,7 @@ COMMUNITY_KEPT_DIR = CACHE_DIR / "community"
 VPSDB_PATH = CACHE_DIR / "vpsdb.json"
 STAMPS_PATH = CACHE_DIR / "stamps.json"
 PLUGIN_PROFILES_DIR = CONFIG_DIR / "plugin_profiles"
-UPDATES_DIR = CONFIG_DIR / "updates"
+UPDATES_DIR = STATE_DIR / "updates"
 USER_CONFIG_PATH = VPINFE_INI_PATH
 USER_ROMS_PATH = CACHE_DIR / "roms.json"
 
@@ -111,7 +121,7 @@ def ensure_config_dir() -> Path:
 
 
 def configure_nicegui_storage() -> str:
-    nicegui_storage_dir = ensure_config_dir() / ".nicegui"
+    nicegui_storage_dir = STATE_DIR / ".nicegui"
     nicegui_storage_dir.mkdir(parents=True, exist_ok=True)
     storage_path = str(nicegui_storage_dir)
     os.environ["NICEGUI_STORAGE_PATH"] = storage_path

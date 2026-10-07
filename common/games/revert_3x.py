@@ -35,12 +35,11 @@ logger = logging.getLogger("vpinfe.common.games.revert_3x")
 
 # 3.0 wrote these and 2.x reads none of them. Named one at a time on purpose: a sweep
 # for anything backup-shaped also eats the hand-made .bak-repro files kept beside them.
-# `watching.json` is 3.0 data with no 2.x original: a reset library that kept it would
-# measure new findings against an install that no longer exists.
 CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "players.json",
-                "manager-ui-state.json", "watching.json", migration_ledger.FILE_NAME)
-# The same, in the state folder.
-STATE_FILES = ("devices.json",)
+                "manager-ui-state.json", migration_ledger.FILE_NAME)
+# The same, in the state folder. `watching.json` is 3.0 data with no 2.x original: a reset
+# library that kept it would measure new findings against an install that no longer exists.
+STATE_FILES = ("devices.json", "watching.json")
 CONFIG_DIRS = ("theme_user_options",)
 
 # Whose `.vpinfe-*` copies are ours to remove. The ini pair is what the conversion to

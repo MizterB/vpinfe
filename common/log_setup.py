@@ -153,17 +153,17 @@ def _normalize_third_party_loggers() -> None:
         logger.propagate = True
 
 
-def configure_logging(config_dir: Path, ini_config: Any = None,
+def configure_logging(log_dir: Path, ini_config: Any = None,
                       enable_file: bool = True) -> Path:
     global _CONFIGURED, _FILE_LOG_INITIALIZED, _INCLUDE_THIRD_PARTY, _INCLUDE_WINDOWS
 
-    config_dir = Path(config_dir)
-    config_dir.mkdir(parents=True, exist_ok=True)
+    log_dir = Path(log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     log_level = DEFAULT_LOG_LEVEL
     terminal_enabled = True
     file_enabled = enable_file
-    log_path = config_dir / DEFAULT_LOG_FILE_NAME
+    log_path = log_dir / DEFAULT_LOG_FILE_NAME
 
     if ini_config is not None:
         from common.config_access import cfg_get
@@ -241,7 +241,7 @@ def include_windows_logs() -> bool:
 def log_file() -> Path | None:
     """Where the log is being written, asked of the handler doing it.
 
-    Rebuilding the path from the config dir would name a file nothing is writing to on
+    Rebuilding the path from the log folder would name a file nothing is writing to on
     an install started with file logging off, and would go stale the moment the handler
     rolls over to a name of its own choosing.
     """

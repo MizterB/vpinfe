@@ -17,11 +17,11 @@ from typing import Any
 
 from common import timestamps
 from common.atomic_write import write_atomic
-from common.paths import CONFIG_DIR
+from common.paths import STATE_DIR
 
 logger = logging.getLogger("vpinfe.common.games.watching")
 
-WATCHING_PATH = CONFIG_DIR / "watching.json"
+WATCHING_PATH = STATE_DIR / "watching.json"
 SCHEMA = 1
 
 # What "review everything" means. Not the empty string: absent has to keep meaning

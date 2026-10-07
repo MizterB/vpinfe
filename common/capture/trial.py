@@ -15,7 +15,7 @@ from typing import Any
 from common import jobs, service_errors
 from common.host import launch_state, tools
 from common.i18n import t
-from common.paths import CONFIG_DIR
+from common.paths import CAPTURE_DIR
 
 from . import adapters, commands, geometry, pipeline, preflight, run, session, settings
 from .adapters import Recording
@@ -26,7 +26,7 @@ SECONDS = 3.0
 PICTURE_AT = 1.0
 PICTURE_SIDE = 480
 
-WORK = CONFIG_DIR / "capture" / "test"
+WORK = CAPTURE_DIR / "test"
 
 RECORDED_NOTHING = "capture.test.recorded_nothing"
 WROTE_NOTHING = "capture.test.wrote_nothing"

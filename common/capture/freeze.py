@@ -62,9 +62,9 @@ class Shot:
 
 
 def _work() -> Path:
-    from common.paths import CONFIG_DIR
+    from common.paths import CAPTURE_DIR
 
-    return CONFIG_DIR / "capture" / "picture"
+    return CAPTURE_DIR / "picture"
 
 
 def _table_key(game: Any, table_id: str) -> str | None:

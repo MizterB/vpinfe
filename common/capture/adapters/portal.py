@@ -22,7 +22,7 @@ from common.atomic_write import write_atomic
 from common.failures import why
 from common.host import launch_state, tools
 from common.i18n import t
-from common.paths import CONFIG_DIR
+from common.paths import CAPTURE_DIR
 from common.timestamps import utc_now_iso
 
 from .. import commands, geometry
@@ -62,7 +62,7 @@ NOTHING_TO_CHOOSE = "error.capture.nothing_to_choose"
 # XDG_CURRENT_DESKTOP's word for each desktop, and its name said to people.
 DESKTOPS = (("KDE", "KDE Plasma"), ("GNOME", "GNOME"))
 
-KEPT = CONFIG_DIR / "capture" / "portal.json"
+KEPT = CAPTURE_DIR / "portal.json"
 
 
 # --- the session bus ------------------------------------------------------------------

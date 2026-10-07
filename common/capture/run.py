@@ -19,7 +19,7 @@ from common.failures import why
 from common.games import game_lens, game_repository, tables
 from common.host import launch, launch_state, tools
 from common.i18n import t
-from common.paths import CONFIG_DIR, get_ini_config
+from common.paths import CAPTURE_DIR, get_ini_config
 from common.timestamps import utc_now_iso
 
 from . import adapters, placing, preflight, session, settings, slots, space, unshown
@@ -43,9 +43,9 @@ START_SECONDS = 6
 CLOSE_SECONDS = 3
 ENCODE_SECONDS = 5
 
-WORK = CONFIG_DIR / "capture" / "recording"
+WORK = CAPTURE_DIR / "recording"
 # The run in hand, written as it goes.
-RUN_FILE = CONFIG_DIR / "capture" / "run.json"
+RUN_FILE = CAPTURE_DIR / "run.json"
 
 RUNNING = "running"
 PAUSED = "paused"

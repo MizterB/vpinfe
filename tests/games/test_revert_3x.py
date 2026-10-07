@@ -272,6 +272,19 @@ class ConfigTests(RevertTestCase):
         self.assertIn("devices.json", result["config_removed"])
         self.assertIn("manager-ui-state.json", result["config_removed"])
 
+    def test_the_watching_file_goes_from_the_state_folder(self):
+        self._migrate()
+        state = self.config_dir / "state"
+        state.mkdir(exist_ok=True)
+        (state / "watching.json").write_text("{}", encoding="utf-8")
+        (self.config_dir / "watching.json").write_text("{}", encoding="utf-8")
+
+        result = self._reset()
+
+        self.assertFalse((state / "watching.json").exists())
+        self.assertIn("watching.json", result["config_removed"])
+        self.assertTrue((self.config_dir / "watching.json").exists())
+
     def test_the_device_registry_is_copied_aside_before_it_goes(self):
         """A vpx_mobile entry is entered by hand and nothing re-announces it, so the
         reset is the one place it can be lost for good. The file still goes - 2.x does

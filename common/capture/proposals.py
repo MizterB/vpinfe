@@ -14,14 +14,14 @@ from typing import Any
 from common import service_errors
 from common.games import asset_origin, game_repository
 from common.i18n import t
-from common.paths import CONFIG_DIR
+from common.paths import CAPTURE_DIR
 from common.timestamps import utc_now_iso
 
 from . import slots
 
 logger = logging.getLogger("vpinfe.common.capture.proposals")
 
-ROOT = CONFIG_DIR / "capture" / "proposals"
+ROOT = CAPTURE_DIR / "proposals"
 ABOUT = "proposal.json"
 
 Place = Callable[..., Any]

@@ -70,6 +70,7 @@ from common.online.pinmame_score_parser_updater import ensure_latest_roms_json
 from common.online.theme_registry_client import ThemeRegistryError
 from common.online.themes import ThemeRegistry
 from common.paths import (
+    LOG_DIR,
     THEMES_DIR,
     VPINFE_INI_PATH,
     configure_nicegui_storage,
@@ -83,9 +84,9 @@ base_path = os.path.dirname(os.path.abspath(__file__))
 # Load config BEFORE importing cli/managerui (they create ConfigStore at import time)
 config_dir = ensure_config_dir()
 nicegui_storage_path = configure_nicegui_storage()
-log_path = configure_logging(config_dir, enable_file=False)
+log_path = configure_logging(LOG_DIR, enable_file=False)
 config_store = ConfigStore(str(VPINFE_INI_PATH))
-log_path = configure_logging(config_dir, config_store)
+log_path = configure_logging(LOG_DIR, config_store)
 logger = get_logger("vpinfe.main")
 
 # Before anything builds a label. Every registry resolves through the catalog at
@@ -119,7 +120,7 @@ shutdown.exit_if_requested(logger)
 
 
 def reconfigure_app_logging() -> None:
-    configure_logging(config_dir, config_store)
+    configure_logging(LOG_DIR, config_store)
 
 # Now safe to import modules that create their own ConfigStore at import time
 from nicegui import app as nicegui_app

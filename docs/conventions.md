@@ -508,7 +508,7 @@ endpoint means moving its callers in the same change, not leaving them to 404.
 
 ### Files
 
-One `vpinfe.log` in the config directory, rotated at 2 MB with 3 backups, and rolled once at
+One `vpinfe.log` in the log folder (`~/Library/Logs/vpinfe`, `~/.local/state/vpinfe/log`, `Logs` inside the config folder on Windows), rotated at 2 MB with 3 backups, and rolled once at
 startup so each run begins in a fresh file with the previous run kept. Restarting to reproduce
 a problem no longer destroys the log of the run that showed it.
 

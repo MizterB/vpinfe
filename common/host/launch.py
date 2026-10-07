@@ -49,13 +49,13 @@ from common.host import bundled_libraries, commands, key_simulator, launch_state
 from common.host.vpx_log import delete_vpinball_log_on_start_if_configured
 from common.i18n import t
 from common.launcher_path import resolve_launcher_path
-from common.paths import CONFIG_DIR, PLUGIN_PROFILES_DIR
+from common.paths import CAPTURE_DIR, PLUGIN_PROFILES_DIR
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.host.launch")
 
 # Where a capture launch's app writes what the table is launched with, while it runs.
-CAPTURE_LAUNCH_DIR = CONFIG_DIR / "capture" / "launch"
+CAPTURE_LAUNCH_DIR = CAPTURE_DIR / "launch"
 
 
 class LaunchUnavailableError(Exception):

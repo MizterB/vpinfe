@@ -8,7 +8,7 @@ from pathlib import Path
 from nicegui import ui
 
 from common.host.vpx_log import resolve_vpinball_log_path
-from managerui.paths import CONFIG_DIR
+from common.paths import LOG_DIR
 from managerui.ui_helpers import load_page_style
 
 
@@ -23,7 +23,7 @@ def _read_log_file(log_path: Path) -> tuple[str, str]:
 
 
 def _get_vpinfe_log_path() -> Path:
-    return CONFIG_DIR / "vpinfe.log"
+    return LOG_DIR / "vpinfe.log"
 
 
 def _get_vpinball_log_path() -> Path | None:

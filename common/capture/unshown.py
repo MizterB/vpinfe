@@ -11,7 +11,7 @@ from typing import Any
 
 from common.atomic_write import write_atomic
 from common.host import launch, tools
-from common.paths import CONFIG_DIR
+from common.paths import CAPTURE_DIR
 from common.timestamps import utc_now_iso
 
 from . import placing
@@ -19,7 +19,7 @@ from . import placing
 logger = logging.getLogger("vpinfe.common.capture.unshown")
 
 # {game id: {table: {"placed_by", "windows", "learned_at"}}}
-FILE = CONFIG_DIR / "capture" / "unshown.json"
+FILE = CAPTURE_DIR / "unshown.json"
 
 _lock = threading.RLock()
 _cached: tuple[tuple[str, int, int], dict[str, Any]] | None = None

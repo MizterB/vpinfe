@@ -121,7 +121,7 @@ NiceGUI ready to go on http://localhost:8001, and http://192.168.1.228:8001
 
 Put that URL in a browser and you land in the Console.  The ManagerUI is still there at `/manager` — it has a few things the Console hasn't grown yet.
 
-By default VPinFE keeps `vpinfe.ini`, `themes/` and logs in the OS config directory (`~/.config/vpinfe` on Linux, `~/Library/Application Support/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe` on Windows). Everything it can download again, such as the VPS database, the theme list and thumbnails, goes in the OS cache directory (`~/.cache/vpinfe` on Linux, `~/Library/Caches/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe\vpinfe\Cache` on Windows), so copying or backing up the config directory does not carry it. The devices it knows about, and which one is this install, live in `devices.json` in the state directory (`~/.local/state/vpinfe` on Linux, `state` inside the config directory on macOS, `State` inside it on Windows), so a config directory copied to another machine does not make that machine this one. To keep everything somewhere else — a portable copy, or separate config profiles — set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the whole config directory at `DIR`, with the caches in `DIR/cache` and the state in `DIR/state`; the environment variable wins if you set both.
+By default VPinFE keeps `vpinfe.ini` and `themes/` in the OS config directory (`~/.config/vpinfe` on Linux, `~/Library/Application Support/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe` on Windows). Everything it can download again, such as the VPS database, the theme list and thumbnails, goes in the OS cache directory (`~/.cache/vpinfe` on Linux, `~/Library/Caches/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe\vpinfe\Cache` on Windows), so copying or backing up the config directory does not carry it. The devices it knows about, and which one is this install, live in `devices.json` in the state directory (`~/.local/state/vpinfe` on Linux, `state` inside the config directory on macOS, `State` inside it on Windows), so a config directory copied to another machine does not make that machine this one. To keep everything somewhere else — a portable copy, or separate config profiles — set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the whole config directory at `DIR`, with the caches in `DIR/cache`, the state in `DIR/state` and the logs in `DIR/logs`; the environment variable wins if you set both.
 
 ### Enabling the shutdown feature
 
@@ -329,7 +329,7 @@ Logging behavior:
 - **Log Verbosity**: debug/info/warning/error/critical
 - **Console Logging**: enables console log output
 
-The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard config directory and starts a fresh log file on each launch. The VPinball Log card can enable **Clear the Log on Launch** on your launcher, which deletes `vpinball.log` before each frontend table launch. VPinFE finds that log in the directory that holds the launcher's **Settings File**, or Visual Pinball's own `VPinballX.ini` where it names none.
+The Logs page also opens the current `vpinfe.log` and `vpinball.log`. VPinFE writes its own logs to the standard log folder (`~/Library/Logs/vpinfe` on macOS, `~/.local/state/vpinfe/log` on Linux, `Logs` inside the config folder on Windows) and starts a fresh log file on each launch. The VPinball Log card can enable **Clear the Log on Launch** on your launcher, which deletes `vpinball.log` before each frontend table launch. VPinFE finds that log in the directory that holds the launcher's **Settings File**, or Visual Pinball's own `VPinballX.ini` where it names none.
 
 #### Media section
 
@@ -853,10 +853,11 @@ options:
   --listres             ID and list your screens
   --listmissing         List the games from VPSdb
   --listunknown         List the games we can't match in VPSdb
-  --configdir DIR       Use DIR as the config directory (vpinfe.ini, themes,
-                        caches, logs) instead of the OS default. Same as the
-                        VPINFE_CONFIG_DIR env var; applied at startup in
-                        main.py.
+  --configdir DIR       Use DIR as the config directory (vpinfe.ini, themes)
+                        instead of the OS default, with the caches in
+                        DIR/cache, the state in DIR/state and the logs in
+                        DIR/logs. Same as the VPINFE_CONFIG_DIR env var;
+                        applied at startup in main.py.
   --buildmeta           Builds the .info file in each game dir
   --vpxpatch            Attempt to apply patches automatically
   --gamepadtest         Test and map your gamepad via JS API

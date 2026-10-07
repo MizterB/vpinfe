@@ -79,7 +79,7 @@ class TakingTests(ArchiveCase):
     def test_records_takes_only_the_files_vpinfe_keeps(self) -> None:
         (self.config / "players.json").write_text("{}")
         (self.config / "tags.json").write_text("{}")
-        (self.config / "watching.json").write_text("{}")
+        (self.config / "devices.json").write_text("{}")
 
         self.put(self.take("records"))
 

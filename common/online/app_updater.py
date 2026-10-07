@@ -26,13 +26,13 @@ from common.online.update_scripts import (
     _build_windows_bootstrap_script,
     _build_windows_update_script,
 )
-from common.paths import CONFIG_DIR, UPDATE_CHECK_PATH, UPDATES_DIR, bundled
+from common.paths import LOG_DIR, UPDATE_CHECK_PATH, UPDATES_DIR, bundled
 from common.vpinfe_version import get_version
 
 logger = logging.getLogger("vpinfe.common.online.app_updater")
 
 
-LAST_UPDATE_LOG = CONFIG_DIR / "last_update.log"
+LAST_UPDATE_LOG = LOG_DIR / "last_update.log"
 LATEST_RELEASE_URL = "https://api.github.com/repos/superhac/vpinfe/releases/latest"
 USER_AGENT = "VPinFE-Updater"
 CHECK_EVERY_SECONDS = 24 * 60 * 60
