@@ -53,6 +53,10 @@ MENU = (f"[...document.querySelectorAll('{ITEM}')].map(e => {{"
         ".forEach(i => i.remove()); const mark = e.querySelector('.q-icon');"
         " return [copy.innerText.trim(), e.getAttribute('href'), e.getAttribute('target'),"
         " mark ? mark.innerText.trim() : null]; })")
+ENABLED = ("(() => { const label = [...document.querySelectorAll("
+           "'.console-fact-label')].find(el => el.innerText.trim() === 'Enabled');"
+           " return label ? label.nextElementSibling : null; })()")
+COMMUNITY_ROW = "a.console-nav-row[href*=\"community:\"]"
 SHARE = ("(() => { const label = [...document.querySelectorAll("
          "'.console-section-work .console-fact-label')]"
          ".find(el => el.innerText.trim() === 'Share');"
@@ -262,6 +266,17 @@ class CommunityMenuDrive(unittest.TestCase):
             await browser.click("[data-drive=line]")
             await browser.wait_for(f"!window.__walkLeft && {DRAWN}", 90)
             seen["landed"] = await browser.evaluate("location.search")
+
+            # Switched off on its own page, and the rail loses it without a reload.
+            await walk.visit(PAGE)
+            seen["rail_while_on"] = await browser.evaluate(
+                f"!!document.querySelector('{COMMUNITY_ROW}')")
+            await browser.evaluate(f"({ENABLED}).setAttribute('data-drive', 'enabled')")
+            await browser.click("[data-drive=enabled]")
+            await browser.wait_for(f"!document.querySelector('{COMMUNITY_ROW}')")
+            seen["rail_after_off"] = await browser.evaluate(
+                "[...document.querySelectorAll('.console-nav-parent, .console-nav-row')]"
+                ".map(el => el.innerText.trim()).filter(Boolean)")
             seen["console"] = [line for line in browser.console if "error" in line.lower()]
         return seen
 
@@ -322,6 +337,13 @@ class CommunityMenuDrive(unittest.TestCase):
         self.assertIn("Sent 1 game", text)
         self.assertEqual(self.seen["vpinplay_got"], [(USER_ID, [VPS_ID])])
         self.assertEqual(self.seen["account_after_send"], "Sent just now")
+
+    # -- switched off --------------------------------------------------------------
+
+    def test_switching_it_off_takes_it_out_of_the_rail_at_once(self) -> None:
+        self.assertTrue(self.seen["rail_while_on"])
+        self.assertNotIn("Community", self.seen["rail_after_off"])
+        self.assertNotIn("VPinPlay", self.seen["rail_after_off"])
 
     # -- Share off -----------------------------------------------------------------
 

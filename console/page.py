@@ -587,11 +587,14 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     whats_new_due = bool(loaded["whats_new_due"])
     waiting_bar = waiting.Bar(library, lambda: redraw())
 
-    # The rail this install has, read once: it decides what is drawn and which addresses
-    # resolve, and those two disagreeing is a link that lands on a blank page.
-    nav_groups = nav_for(discovery.get("features"),
-                         community_page.nav_items(installed_extensions,
-                                                  install_identity.CORE))
+    def rail_for(extensions: list[dict[str, Any]]) -> Any:
+        return nav_for(discovery.get("features"),
+                       community_page.nav_items(extensions, install_identity.CORE))
+
+    # The rail this install has: it decides what is drawn and which addresses resolve, and
+    # those two disagreeing is a link that lands on a blank page. Drawn again by
+    # `draw_rail` when an extension is switched.
+    nav_groups = rail_for(installed_extensions)
     nav_items = [item for _parent, items in nav_groups for item in items]
 
     landing_view = landing_for([key for key, *_rest in nav_items],
@@ -692,24 +695,49 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         # drawer is one scroll box, so the title and the version scrolled away with the
         # rows - which is the two pieces of chrome that should always be reachable.
         nav_body = ui.column().classes("w-full gap-0 console-nav-body")
-        for parent, items in nav_groups:
-            held: list[ui.row] = []
-            with nav_body:
-                if parent is not None:
-                    _nav_parent(parent, state, labels, held, badges)
-                for key, label, icon, _feature in items:
-                    # redraw, not render: a destination whose rows are read on demand
-                    # has to read them before it draws, and arriving is when that is
-                    # first true.
-                    _nav_item(key, label, icon, state, lambda: redraw(), labels,
-                              destinations, badges,
-                              nested=parent is not None, held=held)
-                    if key == "collections":
-                        row_drag.rail(state)
-                if parent is not None:
-                    # After the children exist: the caret leads `held`, and a group left
-                    # closed last time has to draw closed rather than open and blink.
-                    _show_group(state[f"{parent[0]}_open"], held[0], held)
+        rail_labels: list[ui.element] = []
+        devices_badge: dict[str, str] = {}
+
+        def show_devices_badge() -> None:
+            badge = badges.get("devices")
+            if badge is None or not devices_badge:
+                return
+            badge.text = devices_badge["text"]
+            badge.set_visibility(True)
+            badge.tooltip(devices_badge["tooltip"])
+
+        def draw_rail(groups: list) -> None:
+            nav_body.clear()
+            destinations.clear()
+            badges.clear()
+            for old in rail_labels:
+                labels.remove(old)
+            rail_labels.clear()
+            for parent, items in groups:
+                held: list[ui.row] = []
+                with nav_body:
+                    if parent is not None:
+                        _nav_parent(parent, state, rail_labels, held, badges)
+                    for key, label, icon, _feature in items:
+                        # redraw, not render: a destination whose rows are read on
+                        # demand has to read them before it draws, and arriving is when
+                        # that is first true.
+                        _nav_item(key, label, icon, state, lambda: redraw(), rail_labels,
+                                  destinations, badges,
+                                  nested=parent is not None, held=held)
+                        if key == "collections":
+                            row_drag.rail(state)
+                    if parent is not None:
+                        # After the children exist: the caret leads `held`, and a group
+                        # left closed last time has to draw closed rather than open and
+                        # blink.
+                        _show_group(state[f"{parent[0]}_open"], held[0], held)
+            labels.extend(rail_labels)
+            for label in rail_labels:
+                label.set_visibility(not state["mini"])
+            show_devices_badge()
+
+        draw_rail(nav_groups)
         foot = ui.column().classes("items-center gap-1 px-3 py-3 w-full") \
             .style("border-top:1px solid rgba(255,255,255,0.10)")
         with foot:
@@ -1008,17 +1036,17 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         for exc in await devices_page.ask_each(devices, _probe_one, reached):
             logger.debug("Could not probe a device: %s", exc)
 
-        badge = badges.get("devices")
-        if badge is None or not waiting:
+        if not waiting:
             return
         # A count, not a version: the entry stands for every device, and which build each
         # one is going to is on its own page. The tooltip names them while it still can,
         # because "3" on its own does not say which three.
-        badge.text = str(len(waiting))
-        badge.set_visibility(True)
-        badge.tooltip(t("console.page.update_waiting",
-                devices=", ".join(waiting)) if len(waiting) <= 3
-                      else t("console.page.updates_count", count=len(waiting)))
+        devices_badge["text"] = str(len(waiting))
+        devices_badge["tooltip"] = (
+            t("console.page.update_waiting", devices=", ".join(waiting))
+            if len(waiting) <= 3
+            else t("console.page.updates_count", count=len(waiting)))
+        show_devices_badge()
 
     ui.timer(0.1, _look_for_update, once=True)
 
@@ -1396,7 +1424,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         """
         title = t(SECTIONS.get(state["view"], state["view"].title()))
         purpose = t(f"console.purpose.{state['view']}")
-        listed = community_page.find(state["view"], installed_extensions)
+        listed = community_page.find(state["view"], state["extensions"])
         if listed is not None:
             title = str(listed[1].get("title") or "")
             purpose = t("console.purpose.community",
@@ -1458,7 +1486,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 collections_page.build(library.collections(), library, show_collection,
                                        state, redraw)
             elif view.startswith(community_page.PREFIX):
-                listed = community_page.find(view, installed_extensions)
+                listed = community_page.find(view, state["extensions"])
                 if listed is not None:
                     community_page.build(*listed, library, subject=menu)
             elif view == "media":
@@ -1537,8 +1565,20 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             badge.tooltip(" ".join(dict.fromkeys(item.reason for item in items
                                                  if item.reason)))
 
+    def refresh_rail() -> None:
+        """The rail and the collection orders, from the extensions as they now stand."""
+        nonlocal nav_groups
+        state["ranked_orders"] = community_page.ranked_orders(state["extensions"])
+        groups = rail_for(state["extensions"])
+        if groups != nav_groups:
+            draw_rail(groups)
+            nav_groups = groups
+            light_nav()
+            mark_findings()
+
     def redraw() -> None:
-        read_then_render(state, library, content, render, mark_findings, light_nav)
+        read_then_render(state, library, content, render, mark_findings, light_nav,
+                         refresh_rail)
 
     uploads.install()
     row_drag.install()
@@ -1638,7 +1678,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
 def read_then_render(state: dict[str, Any], library: Library, content: ui.element,
                      render: Callable[[], None], mark_findings: Callable[[], None],
-                     light: Callable[[], None]) -> None:
+                     light: Callable[[], None],
+                     refresh_rail: Callable[[], None] = lambda: None) -> None:
     """Light the view's rail row now, then render it, first reading anything it needs,
     with `content` busy from now until it is drawn: what it shows stays up, dimmed under
     the spinner, while the read runs.
@@ -1654,10 +1695,11 @@ def read_then_render(state: dict[str, Any], library: Library, content: ui.elemen
         # exactly the case this reports.
         async def read_trouble_then_draw() -> None:
             state["trouble"] = await offload.io(settings_page.local_trouble)
-            # Not the rail's list: a switch may have changed one since the page loaded,
-            # and the rail keeps what it drew.
+            # A switch on an extension's page changes what is running, and the rail
+            # follows it.
             try:
                 state["extensions"] = await offload.io(ApiClient().extensions)
+                refresh_rail()
             except Exception:  # noqa: BLE001
                 logger.exception("Could not read the installed extensions")
             render()

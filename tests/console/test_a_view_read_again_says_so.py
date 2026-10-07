@@ -122,6 +122,25 @@ class ARailClick(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([[{"device_id": "kept"}]], drawn)
 
+    async def test_settings_redraws_the_rail_from_the_extensions_it_just_read(self) -> None:
+        state: dict[str, Any] = {"view": "settings", "extensions": [{"name": "stale"}]}
+        order: list[Any] = []
+        client = Mock()
+        client.extensions.return_value = [{"name": "fresh"}]
+        content = _region()
+
+        async def io(call: Callable[..., Any], *args: Any) -> Any:
+            return call(*args)
+
+        with patch.object(page.offload, "io", new=io), \
+                patch.object(page, "ApiClient", return_value=client):
+            page.read_then_render(
+                state, Mock(), content, lambda: order.append("render"), Mock(), Mock(),
+                lambda: order.append(list(state["extensions"])))
+            await _until(lambda: "render" in order)
+
+        self.assertEqual([[{"name": "fresh"}], "render"], order)
+
     def test_a_view_that_holds_what_it_needs_draws_at_once(self) -> None:
         content = _region()
         library = Mock()
