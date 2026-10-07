@@ -955,7 +955,7 @@ anywhere but `panel.py`, and the nav rail in `page.py`.
   Close, Skip and Discard all draw `close`, because they are the same act in different
   words. The label is what tells them apart.
 - **A verb nothing draws falls back by what it does** - open `open_in_new`, change `edit`,
-  add `add`, remove `close` - rather than getting an icon invented for it. The words carry
+  add `add`, remove `remove` - rather than getting an icon invented for it. The words carry
   the meaning; the icon only says this is a button.
 - **A hint says what pressing it does.** Every `panel.action` and `panel.remote_action`
   carries `hint=`, drawn as the button's tooltip and worded from what the handler does

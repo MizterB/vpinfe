@@ -64,7 +64,7 @@ INDEX_OF = ("(() => [...document.querySelectorAll(%s)]"
             ".findIndex(el => el.innerText.includes(%s)))()")
 ROW_X = ("[...document.querySelectorAll('.console-section-work .console-member-row button')]"
          ".findIndex(b => b.closest('.console-member-row').innerText.includes(%s)"
-         " && b.innerText.trim() === 'close')")
+         " && b.innerText.trim() === 'remove')")
 UNDO_AT = ("(() => { const n = [...document.querySelectorAll('.q-notification')]"
            ".find(n => n.innerText.includes(%s)); const b = n && [...n.querySelectorAll("
            "'button')].find(b => b.innerText.includes('Undo')); if (!b) return null;"

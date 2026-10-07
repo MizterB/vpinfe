@@ -7157,7 +7157,7 @@ def _member_action(context: dict[str, Any], member: dict[str, Any],
         ui.button(icon=verbs.REVERT, on_click=put_back) \
             .props("flat dense round size=sm").tooltip(t("console.workbench.put_back_2"))
     else:
-        ui.button(icon="close", on_click=lambda: collection_adds.remove_row(
+        ui.button(icon=verbs.REMOVE, on_click=lambda: collection_adds.remove_row(
             library, name, member, then=partial(_collection_redrawn, context, name))) \
             .props("flat dense round size=sm").tooltip(t("console.workbench.remove_collection"))
 
