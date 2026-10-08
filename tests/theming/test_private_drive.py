@@ -177,11 +177,12 @@ class PrivateDrive(unittest.TestCase):
         self.assertEqual(self.seen["filtered"], ["alpha"])
 
     def test_the_selection_menu_offers_only_what_would_change(self) -> None:
+        names = {key: [label for label, _inert in self.seen[key]]
+                 for key in ("menu_two", "menu_one")}
         self.assertIn(["Mark Private", False], self.seen["menu_two"])
-        self.assertIn(["Mark Not Private / None of the 2 is Private", True],
-                      self.seen["menu_two"])
-        self.assertIn(["Mark Private / Already Private", True], self.seen["menu_one"])
+        self.assertNotIn("Mark Not Private", names["menu_two"])
         self.assertIn(["Mark Not Private", False], self.seen["menu_one"])
+        self.assertNotIn("Mark Private", names["menu_one"])
 
     def test_two_marked_private_from_a_selection(self) -> None:
         text, _classes = self.seen["said_two"]

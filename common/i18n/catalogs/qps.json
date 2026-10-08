@@ -29,9 +29,9 @@
   "action.frontend.start.help": "Öþèñš ţĥè ƒřöñţèñđ ŵîñđöŵš",
   "action.frontend.stop": "Çŀöšè ţĥè ƒřöñţèñđ ŵîñđöŵš",
   "action.frontend.stop.help": "Çŀöšèš ţĥè ƒřöñţèñđ ŵîñđöŵš. ṼÞîñƑÈ ķèèþš řûññîñĝ.",
-  "action.system.restart": "Řèƀööţ ţĥîš đèṽîçè",
+  "action.system.restart": "Řèƀööţ",
   "action.system.restart.help": "Řèƀööţš ţĥè ŵĥöŀè đèṽîçè. Èṽèřýţĥîñĝ öñ îţ šţöþš ûñţîŀ îţ îš ƀàçķ.",
-  "action.system.stop": "Þöŵèř öƒƒ ţĥîš đèṽîçè",
+  "action.system.stop": "Þöŵèř öƒƒ",
   "action.system.stop.help": "Þöŵèřš ţĥè ŵĥöŀè đèṽîçè öƒƒ. Îţ ĥàš ţö ƀè šŵîţçĥèđ öñ àĝàîñ ƀý ĥàñđ.",
   "action.table.stop": "Çŀöšè ţĥè ţàƀŀè ţĥàţ îš řûññîñĝ",
   "action.table.stop.help": "Èñđš ţĥè ĝàɱè ƀèîñĝ þŀàýèđ ţĥèřè. ṼÞîñƑÈ ķèèþš řûññîñĝ.",
@@ -1111,6 +1111,23 @@
     "one": "Ƒöřĝöţ {count} đèṽîçè",
     "other": "Ƒöřĝöţ {count} đèṽîçèš"
   },
+  "console.devices.do_to_many": {
+    "one": "“{label}” öñ {count} đèṽîçè?",
+    "other": "“{label}” öñ {count} đèṽîçèš?"
+  },
+  "console.devices.failed_on": "{device_label}: {reason}",
+  "console.devices.did_to_many": {
+    "one": "{label} öñ {count} đèṽîçè",
+    "other": "{label} öñ {count} đèṽîçèš"
+  },
+  "console.devices.happens_now_many": {
+    "one": "Ţĥîš ĥàþþèñš öñ {count} đèṽîçè, ñöŵ.",
+    "other": "Ţĥîš ĥàþþèñš öñ {count} đèṽîçèš, ñöŵ."
+  },
+  "console.devices.quit_detail_many": {
+    "one": "ṼÞîñƑÈ ǫûîţš öñ {count} đèṽîçè. Îţ ĥàš ţö ƀè šţàřţèđ àĝàîñ öñ îţ.",
+    "other": "ṼÞîñƑÈ ǫûîţš öñ {count} đèṽîçèš. Îţ ĥàš ţö ƀè šţàřţèđ àĝàîñ öñ èàçĥ."
+  },
   "console.devices.happens_now": "Ţĥîš ĥàþþèñš öñ {device_label}, ñöŵ.",
   "console.devices.last_checked": "Ŀàšţ çĥèçķèđ {when}",
   "console.devices.last_seen.help": "Ŵĥèñ îţ ŵàš ŀàšţ ķñöŵñ ţö ƀè ţĥèřè",
@@ -1548,6 +1565,21 @@
   "console.launchers.remove_strands": {
     "one": "{count} ţàƀŀè ûšèš îţ, àñđ ñö öţĥèř ŀàûñçĥèř çàñ þŀàý îţ.",
     "other": "{count} ţàƀŀèš ûšè îţ, àñđ ñö öţĥèř ŀàûñçĥèř çàñ þŀàý ţĥèɱ."
+  },
+  "console.launchers.launchers_menu": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ ŀàûñçĥèřš",
+  "console.launchers.selected": "{picked} öƒ {shown} šèŀèçţèđ",
+  "console.launchers.keep_one": "À đèṽîçè ķèèþš àţ ŀèàšţ öñè ŀàûñçĥèř",
+  "console.launchers.copy_title_many": {
+    "one": "Çöþý {count} ŀàûñçĥèř ţö ŵĥîçĥ đèṽîçèš?",
+    "other": "Çöþý {count} ŀàûñçĥèřš ţö ŵĥîçĥ đèṽîçèš?"
+  },
+  "console.launchers.remove_many": {
+    "one": "Řèɱöṽè {count} ŀàûñçĥèř?",
+    "other": "Řèɱöṽè {count} ŀàûñçĥèřš?"
+  },
+  "console.launchers.remove_many_tables": {
+    "one": "{count} ţàƀŀè ûšèš öñè öƒ ţĥèɱ àñđ ĝöèš ƀàçķ ţö ţĥè đèƒàûŀţ.",
+    "other": "{count} ţàƀŀèš ûšè ţĥèɱ àñđ ĝö ƀàçķ ţö ţĥè đèƒàûŀţ."
   },
   "console.launchers.search_launchers": "Šèàřçĥ ŀàûñçĥèřš",
   "console.launchers.switched_off": "Šŵîţçĥèđ Öƒƒ",
@@ -2035,6 +2067,20 @@
   "console.players.share_consent_title": "Šĥàřè àš “{id}” öñ “{service}”?",
   "console.players.share_needs_initials": "Àđđ îñîţîàŀš îñ Đèţàîŀš ƒîřšţ ţö šĥàřè",
   "console.players.show": "Šĥöŵ",
+  "console.players.players_menu": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ þŀàýèřš",
+  "console.players.selected": "{picked} öƒ {shown} šèŀèçţèđ",
+  "console.players.remove_several": {
+    "one": "Řèɱöṽè {count} þŀàýèř?",
+    "other": "Řèɱöṽè {count} þŀàýèřš?"
+  },
+  "console.players.remove_cards_detail": {
+    "one": "{count} ĥöŀđš à çàřđ, àñđ ŵîţĥöûţ îţ ţĥàţ àççöûñţ çàñ ñèṽèř ƀè ûšèđ àĝàîñ",
+    "other": "{count} ĥöŀđ à çàřđ, àñđ ŵîţĥöûţ îţ ţĥàţ àççöûñţ çàñ ñèṽèř ƀè ûšèđ àĝàîñ"
+  },
+  "console.players.sign_out_several": {
+    "one": "Šîĝñ öûţ {count} þŀàýèř?",
+    "other": "Šîĝñ öûţ {count} þŀàýèřš?"
+  },
   "console.players.show.help": "Šĥöŵ ţĥè çàřđ ŀàřĝè, ţö šçàñ ŵîţĥ à þĥöñè",
   "console.players.sign_out": "Šîĝñ Öûţ",
   "console.players.sign_out.help": "Ƒöřĝèţš ŵĥàţ ţĥèý þŀàýèđ ţĥîš šèššîöñ àñđ ţĥèîř àççöûñţš. Ţĥîš çàñ'ţ ƀè ûñđöñè.",
@@ -2822,7 +2868,10 @@
   "console.themes.type_choice": "Èẋþèçţèđ: öñè öƒ {count} çĥöîçèš",
   "console.themes.expected_text": "Èẋþèçţèđ: ţèẋţ",
   "console.themes.type_lines": "Èẋþèçţèđ: ţèẋţ, öṽèř àš ɱàñý ŀîñèš àš ýöû ŀîķè",
-  "console.themes.uninstall_detail": "Îţš ƒîŀèš àřè đèŀèţèđ. Îţ çàñ ƀè îñšţàŀŀèđ àĝàîñ ƒřöɱ ĥèřè, àñđ àñý šèţţîñĝš ýöû ĝàṽè îţ ĝö ŵîţĥ îţ.",
+  "console.themes.uninstall_detail": {
+    "one": "Îţš ƒîŀèš àřè đèŀèţèđ. Îţ çàñ ƀè îñšţàŀŀèđ àĝàîñ ƒřöɱ ĥèřè, àñđ àñý šèţţîñĝš ýöû ĝàṽè îţ ĝö ŵîţĥ îţ.",
+    "other": "Ţĥèîř ƒîŀèš àñđ šèţţîñĝš àřè đèŀèţèđ. Ţĥèý çàñ ƀè îñšţàŀŀèđ àĝàîñ ƒřöɱ ĥèřè."
+  },
   "console.themes.install": "Îñšţàŀŀ",
   "console.themes.install.help": "Đöŵñŀöàđš ţĥîš ţĥèɱè, řèàđý ţö ûšè",
   "console.themes.installed": "{key} îñšţàŀŀèđ",
@@ -2853,6 +2902,16 @@
     "other": "{count} ţĥèɱèš"
   },
   "console.themes.themes_of": "{shown} öƒ {count} ţĥèɱèš",
+  "console.themes.themes_menu": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ ţĥèɱèš",
+  "console.themes.selected": "{picked} öƒ {shown} šèŀèçţèđ",
+  "console.themes.uninstall_many": {
+    "one": "Ûñîñšţàŀŀ {count} ţĥèɱè?",
+    "other": "Ûñîñšţàŀŀ {count} ţĥèɱèš?"
+  },
+  "console.themes.uninstalled_many": {
+    "one": "{count} ţĥèɱè ûñîñšţàŀŀèđ",
+    "other": "{count} ţĥèɱèš ûñîñšţàŀŀèđ"
+  },
   "console.themes.uninstall": "Ûñîñšţàŀŀ “{name}”?",
   "console.themes.uninstalled": "{name} ûñîñšţàŀŀèđ",
   "console.themes.update": "Ûþđàţè",

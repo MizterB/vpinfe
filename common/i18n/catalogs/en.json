@@ -29,9 +29,9 @@
   "action.frontend.start.help": "Opens the frontend windows",
   "action.frontend.stop": "Close the frontend windows",
   "action.frontend.stop.help": "Closes the frontend windows. VPinFE keeps running.",
-  "action.system.restart": "Reboot this device",
+  "action.system.restart": "Reboot",
   "action.system.restart.help": "Reboots the whole device. Everything on it stops until it is back.",
-  "action.system.stop": "Power off this device",
+  "action.system.stop": "Power off",
   "action.system.stop.help": "Powers the whole device off. It has to be switched on again by hand.",
   "action.table.stop": "Close the table that is running",
   "action.table.stop.help": "Ends the game being played there. VPinFE keeps running.",
@@ -1111,6 +1111,23 @@
     "one": "Forgot {count} device",
     "other": "Forgot {count} devices"
   },
+  "console.devices.do_to_many": {
+    "one": "“{label}” on {count} device?",
+    "other": "“{label}” on {count} devices?"
+  },
+  "console.devices.failed_on": "{device_label}: {reason}",
+  "console.devices.did_to_many": {
+    "one": "{label} on {count} device",
+    "other": "{label} on {count} devices"
+  },
+  "console.devices.happens_now_many": {
+    "one": "This happens on {count} device, now.",
+    "other": "This happens on {count} devices, now."
+  },
+  "console.devices.quit_detail_many": {
+    "one": "VPinFE quits on {count} device. It has to be started again on it.",
+    "other": "VPinFE quits on {count} devices. It has to be started again on each."
+  },
   "console.devices.happens_now": "This happens on {device_label}, now.",
   "console.devices.last_checked": "Last checked {when}",
   "console.devices.last_seen.help": "When it was last known to be there",
@@ -1548,6 +1565,21 @@
   "console.launchers.remove_strands": {
     "one": "{count} table uses it, and no other launcher can play it.",
     "other": "{count} tables use it, and no other launcher can play them."
+  },
+  "console.launchers.launchers_menu": "Actions for the selected launchers",
+  "console.launchers.selected": "{picked} of {shown} selected",
+  "console.launchers.keep_one": "A device keeps at least one launcher",
+  "console.launchers.copy_title_many": {
+    "one": "Copy {count} launcher to which devices?",
+    "other": "Copy {count} launchers to which devices?"
+  },
+  "console.launchers.remove_many": {
+    "one": "Remove {count} launcher?",
+    "other": "Remove {count} launchers?"
+  },
+  "console.launchers.remove_many_tables": {
+    "one": "{count} table uses one of them and goes back to the default.",
+    "other": "{count} tables use them and go back to the default."
   },
   "console.launchers.search_launchers": "Search launchers",
   "console.launchers.switched_off": "Switched Off",
@@ -2035,6 +2067,20 @@
   "console.players.share_consent_title": "Share as “{id}” on “{service}”?",
   "console.players.share_needs_initials": "Add initials in Details first to share",
   "console.players.show": "Show",
+  "console.players.players_menu": "Actions for the selected players",
+  "console.players.selected": "{picked} of {shown} selected",
+  "console.players.remove_several": {
+    "one": "Remove {count} player?",
+    "other": "Remove {count} players?"
+  },
+  "console.players.remove_cards_detail": {
+    "one": "{count} holds a card, and without it that account can never be used again",
+    "other": "{count} hold a card, and without it that account can never be used again"
+  },
+  "console.players.sign_out_several": {
+    "one": "Sign out {count} player?",
+    "other": "Sign out {count} players?"
+  },
   "console.players.show.help": "Show the card large, to scan with a phone",
   "console.players.sign_out": "Sign Out",
   "console.players.sign_out.help": "Forgets what they played this session and their accounts. This can't be undone.",
@@ -2822,7 +2868,10 @@
   "console.themes.type_choice": "Expected: one of {count} choices",
   "console.themes.expected_text": "Expected: text",
   "console.themes.type_lines": "Expected: text, over as many lines as you like",
-  "console.themes.uninstall_detail": "Its files are deleted. It can be installed again from here, and any settings you gave it go with it.",
+  "console.themes.uninstall_detail": {
+    "one": "Its files are deleted. It can be installed again from here, and any settings you gave it go with it.",
+    "other": "Their files and settings are deleted. They can be installed again from here."
+  },
   "console.themes.install": "Install",
   "console.themes.install.help": "Downloads this theme, ready to use",
   "console.themes.installed": "{key} installed",
@@ -2853,6 +2902,16 @@
     "other": "{count} themes"
   },
   "console.themes.themes_of": "{shown} of {count} themes",
+  "console.themes.themes_menu": "Actions for the selected themes",
+  "console.themes.selected": "{picked} of {shown} selected",
+  "console.themes.uninstall_many": {
+    "one": "Uninstall {count} theme?",
+    "other": "Uninstall {count} themes?"
+  },
+  "console.themes.uninstalled_many": {
+    "one": "{count} theme uninstalled",
+    "other": "{count} themes uninstalled"
+  },
   "console.themes.uninstall": "Uninstall “{name}”?",
   "console.themes.uninstalled": "{name} uninstalled",
   "console.themes.update": "Update",

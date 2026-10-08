@@ -11,7 +11,7 @@ import html
 import inspect
 import json
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from functools import partial
 from typing import Any
 
@@ -233,8 +233,12 @@ async def _fill(library: Library, state: dict[str, Any],
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.players.search_players"))
             with bar.bottom, panel.bar_end():
-                ui.label(t("console.players.players_count", count=len(built))) \
+                count = ui.label(t("console.players.players_count", count=len(built))) \
                     .classes("text-xs console-label")
+                show_selection = panel.selection_menu(
+                    t("console.players.players_menu"), lambda: grid.selection(table),
+                    lambda chosen: acts_on(chosen),
+                    lambda: table.run_grid_method("deselectAll"))
                 panel.add_action(
                     [(t("console.players.add_player"),
                       lambda: add_player(library, state, redraw)),
@@ -252,13 +256,7 @@ async def _fill(library: Library, state: dict[str, Any],
         grid.on_row_focus(SCOPE,
                           lambda event: on_select(by_id.get(grid.focused_row(event))))
 
-        def fill(row: dict | None) -> None:
-            player = by_player.get(str((row or {}).get("id") or ""))
-            if player is None:
-                menu.clear()
-                return
-            player_id = str(player["id"])
-
+        def changed_for(player_id: str) -> Callable[[], Awaitable[Any]]:
             async def changed_here() -> None:
                 await _refresh(state)
                 if state.get("player") != player_id:
@@ -266,26 +264,67 @@ async def _fill(library: Library, state: dict[str, Any],
                 answer = on_select(by_id.get(player_id))
                 if inspect.isawaitable(answer):
                     await answer
+            return changed_here
 
-            panel.verb_menu(menu, shown_name(player),
-                            acts(library, state, player, redraw,
-                                 accounts=held.get(player_id) or [], after=changed_here))
+        def acts_on(rows_on: list[dict[str, Any]]) -> list[panel.Verb]:
+            chosen = [by_player[str(one["id"])] for one in rows_on
+                      if str(one["id"]) in by_player]
+            if not chosen:
+                return []
+            after = (changed_for(str(chosen[0]["id"])) if len(chosen) == 1
+                     else partial(_refresh, state))
+            return acts(library, state, chosen, redraw, accounts=held, after=after)
+
+        picked: list[dict[str, Any]] = []
+        shown = {"rows": len(built)}
+
+        def said() -> str:
+            if picked:
+                return grid.selection_said(table, len(picked), t(
+                    "console.players.selected", picked=len(picked), shown=shown["rows"]))
+            return t("console.players.players_count", count=len(built))
+
+        def on_selected(rows_selected: list[dict[str, Any]]) -> None:
+            picked[:] = rows_selected
+            show_selection(bool(rows_selected))
+            count.text = said()
+
+        async def counted() -> None:
+            seen = await table.run_grid_method("getDisplayedRowCount")
+            shown["rows"] = int(seen if isinstance(seen, int) else len(built))
+            count.text = said()
+
+        def fill(row: dict | None) -> None:
+            if row is None or str(row.get("id") or "") not in by_player:
+                menu.clear()
+                return
+            on = grid.menu_rows(table, row)
+            panel.verb_menu(
+                menu, shown_name(by_player[str(row["id"])]) if len(on) == 1
+                else t("console.players.players_count", count=len(on)),
+                panel.for_selection(acts_on(on), len(on)))
+
+        async def on_header_context(col_id: str | None) -> None:
+            await grid.header_menu(menu, table, columns, col_id)
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table = grid.build(columns, built, SCOPE, on_context=fill, view_of=showing)
+            table = grid.build(columns, built, SCOPE, on_selected, fill, on_header_context,
+                               view_of=showing)
             menu = ui.context_menu()
+        table.on("modelUpdated", counted)
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
         wire_views(table)
 
         async def refresh_players() -> None:
-            fresh, counted, again = await _read(library)
+            fresh, played, again = await _read(library)
             held.clear()
             held.update(again)
             by_player.clear()
             by_player.update({str(one["id"]): one for one in fresh})
-            grid.replace_rows(table, built, by_id, rows(fresh, counted), lambda _row: True)
+            grid.replace_rows(table, built, by_id, rows(fresh, played), lambda _row: True)
+            count.text = said()
 
         state["refresh_players"] = refresh_players
 
@@ -418,7 +457,8 @@ async def add_guest(library: Library, state: dict[str, Any],
 
 def account_verbs(library: Library, player: dict[str, Any],
                   accounts: Sequence[dict[str, Any]],
-                  after: Callable[[], Awaitable[Any]]) -> list[panel.Verb]:
+                  after: Callable[[], Awaitable[Any]], *, one: bool = False
+                  ) -> list[panel.Verb]:
     """Disconnect where an account is claimed, and Remove user ID where an id is held
     but not claimed, one each per service. An account with neither is not offered."""
     context = {"library": library, "player": player, "rebuild": after}
@@ -430,27 +470,43 @@ def account_verbs(library: Library, player: dict[str, Any],
         if account.get("claimed"):
             offered.append(panel.Verb(
                 t("console.players.menu_disconnect", service=service),
-                partial(_disconnect, context, account, service), danger=True))
+                partial(_disconnect, context, account, service), danger=True, one=one))
         else:
             offered.append(panel.Verb(
                 t("console.players.menu_remove_id", service=service),
-                partial(_remove_user_id, context, account, service), danger=True))
+                partial(_remove_user_id, context, account, service), danger=True, one=one))
     return offered
 
 
-def acts(library: Library, state: dict[str, Any], player: dict[str, Any],
-         redraw: Callable[[], None], *, accounts: Sequence[dict[str, Any]] = (),
+def acts(library: Library, state: dict[str, Any], players: Sequence[dict[str, Any]],
+         redraw: Callable[[], None], *,
+         accounts: Mapping[str, Sequence[dict[str, Any]]] | None = None,
          after: Callable[[], Awaitable[Any]] | None = None) -> list[panel.Verb]:
-    """What can be done to one player. The owner stays, and says so."""
-    offered = account_verbs(library, player, accounts, after) if after else []
-    if player.get("guest"):
-        return [*offered, panel.Verb(
-            t("console.players.sign_out"),
-            lambda: sign_out(library, state, redraw, player), danger=True)]
-    return [*offered, panel.Verb(
-        t("word.remove"),
-        None if player.get("owner") else (lambda: remove(library, state, redraw, player)),
-        danger=True, hint=t("error.players.owner_not_removable"))]
+    """What can be done to the players `players`. A service's account acts belong to one
+    player and are for one at a time; Sign Out and Remove act on the guests and the kept
+    players among them. The owner stays, and says so."""
+    held = accounts or {}
+    several = len(players) > 1
+    offered: list[panel.Verb] = []
+    if after:
+        for player in players:
+            for verb in account_verbs(library, player, held.get(str(player["id"])) or [],
+                                      after, one=several):
+                if all(verb.label != seen.label for seen in offered):
+                    offered.append(verb)
+    guests = [one for one in players if one.get("guest")]
+    kept = [one for one in players if not one.get("guest")]
+    removable = [one for one in kept if not one.get("owner")]
+    if guests:
+        offered.append(panel.Verb(t("console.players.sign_out"),
+                                  lambda: sign_out(library, state, redraw, guests),
+                                  danger=True))
+    if kept:
+        offered.append(panel.Verb(
+            t("word.remove"),
+            (lambda: remove(library, state, redraw, removable)) if removable else None,
+            danger=True, hint=t("error.players.owner_not_removable")))
+    return offered
 
 
 def removal_detail(carded: dict[str, Any] | None) -> list[str]:
@@ -463,16 +519,37 @@ def removal_detail(carded: dict[str, Any] | None) -> list[str]:
     return said
 
 
+async def _held_cards(library: Library, players: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The accounts among `players` that only a card can bring back."""
+    cards: list[dict[str, Any]] = []
+    for player in players:
+        try:
+            held = await offload.io(library.player_accounts, player["id"])
+        except Exception:  # noqa: BLE001 - the confirm still asks, without the offer
+            logger.debug("Could not read a player's accounts before removing", exc_info=True)
+            continue
+        cards += [one for one in held if one.get("card")]
+    return cards
+
+
 @on_page
 async def remove(library: Library, state: dict[str, Any], redraw: Callable[[], None],
-                 player: dict[str, Any]) -> None:
-    """Asked first, with Save Card beside the answer where they hold a card."""
-    try:
-        held = await offload.io(library.player_accounts, player["id"])
-    except Exception:  # noqa: BLE001 - the confirm still asks, without the offer
-        logger.debug("Could not read a player's accounts before removing", exc_info=True)
-        held = []
-    carded = next((one for one in held if one.get("card")), None)
+                 players: list[dict[str, Any]]) -> None:
+    """Asked first, with Save Card beside the answer where the one player holds a card, and
+    a line saying how many do where several go."""
+    cards = await _held_cards(library, players)
+    if len(players) > 1:
+        detail = [t("console.players.remove_detail")]
+        if cards:
+            detail.append(t("console.players.remove_cards_detail", count=len(cards)))
+        if not await confirm.ask(t("console.players.remove_several", count=len(players)),
+                                 detail=detail, lines=[shown_name(one) for one in players],
+                                 confirm=t("word.remove"), icon=verbs.REMOVE):
+            return
+        await _gone(library, state, redraw, players)
+        return
+    player = players[0]
+    carded = cards[0] if cards else None
     also = None
     if carded is not None:
         account: dict[str, Any] = carded
@@ -487,12 +564,16 @@ async def remove(library: Library, state: dict[str, Any], redraw: Callable[[], N
 
 @on_page
 async def sign_out(library: Library, state: dict[str, Any], redraw: Callable[[], None],
-                   player: dict[str, Any]) -> None:
-    if not await confirm.ask(t("console.players.sign_out_one", name=shown_name(player)),
-                             detail=t("console.players.sign_out_detail"),
-                             confirm=t("console.players.sign_out"), icon=verbs.REMOVE):
+                   players: list[dict[str, Any]]) -> None:
+    several = len(players) > 1
+    if not await confirm.ask(
+            t("console.players.sign_out_several", count=len(players)) if several
+            else t("console.players.sign_out_one", name=shown_name(players[0])),
+            detail=t("console.players.sign_out_detail"),
+            lines=[shown_name(one) for one in players] if several else (),
+            confirm=t("console.players.sign_out"), icon=verbs.REMOVE):
         return
-    await _gone(library, state, redraw, [player])
+    await _gone(library, state, redraw, players)
 
 
 @on_page

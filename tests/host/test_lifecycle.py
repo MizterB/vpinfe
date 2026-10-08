@@ -106,7 +106,7 @@ class LifecycleTests(unittest.TestCase):
             origin=self._at(lifecycle.SURFACE_FRONTEND)))
         # The broken one sits between the other two, so both running proves it neither
         # stopped the announcement nor stopped the action.
-        self.assertEqual(told, ["Power off this device", "system"])
+        self.assertEqual(told, ["Power off", "system"])
         self.assertEqual(self.done, [(lifecycle.SYSTEM, lifecycle.STOP)])
 
     def test_nobody_is_told_about_something_that_was_declined(self) -> None:
@@ -150,8 +150,8 @@ class LifecycleTests(unittest.TestCase):
             (lifecycle.FRONTEND, lifecycle.RESTART): "Reopen the frontend windows",
             (lifecycle.VPINFE, lifecycle.STOP): "Quit VPinFE",
             (lifecycle.VPINFE, lifecycle.RESTART): "Restart VPinFE",
-            (lifecycle.SYSTEM, lifecycle.STOP): "Power off this device",
-            (lifecycle.SYSTEM, lifecycle.RESTART): "Reboot this device",
+            (lifecycle.SYSTEM, lifecycle.STOP): "Power off",
+            (lifecycle.SYSTEM, lifecycle.RESTART): "Reboot",
         }
         for (scope, action), wording in expected.items():
             with self.subTest(scope=scope, action=action):
@@ -292,7 +292,7 @@ class NoticeTests(unittest.TestCase):
         self.assertEqual(len(bridge.sent), 1)
         message, excluded = bridge.sent[0]
         self.assertEqual(message["type"], "LifecycleActing")
-        self.assertEqual(message["description"], "Power off this device")
+        self.assertEqual(message["description"], "Power off")
         self.assertEqual(message["origin"], lifecycle.SURFACE_MANAGER_UI)
         self.assertIsNone(excluded, "no window asked, so no window is left out")
 

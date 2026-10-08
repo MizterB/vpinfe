@@ -7270,14 +7270,14 @@ def _page_redraw(context: dict[str, Any]) -> Callable[[], None]:
 
 
 def _launcher_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    return launchers_page.acts(context["library"], context["state"], context["launcher"],
+    return launchers_page.acts(context["library"], context["state"], [context["launcher"]],
                                len(context.get("launchers") or []), _page_redraw(context),
                                after=context["rebuild"],
                                playing=bool(context.get("playing")))
 
 
 def _theme_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    return themes_page.acts(context["library"], context["theme"],
+    return themes_page.acts(context["library"], [context["theme"]],
                             partial(themes_page.changed, context))
 
 
@@ -7291,18 +7291,19 @@ def _backup_verbs(context: dict[str, Any]) -> list[panel.Verb]:
 
 
 def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    return players_page.acts(context["library"], context["state"], context["player"],
-                             _page_redraw(context), accounts=context.get("accounts") or (),
+    player = context["player"]
+    return players_page.acts(context["library"], context["state"], [player],
+                             _page_redraw(context),
+                             accounts={str(player["id"]): context.get("accounts") or ()},
                              after=context["rebuild"])
 
 
 def _device_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     if context.get("library") is None:
         return []
-    return devices_page.acts(context["library"], context["device"], _page_redraw(context),
-                             client=devices_page.client_for(context),
-                             offered=context.get("actions"),
-                             forgettable=not devices_page.is_local(context))
+    target = devices_page.Target(context["device"], devices_page.client_for(context),
+                                 context.get("actions"), not devices_page.is_local(context))
+    return devices_page.acts(context["library"], [target], _page_redraw(context))
 
 
 def _game_verbs(context: dict[str, Any]) -> list[panel.Verb]:

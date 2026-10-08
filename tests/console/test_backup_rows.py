@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 from common.backups import copies
@@ -48,7 +49,7 @@ def _confirmed(name: str = "", note: str = ""):
     """A Back up now dialog answered as the person would, with what it was offered."""
     offered: list[str] = []
 
-    async def ask(suggested: str, take) -> None:
+    async def ask(suggested: str, take, **_: Any) -> None:
         offered.append(suggested)
         await take(name or suggested, note)
 

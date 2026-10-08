@@ -190,6 +190,10 @@ async def _fill(library: Library, state: dict[str, Any],
             with bar.bottom, panel.bar_end():
                 count = ui.label(_themes_said(len(built), len(built))) \
                     .classes("text-xs console-label")
+                show_selection = panel.selection_menu(
+                    t("console.themes.themes_menu"), lambda: grid.selection(table),
+                    lambda chosen: acts_on(chosen),
+                    lambda: table.run_grid_method("deselectAll"))
                 panel.refresh(lambda: _fill(library, state, on_select, redraw, body,
                                             refresh=True),
                               t("console.themes.check_updates"))
@@ -205,33 +209,54 @@ async def _fill(library: Library, state: dict[str, Any],
         async def redrawn() -> None:
             redraw()
 
+        def acts_on(rows_on: list[dict[str, Any]]) -> list[panel.Verb]:
+            chosen = [by_key[str(one["id"])] for one in rows_on if str(one["id"]) in by_key]
+            return acts(library, chosen, redrawn) if chosen else []
+
+        picked: list[dict[str, Any]] = []
+        shown = {"rows": len(built)}
+
+        def said() -> str:
+            if picked:
+                return grid.selection_said(table, len(picked), t(
+                    "console.themes.selected", picked=len(picked), shown=shown["rows"]))
+            return _themes_said(shown["rows"], len(by_id))
+
+        def on_selected(rows_selected: list[dict[str, Any]]) -> None:
+            picked[:] = rows_selected
+            show_selection(bool(rows_selected))
+            count.text = said()
+
         def fill(row: dict | None) -> None:
-            theme = by_key.get(str((row or {}).get("id") or ""))
-            if theme is None:
+            if row is None or str(row.get("id") or "") not in by_key:
                 menu.clear()
                 return
-            panel.verb_menu(menu, str(theme.get("name") or theme["key"]),
-                            acts(library, theme, redrawn))
+            on = grid.menu_rows(table, row)
+            theme = by_key[str(row["id"])]
+            panel.verb_menu(
+                menu, str(theme.get("name") or theme["key"]) if len(on) == 1
+                else t("console.themes.themes", count=len(on)),
+                panel.for_selection(acts_on(on), len(on)))
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table = grid.build(COLUMNS, built, SCOPE, on_context=fill,
-                               on_header_context=on_header_context, view_of=showing)
+            table = grid.build(COLUMNS, built, SCOPE, on_selected, fill, on_header_context,
+                               view_of=showing)
             menu = ui.context_menu()
         grid.on_row_focus(SCOPE, lambda event: on_select(by_id.get(grid.focused_row(event))))
 
         async def counted() -> None:
             seen = await table.run_grid_method("getDisplayedRowCount")
-            count.text = _themes_said(seen if isinstance(seen, int) else len(by_id),
-                                      len(by_id))
+            shown["rows"] = seen if isinstance(seen, int) else len(by_id)
+            count.text = said()
 
         table.on("modelUpdated", counted)
 
         async def refresh_rows() -> None:
-            fresh = rows(list((await offload.io(library.themes, False)).get("themes") or []))
-            by_id.clear()
-            by_id.update({row["id"]: row for row in fresh})
-            table.run_grid_method("setGridOption", "rowData", fresh)
-            grid.redraw(table)
+            themes_now = list((await offload.io(library.themes, False)).get("themes") or [])
+            by_key.clear()
+            by_key.update({str(one["key"]): one for one in themes_now})
+            grid.replace_rows(table, built, by_id, rows(themes_now), lambda _row: True)
+            count.text = said()
 
         state["refresh_themes"] = refresh_rows
         wire_views(table)
@@ -357,26 +382,28 @@ def changes_worth_showing(theme: dict[str, Any]) -> str:
     return said if not theme.get("installed") or theme.get("update_available") else ""
 
 
-def acts(library: Library, theme: dict[str, Any],
+def acts(library: Library, themes: list[dict[str, Any]],
          after: Callable[[], Any]) -> list[panel.Verb]:
-    """What can be done to one theme. The first of these is also drawn beside its
-    status, as the one act that state is waiting on."""
-    key = theme["key"]
+    """What can be done to these themes. For one, the first of these is also drawn beside
+    its status, as the one act that state is waiting on."""
+    absent = [one for one in themes if not one["installed"]]
+    newer = [one for one in themes if one["installed"] and one["update_available"]]
+    # Not the active one: uninstalling it would leave the frontend with no theme at all,
+    # and the way out of that is a config file.
+    idle = [one for one in themes if one["installed"] and not one["active"]]
     offered: list[panel.Verb] = []
-    if not theme["installed"]:
+    if absent:
         offered.append(panel.Verb(t("console.themes.install"),
-                                  lambda: _install(library, key, after), icon=verbs.FETCH))
-    elif theme["update_available"]:
+                                  lambda: _install(library, absent, after), icon=verbs.FETCH))
+    if newer:
         offered.append(panel.Verb(t("console.themes.update"),
-                                  lambda: _install(library, key, after), icon=verbs.UPDATE))
-    if theme["installed"] and not theme["active"]:
+                                  lambda: _install(library, newer, after), icon=verbs.UPDATE))
+    if idle:
         offered.append(panel.Verb(t("word.make_active"),
-                                  lambda: _activate(library, theme, after),
-                                  icon=verbs.ACTIVATE))
-        # Not on the active one: uninstalling it would leave the frontend with no theme
-        # at all, and the way out of that is a config file.
+                                  lambda: _activate(library, idle[0], after),
+                                  icon=verbs.ACTIVATE, one=True))
         offered.append(panel.Verb(t("word.uninstall"),
-                                  lambda: _uninstall(library, theme, after), danger=True))
+                                  lambda: _uninstall(library, idle, after), danger=True))
     return offered
 
 
@@ -396,7 +423,7 @@ def _status_value(context: dict[str, Any], library: Library,
     async def again() -> None:
         await changed(context)
 
-    waiting = next((one for one in acts(library, theme, again) if not one.danger), None)
+    waiting = next((one for one in acts(library, [theme], again) if not one.danger), None)
 
     def draw() -> None:
         with ui.row().classes("items-center gap-2 no-wrap"):
@@ -439,18 +466,25 @@ async def settings_section(context: dict[str, Any]) -> None:
 
 
 @on_page
-async def _install(library: Library, key: str, again: Callable[[], Any]) -> None:
-    downloading = ui.notification(t("console.themes.downloading", key=key),
-                                  spinner=True, timeout=None)
-    try:
-        await run.io_bound(library.install_theme, key)
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("console.themes.install_failed"), caption=why(exc), type="negative")
-        return
-    finally:
-        downloading.dismiss()
-    ui.notify(t("console.themes.installed", key=(key)), type="positive")
-    await again()
+async def _install(library: Library, themes: list[dict[str, Any]],
+                   again: Callable[[], Any]) -> None:
+    """Each in turn; one that fails says so and the rest go on."""
+    done = 0
+    for theme in themes:
+        key = theme["key"]
+        downloading = ui.notification(t("console.themes.downloading", key=key),
+                                      spinner=True, timeout=None)
+        try:
+            await run.io_bound(library.install_theme, key)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("console.themes.install_failed"), caption=why(exc), type="negative")
+            continue
+        finally:
+            downloading.dismiss()
+        done += 1
+        ui.notify(t("console.themes.installed", key=key), type="positive")
+    if done:
+        await again()
 
 
 @on_page
@@ -468,20 +502,27 @@ async def _activate(library: Library, theme: dict[str, Any], again: Callable[[],
 
 
 @on_page
-async def _uninstall(library: Library, theme: dict[str, Any],
+async def _uninstall(library: Library, themes: list[dict[str, Any]],
                      again: Callable[[], Any]) -> None:
     if not await confirm.ask(
-            t("console.themes.uninstall", name=theme["name"]),
-            detail=t("console.themes.uninstall_detail"),
+            t("console.themes.uninstall", name=themes[0]["name"]) if len(themes) == 1
+            else t("console.themes.uninstall_many", count=len(themes)),
+            detail=t("console.themes.uninstall_detail", count=len(themes)),
             confirm=t("word.uninstall"), icon=verbs.UNINSTALL):
         return
-    try:
-        await run.io_bound(library.remove_theme, theme["key"])
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
-        return
-    ui.notify(t("console.themes.uninstalled", name=theme["name"]), type="positive")
-    await again()
+    gone = []
+    for theme in themes:
+        try:
+            await run.io_bound(library.remove_theme, theme["key"])
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+            continue
+        gone.append(theme)
+    if gone:
+        ui.notify(t("console.themes.uninstalled", name=gone[0]["name"]) if len(gone) == 1
+                  else t("console.themes.uninstalled_many", count=len(gone)),
+                  type="positive")
+        await again()
 
 
 def _rows(options: list[dict[str, Any]], wanted: dict[str, Any],

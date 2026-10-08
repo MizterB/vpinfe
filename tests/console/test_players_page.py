@@ -144,7 +144,7 @@ class TheDetails(unittest.TestCase):
 
 class WhatCanBeDone(unittest.TestCase):
     def acts(self, player: dict[str, Any]) -> list:
-        return players.acts(object(), {}, player, lambda: None)  # type: ignore[arg-type]
+        return players.acts(object(), {}, [player], lambda: None)  # type: ignore[arg-type]
 
     def test_the_owner_s_remove_is_offered_and_refused_with_why(self) -> None:
         (verb,) = self.acts(OWNER)
@@ -171,17 +171,17 @@ class WhatCanBeDone(unittest.TestCase):
             {"extension": "bare", "label": "Bare", "user_id": ""},
             {"extension": "broken", "label": "Broken", "user_id": "u-3", "error": "down"},
         ]
-        made = players.acts(object(), {}, _player("p-jor"), lambda: None,  # type: ignore[arg-type]
-                            accounts=accounts, after=after)
+        made = players.acts(object(), {}, [_player("p-jor")], lambda: None,  # type: ignore[arg-type]
+                            accounts={"p-jor": accounts}, after=after)
         self.assertEqual([(one.label, one.danger) for one in made], [
             (t("console.players.menu_disconnect", service="VPinPlay"), True),
             (t("console.players.menu_remove_id", service="Other"), True),
             (t("word.remove"), True)])
 
     def test_without_a_way_to_redraw_only_the_player_is_offered(self) -> None:
-        made = players.acts(object(), {}, _player("p-jor"), lambda: None,  # type: ignore[arg-type]
-                            accounts=[{"extension": "vpinplay", "user_id": "u-1",
-                                       "claimed": True}])
+        made = players.acts(object(), {}, [_player("p-jor")], lambda: None,  # type: ignore[arg-type]
+                            accounts={"p-jor": [{"extension": "vpinplay", "user_id": "u-1",
+                                            "claimed": True}]})
         self.assertEqual([one.label for one in made], [t("word.remove")])
 
     def test_removing_says_what_goes_and_offers_the_card_where_there_is_one(self) -> None:

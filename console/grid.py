@@ -1112,7 +1112,8 @@ def _suppress_empty_menu(grid: Any, *, rows: bool, headers: bool,
 
     `rows` and `headers` say whether this grid has a menu for each; `without` names the
     row ids that have nothing even where the rest do, and a row whose data says `NO_MENU`
-    has nothing right now. Guarded by `tests/console/test_context_menus_are_guarded.py`.
+    has nothing right now, unless it sits inside a selection of several. Guarded by
+    `tests/console/test_context_menus_are_guarded.py`.
     """
     ui.run_javascript(f"""
     (() => {{
@@ -1138,8 +1139,10 @@ def _suppress_empty_menu(grid: Any, *, rows: bool, headers: bool,
           const without = {json.dumps(list(without or []))};
           const id = row.getAttribute('row-id') || '';
           const node = found.api && found.api.getRowNode(id);
+          // Inside a selection of several the menu is the selection's, whatever this row has.
+          const inside = node && node.isSelected() && found.api.getSelectedNodes().length > 1;
           offer = {str(rows).lower()} && !without.includes(id)
-                  && !(node && node.data && node.data[{json.dumps(NO_MENU)}]);
+                  && (inside || !(node && node.data && node.data[{json.dumps(NO_MENU)}]));
         }}
         if (!offer) {{
           event.stopPropagation();

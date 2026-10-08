@@ -35,6 +35,7 @@ from console import (
     panel,
     verbs,
     views,
+    walks,
 )
 from console import dialog as frame
 from console.data import Library
@@ -148,12 +149,17 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
 
     # Imported here: `workbench` imports this module, and `games` imports `workbench`,
     # so reaching for it at the top would close the loop.
+    from console import workbench
     from console.games import view_control
 
     held = list(found.get("launchers") or [])
     apps_known = list(found.get("apps") or [])
+    playing = {"now": await offload.io(workbench._playing, library)}
     built = rows(held, dict(found.get("defaults") or {}), dict(found.get("tables") or {}))
     fields = [definition["field"] for definition in COLUMNS]
+
+    async def playing_now() -> None:
+        playing["now"] = await offload.io(workbench._playing, library)
 
     with body:
         with ui.row().classes("w-full items-center gap-2 px-3 py-2 mb-2 shrink-0 "
@@ -165,8 +171,12 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
             with bar.top, panel.bar_end():
                 search = panel.search(t("console.launchers.search_launchers"))
             with bar.bottom, panel.bar_end():
-                ui.label(t("console.launchers.launcher", count=len(built))) \
+                count = ui.label(t("console.launchers.launcher", count=len(built))) \
                     .classes("text-xs console-label")
+                show_selection = panel.selection_menu(
+                    t("console.launchers.launchers_menu"), lambda: grid.selection(table),
+                    lambda chosen: acts_on(chosen),
+                    lambda: table.run_grid_method("deselectAll"), ready=playing_now)
                 panel.add_action(
                     [(t("console.launchers.add", app=one["name"]),
                       (lambda a=one: _add(library, state, redraw, a)))
@@ -183,26 +193,60 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
         grid.on_row_focus(SCOPE,
                           lambda event: on_select(by_id.get(grid.focused_row(event))))
 
-        def fill(row: dict | None) -> None:
-            launcher = by_launcher.get(str((row or {}).get("id") or ""))
-            if launcher is None:
+        async def copied() -> None:
+            current = by_id.get(str(state.get("launcher") or ""))
+            if current is None:
+                return
+            answer = on_select(current)
+            if inspect.isawaitable(answer):
+                await answer
+
+        def acts_on(rows_on: list[dict[str, Any]]) -> list[panel.Verb]:
+            chosen = [by_launcher[str(one["id"])] for one in rows_on
+                      if str(one["id"]) in by_launcher]
+            if not chosen:
+                return []
+            return acts(library, state, chosen, len(by_launcher), redraw, after=copied,
+                        playing=playing["now"])
+
+        picked: list[dict[str, Any]] = []
+        shown = {"rows": len(built)}
+
+        def said() -> str:
+            if picked:
+                return grid.selection_said(table, len(picked), t(
+                    "console.launchers.selected", picked=len(picked), shown=shown["rows"]))
+            return t("console.launchers.launcher", count=len(built))
+
+        def on_selected(rows_selected: list[dict[str, Any]]) -> None:
+            picked[:] = rows_selected
+            show_selection(bool(rows_selected))
+            count.text = said()
+
+        async def counted() -> None:
+            seen = await table.run_grid_method("getDisplayedRowCount")
+            shown["rows"] = int(seen if isinstance(seen, int) else len(built))
+            count.text = said()
+
+        async def fill(row: dict | None) -> None:
+            if row is None or str(row.get("id") or "") not in by_launcher:
                 menu.clear()
                 return
-            launcher_id = str(launcher["launcher_id"])
+            await playing_now()
+            on = grid.menu_rows(table, row)
+            panel.verb_menu(
+                menu, str(by_launcher[str(row["id"])]["display_name"]) if len(on) == 1
+                else t("console.launchers.launcher", count=len(on)),
+                panel.for_selection(acts_on(on), len(on)))
 
-            async def copied() -> None:
-                if state.get("launcher") != launcher_id:
-                    return
-                answer = on_select(by_id.get(launcher_id))
-                if inspect.isawaitable(answer):
-                    await answer
-
-            panel.verb_menu(menu, str(launcher["display_name"]),
-                            acts(library, state, launcher, len(held), redraw, after=copied))
+        async def on_header_context(col_id: str | None) -> None:
+            await grid.header_menu(menu, table, COLUMNS, col_id)
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-            table = grid.build(COLUMNS, built, SCOPE, on_context=fill, view_of=showing)
+            table = grid.build(COLUMNS, built, SCOPE, on_selected, fill, on_header_context,
+                               view_of=showing)
             menu = ui.context_menu()
+        table.on("modelUpdated", counted)
         search.on_value_change(
             lambda: table.run_grid_method("setGridOption", "quickFilterText",
                                           search.value or ""))
@@ -218,6 +262,7 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
                               rows(fresh_held, dict(again.get("defaults") or {}),
                                    dict(again.get("tables") or {})),
                               lambda _row: True)
+            count.text = said()
 
         state["refresh_launchers"] = refresh_launchers
 
@@ -247,31 +292,49 @@ async def _add(library: Library, state: dict[str, Any], redraw: Callable[[], Non
         await _open(state, redraw, made)
 
 
+def _place(index: int, total: int) -> str:
+    return t("console.walk.position", index=index, total=total) if total > 1 else ""
+
+
 @on_page
 async def duplicate(library: Library, state: dict[str, Any], redraw: Callable[[], None],
-                     launcher: dict) -> None:
-    """A copy, which is the case this feature exists for: change one thing - usually the
-    Settings File - and you have a second way of running the same program.
+                    launchers: list[dict]) -> None:
+    """A copy of each, which is the case this feature exists for: change one thing -
+    usually the Settings File - and you have a second way of running the same program.
 
     The copy does not claim to own an ini. It points at whatever the original did, and
-    only a file VPinFE made is one VPinFE offers to delete.
+    only a file VPinFE made is one VPinFE offers to delete. Over several it asks a name
+    for each in turn.
     """
     from common.games import launchers as model
 
     names = await _names(library)
-    made = model.mint_launcher_id()
-    offered = model.free_name(t("console.launchers.copy_of", name=launcher["display_name"]),
-                              names)
+    made: list[str] = []
+    for index, launcher in enumerate(launchers, 1):
+        new_id = model.mint_launcher_id()
+        offered = model.free_name(
+            t("console.launchers.copy_of", name=launcher["display_name"]), names)
 
-    async def write(name: str, _settings: dict[str, str]) -> None:
-        await run.io_bound(library.put_launcher, made,
-                           {**launcher, "launcher_id": made, "owns_ini": False,
-                            "display_name": name or offered})
+        async def write(name: str, _settings: dict[str, str], original: dict = launcher,
+                        new_id: str = new_id, offered: str = offered) -> None:
+            await run.io_bound(library.put_launcher, new_id,
+                               {**original, "launcher_id": new_id, "owns_ini": False,
+                                "display_name": name or offered})
+            names.append(name or offered)
 
-    if await ask_name(t("console.launchers.duplicate_title", name=launcher["display_name"]),
-                      t("console.workbench.duplicate"), names, write, named=offered,
-                      icon=verbs.DUPLICATE):
-        await _open(state, redraw, made)
+        answer = await ask_name(
+            t("console.launchers.duplicate_title", name=launcher["display_name"]),
+            t("console.workbench.duplicate"), names, write, named=offered,
+            icon=verbs.DUPLICATE, place=_place(index, len(launchers)),
+            walking=len(launchers) > 1)
+        if answer == walks.STOPPED:
+            break
+        if answer:
+            made.append(new_id)
+    if len(made) == 1:
+        await _open(state, redraw, made[0])
+    elif made:
+        redraw()
 
 
 async def _open(state: dict[str, Any], redraw: Callable[[], None], made: str) -> None:
@@ -288,13 +351,16 @@ async def ask_name(title: str, answer: str, names: list[str],
                    write: Callable[[str, dict[str, str]], Awaitable[None]], *,
                    named: str = "", asked: list[dict] | None = None,
                    placeholder: str = "", icon: str = verbs.CREATE,
-                   looking: Callable[..., dict] | None = None) -> bool:
+                   looking: Callable[..., dict] | None = None,
+                   place: str = "", walking: bool = False) -> bool | str:
     """Name a launcher, and fill the path fields `asked` lists, before it exists.
 
     `looking` lists a folder for the picker; without it the path fields are typed only.
+    `place` says where a walk has got to, and `walking` splits Cancel into Skip and Stop.
 
-    True once `write` took it. A name already in use, or any refusal from `write`, is
-    said on the Name field and the dialog stays open.
+    True once `write` took it, False when skipped, `walks.STOPPED` when a walk is ended.
+    A name already in use, or any refusal from `write`, is said on the Name field and the
+    dialog stays open.
     """
     from common.games import launchers as model
 
@@ -334,17 +400,20 @@ async def ask_name(title: str, answer: str, names: list[str],
         box.submit(True)
 
     with frame.opened(title) as box:
+        if place:
+            ui.label(place).classes("console-help px-3")
         panel.facts(ui, [(t("word.name"), draw("name", named, placeholder))]
                     + [(one["label"], draw(one["key"], hint=str(one.get("blank") or ""),
                                            browse=browsing(one)))
                        for one in asked or ()])
         with frame.footer():
-            frame.cancel(lambda: box.submit(False))
+            frame.leave(box, walking)
             go = frame.answer(answer, keep, icon=icon)
     fields["name"].on_value_change(lambda: refused(""))
     frame.focus(box, fields["name"], select=bool(named))
     frame.enter_presses(go)
-    return bool(await box)
+    answered = await box
+    return answered if answered == walks.STOPPED else bool(answered)
 
 
 async def _names(library: Library) -> list[str]:
@@ -360,7 +429,8 @@ def copy_targets(known: list[dict], install_id: str) -> list[dict]:
 
 
 @on_page
-async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -> None:
+async def copy_dialog(library: Library, state: dict[str, Any],
+                      launchers: list[dict]) -> None:
     """Pick the devices, see what it will do, then do it.
 
     A copy with no ongoing link, which the dialog says rather than leaving somebody to
@@ -378,8 +448,10 @@ async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -
         return
 
     picked: set[str] = set()
-    with frame.opened(t("console.launchers.copy_title",
-                        name=launcher["display_name"])) as box:
+    with frame.opened(
+            t("console.launchers.copy_title", name=launchers[0]["display_name"])
+            if len(launchers) == 1
+            else t("console.launchers.copy_title_many", count=len(launchers))) as box:
         ui.label(t("console.launchers.copy_note")).classes("console-help px-3")
         with ui.column().classes("gap-1 px-3"):
             for one in reachable:
@@ -399,13 +471,13 @@ async def copy_dialog(library: Library, state: dict[str, Any], launcher: dict) -
     if not picked:
         ui.notify(t("console.launchers.none_picked"), type="warning")
         return
-    await _do_copy(library, launcher, [one for one in reachable
+    await _do_copy(library, launchers, [one for one in reachable
                                        if str(one.get("device_id")) in picked],
                    bool(also.value))
 
 
 @on_page
-async def _do_copy(library: Library, launcher: dict, devices: list[dict],
+async def _do_copy(library: Library, launchers: list[dict], devices: list[dict],
                    with_mappings: bool) -> None:
     from common.games import launcher_copy
 
@@ -413,8 +485,9 @@ async def _do_copy(library: Library, launcher: dict, devices: list[dict],
     if with_mappings:
         try:
             found = await offload.io(library.launchers)
+            ids = {str(one["launcher_id"]) for one in launchers}
             mappings = {table: to for table, to in (found.get("mappings") or {}).items()
-                        if to == launcher["launcher_id"]}
+                        if to in ids}
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("console.launchers.assignments_failed"), caption=why(exc),
                       type="negative")
@@ -425,7 +498,7 @@ async def _do_copy(library: Library, launcher: dict, devices: list[dict],
 
         return device_client.for_device(device)
 
-    outcomes = await offload.io(launcher_copy.copy_to, devices, [launcher],
+    outcomes = await offload.io(launcher_copy.copy_to, devices, launchers,
                                   mappings, client_for=client_for)
     ui.notify(launcher_copy.said(outcomes), caption=launcher_copy.trouble(outcomes),
               type="positive" if all(one.ok for one in outcomes) else "warning")
@@ -439,32 +512,42 @@ def keeps_settings(launcher: dict) -> bool:
         and (checks.get("bin_path") or {}).get("state") == path_state.OK
 
 
-def copy_verbs(library: Library, launcher: dict, after: Callable[[], Awaitable[Any]],
-               *, playing: bool = False) -> list[panel.Verb]:
-    """Back up now and Restore..., for the settings file this launcher's program writes.
+def copy_verbs(library: Library, launchers: list[dict],
+               after: Callable[[], Awaitable[Any]], *,
+               playing: bool = False) -> list[panel.Verb]:
+    """Back up now and Restore..., for the settings file each launcher's program writes.
+    Both ask about each launcher in turn.
 
     `playing` is what the caller knew when it drew the menu; a menu outlives it, so the
     click asks again."""
     from console import workbench
 
-    launcher_id = str(launcher["launcher_id"])
-    name = str(launcher.get("display_name") or launcher_id)
-
-    def guarded(act: Callable[[], Awaitable[Any]]) -> Callable[[], Any]:
+    def guarded(act: Callable[[dict, str, bool], Awaitable[Any]]) -> Callable[[], Any]:
         @on_page
         async def run_it() -> None:
             if await offload.io(workbench._playing, library):
                 ui.notify(t(workbench.PLAYING_NOTE), caption=t(workbench.PLAYING_WHY),
                           type="warning")
                 return
-            await act()
+            for index, launcher in enumerate(launchers, 1):
+                if await act(launcher, _place(index, len(launchers)),
+                             len(launchers) > 1) == walks.STOPPED:
+                    break
         return run_it
 
-    async def take() -> None:
-        await backup_rows.back_up(library, kept_copies.SUBJECT_LAUNCHER, launcher_id, name, after)
+    async def take(launcher: dict, place: str, walking: bool) -> Any:
+        launcher_id = str(launcher["launcher_id"])
+        return await backup_rows.back_up(
+            library, kept_copies.SUBJECT_LAUNCHER, launcher_id,
+            str(launcher.get("display_name") or launcher_id), after, place=place,
+            walking=walking)
 
-    async def choose() -> None:
-        await backup_rows.open_for(library, kept_copies.SUBJECT_LAUNCHER, launcher_id, name, after)
+    async def choose(launcher: dict, place: str, walking: bool) -> Any:
+        launcher_id = str(launcher["launcher_id"])
+        return await backup_rows.open_for(
+            library, kept_copies.SUBJECT_LAUNCHER, launcher_id,
+            str(launcher.get("display_name") or launcher_id), after, place=place,
+            walking=walking)
 
     hint = t(workbench.PLAYING_NOTE) if playing else ""
     return [panel.Verb(t("console.backups.back_up_title"),
@@ -473,22 +556,25 @@ def copy_verbs(library: Library, launcher: dict, after: Callable[[], Awaitable[A
                        None if playing else guarded(choose), hint=hint)]
 
 
-def acts(library: Library, state: dict[str, Any], launcher: dict, count: int,
+def acts(library: Library, state: dict[str, Any], launchers: list[dict], count: int,
          redraw: Callable[[], None], *, after: Callable[[], Awaitable[Any]] | None = None,
          playing: bool = False) -> list[panel.Verb]:
-    """What can be done to one launcher. With `after`, also what can be done to its
-    program's settings file, where there is one."""
+    """What can be done to these launchers, of the `count` there are. With `after`, also
+    what can be done to their programs' settings files, for those that have one."""
+    several = len(launchers) > 1
     offered = [panel.Verb(t("console.workbench.duplicate"),
-                          lambda: duplicate(library, state, redraw, launcher))]
-    if after is not None and keeps_settings(launcher):
-        offered += copy_verbs(library, launcher, after, playing=playing)
+                          lambda: duplicate(library, state, redraw, launchers))]
+    keeping = [one for one in launchers if keeps_settings(one)]
+    if after is not None and keeping:
+        offered += copy_verbs(library, keeping, after, playing=playing)
     if state.get("can_manage_devices"):
         offered.append(panel.Verb(t("console.workbench.copy_devices"),
-                                  lambda: copy_dialog(library, state, launcher)))
+                                  lambda: copy_dialog(library, state, launchers)))
     offered.append(panel.Verb(
         t("word.remove"),
-        None if count <= 1 else (lambda: remove(library, state, redraw, launcher)),
-        danger=True, hint=t("console.workbench.only_launcher")))
+        None if count <= len(launchers) else (lambda: remove(library, state, redraw, launchers)),
+        danger=True,
+        hint=t("console.launchers.keep_one" if several else "console.workbench.only_launcher")))
     return offered
 
 
@@ -513,25 +599,41 @@ def removal_words(found: dict[str, Any]) -> tuple[str, list[str]]:
              for one in goes])
 
 
+def removal_words_many(found: list[dict[str, Any]]) -> tuple[str, list[str]]:
+    """The confirm's detail for several launchers at once: what they keep, and how many
+    tables lose theirs."""
+    kept = t("console.launchers.remove_keeps_files")
+    count = sum(int(one.get("tables") or 0) for one in found)
+    if not count:
+        return kept, []
+    return t("console.launchers.remove_detail", kept=kept,
+             tables=t("console.launchers.remove_many_tables", count=count)), []
+
+
 @on_page
 async def remove(library: Library, state: dict[str, Any], redraw: Callable[[], None],
-                  launcher: dict) -> None:
+                 launchers: list[dict]) -> None:
     """Asked about first, because it is the destructive one and it takes assignments
     with it - a table pointing here goes back to the default."""
     try:
-        found = await offload.io(library.launcher_fallback, launcher["launcher_id"])
+        found = [await offload.io(library.launcher_fallback, one["launcher_id"])
+                 for one in launchers]
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("console.workbench.lookup_failed"), caption=why(exc), type="negative")
         return
-    detail, lines = removal_words(found)
-    if not await confirm.ask(
-            t("console.launchers.remove", name=launcher["display_name"]),
-            detail=detail, lines=lines, confirm=t("word.remove"), icon=verbs.REMOVE):
+    if len(launchers) == 1:
+        detail, lines = removal_words(found[0])
+        title = t("console.launchers.remove", name=launchers[0]["display_name"])
+    else:
+        detail, lines = removal_words_many(found)
+        title = t("console.launchers.remove_many", count=len(launchers))
+    if not await confirm.ask(title, detail=detail, lines=lines, confirm=t("word.remove"),
+                             icon=verbs.REMOVE):
         return
-    try:
-        await run.io_bound(library.delete_launcher, launcher["launcher_id"])
-    except Exception as exc:  # noqa: BLE001
-        ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
-        return
+    for launcher in launchers:
+        try:
+            await run.io_bound(library.delete_launcher, launcher["launcher_id"])
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("said.remove_failed"), caption=why(exc), type="negative")
     state["launcher"] = ""
     redraw()

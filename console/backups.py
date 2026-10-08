@@ -32,6 +32,7 @@ from console import (
     verbs,
     views,
     waiting,
+    walks,
     when,
 )
 from console import dialog as frame
@@ -562,30 +563,38 @@ def _note_input(wanted: dict[str, Any], held: dict[str, Any]) -> None:
     held["note"].on_value_change(lambda e: wanted.update(note=str(e.value or "")))
 
 
-async def ask_details(suggested: str,
-                      take: Callable[[str, str], Awaitable[None]]) -> None:
+async def ask_details(suggested: str, take: Callable[[str, str], Awaitable[None]], *,
+                      place: str = "", walking: bool = False) -> Any:
     """Back up now for something already chosen: a name to confirm or change, and a note.
-    `take` is given both, trimmed, and runs once the dialog has closed."""
+
+    `take` is given both, trimmed, and runs once the dialog has closed. Answers True once
+    it has run, `walks.SKIPPED` or, in a walk, `walks.STOPPED`; `place` says where the walk
+    has got to.
+    """
     wanted: dict[str, Any] = {"name": suggested, "note": ""}
     held: dict[str, Any] = {}
 
-    @on_page
-    async def confirm() -> None:
+    def confirm() -> None:
         if held.get("sent"):
             return
         held["sent"] = True
-        box.close()
-        await take(wanted["name"].strip(), wanted["note"].strip())
+        box.submit((wanted["name"].strip(), wanted["note"].strip()))
 
     with frame.opened(t("console.backups.back_up_title")) as box:
+        if place:
+            ui.label(place).classes("console-help px-3")
         panel.facts(ui, [(t("console.backups.name"), lambda: _name_input(wanted, held)),
                          (t("console.backups.note"), lambda: _note_input(wanted, held))])
         with frame.footer():
-            frame.cancel(box.close)
+            frame.leave(box, walking)
             go = frame.answer(t("console.backups.back_up"), confirm, icon=verbs.ADD)
     frame.enter_presses(go)
     frame.focus(box, held["name"], select=True)
-    box.open()
+    answer = await box
+    if not isinstance(answer, tuple):
+        return answer or walks.SKIPPED
+    await take(*answer)
+    return True
 
 
 @on_page

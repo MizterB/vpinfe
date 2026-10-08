@@ -31,11 +31,7 @@ async def ask(current: str, *, title: str, label: str, hint: str = "", place: st
             ui.label(hint).classes("console-help px-3")
         panel.facts(ui, [(label, lambda: held.update(field=frame.field(current)))])
         with frame.footer():
-            if walking:
-                frame.quiet(t("word.stop"), lambda: box.submit(walks.STOPPED), icon=verbs.STOP)
-                frame.quiet(t("word.skip"), lambda: box.submit(walks.SKIPPED), icon=verbs.SKIP)
-            else:
-                frame.cancel(lambda: box.submit(walks.SKIPPED))
+            frame.leave(box, walking)
             go = frame.answer(t("word.rename"), lambda: box.submit(answer()),
                               icon=verbs.RENAME)
     frame.focus(box, held["field"], select=True)

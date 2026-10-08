@@ -8,7 +8,7 @@ from nicegui import ui
 from nicegui.events import ValueChangeEventArguments
 
 from common.i18n import t
-from console import panel, verbs
+from console import panel, verbs, walks
 
 
 @contextmanager
@@ -92,6 +92,16 @@ def quiet(label: str, on_click: Callable[[], Any], *, icon: str) -> ui.button:
 
 def cancel(on_click: Callable[[], Any], label: str = "") -> ui.button:
     return quiet(label or t("word.cancel"), on_click, icon=verbs.CANCEL)
+
+
+def leave(box: ui.dialog, walking: bool) -> None:
+    """The way out without answering. In a walk it is Skip, which leaves this row as it was,
+    and Stop, which ends the run."""
+    if walking:
+        quiet(t("word.stop"), lambda: box.submit(walks.STOPPED), icon=verbs.STOP)
+        quiet(t("word.skip"), lambda: box.submit(walks.SKIPPED), icon=verbs.SKIP)
+    else:
+        cancel(lambda: box.submit(walks.SKIPPED))
 
 
 def aside(label: str, on_click: Callable[[], Any], *, icon: str) -> ui.button:

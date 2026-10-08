@@ -44,7 +44,7 @@ class ARowMenu(unittest.TestCase):
                                    update_available=update)
                     row = themes.rows([theme])[0]
                     self.assertEqual(
-                        row[themes.grid.NO_MENU], not themes.acts(Mock(), theme, Mock()),
+                        row[themes.grid.NO_MENU], not themes.acts(Mock(), [theme], Mock()),
                         f"installed={installed} active={active} update={update}")
 
     def test_the_active_theme_once_current_is_the_only_one_without(self) -> None:
@@ -201,7 +201,7 @@ class Installing(unittest.IsolatedAsyncioTestCase):
         with patch.object(themes.ui, "notification", new=self.notification), \
                 patch.object(themes.ui, "notify", new=notify), \
                 patch.object(themes.run, "io_bound", new=AsyncMock(side_effect=outcome)):
-            await press(themes._install, Mock(), "carousel-desktop", again)
+            await press(themes._install, Mock(), [{"key": "carousel-desktop"}], again)
         return downloading, notify, again
 
     async def test_the_download_notice_stays_until_the_install_is_over(self) -> None:

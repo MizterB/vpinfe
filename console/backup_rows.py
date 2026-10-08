@@ -16,7 +16,7 @@ from nicegui import run, ui
 from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
-from console import backups, offload, panel, verbs, when
+from console import backups, offload, panel, verbs, walks, when
 from console import dialog as frame
 from console import grid as grid_module
 from console.data import Library
@@ -59,8 +59,11 @@ async def listed(library: Library, subject_kind: str, subject_id: str) -> list[d
 
 @on_page
 async def back_up(library: Library, subject_kind: str, subject_id: str, name: str,
-                  after: Callable[[], Awaitable[None]]) -> None:
-    """One copy of this game or launcher's settings file, named as `name` suggests."""
+                  after: Callable[[], Awaitable[None]], *, place: str = "",
+                  walking: bool = False) -> Any:
+    """One copy of this game or launcher's settings file, named as `name` suggests.
+
+    Answers what `backups.ask_details` does, for a walk through several."""
     games = [subject_id] if subject_kind == kept_copies.SUBJECT_GAME else []
     launcher = subject_id if subject_kind == kept_copies.SUBJECT_LAUNCHER else ""
 
@@ -76,7 +79,7 @@ async def back_up(library: Library, subject_kind: str, subject_id: str, name: st
         ui.notify(t("console.backups.backed_up"), type="positive")
         await after()
 
-    await backups.ask_details(name, take)
+    return await backups.ask_details(name, take, place=place, walking=walking)
 
 
 @on_page
@@ -128,8 +131,10 @@ def _open_in_backups(name: str) -> None:
 
 
 async def open_for(library: Library, subject_kind: str, subject_id: str, name: str,
-                   after: Callable[[], Awaitable[None]]) -> None:
-    """The copies of one thing, to restore from."""
+                   after: Callable[[], Awaitable[None]], *, place: str = "",
+                   walking: bool = False) -> Any:
+    """The copies of one thing, to restore from. Answers when the dialog closes: `walks.STOPPED`
+    if a walk was ended from it, else `walks.SKIPPED`."""
     built = backups.rows(await listed(library, subject_kind, subject_id), parts=True)
     if not built:
         ui.notify(t("console.backups.nothing_to_restore"), type="warning")
@@ -139,6 +144,8 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
 
     with frame.opened(t("console.backups.title", name=name),
                       classes="console-backups-card") as box:
+        if place:
+            ui.label(place).classes("console-help px-3")
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col px-3"):
             table: ui.aggrid = grid_module.build(
                 COLUMNS, built, SCOPE,
@@ -181,13 +188,25 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
 
         @on_page
         async def put_back() -> None:
-            await backups.restore(library, picked_rows(), refresh,
+            restored = False
+
+            async def refreshed() -> None:
+                nonlocal restored
+                restored = True
+                await refresh()
+
+            await backups.restore(library, picked_rows(), refreshed,
                                   check=bool(grid_module.hidden_count(table)))
+            if walking and restored:
+                box.close()
 
         with frame.footer():
             frame.aside(t("console.backups.open_in"), lambda: _open_in_backups(seek),
                         icon=verbs.GO)
-            frame.cancel(box.close, t("word.close"))
+            if walking:
+                frame.leave(box, True)
+            else:
+                frame.cancel(box.close, t("word.close"))
             go = frame.answer(t("word.restore"), put_back, icon=verbs.RESTORE)
         go.set_enabled(False)
-    box.open()
+    return await box or walks.SKIPPED

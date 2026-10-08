@@ -59,9 +59,9 @@ class Power:
         lead = self.bar.lead()
         if lead is not None and not devices.offers(offered, lead[0]):
             lead = None
-        acts = devices.acts(self.library, self.device, None, client=self.library,
-                            offered=offered, forgettable=False, routed=self.bar.routes(),
-                            led=lead)
+        acts = devices.acts(
+            self.library, [devices.Target(self.device, self.library, offered, False)], None,
+            routed=self.bar.routes(), led=lead)
         shape = (tuple((one.label, one.run is None, one.hint) for one in acts),
                  lead is not None)
         if shape == self._drawn:

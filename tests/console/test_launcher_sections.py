@@ -453,7 +453,7 @@ class CopyVerbTests(unittest.TestCase):
             return None
 
         return launchers.acts(
-            Mock(), {}, _launcher(state, has_config=has_config) | {"launcher_id": "l-1"}, 2,
+            Mock(), {}, [_launcher(state, has_config=has_config) | {"launcher_id": "l-1"}], 2,
             lambda: None, after=done if after else None, playing=playing)
 
     def test_a_launcher_with_a_program_and_a_settings_file_offers_both(self) -> None:
@@ -482,7 +482,7 @@ class CopyVerbTests(unittest.TestCase):
         library = Mock()
         library.play_state.return_value = {}
         made = launchers.copy_verbs(
-            library, {"launcher_id": "l-1", "display_name": "Main VPX"}, AsyncMock())
+            library, [{"launcher_id": "l-1", "display_name": "Main VPX"}], AsyncMock())
         with patch.object(launchers.backup_rows, "open_for", new=AsyncMock()) as opened:
             assert made[1].run is not None
             asyncio.run(made[1].run())
@@ -491,7 +491,7 @@ class CopyVerbTests(unittest.TestCase):
     def test_a_click_while_a_table_plays_changes_nothing(self) -> None:
         library = Mock()
         library.play_state.return_value = {"launching": True}
-        made = launchers.copy_verbs(library, {"launcher_id": "l-1"}, AsyncMock())
+        made = launchers.copy_verbs(library, [{"launcher_id": "l-1"}], AsyncMock())
         with patch.object(launchers.ui, "notify") as notify:
             for verb in made:
                 assert verb.run is not None

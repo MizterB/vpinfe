@@ -24,13 +24,19 @@ def entry(scope: str, action: str, **more: Any) -> dict[str, Any]:
 EVERY = [entry(scope, action) for scope, action in lifecycle.offered()]
 
 
+def acts(client: Any = None, offered: Any = None, forgettable: bool = True,
+         **more: Any) -> list:
+    return devices.acts(Mock(), [devices.Target(DEVICE, client, offered, forgettable)], None,
+             **more)
+
+
 def labels(verbs: list) -> list[str]:
     return [one.label for one in verbs]
 
 
 class MenuOrderTests(unittest.TestCase):
     def test_the_verbs_come_in_menu_order_with_forget_last(self) -> None:
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=EVERY)
+        verbs = acts(client=Mock(), offered=EVERY)
 
         self.assertEqual(labels(verbs), [
             t("action.vpinfe.restart"), t("action.frontend.restart"),
@@ -38,33 +44,33 @@ class MenuOrderTests(unittest.TestCase):
             t("action.system.stop"), t("word.forget")])
 
     def test_only_the_ones_that_take_the_machine_or_the_entry_are_dangerous(self) -> None:
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=EVERY)
+        verbs = acts(client=Mock(), offered=EVERY)
 
         self.assertEqual([one.danger for one in verbs],
                          [False, False, False, True, True, True])
 
     def test_this_installs_own_entry_has_no_forget(self) -> None:
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=EVERY,
-                             forgettable=False)
+        verbs = acts(client=Mock(), offered=EVERY,
+                     forgettable=False)
 
         self.assertNotIn(t("word.forget"), labels(verbs))
 
     def test_a_device_that_is_not_asked_offers_only_forget(self) -> None:
-        verbs = devices.acts(Mock(), DEVICE, None)
+        verbs = acts()
 
         self.assertEqual(labels(verbs), [t("word.forget")])
 
     def test_a_headless_install_offers_no_window_item(self) -> None:
         headless = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
 
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=headless)
+        verbs = acts(client=Mock(), offered=headless)
 
         self.assertNotIn(t("action.frontend.restart"), labels(verbs))
         self.assertIn(t("action.vpinfe.restart"), labels(verbs))
 
     def test_a_pair_the_menu_does_not_carry_is_not_added(self) -> None:
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(),
-                             offered=[entry("table", "stop"), entry("frontend", "start")])
+        verbs = acts(client=Mock(),
+                     offered=[entry("table", "stop"), entry("frontend", "start")])
 
         self.assertEqual(labels(verbs), [t("word.forget")])
 
@@ -73,17 +79,17 @@ class RoutedAndLedTests(unittest.TestCase):
     def test_a_routed_pair_runs_what_it_was_given_and_asks_nothing_itself(self) -> None:
         handler = Mock()
 
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=EVERY,
-                             forgettable=False,
-                             routed={(lifecycle.VPINFE, lifecycle.RESTART): handler})
+        verbs = acts(client=Mock(), offered=EVERY,
+                     forgettable=False,
+                     routed={(lifecycle.VPINFE, lifecycle.RESTART): handler})
 
         self.assertIs(verbs[0].run, handler)
         self.assertIsNot(verbs[1].run, handler)
 
     def test_a_led_pair_goes_first_with_its_note_after_the_label(self) -> None:
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=EVERY,
-                             forgettable=False,
-                             led=((lifecycle.FRONTEND, lifecycle.RESTART), "2 changes waiting"))
+        verbs = acts(client=Mock(), offered=EVERY,
+                     forgettable=False,
+                     led=((lifecycle.FRONTEND, lifecycle.RESTART), "2 changes waiting"))
 
         self.assertEqual(labels(verbs)[:3], [
             f"{t('action.frontend.restart')} - 2 changes waiting",
@@ -92,9 +98,9 @@ class RoutedAndLedTests(unittest.TestCase):
     def test_a_led_pair_this_device_does_not_offer_leaves_the_menu_as_it_was(self) -> None:
         headless = [one for one in EVERY if one["scope"] != lifecycle.FRONTEND]
 
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=headless,
-                             forgettable=False,
-                             led=((lifecycle.FRONTEND, lifecycle.RESTART), "1 change waiting"))
+        verbs = acts(client=Mock(), offered=headless,
+                     forgettable=False,
+                     led=((lifecycle.FRONTEND, lifecycle.RESTART), "1 change waiting"))
 
         self.assertEqual(labels(verbs)[0], t("action.vpinfe.restart"))
 
@@ -110,8 +116,8 @@ class OlderInstallTests(unittest.TestCase):
     def test_one_that_can_run_but_not_now_stays_refused_with_its_reason(self) -> None:
         busy = entry("vpinfe", "restart", available=False, reason="Updating", reason_key="x")
 
-        verbs = devices.acts(Mock(), DEVICE, None, client=Mock(), offered=[busy],
-                             forgettable=False)
+        verbs = acts(client=Mock(), offered=[busy],
+                     forgettable=False)
 
         self.assertIsNone(verbs[0].run)
         self.assertEqual(verbs[0].hint, "Updating")
@@ -121,8 +127,8 @@ class AskingTests(unittest.IsolatedAsyncioTestCase):
     async def _run(self, scope: str, action: str, *, yes: bool = True) -> tuple[AsyncMock, Mock]:
         client = Mock()
         client.perform_action = Mock(return_value={"performed": True})
-        verb = devices.acts(Mock(), DEVICE, None, client=client,
-                            offered=[entry(scope, action)], forgettable=False)[0]
+        verb = acts(client=client,
+                    offered=[entry(scope, action)], forgettable=False)[0]
         ask = AsyncMock(return_value=yes)
         with patch.object(devices.confirm, "ask", new=ask), \
                 patch.object(devices.offload, "io",

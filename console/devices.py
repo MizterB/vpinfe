@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from nicegui import background_tasks, run, ui
@@ -277,32 +277,50 @@ def _try_again_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     return [("", door)]
 
 
-def acts(library: Any, device: dict[str, Any], rerender: Callable[[], Any] | None,
-         *, client: Any = None, offered: list[dict[str, Any]] | None = None,
-         forgettable: bool = True,
-         routed: dict[tuple[str, str], Callable[[], Any]] | None = None,
-         led: tuple[tuple[str, str], str] | None = None) -> list[panel.Verb]:
-    """What can be done to one device: what it says it performs, then Forget.
+@dataclass(frozen=True)
+class Target:
+    """One device a menu acts on: its entry, who answers for it, and what it offers.
 
     `offered` is the device's own `/actions` answer, read where the page already reaches
     the device, because a menu has to open at once. `forgettable` is false for this
     install's own entry, which announces itself again at once.
-
-    `routed` swaps a pair's handler for one that asks and reports for itself. `led` puts a
-    pair first, with its note after the label.
     """
-    entries = _menu_entries(offered or [])
-    out = [_device_verb(device, client, entry, (routed or {}).get(_pair(entry)))
-           for entry in entries]
-    at = next((i for i, entry in enumerate(entries)
-               if led is not None and _pair(entry) == led[0]), None)
-    if at is not None and led is not None:
-        first = out.pop(at)
-        out.insert(0, replace(first, label=t("console.waiting.menu_lead",
-                                             label=first.label, note=led[1])))
-    if forgettable:
+
+    device: dict[str, Any]
+    client: Any = None
+    offered: list[dict[str, Any]] | None = None
+    forgettable: bool = True
+
+
+def acts(library: Any, targets: list[Target], rerender: Callable[[], Any] | None,
+         *, routed: dict[tuple[str, str], Callable[[], Any]] | None = None,
+         led: tuple[tuple[str, str], str] | None = None) -> list[panel.Verb]:
+    """What can be done to these devices: what they say they perform, then Forget.
+
+    A verb is offered when any of them performs it and acts on those that do.
+
+    `routed` swaps a pair's handler for one that asks and reports for itself, and `led`
+    puts a pair first with its note after the label; both are for the one device a bar
+    speaks for.
+    """
+    out: list[panel.Verb] = []
+    for pair in MENU_ACTIONS:
+        hits = [(one, entry) for one in targets
+                for entry in _menu_entries(one.offered or []) if _pair(entry) == pair]
+        if not hits:
+            continue
+        verb = _device_verb(hits, (routed or {}).get(pair) if len(hits) == 1 else None,
+                            library)
+        if led is not None and pair == led[0]:
+            verb = replace(verb, label=t("console.waiting.menu_lead",
+                                         label=verb.label, note=led[1]))
+            out.insert(0, verb)
+        else:
+            out.append(verb)
+    forget = [one.device for one in targets if one.forgettable]
+    if forget:
         out.append(panel.Verb(t("word.forget"),
-                              lambda: _confirm_forget(library, device, rerender),
+                              lambda: _confirm_forget_all(library, forget, rerender),
                               danger=True))
     return out
 
@@ -329,40 +347,63 @@ def offers(offered: list[dict[str, Any]] | None, pair: tuple[str, str]) -> bool:
     return any(_pair(entry) == pair for entry in _menu_entries(offered or []))
 
 
-def _device_verb(device: dict[str, Any], client: Any, entry: dict[str, Any],
-                 routed: Callable[[], Any] | None = None) -> panel.Verb:
-    """One of the device's lifecycle verbs, asked about first where it costs the machine
-    something. One that can run but not now is offered and refused, with its reason."""
-    scope = str(entry["scope"])
-    action = str(entry["action"])
+def _device_verb(hits: list[tuple[Target, dict[str, Any]]],
+                 routed: Callable[[], Any] | None = None,
+                 library: Any = None) -> panel.Verb:
+    """One of the lifecycle verbs, asked about first where it costs the machine something.
+    One that can run but not now is offered and refused, with its reason."""
+    scope, action = _pair(hits[0][1])
     label = lifecycle.label(scope, action)
-    if not entry.get("available", True):
+    ready = [(one, entry) for one, entry in hits if entry.get("available", True)]
+    if not ready:
         return panel.Verb(label, danger=scope == lifecycle.SYSTEM,
-                          hint=str(entry.get("reason") or ""))
+                          hint=str(hits[0][1].get("reason") or ""))
     if routed is not None:
         return panel.Verb(label, routed, danger=scope == lifecycle.SYSTEM)
+    several = len(ready) > 1
+
+    @on_page
+    async def perform(one: Target) -> bool | None:
+        try:
+            done = await offload.io(one.client.perform_action, scope, action)
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            caption = _why(exc)
+            if several:
+                caption = t("console.devices.failed_on",
+                            device_label=device_label(one.device), reason=caption)
+            ui.notify(t("said.action_failed"), caption=caption, type="negative")
+            return None
+        return bool(done.get("performed"))
 
     @on_page
     async def go() -> None:
         if scope in _ASKED and not await confirm.ask(
-                f"{label}?",
-                detail=t("console.devices.quit_detail" if (scope, action) == QUIT
-                         else "console.devices.happens_now",
-                         device_label=device_label(device)),
+                t("console.devices.do_to_many", label=label, count=len(ready)) if several
+                else f"{label}?",
+                detail=_asked_detail((scope, action), [one.device for one, _ in ready]),
                 confirm=label, icon=verbs.STOP):
-            return
-        try:
-            done = await offload.io(client.perform_action, scope, action)
-        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
-            ui.notify(t("said.action_failed"), caption=_why(exc), type="negative")
             return
         # A machine on its way down answers before it goes, so "performed" here means
         # the work was handed over rather than finished.
-        ui.notify(label if done.get("performed")
-                  else t("console.devices.not_happen", label=label),
-                  type="positive" if done.get("performed") else "warning")
+        # This machine last: the others are asked while the page is still here.
+        results = [await perform(one) for one, _ in
+                   sorted(ready, key=lambda hit: hit[0].client is library)]
+        done = results.count(True)
+        if done:
+            ui.notify(t("console.devices.did_to_many", label=label, count=done)
+                      if several else label, type="positive")
+        if results.count(False):
+            ui.notify(t("console.devices.not_happen", label=label), type="warning")
 
     return panel.Verb(label, go, danger=scope == lifecycle.SYSTEM)
+
+
+def _asked_detail(pair: tuple[str, str], devices: list[dict[str, Any]]) -> str:
+    if len(devices) > 1:
+        return t("console.devices.quit_detail_many" if pair == QUIT
+                 else "console.devices.happens_now_many", count=len(devices))
+    return t("console.devices.quit_detail" if pair == QUIT else "console.devices.happens_now",
+             device_label=device_label(devices[0]))
 
 
 async def load_actions(library: Any, device: dict[str, Any], local_device_id: str | None,
@@ -766,8 +807,10 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
             panel.add_action(
                 [(t("console.devices.add_mobile"), lambda: _add_mobile(rerender))],
                 empty=all(row.get("self") for row in built))
-            actions, bulk_menu = panel.selection_actions(
-                t("console.devices.bulk_menu"))
+            show_selection = panel.selection_menu(
+                t("console.devices.bulk_menu"), lambda: grid.selection(table),
+                lambda chosen: acts_on(chosen),
+                lambda: table.run_grid_method("deselectAll"))
             if probe is not None:
                 panel.refresh(probe, t("console.devices.probe_all"))
 
@@ -777,21 +820,29 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
 
     known = {str(one.get("device_id") or ""): one for one in found}
 
-    def _fill_row_menu(row: dict | None) -> None:
-        menu.clear()
-        if not row:
-            return
+    def _target(row: dict[str, Any]) -> Target | None:
         device_id = str(row.get("id") or "")
         device = known.get(device_id)
         if device is None:
+            return None
+        return Target(
+            device,
+            library if row.get("self") else device_client.for_device(device, local_device_id),
+            (state.get("device_actions") or {}).get(device_id),
+            not row.get("self"))
+
+    def acts_on(rows_on: list[dict[str, Any]]) -> list[panel.Verb]:
+        chosen = [one for one in map(_target, rows_on) if one is not None]
+        return acts(library, chosen, rerender) if chosen else []
+
+    def _fill_row_menu(row: dict | None) -> None:
+        menu.clear()
+        if not row or str(row.get("id") or "") not in known:
             return
-        offered = acts(
-            library, device, rerender,
-            client=library if row.get("self")
-            else device_client.for_device(device, local_device_id),
-            offered=(state.get("device_actions") or {}).get(device_id),
-            forgettable=not row.get("self"))
-        panel.verb_menu(menu, str(row.get("name") or ""), offered)
+        on = grid.menu_rows(table, row)
+        offered = panel.for_selection(acts_on(on), len(on))
+        panel.verb_menu(menu, str(row.get("name") or "") if len(on) == 1
+                        else t("console.devices.devices", count=len(on)), offered)
         if not offered:
             # The browser opened it on the click; there is nothing to show yet.
             menu.close()
@@ -801,23 +852,9 @@ def build(found: list[dict[str, Any]], library: Any, state: dict[str, Any],
 
     def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
-        actions.set_visibility(bool(rows_selected))
+        show_selection(bool(rows_selected))
         count.text = said()
 
-    def fill_bulk() -> None:
-        chosen = [known[str(row.get("id") or "")] for row in grid.selection(table)
-                  if str(row.get("id") or "") in known and not row.get("self")]
-        bulk_menu.clear()
-        with bulk_menu:
-            panel.verb_entries([
-                panel.Verb(t("word.clear_selection"),
-                           lambda: table.run_grid_method("deselectAll")),
-                panel.Verb(t("word.forget"),
-                           lambda: _confirm_forget_all(library, chosen, rerender),
-                           danger=True)])
-        bulk_menu.open()
-
-    actions.on_click(fill_bulk)
     mine = [local_device_id] if local_device_id else None
 
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):

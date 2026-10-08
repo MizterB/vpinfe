@@ -1376,6 +1376,9 @@ def verb_menu(menu: Any, name: str, entries: Sequence[Verb]) -> None:
         ui.item_label(name).props("header").classes("console-menu-header")
         ui.separator()
         verb_entries(entries, menu.close)
+    # A menu is filled after the click opened it, and Quasar placed it for the content it
+    # had then; one that grew would run off the bottom of the window.
+    menu.run_method("updatePosition")
 
 
 def menu_button(icon: str, hint: str) -> tuple[Any, Any]:
