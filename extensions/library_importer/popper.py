@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,7 @@ from typing import Any
 from common.extensions.contract import words
 
 from . import drivemap
-from .gamestats import Played
+from .gamestats import Played, stars
 from .source import Note, SourceGame, SourceLibrary, SourceMedia, SourceSystem, failed
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,9 @@ def _game_from(row: sqlite3.Row, tables_dir: str) -> SourceGame | None:
     )
 
 
+_FILLED = ("play_count", "play_time_seconds", "last_played", "rating")
+
+
 def read_stats(path: Path | str) -> tuple[list[Played], list[Note]]:
     """What Popper remembers about playing, from the `GamesStats` table in its database.
 
@@ -137,27 +141,44 @@ def read_stats(path: Path | str) -> tuple[list[Played], list[Note]]:
         logger.warning("Could not open %s: %s", path, exc)
         return [], [failed(t("note.unopened", file=path.name), exc)]
     try:
-        if not db.execute("select 1 from sqlite_master where name = 'GamesStats'").fetchone():
-            return [], []
+        # Every game, with its play row where it has one: a rating is kept on the game
+        # itself, and a game nobody played can still have been rated. A database missing
+        # either table or column still gives up what it does have.
+        tables = {one[0] for one in db.execute("select name from sqlite_master")}
+        rated = any(one[1] == "GameRating" for one in db.execute("pragma table_info(Games)"))
+        played = "GamesStats" in tables
         rows = list(db.execute(
-            "select g.GameName, s.NumberPlays, s.TimePlayedSecs, s.LastPlayed "
-            "from GamesStats s join Games g on g.GameID = s.GameID"))
+            "select g.GameName, "
+            + ("g.GameRating" if rated else "null") + " as GameRating, "
+            + ("s.NumberPlays, s.TimePlayedSecs, s.LastPlayed" if played else
+               "null as NumberPlays, null as TimePlayedSecs, null as LastPlayed")
+            + " from Games g"
+            + (" left join GamesStats s on s.GameID = g.GameID" if played else "")))
     except sqlite3.Error as exc:
         logger.warning("Could not read %s to the end: %s", path, exc)
         return [], [failed(t("note.read_stopped", file=path.name), exc)]
     finally:
         db.close()
 
-    found = []
+    # One entry per name, since that is how the plan looks a game up: a later row fills in
+    # what an earlier one left out, and never blanks it, so a rated game that was not
+    # played cannot replace the same name's play record.
+    found: dict[str, Played] = {}
     for row in rows:
         name = _text(row, "GameName")
-        played = Played(name=name, system="",
-                        play_count=_positive(row["NumberPlays"]),
-                        play_time_seconds=_positive(row["TimePlayedSecs"]),
-                        last_played=_when(row["LastPlayed"]))
-        if name and played.has_play_record:
-            found.append(played)
-    return found, []
+        one = Played(name=name, system="",
+                     play_count=_positive(row["NumberPlays"]),
+                     play_time_seconds=_positive(row["TimePlayedSecs"]),
+                     last_played=_when(row["LastPlayed"]),
+                     # 0 is unrated, which is not a rating to carry across.
+                     rating=stars(row["GameRating"]) or None)
+        if not name or not one.remembers_anything:
+            continue
+        before = found.get(name)
+        found[name] = one if before is None else replace(
+            before, **{field: getattr(one, field) for field in _FILLED
+                       if getattr(one, field) is not None})
+    return list(found.values()), []
 
 
 def _positive(value: Any) -> int | None:

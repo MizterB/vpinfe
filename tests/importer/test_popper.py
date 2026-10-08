@@ -201,6 +201,65 @@ class StatsTests(PopperCase):
         self.assertEqual(notes, [])
         self.assertEqual(found[0].play_count, 7)
 
+    def test_a_rating_comes_across_in_whole_stars_even_for_a_game_nobody_played(self) -> None:
+        path = self._stats((1, "2021-02-26 22:26:43.645", 7, 386))
+        db = sqlite3.connect(path)
+        db.executemany("update Games set GameRating = ? where GameID = ?",
+                       [("3.5", 1), ("2", 3)])
+        db.commit()
+        db.close()
+
+        found, _ = popper.read_stats(path)
+
+        self.assertEqual({one.name: one.rating for one in found},
+                         {"Leprechaun King (Orbital 2020)": 4, "Joust (Bally 1969)": 2})
+
+    def test_a_rating_of_nothing_or_zero_is_not_carried(self) -> None:
+        path = self._stats()
+        db = sqlite3.connect(path)
+        db.executemany("update Games set GameRating = ? where GameID = ?",
+                       [("0", 1), ("", 2), (None, 3)])
+        db.commit()
+        db.close()
+
+        self.assertEqual(popper.read_stats(path), ([], []))
+
+    def test_a_rated_game_nobody_played_does_not_replace_the_same_name_that_was(self) -> None:
+        path = self._stats((1, "2021-02-26 22:26:43.645", 7, 386))
+        db = sqlite3.connect(path)
+        db.execute("insert into Games (GameID, EMUID, GameName, GameRating) "
+                   "values (9, 1, 'Leprechaun King (Orbital 2020)', '4')")
+        db.commit()
+        db.close()
+
+        found, _ = popper.read_stats(path)
+
+        self.assertEqual([(one.play_count, one.rating) for one in found], [(7, 4)])
+
+    def test_a_database_with_no_rating_column_still_brings_its_play_counts(self) -> None:
+        path = self._stats((1, "2021-02-26 22:26:43.645", 7, 386))
+        db = sqlite3.connect(path)
+        db.execute("alter table Games drop column GameRating")
+        db.commit()
+        db.close()
+
+        found, notes = popper.read_stats(path)
+
+        self.assertEqual((notes, [(one.play_count, one.rating) for one in found]),
+                         ([], [(7, None)]))
+
+    def test_a_rating_is_read_where_the_database_keeps_no_play_statistics(self) -> None:
+        root = self._library([(1, "Visual Pinball X", "", "", 1, "vpx")],
+                             [(1, 1, "Joust (Bally 1969)", "c.vpx", "Joust", 1, "", "", "")])
+        db = sqlite3.connect(root / popper.DATABASE)
+        db.execute("update Games set GameRating = '5'")
+        db.commit()
+        db.close()
+
+        found, notes = popper.read_stats(root / popper.DATABASE)
+
+        self.assertEqual((notes, [one.rating for one in found]), ([], [5]))
+
     def test_a_game_nobody_played_is_left_out_and_not_zeroed(self) -> None:
         """A row Popper made without a play has no count and no date. Carrying it would
         overwrite what is already here with nothing."""

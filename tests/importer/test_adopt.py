@@ -112,22 +112,61 @@ class ImportTests(AdoptCase):
         self.assertTrue(any("Wheel" in one for one in landed), landed)
         self.assertTrue(any("Playfield" in one for one in landed), landed)
 
-    def test_a_cleared_media_source_brings_no_artwork_and_the_report_agrees(self) -> None:
-        from vpinfe_ext_library_importer import adopt, pinballx, plan
+    def _planned(self, cleared: str):
+        """The fixture library with a game file and a backglass behind every game."""
+        import dataclasses
 
-        library = pinballx.read(FIXTURE)
+        from vpinfe_ext_library_importer import pinballx, plan
+
+        read = pinballx.read(FIXTURE)
+        files = self.root / "game files"
+        files.mkdir(exist_ok=True)
+        self._ctx.files.set_roots([str(FIXTURE), str(files)])
+
+        def with_file(game):
+            stem = game.display_name or game.key
+            (files / f"{stem}.vpx").write_bytes(b"table")
+            (files / f"{stem}.directb2s").write_bytes(b"beside it")
+            return dataclasses.replace(game, table_file=str(files / f"{stem}.vpx"))
+
+        library = dataclasses.replace(read, systems=tuple(
+            dataclasses.replace(one, games=tuple(with_file(game) for game in one.games))
+            for one in read.systems))
         made = plan.build(library, [], systems=[VPX],
                           folder_name_for=self._ctx.games.folder_name_for,
-                          source_id=library.source_id, kinds=self._ctx.games.kinds())
-        made.sources = plan.derive_sources(library, {"media": ""})
-        want = plan.expected(made)
+                          source_id=library.source_id, kinds=self._ctx.games.kinds(),
+                          companions_of=self._ctx.games.companions_of)
+        made.sources = plan.derive_sources(library, {cleared: ""} if cleared else {})
+        return library, made
 
+    def _counts_with(self, cleared: str) -> dict[str, tuple[int, int, int]]:
+        from vpinfe_ext_library_importer import adopt, plan
+
+        library, made = self._planned(cleared)
         report = adopt.run(self._ctx, library, [VPX], "", made)
+        return {row["key"]: (row["expected"], row["actual"], row["short"])
+                for row in plan.against(plan.expected(made), report)}
 
-        media = next(row for row in plan.against(want, report) if row["key"] == "media")
-        self.assertEqual((0, 0, 0), (media["expected"], media["actual"], media["short"]))
+    def test_a_cleared_media_source_brings_no_artwork_and_the_report_agrees(self) -> None:
+        from vpinfe_ext_library_importer import plan
+
+        self.assertGreater(plan.expected(self._planned("")[1])["media"], 0)
+
+        self.assertEqual((0, 0, 0), self._counts_with("media")["media"])
         folder = self.library / "Attack from Mars (Bally 1995)"
         self.assertFalse((folder / "medias").exists() and any((folder / "medias").iterdir()))
+
+    def test_a_cleared_tables_source_brings_no_game_files_and_the_report_agrees(self) -> None:
+        from vpinfe_ext_library_importer import plan
+
+        wanted = plan.expected(self._planned("")[1])
+        self.assertGreater(wanted["tables"], 0)
+        self.assertGreater(wanted["companions"], 0)
+
+        counts = self._counts_with("tables")
+
+        self.assertEqual((0, 0, 0), counts["tables"])
+        self.assertEqual((0, 0, 0), counts["companions"])
 
     def test_a_kind_we_have_no_slot_for_is_reported_not_guessed_at(self) -> None:
         report = self.imported()

@@ -124,11 +124,11 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
 def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          location: str, name: str = "", sources: Any = None,
          history: Any = None, move: bool = False,
-         skip_media: bool = False) -> AdoptedRow:
+         cleared: frozenset[str] = frozenset()) -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
 
-    `skip_media` is set where the person cleared the media source: the summary said "not
-    being imported", and the report expects none.
+    `cleared` holds the kinds whose source the person emptied. Those are not brought, which
+    is what the summary told them and what the report expects.
 
     The name is handed in because the caller has already asked core what folder it
     becomes. Working it out again here would give the unsanitized one, and then the same
@@ -155,7 +155,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     # machine imports as entries with artwork and no game file, which is a state the
     # library has a word for.
     stem, rom = "", ""
-    if game.table_file:
+    if game.table_file and "tables" not in cleared:
         try:
             landed = ctx.games.add_table(game_id, game.table_file, move=move)
             row["table"] = True
@@ -165,7 +165,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
             ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
             row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
 
-    if not skip_media:
+    if "media" not in cleared:
         for kind, path in mapping.media_for(source_id, game, kinds):
             try:
                 ctx.games.put_media(game_id, kind, path, stem)
@@ -190,7 +190,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
 
 
 def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
-                   move: bool = False) -> AdoptedRow:
+                   move: bool = False, cleared: frozenset[str] = frozenset()) -> AdoptedRow:
     """A second build of a machine the run has already made a game for.
 
     Its file joins that game rather than starting another one. The artwork does not:
@@ -201,7 +201,7 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
                        "table": False, "media": 0, "companions": 0, "roms": 0,
                        "altdata": 0, "history": 0, "skipped_media": [], "error": "",
                        "joined": True}
-    if not game.table_file:
+    if not game.table_file or "tables" in cleared:
         return row
     try:
         landed = ctx.games.add_table(game_id, game.table_file, move=move)
@@ -235,8 +235,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
               if not systems or system.name in systems]
     held = {one.key: one for one in (plan.matches if plan else [])}
     sources = {one.key: one.path for one in (plan.sources if plan else ()) if one.active}
-    skip_media = any(one.key == "media" and not one.active
-                     for one in (plan.sources if plan else ()))
+    cleared = frozenset(one.key for one in (plan.sources if plan else ())
+                        if not one.active)
     history = plan.history if plan else {}
     fill = bool(plan and plan.on_existing == "fill")
 
@@ -260,10 +260,10 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             name = ctx.games.folder_name_for(mapping.folder_name(game))
             seen = made_here.get(name.lower())
             if seen:
-                rows.append(_another_build(ctx, game, name, seen, move))
+                rows.append(_another_build(ctx, game, name, seen, move, cleared))
                 continue
             row = _one(ctx, library.source_id, game, kinds, where, name, sources,
-                       history, move, skip_media)
+                       history, move, cleared)
             if row["game_id"]:
                 made_here[name.lower()] = row["game_id"]
             rows.append(row)

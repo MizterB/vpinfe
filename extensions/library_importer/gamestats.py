@@ -139,7 +139,7 @@ def _played(row: dict) -> Played | None:
         play_time_seconds=_number(row.get(PLAY_TIME)),
         last_played=_when(row.get(LAST_PLAYED)),
         favorite=_flag(row.get(FAVORITE)),
-        rating=_stars(row.get(RATING)),
+        rating=stars(row.get(RATING)),
         tags=_tags(row.get(CATEGORIES)),
     )
 
@@ -154,7 +154,7 @@ def _number(value: Any) -> int | None:
         return None
 
 
-def _stars(value: Any) -> int | None:
+def stars(value: Any) -> int | None:
     """A rating in whole stars, 0-5, which is the scale a game is rated on here.
 
     A half star is rounded up rather than dropped, so 3.5 arrives as 4. Python's own
