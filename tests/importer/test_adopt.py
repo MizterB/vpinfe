@@ -582,7 +582,7 @@ class RowShapeTests(unittest.TestCase):
         rows = [one for one in source.splitlines() if '"key": game.key, "name": name' in one]
         self.assertEqual(len(rows), 2, "expected one row shape per path")
 
-        counted = ("media", "companions", "roms", "altdata")
+        counted = ("media", "companions", "roms", "altdata", "music", "pups")
         for name in ("_one", "_another_build"):
             body = inspect.getsource(getattr(adopt, name))
             for key in counted:
@@ -737,6 +737,113 @@ class MatchingTests(AdoptCase):
             report = self.run_with({taxi: "no-such-entry"})
 
         self.assertEqual((report["games"], report["matched"], report["failed"]), (3, 0, 0))
+
+
+class KeyedSetTests(unittest.TestCase):
+    """What a source keeps for a game by its ROM or its name, found and placed."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        self.ctx = unittest.mock.MagicMock()
+        self.ctx.games.add_table.return_value = {"companions": (), "rom": "taxi_l4"}
+
+    def made(self, *parts: str, as_file: bool = False) -> Path:
+        path = self.root.joinpath(*parts)
+        if as_file:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"x")
+        else:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def game(self, **fields):
+        from vpinfe_ext_library_importer.source import SourceGame
+
+        return SourceGame(key="Taxi", display_name="Taxi (Williams 1988)",
+                          table_file=str(self.root / "Taxi.vpx"), **fields)
+
+    def test_a_rom_spelled_in_another_case_is_found(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        wanted = self.made("roms", "TAXI_L4.ZIP", as_file=True)
+
+        self.assertEqual(adopt._bring_rom(self.ctx, "g1", "taxi_l4", str(self.root / "roms")), 1)
+        self.ctx.games.put_asset.assert_called_once_with("g1", "rom", wanted)
+
+    def test_a_sound_folder_spelled_in_another_case_is_found(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        wanted = self.made("AltSound", "TAXI_L4")
+
+        self.assertEqual(adopt._bring_alt_data(
+            self.ctx, "g1", "taxi_l4", str(self.root)), 1)
+        self.ctx.games.put_asset.assert_called_once_with("g1", "altsound", wanted, "taxi_l4")
+
+    def test_music_and_a_pup_pack_are_found_by_the_name_the_game_goes_by(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        music = self.made("Music", "Taxi")
+        pack = self.made("PUPVideos", "TAXI_L4")
+        self.made("Music", "Somebody Else")
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0}
+
+        adopt._bring_keyed(self.ctx, "g1", self.game(), "Taxi (Williams 1988)", "taxi_l4",
+                           {"music": str(self.root / "Music"),
+                            "pups": str(self.root / "PUPVideos")}, row)
+
+        self.assertEqual((row["music"], row["pups"]), (1, 1))
+        self.assertEqual(
+            {(call.args[1], call.args[2]) for call in self.ctx.games.put_asset.call_args_list},
+            {("music", music), ("pup_pack", pack)})
+
+    def test_a_set_named_for_no_game_here_stays_where_it_is(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        self.made("Music", "Somebody Else")
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0}
+
+        adopt._bring_keyed(self.ctx, "g1", self.game(), "Taxi (Williams 1988)", "taxi_l4",
+                           {"music": str(self.root / "Music")}, row)
+
+        self.assertEqual(row["music"], 0)
+        self.ctx.games.put_asset.assert_not_called()
+
+    def test_a_game_with_no_rom_has_nothing_keyed_on_one(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        self.made("roms", "taxi_l4.zip", as_file=True)
+        row = {"music": 0, "pups": 0, "roms": 0, "altdata": 0}
+
+        adopt._bring_keyed(self.ctx, "g1", self.game(), "Taxi (Williams 1988)", "",
+                           {"roms": str(self.root / "roms")}, row)
+
+        self.assertEqual(row["roms"], 0)
+
+    def test_a_second_build_brings_the_rom_its_own_script_names(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        self.made("roms", "taxi_l5.zip", as_file=True)
+        self.ctx.games.add_table.return_value = {"companions": (), "rom": "taxi_l5"}
+
+        row = adopt._another_build(self.ctx, "pinballx", self.game(), (), "Taxi", "g1",
+                                   sources={"roms": str(self.root / "roms")})
+
+        self.assertEqual(row["roms"], 1)
+        self.ctx.games.put_asset.assert_called_once_with(
+            "g1", "rom", self.root / "roms" / "taxi_l5.zip")
+
+    def test_a_second_build_on_the_same_rom_finds_it_already_there(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        self.made("roms", "taxi_l4.zip", as_file=True)
+        self.ctx.games.put_asset.side_effect = FileExistsError
+
+        row = adopt._another_build(self.ctx, "pinballx", self.game(), (), "Taxi", "g1",
+                                   sources={"roms": str(self.root / "roms")})
+
+        self.assertEqual((row["roms"], row["error"]), (0, ""))
 
 
 if __name__ == "__main__":

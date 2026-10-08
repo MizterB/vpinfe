@@ -145,6 +145,7 @@ def _state(ctx: Any, survey: Callable[..., dict] | None = None) -> dict:
 
 
 # Games asked of the catalog at a time, so the wait has somewhere to be said to have got to.
+ROM_BATCH = 25
 LOOK_BATCH = 50
 
 
@@ -303,7 +304,35 @@ def build(ctx: Any) -> None:
                               str(values.get("details") or plan_for.DEFAULT_DETAILS),
                               [str(one) for one in values.get("details_some") or []])
         made.catalog = catalog
+        read_roms(library, made, _systems(values))
         return made
+
+    def read_roms(library: SourceLibrary, made: Plan, systems: list[str]) -> None:
+        """Find out which ROM each game file names, when ROMs are being imported.
+
+        Opening a table is the only way to know, and a library is hundreds of them on a
+        share, so they are read in batches with the count said, and kept for the steps
+        that follow. A game that cannot be read has no ROM here, which counts as none
+        needed rather than as an error.
+        """
+        folder = made.source("roms")
+        if folder is None or not folder.active:
+            return
+        wanted = [game.table_file for game in plan_for.going(library, made, systems)
+                  if game.table_file]
+        todo = held.unread_roms(wanted)
+        if todo:
+            progress.stage("roms", ctx.t("progress.roms"), len(todo))
+            for start in range(0, len(todo), ROM_BATCH):
+                batch = todo[start:start + ROM_BATCH]
+                try:
+                    held.remember_roms(batch, ctx.games.roms_of(batch))
+                except Exception:
+                    ctx.logger.warning("ROM names were not read for %d tables", len(batch),
+                                       exc_info=True)
+                    held.remember_roms(batch, {})
+                progress.advance(start + len(batch))
+        plan_for.attach_roms(made, library, held.roms, systems)
 
     def held_of(game_id: str) -> plan_for.Held:
         """What a game already holds, for a fill to count what it would add."""
@@ -360,10 +389,13 @@ def build(ctx: Any) -> None:
         """
         if mode not in ("copy", "move", "in_place"):
             return 0, -1, ""
+        roms_dir = next((one.path for one in plan_for.derive_sources(library, _chosen(values))
+                         if one.key == "roms"), "")
         need = plan_for.bytes_to_copy(
             games, library.source_id, ctx.games.kinds(), held.companions_of,
             move=mode != "copy",
-            sized=held.measured(progress, ctx.t("progress.measuring")))
+            sized=held.measured(progress, ctx.t("progress.measuring")),
+            roms=held.roms, roms_dir=roms_dir)
         target = (into_of(values) if mode == "copy" else
                   next((plan_for.tables_folder(one)
                         for one in plan_for.systems_going(library, games)
@@ -689,6 +721,13 @@ def build(ctx: Any) -> None:
                  ", ".join(ctx.t(f"unmatched.{why}", count=count)
                            for why, count in sorted(left.items()))]]
 
+    def _where(source: Any) -> str:
+        if source.path:
+            return str(source.path)
+        if source.not_found:
+            return ctx.t(f"kind.{source.key}.not_found")
+        return ctx.t("wizard.summary.not_imported")
+
     def _summary_step(reader: ModuleType, library: SourceLibrary, made: Plan,
                       values: dict, games: list[SourceGame]) -> dict:
         """Everything the previous steps decided, and what it comes to."""
@@ -703,8 +742,11 @@ def build(ctx: Any) -> None:
         rows = [[ctx.t("wizard.summary.reads_as"), _name(ctx, reader)],
                 [ctx.t("wizard.summary.folder"), library.root]]
         rows += [[source.label if source.active else ctx.t(f"kind.{source.key}.none"),
-                  source.path or ctx.t("wizard.summary.not_imported")]
-                 for source in made.sources]
+                  _where(source)] for source in made.sources]
+        short_roms = plan_for.missing_roms(made)
+        if short_roms:
+            rows.append([ctx.t("wizard.summary.roms_missing"),
+                         ctx.t("wizard.summary.roms_missing_count", count=short_roms)])
         rows += _matching_rows(made, games)
         if library.in_place:
             rows.append([ctx.t("wizard.summary.as_is"),
@@ -840,10 +882,14 @@ def build(ctx: Any) -> None:
             measure = held.measured(Progress(), "")
             kinds = ctx.games.kinds()
 
+            roms_folder = made.source("roms")
+            roms_dir = roms_folder.path if roms_folder and roms_folder.active else ""
+
             def weigh(game: Any) -> int:
                 return plan_for.bytes_to_copy([game], library.source_id, kinds,
                                               held.companions_of,
-                                              move=mode != "copy", sized=measure)
+                                              move=mode != "copy", sized=measure,
+                                              roms=held.roms, roms_dir=roms_dir)
 
             def tell(standing: adopt.Standing) -> None:
                 by_bytes = standing.bytes_total > 0

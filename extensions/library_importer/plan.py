@@ -27,7 +27,7 @@ from typing import Any
 
 from common.extensions.contract import words
 
-from . import folders, gamestats, mapping, popper
+from . import finding, folders, gamestats, mapping, popper
 from .source import Note, SourceGame, SourceLibrary, SourceSystem
 
 t = words("library_importer")
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # The kinds of thing an import can bring, in the order they are asked about, by the key
 # the wizard calls the field.
-SOURCES = ("tables", "media", "roms", "altdata", "history")
+SOURCES = ("tables", "media", "roms", "altdata", "music", "pups", "history")
 
 # Derived and deliberately not offered. The reading works; there is nowhere settled to
 # put what it reads, and a field that carries nothing is a promise the code cannot keep.
@@ -45,6 +45,9 @@ SOURCES = ("tables", "media", "roms", "altdata", "history")
 # table's own script and falling back to a table of Windows defaults. Nothing persists
 # them, so anything written would be read by nothing.
 NOT_YET = ("registry",)
+
+# What a folder of sound and color sets holds: one folder of sets per kind.
+ALT_FOLDERS = ("altsound", "altcolor", "serum")
 
 # What a second run does about a game it has already made. The default leaves it alone:
 # an import that quietly rewrites what somebody has since curated is the worse mistake.
@@ -74,6 +77,9 @@ class Source:
     help: str
     path: str = ""
     derived: bool = False
+    # Looked for and not there, as against left empty on purpose: the summary tells the
+    # two apart.
+    not_found: bool = False
 
     @property
     def active(self) -> bool:
@@ -111,6 +117,10 @@ class Match:
     table_name: str = ""
     kinds: tuple[str, ...] = ()
     played: gamestats.Played | None = None
+    # The kind of machine the look settled the entry as (SS, EM, ME), and the ROM the
+    # game file names once that has been read.
+    machine: str = ""
+    rom: str = ""
 
     @property
     def existing(self) -> bool:
@@ -333,13 +343,17 @@ def _beside(companions_of: Callable[..., Any], table_file: str) -> tuple[str, ..
 
 def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...],
                   companions_of: Callable[..., Any], move: bool = False,
-                  sized: Callable[[list[Path]], dict[Path, int]] | None = None) -> int:
+                  sized: Callable[[list[Path]], dict[Path, int]] | None = None,
+                  roms: dict[str, str] | None = None, roms_dir: str = "") -> int:
     """What a run writes, in bytes: the game files and what rides with them, unless they
-    are moved, and the artwork.
+    are moved, the artwork, and the ROM set each game's file names where `roms_dir` has it.
 
-    ROM sets and sound banks are not counted: which ROM a table wants is only known once
-    the table is opened, and a whole ROM folder would be several times what is used.
+    A ROM is copied for every game that names it, moved or not, so two tables on one ROM
+    count it twice. A second build of one machine does the same, which counts a ROM the
+    run will find already there: the total only ever errs high. Sound banks, music and
+    PUP packs are not counted, being folders of sets rather than files.
 
+    `roms` is the ROM each game file names, by path, as `ExtensionGames.roms_of` read it.
     `sized` measures a list of files at once, for a caller that can do it faster than one
     after another.
     """
@@ -351,8 +365,41 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
             wanted += [table.parent / name
                        for name in _beside(companions_of, game.table_file)]
         wanted += [Path(path) for _kind, path in mapping.media_for(source_id, game, kinds)]
+        rom = (roms or {}).get(game.table_file, "") if game.table_file else ""
+        found = finding.rom_file(roms_dir, rom) if rom and roms_dir else None
+        if found is not None:
+            wanted.append(found)
     sizes = (sized or _measured)(wanted)
     return sum(sizes.get(path, 0) for path in wanted)
+
+
+def attach_roms(plan: Plan, library: SourceLibrary, roms: dict[str, str],
+                systems: list[str] | None = None) -> None:
+    """Put on each match the ROM its game file names, by position as `going` pairs them."""
+    for game, match in zip(_games(library, systems), plan.matches, strict=True):
+        match.rom = roms.get(game.table_file, "") if game.table_file else ""
+
+
+def missing_roms(plan: Plan) -> int:
+    """How many games this run makes that need a ROM the ROM folder does not hold.
+
+    Only a game the look settled as solid state: an electromechanical machine plays
+    without one, and the ROM name its script gives is a name for something else. A game
+    the look could not settle is not counted either, because nothing says it needs one.
+    One count per game made, as `expected` counts them.
+    """
+    roms = plan.source("roms")
+    if roms is None or not roms.active:
+        return 0
+    folders_seen: set[str] = set()
+    short = 0
+    for one in _wanted(plan):
+        first = one.folder.lower() not in folders_seen
+        folders_seen.add(one.folder.lower())
+        if (first and not one.existing and one.machine == "SS" and one.rom
+                and finding.rom_file(roms.path, one.rom) is None):
+            short += 1
+    return short
 
 
 def _measured(paths: list[Path]) -> dict[Path, int]:
@@ -434,6 +481,7 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
     including an empty one - clearing a source is how somebody says "not that".
     """
     chosen = chosen or {}
+    finding.forget()
     tables = next((one.tables_dir for one in library.systems if one.tables_dir), "")
     media = ""
     for system in library.systems:
@@ -458,9 +506,17 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
     # sit beside that. So the emulator's own directory is where the search starts rather
     # than where it ends, and an empty answer leaves the field for somebody to fill.
     working = next((one.working_path for one in library.systems if one.working_path), "")
+    # Where the emulator's folders may be: beside it, or beside the tables, or up from
+    # either, because an install lays them out in more than one way.
+    roots = _roots(working, tables, library.root)
+    starts = [one for one in (working, tables, library.root) if one]
     guessed = {"tables": tables, "media": media,
-               "roms": _under(working, ("VPinMAME", "roms"), ("roms",)),
-               "altdata": _under(working, ("VPinMAME",), ()),
+               "roms": (_first(roots, (("VPinMAME", "roms"), ("PinMAME", "roms")))
+                        or _first(starts, (("roms",),))),
+               "altdata": _first(roots, (("VPinMAME",), ()),
+                                 holding=ALT_FOLDERS),
+               "music": _not_home(_first(roots, (("Music",),))),
+               "pups": _first(roots, (("PUPVideos",), ("PinUPSystem", "PUPVideos"))),
                "history": _file_at(library.root, popper.DATABASE
                                    if library.source_id == popper.SOURCE_ID
                                    else gamestats.STATS_FILE),
@@ -472,10 +528,12 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
         if key == "history" and library.source_id == folders.SOURCE_ID:
             continue
         said = chosen.get(key)
-        path = str(said if said is not None else guessed.get(key, "") or "").strip()
+        guess = str(guessed.get(key, "") or "").strip()
+        path = str(said if said is not None else guess).strip()
         found.append(Source(key=key, label=t(f"kind.{key}.label"),
                             help=t(f"kind.{key}.help"), path=path,
-                            derived=said is None and bool(path)))
+                            derived=said is None and bool(path),
+                            not_found=not path and not guess))
     return found
 
 
@@ -491,22 +549,52 @@ def _file_at(root: str, name: str) -> str:
         return ""
 
 
-def _under(root: str, *candidates: tuple[str, ...]) -> str:
-    """The first of these that is actually there, or nothing.
+def _roots(*starts: str) -> list[str]:
+    """Each place an emulator's folders may sit beside: the given folders, then the
+    folder above each, without repeats."""
+    roots: dict[str, None] = {}
+    for start in starts:
+        if not start:
+            continue
+        roots[start] = None
+        roots[str(Path(start).parent)] = None
+    return list(roots)
+
+
+def _first(roots: list[str], candidates: tuple[tuple[str, ...], ...],
+           holding: tuple[str, ...] = ()) -> str:
+    """The first folder that is actually there, under any of the roots, or nothing.
 
     Nothing rather than a guess: an empty field reads as "not being imported", which is
     a state somebody can see and correct. A path that does not exist reads as a promise.
+    `holding` names what the folder must contain, for one that is only a folder if it
+    holds something.
     """
+    for root in roots:
+        found = _under(root, *candidates, holding=holding)
+        if found:
+            return found
+    return ""
+
+
+def _not_home(found: str) -> str:
+    """Nothing where the folder is the person's own Music, which is theirs and not a game's."""
+    return "" if found and Path(found).parent == Path.home() else found
+
+
+def _under(root: str, *candidates: tuple[str, ...], holding: tuple[str, ...] = ()) -> str:
+    """The first of these under `root` that is there, in any case, or nothing."""
     if not root:
         return ""
-    base = Path(root)
     for parts in candidates:
-        wanted = base.joinpath(*parts) if parts else base
-        try:
-            if wanted.is_dir():
-                return str(wanted)
-        except OSError:
+        here: Path | None = Path(root)
+        for part in parts:
+            here = finding.child(here, part) if here else None
+        if here is None or not here.is_dir():
             continue
+        if holding and not any(finding.child(here, name) for name in holding):
+            continue
+        return str(here)
     return ""
 
 
@@ -581,6 +669,7 @@ def match_existing(library: SourceLibrary, existing: list[dict],
                                        if game.table_file else ""),
                            kinds=tuple(kind for kind, _path in pictures),
                            played=played,
+                           machine=str((answer.get("entry") or {}).get("type") or ""),
                            media=len(pictures),
                            companions=(len(_beside(companions_of, game.table_file))
                                        if companions_of and game.table_file else 0),

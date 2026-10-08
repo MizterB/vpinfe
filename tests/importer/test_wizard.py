@@ -343,5 +343,71 @@ class SummaryShapeTests(WizardCase):
                       "characters may be wrong", found["notes"])
 
 
+class RomSummaryTests(WizardCase):
+    CATALOG = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Williams", "year": 1988,
+                "type": "SS"}]
+
+    def summary(self, source=FIXTURE, **values) -> dict[str, str]:
+        with unittest.mock.patch("common.games.game_service.load_vpsdb",
+                                 return_value=self.CATALOG), \
+                unittest.mock.patch("common.online.vpsdb_sync.ensure_catalog",
+                                    return_value=True), \
+                unittest.mock.patch(
+                    "common.extensions.games.ExtensionGames.roms_of",
+                    side_effect=lambda paths: {str(one): "taxi_l4" for one in paths}):
+            found = self._check(source, **{"into": str(self.root / "library"), **values})
+        return {row[0]: row[1] for row in found["summary"] if len(row) == 2}
+
+    def installed(self) -> Path:
+        """A copy of the fixture whose game files are on disk, Taxi's among them."""
+        source = self.root / "frontend"
+        shutil.copytree(FIXTURE, source)
+        tables = source / "tables"
+        tables.mkdir()
+        (tables / "Taxi.vpx").write_bytes(b"table")
+        (self.root / "library").mkdir()
+        ini = source / "Config" / "PinballX.ini"
+        ini.write_bytes(ini.read_text(encoding="utf-16")
+                        .replace(r"C:\Visual Pinball\tables", str(tables))
+                        .encode("utf-16"))
+        return source
+
+    def test_a_folder_that_was_looked_for_and_not_found_says_that(self) -> None:
+        rows = self.summary()
+
+        self.assertEqual(rows["No ROMs"], "No ROM folder was found")
+        self.assertEqual(rows["No music"], "No music folder was found")
+
+    def test_a_folder_left_empty_on_purpose_says_it_is_not_being_imported(self) -> None:
+        source = self.installed()
+        (source / "Music").mkdir()
+
+        rows = self.summary(source, music="")
+
+        self.assertEqual(rows["No music"], "not being imported")
+
+    def test_the_games_that_need_a_rom_the_folder_lacks_are_counted(self) -> None:
+        roms = self.root / "roms"
+        roms.mkdir()
+
+        rows = self.summary(self.installed(), roms=str(roms))
+
+        self.assertEqual(rows["Missing ROMs"], "1 table needs a ROM that is not there")
+
+    def test_a_rom_the_folder_holds_in_another_case_is_not_missing(self) -> None:
+        roms = self.root / "roms"
+        roms.mkdir()
+        (roms / "TAXI_L4.ZIP").write_bytes(b"r")
+
+        rows = self.summary(self.installed(), roms=str(roms))
+
+        self.assertNotIn("Missing ROMs", rows)
+
+    def test_nothing_is_said_of_missing_roms_where_none_are_imported(self) -> None:
+        rows = self.summary(self.installed(), roms="")
+
+        self.assertNotIn("Missing ROMs", rows)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
-from . import mapping
+from . import finding, mapping
 from .plan import Held, Missing, history_for, missing_history
 from .source import Note, SourceGame, SourceLibrary
 
@@ -41,6 +41,8 @@ class AdoptedRow(TypedDict):
     companions: int
     roms: int
     altdata: int
+    music: int
+    pups: int
     history: int
     skipped_media: list[str]
     error: Note
@@ -61,9 +63,8 @@ class Standing:
 
 
 def _bring_rom(ctx: Any, game_id: str, rom: str, roms_dir: str) -> int:
-    """The ROM set itself, if that folder has one by this name."""
-    found = next((one for one in Path(roms_dir).glob(f"{rom}.*")
-                  if one.is_file()), None)
+    """The ROM set itself, if that folder has one by this name in any case."""
+    found = finding.rom_file(roms_dir, rom)
     if found is None:
         return 0
     try:
@@ -83,10 +84,10 @@ def _bring_alt_data(ctx: Any, game_id: str, rom: str, alt_dir: str) -> int:
     `altsound/<rom>/`, beside each other under one root.
     """
     brought = 0
-    root = Path(alt_dir)
     for folder, kind in (("altsound", "altsound"), ("altcolor", ""), ("serum", "")):
-        here = root / folder / rom
-        if not here.is_dir():
+        under = finding.child(alt_dir, folder)
+        here = finding.child(under, rom) if under else None
+        if here is None or not here.is_dir():
             continue
         if kind:
             brought += _put(ctx, game_id, kind, here, rom)
@@ -97,6 +98,42 @@ def _bring_alt_data(ctx: Any, game_id: str, rom: str, alt_dir: str) -> int:
             if said:
                 brought += _put(ctx, game_id, said, one, rom)
     return brought
+
+
+def _bring_named(ctx: Any, game_id: str, kind: str, folder: str, names: list[str]) -> int:
+    """The set in `folder` that is named for the game, as a ROM, a folder, a game file or
+    a title. A set named for none of them belongs to no game this can tell, and stays."""
+    for name in names:
+        found = finding.child(folder, name)
+        if found is not None and found.is_dir():
+            return _put(ctx, game_id, kind, found, "")
+    return 0
+
+
+def _names_of(game: SourceGame, folder: str, rom: str) -> list[str]:
+    """What a set kept for a game may be called: its ROM, the folder it becomes, its game
+    file, its title. In that order, because a ROM names one machine and a title names many."""
+    stem = Path(game.table_file).stem if game.table_file else ""
+    title = str(mapping.details_for(game).get("title") or "")
+    return [one for one in dict.fromkeys((rom, folder, stem, title)) if one]
+
+
+def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str,
+                 sources: dict[str, str], row: AdoptedRow) -> None:
+    """What a source keeps for a game by its ROM or its name, once the game file is in.
+
+    A game with no ROM has nothing keyed on one, which is most of a library and not a
+    failure; music and PUP packs are named for the game as often as for a ROM.
+    """
+    if rom and sources.get("roms"):
+        row["roms"] = _bring_rom(ctx, game_id, rom, sources["roms"])
+    if rom and sources.get("altdata"):
+        row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"])
+    names = _names_of(game, folder, rom)
+    if sources.get("music"):
+        row["music"] = _bring_named(ctx, game_id, "music", sources["music"], names)
+    if sources.get("pups"):
+        row["pups"] = _bring_named(ctx, game_id, "pup_pack", sources["pups"], names)
 
 
 def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None) -> int:
@@ -223,7 +260,8 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     name = name or mapping.folder_name(game)
     row: AdoptedRow = {"key": game.key, "name": name, "game_id": "", "table": False,
                        "media": 0, "companions": 0, "roms": 0, "altdata": 0,
-                       "history": 0, "skipped_media": [], "error": ""}
+                       "music": 0, "pups": 0, "history": 0, "skipped_media": [],
+                       "error": ""}
     if existing:
         game_id = existing
         row["existing"] = True
@@ -290,11 +328,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     if held and not rom:
         rom = held.rom
     if (row["table"] or existing) and sources:
-        if rom:
-            if sources.get("roms"):
-                row["roms"] = _bring_rom(ctx, game_id, rom, sources["roms"])
-            if sources.get("altdata"):
-                row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"])
+        _bring_keyed(ctx, game_id, game, name, rom, sources, row)
 
     played = history_for(history or {}, game)
     if played is not None and (held or not existing):
@@ -305,26 +339,31 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
 def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
                    name: str, game_id: str, move: bool = False,
                    cleared: frozenset[str] = frozenset(),
-                   existing: bool = False) -> AdoptedRow:
+                   existing: bool = False,
+                   sources: dict[str, str] | None = None) -> AdoptedRow:
     """A second build of a machine the run has already made a game for.
 
     Its file joins that game rather than starting another one. Its artwork fills the
     slots the first build left empty and replaces nothing: what is already there was
     placed for the same machine, and a second build's playfield would replace it with a
     picture of the same table. In a game the library already held, a file of the same
-    name is already there and stays.
+    name is already there and stays. What it needs keyed on its own ROM comes too: a build
+    that names another ROM than the first needs that one, and one that names the same ROM
+    finds it already there.
     """
     row: AdoptedRow = {"key": game.key, "name": name, "game_id": game_id,
                        "table": False, "media": 0, "companions": 0, "roms": 0,
-                       "altdata": 0, "history": 0, "skipped_media": [], "error": "",
-                       "joined": True}
+                       "altdata": 0, "music": 0, "pups": 0, "history": 0,
+                       "skipped_media": [], "error": "", "joined": True}
     if existing:
         row["existing"] = True
+    rom = ""
     if game.table_file and "tables" not in cleared:
         try:
             landed = ctx.games.add_table(game_id, game.table_file, move=move)
             row["table"] = True
             row["companions"] = len(landed["companions"])
+            rom = landed.get("rom", "")
         except Exception as exc:
             if not (existing and isinstance(exc, FileExistsError)):
                 ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
@@ -339,6 +378,8 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
             except Exception as exc:
                 ctx.logger.warning("%s: %s did not come across: %s", name, kind, exc)
         row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
+    if row["table"] and sources:
+        _bring_keyed(ctx, game_id, game, name, rom, sources, row)
     return row
 
 
@@ -367,6 +408,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     a game is worth in bytes. `halted` is asked between games: a run that is stopped ends
     after the game in hand, so every folder it made is whole, and says so in `stopped`.
     """
+    finding.forget()
     kinds = ctx.games.kinds()
     wanted = [system for system in library.systems
               if not systems or system.name in systems]
@@ -421,7 +463,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         seen = made_here.get(name.lower())
         if seen:
             rows.append(_another_build(ctx, library.source_id, game, kinds, name, seen,
-                                       move, cleared, seen in held_ids.values()))
+                                       move, cleared, seen in held_ids.values(), sources))
             continue
         row = _one(ctx, library.source_id, game, kinds, where, name, sources,
                    history, move, cleared, held_ids.get(id(game), ""),
@@ -434,7 +476,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         rows.append(row)
     made = [row for row in rows if row["game_id"]]
     filled = {row["name"].lower() for row in made if row.get("existing") and any(
-        row[one] for one in ("table", "media", "companions", "roms", "altdata", "history"))}
+        row[one] for one in ("table", "media", "companions", "roms", "altdata", "music", "pups",
+                            "history"))}
     return {
         "games": len({row["name"].lower() for row in made}),
         "filled": len(filled),
@@ -443,6 +486,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         "companions": sum(row["companions"] for row in made),
         "roms": sum(row["roms"] for row in made),
         "altdata": sum(row["altdata"] for row in made),
+        "music": sum(row["music"] for row in made),
+        "pups": sum(row["pups"] for row in made),
         "history": sum(row["history"] for row in made),
         "matched": sum(1 for row in made if row.get("matched")),
         "failed": len(rows) - len(made),

@@ -692,5 +692,157 @@ class SpaceTests(unittest.TestCase):
             self.assertEqual(plan_for.room_at(str(self.root)), (-1, ""))
 
 
+class FoldersFoundTests(unittest.TestCase):
+    """Where the emulator keeps its sets, worked out from where the source says it runs."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        self.install = self.root / "Visual Pinball"
+        self.install.mkdir()
+
+    def derived(self) -> dict:
+        library = _library(_game("Taxi"), tables_dir=str(self.install / "Tables"),
+                           roms=str(self.install))
+        return {one.key: one for one in plan_for.derive_sources(library)}
+
+    def test_a_folder_spelled_in_another_case_is_found(self) -> None:
+        (self.install / "VPINMAME" / "ROMS").mkdir(parents=True)
+
+        self.assertEqual(self.derived()["roms"].path,
+                         str(self.install / "VPINMAME" / "ROMS"))
+
+    def test_the_folders_are_looked_for_up_from_the_working_folder_too(self) -> None:
+        (self.root / "Music").mkdir()
+        (self.root / "PinUPSystem" / "PUPVideos").mkdir(parents=True)
+
+        found = self.derived()
+
+        self.assertEqual(found["music"].path, str(self.root / "Music"))
+        self.assertEqual(found["pups"].path, str(self.root / "PinUPSystem" / "PUPVideos"))
+        self.assertTrue(found["music"].derived)
+
+    def test_the_sound_and_color_root_must_hold_one_of_the_three(self) -> None:
+        (self.install / "VPinMAME").mkdir()
+        self.assertEqual(self.derived()["altdata"].path, "")
+
+        (self.install / "VPinMAME" / "altsound").mkdir()
+
+        self.assertEqual(self.derived()["altdata"].path, str(self.install / "VPinMAME"))
+
+    def test_a_bare_roms_folder_is_not_taken_from_above_the_install(self) -> None:
+        (self.root / "roms").mkdir()
+
+        self.assertEqual(self.derived()["roms"].path, "")
+
+    def test_the_persons_own_music_folder_is_not_a_games_music(self) -> None:
+        (self.root / "Music").mkdir()
+
+        with unittest.mock.patch("pathlib.Path.home", return_value=self.root):
+            self.assertEqual(self.derived()["music"].path, "")
+
+    def test_a_folder_that_was_looked_for_and_is_not_there_says_so(self) -> None:
+        found = self.derived()
+
+        self.assertTrue(found["roms"].not_found)
+        self.assertFalse(found["roms"].active)
+
+    def test_a_folder_somebody_cleared_was_not_looked_for_in_their_name(self) -> None:
+        (self.install / "Music").mkdir()
+        library = _library(_game("Taxi"), roms=str(self.install))
+
+        found = {one.key: one for one in plan_for.derive_sources(library, {"music": ""})}
+
+        self.assertFalse(found["music"].not_found)
+        self.assertFalse(found["music"].active)
+
+
+class RomsCountTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        self.roms = self.root / "roms"
+        self.roms.mkdir()
+        (self.roms / "Taxi_L4.ZIP").write_bytes(b"r" * 700)
+        (self.root / "Taxi.vpx").write_bytes(b"t" * 1000)
+        self.games = [SourceGame(key="Taxi", table_file=str(self.root / "Taxi.vpx"))]
+
+    def bytes_of(self, **more) -> int:
+        return plan_for.bytes_to_copy(self.games, "pinballx", (), lambda path: [], **more)
+
+    def test_the_rom_the_game_file_names_counts_in_any_case(self) -> None:
+        names = {self.games[0].table_file: "taxi_l4"}
+
+        self.assertEqual(self.bytes_of(roms=names, roms_dir=str(self.roms)), 1700)
+
+    def test_a_move_still_copies_the_rom(self) -> None:
+        names = {self.games[0].table_file: "taxi_l4"}
+
+        self.assertEqual(self.bytes_of(move=True, roms=names, roms_dir=str(self.roms)), 700)
+
+    def test_a_rom_the_folder_does_not_hold_or_a_folder_not_given_counts_for_nothing(
+            self) -> None:
+        names = {self.games[0].table_file: "afm_113b"}
+
+        self.assertEqual(self.bytes_of(roms=names, roms_dir=str(self.roms)), 1000)
+        self.assertEqual(self.bytes_of(roms={self.games[0].table_file: "taxi_l4"}), 1000)
+
+
+class MissingRomsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.roms = Path(self._tmp.name)
+        (self.roms / "taxi_l4.zip").write_bytes(b"r")
+
+    def plan(self, *matches: plan_for.Match, active: bool = True) -> plan_for.Plan:
+        found = plan_for.Source(key="roms", label="ROMs", help="",
+                                path=str(self.roms) if active else "")
+        return plan_for.Plan(sources=[found], matches=list(matches))
+
+    def test_only_a_solid_state_machine_is_said_to_need_its_rom(self) -> None:
+        made = self.plan(
+            plan_for.Match(key="a", folder="A", machine="SS", rom="afm_113b"),
+            plan_for.Match(key="b", folder="B", machine="EM", rom="aladdins_castle"),
+            plan_for.Match(key="c", folder="C", machine="", rom="apache_1978"))
+
+        self.assertEqual(plan_for.missing_roms(made), 1)
+
+    def test_a_rom_that_is_there_in_any_case_is_not_missing(self) -> None:
+        made = self.plan(plan_for.Match(key="a", folder="A", machine="SS", rom="TAXI_L4"))
+
+        self.assertEqual(plan_for.missing_roms(made), 0)
+
+    def test_a_game_already_in_the_library_is_not_said_to_need_its_rom(self) -> None:
+        made = self.plan(plan_for.Match(key="a", folder="A", machine="SS", rom="afm_113b",
+                                        game_id="g1"))
+
+        self.assertEqual(plan_for.missing_roms(made), 0)
+
+    def test_builds_of_one_game_count_once(self) -> None:
+        made = self.plan(
+            plan_for.Match(key="a", folder="A", machine="SS", rom="afm_113b"),
+            plan_for.Match(key="a2", folder="a", machine="SS", rom="afm_113b"))
+
+        self.assertEqual(plan_for.missing_roms(made), 1)
+
+    def test_nothing_is_said_where_roms_are_not_being_imported(self) -> None:
+        made = self.plan(plan_for.Match(key="a", folder="A", machine="SS", rom="afm_113b"),
+                         active=False)
+
+        self.assertEqual(plan_for.missing_roms(made), 0)
+
+    def test_the_rom_a_game_file_names_goes_on_its_match_by_position(self) -> None:
+        library = _library(_game("A", table_file="/t/A.vpx"), _game("B"))
+        made = self.plan(plan_for.Match(key="A", folder="A"),
+                         plan_for.Match(key="B", folder="B"))
+
+        plan_for.attach_roms(made, library, {"/t/A.vpx": "afm_113b"})
+
+        self.assertEqual([one.rom for one in made.matches], ["afm_113b", ""])
+
+
 if __name__ == "__main__":
     unittest.main()

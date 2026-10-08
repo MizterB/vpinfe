@@ -310,6 +310,28 @@ class ExtensionGames:
                 pass
         return found
 
+    def roms_of(self, paths: Iterable[str | Path]) -> dict[str, str]:
+        """The ROM each game file names, read from the file as `add_table` reads it, for
+        counting what an import would bring before it brings anything.
+
+        Keyed by the path as it was given. A file that is not there, or that names no ROM,
+        is left out. Opening a table costs a read of the file, so a caller asks for a
+        library in batches and keeps what it is told.
+        """
+        self._needs(GAMES_READ)
+        from common.games.library_enrichment import read_one
+
+        found: dict[str, str] = {}
+        for given in paths:
+            try:
+                source = self._source(given)
+            except FileNotFoundError:
+                continue
+            rom = str((read_one(source) or {}).get("rom") or "").strip()
+            if rom:
+                found[str(given)] = rom
+        return found
+
     def asset_kinds(self) -> tuple[str, ...]:
         """The kinds that live in a folder of their own, and so can be placed whole."""
         self._needs(GAMES_READ)

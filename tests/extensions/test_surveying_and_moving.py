@@ -85,6 +85,22 @@ class CompanionsForTests(TempTree):
         with self.assertRaises(ContractError):
             nothing.companions_for([str(self.tables / "Plain.vpx")])
 
+    def test_the_rom_a_table_names_is_read_for_each_file_that_names_one(self) -> None:
+        named = str(self.tables / "Quarry Run.vpx")
+        silent = str(self.tables / "Plain.vpx")
+        gone = str(self.tables / "Gone.vpx")
+        said = {named: {"rom": " qr_l4 "}, silent: {"rom": ""}}
+
+        with mock.patch("common.games.library_enrichment.read_one",
+                        side_effect=lambda path: said.get(str(path))):
+            found = self.games.roms_of([named, silent, gone])
+
+        self.assertEqual(found, {named: "qr_l4"})
+
+    def test_reading_a_rom_name_is_refused_outside_the_declared_roots(self) -> None:
+        with self.assertRaises(ContractError):
+            self.games.roms_of([str(self.elsewhere / "Other.vpx")])
+
 
 class MovingTests(TempTree):
     def setUp(self) -> None:

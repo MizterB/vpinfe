@@ -53,6 +53,10 @@ class Held:
         self.companions: dict[str, tuple[str, ...]] = {}
         self._asked: set[str] = set()
         self.sizes: dict[Path, int] = {}
+        # The ROM each game file names, by path, and the files already asked about:
+        # reading one means opening the table, so each is read once per library.
+        self.roms: dict[str, str] = {}
+        self._roms_asked: set[str] = set()
         # What the look found for each game of one library, by the game's identity, and
         # the state of the catalog it looked in. Kept with the library it was made for.
         self.look: tuple[SourceLibrary, dict, dict[int, dict]] | None = None
@@ -70,12 +74,14 @@ class Held:
         with self._lock:
             self._key, self._at, self.library = key, time.monotonic(), library
             self.companions, self._asked, self.sizes = {}, set(), {}
+            self.roms, self._roms_asked = {}, set()
             self.look = None
 
     def forget(self) -> None:
         with self._lock:
             self._key, self.library = None, None
             self.companions, self._asked, self.sizes = {}, set(), {}
+            self.roms, self._roms_asked = {}, set()
             self.look = None
 
     def remember_look(self, library: SourceLibrary, catalog: dict,
@@ -107,6 +113,15 @@ class Held:
                 if path in found:
                     self.companions[path] = found[path]
             self._asked.update(asked)
+
+    def remember_roms(self, asked: list[str], found: dict[str, str]) -> None:
+        with self._lock:
+            self.roms.update(found)
+            self._roms_asked.update(asked)
+
+    def unread_roms(self, paths: list[str]) -> list[str]:
+        """The game files whose ROM has not been read."""
+        return [path for path in dict.fromkeys(paths) if path not in self._roms_asked]
 
     def unasked(self, paths: list[str]) -> list[str]:
         """The game files not yet looked beside."""
