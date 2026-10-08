@@ -258,7 +258,7 @@ def import_file(game_id: str, path: str) -> dict:
     game_dir = Path(game.full_path_game or "")
     table_id = new_id()
     try:
-        game_service.add_table_file(game_dir, source, table_id)
+        table_id = game_service.add_table_file(game_dir, source, table_id)["table_id"]
     except FileExistsError as exc:
         raise service_errors.BlockedError(t("error.games.file_exists"),
                                           details={"filename": Path(exc.filename).name}) from exc

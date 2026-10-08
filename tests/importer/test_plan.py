@@ -18,6 +18,7 @@ from common.extensions import host
 host.Registry().load(host.BUNDLED_DIR / "library_importer")
 
 from vpinfe_ext_library_importer import plan as plan_for  # noqa: E402
+from vpinfe_ext_library_importer.gamestats import Played  # noqa: E402
 from vpinfe_ext_library_importer.source import (  # noqa: E402
     SourceGame,
     SourceLibrary,
@@ -279,6 +280,98 @@ class ExpectedTests(unittest.TestCase):
         """Rewriting what somebody has curated since the last run is the worse
         mistake."""
         self.assertEqual(plan_for.build(_library(), []).on_existing, "skip")
+
+
+class FillTests(unittest.TestCase):
+    """A fill counts what it adds, which is what the game is missing."""
+
+    KINDS = ("playfield", "wheel")
+    HELD = [{"game_id": "g1", "folder_name": "Taxi", "name": "Taxi", "vps_id": ""}]
+    ART = (SourceMedia(source_kind="Wheel Images", path="/w/Taxi.png"),
+           SourceMedia(source_kind="Table Images", path="/p/Taxi.png"))
+
+    def _filled(self, **held):
+        library = _library(_game("Taxi", table_file="/src/tables/Taxi.vpx", media=self.ART))
+        made = plan_for.build(library, self.HELD, on_existing="fill", source_id="pinballx",
+                              kinds=self.KINDS)
+        made.matches[0].played = Played(name="Taxi", system="Visual Pinball X",
+                                        play_count=5, rating=4, tags=("Fav",))
+        made.matches[0].history = 1
+        if held:
+            made.held["g1"] = plan_for.Held(**held)
+        return made
+
+    def test_a_game_nobody_measured_is_counted_whole(self) -> None:
+        counts = plan_for.expected(self._filled())
+
+        self.assertEqual((counts["tables"], counts["media"], counts["history"]), (1, 2, 1))
+
+    def test_a_game_file_the_game_holds_is_not_promised(self) -> None:
+        counts = plan_for.expected(self._filled(tables=frozenset({"taxi.vpx"})))
+
+        self.assertEqual(counts["tables"], 0)
+
+    def test_artwork_the_game_holds_is_not_promised(self) -> None:
+        counts = plan_for.expected(self._filled(media=frozenset({"wheel"})))
+
+        self.assertEqual(counts["media"], 1)
+
+    def test_history_the_game_already_has_is_not_promised(self) -> None:
+        counts = plan_for.expected(self._filled(
+            user={"play_count": 9, "rating": 2, "tags": ["Fav"]}))
+
+        self.assertEqual(counts["history"], 0)
+
+    def test_measuring_reads_only_for_a_fill(self) -> None:
+        made = self._filled()
+        made.on_existing = "skip"
+        read = unittest.mock.Mock()
+
+        plan_for.measure_fill(made, read)
+
+        read.assert_not_called()
+        self.assertEqual(made.held, {})
+
+    def test_a_game_that_cannot_be_read_is_counted_whole(self) -> None:
+        made = self._filled()
+
+        with self.assertLogs(plan_for.logger, "WARNING"):
+            plan_for.measure_fill(made, unittest.mock.Mock(side_effect=OSError("gone")))
+
+        self.assertEqual(plan_for.expected(made)["tables"], 1)
+
+
+class MissingHistoryTests(unittest.TestCase):
+    PLAYED = Played(name="Taxi", system="Visual Pinball X", play_count=5,
+                    play_time_seconds=300, last_played=1700000000, favorite=True,
+                    rating=4, tags=("Fav", "New"))
+
+    def test_an_empty_game_is_missing_everything(self) -> None:
+        found = plan_for.missing_history(self.PLAYED, {})
+
+        self.assertEqual(found.counters, {"play_count": 5, "play_time_seconds": 300,
+                                          "last_played": 1700000000})
+        self.assertEqual((found.tags, found.rating, found.favorite),
+                         (("Fav", "New"), 4, True))
+
+    def test_what_is_held_is_never_replaced(self) -> None:
+        found = plan_for.missing_history(self.PLAYED, {
+            "play_count": 9, "play_time_seconds": 1, "last_played": 5, "rating": 2,
+            "favorite": True, "tags": ["Fav"]})
+
+        self.assertEqual(found.counters, {})
+        self.assertEqual((found.tags, found.rating, found.favorite),
+                         (("New",), 0, False))
+
+    def test_a_tag_differing_only_in_case_is_the_same_tag(self) -> None:
+        found = plan_for.missing_history(self.PLAYED, {"tags": ["fav"]})
+
+        self.assertEqual(found.tags, ("New",))
+
+    def test_a_source_that_remembers_nothing_adds_nothing(self) -> None:
+        found = plan_for.missing_history(Played(name="Taxi", system="Visual Pinball X"), {})
+
+        self.assertFalse(found.counts)
 
 
 class ComparisonTests(unittest.TestCase):

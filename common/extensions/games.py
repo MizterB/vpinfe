@@ -249,7 +249,8 @@ class ExtensionGames:
         table_id = new_id()
         folder = library_folders.writable_game_folder(self.folder(game_id))
         found = game_service.add_table_file(folder, source, table_id, move=move)
-        return {"table_id": table_id, "companions": tuple(found["companions"]),
+        return {"table_id": found.get("table_id", table_id),
+                "companions": tuple(found["companions"]),
                 "rom": found.get("rom", "")}
 
     def companions_of(self, path: str | Path) -> tuple[str, ...]:

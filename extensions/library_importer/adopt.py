@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
 from . import mapping
-from .plan import history_for
+from .plan import Held, Missing, history_for, missing_history
 from .source import Note, SourceGame, SourceLibrary
 
 # Where a ROM set and the folders keyed on it are placed, by the kind the registry knows
@@ -98,7 +98,7 @@ def _bring_alt_data(ctx: Any, game_id: str, rom: str, alt_dir: str) -> int:
     return brought
 
 
-def _remember(ctx: Any, game_id: str, played: Any) -> int:
+def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None) -> int:
     """What the old frontend remembered about playing this game.
 
     The counters go through the one call that sets them; rating, favorite and tags are
@@ -106,7 +106,13 @@ def _remember(ctx: Any, game_id: str, played: Any) -> int:
     wrote is left alone rather than sent as a zero - a game nobody played and a game
     whose count was never recorded are different, and only one of them should overwrite
     what is already here.
+
+    For a game being filled (`held`), only what the library has none of is written: a
+    counter at nothing, a game with no rating, tags added to the ones it has, a favorite
+    turned on and never off.
     """
+    if held is not None:
+        return _add_missing(ctx, game_id, missing_history(played, held.user), held)
     try:
         if played.has_play_record:
             ctx.games.set_play_record(
@@ -123,6 +129,42 @@ def _remember(ctx: Any, game_id: str, played: Any) -> int:
         ctx.logger.warning("Could not carry the play history for %s: %s", game_id, exc)
         return 0
     return 1 if played.counts_as_history else 0
+
+
+def _add_missing(ctx: Any, game_id: str, adds: Missing, held: Held) -> int:
+    """Each kind of history is written on its own, so one the library refuses (a tag it
+    derives itself) does not keep the others from arriving. Answers 1 where counters or
+    tags were written, the two the report counts."""
+    writes = (
+        (True, adds.counters,
+         lambda: ctx.games.set_play_record(game_id, **adds.counters)),
+        (True, adds.tags,
+         lambda: ctx.games.set_tags(game_id, [*(held.user.get("tags") or []), *adds.tags])),
+        (False, adds.rating, lambda: ctx.games.rate_game(game_id, adds.rating)),
+        (False, adds.favorite, lambda: ctx.games.set_favorite(game_id, True)),
+    )
+    counted = 0
+    for reported, wanted, write in writes:
+        if not wanted:
+            continue
+        try:
+            write()
+        except Exception as exc:
+            ctx.logger.warning("Could not carry the play history for %s: %s", game_id, exc)
+            continue
+        counted = counted or int(reported)
+    return counted
+
+
+def _held(ctx: Any, game_id: str) -> Held | None:
+    """What the library holds of this game now, or nothing where it cannot be read, in
+    which case a fill writes nothing it cannot tell is missing."""
+    try:
+        one = ctx.games.get_game(game_id)
+    except Exception as exc:
+        ctx.logger.warning("Could not read %s before filling it: %s", game_id, exc)
+        return None
+    return Held(rom=str(one.get("rom") or ""), user=dict(one.get("user") or {}))
 
 
 def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
@@ -204,8 +246,12 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
         row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
 
     # After the table, because the ROM comes out of the table. A game with no ROM has
-    # nothing keyed on it, which is most of a library and not a failure.
-    if row["table"] and sources:
+    # nothing keyed on it, which is most of a library and not a failure. A filled game's
+    # ROM falls back to the one the game holds.
+    held = _held(ctx, game_id) if existing else None
+    if held and not rom:
+        rom = held.rom
+    if (row["table"] or existing) and sources:
         if rom:
             if sources.get("roms"):
                 row["roms"] = _bring_rom(ctx, game_id, rom, sources["roms"])
@@ -213,8 +259,8 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
                 row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"])
 
     played = history_for(history or {}, game)
-    if played is not None:
-        row["history"] = _remember(ctx, game_id, played)
+    if played is not None and (held or not existing):
+        row["history"] = _remember(ctx, game_id, played, held)
     return row
 
 
@@ -232,6 +278,8 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
                        "table": False, "media": 0, "companions": 0, "roms": 0,
                        "altdata": 0, "history": 0, "skipped_media": [], "error": "",
                        "joined": True}
+    if existing:
+        row["existing"] = True
     if not game.table_file or "tables" in cleared:
         return row
     try:
@@ -325,8 +373,11 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             made_here[name.lower()] = row["game_id"]
         rows.append(row)
     made = [row for row in rows if row["game_id"]]
+    filled = {row["name"].lower() for row in made if row.get("existing") and any(
+        row[one] for one in ("table", "media", "companions", "roms", "altdata", "history"))}
     return {
         "games": len({row["name"].lower() for row in made}),
+        "filled": len(filled),
         "tables": sum(1 for row in made if row["table"]),
         "media": sum(row["media"] for row in made),
         "companions": sum(row["companions"] for row in made),

@@ -16,6 +16,7 @@ is left alone unless the user says to fill in what it is missing.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import unicodedata
@@ -30,6 +31,7 @@ from . import folders, gamestats, mapping, popper
 from .source import Note, SourceGame, SourceLibrary, SourceSystem
 
 t = words("library_importer")
+logger = logging.getLogger(__name__)
 
 # The kinds of thing an import can bring, in the order they are asked about, by the key
 # the wizard calls the field.
@@ -80,10 +82,55 @@ class Match:
     media: int = 0
     companions: int = 0
     history: int = 0
+    # What a fill measures the game against: the game file's name, the kind of each
+    # artwork file, and what the source remembers.
+    table_name: str = ""
+    kinds: tuple[str, ...] = ()
+    played: gamestats.Played | None = None
 
     @property
     def existing(self) -> bool:
         return bool(self.game_id)
+
+
+@dataclass(frozen=True)
+class Held:
+    """What the library already holds of a game a fill is aimed at."""
+
+    tables: frozenset[str] = frozenset()
+    media: frozenset[str] = frozenset()
+    rom: str = ""
+    user: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Missing:
+    """The part of a game's play history that a fill adds: only what VPinFE has none of,
+    so nothing somebody has played, rated or tagged here since is overwritten."""
+
+    counters: dict[str, int] = field(default_factory=dict)
+    tags: tuple[str, ...] = ()
+    rating: int = 0
+    favorite: bool = False
+
+    @property
+    def counts(self) -> bool:
+        """Whether it adds what the report counts as history: counters and tags."""
+        return bool(self.counters or self.tags)
+
+
+def missing_history(played: gamestats.Played, user: dict[str, Any]) -> Missing:
+    """What of `played` the library, holding `user`, does not have yet."""
+    counters = {name: value for name, value in (
+        ("play_count", played.play_count),
+        ("play_time_seconds", played.play_time_seconds),
+        ("last_played", played.last_played))
+        if value and not user.get(name)}
+    held_tags = {one.casefold() for one in user.get("tags") or []}
+    return Missing(counters=counters,
+                   tags=tuple(one for one in played.tags if one.casefold() not in held_tags),
+                   rating=0 if user.get("rating") else int(played.rating or 0),
+                   favorite=bool(played.favorite and not user.get("favorite")))
 
 
 @dataclass
@@ -93,6 +140,8 @@ class Plan:
     on_existing: str = DEFAULT_ON_EXISTING
     history: dict[str, gamestats.Played] = field(default_factory=dict)
     notes: list[Note] = field(default_factory=list)
+    # By game id, for a fill: set by `measure_fill`. A game not in it is counted whole.
+    held: dict[str, Held] = field(default_factory=dict)
 
     @property
     def new(self) -> list[Match]:
@@ -130,18 +179,36 @@ def expected(plan: Plan) -> dict:
     for one in wanted:
         first = one.folder.lower() not in folders
         folders.add(one.folder.lower())
-        if has.get("tables"):
+        # A game being filled counts what the fill adds, which is what it is missing.
+        held = plan.held.get(one.game_id) if one.existing else None
+        brings_table = bool(one.tables) and not (
+            held and one.table_name.lower() in held.tables)
+        if has.get("tables") and brings_table:
             tables += one.tables
             # They ride with the table, so they arrive only where it does.
             companions += one.companions
         # Artwork and history ride with the game, and the game is made once.
         if has.get("media") and first:
-            media += one.media
+            media += len(set(one.kinds) - held.media) if held else one.media
         if first:
-            history += one.history
+            history += (int(bool(one.played and missing_history(
+                one.played, held.user).counts)) if held else one.history)
 
     return {"games": len(folders), "tables": tables, "media": media,
             "companions": companions, "history": history, "roms": 0}
+
+
+def measure_fill(plan: Plan, read: Callable[[str], Held]) -> None:
+    """Read what each game a fill is aimed at already holds, so `expected` can count what
+    the fill adds. A game that cannot be read is counted whole, which only over-counts."""
+    plan.held.clear()
+    if plan.on_existing != "fill":
+        return
+    for one in plan.already:
+        try:
+            plan.held[one.game_id] = read(one.game_id)
+        except Exception:
+            logger.warning("Could not read %s to measure a fill", one.folder, exc_info=True)
 
 
 def _wanted(plan: Plan) -> list[Match]:
@@ -385,11 +452,16 @@ def match_existing(library: SourceLibrary, existing: list[dict],
             held = by_vps.get(game.vps_id.lower())
             how = "vps_id" if held else ""
         played = history_for(history or {}, game)
+        pictures = mapping.media_for(source_id, game, kinds)
         found.append(Match(key=game.key, folder=folder,
                            game_id=str(held.get("game_id") or "") if held else "",
                            how=how,
                            tables=1 if game.table_file else 0,
-                           media=len(mapping.media_for(source_id, game, kinds)),
+                           table_name=(Path(game.table_file).name
+                                       if game.table_file else ""),
+                           kinds=tuple(kind for kind, _path in pictures),
+                           played=played,
+                           media=len(pictures),
                            companions=(len(_beside(companions_of, game.table_file))
                                        if companions_of and game.table_file else 0),
                            history=1 if played and played.counts_as_history else 0))

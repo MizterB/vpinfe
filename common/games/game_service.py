@@ -756,7 +756,9 @@ def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = Fal
     behind. They are copied after the table is recorded, and one that fails is reported rather than
     losing the table that did arrive.
 
-    Answers with what landed: the table's filename, and the companions that came too.
+    Answers with what landed: the table's filename, the id it is recorded under, and the
+    companions that came too. The id is the one passed in unless the .info already lists
+    a file of this name that the folder has lost; the file then returns under that entry.
 
     `move` takes the files out of where they were instead of copying them: the one
     case where this writes to its source. A file that cannot be recorded goes back to
@@ -766,6 +768,9 @@ def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = Fal
     if landing.exists():
         raise _already(landing)
 
+    from common.games.info_file import MetaConfig
+
+    listed = MetaConfig(str(game_dir / f"{game_dir.name}.info")).listed_table_id(source.name)
     carry = shutil.move if move else shutil.copy2
     companions = companions_beside(source)
     try:
@@ -776,7 +781,8 @@ def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = Fal
             landing.unlink(missing_ok=True)
         raise
     try:
-        rom = record_arrived_table(game_dir, landing, table_id, keep=move)
+        rom = record_arrived_table(game_dir, landing, listed or table_id, keep=move,
+                                   listed=bool(listed))
     except Exception:
         if move and landing.exists():
             shutil.move(landing, source)
@@ -796,21 +802,24 @@ def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = Fal
             logger.warning("%s did not come with %s: %s", one.name, source.name, exc)
 
     refresh_game(game_dir)
-    return {"table": source.name, "companions": brought, "rom": rom}
+    return {"table": source.name, "table_id": listed or table_id,
+            "companions": brought, "rom": rom}
 
 
 def record_arrived_table(game_dir: Path, landing: Path, table_id: str,
-                         keep: bool = False) -> str:
+                         keep: bool = False, listed: bool = False) -> str:
     """Record a game file that has just landed in its game's folder, under `table_id`,
     and describe it from what it says about itself. Answers with the ROM it names.
 
     Raises ValueError, having removed the file unless `keep`, where the game already
-    holds one by that name. Leaves the refresh to the caller.
+    holds one by that name. `listed` says the record already holds the entry and only the
+    file was missing, so nothing is added and the file is described under that id. Leaves
+    the refresh to the caller.
     """
     from common.games.info_file import MetaConfig
 
     meta = MetaConfig(str(game_dir / f"{game_dir.name}.info"))
-    if not meta.add_contained_table(landing.name, table_id):
+    if not listed and not meta.add_contained_table(landing.name, table_id):
         if not keep:
             landing.unlink(missing_ok=True)
         raise ValueError(t("error.games.file_exists"))

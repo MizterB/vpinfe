@@ -602,6 +602,25 @@ class RunTests(FolderCase):
         self.assertTrue(wire["report"])
         self.assertEqual(wire["problems"], 0)
 
+    def test_filling_a_game_that_lost_its_file_gives_it_back_and_says_filled(self) -> None:
+        self.loose("Harbor Lights")
+        copies = self.root / "Copies"
+        copies.mkdir()
+        self.run_it(self.tables, how="copy", into=str(copies))
+        lost = copies / "Harbor Lights" / "Harbor Lights.vpx"
+        lost.unlink()
+
+        with self.assertLogs("vpinfe.common.jobs", "INFO") as logged:
+            report = self.run_it(self.tables, how="copy", into=str(copies),
+                                 on_existing="fill")
+
+        self.assertEqual((report["filled"], report["failed"]), (1, 0))
+        self.assertEqual(report["expected"]["tables"], report["tables"])
+        self.assertTrue(lost.is_file())
+        self.assertEqual(self.job.detail, "Made 0, filled 1, failed 0")
+        self.assertTrue(any("Created 0, filled 1, failed 0" in line
+                            for line in logged.output), logged.output)
+
     def test_a_copy_makes_a_folder_for_each_table_and_leaves_the_source(self) -> None:
         self.loose("Harbor Lights", "Quarry Run")
         (self.tables / "Harbor Lights.directb2s").write_bytes(b"backglass")

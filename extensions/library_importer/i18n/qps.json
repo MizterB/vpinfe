@@ -21,6 +21,8 @@
   "job.importing_games": "Ĝàɱè {number} öƒ {count}: {name}",
   "job.detail": "Ḿàđè {made}, ƒàîŀèđ {failed}",
   "job.detail_stopped": "Ḿàđè {made}, ƒàîŀèđ {failed}, šţöþþèđ ŵîţĥ {left} ŀèƒţ",
+  "job.detail_filled": "Ḿàđè {made}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed}",
+  "job.detail_stopped_filled": "Ḿàđè {made}, ƒîŀŀèđ {filled}, ƒàîŀèđ {failed}, šţöþþèđ ŵîţĥ {left} ŀèƒţ",
   "wizard.source.title": "Îɱþöřţ à ŀîƀřàřý",
   "wizard.source.help": "Ţĥè ƒöŀđèř ţĥè ŀîƀřàřý îš ķèþţ îñ",
   "wizard.source.source_type.label": "Çöɱîñĝ ƒřöɱ",

@@ -507,6 +507,12 @@ class MetaConfig:
         self.write_config()
         return True
 
+    def listed_table_id(self, filename: str) -> str:
+        """The id of the entry this .info already holds for a game file of this name, or
+        "" where it holds none. The record can list a file the folder no longer has."""
+        found, _ = entry_for_filename(self._entries_by_id(), str(filename or "").strip())
+        return found
+
     def add_contained_table(self, filename: str, table_id: str) -> bool:
         """Record a game file that has just been copied into this folder.
 

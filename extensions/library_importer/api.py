@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import ModuleType
@@ -258,6 +259,29 @@ def build(ctx: Any) -> None:
                               _systems(values), ctx.games.folder_name_for,
                               library.source_id, ctx.games.kinds(),
                               held.companions_of)
+
+    def held_of(game_id: str) -> plan_for.Held:
+        """What a game already holds, for a fill to count what it would add."""
+        one = ctx.games.get_game(game_id)
+        files = ctx.games.game_tables(game_id).get("tables") or []
+        slots = ctx.games.game_media(game_id).get("media") or {}
+        return plan_for.Held(
+            tables=frozenset(str(row.get("filename") or "").lower() for row in files
+                             if row.get("available") is not False) - {""},
+            media=frozenset(kind for kind, slot in slots.items() if slot.get("via") == "game"),
+            rom=str(one.get("rom") or ""), user=dict(one.get("user") or {}))
+
+    measured: dict[str, tuple[float, plan_for.Held]] = {}
+
+    def held_lately(game_id: str) -> plan_for.Held:
+        """`held_of` for a summary redrawn while somebody reads it: each held game costs
+        three reads, a folder scan among them, so an answer under half a minute old
+        stands. The run itself reads afresh."""
+        at, found = measured.get(game_id, (0.0, None))
+        if found is None or time.monotonic() - at > 30:
+            found = held_of(game_id)
+            measured[game_id] = (time.monotonic(), found)
+        return found
 
     def path_of(location: str) -> str:
         """Where a location is, or "" where it is not somewhere games can be made.
@@ -603,6 +627,7 @@ def build(ctx: Any) -> None:
                       values: dict, games: list[SourceGame]) -> dict:
         """Everything the previous steps decided, and what it comes to."""
         found = _preview(library)
+        plan_for.measure_fill(made, held_lately)
         counts = plan_for.expected(made)
         mode = _mode(library, values, games)
         tables = sum(1 for one in games if one.table_file)
@@ -736,6 +761,7 @@ def build(ctx: Any) -> None:
                     plan_for.tables_folder(one))["location_id"]
                     for one in plan_for.systems_going(library, games)
                     if plan_for.tables_folder(one)}
+            plan_for.measure_fill(made, held_of)
             want = plan_for.expected(made)
             measure = held.measured(Progress(), "")
             kinds = ctx.games.kinds()
@@ -771,11 +797,19 @@ def build(ctx: Any) -> None:
             # Counted from the rows the report lists, not from `failed`: a game whose
             # folder was made and whose file did not come across is in the report too.
             job.problems = sum(1 for row in report["rows"] if row.get("error"))
-            job.detail = (
-                ctx.t("job.detail_stopped", made=report["games"], failed=report["failed"],
-                      left=report.get("left", 0)) if job.stopped else
-                ctx.t("job.detail", made=report["games"], failed=report["failed"]))
-            job.log(f"Created {report['games']}, failed {report['failed']}")
+            created = report["games"] - report["filled"]
+            left, filled, failed = report.get("left", 0), report["filled"], report["failed"]
+            if job.stopped:
+                job.detail = (
+                    ctx.t("job.detail_stopped_filled", made=created, filled=filled,
+                          failed=failed, left=left) if filled else
+                    ctx.t("job.detail_stopped", made=created, failed=failed, left=left))
+            else:
+                job.detail = (
+                    ctx.t("job.detail_filled", made=created, filled=filled, failed=failed)
+                    if filled else ctx.t("job.detail", made=created, failed=failed))
+            job.log(f"Created {created}, filled {report['filled']}, "
+                    f"failed {report['failed']}")
             return report
 
         job = ctx.jobs.submit("import", work, stop_route="/wizard/stop",

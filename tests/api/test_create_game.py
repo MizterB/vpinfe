@@ -267,6 +267,20 @@ class ImportTableTests(CreateGameCase):
         self.assertEqual(again.json()["error"]["details"], {"filename": source.name})
 
 
+    def test_a_file_the_folder_lost_comes_back_under_its_own_table(self) -> None:
+        game_id = self._game()
+        source = self._source()
+        first = self.client.post(f"/games/{game_id}/tables/import",
+                                 json={"path": str(source)}).json()["id"]
+        (self.library / "Taxi" / source.name).unlink()
+
+        again = self.client.post(f"/games/{game_id}/tables/import",
+                                 json={"path": str(source)})
+
+        self.assertEqual(again.status_code, 201, again.text)
+        self.assertEqual(again.json()["id"], first)
+        self.assertTrue((self.library / "Taxi" / source.name).is_file())
+
 class DetailsTests(CreateGameCase):
     def _game(self, name: str = "Taxi") -> str:
         self.add_location(self.library)

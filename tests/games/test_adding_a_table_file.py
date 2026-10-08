@@ -13,6 +13,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from common.games import game_service
+from common.games.info_file import MetaConfig
 
 
 class AddTableFileTests(unittest.TestCase):
@@ -66,6 +67,18 @@ class AddTableFileTests(unittest.TestCase):
 
         self.assertEqual(self.table.read_bytes(), b"table")
         self.assertFalse((self.game / "Harbor Lights.vpx").exists())
+
+    def test_a_file_the_record_lists_and_the_folder_lost_comes_back_under_its_entry(self) -> None:
+        first = game_service.add_table_file(self.game, self.table, "tbl0000001")
+        (self.game / "Harbor Lights.vpx").unlink()
+
+        again = game_service.add_table_file(self.game, self.table, "tbl0000002")
+
+        self.assertEqual(again["table_id"], first["table_id"])
+        self.assertEqual((self.game / "Harbor Lights.vpx").read_bytes(), b"table")
+        listed = MetaConfig(str(self.game / "Harbor Lights.info")).listed_table_id(
+            "Harbor Lights.vpx")
+        self.assertEqual(listed, first["table_id"])
 
     def _across_volumes_with_a_source_that_cannot_be_removed(self):
         """A rename that crosses volumes fails, so the file is copied, and then the

@@ -10,6 +10,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -307,6 +308,95 @@ class ImportTests(AdoptCase):
 
         self.assertEqual(0, again["failed"])
         self.assertEqual((0, 0, 0), (again["tables"], again["media"], again["companions"]))
+
+    def _filled_with(self, *rows: str):
+        """The fixture and a GameStats.csv, planned against what the library holds."""
+        from vpinfe_ext_library_importer import pinballx, plan
+
+        source = self.root / "source"
+        shutil.rmtree(source, ignore_errors=True)
+        shutil.copytree(FIXTURE, source)
+        (source / "GameStats.csv").write_bytes(
+            "".join(f"{row}\n" for row in ("Game,Play Count,Is Favorite", *rows))
+            .encode("utf-16"))
+        self._ctx.files.set_roots([str(source)])
+        library = pinballx.read(source)
+        made = plan.build(library, self._ctx.games.existing(), systems=[VPX],
+                          on_existing="fill",
+                          folder_name_for=self._ctx.games.folder_name_for,
+                          source_id=library.source_id, kinds=self._ctx.games.kinds(),
+                          companions_of=self._ctx.games.companions_of)
+        return library, made
+
+    def test_filling_adds_the_history_a_game_lacks_and_keeps_what_it_has(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        library, made = self._with_history("Taxi (Williams 1988).Visual Pinball X,33,")
+        report = adopt.run(self._ctx, library, [VPX], "", made)
+        taxi_id = next(row["game_id"] for row in report["rows"] if row["key"] == "Taxi")
+        afm_id = next(row["game_id"] for row in report["rows"]
+                      if row["key"].startswith("Attack"))
+        self._ctx.games.set_play_record(taxi_id, play_count=40)
+
+        library, made = self._filled_with(
+            "Taxi (Williams 1988).Visual Pinball X,99,",
+            "Attack from Mars (Bally 1995).Visual Pinball X,5,1")
+        again = adopt.run(self._ctx, library, [VPX], "", made)
+
+        self.assertEqual(0, again["failed"])
+        users = {one: self.client.get(f"/games/{one}").json()["user"]
+                 for one in (taxi_id, afm_id)}
+        self.assertEqual(40, users[taxi_id]["play_count"])
+        self.assertEqual(5, users[afm_id]["play_count"])
+        self.assertTrue(users[afm_id]["favorite"])
+
+    def test_a_fill_over_a_complete_library_fills_nothing(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        library, made = self._with_history("Taxi (Williams 1988).Visual Pinball X,33,")
+        adopt.run(self._ctx, library, [VPX], "", made)
+
+        library, made = self._filled_with("Taxi (Williams 1988).Visual Pinball X,33,")
+        again = adopt.run(self._ctx, library, [VPX], "", made)
+
+        self.assertEqual((0, 0), (again["filled"], again["failed"]))
+
+    def test_a_refused_tag_does_not_keep_the_rest_of_the_history_back(self) -> None:
+        from vpinfe_ext_library_importer import adopt, plan
+
+        library, made = self._planned("")
+        report = adopt.run(self._ctx, library, [VPX], "", made)
+        game_id = report["rows"][0]["game_id"]
+        adds = plan.Missing(counters={"play_count": 7}, tags=("Odd",), rating=3)
+
+        with unittest.mock.patch.object(self._ctx.games, "set_tags",
+                                        side_effect=ValueError("derived")), \
+                self.assertLogs(self._ctx.logger, "WARNING"):
+            counted = adopt._add_missing(self._ctx, game_id, adds, plan.Held())
+
+        user = self.client.get(f"/games/{game_id}").json()["user"]
+        self.assertEqual((1, 7, 3), (counted, user["play_count"], user["rating"]))
+
+    def test_filling_takes_the_rom_from_the_game_it_fills(self) -> None:
+        """The game file is held and does not arrive again, so the ROM comes from the
+        game; without it nothing keyed on the ROM is placed."""
+        from vpinfe_ext_library_importer import adopt, plan
+
+        library, made = self._planned("")
+        adopt.run(self._ctx, library, [VPX], "", made)
+        library, made = self._planned("", fill=True)
+        for one in made.sources:
+            if one.key == "roms":
+                one.path = "/roms"
+
+        with unittest.mock.patch.object(
+                adopt, "_held", return_value=plan.Held(rom="taxi_l4")), \
+                unittest.mock.patch.object(adopt, "_bring_rom", return_value=1) as bring:
+            report = adopt.run(self._ctx, library, [VPX], "", made)
+
+        self.assertEqual(0, report["failed"])
+        self.assertEqual({"taxi_l4"}, {call.args[2] for call in bring.call_args_list})
+        self.assertEqual(3, report["roms"])
 
 
 class BoundsTests(AdoptCase):
