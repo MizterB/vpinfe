@@ -23,12 +23,8 @@ class _Browse(TempTree):
         self.down.mkdir()
         held = [library_folders.Location("l1", str(self.up)),
                 library_folders.Location("l2", str(self.down))]
-        settings = mock.MagicMock(media_browse_dirs=[])
         for patcher in (
                 mock.patch.object(library_folders, "configured", return_value=held),
-                mock.patch.object(media_browse, "get_ini_config"),
-                mock.patch.object(media_browse.SettingsConfig, "from_config",
-                                  return_value=settings),
                 mock.patch.object(path_state, "PROBE_SECONDS", 0.2)):
             patcher.start()
             self.addCleanup(patcher.stop)

@@ -103,7 +103,7 @@ class ImportALibraryDrive(unittest.TestCase):
 
             await walk.visit(ADDRESS)
             await browser.wait_for(ROW_COUNT % 1)
-            await browser.wait_for(f"document.querySelectorAll({json.dumps(ACTIONS)}).length === 3")
+            await browser.wait_for(f"document.querySelectorAll({json.dumps(ACTIONS)}).length === 2")
             # A reload would take this with it.
             await browser.evaluate("window.keptThroughTheImport = true")
             seen["buttons"] = await browser.evaluate(

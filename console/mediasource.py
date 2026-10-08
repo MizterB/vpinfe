@@ -30,6 +30,7 @@ from common.failures import why
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, spec_for, specs_named
 from common.i18n import t
 from common.media_specs import (
+    DOC_FAMILY,
     IMAGE_FAMILY,
     MEDIA_SPECS,
     canonical_kind,
@@ -343,10 +344,6 @@ class _Sources:
             return
         self.browse_roots = starts
         with body:
-            if not starts:
-                ui.label(t("console.mediasource.browse_empty")) \
-                    .classes("console-help")
-                return
             # The control before what it controls: built the other way round, the
             # picker sits under the folder it chose.
             with ui.column().classes("console-picker-head gap-2"):
@@ -1096,10 +1093,10 @@ class _Folder(_Sources):
         return t("console.mediasource.title_game", kind=self.label)
 
     def starts(self) -> list[dict[str, Any]]:
-        return self.library.browse_roots(self.game_id)
+        return self.library.disk_starts(self.game_id)
 
     def listing(self, path: str) -> dict[str, Any]:
-        return self.library.browse(path, self.kind, True)
+        return self.library.disk_listing(path, (*self.extensions, *ARCHIVE_EXTENSIONS))
 
     def fits(self, item: dict[str, Any]) -> bool:
         return _suffix(item) in ARCHIVE_EXTENSIONS or _suffix(item) in self.extensions
@@ -1172,10 +1169,10 @@ class _Notes(_Folder):
         super().__init__(context, "readme", label, done)
 
     def listing(self, path: str) -> dict[str, Any]:
-        return self.library.browse(path)
+        return self.library.disk_listing(path, DOC_FAMILY)
 
     def fits(self, item: dict[str, Any]) -> bool:
-        return item.get("family") == "doc"
+        return True
 
     def folder_use(self, path: str) -> Callable | None:
         return None
@@ -1209,11 +1206,11 @@ class _Table(_Folder):
         return t("console.mediasource.add_table", name=self.game_name)
 
     def starts(self) -> list[dict[str, Any]]:
-        return [root for root in self.library.browse_roots(self.game_id)
+        return [root for root in self.library.disk_starts(self.game_id)
                 if root.get("source") != "game"]
 
     def listing(self, path: str) -> dict[str, Any]:
-        return self.library.browse(path, self.kind)
+        return self.library.disk_listing(path, apps.table_suffixes())
 
     def fits(self, item: dict[str, Any]) -> bool:
         inside = self.game_dir and str(item.get("path") or "").startswith(

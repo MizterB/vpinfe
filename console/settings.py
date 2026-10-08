@@ -42,7 +42,6 @@ from common.online import theme_source_checks as online_checks
 from console import (
     appearance_picker,
     binding_table,
-    browse_folders,
     browser_state,
     busy,
     chrome_options,
@@ -241,24 +240,6 @@ def _browse_path(browse: Callable[..., dict] | None, kind: str, suffixes: tuple[
     return browsed
 
 
-def _browse_list(browse: Callable[..., dict] | None, kind: str) -> Callable[[str], Any] | None:
-    """`panel.field`'s own `browse` for a comma-joined list: what is picked is added to
-    the line rather than replacing it."""
-    if browse is None:
-        return None
-
-    async def browsed(current: str) -> str | None:
-        chosen = await folder_picker.pick_path(browse, "", kind=kind)
-        if not chosen:
-            return None
-        items = [p.strip() for p in current.split(",") if p.strip()]
-        if chosen not in items:
-            items.append(chosen)
-        return ", ".join(items)
-
-    return browsed
-
-
 # What a suggested setting can say besides one of its suggestions, where the empty value
 # is an answer of its own.
 _FIRST_CHOICES: dict[str, Callable[[], dict[str, str]]] = {
@@ -379,8 +360,7 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
         return panel.field(
             ", ".join(str(v) for v in (value or [])),
             lambda text: save([p.strip() for p in text.split(",") if p.strip()]),
-            disabled=off,
-            browse=_browse_list(browse, str(option["path"])) if option.get("path") else None)
+            disabled=off)
     if option.get("path"):
         # A path is the one value that can be well-formed and still wrong, and it fails
         # much later - at launch, as a file-not-found. Re-checked after a write rather
@@ -917,20 +897,16 @@ async def _folders_page(library: Library, redraw: Callable[[], None],
             schema = await offload.io(library.config_schema)
             values = await offload.io(library.config_values)
             checks = await offload.io(library.config_path_checks)
-            block = await browse_folders.read(library, values)
         except Exception as exc:  # noqa: BLE001 - the library folders stay on the page
-            return [panel.intro(t("console.browse_folders.read_failed"), hint=why(exc))]
-        block.rerender = redraw
+            return [panel.intro(t("console.folders.read_failed"), hint=why(exc))]
         media = next((one for one in with_default_paths(schema, checks)
-                      if one.get("name") == browse_folders.SECTION), {})
+                      if one.get("name") == "media"), {})
         options = [one for one in media.get("options") or []
                    if one.get("home") == folders.KEY]
-        return section_rows(library, browse_folders.SECTION, options, values,
+        return section_rows(library, "media", options, values,
                             bool(media.get("writable")), redraw,
                             field_marks([], checks), browse=library.folders,
-                            waiting=Waiting(library, await _waiting(library)),
-                            stands_in={f"{browse_folders.SECTION}.{browse_folders.KEY}":
-                                       browse_folders.rows(block)})
+                            waiting=Waiting(library, await _waiting(library)))
 
     return await folders.page(library, redraw, state, below)
 

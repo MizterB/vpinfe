@@ -209,6 +209,11 @@ def begin_from(path: str) -> dict[str, Any]:
     if not source.exists():
         raise service_errors.RefusedError(t("error.filesystem.nothing_there"),
                                           details={"path": path})
+    return begin_over(source)
+
+
+def begin_over(source: Path) -> dict[str, Any]:
+    """A session over `source`, which the caller has already judged readable."""
     return {"id": upload_session_service.begin_session(source=source).upload_id}
 
 

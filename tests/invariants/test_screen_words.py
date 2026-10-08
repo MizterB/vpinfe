@@ -60,7 +60,6 @@ ASSETS_PAGE = "the Assets page, of the files a table loads"
 
 ASSET = {
     "config.library.hidden_asset_kinds.label": LOADS,
-    "config.media.browse_dirs.description": LOADS,
     "config.updates.refresh_minutes.description": LOADS,
     "console.assets.assets": LOADS,
     "console.assets.assets_missing": LOADS,

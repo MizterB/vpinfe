@@ -17,11 +17,9 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from common import path_state, service_errors
-from common.config_access import SettingsConfig
 from common.games import library_folders
 from common.i18n import t
 from common.media_specs import AUDIO_FAMILY, DOC_FAMILY, IMAGE_FAMILY, VIDEO_FAMILY
-from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.media_browse")
 
@@ -41,7 +39,6 @@ def roots(game_dir: str = "") -> list[dict]:
     A game's own folder first when one is named: that is where its art is most likely
     to already be, and it is the one starting point that is not a setting.
     """
-    settings = SettingsConfig.from_config(get_ini_config())
     wanted: list[tuple[str, str]] = []
 
     def offer(raw: str, source: str) -> None:
@@ -52,8 +49,6 @@ def roots(game_dir: str = "") -> list[dict]:
         offer(game_dir, "game")
     for location in library_folders.configured():
         offer(location.path, "library")
-    for extra in settings.media_browse_dirs:
-        offer(extra, "configured")
 
     # Asked of every folder at once: one that is on a share that is down costs one wait,
     # not one per folder, and is left out rather than hanging the picker.

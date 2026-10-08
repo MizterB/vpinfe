@@ -51,8 +51,8 @@ class ManufacturerEndpointTests(unittest.TestCase):
 
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "manufacturer_logos"
-            (root / "default").mkdir(parents=True)
-            (root / "default" / "bally.png").write_bytes(b"png")
+            root.mkdir()
+            (root / "bally.png").write_bytes(b"png")
             configure_manufacturer_logos(root)
             self.addCleanup(configure_manufacturer_logos, None)
 

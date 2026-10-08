@@ -1002,8 +1002,9 @@ class ApiClient:
 
     def upload_from_path(self, path: str) -> str:
         """A session reading a file, folder or archive already on this machine, where
-        it is. Nothing is copied until the import, and the original is never moved."""
-        return str(self._post("/uploads/from_path", {"path": path})["id"])
+        it is, anywhere on the disk. Nothing is copied until the import, and the original is
+        never moved."""
+        return str(self._post("/folders/uploads", {"path": path})["id"])
 
     def new_game_destination(self) -> dict:
         """Where a new game would be created, or why it could not, and what else it
@@ -1259,8 +1260,8 @@ class ApiClient:
         return response.json()
 
     def import_table_file(self, game_id: str, file_path: str) -> dict:
-        """Copy a file on this machine into the game folder, as one more table."""
-        path = f"/games/{game_id}/tables/import"
+        """Copy a file anywhere on this machine into the game folder, as one more table."""
+        path = f"/folders/games/{game_id}/tables"
         _refuse_the_event_loop(path)
         response = self._session.post(f"{self._base}{path}",
                                       json={"path": file_path}, timeout=_IMPORT_TIMEOUT)

@@ -9,7 +9,9 @@ from fastapi import APIRouter, Body, Query, Request
 from starlette.responses import FileResponse
 
 from common import folder_browse
+from common.games import table_ops
 from common.i18n import t
+from common.uploads import upload_ops
 
 from . import models, scopes
 from .auth import ForbiddenError, caller_is_local, requires
@@ -54,3 +56,25 @@ def make_folder(request: Request, body: dict = Body(...)) -> models.FolderListin
         raise ForbiddenError(t("error.folders.this_device_only"))
     return models.FolderListing.model_validate(
         folder_browse.make_folder(str(body.get("parent") or ""), str(body.get("name") or "")))
+
+
+@router.post("/uploads", summary="Begin an upload session over a path on this device",
+             dependencies=[requires(scopes.CONFIG_WRITE), requires(scopes.UPLOADS_WRITE)])
+def begin_upload_here(request: Request, body: models.UploadFromPath) -> models.UploadBegun:
+    """`/uploads/from_path` for a path the person picked in a browser of this device, so it
+    is not held to the library's folders. That one stays bounded for API clients."""
+    if not caller_is_local(request):
+        raise ForbiddenError(t("error.folders.this_device_only"))
+    return models.UploadBegun(**upload_ops.begin_over(folder_browse.source_here(body.path)))
+
+
+@router.post("/games/{game_id}/tables", summary="Copy a game file on this device into a game",
+             status_code=201,
+             dependencies=[requires(scopes.CONFIG_WRITE), requires(scopes.GAMES_WRITE)])
+def import_table_here(request: Request, game_id: str, body: models.TableImport) -> models.Table:
+    """`/games/{id}/tables/import` for a path the person picked in a browser of this
+    device. The file still has to be one a program plays."""
+    if not caller_is_local(request):
+        raise ForbiddenError(t("error.folders.this_device_only"))
+    return models.Table(**table_ops.import_file(game_id,
+                                                str(folder_browse.source_here(body.path))))

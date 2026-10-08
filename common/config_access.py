@@ -166,7 +166,6 @@ class SettingsConfig:
     default_chrome_options: bool = True
     hide_quit_button: bool = False
     restore_last_table: bool = True
-    media_browse_dirs: tuple[str, ...] = ()
     manufacturer_logos_dir: str = ""
 
     @classmethod
@@ -184,7 +183,6 @@ class SettingsConfig:
             restore_last_table=cfg_bool(source, "Settings", "restorelasttable", True),
             # Canonical section, not the "Settings" alias the rest of these carry: these
             # are new in 3.0 and never lived anywhere else.
-            media_browse_dirs=tuple(cfg_list(source, "media", "browse_dirs")),
             manufacturer_logos_dir=cfg_get(source, "media", "manufacturer_logos_dir",
                                            "").strip(),
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import shutil
 from unittest import mock
 
 from starlette.testclient import TestClient
@@ -86,3 +87,52 @@ class FromPathRouteTests(_Here):
                                json={"path": str(self.root / "not-here")})
 
         self.assertEqual(400, response.status_code)
+
+
+class FromThisDeviceRouteTests(_Here):
+    """`POST /folders/uploads`: the same session over a place the library does not read."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+        self.elsewhere = self.root.parent / f"{self.root.name}-elsewhere"
+        (self.elsewhere / "Pup").mkdir(parents=True)
+        (self.elsewhere / "Pup" / "screens.pup").write_bytes(b"x" * 16)
+        self.addCleanup(shutil.rmtree, self.elsewhere, True)
+
+    def test_a_folder_outside_every_root_is_read_where_it_is(self) -> None:
+        response = self.client.post("/folders/uploads", json={"path": str(self.elsewhere)})
+
+        self.assertEqual(200, response.status_code, response.text)
+        upload = response.json()["id"]
+        self.addCleanup(upload_ops.abort, upload)
+        self.assertEqual(1, self.client.get(f"/uploads/{upload}").json()["file_count"])
+        self.assertTrue((self.elsewhere / "Pup" / "screens.pup").is_file())
+
+    def test_the_route_for_a_program_on_the_network_stays_bounded(self) -> None:
+        response = self.client.post("/uploads/from_path", json={"path": str(self.elsewhere)})
+
+        self.assertEqual(400, response.status_code)
+
+    def test_a_network_caller_is_refused(self) -> None:
+        with mock.patch("httpapi.folders.caller_is_local", return_value=False):
+            response = self.client.post("/folders/uploads",
+                                        json={"path": str(self.elsewhere)})
+
+        self.assertEqual(403, response.status_code)
+
+    def test_a_private_folder_is_refused(self) -> None:
+        private = self.elsewhere / ".ssh"
+        private.mkdir()
+        (private / "key.png").write_bytes(b"x")
+
+        with mock.patch("common.folder_browse.Path.home", return_value=self.elsewhere):
+            response = self.client.post("/folders/uploads", json={"path": str(private)})
+
+        self.assertEqual(400, response.status_code)
+
+    def test_a_path_with_nothing_there_is_not_found(self) -> None:
+        response = self.client.post("/folders/uploads",
+                                    json={"path": str(self.elsewhere / "not-here")})
+
+        self.assertEqual(404, response.status_code)

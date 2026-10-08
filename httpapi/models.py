@@ -1750,8 +1750,9 @@ class NewGameRequest(ApiModel):
 
 
 class TableImport(ApiModel):
-    """A game file elsewhere on this device to copy into the game, as an absolute
-    path. Refused unless it is under a browsable root."""
+    """A game file elsewhere on this device to copy into the game, as an absolute path.
+    `/games/{id}/tables/import` refuses one that is not under a browsable root;
+    `/folders/games/{id}/tables` takes any path on this device, from this device."""
 
     path: str
 

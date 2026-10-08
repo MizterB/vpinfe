@@ -215,6 +215,36 @@ class ImportTableTests(CreateGameCase):
         self.assertEqual(found.status_code, 400)
         self.assertFalse((self.library / "Taxi" / "outside.vpx").exists())
 
+    def test_the_pick_of_a_browser_on_this_device_is_copied_from_anywhere(self) -> None:
+        game_id = self._game()
+        outside = self.root / "outside.vpx"
+        outside.write_bytes(b"not really a table")
+
+        made = self.client.post(f"/folders/games/{game_id}/tables",
+                                json={"path": str(outside)})
+
+        self.assertEqual(made.status_code, 201, made.text)
+        self.assertTrue((self.library / "Taxi" / "outside.vpx").is_file())
+        self.assertTrue(outside.is_file(), "a copy, not a move")
+
+    def test_the_route_for_this_device_still_wants_a_file_a_program_plays(self) -> None:
+        game_id = self._game()
+        notes = self._source("notes.txt")
+
+        found = self.client.post(f"/folders/games/{game_id}/tables", json={"path": str(notes)})
+
+        self.assertEqual(found.status_code, 400)
+        self.assertFalse((self.library / "Taxi" / "notes.txt").exists())
+
+    def test_the_route_for_this_device_refuses_a_network_caller(self) -> None:
+        game_id = self._game()
+
+        with patch("httpapi.folders.caller_is_local", return_value=False):
+            found = self.client.post(f"/folders/games/{game_id}/tables",
+                                     json={"path": str(self._source())})
+
+        self.assertEqual(found.status_code, 403)
+
     def test_a_file_nothing_plays_is_refused(self) -> None:
         game_id = self._game()
         source = self._source("notes.txt")

@@ -238,8 +238,8 @@ def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
             "above": _above(here), "folders": folders, "files": files, "roots": _roots(kind)}
 
 
-def _on_this_device(path: str) -> Path:
-    """The file `path` names once links are followed, or a refusal.
+def _resolved(path: str) -> Path:
+    """What `path` names once links are followed, unless that is a private place.
 
     Every check is on what the path resolves to: a link called `cover.png` that points at
     a key or a document is judged as the key or the document.
@@ -250,8 +250,27 @@ def _on_this_device(path: str) -> Path:
         raise service_errors.RefusedError(t("error.filesystem.path_unreadable")) from exc
     if _is_private(here, _private_roots()):
         raise service_errors.RefusedError(t("error.folders.private"))
+    return here
+
+
+def _on_this_device(path: str) -> Path:
+    here = _resolved(path)
     if not here.is_file():
         raise service_errors.NotFoundError(t("error.folders.no_file"))
+    return here
+
+
+def source_here(path: str) -> Path:
+    """A file or a folder on this device to bring in, or a refusal.
+
+    The listing is the whole disk, so this is the same bound the previews and the slot
+    pickers have: nothing under a private folder, links followed first. What may be done
+    with the answer is the import's own limit - a session takes what its analysis
+    recognizes and a table needs a program that plays it.
+    """
+    here = _resolved(path)
+    if not here.exists():
+        raise service_errors.NotFoundError(t("error.filesystem.nothing_there"))
     return here
 
 

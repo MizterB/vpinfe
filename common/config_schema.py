@@ -918,15 +918,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             choices=("4k", "1k"),
             legacy=(("Media", "playfieldvideoresolution"),),
         ),
-        ConfigOption(
-            "browse_dirs",
-            group=setting_groups.ADD_FROM,
-            home="library.folders",
-            type="list",
-            path="dir",
-            default="",
-            legacy=(),
-        ),
         # Art keyed by a game's manufacturer rather than owned by one game.
         ConfigOption(
             "manufacturer_logos_dir",
