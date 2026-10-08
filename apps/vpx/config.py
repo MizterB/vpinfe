@@ -34,6 +34,7 @@ from common.apps.contract import (
     ConfigValue,
     Field,
     Heading,
+    Standing,
 )
 
 from . import areas, bindings, displays, plugins, screens
@@ -613,10 +614,14 @@ class VPXConfig:
         found = settings_file(settings)
         return {"application": str(found)} if found else {}
 
-    def left_empty(self, settings: Mapping[str, Any]) -> dict[str, str]:
-        """By launcher field, what an empty one stands for on this machine."""
+    def left_empty(self, settings: Mapping[str, Any]) -> dict[str, Standing]:
+        """By launcher field, what an empty one stands for on this machine: the file
+        Visual Pinball uses, else where the newest version makes it, else nothing."""
         found = own_file(str(settings.get("bin_path") or ""))
-        return {"ini_path": str(found)} if found else {}
+        if found:
+            return {"ini_path": Standing(str(found), True)}
+        made = preferences_file(self.newest_version)
+        return {"ini_path": Standing(str(made) if made else "", False)}
 
     def blank_words(self) -> dict[str, str]:
         """By key, the word in this app's catalog for what a blank value does, where that

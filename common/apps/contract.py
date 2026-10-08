@@ -265,6 +265,18 @@ class ConfigValue:
     fallback_scope: str = ""
 
 
+@dataclass(frozen=True)
+class Standing:
+    """What a launcher field left empty stands for on this machine.
+
+    `path` is "" where the app cannot say where it would be. `exists` is False for a path
+    the app will make the first time it runs, which a launch cannot use yet.
+    """
+
+    path: str = ""
+    exists: bool = False
+
+
 @runtime_checkable
 class Config(Protocol):
     """An app's own configuration, and where it keeps it.

@@ -10,7 +10,7 @@ from console import launchers
 
 ASKED = [{"key": "bin_path", "label": "Program", "path": "exe", "blank": ""},
          {"key": "ini_path", "label": "Settings File", "path": "file",
-          "suffixes": [".ini"], "blank": "Visual Pinball's own"}]
+          "suffixes": [".ini"], "blank": "Its own"}]
 
 
 class _Cancelled:
@@ -57,7 +57,7 @@ class EmptyPaths(unittest.IsolatedAsyncioTestCase):
             await launchers.ask_name("New", "Add", [], AsyncMock(), asked=ASKED,
                                      placeholder="VPX")
 
-        self.assertEqual(hints, ["VPX", "", "Visual Pinball's own"])
+        self.assertEqual(hints, ["VPX", "", "Its own"])
 
 
 class Browse(unittest.IsolatedAsyncioTestCase):
@@ -96,7 +96,7 @@ class Browse(unittest.IsolatedAsyncioTestCase):
                           AsyncMock(return_value="/x/vpx")) as pick:
             self.assertEqual(await browsing[""]("/typed"), "/x/vpx")
             pick.assert_awaited_with(listing, "/typed", kind="exe", suffixes=())
-            await browsing["Visual Pinball's own"]("")
+            await browsing["Its own"]("")
             pick.assert_awaited_with(listing, "", kind="file", suffixes=(".ini",))
 
     async def test_without_a_listing_they_are_typed_only(self) -> None:

@@ -1756,7 +1756,7 @@ def _package_strings(app_id: str) -> set[str]:
             if isinstance(node, ast.Constant) and isinstance(node.value, str)}
 
 
-_FIELD_WORD = re.compile(r"field\.(.+)\.(label|description|help|blank)")
+_FIELD_WORD = re.compile(r"field\.(.+)\.(label|description|help|blank|nowhere)")
 _CHOICE_WORD = re.compile(r"field\.(.+)\.choice\.[^.]+\.(?:help|label)")
 _GROUP_WORD = re.compile(r"group\.([^.]+)\.label")
 _HEADING_WORD = re.compile(r"group\.([^.]+)\.(?:heading\.([^.]+)\.(?:label|note)"

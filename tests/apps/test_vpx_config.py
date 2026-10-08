@@ -21,7 +21,7 @@ from apps.vpx import areas, bindings, displays
 from apps.vpx.config import VPXConfig, own_file, own_log, settings_file
 from apps.vpx.setting_types import LABELS, TYPES
 from common import apps
-from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
+from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Standing
 
 APP_INI = """\
 [Backglass]
@@ -1633,13 +1633,24 @@ class OwnFileTests(unittest.TestCase):
 
     def test_none_where_there_is_none_yet(self) -> None:
         self.assertIsNone(own_file("/opt/vpinball/VPinballX_GL"))
-        self.assertEqual(VPXConfig().left_empty({"bin_path": ""}), {})
 
-    def test_an_empty_field_says_which_it_is(self) -> None:
+    def test_an_empty_field_says_which_file_it_is(self) -> None:
         own = self._file("VPinballX", "10.8", "VPinballX.ini")
 
-        self.assertEqual(VPXConfig().left_empty({"ini_path": ""}), {"ini_path": str(own)})
+        self.assertEqual(VPXConfig().left_empty({"ini_path": ""}),
+                         {"ini_path": Standing(str(own), True)})
         self.assertEqual(settings_file({"ini_path": ""}), own)
+
+    def test_with_no_file_yet_it_is_where_the_newest_version_makes_one(self) -> None:
+        made = self.root / "VPinballX" / "10.8" / "VPinballX.ini"
+
+        self.assertEqual(VPXConfig().left_empty({"bin_path": ""}),
+                         {"ini_path": Standing(str(made), False)})
+
+    def test_with_no_preferences_folder_it_names_nothing(self) -> None:
+        with mock.patch("apps.vpx.config.preferences_file", return_value=None):
+            self.assertEqual(VPXConfig().left_empty({"bin_path": ""}),
+                             {"ini_path": Standing("", False)})
 
     def test_the_log_is_the_newest_version_folder_s_whatever_settings_file_is_named(
             self) -> None:

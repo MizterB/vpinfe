@@ -94,7 +94,8 @@ class Launcher:
         left_empty = getattr(getattr(apps.get(self.app), "config", None), "left_empty", None)
         if not callable(left_empty):
             return found
-        return left_empty({f.key: self.value(f.key) for f in self.fields()}).get(key, found)
+        standing = left_empty({f.key: self.value(f.key) for f in self.fields()}).get(key)
+        return standing.path if standing is not None and standing.exists else found
 
     def fields(self) -> tuple[apps.Field, ...]:
         """What configuring this launcher takes: what its app declares, and what every

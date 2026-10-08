@@ -188,6 +188,12 @@ def field_blank(app_id: str, field: Field) -> str:
     return i18n.literal_or("", f"app.{app_id}.field.{field.key}.blank")[0]
 
 
+def field_nowhere(app_id: str, field: Field) -> str:
+    """Why a launcher's field left empty has no file to stand for, in the app's catalog's
+    words, or "" where it says nothing."""
+    return i18n.literal_or("", f"app.{app_id}.field.{field.key}.nowhere")[0]
+
+
 def choice_words(app_id: str, field: Field) -> dict[str, str]:
     """By stored value, the word the app's catalog has for each of a setting's choices,
     in place of the program's own where it has one."""

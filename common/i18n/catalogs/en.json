@@ -3081,6 +3081,7 @@
   "console.workbench.name_reused": "Another file has this name now",
   "console.workbench.answered": "Used from {value}",
   "console.workbench.app_default": "{app}'s default",
+  "console.workbench.not_created": "Not created yet",
   "console.workbench.page_by.same": "Same as Settings ({choice})",
   "console.workbench.assets": "Assets",
   "console.workbench.assets_2": "Assets ({have})",

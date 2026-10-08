@@ -127,5 +127,24 @@ class Default(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(setup.default.kwargs["hint"], "“VPX (4K)” has no program")
 
 
+class AFieldStandingForAFile(unittest.TestCase):
+    FIELD = {"key": "ini_path", "path": "file", "default_path": "/prefs/VPinballX.ini",
+             "default_exists": True}
+
+    def test_it_is_whose_default_it_is(self) -> None:
+        option = workbench._standing_option(self.FIELD, "Visual Pinball X")
+        self.assertEqual(option["default_whose"], "Visual Pinball X's default")
+
+    def test_a_file_not_made_yet_says_so_on_a_line_of_its_own(self) -> None:
+        option = workbench._standing_option({**self.FIELD, "default_exists": False},
+                                            "Visual Pinball X")
+        self.assertEqual(option["default_whose"],
+                         "Visual Pinball X's default\nNot created yet")
+
+    def test_a_field_standing_for_nothing_is_left_as_it_came(self) -> None:
+        field = {"key": "bin_path", "path": "exe"}
+        self.assertIs(workbench._standing_option(field, "Visual Pinball X"), field)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from common import apps, config_schema, failures, i18n, path_state, service_errors
-from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
+from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Standing
 from common.games import game_repository, launchers, library_folders, tables
 from common.games.table_identity import find_table_by_id
 from common.i18n import t
@@ -43,7 +43,7 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
     """
     settings = _launcher_settings(launcher)
     left_empty = getattr(_app_settings_surface(launcher), "left_empty", None)
-    blanks = left_empty(settings) if callable(left_empty) else {}
+    standing = left_empty(settings) if callable(left_empty) else {}
     return {
         "launcher_id": launcher.launcher_id,
         "app": launcher.app,
@@ -60,10 +60,20 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
                     "default": f.default, "path": f.path, "suffixes": list(f.suffixes),
                     "lines": f.lines, "choices": dict(f.choices),
                     "min": f.minimum, "max": f.maximum,
-                    "blank": apps.field_blank(launcher.app, f) or blanks.get(f.key, ""),
-                    "left_empty": blanks.get(f.key, "")}
+                    **_standing_words(launcher.app, f, standing.get(f.key))}
                    for f in launcher.fields()],
     }
+
+
+def _standing_words(app_id: str, f: apps.Field, held: Standing | None) -> dict[str, Any]:
+    """What a field left empty reads as. A path names the file it stands for; one that
+    names none reads Not found, with the app's own words for why on hover."""
+    if held is not None and held.path:
+        return {"blank": apps.field_blank(app_id, f), "left_empty": "",
+                "default_path": held.path, "default_exists": held.exists}
+    nowhere = held is not None
+    return {"blank": apps.field_blank(app_id, f) or (t("word.not_found") if nowhere else ""),
+            "left_empty": apps.field_nowhere(app_id, f) if nowhere else ""}
 
 
 def listing() -> dict[str, Any]:

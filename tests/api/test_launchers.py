@@ -66,19 +66,42 @@ class LauncherApiTests(unittest.TestCase):
         self.assertIn("bin_path", keys)
         self.assertEqual(sorted(found["settings"]), sorted(keys))
 
-    def test_an_empty_settings_file_reads_as_a_word_and_says_which_file_it_stands_for(
-            self) -> None:
+    def test_an_empty_settings_file_says_which_file_it_stands_for(self) -> None:
         own = pathlib.Path(self.tmp.name, "VPinballX.ini")
+        own.write_text("[Player]\n", encoding="utf-8")
         self._put("one", display_name="VPX")
 
         with patch("apps.vpx.config.own_file", return_value=own):
             found = self.client.get("/launchers").json()["launchers"][0]
 
         fields = {one["key"]: one for one in found["fields"]}
-        self.assertEqual((fields["ini_path"]["blank"], fields["ini_path"]["left_empty"]),
-                         ("Visual Pinball's own", str(own)))
+        self.assertEqual((fields["ini_path"]["default_path"], fields["ini_path"]["default_exists"],
+                          fields["ini_path"]["blank"]), (str(own), True, ""))
+        self.assertNotIn("default_path", fields["bin_path"])
         self.assertEqual((fields["bin_path"]["blank"], fields["bin_path"]["left_empty"]),
                          ("", ""))
+
+    def test_a_settings_file_not_made_yet_still_names_where_it_will_be(self) -> None:
+        made = pathlib.Path(self.tmp.name, "10.8", "VPinballX.ini")
+        self._put("one", display_name="VPX")
+
+        with patch("apps.vpx.config.own_file", return_value=None), \
+                patch("apps.vpx.config.preferences_file", return_value=made):
+            found = self.client.get("/launchers").json()["launchers"][0]
+
+        ini = {one["key"]: one for one in found["fields"]}["ini_path"]
+        self.assertEqual((ini["default_path"], ini["default_exists"]), (str(made), False))
+
+    def test_a_settings_file_with_no_place_to_be_reads_not_found_and_why(self) -> None:
+        self._put("one", display_name="VPX")
+
+        with patch("apps.vpx.config.own_file", return_value=None), \
+                patch("apps.vpx.config.preferences_file", return_value=None):
+            found = self.client.get("/launchers").json()["launchers"][0]
+
+        ini = {one["key"]: one for one in found["fields"]}["ini_path"]
+        self.assertEqual((ini["blank"], ini["left_empty"], "default_path" in ini),
+                         ("Not found", "Visual Pinball makes it the first time it runs", False))
 
     def test_a_launcher_says_whether_its_app_keeps_settings_of_its_own(self) -> None:
         self._put("vpx", display_name="VPX")
@@ -98,8 +121,7 @@ class LauncherApiTests(unittest.TestCase):
                  for one in vpx["fields"] if one["path"]]
 
         self.assertEqual(paths, [("bin_path", "Program", "", "exe", []),
-                                 ("ini_path", "Settings File", "Visual Pinball's own",
-                                  "file", [".ini"])])
+                                 ("ini_path", "Settings File", "", "file", [".ini"])])
 
     def test_an_app_says_whether_it_has_settings_of_its_own(self) -> None:
         """What a table played by another program is told it gives up."""
