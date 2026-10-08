@@ -196,8 +196,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `folder` | string |  | Where Back up now keeps its backups. Blank keeps them in VPinFE's config folder. Backups already taken stay where they are and are still listed. |
-| `earlier` | list |  |  |
+| `folder` | string |  | Where Back up now keeps its backups. Blank keeps them in VPinFE's config folder. Changing it asks whether to move the backups already taken. |
 
 ### `media`
 

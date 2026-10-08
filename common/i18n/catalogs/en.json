@@ -142,7 +142,7 @@
   "capture.tool.needed": "Needs {tool}",
   "capture.unsupported.no_session": "No desktop session to record",
   "capture.unsupported.no_way": "This desktop gives VPinFE no way to record its screens",
-  "config.backups.folder.description": "Where Back up now keeps its backups. Blank keeps them in VPinFE's config folder. Backups already taken stay where they are and are still listed.",
+  "config.backups.folder.description": "Where Back up now keeps its backups. Blank keeps them in VPinFE's config folder. Changing it asks whether to move the backups already taken.",
   "config.backups.folder.label": "Backups Folder",
   "config.behavior.confirm.description": "Ask before quitting VPinFE or powering off this device. Closing the frontend never asks.",
   "config.behavior.confirm.label": "Confirm Before Exit",
@@ -599,6 +599,36 @@
   "console.media_rotate.also_left_out": {
     "one": "1 selected row has no picture or video to turn, and is left out",
     "other": "{count} selected rows have no picture or video to turn, and are left out"
+  },
+  "console.backups_move.ask": {
+    "one": "Move your backup to the new folder?",
+    "other": "Move your {count} backups to the new folder?"
+  },
+  "console.backups_move.blocked": {
+    "one": "The new folder cannot hold your backup yet",
+    "other": "The new folder cannot hold your {count} backups yet"
+  },
+  "console.backups_move.in_new": {
+    "one": "The new folder already holds 1 backup.",
+    "other": "The new folder already holds {count} backups."
+  },
+  "console.backups_move.same_name": "A backup named like one in the new folder is skipped and stays put.",
+  "console.backups_move.stays": "Backups you leave stay in {folder}, and Backups stops listing them.",
+  "console.backups_move.leave": "Leave them",
+  "console.backups_move.started": "Moving backups. Follow it under Logs, Jobs.",
+  "console.backups_move.could_not_start": "The backups could not be moved",
+  "console.backups_move.failed": "Moving the backups failed",
+  "console.backups_move.moved": {
+    "one": "Moved 1 backup",
+    "other": "Moved {count} backups"
+  },
+  "console.backups_move.left_some": {
+    "one": "1 backup shares a name with one in the new folder and stays in the old one",
+    "other": "{count} backups share a name with ones in the new folder and stay in the old one"
+  },
+  "console.backups_move.failed_some": {
+    "one": "1 backup could not be moved and is still in {folder}",
+    "other": "{count} backups could not be moved and are still in {folder}"
   },
   "console.media_rotate.could_not_start": "Could not turn the media",
   "console.media_rotate.failed": "Turning stopped",
@@ -1461,6 +1491,7 @@
   "console.jobs.kind.library_scan": "Library scan",
   "console.jobs.kind.library_vps_rollup": "VPS count",
   "console.jobs.kind.media_rotate": "Turn media",
+  "console.jobs.kind.backups_move": "Move backups",
   "console.jobs.kind.media_capture": "Recording",
   "console.jobs.kind.tools_get": "Tool download",
   "console.jobs.nothing_ran_yet": "Nothing has run yet",
@@ -3438,6 +3469,8 @@
   "error.backups.too_big": "That file in the backup is too large to put back",
   "error.backups.unreadable": "That backup could not be read",
   "error.backups.no_2x": "There is no 2.x copy to go back to",
+  "error.backups.move_busy": "Backups are already being moved",
+  "error.backups.move_size": "{name} was not copied whole, so the original was kept",
   "error.capabilities.check_failed": "Could not check whether it is available",
   "error.capabilities.launcher_state_unknown": "Could not tell whether a launcher is ready",
   "error.capabilities.libpinmame_state_unknown": "Could not tell whether the ROM audit can run",
@@ -4277,6 +4310,10 @@
     "one": "{count} game, {turned} turned, {skipped} skipped",
     "other": "{count} games, {turned} turned, {skipped} skipped"
   },
+  "said.job_backups_moved": {
+    "one": "{count} backup moved, {left} left in the old folder, {failed} failed",
+    "other": "{count} backups moved, {left} left in the old folder, {failed} failed"
+  },
   "said.job_library_read": {
     "one": "{count} game",
     "other": "{count} games"
@@ -4306,6 +4343,7 @@
   "said.starting": "Starting",
   "said.media_update": "Updating media for {game}",
   "said.media_rotate": "Turning {file}",
+  "said.backups_move": "Moving {file}",
   "said.why.already_at": "Something is already at {path}",
   "said.why.already_there": "Something is already there",
   "said.why.rate_limited_at": "{host} asked VPinFE to wait until {time}",

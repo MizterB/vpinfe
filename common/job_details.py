@@ -54,6 +54,13 @@ def _media_rotate(result: Any) -> str:
              turned=int(result["turned"]), skipped=len(result.get("skipped") or ()))
 
 
+def _backups_moved(result: Any) -> str:
+    if not isinstance(result, dict) or "moved" not in result:
+        return ""
+    return t("said.job_backups_moved", count=int(result["moved"]),
+             left=len(result.get("left") or ()), failed=len(result.get("failed") or ()))
+
+
 def _capture(result: Any) -> str:
     run = result.get("run") if isinstance(result, dict) else None
     if not isinstance(run, dict) or "of" not in run:
@@ -70,6 +77,7 @@ _KINDS: dict[str, Callable[[Any], str]] = {
     jobs.KIND_LIBRARY_SCAN: _library_scan,
     jobs.KIND_MEDIA_FILL: _media_fill,
     jobs.KIND_MEDIA_ROTATE: _media_rotate,
+    jobs.KIND_BACKUPS_MOVE: _backups_moved,
     jobs.KIND_MEDIA_CAPTURE: _capture,
     jobs.KIND_TOOL_GET: _tool,
 }

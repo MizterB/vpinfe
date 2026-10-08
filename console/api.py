@@ -1231,6 +1231,14 @@ class ApiClient:
             "files": [{"game_id": game_id, "path": path} for game_id, path in files],
             "turn": turn, "keep": keep})
 
+    def backups_folder_change(self, folder: str) -> dict:
+        """What making `folder` the backups folder would do with the backups already taken."""
+        return self._get("/backups/folder/change?" + urlencode({"to": folder}))
+
+    def move_backups_folder(self, folder: str) -> dict:
+        """Make `folder` the backups folder and move the backups across. Returns the job."""
+        return self._post("/backups/folder/move", {"folder": folder})
+
     def set_table_overrides(self, game_id: str, table_id: str, changes: dict) -> dict:
         """What the user says about one file. Same patch shape as the game's."""
         return self._put(f"/games/{game_id}/tables/{table_id}/overrides", changes)

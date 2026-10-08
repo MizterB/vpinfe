@@ -56,6 +56,9 @@ KIND_MEDIA_CAPTURE = "media.capture"
 # Turning pictures and videos in place. One at a time: two turns of one file would each
 # read it as it was and the second would undo or double the first.
 KIND_MEDIA_ROTATE = "media.rotate"
+# Carrying backups into a new backups folder. One at a time: two moves of the same folder
+# would each find a file still there and the second would fail on it.
+KIND_BACKUPS_MOVE = "backups.move"
 # Downloading a Tool VPinFE can get itself, into its own folder.
 KIND_TOOL_GET = "tools.get"
 # Getting the VPS catalog because there is none on disk, ahead of a read that has games to
@@ -73,6 +76,7 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_MEDIA_FILL: "error.media_fill.busy",
          KIND_MEDIA_CAPTURE: "error.capture.busy",
          KIND_MEDIA_ROTATE: "error.media_rotate.busy",
+         KIND_BACKUPS_MOVE: "error.backups.move_busy",
          KIND_TOOL_GET: "error.jobs.getting_tool",
          KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet"}
 

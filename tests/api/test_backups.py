@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import time
 import unittest
 from datetime import UTC, datetime
 from tempfile import TemporaryDirectory
@@ -18,8 +19,10 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import httpapi
+from common import jobs
 from common.backups import archive, copies, pending, places
 from common.backups import folder as backup_folder
+from common.config_access import cfg_set
 from common.config_store import ConfigStore
 from common.device_registry import DeviceRegistry
 from common.games import (
@@ -29,6 +32,7 @@ from common.games import (
     library_folders,
 )
 from common.games.info_migration import RESET, RESTORE, backup_path
+from httpapi import config as config_api
 from tests.support.library import game_info, write_game
 
 OLD = datetime(2026, 10, 1, 1, 2, 3, tzinfo=UTC)
@@ -549,6 +553,58 @@ class DeleteAndForgeryTests(BackupsCase):
         os.unlink(old)
 
         self.assertEqual(self.client.post(f"/backups/{copy_id}/restore").status_code, 404)
+
+
+class ChangeFolderTests(BackupsCase):
+    def setUp(self) -> None:
+        super().setUp()
+        (self.config / "tags.json").write_text("{}", encoding="utf-8")
+
+    def test_the_change_says_what_is_in_the_old_folder_and_the_new_one(self) -> None:
+        archive.take(archive.SCOPE_RECORDS)
+        other = self.config.parent / "other"
+        other.mkdir()
+
+        found = self.client.get("/backups/folder/change", params={"to": str(other)}).json()
+
+        self.assertEqual(found, {"old": str(self.config / "backups"), "new": str(other),
+                                 "moving": 1, "already": 0, "problem": ""})
+
+    def test_moving_sets_the_folder_and_starts_a_job_that_carries_the_backups(self) -> None:
+        taken = archive.take(archive.SCOPE_RECORDS)
+        other = self.config.parent / "other"
+        other.mkdir()
+        saved: list[dict] = []
+        store = backup_folder.get_ini_config()
+
+        def put(patch_: dict) -> None:
+            saved.append(patch_)
+            cfg_set(store, backup_folder.SECTION, backup_folder.FOLDER, str(other))
+
+        with patch.object(config_api, "put_values", side_effect=put):
+            response = self.client.post("/backups/folder/move", json={"folder": str(other)})
+
+        self.assertEqual(response.status_code, 202)
+        job_id = response.json()["id"]
+        self.assertEqual(response.headers["Location"], f"/api/v1/jobs/{job_id}")
+        self.assertEqual(saved, [{"settings": {"backups": {"folder": str(other)}}}])
+        for _ in range(100):
+            job = jobs.get(job_id)
+            if job is not None and job.state != jobs.RUNNING:
+                break
+            time.sleep(0.05)
+        self.assertEqual(job.state, jobs.DONE)  # type: ignore[union-attr]
+        self.assertTrue((other / taken.name).is_file())
+
+    def test_a_new_folder_that_is_not_there_is_refused_and_nothing_is_saved(self) -> None:
+        archive.take(archive.SCOPE_RECORDS)
+
+        with patch.object(config_api, "put_values") as put:
+            response = self.client.post("/backups/folder/move",
+                                        json={"folder": str(self.config.parent / "gone")})
+
+        self.assertEqual(response.status_code, 409)
+        put.assert_not_called()
 
 
 if __name__ == "__main__":

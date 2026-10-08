@@ -41,6 +41,7 @@ from common.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from console import (
     appearance_picker,
+    backups_move,
     binding_table,
     browser_state,
     busy,
@@ -1538,6 +1539,9 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
                             waits_said or picked_elsewhere)
         if option.get("cuts_off_console") and from_elsewhere:
             save = _asked_first(option, save, rerender)
+        if option.get("moves_with") == config_schema.MOVES_BACKUPS and isinstance(
+                source, Library):
+            save = backups_move.asked_first(source, save, rerender)
         chipped = waiting if option.get("applies") in (
             config_schema.APPLIES_RESTART, config_schema.APPLIES_WINDOWS) else None
         if chipped is not None:

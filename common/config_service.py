@@ -103,6 +103,7 @@ def _describe(option: config_schema.ConfigOption) -> dict[str, Any]:
         "default_is": option.default_is,
         "unit": option.unit,
         "cuts_off_console": option.cuts_off_console,
+        "moves_with": option.moves_with,
         "applies": option.applies,
         "blank": option.blank,
         "home": option.home,

@@ -92,6 +92,12 @@ class SchemaShapeTests(unittest.TestCase):
                 self.assertIn(entry.default, ("true", "false"),
                               f"{entry.section}.{entry.key} is not a bool default")
 
+    def test_a_setting_that_moves_files_names_a_kind_a_surface_knows(self) -> None:
+        declared = {e.moves_with for e in config_schema.options() if e.moves_with}
+
+        self.assertEqual(declared, {config_schema.MOVES_BACKUPS})
+        self.assertLessEqual(declared, set(config_schema.MOVES))
+
     def test_internal_state_is_not_offered_as_a_setting(self) -> None:
         """An option is internal when it is runtime state that happens to live in the
         config file - a last-played pointer, a cache marker. Nobody sets these, so nothing
@@ -100,8 +106,7 @@ class SchemaShapeTests(unittest.TestCase):
         """
         internal = {(e.section, e.key) for e in config_schema.options() if e.internal}
 
-        self.assertEqual(internal, {("backups", "earlier"),
-                                    ("device", "setup_pending"),
+        self.assertEqual(internal, {("device", "setup_pending"),
                                     # The `locations` list holds this now.
                                     ("general", "game_root_dir"),
                                     # The extension's own store holds these now.

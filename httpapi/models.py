@@ -744,6 +744,9 @@ class ConfigOptionInfo(ApiModel):
     unit: str = ""
     # Whether a change can put this install's Console out of reach of the device making it.
     cuts_off_console: bool = False
+    # What the files in this setting's folder are (`backups`), where a surface asks whether
+    # they go across before it saves a new folder. Empty for every other setting.
+    moves_with: str = ""
     # When a saved change reaches what it governs: `now`, `table` (the next table to
     # start), `windows` (the next time the frontend's windows open) or `restart`.
     applies: str = "now"
@@ -1733,6 +1736,25 @@ class BackupRequest(ApiModel):
     launcher: str = ""
     name: str = ""
     note: str = ""
+
+
+class BackupFolderMove(ApiModel):
+    """The value to give the backups folder setting, blank for the default, and to carry the
+    backups in the folder now across to it."""
+
+    folder: str
+
+
+class BackupFolderChange(ApiModel):
+    """What changing the backups folder would do. `moving` is how many backups are in the
+    folder now, `already` how many the new one holds, and `problem` why the new one cannot
+    be written to, empty when it can."""
+
+    old: str
+    new: str
+    moving: int
+    already: int
+    problem: str
 
 
 class BackupNote(ApiModel):

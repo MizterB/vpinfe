@@ -721,6 +721,13 @@ class Library:
         self._collections = None
         return self._client.put_config(changes)
 
+    def backups_folder_change(self, folder: str) -> dict:
+        return self._client.backups_folder_change(folder)
+
+    def move_backups_folder(self, folder: str) -> dict:
+        self._collections = None
+        return self._client.move_backups_folder(folder)
+
     def config_path_checks(self) -> list[dict]:
         """Never cached: it is re-read after a write to say whether the new value is any
         good, and a cached answer would be about the value it replaced."""
@@ -802,6 +809,9 @@ class Library:
 
     def log_file(self, source: str = "") -> bytes:
         return self._client.log_file(source)
+
+    def job(self, job_id: str) -> dict:
+        return self._client.job(job_id)
 
     def jobs(self, limit: int = 20) -> list[dict]:
         """Never cached either: what has run since the last read is the question."""

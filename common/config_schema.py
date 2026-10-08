@@ -145,6 +145,9 @@ class ConfigOption:
     # A change to this can put the Console out of reach of the device making it, so a
     # surface on such a device asks before saving.
     cuts_off_console: bool = False
+    # One of `MOVES`: a folder this setting names holds files that belong to it, so a
+    # surface asks, before saving a new folder, whether they go across.
+    moves_with: str = ""
     # One of `APPLIES`: when a change reaches what it governs. `now` is a setting read
     # each time it is used, or one whose change is acted on as it is saved; anything
     # else is a claim about where the setting is read, so check that read before
@@ -222,6 +225,10 @@ EDITOR_CAPTURE_COMMAND = "capture_command"
 EDITOR_CHROME_LEAVE_OUT = "chrome_leave_out"
 EDITORS = (EDITOR_BINDING, EDITOR_CONSOLE_APPEARANCE, EDITOR_FRONTEND_THEME, EDITOR_THUMBNAIL,
            EDITOR_CAPTURE_COMMAND, EDITOR_CHROME_LEAVE_OUT)
+
+# What a folder setting's files are, for `ConfigOption.moves_with`.
+MOVES_BACKUPS = "backups"
+MOVES = (MOVES_BACKUPS,)
 
 # Whose a default is.
 DEFAULT_COMMUNITY = "community"
@@ -886,10 +893,8 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             type="string",
             path="dir",
             default="",
+            moves_with=MOVES_BACKUPS,
         ),
-        # Every folder a backup has been written to, so changing the one above leaves the
-        # copies already taken listed. Written by `common.backups.folder`, never by a person.
-        ConfigOption("earlier", type="list", default="", internal=True),
     ),
     *in_section(
         "media",

@@ -142,7 +142,7 @@
   "capture.tool.needed": "Ñèèđš {tool}",
   "capture.unsupported.no_session": "Ñö đèšķţöþ šèššîöñ ţö řèçöřđ",
   "capture.unsupported.no_way": "Ţĥîš đèšķţöþ ĝîṽèš ṼÞîñƑÈ ñö ŵàý ţö řèçöřđ îţš šçřèèñš",
-  "config.backups.folder.description": "Ŵĥèřè Ɓàçķ ûþ ñöŵ ķèèþš îţš ƀàçķûþš. Ɓŀàñķ ķèèþš ţĥèɱ îñ ṼÞîñƑÈ'š çöñƒîĝ ƒöŀđèř. Ɓàçķûþš àŀřèàđý ţàķèñ šţàý ŵĥèřè ţĥèý àřè àñđ àřè šţîŀŀ ŀîšţèđ.",
+  "config.backups.folder.description": "Ŵĥèřè Ɓàçķ ûþ ñöŵ ķèèþš îţš ƀàçķûþš. Ɓŀàñķ ķèèþš ţĥèɱ îñ ṼÞîñƑÈ'š çöñƒîĝ ƒöŀđèř. Çĥàñĝîñĝ îţ àšķš ŵĥèţĥèř ţö ɱöṽè ţĥè ƀàçķûþš àŀřèàđý ţàķèñ.",
   "config.backups.folder.label": "Ɓàçķûþš Ƒöŀđèř",
   "config.behavior.confirm.description": "Àšķ ƀèƒöřè ǫûîţţîñĝ ṼÞîñƑÈ öř þöŵèřîñĝ öƒƒ ţĥîš đèṽîçè. Çŀöšîñĝ ţĥè ƒřöñţèñđ ñèṽèř àšķš.",
   "config.behavior.confirm.label": "Çöñƒîřɱ Ɓèƒöřè Èẋîţ",
@@ -599,6 +599,36 @@
   "console.media_rotate.also_left_out": {
     "one": "1 šèŀèçţèđ řöŵ ĥàš ñö þîçţûřè öř ṽîđèö ţö ţûřñ, àñđ îš ŀèƒţ öûţ",
     "other": "{count} šèŀèçţèđ řöŵš ĥàṽè ñö þîçţûřè öř ṽîđèö ţö ţûřñ, àñđ àřè ŀèƒţ öûţ"
+  },
+  "console.backups_move.ask": {
+    "one": "Ḿöṽè ýöûř ƀàçķûþ ţö ţĥè ñèŵ ƒöŀđèř?",
+    "other": "Ḿöṽè ýöûř {count} ƀàçķûþš ţö ţĥè ñèŵ ƒöŀđèř?"
+  },
+  "console.backups_move.blocked": {
+    "one": "Ţĥè ñèŵ ƒöŀđèř çàññöţ ĥöŀđ ýöûř ƀàçķûþ ýèţ",
+    "other": "Ţĥè ñèŵ ƒöŀđèř çàññöţ ĥöŀđ ýöûř {count} ƀàçķûþš ýèţ"
+  },
+  "console.backups_move.in_new": {
+    "one": "Ţĥè ñèŵ ƒöŀđèř àŀřèàđý ĥöŀđš 1 ƀàçķûþ.",
+    "other": "Ţĥè ñèŵ ƒöŀđèř àŀřèàđý ĥöŀđš {count} ƀàçķûþš."
+  },
+  "console.backups_move.same_name": "À ƀàçķûþ ñàɱèđ ŀîķè öñè îñ ţĥè ñèŵ ƒöŀđèř îš šķîþþèđ àñđ šţàýš þûţ.",
+  "console.backups_move.stays": "Ɓàçķûþš ýöû ŀèàṽè šţàý îñ {folder}, àñđ Ɓàçķûþš šţöþš ŀîšţîñĝ ţĥèɱ.",
+  "console.backups_move.leave": "Ŀèàṽè ţĥèɱ",
+  "console.backups_move.started": "Ḿöṽîñĝ ƀàçķûþš. Ƒöŀŀöŵ îţ ûñđèř Ŀöĝš, Ĵöƀš.",
+  "console.backups_move.could_not_start": "Ţĥè ƀàçķûþš çöûŀđ ñöţ ƀè ɱöṽèđ",
+  "console.backups_move.failed": "Ḿöṽîñĝ ţĥè ƀàçķûþš ƒàîŀèđ",
+  "console.backups_move.moved": {
+    "one": "Ḿöṽèđ 1 ƀàçķûþ",
+    "other": "Ḿöṽèđ {count} ƀàçķûþš"
+  },
+  "console.backups_move.left_some": {
+    "one": "1 ƀàçķûþ šĥàřèš à ñàɱè ŵîţĥ öñè îñ ţĥè ñèŵ ƒöŀđèř àñđ šţàýš îñ ţĥè öŀđ öñè",
+    "other": "{count} ƀàçķûþš šĥàřè à ñàɱè ŵîţĥ öñèš îñ ţĥè ñèŵ ƒöŀđèř àñđ šţàý îñ ţĥè öŀđ öñè"
+  },
+  "console.backups_move.failed_some": {
+    "one": "1 ƀàçķûþ çöûŀđ ñöţ ƀè ɱöṽèđ àñđ îš šţîŀŀ îñ {folder}",
+    "other": "{count} ƀàçķûþš çöûŀđ ñöţ ƀè ɱöṽèđ àñđ àřè šţîŀŀ îñ {folder}"
   },
   "console.media_rotate.could_not_start": "Çöûŀđ ñöţ ţûřñ ţĥè ɱèđîà",
   "console.media_rotate.failed": "Ţûřñîñĝ šţöþþèđ",
@@ -1461,6 +1491,7 @@
   "console.jobs.kind.library_scan": "Ŀîƀřàřý šçàñ",
   "console.jobs.kind.library_vps_rollup": "ṼÞŠ çöûñţ",
   "console.jobs.kind.media_rotate": "Ţûřñ ɱèđîà",
+  "console.jobs.kind.backups_move": "Ḿöṽè ƀàçķûþš",
   "console.jobs.kind.media_capture": "Řèçöřđîñĝ",
   "console.jobs.kind.tools_get": "Ţööŀ đöŵñŀöàđ",
   "console.jobs.nothing_ran_yet": "Ñöţĥîñĝ ĥàš řûñ ýèţ",
@@ -3438,6 +3469,8 @@
   "error.backups.too_big": "Ţĥàţ ƒîŀè îñ ţĥè ƀàçķûþ îš ţöö ŀàřĝè ţö þûţ ƀàçķ",
   "error.backups.unreadable": "Ţĥàţ ƀàçķûþ çöûŀđ ñöţ ƀè řèàđ",
   "error.backups.no_2x": "Ţĥèřè îš ñö 2.ẋ çöþý ţö ĝö ƀàçķ ţö",
+  "error.backups.move_busy": "Ɓàçķûþš àřè àŀřèàđý ƀèîñĝ ɱöṽèđ",
+  "error.backups.move_size": "{name} ŵàš ñöţ çöþîèđ ŵĥöŀè, šö ţĥè öřîĝîñàŀ ŵàš ķèþţ",
   "error.capabilities.check_failed": "Çöûŀđ ñöţ çĥèçķ ŵĥèţĥèř îţ îš àṽàîŀàƀŀè",
   "error.capabilities.launcher_state_unknown": "Çöûŀđ ñöţ ţèŀŀ ŵĥèţĥèř à ŀàûñçĥèř îš řèàđý",
   "error.capabilities.libpinmame_state_unknown": "Çöûŀđ ñöţ ţèŀŀ ŵĥèţĥèř ţĥè ŘÖḾ àûđîţ çàñ řûñ",
@@ -4277,6 +4310,10 @@
     "one": "{count} ĝàɱè, {turned} ţûřñèđ, {skipped} šķîþþèđ",
     "other": "{count} ĝàɱèš, {turned} ţûřñèđ, {skipped} šķîþþèđ"
   },
+  "said.job_backups_moved": {
+    "one": "{count} ƀàçķûþ ɱöṽèđ, {left} ŀèƒţ îñ ţĥè öŀđ ƒöŀđèř, {failed} ƒàîŀèđ",
+    "other": "{count} ƀàçķûþš ɱöṽèđ, {left} ŀèƒţ îñ ţĥè öŀđ ƒöŀđèř, {failed} ƒàîŀèđ"
+  },
   "said.job_library_read": {
     "one": "{count} ĝàɱè",
     "other": "{count} ĝàɱèš"
@@ -4306,6 +4343,7 @@
   "said.starting": "Šţàřţîñĝ",
   "said.media_update": "Ûþđàţîñĝ ɱèđîà ƒöř {game}",
   "said.media_rotate": "Ţûřñîñĝ {file}",
+  "said.backups_move": "Ḿöṽîñĝ {file}",
   "said.why.already_at": "Šöɱèţĥîñĝ îš àŀřèàđý àţ {path}",
   "said.why.already_there": "Šöɱèţĥîñĝ îš àŀřèàđý ţĥèřè",
   "said.why.rate_limited_at": "{host} àšķèđ ṼÞîñƑÈ ţö ŵàîţ ûñţîŀ {time}",
