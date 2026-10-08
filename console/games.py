@@ -1166,7 +1166,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                  on_select: Callable[[dict | None], Any],
                  state: dict[str, Any] | None = None,
                  rerender: Callable[[], None] | None = None,
-                 rescan: Callable[[], Any] | None = None) -> None:
+                 rescan: Callable[[], Any] | None = None,
+                 on_selection: Callable[[list[str]], Any] | None = None) -> None:
     """The library seen by launchable file rather than by folder.
 
     Its own builder rather than a branch inside the games grid: the columns, the views
@@ -1261,6 +1262,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         section = TABLE_COLUMN_SECTIONS.get(grid.focused_column(event))
         if row and section and state.get("section") != workbench.COLLAPSED:
             state["section"] = section
+        viewing["on"] = False
+        linked()
         return on_select(row)
 
     grid.on_row_focus(f"{SCOPE}.tables", focused)
@@ -1277,10 +1280,50 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
                 "console.games.selected", picked=len(selected), shown=displayed["rows"]))
         return _tables_said(built, displayed["rows"])
 
-    def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
+    # Two or more ticked and the panel is about them; a row clicked shows that row and
+    # leaves the ticks, and the count is the way back.
+    viewing: dict[str, Any] = {"on": False, "ids": set()}
+
+    def linked() -> None:
+        """The count, as a link back to the selection while the panel shows a row."""
+        back = on_selection is not None and len(selected) >= 2 and not viewing["on"]
+        count.classes(add="console-link cursor-pointer" if back else None,
+                      remove=None if back else "console-link cursor-pointer")
+        if back:
+            count._props["title"] = t("console.games.selection_back")
+        else:
+            count._props.pop("title", None)
+        count.update()
+
+    async def follow_selection() -> None:
+        ids = {str(one["id"]) for one in selected}
+        if on_selection is None:
+            return
+        if len(ids) >= 2:
+            if ids != viewing["ids"]:
+                viewing["ids"], viewing["on"] = ids, True
+                await on_selection(sorted(ids))
+        else:
+            was, viewing["ids"], viewing["on"] = viewing["on"], set(), False
+            if was:
+                answer = on_select(by_id.get(str(state.get("table") or "")))
+                if inspect.isawaitable(answer):
+                    await answer
+        linked()
+
+    async def show_again() -> None:
+        if on_selection is not None and len(selected) >= 2:
+            viewing["ids"], viewing["on"] = {str(one["id"]) for one in selected}, True
+            await on_selection(sorted(viewing["ids"]))
+            linked()
+
+    count.on("click", show_again)
+
+    async def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
         show_selection(bool(rows_selected))
         count.text = said()
+        await follow_selection()
 
     async def on_context(row: dict | None) -> None:
         if row is None:
@@ -1337,18 +1380,23 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         row needs is decided by comparing what came back with what is showing, so this
         answers for an add, an edit and a removal without being told which it was.
         """
+        await refresh_tables([game_id])
+
+    async def refresh_tables(game_ids: list[str]) -> None:
+        """Several games' rows, put back from one read of the tables."""
         # From the by-file lens, which is what the grid was built from. The game's own
         # sub-resource describes a table and not where it sits in a library, so it
         # carries no game name, manufacturer, year or resolved rom: patching from it
         # blanks four columns on exactly the rows just acted on.
         rows_now = await offload.io(library.load_tables)
-        fresh = stamp_report(table_rows([item for item in rows_now
-                                        if item.get("game_id") == game_id], look is not None),
-                             reported)
-        transaction = row_transaction(by_id, game_id, fresh)
-        add_index(built, game_id, transaction)
-        if transaction:
-            grid.transact(table, built, transaction, by_id)
+        for game_id in set(game_ids):
+            fresh = stamp_report(table_rows([item for item in rows_now
+                                             if item.get("game_id") == game_id],
+                                            look is not None), reported)
+            transaction = row_transaction(by_id, game_id, fresh)
+            add_index(built, game_id, transaction)
+            if transaction:
+                grid.transact(table, built, transaction, by_id)
 
     async def open_table(table_id: str) -> None:
         """Focus a table's row, which opens it in the panel; a row a filter hides is
@@ -1360,6 +1408,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             await opened
 
     state["refresh_game"] = refresh_game
+    state["refresh_tables"] = refresh_tables
+    state["keep_selected"] = lambda ids: grid.keep_only(table, ids)
     state["open_table"] = open_table
 
     async def after(game_ids: list[str], gone: bool) -> None:

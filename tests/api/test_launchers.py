@@ -9,6 +9,8 @@ import asyncio
 import configparser
 import os
 import pathlib
+import threading
+import time
 import unittest
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -18,6 +20,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 import httpapi
+from common import jobs, service_errors
 from common.games import launchers
 from console import app_settings, data, workbench
 from console.api import ApiClient
@@ -498,6 +501,109 @@ class ClearingTests(_TableCase):
         held = got.json()["values"]["Player.FXAA"]
         self.assertEqual((held["value"], held["fallback"], held["fallback_scope"]),
                          ("2", "3", "folder"))
+
+
+class SeveralTablesTests(_TableCase):
+    """`tables` in place of `table` writes the same values into each table's own file."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
+        self.files = {}
+        for name in ("one", "two", "three"):
+            folder = os.path.join(self.tmp.name, name)
+            os.makedirs(folder)
+            self.files[name] = os.path.join(folder, f"{name}.vpx")
+            pathlib.Path(self.files[name]).touch()
+        found = patch("common.games.launcher_ops._game_file",
+                      side_effect=lambda table: self.files.get(table, self.table))
+        found.start()
+        self.addCleanup(found.stop)
+
+    def _write_many(self, tables, **body):
+        return self.client.put("/launchers/l1/config",
+                               json={"scope": "entry", "tables": tables, **body})
+
+    def _finished(self, got) -> jobs.Job:
+        job = jobs.get(got.json()["id"])
+        assert job is not None
+        deadline = time.monotonic() + 5
+        while job.state == jobs.RUNNING and time.monotonic() < deadline:
+            time.sleep(0.01)
+        return job
+
+    def test_more_than_one_is_a_job_that_writes_each(self) -> None:
+        got = self._write_many(["one", "two"], values={"Player.FXAA": "0"})
+
+        self.assertEqual(got.status_code, 202, got.text)
+        self.assertEqual(got.headers["Location"], f"/api/v1/jobs/{got.json()['id']}")
+        job = self._finished(got)
+        self.assertEqual(job.kind, jobs.KIND_TABLE_SETTINGS)
+        self.assertEqual(job.result, {"tables": 2, "written": ["one", "two"], "failed": []})
+        for name in ("one", "two"):
+            beside = pathlib.Path(self.files[name]).with_suffix(".ini")
+            self.assertEqual(beside.read_text(), "[Player]\nFXAA = 0\n")
+        self.assertFalse(pathlib.Path(self.files["three"]).with_suffix(".ini").exists())
+
+    def test_a_table_that_cannot_be_written_is_named_and_the_rest_go_on(self) -> None:
+        with patch("common.games.launcher_ops._writable_before_writing",
+                   side_effect=[ValueError("locked"), None]):
+            got = self._write_many(["one", "two"], values={"Player.FXAA": "0"})
+            job = self._finished(got)
+
+        self.assertEqual(job.state, jobs.DONE)
+        result: Any = job.result
+        self.assertEqual(result["written"], ["two"])
+        self.assertEqual([one["table"] for one in result["failed"]], ["one"])
+        self.assertTrue(result["failed"][0]["reason"])
+
+    def test_the_job_is_exclusive(self) -> None:
+        release = threading.Event()
+        blocker = jobs.submit(jobs.KIND_TABLE_SETTINGS, lambda job: release.wait(5))
+        self.addCleanup(release.set)
+
+        got = self._write_many(["one", "two"], values={"Player.FXAA": "0"})
+
+        self.assertEqual(got.status_code, 409, got.text)
+        release.set()
+        self.assertIsNotNone(jobs.get(blocker.id))
+
+    def test_a_list_is_refused_at_the_launcher_scope(self) -> None:
+        got = self._write_many(["one", "two"], scope="launcher", values={"Player.FXAA": "0"})
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertEqual(jobs.active(jobs.KIND_TABLE_SETTINGS), [])
+
+    def test_one_in_the_list_is_written_in_the_answer(self) -> None:
+        got = self._write_many(["one"], values={"Player.FXAA": "0"})
+
+        self.assertEqual(got.status_code, 200, got.text)
+        beside = pathlib.Path(self.files["one"]).with_suffix(".ini")
+        self.assertEqual(beside.read_text(), "[Player]\nFXAA = 0\n")
+
+    def test_a_table_that_is_gone_is_named_and_the_rest_are_written(self) -> None:
+        missing = service_errors.NotFoundError("no such table")
+        stand_in = {"two": self.files["two"]}
+
+        def find(table: str) -> str:
+            if table and table not in stand_in:
+                raise missing
+            return stand_in.get(table, "")
+
+        with patch("common.games.launcher_ops._game_file", side_effect=find):
+            job = self._finished(self._write_many(["gone", "two"],
+                                                  values={"Player.FXAA": "0"}))
+
+        result: Any = job.result
+        self.assertEqual(result["written"], ["two"])
+        self.assertEqual([one["table"] for one in result["failed"]], ["gone"])
+
+    def test_tables_that_are_not_a_list_are_refused(self) -> None:
+        got = self._write_many("one", values={"Player.FXAA": "0"})
+
+        self.assertEqual(got.status_code, 400, got.text)
+        self.assertEqual(jobs.active(jobs.KIND_TABLE_SETTINGS), [])
 
 
 class BlankWordsTests(_TableCase):

@@ -810,6 +810,15 @@ def selection(table: Any) -> list[dict[str, Any]]:
     return chosen.rows() if chosen is not None else []
 
 
+def keep_only(table: Any, ids: Iterable[str]) -> None:
+    """Leave only these rows ticked."""
+    wanted = json.dumps([str(one) for one in ids])
+    ui.run_javascript(
+        f"(() => {{ const grid = getElement({table.id}); if (!grid || !grid.api) return;"
+        f" const keep = new Set({wanted});"
+        " grid.api.forEachNode(node => node.setSelected(keep.has(node.id))); })()")
+
+
 def menu_rows(table: Any, row: dict[str, Any]) -> list[dict[str, Any]]:
     """The rows a right-click on `row` acts on. Inside a selection of several that is the
     selection; on a row outside it, that row alone and the ticks stay as they are."""

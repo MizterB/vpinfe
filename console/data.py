@@ -697,6 +697,19 @@ class Library:
             self._table_rows = None
         return result
 
+    def write_launcher_config_tables(self, launcher_id: str, values: dict,
+                                     tables: list[str]) -> dict:
+        """The same values at each of `tables`, as `write_launcher_config` does at one:
+        several come back as a job, whose result says which were written."""
+        result = self._client.write_launcher_config_tables(launcher_id, values, tables)
+        self.settings_written()
+        return result
+
+    def settings_written(self) -> None:
+        """Each table carries how many settings it has of its own; read them again."""
+        self.tables.clear()
+        self._table_rows = None
+
     def put_launcher(self, launcher_id: str, body: dict) -> dict:
         return self._client.put_launcher(launcher_id, body)
 

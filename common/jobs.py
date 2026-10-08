@@ -64,6 +64,10 @@ KIND_MEDIA_ROTATE = "media.rotate"
 KIND_BACKUPS_MOVE = "backups.move"
 # Downloading a Tool VPinFE can get itself, into its own folder.
 KIND_TOOL_GET = "tools.get"
+# One set of values written into each of several tables' settings. One at a time whichever
+# the tables: a second write reaching a table the first has not yet written would be
+# overwritten by it.
+KIND_TABLE_SETTINGS = "table_settings"
 # Getting the VPS catalog because there is none on disk, ahead of a read that has games to
 # match. The watch's later refreshes are not this: they stay silent.
 KIND_SPREADSHEET_DOWNLOAD = "spreadsheet.download"
@@ -85,6 +89,7 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_MEDIA_ROTATE: "error.media_rotate.busy",
          KIND_BACKUPS_MOVE: "error.backups.move_busy",
          KIND_TOOL_GET: "error.jobs.getting_tool",
+         KIND_TABLE_SETTINGS: "error.jobs.settings_busy",
          KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet"}
 
 # Kinds refused while another kind runs, and what the refusal says.

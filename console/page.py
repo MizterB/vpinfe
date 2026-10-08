@@ -1364,6 +1364,12 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         deeplink.sync(state)
 
     @on_page
+    async def show_selection(table_ids: list[str]) -> None:
+        """The tables ticked in the grid. The pane is not opened for them: a panel
+        somebody shut stays shut."""
+        await workbench.build_selection(panel, workbench_title, library, table_ids, state)
+
+    @on_page
     async def show_slot(row: dict | None) -> None:
         """The address keeps the game, the table and the kind, which is all a link to a
         file carries; the panel finds the row again from those."""
@@ -1567,7 +1573,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                             show_game, state, redraw, rescan=_rescan)
             elif view == "tables":
                 games.build_tables(library.table_rows(), library, show_game, state,
-                                   redraw, rescan=_rescan)
+                                   redraw, rescan=_rescan, on_selection=show_selection)
             elif view == "tags":
                 tageditor.build(library.tag_rows(), library, show_tag, state, redraw)
             elif view == "collections":

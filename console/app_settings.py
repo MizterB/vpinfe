@@ -7,6 +7,7 @@ table, is one step further: Show Every Setting.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from collections.abc import Awaitable, Callable, Collection, Sequence
@@ -20,13 +21,17 @@ from nicegui import ui
 from common.failures import why
 from common.i18n import t
 from console import dialog as frame
-from console import offload, panel, verbs, workbench
+from console import offload, panel, undo, verbs, workbench
 from console.data import config_groups
 from console.on_page import on_page
 
 SCOPE_ENTRY = "entry"
 ADDED = "added_settings"
 ADDED_NOW = "added_setting_now"
+# How long a read of a selection runs before the section says it is reading.
+READING_NOTICE_S = 1.0
+# How often a write into several tables is asked how far it has got.
+JOB_POLL_S = 0.4
 
 _SHOW_ADDED = """
 (() => {
@@ -82,6 +87,157 @@ async def section(context: dict[str, Any]) -> None:
 def _runs(context: dict[str, Any], table: dict[str, Any]) -> dict[str, Any] | None:
     held = (context.get("launchers") or {}).get("launchers") or []
     return next((one for one in held if one["launcher_id"] == table.get("launcher")), None)
+
+
+async def selection_section(context: dict[str, Any]) -> None:
+    """The settings of every selected table, as one table's would read."""
+    tables = list(context["tables"])
+    with ui.column().classes("gap-0 console-form") as body:
+        reading = ui.label(t("console.app_settings.reading")).classes("console-help")
+        reading.set_visibility(False)
+        late = ui.timer(READING_NOTICE_S, lambda: reading.set_visibility(True), once=True)
+    try:
+        entries = await _selection_entries(context, tables)
+    finally:
+        late.cancel()
+    body.clear()
+    with body:
+        panel.facts(ui, entries)
+    ui.run_javascript(workbench._KEEP_SCROLL % "settings:selection")
+    if said := context["state"].pop(ADDED_NOW, None):
+        ui.run_javascript(_SHOW_ADDED % json.dumps(said))
+
+
+def _programs(context: dict[str, Any],
+              tables: Sequence[dict[str, Any]]) -> list[tuple[dict[str, Any] | None, list]]:
+    """The selected tables by the program their launcher runs, the most tables first."""
+    found: dict[str, tuple[dict[str, Any] | None, list]] = {}
+    for table in tables:
+        launcher = _runs(context, table)
+        found.setdefault(str((launcher or {}).get("app") or ""), (launcher, []))[1] \
+            .append(table)
+    return sorted(found.values(), key=lambda held: -len(held[1]))
+
+
+def _program_name(launcher: dict[str, Any] | None) -> str:
+    return str((launcher or {}).get("app_name") or "") or t("console.app_settings.no_program")
+
+
+async def _selection_entries(context: dict[str, Any],
+                             tables: list[dict[str, Any]]) -> list[tuple[Any, Any]]:
+    programs = _programs(context, tables)
+    heading = (panel.HEADING, t("console.section.settings"))
+    if len(programs) > 1:
+        return [heading, panel.intro(t("console.app_settings.many_programs",
+                                       count=len(programs))),
+                *[(panel.FULL, _keep_link(context, launcher, held))
+                  for launcher, held in programs]]
+    launcher = programs[0][0]
+    if launcher is None or not launcher.get("has_config"):
+        return [heading, panel.intro(t("console.app_settings.no_config"))]
+    entries: list[tuple[Any, Any]] = [(panel.HEADING, t(
+        "console.app_settings.tables_title", app=launcher.get("app_name") or ""))]
+    if note := workbench._program_note(launcher):
+        return [*entries, panel.intro(note)]
+    library = context["library"]
+    shared = [{"table": table, "launcher_id": str((_runs(context, table) or {})
+                                                     .get("launcher_id") or "")}
+              for table in tables]
+    try:
+        found = await offload.io(library.launcher_config, shared[0]["launcher_id"],
+                                 str(tables[0].get("id") or ""), SCOPE_ENTRY)
+    except Exception as exc:  # noqa: BLE001 - this says why, never 500s
+        return [*entries, panel.intro(t("said.settings_unreadable"), hint=why(exc))]
+    groups = config_groups(found)
+    inner: dict[str, Any] = {
+        "library": library, "launcher": launcher, "config_groups": groups,
+        "config_scope": SCOPE_ENTRY, "config_table": str(tables[0].get("id") or ""),
+        "playing": await offload.io(workbench._playing, library),
+        "state": context["state"], "rebuild": context["rebuild"], "tables": tables,
+        "shared": shared, "by_value": True,
+        "config_read": partial(as_one, library, shared, groups),
+        "config_write": partial(write_selection, library, context["state"], shared, groups),
+    }
+    inner["config_done"] = partial(_wrote, inner)
+    try:
+        values = await offload.io(as_one, library, shared, groups)
+    except Exception as exc:  # noqa: BLE001 - this says why, never 500s
+        return [*entries, panel.intro(t("said.settings_unreadable"), hint=why(exc))]
+    inner["config_values"] = values
+    entries.append(panel.intro(t("console.app_settings.selection_writes", count=len(tables))))
+    added = _added(context["state"], "selection:" + ",".join(
+        sorted(str(one.get("id") or "") for one in tables)))
+    blocks = differences(groups, values, added)
+    view = point_of_view(groups, values, added)
+    options = table_options(groups, values)
+    if not blocks and view is None and options is None:
+        entries.append(panel.intro(t("console.app_settings.no_override")))
+    if view is not None:
+        blocks.append((view.label, view.rows))
+    entries += await workbench._setting_entries(
+        inner, [(label, "", fields) for label, fields in blocks], curated=True, sub=True,
+        pairs=named_pairs(groups))
+    remove = partial(_remove, inner)
+    if view is not None:
+        entries += _camera_entries(view, remove, inner["playing"])
+    if options is not None:
+        entries += _option_entries(options, values, remove, inner["playing"])
+    if offered := addable(groups, values, added):
+        entries.append((panel.FULL, partial(_add_picker, context, added, offered)))
+    entries.append((panel.FULL, panel.action(
+        t("console.app_settings.show_all"),
+        partial(_every, context, inner, t("console.app_settings.selection_all",
+                                          count=len(tables),
+                                          launcher_name=launcher.get("display_name") or "")),
+        icon=verbs.DRILL, hint=t("console.app_settings.show_all.help"))))
+    return entries
+
+
+def _keep_link(context: dict[str, Any], launcher: dict[str, Any] | None,
+               held: list[dict[str, Any]]) -> Callable[[], None]:
+    """One program's tables, as a link that leaves only them ticked."""
+    ids = [str(one.get("id") or "") for one in held]
+
+    def draw() -> None:
+        ui.label(t("console.app_settings.keep_program", app=_program_name(launcher),
+                   count=len(held))).classes("console-link cursor-pointer") \
+            .on("click", lambda: context["state"]["keep_selected"](ids)) \
+            .tooltip(t("console.app_settings.keep_program.help"))
+
+    return draw
+
+
+def _wrote(inner: dict[str, Any], wrote: dict[str, Any]) -> None:
+    """Says what a write to the selection did, with Undo putting each table back as it
+    was: its own value where it held one, the program's shared reading where it did not."""
+    if failed := wrote.get("failed"):
+        ui.notify(t("console.app_settings.selection_failed", count=len(failed)),
+                  caption="; ".join(dict.fromkeys(str(one.get("reason") or "")
+                                                  for one in failed)),
+                  type="warning")
+    changes = wrote.get("undo") or []
+    if not changes:
+        return
+    said = (t("console.app_settings.cleared") if wrote.get("blank")
+            else t("console.app_settings.selection_set", count=len(changes)))
+    undo.offer(said, partial(_put_back, inner, changes))
+
+
+async def _put_back(inner: dict[str, Any], changes: Sequence[tuple[str, str, dict]]) -> None:
+    """Each table's own values again, the tables that held the same ones together."""
+    together: dict[tuple[str, tuple], list[str]] = {}
+    for table_id, launcher_id, held in changes:
+        together.setdefault((launcher_id, tuple(sorted(held.items()))), []).append(table_id)
+    failed: list[dict[str, Any]] = []
+    try:
+        for (launcher_id, pairs), ids in together.items():
+            failed += await _write_tables(inner["library"], inner["state"], launcher_id,
+                                          dict(pairs), ids)
+    finally:
+        await inner["rebuild"]()
+    if failed:
+        raise RuntimeError("; ".join(dict.fromkeys(str(one.get("reason") or "")
+                                                   for one in failed if one.get("reason"))))
 
 
 async def _program_entries(context: dict[str, Any],
@@ -397,13 +553,19 @@ def _reset(label: str, on_click: Callable[[], Any], hint: str, playing: bool, *,
 @on_page
 async def _remove(inner: dict[str, Any], keys: list[str]) -> None:
     """Takes these off the table's own settings, and draws the section again."""
+    blank = dict.fromkeys(keys, "")
     try:
-        await offload.io(inner["library"].write_launcher_config,
-                         inner["launcher"]["launcher_id"], dict.fromkeys(keys, ""),
-                         table=inner["config_table"], scope=SCOPE_ENTRY)
+        if (write := inner.get("config_write")) is not None:
+            wrote = await workbench.config_applied(write, blank)
+        else:
+            wrote = await offload.io(inner["library"].write_launcher_config,
+                                     inner["launcher"]["launcher_id"], blank,
+                                     table=inner["config_table"], scope=SCOPE_ENTRY)
     except Exception as exc:  # noqa: BLE001 - said, never raised into the page
         ui.notify(t("said.clear_failed"), caption=why(exc), type="negative")
         return
+    if (done := inner.get("config_done")) is not None:
+        done(wrote or {})
     await inner["rebuild"]()
 
 
@@ -415,6 +577,10 @@ async def _every_setting(context: dict[str, Any], table: dict[str, Any],
     title = title_for(str((context.get("game") or {}).get("name") or ""),
                       workbench._table_line(table),
                       str(inner["launcher"].get("display_name") or ""), count)
+    await _every(context, inner, title)
+
+
+async def _every(context: dict[str, Any], inner: dict[str, Any], title: str) -> None:
     every: dict[str, Any] = {**inner, "state": {"all_settings": {}}}
     every.pop("config_values", None)
 
@@ -625,6 +791,81 @@ def write_shared(library: Any, targets: list[dict[str, Any]], groups: Sequence[A
                                           table=str(one["table"].get("id") or ""),
                                           scope=SCOPE_ENTRY)
     return {"cut": cut}
+
+
+def _plan_selection(library: Any, targets: list[dict[str, Any]], groups: Sequence[Any],
+                    values: dict[str, str]) -> tuple[dict[str, tuple[str, dict[str, str]]],
+                                                     list[dict[str, Any]]]:
+    """What writing `values` to each target changes: under each table that would change, its
+    launcher and what it held before - its own value, or a blank where it held none - and the
+    tables written that read the game's file before, and no longer do."""
+    fields = {field.key: field for group in groups for field in group.settings}
+    for one in targets:
+        _read_settings(library, one)
+    before: dict[str, tuple[str, dict[str, str]]] = {}
+    set_to: set[str] = set()
+    for key, value in values.items():
+        for one in targets:
+            held = one["values"].get(key) or {}
+            if (bool(held.get("set_here")) if value == ""
+                    else not already_uses(one, fields[key], value, False)):
+                table_id = str(one["table"].get("id") or "")
+                before.setdefault(table_id, (one["launcher_id"], {}))[1][key] = \
+                    str(held.get("value") or "") if held.get("set_here") else ""
+                if value != "":
+                    set_to.add(table_id)
+    cut = [one["table"] for one in targets
+           if str(one["table"].get("id") or "") in set_to and one["reads_game"]]
+    return before, cut
+
+
+async def write_selection(library: Any, state: dict[str, Any], targets: list[dict[str, Any]],
+                          groups: Sequence[Any], values: dict[str, str]) -> dict[str, Any]:
+    """A value to each target not using it yet, and a blank to each that sets one. Returns
+    under `undo` what each table it changed held before, `blank` where the write only
+    cleared, `cut` as `write_shared` does, and `failed` for the tables that could not be
+    written, each with its `reason`."""
+    before, cut = await offload.io(_plan_selection, library, targets, groups, values)
+    together: dict[tuple[str, tuple[str, ...]], list[str]] = {}
+    for table_id, (launcher_id, held) in before.items():
+        together.setdefault((launcher_id, tuple(sorted(held))), []).append(table_id)
+    failed: list[dict[str, Any]] = []
+    for (launcher_id, keys), ids in together.items():
+        try:
+            failed += await _write_tables(library, state, launcher_id,
+                                          {key: values[key] for key in keys}, ids)
+        except Exception as exc:  # noqa: BLE001 - these tables are named, the rest go on
+            failed += [{"table": one, "reason": why(exc)} for one in ids]
+    lost = {str(one.get("table")) for one in failed}
+    return {"cut": [one for one in cut if str(one.get("id")) not in lost],
+            "blank": all(value == "" for value in values.values()), "failed": failed,
+            "undo": [(table_id, launcher_id, held)
+                     for table_id, (launcher_id, held) in before.items()
+                     if table_id not in lost]}
+
+
+async def _write_tables(library: Any, state: dict[str, Any], launcher_id: str,
+                        values: dict[str, str], ids: list[str]) -> list[dict[str, Any]]:
+    """The same values into each of `ids`, waiting out the job that several make. Returns
+    the tables that could not be written."""
+    done = await offload.io(library.write_launcher_config_tables, launcher_id, values, ids)
+    job_id = str(done.get("id") or "")
+    if not job_id:
+        return []
+    if callable(watch := state.get("watch_jobs")):
+        watch()
+    while True:
+        await asyncio.sleep(JOB_POLL_S)
+        found = await offload.io(library.job, job_id)
+        if found.get("state") != "running":
+            break
+    library.settings_written()
+    if found.get("state") == "failed":
+        raise RuntimeError(str(found.get("error") or ""))
+    result = found.get("result") or {}
+    failed = list(result.get("failed") or ())
+    reached = set(result.get("written") or ()) | {str(one.get("table")) for one in failed}
+    return failed + [{"table": one, "reason": ""} for one in ids if one not in reached]
 
 
 @on_page

@@ -547,6 +547,26 @@
   "console.app_settings.apply_all": "Šèţ ƒöř Àŀŀ {count} Ţàƀŀèš",
   "console.app_settings.apply_all.help": "Èàçĥ öƒ ţĥîš ĝàɱè'š ţàƀŀèš ĝèţš ţĥîš ṽàŀûè àš îţš öŵñ",
   "console.app_settings.apply_done": "Šèţ ƒöř àŀŀ {count} ţàƀŀèš",
+  "console.app_settings.tables_title": "{app} ƒöř Ţĥèšè Ţàƀŀèš",
+  "console.app_settings.many_programs": "Ţĥèšè ţàƀŀèš řûñ {count} þřöĝřàɱš. Ķèèþ ţĥè ţàƀŀèš öƒ öñè ţö çĥàñĝè ţĥèîř šèţţîñĝš.",
+  "console.app_settings.keep_program": {
+    "one": "{app}: {count} ţàƀŀè",
+    "other": "{app}: {count} ţàƀŀèš"
+  },
+  "console.app_settings.keep_program.help": "Ŀèàṽè öñŀý ţĥèšè ţàƀŀèš ţîçķèđ",
+  "console.app_settings.no_program": "Ñö þřöĝřàɱ",
+  "console.app_settings.no_config": "Ţĥèšè ţàƀŀèš řûñ à þřöĝřàɱ ţĥàţ ķèèþš ñö šèţţîñĝš öƒ îţš öŵñ",
+  "console.app_settings.selection_writes": "Çĥàñĝèš ĥèřè àþþŀý ţö àŀŀ {count} šèŀèçţèđ ţàƀŀèš",
+  "console.app_settings.selection_set": {
+    "one": "Çĥàñĝèđ öñ {count} ţàƀŀè",
+    "other": "Çĥàñĝèđ öñ {count} ţàƀŀèš"
+  },
+  "console.app_settings.selection_failed": {
+    "one": "{count} ţàƀŀè çöûŀđ ñöţ ƀè çĥàñĝèđ",
+    "other": "{count} ţàƀŀèš çöûŀđ ñöţ ƀè çĥàñĝèđ"
+  },
+  "console.app_settings.reading": "Řèàđîñĝ ţĥè šèţţîñĝš öƒ èṽèřý šèŀèçţèđ ţàƀŀè",
+  "console.app_settings.selection_all": "{count} ţàƀŀèš: {launcher_name} Šèţţîñĝš",
   "console.app_settings.settings": "{table}: {launcher_name} Šèţţîñĝš",
   "console.app_settings.shared_with_game": {
     "one": "Çĥàñĝèš ĥèřè àŀšö àþþŀý ţö ţĥè öţĥèř ţàƀŀè, ûñŀèšš îţ ĥàš îţš öŵñ",
@@ -1340,6 +1360,7 @@
   },
   "console.games.games_of": "{shown} öƒ {count} ĝàɱèš",
   "console.games.filter_own": "Ĥàš Šèţţîñĝš öƒ Îţš Öŵñ",
+  "console.games.selection_back": "Šĥöŵ ţĥè šèŀèçţîöñ îñ ţĥè þàñèŀ",
   "console.games.hidden_game.help": "Ĥîđđèñ ŵĥèřè ţĥè ĝàɱè ĥàš ñö ţàƀŀè ŀèƒţ ţö öƒƒèř",
   "console.games.hide": "Ĥîđè",
   "console.games.table_count.help": "Ĥöŵ ɱàñý ţàƀŀè ƒîŀèš ţĥîš ĝàɱè ƒöŀđèř ĥöŀđš",
@@ -1504,6 +1525,7 @@
   "console.jobs.kind.library_scan": "Ŀîƀřàřý šçàñ",
   "console.jobs.kind.library_vps_rollup": "ṼÞŠ çöûñţ",
   "console.jobs.kind.media_rotate": "Ţûřñ ɱèđîà",
+  "console.jobs.kind.table_settings": "Ţàƀŀè šèţţîñĝš",
   "console.jobs.kind.backups_move": "Ḿöṽè ƀàçķûþš",
   "console.jobs.kind.media_capture": "Řèçöřđîñĝ",
   "console.jobs.kind.tools_get": "Ţööŀ đöŵñŀöàđ",
@@ -1916,6 +1938,7 @@
   "console.page.stop_recording": "Šţöþ řèçöřđîñĝ?",
   "console.page.stop_recording_detail": "Ţĥè ĝàɱè ƀèîñĝ řèçöřđèđ îš ţĥřöŵñ àŵàý. Ŵĥàţ ţĥè řûñ řèçöřđèđ ƀèƒöřè îţ šţàýš.",
   "console.page.table": "Ţàƀŀè",
+  "console.page.selection": "Šèŀèçţîöñ",
   "console.page.tag": "Ţàĝ",
   "console.page.theme": "Ţĥèɱè",
   "console.page.timeout": "ṼÞîñƑÈ ţööķ ţöö ŀöñĝ ţö àñšŵèř",
@@ -3513,6 +3536,10 @@
   "console.workbench.use_selected": "Ûšè šèŀèçţèđ",
   "console.workbench.use_spreadsheet": "Ûšè ŵĥàţ ţĥè šþřèàđšĥèèţ šàýš",
   "console.workbench.varies": "Ṽàřîèš",
+  "console.workbench.value_count": {
+    "one": "{said}: {count} ţàƀŀè",
+    "other": "{said}: {count} ţàƀŀèš"
+  },
   "console.workbench.script_sidecar": "À .ṽƀš ƀèšîđè ţĥè ţàƀŀè, àñđ ţĥè ŀàûñçĥèř řûñš îţ îñšţèàđ öƒ ţĥè öñè îñšîđè",
   "console.workbench.game_unlisted": "ṼÞŠ đöèš ñöţ ŀîšţ ţĥè ĝàɱè ţĥîš öñè îš ɱàţçĥèđ ţö",
   "console.workbench.release_unlisted": "ṼÞŠ đöèš ñöţ ŀîšţ ţĥè řèŀèàšè ţĥîš ţàƀŀè îš ɱàţçĥèđ ţö",
@@ -3815,6 +3842,7 @@
   "error.jobs.spreadsheet_not_downloaded": "Çöûŀđ ñöţ đöŵñŀöàđ ţĥè šþřèàđšĥèèţ",
   "error.jobs.getting_spreadsheet": "Ţĥè šþřèàđšĥèèţ îš ƀèîñĝ đöŵñŀöàđèđ àŀřèàđý",
   "error.jobs.getting_tool": "ƑƑɱþèĝ îš ƀèîñĝ đöŵñŀöàđèđ àŀřèàđý",
+  "error.jobs.settings_busy": "Šèţţîñĝš àřè àŀřèàđý ƀèîñĝ ŵřîţţèñ ţö öţĥèř ţàƀŀèš",
   "error.jobs.library_busy": "Ţĥè ŀîƀřàřý îš ƀûšý - ţřý àĝàîñ ŵĥèñ îţ ƒîñîšĥèš",
   "error.jobs.unknown_job": "Ñö ĵöƀ ŵîţĥ îđ {job_id}",
   "error.jobs.sending_busy": "Àŀřèàđý šèñđîñĝ ĝàɱèš ţö à đèṽîçè",
@@ -3842,6 +3870,8 @@
   "error.launchers.no_launcher": "Ñö ŀàûñçĥèř {launcher_id}",
   "error.launchers.unknown_launcher": "Ñö ŀàûñçĥèř çàŀŀèđ “{launcher_id}”",
   "error.launchers.unknown_scope": "Ñö šçöþè çàŀŀèđ “{scope}”",
+  "error.launchers.tables_list": "Ţàƀŀèš îš à ŀîšţ öƒ ţàƀŀè îđš",
+  "error.launchers.tables_scope": "À ŀîšţ öƒ ţàƀŀèš ĝöèš ŵîţĥ ţĥè šèţţîñĝš öƒ à ţàƀŀè, ñöţ öƒ ţĥè ŀàûñçĥèř",
   "error.launchers.unknown_scope_app": "Ñö šçöþè çàŀŀèđ “{scope}”. Ţĥîš àþþ ĥàš {scopes}.",
   "error.launchers.no_own_settings": "{app_name} ĥàš ñö šèţţîñĝš öƒ îţš öŵñ ţö ŵřîţè",
   "error.launchers.unknown_table": "Ñö ţàƀŀè çàŀŀèđ “{wanted}”",
@@ -4451,6 +4481,10 @@
     "one": "{count} ĝàɱè, {turned} ţûřñèđ, {skipped} šķîþþèđ",
     "other": "{count} ĝàɱèš, {turned} ţûřñèđ, {skipped} šķîþþèđ"
   },
+  "said.job_table_settings": {
+    "one": "{count} ţàƀŀè çĥàñĝèđ, {failed} ñöţ",
+    "other": "{count} ţàƀŀèš çĥàñĝèđ, {failed} ñöţ"
+  },
   "said.job_backups_moved": {
     "one": "{count} ƀàçķûþ ɱöṽèđ, {left} ŀèƒţ îñ ţĥè öŀđ ƒöŀđèř, {failed} ƒàîŀèđ",
     "other": "{count} ƀàçķûþš ɱöṽèđ, {left} ŀèƒţ îñ ţĥè öŀđ ƒöŀđèř, {failed} ƒàîŀèđ"
@@ -4484,6 +4518,10 @@
   "said.starting": "Šţàřţîñĝ",
   "said.media_update": "Ûþđàţîñĝ ɱèđîà ƒöř {game}",
   "said.media_rotate": "Ţûřñîñĝ {file}",
+  "said.table_settings": {
+    "one": "Çĥàñĝîñĝ šèţţîñĝš, {count} ţàƀŀè ţö ĝö",
+    "other": "Çĥàñĝîñĝ šèţţîñĝš, {count} ţàƀŀèš ţö ĝö"
+  },
   "said.backups_move": "Ḿöṽîñĝ {file}",
   "said.why.already_at": "Šöɱèţĥîñĝ îš àŀřèàđý àţ {path}",
   "said.why.already_there": "Šöɱèţĥîñĝ îš àŀřèàđý ţĥèřè",

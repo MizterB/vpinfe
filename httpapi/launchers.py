@@ -15,10 +15,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Response
 
+from common import jobs
 from common.games import launcher_ops
 
+from . import jobs as jobs_api
 from . import scopes
 from .auth import requires
 
@@ -59,11 +61,20 @@ def launcher_config(launcher_id: str, table: str = "",
 
 @router.put("/{launcher_id}/config", summary="Set values on the app it runs",
             dependencies=[requires(scopes.CONFIG_WRITE)])
-def write_launcher_config(launcher_id: str,
+def write_launcher_config(response: Response, launcher_id: str,
                           body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Values at one scope. The app writes them into its own file in place, and names
-    under `cleared` the ones it cleared instead, for holding the launcher's own value."""
-    return launcher_ops.write_config(launcher_id, body)
+    under `cleared` the ones it cleared instead, for holding the launcher's own value.
+
+    `tables` in place of `table` writes the same values into each of them. With more than
+    one that is accepted, not done: a job of kind `table_settings` answers, whose result
+    names the tables written and each that could not be."""
+    done = launcher_ops.write_config(launcher_id, body)
+    if isinstance(done, jobs.Job):
+        response.status_code = 202
+        response.headers["Location"] = f"/api/v1/jobs/{done.id}"
+        return jobs_api.resource(done)
+    return done
 
 
 @router.post("/{launcher_id}/default", summary="Make it the default for its app",

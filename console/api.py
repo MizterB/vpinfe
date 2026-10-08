@@ -1187,6 +1187,12 @@ class ApiClient:
                               {"values": values, "table": table, "scope": scope,
                                **({"create": True} if create else {})}) or {})
 
+    def write_launcher_config_tables(self, launcher_id: str, values: dict,
+                                     tables: list[str], *, scope: str = "entry") -> dict:
+        """The same values into each of `tables`. Several come back as the job to watch."""
+        return dict(self._put(f"/launchers/{launcher_id}/config",
+                              {"values": values, "tables": tables, "scope": scope}) or {})
+
     def config_schema(self) -> list[dict]:
         """Every setting this install has, sectioned. Read from the install rather than
         carried here, so a client cannot offer a setting the install does not have."""

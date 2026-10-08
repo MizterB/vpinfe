@@ -31,6 +31,12 @@ class Describers(unittest.TestCase):
 
         self.assertEqual(t("said.job_media_filled", count=5, filled=3, unmatched=1, failed=1), said)
 
+    def test_a_settings_write_counts_the_tables_changed_and_not(self) -> None:
+        said = job_details.of(jobs.KIND_TABLE_SETTINGS,
+                              {"tables": 5, "written": ["a", "b", "c"], "failed": [{}, {}]})
+
+        self.assertEqual(t("said.job_table_settings", count=3, failed=2), said)
+
     def test_a_recording_says_how_many_it_made(self) -> None:
         said = job_details.of(jobs.KIND_MEDIA_CAPTURE, {"run": {"done": 2, "of": 5}})
 

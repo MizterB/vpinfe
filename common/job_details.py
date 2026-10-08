@@ -61,6 +61,13 @@ def _backups_moved(result: Any) -> str:
              left=len(result.get("left") or ()), failed=len(result.get("failed") or ()))
 
 
+def _table_settings(result: Any) -> str:
+    if not isinstance(result, dict) or "written" not in result:
+        return ""
+    return t("said.job_table_settings", count=len(result["written"]),
+             failed=len(result.get("failed") or ()))
+
+
 def _capture(result: Any) -> str:
     run = result.get("run") if isinstance(result, dict) else None
     if not isinstance(run, dict) or "of" not in run:
@@ -80,4 +87,5 @@ _KINDS: dict[str, Callable[[Any], str]] = {
     jobs.KIND_BACKUPS_MOVE: _backups_moved,
     jobs.KIND_MEDIA_CAPTURE: _capture,
     jobs.KIND_TOOL_GET: _tool,
+    jobs.KIND_TABLE_SETTINGS: _table_settings,
 }

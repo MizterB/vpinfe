@@ -31,6 +31,9 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
     ("theme_sources.py", "rows.draw"):
         "Reads the sources that have no result once their rows are drawn. The rows are "
         "already there and say Checking themselves, so there is no region to hold busy.",
+    ("app_settings.py", "selection_section"):
+        "Shows the line saying the settings are still being read, once the read has taken "
+        "a second. It is the busy mark itself and fills nothing.",
     ("about.py", "_show_to_copy"):
         "Selects the text in a dialog once the dialog has focused itself. Draws nothing.",
 }

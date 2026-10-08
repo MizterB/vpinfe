@@ -13,6 +13,7 @@ above it; the rest are the game's whatever build you are looking at.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import time
@@ -238,13 +239,13 @@ _REFOCUS_SETTING = """(() => {
 
 def _rebuilds(context: dict[str, Any], subject: str,
               again: Callable[[], Any], refresh_with: str = "refresh_game",
-              ) -> Callable[[], Any]:
+              refresh_of: str = "game_id") -> Callable[[], Any]:
     """A rebuild that puts the grid behind the panel right too."""
     async def behind() -> None:
         """The grid, put right. Every write needs this; only some need a rebuild."""
         refresh = context.get("state", {}).get(refresh_with)
-        if callable(refresh) and context.get("game_id"):
-            await refresh(context["game_id"])
+        if callable(refresh) and context.get(refresh_of):
+            await refresh(context[refresh_of])
 
     async def rebuild() -> None:
         # Send nothing to the browser below this line. The slot is gone.
@@ -492,6 +493,48 @@ async def build_all_games(container: ui.column, title: ui.column, library: Libra
     state = state if state is not None else {}
     await _pane_build(container, state,
                       lambda: _draw_all_games(container, title, library, state))
+
+
+async def build_selection(container: ui.column, title: ui.column, library: Library,
+                          table_ids: Sequence[str], state: dict[str, Any] | None = None,
+                          ) -> None:
+    """The panel, for the tables ticked in the Tables grid: one subject that answers for
+    all of them."""
+    state = state if state is not None else {}
+    await _pane_build(container, state,
+                      lambda: _draw_selection(container, title, library, table_ids, state))
+
+
+async def _draw_selection(container: ui.column, title: ui.column, library: Library,
+                          table_ids: Sequence[str], state: dict[str, Any]) -> None:
+    wanted = set(table_ids)
+    rows = await offload.io(library.load_tables)
+    tables = [row for row in rows if row.get("id") in wanted]
+    if not tables:
+        _blank(container, title, t("console.page.table"), t("console.page.select_table"))
+        return
+    launcher_listing = await offload.io(_launchers_for_panel, library)
+    container.clear()
+    title.clear()
+    with container:
+        _title(title, t("console.games.tables", count=len(tables)),
+               t("console.page.selection"))
+        context: dict[str, Any] = {
+            "library": library, "tables": tables, "launchers": launcher_listing,
+            "state": state, "redraws": [], "dock": None,
+            "game_ids": sorted({str(one.get("game_id") or "") for one in tables})}
+        context["rebuild"] = _rebuilds(
+            context, "selection",
+            lambda: build_selection(container, title, library, table_ids, state),
+            refresh_with="refresh_tables", refresh_of="game_ids")
+        # The rail's one section is not a place to come back to: the table that is shown
+        # next lands where the last one did.
+        kept = state.get("section")
+        await _rail(context, "selection", state)
+        if kept is None:
+            state.pop("section", None)
+        else:
+            state["section"] = kept
 
 
 async def build_tag(container: ui.column, title: ui.column, library: Library,
@@ -987,20 +1030,29 @@ async def _backglass_picture(context: dict[str, Any], path: str, glass: dict[str
             art.backglass(game_id, path, version=glass["version"]), label))
 
 
+async def config_applied(write: Callable[..., Any], values: dict[str, str]) -> Any:
+    """`values` through a panel's `config_write`, which is a coroutine function where the
+    write waits on a job and a plain one, to run off the loop, where it does not."""
+    if inspect.iscoroutinefunction(write):
+        return await write(values)
+    return await run.io_bound(write, values)
+
+
 @on_page
 async def _write_overlay(inner: dict[str, Any], values: dict[str, str], *,
                          in_place: bool = False) -> None:
     """Write a box dragged or found on the preview where the settings panel beside it
     writes, then draw again from what is now held: the file's form and the preview where
     `in_place` and the form can be drawn on its own, the whole panel otherwise."""
-    if (write := inner.get("config_write")) is not None:
-        job = partial(write, values)
-    else:
-        job = partial(inner["library"].write_launcher_config, inner["launcher"]["launcher_id"],
-                      values, table=str(inner.get("config_table") or ""),
-                      scope=str(inner.get("config_scope") or "launcher"))
     try:
-        wrote = await run.io_bound(job)
+        if (write := inner.get("config_write")) is not None:
+            wrote = await config_applied(write, values)
+        else:
+            wrote = await run.io_bound(
+                partial(inner["library"].write_launcher_config,
+                        inner["launcher"]["launcher_id"], values,
+                        table=str(inner.get("config_table") or ""),
+                        scope=str(inner.get("config_scope") or "launcher")))
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
         return
@@ -2335,6 +2387,12 @@ async def _table_settings(context: dict[str, Any]) -> None:
     from console import app_settings
 
     await app_settings.section(context)
+
+
+async def _selection_settings(context: dict[str, Any]) -> None:
+    from console import app_settings
+
+    await app_settings.selection_section(context)
 
 
 async def _release_match(context: dict[str, Any],
@@ -4922,17 +4980,24 @@ Part = tuple[Callable[[], None], dict, Any]
 
 
 def _varies(parts: Sequence[Part], tables: Sequence[dict[str, Any]], app_name: str,
-            joiner: str = "") -> Callable[[], None] | None:
+            joiner: str = "", *, by_value: bool = False) -> Callable[[], None] | None:
     """Varies, where the tables a row is written to use different values for it, with
-    each table's on hover: a pair's two parts joined by `joiner`."""
+    each table's on hover: a pair's two parts joined by `joiner`. With `by_value` the
+    hover counts the tables holding each value, which is what a long selection can be
+    read from."""
     if not any(held.get("varies") for _, held, _ in parts):
         return None
     each = [held.get("each") or [] for _, held, _ in parts]
-    lines = [t("console.workbench.part_said", label=_table_line(table, list(tables)),
-               said=joiner.join(_said_value(field, used[index][1])
-                                or t("console.workbench.app_default", app=app_name)
-                                for used, (_, _, field) in zip(each, parts, strict=True)))
-             for index, (table, _) in enumerate(each[0])]
+    said = [joiner.join(_said_value(field, used[index][1])
+                        or t("console.workbench.app_default", app=app_name)
+                        for used, (_, _, field) in zip(each, parts, strict=True))
+            for index in range(len(each[0]))]
+    if by_value:
+        lines = [t("console.workbench.value_count", said=value, count=count)
+                 for value, count in Counter(said).most_common()]
+    else:
+        lines = [t("console.workbench.part_said", label=_table_line(table, list(tables)),
+                   said=value) for (table, _), value in zip(each[0], said, strict=True)]
     return panel.state(t("console.workbench.varies"), "off", hint="\n".join(lines))
 
 
@@ -5373,7 +5438,7 @@ async def _setting_entries(context: dict[str, Any],
 
     def written(values: dict[str, str]) -> Awaitable[Any]:
         if (write := context.get("config_write")) is not None:
-            return run.io_bound(write, values)
+            return config_applied(write, values)
         return run.io_bound(library.write_launcher_config, launcher["launcher_id"], values,
                             table=table, scope=scope)
 
@@ -5382,10 +5447,13 @@ async def _setting_entries(context: dict[str, Any],
         async def wipe() -> None:
             try:
                 async with in_turn:
-                    await written({key: "" for key in keys if rows[key].get("set_here")})
+                    wrote = await written({key: "" for key in keys
+                                           if rows[key].get("set_here")})
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.clear_failed"), caption=why(exc), type="negative")
                 return
+            if (done := context.get("config_done")) is not None:
+                done(wrote or {})
             context.pop("config_values", None)
             await _keeping_place(ui.context.client, context["rebuild"], keys[0])
         return wipe
@@ -5401,6 +5469,8 @@ async def _setting_entries(context: dict[str, Any],
                 return False
             if cut := (wrote or {}).get("cut"):
                 no_longer_reads_game(cut, context.get("tables"))
+            if (done := context.get("config_done")) is not None:
+                done(wrote or {})
             context.pop("config_values", None)
             reads["begun"] += 1
             mine = reads["begun"]
@@ -5456,7 +5526,8 @@ async def _setting_entries(context: dict[str, Any],
             varies=bool(held.get("varies")), browse=library.folders), held, field
 
     def marks(parts: Sequence[Part], joiner: str = "") -> Callable[[], None] | None:
-        return _in_turn(_varies(parts, context.get("tables") or [], app_name, joiner),
+        return _in_turn(_varies(parts, context.get("tables") or [], app_name, joiner,
+                                by_value=bool(context.get("by_value"))),
                         *(None if held.get("varies")
                           else _mark_for(held, scope, field, offered(field))
                           for _, held, field in parts))
@@ -7368,6 +7439,8 @@ SECTIONS: tuple[Section, ...] = (
             subjects=frozenset({"table"})),
     Section("table_settings", lambda _: t("console.workbench.table_settings"),
             _table_settings, subjects=frozenset({"table"})),
+    Section("selection_settings", lambda _: t("console.workbench.table_settings"),
+            _selection_settings, subjects=frozenset({"selection"})),
     Section("play", lambda _: game_tables.PLAY, _play_block),
     Section("collections", _collections_label, _collections_block),
     Section("media", _media_label, _media_block, dock=True),

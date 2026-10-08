@@ -17,7 +17,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from common import apps, config_schema, failures, i18n, path_state, service_errors
+from common import apps, config_schema, failures, i18n, jobs, path_state, service_errors, shutdown
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER, Standing
 from common.games import game_repository, launchers, library_folders, tables
 from common.games.table_identity import find_table_by_id
@@ -376,9 +376,10 @@ def _curated(app_id: str, group: apps.ConfigGroup, shown: set[str]) -> list[dict
     return found
 
 
-def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any] | jobs.Job:
     """Values at one scope. The app writes them into its own file in place, and names
-    under `cleared` the ones it cleared instead, for holding the launcher's own value."""
+    under `cleared` the ones it cleared instead, for holding the launcher's own value.
+    Given `tables`, more than one, the same values go into each as a job."""
     found = launcher_or_refuse(launcher_id)
     config = _app_settings_surface(found)
     if config is None:
@@ -394,7 +395,13 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(values, dict) or not values:
         raise service_errors.RefusedError(t("error.launchers.empty_write"))
     settings = _launcher_settings(found)
-    table = _game_file(str(body.get("table") or ""))
+    named = body.get("tables") or ()
+    if not isinstance(named, (list, tuple)):
+        raise service_errors.RefusedError(t("error.launchers.tables_list"))
+    ids = list(dict.fromkeys(str(one) for one in named if one))
+    if ids and scope == SCOPE_LAUNCHER:
+        raise service_errors.RefusedError(t("error.launchers.tables_scope"))
+    table = _game_file(ids[0] if len(ids) == 1 else str(body.get("table") or ""))
     writing = {str(k): str(v) for k, v in values.items()}
     scopes_for = _scopes_for(config)
     refused = sorted(key for key, value in writing.items()
@@ -404,6 +411,9 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
             "error.launchers.one_table_only" if scope == SCOPE_LAUNCHER
             else "error.launchers.all_tables_only", app_name=(apps.app_name(found.app)),
             keys=(", ".join(refused))))
+
+    if len(ids) > 1:
+        return _write_tables(found, config, settings, scope, ids, writing)
 
     if body.get("create") and scope == SCOPE_LAUNCHER and not config_files(found):
         # Only when asked: a write on its own refuses where the program has no file yet.
@@ -423,6 +433,36 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
     except ValueError as exc:
         raise _cannot_write(found) from exc
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
+
+
+def _write_tables(launcher: launchers.Launcher, config: Any, settings: dict[str, Any],
+                  scope: str, ids: list[str], writing: dict[str, str]) -> jobs.Job:
+    """The same values written into each of several tables' own files, as a job: one table
+    that cannot be found or written is named in the result and the rest go on. A table the
+    job was stopped before reaching is in neither list."""
+    def work(job: jobs.Job) -> dict[str, Any]:
+        reporter = job.reporter()
+        written: list[str] = []
+        failed: list[dict[str, str]] = []
+        for index, table_id in enumerate(ids):
+            if shutdown.requested():
+                break
+            reporter.progress(index, len(ids), t("said.table_settings",
+                                                 count=len(ids) - index))
+            try:
+                target = _game_file(table_id)
+                _writable_before_writing(launcher, scope, target)
+                config.write(scope, target, writing, settings)
+            except Exception as exc:  # noqa: BLE001 - one table is named, the rest go on
+                if not isinstance(exc, (ValueError, service_errors.ServiceError)):
+                    logger.warning("Writing settings for table %s failed", table_id,
+                                   exc_info=True)
+                failed.append({"table": table_id, "reason": failures.why(exc)})
+            else:
+                written.append(table_id)
+        return {"tables": len(ids), "written": written, "failed": failed}
+
+    return jobs.submit(jobs.KIND_TABLE_SETTINGS, work)
 
 
 def _writable_before_writing(launcher: launchers.Launcher, scope: str, table: str) -> None:

@@ -547,6 +547,26 @@
   "console.app_settings.apply_all": "Set for All {count} Tables",
   "console.app_settings.apply_all.help": "Each of this game's tables gets this value as its own",
   "console.app_settings.apply_done": "Set for all {count} tables",
+  "console.app_settings.tables_title": "{app} for These Tables",
+  "console.app_settings.many_programs": "These tables run {count} programs. Keep the tables of one to change their settings.",
+  "console.app_settings.keep_program": {
+    "one": "{app}: {count} table",
+    "other": "{app}: {count} tables"
+  },
+  "console.app_settings.keep_program.help": "Leave only these tables ticked",
+  "console.app_settings.no_program": "No program",
+  "console.app_settings.no_config": "These tables run a program that keeps no settings of its own",
+  "console.app_settings.selection_writes": "Changes here apply to all {count} selected tables",
+  "console.app_settings.selection_set": {
+    "one": "Changed on {count} table",
+    "other": "Changed on {count} tables"
+  },
+  "console.app_settings.selection_failed": {
+    "one": "{count} table could not be changed",
+    "other": "{count} tables could not be changed"
+  },
+  "console.app_settings.reading": "Reading the settings of every selected table",
+  "console.app_settings.selection_all": "{count} tables: {launcher_name} Settings",
   "console.app_settings.settings": "{table}: {launcher_name} Settings",
   "console.app_settings.shared_with_game": {
     "one": "Changes here also apply to the other table, unless it has its own",
@@ -1340,6 +1360,7 @@
   },
   "console.games.games_of": "{shown} of {count} games",
   "console.games.filter_own": "Has Settings of Its Own",
+  "console.games.selection_back": "Show the selection in the panel",
   "console.games.hidden_game.help": "Hidden where the game has no table left to offer",
   "console.games.hide": "Hide",
   "console.games.table_count.help": "How many table files this game folder holds",
@@ -1504,6 +1525,7 @@
   "console.jobs.kind.library_scan": "Library scan",
   "console.jobs.kind.library_vps_rollup": "VPS count",
   "console.jobs.kind.media_rotate": "Turn media",
+  "console.jobs.kind.table_settings": "Table settings",
   "console.jobs.kind.backups_move": "Move backups",
   "console.jobs.kind.media_capture": "Recording",
   "console.jobs.kind.tools_get": "Tool download",
@@ -1916,6 +1938,7 @@
   "console.page.stop_recording": "Stop recording?",
   "console.page.stop_recording_detail": "The game being recorded is thrown away. What the run recorded before it stays.",
   "console.page.table": "Table",
+  "console.page.selection": "Selection",
   "console.page.tag": "Tag",
   "console.page.theme": "Theme",
   "console.page.timeout": "VPinFE took too long to answer",
@@ -3513,6 +3536,10 @@
   "console.workbench.use_selected": "Use selected",
   "console.workbench.use_spreadsheet": "Use what the spreadsheet says",
   "console.workbench.varies": "Varies",
+  "console.workbench.value_count": {
+    "one": "{said}: {count} table",
+    "other": "{said}: {count} tables"
+  },
   "console.workbench.script_sidecar": "A .vbs beside the table, and the launcher runs it instead of the one inside",
   "console.workbench.game_unlisted": "VPS does not list the game this one is matched to",
   "console.workbench.release_unlisted": "VPS does not list the release this table is matched to",
@@ -3815,6 +3842,7 @@
   "error.jobs.spreadsheet_not_downloaded": "Could not download the spreadsheet",
   "error.jobs.getting_spreadsheet": "The spreadsheet is being downloaded already",
   "error.jobs.getting_tool": "FFmpeg is being downloaded already",
+  "error.jobs.settings_busy": "Settings are already being written to other tables",
   "error.jobs.library_busy": "The library is busy - try again when it finishes",
   "error.jobs.unknown_job": "No job with id {job_id}",
   "error.jobs.sending_busy": "Already sending games to a device",
@@ -3842,6 +3870,8 @@
   "error.launchers.no_launcher": "No launcher {launcher_id}",
   "error.launchers.unknown_launcher": "No launcher called “{launcher_id}”",
   "error.launchers.unknown_scope": "No scope called “{scope}”",
+  "error.launchers.tables_list": "Tables is a list of table ids",
+  "error.launchers.tables_scope":"A list of tables goes with the settings of a table, not of the launcher",
   "error.launchers.unknown_scope_app": "No scope called “{scope}”. This app has {scopes}.",
   "error.launchers.no_own_settings": "{app_name} has no settings of its own to write",
   "error.launchers.unknown_table": "No table called “{wanted}”",
@@ -4451,6 +4481,10 @@
     "one": "{count} game, {turned} turned, {skipped} skipped",
     "other": "{count} games, {turned} turned, {skipped} skipped"
   },
+  "said.job_table_settings": {
+    "one": "{count} table changed, {failed} not",
+    "other": "{count} tables changed, {failed} not"
+  },
   "said.job_backups_moved": {
     "one": "{count} backup moved, {left} left in the old folder, {failed} failed",
     "other": "{count} backups moved, {left} left in the old folder, {failed} failed"
@@ -4484,6 +4518,10 @@
   "said.starting": "Starting",
   "said.media_update": "Updating media for {game}",
   "said.media_rotate": "Turning {file}",
+  "said.table_settings": {
+    "one": "Changing settings, {count} table to go",
+    "other": "Changing settings, {count} tables to go"
+  },
   "said.backups_move": "Moving {file}",
   "said.why.already_at": "Something is already at {path}",
   "said.why.already_there": "Something is already there",
