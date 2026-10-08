@@ -69,6 +69,22 @@ class ReadTests(unittest.TestCase):
         self.assertIsNone(found[0].last_played)
         self.assertEqual(found[0].tags, ("Verified",))
 
+    def test_a_half_star_rounds_up_to_the_whole_stars_a_game_is_rated_in(self) -> None:
+        taken = {"Taxi": "3.5", "Funhouse": "2.5", "Eight Ball": "4.4", "Cue Ball": "0.5",
+                 "Pool": "9", "Dice": "-1"}
+        found, _ = gamestats.read(self._file(
+            *[f"{name}.Visual Pinball X,,1,,,{value}" for name, value in taken.items()]))
+
+        self.assertEqual({one.name: one.rating for one in found},
+                         {"Taxi": 4, "Funhouse": 3, "Eight Ball": 4, "Cue Ball": 1,
+                          "Pool": 5, "Dice": 0})
+
+    def test_a_rating_that_is_not_a_number_is_absent(self) -> None:
+        for said in ("lots", "inf", "nan"):
+            found, _ = gamestats.read(self._file(f"Taxi.Visual Pinball X,,1,,,{said}"))
+
+            self.assertIsNone(found[0].rating, said)
+
     def test_a_row_that_remembers_nothing_is_left_out(self) -> None:
         found, _ = gamestats.read(
             self._file("Taxi (Williams 1988).Visual Pinball X,,,,,,,,,20190515040000"))

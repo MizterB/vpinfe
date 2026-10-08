@@ -112,6 +112,23 @@ class ImportTests(AdoptCase):
         self.assertTrue(any("Wheel" in one for one in landed), landed)
         self.assertTrue(any("Playfield" in one for one in landed), landed)
 
+    def test_a_cleared_media_source_brings_no_artwork_and_the_report_agrees(self) -> None:
+        from vpinfe_ext_library_importer import adopt, pinballx, plan
+
+        library = pinballx.read(FIXTURE)
+        made = plan.build(library, [], systems=[VPX],
+                          folder_name_for=self._ctx.games.folder_name_for,
+                          source_id=library.source_id, kinds=self._ctx.games.kinds())
+        made.sources = plan.derive_sources(library, {"media": ""})
+        want = plan.expected(made)
+
+        report = adopt.run(self._ctx, library, [VPX], "", made)
+
+        media = next(row for row in plan.against(want, report) if row["key"] == "media")
+        self.assertEqual((0, 0, 0), (media["expected"], media["actual"], media["short"]))
+        folder = self.library / "Attack from Mars (Bally 1995)"
+        self.assertFalse((folder / "medias").exists() and any((folder / "medias").iterdir()))
+
     def test_a_kind_we_have_no_slot_for_is_reported_not_guessed_at(self) -> None:
         report = self.imported()
         rows = {row["key"]: row for row in report["rows"]}

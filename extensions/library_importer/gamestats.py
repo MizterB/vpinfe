@@ -15,6 +15,7 @@ import codecs
 import csv
 import io
 import logging
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -138,7 +139,7 @@ def _played(row: dict) -> Played | None:
         play_time_seconds=_number(row.get(PLAY_TIME)),
         last_played=_when(row.get(LAST_PLAYED)),
         favorite=_flag(row.get(FAVORITE)),
-        rating=_number(row.get(RATING)),
+        rating=_stars(row.get(RATING)),
         tags=_tags(row.get(CATEGORIES)),
     )
 
@@ -151,6 +152,24 @@ def _number(value: Any) -> int | None:
         return int(float(said))
     except ValueError:
         return None
+
+
+def _stars(value: Any) -> int | None:
+    """A rating in whole stars, 0-5, which is the scale a game is rated on here.
+
+    A half star is rounded up rather than dropped, so 3.5 arrives as 4. Python's own
+    round() goes to the even neighbour, which would send 2.5 to 2 and 3.5 to 4.
+    """
+    said = str(value or "").strip()
+    if not said:
+        return None
+    try:
+        number = float(said)
+    except ValueError:
+        return None
+    if not math.isfinite(number):
+        return None
+    return max(0, min(5, math.floor(number + 0.5)))
 
 
 def _flag(value: Any) -> bool | None:

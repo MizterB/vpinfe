@@ -123,8 +123,12 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
 
 def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          location: str, name: str = "", sources: Any = None,
-         history: Any = None, move: bool = False) -> AdoptedRow:
+         history: Any = None, move: bool = False,
+         skip_media: bool = False) -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
+
+    `skip_media` is set where the person cleared the media source: the summary said "not
+    being imported", and the report expects none.
 
     The name is handed in because the caller has already asked core what folder it
     becomes. Working it out again here would give the unsanitized one, and then the same
@@ -161,13 +165,14 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
             ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
             row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
 
-    for kind, path in mapping.media_for(source_id, game, kinds):
-        try:
-            ctx.games.put_media(game_id, kind, path, stem)
-            row["media"] += 1
-        except Exception as exc:
-            ctx.logger.warning("%s: %s did not come across: %s", name, kind, exc)
-    row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
+    if not skip_media:
+        for kind, path in mapping.media_for(source_id, game, kinds):
+            try:
+                ctx.games.put_media(game_id, kind, path, stem)
+                row["media"] += 1
+            except Exception as exc:
+                ctx.logger.warning("%s: %s did not come across: %s", name, kind, exc)
+        row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
 
     # After the table, because the ROM comes out of the table. A game with no ROM has
     # nothing keyed on it, which is most of a library and not a failure.
@@ -230,6 +235,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
               if not systems or system.name in systems]
     held = {one.key: one for one in (plan.matches if plan else [])}
     sources = {one.key: one.path for one in (plan.sources if plan else ()) if one.active}
+    skip_media = any(one.key == "media" and not one.active
+                     for one in (plan.sources if plan else ()))
     history = plan.history if plan else {}
     fill = bool(plan and plan.on_existing == "fill")
 
@@ -256,7 +263,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
                 rows.append(_another_build(ctx, game, name, seen, move))
                 continue
             row = _one(ctx, library.source_id, game, kinds, where, name, sources,
-                       history, move)
+                       history, move, skip_media)
             if row["game_id"]:
                 made_here[name.lower()] = row["game_id"]
             rows.append(row)
