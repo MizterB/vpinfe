@@ -121,7 +121,16 @@ NiceGUI ready to go on http://localhost:8001, and http://192.168.1.228:8001
 
 Put that URL in a browser and you land in the Console.  The ManagerUI is still there at `/manager` — it has a few things the Console hasn't grown yet.
 
-By default VPinFE keeps `vpinfe.ini` and `themes/` in the OS config directory (`~/.config/vpinfe` on Linux, `~/Library/Application Support/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe` on Windows). Everything it can download again, such as the VPS database, the theme list and thumbnails, goes in the OS cache directory (`~/.cache/vpinfe` on Linux, `~/Library/Caches/vpinfe` on macOS, `%LOCALAPPDATA%\vpinfe\vpinfe\Cache` on Windows), so copying or backing up the config directory does not carry it. The devices it knows about, and which one is this install, live in `devices.json` in the state directory (`~/.local/state/vpinfe` on Linux, `state` inside the config directory on macOS, `State` inside it on Windows), so a config directory copied to another machine does not make that machine this one. To keep everything somewhere else — a portable copy, or separate config profiles — set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the whole config directory at `DIR`, with the caches in `DIR/cache`, the state in `DIR/state` and the logs in `DIR/logs`; the environment variable wins if you set both.
+By default VPinFE keeps what you set in four places, each in the folder the OS gives that kind of file:
+
+| Kind | Holds | Linux | macOS | Windows |
+|---|---|---|---|---|
+| Config | `vpinfe.json`, `themes/`, your collections and backups | `~/.config/vpinfe` | `~/Library/Application Support/vpinfe` | `%LOCALAPPDATA%\vpinfe\vpinfe` |
+| State | which device is this install, and the devices it has seen | `~/.local/state/vpinfe` | `state` inside the config folder | `State` inside the config folder |
+| Logs | `vpinfe.log` | `~/.local/state/vpinfe/log` | `~/Library/Logs/vpinfe` | `Logs` inside the config folder |
+| Cache | what it can download again: the VPS database, the theme list, thumbnails | `~/.cache/vpinfe` | `~/Library/Caches/vpinfe` | `Cache` inside the config folder |
+
+Copying or backing up the config folder carries your settings and nothing else, so a folder copied to another machine does not make that machine this one, and a cache is never copied along. To keep everything somewhere else, such as a portable copy or separate config profiles, set the `VPINFE_CONFIG_DIR` environment variable or pass `--configdir DIR`. Both point the config folder at `DIR`, with the cache in `DIR/cache`, the state in `DIR/state` and the logs in `DIR/logs`; the environment variable wins if you set both.
 
 ### Enabling the shutdown feature
 
