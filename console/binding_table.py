@@ -302,10 +302,10 @@ class Table:
                 with ui.element("div").classes("console-binding-field"):
                     with ui.element("div").classes("console-chips"):
                         self._chips_of(row, clashes)
-            with ui.element("div").classes("console-binding-revert"):
-                if self.writable and not input_registry.same_bindings(
-                        self.bound[row.name], row.defaults):
-                    self._revert_mark(row)
+                with ui.element("div").classes("console-binding-revert"):
+                    if self.writable and not input_registry.same_bindings(
+                            self.bound[row.name], row.defaults):
+                        self._revert_mark(row)
         self._mark()
         if row.note:
             with ui.element("div").classes("console-binding-aside"):

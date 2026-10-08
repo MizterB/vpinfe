@@ -615,10 +615,10 @@ body::before {
 }
 
 /* The binding table: a label, one field for every key and button that does it, and the way
-   back to the default. The three cells of a row answer one click, so they sit in the grid
-   without a box of their own. */
+   back to the default. The way back sits against the field, inside the same capped cell, so
+   it stays beside what it reverts however wide the pane is. */
 .console-facts.console-bindings {
-  grid-template-columns: fit-content(var(--label-max)) minmax(0, 1fr) 20px;
+  grid-template-columns: fit-content(var(--label-max)) minmax(0, 1fr);
   column-gap: 10px; padding: 0;
 }
 .console-binding-row { display: contents; }
@@ -654,7 +654,9 @@ body::before {
   display: inline-flex; align-items: center; gap: 4px;
 }
 .console-chip-glyph { font-size: 1.15em; color: var(--ink-3); }
-.console-binding-revert { display: flex; align-items: center; justify-content: center; }
+.console-binding-revert {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 20px;
+}
 .console-binding-aside { grid-column: 2 / -1; min-width: 0; }
 /* What the last press lit: its row and every chip it is. */
 .console-binding-lit.console-fact-label { color: var(--accent); }
