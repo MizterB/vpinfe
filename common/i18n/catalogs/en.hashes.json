@@ -3270,6 +3270,7 @@
   "error.games.table_keys": "2d63f142f76e",
   "error.games.table_not_found": "72385a186e66",
   "error.games.unknown_app": "506007b75bfb",
+  "error.games.unknown_entry": "74a429c31285",
   "error.games.unknown_game": "5283a132a81a",
   "error.games.unknown_kind": "f479d7ddb30a",
   "error.games.unknown_size": "ca7cb431224b",

@@ -151,7 +151,9 @@ class ExtensionGames:
 
         Not the whole library: what a second run is asking is "have I made this one
         before", and folder name, catalog id and title answer it. Anything more would be
-        handing over the library to answer a question about names.
+        handing over the library to answer a question about names. `table_files` is the
+        names of the game files each holds, cased down, for the one test that has no id
+        or folder to go by.
         """
         self._needs(GAMES_READ)
         from common.games import game_identity
@@ -162,17 +164,21 @@ class ExtensionGames:
             section,
         )
         from common.games.game_repository import all_games
+        from common.games.tables import entry_filename, table_entries
 
         found = []
         for game in all_games():
             meta = normalize_meta(getattr(game, "meta_config", {}))
             info = section(meta, "Info")
+            files = sorted({entry_filename(entry).lower()
+                            for entry in table_entries(meta).values()} - {""})
             found.append({
                 "game_id": game_identity.game_id(game),
                 "folder_name": Path(str(game.full_path_game)).name,
                 "name": game_title(game),
                 "vps_id": str(info.get("VPSId", "") or ""),
                 "ipdb_id": game_ipdb_id(game),
+                "table_files": files,
             })
         return found
 

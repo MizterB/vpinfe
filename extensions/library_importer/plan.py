@@ -75,6 +75,11 @@ class Match:
     folder: str
     game_id: str = ""
     how: str = ""
+    # What the look found for a game made new: the catalog entry it is, or why none was
+    # settled. Both empty where nothing was looked for.
+    vps_id: str = ""
+    reason: str = ""
+    found_by: str = ""
     # Counted here because here is where the game is in hand. Looking them up later by
     # key cannot work: a real library held two entries with byte-identical keys, and a
     # dict keyed on them silently counts one.
@@ -142,6 +147,9 @@ class Plan:
     notes: list[Note] = field(default_factory=list)
     # By game id, for a fill: set by `measure_fill`. A game not in it is counted whole.
     held: dict[str, Held] = field(default_factory=dict)
+    # The catalog the look was made in: `enabled` is the Match new games switch, `ready`
+    # that there was a catalog to look in.
+    catalog: dict = field(default_factory=dict)
 
     @property
     def new(self) -> list[Match]:
@@ -158,7 +166,7 @@ class Plan:
 # What the report counts, in the order it reads. The same keys come back from the run,
 # so expected and actual are one shape and a difference is a subtraction rather than a
 # comparison somebody has to make by eye.
-COUNTS = ("games", "tables", "media", "companions", "history")
+COUNTS = ("games", "tables", "media", "companions", "history", "matched")
 
 
 def expected(plan: Plan) -> dict:
@@ -175,7 +183,7 @@ def expected(plan: Plan) -> dict:
     wanted = _wanted(plan)
     has = {source.key: bool(source.active) for source in plan.sources}
 
-    folders, tables, media, companions, history = set(), 0, 0, 0, 0
+    folders, tables, media, companions, history, matched = set(), 0, 0, 0, 0, 0
     filled: dict[str, set[str]] = {}
     for one in wanted:
         first = one.folder.lower() not in folders
@@ -199,13 +207,30 @@ def expected(plan: Plan) -> dict:
                 still = set(one.kinds) - filled[one.folder.lower()]
                 media += len(still)
                 filled[one.folder.lower()] |= still
-        # History rides with the game, and the game is made once.
+        # History rides with the game, and the game is made once. So does its match, and
+        # a game filled in is never matched: its details may be a person's own.
         if first:
+            matched += int(bool(one.vps_id) and not one.existing)
             history += (int(bool(one.played and missing_history(
                 one.played, held.user).counts)) if held else one.history)
 
     return {"games": len(folders), "tables": tables, "media": media,
-            "companions": companions, "history": history, "roms": 0}
+            "companions": companions, "history": history, "matched": matched, "roms": 0}
+
+
+def not_matched(plan: Plan) -> dict[str, int]:
+    """The games this run makes new that the look could not settle, counted by why.
+
+    One count per game made, as `expected` counts them: builds sharing a folder are one.
+    """
+    found: dict[str, int] = {}
+    folders: set[str] = set()
+    for one in _wanted(plan):
+        first = one.folder.lower() not in folders
+        folders.add(one.folder.lower())
+        if first and not one.existing and one.reason:
+            found[one.reason] = found.get(one.reason, 0) + 1
+    return found
 
 
 def measure_fill(plan: Plan, read: Callable[[str], Held]) -> None:
@@ -442,12 +467,16 @@ def match_existing(library: SourceLibrary, existing: list[dict],
                    source_id: str = "",
                    kinds: tuple[str, ...] = (),
                    companions_of: Callable[..., Any] | None = None,
-                   history: dict[str, gamestats.Played] | None = None) -> list[Match]:
+                   history: dict[str, gamestats.Played] | None = None,
+                   looked: dict[int, dict] | None = None) -> list[Match]:
     """Which of the source's games the library already holds.
 
     By the folder this import would create first, because that is what a previous run of
-    this import made. Then by catalog id, which catches a game somebody has since renamed
-    - a rename should not turn one game into two.
+    this import made. Then by catalog id - the source's own or the one the look found
+    (`looked`, by the game's identity), which catches a game somebody has since renamed -
+    a rename should not turn one game into two. Last by the name of its game file, for a
+    game nothing could be matched: only where one game here holds a file of that name,
+    because a name two games share says nothing about either.
 
     Folder names are compared with their quotes taken off. A real library held
     `\'300\' (Gottlieb 1975)` while the source called it `"300" (Gottlieb 1975)`, and
@@ -457,6 +486,10 @@ def match_existing(library: SourceLibrary, existing: list[dict],
     by_folder = {_folded(one.get("folder_name")): one for one in existing}
     by_vps = {str(one.get("vps_id") or "").lower(): one
               for one in existing if one.get("vps_id")}
+    by_file: dict[str, list[dict]] = {}
+    for one in existing:
+        for name in one.get("table_files") or ():
+            by_file.setdefault(str(name).lower(), []).append(one)
 
     found = []
     for game in _games(library, systems):
@@ -464,16 +497,25 @@ def match_existing(library: SourceLibrary, existing: list[dict],
         if folder_name_for:
             folder = folder_name_for(folder)
         folded = _folded(folder)
+        answer = (looked or {}).get(id(game)) or {}
+        entry = str(answer.get("vps_id") or "")
         held = by_folder.get(folded)
         how = "folder" if held else ""
-        if held is None and game.vps_id:
-            held = by_vps.get(game.vps_id.lower())
-            how = "vps_id" if held else ""
+        for wanted in (game.vps_id, entry):
+            if held is None and wanted:
+                held = by_vps.get(wanted.lower())
+                how = "vps_id" if held else ""
+        if held is None and game.table_file:
+            sharing = by_file.get(Path(game.table_file).name.lower(), [])
+            if len(sharing) == 1:
+                held, how = sharing[0], "table_file"
         played = history_for(history or {}, game)
         pictures = mapping.media_for(source_id, game, kinds)
         found.append(Match(key=game.key, folder=folder,
                            game_id=str(held.get("game_id") or "") if held else "",
-                           how=how,
+                           how=how, vps_id=entry,
+                           found_by=str(answer.get("how") or ""),
+                           reason=str(answer.get("reason") or ""),
                            tables=1 if game.table_file else 0,
                            table_name=(Path(game.table_file).name
                                        if game.table_file else ""),
@@ -516,13 +558,14 @@ def build(library: SourceLibrary, existing: list[dict], chosen: dict | None = No
           systems: list[str] | None = None,
           folder_name_for: Callable[[str], str] | None = None,
           source_id: str = "", kinds: tuple[str, ...] = (),
-          companions_of: Callable[..., Any] | None = None) -> Plan:
+          companions_of: Callable[..., Any] | None = None,
+          looked: dict[int, dict] | None = None) -> Plan:
     sources = derive_sources(library, chosen)
     history, notes = _history(next((one.path for one in sources if one.key == "history"),
                                    ""))
     return Plan(sources=sources,
                 matches=match_existing(library, existing, systems, folder_name_for,
-                                       source_id, kinds, companions_of, history),
+                                       source_id, kinds, companions_of, history, looked),
                 on_existing=on_existing if on_existing in ON_EXISTING
                 else DEFAULT_ON_EXISTING,
                 history=history, notes=notes)

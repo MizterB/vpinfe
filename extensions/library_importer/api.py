@@ -144,6 +144,18 @@ def _state(ctx: Any, survey: Callable[..., dict] | None = None) -> dict:
             "source_name": _name(ctx, reader), "reason": ""}
 
 
+# Games asked of the catalog at a time, so the wait has somewhere to be said to have got to.
+LOOK_BATCH = 50
+
+
+def _asked(game: SourceGame) -> dict:
+    """What a source knows of a game that tells the catalog which one it is."""
+    return {"vps_id": game.vps_id, "ipdb_id": game.ipdb_id,
+            "title": str(mapping.details_for(game).get("title") or ""),
+            "manufacturer": game.manufacturer, "year": game.year,
+            "folder": mapping.folder_name(game)}
+
+
 def _preview(library: SourceLibrary) -> dict:
     """What was found, counted. The whole library would be megabytes and nobody reads a
     thousand rows to decide whether to go ahead."""
@@ -251,14 +263,44 @@ def build(ctx: Any) -> None:
                 for name in library.in_place]
         return held + ctx.games.existing()
 
+    def look_up(library: SourceLibrary) -> tuple[dict, dict[int, dict]]:
+        """Ask the catalog which entry each game is, once for the library held.
+
+        Every game is asked, not only the systems chosen: the choice can change on the
+        next step, and a look that had to be made again for it would be the slow part
+        twice. The catalog is fetched first where there is none, with the wait said.
+        Where there is none to be had, or matching is switched off, nothing is matched and
+        the state returned says which.
+        """
+        kept = held.look_of(library)
+        if kept is not None:
+            return kept
+        games = [game for system in library.systems for game in system.games]
+        state = ctx.games.vps_catalog(
+            lambda: progress.stage("fetching", ctx.t("progress.fetching")))
+        looked: dict[int, dict] = {}
+        if state.get("ready"):
+            progress.stage("matching", ctx.t("progress.matching"), len(games))
+            for start in range(0, len(games), LOOK_BATCH):
+                batch = games[start:start + LOOK_BATCH]
+                answers = ctx.games.vps_settle([_asked(game) for game in batch])
+                looked.update((id(game), answer)
+                              for game, answer in zip(batch, answers, strict=True))
+                progress.advance(start + len(batch))
+        held.remember_look(library, dict(state), looked)
+        return dict(state), looked
+
     def plan(library: SourceLibrary, values: dict, existing: list[dict]) -> Plan:
         look_beside(library)
-        return plan_for.build(library, existing, _chosen(values),
+        catalog, looked = look_up(library)
+        made = plan_for.build(library, existing, _chosen(values),
                               str(values.get("on_existing")
                                   or plan_for.DEFAULT_ON_EXISTING),
                               _systems(values), ctx.games.folder_name_for,
                               library.source_id, ctx.games.kinds(),
-                              held.companions_of)
+                              held.companions_of, looked)
+        made.catalog = catalog
+        return made
 
     def held_of(game_id: str) -> plan_for.Held:
         """What a game already holds, for a fill to count what it would add."""
@@ -628,6 +670,22 @@ def build(ctx: Any) -> None:
             step["errors"] = errors
         return step
 
+    def _matching_rows(made: Plan, games: list[SourceGame]) -> list[list[str]]:
+        """What the look made of the games, or why it made nothing of them."""
+        if not games:
+            return []
+        if not made.catalog.get("enabled", True):
+            return [[ctx.t("wizard.summary.matching"), ctx.t("wizard.summary.matching.off")]]
+        if not made.catalog.get("ready"):
+            return [[ctx.t("wizard.summary.matching"),
+                     ctx.t("wizard.summary.matching.no_catalog")]]
+        left = plan_for.not_matched(made)
+        if not left:
+            return []
+        return [[ctx.t("wizard.summary.not_matched"),
+                 ", ".join(ctx.t(f"unmatched.{why}", count=count)
+                           for why, count in sorted(left.items()))]]
+
     def _summary_step(reader: ModuleType, library: SourceLibrary, made: Plan,
                       values: dict, games: list[SourceGame]) -> dict:
         """Everything the previous steps decided, and what it comes to."""
@@ -644,6 +702,7 @@ def build(ctx: Any) -> None:
         rows += [[source.label if source.active else ctx.t(f"kind.{source.key}.none"),
                   source.path or ctx.t("wizard.summary.not_imported")]
                  for source in made.sources]
+        rows += _matching_rows(made, games)
         if library.in_place:
             rows.append([ctx.t("wizard.summary.as_is"),
                          ctx.t("wizard.summary.game_folders", count=len(library.in_place))])

@@ -170,6 +170,12 @@ def guides_from_vps(vpsdata: object) -> list[dict[str, Any]]:
     return out
 
 
+def ipdb_of(vps_entry: dict | None) -> str:
+    """The IPDB number a catalog entry's IPDB link carries, or "" where it has none."""
+    link = (vps_entry or {}).get("ipdbUrl", "") or ""
+    return parse_qs(urlparse(link).query).get("id", [""])[0]
+
+
 def info_from_vps(vps_entry: dict | None) -> dict[str, Any]:
     """The `Info` block for one catalog entry.
 
@@ -183,7 +189,7 @@ def info_from_vps(vps_entry: dict | None) -> dict[str, Any]:
     """
     entry = vps_entry or {}
     info = {
-        "IPDBId": parse_qs(urlparse(entry.get("ipdbUrl", "")).query).get("id", [""])[0],
+        "IPDBId": ipdb_of(entry),
         "Title": entry.get("name", ""),
         "Manufacturer": entry.get("manufacturer", ""),
         "Year": entry.get("year", ""),

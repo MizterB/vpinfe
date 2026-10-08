@@ -53,6 +53,9 @@ class Held:
         self.companions: dict[str, tuple[str, ...]] = {}
         self._asked: set[str] = set()
         self.sizes: dict[Path, int] = {}
+        # What the look found for each game of one library, by the game's identity, and
+        # the state of the catalog it looked in. Kept with the library it was made for.
+        self.look: tuple[SourceLibrary, dict, dict[int, dict]] | None = None
 
     def library_for(self, key: tuple[str, str, str], fresh: bool = False,
                     ) -> SourceLibrary | None:
@@ -67,11 +70,27 @@ class Held:
         with self._lock:
             self._key, self._at, self.library = key, time.monotonic(), library
             self.companions, self._asked, self.sizes = {}, set(), {}
+            self.look = None
 
     def forget(self) -> None:
         with self._lock:
             self._key, self.library = None, None
             self.companions, self._asked, self.sizes = {}, set(), {}
+            self.look = None
+
+    def remember_look(self, library: SourceLibrary, catalog: dict,
+                      looked: dict[int, dict]) -> None:
+        """Keep a look only while `library` is the one held: the look is keyed by the
+        identity of its games, and a library read since has other games."""
+        with self._lock:
+            if self.library is library:
+                self.look = (library, catalog, looked)
+
+    def look_of(self, library: SourceLibrary) -> tuple[dict, dict[int, dict]] | None:
+        with self._lock:
+            if self.look is not None and self.look[0] is library:
+                return self.look[1], self.look[2]
+            return None
 
     def companions_of(self, table_file: str) -> tuple[str, ...]:
         """What sits beside a game file, as `companions_for` found it. A file it did not

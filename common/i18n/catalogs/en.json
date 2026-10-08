@@ -3745,6 +3745,7 @@
   "error.games.duplicate": "This game already has that one",
   "error.games.already_linked": "This game already points at that file",
   "error.games.unmatched": "This game is matched to no VPS entry",
+  "error.games.unknown_entry": "No VPS entry has that id",
   "error.games.name_needed": "A game needs a name",
   "error.games.no_media": "This game has no {kind} media",
   "error.games.no_picture": "This game has no picture called “{name}”",

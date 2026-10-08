@@ -79,6 +79,38 @@ class OfferedTests(unittest.TestCase):
 
         self.assertEqual(launcher.reaches(), ("launch_game",))
 
+    def test_looking_in_the_catalog_is_a_read_and_matching_is_a_write(self) -> None:
+        reader = ExtensionGames("reader", ("games:read",), None)
+        writer = ExtensionGames("writer", ("games:read", "games:write"), None)
+
+        self.assertIn("vps_catalog", reader.reaches())
+        self.assertIn("vps_settle", reader.reaches())
+        self.assertNotIn("match_game", reader.reaches())
+        self.assertIn("match_game", writer.reaches())
+
+    def test_matching_to_an_entry_the_catalog_lacks_is_refused_in_words(self) -> None:
+        from unittest.mock import patch
+
+        from common import service_errors
+        from common.games import game_ops
+
+        with patch("common.games.game_ops.game_lens.game_for_writing"), \
+                patch("common.games.game_service.load_vpsdb", return_value=[]):
+            with self.assertRaises(service_errors.NotFoundError) as caught:
+                game_ops.match_game("g1", "nope")
+        self.assertEqual(str(caught.exception), "No VPS entry has that id")
+
+    def test_with_matching_switched_off_the_catalog_is_not_fetched(self) -> None:
+        from unittest.mock import patch
+
+        reader = ExtensionGames("reader", ("games:read",), None)
+        with patch("common.games.auto_match.enabled", return_value=False), \
+                patch("common.online.vpsdb_sync.ensure_catalog") as fetch:
+            found = reader.vps_catalog()
+
+        self.assertEqual(found, {"enabled": False, "ready": False})
+        fetch.assert_not_called()
+
     def test_the_named_methods_still_win(self) -> None:
         """`kinds` is wrapped for a reason and is not one of the offered names; the
         lookup must not shadow it."""

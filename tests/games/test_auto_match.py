@@ -58,6 +58,110 @@ class LookupTests(unittest.TestCase):
         self.assertIsNone(vps.lookup_name("Fathom", "Bally", 1981))
 
 
+def _numbered(vps_id: str, name: str, ipdb: str, manufacturer: str = "Gottlieb",
+              year: int = 1978) -> dict:
+    return {**_entry(vps_id, name, manufacturer, year),
+            "ipdbUrl": f"https://www.ipdb.org/machine.cgi?id={ipdb}"}
+
+
+class SettleTests(unittest.TestCase):
+    """Which catalog entry a source's game is, and why not where that cannot be told."""
+
+    def settle(self, catalog: list[dict], **row) -> dict:
+        return auto_match.settle(catalog, [row])[0]
+
+    def test_the_sources_own_vps_id_wins_over_everything(self) -> None:
+        catalog = [_numbered("own", "Dragon", "700"), _numbered("named", "Other", "701")]
+
+        found = self.settle(catalog, vps_id="own", ipdb_id="701", title="Other",
+                            manufacturer="Gottlieb", year=1978)
+
+        self.assertEqual((found["vps_id"], found["how"]), ("own", "vps_id"))
+
+    def test_an_id_the_catalog_does_not_hold_is_set_aside(self) -> None:
+        catalog = [_numbered("real", "Dragon", "700")]
+
+        found = self.settle(catalog, vps_id="gone", ipdb_id="700")
+
+        self.assertEqual((found["vps_id"], found["how"]), ("real", "ipdb"))
+
+    def test_one_ipdb_number_names_the_entry_whose_name_agrees(self) -> None:
+        catalog = [_numbered("a", "Dragon", "700"), _numbered("b", "Dragon", "701")]
+
+        found = self.settle(catalog, ipdb_id="701", title="Dragon",
+                            manufacturer="Gottlieb", year=1978)
+
+        self.assertEqual((found["vps_id"], found["how"]), ("b", "ipdb"))
+
+    def test_a_number_alone_is_enough_when_nothing_else_points_elsewhere(self) -> None:
+        catalog = [_numbered("a", "Dragon", "700")]
+
+        found = self.settle(catalog, ipdb_id="700")
+
+        self.assertEqual((found["vps_id"], found["how"]), ("a", "ipdb"))
+
+    def test_entries_sharing_a_number_are_told_apart_by_name(self) -> None:
+        catalog = [_numbered("plain", "Dragon", "700"),
+                   _numbered("remake", "Dragon Remake", "700")]
+
+        found = self.settle(catalog, ipdb_id="700", title="Dragon Remake",
+                            manufacturer="Gottlieb", year=1978)
+
+        self.assertEqual(found["vps_id"], "remake")
+
+    def test_entries_sharing_a_number_that_the_name_cannot_tell_apart_are_left(self) -> None:
+        catalog = [_numbered("plain", "Dragon", "700"),
+                   _numbered("remake", "Dragon Remake", "700")]
+
+        found = self.settle(catalog, ipdb_id="700", title="Something Else",
+                            manufacturer="Gottlieb", year=1978)
+
+        self.assertEqual(found["vps_id"], "")
+        self.assertEqual(found["reason"], auto_match.TWO_ENTRIES)
+        self.assertEqual(len(found["candidates"]), 2)
+
+    def test_a_number_and_a_name_that_disagree_are_left_for_a_person(self) -> None:
+        catalog = [_numbered("by_number", "Dragon", "700"),
+                   _numbered("by_name", "Eclipse", "701")]
+
+        found = self.settle(catalog, ipdb_id="700", title="Eclipse",
+                            manufacturer="Gottlieb", year=1978)
+
+        self.assertEqual(found["vps_id"], "")
+        self.assertEqual(found["reason"], auto_match.IPDB_DIFFERS)
+        self.assertEqual({one["id"] for one in found["candidates"]},
+                         {"by_number", "by_name"})
+
+    def test_with_no_number_the_name_maker_and_year_decide(self) -> None:
+        catalog = [_entry("fathom", "Fathom")]
+
+        found = self.settle(catalog, title="Fathom", manufacturer="Bally", year=1981)
+
+        self.assertEqual((found["vps_id"], found["how"]), ("fathom", "name"))
+
+    def test_a_folder_name_stands_in_for_a_name_the_source_lacks(self) -> None:
+        catalog = [_entry("fathom", "Fathom")]
+
+        found = self.settle(catalog, folder="Fathom (Bally 1981)")
+
+        self.assertEqual(found["vps_id"], "fathom")
+
+    def test_nothing_in_the_catalog_says_so(self) -> None:
+        found = self.settle([_entry("fathom", "Fathom")], title="Nowhere",
+                            manufacturer="Bally", year=1981)
+
+        self.assertEqual((found["vps_id"], found["reason"]), ("", auto_match.NOT_FOUND))
+
+    def test_rows_are_answered_in_the_order_they_came(self) -> None:
+        catalog = [_entry("fathom", "Fathom")]
+
+        found = auto_match.settle(catalog, [
+            {"title": "Nowhere", "manufacturer": "Bally", "year": 1981},
+            {"title": "Fathom", "manufacturer": "Bally", "year": 1981}])
+
+        self.assertEqual([one["vps_id"] for one in found], ["", "fathom"])
+
+
 class MatchedByTests(unittest.TestCase):
     def test_an_import_pick_reads_as_one(self) -> None:
         meta = game_info(vpinfe={VPS_MATCHED_BY_KEY: MATCHED_ON_IMPORT})

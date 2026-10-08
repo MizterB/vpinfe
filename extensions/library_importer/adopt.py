@@ -44,6 +44,7 @@ class AdoptedRow(TypedDict):
     history: int
     skipped_media: list[str]
     error: Note
+    matched: NotRequired[bool]
     joined: NotRequired[bool]
     existing: NotRequired[bool]
 
@@ -181,8 +182,14 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
 def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          location: str, name: str = "", sources: Any = None,
          history: Any = None, move: bool = False,
-         cleared: frozenset[str] = frozenset(), existing: str = "") -> AdoptedRow:
+         cleared: frozenset[str] = frozenset(), existing: str = "",
+         vps_id: str = "", guessed: bool = False) -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
+
+    `vps_id` is the catalog entry the look found for a game made new, and `guessed` says
+    it was found by name alone. It is written once the game file is in, and a failure to
+    write it is logged and leaves the game made and unmatched, which is a state the
+    library has a word for.
 
     `existing` is the id of the game the library already holds for this one. It is filled
     in rather than created: media only into a slot that is empty, the game file only if no
@@ -233,6 +240,13 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
             if not (existing and isinstance(exc, FileExistsError)):
                 ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
                 row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
+
+    if vps_id and not existing:
+        try:
+            ctx.games.match_game(game_id, vps_id, guessed)
+            row["matched"] = True
+        except Exception as exc:
+            ctx.logger.warning("%s: the match did not get written: %s", name, exc)
 
     if "media" not in cleared:
         for kind, path in mapping.media_for(source_id, game, kinds):
@@ -378,8 +392,11 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             rows.append(_another_build(ctx, library.source_id, game, kinds, name, seen,
                                        move, cleared, seen in held_ids.values()))
             continue
+        found = held.get(game.key)
         row = _one(ctx, library.source_id, game, kinds, where, name, sources,
-                   history, move, cleared, held_ids.get(game.key, ""))
+                   history, move, cleared, held_ids.get(game.key, ""),
+                   found.vps_id if found else "",
+                   found.found_by == "name" if found else False)
         if row["game_id"]:
             made_here[name.lower()] = row["game_id"]
         rows.append(row)
@@ -395,6 +412,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         "roms": sum(row["roms"] for row in made),
         "altdata": sum(row["altdata"] for row in made),
         "history": sum(row["history"] for row in made),
+        "matched": sum(1 for row in made if row.get("matched")),
         "failed": len(rows) - len(made),
         "stopped": stopped,
         "left": len(to_do) - len(rows),

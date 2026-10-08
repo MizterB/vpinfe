@@ -63,6 +63,36 @@ class WizardCase(unittest.TestCase):
         return found
 
 
+class LookTests(WizardCase):
+    """What is asked of the catalog, and which library an answer belongs to."""
+
+    def test_a_game_known_only_by_its_file_name_is_asked_by_that_name(self) -> None:
+        from vpinfe_ext_library_importer import api
+        from vpinfe_ext_library_importer.source import SourceGame
+
+        asked = api._asked(SourceGame(key="Taxi (Williams 1988)"))
+
+        self.assertEqual(asked["folder"], "Taxi (Williams 1988)")
+
+    def test_a_look_is_kept_only_for_the_library_it_was_made_for(self) -> None:
+        from vpinfe_ext_library_importer.held import Held
+        from vpinfe_ext_library_importer.source import SourceLibrary
+
+        held, first, second = Held(), SourceLibrary("x", "/a"), SourceLibrary("x", "/a")
+        key = ("a", "b", "c")
+        held.keep(key, first)
+        held.keep(key, second)
+
+        held.remember_look(first, {"ready": True}, {1: {}})
+        self.assertIsNone(held.look_of(first))
+        self.assertIsNone(held.look_of(second))
+
+        held.remember_look(second, {"ready": True}, {2: {}})
+        self.assertEqual(held.look_of(second), ({"ready": True}, {2: {}}))
+        held.keep(key, first)
+        self.assertIsNone(held.look_of(second))
+
+
 class DeclarationTests(WizardCase):
     def test_the_action_is_listed_with_the_extension(self) -> None:
         found = self.client.get("/extensions").json()["extensions"][0]
@@ -235,7 +265,36 @@ class SummaryShapeTests(WizardCase):
         after = [one[0] for one in found["summary"][at + 1:]]
         self.assertEqual(after, ["Games", "Game files", "Media files",
                                  "Backglasses and settings", "Games with play history",
-                                 "Left behind"])
+                                 "Matched to VPS", "Left behind"])
+
+    def test_with_no_catalog_the_summary_says_no_game_is_matched(self) -> None:
+        found = self._check(FIXTURE)
+
+        self.assertIn(["VPS matching", "The VPS catalog is not available, so no game is "
+                                       "matched"], found["summary"])
+        self.assertIn(["Matched to VPS", "0"], found["summary"])
+
+    def test_with_a_catalog_the_summary_counts_the_matches_and_names_the_rest(self) -> None:
+        catalog = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Williams",
+                    "year": 1988}]
+
+        with unittest.mock.patch("common.games.game_service.load_vpsdb",
+                                 return_value=catalog), \
+                unittest.mock.patch("common.online.vpsdb_sync.ensure_catalog",
+                                    return_value=True):
+            found = self._check(FIXTURE)
+
+        rows = dict(one for one in found["summary"] if len(one) == 2)
+        self.assertEqual(rows["Matched to VPS"], "1")
+        self.assertEqual(rows["Not matched to VPS"], "3 not found")
+        self.assertNotIn("VPS matching", rows)
+
+    def test_with_matching_switched_off_the_summary_says_so(self) -> None:
+        with unittest.mock.patch("common.games.auto_match.enabled", return_value=False):
+            found = self._check(FIXTURE)
+
+        rows = dict(one for one in found["summary"] if len(one) == 2)
+        self.assertEqual(rows["VPS matching"], "Switched off, so no game is matched")
 
     def test_the_folders_with_no_slot_are_named_with_their_file_counts(self) -> None:
         """Said before the copy starts, so nobody finds out from the report that a folder

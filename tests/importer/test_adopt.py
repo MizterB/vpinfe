@@ -590,5 +590,83 @@ class RowShapeTests(unittest.TestCase):
                     self.assertIn(f'"{key}"', body)
 
 
+class MatchingTests(AdoptCase):
+    """A game the look found an entry for is matched once its file is in."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        from common.extensions.context import ExtensionContext
+        self._ctx = ExtensionContext(self.record.manifest, self.store,
+                                     on_failure=lambda why: None)
+        self._ctx.files.set_roots([str(FIXTURE)])
+
+    CATALOG = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Williams", "year": 1988}]
+
+    def run_with(self, found: dict[str, str], how: str = "vps_id") -> dict:
+        """Run the import with the look's answer for the games named, by source key."""
+        from vpinfe_ext_library_importer import adopt, pinballx
+        from vpinfe_ext_library_importer import plan as plan_for
+
+        library = pinballx.read(FIXTURE)
+        looked = {id(game): {"vps_id": found[game.key], "reason": "", "how": how}
+                  for system in library.systems for game in system.games
+                  if game.key in found}
+        made = plan_for.build(library, [], systems=[VPX], source_id="pinballx",
+                              kinds=self._ctx.games.kinds(), looked=looked)
+        with unittest.mock.patch("common.games.game_service.load_vpsdb",
+                                 return_value=self.CATALOG):
+            return adopt.run(self._ctx, library, [VPX], plan=made)
+
+    def taxi_key(self) -> str:
+        from vpinfe_ext_library_importer import pinballx
+
+        games = pinballx.read(FIXTURE).systems[0].games
+        return next(game.key for game in games if game.display_name.startswith("Taxi"))
+
+    def taxi(self) -> dict:
+        game_repository.all_games(reload=True)
+        rows = {row["name"]: row for row in self.client.get("/games").json()["games"]}
+        return rows["Taxi"]
+
+    def test_a_new_game_is_matched_and_the_report_counts_it(self) -> None:
+        taxi = self.taxi_key()
+
+        report = self.run_with({taxi: "vps-taxi"})
+
+        self.assertEqual(report["matched"], 1)
+        self.assertEqual(self.taxi()["vps_id"], "vps-taxi")
+
+    def matched_by(self) -> str:
+        game_repository.all_games(reload=True)
+        rows = {row["name"]: row for row in self.client.get("/games").json()["games"]}
+        return rows["Taxi"]["vps_matched_by"]
+
+    def test_an_entry_the_source_named_is_matched_on_import(self) -> None:
+        self.run_with({self.taxi_key(): "vps-taxi"}, how="ipdb")
+
+        self.assertEqual(self.matched_by(), "import")
+
+    def test_an_entry_found_by_name_alone_stays_a_guess_a_rematch_may_replace(self) -> None:
+        self.run_with({self.taxi_key(): "vps-taxi"}, how="name")
+
+        self.assertEqual(self.taxi()["vps_id"], "vps-taxi")
+        self.assertEqual(self.matched_by(), "")
+
+    def test_a_game_the_look_found_nothing_for_is_made_and_not_matched(self) -> None:
+        report = self.run_with({})
+
+        self.assertEqual(report["matched"], 0)
+        self.assertEqual(report["games"], 3)
+        self.assertFalse(self.taxi()["vps_id"])
+
+    def test_a_match_that_cannot_be_written_leaves_the_game_made(self) -> None:
+        taxi = self.taxi_key()
+
+        with self.assertLogs(level="WARNING"):
+            report = self.run_with({taxi: "no-such-entry"})
+
+        self.assertEqual((report["games"], report["matched"], report["failed"]), (3, 0, 0))
+
+
 if __name__ == "__main__":
     unittest.main()

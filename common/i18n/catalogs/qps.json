@@ -3745,6 +3745,7 @@
   "error.games.duplicate": "Ţĥîš ĝàɱè àŀřèàđý ĥàš ţĥàţ öñè",
   "error.games.already_linked": "Ţĥîš ĝàɱè àŀřèàđý þöîñţš àţ ţĥàţ ƒîŀè",
   "error.games.unmatched": "Ţĥîš ĝàɱè îš ɱàţçĥèđ ţö ñö ṼÞŠ èñţřý",
+  "error.games.unknown_entry": "Ñö ṼÞŠ èñţřý ĥàš ţĥàţ îđ",
   "error.games.name_needed": "À ĝàɱè ñèèđš à ñàɱè",
   "error.games.no_media": "Ţĥîš ĝàɱè ĥàš ñö {kind} ɱèđîà",
   "error.games.no_picture": "Ţĥîš ĝàɱè ĥàš ñö þîçţûřè çàŀŀèđ “{name}”",

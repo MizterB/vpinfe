@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from common import path_state, service_errors
 from common.failures import why
 from common.games import (
+    auto_match,
     derived_tags,
     game_identity,
     game_lens,
@@ -110,6 +111,30 @@ def set_details(game_id: str, values: dict) -> dict:
                                           details={"path": str(exc)}) from exc
     except OSError as exc:
         raise service_errors.BlockedError(why(exc)) from exc
+    return game_lens.detail(game_id)
+
+
+def match_game(game_id: str, vps_id: str, guess: bool = False) -> dict:
+    """Match a game to the catalog entry `vps_id` names, as an import does.
+
+    Recorded as *Matched on import* - which a later rematch leaves alone - because the
+    source named the entry or its IPDB number. With `guess` the entry was found by name
+    alone, and is recorded as the plain guess a rematch is free to replace. The match
+    alone: the game's tables and anything the person overrode stay as they are.
+    """
+    game = game_lens.game_for_writing(game_id)
+    wanted = str(vps_id or "").strip()
+    entry = next((one for one in game_service.load_vpsdb()
+                  if str(one.get("id") or "") == wanted), None) if wanted else None
+    if entry is None:
+        raise service_errors.NotFoundError(t("error.games.unknown_entry"),
+                                           details={"vps_id": wanted})
+    try:
+        auto_match.adopt_guess(
+            game, entry, matched_by="" if guess else game_metadata.MATCHED_ON_IMPORT)
+    except OSError as exc:
+        raise service_errors.BlockedError(why(exc)) from exc
+    reread_game(game)
     return game_lens.detail(game_id)
 
 

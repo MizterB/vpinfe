@@ -23,14 +23,18 @@ from typing import Any
 
 from common.extensions.games import offer
 from common.games import (
+    auto_match,
     game_lens,
     game_ops,
+    game_service,
     library_folder_ops,
     library_vps_state,
     media_ops,
     table_ops,
 )
 from common.host import play_service
+from common.online import vpsdb_sync
+from common.paths import get_ini_config
 
 from . import scopes
 
@@ -46,6 +50,25 @@ def _launch(game_id: str, table: str = "") -> dict:
 
 def _set_details(game_id: str, **fields: Any) -> dict:
     return game_ops.set_details(game_id, dict(fields))
+
+
+def _vps_catalog(downloading: Callable[[], object] | None = None) -> dict:
+    """Whether there is a catalog to match against, fetching one first where there is none.
+
+    The fetch is the one a library refresh makes, and `downloading` is called before it
+    starts and only then, so a caller can say what it is waiting for. `enabled` is the
+    *Match new games* switch: where it is off nothing is fetched, and nothing a caller
+    matches by this should be written.
+    """
+    if not auto_match.enabled():
+        return {"enabled": False, "ready": False}
+    return {"enabled": True,
+            "ready": vpsdb_sync.ensure_catalog(get_ini_config(), downloading)}
+
+
+def _vps_settle(rows: list[dict]) -> list[dict]:
+    """`auto_match.settle` over the catalog on disk, one answer per row in the same order."""
+    return auto_match.settle(game_service.load_vpsdb(), rows)
 
 
 # Reading is one scope and writing another. Taking an entry's details from a catalog is
@@ -65,6 +88,8 @@ READS: dict[str, Callable[..., Any]] = {
     "media_detail": media_ops.detail,
     "vps_state": _vps_state,
     "vps_details": game_ops.vps_details,
+    "vps_catalog": _vps_catalog,
+    "vps_settle": _vps_settle,
 }
 
 # Where games live is a setting, and these keep the scopes the routes under /locations
@@ -94,6 +119,7 @@ WRITES: dict[str, Callable[..., Any]] = {
     "set_play_record": game_ops.set_play_record,
     "reset_play_record": game_ops.reset_play_record,
     "take_vps_details": game_ops.adopt_details,
+    "match_game": game_ops.match_game,
     "remove_media": media_ops.remove,
     "forget_table": table_ops.forget,
     "add_keyed_table": table_ops.add_keyed,

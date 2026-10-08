@@ -122,6 +122,83 @@ class MatchTests(unittest.TestCase):
         self.assertFalse(found[0].existing)
 
 
+class LookedTests(unittest.TestCase):
+    """What the look found changes which games are copies and which are matched."""
+
+    HELD = [{"game_id": "g1", "folder_name": "Renamed Taxi", "name": "Taxi",
+             "vps_id": "vps-taxi", "table_files": ["taxi.vpx"]}]
+
+    def test_a_game_the_look_found_is_a_copy_of_the_one_with_that_entry(self) -> None:
+        game = _game("Taxi", display_name="Taxi (Williams 1988)")
+
+        found = plan_for.match_existing(_library(game), self.HELD,
+                                        looked={id(game): {"vps_id": "vps-taxi"}})
+
+        self.assertTrue(found[0].existing)
+        self.assertEqual(found[0].how, "vps_id")
+
+    def test_a_game_file_name_one_game_holds_is_a_copy(self) -> None:
+        game = _game("Taxi", display_name="Taxi (Williams 1988)",
+                     table_file="/src/tables/Taxi.VPX")
+
+        found = plan_for.match_existing(_library(game), self.HELD)
+
+        self.assertTrue(found[0].existing)
+        self.assertEqual(found[0].how, "table_file")
+
+    def test_a_game_file_name_two_games_hold_says_nothing(self) -> None:
+        held = [{**self.HELD[0], "vps_id": ""},
+                {"game_id": "g2", "folder_name": "Another", "name": "Another",
+                 "vps_id": "", "table_files": ["taxi.vpx"]}]
+        game = _game("Taxi", display_name="Taxi (Williams 1988)",
+                     table_file="/src/tables/Taxi.vpx")
+
+        found = plan_for.match_existing(_library(game), held)
+
+        self.assertFalse(found[0].existing)
+
+    def test_the_entry_found_and_the_reason_not_are_carried(self) -> None:
+        matched, left = _game("Taxi"), _game("Funhouse")
+        looked = {id(matched): {"vps_id": "vps-taxi"},
+                  id(left): {"vps_id": "", "reason": "not_found"}}
+
+        found = plan_for.match_existing(_library(matched, left), [], looked=looked)
+
+        self.assertEqual((found[0].vps_id, found[0].reason), ("vps-taxi", ""))
+        self.assertEqual((found[1].vps_id, found[1].reason), ("", "not_found"))
+
+    def test_only_games_made_new_are_counted_as_matched(self) -> None:
+        new, here = _game("Funhouse", table_file="/src/tables/Funhouse.vpx"), _game(
+            "Old", display_name="Renamed Taxi", table_file="/src/tables/Old.vpx")
+        looked = {id(new): {"vps_id": "vps-new"}, id(here): {"vps_id": "vps-taxi"}}
+
+        made = plan_for.build(_library(new, here), list(self.HELD), on_existing="fill",
+                              source_id="pinballx", kinds=(), looked=looked)
+
+        self.assertEqual(plan_for.expected(made)["matched"], 1)
+
+    def test_the_games_not_matched_are_counted_by_why(self) -> None:
+        looked = {}
+        games = [_game("A"), _game("B"), _game("C")]
+        for game, why in zip(games, ("not_found", "not_found", "two_entries"), strict=True):
+            looked[id(game)] = {"vps_id": "", "reason": why}
+
+        made = plan_for.build(_library(*games), [], source_id="pinballx", kinds=(),
+                              looked=looked)
+
+        self.assertEqual(plan_for.not_matched(made), {"not_found": 2, "two_entries": 1})
+
+    def test_builds_sharing_a_folder_are_one_game_not_matched(self) -> None:
+        games = [_game("Kiss (Bally 1979)", table_file=f"/src/{name}.vpx")
+                 for name in ("a", "b")]
+        looked = {id(game): {"vps_id": "", "reason": "not_found"} for game in games}
+
+        made = plan_for.build(_library(*games), [], source_id="pinballx", kinds=(),
+                              looked=looked)
+
+        self.assertEqual(plan_for.not_matched(made), {"not_found": 1})
+
+
 class ExpectedTests(unittest.TestCase):
     KINDS = ("playfield", "wheel")
 
