@@ -73,15 +73,17 @@ class ImportALibraryDrive(unittest.TestCase):
                     f"{json.dumps(selector)})].findIndex(el => el.innerText.includes("
                     f"{json.dumps(text)})); return i >= 0 ? i + 1 : 0; }})()")) - 1)
 
-            async def type_into_the_path(text: str) -> None:
-                """The last input on the step: the source step opens with a select, which
-                holds an input of its own, and the path is the field after it."""
-                last = int(await browser.evaluate(
-                    f"document.querySelectorAll({json.dumps(CARD + ' input')}).length")) - 1
-                await browser.click(f"{CARD} input", nth=last)
+            async def type_into_the_path(text: str, nth: int = -1) -> None:
+                """An input on the step, the last unless `nth` says: the source step opens
+                with a select, which holds an input of its own, and the path is the field
+                after it."""
+                count = int(await browser.evaluate(
+                    f"document.querySelectorAll({json.dumps(CARD + ' input')}).length"))
+                at = nth % count
+                await browser.click(f"{CARD} input", nth=at)
                 await browser.evaluate(
                     f"[...document.querySelectorAll({json.dumps(CARD + ' input')})]"
-                    ".at(-1).select()")
+                    f"[{at}].select()")
                 await browser.send("Input.insertText", {"text": text})
 
             async def forward() -> str:
@@ -113,9 +115,13 @@ class ImportALibraryDrive(unittest.TestCase):
                            until=SHOWS % json.dumps(CARD))
 
             seen["opening"] = await browser.evaluate(TEXT_OF % json.dumps(TITLE))
-            await type_into_the_path(str(pile))
+            await walk.act(lambda: browser.click(f"{CARD} .q-select"),
+                           until=SHOWS % json.dumps(".q-menu .q-item"))
+            await walk.act(lambda: click_text(".q-menu .q-item", WORDS["source.folders"]),
+                           until=f"!document.querySelector({json.dumps('.q-menu')})")
             await forward()
             seen["sources"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))
+            await type_into_the_path(str(pile), 0)
             await forward()
             seen["how_choices"] = await browser.evaluate(CHOICES)
             seen["how_text"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))

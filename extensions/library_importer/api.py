@@ -374,11 +374,13 @@ def build(ctx: Any) -> None:
     def wizard_form() -> dict:
         """Step one: what are you importing from, and where is it.
 
-        The kind is asked rather than only sniffed. Somebody knows what they have, and a
-        detector that is wrong leaves them arguing with a guess; offering "work it out"
-        as the default means the common case is still one press.
+        The kind comes from the form's source_type; a caller that sends none still gets
+        the folder sniffed.
         """
         state = _state(ctx)
+        said = {pinballx.SOURCE_ID: ctx.t("wizard.source.pinballx.help"),
+                popper.SOURCE_ID: ctx.t("wizard.source.popper.help"),
+                folders.SOURCE_ID: ctx.t("wizard.source.folders.help")}
         return {
             "step": "source",
             "title": ctx.t("wizard.source.title"),
@@ -386,14 +388,17 @@ def build(ctx: Any) -> None:
             "fields": [
                 {"key": "source_type", "type": "select",
                  "label": ctx.t("wizard.source.source_type.label"),
-                 "value": "auto",
-                 "choices": [["auto", ctx.t("wizard.source.auto")]]
-                            + [[one.SOURCE_ID, _name(ctx, one)] for one in READERS],
-                 "help": ctx.t("wizard.source.source_type.help")},
+                 "value": READERS[0].SOURCE_ID,
+                 "choices": [[one.SOURCE_ID, _name(ctx, one), said[one.SOURCE_ID]]
+                             for one in READERS],
+                 "help": {"follows": "source_type", "says": said}},
                 {"key": "path", "type": "path", "wants": "dir",
                  "label": ctx.t("wizard.source.path.label"),
                  "value": state["path"],
-                 "help": ctx.t("wizard.source.path.help")},
+                 "help": {"follows": "source_type", "says": {
+                     "pinballx": ctx.t("wizard.source.path.pinballx"),
+                     "popper": ctx.t("wizard.source.path.popper"),
+                     "folders": ctx.t("wizard.source.path.folders")}}},
             ],
         }
 
@@ -406,8 +411,8 @@ def build(ctx: Any) -> None:
         is not a Popper install" is more useful than quietly reading it as something
         else.
         """
-        wanted = str(values.get("source_type") or "auto").strip()
-        if wanted and wanted != "auto":
+        wanted = str(values.get("source_type") or "").strip()
+        if wanted:
             return next((one for one in READERS if one.SOURCE_ID == wanted), None)
         return reader_for(path, survey)
 

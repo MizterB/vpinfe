@@ -4668,5 +4668,23 @@
     "one": "1 file",
     "other": "{count} files"
   },
-  "console.assets.selected": "{picked} of {shown} selected"
+  "console.assets.selected": "{picked} of {shown} selected",
+  "console.wizard_lists.filter": "Filter by name",
+  "console.wizard_lists.show": "Show",
+  "console.wizard_lists.select_all": "Select all",
+  "console.wizard_lists.select_none": "Select none",
+  "console.wizard_lists.ticked": "{ticked} of {total} ticked",
+  "console.wizard_lists.no_match": "Nothing matches",
+  "console.wizard_lists.change": "Change...",
+  "console.wizard_lists.not_matched": "Not matched",
+  "console.wizard_lists.picked": "Picked",
+  "console.wizard_lists.candidate_why": "{candidate} - {reason}",
+  "console.wizard_lists.show_all": "Show all {count}",
+  "console.wizard_lists.hide_settled": "Hide the settled",
+  "console.wizard_lists.select_all.hint": "Tick every row shown",
+  "console.wizard_lists.select_none.hint": "Untick every row shown",
+  "console.wizard_lists.change.hint": "Match this to an entry in the Virtual Pinball Spreadsheet",
+  "console.wizard_lists.show_all.hint": "Show the rows that are already settled too",
+  "console.wizard_lists.hide_settled.hint": "Hide the rows that are already settled",
+  "console.wizard_lists.all_settled": "All {count} are settled"
 }

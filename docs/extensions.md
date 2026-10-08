@@ -370,7 +370,7 @@ A step is given up to 15 minutes to answer, so one that reads a slow source is w
 the outcome where it is not, with an optional `message` and `summary`. An action that is
 one call and a sentence should not have to wear a progress bar.
 
-`fields` are `{key, type, label, value, help}`; a `path` field may add `opens_at`, the folder
+`fields` are `{key, type, label, value, help}`; `help` is a line, or `{follows, says, else}` to say what `says` holds for the value the field named `follows` has now, and `else` for any other. A `path` field may add `opens_at`, the folder
 its picker starts in while the field is empty. `check`, `act` and `run` receive
 `{"values": {…}, "step": …}`, the step's own key; `act` adds `"act"`, which one was pressed.
 The words in these answers are the extension's to look up, with `ctx.t`.
@@ -379,11 +379,13 @@ The words in these answers are the extension's to look up, with `ctx.t`.
 |---|---|
 | `string` | a line of text |
 | `path` | a file or folder on the machine core runs on, with `wants`: `dir`, `file` or `exe` |
-| `select` | one of `choices` |
+| `select` | one of `choices`, each `[key, label]` and optionally `[key, label, help]`, the help shown beside the option in the list, and under the field once it is chosen. Labels within one field are different, since the help is found by label |
 | `multi` | several of `choices` |
 | `switch` | on or off |
-| `choice` | one of `choices`, two to four, each `[key, label, help]` with its own line of help, and optionally a fourth element naming a picture |
+| `choice` | one of `choices`, two to four, each `[key, label, help]` with its own line of help, and optionally a fourth element: the name of a picture, or a list of paths to a few of the person's own images, inside the folders the extension declared in `ctx.files.set_roots` |
 | `number` | a number, with `unit`, `min` and `max` |
+| `checklist` | any of `rows` ticked, for a list too long for `multi`: each row `{key, name, note, groups}`, with `chips` as `[group, label]` pairs, a chip shown only when a row is in its group; the answer is the keys ticked |
+| `settle` | a VPS entry for each of `rows`, `{key, name, candidate, vps_id, reason, settled}`: the row says its candidate or Not found, with the reason, and Change... opens the VPS picker; settled rows are behind Show all. The answer maps a row's key to the id picked, with `""` for a row said to be in no catalog; a key left out is a row untouched |
 
 `confirm` is the verb at the point of no return, and it is the action's own: a generic
 "Confirm" makes every action look like every other one. `notes` travel with the summary,

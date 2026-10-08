@@ -22,7 +22,7 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import literal_or, t
-from console import appearance, appearance_picker, more_below, panel, verbs
+from console import appearance, appearance_picker, more_below, panel, verbs, wizard_lists
 from console import dialog as frame
 from console.api import ApiClient
 from console.on_page import on_page
@@ -41,6 +41,8 @@ FIELD_TYPES = {
     "switch": "panel.switch",
     "choice": "panel.choice",
     "number": "panel.number",
+    "checklist": "wizard_lists.checklist",
+    "settle": "wizard_lists.settle",
 }
 
 # The forward-verb button's own marker, so a keypress can find whichever step's button is
@@ -223,18 +225,24 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
     """
     # Each control writes its own key, so the key is bound by a call rather than
     # captured off the loop variable.
+    followers: dict[str, list[Callable[[], None]]] = {}
+
+    def wrote(key: str) -> None:
+        for follow in followers.get(key, ()):
+            follow()
+        if on_change:
+            on_change()
+
     def changed(key: str, cast: Callable[[Any], Any]) -> Callable[[Any], None]:
         def write(event: Any) -> None:
             values[key] = cast(event.value)
-            if on_change:
-                on_change()
+            wrote(key)
         return write
 
     def typed(key: str) -> Callable[[str], None]:
         def write(text: str) -> None:
             values[key] = text
-            if on_change:
-                on_change()
+            wrote(key)
         return write
 
     def refused(control: Any, key: str) -> None:
@@ -281,6 +289,8 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                 changed(key, lambda value: list(value or [])), on_control=caught)))
         elif kind == "select":
             choices = {str(one[0]): str(one[1]) for one in field.get("choices") or []}
+            says = {str(one[1]): str(one[2]) for one in field.get("choices") or []
+                    if len(one) > 2 and one[2]}
 
             def caught(control: Any, key: str = key) -> None:
                 held[key] = ("select", control)
@@ -288,7 +298,8 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
 
             entries.append((label, panel.select(
                 choices, str(values.get(key) or ""),
-                changed(key, lambda value: str(value or "")), on_control=caught)))
+                changed(key, lambda value: str(value or "")), describes=says,
+                on_control=caught)))
         elif kind == "switch":
             def caught(control: Any, key: str = key) -> None:
                 held[key] = ("switch", control)
@@ -297,7 +308,7 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                 bool(values.get(key)), changed(key, bool), on_control=caught), key)))
         elif kind == "choice":
             options = [(str(one[0]), str(one[1]), str(one[2]) if len(one) > 2 else "",
-                       str(one[3] or "") if len(one) > 3 else "")
+                       _picture_named(one[3]) if len(one) > 3 else "")
                       for one in field.get("choices") or []]
 
             def caught(control: Any, key: str = key) -> None:
@@ -308,7 +319,8 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                     label, options, str(values.get(key) or ""), typed(key),
                     tiles=welcome, labelled=asked > 1, on_control=caught,
                     details=field.get("details") or {}, values=values,
-                    changed=on_change or (lambda: None)), key)))
+                    changed=on_change or (lambda: None),
+                    url_for=client.browsed_file_url), key)))
             else:
                 entries.append((label, refusing(panel.choice(
                     [one[:3] for one in options], str(values.get(key) or ""),
@@ -323,14 +335,35 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                 unit=str(field.get("unit") or ""),
                 low=field.get("min"), high=field.get("max"),
                 whole=False, on_control=caught)))
+        elif kind == "checklist":
+            def caught(control: Any, key: str = key) -> None:
+                held[key] = ("ticks", control)
+
+            def ticked(ticks: list[str], key: str = key) -> None:
+                values[key] = ticks
+                wrote(key)
+
+            entries.append((panel.FULL, refusing(wizard_lists.checklist(
+                field, list(values.get(key) or []), ticked,
+                question=label if asked > 1 else "", on_control=caught), key)))
+        elif kind == "settle":
+            def caught(control: Any, key: str = key) -> None:
+                held[key] = ("settle", control)
+
+            def settled(picks: dict[str, str], key: str = key) -> None:
+                values[key] = picks
+                wrote(key)
+
+            entries.append((panel.FULL, refusing(wizard_lists.settle(
+                field, dict(values.get(key) or {}), settled, client=client,
+                question=label if asked > 1 else "", on_control=caught), key)))
         elif kind == "path":
             def draw_path(field: dict = field, key: str = key) -> None:
                 def synced(_state: str, said: str) -> str:
                     # The 0.3s check is a poll, not a push on every keystroke; Next
                     # reads the control directly instead of waiting on it.
                     values[key] = said
-                    if on_change:
-                        on_change()
+                    wrote(key)
                     return ""
 
                 control = panel.path_field(
@@ -339,6 +372,8 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
                     value=str(values.get(key) or ""), width="w-full",
                     on_checked=synced, browse=client.folders,
                     opens_at=str(field.get("opens_at") or ""))
+                # Without this the field reserves a row for a message that is rarely there.
+                control.props("hide-bottom-space")
                 held[key] = ("path", control)
                 refused(control, key)
 
@@ -351,7 +386,7 @@ def _controls(fields: list[dict], values: dict[str, Any], *,
             entries.append((label, panel.field(
                 str(values.get(key) or ""), typed(key), on_control=caught)))
         if field.get("help"):
-            entries.append((panel.ASIDE, _aside(str(field["help"]))))
+            entries.append((panel.ASIDE, _aside(field["help"], values, followers)))
     panel.facts(ui, entries)
     return held
 
@@ -365,8 +400,17 @@ class _Picks(ui.element):
         self.value = value
 
 
-def _picture(name: str) -> None:
-    if name.startswith(appearance_picker.PICTURE_PREFIX):
+def _picture_named(named: Any) -> str | list[str]:
+    """A picture is a name, or the paths of a few files the flow names."""
+    if isinstance(named, list):
+        return [str(one) for one in named if one]
+    return str(named or "")
+
+
+def _picture(name: str | list[str], url_for: Callable[[str], str]) -> None:
+    if isinstance(name, list):
+        wizard_lists.shots(name, url_for)
+    elif name.startswith(appearance_picker.PICTURE_PREFIX):
         # A miniature of the Console in one appearance, drawn in that appearance's colors.
         with ui.element("span").classes("console-wizard-appearance"):
             appearance_picker.swatch(name.removeprefix(appearance_picker.PICTURE_PREFIX))
@@ -376,12 +420,14 @@ def _picture(name: str) -> None:
         ui.icon(name).classes("console-wizard-icon")
 
 
-def _pictured(question: str, options: list[tuple[str, str, str, str]], value: str,
+def _pictured(question: str, options: list[tuple[str, str, str, str | list[str]]],
+              value: str,
               on_change: Callable[[str], None], *, tiles: bool, labelled: bool,
               on_control: Callable[[Any], None],
               details: Mapping[str, Detail] | None = None,
               values: dict[str, Any] | None = None,
-              changed: Callable[[], None] = lambda: None) -> Callable[[], None]:
+              changed: Callable[[], None] = lambda: None,
+              url_for: Callable[[str], str] = str) -> Callable[[], None]:
     """A choice whose options carry pictures: `(key, label, help, picture)`. They are
     tiles on a welcome and rows elsewhere. The question is drawn over them on a welcome
     and on a step with other fields to tell it from; alone on a step, the step's own
@@ -429,7 +475,7 @@ def _pictured(question: str, options: list[tuple[str, str, str, str]], value: st
                     row.on("click", lambda key=key: pick(key))
                     row.on("keydown.space.prevent", lambda key=key: pick(key))
                     with row:
-                        _picture(picture)
+                        _picture(picture, url_for)
                         with ui.column().classes("gap-0 min-w-0 console-wizard-pick-text"):
                             ui.label(name).classes("console-source-name")
                             if help_text:
@@ -454,6 +500,8 @@ def _sync(values: dict[str, Any], held: dict[str, tuple[str, Any]]) -> None:
             values[key] = list(control.value or [])
         elif kind == "switch":
             values[key] = bool(control.value)
+        elif kind in ("ticks", "settle"):
+            values[key] = control.value
         elif kind == "number":
             # Not stringified: a number field holds None or a number, and `str(None)`
             # would write the word "None" into an answer nobody typed.
@@ -581,9 +629,32 @@ def _acts(acts: list[dict[str, Any]], go: Callable[[str], Any]) -> None:
                         hint=str(act.get("hint") or label))()
 
 
-def _aside(text: str) -> Any:
+def _aside(help_: Any, values: dict[str, Any] | None = None,
+           followers: dict[str, list[Callable[[], None]]] | None = None) -> Callable[[], None]:
+    """The line under a field. A string is said as it is; `{follows, says, else}` says what
+    `says` holds for the value the field named `follows` has now, and `else` for any other,
+    and changes as that field does."""
+    if not isinstance(help_, dict):
+        def plain() -> None:
+            ui.label(str(help_)).classes("console-help")
+        return plain
+
+    follows = str(help_.get("follows") or "")
+    says = {str(one): str(text) for one, text in (help_.get("says") or {}).items()}
+    other = str(help_.get("else") or "")
+
+    def now() -> str:
+        return says.get(str((values or {}).get(follows) or ""), other)
+
     def draw() -> None:
-        ui.label(text).classes("console-help")
+        line = ui.label(now()).classes("console-help")
+
+        def follow() -> None:
+            line.set_text(now())
+            line.set_visibility(bool(now()))
+        line.set_visibility(bool(now()))
+        if followers is not None:
+            followers.setdefault(follows, []).append(follow)
     return draw
 
 

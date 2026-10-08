@@ -4668,5 +4668,23 @@
     "one": "1 ƒîŀè",
     "other": "{count} ƒîŀèš"
   },
-  "console.assets.selected": "{picked} öƒ {shown} šèŀèçţèđ"
+  "console.assets.selected": "{picked} öƒ {shown} šèŀèçţèđ",
+  "console.wizard_lists.filter": "Ƒîŀţèř ƀý ñàɱè",
+  "console.wizard_lists.show": "Šĥöŵ",
+  "console.wizard_lists.select_all": "Šèŀèçţ àŀŀ",
+  "console.wizard_lists.select_none": "Šèŀèçţ ñöñè",
+  "console.wizard_lists.ticked": "{ticked} öƒ {total} ţîçķèđ",
+  "console.wizard_lists.no_match": "Ñöţĥîñĝ ɱàţçĥèš",
+  "console.wizard_lists.change": "Çĥàñĝè...",
+  "console.wizard_lists.not_matched": "Ñöţ ɱàţçĥèđ",
+  "console.wizard_lists.picked": "Þîçķèđ",
+  "console.wizard_lists.candidate_why": "{candidate} - {reason}",
+  "console.wizard_lists.show_all": "Šĥöŵ àŀŀ {count}",
+  "console.wizard_lists.hide_settled": "Ĥîđè ţĥè šèţţŀèđ",
+  "console.wizard_lists.select_all.hint": "Ţîçķ èṽèřý řöŵ šĥöŵñ",
+  "console.wizard_lists.select_none.hint": "Ûñţîçķ èṽèřý řöŵ šĥöŵñ",
+  "console.wizard_lists.change.hint": "Ḿàţçĥ ţĥîš ţö àñ èñţřý îñ ţĥè Ṽîřţûàŀ Þîñƀàŀŀ Šþřèàđšĥèèţ",
+  "console.wizard_lists.show_all.hint": "Šĥöŵ ţĥè řöŵš ţĥàţ àřè àŀřèàđý šèţţŀèđ ţöö",
+  "console.wizard_lists.hide_settled.hint": "Ĥîđè ţĥè řöŵš ţĥàţ àřè àŀřèàđý šèţţŀèđ",
+  "console.wizard_lists.all_settled": "Àŀŀ {count} àřè šèţţŀèđ"
 }

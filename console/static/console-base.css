@@ -1951,6 +1951,25 @@ button.q-btn--flat.text-primary:hover .q-btn__content {
 /* What the picked row asks next, under it rather than on a step of its own. The left
    padding is the row's own: its padding, the picture slot and the gap after it. */
 .console-wizard-detail { padding: 10px 14px 4px 68px; display: flex; flex-direction: column; gap: 6px; }
+/* A list of rows to tick or settle: it scrolls inside the step rather than stretching it,
+   so the filter and the buttons stay in view above hundreds of rows. */
+.console-wizard-list {
+  display: flex; flex-direction: column; width: 100%;
+  max-height: 46vh; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 6px;
+}
+.console-wizard-listrow {
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px; cursor: default;
+  border-bottom: 1px solid var(--line);
+}
+.console-wizard-listrow:last-child { border-bottom: 0; }
+/* A few of the person's own images, small, where a choice names no drawn picture. */
+.console-wizard-shots { display: flex; flex: none; gap: 4px; }
+.console-wizard-shot {
+  display: flex; width: 64px; height: 48px; overflow: hidden; border-radius: 4px;
+  border: 1px solid var(--line); background: var(--surface-0);
+}
+.console-wizard-shot > img { width: 100%; height: 100%; object-fit: contain; }
 /* A line saying what a step found, or that it found nothing: an icon, the finding, and what
    it looked in. */
 .console-wizard-found { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 16px; }
