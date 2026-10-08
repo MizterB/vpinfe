@@ -1568,7 +1568,7 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
         for text, fix in option.get("findings") or ():
             entries.append(_finding(text, fix))
         if option.get("editor") == config_schema.EDITOR_CAPTURE_COMMAND:
-            recording.add_under(entries, option, value, save, rerender, suggestions)
+            recording.add_under(entries, option)
         # Under the last field of a pair, where somebody has just read what it does and
         # is about to type into it.
         if section == "commands" and option["key"] == "on_vpinfe_exit":

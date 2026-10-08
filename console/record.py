@@ -310,7 +310,7 @@ def setting_rows(held: Settings, report: dict[str, Any], changed: Callable[[], A
                                              save, suggestions=offered, browse=browse)))
         entries.append((panel.ASIDE, line))
         if recording.command_of(option):
-            recording.add_under(entries, option, held.value(option), save, rerender, offered)
+            recording.add_under(entries, option)
     return entries
 
 
@@ -741,6 +741,61 @@ def grouped(rows: Sequence[dict[str, Any]]) -> list[list[dict[str, Any]]]:
             for page in pages.values()]
 
 
+def waiting_in(listing: dict[str, Any], game_id: str, table_id: str,
+               kind: str) -> list[dict[str, Any]]:
+    """The recordings kept for a decision on one slot."""
+    return [row for row in listing.get("proposals") or []
+            if str(row.get("game_id") or "") == game_id
+            and str(row.get("table_id") or "") == table_id
+            and str(row.get("kind") or "") == kind]
+
+
+async def waiting_on(library: Any, game_id: str, table_id: str,
+                     kind: str) -> list[dict[str, Any]]:
+    """`waiting_in`, read from the device; none where they cannot be read."""
+    try:
+        listing = await offload.io(library.capture_proposals)
+    except Exception:  # noqa: BLE001 - a slot draws without the line, never fails for it
+        return []
+    return waiting_in(listing, game_id, table_id, kind)
+
+
+def waiting_line(library: Any, rows: Sequence[dict[str, Any]],
+                 then: Callable[[], Any]) -> None:
+    """Under a slot: that a recording waits, with Review and Discard. `then` runs once
+    either has settled it."""
+    ids = [str(row.get("id") or "") for row in rows]
+
+    async def settled() -> None:
+        for game_id in {str(row.get("game_id") or "") for row in rows}:
+            library.forget_media(game_id)
+        await _call(then)
+
+    @on_page
+    async def look() -> None:
+        await review(library, settled, ids)
+
+    @on_page
+    async def throw() -> None:
+        try:
+            for one in ids:
+                await offload.io(library.use_proposal, one, False)
+        except Exception as exc:  # noqa: BLE001 - it still waits on the device
+            ui.notify(t("console.record.could_not_discard"), caption=why(exc),
+                      type="negative")
+            return
+        await _call(then)
+
+    with ui.row().classes("items-center gap-2 w-full"):
+        ui.label(t("console.record.waiting_here", count=len(ids),
+                   size=size(sum(int(row.get("size") or 0) for row in rows)))) \
+            .classes("console-help")
+        panel.action(t("console.record.review"), look, icon=verbs.REVIEW, inline=True,
+                     hint=t("console.record.review.help"))()
+        panel.action(t("console.record.discard"), throw, icon=verbs.DISCARD, inline=True,
+                     hint=t("console.record.discard.help"))()
+
+
 SKIP, NEXT, DONE = "skip", "next", "done"
 
 
@@ -818,8 +873,13 @@ async def review(library: Any, then: Callable[[], Any],
             done = frame.answer(t("word.done"), lambda: box.submit(True), icon=verbs.DONE)
         draw()
     await box
-    if now["used"]:
+    if now["decided"]:
         await _call(then)
+    left = [str(row.get("id") or "") for page in pages for row in page
+            if row.get("id") not in now["decided"]]
+    if left:
+        undo.act(t("console.record.still_waiting", count=len(left)), t("console.record.review"),
+                 lambda: review(library, then, left), warn=True)
 
 
 def deleted(displaced: Sequence[str], replaces: dict[str, Any] | None) -> list[str]:
@@ -834,8 +894,9 @@ def deleted(displaced: Sequence[str], replaces: dict[str, Any] | None) -> list[s
 
 def proposal(library: Any, row: dict[str, Any], decided: Callable[[bool], Any], *,
              titled: bool = True) -> None:
-    """One recording beside the file it would take the place of, with Use This and
-    Discard. `decided` hears which, once it is done."""
+    """One recording beside the file it would take the place of. Use This and Discard are
+    under the new recording only; the current file has no buttons. `decided` hears which,
+    once it is done."""
     kind, game_id = str(row.get("kind") or ""), str(row.get("game_id") or "")
     table_id = str(row.get("table_id") or "")
     label = media_label_map().get(kind, kind)
@@ -843,19 +904,21 @@ def proposal(library: Any, row: dict[str, Any], decided: Callable[[bool], Any], 
     if titled:
         panel.facts(ui, [(panel.HEADING, label)])
     with ui.row().classes("w-full gap-3 no-wrap items-start"):
-        if replaces:
-            with ui.column().classes("gap-0 flex-1 min-w-0"):
+        with ui.column().classes("gap-0 flex-1 min-w-0"):
+            ui.label(t("console.record.current")).classes("console-card-title")
+            if replaces:
                 with ui.element("div").classes("console-slot-art"):
                     mediaview.preview(art.media(game_id, kind, table_id, size=art.PANEL),
                                       kind, label)
-                panel.line(t("console.record.now", source=holds(replaces)),
-                           hint=str(replaces.get("path") or ""))
+                panel.line(holds(replaces), hint=str(replaces.get("path") or ""))
+            else:
+                ui.label(t("console.record.nothing_there")).classes("console-help")
         with ui.column().classes("gap-0 flex-1 min-w-0"):
+            ui.label(t("console.record.new_recording")).classes("console-card-title")
             with ui.element("div").classes("console-slot-art"):
                 mediaview.preview(str(row.get("url") or ""), kind, label)
-            ui.label(t("console.record.just_recorded", size=size(int(row.get("size") or 0)))) \
-                .classes("console-help")
-    strip = ui.row().classes("items-center gap-2 w-full console-slot-actions")
+            ui.label(size(int(row.get("size") or 0))).classes("console-help")
+            strip = ui.row().classes("items-center gap-2 w-full console-slot-actions")
 
     def settled(word: str, level: str) -> None:
         strip.clear()

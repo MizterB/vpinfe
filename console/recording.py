@@ -17,6 +17,7 @@ from common import config_schema, tokens
 from common.capture import adapters, commands, preflight, trial
 from common.failures import why
 from common.i18n import size, t
+from common.media_specs import media_label_map
 from console import confirm, offload, panel, verbs
 from console.on_page import on_page
 
@@ -26,6 +27,8 @@ SECTION = "capture"
 REPORT = config_schema.EDITOR_CAPTURE_COMMAND
 H264 = "h264"
 
+# How many waiting recordings Settings names before it counts the rest.
+SHOWN = 5
 # The names whose meaning differs between the two commands.
 PER_COMMAND = frozenset({"input", "fps"})
 
@@ -51,42 +54,71 @@ def resolved(offered: dict[str, Any]) -> dict[str, str]:
 def command_editor(option: dict, value: Any, save: Callable[[Any], Any], *,
                    writable: bool = True, suggestions: dict[str, Any] | None = None,
                    **_: Any) -> Callable[[], None]:
-    """A command line, refused at the field where it cannot run, with VPinFE's own for this
-    device as what an empty field stands for."""
+    """A command line, refused at the field where it cannot run. It always holds what runs:
+    VPinFE's own for this device until it is edited, and saved empty while it is that, so an
+    untouched field keeps up with VPinFE."""
     command = command_of(option)
     own = str((report_of(suggestions).get("commands") or {}).get(command) or "")
+    stored = str(value or "").strip()
+    now: dict[str, Any] = {"kept": "" if stored == own else stored}
+    state: dict[str, Any] = {}
+    held: dict[str, str] = {}
 
     async def keep(text: str) -> str:
+        text = text.strip() or own
         wrong = commands.problems(text, command)
         if wrong:
             return commands.words(wrong[0])
-        await save(text.strip())
+        kept = "" if text == own else text
+        if kept != now["kept"]:
+            if not await save(kept):
+                return t("word.not_saved")
+            now["kept"] = kept
+        control = state.get("control")
+        if control is not None and not control.is_deleted and (control.value or "") != text:
+            control.value = text
+        held["was"] = text
+        status()
         return ""
 
-    return panel.field(str(value or ""), keep, placeholder=own, disabled=not writable,
-                       refuses=True, left_empty=own)
-
-
-def add_under(entries: list[Any], option: dict, value: Any,
-              save: Callable[[Any], Any], rerender: Callable[[], None],
-              offered: dict[str, Any] | None) -> None:
-    """Under a command's field: Copy VPinFE's Command while it is empty, and the names it
-    can use."""
-    command = command_of(option)
-    own = str((report_of(offered).get("commands") or {}).get(command) or "")
-    names = commands.OFFERED[command]
-
     @on_page
-    async def copy() -> None:
-        if await save(own):
-            rerender()
+    async def reset() -> None:
+        await keep(own)
+
+    def status() -> None:
+        row = state.get("row")
+        if row is None or row.is_deleted:
+            return
+        row.clear()
+        if not now["kept"] or not writable:
+            return
+        with row:
+            panel.action(t("console.recording.command_reset"), reset, icon=verbs.RESET,
+                         inline=True, hint=t("console.recording.command_reset.help"))()
+
+    field = panel.field(now["kept"] or own, keep, placeholder=own, disabled=not writable,
+                        refuses=True, held=held,
+                        on_control=lambda control: state.__setitem__("control", control))
+
+    def draw() -> None:
+        if not own:
+            field()
+            return
+        with ui.column().classes("gap-1 min-w-0 w-full"):
+            field()
+            state["row"] = ui.row().classes("items-center gap-2 no-wrap")
+            status()
+
+    return draw
+
+
+def add_under(entries: list[Any], option: dict) -> None:
+    """Under a command's field: the names it can use."""
+    command = command_of(option)
+    names = commands.OFFERED[command]
 
     def draw() -> None:
         with ui.column().classes("gap-1 min-w-0"):
-            if own and not str(value or "").strip():
-                panel.action(t("console.recording.copy_command"), copy,
-                             icon=verbs.COPY,
-                             hint=t("console.recording.copy_command.help"))()
             with panel.disclosure(t("console.commands.names_title", count=len(names))) \
                     .classes("console-tokens"):
                 with ui.column().classes("gap-1 pt-1"):
@@ -278,14 +310,26 @@ def _waiting(library: Any, rerender: Callable[[], None],
         await record.review(library, used)
         rerender()
 
+    rows = list(waiting.get("proposals") or [])
+
     def draw() -> None:
-        with ui.element("div").classes("console-fact-edit"):
-            ui.label(t("console.recording.waiting_are", count=count,
-                       size=size(int(waiting.get("bytes") or 0)))) \
-                .classes("console-fact-value truncate min-w-0")
-            panel.action(t("console.record.review"), review, icon=verbs.REVIEW,
-                         inline=True, hint=t("console.record.review.help"))()
-            panel.action(t("console.recording.discard_all"), discard, icon=verbs.DISCARD,
-                         inline=True, hint=t("console.recording.discard_all.help"))()
+        with ui.column().classes("gap-1 min-w-0"):
+            with ui.element("div").classes("console-fact-edit"):
+                ui.label(t("console.recording.waiting_are", count=count,
+                           size=size(int(waiting.get("bytes") or 0)))) \
+                    .classes("console-fact-value truncate min-w-0")
+                panel.action(t("console.record.review"), review, icon=verbs.REVIEW,
+                             inline=True, hint=t("console.record.review.help"))()
+                panel.action(t("console.recording.discard_all"), discard, icon=verbs.DISCARD,
+                             inline=True, hint=t("console.recording.discard_all.help"))()
+            kinds = media_label_map()
+            for row in rows[:SHOWN]:
+                kind = str(row.get("kind") or "")
+                name = str(row.get("name") or "")
+                ui.label(t("console.recording.waiting_for", name=name, kind=kinds.get(kind, kind))
+                         if name else kinds.get(kind, kind)).classes("console-help truncate")
+            if len(rows) > SHOWN:
+                ui.label(t("console.recording.waiting_more", count=len(rows) - SHOWN)) \
+                    .classes("console-help")
 
     return (t("console.recording.waiting"), draw)

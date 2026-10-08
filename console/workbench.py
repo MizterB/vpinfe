@@ -809,7 +809,8 @@ async def _media_file_block(context: dict[str, Any]) -> None:
             _slot_art(context, kind, entry)
     _slot(context, kind, entry, detail, context["rebuild"],
           (overrides or {}).get(kind) or [], titled=False, in_place=False, scope_chip=False,
-          links=links, matched=matched, draw_art=False)
+          links=links, matched=matched, draw_art=False,
+          waiting=await recorder.waiting_on(library, game_id, table_id or "", kind))
 
 
 def _loose_media(context: dict[str, Any]) -> None:
@@ -1923,10 +1924,13 @@ async def _media_block(context: dict[str, Any]) -> None:
                 matched = await _match_line(context, kind,
                                             (detail or {}).get("matched_to")
                                             or entries[kind].get("matched_to"))
+            waiting = (await recorder.waiting_on(library, game_id, table_id or "", kind)
+                       if kind and kind in entries else [])
             with dock:
                 if kind and kind in entries:
                     _slot(context, kind, entries[kind], detail, written,
-                          (overrides or {}).get(kind) or [], matched=matched)
+                          (overrides or {}).get(kind) or [], matched=matched,
+                          waiting=waiting)
                 else:
                     # The region is reserved either way, so it says what it is for
                     # rather than sitting there as an empty box. Named for what the
@@ -2143,9 +2147,11 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
           detail: dict[str, Any] | None, draw: Any,
           differing: list[dict[str, Any]] | None = None, *,
           titled: bool = True, in_place: bool = True, scope_chip: bool = True,
-          links: Sequence[dict[str, Any]] = (), matched: str = "", draw_art: bool = True) -> None:
+          links: Sequence[dict[str, Any]] = (), matched: str = "", draw_art: bool = True,
+          waiting: Sequence[dict[str, Any]] = ()) -> None:
     """One slot: the art at the size of the room, and what there is to know about it.
     `draw_art=False` leaves the picture to the caller, which draws it somewhere else.
+    `waiting` are the recordings kept for a decision on this slot.
 
     The picture is the subject. Everything else is one line each underneath, because
     the questions this panel answers - what is this, why this one, what else is here -
@@ -2271,6 +2277,9 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                            on_click=partial(_go_to_table, context, other_id)
                            if in_place else None,
                            hint=other.get("file") or "")()
+
+        if waiting:
+            recorder.waiting_line(library, waiting, draw)
 
         with ui.row().classes("items-center gap-2 w-full console-slot-actions") \
                 .style("flex-wrap:wrap"):

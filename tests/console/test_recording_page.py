@@ -184,18 +184,72 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(h264.endswith(t("console.recording.automatic_h264")))
         self.assertTrue(vp9.endswith(t("console.recording.automatic_vp9")))
 
-    async def test_an_empty_command_stands_for_vpinfes_own_on_this_device(self) -> None:
+    async def test_a_command_field_shows_what_runs_on_this_device(self) -> None:
         await self._drawn()
 
-        placeholders = [call.kwargs.get("placeholder") for call in self.field.call_args_list
-                        if call.kwargs.get("refuses")]
-        self.assertEqual(placeholders, [self.report["commands"]["record"],
-                                        self.report["commands"]["encode"]])
+        shown = [(call.args[0], call.kwargs.get("placeholder")) for call in
+                 self.field.call_args_list if call.kwargs.get("refuses")]
+        own = [self.report["commands"]["record"], self.report["commands"]["encode"]]
+        self.assertEqual(shown, list(zip(own, own, strict=True)))
+
+    async def test_a_command_still_vpinfes_own_has_no_reset_and_saves_nothing(self) -> None:
+        entries = await self._drawn()
+        at = next(i for i, (one, _) in enumerate(entries)
+                  if one == t("config.capture.encode_command.label"))
+        keep = next(call.args[1] for call in self.field.call_args_list
+                    if call.args[0] == self.report["commands"]["encode"])
+        recording.ui.row.return_value.classes.return_value.is_deleted = False
+        self.action.reset_mock()
+        entries[at][1]()
+
+        with patch.object(self.served, "put_config") as written:
+            refused = await keep(self.report["commands"]["encode"])
+
+        self.assertEqual(refused, "")
+        written.assert_not_called()
+        self.assertNotIn(t("console.recording.command_reset"),
+                         [call.args[0] for call in self.action.call_args_list])
+
+    async def test_a_command_that_fails_to_save_is_refused_and_asks_again(self) -> None:
+        await self._drawn()
+        keep = next(call.args[1] for call in self.field.call_args_list
+                    if call.args[0] == self.report["commands"]["encode"])
+        changed = commands.OWN_ENCODE.replace("-an", "-an -crf 20")
+
+        with patch.object(self.served, "put_config", side_effect=RuntimeError("down")):
+            refused = await keep(changed)
+        saved = await keep(changed)
+
+        self.assertEqual(refused, t("word.not_saved"))
+        self.assertEqual(saved, "")
+        self.assertEqual(self.served.config_values()["capture"]["encode_command"], changed)
+
+    async def test_a_changed_command_offers_reset_which_returns_to_vpinfes_own(self) -> None:
+        entries = await self._drawn()
+        at = next(i for i, (one, _) in enumerate(entries)
+                  if one == t("config.capture.encode_command.label"))
+        keep = next(call.args[1] for call in self.field.call_args_list
+                    if call.args[0] == self.report["commands"]["encode"])
+        recording.ui.row.return_value.classes.return_value.is_deleted = False
+        entries[at][1]()
+        changed = commands.OWN_ENCODE.replace("-an", "-an -crf 20")
+
+        await keep(changed)
+        self.assertEqual(self.served.config_values()["capture"]["encode_command"], changed)
+        [reset] = [call.args[1] for call in self.action.call_args_list
+                   if call.args[0] == t("console.recording.command_reset")]
+        self.action.reset_mock()
+
+        await reset()
+
+        self.assertEqual(self.served.config_values()["capture"]["encode_command"], "")
+        self.assertNotIn(t("console.recording.command_reset"),
+                         [call.args[0] for call in self.action.call_args_list])
 
     async def test_a_command_that_cannot_run_is_refused_at_the_field(self) -> None:
         await self._drawn()
         keep = next(call.args[1] for call in self.field.call_args_list
-                    if call.kwargs.get("placeholder") == self.report["commands"]["record"])
+                    if call.args[0] == self.report["commands"]["record"])
 
         refused = await keep("{recorder} {input} {video_codec} {output}")
         kept = await keep("{recorder} -o {screen} -f {output}")
@@ -205,23 +259,6 @@ class RecordingPageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kept, "")
         self.assertEqual(self.served.config_values()["capture"]["record_command"],
                          "{recorder} -o {screen} -f {output}")
-
-    async def test_copy_vpinfes_command_puts_it_in_the_field_to_edit(self) -> None:
-        entries = await self._drawn()
-        at = next(i for i, (one, _) in enumerate(entries)
-                  if one == t("config.capture.encode_command.label"))
-        self.action.reset_mock()
-        for label, draw in entries[at + 1:at + 3]:
-            self.assertIs(label, panel.ASIDE)
-            draw()
-        [copy] = [call.args[1] for call in self.action.call_args_list
-                  if call.args[0] == t("console.recording.copy_command")]
-
-        await copy()
-
-        self.assertEqual(self.served.config_values()["capture"]["encode_command"],
-                         commands.OWN_ENCODE)
-        settings.ui.timer.assert_called_with(0.01, self.rerender, once=True)
 
     async def test_a_device_that_records_nothing_says_why_with_the_pages_name(self) -> None:
         self.report = self.unsupported

@@ -91,6 +91,7 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         self.titles: list[str] = []
         self.ui.label.side_effect = self._label
         self.then = mock.AsyncMock()
+        self.act = self.enterContext(mock.patch.object(record.undo, "act"))
 
     @contextmanager
     def _opened(self, title: str, **_kwargs: Any) -> Any:
@@ -155,6 +156,32 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([one for one, _ in self.shown], ["a", "b"])
         self.then.assert_awaited_once()
 
+    async def test_closing_with_files_undecided_leaves_a_notice_that_reviews_them(
+            self) -> None:
+        library = Library(_waiting("a", "g1", "playfield_video"),
+                          _waiting("b", "g1", "backglass_video"),
+                          _waiting("c", "g2", "playfield_video"))
+        task = await self._start(library, None)
+        dict(self.shown)["a"](True)
+
+        self.buttons["Stop"].on_click()
+        await task
+
+        said = self.act.call_args
+        self.assertEqual(said.args[:2], ("2 recordings still waiting", "Review"))
+        with mock.patch.object(record, "review", mock.AsyncMock()) as again:
+            await said.args[2]()
+        self.assertEqual(again.await_args.args[2], ["b", "c"])
+
+    async def test_closing_with_every_file_decided_leaves_no_notice(self) -> None:
+        task = await self._start(Library(_waiting("a", "g1", "playfield_video")), ["a"])
+        dict(self.shown)["a"](False)
+
+        self.buttons["Done"].on_click()
+        await task
+
+        self.act.assert_not_called()
+
     async def test_one_games_review_is_done_alone_with_no_progress(self) -> None:
         task = await self._start(Library(_waiting("a", "g1", "playfield_video")), ["a"])
 
@@ -163,6 +190,7 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         self.ui.linear_progress.assert_not_called()
         self.buttons["Done"].on_click()
         await task
+        self.assertEqual(self.act.call_args.args[0], "1 recording still waiting")
 
     async def test_nothing_waiting_opens_nothing(self) -> None:
         task = await self._start(Library(_waiting("x", "g9", "playfield_video")), ["a"])
@@ -177,6 +205,102 @@ def _game(proposed: list[str] | None = None) -> dict[str, Any]:
             "failed": [{"kind": "scoreview_video", "reason": NOT_SHOWN}],
             "proposed": [{"kind": "playfield_video", "id": one} for one in proposed or []],
             "reason": None}
+
+
+class SlotTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.enterContext(mock.patch("console.on_page.ui"))
+        self.ui = self.enterContext(mock.patch.object(record, "ui"))
+        self.enterContext(mock.patch.object(record.offload, "io",
+                                            mock.AsyncMock(side_effect=_io)))
+        self.actions: dict[str, Any] = {}
+
+        def action(label: str, run: Any, **_kwargs: Any) -> Any:
+            self.actions[label] = run
+            return lambda: None
+
+        self.enterContext(mock.patch.object(record.panel, "action", action))
+
+    def test_only_this_slots_recordings_are_found(self) -> None:
+        listing = Library(_waiting("a", "g1", "playfield_video"),
+                          _waiting("b", "g1", "playfield_video", table_id="t1"),
+                          _waiting("c", "g1", "backglass_video"),
+                          _waiting("d", "g2", "playfield_video")).waiting
+
+        found = record.waiting_in(listing, "g1", "", "playfield_video")
+
+        self.assertEqual([row["id"] for row in found], ["a"])
+
+    async def test_a_slot_says_a_recording_waits_with_its_size(self) -> None:
+        rows = [_waiting("a", "g1", "playfield_video")]
+        record.waiting_line(Library(*rows), rows, mock.AsyncMock())
+
+        self.assertEqual(self.ui.label.call_args.args[0], "Recording waiting, 10 B")
+        self.assertEqual(list(self.actions), ["Review", "Discard"])
+
+    async def test_discard_throws_the_slots_recordings_away_and_redraws(self) -> None:
+        rows = [_waiting("a", "g1", "playfield_video"), _waiting("b", "g1", "playfield_video")]
+        library = mock.Mock()
+        then = mock.AsyncMock()
+        record.waiting_line(library, rows, then)
+
+        await self.actions["Discard"]()
+
+        self.assertEqual([call.args for call in library.use_proposal.call_args_list],
+                         [("a", False), ("b", False)])
+        then.assert_awaited_once()
+
+    async def test_review_opens_this_slots_recordings_then_reads_the_game_again(
+            self) -> None:
+        rows = [_waiting("a", "g1", "playfield_video")]
+        library = mock.Mock()
+        then = mock.AsyncMock()
+        record.waiting_line(library, rows, then)
+
+        with mock.patch.object(record, "review", mock.AsyncMock()) as opened:
+            await self.actions["Review"]()
+
+        self.assertEqual(opened.await_args.args[2], ["a"])
+        library.forget_media.assert_not_called()
+
+        await opened.await_args.args[1]()
+
+        library.forget_media.assert_called_once_with("g1")
+        then.assert_awaited_once()
+
+
+class ChooserTests(unittest.TestCase):
+    """The recording beside what it would replace: which column holds which."""
+
+    def setUp(self) -> None:
+        self.enterContext(mock.patch("console.on_page.ui"))
+        self.ui = self.enterContext(mock.patch.object(record, "ui"))
+        self.enterContext(mock.patch.object(record.mediaview, "preview"))
+        self.enterContext(mock.patch.object(record.panel, "line"))
+        self.calls: list[str] = []
+        self.ui.label.side_effect = lambda text="": self.calls.append(text) or mock.MagicMock()
+
+        def action(label: str, *_args: Any, **_kwargs: Any) -> Any:
+            self.calls.append(f"[{label}]")
+            return lambda: None
+
+        self.enterContext(mock.patch.object(record.panel, "action", action))
+
+    def test_the_buttons_come_after_the_new_recording_and_never_after_the_current(
+            self) -> None:
+        row = {**_waiting("a", "g1", "playfield_video"),
+               "replaces": {"path": "/x/pf.mp4", "source": "user", "goes": True}}
+
+        record.proposal(mock.Mock(), row, mock.Mock(), titled=False)
+
+        self.assertEqual(self.calls, ["Current", "New recording", "10 B",
+                                      "[Use This]", "[Discard]"])
+
+    def test_an_empty_slot_says_there_is_nothing_there(self) -> None:
+        record.proposal(mock.Mock(), _waiting("a", "g1", "playfield_video"), mock.Mock(),
+                        titled=False)
+
+        self.assertEqual(self.calls[:3], ["Current", "Nothing there yet", "New recording"])
 
 
 class NoticeTests(unittest.IsolatedAsyncioTestCase):
@@ -228,7 +352,7 @@ class SettingsDoorTests(unittest.IsolatedAsyncioTestCase):
             actions[label] = run
             return lambda: None
 
-        with mock.patch.object(recording, "ui"), \
+        with mock.patch.object(recording, "ui") as ui, \
                 mock.patch("console.on_page.ui"), \
                 mock.patch.object(recording.panel, "action", action), \
                 mock.patch.object(recording.run, "io_bound",
@@ -241,6 +365,8 @@ class SettingsDoorTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(label, "Waiting for a Decision")
         self.assertEqual(list(actions), ["Review", "Discard All"])
+        self.assertEqual([call.args[0] for call in ui.label.call_args_list][1:],
+                         ["Game g1 - Playfield Video", "Game g2 - Playfield Video"])
         library.reread_media.assert_called_once_with({"g1", "g2"})
         rerender.assert_called_once()
 

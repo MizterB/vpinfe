@@ -309,7 +309,8 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
           refuses: bool = False, left_empty: str = "",
           browse: Callable[[str], Any] | None = None,
           on_control: Callable[[Any], Any] | None = None,
-          prefix: str = "", suffix: str = "") -> Callable[[], None]:
+          prefix: str = "", suffix: str = "",
+          held: dict[str, str] | None = None) -> Callable[[], None]:
     """Free text the user can set.
 
     Written when you leave it or when you press Enter, and `debounce=0` is what makes
@@ -339,8 +340,13 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
 
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.
+
+    `held` is the text last saved, which leaving the field compares against. A caller that
+    sets the control's value itself sets `held["was"]` with it, or typing that text again
+    is taken for no change.
     """
-    held = {"was": value or ""}
+    held = {} if held is None else held
+    held["was"] = value or ""
 
     async def leave(control: ui.input, text: str) -> None:
         if text == held["was"]:

@@ -136,8 +136,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | `playfield_orientation` | choice (bottom_right, bottom_left, upright) | `bottom_right` | Which way round the playfield is stored |
 | `sound` | bool | `false` | Record the table's sound as a file of its own |
 | `sound_source` | string |  | A sound source by name. Left empty, what this device plays |
-| `record_command` | string |  | The command that records each screen. Left empty, VPinFE's own runs |
-| `encode_command` | string |  | Turns each recording into the stored file. Left empty, VPinFE's own runs |
+| `record_command` | string |  | The command that records each screen |
+| `encode_command` | string |  | Turns each recording into the stored file |
 
 ### `updates`
 
