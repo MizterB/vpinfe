@@ -98,6 +98,13 @@ class Game:
     # after the scan.
     media_by_table: dict[str, dict[str, str]] | None = None
 
+    # The paged kinds with two or more pages, each as its files in page order, page 1
+    # first: {kind: [path, ...]}. The default table's answer and, per table, the same as
+    # `media_by_table` keyed by filename. A kind with one page is not here: its file is
+    # in the attribute and in `media_by_table`.
+    media_pages: dict[str, list[str]] | None = None
+    media_pages_by_table: dict[str, dict[str, list[str]]] | None = None
+
     meta_config: dict[str, Any] | None = None
 
     # Read during the scan, which already has both. info_restorable means a backup this

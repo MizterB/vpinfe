@@ -171,10 +171,10 @@ class RealDmdVideoTests(unittest.TestCase):
     def test_a_video_is_read_back_by_its_token(self) -> None:
         from common.media_specs import spec_named
 
-        self.assertEqual(spec_named(f"(RealDMD) {FOLDER}.mp4"), ("real_dmd_video", FOLDER))
+        self.assertEqual(spec_named(f"(RealDMD) {FOLDER}.mp4"), ("real_dmd_video", FOLDER, 1))
         self.assertEqual(spec_named(f"(RealColorDMD) {FOLDER}.mp4"),
-                         ("real_dmd_color_video", FOLDER))
-        self.assertEqual(spec_named(f"(RealDMD) {FOLDER}.png"), ("real_dmd", FOLDER))
+                         ("real_dmd_color_video", FOLDER, 1))
+        self.assertEqual(spec_named(f"(RealDMD) {FOLDER}.png"), ("real_dmd", FOLDER, 1))
 
 
 class TokenAliasTests(unittest.TestCase):

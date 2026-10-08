@@ -92,10 +92,9 @@ def _orphans(files: set[str], medias: set[str], known: set[str]) -> list[tuple[s
     found = []
     for name in sorted(files | {item for item in medias if "/" not in item}):
         parsed = spec_named(name)
-        if parsed is None or parsed[1].lower() in known:
+        if parsed is None or parsed.stem.lower() in known:
             continue
-        kind, stem = parsed
-        found.append((kind, stem, name if name in files else f"medias/{name}"))
+        found.append((parsed.kind, parsed.stem, name if name in files else f"medias/{name}"))
     return found
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 from common import apps, icons
 from common.games.media_service import IMAGE_EXTENSIONS
 from common.i18n import t
-from common.media_specs import MEDIA_SPECS, media_filename_map
+from common.media_specs import MEDIA_SPECS, PAGED_KINDS, media_filename_map
 
 logger = logging.getLogger("vpinfe.common.games.asset_registry")
 
@@ -197,6 +198,19 @@ for _spec in MEDIA_SPECS:
                 _TOKEN_TO_KIND.setdefault(_token.lower(), {}).setdefault(
                     _bucket(_ext), _spec.kind)
 
+_PAGE_NUMBER = re.compile(r" [1-9]\d*\)$")
+
+
+def _token_kinds(token: str) -> dict[str, str] | None:
+    """The kinds a "(Token)" names by extension family. "(Flyer 2)" is page 2 of the flyer,
+    so a page number is read off a token of a kind that has pages, and only of one."""
+    kinds = _TOKEN_TO_KIND.get(token)
+    if kinds is None and _PAGE_NUMBER.search(token):
+        paged = _TOKEN_TO_KIND.get(_PAGE_NUMBER.sub(")", token), {})
+        kinds = {family: kind for family, kind in paged.items() if kind in PAGED_KINDS}
+    return kinds or None
+
+
 # Keyword-in-stem fallbacks when a media file is not named canonically.
 # Ordered; realdmd is handled ahead of this table so the scoreview keyword never claims a
 # realdmd file. The keyword people actually type stays as it is - it is what they name
@@ -247,7 +261,7 @@ def match_media_kind(filename: str) -> str | None:
     # extension family decides image vs video.
     if name.startswith("(") and ") " in name:
         token = name.split(") ", 1)[0] + ")"
-        kinds = _TOKEN_TO_KIND.get(token)
+        kinds = _token_kinds(token)
         if kinds:
             family = _bucket(ext)
             hit = kinds.get(family)

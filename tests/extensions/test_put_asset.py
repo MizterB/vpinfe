@@ -230,6 +230,53 @@ class BoundsTests(PutAssetCase):
         self.games.put_media("g1", "wheel", theirs)
         self.assertEqual(b"theirs", (self.game / "medias" / landed).read_bytes())
 
+    def _picture(self, name: str) -> Path:
+        picture = self.source / name
+        picture.write_bytes(name.encode())
+        return picture
+
+    def test_a_page_goes_beside_the_page_one_the_slot_shows(self) -> None:
+        self.games.put_media("g1", "flyer", self._picture("one.png"), table_stem="Attack v2")
+
+        landed = self.games.put_media("g1", "flyer", self._picture("two.png"),
+                                      table_stem="Attack v2", page=2)
+
+        self.assertEqual(landed, "(Flyer 2) Attack v2.png")
+
+    def test_a_page_added_to_a_downloaded_flyer_is_written_at_the_fixed_name(self) -> None:
+        (self.game / "medias").mkdir()
+        (self.game / "medias" / "flyer.png").write_bytes(b"downloaded")
+
+        landed = self.games.put_media("g1", "flyer", self._picture("two.png"), page=2)
+
+        self.assertEqual(landed, "flyer 2.png")
+
+    def test_with_no_page_one_the_first_file_is_page_one(self) -> None:
+        landed = self.games.put_media("g1", "flyer", self._picture("three.png"), page=3)
+
+        self.assertEqual(landed, f"(Flyer) {self.game.name}.png")
+
+    def test_a_page_past_the_next_one_is_refused(self) -> None:
+        self.games.put_media("g1", "flyer", self._picture("one.png"))
+
+        with self.assertRaises(ValueError):
+            self.games.put_media("g1", "flyer", self._picture("four.png"), page=4)
+
+    def test_filling_only_an_empty_page_leaves_a_held_one(self) -> None:
+        self.games.put_media("g1", "flyer", self._picture("one.png"))
+        self.games.put_media("g1", "flyer", self._picture("two.png"), page=2)
+
+        with self.assertRaises(FileExistsError):
+            self.games.put_media("g1", "flyer", self._picture("again.png"),
+                                 replace=False, page=2)
+        landed = self.games.put_media("g1", "flyer", self._picture("three.png"),
+                                      replace=False, page=3)
+        self.assertEqual(landed, f"(Flyer 3) {self.game.name}.png")
+
+    def test_a_kind_without_pages_refuses_one(self) -> None:
+        with self.assertRaises(ValueError):
+            self.games.put_media("g1", "wheel", self._picture("w.png"), page=2)
+
     def test_placing_needs_the_write_scope(self) -> None:
         rom = self.source / "afm_113b.zip"
         rom.write_bytes(b"rom")

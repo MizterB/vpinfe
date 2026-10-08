@@ -14,7 +14,8 @@ theme; the path is ours and stays here.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+import re
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -58,6 +59,9 @@ class MediaSpec:
     fallback_kind: str | None = None
     # Whether medias/<kind>s/<set>/ folders participate in resolution.
     supports_sets: bool = False
+    # Whether the kind is several pictures, read in order: "(Flyer) Name.png" is page 1
+    # and "(Flyer 2) Name.png" page 2. Pages follow page 1 and never take sets.
+    pages: bool = False
 
     @property
     def label(self) -> str:
@@ -161,6 +165,7 @@ MEDIA_SPECS = (
         filename_template="flyer.png",
         token="(Flyer)",
         alt_tokens=("(GameInfo)",),
+        pages=True,
     ),
     MediaSpec(
         "playfield_video",
@@ -206,6 +211,7 @@ MEDIA_SPECS = (
         filename_template="instructioncard.png",
         token="(InstructionCard)",
         alt_tokens=("(RuleCard)", "(GameHelp)"),
+        pages=True,
     ),
     MediaSpec(
         "topper",
@@ -298,13 +304,39 @@ def media_family(kind: str) -> str:
     return _FAMILY_NAMES.get(spec.family, "") if spec else ""
 
 
-def spec_named(filename: str) -> tuple[str, str] | None:
-    """A spec-named file read back as `(kind, stem)`, or None if it is not one.
+PAGED_KINDS = frozenset(spec.kind for spec in MEDIA_SPECS if spec.pages)
+
+
+def page_token(token: str, page: int) -> str:
+    """The token a page carries: "(Flyer)" is page 1, "(Flyer 2)" is page 2."""
+    return token if page == 1 else f"{token[:-1]} {page})"
+
+
+def fixed_page_name(spec: MediaSpec, page: int, extension: str) -> str:
+    """The fixed-tier name of a page: "flyer.png", then "flyer 2.png"."""
+    stem = spec.stem()
+    return f"{stem}{extension}" if page == 1 else f"{stem} {page}{extension}"
+
+
+class SpecName(NamedTuple):
+    """A spec-named file read back: whose kind it is, whose stem, and which page."""
+    kind: str
+    stem: str
+    page: int = 1
+
+
+def _page_rx(token: str) -> re.Pattern[str]:
+    return re.compile(rf"\({re.escape(token[1:-1])} ([1-9]\d*)\) ", re.IGNORECASE)
+
+
+def spec_named(filename: str) -> SpecName | None:
+    """A spec-named file read back as `(kind, stem, page)`, or None if it is not one.
 
     The reverse of the naming rule `media_placement.target_name` writes, so a file this
     project put down can be read back and asked who it was for. Alt tokens are accepted
     the way resolution accepts them; a video and its still share a token and are told
-    apart by the extension, which is why the family is part of the match.
+    apart by the extension, which is why the family is part of the match. A name with no
+    number is page 1.
 
     Nothing else is a spec name. A file the user called something of their own is not a
     defect and must not be reported as one, so it answers None rather than a guess.
@@ -318,8 +350,13 @@ def spec_named(filename: str) -> tuple[str, str] | None:
         if extension not in spec.family:
             continue
         for token in (spec.token, *spec.alt_tokens):
-            if token and stem.lower().startswith(f"{token.lower()} "):
-                return spec.kind, stem[len(token) + 1:]
+            if not token:
+                continue
+            if stem.lower().startswith(f"{token.lower()} "):
+                return SpecName(spec.kind, stem[len(token) + 1:])
+            found = _page_rx(token).match(stem) if spec.pages else None
+            if found is not None and int(found.group(1)) >= 2:
+                return SpecName(spec.kind, stem[found.end():], int(found.group(1)))
     return None
 
 
@@ -444,7 +481,7 @@ def _finder(game_dir: Path, game_contents: set[str],
 
 
 def _tier_names(spec: MediaSpec, folder_name: str, playfield_variant: str,
-                table_stem: str | None, active: str | None
+                table_stem: str | None, active: str | None, page: int = 1
                 ) -> tuple[list[str], list[str], list[str], list[str]]:
     """What each tier would call this kind's file - table, game, set, default.
 
@@ -456,13 +493,15 @@ def _tier_names(spec: MediaSpec, folder_name: str, playfield_variant: str,
     """
     # Tier outranks token preference: a table-specific alias still beats a
     # folder-level preferred token, or "most specific wins" would not hold.
-    tokens = ((spec.token,) + spec.alt_tokens) if spec.token else ()
+    tokens = tuple(page_token(token, page)
+                   for token in ((spec.token,) + spec.alt_tokens if spec.token else ()))
     own = table_stem if table_stem and table_stem.lower() != folder_name.lower() else None
     table_names = ([f"{token} {own}{ext}"
                     for token in tokens for ext in spec.family] if own else [])
     folder_names = [f"{token} {folder_name}{ext}"
                     for token in tokens for ext in spec.family]
-    fixed_names = [f"{spec.stem(playfield_variant)}{ext}" for ext in spec.family]
+    fixed_names = [fixed_page_name(spec, page, ext) if spec.pages
+                   else f"{spec.stem(playfield_variant)}{ext}" for ext in spec.family]
     set_names = ([f"{spec.kind}s/{active}/{name}"
                   for name in table_names + folder_names + fixed_names]
                  if active and active != "logo" else [])
@@ -559,6 +598,94 @@ def resolve_media_entries(game_dir: str | Path, game_contents: set[str],
 
 
 
+def page_numbers(spec: MediaSpec, stem: str | None, listing: Iterable[str]) -> list[int]:
+    """The page numbers from 2 up that a listing holds at one tier, in order.
+
+    Read off the names the folder has: the leading `(Token n)` is parsed out, so a gap in
+    the numbers is simply a number nobody wrote. `stem` is the tier's name, or None for
+    the fixed tier.
+    """
+    extensions = "|".join(re.escape(ext) for ext in spec.family)
+    if stem is None:
+        pattern = rf"{re.escape(spec.stem())} ([1-9]\d*)(?:{extensions})"
+    else:
+        tokens = "|".join(re.escape(token[1:-1])
+                          for token in (spec.token, *spec.alt_tokens) if token)
+        pattern = rf"\((?:{tokens}) ([1-9]\d*)\) {re.escape(stem)}(?:{extensions})"
+    rx = re.compile(pattern, re.IGNORECASE)
+    found = set()
+    for name in listing:
+        match = rx.fullmatch(name)
+        if match is not None and int(match.group(1)) >= 2:
+            found.add(int(match.group(1)))
+    return sorted(found)
+
+
+
+def resolve_media_pages(game_dir: str | Path, game_contents: set[str],
+                        medias_contents: set[str],
+                        resolved: Mapping[str, MediaHit],
+                        playfield_variant: str = "table",
+                        table_stem: str | None = None) -> dict[str, list[Path]]:
+    """Kind to its pages in order, page 1 first, for each paged kind with two or more.
+
+    Pages follow page 1: they are read at the tier where `resolved` found it and nowhere
+    else, so a table's own flyer never borrows the folder's pages. A tier with numbered
+    pages and no page 1 shows nothing, and does not make that tier resolve - page 1 is
+    what `resolved` already says.
+    """
+    game_dir = Path(game_dir)
+    folder_name = game_dir.name
+    find = _finder(game_dir, game_contents, medias_contents)
+    listing = [*game_contents, *(name for name in medias_contents if "/" not in name)]
+
+    own = table_stem if table_stem and table_stem.lower() != folder_name.lower() else None
+    # Each tier a page can follow: where its names sit in `_tier_names`' answer, and the
+    # stem they carry (None for the fixed names).
+    tiers = {TIER_TABLE: (0, own), TIER_GAME: (1, folder_name), TIER_DEFAULT: (3, None)}
+
+    pages: dict[str, list[Path]] = {}
+    for spec in MEDIA_SPECS:
+        hit = resolved.get(spec.kind)
+        if not spec.pages or hit is None or hit.path is None or hit.tier not in tiers:
+            continue
+        slot, stem = tiers[hit.tier]
+        found = [hit.path]
+        for number in page_numbers(spec, stem, listing):
+            names = _tier_names(spec, folder_name, playfield_variant, table_stem,
+                                None, number)[slot]
+            page = next((path for name in names if (path := find(name)) is not None), None)
+            if page is not None:
+                found.append(page)
+        if len(found) > 1:
+            pages[spec.kind] = found
+    return pages
+
+
+def resolve_media_pages_by_table(game_dir: str | Path, game_contents: set[str],
+                                 medias_contents: set[str],
+                                 table_filenames: Iterable[str],
+                                 playfield_variant: str = "table",
+                                 active_sets: dict[str, str] | None = None
+                                 ) -> dict[str, dict[str, list[str]]]:
+    """`resolve_media_by_table` for pages: lowercased filename to kind to page paths.
+
+    Only the kinds with two or more pages are recorded, as only the kinds that resolved
+    are there.
+    """
+    found = {}
+    for name in table_filenames:
+        stem = Path(name).stem
+        entries = resolve_media_entries(game_dir, game_contents, medias_contents,
+                                        playfield_variant, stem, active_sets)
+        found[name.lower()] = {
+            kind: [str(path) for path in paths]
+            for kind, paths in resolve_media_pages(
+                game_dir, game_contents, medias_contents, entries,
+                playfield_variant, stem).items()}
+    return found
+
+
 class MediaCandidate(NamedTuple):
     """A file that could serve a kind, and the tier whose name it carries."""
     path: Path
@@ -635,13 +762,18 @@ def apply_media_specs(game: Any, game_contents: set[str], medias_contents: set[s
                       playfield_variant: str = "table",
                       table_stem: str | None = None,
                       active_sets: dict[str, str] | None = None) -> None:
-    resolved = resolve_media_files(str(game.full_path_game or ""), game_contents,
-                                   medias_contents, playfield_variant, table_stem,
-                                   active_sets)
+    root = str(game.full_path_game or "")
+    entries = resolve_media_entries(root, game_contents, medias_contents,
+                                    playfield_variant, table_stem, active_sets)
     for spec in MEDIA_SPECS:
-        path = resolved[spec.kind]
+        path = entries[spec.kind].path
         if path is not None:
             setattr(game, spec.attr, str(path))
+    game.media_pages = {
+        kind: [str(path) for path in paths]
+        for kind, paths in resolve_media_pages(root, game_contents, medias_contents,
+                                               entries, playfield_variant,
+                                               table_stem).items()}
 
 
 def game_media_payload(game: object) -> dict[str, str | None]:

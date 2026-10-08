@@ -12,6 +12,10 @@ which thing it addressed, so nobody has to learn what a tier is to use one.
 A write reports what it resolved to afterwards, because placing a file is not the same
 as winning: a shared file is outranked by any table-specific one, and finding that out
 by the art not changing is the worst way to learn it.
+
+A kind with pages (a flyer, an instruction card) is several files read in order, and
+the number is part of the name: page 2 is `(Flyer 2) Name.png`. A page is addressed by
+its position, 1 for the first, whatever numbers the folder happens to carry.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from common.i18n import t
-from common.media_specs import MEDIA_SPECS
+from common.media_specs import MEDIA_SPECS, MediaSpec, fixed_page_name, page_numbers, page_token
 
 logger = logging.getLogger("vpinfe.common.games.media_placement")
 
@@ -31,27 +35,48 @@ _SPEC_BY_KIND = {spec.kind: spec for spec in MEDIA_SPECS}
 TIER_GAME = "game"
 TIER_TABLE = "table"
 
+# The stem that names the shared default tier (`flyer.png`, `flyer 2.png`), which has no
+# stem of its own. Only a kind with pages is written there.
+FIXED = ""
+
 
 class UnplaceableError(ValueError):
     """The kind, the tier or the extension is not something we can write."""
 
 
-def target_name(kind: str, stem: str, extension: str) -> str:
-    """The filename that puts this kind at this stem's tier.
-
-    Always the spec token, never an alias: aliases exist so a file someone else named
-    still resolves, and writing one would be recommending a spelling we do not.
-    """
+def _spec_of(kind: str) -> MediaSpec:
     spec = _SPEC_BY_KIND.get(kind)
     if spec is None:
         raise UnplaceableError(t("error.games.unknown_kind"))
+    return spec
+
+
+def _name(spec: MediaSpec, token: str | None, stem: str, page: int, extension: str) -> str:
+    """The filename of one page at one tier, in one token and one extension."""
+    if stem == FIXED:
+        return fixed_page_name(spec, page, extension)
+    return f"{page_token(token or '', page)} {stem}{extension}"
+
+
+def target_name(kind: str, stem: str, extension: str, page: int = 1) -> str:
+    """The filename that puts this kind at this stem's tier.
+
+    Always the spec token, never an alias: aliases exist so a file someone else named
+    still resolves, and writing one would be recommending a spelling we do not. `page`
+    is the number the name carries, and only a kind with pages takes one past 1.
+    """
+    spec = _spec_of(kind)
     if not spec.token:
         raise RuntimeError(f"{kind} has no spec name, so it can only be a default")
     extension = extension.lower()
     if extension not in spec.family:
         raise UnplaceableError(t("error.games.wrong_extension", slot=spec.label,
                                  extension=extension, extensions=", ".join(spec.family)))
-    return f"{spec.token} {stem}{extension}"
+    if page != 1 and not spec.pages:
+        raise UnplaceableError(t("error.games.no_pages", slot=spec.label))
+    if stem == FIXED and not spec.pages:
+        raise RuntimeError(f"{kind} is not written at the shared default")
+    return _name(spec, spec.token, stem, page, extension)
 
 
 def _names_in(folder: Path) -> dict[str, str]:
@@ -62,49 +87,123 @@ def _names_in(folder: Path) -> dict[str, str]:
         return {}
 
 
-def _family_at_tier(game_dir: Path, kind: str, stem: str) -> Iterator[Path]:
-    """Every file already serving this kind at this stem's tier, whatever its token or
-    extension, in the order the resolver reads them: the first one is the one that shows.
+def _members(game_dir: Path, kind: str, stem: str, page: int = 1
+             ) -> Iterator[tuple[Path, str | None, str]]:
+    """Every file serving one page of this kind at this stem's tier, as the path, the
+    token it is spelled with (None at the shared default) and its extension, in the order
+    the resolver reads them: the first one is the one that shows.
 
     Both folders, because a library that predates `medias/` keeps its art beside the
     .vpx and the resolver still reads it.
     """
     spec = _SPEC_BY_KIND[kind]
     folders = [(folder, _names_in(folder)) for folder in (game_dir / "medias", game_dir)]
-    for token in (spec.token, *spec.alt_tokens):
+    tokens = (None,) if stem == FIXED else (spec.token, *spec.alt_tokens)
+    for token in tokens:
         for extension in spec.family:
-            wanted = f"{token} {stem}{extension}".lower()
+            wanted = _name(spec, token, stem, page, extension).lower()
             for folder, names in folders:
                 if wanted in names:
-                    yield folder / names[wanted]
+                    yield folder / names[wanted], token, extension
 
 
-def displaced(game_dir: str | Path, kind: str, stem: str, extension: str) -> list[Path]:
+def _family_at_tier(game_dir: Path, kind: str, stem: str, page: int = 1) -> Iterator[Path]:
+    """Every file already serving this page at this stem's tier, whatever its token or
+    extension. `(Flyer 2)` is not in page 1's family: each page has its own."""
+    for path, _token, _extension in _members(game_dir, kind, stem, page):
+        yield path
+
+
+def _present(game_dir: Path, kind: str, stem: str) -> list[int]:
+    """The page numbers with a file at this tier, ascending. A number can be missing from
+    the run - a folder somebody else filled - so these are numbers, not positions."""
+    spec = _SPEC_BY_KIND[kind]
+    first = [1] if next(_members(game_dir, kind, stem), None) is not None else []
+    if not spec.pages:
+        return first
+    listing = [name for folder in (game_dir / "medias", game_dir)
+               for name in _names_in(folder).values()]
+    return first + page_numbers(spec, None if stem == FIXED else stem, listing)
+
+
+def _pages(game_dir: Path, kind: str, stem: str) -> list[int]:
+    """The numbers of the pages that show: none unless page 1 is there."""
+    present = _present(game_dir, kind, stem)
+    return present if present[:1] == [1] else []
+
+
+def page_count(game_dir: str | Path, kind: str, stem: str) -> int:
+    """How many pages this kind has at this tier. Zero where page 1 is missing, because
+    numbered pages without a page 1 are not shown."""
+    _spec_of(kind)
+    return len(_pages(Path(game_dir), kind, stem))
+
+
+def page_tier(game_dir: str | Path, kind: str, table_stem: str = "") -> str | None:
+    """The stem whose tier page 1 of this kind resolves at, for the table named by
+    `table_stem` (empty for the game): the table's own name, the folder's, or `FIXED`.
+    None where there is no page 1 at all.
+
+    A page is added to the flyer the slot shows, so it goes where that flyer's page 1 is.
+    """
+    game_dir = Path(game_dir)
+    spec = _spec_of(kind)
+    own = [table_stem] if table_stem and table_stem.lower() != game_dir.name.lower() else []
+    for stem in (*own, game_dir.name, *([FIXED] if spec.pages else [])):
+        if _pages(game_dir, kind, stem):
+            return stem
+    return None
+
+
+def _number_for(game_dir: Path, kind: str, stem: str, page: int) -> int:
+    """The number the file at position `page` carries, or the next number for a page added
+    after the last. With no page 1 there is nothing to add to, and the file is page 1."""
+    spec = _spec_of(kind)
+    if page != 1 and not spec.pages:
+        raise UnplaceableError(t("error.games.no_pages", slot=spec.label))
+    pages = _pages(game_dir, kind, stem)
+    if not pages:
+        return 1
+    if not 1 <= page <= len(pages) + 1:
+        raise UnplaceableError(t("error.games.page_too_far", slot=spec.label, page=page,
+                                 next=len(pages) + 1))
+    return pages[page - 1] if page <= len(pages) else pages[-1] + 1
+
+
+def displaced(game_dir: str | Path, kind: str, stem: str, extension: str,
+              page: int = 1) -> list[Path]:
     """The files a `place` of this extension would overwrite or delete.
 
     Answered without the bytes, so a caller can ask before a large upload starts and
     still say what is about to go. It is not only the file with the same name: the
     whole family at this tier goes, so dropping a .jpg over a .png removes the .png.
     """
-    target_name(kind, stem, extension)  # refuses what `place` would refuse
-    return sorted(_family_at_tier(Path(game_dir), kind, stem))
+    game_dir = Path(game_dir)
+    number = _number_for(game_dir, kind, stem, page)
+    target_name(kind, stem, extension, number)  # refuses what `place` would refuse
+    return sorted(_family_at_tier(game_dir, kind, stem, number))
 
 
-def place(game_dir: str | Path, kind: str, stem: str, source: str | Path) -> Path:
+def place(game_dir: str | Path, kind: str, stem: str, source: str | Path,
+          page: int = 1) -> Path:
     """Install `source` as this kind's file for `stem`, and return where it landed.
 
     Siblings in the same family and at the same tier go: they would otherwise sit
     behind the new file forever, waiting for a family order to change and surface a
     file the user believed replaced. `displaced` reports the same set beforehand.
+
+    Only the page being placed is replaced; the others stay. A page one past the last is
+    added, and with no page 1 the file becomes page 1 whatever page was asked for.
     """
     game_dir = Path(game_dir)
     source = Path(source)
-    name = target_name(kind, stem, source.suffix)
+    number = _number_for(game_dir, kind, stem, page)
+    name = target_name(kind, stem, source.suffix, number)
     medias = game_dir / "medias"
     medias.mkdir(parents=True, exist_ok=True)
     target = medias / name
 
-    for sibling in list(_family_at_tier(game_dir, kind, stem)):
+    for sibling in list(_family_at_tier(game_dir, kind, stem, number)):
         if sibling != target:
             try:
                 sibling.unlink()
@@ -115,35 +214,95 @@ def place(game_dir: str | Path, kind: str, stem: str, source: str | Path) -> Pat
     return target
 
 
+def _renumber(game_dir: Path, kind: str, stem: str, numbers: list[int]) -> None:
+    """Close the gaps: the page at each position takes that position as its number."""
+    spec = _SPEC_BY_KIND[kind]
+    for position, number in enumerate(numbers, 1):
+        if number == position:
+            continue
+        for path, token, extension in list(_members(game_dir, kind, stem, number)):
+            moved = path.with_name(_name(spec, token, stem, position, extension))
+            try:
+                path.rename(moved)
+            except OSError:
+                logger.warning("Could not renumber %s to %s", path, moved)
+
+
+def move_page(game_dir: str | Path, kind: str, stem: str, page: int, to: int) -> Path:
+    """Swap page `page` with page `to`, and return where the moved page's file landed.
+
+    The numbers are in the names, so this renames; nothing is rewritten.
+    """
+    game_dir = Path(game_dir)
+    spec = _spec_of(kind)
+    pages = _pages(game_dir, kind, stem)
+    for wanted in (page, to):
+        if not 1 <= wanted <= len(pages):
+            raise UnplaceableError(t("error.games.no_such_page", slot=spec.label,
+                                     page=wanted))
+    here, there = pages[page - 1], pages[to - 1]
+    mine = list(_members(game_dir, kind, stem, here))
+    if here == there:
+        return mine[0][0]
+    theirs = list(_members(game_dir, kind, stem, there))
+
+    # Through a name nothing resolves, so the two never meet on one filename.
+    parked = [path.with_name(path.name + ".swap") for path, _token, _extension in mine]
+    for (path, _token, _extension), away in zip(mine, parked, strict=True):
+        path.rename(away)
+    for path, token, extension in theirs:
+        path.rename(path.with_name(_name(spec, token, stem, here, extension)))
+    landed = []
+    for away, (path, token, extension) in zip(parked, mine, strict=True):
+        moved = path.with_name(_name(spec, token, stem, there, extension))
+        away.rename(moved)
+        landed.append(moved)
+    return landed[0]
+
+
 def retier(game_dir: str | Path, kind: str, from_stem: str, to_stem: str) -> Path:
     """Move a tier's files for this kind to the other tier by renaming them, and return
     where the one that shows landed.
 
     The tier is the filename, so changing who a file serves is a rename rather than a
     re-upload. The one that shows is routed through `place`, so it displaces what is
-    there by exactly the rule a drop would.
+    there by exactly the rule a drop would. A kind with pages takes them all: the flyer
+    is its pages, so the pages already at the destination go with the page 1 it replaces.
     """
     game_dir = Path(game_dir)
-    sources = list(_family_at_tier(game_dir, kind, from_stem))
-    if not sources:
-        spec = _SPEC_BY_KIND.get(kind)
+    spec = _SPEC_BY_KIND.get(kind)
+    if spec is None or not any(True for _ in _members(game_dir, kind, from_stem)):
         raise UnplaceableError(t("error.games.slot_empty",
                                  slot=spec.label if spec else kind, name=from_stem))
 
-    source, *behind = sources
-    target = place(game_dir, kind, to_stem, source)
-    if source != target:
-        try:
-            source.unlink()
-        except OSError:
-            logger.warning("Placed %s but could not remove %s", target, source)
-    for path in behind:
-        token = path.name[:len(path.name) - len(from_stem) - len(path.suffix)]
-        moved = path.with_name(f"{token}{to_stem}{path.suffix}")
-        try:
-            path.rename(moved)
-        except OSError:
-            logger.warning("Could not move %s to %s", path, moved)
+    numbers = _pages(game_dir, kind, from_stem)
+    sources = [(position, list(_members(game_dir, kind, from_stem, number)))
+               for position, number in enumerate(numbers, 1)]
+    if from_stem == to_stem:
+        return sources[0][1][0][0]
+    if spec.pages:
+        for number in _present(game_dir, kind, to_stem):
+            if number != 1:
+                for stale in list(_family_at_tier(game_dir, kind, to_stem, number)):
+                    stale.unlink()
+
+    target = Path()
+    for position, members in sources:
+        (source, _token, _extension), *behind = members
+        landed = place(game_dir, kind, to_stem, source, position)
+        if position == 1:
+            target = landed
+        if source != landed:
+            try:
+                source.unlink()
+            except OSError:
+                logger.warning("Placed %s but could not remove %s", landed, source)
+        for path, token, extension in behind:
+            moved = path.with_name(_name(spec, token, to_stem, position, extension))
+            try:
+                path.rename(moved)
+            except OSError:
+                logger.warning("Could not move %s to %s", path, moved)
     return target
 
 
@@ -165,27 +324,44 @@ def record_origin(game_dir: str | Path, path: Path, host: str = "user",
         logger.exception("Placed %s but could not record where it came from", path)
 
 
-def removable(game_dir: str | Path, kind: str, stem: str) -> list[Path]:
-    """The files a `remove` at this stem takes."""
-    spec = _SPEC_BY_KIND.get(kind)
-    if spec is None:
-        raise UnplaceableError(t("error.games.unknown_kind"))
+def removable(game_dir: str | Path, kind: str, stem: str,
+              page: int | None = None) -> list[Path]:
+    """The files a `remove` at this stem takes: one page's, or with no page every file the
+    kind has at this tier - the flyer is its pages."""
+    game_dir = Path(game_dir)
+    spec = _spec_of(kind)
     if not spec.token:
         raise RuntimeError(f"Cannot address {kind} by name")
-    return list(_family_at_tier(Path(game_dir), kind, stem))
+    if page is None:
+        numbers = _present(game_dir, kind, stem)
+        if 1 not in numbers:
+            numbers = []
+    else:
+        pages = _pages(game_dir, kind, stem)
+        if not 1 <= page <= len(pages):
+            raise UnplaceableError(t("error.games.no_such_page", slot=spec.label, page=page))
+        numbers = [pages[page - 1]]
+    return [path for number in numbers
+            for path in _family_at_tier(game_dir, kind, stem, number)]
 
 
-def remove(game_dir: str | Path, kind: str, stem: str) -> list[str]:
+def remove(game_dir: str | Path, kind: str, stem: str, page: int | None = None) -> list[str]:
     """Delete this kind's files at this stem's tier. Never touches another tier.
+
+    With a page, only that page goes and the ones after it move down a number, so no gap
+    stays on disk: removing page 1 makes page 2 the new page 1. With none, every page goes.
 
     Raises the OSError of the first file that will not go, and leaves the rest.
     """
     game_dir = Path(game_dir)
+    before = _pages(game_dir, kind, stem)
     removed = []
-    for path in removable(game_dir, kind, stem):
+    for path in removable(game_dir, kind, stem, page):
         path.unlink()
         # Forward-slashed: this list is an API payload, and `os.path.relpath`
         # answers in the host's separator - so the same library reported
         # "medias/bg.png" on Linux and "medias\\bg.png" on Windows.
         removed.append(path.relative_to(game_dir).as_posix())
+    if page is not None:
+        _renumber(game_dir, kind, stem, before[:page - 1] + before[page:])
     return removed

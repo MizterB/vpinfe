@@ -31,7 +31,12 @@ from common.games.tables import (
     table_entries,
     table_names,
 )
-from common.media_specs import active_set_for, apply_media_specs, resolve_media_by_table
+from common.media_specs import (
+    active_set_for,
+    apply_media_specs,
+    resolve_media_by_table,
+    resolve_media_pages_by_table,
+)
 
 # Below this many folders the pool costs more than it saves.
 _PARALLEL_SCAN_THRESHOLD = 12
@@ -329,6 +334,10 @@ class GameParser:
         # second resolution is set lookups, so a folder with one table pays almost
         # nothing and one with three answers honestly for all three.
         game.media_by_table = resolve_media_by_table(
+            str(game.full_path_game), game_contents, medias_contents,
+            table_names(game_contents), self.playfieldvariant,
+            self.active_sets or None)
+        game.media_pages_by_table = resolve_media_pages_by_table(
             str(game.full_path_game), game_contents, medias_contents,
             table_names(game_contents), self.playfieldvariant,
             self.active_sets or None)
