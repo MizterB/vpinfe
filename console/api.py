@@ -67,6 +67,14 @@ class _WordedSession(requests.Session):
             raise ApiError(t(device_client.why_not(exc))) from exc
 
 
+def _as_mobile_device(item: dict) -> dict:
+    """A mobile device as the Devices page holds one, from the list item the
+    configuration answers with."""
+    return {"device_id": item.get("id"), "kind": "vpx_mobile",
+            "display_name": item.get("name"), "address": item.get("address"),
+            "port": item.get("port")}
+
+
 class ApiClient:
     """An ordinary consumer of /api/v1, over HTTP rather than by import.
 
@@ -1336,8 +1344,12 @@ class ApiClient:
         rather than reading the last answer."""
         return self._get(f"/update?refresh={'true' if refresh else 'false'}")
 
-    def forget_device(self, device_id: str) -> None:
-        """Drop a device from the registry. It answers 204, so nothing is read."""
+    def forget_device(self, device_id: str, kind: str = "") -> None:
+        """Drop a device. A VPX Mobile one is a list item in the configuration and an
+        install is a registry row, so which it is decides the route. Both answer 204."""
+        if kind == "vpx_mobile":
+            self._delete(f"/config/mobile_devices/{quote(device_id)}")
+            return
         _refuse_the_event_loop(f"/devices/{device_id}")
         response = self._session.delete(f"{self._base}/devices/{quote(device_id)}",
                                         timeout=_TIMEOUT)
@@ -1350,16 +1362,16 @@ class ApiClient:
         return list(self._get("/devices/discovered").get("installs") or [])
 
     def add_device(self, address: str, port: int, name: str = "") -> dict:
-        """Register a VPX Mobile device by hand. It cannot announce itself, so the
-        install mints its id."""
-        return self._put("/devices", {"kind": "vpx_mobile", "address": address,
-                                      "port": port, "display_name": name})
+        """List a VPX Mobile device by hand. It cannot announce itself, so the install
+        mints its id."""
+        return _as_mobile_device(self._post(
+            "/config/mobile_devices", {"name": name, "address": address, "port": port}))
 
     def edit_device(self, device_id: str, address: str, port: int, name: str) -> dict:
         """Rewrite a mobile device's name and where it is, keeping the entry."""
-        return self._put("/devices", {"device_id": device_id, "kind": "vpx_mobile",
-                                      "address": address, "port": port,
-                                      "display_name": name})
+        return _as_mobile_device(self._put(
+            f"/config/mobile_devices/{quote(device_id)}",
+            {"name": name, "address": address, "port": port}))
 
     def probe_device(self, device_id: str) -> dict:
         """Ask one device whether it is there."""

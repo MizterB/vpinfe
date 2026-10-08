@@ -367,11 +367,10 @@ class DeviceAnnouncement(ApiModel):
     `kind` is a closed set, so an unrecognized one is a 422 rather than a string stored
     and handed to a consumer that switches on it.
 
-    `device_id` is optional only for a device that cannot have one: a `vpx_mobile` entry
-    is registered by a person, not by the phone, so its id is minted here. Omitting it for
-    a `vpinfe` install is an error - an install knows what it is called.
+    `device_id` is required: an install knows what it is called. `vpx_mobile` is refused
+    here - a person lists it in `mobile_devices`, where its address is.
 
-    `address` is read for a `vpx_mobile` entry and ignored for the rest. See the handler.
+    `address` is ignored. See the handler.
 
     `port` is the other half of being reachable, and unlike the address the device is the
     only party that knows it - the socket says where a request came from, never what that

@@ -17,6 +17,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from common.device_registry import Device, DeviceRegistry, browser_said, keep_own_row
+from tests.support.library import add_mobile
 
 
 class DeviceRegistryTests(unittest.TestCase):
@@ -105,14 +106,40 @@ class DeviceRegistryTests(unittest.TestCase):
         self.assertEqual([p.device_id for p in self.registry.devices()],
                          ["Aaaa111111", "Bbbb222222"])
 
-    def test_a_kind_survives_a_re_record_that_does_not_name_one(self) -> None:
-        """A mobile entry is written once by a person and then updated by whatever knows
-        its address. Defaulting kind back to vpinfe on the second write would silently
-        turn a phone into an install."""
-        self.registry.record("Pppp444444", kind="vpx_mobile", address="192.168.1.50")
-        self.registry.record("Pppp444444", address="192.168.1.77")
+    def test_a_listed_mobile_device_is_a_device_and_stays_one_when_it_answers(self) -> None:
+        add_mobile(self.registry, "Pppp444444", "iPhone", "192.168.1.50", 2113)
+        self.registry.record_reachable("Pppp444444")
 
-        self.assertEqual(self.registry.get("Pppp444444").kind, "vpx_mobile")
+        device = self.registry.get("Pppp444444")
+        self.assertEqual((device.kind, device.display_name, device.address, device.port),
+                         ("vpx_mobile", "iPhone", "192.168.1.50", 2113))
+        self.assertTrue(device.last_reachable, "the answer is state kept beside the entry")
+        self.assertEqual((device.first_seen, device.last_seen), (device.last_reachable,) * 2,
+                         "a mobile device is first seen when it first answers")
+
+    def test_a_mobile_device_is_listed_in_the_configuration_and_not_recorded(self) -> None:
+        with self.assertRaises(ValueError):
+            self.registry.record("Pppp444444", kind="vpx_mobile", address="192.168.1.50")
+
+        add_mobile(self.registry, "Pppp444444")
+        with self.assertRaises(ValueError):
+            self.registry.record("Pppp444444", display_name="renamed")
+
+    def test_state_for_a_device_no_longer_listed_is_not_a_device(self) -> None:
+        add_mobile(self.registry, "Pppp444444")
+        self.registry.record_reachable("Pppp444444")
+        store = self.registry.config()
+        store.set_list("mobile_devices", [])
+        store.save()
+
+        self.assertIsNone(self.registry.get("Pppp444444"))
+
+    def test_forgetting_never_removes_a_listed_mobile_device(self) -> None:
+        add_mobile(self.registry, "Pppp444444")
+
+        self.registry.forget("Pppp444444")
+
+        self.assertIsNotNone(self.registry.get("Pppp444444"))
 
     def test_an_entry_stored_without_a_kind_reads_as_an_install(self) -> None:
         """Losing an entry is worse than mislabelling one, so an unreadable kind falls
@@ -379,19 +406,6 @@ class UnreadableFileTests(unittest.TestCase):
         self.assertEqual(self.path.read_text(encoding="utf-8"), before)
         self.assertEqual(self.registry.self_id(), own)
 
-    def test_holds_others_is_false_for_a_registry_of_only_this_install(self) -> None:
-        self.assertFalse(self.registry.holds_others())
-        self.registry.ensure_self()
-        self.assertFalse(self.registry.holds_others())
-
-    def test_holds_others_is_true_for_another_device_or_an_unreadable_file(self) -> None:
-        self.registry.ensure_self()
-        self.registry.record("Aaaa111111", display_name="cab")
-        self.assertTrue(self.registry.holds_others())
-
-        self.path.write_text("{ torn", encoding="utf-8")
-        self.assertTrue(self.registry.holds_others())
-
 
 class KeepOwnRowTests(unittest.TestCase):
     """A registry put back from a backup must not make this install somebody else."""
@@ -409,8 +423,7 @@ class KeepOwnRowTests(unittest.TestCase):
         own = self.here.ensure_self()
         self.here.set_self(last_table="Here")
         other = self.there.ensure_self()
-        self.there.record("Pppp444444", kind="vpx_mobile", display_name="iPhone",
-                          address="192.168.1.50")
+        self.there.record("Pppp444444", display_name="cab")
 
         keep_own_row(self.incoming, self.current, self.out)
 

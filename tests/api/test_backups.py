@@ -180,8 +180,7 @@ class ListingTests(BackupsCase):
         copy = self.state / "devices.json.vpinfe-20261001T010203Z"
         there = DeviceRegistry(copy)
         other = there.ensure_self()
-        there.record("Pppp444444", kind="vpx_mobile", display_name="iPhone",
-                     address="192.168.1.50")
+        there.record("Pppp444444", display_name="cab", address="192.168.1.50")
 
         self.assertTrue(self.restore(copy).json()["pending"])
         self.assertEqual(pending.apply(self.config), 1)

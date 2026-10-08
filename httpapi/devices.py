@@ -44,7 +44,7 @@ def get_device(device_id: str) -> models.DeviceResource:
     return models.DeviceResource(**device_ops.resource(device_id))
 
 
-@router.put("", summary="Record a device", status_code=200,
+@router.put("", summary="Record an install", status_code=200,
             dependencies=[requires(scopes.DEVICES_WRITE)])
 def announce(request: Request,
              payload: models.DeviceAnnouncement = Body(...)) -> models.DeviceResource:
@@ -52,13 +52,13 @@ def announce(request: Request,
 
     The socket's address is read here and handed over, because it is the one fact only
     this layer has - and an install announcing itself is recorded at where it was heard
-    from, never at an address it named.
+    from, never at an address it named. A VPX Mobile device is refused: it is listed in
+    `PUT /config/mobile_devices`.
     """
     client = getattr(request, "client", None)
     return models.DeviceResource(**device_ops.announce(
         payload.device_id, payload.kind, payload.display_name, payload.features,
         payload.port,
-        declared_address=payload.address,
         heard_from=getattr(client, "host", "") or ""))
 
 
@@ -83,7 +83,7 @@ async def probe_device(device_id: str) -> models.DeviceProbe:
     return models.DeviceProbe(**await run_in_threadpool(device_ops.probe_one, device))
 
 
-@router.delete("/{device_id}", summary="Forget a device", status_code=204,
+@router.delete("/{device_id}", summary="Forget an install", status_code=204,
                dependencies=[requires(scopes.DEVICES_WRITE)])
 def forget(device_id: str) -> Response:
     """Forgetting one that is still running only means it announces itself again."""

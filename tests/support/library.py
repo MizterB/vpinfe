@@ -22,10 +22,23 @@ from common.games.game import Game
 
 def own_registry(case: unittest.TestCase, path: Path | str) -> device_registry.DeviceRegistry:
     """Point this install's device registry at `path` for the test. The process holds one,
-    and without this every test reads and writes the same self row."""
+    and without this every test reads and writes the same self row.
+
+    The mobile devices live in the `vpinfe.json` beside `path`, and the `/config` routes
+    write through `get_ini_config`, so that is pointed at the same file: a route and the
+    registry must see one list.
+    """
+    from unittest.mock import patch
+
+    from common import config_service
+
     device_registry.reset_for_tests(Path(path))
     case.addCleanup(device_registry.reset_for_tests)
-    return device_registry.get_device_registry()
+    registry = device_registry.get_device_registry()
+    patcher = patch.object(config_service, "get_ini_config", lambda: registry.config())
+    patcher.start()
+    case.addCleanup(patcher.stop)
+    return registry
 
 
 def own_locations(case: unittest.TestCase, folder: Path | str):
@@ -155,3 +168,14 @@ def fake_game(folder: Path | str, name: str = "Example", *,
     for key, value in extra.items():
         setattr(game, key, value)
     return game
+
+
+def add_mobile(registry: device_registry.DeviceRegistry, device_id: str, name: str = "iPhone",
+               address: str = "192.168.1.50", port: int = 2112) -> None:
+    """List a VPX Mobile device the way `/config/mobile_devices` does, under an id of the
+    test's choosing."""
+    store = registry.config()
+    store.set_list(device_registry.MOBILE_DEVICES_KEY, [
+        *store.get_list(device_registry.MOBILE_DEVICES_KEY),
+        {"id": device_id, "name": name, "address": address, "port": port}])
+    store.save()

@@ -144,7 +144,7 @@ class AddMobileDevice(unittest.IsolatedAsyncioTestCase):
             dialog.fields["address"].value = typed
             await dialog.keep()
             self.assertEqual(dialog.fields["address"].props["error-message"],
-                             t("console.devices.address_invalid"), typed)
+                             t("error.devices.address_invalid"), typed)
         dialog.probed.assert_not_called()
 
     async def test_a_blank_name_is_stored_as_the_product_name(self) -> None:
@@ -195,12 +195,30 @@ class AddMobileDevice(unittest.IsolatedAsyncioTestCase):
 
 
 class TheRequest(unittest.TestCase):
-    def test_a_device_is_registered_as_a_vpx_mobile_with_the_name_given(self) -> None:
-        with patch.object(ApiClient, "_put", return_value={"device_id": "m1"}) as put:
-            ApiClient().add_device("192.0.2.7", 2112, "Tablet")
-        put.assert_called_once_with("/devices", {
-            "kind": "vpx_mobile", "address": "192.0.2.7", "port": 2112,
-            "display_name": "Tablet"})
+    ITEM = {"id": "m1", "name": "Tablet", "address": "192.0.2.7", "port": 2112}
+
+    def test_a_device_is_listed_as_a_mobile_device_with_the_name_given(self) -> None:
+        with patch.object(ApiClient, "_post", return_value=self.ITEM) as post:
+            added = ApiClient().add_device("192.0.2.7", 2112, "Tablet")
+
+        post.assert_called_once_with("/config/mobile_devices", {
+            "name": "Tablet", "address": "192.0.2.7", "port": 2112})
+        self.assertEqual(added, {"device_id": "m1", "kind": "vpx_mobile",
+                                 "display_name": "Tablet", "address": "192.0.2.7",
+                                 "port": 2112})
+
+    def test_an_edit_rewrites_the_listed_entry_under_its_id(self) -> None:
+        with patch.object(ApiClient, "_put", return_value=self.ITEM) as put:
+            ApiClient().edit_device("m1", "192.0.2.7", 2112, "Tablet")
+
+        put.assert_called_once_with("/config/mobile_devices/m1", {
+            "name": "Tablet", "address": "192.0.2.7", "port": 2112})
+
+    def test_forgetting_a_mobile_device_removes_its_list_entry(self) -> None:
+        with patch.object(ApiClient, "_delete") as delete:
+            ApiClient().forget_device("m1", "vpx_mobile")
+
+        delete.assert_called_once_with("/config/mobile_devices/m1")
 
 
 class SendWithNoMobileDevice(unittest.IsolatedAsyncioTestCase):

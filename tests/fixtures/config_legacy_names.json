@@ -685,18 +685,6 @@
   ],
   [
     "vpxmobile",
-    "deviceip",
-    "vpxmobile",
-    "device_ip"
-  ],
-  [
-    "vpxmobile",
-    "deviceport",
-    "vpxmobile",
-    "device_port"
-  ],
-  [
-    "vpxmobile",
     "renamemasktodefaultini",
     "vpxmobile",
     "send_masked_config"

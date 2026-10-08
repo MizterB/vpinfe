@@ -288,33 +288,54 @@ class ConfigTests(RevertTestCase):
         self.assertIn("watching.json", result["config_removed"])
         self.assertTrue((self.config_dir / "watching.json").exists())
 
-    def test_the_device_registry_is_copied_aside_before_it_goes(self):
-        """A vpx_mobile entry is entered by hand and nothing re-announces it, so the
-        reset is the one place it can be lost for good. The file still goes - 2.x does
-        not read it - but a copy stays behind, and that copy is not itself swept."""
+    def _list_a_mobile_device(self) -> Path:
+        path = self.config_dir / "vpinfe.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["mobile_devices"] = [{"id": "Pppp444444", "name": "iPhone",
+                                   "address": "192.168.1.50", "port": 2112}]
+        path.write_text(json.dumps(data), encoding="utf-8")
+        return path
+
+    def test_the_settings_are_copied_aside_when_they_list_a_mobile_device(self):
+        """A mobile device is entered by hand and nothing re-announces it, so the reset is
+        the one place it can be lost for good. vpinfe.json still goes - 2.x does not read
+        it - but a copy stays behind, and that copy is not itself swept."""
         self._migrate()
-        state = self.config_dir / "state"
-        state.mkdir(exist_ok=True)
-        (state / "devices.json").write_text(
-            json.dumps({"schema": 1, "devices": [
-                {"device_id": "Pppp444444", "kind": "vpx_mobile",
-                 "display_name": "iPhone", "address": "192.168.1.50", "port": 2112}]}),
-            encoding="utf-8")
+        path = self._list_a_mobile_device()
 
         result = self._reset()
 
-        self.assertIn("devices.json", result["config_removed"])
-        self.assertFalse((state / "devices.json").exists())
-
-        kept = [p for p in state.glob("devices.json.vpinfe-*")]
+        self.assertIn("vpinfe.json", result["config_removed"])
+        self.assertFalse(path.exists())
+        kept = list(self.config_dir.glob("vpinfe.json.vpinfe-*"))
         self.assertEqual(len(kept), 1, f"expected one copy, found {kept}")
-        self.assertEqual(sorted(result["config_kept"]), [kept[0].name])
+        self.assertIn(kept[0].name, result["config_kept"])
         saved = json.loads(kept[0].read_text(encoding="utf-8"))
-        self.assertEqual(saved["devices"][0]["address"], "192.168.1.50",
-                         "the phone is recoverable by hand")
+        self.assertEqual(saved["mobile_devices"][0]["address"], "192.168.1.50",
+                         "the device is recoverable by hand")
 
-    def test_a_registry_holding_only_this_install_leaves_no_copy(self):
-        """The next start mints that row again, so there is nothing to recover."""
+    def test_settings_listing_no_device_leave_no_copy(self):
+        self._migrate()
+
+        result = self._reset()
+
+        self.assertIn("vpinfe.json", result["config_removed"])
+        self.assertEqual(result["config_kept"], [])
+
+    def test_a_second_reset_does_not_sweep_the_copy_the_first_kept(self):
+        self._migrate()
+        self._list_a_mobile_device()
+        first = self._reset()["config_kept"]
+        self.assertTrue(first)
+        self._migrate()
+
+        self._reset()
+
+        for name in first:
+            self.assertTrue((self.config_dir / name).exists(), name)
+
+    def test_the_device_registry_goes_without_a_copy(self):
+        """It holds only what the next start mints or hears again."""
         self._migrate()
         state = self.config_dir / "state"
         self.assertTrue((state / "devices.json").exists())
@@ -322,7 +343,7 @@ class ConfigTests(RevertTestCase):
         result = self._reset()
 
         self.assertIn("devices.json", result["config_removed"])
-        self.assertEqual(result["config_kept"], [])
+        self.assertNotIn("devices.json", " ".join(result["config_kept"]))
         self.assertEqual(list(state.glob("devices.json*")), [])
 
     def test_the_roster_is_copied_aside_before_it_goes(self):
@@ -342,13 +363,6 @@ class ConfigTests(RevertTestCase):
         self.assertIn(kept[0].name, result["config_kept"])
         saved = json.loads(kept[0].read_text(encoding="utf-8"))
         self.assertEqual(saved["players"][1]["name"], "Alex")
-
-    def test_nothing_is_kept_when_there_is_no_registry(self):
-        self._migrate()
-
-        result = self._reset()
-
-        self.assertEqual(result["config_kept"], [])
 
     def test_a_half_written_temp_file_is_swept_up(self):
         self._migrate()

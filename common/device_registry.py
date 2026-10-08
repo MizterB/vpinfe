@@ -16,6 +16,11 @@ is this install. A fresh state folder has no `self`, so it mints one - which is 
 image that copies the config folder from cloning an identity. The row carries what VPinFE
 keeps about this install, flat, through `self_get` and `set_self`.
 
+A VPX Mobile device cannot announce itself, so a person types it in and it travels with the
+setup: its name, address and port are an item of `mobile_devices` in `vpinfe.json`. Here it has
+a row of state only - when it last answered and what its browser plays - filed under the same
+id. `devices()` joins the two, and a row whose item is gone is not a device.
+
 Data only. Routing a launch to a chosen device, aggregating state across devices and
 resolving conflicts between them are separate decisions, and none of them are needed to
 tell one device from another.
@@ -33,9 +38,12 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from common import config_schema
 from common.atomic_write import write_atomic
+from common.config_store import ConfigStore
+from common.i18n import t
 from common.install_identity import mint_id
-from common.paths import STATE_DIR
+from common.paths import STATE_DIR, get_ini_config
 from common.timestamps import utc_now_iso
 
 logger = logging.getLogger("vpinfe.common.device_registry")
@@ -45,7 +53,8 @@ SCHEMA = 1
 SCHEMA_KEY = "schema"
 SELF_KEY = "self"
 DEVICES_KEY = "devices"
-MIGRATIONS_KEY = "migrations"
+MOBILE_DEVICES_KEY = "mobile_devices"
+DEFAULT_MOBILE_PORT = 2112
 
 # What a device is, as a closed set. A VPinFE install runs our code and answers for
 # itself; a phone running VPX Mobile never does, and the registry holds everything known
@@ -75,6 +84,25 @@ def browser_said(report: dict[str, Any]) -> dict[str, Any]:
                         if value is None or isinstance(value, bool)}
             if isinstance(formats, dict) else {},
             "checked_at": utc_now_iso()}
+
+
+def address_problem(address: str) -> str:
+    """Why this is not an address to reach a device at, or "" where it is one."""
+    address = (address or "").strip()
+    if not address:
+        return t("error.devices.address_needed")
+    if "/" in address or ":" in address:
+        return t("error.devices.address_invalid")
+    return ""
+
+
+def _refuse_bad_mobile_devices(items: list[dict[str, Any]], _held: list[dict[str, Any]]) -> None:
+    for item in items:
+        if problem := address_problem(str(item.get("address") or "")):
+            raise config_schema.ConfigListError(problem)
+
+
+config_schema.register_validator(MOBILE_DEVICES_KEY, _refuse_bad_mobile_devices)
 
 
 def _as_port(raw: Any) -> int:
@@ -163,17 +191,43 @@ class Device:
 
 
 class DeviceRegistry:
-    """Every device this install knows, read and written whole."""
+    """Every device this install knows, read and written whole.
+
+    The hand-entered devices are read from `vpinfe.json`: this install's own where there is
+    no `path`, and the one beside `path` where there is, so a registry of its own comes with
+    a config of its own.
+    """
 
     def __init__(self, path: Path | str | None = None) -> None:
         self.path = Path(path) if path is not None else DEVICE_REGISTRY_PATH
+        self._own_config = path is None
+        self._config: ConfigStore | None = None
         self._lock = threading.RLock()
+
+    def config(self) -> ConfigStore:
+        """Where the hand-entered devices are listed."""
+        if self._own_config:
+            return get_ini_config()
+        if self._config is None:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._config = ConfigStore(str(self.path.parent / "vpinfe.json"))
+        else:
+            self._config.reread()
+        return self._config
+
+    def _mobile_items(self) -> list[dict[str, Any]]:
+        if (not self._own_config and self._config is None
+                and not (self.path.parent / "vpinfe.json").exists()):
+            return []
+        return [item for item in self.config().get_list(MOBILE_DEVICES_KEY)
+                if isinstance(item, dict) and str(item.get("id") or "").strip()]
 
     # -- reading -------------------------------------------------------------
 
     def devices(self) -> list[Device]:
-        """Every entry, oldest first. An unreadable file is an empty registry, never an
-        error: an install with no devices is the normal case, and so is a first run."""
+        """Every device: the installs it has heard from, oldest first, then the mobile
+        devices in the order they are listed. An unreadable file is an empty registry, never
+        an error: an install with no devices is the normal case, and so is a first run."""
         with self._lock:
             return self._load()
 
@@ -209,11 +263,15 @@ class DeviceRegistry:
         if not wanted:
             logger.debug("Ignoring a registry entry with no device id")
             return None
+        if kind == KIND_VPX_MOBILE:
+            raise ValueError(t("error.devices.mobile_elsewhere"))
 
         now = utc_now_iso()
         with self._lock:
-            devices = {p.device_id: p for p in self._load()}
+            devices = {p.device_id: p for p in self._stored_rows()}
             existing = devices.get(wanted)
+            if wanted in {str(item["id"]).strip() for item in self._mobile_items()}:
+                raise ValueError(t("error.devices.mobile_elsewhere"))
             devices[wanted] = Device(
                 device_id=wanted,
                 kind=kind or (existing.kind if existing else KIND_VPINFE),
@@ -252,27 +310,40 @@ class DeviceRegistry:
         if not wanted:
             return None
         with self._lock:
-            devices = {p.device_id: p for p in self._load()}
-            existing = devices.get(wanted)
+            known = {p.device_id: p for p in self._load()}
+            existing = known.get(wanted)
             if existing is None:
                 # Probing something not in the registry is a caller bug, not a discovery
                 # path: an entry is created by announcing or by a person adding one.
                 return None
-            devices[wanted] = replace(
-                existing, last_reachable=when or utc_now_iso(),
+            seen = when or utc_now_iso()
+            # A mobile device never announces, so the answer to a probe is the only sighting.
+            mobile = existing.kind == KIND_VPX_MOBILE
+            changed = replace(
+                existing, first_seen=existing.first_seen or seen,
+                last_seen=seen if mobile else existing.last_seen,
+                last_reachable=seen,
                 browser=existing.browser if browser is None else dict(browser))
-            self._save(list(devices.values()))
-            return devices[wanted]
+            # Every mobile device a person has removed leaves its row here until a write
+            # like this one, which is the only writer that has read the list.
+            gone = {p.device_id for p in self._stored_rows()
+                    if p.kind == KIND_VPX_MOBILE and p.device_id not in known}
+            rows = {p.device_id: p for p in self._stored_rows() if p.device_id not in gone}
+            rows[wanted] = changed
+            self._save(list(rows.values()))
+            return changed
 
     def forget(self, device_id: str) -> bool:
         """Drop a device. Returns whether there was one to drop - never for this install,
-        whose row holds what it keeps about itself."""
+        whose row holds what it keeps about itself, and never for a mobile device, which is
+        removed from `mobile_devices`."""
         wanted = (device_id or "").strip()
         with self._lock:
             if wanted and wanted == self._stored_self():
                 return False
-            devices = self._load()
-            remaining = [p for p in devices if p.device_id != wanted]
+            devices = self._stored_rows()
+            remaining = [p for p in devices
+                         if p.device_id != wanted or p.kind == KIND_VPX_MOBILE]
             if len(remaining) == len(devices):
                 return False
             self._save(remaining)
@@ -294,7 +365,7 @@ class DeviceRegistry:
             if existing:
                 return existing
             minted = mint_device_id()
-            self._save(self._load(), self_id=minted)
+            self._save(self._stored_rows(), self_id=minted)
             self.record(minted, kind=KIND_VPINFE, heard=False)
             logger.info("Minted install id %s", minted)
             return minted
@@ -302,7 +373,8 @@ class DeviceRegistry:
     def self_get(self, name: str, default: Any = None) -> Any:
         """One field of this install's row, `default` where it is not there. Never writes."""
         with self._lock:
-            row = self.get(self._stored_self())
+            row = next((p for p in self._stored_rows()
+                        if p.device_id == self._stored_self()), None)
             return default if row is None else row.as_dict().get(name, default)
 
     def set_self(self, **fields: Any) -> None:
@@ -313,7 +385,7 @@ class DeviceRegistry:
         """
         with self._lock:
             wanted = self.ensure_self()
-            devices = {p.device_id: p for p in self._load()}
+            devices = {p.device_id: p for p in self._stored_rows()}
             row = devices[wanted].as_dict()
             for name, value in fields.items():
                 if value is None:
@@ -325,33 +397,6 @@ class DeviceRegistry:
                 devices[wanted] = changed
                 self._save(list(devices.values()))
 
-    def holds_others(self) -> bool:
-        """Whether the file has anything a restart would not rebuild: a row besides this
-        install's own, or content that cannot be read."""
-        with self._lock:
-            if not self.path.exists():
-                return False
-            try:
-                json.loads(self.path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                return True
-            mine = self._stored_self()
-            return any(row.device_id != mine for row in self._load())
-
-    # -- one-time conversions ------------------------------------------------
-
-    def has_migrated(self, name: str) -> bool:
-        """Whether this file has already been through the named conversion."""
-        return name in self._stored_migrations()
-
-    def record_migration(self, name: str) -> None:
-        """Say it has, so it is never done to a user's file twice."""
-        with self._lock:
-            names = self._stored_migrations()
-            if name in names:
-                return
-            self._save(self._load(), migrations=names + [name])
-
     def _stored_payload(self) -> dict[str, Any]:
         if not self.path.exists():
             return {}
@@ -361,16 +406,24 @@ class DeviceRegistry:
             return {}
         return payload if isinstance(payload, dict) else {}
 
-    def _stored_migrations(self) -> list[str]:
-        raw = self._stored_payload().get(MIGRATIONS_KEY)
-        return [str(name) for name in raw or [] if str(name).strip()]
-
     def _stored_self(self) -> str:
         return str(self._stored_payload().get(SELF_KEY) or "").strip()
 
     # -- storage -------------------------------------------------------------
 
     def _load(self) -> list[Device]:
+        installs = [device for device in self._stored_rows() if device.kind != KIND_VPX_MOBILE]
+        state = {device.device_id: device for device in self._stored_rows()
+                 if device.kind == KIND_VPX_MOBILE}
+        mobile = [replace(state.get(item["id"]) or Device(device_id=item["id"]),
+                          kind=KIND_VPX_MOBILE,
+                          display_name=str(item.get("name") or ""),
+                          address=str(item.get("address") or ""),
+                          port=_as_port(item.get("port")) or DEFAULT_MOBILE_PORT)
+                  for item in self._mobile_items()]
+        return installs + mobile
+
+    def _stored_rows(self) -> list[Device]:
         if not self.path.exists():
             return []
         try:
@@ -384,24 +437,19 @@ class DeviceRegistry:
         return [device for device in (Device.from_dict(entry) for entry in raw
                                       if isinstance(entry, dict)) if device is not None]
 
-    def _save(self, devices: list[Device], migrations: list[str] | None = None,
-              self_id: str | None = None) -> None:
+    def _save(self, devices: list[Device], self_id: str | None = None) -> None:
         # Never stamp a newer file down to what this build writes - that number belongs
         # to whichever VPinFE wrote it, the same rule the config store follows.
         #
-        # Migrations and `self` are read back rather than held: every other method here
-        # reads the file fresh, so keeping them in memory would let two writers drop each
-        # other's marker, or a save that never minted drop the id.
+        # `self` is read back rather than held: every other method here reads the file
+        # fresh, so a save that never minted would drop the id.
         payload = {SCHEMA_KEY: SCHEMA,
                    SELF_KEY: self._stored_self() if self_id is None else self_id,
-                   MIGRATIONS_KEY: (self._stored_migrations() if migrations is None
-                                    else migrations),
-                   DEVICES_KEY: [device.as_dict() for device in devices]}
+                   DEVICES_KEY: [_stored_row(device) for device in devices]}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._keep_what_cannot_be_read()
         write_atomic(self.path,
                      lambda handle: json.dump(payload, handle, indent=2, ensure_ascii=False))
-
 
     def _keep_what_cannot_be_read(self) -> None:
         """Before a save replaces the file: a file that is not JSON is copied aside first,
@@ -416,6 +464,16 @@ class DeviceRegistry:
             kept = self.path.with_name(f"{self.path.name}.unreadable-{stamp}")
             shutil.copy2(self.path, kept)
             logger.warning("DeviceRegistry at %s is not JSON; kept a copy at %s", self.path, kept)
+
+
+def _stored_row(device: Device) -> dict[str, Any]:
+    """What the state file keeps of a device. A mobile device's name, address and port are
+    in `mobile_devices`; copying them here would leave two answers to one question."""
+    row = device.as_dict()
+    if device.kind == KIND_VPX_MOBILE:
+        for name in ("display_name", "features", "address", "port"):
+            row.pop(name, None)
+    return row
 
 
 _registry: DeviceRegistry | None = None
@@ -444,7 +502,7 @@ def keep_own_row(incoming: Path, current: Path, out: Path) -> None:
     """
     kept = DeviceRegistry(current)
     mine = kept.self_id()
-    own = kept.get(mine) if mine else None
+    own = next((row for row in kept._stored_rows() if row.device_id == mine), None)
     payload = DeviceRegistry(incoming)._stored_payload()
     rows = [row for row in payload.get(DEVICES_KEY) or []
             if isinstance(row, dict) and row.get("device_id") != mine]

@@ -72,48 +72,36 @@ def discovered() -> dict[str, Any]:
 
 
 def announce(device_id: str, kind: str, display_name: str, features: Iterable[str],
-             port: int, *, declared_address: str = "",
-             heard_from: str = "") -> dict[str, Any]:
+             port: int, *, heard_from: str = "") -> dict[str, Any]:
     """Idempotent by `device_id`: announcing twice is one device, heard from twice.
 
-    Which address is kept depends on who is talking. An install announcing itself gets
-    `heard_from` - the socket's address - never one it named: a device behind a router does
-    not know how it is reached, and a caller that could name its own address could name
-    someone else's. A phone is the other case: it is not the one calling, a person is
-    registering it, so `declared_address` is the only address there is.
+    The address kept is `heard_from` - the socket's address - never one the caller named: a
+    device behind a router does not know how it is reached, and a caller that could name its
+    own address could name someone else's.
 
-    A phone with no `device_id` is new, and its id is minted here. That is the only way to
-    add a device that cannot identify itself, and it is why several phones can coexist:
-    each gets its own id rather than one derived from an address they would both change.
+    A VPX Mobile device is not announced. It cannot call, so a person lists it in
+    `mobile_devices`, and the address there is the only one there is.
     """
     device_id = (device_id or "").strip()
-    is_mobile = kind == device_registry.KIND_VPX_MOBILE
-
+    if kind == device_registry.KIND_VPX_MOBILE:
+        raise service_errors.RefusedError(t("error.devices.mobile_in_config"))
     if not device_id:
-        if not is_mobile:
-            raise service_errors.RefusedError(
-                t("error.devices.id_needed"))
-        device_id = device_registry.mint_device_id()
+        raise service_errors.RefusedError(t("error.devices.id_needed"))
 
-    if is_mobile:
-        address = (declared_address or "").strip()
-        if not address:
-            raise service_errors.RefusedError(t("error.devices.address_needed"))
-    else:
-        address = heard_from or ""
-
-    device = get_device_registry().record(
-        device_id,
-        kind=kind,
-        display_name=(display_name or "").strip(),
-        features=tuple(features),
-        address=address,
-        # Declared, unlike the address: the socket says where a request came from, never
-        # what that machine listens on. A device that does not say stays at 0 - what it
-        # was told is read, and nobody is dialled.
-        port=port,
-        heard=not is_mobile,
-    )
+    try:
+        device = get_device_registry().record(
+            device_id,
+            kind=kind,
+            display_name=(display_name or "").strip(),
+            features=tuple(features),
+            address=heard_from or "",
+            # Declared, unlike the address: the socket says where a request came from, never
+            # what that machine listens on. A device that does not say stays at 0 - what it
+            # was told is read, and nobody is dialled.
+            port=port,
+        )
+    except ValueError as exc:
+        raise service_errors.RefusedError(t("error.devices.mobile_in_config")) from exc
     if device is None:
         raise service_errors.RefusedError(t("error.devices.id_needed"))
     return _resource(device)
@@ -166,6 +154,9 @@ def forget(device_id: str) -> None:
     wanted = (device_id or "").strip()
     if wanted and wanted == registry.self_id():
         raise service_errors.RefusedError(t("error.devices.forget_self"))
+    held = registry.get(wanted)
+    if held is not None and held.kind == device_registry.KIND_VPX_MOBILE:
+        raise service_errors.RefusedError(t("error.devices.forget_mobile"))
     if not registry.forget(device_id):
         raise service_errors.NotFoundError(
             t("error.devices.not_found", device_id=(device_id)))

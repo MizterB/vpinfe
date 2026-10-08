@@ -1,55 +1,70 @@
-"""One-time conversions to a user's device registry.
+"""Turning the one mobile device a 2.x install could hold into a listed one.
 
-Separate from `device_registry`, which says what a device is allowed to be.
+Runs inside the conversion of a 2.x ini and consumes the two keys it reads, so a converted
+file never converts again and a device somebody removes does not come back.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
+from common import config_schema
 from common.config_access import cfg_get
-from common.config_store import ConfigStore
-from common.device_registry import KIND_VPX_MOBILE, DeviceRegistry, mint_device_id
+from common.device_registry import (
+    DEFAULT_MOBILE_PORT,
+    MOBILE_DEVICES_KEY,
+    address_problem,
+    mint_device_id,
+)
 
 logger = logging.getLogger("vpinfe.common.device_migration")
 
-# 2.x could hold one mobile device, as two keys in [mobile]. It becomes a registry entry,
-# after which several can coexist and the keys are read by nothing.
-MOBILE_MIGRATION = "mobile_ini_becomes_a_device"
 MOBILE_SECTION = "vpxmobile"
 MOBILE_DISPLAY_NAME = "VPX Mobile"
-DEFAULT_MOBILE_PORT = 2112
+
+# The schema no longer declares these, so a file keeps whichever spelling it was written in.
+_ADDRESS_KEYS = ("device_ip", "deviceip")
+_PORT_KEYS = ("device_port", "deviceport")
 
 
-def ensure_mobile_device(registry: DeviceRegistry, config: ConfigStore) -> int:
-    """Import `[mobile]` as a `vpx_mobile` entry. Returns how many were created.
-
-    Marked whatever the outcome, including when there was nothing to import: the marker
-    records that this build has looked, so a user who later clears the setting does not
-    get the old address back on the next start.
-    """
-    if registry.has_migrated(MOBILE_MIGRATION):
-        return 0
-
-    address = str(cfg_get(config, MOBILE_SECTION, "device_ip", "") or "").strip()
-    existing = [d for d in registry.devices() if d.kind == KIND_VPX_MOBILE]
-    if not address or existing:
-        # An entry already there means someone has configured this since; the ini is the
-        # older statement and must not overwrite it.
-        registry.record_migration(MOBILE_MIGRATION)
-        return 0
-
-    registry.record(mint_device_id(), kind=KIND_VPX_MOBILE,
-                    display_name=MOBILE_DISPLAY_NAME,
-                    address=address, port=_port(config), heard=False)
-    registry.record_migration(MOBILE_MIGRATION)
-    logger.info("Imported [mobile] %s as a device", address)
-    return 1
+def seed(store: Any) -> None:
+    """Give a converted install its mobile device, from the two keys 2.x kept it in."""
+    config = store.config
+    address = _held(config, _ADDRESS_KEYS)
+    if address and address_problem(_bare(address)):
+        logger.warning("Not importing the mobile device at %r: it is not an address", address)
+        address = ""
+    elif address:
+        address = _bare(address)
+        store.set_list(MOBILE_DEVICES_KEY, [
+            *store.get_list(MOBILE_DEVICES_KEY),
+            {"id": mint_device_id(), "name": MOBILE_DISPLAY_NAME,
+             "address": address, "port": _port(_held(config, _PORT_KEYS))}])
+        logger.info("Imported the mobile device at %s", address)
+    if config.has_section(MOBILE_SECTION):
+        for key in (*_ADDRESS_KEYS, *_PORT_KEYS):
+            config.remove_option(MOBILE_SECTION, key)
 
 
-def _port(config: ConfigStore) -> int:
-    raw = cfg_get(config, MOBILE_SECTION, "device_port", "") or DEFAULT_MOBILE_PORT
+def _held(config: Any, keys: tuple[str, ...]) -> str:
+    return next((value for key in keys
+                 if (value := str(cfg_get(config, MOBILE_SECTION, key, "") or "").strip())), "")
+
+
+def _bare(address: str) -> str:
+    """The host alone: 2.x took the field as free text, so a scheme, a path or a port
+    could be in it, and `mobile_devices` takes only the host."""
+    host = address.split("://", 1)[-1].split("/", 1)[0]
+    return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+
+
+def _port(raw: str) -> int:
     try:
-        return int(str(raw).strip() or DEFAULT_MOBILE_PORT)
+        port = int(raw or DEFAULT_MOBILE_PORT)
     except ValueError:
         return DEFAULT_MOBILE_PORT
+    return port if 0 < port < 65536 else DEFAULT_MOBILE_PORT
+
+
+config_schema.register_seed("mobile_devices", seed)

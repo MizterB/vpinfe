@@ -161,8 +161,6 @@
   "vpxmobile": {
     "chunk_size": "1048576",
     "config_mask": "mobile",
-    "device_ip": "",
-    "device_port": "2112",
     "send_masked_config": "false"
   },
   "windows.backglass": {

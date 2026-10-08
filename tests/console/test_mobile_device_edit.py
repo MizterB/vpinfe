@@ -120,7 +120,7 @@ class OnAMobileDevicePanel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.fields.saving("field:0")(""),
                          t("error.devices.address_needed"))
         self.assertEqual(await self.fields.saving("field:0")("http://192.0.2.7"),
-                         t("console.devices.address_invalid"))
+                         t("error.devices.address_invalid"))
         self.assertEqual(await self.fields.saving("field:1")("0"),
                          t("console.devices.port_invalid"))
         self.client.edit_device.assert_not_called()
@@ -206,6 +206,18 @@ class OnAnInstancePanel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_row(rows, t("console.devices.address")), "192.0.2.8")
         self.assertEqual(fields.made, [])
         self.assertEqual(_row(identity, t("word.name")), "lab")
+
+
+class TheForgetQuestion(unittest.TestCase):
+    def test_a_phone_is_not_promised_back_by_the_network(self) -> None:
+        self.assertEqual(devices._forget_detail_key([MOBILE], "console.devices.forget_detail"),
+                         "console.devices.forget_by_hand")
+        self.assertEqual(devices._forget_detail_key([INSTALL, MOBILE], "x"),
+                         "console.devices.forget_by_hand")
+
+    def test_an_install_still_says_it_comes_back_when_seen(self) -> None:
+        self.assertEqual(devices._forget_detail_key([INSTALL], "console.devices.forget_detail"),
+                         "console.devices.forget_detail")
 
 
 if __name__ == "__main__":

@@ -115,12 +115,12 @@ the documented entry point is a plain 200. Both spellings work.
 | PUT | `/api/v1/library/watching` | Set it, `{"since": ...}` |
 | POST | `/api/v1/library/watching/acknowledge` | Dismiss one catalog change, `{"game_id", "kind", "vps_file_id"}` |
 | GET | `/api/v1/devices` | The devices this install knows about |
-| PUT | `/api/v1/devices` | Record a device (idempotent). For a phone, or a device mDNS cannot reach. `port` is declared by the caller — the address is read off the socket, which never says what that device listens on |
+| PUT | `/api/v1/devices` | Record an install (idempotent), for one mDNS cannot reach. `port` is declared by the caller - the address is read off the socket, which never says what that device listens on. A `vpx_mobile` body is refused with `400`: a VPX Mobile device is listed at `/config/mobile_devices` |
 | GET | `/api/v1/devices/discovered` | Installs announcing themselves on this network right now. Announcements, not records: nothing here has been decided about |
 | GET | `/api/v1/devices/{id}` | One device |
 | POST | `/api/v1/devices/probe` | Ask every device whether it is there, and record the ones that answer, with what a frontend device's browser plays as `browser` (see Devices). `unaskable` means there was nothing to dial, which is not the same as down. One that did not answer carries `reason`, in this install's language, and `reason_key`, the catalog key it was read from |
 | POST | `/api/v1/devices/{id}/probe` | Ask one device the same, answering with that one probe. For showing each device as it answers rather than all of them once the slowest has |
-| DELETE | `/api/v1/devices/{id}` | Forget one |
+| DELETE | `/api/v1/devices/{id}` | Forget an install. A VPX Mobile device is refused with `400`; it is removed at `/config/mobile_devices/{id}` |
 | GET | `/api/v1/devices/{id}/games` | What a VPX Mobile device is carrying, asked of the device every time: each `{"folder", "game_id"}`, the id null where the folder is none of this library's games |
 | POST | `/api/v1/devices/{id}/games` | Send games to it, `{"games": [...], "everything": false, "settings": false}`: each game's default table and what it needs, or with `everything` its whole folder. The table's settings file stays home unless `settings` is true; a mobile settings copy (`<table>.<word>.ini`, where the Sending settings turn it on) goes in its place either way. Asks the device first and answers `409` with its reason when it does not answer. Returns `202` and a job |
 | POST | `/api/v1/devices/{id}/games/plan` | The same body, and what it would do that is worth saying first → `{"mobile_settings": [...]}`, the ids of the games that would send a mobile settings file. Changes nothing |
@@ -1469,11 +1469,12 @@ a copy that goes stale by design.
 it off the socket and ignores any the body carries: a device behind a router does not know
 how it is reached, and a caller that could name its own address could name someone else's.
 
-A `vpx_mobile` entry is the other case. The phone is not the caller - a person is
-registering it - so its address is declared in the body and is required, because it is the
-only way to reach it. Such an entry may also omit `device_id`, and one is minted from
-the same generator install ids use. That is what lets several phones coexist: each has an
-id of its own rather than one derived from an address they will both change.
+A `vpx_mobile` device is the other case. The phone is not the caller - a person lists it
+at `/config/mobile_devices` with a `name`, an `address` and a `port` (2112 unless given),
+and the install mints its id from the same generator install ids use. That is what lets
+several phones coexist: each has an id of its own rather than one derived from an address
+they will both change. `/devices` shows it joined with what the install has learned of it:
+`first_seen`, `last_seen`, `last_reachable` and `browser`, empty until something answers.
 
 An install records itself at startup, so it appears in its own registry like anything
 else.
@@ -1487,10 +1488,9 @@ too old to serve the route, or that fails to answer it, keeps what was held. The
 answer carries the same field. An install's own entry is written by its frontend as it
 reports, rather than by probing itself.
 
-An install upgrading from 2.x brings its `[mobile]` address across once, as a
-`vpx_mobile` entry with a minted id. Those keys stay readable and keep their 2.x
-aliases, but nothing reads them at runtime afterwards - the registry is where a
-mobile device lives, which is what allows more than one of them.
+An install upgrading from 2.x brings its `[vpxmobile]` address and port across once, as
+an item of `mobile_devices` named `VPX Mobile`. The keys are removed in the conversion and
+nothing reads them afterwards.
 
 An install that cannot be recorded starts anyway. Being listed costs a label, not a
 capability.

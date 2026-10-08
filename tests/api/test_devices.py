@@ -16,7 +16,7 @@ from unittest.mock import Mock, patch
 import requests
 
 import httpapi
-from common import device_client, jobs
+from common import config_service, device_client, jobs
 from common import device_registry as registry_module
 from common.games import mobile_ops
 from common.i18n import t
@@ -30,8 +30,6 @@ except ImportError:  # pragma: no cover
 CAB = {"device_id": "Aaaa111111", "display_name": "basement cab",
        "features": ["library", "frontend"]}
 DESK = {"device_id": "Bbbb222222", "display_name": "desktop", "features": ["device"]}
-PHONE = {"device_id": "Pppp444444", "display_name": "iPhone",
-         "kind": "vpx_mobile", "address": "192.168.1.50"}
 
 
 @unittest.skipIf(TestClient is None, "starlette test client unavailable")
@@ -46,6 +44,9 @@ class DeviceRegistryApiTests(TempTree):
         also.start()
         self.addCleanup(also.stop)
         # These tests are about remote devices; this install's own row is pinned elsewhere.
+        listing = patch.object(config_service, "get_ini_config", lambda: registry.config())
+        listing.start()
+        self.addCleanup(listing.stop)
         quiet = patch.object(httpapi.instance, "mint_identity", lambda: None)
         quiet.start()
         self.addCleanup(quiet.stop)
@@ -143,12 +144,33 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(self.client.get("/devices").json()["count"], 0,
                          "refused means not stored, not stored-then-complained-about")
 
-    def test_a_kind_round_trips(self) -> None:
-        body = self.client.put("/devices", json=PHONE).json()
+    def _list_mobile(self, name: str = "iPad", address: str = "192.168.1.60",
+                     port: int = 2112) -> dict[str, Any]:
+        """List a VPX Mobile device where a person does, and read it back as a device."""
+        item = self.client.post("/config/mobile_devices", json={
+            "name": name, "address": address, "port": port}).json()
+        return self.client.get(f"/devices/{item['id']}").json()
 
-        self.assertEqual(body["kind"], "vpx_mobile")
-        self.assertEqual(self.client.get(f"/devices/{PHONE['device_id']}").json()["kind"],
+    def test_a_kind_round_trips(self) -> None:
+        phone = self._list_mobile("iPhone", "192.168.1.50")
+
+        self.assertEqual(phone["kind"], "vpx_mobile")
+        self.assertEqual(self.client.get(f"/devices/{phone['device_id']}").json()["kind"],
                          "vpx_mobile")
+
+    def test_an_install_cannot_announce_under_a_listed_mobile_id(self) -> None:
+        listed = self._list_mobile()
+
+        response = self.client.put("/devices", json={"device_id": listed["device_id"]})
+
+        self.assertEqual(response.status_code, 400, response.text)
+
+    def test_a_mobile_device_cannot_announce_itself(self) -> None:
+        response = self.client.put("/devices", json={
+            "device_id": "Pppp444444", "kind": "vpx_mobile", "address": "192.168.1.50"})
+
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(self.client.get("/devices").json()["count"], 0)
 
     def test_an_announcement_with_no_kind_is_a_vpinfe_install(self) -> None:
         """Every device that can announce itself today is one, so the default is the
@@ -160,64 +182,69 @@ class DeviceRegistryApiTests(TempTree):
     def test_a_mobile_device_is_added_without_an_id_and_gets_one(self) -> None:
         """The phone is not the caller - a person is registering it - so it cannot offer
         an id and one is minted here."""
-        body = self.client.put("/devices", json={"kind": "vpx_mobile",
-                                                 "display_name": "iPad",
-                                                 "address": "192.168.1.60"}).json()
+        body = self._list_mobile("iPad", "192.168.1.60")
 
         self.assertTrue(body["device_id"], "an id was minted")
         self.assertEqual(body["address"], "192.168.1.60", "declared, not observed")
         self.assertEqual(self.client.get("/devices").json()["count"], 1)
 
     def test_two_mobile_devices_coexist(self) -> None:
-        """An iPhone and an iPad at once. The singular [mobile] key is what made this
-        impossible, and an id derived from an address would have collapsed them the
-        moment DHCP handed one the other's."""
-        first = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPhone",
-                                                  "address": "192.168.1.50"}).json()
-        second = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
-                                                   "address": "192.168.1.60"}).json()
+        """An iPhone and an iPad at once. An id derived from an address would have
+        collapsed them the moment DHCP handed one the other's."""
+        first = self._list_mobile("iPhone", "192.168.1.50")
+        second = self._list_mobile("iPad", "192.168.1.60")
 
         self.assertNotEqual(first["device_id"], second["device_id"])
         self.assertEqual(self.client.get("/devices").json()["count"], 2)
 
     def test_a_mobile_device_keeps_its_id_when_its_address_changes(self) -> None:
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPhone",
-                                                  "address": "192.168.1.50"}).json()
+        added = self._list_mobile("iPhone", "192.168.1.50")
 
-        moved = self.client.put("/devices", json={"device_id": added["device_id"],
-                                                  "kind": "vpx_mobile",
-                                                  "address": "192.168.1.77"}).json()
+        self.client.put(f"/config/mobile_devices/{added['device_id']}",
+                        json={"name": "iPhone", "address": "192.168.1.77", "port": 2112})
+        moved = self.client.get(f"/devices/{added['device_id']}").json()
 
-        self.assertEqual(moved["device_id"], added["device_id"])
         self.assertEqual(moved["address"], "192.168.1.77")
         self.assertEqual(self.client.get("/devices").json()["count"], 1, "one phone")
 
     def test_a_mobile_device_a_person_wrote_has_not_been_heard_from(self) -> None:
         """Nothing has answered yet, so it is neither seen nor reachable, and rewriting
         its name or address does not make it so."""
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPhone",
-                                                  "address": "192.168.1.50", "port": 2112}).json()
-        edited = self.client.put("/devices", json={"device_id": added["device_id"],
-                                                   "kind": "vpx_mobile", "display_name": "Tablet",
-                                                   "address": "192.168.1.77",
-                                                   "port": 2113}).json()
+        added = self._list_mobile("iPhone", "192.168.1.50")
+        self.client.put(f"/config/mobile_devices/{added['device_id']}",
+                        json={"name": "Tablet", "address": "192.168.1.77", "port": 2113})
+        edited = self.client.get(f"/devices/{added['device_id']}").json()
 
         self.assertEqual((added["last_seen"], added["last_reachable"]), ("", ""))
         self.assertEqual((edited["last_seen"], edited["last_reachable"]), ("", ""))
-        self.assertEqual(edited["first_seen"], added["first_seen"])
         self.assertEqual((edited["display_name"], edited["address"], edited["port"]),
                          ("Tablet", "192.168.1.77", 2113))
 
     def test_a_mobile_device_needs_an_address(self) -> None:
         """Its address is the only way to reach it, and nothing else will supply one."""
-        response = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad"})
+        response = self.client.post("/config/mobile_devices", json={"name": "iPad"})
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(self.client.get("/devices").json()["count"], 0)
+
+    def test_an_address_with_a_scheme_or_a_port_is_refused(self) -> None:
+        response = self.client.post("/config/mobile_devices", json={
+            "name": "iPad", "address": "http://192.168.1.60:2112"})
+
+        self.assertEqual(response.status_code, 400, response.text)
+
+    def test_a_mobile_device_is_forgotten_where_it_is_listed(self) -> None:
+        added = self._list_mobile()
+
+        refused = self.client.delete(f"/devices/{added['device_id']}")
+        gone = self.client.delete(f"/config/mobile_devices/{added['device_id']}")
+
+        self.assertEqual(refused.status_code, 400, refused.text)
+        self.assertEqual(gone.status_code, 204, gone.text)
         self.assertEqual(self.client.get("/devices").json()["count"], 0)
 
     def _send(self, answer: dict[str, str]) -> tuple[Any, Mock]:
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
-                                                  "address": "192.0.2.7", "port": 2112}).json()
+        added = self._list_mobile("iPad", "192.0.2.7")
         submit = Mock(return_value=jobs.Job(id="j1", kind="device_send"))
         with patch.object(device_client, "probe", return_value=answer), \
                 patch.object(mobile_ops.game_repository, "game_folder",
@@ -269,8 +296,7 @@ class DeviceRegistryApiTests(TempTree):
             self.assertEqual(mobile_ops._sending()[0], mobile_ops.mobile_transfer.CHUNK_BYTES)
 
     def test_the_plan_names_the_games_that_would_send_a_mobile_settings_file(self) -> None:
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
-                                                  "address": "192.0.2.7", "port": 2112}).json()
+        added = self._list_mobile("iPad", "192.0.2.7")
         has = self.root / "Alpha"
         has.mkdir()
         (has / "Alpha.vpx").write_bytes(b"vpx")
@@ -288,8 +314,7 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(body["mobile_settings"], ["g1"])
 
     def test_the_plan_names_nothing_while_the_switch_is_off(self) -> None:
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
-                                                  "address": "192.0.2.7", "port": 2112}).json()
+        added = self._list_mobile("iPad", "192.0.2.7")
         has = self.root / "Alpha"
         has.mkdir()
         (has / "Alpha.vpx").write_bytes(b"vpx")
@@ -302,8 +327,7 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(body["mobile_settings"], [])
 
     def test_the_settings_flag_and_the_word_reach_the_transfer(self) -> None:
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
-                                                  "address": "192.0.2.7", "port": 2112}).json()
+        added = self._list_mobile("iPad", "192.0.2.7")
         submit = Mock(return_value=jobs.Job(id="j1", kind="device_send"))
         sent = Mock()
         with self._sending_config(send_masked_config="true", config_mask="mobile"), \
@@ -321,8 +345,7 @@ class DeviceRegistryApiTests(TempTree):
         self.assertEqual(sent.call_args.kwargs["mobile_word"], "mobile")
 
     def test_what_a_device_carries_says_which_library_game_each_folder_is(self) -> None:
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
-                                                  "address": "192.0.2.7", "port": 2112}).json()
+        added = self._list_mobile("iPad", "192.0.2.7")
         game = Mock(game_dir_name="Alpha (Bally 1991)")
         with patch.object(mobile_ops.mobile_transfer, "carried",
                           return_value=["Alpha (Bally 1991)", "Stray"]), \
@@ -335,8 +358,7 @@ class DeviceRegistryApiTests(TempTree):
                                          {"folder": "Stray", "game_id": None}])
 
     def test_a_folder_in_two_locations_is_the_game_of_the_higher_one(self) -> None:
-        added = self.client.put("/devices", json={"kind": "vpx_mobile", "display_name": "iPad",
-                                                  "address": "192.0.2.7", "port": 2112}).json()
+        added = self._list_mobile("iPad", "192.0.2.7")
         lower = Mock(game_dir_name="Alpha (Bally 1991)")
         higher = Mock(game_dir_name="Alpha (Bally 1991)")
         with patch.object(mobile_ops.mobile_transfer, "carried",

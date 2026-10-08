@@ -24,6 +24,7 @@ from common.games.info_maintenance import game_dirs, restore_library
 from common.games.info_migration import (
     RESET,
     backup_names,
+    backup_reason,
     copy_aside,
     needs_migration,
     restorable_backup,
@@ -46,14 +47,12 @@ CONFIG_DIRS = ("theme_user_options",)
 # JSON set aside; the JSON pair is what a restore keeps before it replaces one.
 BACKED_UP_NAMES = ("vpinfe.ini", "vpinfe.json", COLLECTIONS_NAME_INI, COLLECTIONS_NAME)
 
-# Copied aside before removal, and deliberately absent from BACKED_UP_NAMES so the copy
-# outlives the reset. Everything else here is regenerable or has a 2.x original to fall
-# back on; the device registry has neither once it holds a device that cannot announce
-# itself. A phone is entered by hand, nothing re-announces it, and the [mobile] import
-# that could have rebuilt one is marker-guarded and has already run. The roster is the
-# same: every player but the owner is entered by hand, and anything held for a player
-# is filed under their id.
-KEPT_BEFORE_REMOVAL = ("devices.json", "players.json")
+# Copied aside before removal, and the sweep above skips copies made for a reset so these
+# outlive the next one. Everything else here is regenerable or has a 2.x original to fall
+# back on; these two have neither. `vpinfe.json` only when it lists a mobile device, which
+# is entered by hand and which no 2.x ini can rebuild. The roster is the same: every player
+# but the owner is entered by hand, and anything held for a player is filed under their id.
+KEPT_BEFORE_REMOVAL = ("vpinfe.json", "players.json")
 
 # Which of the two baselines the reset produced, reported rather than left to infer.
 RESTORED_FROM_2X = "restored_from_2x"
@@ -177,8 +176,14 @@ def _reset_config(config_dir: Path, state_dir: Path, result: dict, dry_run: bool
 def _kept_sources(config_dir: Path, state_dir: Path) -> list[Path]:
     sources = [(state_dir if name in STATE_FILES else config_dir) / name
                for name in KEPT_BEFORE_REMOVAL]
-    return [path for path in sources
-            if path.name != "devices.json" or DeviceRegistry(path).holds_others()]
+    return [path for path in sources if path.name != "vpinfe.json" or _lists_a_device(path)]
+
+
+def _lists_a_device(settings: Path) -> bool:
+    try:
+        return bool(json.loads(settings.read_text(encoding="utf-8")).get("mobile_devices"))
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 def _keep_aside(config_dir: Path, state_dir: Path, result: dict) -> list[str]:
@@ -247,7 +252,8 @@ def _config_targets(config_dir: Path, state_dir: Path) -> list[Path]:
     targets += [config_dir / name for name in CONFIG_FILES + CONFIG_DIRS
                 if (config_dir / name).exists()]
     for owned in BACKED_UP_NAMES:
-        targets += [config_dir / name for name in backup_names(names, owned)]
+        targets += [config_dir / name for name in backup_names(names, owned)
+                    if backup_reason(name) != RESET]
     return targets + [config_dir / name for name in names if _is_write_temp(name)]
 
 

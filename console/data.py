@@ -759,8 +759,8 @@ class Library:
     def perform_update(self, *, stop_table: bool = False) -> dict:
         return self._client.perform_update(stop_table=stop_table)
 
-    def forget_device(self, device_id: str) -> None:
-        self._client.forget_device(device_id)
+    def forget_device(self, device_id: str, kind: str = "") -> None:
+        self._client.forget_device(device_id, kind)
 
     def actions(self) -> list[dict]:
         """Never cached: whether a thing can be done depends on what is running."""

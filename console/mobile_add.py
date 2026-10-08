@@ -35,13 +35,7 @@ def port_of(text: str) -> int | None:
     return int(text)
 
 
-def address_problem(address: str) -> str:
-    """Why this is not an address to reach a device at, or "" where it is one."""
-    if not address:
-        return t("error.devices.address_needed")
-    if "/" in address or ":" in address:
-        return t("console.devices.address_invalid")
-    return ""
+address_problem = device_registry.address_problem
 
 
 async def _reason_not_answering(address: str, port: int) -> str:

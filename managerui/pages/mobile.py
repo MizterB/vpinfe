@@ -12,6 +12,7 @@ from pathlib import Path
 from nicegui import run, ui
 
 from common.config_access import cfg_get, cfg_set
+from common.config_schema import ConfigListError
 from common.config_store import ConfigStore
 from managerui.paths import VPINFE_INI_PATH, get_games_path
 from managerui.services import game_catalog
@@ -316,7 +317,7 @@ def _send_game_to_device(
             except urllib.error.HTTPError:
                 pass
 
-        CHUNK_SIZE = int(chunk_size)
+        chunk_bytes = int(chunk_size)
 
         for i, (rel_dir, fname, full_path, file_size) in enumerate(all_files):
             if progress_cb:
@@ -333,7 +334,7 @@ def _send_game_to_device(
                     offset = 0
                     chunk_num = 0
                     while offset < file_size:
-                        chunk = f.read(CHUNK_SIZE)
+                        chunk = f.read(chunk_bytes)
                         if not chunk:
                             break
                         chunk_num += 1
@@ -480,21 +481,30 @@ def _fetch_device_folders(host, port):
 def _build_web_send_panel():
     # Load saved connection settings from ini
     cfg = _get_ini_config()
-    saved_ip = cfg_get(cfg, 'Mobile', 'device_ip', '').strip()
-    saved_port = cfg_get(cfg, 'Mobile', 'device_port', '2112').strip()
+    first = next(iter(cfg.get_list('mobile_devices')), {})
+    saved_ip = str(first.get('address') or '').strip()
+    saved_port = str(first.get('port') or '2112').strip()
     saved_chunk = cfg_get(cfg, 'Mobile', 'chunk_size', '1048576').strip()
     saved_rename_mask = cfg_get(cfg, 'vpxmobile', 'send_masked_config', 'false').strip().lower() == 'true'
     saved_rename_mask_value = cfg_get(cfg, 'vpxmobile', 'config_mask', '').strip()
 
-    def _save_ip(e):
-        ip_val = e.value.strip() if e.value else ''
-        cfg_set(cfg, 'vpxmobile', 'device_ip', ip_val)
+    def _save_device(**changes):
+        # The first listed device is the one this panel talks to; none yet makes one.
+        held = cfg.get_list('mobile_devices')
+        device = {'name': 'VPX Mobile', 'address': '', 'port': 2112, **(held[0] if held else {}), **changes}
+        try:
+            cfg.set_list('mobile_devices', [device, *held[1:]])
+        except ConfigListError:
+            return
         cfg.save()
+
+    def _save_ip(e):
+        _save_device(address=e.value.strip() if e.value else '')
 
     def _save_port(e):
         port_val = e.value.strip() if e.value else '2112'
-        cfg_set(cfg, 'vpxmobile', 'device_port', port_val)
-        cfg.save()
+        if port_val.isdigit() and 0 < int(port_val) < 65536:
+            _save_device(port=int(port_val))
 
     def _save_chunk(e):
         chunk_val = e.value.strip() if e.value else '1048576'

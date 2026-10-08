@@ -389,6 +389,12 @@ async def load_actions(library: Any, device: dict[str, Any], local_device_id: st
         return []
 
 
+def _forget_detail_key(devices: list[dict[str, Any]], seen_on_network: str) -> str:
+    """A mobile device is only ever listed by hand, so it does not come back on its own."""
+    listed_by_hand = any(d.get("kind") == device_registry.KIND_VPX_MOBILE for d in devices)
+    return "console.devices.forget_by_hand" if listed_by_hand else seen_on_network
+
+
 @on_page
 async def _confirm_forget(library: Any, device: dict[str, Any],
                           rerender: Callable[[], None] | None) -> None:
@@ -396,11 +402,12 @@ async def _confirm_forget(library: Any, device: dict[str, Any],
     name = device_label(device)
     if not await confirm.ask(
             t("console.devices.forget", name=(name)),
-            detail=t("console.devices.forget_detail"),
+            detail=t(_forget_detail_key([device], "console.devices.forget_detail")),
             confirm=t("word.forget"), icon=verbs.FORGET):
         return
     try:
-        await run.io_bound(library.forget_device, str(device.get("device_id") or ""))
+        await run.io_bound(library.forget_device, str(device.get("device_id") or ""),
+                           str(device.get("kind") or ""))
     except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
         ui.notify(t("console.devices.forget_failed"), caption=_why(exc),
                   type="negative")
@@ -430,13 +437,14 @@ async def _confirm_forget_all(library: Any, devices: list[dict[str, Any]],
         return
     if not await confirm.ask(
             t("console.devices.forget_count", count=len(devices)),
-            detail=t("console.devices.removes_entries_here"),
+            detail=t(_forget_detail_key(devices, "console.devices.removes_entries_here")),
             confirm=t("word.forget"), icon=verbs.FORGET):
         return
     forgot = 0
     for device in devices:
         try:
-            await run.io_bound(library.forget_device, str(device.get("device_id") or ""))
+            await run.io_bound(library.forget_device, str(device.get("device_id") or ""),
+                               str(device.get("kind") or ""))
             forgot += 1
         except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
             ui.notify(t("console.devices.forget_named_failed", name=device_label(device)),

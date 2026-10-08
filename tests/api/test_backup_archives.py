@@ -313,7 +313,7 @@ class RestoringTests(ArchiveCase):
         live = self.state / "devices.json"
         registry = DeviceRegistry(live)
         own = registry.ensure_self()
-        registry.record("Pppp444444", kind="vpx_mobile", address="192.168.1.50")
+        registry.record("Pppp444444", display_name="cab", address="192.168.1.50")
         self.put(self.take("records"))
         registry.forget("Pppp444444")
         part = self.part("VPinFE")

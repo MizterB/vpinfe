@@ -1094,18 +1094,6 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     *in_section(
         "vpxmobile",
         ConfigOption(
-            "device_ip",
-            type="string",
-            default="",
-            aliases=("deviceip",),
-        ),
-        ConfigOption(
-            "device_port",
-            type="int",
-            default="2112",
-            aliases=("deviceport",),
-        ),
-        ConfigOption(
             "chunk_size",
             type="int",
             default="1048576",
@@ -1348,6 +1336,15 @@ CONFIG_LISTS: tuple[ConfigList, ...] = (
                   choices=(("root", "Folder of games"), ("game", "One game folder"))),
         ),
         home="library.folders",
+    ),
+    ConfigList(
+        "mobile_devices",
+        (
+            Field("name", type="string"),
+            Field("address", type="string"),
+            Field("port", type="int", default="2112", minimum=1, maximum=65535),
+        ),
+        home="devices",
     ),
 )
 

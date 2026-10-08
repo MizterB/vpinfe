@@ -48,7 +48,10 @@ apply_configdir_override(sys.argv[1:])
 
 import requests
 
+# device_migration and the games modules below register the seeds the 2.x conversion runs,
+# so they have to be in before the ConfigStore is made.
 from common import (
+    device_migration,  # noqa: F401
     events,
     extensions,
     i18n,
@@ -60,8 +63,6 @@ from common import (
     whats_new,
 )
 from common.config_store import ConfigStore
-
-# Registers the seed the 2.x conversion runs, so it has to be in before the ConfigStore below.
 from common.games import launcher_migration, launchers, library_folders  # noqa: F401
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
@@ -346,17 +347,6 @@ except Exception:
     logger.exception("Collection membership migration failed; memberships left as they were")
 
 shutdown.exit_if_requested(logger)
-
-# The one mobile device [mobile] could describe becomes a registry entry, after which
-# several can coexist and nothing reads those keys at runtime.
-try:
-    from common.device_migration import ensure_mobile_device
-    from common.device_registry import get_device_registry
-    from common.paths import get_ini_config
-    if ensure_mobile_device(get_device_registry(), get_ini_config()):
-        migration_ledger.record("mobile_device", get_version(), 1)
-except Exception:
-    logger.exception("Mobile device import failed; [mobile] left as it was")
 
 # The owner is the one player every install has, and the one up until somebody else is.
 try:

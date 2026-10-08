@@ -1,130 +1,96 @@
-"""Importing the one mobile device `[mobile]` could hold.
+"""The mobile device a 2.x ini held, read out as a listed one.
 
-The marker is the trap. Once it is set the import silently does nothing, which is
-correct for a user's file and fatal for a test: a migration that did not run looks
-exactly like one that passed. Every test here builds a fresh registry, and
-`_unmark` is how a test exercises the same file twice on purpose.
+The seed runs while a 2.x ini is converted, so these drive it against a store the way the
+conversion does: the keys are put in the parser, the seed runs, and what the file holds
+afterwards is what a person gets.
 """
 
 from __future__ import annotations
 
-import json
+import os
 import unittest
-from configparser import ConfigParser
-from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from common import device_migration
 from common.config_store import ConfigStore
-from common.device_migration import MOBILE_MIGRATION, ensure_mobile_device
-from common.device_registry import DeviceRegistry
 
 
-def _config(**mobile) -> ConfigParser:
-    parser = ConfigParser()
-    parser.add_section("vpxmobile")
-    for key, value in mobile.items():
-        parser.set("vpxmobile", key, str(value))
-    return parser
-
-
-class MobileImportTests(unittest.TestCase):
+class SeedTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.path = Path(self.tmp.name) / "devices.json"
-        self.registry = DeviceRegistry(self.path)
+        self.store = ConfigStore(os.path.join(self.tmp.name, "vpinfe.json"))
 
-    def _unmark(self) -> None:
-        """Clear the marker so the import can be asked to run a second time."""
-        payload = json.loads(self.path.read_text(encoding="utf-8"))
-        payload["migrations"] = [n for n in payload.get("migrations", [])
-                                 if n != MOBILE_MIGRATION]
-        self.path.write_text(json.dumps(payload), encoding="utf-8")
+    def _hold(self, **mobile: object) -> None:
+        if not self.store.config.has_section("vpxmobile"):
+            self.store.config.add_section("vpxmobile")
+        for key, value in mobile.items():
+            self.store.config.set("vpxmobile", key, str(value))
 
-    def test_an_address_becomes_a_device(self) -> None:
-        created = ensure_mobile_device(
-            self.registry, _config(device_ip="192.168.1.50", device_port=2112))
+    def _seed(self) -> list[dict]:
+        device_migration.seed(self.store)
+        return self.store.get_list("mobile_devices")
 
-        self.assertEqual(created, 1)
-        device, = self.registry.devices()
-        self.assertEqual(device.kind, "vpx_mobile")
-        self.assertEqual((device.address, device.port), ("192.168.1.50", 2112))
-        self.assertTrue(device.device_id, "an id was minted")
+    def test_an_address_becomes_a_listed_device(self) -> None:
+        self._hold(device_ip="192.168.1.50", device_port=2113)
 
-    def test_an_imported_device_has_not_been_heard_from(self) -> None:
-        ensure_mobile_device(self.registry, _config(device_ip="192.168.1.50"))
+        device, = self._seed()
 
-        device, = self.registry.devices()
-        self.assertEqual((device.last_seen, device.last_reachable), ("", ""))
+        self.assertEqual((device["name"], device["address"], device["port"]),
+                         ("VPX Mobile", "192.168.1.50", 2113))
+        self.assertTrue(device["id"])
 
-    def test_the_port_falls_back_when_the_ini_does_not_say(self) -> None:
-        ensure_mobile_device(self.registry, _config(device_ip="192.168.1.50"))
+    def test_the_port_defaults_when_it_was_never_set_or_is_not_a_number(self) -> None:
+        self._hold(device_ip="192.168.1.50")
+        self.assertEqual(self._seed()[0]["port"], 2112)
 
-        self.assertEqual(self.registry.devices()[0].port, 2112)
+        self.store.set_list("mobile_devices", [])
+        self._hold(device_ip="192.168.1.50", device_port="soon")
+        self.assertEqual(self._seed()[0]["port"], 2112)
 
-    def test_it_runs_once(self) -> None:
-        """A second start must not mint a second entry for the same phone."""
-        config = _config(device_ip="192.168.1.50")
-        self.assertEqual(ensure_mobile_device(self.registry, config), 1)
-        self.assertEqual(ensure_mobile_device(self.registry, config), 0)
+    def test_the_2x_spelling_is_read_too(self) -> None:
+        self._hold(deviceip="10.0.0.9", deviceport=2200)
 
-        self.assertEqual(len(self.registry.devices()), 1)
+        device, = self._seed()
 
-    def test_clearing_the_marker_is_what_lets_it_run_again(self) -> None:
-        """The trap, asserted: without `_unmark` the second call is a silent no-op, so a
-        test that reuses a file proves nothing unless it resets deliberately."""
-        config = _config(device_ip="192.168.1.50")
-        ensure_mobile_device(self.registry, config)
-        self.registry.forget(self.registry.devices()[0].device_id)
+        self.assertEqual((device["address"], device["port"]), ("10.0.0.9", 2200))
 
-        self.assertEqual(ensure_mobile_device(self.registry, config), 0, "marker holds")
-        self._unmark()
-        self.assertEqual(ensure_mobile_device(self.registry, config), 1, "and releases")
+    def test_both_keys_are_consumed_so_it_never_converts_twice(self) -> None:
+        self._hold(device_ip="192.168.1.50", device_port=2112, chunk_size=4096)
 
-    def test_no_address_imports_nothing_and_still_marks(self) -> None:
-        """Marked anyway: the marker records that this build looked, so clearing the
-        setting later does not bring the old address back on the next start."""
-        self.assertEqual(ensure_mobile_device(self.registry, _config()), 0)
+        self._seed()
 
-        self.assertEqual(self.registry.devices(), [])
-        self.assertTrue(self.registry.has_migrated(MOBILE_MIGRATION))
+        self.assertFalse(self.store.config.has_option("vpxmobile", "device_ip"))
+        self.assertFalse(self.store.config.has_option("vpxmobile", "device_port"))
+        self.assertTrue(self.store.config.has_option("vpxmobile", "chunk_size"),
+                        "what is not a device stays")
 
-    def test_an_existing_mobile_device_is_not_overwritten(self) -> None:
-        """Someone configured a phone since; the ini is the older statement."""
-        self.registry.record("Pppp444444", kind="vpx_mobile",
-                             display_name="iPad", address="192.168.1.60", port=2112)
+    def test_no_address_lists_nothing_and_still_clears_a_stray_port(self) -> None:
+        self._hold(device_port=2200)
 
-        self.assertEqual(
-            ensure_mobile_device(self.registry, _config(device_ip="192.168.1.50")), 0)
-        self.assertEqual([d.address for d in self.registry.devices()], ["192.168.1.60"])
+        self.assertEqual(self._seed(), [])
+        self.assertFalse(self.store.config.has_option("vpxmobile", "device_port"))
 
-    def test_an_install_entry_does_not_count_as_a_mobile_one(self) -> None:
-        """An install records itself at startup, so the registry is never empty by the time
-        this runs. Only a vpx_mobile entry means the import has been superseded."""
-        self.registry.record("Aaaa111111", display_name="this install")
+    def test_a_scheme_a_path_or_a_port_in_the_address_is_dropped_from_it(self) -> None:
+        for typed in ("http://192.168.1.50:2112/", "192.168.1.50:2112", "192.168.1.50"):
+            self.store.set_list("mobile_devices", [])
+            self._hold(device_ip=typed)
+            self.assertEqual(self._seed()[0]["address"], "192.168.1.50", typed)
 
-        self.assertEqual(
-            ensure_mobile_device(self.registry, _config(device_ip="192.168.1.50")), 1)
-        self.assertEqual(len(self.registry.devices()), 2)
+    def test_a_port_out_of_range_falls_back_to_the_default(self) -> None:
+        self._hold(device_ip="192.168.1.50", device_port=70000)
+
+        self.assertEqual(self._seed()[0]["port"], 2112)
+
+    def test_an_address_that_cannot_be_repaired_lists_nothing_and_is_cleared(self) -> None:
+        self._hold(device_ip="fe80::1")
+
+        self.assertEqual(self._seed(), [])
+        self.assertFalse(self.store.config.has_option("vpxmobile", "device_ip"))
+
+    def test_a_file_with_no_mobile_section_is_left_alone(self) -> None:
+        self.assertEqual(self._seed(), [])
 
 
-class RealIniTests(unittest.TestCase):
-    """Through a ConfigStore rather than a hand-built parser, because the ini a user
-    actually upgrades from says `DeviceIP`, and the canonical key it resolves to is
-    the only thing the migration ever asks for."""
-
-    def test_a_2x_ini_produces_exactly_one_mobile_device(self) -> None:
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "vpinfe.ini").write_text(
-                "[Settings]\ntheme = Revolution\n\n"
-                "[Mobile]\nDeviceIP = 192.168.1.42\nDevicePort = 2112\n",
-                encoding="utf-8")
-            registry = DeviceRegistry(root / "devices.json")
-
-            created = ensure_mobile_device(registry, ConfigStore(str(root / "vpinfe.ini")))
-
-            self.assertEqual(created, 1)
-            device, = registry.devices()
-            self.assertEqual((device.kind, device.address, device.port),
-                             ("vpx_mobile", "192.168.1.42", 2112))
+if __name__ == "__main__":
+    unittest.main()
