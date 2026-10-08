@@ -68,7 +68,7 @@ class FoldersPageDrive(unittest.TestCase):
             seen["body"] = await browser.evaluate(BODY)
             seen["rows"] = await browser.evaluate(ROW_TEXTS)
 
-            await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=0),
+            await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=1),
                            until=f"document.querySelectorAll({json.dumps(MENU_ITEMS)}).length > 0")
             seen["menu_first"] = await browser.evaluate(MENU_TEXTS)
             await browser.press("Escape", "Escape")
@@ -87,7 +87,7 @@ class FoldersPageDrive(unittest.TestCase):
             await browser.wait_for(f"document.querySelectorAll({json.dumps(ROWS)}).length === 2")
             seen["after_undo"] = await browser.evaluate(ROW_TEXTS)
 
-            await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=0),
+            await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=1),
                            until=f"document.querySelectorAll({json.dumps(MENU_ITEMS)}).length > 0")
             await browser.evaluate(choose(t("console.theme_sources.move_down")))
             await browser.wait_for(
@@ -97,7 +97,7 @@ class FoldersPageDrive(unittest.TestCase):
                 one["path"] for one in json.load(urllib.request.urlopen(
                     instance.console_url("/api/v1/locations"), timeout=10))["locations"]]
 
-            await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=0),
+            await walk.act(lambda: browser.click(f"{ROWS} .q-btn", nth=1),
                            until=f"document.querySelectorAll({json.dumps(MENU_ITEMS)}).length > 0")
             await browser.evaluate(choose(t("console.folders.put_here")))
             chip = json.dumps(t("console.folders.new_games"))
