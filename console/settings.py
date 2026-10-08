@@ -228,15 +228,16 @@ def _fallback_number(option: dict, kind: str) -> Any:
 
 
 def _browse_path(browse: Callable[..., dict] | None, kind: str, suffixes: tuple[str, ...],
-                 opens_at: str = "") -> Callable[[str], Any] | None:
-    """`panel.field`'s own `browse`, opening the picker at the field's current value, or
-    at the folder a blank field stands for."""
+                 default: str = "") -> Callable[[str], Any] | None:
+    """`panel.field`'s own `browse`, opening the picker at the field's current value. A
+    field holding its default opens at the nearest folder of it that is there."""
     if browse is None:
         return None
 
     async def browsed(current: str) -> str | None:
-        return await folder_picker.pick_path(browse, current or opens_at, kind=kind,
-                                             suffixes=suffixes)
+        return await folder_picker.pick_path(browse, current or default, kind=kind,
+                                             suffixes=suffixes,
+                                             nearest=bool(default) and current in ("", default))
 
     return browsed
 
@@ -373,11 +374,13 @@ def control_for(option: dict, value: Any, save: Callable[[Any], Any], *,
             if await save(text) and rerender is not None:
                 rerender()
 
+        stands_for = str(option.get("default_path") or "")
         return panel.field(str(value or ""), save_path, disabled=off, status=state,
                            placeholder=blank, left_empty=str(option.get("left_empty") or ""),
+                           default=stands_for, whose=str(option.get("default_whose") or ""),
                            browse=_browse_path(browse, str(option["path"]),
                                               tuple(option.get("suffixes") or ()),
-                                              str(option.get("opens_at") or "")))
+                                              stands_for))
     return panel.field(str(value or ""), lambda text: save(text), disabled=off,
                        placeholder=blank)
 
@@ -1234,13 +1237,13 @@ def _left_empty(row: dict) -> dict[str, str]:
 
 
 def with_default_paths(schema: list[dict], checks: list[dict]) -> list[dict]:
-    """Each blank path setting saying, left empty, the folder it stands for: the same
-    placeholder and tooltip a discovered Tool has, with the path alone for words because
-    nothing was found, VPinFE chose it."""
+    """Each blank path setting holding, left empty, the folder it stands for as its text,
+    and saying on hover that VPinFE chose it."""
     stands_for = {(str(check.get("section") or ""), str(check.get("key") or "")):
                   str(check["default"]) for check in checks or [] if check.get("default")}
+    whose = t("console.workbench.app_default", app="VPinFE")
     return [{**block, "options": [
-        {**option, "blank": found, "left_empty": found, "opens_at": found}
+        {**option, "default_path": found, "default_whose": whose}
         if (found := stands_for.get((str(block.get("name") or ""), str(option.get("key") or ""))))
         else option for option in block.get("options") or []]} for block in schema]
 

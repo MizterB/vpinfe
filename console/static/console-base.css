@@ -2601,6 +2601,19 @@ body.console-dragging-rows .q-drawer--mini .console-rail-drops {
    A field that draws any of them in its append slot wears .console-adorned. */
 .console-adorned .q-field__append .q-icon { font-size: var(--icon-mark); }
 .console-adorned div.console-value-state { display: flex; align-items: center; }
+/* A path that is cut shows its end, so the start gives way to an ellipsis. The input is
+   scrolled to its end by the page script and gets the ellipsis on its field only while the
+   start is out of view; focused, it reads as typed. */
+.q-field.console-path-cut:not(.q-field--focused) .q-field__control-container::before {
+  content: "…";
+  position: absolute; left: 0; top: 0; bottom: 0;
+  display: flex; align-items: center;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+.q-field.console-path-cut:not(.q-field--focused) input.console-path-input {
+  padding-left: 1.2ch;
+}
 /* A refused field shows Quasar's error mark alone; the tick beside it would say the opposite. */
 .console-adorned.q-field--error .console-value-state { display: none; }
 /* No cap. 56ch was tried and cropped "/Users/.../VPinballX/10.8/VPinballX.ini" with room

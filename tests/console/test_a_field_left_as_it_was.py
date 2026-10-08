@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 
 from nicegui import core, ui
 
-from console import panel
+from console import panel, verbs
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -97,7 +97,7 @@ class AFieldLeftAsItWas(unittest.TestCase):
         async def run() -> None:
             drawn["holder"] = _drawn("", saved, browse=browse)
             button = next(one for one in drawn["holder"].descendants()
-                          if isinstance(one, ui.button))
+                          if isinstance(one, ui.button) and one.props.get("icon") == verbs.BROWSE)
             said(button, "click")
             await _settled()
 

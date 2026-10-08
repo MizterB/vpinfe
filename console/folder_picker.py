@@ -52,20 +52,43 @@ def _last_name(path: str) -> str:
     return re.split(r"[\\/]", path.rstrip("\\/"))[-1] or path
 
 
+def _enclosing(path: str) -> str:
+    """The folder that holds `path`, as text, or "" at the top of it."""
+    trimmed = path.rstrip("\\/")
+    cut = max(trimmed.rfind("/"), trimmed.rfind("\\"))
+    if cut < 0:
+        return ""
+    head = trimmed[:cut]
+    return trimmed[:cut + 1] if not head or head.endswith(":") else head
+
+
 @on_page
 async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
-                    kind: str = "dir", suffixes: tuple[str, ...] = ()) -> str | None:
+                    kind: str = "dir", suffixes: tuple[str, ...] = (),
+                    nearest: bool = False) -> str | None:
     """The chosen path, or None where the dialog was cancelled.
 
     A `start` that cannot be listed opens at the kind's own start, saying why, instead
     of failing to open at all - the field it came from may hold a path from a mount that
     has since gone away, or one inside a private folder.
+
+    With `nearest`, a `start` that is not there opens at the closest folder above it that
+    is, saying nothing.
     """
     refused: Exception | None = None
+    here: Any = None
     try:
         here = await offload.io(list_entries, start, kind, suffixes)
     except Exception as exc:  # noqa: BLE001 - a stale saved path is not a reason to refuse
         refused = exc
+        above = _enclosing(start) if nearest else ""
+        while above and here is None:
+            try:
+                here = await offload.io(list_entries, above, kind, suffixes)
+                refused = None
+            except Exception:  # noqa: BLE001 - keep climbing
+                above = _enclosing(above)
+    if here is None:
         here = await offload.io(list_entries, "", kind, suffixes)
 
     picked = start if kind != "dir" and any(

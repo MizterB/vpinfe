@@ -694,6 +694,49 @@ def repaint(mode: str) -> None:
         f"{json.dumps(palette_css(mode))};")
 
 
+# A path field that is not focused shows the end of its path, with `console-path-cut` on
+# the field while the start is out of view. The browser is what changes a field's text, so
+# the page watches for fields arriving and for focus leaving; the server calls
+# `consolePathEnd` after it sets a value itself.
+PATH_ENDS_JS = """
+(() => {
+  const INPUT = 'input.console-path-input';
+  const settle = (input) => {
+    const field = input.closest('.q-field');
+    if (!field) return;
+    field.classList.remove('console-path-cut');
+    if (document.activeElement === input) return;
+    input.scrollLeft = input.scrollWidth;
+    if (input.scrollLeft > 0) {
+      field.classList.add('console-path-cut');
+      input.scrollLeft = input.scrollWidth;
+    }
+  };
+  const every = () => document.querySelectorAll(INPUT).forEach(settle);
+  window.consolePathEnd = (id) => setTimeout(() => {
+    const input = document.getElementById(id);
+    if (input) settle(input);
+  }, 60);
+  for (const type of ['focusin', 'focusout']) {
+    document.addEventListener(type, (event) => {
+      if (event.target.matches && event.target.matches(INPUT)) {
+        setTimeout(() => settle(event.target), 0);
+      }
+    }, true);
+  }
+  let waiting = false;
+  const brings = (node) => node.nodeType === 1 &&
+    (node.matches(INPUT) || node.querySelector(INPUT) !== null);
+  new MutationObserver((records) => {
+    if (waiting || !records.some((r) => [...r.addedNodes].some(brings))) return;
+    waiting = true;
+    requestAnimationFrame(() => { waiting = false; every(); });
+  }).observe(document.body, {childList: true, subtree: true});
+  window.addEventListener('resize', every);
+})();
+"""
+
+
 def apply_flair(mode: str = DEFAULT_MODE) -> None:
     """The palette in the page, the rules from a file.
 
@@ -708,6 +751,7 @@ def apply_flair(mode: str = DEFAULT_MODE) -> None:
     """
     ui.add_head_html(f'<style id="{PALETTE_ID}">{palette_css(mode)}</style>')
     ui.add_head_html(f'<link rel="stylesheet" href="{BASE_HREF}">')
+    ui.add_body_html(f"<script>{PATH_ENDS_JS}</script>")
 
 
 def apply_surface(name: str) -> None:

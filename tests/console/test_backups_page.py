@@ -109,7 +109,7 @@ class Acts(unittest.TestCase):
 
     def test_copy_path_is_a_one_at_a_time_verb(self) -> None:
         row = backups.rows([_copy()])[0]
-        copy_path = t("console.backups.copy_path")
+        copy_path = t("word.copy_path")
 
         one = {v.label: v for v in self._acts(row)}[copy_path]
         several = {v.label: v for v in panel.for_selection(self._acts(row, row), 2)}[copy_path]

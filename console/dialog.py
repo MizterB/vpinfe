@@ -9,6 +9,7 @@ from nicegui.events import ValueChangeEventArguments
 
 from common.i18n import t
 from console import panel, verbs, walks
+from console.on_page import on_page
 
 
 @contextmanager
@@ -75,14 +76,17 @@ def field(value: str = "", *, placeholder: str = "", lines: int = 0,
         control = ui.input(value=value, placeholder=placeholder) \
             .props("dense borderless debounce=0").classes("console-edit-field")
         if browse is not None:
+            @on_page
             async def browsed() -> None:
                 chosen = await browse(control.value or "")
                 if chosen and not control.is_deleted:
                     control.value = chosen
+                    panel.path_ends(control)
 
             control.classes("console-adorned")
+            panel.path_input(control)
             with control.add_slot("append"):
-                panel.browse_button(browsed)
+                panel.path_buttons(control, browsed)
         return control
 
 

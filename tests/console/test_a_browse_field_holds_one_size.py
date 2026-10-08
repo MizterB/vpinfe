@@ -26,9 +26,12 @@ def _says_the_class(function: ast.AST) -> bool:
                for call in ast.walk(function))
 
 
+BROWSE_DRAWERS = ("browse_button", "path_buttons")
+
+
 def _draws_browse(function: ast.AST) -> bool:
     return any(isinstance(node, ast.Call)
-               and getattr(node.func, "id", getattr(node.func, "attr", "")) == "browse_button"
+               and getattr(node.func, "id", getattr(node.func, "attr", "")) in BROWSE_DRAWERS
                for node in ast.walk(function))
 
 
@@ -42,7 +45,7 @@ def _browse_fields() -> list[tuple[str, ast.FunctionDef, bool]]:
     for path in sorted(CONSOLE.glob("*.py")):
         for node in trees.tree_for(path).body:
             if (isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-                    and node.name != "browse_button"
+                    and node.name not in BROWSE_DRAWERS
                     and _draws_browse(node)):
                 found.append((f"console/{path.name}:{node.lineno} {node.name}", node,
                               _says_the_class(node)))

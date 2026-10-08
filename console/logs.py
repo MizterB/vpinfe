@@ -269,7 +269,7 @@ def _file_menu(library: Library, held: dict[str, Any],
             .classes("console-menu-item")
         if held["path"]:
             # In the browser at the click, which is the only moment it will copy.
-            ui.menu_item(t("console.logs.copy_path")) \
+            ui.menu_item(t("word.copy_path")) \
                 .classes("console-menu-item") \
                 .on("click", lambda event: about.copied(bool(event.args), held["path"]),
                     js_handler=about.COPY_JS % json.dumps(held["path"]))

@@ -314,7 +314,8 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
           browse: Callable[[str], Any] | None = None,
           on_control: Callable[[Any], Any] | None = None,
           prefix: str = "", suffix: str = "", wrap: bool = False,
-          held: dict[str, str] | None = None) -> Callable[[], None]:
+          held: dict[str, str] | None = None,
+          default: str = "", whose: str = "") -> Callable[[], None]:
     """Free text the user can set.
 
     Written when you leave it or when you press Enter, and `debounce=0` is what makes
@@ -335,9 +336,14 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
 
     With `left_empty`, a one-line field's tooltip holds its value, else `left_empty`.
 
-    `browse` draws beside `status` in the same slot. It takes the field's current value
-    and answers the path chosen, or nothing where browsing was cancelled; a path it
-    answers goes through `leave` exactly as typing and leaving does.
+    `browse` makes it a path field. It takes the field's current value and answers the
+    path chosen, or nothing where browsing was cancelled; a path it answers goes through
+    `leave` exactly as typing and leaving does. A path field shows its end while it is not
+    focused, copies its path, and says the whole path on hover over its text alone.
+
+    `default` is the path in use while the field is empty: it is the field's text, quiet,
+    and `whose` says whose it is on hover. Typing it, or choosing it, clears the setting.
+    Any other path draws the dot before it and Reset after it.
 
     `prefix` and `suffix` are drawn around a one-line field's text without being part of
     it: what is typed, and what is saved, is the middle.
@@ -351,8 +357,43 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
     """
     held = {} if held is None else held
     held["was"] = value or ""
+    path = browse is not None
+    marks = path and bool(default)
+    tip = PathTip()
+    parts: dict[str, Any] = {}
+
+    def show(control: Any) -> None:
+        """The dot, Reset, the quiet ink and the hover for what the field holds."""
+        current = str(control.value or "")
+        changed = marks and bool(current) and current != default
+        parts["dot"].set_visibility(changed)
+        parts["row"].classes(add=None if changed else "console-field-row--default",
+                             remove="console-field-row--default" if changed else None)
+        tip.say(t("console.workbench.changed_from", value=default, whose=whose) if changed
+                else whose)
+        if parts.get("changed") is changed:
+            return
+        parts["changed"] = changed
+        parts["end"].clear()
+        if changed and not disabled:
+            @on_page
+            async def back() -> None:
+                control.value = default
+                await leave(control, default)
+                path_ends(control)
+
+            with parts["end"]:
+                icon_action(t("word.reset"), back, icon=verbs.RESET,
+                            hint=t("console.workbench.back_to", value=default,
+                                   whose=whose))()
 
     async def leave(control: ui.input, text: str) -> None:
+        if marks:
+            text = "" if text == default else text
+            if not text and not control.is_deleted:
+                control.value = default
+                path_ends(control)
+            show(control)
         if text == held["was"]:
             return
         said = on_save(text)
@@ -369,6 +410,19 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
             control.update()
 
     def draw() -> None:
+        if not marks:
+            draw_control()
+            return
+        with ui.row().classes("items-center gap-1 no-wrap console-field-line"):
+            with ui.row().classes("items-center gap-1 no-wrap console-field-row") as row:
+                parts["row"] = row
+                parts["dot"] = ui.element("span").classes(
+                    "console-mark console-mark--full console-named-mark")
+                control = draw_control()
+            parts["end"] = ui.element("div").classes("console-row-action")
+        show(control)
+
+    def draw_control() -> Any:
         with ui.element("div").classes("console-fact-edit"):
             control: ui.textarea | ui.input
             if lines:
@@ -379,7 +433,7 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                 control.on_value_change(lambda: on_save(control.value or ""))
             else:
                 control = (ui.textarea if wrap else ui.input)(placeholder=placeholder)
-                control.value = value
+                control.value = value or (default if marks else "")
                 control.props("dense borderless debounce=0" + (" autogrow" if wrap else "")) \
                     .classes("console-edit-field")
                 if prefix:
@@ -389,7 +443,9 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                 control.on("blur", lambda: leave(control, control.value or ""))
                 control.on("keydown.enter.prevent" if wrap else "keydown.enter",
                            lambda: control.run_method("blur"))
-                if left_empty:
+                if path:
+                    path_input(control, tip, empty_says=left_empty)
+                elif left_empty:
                     with control:
                         ui.tooltip().bind_text_from(
                             control, "value", backward=lambda said: said or left_empty)
@@ -407,13 +463,17 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                                 if not control.is_deleted:
                                     control.value = chosen
                                 await leave(control, chosen)
+                                if not control.is_deleted:
+                                    path_ends(control)
 
-                            browse_button(_browsed)
+                            path_buttons(control, _browsed)
             if disabled:
                 control.disable()
             if on_control is not None:
                 on_control(control)
+        return control
 
+    setattr(draw, "path_tip", tip if path else None)  # noqa: B010 - read by `_marked`
     return draw
 
 
@@ -822,6 +882,83 @@ def browse_button(on_click: Callable[[], Any]) -> ui.button:
         .props("flat round dense").tooltip(t("console.folder_picker.browse"))
 
 
+PATH_INPUT = "console-path-input"
+
+
+class PathTip:
+    """What a path's hover says after the path: whose it is. `say` redraws the tooltip."""
+
+    def __init__(self) -> None:
+        self.whose = ""
+        self.redraw: Callable[[], None] | None = None
+
+    def say(self, whose: str) -> None:
+        self.whose = whose
+        if self.redraw is not None:
+            self.redraw()
+
+
+def native_id(control: ui.input) -> str:
+    """The id of the browser input inside a path field, which Quasar gives the field's `for`."""
+    return "pf" + str(control.id)
+
+
+def path_input(control: ui.input, tip: PathTip | None = None, *,
+               empty_says: str = "") -> PathTip:
+    """Make `control` a path's input: its end showing while it is not focused, and a
+    tooltip on the text alone.
+
+    The tooltip targets the native input, not the field. Quasar draws the append slot
+    inside the field, so a tooltip that is a child of it also fires over Copy path and
+    Browse, and the buttons' own tips sit on top of it.
+    """
+    tip = tip or PathTip()
+    native = native_id(control)
+    control.props(f"for={native} input-class={PATH_INPUT}")
+    with control:
+        hover = ui.tooltip().props(f'target="#{native}" anchor="bottom left" self="top left"')
+
+    def redraw() -> None:
+        path = str(control.value or "")
+        said = "\n".join(line for line in (path, tip.whose if path else "") if line) \
+            or empty_says
+        hover.text = said
+        if said:
+            hover.props(remove="no-parent-event")
+        else:
+            hover.props("no-parent-event")
+
+    control.on_value_change(redraw)
+    tip.redraw = redraw
+    redraw()
+    return tip
+
+
+def path_ends(control: ui.input) -> None:
+    """Put the end of the path back in view after the value is set from here: the page
+    script does it for what the browser changes."""
+    ui.run_javascript(f"window.consolePathEnd && consolePathEnd('{native_id(control)}')")
+
+
+def copy_path(control: ui.input) -> ui.button:
+    """Copy path, drawn in a path field's append slot. It copies what the field holds, in
+    the browser at the click, which is the only moment it will copy."""
+    from console import about
+
+    button = ui.button(icon=verbs.COPY).props("flat round dense").tooltip(t("word.copy_path"))
+    button.props["aria-label"] = t("word.copy_path")
+    button.on("click", lambda event: about.copied(bool(event.args), str(control.value or "")),
+              js_handler=about.COPY_JS % f"document.getElementById('{native_id(control)}').value")
+    button.bind_visibility_from(control, "value", backward=bool)
+    return button
+
+
+def path_buttons(control: ui.input, browsed: Callable[[], Any]) -> None:
+    """Copy path, then Browse, into the append slot being drawn."""
+    copy_path(control)
+    browse_button(browsed)
+
+
 def path_field(placeholder: str = "", *, wants: str, value: str = "",
                width: str = "w-96",
                on_checked: Callable[[str, str], str] | None = None,
@@ -853,13 +990,18 @@ def path_field(placeholder: str = "", *, wants: str, value: str = "",
         if browse is not None:
             from console import folder_picker
 
+            @on_page
             async def _browsed() -> None:
                 chosen = await folder_picker.pick_path(
                     browse, control.value or opens_at, kind=wants, suffixes=suffixes)
                 if chosen:
                     control.value = chosen
+                    path_ends(control)
 
-            browse_button(_browsed)
+            path_buttons(control, _browsed)
+        else:
+            copy_path(control)
+    path_input(control)
     seen: dict[str, Any] = {"was": object()}
 
     async def look() -> None:

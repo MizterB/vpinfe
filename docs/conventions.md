@@ -795,6 +795,17 @@ a folder, and this wants a file" is the useful half of the answer. Browse opens
 for a `file` field, narrowed to `suffixes`. The same mark answers for a stored path once
 it has been written, from the same vocabulary.
 
+A path field shows its **end** while it is not focused: the folder you are in matters more
+than the drive it hangs from, and a cut start is marked with an ellipsis. Focused, it scrolls
+back to the caret like any input. Hover over its text answers the whole path, then whose it
+is, and **Copy path** sits beside Browse. Each control answers with one tooltip, so the
+path's own sits on the input rather than on the field around Copy and Browse.
+
+A path with a default shows it, quiet, as the field's text, and whose it is on hover. Typing
+the default or choosing it clears the setting; any other path draws the dot before it and
+Reset after it. Browse opens at the field's path, else at the default, else at the nearest
+folder above a default that is not there yet, saying nothing of the climb.
+
 The picker's **Where** is one dropdown and it is the path: beside Up, the current folder's
 whole path with that folder's icon, a long one giving up its start to an ellipsis so the
 folder you are in stays readable. Its menu lists the current folder (ticked, and choosing

@@ -17,15 +17,12 @@ SCHEMA = [{"name": "backups", "options": [{"key": "folder", "path": "dir"}]},
 
 
 class DefaultPathsCase(unittest.TestCase):
-    def test_a_path_with_a_default_shows_it_as_placeholder_and_tooltip(self) -> None:
+    def test_a_path_with_a_default_holds_it_and_says_whose_it_is(self) -> None:
         drawn = settings.with_default_paths(SCHEMA, CHECKS)
         option = drawn[0]["options"][0]
-        self.assertEqual(option["blank"], "/cfg/backups")
-        self.assertEqual(option["left_empty"], "/cfg/backups")
-
-    def test_the_browse_dialog_opens_at_the_default_while_the_field_is_blank(self) -> None:
-        option = settings.with_default_paths(SCHEMA, CHECKS)[0]["options"][0]
-        self.assertEqual(option["opens_at"], "/cfg/backups")
+        self.assertEqual(option["default_path"], "/cfg/backups")
+        self.assertEqual(option["default_whose"], "VPinFE's default")
+        self.assertNotIn("blank", option)
 
     def test_a_path_without_one_is_left_as_it_was(self) -> None:
         self.assertEqual(settings.with_default_paths(SCHEMA, CHECKS)[1], SCHEMA[1])

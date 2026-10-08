@@ -411,7 +411,7 @@ def acts(library: Library, rows_on: list[dict[str, Any]],
         t("word.restore"),
         (lambda: restore(library, rows_on, refresh, check=check)) if present else None,
         hint="" if present else t("console.backups.owner_gone"))]
-    entries.append(panel.Verb(t("console.backups.copy_path"),
+    entries.append(panel.Verb(t("word.copy_path"),
                               draw=_copy_path(rows_on[0]["path"]), one=True))
     if not any(one["within"] for one in rows_on):
         entries.append(panel.Verb(t("word.delete"), lambda: delete(library, rows_on, refresh),
@@ -422,7 +422,7 @@ def acts(library: Library, rows_on: list[dict[str, Any]],
 def _copy_path(path: str) -> Callable[[Callable[[], Any]], None]:
     def draw(_close: Callable[[], Any]) -> None:
         # In the browser at the click, which is the only moment it will copy.
-        ui.menu_item(t("console.backups.copy_path")).classes("console-menu-item") \
+        ui.menu_item(t("word.copy_path")).classes("console-menu-item") \
             .on("click", lambda event: about.copied(bool(event.args), path),
                 js_handler=about.COPY_JS % json.dumps(path))
     return draw
