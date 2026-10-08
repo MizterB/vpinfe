@@ -210,5 +210,20 @@ class ReadAtActionTimeTests(unittest.TestCase):
         self.assertEqual([row.get("kind") for row in chosen.rows()], ["new", None])
 
 
+class FocusEvents(unittest.TestCase):
+    """A focus on the checkbox column is a choice of rows, not of a row to show."""
+
+    def test_the_checkbox_column_is_a_tick(self) -> None:
+        event = SimpleNamespace(args={"col": "ag-Grid-SelectionColumn", "id": "a"})
+
+        self.assertTrue(grid.ticked(event))
+
+    def test_any_other_column_is_a_row_to_show(self) -> None:
+        self.assertFalse(grid.ticked(SimpleNamespace(args={"col": "name", "id": "a"})))
+
+    def test_an_event_without_a_column_is_a_row_to_show(self) -> None:
+        self.assertFalse(grid.ticked(SimpleNamespace(args=None)))
+
+
 if __name__ == "__main__":
     unittest.main()

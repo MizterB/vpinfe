@@ -190,10 +190,19 @@ async def _rate(games: list[dict[str, Any]], rate: Rate) -> None:
     """Set a rating on every game passed in, through the writer the star click uses."""
     @on_page
     async def apply(value: int) -> None:
-        if await rate(_ids(games), value):
-            box.close()
-            ui.notify(t("console.games.rated_game_s", count=len(games), value=value),
-                      type="positive")
+        was: dict[int, list[str]] = {}
+        for one in games:
+            was.setdefault(int(one.get("rating") or 0), []).append(str(one["id"]))
+        if not await rate(_ids(games), value):
+            return
+        box.close()
+
+        @on_page
+        async def put_back() -> None:
+            for prior, ids in was.items():
+                await rate(ids, prior)
+
+        undo.offer(t("console.games.rated_game_s", count=len(games), value=value), put_back)
 
     with frame.opened(t("console.games.rate_game_s", count=len(games))) as box:
         with ui.row().classes("px-3"):
@@ -308,8 +317,15 @@ def table_acts(library: Any, targets: list[Target], after: After, state: dict[st
                 if len(applies) == 1 else
                 t("console.game_tables.hid_n" if hidden else "console.game_tables.unhid_n",
                   count=len(applies)))
-        ui.notify(said, type="positive")
         await after(games_of(applies), False)
+
+        @on_page
+        async def put_back() -> None:
+            await write(applies, library.set_table_hidden, lambda item: (item.id, not hidden),
+                        t("console.workbench.save_failed"))
+            await after(games_of(applies), False)
+
+        undo.offer(said, put_back)
 
     @on_page
     async def extract() -> None:

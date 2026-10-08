@@ -187,6 +187,30 @@ class ForATable(unittest.TestCase):
         self.assertTrue(next(one for one in verbs if one.label == "Delete script").danger)
 
 
+class HidingSeveralTables(unittest.IsolatedAsyncioTestCase):
+    async def test_hiding_offers_undo_that_unhides_each_table_it_hid(self) -> None:
+        library = MagicMock()
+        offers: list[Any] = []
+
+        async def inline(call, *args):
+            return call(*args)
+
+        shown = _table("a")
+        already = _table("b", hidden=True)
+        with patch.object(game_acts.run, "io_bound", inline), \
+                patch.object(game_acts.undo, "offer", lambda *args, **_kw: offers.append(args)), \
+                patch.object(game_acts.ui, "notify"):
+            verbs = _several(shown, already, library=library)
+            hide = next(one for one in verbs if one.label == "Hide")
+            with _PAGE:
+                await hide.run()
+                library.set_table_hidden.assert_called_once_with("afm", "a", True)
+                await offers[0][1]()
+
+        self.assertEqual([("afm", "a", True), ("afm", "a", False)],
+                         [call.args for call in library.set_table_hidden.call_args_list])
+
+
 class ForSeveralTables(unittest.TestCase):
     def test_nothing_chosen_offers_nothing(self) -> None:
         self.assertEqual([], game_acts.table_acts(MagicMock(), [], _after, {}, None))

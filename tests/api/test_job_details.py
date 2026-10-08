@@ -37,6 +37,12 @@ class Describers(unittest.TestCase):
 
         self.assertEqual(t("said.job_table_settings", count=3, failed=2), said)
 
+    def test_a_selection_write_says_how_many_rows_it_changed(self) -> None:
+        said = job_details.of(jobs.KIND_MARKS, {"rows": 4, "written": [{}, {}, {}],
+                                                "failed": [{}]})
+
+        self.assertEqual(t("said.job_marks", count=3, failed=1), said)
+
     def test_a_recording_says_how_many_it_made(self) -> None:
         said = job_details.of(jobs.KIND_MEDIA_CAPTURE, {"run": {"done": 2, "of": 5}})
 

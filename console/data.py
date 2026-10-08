@@ -458,6 +458,17 @@ class Library:
                 game["private"] = bool(result.get("private", private))
         return result
 
+    def put_marks(self, edits: list[dict]) -> dict:
+        return self._client.put_marks(edits)
+
+    def marks_written(self) -> None:
+        """A selection's marks went in under the lists this holds: read them again."""
+        self.tables.clear()
+        self._table_rows = None
+        self._asset_rows = None
+        self._forget_games()
+        self.read_tags()
+
     def reset_play_record(self, game_id: str, table_id: str = "") -> None:
         self._client.reset_play_record(game_id, table_id)
         if table_id:

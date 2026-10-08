@@ -369,6 +369,11 @@ class ApiClient:
         an id the library does not hold refuses the lot."""
         return self._put("/library/private", {"game_ids": list(game_ids), "private": private})
 
+    def put_marks(self, edits: list[dict]) -> dict:
+        """Marks on several tables or games in one request. What comes back is the job to
+        watch; its result names each row written and each that could not be."""
+        return dict(self._put("/library/marks", {"edits": edits}) or {})
+
     def set_tags(self, game_id: str, tags: list[str]) -> None:
         """The whole set. What comes back is what was stored, which may differ - the
         the API trims and drops repeats."""

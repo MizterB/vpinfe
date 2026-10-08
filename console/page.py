@@ -1370,6 +1370,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         await workbench.build_selection(panel, workbench_title, library, table_ids, state)
 
     @on_page
+    async def show_game_selection(game_ids: list[str]) -> None:
+        await workbench.build_game_selection(panel, workbench_title, library, game_ids, state)
+
+    @on_page
     async def show_slot(row: dict | None) -> None:
         """The address keeps the game, the table and the kind, which is all a link to a
         file carries; the panel finds the row again from those."""
@@ -1570,7 +1574,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 sections.overview(library, devices, discovery, go, state)
             elif view == "games":
                 games.build(library.game_rows(), library.kinds_present(), library,
-                            show_game, state, redraw, rescan=_rescan)
+                            show_game, state, redraw, rescan=_rescan,
+                            on_selection=show_game_selection)
             elif view == "tables":
                 games.build_tables(library.table_rows(), library, show_game, state,
                                    redraw, rescan=_rescan, on_selection=show_selection)

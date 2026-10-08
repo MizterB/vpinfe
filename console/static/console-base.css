@@ -2914,6 +2914,8 @@ a.console-tag:hover { background: var(--wash-hover); }
 .q-chip.console-tag .q-chip__content { gap: 6px; }
 .q-chip.console-tag .q-chip__icon--remove { font-size: 1.15em; margin: 0; }
 .console-picker-popup .q-item__section--side:has(> .console-tag-dot) { min-width: 0; padding-right: 10px; }
+.console-tag--some { border-style: dashed; opacity: 0.75; }
+.console-tag--some:hover { opacity: 1; }
 .console-tag-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .console-tag-dot--red { background: var(--tag-red); }
 .console-tag-dot--orange { background: var(--tag-orange); }

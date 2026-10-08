@@ -1360,6 +1360,25 @@
   "console.games.games_of": "{shown} öƒ {count} ĝàɱèš",
   "console.games.filter_own": "Ĥàš Šèţţîñĝš öƒ Îţš Öŵñ",
   "console.games.selection_back": "Šĥöŵ ţĥè šèŀèçţîöñ îñ ţĥè þàñèŀ",
+  "console.selection.changed_tables": {
+    "one": "{count} ţàƀŀè çĥàñĝèđ",
+    "other": "{count} ţàƀŀèš çĥàñĝèđ"
+  },
+  "console.selection.changed_games": {
+    "one": "{count} ĝàɱè çĥàñĝèđ",
+    "other": "{count} ĝàɱèš çĥàñĝèđ"
+  },
+  "console.selection.value_count_games": {
+    "one": "{said}: {count} ĝàɱè",
+    "other": "{said}: {count} ĝàɱèš"
+  },
+  "console.selection.of_all": "{count} öƒ {total}",
+  "console.selection.take_away": "Ţàķè îţ ƒřöɱ àŀŀ",
+  "console.selection.give_all": "Ĝîṽè îţ ţö àŀŀ",
+  "console.selection.not_written": {
+    "one": "{count} ŵàš ñöţ ŵřîţţèñ",
+    "other": "{count} ŵèřè ñöţ ŵřîţţèñ"
+  },
   "console.games.hidden_game.help": "Ĥîđđèñ ŵĥèřè ţĥè ĝàɱè ĥàš ñö ţàƀŀè ŀèƒţ ţö öƒƒèř",
   "console.games.hide": "Ĥîđè",
   "console.games.table_count.help": "Ĥöŵ ɱàñý ţàƀŀè ƒîŀèš ţĥîš ĝàɱè ƒöŀđèř ĥöŀđš",
@@ -1525,6 +1544,7 @@
   "console.jobs.kind.library_vps_rollup": "ṼÞŠ çöûñţ",
   "console.jobs.kind.media_rotate": "Ţûřñ ɱèđîà",
   "console.jobs.kind.table_settings": "Ţàƀŀè šèţţîñĝš",
+  "console.jobs.kind.marks": "Ḿàřķš",
   "console.jobs.kind.backups_move": "Ḿöṽè ƀàçķûþš",
   "console.jobs.kind.media_capture": "Řèçöřđîñĝ",
   "console.jobs.kind.tools_get": "Ţööŀ đöŵñŀöàđ",
@@ -3842,6 +3862,9 @@
   "error.jobs.getting_spreadsheet": "Ţĥè šþřèàđšĥèèţ îš ƀèîñĝ đöŵñŀöàđèđ àŀřèàđý",
   "error.jobs.getting_tool": "ƑƑɱþèĝ îš ƀèîñĝ đöŵñŀöàđèđ àŀřèàđý",
   "error.jobs.settings_busy": "Šèţţîñĝš àřè àŀřèàđý ƀèîñĝ ŵřîţţèñ ţö öţĥèř ţàƀŀèš",
+  "error.jobs.marks_busy": "À šèŀèçţîöñ îš àŀřèàđý ƀèîñĝ ŵřîţţèñ",
+  "error.marks.none": "Ñöţĥîñĝ ŵàš ñàɱèđ ţö çĥàñĝè",
+  "error.marks.not_here": "Ţĥèšè çàññöţ ƀè šèţ ĥèřè: {keys}",
   "error.jobs.library_busy": "Ţĥè ŀîƀřàřý îš ƀûšý - ţřý àĝàîñ ŵĥèñ îţ ƒîñîšĥèš",
   "error.jobs.unknown_job": "Ñö ĵöƀ ŵîţĥ îđ {job_id}",
   "error.jobs.sending_busy": "Àŀřèàđý šèñđîñĝ ĝàɱèš ţö à đèṽîçè",
@@ -4486,6 +4509,10 @@
     "one": "{count} ţàƀŀè çĥàñĝèđ, {failed} ñöţ",
     "other": "{count} ţàƀŀèš çĥàñĝèđ, {failed} ñöţ"
   },
+  "said.job_marks": {
+    "one": "{count} ŵřîţţèñ, {failed} ñöţ",
+    "other": "{count} ŵřîţţèñ, {failed} ñöţ"
+  },
   "said.job_backups_moved": {
     "one": "{count} ƀàçķûþ ɱöṽèđ, {left} ŀèƒţ îñ ţĥè öŀđ ƒöŀđèř, {failed} ƒàîŀèđ",
     "other": "{count} ƀàçķûþš ɱöṽèđ, {left} ŀèƒţ îñ ţĥè öŀđ ƒöŀđèř, {failed} ƒàîŀèđ"
@@ -4522,6 +4549,10 @@
   "said.table_settings": {
     "one": "Çĥàñĝîñĝ šèţţîñĝš, {count} ţàƀŀè ţö ĝö",
     "other": "Çĥàñĝîñĝ šèţţîñĝš, {count} ţàƀŀèš ţö ĝö"
+  },
+  "said.marks": {
+    "one": "Šàṽîñĝ, {count} ţö ĝö",
+    "other": "Šàṽîñĝ, {count} ţö ĝö"
   },
   "said.backups_move": "Ḿöṽîñĝ {file}",
   "said.why.already_at": "Šöɱèţĥîñĝ îš àŀřèàđý àţ {path}",

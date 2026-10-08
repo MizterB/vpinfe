@@ -10,7 +10,7 @@ header: accepted, not done, and something to watch while it runs.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Body, Request, Response
 
 from common import jobs as job_registry
 from common.games import (
@@ -18,14 +18,16 @@ from common.games import (
     game_ops,
     game_service,
     library_ops,
+    marks_ops,
     media_fill,
     media_rotate,
     owned,
 )
+from common.i18n import t
 
 from . import jobs as jobs_api
 from . import models, scopes
-from .auth import requires
+from .auth import ForbiddenError, requires
 from .criteria import criteria_for
 
 router = APIRouter(prefix="/library", tags=["library"])
@@ -130,6 +132,23 @@ def put_private(payload: models.PrivateSelection) -> models.PrivateSweep:
     a 404, and nothing is written."""
     return models.PrivateSweep.model_validate(
         game_ops.set_private_many(payload.game_ids, payload.private))
+
+
+@router.put("/marks", summary="Set marks on a selection of tables or games", status_code=202,
+            dependencies=[requires(scopes.GAMES_WRITE)])
+def put_marks(request: Request, response: Response,
+              payload: models.MarksRequest) -> models.JobResource:
+    """Accepted, not done. Each edit names a table, or a game where `table_id` is left out,
+    and the marks to set on it: a table takes `rating`, `tags`, `hidden`,
+    `delete_nvram_on_close` and `launcher` (an empty one clears it); a game takes
+    `rating`, `tags`, `favorite` and `private`. The job's result names each row written
+    and each that could not be. Setting a `launcher` also needs `config:write`."""
+    edits = [edit.model_dump(exclude_none=True) for edit in payload.edits]
+    if any("launcher" in edit for edit in edits):
+        identity = getattr(request.state, "identity", None)
+        if identity is None or not identity.can(scopes.CONFIG_WRITE):
+            raise ForbiddenError(t("error.auth.needs_scope", scope=scopes.CONFIG_WRITE))
+    return _accepted(response, marks_ops.start(edits))
 
 
 @router.post("/media/missing", summary="What getting missing art would fetch",

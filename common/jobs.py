@@ -68,6 +68,9 @@ KIND_TOOL_GET = "tools.get"
 # the tables: a second write reaching a table the first has not yet written would be
 # overwritten by it.
 KIND_TABLE_SETTINGS = "table_settings"
+# A selection's ratings, tags and other marks, written into each game's record. One at a
+# time: two writes to one game's .info would each read it as it was.
+KIND_MARKS = "marks"
 # Getting the VPS catalog because there is none on disk, ahead of a read that has games to
 # match. The watch's later refreshes are not this: they stay silent.
 KIND_SPREADSHEET_DOWNLOAD = "spreadsheet.download"
@@ -90,6 +93,7 @@ _BUSY = {KIND_LIBRARY_SCAN: "error.jobs.library_busy",
          KIND_BACKUPS_MOVE: "error.backups.move_busy",
          KIND_TOOL_GET: "error.jobs.getting_tool",
          KIND_TABLE_SETTINGS: "error.jobs.settings_busy",
+         KIND_MARKS: "error.jobs.marks_busy",
          KIND_SPREADSHEET_DOWNLOAD: "error.jobs.getting_spreadsheet"}
 
 # Kinds refused while another kind runs, and what the refusal says.

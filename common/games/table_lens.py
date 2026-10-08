@@ -564,6 +564,8 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
                     int(table.get("launcher_settings_from_folder") or 0),
                 "launcher_point_of_view": bool(table.get("launcher_point_of_view")),
                 "launcher_settings_keys": list(table.get("launcher_settings_keys") or []),
+                "delete_nvram_on_close":
+                    bool((table.get("overrides") or {}).get("delete_nvram_on_close")),
             })
 
     found.sort(key=lambda item: (item["game"].lower(),

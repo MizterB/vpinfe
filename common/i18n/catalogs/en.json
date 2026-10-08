@@ -1360,6 +1360,25 @@
   "console.games.games_of": "{shown} of {count} games",
   "console.games.filter_own": "Has Settings of Its Own",
   "console.games.selection_back": "Show the selection in the panel",
+  "console.selection.changed_tables": {
+    "one": "{count} table changed",
+    "other": "{count} tables changed"
+  },
+  "console.selection.changed_games": {
+    "one": "{count} game changed",
+    "other": "{count} games changed"
+  },
+  "console.selection.value_count_games": {
+    "one": "{said}: {count} game",
+    "other": "{said}: {count} games"
+  },
+  "console.selection.of_all": "{count} of {total}",
+  "console.selection.take_away": "Take it from all",
+  "console.selection.give_all": "Give it to all",
+  "console.selection.not_written": {
+    "one": "{count} was not written",
+    "other": "{count} were not written"
+  },
   "console.games.hidden_game.help": "Hidden where the game has no table left to offer",
   "console.games.hide": "Hide",
   "console.games.table_count.help": "How many table files this game folder holds",
@@ -1525,6 +1544,7 @@
   "console.jobs.kind.library_vps_rollup": "VPS count",
   "console.jobs.kind.media_rotate": "Turn media",
   "console.jobs.kind.table_settings": "Table settings",
+  "console.jobs.kind.marks": "Marks",
   "console.jobs.kind.backups_move": "Move backups",
   "console.jobs.kind.media_capture": "Recording",
   "console.jobs.kind.tools_get": "Tool download",
@@ -3842,6 +3862,9 @@
   "error.jobs.getting_spreadsheet": "The spreadsheet is being downloaded already",
   "error.jobs.getting_tool": "FFmpeg is being downloaded already",
   "error.jobs.settings_busy": "Settings are already being written to other tables",
+  "error.jobs.marks_busy": "A selection is already being written",
+  "error.marks.none": "Nothing was named to change",
+  "error.marks.not_here": "These cannot be set here: {keys}",
   "error.jobs.library_busy": "The library is busy - try again when it finishes",
   "error.jobs.unknown_job": "No job with id {job_id}",
   "error.jobs.sending_busy": "Already sending games to a device",
@@ -4486,6 +4509,10 @@
     "one": "{count} table changed, {failed} not",
     "other": "{count} tables changed, {failed} not"
   },
+  "said.job_marks": {
+    "one": "{count} written, {failed} not",
+    "other": "{count} written, {failed} not"
+  },
   "said.job_backups_moved": {
     "one": "{count} backup moved, {left} left in the old folder, {failed} failed",
     "other": "{count} backups moved, {left} left in the old folder, {failed} failed"
@@ -4522,6 +4549,10 @@
   "said.table_settings": {
     "one": "Changing settings, {count} table to go",
     "other": "Changing settings, {count} tables to go"
+  },
+  "said.marks": {
+    "one": "Saving, {count} to go",
+    "other": "Saving, {count} to go"
   },
   "said.backups_move": "Moving {file}",
   "said.why.already_at": "Something is already at {path}",

@@ -1903,6 +1903,8 @@ class TableRow(ApiModel):
     launcher_settings_keys: list[str] = Field(default_factory=list)
     # What to call the app on screen. Ids are for the wire.
     app_name: str = ""
+    # `overrides.delete_nvram_on_close` as the table reads it.
+    delete_nvram_on_close: bool = False
 
 
 class TableRowList(ApiModel):
@@ -3245,6 +3247,25 @@ class PrivateSweep(ApiModel):
     private: bool
     games: int = 0
     changed: int = 0
+
+
+class MarkEdit(ApiModel):
+    """The marks to set on one table, or on one game where `table_id` is left out. A field
+    left out is not touched."""
+
+    game_id: str
+    table_id: str | None = None
+    rating: int | None = Field(default=None, ge=0, le=5)
+    tags: list[str] | None = None
+    hidden: bool | None = None
+    delete_nvram_on_close: bool | None = None
+    launcher: str | None = None
+    favorite: bool | None = None
+    private: bool | None = None
+
+
+class MarksRequest(ApiModel):
+    edits: list[MarkEdit]
 
 
 class LaunchRequest(ApiModel):

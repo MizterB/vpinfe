@@ -35,6 +35,8 @@ GRID_OF = {
     "backup": ("backups.py", "acts", "backups.py"),
     "game": ("game_acts.py", "game_acts", "games.py"),
     "table": ("game_acts.py", "table_acts", "games.py"),
+    "selection": ("game_acts.py", "table_acts", "games.py"),
+    "game_selection": ("game_acts.py", "game_acts", "games.py"),
     "media_file": ("file_acts.py", "media_acts", "media.py"),
     "asset_file": ("file_acts.py", "asset_acts", "assets.py"),
 }

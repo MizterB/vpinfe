@@ -452,6 +452,12 @@ def focused_column(event: Any) -> str:
     return str((args.get("col") if isinstance(args, dict) else "") or "")
 
 
+def ticked(event: Any) -> bool:
+    """Whether a focus event is the checkbox being pressed, which is a choice of rows and
+    not of a row to show."""
+    return focused_column(event) == "ag-Grid-SelectionColumn"
+
+
 _FOCUS_ROW = """new Promise((done) => {
   const api = getElement(%d).api;
   let tries = 0;

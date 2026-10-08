@@ -239,8 +239,9 @@ _REFOCUS_SETTING = """(() => {
 
 def _rebuilds(context: dict[str, Any], subject: str,
               again: Callable[[], Any], refresh_with: str = "refresh_game",
-              refresh_of: str = "game_id") -> Callable[[], Any]:
-    """A rebuild that puts the grid behind the panel right too."""
+              refresh_of: str = "game_id", grid_first: bool = False) -> Callable[[], Any]:
+    """A rebuild that puts the grid behind the panel right too. `grid_first` where the
+    panel is drawn from what the grid holds, as a selection's menu is."""
     async def behind() -> None:
         """The grid, put right. Every write needs this; only some need a rebuild."""
         refresh = context.get("state", {}).get(refresh_with)
@@ -248,6 +249,10 @@ def _rebuilds(context: dict[str, Any], subject: str,
             await refresh(context[refresh_of])
 
     async def rebuild() -> None:
+        if grid_first:
+            await behind()
+            await again()
+            return
         # Send nothing to the browser below this line. The slot is gone.
         await again()
         await behind()
@@ -526,11 +531,48 @@ async def _draw_selection(container: ui.column, title: ui.column, library: Libra
         context["rebuild"] = _rebuilds(
             context, "selection",
             lambda: build_selection(container, title, library, table_ids, state),
-            refresh_with="refresh_tables", refresh_of="game_ids")
+            refresh_with="refresh_tables", refresh_of="game_ids", grid_first=True)
         # The rail's one section is not a place to come back to: the table that is shown
         # next lands where the last one did.
         kept = state.get("section")
         await _rail(context, "selection", state)
+        if kept is None:
+            state.pop("section", None)
+        else:
+            state["section"] = kept
+
+
+async def build_game_selection(container: ui.column, title: ui.column, library: Library,
+                               game_ids: Sequence[str],
+                               state: dict[str, Any] | None = None) -> None:
+    """The panel, for the games ticked in the Games grid."""
+    state = state if state is not None else {}
+    await _pane_build(container, state,
+                      lambda: _draw_game_selection(container, title, library, game_ids,
+                                                   state))
+
+
+async def _draw_game_selection(container: ui.column, title: ui.column, library: Library,
+                               game_ids: Sequence[str], state: dict[str, Any]) -> None:
+    wanted = set(game_ids)
+    games = [game for game in library.games if game.get("id") in wanted]
+    if not games:
+        _blank(container, title, t("console.page.game"), t("console.page.select_game"))
+        return
+    container.clear()
+    title.clear()
+    with container:
+        _title(title, t("console.games.games", count=len(games)),
+               t("console.page.selection"))
+        context: dict[str, Any] = {
+            "library": library, "games": games, "state": state, "redraws": [],
+            "dock": None, "game_ids": sorted(wanted)}
+        context["rebuild"] = _rebuilds(
+            context, "game_selection",
+            lambda: build_game_selection(container, title, library, game_ids, state),
+            refresh_with="refresh_games", refresh_of="game_ids", grid_first=True)
+        kept = state.get("section")
+        await _rail(context, "game_selection", state)
         if kept is None:
             state.pop("section", None)
         else:
@@ -2387,6 +2429,18 @@ async def _table_settings(context: dict[str, Any]) -> None:
     from console import app_settings
 
     await app_settings.section(context)
+
+
+async def _selection_marks(context: dict[str, Any]) -> None:
+    from console import selection_marks
+
+    await selection_marks.section(context, selection_marks.TABLES)
+
+
+async def _game_selection_marks(context: dict[str, Any]) -> None:
+    from console import selection_marks
+
+    await selection_marks.section(context, selection_marks.GAMES)
 
 
 async def _selection_settings(context: dict[str, Any]) -> None:
@@ -7416,7 +7470,15 @@ def _asset_file_verbs(context: dict[str, Any]) -> list[panel.Verb]:
 
 # What the panel header's menu offers, per subject: the same lists the grids' row menus
 # draw. A subject with none has no menu.
+def _selection_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    """The grid's own bulk menu: the grid that holds the ticks names it."""
+    verbs_of = context["state"].get("selection_verbs")
+    return verbs_of() if callable(verbs_of) else []
+
+
 SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
+    "selection": _selection_verbs,
+    "game_selection": _selection_verbs,
     "game": _game_verbs,
     "table": _table_verbs,
     "tag": _tag_verbs,
@@ -7439,6 +7501,10 @@ SECTIONS: tuple[Section, ...] = (
             subjects=frozenset({"table"})),
     Section("table_settings", lambda _: t("console.workbench.table_settings"),
             _table_settings, subjects=frozenset({"table"})),
+    Section("selection_marks", lambda _: t("console.workbench.details"),
+            _selection_marks, subjects=frozenset({"selection"})),
+    Section("game_selection_marks", lambda _: t("console.workbench.details"),
+            _game_selection_marks, subjects=frozenset({"game_selection"})),
     Section("selection_settings", lambda _: t("console.workbench.table_settings"),
             _selection_settings, subjects=frozenset({"selection"})),
     Section("play", lambda _: game_tables.PLAY, _play_block),

@@ -433,7 +433,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
           on_select: Callable[[dict | None], Any],
           state: dict[str, Any] | None = None,
           rerender: Callable[[], None] | None = None,
-          rescan: Callable[[], Any] | None = None) -> None:
+          rescan: Callable[[], Any] | None = None,
+          on_selection: Callable[[list[str]], Any] | None = None) -> None:
     state = state if state is not None else {}
     if not rows:
         _nothing_yet("console.games.empty", library, state, rescan)
@@ -500,10 +501,52 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             return t("console.games.games_of", shown=shown["rows"], count=len(rows))
         return t("console.games.games", count=len(rows))
 
-    def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
+    # Two or more ticked and the panel is about them; a row clicked shows that row and
+    # leaves the ticks, and the count is the way back.
+    viewing: dict[str, Any] = {"on": False, "ids": set()}
+
+    def linked() -> None:
+        """The count, as a link back to the selection while the panel shows a row."""
+        back = on_selection is not None and len(selected) >= 2 and not viewing["on"]
+        count.classes(add="console-link cursor-pointer" if back else None,
+                      remove=None if back else "console-link cursor-pointer")
+        if back:
+            count._props["title"] = t("console.games.selection_back")
+        else:
+            count._props.pop("title", None)
+        count.update()
+
+    async def follow_selection() -> None:
+        ids = {str(one["id"]) for one in selected}
+        if on_selection is None:
+            return
+        if len(ids) >= 2:
+            if ids != viewing["ids"]:
+                viewing["ids"], viewing["on"] = ids, True
+                await read_collections()
+                await on_selection(sorted(ids))
+        else:
+            was, viewing["ids"], viewing["on"] = viewing["on"], set(), False
+            if was:
+                answer = on_select(by_id.get(str(state.get("game") or "")))
+                if inspect.isawaitable(answer):
+                    await answer
+        linked()
+
+    async def show_again() -> None:
+        if on_selection is not None and len(selected) >= 2:
+            viewing["ids"], viewing["on"] = {str(one["id"]) for one in selected}, True
+            await read_collections()
+            await on_selection(sorted(viewing["ids"]))
+            linked()
+
+    count.on("click", show_again)
+
+    async def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
         show_selection(bool(rows_selected))
         count.text = said()
+        await follow_selection()
 
     by_id = {row["id"]: row for row in rows}
 
@@ -514,6 +557,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         collapsed panel too, because clicking a picture is asking to see it. A view only
         names its section: reopening a panel somebody shut would fight them every row.
         """
+        if viewing["on"] and grid.ticked(event):
+            return None
         row = by_id.get(grid.focused_row(event))
         column = grid.focused_column(event)
         if row and column.startswith("media_"):
@@ -524,6 +569,8 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                        or VIEW_SECTIONS.get(str(view_picker.value or "")))
             if section:
                 state["section"] = section
+        viewing["on"] = False
+        linked()
         return on_select(row)
 
     def zoom_media(event: Any) -> None:
@@ -632,12 +679,17 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             return
         wanted = set(ids)
         grid.transact(table, rows, {"update": await rows_again(wanted)}, by_id)
-        if state.get("game") in wanted:
+        if viewing["on"] and on_selection is not None:
+            selected[:] = [by_id[str(one["id"])] for one in selected if str(one["id"]) in by_id]
+            await on_selection(sorted(viewing["ids"]))
+        elif state.get("game") in wanted:
             answer = on_select(by_id.get(str(state["game"])))
             if inspect.isawaitable(answer):
                 await answer
 
     state["refresh_games"] = refresh_games
+    state["selection_verbs"] = lambda: panel.for_selection(
+        game_verbs(list(selected), adding["known"]), len(selected))
 
     async def counted() -> None:
         seen = await table.run_grid_method("getDisplayedRowCount")
@@ -1258,6 +1310,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     rate_row = stars.rating_handler(built, by_id, lambda: table, library, GAME_RATING)
 
     def focused(event: Any) -> Any:
+        if viewing["on"] and grid.ticked(event):
+            return None
         row = by_id.get(grid.focused_row(event))
         section = TABLE_COLUMN_SECTIONS.get(grid.focused_column(event))
         if row and section and state.get("section") != workbench.COLLAPSED:
@@ -1302,6 +1356,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         if len(ids) >= 2:
             if ids != viewing["ids"]:
                 viewing["ids"], viewing["on"] = ids, True
+                await read_collections()
                 await on_selection(sorted(ids))
         else:
             was, viewing["ids"], viewing["on"] = viewing["on"], set(), False
@@ -1314,6 +1369,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     async def show_again() -> None:
         if on_selection is not None and len(selected) >= 2:
             viewing["ids"], viewing["on"] = {str(one["id"]) for one in selected}, True
+            await read_collections()
             await on_selection(sorted(viewing["ids"]))
             linked()
 
@@ -1397,6 +1453,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             add_index(built, game_id, transaction)
             if transaction:
                 grid.transact(table, built, transaction, by_id)
+        selected[:] = [by_id[str(one["id"])] for one in selected if str(one["id"]) in by_id]
 
     async def open_table(table_id: str) -> None:
         """Focus a table's row, which opens it in the panel; a row a filter hides is
@@ -1409,6 +1466,8 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
     state["refresh_game"] = refresh_game
     state["refresh_tables"] = refresh_tables
+    state["selection_verbs"] = lambda: panel.for_selection(
+        table_verbs(list(selected), adding["known"]), len(selected))
     state["keep_selected"] = lambda ids: grid.keep_only(table, ids)
     state["open_table"] = open_table
 
@@ -1420,6 +1479,9 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
             return
         for game_id in game_ids:
             await refresh_game(game_id)
+        if viewing["on"] and on_selection is not None:
+            await on_selection(sorted(viewing["ids"]))
+            return
         # The panel is about one of these rows and would otherwise still show what
         # the write changed. `on_select` redraws the workbench alone, not the page.
         answer = on_select(by_id.get(str(state.get("table") or "")))
