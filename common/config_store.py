@@ -163,12 +163,27 @@ def _merged_list(ours: Any, theirs: Any, saved: Any) -> Any:
     return [merged[i] for i in order]
 
 
+def _merged_map(ours: dict, theirs: dict, saved: Any) -> dict:
+    """Per entry: ours where it differs from `saved` (a removal too), else the file's."""
+    base = saved if isinstance(saved, dict) else {}
+    merged: dict = {}
+    for name in dict.fromkeys([*theirs, *ours]):
+        taken = ours.get(name) if not _same(ours.get(name), base.get(name)) \
+            else theirs.get(name)
+        if taken is not None:
+            merged[name] = taken
+    return merged
+
+
 def _merged_top_level(ours: dict, theirs: dict, saved: dict) -> dict:
     absent = object()
     out: dict = {}
     for key in dict.fromkeys([*theirs, *ours]):
         if (key in ours) == (key in saved) and _same(ours.get(key), saved.get(key)):
             value = theirs.get(key, absent)
+        elif key == config_schema.THEME_OPTIONS and isinstance(ours.get(key), dict) \
+                and isinstance(theirs.get(key), dict):
+            value = _merged_map(ours[key], theirs[key], saved.get(key))
         elif key in ours and key in theirs:
             value = _merged_list(ours[key], theirs[key], saved.get(key))
         else:
@@ -601,6 +616,25 @@ class ConfigStore:
             prepared[key] = self._prepared(self._spec(key), items,
                                            held if isinstance(held, list) else [])
         self.top_level.update(prepared)
+
+    def theme_options(self) -> dict[str, dict[str, Any]]:
+        """What the person chose on each theme, by folder name. A copy; an entry that is
+        not an object is not a theme's values and is left out."""
+        held = self.top_level.get(config_schema.THEME_OPTIONS)
+        if held is not None and not isinstance(held, dict):
+            logger.warning("%s in %s is not an object, so none is read",
+                           config_schema.THEME_OPTIONS, self.json_path)
+        if not isinstance(held, dict):
+            return {}
+        return {folder: copy.deepcopy(values) for folder, values in held.items()
+                if isinstance(values, dict)}
+
+    def set_theme_options(self, options: dict[str, dict[str, Any]]) -> None:
+        """Stage the whole map. A theme whose choices were taken away keeps an empty entry:
+        the migration skips a theme that has one, so old package values do not come back.
+        `save()` writes the file."""
+        self.top_level[config_schema.THEME_OPTIONS] = {
+            folder: copy.deepcopy(values) for folder, values in options.items()}
 
     @staticmethod
     def _prepared(spec: config_schema.ConfigList, items: Any,

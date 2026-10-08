@@ -1348,6 +1348,11 @@ CONFIG_LISTS: tuple[ConfigList, ...] = (
     ),
 )
 
+# The one top-level key that holds an object rather than a list: what the person chose on
+# each theme, by the theme's folder name. A theme declares its own options, so what an
+# entry may hold is checked against the theme, not against this schema.
+THEME_OPTIONS = "theme_options"
+
 _NORMALIZERS: dict[str, Callable[[list[dict[str, Any]]], list[dict[str, Any]]]] = {}
 _SEEDS: dict[str, Callable[[Any], None]] = {}
 

@@ -32,6 +32,7 @@ _WRITING = threading.RLock()
 
 # Where the settings sit beside the lists, in the file and on the wire.
 SETTINGS = "settings"
+THEME_OPTIONS = config_schema.THEME_OPTIONS
 
 # Sections served over the API and refused a write. Empty; the refusal path below is
 # what a caller-origin check would reuse.
@@ -228,10 +229,11 @@ def values(windows: Sequence[str] = ()) -> dict[str, dict[str, Any]]:
 
 
 def whole(windows: Sequence[str] = ()) -> dict[str, Any]:
-    """The settings and every declared list."""
+    """The settings, every declared list, and what was chosen on each theme."""
     store = get_ini_config()
     return {SETTINGS: values(windows),
-            **{spec.key: store.get_list(spec.key) for spec in config_schema.lists()}}
+            **{spec.key: store.get_list(spec.key) for spec in config_schema.lists()},
+            THEME_OPTIONS: store.theme_options()}
 
 
 def set_values(wanted: dict[str, dict[str, Any]] | None,
@@ -265,7 +267,8 @@ def _apply(patch: dict[str, Any], windows: Sequence[str]) -> dict[str, Any]:
     wanted = patch.get(SETTINGS) or {}
     require_sections(wanted)
     staged: list[tuple[str, str, Any]] = []
-    unknown: list[str] = [key for key in patch if key != SETTINGS and key not in declared]
+    unknown: list[str] = [key for key in patch
+                          if key not in (SETTINGS, THEME_OPTIONS) and key not in declared]
     refused: list[str] = []
 
     for section, entries in wanted.items():
@@ -287,7 +290,8 @@ def _apply(patch: dict[str, Any], windows: Sequence[str]) -> dict[str, Any]:
     if refused:
         raise ReadOnlySettingsError(refused)
     lists = {key: items for key, items in patch.items() if key in declared}
-    if not staged and not lists:
+    chosen = _checked_theme_options(patch.get(THEME_OPTIONS))
+    if not staged and not lists and not chosen:
         return whole(windows)
     if reasons := port_checks.refused(wanted):
         raise RefusedSettingsError(reasons)
@@ -297,6 +301,8 @@ def _apply(patch: dict[str, Any], windows: Sequence[str]) -> dict[str, Any]:
         before = {key: store.get_list(key) for key in lists}
         store.set_lists(lists)
         changed += [key for key in lists if store.get_list(key) != before[key]]
+    if chosen and _stage_theme_options(store, chosen):
+        changed.append(THEME_OPTIONS)
     for section, key, value in staged:
         before_value = store.value(section, key)
         store.set_value(section, key, value)
@@ -310,6 +316,42 @@ def _apply(patch: dict[str, Any], windows: Sequence[str]) -> dict[str, Any]:
         install_presence.record_self()
     _announce(store, changed)
     return whole(windows)
+
+
+def _checked_theme_options(wanted: Any) -> dict[str, dict[str, Any]]:
+    """The theme entries of a patch, by trimmed folder name. Only the shape is checked
+    here: what a theme accepts is the theme's to say, and a caller that knows the themes
+    checks before it gets here."""
+    if wanted is None:
+        return {}
+    if not isinstance(wanted, dict) or not all(isinstance(one, dict) for one in wanted.values()):
+        raise MalformedPatchError(t("error.config.theme_options_shape"))
+    if not all(folder.strip() for folder in wanted):
+        raise MalformedPatchError(t("error.config.theme_options_shape"))
+    return {folder.strip(): values for folder, values in wanted.items()}
+
+
+def _stage_theme_options(store: Any, wanted: dict[str, dict[str, Any]]) -> bool:
+    """Each named theme's entry becomes what is given, or goes when it is empty; the
+    themes not named are left alone. True when that changed anything."""
+    before = store.theme_options()
+    store.set_theme_options({**before, **wanted})
+    return store.theme_options() != before
+
+
+def theme_options() -> dict[str, dict[str, Any]]:
+    """What the person chose on each theme, by the theme's folder name."""
+    return get_ini_config().theme_options()
+
+
+def put_theme_options(wanted: dict[str, dict[str, Any]]) -> None:
+    """Save the entries given as they are; the caller has checked them. An empty entry
+    takes that theme's choices away."""
+    with _WRITING:
+        store = get_ini_config()
+        if _stage_theme_options(store, wanted):
+            _save(store)
+            _announce(store, [THEME_OPTIONS])
 
 
 def _save(store: Any) -> None:

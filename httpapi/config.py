@@ -18,6 +18,7 @@ from common.capture import settings as capture_settings
 from common.failures import why
 from common.host import get_ffmpeg, tools
 from common.i18n import t
+from common.online import theme_service
 from common.paths import get_ini_config
 from frontend import theme_windows
 
@@ -92,7 +93,8 @@ def get_values() -> models.ConfigValues:
             dependencies=[requires(scopes.CONFIG_WRITE)])
 def put_values(patch: dict[str, Any] = Body(...)) -> models.ConfigValues:
     """A patch shaped like the read: `settings` is written key by key, and a list sent
-    replaces that list."""
+    replaces that list. In `theme_options`, each theme named takes the values given,
+    checked against what the theme declares, and the others are left alone."""
     settings = patch.get(config_service.SETTINGS)
     if settings is not None and not isinstance(settings, dict):
         raise InvalidRequestError(t("error.config.settings_object"))
@@ -101,8 +103,24 @@ def put_values(patch: dict[str, Any] = Body(...)) -> models.ConfigValues:
     refused = capture_settings.refused(settings or {})
     if refused:
         raise InvalidRequestError(refused)
+    patch = _with_theme_options_checked(patch)
     with _refusals():
         return models.ConfigValues.model_validate(config_service.apply(patch, _windows()))
+
+
+def _with_theme_options_checked(patch: dict[str, Any]) -> dict[str, Any]:
+    """Each theme's values coerced to what that theme declares. A theme that is not
+    installed keeps what it is given, which is what a setup copied from another machine
+    holds. A body of the wrong shape is left for `apply` to refuse in words."""
+    wanted = patch.get(config_service.THEME_OPTIONS)
+    if not isinstance(wanted, dict) or not all(isinstance(one, dict) for one in wanted.values()):
+        return patch
+    try:
+        coerced = {folder: theme_service.coerce_option_values(folder.strip(), values)
+                   for folder, values in wanted.items()}
+    except ValueError as exc:
+        raise InvalidRequestError(why(exc)) from exc
+    return {**patch, config_service.THEME_OPTIONS: coerced}
 
 
 @router.get("/settings", summary="Every setting by section and key",
@@ -146,6 +164,22 @@ def _refusals() -> Iterator[None]:
         raise NotFoundError(t("error.config.list.no_item", id=exc.item_id)) from exc
     except config_service.SettingsWriteError as exc:
         raise ConflictError(why(exc)) from exc
+
+
+@router.get("/theme_options", summary="What was chosen on each theme",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_theme_options() -> dict[str, dict[str, object]]:
+    """By the theme's folder name. A theme nobody changed has no entry."""
+    return config_service.theme_options()
+
+
+@router.get("/theme_options/{theme}", summary="What was chosen on one theme",
+            dependencies=[requires(scopes.CONFIG_READ)])
+def get_theme_option_values(theme: str) -> dict[str, object]:
+    found = config_service.theme_options().get(theme)
+    if found is None:
+        raise NotFoundError(t("error.config.theme_options_none", theme=theme))
+    return found
 
 
 @router.get("/{list_key}", summary="Every item of a list",

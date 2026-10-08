@@ -15,7 +15,8 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-from common import service_errors, theme_options
+from common import config_service, service_errors, theme_options
+from common.config_store import ConfigStore
 from common.i18n import t
 from common.online import theme_ops, theme_service
 from common.online.theme_installer import ThemeInstallStore
@@ -43,10 +44,15 @@ def _installed(root: Path, folder: str = "Reference", *, values: dict | None = N
 class _Base(TempTree):
     def setUp(self) -> None:
         super().setUp()
-        patcher = mock.patch.object(theme_options, "USER_OPTIONS_DIR",
-                                    self.root / "theme_user_options")
+        self.config_file = self.root / "config" / "vpinfe.json"
+        self.config_file.parent.mkdir()
+        patcher = mock.patch.object(config_service, "get_ini_config",
+                                    lambda: ConfigStore(self.config_file))
         patcher.start()
         self.addCleanup(patcher.stop)
+
+    def saved(self) -> dict:
+        return json.loads(self.config_file.read_text(encoding="utf-8"))
 
 
 class UserOptionStoreTests(_Base):
@@ -58,28 +64,54 @@ class UserOptionStoreTests(_Base):
     def test_a_theme_nobody_configured_has_no_values(self) -> None:
         self.assertEqual(theme_options.load("Reference"), {})
 
-    def test_the_file_is_keyed_by_folder_name(self) -> None:
+    def test_the_entry_is_keyed_by_folder_name_in_vpinfe_json(self) -> None:
         """Not the registry key - a local or side-loaded theme has no registry entry."""
         theme_options.save("My Local Theme", {"showFlags": True})
-        self.assertTrue((theme_options.USER_OPTIONS_DIR / "My Local Theme.json").exists())
+        self.assertEqual(self.saved()["theme_options"],
+                         {"My Local Theme": {"showFlags": True}})
 
-    def test_a_hostile_folder_name_cannot_escape_the_directory(self) -> None:
+    def test_nothing_is_written_beside_the_config_file(self) -> None:
+        theme_options.save("Reference", {"showFlags": True})
+        self.assertEqual([p.name for p in self.config_file.parent.iterdir()],
+                         ["vpinfe.json"])
+
+    def test_a_hostile_folder_name_is_only_a_key(self) -> None:
         theme_options.save("../../etc/passwd", {"showFlags": True})
-        written = list(theme_options.USER_OPTIONS_DIR.glob("*.json"))
-        self.assertEqual([p.parent for p in written], [theme_options.USER_OPTIONS_DIR])
+        self.assertEqual(theme_options.load("../../etc/passwd"), {"showFlags": True})
+        self.assertEqual([p.name for p in self.root.rglob("passwd")], [])
 
-    def test_an_unreadable_file_reads_as_no_values(self) -> None:
-        theme_options.USER_OPTIONS_DIR.mkdir(parents=True)
-        (theme_options.USER_OPTIONS_DIR / "Reference.json").write_text("{ broken",
-                                                                       encoding="utf-8")
+    def test_saving_a_theme_leaves_the_others_alone(self) -> None:
+        theme_options.save("Reference", {"showFlags": True})
+        theme_options.save("Other", {"wheelSpan": 4})
+        theme_options.save("Reference", {"showFlags": False})
+        self.assertEqual(self.saved()["theme_options"],
+                         {"Reference": {"showFlags": False}, "Other": {"wheelSpan": 4}})
+
+    def test_saving_nothing_leaves_an_empty_entry(self) -> None:
+        theme_options.save("Reference", {"showFlags": True})
+        theme_options.save("Reference", {})
+        self.assertEqual(self.saved()["theme_options"], {"Reference": {}})
+
+    def test_a_file_that_is_not_an_object_reads_as_nothing_chosen(self) -> None:
+        self.config_file.write_text(json.dumps({"schema": 2, "settings": {},
+                                                "theme_options": ["x"]}), encoding="utf-8")
         self.assertEqual(theme_options.load("Reference"), {})
 
     def test_a_folder_name_with_nothing_usable_is_refused_in_words(self) -> None:
         with self.assertRaises(ValueError) as raised:
-            theme_options.save("???", {"showFlags": True})
+            theme_options.save("  ", {"showFlags": True})
 
         self.assertEqual(str(raised.exception),
-                         t("error.themes.folder_name_unusable", folder="???"))
+                         t("error.themes.folder_name_unusable", folder="  "))
+
+    def test_two_stores_saving_different_themes_keep_both(self) -> None:
+        first, second = ConfigStore(self.config_file), ConfigStore(self.config_file)
+        first.set_theme_options({"Reference": {"showFlags": True}})
+        first.save()
+        second.set_theme_options({"Other": {"wheelSpan": 4}})
+        second.save()
+        self.assertEqual(self.saved()["theme_options"],
+                         {"Reference": {"showFlags": True}, "Other": {"wheelSpan": 4}})
 
 
 class RefusedSettingTests(_Base):
@@ -133,7 +165,7 @@ class MigrationTests(_Base):
         self.assertEqual(theme_options.migrate_from_packages(themes), [])
 
     def test_an_existing_user_file_is_never_overwritten(self) -> None:
-        """Second run, or a theme that already moved - the user's file wins."""
+        """Second run, or a theme that already moved - what is there wins."""
         themes = self.root / "themes"
         _installed(themes, values={"showFlags": True})
         theme_options.save("Reference", {"showFlags": False})
@@ -141,6 +173,15 @@ class MigrationTests(_Base):
         theme_options.migrate_from_packages(themes)
 
         self.assertEqual(theme_options.load("Reference"), {"showFlags": False})
+
+    def test_choices_taken_away_are_not_lifted_back_from_the_package(self) -> None:
+        themes = self.root / "themes"
+        _installed(themes, values={"showFlags": True})
+        theme_options.migrate_from_packages(themes)
+        theme_options.save("Reference", {})
+
+        self.assertEqual(theme_options.migrate_from_packages(themes), [])
+        self.assertEqual(theme_options.load("Reference"), {})
 
     def test_migrating_twice_changes_nothing(self) -> None:
         themes = self.root / "themes"

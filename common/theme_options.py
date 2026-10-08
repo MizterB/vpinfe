@@ -1,8 +1,8 @@
 """What the user set on a theme, kept where a theme update cannot reach it.
 
 Updating a theme deletes the installed package, so an option written inside it is an
-option the next update silently resets. These live in their own directory instead, one
-file per theme, and survive an update, a reinstall and a delete.
+option the next update silently resets. These are the `theme_options` map of `vpinfe.json`
+instead, one entry per theme, and survive an update, a reinstall and a delete.
 
 Keyed by folder name rather than by the registry key, because only the folder name is
 universal: a local or side-loaded theme has no registry entry, and `[Settings] theme`
@@ -14,31 +14,18 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
+from common import config_service
 from common.i18n import t
-from common.paths import CONFIG_DIR
 
 logger = logging.getLogger("vpinfe.common.theme_options")
 
-USER_OPTIONS_DIR = CONFIG_DIR / "theme_user_options"
 
-VALUES_KEY = "values"
-SOURCE_KEY = "source"
-
-
-def sanitize(folder: str) -> str:
-    """A folder name reduced to a safe filename stem, as plugin profiles already do."""
-    cleaned = re.sub(r"[^A-Za-z0-9._ -]+", "-", str(folder or "").strip())
-    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -.")
-    return cleaned[:64]
-
-
-def path_for(folder: str) -> Path | None:
-    stem = sanitize(folder)
-    return USER_OPTIONS_DIR / f"{stem}.json" if stem else None
+def load(folder: str) -> dict[str, Any]:
+    """The values the user set for this theme, or {} when they have set none."""
+    return config_service.theme_options().get(str(folder or "").strip(), {})
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -49,17 +36,8 @@ def _read(path: Path) -> dict[str, Any]:
     except FileNotFoundError:
         return {}
     except (OSError, ValueError):
-        logger.warning("Ignoring unreadable theme options at %s", path)
+        logger.warning("Ignoring unreadable theme schema at %s", path)
         return {}
-
-
-def load(folder: str) -> dict[str, Any]:
-    """The values the user set for this theme, or {} when they have set none."""
-    path = path_for(folder)
-    if path is None:
-        return {}
-    values = _read(path).get(VALUES_KEY)
-    return dict(values) if isinstance(values, dict) else {}
 
 
 def values_in_package(theme_dir: Path) -> dict[str, Any]:
@@ -86,41 +64,31 @@ def migrate_from_packages(themes_dir: Path) -> list[str]:
 
     Must run before `main.py` auto-installs and updates themes, or the release that
     fixes the data loss is the release that causes it: an update deletes the package
-    these values are still sitting in. Existing user files are never overwritten - if
-    one is there, this theme has already moved.
+    these values are still sitting in. A theme that already has an entry is never
+    overwritten - it has already moved.
     """
-    moved: list[str] = []
+    moved: dict[str, dict[str, Any]] = {}
     if not themes_dir.is_dir():
-        return moved
+        return []
+    held = config_service.theme_options()
     for theme_dir in sorted(p for p in themes_dir.iterdir() if p.is_dir()):
         folder = theme_dir.name
-        path = path_for(folder)
-        if path is None or path.exists():
+        if folder in held:
             continue
         values = values_in_package(theme_dir)
-        if not values:
-            continue
-        save(folder, values)
-        moved.append(folder)
-    if moved:
-        logger.info("Moved theme options out of %s installed theme%s: %s",
-                    len(moved), "" if len(moved) == 1 else "s", ", ".join(moved))
-    return moved
+        if values:
+            moved[folder] = values
+    if not moved:
+        return []
+    config_service.put_theme_options(moved)
+    logger.info("Moved theme options out of %s installed theme%s: %s",
+                len(moved), "" if len(moved) == 1 else "s", ", ".join(moved))
+    return list(moved)
 
 
-def save(folder: str, values: dict[str, Any], source: str = "") -> Path:
-    """Replace this theme's values. `source` is recorded, never read.
-
-    It is written because a filename scheme is what would trap us later - changing one is
-    a migration, a key inside a JSON object is not.
-    """
-    path = path_for(folder)
-    if path is None:
+def save(folder: str, values: dict[str, Any]) -> None:
+    """Replace this theme's values."""
+    name = str(folder or "").strip()
+    if not name:
         raise ValueError(t("error.themes.folder_name_unusable", folder=folder))
-    existing = _read(path)
-    payload = {SOURCE_KEY: source or existing.get(SOURCE_KEY, ""),
-               VALUES_KEY: dict(values)}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
-                    encoding="utf-8")
-    return path
+    config_service.put_theme_options({name: dict(values)})

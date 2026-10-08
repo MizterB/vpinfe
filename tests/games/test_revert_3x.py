@@ -265,13 +265,9 @@ class ConfigTests(RevertTestCase):
         (self.config_dir / "state").mkdir(exist_ok=True)
         (self.config_dir / "state" / "devices.json").write_text("{}", encoding="utf-8")
         (self.config_dir / "manager-ui-state.json").write_text("{}", encoding="utf-8")
-        options = self.config_dir / "theme_user_options"
-        options.mkdir()
-        (options / "Trifecta.json").write_text("{}", encoding="utf-8")
 
         result = self._reset()
 
-        self.assertFalse(options.exists())
         self.assertIn("devices.json", result["config_removed"])
         self.assertIn("manager-ui-state.json", result["config_removed"])
 

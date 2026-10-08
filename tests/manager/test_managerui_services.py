@@ -336,7 +336,8 @@ class ManagerUiServiceTests(unittest.TestCase):
         from pathlib import Path
         from tempfile import TemporaryDirectory
 
-        from common import theme_options
+        from common import config_service
+        from common.config_store import ConfigStore
 
         with TemporaryDirectory() as temp_dir:
             themes_dir = Path(temp_dir)
@@ -367,12 +368,13 @@ class ManagerUiServiceTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            user_dir = themes_dir / "theme_user_options"
+            config_file = themes_dir / "vpinfe.json"
             with mock.patch.object(theme_service, "THEMES_DIR", themes_dir), \
-                    mock.patch.object(theme_options, "USER_OPTIONS_DIR", user_dir):
+                    mock.patch.object(config_service, "get_ini_config",
+                                      lambda: ConfigStore(config_file)):
                 schema = theme_service.load_theme_option_schema("Example")
                 values = theme_service.get_theme_option_values("Example")
-                saved_path = theme_service.save_theme_option_values(
+                theme_service.save_theme_option_values(
                     "Example",
                     {
                         "audio.enabled": False,
@@ -387,9 +389,9 @@ class ManagerUiServiceTests(unittest.TestCase):
             self.assertEqual(values["audio.enabled"], True)
             self.assertEqual(values["layout.mode"], "wide")
 
-            self.assertEqual(saved_path, user_dir / "Example.json")
-            self.assertEqual(json.loads(saved_path.read_text(encoding="utf-8"))["values"],
-                             {"audio.enabled": False, "layout.mode": "compact"})
+            self.assertEqual(
+                json.loads(config_file.read_text(encoding="utf-8"))["theme_options"],
+                {"Example": {"audio.enabled": False, "layout.mode": "compact"}})
             self.assertEqual(reread["audio.enabled"], False)
             self.assertEqual(reread["layout.mode"], "compact")
 

@@ -1194,11 +1194,11 @@ Covered by `tests/config/test_config_store.py`.
 **PAR-36 — Theme options you set move out of the theme, and survive an update.**
 They were written into the installed theme package, and updating a theme deletes that
 package — so **every theme update silently reset every option back to its default**, with
-no backup and no warning. They live in `theme_user_options/<folder>.json` now, one file
-per theme, keyed by the folder name because a local or side-loaded theme has no registry
-key. The first 3.0 run lifts existing values out of each installed theme, before anything
-installs or updates one; a theme that already has a user file is left alone, so it runs
-once. The author's schema file is no longer written to at all.
+no backup and no warning. They live in the `theme_options` map of `vpinfe.json` now, one
+entry per theme, keyed by the folder name because a local or side-loaded theme has no
+registry key. The first 3.0 run lifts existing values out of each installed theme, before
+anything installs or updates one; a theme that already has an entry is left alone, so it
+runs once. A backup of `vpinfe.json` carries them. The author's schema file is no longer written to at all.
 *Why:* this was data loss on a routine action, and the only reason it was survivable is
 that most themes ship few options. Nothing a theme author does changes — `theme.json` is
 still where options are declared. Covered by `tests/theming/test_theme_options.py`, including the

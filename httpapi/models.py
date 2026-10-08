@@ -1184,7 +1184,8 @@ class CaptureRunCurrent(ApiModel):
 class ConfigValues(ApiModel):
     """The file's own shape: `settings` keyed section then key, typed as the store types
     them (a setting the file omits answers its default, which is what the install is
-    running on), and beside it each list the schema declares, under its key."""
+    running on), and beside it each list the schema declares, under its key, and
+    `theme_options`, what was chosen on each theme by its folder name."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 

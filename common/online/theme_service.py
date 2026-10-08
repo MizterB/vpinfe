@@ -65,7 +65,7 @@ def get_installed_theme_dir(theme_key: str, registry: ThemeRegistry | None = Non
 
 
 def _folder_for(theme_key: str, registry: ThemeRegistry | None = None) -> str:
-    """The folder a theme is installed under - what its options file is keyed by.
+    """The folder a theme is installed under - what its options are keyed by.
 
     Falls back to the key, which is what a registry install renames the folder to.
     """
@@ -190,7 +190,7 @@ def get_theme_option_values(
     if schema is None:
         return {}
 
-    # The author's schema supplies the default; the user's own file supplies what they
+    # The author's schema supplies the default; `theme_options` supplies what they
     # chose. A `value` still sitting in the package is a pre-3.0 leftover and is read
     # only until the migration lifts it out.
     chosen = theme_options.load(_folder_for(theme_key, registry))
@@ -252,11 +252,25 @@ def _coerce_theme_option_value(option: dict[str, Any], raw_value: Any) -> Any:
     return str(raw_value)
 
 
+def coerce_option_values(theme_folder: str, values: dict[str, Any]) -> dict[str, Any]:
+    """`values` checked against what the theme in that folder declares.
+
+    A value the theme does not declare is left out. A theme that is not installed, or
+    declares no options, has nothing to check against and keeps what it is given.
+    """
+    schema = load_theme_option_schema(theme_folder)
+    if schema is None:
+        return dict(values)
+    declared = {option["key"]: option for option in schema["options"]}
+    return {key: _coerce_theme_option_value(declared[key], raw_value)
+            for key, raw_value in values.items() if key in declared}
+
+
 def save_theme_option_values(
     theme_key: str,
     values: dict[str, Any],
     registry: ThemeRegistry | None = None,
-) -> Path:
+) -> None:
     if not isinstance(values, dict):
         raise TypeError("Theme option values must be a mapping.")
 
@@ -268,9 +282,10 @@ def save_theme_option_values(
     # Written outside the theme, because an update deletes the package: values saved
     # into it were reset by the next update, every time, with no backup and no warning.
     schema_options_by_key = {option["key"]: option for option in schema["options"]}
-    keep = dict(theme_options.load(_folder_for(theme_key, registry)))
+    folder = _folder_for(theme_key, registry)
+    keep = dict(theme_options.load(folder))
     for key, raw_value in values.items():
         if key in schema_options_by_key:
             keep[key] = _coerce_theme_option_value(schema_options_by_key[key], raw_value)
 
-    return theme_options.save(_folder_for(theme_key, registry), keep)
+    theme_options.save(folder, keep)

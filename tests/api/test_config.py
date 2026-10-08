@@ -37,6 +37,9 @@ class Store:
     def get_list(self, key):
         return []
 
+    def theme_options(self):
+        return {}
+
     def save(self):
         self.saves += 1
 

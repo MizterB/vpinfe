@@ -41,7 +41,6 @@ CONFIG_FILES = ("vpinfe.json", COLLECTIONS_NAME, "players.json",
 # The same, in the state folder. `watching.json` is 3.0 data with no 2.x original: a reset
 # library that kept it would measure new findings against an install that no longer exists.
 STATE_FILES = ("devices.json", "watching.json")
-CONFIG_DIRS = ("theme_user_options",)
 
 # Whose `.vpinfe-*` copies are ours to remove. The ini pair is what the conversion to
 # JSON set aside; the JSON pair is what a restore keeps before it replaces one.
@@ -249,7 +248,7 @@ def _config_targets(config_dir: Path, state_dir: Path) -> list[Path]:
         names = os.listdir(config_dir)
     except OSError:
         return targets
-    targets += [config_dir / name for name in CONFIG_FILES + CONFIG_DIRS
+    targets += [config_dir / name for name in CONFIG_FILES
                 if (config_dir / name).exists()]
     for owned in BACKED_UP_NAMES:
         targets += [config_dir / name for name in backup_names(names, owned)

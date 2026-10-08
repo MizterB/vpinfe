@@ -58,7 +58,7 @@ class ReadingTests(ConfigListRouteTests):
 
         body = self.client.get("/config").json()
 
-        self.assertEqual(set(body), {"settings", "widgets", "folders"})
+        self.assertEqual(set(body), {"settings", "widgets", "folders", "theme_options"})
         self.assertIn("network", body["settings"])
         self.assertEqual([item["name"] for item in body["widgets"]], ["One"])
 
@@ -303,7 +303,7 @@ class PathChecksTests(ConfigListRouteTests):
 
 
 class ReservedNameTests(unittest.TestCase):
-    RESERVED = {"schema", "paths", "tools", "waiting", "settings"}
+    RESERVED = {"schema", "paths", "tools", "waiting", "settings", "theme_options"}
 
     def test_no_list_takes_a_name_a_route_has(self) -> None:
         """A settings section may: `tools` is one, and sections are served under

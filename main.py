@@ -245,7 +245,7 @@ if install_setup.pending(config_store):
 # Before anything installs or updates a theme. An update deletes the theme's folder, and
 # until now that folder is where the user's option values were kept - so this has to run
 # first or the release that fixes that data loss is the release that causes it one last
-# time. Cheap and idempotent: it skips any theme that already has its own options file.
+# time. Cheap and idempotent: it skips any theme that already has an entry in `theme_options`.
 try:
     theme_options.migrate_from_packages(THEMES_DIR)
 except Exception:
