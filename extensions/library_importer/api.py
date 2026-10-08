@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from . import adopt, folders, pinballx, popper
+from . import adopt, folders, mapping, pinballx, popper
 from . import plan as plan_for
 from .held import Held, Progress
 from .plan import Plan
@@ -676,6 +676,13 @@ def build(ctx: Any) -> None:
                          if free >= 0 else plan_for.size_of(need)])
         rows.append([ctx.t("wizard.summary.comes_across")])
         rows += [[ctx.t(f"count.{key}"), str(counts[key])] for key in plan_for.COUNTS]
+        if any(source.key == "media" and source.active for source in made.sources):
+            left = mapping.left_behind(library.source_id, games, ctx.games.kinds())
+            if left:
+                rows.append([ctx.t("wizard.summary.left_behind"),
+                             ", ".join(ctx.t("wizard.summary.left_behind_folder",
+                                             folder=folder, count=count)
+                                       for folder, count in left.items())])
 
         ready = bool(games) or mode == "as_is"
         reason = short or ("" if ready else ctx.t("reason.nothing_left"))

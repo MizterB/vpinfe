@@ -90,6 +90,8 @@
   "wizard.summary.space": "Šþàçè ñèèđèđ",
   "wizard.summary.space_free": "{size}, ŵîţĥ {free} ƒřèè öñ {where}",
   "wizard.summary.comes_across": "Ŵĥàţ çöɱèš àçřöšš",
+  "wizard.summary.left_behind": "Ŀèƒţ ƀèĥîñđ",
+  "wizard.summary.left_behind_folder": "{folder} ({count})",
   "wizard.summary.confirm": {
     "one": "Îɱþöřţ {count} ĝàɱè",
     "other": "Îɱþöřţ {count} ĝàɱèš"

@@ -49,6 +49,25 @@ class SourceTests(unittest.TestCase):
         self.assertTrue(found["tables"].derived)
         self.assertTrue(found["media"].derived)
 
+    def test_the_media_folder_is_the_systems_own_where_there_is_one(self) -> None:
+        library = _library(_game("Taxi", media=(
+            SourceMedia(source_kind="Instruction Cards",
+                        path="/src/Media/Instruction Cards/Taxi 1.png", shared=True),
+            SourceMedia(source_kind="Wheel Images", path="/src/Media/VPX/Wheel/Taxi.png"))))
+
+        found = {one.key: one for one in plan_for.derive_sources(library)}
+
+        self.assertEqual(found["media"].path, "/src/Media/VPX")
+
+    def test_a_library_with_only_shared_folders_points_at_media_itself(self) -> None:
+        library = _library(_game("Taxi", media=(
+            SourceMedia(source_kind="Flyer Images/Front",
+                        path="/src/Media/Flyer Images/Front/Taxi.png", shared=True),)))
+
+        found = {one.key: one for one in plan_for.derive_sources(library)}
+
+        self.assertEqual(found["media"].path, "/src/Media")
+
     def test_a_kind_with_nowhere_to_go_is_not_offered(self) -> None:
         """A field that carries nothing is a promise the code cannot keep. Registry
         settings have no destination on this platform at all - VPinMAME's per-ROM values
@@ -152,6 +171,20 @@ class ExpectedTests(unittest.TestCase):
         counts = plan_for.expected(self._plan(library))
 
         self.assertEqual(counts["media"], 1)
+
+    def test_a_later_build_counts_the_slots_the_first_left_empty(self) -> None:
+        """The run puts a later build's artwork where nothing is, and never replaces, so
+        the plan counts the kinds the game has no file for yet."""
+        library = _library(
+            _game("Kiss (Bally 1979)", table_file="/src/a.vpx", media=(
+                SourceMedia(source_kind="Wheel Images", path="/w/a.png"),)),
+            _game("Kiss (Bally 1979)", table_file="/src/b.vpx", media=(
+                SourceMedia(source_kind="Wheel Images", path="/w/b.png"),
+                SourceMedia(source_kind="Table Images", path="/t/b.png"))))
+
+        counts = plan_for.expected(self._plan(library))
+
+        self.assertEqual(counts["media"], 2)
 
     def test_two_games_with_the_same_key_are_both_counted(self) -> None:
         """A real source held two entries with byte-identical name attributes. Keyed on

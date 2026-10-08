@@ -166,8 +166,8 @@ def expected(plan: Plan) -> dict:
 
     Counted the way the run counts, not the way the source reads, because those differ
     in two places and a report that ignores either reads as a shortfall for working
-    correctly. Several builds of one machine become one game, and only the first of them
-    brings artwork - the rest are the same table photographed twice.
+    correctly. Several builds of one machine become one game, and the first of them brings
+    its artwork; a later one brings only the kinds the game is still missing.
 
     A source that is not set contributes nothing and says zero rather than being left
     out: "no artwork" is a number somebody chose, and an absent row reads as an oversight.
@@ -176,6 +176,7 @@ def expected(plan: Plan) -> dict:
     has = {source.key: bool(source.active) for source in plan.sources}
 
     folders, tables, media, companions, history = set(), 0, 0, 0, 0
+    filled: dict[str, set[str]] = {}
     for one in wanted:
         first = one.folder.lower() not in folders
         folders.add(one.folder.lower())
@@ -187,9 +188,18 @@ def expected(plan: Plan) -> dict:
             tables += one.tables
             # They ride with the table, so they arrive only where it does.
             companions += one.companions
-        # Artwork and history ride with the game, and the game is made once.
-        if has.get("media") and first:
-            media += len(set(one.kinds) - held.media) if held else one.media
+        # Artwork rides with the game: the first build brings what it has, and a later
+        # one only the slots still empty, which is what the run puts with no replace.
+        if has.get("media"):
+            if first:
+                media += len(set(one.kinds) - held.media) if held else one.media
+                filled[one.folder.lower()] = set(one.kinds) | (
+                    set(held.media) if held else set())
+            else:
+                still = set(one.kinds) - filled[one.folder.lower()]
+                media += len(still)
+                filled[one.folder.lower()] |= still
+        # History rides with the game, and the game is made once.
         if first:
             history += (int(bool(one.played and missing_history(
                 one.played, held.user).counts)) if held else one.history)
@@ -354,11 +364,19 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
     media = ""
     for system in library.systems:
         for game in system.games:
-            if game.media:
-                media = str(Path(game.media[0].path).parent.parent)
+            own = next((item for item in game.media if not item.shared), None)
+            if own:
+                media = str(Path(own.path).parent.parent)
                 break
         if media:
             break
+    if not media:
+        # Only shared folders were found. Their root is the media folder itself, up
+        # past the source folder's own name: `Flyer Images/Front` is two levels.
+        shared = next((item for system in library.systems for game in system.games
+                       for item in game.media), None)
+        if shared:
+            media = str(Path(shared.path).parents[len(Path(shared.source_kind).parts)])
     # Nothing derives a registry export: a share does not carry one unless somebody
     # exported it on purpose, so this stays empty until it is pointed at.
     # VPinMAME keeps its own folders beside the emulator, not in it - a real machine

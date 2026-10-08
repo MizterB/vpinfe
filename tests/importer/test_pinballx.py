@@ -162,6 +162,34 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(images, ["Taxi 2.png"])
 
 
+class SharedMediaTests(unittest.TestCase):
+    """PinballY files the real DMD pictures under each system and the instruction cards and
+    flyers once for all of them."""
+
+    def setUp(self) -> None:
+        self.pinballx = _reader()
+        self.library = self.pinballx.read(FIXTURE)
+        self.taxi = {game.key: game for game in self.library.games}["Taxi"]
+
+    def _found(self) -> dict[str, tuple[str, bool]]:
+        return {item.source_kind: (Path(item.path).name, item.shared)
+                for item in self.taxi.media}
+
+    def test_the_real_dmd_folders_are_read_from_the_systems_own_media(self) -> None:
+        found = self._found()
+
+        self.assertEqual(found["Real DMD Images"], ("Taxi.png", False))
+        self.assertEqual(found["Real DMD Color Images"], ("Taxi.png", False))
+        self.assertEqual(found["Real DMD Videos"], ("Taxi.mp4", False))
+
+    def test_the_folders_every_system_shares_are_read_once_from_media(self) -> None:
+        found = self._found()
+
+        self.assertEqual(found["Instruction Cards"], ("Taxi 1.png", True))
+        self.assertEqual(found["Flyer Images/Front"], ("Taxi.png", True))
+        self.assertEqual(found["Flyer Images/Inside1"], ("Taxi.png", True))
+
+
 class ReadTests(unittest.TestCase):
     def setUp(self) -> None:
         self.pinballx = _reader()

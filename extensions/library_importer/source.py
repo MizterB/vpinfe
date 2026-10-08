@@ -44,6 +44,8 @@ class SourceMedia:
     # element. Mapped to ours later, by the half that is allowed to know ours.
     source_kind: str
     path: str
+    # Filed in a folder every system shares, not in the system's own.
+    shared: bool = False
 
 
 @dataclass(frozen=True)

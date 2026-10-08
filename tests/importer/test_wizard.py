@@ -234,7 +234,16 @@ class SummaryShapeTests(WizardCase):
 
         after = [one[0] for one in found["summary"][at + 1:]]
         self.assertEqual(after, ["Games", "Game files", "Media files",
-                                 "Backglasses and settings", "Games with play history"])
+                                 "Backglasses and settings", "Games with play history",
+                                 "Left behind"])
+
+    def test_the_folders_with_no_slot_are_named_with_their_file_counts(self) -> None:
+        """Said before the copy starts, so nobody finds out from the report that a folder
+        of theirs was not carried."""
+        found = self._check(FIXTURE)
+
+        left = dict(one for one in found["summary"] if len(one) == 2)["Left behind"]
+        self.assertEqual(left, "Flyer Images/Inside1 (1), Real DMD Videos (1)")
 
     def test_the_summary_counts_the_games_whose_play_history_comes_across(self) -> None:
         source = self.root / "pinballx"

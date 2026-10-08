@@ -113,6 +113,45 @@ class ImportTests(AdoptCase):
         self.assertTrue(any("Wheel" in one for one in landed), landed)
         self.assertTrue(any("Playfield" in one for one in landed), landed)
 
+    def test_the_real_dmd_pictures_instruction_card_and_flyer_front_land(self) -> None:
+        self.imported()
+
+        taxi = self.library / "Taxi (Williams 1988)" / "medias"
+        landed = sorted(one.name for one in taxi.iterdir())
+        for part in ("(RealDMD)", "(RealColorDMD)", "(InstructionCard)", "(Flyer)"):
+            self.assertTrue(any(one.startswith(part) for one in landed),
+                            (part, landed))
+
+    def test_a_second_build_fills_the_slots_the_first_left_empty_and_replaces_none(
+            self) -> None:
+        import dataclasses
+
+        from vpinfe_ext_library_importer import adopt, pinballx
+        from vpinfe_ext_library_importer.source import SourceMedia
+
+        other = self.root / "other"
+        other.mkdir()
+        self._ctx.files.set_roots([str(FIXTURE), str(other)])
+        (other / "playfield.png").write_bytes(b"the second build's playfield")
+        (other / "topper.png").write_bytes(b"the second build's topper")
+        read = pinballx.read(FIXTURE)
+        taxi = next(game for game in read.games if game.key == "Taxi")
+        again = dataclasses.replace(taxi, media=(
+            SourceMedia(source_kind="Table Images", path=str(other / "playfield.png")),
+            SourceMedia(source_kind="Topper Images", path=str(other / "topper.png"))))
+        systems = tuple(
+            dataclasses.replace(one, games=(*one.games, again) if any(
+                game.key == "Taxi" for game in one.games) else one.games)
+            for one in read.systems)
+
+        report = adopt.run(self._ctx, dataclasses.replace(read, systems=systems), [VPX])
+
+        landed = {one.name: one.read_bytes()
+                  for one in (self.library / "Taxi (Williams 1988)" / "medias").iterdir()}
+        self.assertEqual(sum(1 for one in report["rows"] if one.get("joined")), 1)
+        self.assertIn(b"the second build's topper", landed.values())
+        self.assertNotIn(b"the second build's playfield", landed.values())
+
     def _planned(self, cleared: str, fill: bool = False, other_taxi: bool = False):
         """The fixture library with a game file and a backglass behind every game.
 
@@ -182,7 +221,9 @@ class ImportTests(AdoptCase):
         report = self.imported()
         rows = {row["key"]: row for row in report["rows"]}
 
-        self.assertEqual(rows["Taxi"]["skipped_media"], [])
+        self.assertEqual(rows["Taxi"]["skipped_media"],
+                         ["Flyer Images/Inside1", "Real DMD Videos"])
+        self.assertEqual(rows["Taxi 2"]["skipped_media"], [])
 
     def test_a_source_whose_tables_are_elsewhere_still_imports(self) -> None:
         """Entries with artwork and no game file, which the library has a word for."""

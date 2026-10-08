@@ -264,15 +264,17 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     return row
 
 
-def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
-                   move: bool = False, cleared: frozenset[str] = frozenset(),
+def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
+                   name: str, game_id: str, move: bool = False,
+                   cleared: frozenset[str] = frozenset(),
                    existing: bool = False) -> AdoptedRow:
     """A second build of a machine the run has already made a game for.
 
-    Its file joins that game rather than starting another one. The artwork does not:
-    what is already there was placed for the same machine, and a second build's playfield
-    would replace it with a picture of the same table. In a game the library already
-    held, a file of the same name is already there and stays.
+    Its file joins that game rather than starting another one. Its artwork fills the
+    slots the first build left empty and replaces nothing: what is already there was
+    placed for the same machine, and a second build's playfield would replace it with a
+    picture of the same table. In a game the library already held, a file of the same
+    name is already there and stays.
     """
     row: AdoptedRow = {"key": game.key, "name": name, "game_id": game_id,
                        "table": False, "media": 0, "companions": 0, "roms": 0,
@@ -280,16 +282,25 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
                        "joined": True}
     if existing:
         row["existing"] = True
-    if not game.table_file or "tables" in cleared:
-        return row
-    try:
-        landed = ctx.games.add_table(game_id, game.table_file, move=move)
-        row["table"] = True
-        row["companions"] = len(landed["companions"])
-    except Exception as exc:
-        if not (existing and isinstance(exc, FileExistsError)):
-            ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
-            row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
+    if game.table_file and "tables" not in cleared:
+        try:
+            landed = ctx.games.add_table(game_id, game.table_file, move=move)
+            row["table"] = True
+            row["companions"] = len(landed["companions"])
+        except Exception as exc:
+            if not (existing and isinstance(exc, FileExistsError)):
+                ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
+                row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
+    if "media" not in cleared:
+        for kind, path in mapping.media_for(source_id, game, kinds):
+            try:
+                ctx.games.put_media(game_id, kind, path, "", replace=False)
+                row["media"] += 1
+            except FileExistsError:
+                continue
+            except Exception as exc:
+                ctx.logger.warning("%s: %s did not come across: %s", name, kind, exc)
+        row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
     return row
 
 
@@ -364,8 +375,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         bytes_done += weight
         seen = made_here.get(name.lower())
         if seen:
-            rows.append(_another_build(ctx, game, name, seen, move, cleared,
-                                       seen in held_ids.values()))
+            rows.append(_another_build(ctx, library.source_id, game, kinds, name, seen,
+                                       move, cleared, seen in held_ids.values()))
             continue
         row = _one(ctx, library.source_id, game, kinds, where, name, sources,
                    history, move, cleared, held_ids.get(game.key, ""))

@@ -90,6 +90,8 @@
   "wizard.summary.space": "Space needed",
   "wizard.summary.space_free": "{size}, with {free} free on {where}",
   "wizard.summary.comes_across": "What comes across",
+  "wizard.summary.left_behind": "Left behind",
+  "wizard.summary.left_behind_folder": "{folder} ({count})",
   "wizard.summary.confirm": {
     "one": "Import {count} game",
     "other": "Import {count} games"

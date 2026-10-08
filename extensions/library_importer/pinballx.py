@@ -52,8 +52,18 @@ MEDIA_FOLDERS = (
     "DMD Images", "DMD Videos",
     "Topper Images", "Topper Videos",
     "FullDMD Videos",
+    "Real DMD Images", "Real DMD Color Images",
+    "Real DMD Videos", "Real DMD Color Videos",
     "Wheel Images", "Logos",
     "Table Audio", "Launch Audio",
+)
+
+# PinballY's kinds that are not filed per system: `Media/Instruction Cards/<name>.ext`, and
+# a flyer's pages in a folder each, `Media/Flyer Images/<page>/<name>.ext`.
+SHARED_MEDIA_FOLDERS = (
+    "Instruction Cards",
+    *(f"Flyer Images/{page}" for page in
+      ("Front", "Inside1", "Inside2", "Inside3", "Inside4", "Inside5", "Inside6", "Back")),
 )
 
 # The `<game>` children, verbatim from the parser both frontends share. Read as text and
@@ -452,8 +462,19 @@ def read_database(path: Path | str, tables_dir: str = "",
     return found, notes
 
 
-def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGame]:
+def read_shared_media(root: Path | str) -> dict[str, list[tuple[str, str]]]:
+    """The files in the folders every system shares, as (name, path) by folder. Listed
+    once for a source, not once for each of its systems."""
+    return dict(zip(SHARED_MEDIA_FOLDERS,
+                    files_across(Path(root), SHARED_MEDIA_FOLDERS), strict=True))
+
+
+def read_media(media_root: Path | str, games: list[SourceGame],
+               shared: dict[str, list[tuple[str, str]]] | None = None) -> list[SourceGame]:
     """Attach each game's artwork, found the way the source finds it.
+
+    The shared folders are read from `shared` where a caller has listed them, else from
+    under `media_root` itself, which is the layout of a folder of artwork.
 
     A file belongs to a game when its filename starts with one of the game's names,
     compared without regard to case - a prefix, not an exact match, so `<name>.png` and
@@ -487,8 +508,11 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
     order = sorted(folded, key=len, reverse=True)
 
     found: dict[str, list[SourceMedia]] = {game.key: [] for game in games}
-    for folder, files in zip(MEDIA_FOLDERS, files_across(media_root, MEDIA_FOLDERS),
-                             strict=True):
+    listed = [(folder, files, False) for folder, files in
+              zip(MEDIA_FOLDERS, files_across(media_root, MEDIA_FOLDERS), strict=True)]
+    listed += [(folder, files, True) for folder, files in
+               (read_shared_media(media_root) if shared is None else shared).items()]
+    for folder, files, in_shared in listed:
         for filename, path in files:
             stem = Path(filename).stem
             if BACKUP_SUFFIX.search(stem):
@@ -496,7 +520,8 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
             stem = _composed(stem).lower()
             owner = next((folded[name] for name in order if stem.startswith(name)), None)
             if owner is not None:
-                found[owner].append(SourceMedia(source_kind=folder, path=path))
+                found[owner].append(SourceMedia(source_kind=folder, path=path,
+                                                shared=in_shared))
 
     return [SourceGame(**{**vars(game), "media": tuple(found.get(game.key, ()))})
             for game in games]
@@ -552,6 +577,7 @@ def read(root: Path | str, plays: Callable[[str], bool] = _plays_vpx,
     systems = []
     mapped: set[str] = set()
     skipped = []
+    shared: dict[str, list[tuple[str, str]]] | None = None
     for name, entry in by_name.items():
         if not _is_playable(entry, plays, known_apps):
             skipped.append(name)
@@ -576,7 +602,9 @@ def read(root: Path | str, plays: Callable[[str], bool] = _plays_vpx,
                            local=found.local_prefix))
         games, said = read_database(database, declared_tables, plays)
         notes.extend(said)
-        games = read_media(root / MEDIA_DIR / name, games)
+        if shared is None:
+            shared = read_shared_media(root / MEDIA_DIR)
+        games = read_media(root / MEDIA_DIR / name, games, shared)
         systems.append(SourceSystem(name=name, games=tuple(games),
                                     # Where the tables are *here*, not where the old
                                     # machine wrote them down. Everything downstream

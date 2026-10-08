@@ -91,6 +91,45 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(mapping.unmapped_kinds("pinballx", game, KINDS),
                          ["FullDMD Videos"])
 
+    def test_the_real_dmd_cards_and_front_of_the_flyer_have_slots(self) -> None:
+        known = (*KINDS, "real_dmd", "real_dmd_color", "flyer", "instruction_card")
+        game = self._with("Real DMD Images", "Real DMD Color Images",
+                          "Instruction Cards", "Flyer Images/Front")
+
+        found = mapping.media_for("pinballx", game, known)
+
+        self.assertEqual(sorted(kind for kind, _p in found),
+                         ["flyer", "instruction_card", "real_dmd", "real_dmd_color"])
+        self.assertEqual(mapping.unmapped_kinds("pinballx", game, known), [])
+
+    def test_the_real_dmd_videos_and_the_other_flyer_pages_have_none(self) -> None:
+        known = (*KINDS, "real_dmd", "real_dmd_color", "flyer", "instruction_card")
+        game = self._with("Real DMD Videos", "Real DMD Color Videos",
+                          "Flyer Images/Inside1", "Flyer Images/Back")
+
+        self.assertEqual(mapping.media_for("pinballx", game, known), [])
+        self.assertEqual(mapping.unmapped_kinds("pinballx", game, known),
+                         ["Flyer Images/Back", "Flyer Images/Inside1",
+                          "Real DMD Color Videos", "Real DMD Videos"])
+
+    def test_the_files_left_behind_are_counted_by_folder(self) -> None:
+        games = [self._with("Real DMD Videos", "Table Images"),
+                 self._with("Real DMD Videos", "Flyer Images/Back")]
+        games[1] = _game(media=tuple(
+            SourceMedia(source_kind=one.source_kind, path=f"/t/{one.source_kind}.png")
+            for one in games[1].media))
+
+        self.assertEqual(mapping.left_behind("pinballx", games, KINDS),
+                         {"Flyer Images/Back": 1, "Real DMD Videos": 2})
+
+    def test_a_shared_file_listed_for_two_systems_is_one_file_left_behind(self) -> None:
+        item = SourceMedia(source_kind="Flyer Images/Back", path="/m/Back/Taxi.png",
+                           shared=True)
+        games = [_game(media=(item,)), _game(media=(item,))]
+
+        self.assertEqual(mapping.left_behind("pinballx", games, KINDS),
+                         {"Flyer Images/Back": 1})
+
     def test_a_source_nothing_maps_carries_nothing_rather_than_guessing(self) -> None:
         game = self._with("Table Images")
 

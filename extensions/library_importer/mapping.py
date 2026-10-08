@@ -30,6 +30,10 @@ PINBALLX_KINDS = {
     "DMD Videos": "scoreview_video",
     "Topper Images": "topper",
     "Topper Videos": "topper_video",
+    "Real DMD Images": "real_dmd",
+    "Real DMD Color Images": "real_dmd_color",
+    "Instruction Cards": "instruction_card",
+    "Flyer Images/Front": "flyer",
     "Wheel Images": "wheel",
     "Table Audio": "audio",
     "Launch Audio": "audio_launch",
@@ -117,6 +121,26 @@ def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...]) -> 
     return sorted({item.source_kind for item in game.media
                    if _moving_form(table.get(item.source_kind, ""), item.path)
                    not in known})
+
+
+def left_behind(source_id: str, games: list[SourceGame], known: tuple[str, ...]) -> dict[str, int]:
+    """Files by source folder that have no slot, across `games`.
+
+    A shared folder is read once per system, so a file is counted once however many
+    systems list it.
+    """
+    table = KINDS_BY_SOURCE.get(source_id, {})
+    seen: set[str] = set()
+    counts: dict[str, int] = {}
+    for game in games:
+        for item in game.media:
+            if item.path in seen:
+                continue
+            if _moving_form(table.get(item.source_kind, ""), item.path) in known:
+                continue
+            seen.add(item.path)
+            counts[item.source_kind] = counts.get(item.source_kind, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def folder_name(game: SourceGame) -> str:
