@@ -14,7 +14,6 @@ from nicegui import background_tasks, run, ui
 
 from common import (
     device_client,
-    feature_checks,
     icons,
     install_identity,
     install_setup,
@@ -34,8 +33,10 @@ from console import (
     games,
     grid,
     job_report,
+    jobs_list,
     offload,
     power,
+    rail_marks,
     remembered,
     remote,
     row_drag,
@@ -55,6 +56,7 @@ from console import backups as backups_page
 from console import collections as collections_page
 from console import community as community_page
 from console import devices as devices_page
+from console import jobs as jobs_page
 from console import launchers as launchers_page
 from console import logs as logs_page
 from console import media as media_page
@@ -107,11 +109,9 @@ NAV_OVERLAY_PX = 0
 # One rail width for both panels - they collapse to the same thing.
 RAIL_PX = 57
 
-# Every entry is a place, not a thing. Jobs used to sit here and does not any more: it
-# is transient, and it belongs in the rail's foot, which is visible from every page and
-# costs nothing while there is nothing to say. Gallery is gone - the media map in the
-# details pane answers "what is missing here" and the Media section answers "what is
-# missing anywhere", which is what it was reaching for.
+# Every entry is a place, not a thing. Gallery is gone - the media map in the details
+# pane answers "what is missing here" and the Media section answers "what is missing
+# anywhere", which is what it was reaching for.
 # Grouped, because four of these are what the library holds and the rest are not.
 # A subject is a place, not transient state - so Tables and Tags are
 # rail entries rather than a mode a dropdown puts the Games page into.
@@ -170,6 +170,7 @@ NAV_GROUPS: tuple[tuple[tuple[str, str, str] | None, tuple[NavItem, ...]], ...] 
                   ("devices", "console.section.devices", "devices", install_identity.DEVICES),
                   ("metrics", "console.section.metrics", "monitor_heart", install_identity.CORE),
                   ("logs", "console.section.logs", "description", install_identity.CORE),
+                  ("jobs", "console.section.jobs", "work_history", install_identity.CORE),
                   ("backups", "console.section.backups", "history", install_identity.CORE),
                   ("about", "console.section.about", "info", install_identity.CORE))),
 )
@@ -236,6 +237,7 @@ SECTIONS = {
     "players": "console.section.players",
     "metrics": "console.section.metrics",
     "logs": "console.section.logs",
+    "jobs": "console.section.jobs",
     "backups": "console.section.backups",
     "about": "console.section.about",
 }
@@ -254,6 +256,8 @@ def _version(said: Any) -> str:
 
 JOBS_RUNNING_S = 2.0
 JOBS_IDLE_S = 5.0
+# Per browser: when Jobs was last opened, which the rail's count of jobs to look at runs from.
+JOBS_SEEN = "jobs_seen"
 
 
 def failed_since(jobs: list[dict[str, Any]], opened: float,
@@ -710,16 +714,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         # rows - which is the two pieces of chrome that should always be reachable.
         nav_body = ui.column().classes("w-full gap-0 console-nav-body")
         rail_labels: list[ui.element] = []
-        devices_badge: dict[str, str] = {}
-
-        def show_devices_badge() -> None:
-            badge = badges.get("devices")
-            if badge is None or not devices_badge:
-                return
-            badge.text = devices_badge["text"]
-            badge.set_visibility(True)
-            badge.tooltip(devices_badge["tooltip"])
-
         def draw_rail(groups: list) -> None:
             nav_body.clear()
             destinations.clear()
@@ -749,7 +743,6 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             labels.extend(rail_labels)
             for label in rail_labels:
                 label.set_visibility(not state["mini"])
-            show_devices_badge()
 
         draw_rail(nav_groups)
         foot = ui.column().classes("items-center gap-1 px-3 py-3 w-full") \
@@ -800,7 +793,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 ui.icon("error", size="16px").classes("shrink-0 text-negative")
                 failed_text = ui.element("div").classes("flex min-w-0")
             failed_line.set_visibility(False)
-            failed_line.on("click", lambda: _show_jobs(dismiss=True))
+            failed_line.on("click", lambda: _show_jobs())
             labels.append(failed_text)
             with ui.row().classes("gap-2 items-center justify-center w-full no-wrap"):
                 # Which build this is. Identity rather than state, so it is always
@@ -812,6 +805,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 power_menu.place()
 
     opened = time.time()
+    # Entry key to the warm mark it draws, beside the red ones the feature checks make.
+    warm: dict[str, rail_marks.Mark] = {}
     # A watch started by `watch_jobs` runs as a task of its own, outside the page.
     here = ui.context.client
     told: set[str] = set()
@@ -823,15 +818,16 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         failed_line.set_visibility(False)
 
     @on_page
-    async def _show_jobs(dismiss: bool = False) -> None:
-        """The Jobs view on the Logs page. A failure line that is opened has been read, so
-        it goes."""
-        if not await may_leave(state, "logs"):
+    async def _show_jobs() -> None:
+        if not await may_leave(state, "jobs"):
             return
-        if dismiss:
-            _dismiss_failed()
-        state["log_view"] = "jobs"
-        go("logs")
+        go("jobs")
+
+    def _jobs_opened() -> None:
+        """Opening Jobs by any route reads what the badge and the failure line were about."""
+        remembered.put(JOBS_SEEN, time.time())
+        _dismiss_failed()
+        _warm_jobs([])
 
     offered: dict[str, Any] = {"stop": "", "run": None}
     records = any(one.get("name") == "capture"
@@ -932,6 +928,14 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             if not wizard.watching(str(job.get("id") or "")):
                 _tell_import(job)
         failed = None if running else failed_since(found, opened, dismissed)
+        if failed is not None and state.get("view") == "jobs":
+            dismissed.add(str(failed.get("id") or ""))
+            failed = None
+        seen = _jobs_seen()
+        if state.get("view") == "jobs" and jobs_list.unseen(found, seen):
+            seen = time.time()
+            remembered.put(JOBS_SEEN, seen)
+        _warm_jobs(jobs_list.unseen(found, seen))
         job_timer.interval = JOBS_RUNNING_S if running else JOBS_IDLE_S
         job_line.set_visibility(bool(running))
         failed_line.set_visibility(failed is not None)
@@ -959,6 +963,25 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         job_more.text = t("console.page.more_running", count=len(others)) if others else ""
         job_more.set_visibility(bool(others) and not state.get("mini"))
         job_others.text = "\n".join(_job_said(one) for one in others)
+
+    def _jobs_seen() -> float:
+        """When this browser last opened Jobs. A browser with nothing stored stores the
+        time this page opened, so a first visit does not count the whole history."""
+        seen = remembered.get(JOBS_SEEN)
+        if isinstance(seen, (int, float)):
+            return float(seen)
+        remembered.put(JOBS_SEEN, opened)
+        return opened
+
+    def _warm_jobs(news: list[dict[str, Any]]) -> None:
+        mark = rail_marks.Mark(len(news), jobs_list.unseen_said(news)) if news else None
+        if warm.get("jobs") == mark:
+            return
+        if mark is None:
+            warm.pop("jobs")
+        else:
+            warm["jobs"] = mark
+        mark_findings()
 
     def _job_said(job: dict[str, Any]) -> str:
         return str(job.get("message") or "").strip() or t("console.page.working")
@@ -1080,12 +1103,11 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         # A count, not a version: the entry stands for every device, and which build each
         # one is going to is on its own page. The tooltip names them while it still can,
         # because "3" on its own does not say which three.
-        devices_badge["text"] = str(len(waiting))
-        devices_badge["tooltip"] = (
+        warm["devices"] = rail_marks.Mark(len(waiting), (
             t("console.page.update_waiting", devices=", ".join(waiting))
             if len(waiting) <= 3
-            else t("console.page.updates_count", count=len(waiting)))
-        show_devices_badge()
+            else t("console.page.updates_count", count=len(waiting))))
+        mark_findings()
 
     ui.timer(0.1, _look_for_update, once=True)
 
@@ -1507,6 +1529,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         splitter.classes(remove="console-no-pane") if state["view"] in WORKBENCH_VIEWS \
             else splitter.classes(add="console-no-pane")
         light_nav()
+        if state["view"] == "jobs":
+            _jobs_opened()
         content.clear()
         with content:
             menu = page_header()
@@ -1558,24 +1582,28 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                 metrics_page.build(library, state, redraw)
             elif view == "logs":
                 logs_page.build(library, state, redraw)
+            elif view == "jobs":
+                jobs_page.build(library, state, redraw)
             elif view == "backups":
                 state["rerender"] = redraw
                 backups_page.build(library, state, show_backup, redraw)
             elif view == "about":
                 about_page.build(library, state, redraw)
 
-    def mark_findings() -> None:
-        """What the enabled features are missing, on the entry whose page fixes it and on
-        the group holding that entry, because a mark only on the child is a mark nobody
-        sees on a rail they have collapsed."""
+    def mark_findings() -> None:  # timers made earlier call it: no page-level await above
+        """What the enabled features are missing, and what is waiting, on the entry whose
+        page deals with it and on the group holding that entry, because a mark only on
+        the child is a mark nobody sees on a rail they have collapsed."""
         items = state.get("trouble") or []
         for parent, entries in nav_groups:
-            keys = {key for key, *_rest in entries} & set(feature_checks.WHERES)
-            for key in keys:
-                _mark_trouble(badges.get(key), [one for one in items if one.where == key])
+            marks = []
+            for key, *_rest in entries:
+                mark = rail_marks.entry_mark([one for one in items if one.where == key],
+                                             warm.get(key))
+                _draw_mark(badges.get(key), mark)
+                marks.append(mark)
             if parent is not None:
-                _mark_trouble(badges.get(parent[0]),
-                              [one for one in items if one.where in keys])
+                _draw_mark(badges.get(parent[0]), rail_marks.group_mark(marks))
 
     async def recheck_trouble() -> None:
         """For a write outside Settings that can mend or break a feature."""
@@ -1584,25 +1612,20 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
     state["recheck_trouble"] = recheck_trouble
 
-    def _mark_trouble(badge: Any, items: Any) -> None:
-        """Red, and a count rather than the warm one beside Devices: an update waiting is
-        worth doing when you get to it, and this is something already broken. The reasons
-        go in the tooltip because the entry is the only place they fit before the page.
-        """
+    def _draw_mark(badge: Any, mark: rail_marks.Mark | None) -> None:
         if badge is None:
             return
-        badge.set_visibility(bool(items))
-        badge.classes(add="console-nav-badge--error") if items \
+        badge.set_visibility(mark is not None)
+        badge.classes(add="console-nav-badge--error") if mark and mark.trouble \
             else badge.classes(remove="console-nav-badge--error")
-        if not items:
+        if mark is None:
             return
-        badge.text = str(len(items))
+        badge.text = str(mark.count)
         # Inside the badge: this also runs from a background read, which has no page
         # context to create the tooltip in.
         with badge:
             badge.clear()
-            badge.tooltip(" ".join(dict.fromkeys(item.reason for item in items
-                                                 if item.reason)))
+            badge.tooltip(mark.tooltip)
 
     def refresh_rail() -> None:
         """The rail and the collection orders, from the extensions as they now stand."""

@@ -32,7 +32,7 @@ _FIELDS = (
     # Which page of a section is open. Named for that rather than for Settings, which
     # is now one of System's three and not the only one with pages inside it.
     ("page", lambda state: state.get("settings_page") or ""),
-    # Which of the Logs page's views is up, so the rail's running job can link to Jobs.
+    # Which of the Logs page's views is up.
     ("log", lambda state: state.get("log_view") or ""),
     ("collection", lambda state: state.get("collection") or ""),
     ("launcher", lambda state: state.get("launcher") or ""),
@@ -58,7 +58,7 @@ _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
 
 
 # The Logs page's views that have an address; the stream is the one with none.
-LOG_VIEWS = ("digest", "jobs")
+LOG_VIEWS = ("digest",)
 
 # What the address calls a panel with nothing open.
 NO_SECTION = "none"

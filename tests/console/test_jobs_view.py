@@ -129,22 +129,27 @@ class TimesOnScreen(unittest.TestCase):
 
 
 class TheLink(unittest.TestCase):
-    def test_the_view_is_named_in_the_address(self) -> None:
-        address = parse_qs(deeplink.query({"view": "logs", "log_view": "jobs"}))
+    def test_jobs_has_an_address_of_its_own(self) -> None:
+        self.assertEqual({"view": ["jobs"]}, parse_qs(deeplink.query({"view": "jobs"})))
 
-        self.assertEqual(["jobs"], address["log"])
+    def test_an_address_opens_the_page(self) -> None:
+        state: dict = {}
+        deeplink.apply(state, {"view": "jobs"}, views=["logs", "jobs"], sections=[])
+
+        self.assertEqual("jobs", state["view"])
+
+    def test_the_old_jobs_view_of_logs_is_not_a_view_any_more(self) -> None:
+        state: dict = {}
+        deeplink.apply(state, {"view": "logs", "log": "jobs"}, views=["logs"], sections=[])
+
+        self.assertNotIn("log_view", state)
 
     def test_the_stream_is_the_default_and_leaves_no_mark(self) -> None:
         self.assertNotIn("log", parse_qs(deeplink.query({"view": "logs"})))
 
-    def test_it_is_noise_anywhere_else(self) -> None:
-        self.assertNotIn("log", parse_qs(deeplink.query({"view": "games", "log_view": "jobs"})))
-
-    def test_an_address_seeds_the_view(self) -> None:
-        state: dict = {}
-        deeplink.apply(state, {"view": "logs", "log": "jobs"}, views=["logs"], sections=[])
-
-        self.assertEqual("jobs", state["log_view"])
+    def test_the_digest_is_named_in_the_address(self) -> None:
+        self.assertEqual(["digest"],
+                         parse_qs(deeplink.query({"view": "logs", "log_view": "digest"}))["log"])
 
     def test_an_unknown_view_is_dropped(self) -> None:
         state: dict = {}

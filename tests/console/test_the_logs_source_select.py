@@ -1,4 +1,4 @@
-"""The Logs source select names what is read, and Jobs is one of them."""
+"""The Logs source select names the logs that can be read."""
 
 from __future__ import annotations
 
@@ -13,10 +13,8 @@ def _held(**more: Any) -> dict[str, Any]:
 
 
 class WhatTheSelectOffers(unittest.TestCase):
-    def test_jobs_is_always_there_and_is_last(self) -> None:
-        options = logs._source_options(_held())
-
-        self.assertEqual(list(options)[-1], logs.JOBS)
+    def test_jobs_is_not_offered_there(self) -> None:
+        self.assertNotIn("jobs", logs._source_options(_held()))
 
     def test_the_log_being_written_is_the_empty_choice(self) -> None:
         self.assertIn("", logs._source_options(_held()))

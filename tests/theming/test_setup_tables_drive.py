@@ -171,7 +171,7 @@ class SetupTablesDrive(unittest.TestCase):
         seen["last"] = await h["forward_says"]()
         await browser.click(FORWARD)
         try:
-            await browser.wait_for("location.search.includes('log=jobs')", timeout=60)
+            await browser.wait_for("location.search.includes('view=jobs')", timeout=60)
         except TimeoutError as exc:
             now = await browser.evaluate(
                 "location.href + '\\n' + (document.querySelector('.console-wizard-card')"
@@ -277,7 +277,7 @@ class SetupTablesDrive(unittest.TestCase):
     def test_an_import_that_starts_closes_setup_onto_the_jobs_view(self) -> None:
         seen = self.seen["loose"]
 
-        self.assertIn("log=jobs", seen["where"])
+        self.assertIn("view=jobs", seen["where"])
         self.assertTrue(seen["card_left"])
 
     def test_none_yet_waits_for_a_folder_and_then_finishes(self) -> None:

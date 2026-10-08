@@ -37,12 +37,8 @@ class WhatTheBarIsDrawnFrom(unittest.TestCase):
     def test_a_source_that_appears_draws_its_bar_again(self) -> None:
         """Visual Pinball's log is named once a launcher says where it writes, and the
         select has to offer it."""
-        self.assertNotEqual(logs._bar_key(_held(view=logs.JOBS)),
-                            logs._bar_key(_held(view=logs.JOBS, visual_pinball="v.log")))
-
-    def test_the_jobs_bar_does_not_depend_on_the_log_file(self) -> None:
-        self.assertEqual(logs._bar_key(_held(view=logs.JOBS)),
-                         logs._bar_key(_held(view=logs.JOBS, path="/logs/b.log")))
+        self.assertNotEqual(logs._bar_key(_held()),
+                            logs._bar_key(_held(visual_pinball="v.log")))
 
 
 if __name__ == "__main__":

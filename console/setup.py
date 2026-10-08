@@ -50,7 +50,7 @@ GLASS = "glass"
 VPX_KEYS = "vpxkeys"
 TABLES = "tables"
 # Where an import that Setup started is followed once Setup has closed.
-JOBS_VIEW = "/console?" + deeplink.query({"view": "logs", "log_view": "jobs"})
+JOBS_VIEW = "/console?" + deeplink.query({"view": "jobs"})
 
 # The launcher setting `presentation.cab_mode` mirrors in VPX's own ini.
 BGSET_KEY = "Player.BGSet"

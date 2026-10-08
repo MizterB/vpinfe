@@ -1,8 +1,7 @@
 """What has run since this install started, one row per job.
 
-Drawn on the Logs page beside the log's own views. The registry keeps it in memory, so a
-restart starts the list again, apart from the jobs that kept their result: those come back
-with a report to open.
+Drawn on the Jobs page. The registry keeps it in memory, so a restart starts the list
+again, apart from the jobs that kept their result: those come back with a report to open.
 """
 
 from __future__ import annotations
@@ -52,6 +51,27 @@ def outcome_of(job: dict[str, Any]) -> str:
     if state == jobs.DONE and int(job.get("problems") or 0):
         return WITH_ERRORS
     return state
+
+
+# The outcomes worth going to read, which the rail's Jobs entry counts.
+TO_LOOK_AT = (jobs.FAILED, WITH_ERRORS)
+# Named in the tooltip up to here, and counted past it.
+NAMED_UP_TO = 3
+
+
+def unseen(found: list[dict[str, Any]], since: float) -> list[dict[str, Any]]:
+    """The jobs that ended Failed or Done with errors after `since`."""
+    return [job for job in found
+            if outcome_of(job) in TO_LOOK_AT and float(job.get("finished_at") or 0) > since]
+
+
+def unseen_said(items: list[dict[str, Any]]) -> str:
+    """One phrase to a job, in the grid's words, and a count once there are too many."""
+    if len(items) > NAMED_UP_TO:
+        return t("console.page.jobs_unseen", count=len(items))
+    return "; ".join(
+        t("console.page.job_outcome", what=what_ran(str(job.get("kind") or "")),
+          outcome=t(f"console.jobs.outcome.{outcome_of(job)}")) for job in items)
 
 
 def what_ran(kind: str) -> str:

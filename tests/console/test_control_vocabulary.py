@@ -41,8 +41,10 @@ BUDGET = {
                         "several controls rather than a label and a value. Three are "
                         "All Settings' filter bar, a find and two ticks, which "
                         "ask what to show rather than hold a value"),
-    "logs.py": (2, "the find box in the control bar above the viewport, for the log "
-                   "and for Jobs"),
+    "logs.py": (1, "the find box in the control bar above the viewport"),
+    "jobs.py": (1, "the find box in the control bar above the grid"),
+    "wizard_lists.py": (1, "the per-row tick in a checklist step, a choice over a list "
+                           "like the import confirmation's"),
     "games.py": (1, "a tick per column in the column picker, a menu rather than a fact "
                     "row. The view picker is `panel.DescribedSelect`, which is where a "
                     "picker whose options explain themselves lives"),

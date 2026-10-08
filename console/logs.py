@@ -13,10 +13,7 @@ reason.
 answers *what is wrong with this machine* by collapsing repeats - a machine can log one
 mistake four thousand times, and a list of four thousand rows hides that it is one.
 
-**One select names what is read.** VPinFE, its previous run, Visual Pinball, and Jobs.
-Jobs answers *what did this install just do, and how did it go*, from the job registry
-rather than a log file. It is a grid, so it takes the grid's sorting and filters, and
-the controls that only mean something for a log - the view, the level - leave the bar.
+**One select names what is read.** VPinFE, its previous run, and Visual Pinball.
 
 Streaming is a timer on this page rather than a transport of its own. The Console is
 server-rendered and already holds a live socket to the browser, so the tail pushes over
@@ -27,7 +24,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -41,9 +37,6 @@ from console import (
     busy,
     deeplink,
     dropdown,
-    grid,
-    job_report,
-    jobs_list,
     offload,
     panel,
     verbs,
@@ -63,10 +56,9 @@ RECORDS = 500
 
 LEVELS = ("", "DEBUG", "INFO", "WARNING", "ERROR")
 
-# The views, by the value the address carries. The stream is the empty one. Jobs is also
-# what the source select holds when it is chosen: no log file is called that.
-STREAM, DIGEST, JOBS = "", "digest", "jobs"
-VIEWS = (STREAM, DIGEST, JOBS)
+# The views, by the value the address carries. The stream is the empty one.
+STREAM, DIGEST = "", "digest"
+VIEWS = (STREAM, DIGEST)
 
 
 def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -> None:
@@ -77,50 +69,28 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         "source": state.get("log_source", ""),
         "wrap": state.get("log_wrap", True),
         "view": state.get("log_view") if state.get("log_view") in VIEWS else STREAM,
-        "outcome": state.get("log_outcome", ""),
-        "find_jobs": state.get("log_find_jobs", ""),
-        # What the jobs box holds now: the grid, or the words standing in for it.
-        "table": None,
-        "rows": [],
-        # The job the grid has focus on, and the slot the button that opens its report is
-        # drawn in.
-        "focused_job": "",
-        "report_slot": None,
-        "report_enabled": None,
         "bar_for": None,
         "error": "",
         "follow": state.get("log_follow", True),
         "records": [],
         "sources": [],
         "visual_pinball": "",
-        "sources_read": False,
-        # The way the log is read, kept while Jobs is up so coming back to a log restores it.
-        "last_view": state.get("log_view") if state.get("log_view") in (STREAM, DIGEST)
-        else STREAM,
         "path": "",
     }
 
     with ui.column().classes("w-full grow min-h-0 gap-2"):
         bar = ui.row().classes("items-center gap-2 w-full no-wrap px-3 pt-2")
-        # `min-h-0` on both, or the viewport grows to its content and the page scrolls
-        # instead of the log.
+        # `min-h-0`, or the viewport grows to its content and the page scrolls instead of
+        # the log.
         # `console-log` is the treatment the device panel already reads a log with -
         # monospaced, so timestamps and levels line up down the column, and the message
         # under its own header rather than beside it, which is the only shape a
         # traceback fits in.
         viewport = ui.column().classes(
             "w-full grow min-h-0 overflow-auto gap-0 console-log")
-        # The grid's own container: a flex column, so the grid takes the height left.
-        jobs_box = ui.element("div").classes("w-full grow min-h-0 flex flex-col")
 
     @on_page
     async def load() -> None:
-        viewport.set_visibility(held["view"] != JOBS)
-        jobs_box.set_visibility(held["view"] == JOBS)
-        if held["view"] == JOBS:
-            await _load_jobs(library, jobs_box, bar, held, load, state)
-            return
-        held["table"] = None
         try:
             found = await offload.io(library.logs, RECORDS, held["level"],
                                        held["contains"], held["source"])
@@ -142,18 +112,14 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
     busy.fill(viewport, load)
     # Only while following, and only on a file that is still being written: a rotated log
     # does not change, so re-reading it is a request that can only return what it just
-    # returned. The jobs list is always live, because a running job's progress is the
-    # point of it.
-    ui.timer(EVERY_SECONDS,
-             lambda: load() if held["view"] == JOBS
-             or (held["follow"] and _live(held)) else None)
+    # returned.
+    ui.timer(EVERY_SECONDS, lambda: load() if held["follow"] and _live(held) else None)
 
 
 def _note_sources(held: dict[str, Any], found: dict[str, Any]) -> None:
     held["sources"] = list(found.get("sources") or [])
     held["visual_pinball"] = str(found.get("visual_pinball") or "")
     held["path"] = str(found.get("path") or "")
-    held["sources_read"] = True
 
 
 def _live(held: dict[str, Any]) -> bool:
@@ -166,8 +132,6 @@ def _bar_key(held: dict[str, Any]) -> tuple[Any, ...]:
     """What the bar is drawn from. A tick that finds the same key leaves the bar alone:
     clearing it closes a menu somebody has open."""
     files = (tuple(held["sources"]), held["visual_pinball"])
-    if held["view"] == JOBS:
-        return (JOBS, *files)
     return (held["view"], held["source"], held["path"], *files)
 
 
@@ -185,7 +149,6 @@ def _source_options(held: dict[str, Any]) -> dict[str, str]:
                          else t("console.logs.vpinfe_previous_n", number=number))
     if held["visual_pinball"]:
         options[held["visual_pinball"]] = t("console.logs.visual_pinball")
-    options[JOBS] = t("console.jobs.view")
     # A read that failed names no files, and a select refuses a value it does not list.
     options.setdefault(held["source"], held["source"])
     return options
@@ -202,30 +165,16 @@ def _draw_bar(bar: Any, library: Library, held: dict[str, Any],
             state[f"log_{key}"] = value
             held["bar_for"] = None
             if key == "view":
-                if value != JOBS:
-                    held["last_view"] = value
                 deeplink.sync(state)
             return reload()
 
-        def pick(value: str) -> Any:
-            if value == JOBS:
-                return remember("view", JOBS)
-            if held["view"] == JOBS:
-                held["view"] = state["log_view"] = held["last_view"]
-                deeplink.sync(state)
-            return remember("source", value)
-
         source = dropdown.Select(_source_options(held), look=dropdown.OUTLINED,
-                                 value=JOBS if held["view"] == JOBS else held["source"]) \
+                                 value=held["source"]) \
             .classes("w-44") \
-            .on_value_change(lambda e: pick(e.value or ""))
-        if held["path"] and held["view"] != JOBS:
+            .on_value_change(lambda e: remember("source", e.value or ""))
+        if held["path"]:
             source.tooltip(held["path"])
         held["bar_for"] = _bar_key(held)
-
-        if held["view"] == JOBS:
-            _jobs_controls(held, remember)
-            return
 
         dropdown.Select({STREAM: t("console.logs.stream"), DIGEST: t("console.logs.digest")},
                         value=held["view"], look=dropdown.OUTLINED) \
@@ -286,127 +235,6 @@ async def _download(library: Library, held: dict[str, Any]) -> None:
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     ui.download.content(content, Path(held["path"]).name, "text/plain")
-
-
-def _jobs_controls(held: dict[str, Any], remember: Callable[[str, Any], Any]) -> None:
-    """The jobs bar: which outcome, and a find that narrows the grid as it is typed."""
-    dropdown.Select({"": t("console.jobs.all_outcomes"),
-                     **{one: t(f"console.jobs.outcome.{one}") for one in jobs_list.OUTCOMES}},
-                    value=held["outcome"], look=dropdown.OUTLINED).classes("w-36") \
-        .on_value_change(lambda e: remember("outcome", e.value or ""))
-
-    def find(text: str) -> None:
-        held["find_jobs"] = text
-        table = held["table"]
-        if table is not None and not isinstance(table, tuple):
-            table.run_grid_method("setGridOption", "quickFilterText", text)
-
-    ui.input(placeholder=t("console.logs.find"), value=held["find_jobs"]) \
-        .props("dense outlined clearable").classes("grow min-w-0") \
-        .on_value_change(lambda e: find(e.value or ""))
-
-    held["report_slot"] = ui.element("div")
-    _sync_report(held)
-
-
-def _sync_report(held: dict[str, Any]) -> None:
-    """The report button is live for a focused job that kept one. It is drawn again in its
-    own slot, so the find box beside it keeps what is typed."""
-    slot = held["report_slot"]
-    if slot is None:
-        return
-    row = next((one for one in held["rows"] if one["id"] == held["focused_job"]), None)
-    enabled = bool(row and row["report"])
-    if held["report_enabled"] == enabled and len(slot.default_slot.children):
-        return
-    held["report_enabled"] = enabled
-    slot.clear()
-    with slot:
-        panel.action(t("console.jobs.view_report"),
-                     lambda: job_report.open_for(held["focused_job"]),
-                     icon=verbs.REVIEW, enabled=enabled,
-                     hint=t("console.jobs.view_report.hint"))()
-
-
-@on_page
-async def _load_jobs(library: Library, box: Any, bar: Any, held: dict[str, Any],
-                     reload: Callable[[], Any], state: dict[str, Any]) -> None:
-    found: list[dict[str, Any]] = []
-    if not held["sources_read"]:
-        # A page opened on Jobs has not read a log, and the select needs to name them.
-        try:
-            _note_sources(held, await offload.io(library.logs, 1))
-        except Exception:  # noqa: BLE001 - the select shows what it has
-            logger.debug("Could not read the log sources", exc_info=True)
-    try:
-        found = await offload.io(library.jobs, jobs_list.LIMIT)
-    except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
-        held["error"] = why(exc)
-    else:
-        held["error"] = ""
-    state["log_find_jobs"] = held["find_jobs"]
-    # Not on every tick: the bar holds the find box, and redrawing it would take what is
-    # being typed with it.
-    if held["bar_for"] != _bar_key(held):
-        _draw_bar(bar, library, held, reload, state)
-    _draw_jobs(box, held, jobs_list.rows(found, time.time(), held["outcome"]),
-               bool(found))
-
-
-def _draw_jobs(box: Any, held: dict[str, Any], shown: list[dict[str, Any]],
-               any_ran: bool) -> None:
-    """The grid, or the words that stand in for it. What is up is left alone when nothing
-    about it changed: drawing it again would blink the page every tick."""
-    if held["error"] or not shown:
-        said = ("error", held["error"]) if held["error"] else (
-            "none", t("console.logs.nothing_matches") if any_ran
-            else t("console.jobs.nothing_ran_yet"))
-        if held["table"] == said:
-            return
-        held["table"] = said
-        held["rows"], held["focused_job"] = [], ""
-        box.clear()
-        with box:
-            panel.facts(ui, [panel.intro(t("console.logs.read_failed"),
-                                         hint=held["error"])] if held["error"]
-                        else [panel.intro(said[1])])
-        _sync_report(held)
-        return
-    table = held["table"]
-    if table is None or isinstance(table, tuple):
-        box.clear()
-        held["rows"], held["focused_job"] = shown, ""
-        with box:
-            menu: ui.context_menu
-
-            def fill_menu(row: dict | None) -> None:
-                found = next((one for one in held["rows"]
-                              if row and one["id"] == row.get("id")), None)
-                panel.verb_menu(menu, found["what"] if found else "", [
-                    panel.Verb(t("console.jobs.view_report"), icon=verbs.REVIEW,
-                               run=lambda: job_report.open_for(found["id"]))
-                ] if found and found["report"] else [])
-
-            async def on_header_context(col_id: str | None) -> None:
-                await grid.header_menu(menu, table, jobs_list.COLUMNS, col_id)
-
-            table = grid.build(jobs_list.COLUMNS, shown, jobs_list.SCOPE,
-                               on_context=fill_menu, on_header_context=on_header_context)
-            menu = ui.context_menu()
-
-        def focused(event: Any) -> None:
-            held["focused_job"] = grid.focused_row(event)
-            _sync_report(held)
-
-        grid.on_row_focus(jobs_list.SCOPE, focused)
-        held["table"] = table
-        table.run_grid_method("setGridOption", "quickFilterText", held["find_jobs"])
-        _sync_report(held)
-        return
-    if held["rows"] != shown:
-        held["rows"] = shown
-        table.run_grid_method("setGridOption", "rowData", shown)
-        _sync_report(held)
 
 
 @on_page
