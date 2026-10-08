@@ -490,7 +490,7 @@ class ImportTests(AdoptCase):
 
         with unittest.mock.patch.object(
                 adopt, "_held", return_value=plan.Held(rom="taxi_l4")), \
-                unittest.mock.patch.object(adopt, "_bring_rom", return_value=1) as bring:
+                unittest.mock.patch.object(adopt, "_rom_state", return_value="placed") as bring:
             report = adopt.run(self._ctx, library, [VPX], "", made)
 
         self.assertEqual(0, report["failed"])

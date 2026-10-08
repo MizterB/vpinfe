@@ -152,5 +152,33 @@ class AddTableFileTests(unittest.TestCase):
         self.assertEqual(self.table.read_bytes(), b"table")
 
 
+class NamesInTheScriptTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        root = Path(self._tmp.name)
+        self.game = root / "Library" / "Harbor Lights"
+        self.game.mkdir(parents=True)
+        self.table = root / "Harbor Lights.vpx"
+        self.table.write_bytes(b"table")
+
+    def test_the_names_the_script_mentions_come_back_with_the_rom(self) -> None:
+        parsed = {"rom": "hl_l1", "game_data": 'LoadValue "Harbor", "Hi"\nx = "Scores.txt"'}
+
+        with mock.patch("common.games.library_enrichment.read_one", return_value=parsed):
+            found = game_service.add_table_file(
+                self.game, self.table, "tbl0000001", names=["Harbor", "scores", "Other"])
+
+        self.assertEqual((found["rom"], found["named"]), ("hl_l1", ("Harbor", "scores")))
+
+    def test_no_names_asked_for_none_come_back(self) -> None:
+        parsed = {"rom": "hl_l1", "game_data": 'x = "Scores.txt"'}
+
+        with mock.patch("common.games.library_enrichment.read_one", return_value=parsed):
+            found = game_service.add_table_file(self.game, self.table, "tbl0000001")
+
+        self.assertEqual(found["named"], ())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -163,6 +163,9 @@ _FOLDERS: dict[str, tuple[str, ...]] = {
     "altcolor_vni": ("vni", "{rom}"),
     "music": ("music",),
     "pup_pack": ("pupvideos",),
+    "nvram": ("pinmame", "nvram"),
+    "cfg": ("pinmame", "cfg"),
+    "user": ("user",),
 }
 
 

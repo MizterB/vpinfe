@@ -13,6 +13,7 @@ import time
 import unicodedata
 from collections.abc import Callable, Iterable
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -744,7 +745,16 @@ def _already(path: Path) -> FileExistsError:
     return FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(path))
 
 
-def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = False) -> dict:
+@dataclass(frozen=True)
+class Arrived:
+    """What a table that has just landed says about itself."""
+
+    rom: str = ""
+    named: tuple[str, ...] = ()
+
+
+def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = False,
+                   names: Iterable[str] = ()) -> dict:
     """Copy a game file into a folder and record it, as one operation.
 
     Both halves or neither: a file in the folder with nothing describing it becomes a
@@ -763,6 +773,9 @@ def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = Fal
     `move` takes the files out of where they were instead of copying them: the one
     case where this writes to its source. A file that cannot be recorded goes back to
     where it came from, because it is the only copy.
+
+    `names` are looked for in the table's script, in the same read that finds its ROM;
+    the answer's `named` holds those the script mentions.
     """
     landing = game_dir / source.name
     if landing.exists():
@@ -781,8 +794,8 @@ def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = Fal
             landing.unlink(missing_ok=True)
         raise
     try:
-        rom = record_arrived_table(game_dir, landing, listed or table_id, keep=move,
-                                   listed=bool(listed))
+        arrived = record_arrived_table(game_dir, landing, listed or table_id, keep=move,
+                                       listed=bool(listed), names=names)
     except Exception:
         if move and landing.exists():
             shutil.move(landing, source)
@@ -803,13 +816,15 @@ def add_table_file(game_dir: Path, source: Path, table_id: str, move: bool = Fal
 
     refresh_game(game_dir)
     return {"table": source.name, "table_id": listed or table_id,
-            "companions": brought, "rom": rom}
+            "companions": brought, "rom": arrived.rom, "named": arrived.named}
 
 
 def record_arrived_table(game_dir: Path, landing: Path, table_id: str,
-                         keep: bool = False, listed: bool = False) -> str:
+                         keep: bool = False, listed: bool = False,
+                         names: Iterable[str] = ()) -> Arrived:
     """Record a game file that has just landed in its game's folder, under `table_id`,
-    and describe it from what it says about itself. Answers with the ROM it names.
+    and describe it from what it says about itself. Answers with the ROM it names and
+    which of `names` its script mentions.
 
     Raises ValueError, having removed the file unless `keep`, where the game already
     holds one by that name. `listed` says the record already holds the entry and only the
@@ -833,11 +848,14 @@ def record_arrived_table(game_dir: Path, landing: Path, table_id: str,
         parsed = read_one(landing)
         if parsed:
             meta.replace_table("", landing.name, parsed)
-            return str(parsed.get("rom") or "").strip()
+            from common.games.script_names import named_in
+
+            return Arrived(str(parsed.get("rom") or "").strip(),
+                           tuple(sorted(named_in(parsed.get("game_data") or "", names))))
     except Exception:
         logger.warning("Brought in %s but could not read what it says about itself",
                        landing.name, exc_info=True)
-    return ""
+    return Arrived()
 
 
 def sanitize_dir_name(name: str) -> str:

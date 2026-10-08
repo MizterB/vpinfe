@@ -118,6 +118,85 @@ class DestinationTests(PutAssetCase):
         self.assertEqual("No media kind called hologram", why(caught.exception))
 
 
+class ScoreAndSavedPlaceTests(PutAssetCase):
+    def test_high_scores_and_settings_land_under_pinmame(self) -> None:
+        nvram = self.source / "afm_113b.nv"
+        cfg = self.source / "afm_113b.cfg"
+        nvram.write_bytes(b"nv")
+        cfg.write_bytes(b"cfg")
+
+        self.assertEqual(self.games.put_asset("g1", "nvram", nvram), "pinmame/nvram/afm_113b.nv")
+        self.assertEqual(self.games.put_asset("g1", "cfg", cfg), "pinmame/cfg/afm_113b.cfg")
+
+    def test_a_file_a_script_saved_lands_in_user(self) -> None:
+        saved = self.source / "Scores.txt"
+        saved.write_text("100")
+
+        self.assertEqual(self.games.put_asset("g1", "user", saved), "user/Scores.txt")
+
+    def test_the_new_places_are_in_the_list_of_kinds(self) -> None:
+        self.assertTrue({"nvram", "cfg", "user"} <= set(self.games.asset_kinds()))
+
+    def test_a_score_placed_there_is_where_the_score_reader_looks(self) -> None:
+        from common.games import score_parser
+
+        nvram = self.source / "afm_113b.nv"
+        nvram.write_bytes(b"nv")
+        self.games.put_asset("g1", "nvram", nvram)
+
+        with mock.patch.object(score_parser, "resolve_rom_name", side_effect=lambda one: one):
+            found = score_parser.resolve_score_input_path("afm_113b", str(self.game))
+
+        self.assertEqual(found, str(self.game / "pinmame" / "nvram" / "afm_113b.nv"))
+
+
+class SavedSetsTests(PutAssetCase):
+    def setUp(self) -> None:
+        super().setUp()
+        from tests.support.ole import stg_bytes
+
+        self.stg = self.source / "VPReg.stg"
+        self.stg.write_bytes(stg_bytes({"Taxi": {"Hi": "5"}, "Medieval": {"Hi": "9"}}))
+
+    def test_only_the_named_sets_become_the_games_own_ini(self) -> None:
+        wrote = self.games.put_saved_sets("g1", self.stg, ["Taxi"])
+
+        self.assertEqual(wrote, 1)
+        self.assertEqual((self.game / "user" / "VPReg.ini").read_text(), "[Taxi]\nHi=5\n")
+
+    def test_the_sets_a_file_holds_are_listed(self) -> None:
+        self.assertEqual(sorted(self.games.saved_sets(self.stg)), ["Medieval", "Taxi"])
+
+    def test_a_set_the_file_lacks_writes_nothing(self) -> None:
+        self.assertEqual(self.games.put_saved_sets("g1", self.stg, ["Nobody"]), 0)
+        self.assertFalse((self.game / "user").exists())
+
+    def test_a_game_that_has_played_keeps_what_its_ini_holds(self) -> None:
+        (self.game / "user").mkdir()
+        (self.game / "user" / "VPReg.ini").write_text("[taxi]\nHi=1\n")
+
+        wrote = self.games.put_saved_sets("g1", self.stg, ["Taxi", "Medieval"])
+
+        self.assertEqual(wrote, 1)
+        self.assertEqual((self.game / "user" / "VPReg.ini").read_text(),
+                         "[taxi]\nHi=1\n\n[Medieval]\nHi=9\n")
+
+    def test_a_second_build_adds_the_sets_the_first_did_not_have(self) -> None:
+        self.games.put_saved_sets("g1", self.stg, ["Taxi"])
+
+        self.assertEqual(self.games.put_saved_sets("g1", self.stg, ["Medieval"]), 1)
+        self.assertEqual(self.games.put_saved_sets("g1", self.stg, ["Taxi", "Medieval"]), 0)
+        self.assertEqual((self.game / "user" / "VPReg.ini").read_text(),
+                         "[Taxi]\nHi=5\n\n[Medieval]\nHi=9\n")
+
+    def test_it_will_not_read_outside_what_it_declared(self) -> None:
+        stray = self.root / "VPReg.stg"
+        stray.write_bytes(self.stg.read_bytes())
+
+        with self.assertRaises(ContractError):
+            self.games.put_saved_sets("g1", stray, ["Taxi"])
+
+
 class BoundsTests(PutAssetCase):
     def test_it_will_not_take_something_outside_what_it_declared(self) -> None:
         stray = self.root / "stray.zip"

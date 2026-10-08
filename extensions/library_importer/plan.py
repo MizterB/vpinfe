@@ -28,6 +28,7 @@ from typing import Any
 from common.extensions.contract import words
 
 from . import finding, folders, gamestats, mapping, popper
+from .saved import Saved
 from .source import Note, SourceGame, SourceLibrary, SourceSystem
 
 t = words("library_importer")
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # The kinds of thing an import can bring, in the order they are asked about, by the key
 # the wizard calls the field.
-SOURCES = ("tables", "media", "roms", "altdata", "music", "pups", "history")
+SOURCES = ("tables", "media", "roms", "altdata", "music", "pups", "user", "history")
 
 # Derived and deliberately not offered. The reading works; there is nowhere settled to
 # put what it reads, and a field that carries nothing is a promise the code cannot keep.
@@ -45,6 +46,9 @@ SOURCES = ("tables", "media", "roms", "altdata", "music", "pups", "history")
 # table's own script and falling back to a table of Windows defaults. Nothing persists
 # them, so anything written would be read by nothing.
 NOT_YET = ("registry",)
+
+# What VPinMAME keeps beside its ROM folder, by the kind core places it as.
+SCORE_FOLDERS = ("nvram", "cfg")
 
 # What a folder of sound and color sets holds: one folder of sets per kind.
 ALT_FOLDERS = ("altsound", "altcolor", "serum")
@@ -344,16 +348,20 @@ def _beside(companions_of: Callable[..., Any], table_file: str) -> tuple[str, ..
 def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...],
                   companions_of: Callable[..., Any], move: bool = False,
                   sized: Callable[[list[Path]], dict[Path, int]] | None = None,
-                  roms: dict[str, str] | None = None, roms_dir: str = "") -> int:
+                  roms: dict[str, str] | None = None, roms_dir: str = "",
+                  named: dict[str, tuple[str, ...]] | None = None,
+                  saved: Saved | None = None) -> int:
     """What a run writes, in bytes: the game files and what rides with them, unless they
-    are moved, the artwork, and the ROM set each game's file names where `roms_dir` has it.
+    are moved, the artwork, the ROM set each game's file names where `roms_dir` has it
+    with its scores and settings, and the saved files its script names.
 
     A ROM is copied for every game that names it, moved or not, so two tables on one ROM
     count it twice. A second build of one machine does the same, which counts a ROM the
     run will find already there: the total only ever errs high. Sound banks, music and
     PUP packs are not counted, being folders of sets rather than files.
 
-    `roms` is the ROM each game file names, by path, as `ExtensionGames.roms_of` read it.
+    `roms` is the ROM each game file names, by path, as `ExtensionGames.roms_of` read it,
+    and `named` the saved names its script mentions, as `reads_of` read them.
     `sized` measures a list of files at once, for a caller that can do it faster than one
     after another.
     """
@@ -369,6 +377,10 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
         found = finding.rom_file(roms_dir, rom) if rom and roms_dir else None
         if found is not None:
             wanted.append(found)
+            wanted += [one for folder in score_folders(roms_dir).values()
+                       if (one := finding.rom_file(folder, rom)) is not None]
+        if saved and game.table_file:
+            wanted += saved.files_for((named or {}).get(game.table_file, ()))
     sizes = (sized or _measured)(wanted)
     return sum(sizes.get(path, 0) for path in wanted)
 
@@ -517,6 +529,7 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
                                  holding=ALT_FOLDERS),
                "music": _not_home(_first(roots, (("Music",),))),
                "pups": _first(roots, (("PUPVideos",), ("PinUPSystem", "PUPVideos"))),
+               "user": _first(roots, (("User",),)),
                "history": _file_at(library.root, popper.DATABASE
                                    if library.source_id == popper.SOURCE_ID
                                    else gamestats.STATS_FILE),
@@ -535,6 +548,15 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
                             derived=said is None and bool(path),
                             not_found=not path and not guess))
     return found
+
+
+def score_folders(roms_dir: str) -> dict[str, str]:
+    """The folders of high scores and game settings beside a ROM folder, by the kind core
+    places each as. VPinMAME keeps `nvram` and `cfg` next to `roms`, and a ROM's file in
+    each is named for it."""
+    parent = Path(roms_dir).parent if roms_dir else None
+    found = {kind: finding.child(parent, kind) if parent else None for kind in SCORE_FOLDERS}
+    return {kind: str(one) for kind, one in found.items() if one is not None and one.is_dir()}
 
 
 def _file_at(root: str, name: str) -> str:

@@ -236,13 +236,15 @@ class ExtensionGames:
             raise LookupError(t("error.games.created_unseen"))
         return game_identity.ensure_id(made)
 
-    def add_table(self, game_id: str, path: str | Path, move: bool = False) -> dict:
+    def add_table(self, game_id: str, path: str | Path, move: bool = False,
+                  names: Iterable[str] = ()) -> dict:
         """Copy a game file into an entry, with whatever belongs to it.
 
         Answers with the table's id, the companions that came, and the ROM the table
         turns out to need - a caller counting what an import produced needs to know what
         actually landed, and anything keyed on the ROM has no other way to learn it this
-        early.
+        early. `named` holds those of `names` the table's script mentions, read with the
+        ROM rather than from a second open of the file.
 
         `move` takes the files out of where they were, which is writing to a folder the
         extension only declared it reads from, so it needs the `fs:write` capability.
@@ -258,10 +260,12 @@ class ExtensionGames:
         source = self._source(path)
         table_id = new_id()
         folder = library_folders.writable_game_folder(self.folder(game_id))
-        found = game_service.add_table_file(folder, source, table_id, move=move)
+        found = game_service.add_table_file(folder, source, table_id, move=move,
+                                            names=tuple(names))
         return {"table_id": found.get("table_id", table_id),
                 "companions": tuple(found["companions"]),
-                "rom": found.get("rom", "")}
+                "rom": found.get("rom", ""),
+                "named": tuple(found.get("named", ()))}
 
     def companions_of(self, path: str | Path) -> tuple[str, ...]:
         """What would come with this table if it were added. For counting beforehand,
@@ -318,19 +322,67 @@ class ExtensionGames:
         is left out. Opening a table costs a read of the file, so a caller asks for a
         library in batches and keeps what it is told.
         """
+        return {given: rom for given, (rom, _) in self.reads_of(paths).items() if rom}
+
+    def reads_of(self, paths: Iterable[str | Path],
+                 names: Iterable[str] = ()) -> dict[str, tuple[str, tuple[str, ...]]]:
+        """`roms_of` and which of `names` each table's script mentions, from one read.
+
+        Keyed by the path as it was given; a file that is not there is left out, and one
+        that names no ROM answers an empty one.
+        """
         self._needs(GAMES_READ)
         from common.games.library_enrichment import read_one
+        from common.games.script_names import named_in
 
-        found: dict[str, str] = {}
+        wanted = tuple(names)
+        found: dict[str, tuple[str, tuple[str, ...]]] = {}
         for given in paths:
             try:
                 source = self._source(given)
             except FileNotFoundError:
                 continue
-            rom = str((read_one(source) or {}).get("rom") or "").strip()
-            if rom:
-                found[str(given)] = rom
+            parsed = read_one(source) or {}
+            found[str(given)] = (
+                str(parsed.get("rom") or "").strip(),
+                tuple(sorted(named_in(parsed.get("game_data") or "", wanted))))
         return found
+
+    def saved_sets(self, path: str | Path) -> tuple[str, ...]:
+        """The names of the sets a `VPReg.stg` holds, for matching to the tables that
+        save under them. Empty where the file is not one."""
+        self._needs(GAMES_READ)
+        from common.games import vpreg
+
+        return tuple(vpreg.sets_in(self._source(path)))
+
+    def put_saved_sets(self, game_id: str, path: str | Path, sets: Iterable[str]) -> int:
+        """Write the named sets of a `VPReg.stg` as the game's own `user/VPReg.ini`.
+
+        Only these sets, not the file: a copy would hand every table the values every
+        other table saved. Answers with how many sets were written. Never replaces: a
+        set the game's `VPReg.ini` already holds is left as it is, and only the sets it
+        lacks are added to the end.
+        """
+        self._needs(GAMES_WRITE)
+        from common.games import library_folders, vpreg
+        from common.uploads.asset_import_service import folder_for
+
+        source = self._source(path)
+        game_dir = library_folders.writable_game_folder(self.folder(game_id))
+        into = folder_for("user", game_dir)
+        if into is None:
+            raise ValueError(t("error.games.no_folder", kind="user"))
+        landing = into / "VPReg.ini"
+        before = landing.read_text(encoding="utf-8", errors="replace") if landing.exists() else ""
+        text = vpreg.ini_text(vpreg.sets_in(source), sets, skip=vpreg.sections_in(before))
+        if not text:
+            return 0
+        into.mkdir(parents=True, exist_ok=True)
+        joined = before + ("" if not before or before.endswith("\n") else "\n")
+        joined += ("\n" if before.strip() else "") + text
+        landing.write_text(joined, encoding="utf-8", newline="\n")
+        return text.count("\n[") + 1
 
     def asset_kinds(self) -> tuple[str, ...]:
         """The kinds that live in a folder of their own, and so can be placed whole."""

@@ -364,8 +364,9 @@ class RomSummaryTests(WizardCase):
                 unittest.mock.patch("common.online.vpsdb_sync.ensure_catalog",
                                     return_value=True), \
                 unittest.mock.patch(
-                    "common.extensions.games.ExtensionGames.roms_of",
-                    side_effect=lambda paths: {str(one): "taxi_l4" for one in paths}):
+                    "common.extensions.games.ExtensionGames.reads_of",
+                    side_effect=lambda paths, names=(): {
+                        str(one): ("taxi_l4", ()) for one in paths}):
             found = self._check(source, **{"into": str(self.root / "library"), **values})
         return {row[0]: row[1] for row in found["summary"] if len(row) == 2}
 

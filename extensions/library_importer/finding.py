@@ -66,3 +66,12 @@ def child(folder: str | Path, name: str) -> Path | None:
                   if one.name.casefold() == wanted.casefold()]
     candidates.sort(key=lambda one: one.name != wanted)
     return candidates[0] if candidates else None
+
+
+def files(folder: str | Path) -> list[Path]:
+    """The files directly in `folder`, by name. Nothing where it cannot be listed."""
+    if not folder:
+        return []
+    return [one for one in sorted((one for found in _listing(folder).values()
+                                   for one in found), key=lambda path: path.name)
+            if one.is_file()]

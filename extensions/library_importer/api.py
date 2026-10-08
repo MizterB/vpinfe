@@ -18,10 +18,11 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from . import adopt, folders, mapping, pinballx, popper
+from . import adopt, folders, mapping, pinballx, popper, saved
 from . import plan as plan_for
 from .held import Held, Progress
 from .plan import Plan
+from .saved import Saved
 from .source import SourceGame, SourceLibrary
 
 # Asked in order, first to claim a folder wins. PinballX is looked for first
@@ -206,7 +207,9 @@ def build(ctx: Any) -> None:
         first and does not need the plan that needs it.
         """
         found = plan_for.derive_sources(library, _chosen(values))
-        follow_the_setting(*[source.path for source in found if source.active])
+        roms = next((source.path for source in found if source.key == "roms"), "")
+        follow_the_setting(*[source.path for source in found if source.active],
+                           *plan_for.score_folders(roms).values())
 
     follow_the_setting()
 
@@ -315,9 +318,13 @@ def build(ctx: Any) -> None:
         that follow. A game that cannot be read has no ROM here, which counts as none
         needed rather than as an error.
         """
-        folder = made.source("roms")
-        if folder is None or not folder.active:
+        folder, user = made.source("roms"), made.source("user")
+        reading_roms = folder is not None and folder.active
+        saving = user is not None and user.active
+        if not (reading_roms or saving):
             return
+        kept = saved_of(user.path if user is not None and saving else "")
+        held.ask_for(kept.names)
         wanted = [game.table_file for game in plan_for.going(library, made, systems)
                   if game.table_file]
         todo = held.unread_roms(wanted)
@@ -326,13 +333,20 @@ def build(ctx: Any) -> None:
             for start in range(0, len(todo), ROM_BATCH):
                 batch = todo[start:start + ROM_BATCH]
                 try:
-                    held.remember_roms(batch, ctx.games.roms_of(batch))
+                    reads = ctx.games.reads_of(batch, kept.names)
+                    held.remember_roms(batch,
+                                       {path: rom for path, (rom, _) in reads.items() if rom},
+                                       {path: named for path, (_, named) in reads.items()})
                 except Exception:
                     ctx.logger.warning("ROM names were not read for %d tables", len(batch),
                                        exc_info=True)
                     held.remember_roms(batch, {})
                 progress.advance(start + len(batch))
         plan_for.attach_roms(made, library, held.roms, systems)
+
+    def saved_of(folder: str) -> Saved:
+        """The saved files in a folder, read once per library."""
+        return held.saved_in(folder, lambda one: saved.read(ctx, one))
 
     def held_of(game_id: str) -> plan_for.Held:
         """What a game already holds, for a fill to count what it would add."""
@@ -389,13 +403,14 @@ def build(ctx: Any) -> None:
         """
         if mode not in ("copy", "move", "in_place"):
             return 0, -1, ""
-        roms_dir = next((one.path for one in plan_for.derive_sources(library, _chosen(values))
-                         if one.key == "roms"), "")
+        folders_of = {one.key: one.path
+                      for one in plan_for.derive_sources(library, _chosen(values))}
         need = plan_for.bytes_to_copy(
             games, library.source_id, ctx.games.kinds(), held.companions_of,
             move=mode != "copy",
             sized=held.measured(progress, ctx.t("progress.measuring")),
-            roms=held.roms, roms_dir=roms_dir)
+            roms=held.roms, roms_dir=folders_of.get("roms", ""),
+            named=held.named, saved=saved_of(folders_of.get("user", "")))
         target = (into_of(values) if mode == "copy" else
                   next((plan_for.tables_folder(one)
                         for one in plan_for.systems_going(library, games)
@@ -888,14 +903,16 @@ def build(ctx: Any) -> None:
             measure = held.measured(Progress(), "")
             kinds = ctx.games.kinds()
 
-            roms_folder = made.source("roms")
+            roms_folder, user_folder = made.source("roms"), made.source("user")
             roms_dir = roms_folder.path if roms_folder and roms_folder.active else ""
+            kept = saved_of(user_folder.path if user_folder and user_folder.active else "")
 
             def weigh(game: Any) -> int:
                 return plan_for.bytes_to_copy([game], library.source_id, kinds,
                                               held.companions_of,
                                               move=mode != "copy", sized=measure,
-                                              roms=held.roms, roms_dir=roms_dir)
+                                              roms=held.roms, roms_dir=roms_dir,
+                                              named=held.named, saved=kept)
 
             def tell(standing: adopt.Standing) -> None:
                 by_bytes = standing.bytes_total > 0

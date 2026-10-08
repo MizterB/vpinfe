@@ -242,9 +242,10 @@ class StepTests(FolderCase):
 
         self.assertEqual(found["step"], "sources")
         fields = {one["key"]: one for one in found["fields"]}
-        self.assertEqual(sorted(fields), ["altdata", "media", "music", "pups", "roms", "tables"])
+        self.assertEqual(sorted(fields),
+                         ["altdata", "media", "music", "pups", "roms", "tables", "user"])
         self.assertEqual(fields["tables"]["value"], str(self.tables))
-        for blank in ("media", "roms", "altdata", "music", "pups"):
+        for blank in ("media", "roms", "altdata", "music", "pups", "user"):
             self.assertEqual(fields[blank]["value"], "", blank)
 
     def test_no_play_history_is_offered_for_a_folder_of_tables(self) -> None:
@@ -271,7 +272,8 @@ class StepTests(FolderCase):
         self.assertEqual(found["title"], "Where your files are")
         self.assertNotIn("errors", found)
         fields = {one["key"]: one for one in found["fields"]}
-        self.assertEqual(sorted(fields), ["altdata", "media", "music", "pups", "roms", "tables"])
+        self.assertEqual(sorted(fields),
+                         ["altdata", "media", "music", "pups", "roms", "tables", "user"])
         self.assertEqual({one["value"] for one in fields.values()}, {""})
 
     def test_the_folders_pointed_at_there_are_what_is_read(self) -> None:

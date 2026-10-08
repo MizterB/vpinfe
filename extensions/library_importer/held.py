@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .plan import file_bytes
+from .saved import Saved
 from .source import SourceLibrary
 
 KEPT = 600.0
@@ -57,6 +58,11 @@ class Held:
         # reading one means opening the table, so each is read once per library.
         self.roms: dict[str, str] = {}
         self._roms_asked: set[str] = set()
+        # Which of the saved names each game file's script mentions, for the names asked.
+        # A different list is a different question, so the files are read again.
+        self.named: dict[str, tuple[str, ...]] = {}
+        self._names: tuple[str, ...] = ()
+        self._saved: dict[str, Saved] = {}
         # What the look found for each game of one library, by the game's identity, and
         # the state of the catalog it looked in. Kept with the library it was made for.
         self.look: tuple[SourceLibrary, dict, dict[int, dict]] | None = None
@@ -75,6 +81,7 @@ class Held:
             self._key, self._at, self.library = key, time.monotonic(), library
             self.companions, self._asked, self.sizes = {}, set(), {}
             self.roms, self._roms_asked = {}, set()
+            self.named, self._names, self._saved = {}, (), {}
             self.look = None
 
     def forget(self) -> None:
@@ -82,6 +89,7 @@ class Held:
             self._key, self.library = None, None
             self.companions, self._asked, self.sizes = {}, set(), {}
             self.roms, self._roms_asked = {}, set()
+            self.named, self._names, self._saved = {}, (), {}
             self.look = None
 
     def remember_look(self, library: SourceLibrary, catalog: dict,
@@ -114,10 +122,30 @@ class Held:
                     self.companions[path] = found[path]
             self._asked.update(asked)
 
-    def remember_roms(self, asked: list[str], found: dict[str, str]) -> None:
+    def remember_roms(self, asked: list[str], found: dict[str, str],
+                      named: dict[str, tuple[str, ...]] | None = None) -> None:
         with self._lock:
             self.roms.update(found)
+            self.named.update(named or {})
             self._roms_asked.update(asked)
+
+    def saved_in(self, folder: str, read: Callable[[str], Saved]) -> Saved:
+        """What the folder of saved files holds, read once per library."""
+        with self._lock:
+            found = self._saved.get(folder)
+        if found is None:
+            found = read(folder)
+            with self._lock:
+                self._saved[folder] = found
+        return found
+
+    def ask_for(self, names: tuple[str, ...]) -> None:
+        """Note which names the scripts are read for. A different list is read again."""
+        with self._lock:
+            if names != self._names:
+                self._names = names
+                self.named = {}
+                self._roms_asked = set()
 
     def unread_roms(self, paths: list[str]) -> list[str]:
         """The game files whose ROM has not been read."""

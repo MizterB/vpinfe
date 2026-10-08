@@ -67,6 +67,8 @@ BASELINE: dict[str, int] = {
     "common/games/media_placement.py": 1,
     "common/games/metadata_service.py": 1,
     "common/games/score_parser.py": 10,
+    # Names are read from the table script the way the parser strips its comments.
+    "common/games/script_names.py": 1,
     "common/games/standalone_scripts.py": 2,
     "common/games/table_lens.py": 15,
     "common/games/table_ops.py": 6,
@@ -83,7 +85,8 @@ BASELINE: dict[str, int] = {
     "common/online/vps_kinds.py": 1,
     "common/online/vps_lens.py": 2,
     "common/uploads/asset_analyzer_service.py": 6,
-    "common/uploads/asset_import_service.py": 18,
+    # The two folders a ROM's nvram and cfg are placed in.
+    "common/uploads/asset_import_service.py": 20,
     "console/assets.py": 2,
     "console/data.py": 1,
     # The DMD panel's kinds are the names the plugin's keys take.

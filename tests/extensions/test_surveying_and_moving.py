@@ -97,6 +97,20 @@ class CompanionsForTests(TempTree):
 
         self.assertEqual(found, {named: "qr_l4"})
 
+    def test_the_names_a_script_mentions_come_from_the_same_read(self) -> None:
+        named = str(self.tables / "Quarry Run.vpx")
+        silent = str(self.tables / "Plain.vpx")
+        said = {named: {"rom": "qr_l4", "game_data": 'x = LoadValue("Quarry", "Hi")\n'
+                                                      'y = "Scores.txt"'},
+                silent: {"rom": "", "game_data": "' nothing saved"}}
+
+        with mock.patch("common.games.library_enrichment.read_one",
+                        side_effect=lambda path: said.get(str(path))) as read:
+            found = self.games.reads_of([named, silent], ["Quarry", "scores", "Other"])
+
+        self.assertEqual(found, {named: ("qr_l4", ("Quarry", "scores")), silent: ("", ())})
+        self.assertEqual(read.call_count, 2)
+
     def test_reading_a_rom_name_is_refused_outside_the_declared_roots(self) -> None:
         with self.assertRaises(ContractError):
             self.games.roms_of([str(self.elsewhere / "Other.vpx")])
