@@ -546,6 +546,23 @@
   "console.app_settings.apply_all": "Set for All {count} Tables",
   "console.app_settings.apply_all.help": "Each of this game's tables gets this value as its own",
   "console.app_settings.apply_done": "Set for all {count} tables",
+  "console.app_settings.move_all": "Move to All Tables",
+  "console.app_settings.move_all.help": "All Tables gets this value, and these tables stop setting their own",
+  "console.app_settings.move_all.launchers": "The selected tables use {count} launchers",
+  "console.app_settings.move_all.ask": "Move “{setting}” to All Tables?",
+  "console.app_settings.move_all.stop": {
+    "one": "The selected table stops setting its own.",
+    "other": "The {count} selected stop setting their own."
+  },
+  "console.app_settings.move_all.some": {
+    "one": "{count} of the selected stops setting its own.",
+    "other": "{count} of the selected stop setting their own."
+  },
+  "console.app_settings.move_all.follow": {
+    "one": "{count} other table follows All Tables and changes with it.",
+    "other": "{count} other tables follow All Tables and change with them."
+  },
+  "console.app_settings.move_done": "Moved {setting} to All Tables",
   "console.app_settings.tables_title": "{app} for These Tables",
   "console.app_settings.many_programs": "These tables run {count} programs. Keep the tables of one to change their settings.",
   "console.app_settings.keep_program": {

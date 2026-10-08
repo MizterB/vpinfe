@@ -546,6 +546,23 @@
   "console.app_settings.apply_all": "Šèţ ƒöř Àŀŀ {count} Ţàƀŀèš",
   "console.app_settings.apply_all.help": "Èàçĥ öƒ ţĥîš ĝàɱè'š ţàƀŀèš ĝèţš ţĥîš ṽàŀûè àš îţš öŵñ",
   "console.app_settings.apply_done": "Šèţ ƒöř àŀŀ {count} ţàƀŀèš",
+  "console.app_settings.move_all": "Ḿöṽè ţö Àŀŀ Ţàƀŀèš",
+  "console.app_settings.move_all.help": "Àŀŀ Ţàƀŀèš ĝèţš ţĥîš ṽàŀûè, àñđ ţĥèšè ţàƀŀèš šţöþ šèţţîñĝ ţĥèîř öŵñ",
+  "console.app_settings.move_all.launchers": "Ţĥè šèŀèçţèđ ţàƀŀèš ûšè {count} ŀàûñçĥèřš",
+  "console.app_settings.move_all.ask": "Ḿöṽè “{setting}” ţö Àŀŀ Ţàƀŀèš?",
+  "console.app_settings.move_all.stop": {
+    "one": "Ţĥè šèŀèçţèđ ţàƀŀè šţöþš šèţţîñĝ îţš öŵñ.",
+    "other": "Ţĥè {count} šèŀèçţèđ šţöþ šèţţîñĝ ţĥèîř öŵñ."
+  },
+  "console.app_settings.move_all.some": {
+    "one": "{count} öƒ ţĥè šèŀèçţèđ šţöþš šèţţîñĝ îţš öŵñ.",
+    "other": "{count} öƒ ţĥè šèŀèçţèđ šţöþ šèţţîñĝ ţĥèîř öŵñ."
+  },
+  "console.app_settings.move_all.follow": {
+    "one": "{count} öţĥèř ţàƀŀè ƒöŀŀöŵš Àŀŀ Ţàƀŀèš àñđ çĥàñĝèš ŵîţĥ îţ.",
+    "other": "{count} öţĥèř ţàƀŀèš ƒöŀŀöŵ Àŀŀ Ţàƀŀèš àñđ çĥàñĝè ŵîţĥ ţĥèɱ."
+  },
+  "console.app_settings.move_done": "Ḿöṽèđ {setting} ţö Àŀŀ Ţàƀŀèš",
   "console.app_settings.tables_title": "{app} ƒöř Ţĥèšè Ţàƀŀèš",
   "console.app_settings.many_programs": "Ţĥèšè ţàƀŀèš řûñ {count} þřöĝřàɱš. Ķèèþ ţĥè ţàƀŀèš öƒ öñè ţö çĥàñĝè ţĥèîř šèţţîñĝš.",
   "console.app_settings.keep_program": {

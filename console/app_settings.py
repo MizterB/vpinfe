@@ -8,6 +8,7 @@ table, is one step further: Show Every Setting.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 from collections.abc import Awaitable, Callable, Collection, Sequence
@@ -20,12 +21,13 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
+from console import confirm, offload, panel, undo, verbs, workbench
 from console import dialog as frame
-from console import offload, panel, undo, verbs, workbench
 from console.data import config_groups
 from console.on_page import on_page
 
 SCOPE_ENTRY = "entry"
+SCOPE_LAUNCHER = "launcher"
 ADDED = "added_settings"
 ADDED_NOW = "added_setting_now"
 # How long a read of a selection runs before the section says it is reading.
@@ -159,6 +161,8 @@ async def _selection_entries(context: dict[str, Any],
         "config_write": partial(write_selection, library, context["state"], shared, groups),
     }
     inner["config_done"] = partial(_wrote, inner)
+    inner["config_more"] = MoveToAll(inner, _for_every_table(groups, SCOPE_LAUNCHER),
+                                     inner["rebuild"])
     try:
         values = await offload.io(as_one, library, shared, groups)
     except Exception as exc:  # noqa: BLE001 - this says why, never 500s
@@ -210,17 +214,21 @@ def _keep_link(context: dict[str, Any], launcher: dict[str, Any] | None,
 def _wrote(inner: dict[str, Any], wrote: dict[str, Any]) -> None:
     """Says what a write to the selection did, with Undo putting each table back as it
     was: its own value where it held one, the program's shared reading where it did not."""
-    if failed := wrote.get("failed"):
-        ui.notify(t("console.app_settings.selection_failed", count=len(failed)),
-                  caption="; ".join(dict.fromkeys(str(one.get("reason") or "")
-                                                  for one in failed)),
-                  type="warning")
+    _said_failed(wrote.get("failed"))
     changes = wrote.get("undo") or []
     if not changes:
         return
     said = (t("console.app_settings.cleared") if wrote.get("blank")
             else t("console.app_settings.selection_set", count=len(changes)))
     undo.offer(said, partial(_put_back, inner, changes))
+
+
+def _said_failed(failed: Sequence[dict[str, Any]] | None) -> None:
+    if failed:
+        ui.notify(t("console.app_settings.selection_failed", count=len(failed)),
+                  caption="; ".join(dict.fromkeys(str(one.get("reason") or "")
+                                                  for one in failed)),
+                  type="warning")
 
 
 async def _put_back(inner: dict[str, Any], changes: Sequence[tuple[str, str, dict]]) -> None:
@@ -659,9 +667,9 @@ def _read_settings(library: Any, one: dict[str, Any]) -> None:
                             for held in one["values"].values())
 
 
-def _for_every_table(groups: Sequence[Any]) -> frozenset[str]:
-    """What Set for All offers: whatever one table can hold, but the camera and the table
-    options."""
+def _for_every_table(groups: Sequence[Any], scope: str = SCOPE_ENTRY) -> frozenset[str]:
+    """The keys Set for All offers: every setting a table holds at `scope`, except the
+    camera and the table options. Move to All Tables asks for the launcher's scope."""
     found: set[str] = set()
     for group in groups:
         if getattr(group, "read_only", False):
@@ -669,7 +677,7 @@ def _for_every_table(groups: Sequence[Any]) -> frozenset[str]:
         drawn = set(getattr(group, "rows", ())) if group.summarized else None
         found.update(field.key for field in group.settings
                      if (drawn is None or field.key in drawn)
-                     and SCOPE_ENTRY in (field.scopes or (SCOPE_ENTRY,)))
+                     and scope in (field.scopes or (scope,)))
     return frozenset(found)
 
 
@@ -885,3 +893,130 @@ async def _set_for_all(inner: dict[str, Any], others: list[dict[str, Any]],
         if cut:
             workbench.no_longer_reads_game(cut, tables)
     await workbench._keeping_place(ui.context.client, rebuild, own[0][0].key)
+
+
+@dataclass
+class MoveToAll:
+    """Move to All Tables, beside a value the selection holds as one that at least one of
+    its tables sets itself. A pair's row hands in its other rows as `paired`, and is
+    offered only when each of them set here can be moved too. `rebuild` draws again
+    whatever offered it.
+
+    Dimmed while a table plays and where the selection uses more than one launcher, which
+    have an All Tables each."""
+
+    inner: dict[str, Any]
+    offered: frozenset[str]
+    rebuild: Callable[[], Awaitable[Any]]
+
+    async def ready(self, values: dict[str, Any]) -> None:
+        """Nothing to read: what follows All Tables is counted when the move is asked for."""
+
+    def _own(self, key: str, held: dict) -> bool:
+        return key in self.offered and bool(held.get("set_here")) \
+            and bool(held.get("in_effect", True)) and not held.get("varies") \
+            and bool(held.get("value"))
+
+    def __call__(self, held: dict, field: Any,
+                 *paired: tuple[dict, Any]) -> Callable[[], None] | None:
+        rows = ((held, field), *paired)
+        own = [(one, str(said.get("value") or "")) for said, one in rows
+               if self._own(one.key, said)]
+        if not own or any(said.get("set_here") and not self._own(one.key, said)
+                          for said, one in rows):
+            return None
+        launchers = sorted({str(one["launcher_id"]) for one in self.inner["shared"]})
+        playing = bool(self.inner.get("playing"))
+        if playing:
+            hint = t(workbench.PLAYING_NOTE)
+        elif len(launchers) > 1:
+            hint = t("console.app_settings.move_all.launchers", count=len(launchers))
+        else:
+            hint = t("console.app_settings.move_all.help")
+        return panel.action(
+            t("console.app_settings.move_all"),
+            partial(_move_to_all, self.inner, own, launchers[0], self.rebuild),
+            icon=verbs.MOVE, inline=True, enabled=not playing and len(launchers) == 1,
+            hint=hint)
+
+
+@on_page
+async def _move_to_all(inner: dict[str, Any], own: Sequence[tuple[Any, str]],
+                       launcher_id: str, rebuild: Callable[[], Awaitable[Any]]) -> None:
+    """Asks, then writes the values as the launcher's own and takes them off each selected
+    table that sets them. The launcher write can be refused for a file nobody can write,
+    so nothing is cleared before it has gone, and a clearing that fails puts it back."""
+    library = inner["library"]
+    keys = [field.key for field, _ in own]
+    try:
+        rows = await offload.io(library.load_tables)
+        found = await offload.io(library.launcher_config, launcher_id, "", SCOPE_LAUNCHER)
+    except Exception as exc:  # noqa: BLE001 - said, never raised into the page
+        ui.notify(t("said.settings_unreadable"), caption=why(exc), type="negative")
+        return
+    selected = {str(one.get("id") or "") for one in inner["tables"]}
+    wanted = set(keys)
+    setting = sum(1 for one in inner["shared"]
+                  if any(((one.get("values") or {}).get(key) or {}).get("set_here")
+                         for key in keys))
+    following = sum(1 for row in rows
+                    if row.get("launcher") == launcher_id
+                    and str(row.get("id") or "") not in selected
+                    and not wanted <= set(row.get("launcher_settings_keys") or ()))
+    held = found.get("values") or {}
+    if all((held.get(field.key) or {}).get("set_here")
+           and workbench._same_value(field, str(held[field.key].get("value") or ""), value)
+           for field, value in own):
+        following = 0
+    detail = [t("console.app_settings.move_all.stop" if setting == len(inner["shared"])
+                else "console.app_settings.move_all.some", count=setting)]
+    if following:
+        detail.append(t("console.app_settings.move_all.follow", count=following))
+    label = _move_label(inner["config_groups"], own)
+    if not await confirm.ask(t("console.app_settings.move_all.ask", setting=label),
+                             detail=detail, confirm=t("word.move"), icon=verbs.MOVE,
+                             danger=False):
+        return
+    try:
+        held = (await offload.io(library.launcher_config, launcher_id, "",
+                                 SCOPE_LAUNCHER)).get("values") or {}
+        before = {key: str((held.get(key) or {}).get("value") or "")
+                  if (held.get(key) or {}).get("set_here") else "" for key in keys}
+        await offload.io(library.write_launcher_config, launcher_id,
+                         {field.key: value for field, value in own})
+    except Exception as exc:  # noqa: BLE001 - said, never raised into the page
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+        await workbench._keeping_place(ui.context.client, rebuild, keys[0])
+        return
+    try:
+        wrote = await write_selection(library, inner["state"], inner["shared"],
+                                      inner["config_groups"], dict.fromkeys(keys, ""))
+    except Exception as exc:  # noqa: BLE001 - said, never raised into the page
+        wrote = {"failed": [], "undo": []}
+        ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+    else:
+        _said_failed(wrote.get("failed"))
+    if wrote.get("undo"):
+        undo.offer(t("console.app_settings.move_done", setting=label),
+                   partial(_move_back, inner, launcher_id, before, wrote["undo"]))
+    else:
+        with contextlib.suppress(Exception):
+            await offload.io(library.write_launcher_config, launcher_id, before)
+    await workbench._keeping_place(ui.context.client, rebuild, keys[0])
+
+
+def _move_label(groups: Sequence[Any], own: Sequence[tuple[Any, str]]) -> str:
+    """The row the user sees: a pair by its own name, a lone setting by its label."""
+    keys = {field.key for field, _ in own}
+    for pair in named_pairs(groups):
+        if keys & set(pair.keys):
+            return str(pair.label)
+    return " / ".join(field.label for field, _ in own)
+
+
+async def _move_back(inner: dict[str, Any], launcher_id: str, before: dict[str, str],
+                     changes: Sequence[tuple[str, str, dict]]) -> None:
+    """The launcher's own values as they were, then each table's. The tables stay as they
+    are when the launcher refuses, so All Tables and they never disagree."""
+    await offload.io(inner["library"].write_launcher_config, launcher_id, before)
+    await _put_back(inner, changes)
