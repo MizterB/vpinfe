@@ -143,7 +143,8 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
             table: ui.aggrid = grid_module.build(
                 COLUMNS, built, SCOPE,
                 on_select_rows=lambda picked: go.set_enabled(bool(picked)),
-                on_context=lambda row_in: fill(row_in))
+                on_context=lambda row_in: fill(row_in),
+                on_header_context=lambda col_id: header(col_id))
             menu: ui.context_menu = ui.context_menu()
 
         def picked_rows() -> list[dict[str, Any]]:
@@ -155,12 +156,17 @@ async def open_for(library: Library, subject_kind: str, subject_id: str, name: s
             if one is None:
                 menu.clear()
                 return
-            held = picked_rows()
-            on = held if len(held) > 1 and one["id"] in {r["id"] for r in held} else [one]
+            on = grid_module.menu_rows(table, one)
             panel.verb_menu(menu, backups.name_of(one) if len(on) == 1
                             else t("console.backups.selected_n", count=len(on)),
-                            backups.acts(library, on, refresh, many=len(on) > 1,
-                                         check=bool(grid_module.hidden_count(table))))
+                            panel.for_selection(
+                                backups.acts(library, on, refresh,
+                                             check=len(on) > 1
+                                             and bool(grid_module.hidden_count(table))),
+                                len(on)))
+
+        async def header(col_id: str | None) -> None:
+            await grid_module.header_menu(menu, table, COLUMNS, col_id)
 
         @on_page
         async def refresh() -> None:

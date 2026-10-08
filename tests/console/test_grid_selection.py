@@ -21,6 +21,38 @@ class SelectAll(unittest.TestCase):
         self.assertFalse(grid.ROW_SELECTION["enableClickSelection"])
 
 
+class _Table:
+    """Anything a weak reference can name, which is what keys a grid's selection."""
+
+
+class MenuRows(unittest.TestCase):
+    """What a right-click acts on: the selection from inside it, the row alone from
+    outside, and the ticks stay either way."""
+
+    def _grid(self, *ticked: str) -> object:
+        table = _Table()
+        chosen = grid.Selection([{"id": n} for n in "abcde"])
+        chosen.take({"turn": 1, "at": 0, "of": 1, "ids": list(ticked)})
+        grid._SELECTIONS[table] = chosen
+        return table
+
+    def test_inside_a_selection_it_acts_on_the_selection(self) -> None:
+        table = self._grid("a", "c")
+
+        self.assertEqual(["a", "c"], [r["id"] for r in grid.menu_rows(table, {"id": "c"})])
+
+    def test_outside_a_selection_it_acts_on_that_row_alone(self) -> None:
+        table = self._grid("a", "c")
+
+        self.assertEqual([{"id": "e"}], grid.menu_rows(table, {"id": "e"}))
+        self.assertEqual(["a", "c"], [r["id"] for r in grid.selection(table)])
+
+    def test_one_ticked_row_is_just_that_row(self) -> None:
+        table = self._grid("a")
+
+        self.assertEqual([{"id": "a"}], grid.menu_rows(table, {"id": "a"}))
+
+
 def _part(turn: int, at: int, of: int, *ids: str) -> dict:
     return {"turn": turn, "at": at, "of": of, "ids": list(ids)}
 

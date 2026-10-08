@@ -2910,7 +2910,7 @@
   },
   "console.vps_match.go_back": "Go back to the auto-match",
   "console.vps_match.restore_earlier": "Go back to your earlier match",
-  "console.vps_match.position": "{index} of {total}",
+  "console.walk.position": "{index} of {total}",
   "console.vps_match.match_named": "Match “{name}” to Virtual Pinball Spreadsheet",
   "console.vps_match.match_set": {
     "one": "1 match set",
@@ -4439,6 +4439,7 @@
   "word.cancel": "Cancel",
   "word.clear": "Clear",
   "word.clear_selection": "Clear selection",
+  "word.not_for_several": "One at a time",
   "word.close": "Close",
   "word.columns": "Columns",
   "word.contains": "Contains",

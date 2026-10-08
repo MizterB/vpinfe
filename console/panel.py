@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any
 
@@ -514,6 +514,33 @@ def selection_actions(hint: str) -> tuple[Any, Any]:
         menu = ui.menu().props("no-parent-event")
     control.set_visibility(False)
     return control, menu
+
+
+def selection_menu(hint: str, rows: Callable[[], list[Any]],
+                   acts: Callable[[list[Any]], Sequence[Verb]],
+                   clear: Callable[[], Any]) -> Callable[[bool], None]:
+    """A grid bar's `more_vert` for the selected rows, drawing the subject's own list.
+
+    `acts` is given the rows chosen when the menu opens and answers what can be done to
+    them, the list the row menu and the panel draw; `for_selection` and the way out
+    (*Clear selection*, under a rule of its own) are added here. Answers the function that
+    shows the button, given whether any row is selected.
+    """
+    control, menu = selection_actions(hint)
+
+    def fill() -> None:
+        chosen = rows()
+        menu.clear()
+        with menu:
+            shown = for_selection(acts(chosen), len(chosen))
+            verb_entries(shown, menu.close)
+            if shown:
+                ui.separator()
+            _verb_entry(Verb(t("word.clear_selection"), clear))
+        menu.open()
+
+    control.on_click(fill)
+    return control.set_visibility
 
 
 def trouble_mark(reason: str = "") -> Callable[[], None]:
@@ -1248,6 +1275,8 @@ class Verb:
     field. `icon` is for where it is also drawn as a button; a menu item takes none.
     `draw` stands in for an entry of its own: it draws several into the menu being built,
     given what closes that menu, for the one list that is a submenu with state of its own.
+    `one` is a verb with no meaning over several rows: with several chosen it stays in the
+    menu, dimmed and saying so (`for_selection`).
     """
     label: str
     run: Callable[[], Any] | None = None
@@ -1258,6 +1287,17 @@ class Verb:
     icon: str = ""
     to: str = ""
     draw: Callable[[Callable[[], Any]], None] | None = None
+    one: bool = False
+
+
+def for_selection(entries: Sequence[Verb], count: int) -> list[Verb]:
+    """The list for `count` rows chosen: a one-at-a-time verb is refused while there are
+    several, so the menu keeps its shape as the selection grows."""
+    if count < 2:
+        return list(entries)
+    return [replace(one, run=None, choices=(), to="", draw=None,
+                    hint=t("word.not_for_several")) if one.one else one
+            for one in entries]
 
 
 def leaves(to: str) -> bool:

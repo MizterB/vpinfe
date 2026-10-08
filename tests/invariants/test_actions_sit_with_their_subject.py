@@ -42,6 +42,19 @@ GRID_OF = {
 BUTTON_CEILING = 71
 
 
+# Grids that have not yet reached the selection rules in `docs/conventions.md`. A page
+# leaves a list when it conforms, and the test fails while one still listed already does.
+SELECTION_BY_HAND = {"games.py", "devices.py", "media.py", "collections.py"}
+ROW_MENU_WITHOUT_HEADER = {"tageditor.py", "launchers.py", "players.py"}
+HEADER_MENU_WITHOUT_ROW = {"media.py", "assets.py"}
+# A chooser in a dialog reads its ticks in the footer button, which is its selection menu;
+# Community's rows come from an extension and have no subject to act on.
+NO_SELECTION_MENU = {"backup_rows.py"}
+HEADER_ONLY = {"community.py"}
+# `grid.build`'s positional order after `columns, rows, scope`.
+BUILD_PARAMS = ("on_select_rows", "on_context", "on_header_context")
+
+
 def _tree(path: pathlib.Path) -> ast.Module:
     return trees.tree_for(path)
 
@@ -147,6 +160,36 @@ def _subject_verbs() -> set[str]:
     return set()
 
 
+def _is_grid_build(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "build" and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in ("grid", "grid_module"))
+
+
+def _given(call: ast.Call) -> set[str]:
+    """Which of the optional handlers a `grid.build` call passes, by keyword or position."""
+    named = {keyword.arg for keyword in call.keywords if keyword.arg}
+    positional = set(BUILD_PARAMS[:max(0, len(call.args) - 3)])
+    return {name for name in BUILD_PARAMS if name in named | positional}
+
+
+def _grids() -> dict[str, set[str]]:
+    """Each console module that builds a grid, with the handlers its grids are given."""
+    found: dict[str, set[str]] = {}
+    for path in sorted(CONSOLE.glob("*.py")):
+        calls = [node for node in ast.walk(_tree(path)) if _is_grid_build(node)]
+        if calls:
+            found[path.name] = set().union(*(_given(call) for call in calls))
+    return found
+
+
+def _calls_panel(path: pathlib.Path, attr: str) -> bool:
+    return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+               and node.func.attr == attr and isinstance(node.func.value, ast.Name)
+               and node.func.value.id == "panel"
+               for node in ast.walk(_tree(path)))
+
+
 class TestActionsSitWithTheirSubject(unittest.TestCase):
     def test_no_heading_or_section_is_called_actions(self) -> None:
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
@@ -210,6 +253,47 @@ class TestActionsSitWithTheirSubject(unittest.TestCase):
                              "build it with panel.action, panel.verb_menu or dialog.footer")
         if count < BUTTON_CEILING:
             self.fail(f"{count} now: lower BUTTON_CEILING to match")
+
+    def test_a_selection_menu_is_drawn_from_the_subjects_list(self) -> None:
+        """Every selection `more_vert` is built by `panel.selection_menu`, from the list
+        the row menu draws."""
+        grids = _grids()
+        self.assertIn("backups.py", grids)
+        selectable = {name for name, given in grids.items() if "on_select_rows" in given}
+        drawn = {name for name in selectable if _calls_panel(CONSOLE / name, "selection_menu")}
+        by_hand = selectable - drawn - NO_SELECTION_MENU
+        self.assertEqual(sorted(SELECTION_BY_HAND), sorted(by_hand),
+                         "a selection menu is built with panel.selection_menu; a page "
+                         "that does is out of SELECTION_BY_HAND")
+        for path in sorted(CONSOLE.glob("*.py")):
+            if path.name != "panel.py" and _calls_panel(path, "selection_actions"):
+                self.assertIn(path.name, SELECTION_BY_HAND, "build it with selection_menu")
+
+    def test_checkboxes_are_drawn_only_for_a_grid_with_a_selection_handler(self) -> None:
+        build = next(node for node in _tree(CONSOLE / "grid.py").body
+                     if isinstance(node, ast.FunctionDef) and node.name == "build")
+        gated = [node for node in ast.walk(build) if isinstance(node, ast.IfExp)
+                 and ast.unparse(node.test) == "on_select_rows is not None"
+                 and any(isinstance(inner, ast.Constant) and inner.value == "rowSelection"
+                         for inner in ast.walk(node.body))]
+        self.assertTrue(gated, "rowSelection must be drawn only when on_select_rows is given")
+
+    def test_a_header_menu_is_where_a_row_menu_is(self) -> None:
+        grids = _grids()
+        row_only = {name for name, given in grids.items()
+                    if "on_context" in given and "on_header_context" not in given}
+        header_only = {name for name, given in grids.items()
+                       if "on_header_context" in given and "on_context" not in given}
+        self.assertEqual(sorted(ROW_MENU_WITHOUT_HEADER), sorted(row_only),
+                         "give the grid the Pin and Hide menu every other grid has")
+        self.assertEqual(sorted(HEADER_MENU_WITHOUT_ROW), sorted(header_only - HEADER_ONLY),
+                         "give the grid a row menu from its subject's list")
+
+    def test_a_grid_is_read_by_position_and_by_name(self) -> None:
+        call = trees.parse_snippet("grid.build(a, b, c, pick, on_header_context=h)").body[0].value
+        self.assertEqual({"on_select_rows", "on_header_context"}, _given(call))
+        bare = trees.parse_snippet("grid.build(a, b, c)").body[0].value
+        self.assertEqual(set(), _given(bare))
 
 
 if __name__ == "__main__":

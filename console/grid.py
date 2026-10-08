@@ -810,6 +810,14 @@ def selection(table: Any) -> list[dict[str, Any]]:
     return chosen.rows() if chosen is not None else []
 
 
+def menu_rows(table: Any, row: dict[str, Any]) -> list[dict[str, Any]]:
+    """The rows a right-click on `row` acts on. Inside a selection of several that is the
+    selection; on a row outside it, that row alone and the ticks stay as they are."""
+    chosen = selection(table)
+    ids = {str(one.get("id")) for one in chosen}
+    return chosen if len(chosen) > 1 and str(row.get("id")) in ids else [row]
+
+
 def hidden_count(table: Any) -> int:
     """How many of `table`'s selected rows a search, a filter or a view leaves out."""
     chosen = _SELECTIONS.get(table)
@@ -876,6 +884,9 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
     `view_of` names the view showing now. Given one, geometry is stored per view - the
     grid outlives a view change, so without it every view shares one set of widths.
 
+    `on_select_rows` is what draws the checkboxes: a grid without one has none. A grid
+    with a row menu has a header menu and the reverse (`on_context`, `on_header_context`).
+
     Raises `ValueError` unless exactly one column is a `grid.identifier()`, and unless
     every column carries a header tooltip.
     """
@@ -902,10 +913,10 @@ def build(columns: list[dict[str, Any]], rows: list[dict[str, Any]], scope: str,
                     "landing": _LANDING.get(ui.context.client, {}).pop(scope, None),
                     "fit": fit},
         "defaultColDef": DEFAULT_COL_DEF,
-        "rowSelection": {**ROW_SELECTION, **({
+        **({"rowSelection": {**ROW_SELECTION, **({
             ":isRowSelectable":
                 f"node => !{json.dumps(rows_not_selectable)}.includes(node.data.id)"}
-            if rows_not_selectable else {})},
+            if rows_not_selectable else {})}} if on_select_rows is not None else {}),
         # The ":" prefix marks this as JavaScript. Without it AG Grid calls a string and
         # the grid dies as an empty table rather than an error.
         ":getRowId": "params => params.data.id",

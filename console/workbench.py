@@ -7293,7 +7293,7 @@ def _backup_verbs(context: dict[str, Any]) -> list[panel.Verb]:
         if callable(again):
             await again()
 
-    return backups_page.acts(context["library"], [context["backup"]], refresh, many=False)
+    return backups_page.acts(context["library"], [context["backup"]], refresh)
 
 
 def _player_verbs(context: dict[str, Any]) -> list[panel.Verb]:

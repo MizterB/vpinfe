@@ -8,7 +8,7 @@ from unittest import mock
 from common import i18n
 from common.backups import copies
 from common.i18n import t
-from console import backups, deeplink, when
+from console import backups, deeplink, panel, when
 from console.data import Library
 
 
@@ -98,8 +98,8 @@ class Summary(unittest.TestCase):
 
 
 class Acts(unittest.TestCase):
-    def _acts(self, *rows: dict, many: bool = False):
-        return backups.acts(mock.Mock(spec=Library), list(rows), mock.Mock(), many=many)
+    def _acts(self, *rows: dict):
+        return backups.acts(mock.Mock(spec=Library), list(rows), mock.Mock())
 
     def test_delete_is_last_and_dangerous(self) -> None:
         verbs = self._acts(backups.rows([_copy()])[0])
@@ -107,12 +107,18 @@ class Acts(unittest.TestCase):
         self.assertEqual(t("word.delete"), verbs[-1].label)
         self.assertTrue(verbs[-1].danger)
 
-    def test_copy_path_is_for_one_row(self) -> None:
+    def test_copy_path_is_a_one_at_a_time_verb(self) -> None:
         row = backups.rows([_copy()])[0]
+        copy_path = t("console.backups.copy_path")
 
-        self.assertIn(t("console.backups.copy_path"), [v.label for v in self._acts(row)])
-        self.assertNotIn(t("console.backups.copy_path"),
-                         [v.label for v in self._acts(row, row, many=True)])
+        one = {v.label: v for v in self._acts(row)}[copy_path]
+        several = {v.label: v for v in panel.for_selection(self._acts(row, row), 2)}[copy_path]
+
+        self.assertTrue(one.one)
+        self.assertIsNotNone(one.draw)
+        self.assertIsNone(several.draw)
+        self.assertIsNone(several.run)
+        self.assertEqual(t("word.not_for_several"), several.hint)
 
     def test_a_copy_whose_owner_is_gone_cannot_be_restored_and_says_why(self) -> None:
         row = backups.rows([_copy(gone=True)])[0]
@@ -125,7 +131,7 @@ class Acts(unittest.TestCase):
     def test_a_selection_with_one_present_copy_can_still_be_restored(self) -> None:
         gone, present = backups.rows([_copy("a", gone=True), _copy("b")])
 
-        self.assertIsNotNone(self._acts(gone, present, many=True)[0].run)
+        self.assertIsNotNone(self._acts(gone, present)[0].run)
 
 
 class Wrappers(unittest.TestCase):

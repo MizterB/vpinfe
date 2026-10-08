@@ -2910,7 +2910,7 @@
   },
   "console.vps_match.go_back": "Ĝö ƀàçķ ţö ţĥè àûţö-ɱàţçĥ",
   "console.vps_match.restore_earlier": "Ĝö ƀàçķ ţö ýöûř èàřŀîèř ɱàţçĥ",
-  "console.vps_match.position": "{index} öƒ {total}",
+  "console.walk.position": "{index} öƒ {total}",
   "console.vps_match.match_named": "Ḿàţçĥ “{name}” ţö Ṽîřţûàŀ Þîñƀàŀŀ Šþřèàđšĥèèţ",
   "console.vps_match.match_set": {
     "one": "1 ɱàţçĥ šèţ",
@@ -4439,6 +4439,7 @@
   "word.cancel": "Çàñçèŀ",
   "word.clear": "Çŀèàř",
   "word.clear_selection": "Çŀèàř šèŀèçţîöñ",
+  "word.not_for_several": "Öñè àţ à ţîɱè",
   "word.close": "Çŀöšè",
   "word.columns": "Çöŀûɱñš",
   "word.contains": "Çöñţàîñš",

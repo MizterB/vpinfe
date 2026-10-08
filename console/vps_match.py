@@ -10,7 +10,6 @@ choice is always a person's.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from functools import partial
 from typing import Any
@@ -18,17 +17,14 @@ from typing import Any
 from nicegui import run, ui
 
 from common import icons
-from common.failures import why
 from common.i18n import t
-from console import candidates, dialog, game_tables, offload, panel, verbs
+from console import candidates, dialog, game_tables, offload, panel, verbs, walks
 from console.on_page import on_page
 
-logger = logging.getLogger("vpinfe.console.vps_match")
-
 # A NUL cannot occur in a VPS id, so neither of these can be mistaken for one.
-CANCELLED = None
+CANCELLED = walks.SKIPPED
 CLEARED = "\x00none"
-STOPPED = "\x00stopped"
+STOPPED = walks.STOPPED
 
 NO_PICTURE = t("console.vps_match.no_picture")
 
@@ -144,35 +140,19 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
 
 @on_page
 async def walk(library: Any, games: list[dict[str, Any]]) -> None:
-    """Work through several games' matches, one picker at a time.
+    """Work through several games' matches, one picker at a time."""
+    async def ask_one(game: dict[str, Any], place: str) -> Any:
+        return await ask(library, game, walking=True, place=place)
 
-    The selection is whatever the grid was filtered to, matched or not. **Skip leaves a
-    game exactly as it was** - nothing is rewritten for being in the selection, which is
-    why this walks rather than runs.
-    """
-    total = len(games)
-    changed = 0
-    for index, game in enumerate(games, 1):
-        picked = await ask(library, game, walking=True,
-                           place=t("console.vps_match.position",
-                                   index=index, total=total))
-        if picked == STOPPED:
-            break
-        if picked is CANCELLED:
-            continue
+    async def write(game: dict[str, Any], picked: Any) -> None:
         game_id = str(game.get("id") or "")
-        try:
-            if picked == CLEARED:
-                await run.io_bound(library.declare_no_match, game_id)
-            else:
-                await run.io_bound(library.set_game_overrides, game_id,
-                                   {"alt_vps_id": str(picked)})
-        except Exception as exc:  # noqa: BLE001 - one bad write does not end the walk
-            logger.exception("Could not set the match for %s", game.get("id"))
-            ui.notify(t("console.vps_match.set_failed"), caption=why(exc),
-                      type="negative")
-            continue
-        changed += 1
+        if picked == CLEARED:
+            await run.io_bound(library.declare_no_match, game_id)
+        else:
+            await run.io_bound(library.set_game_overrides, game_id,
+                               {"alt_vps_id": str(picked)})
+
+    changed = await walks.each(games, ask_one, write, t("console.vps_match.set_failed"))
     # Said once at the end rather than per game: a toast after every pick in a run of
     # thirty is noise covering the thing you are looking at.
     ui.notify(t("console.vps_match.match_set", count=changed) if changed

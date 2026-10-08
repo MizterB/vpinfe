@@ -906,6 +906,15 @@ called Actions, which names the mechanism and says nothing about the subject.
   `panel.verb_menu` draws it on the grid row and `panel.subject_menu` in the header. A
   verb that only makes sense in one of them says so with `in_panel=False`, as Rename does
   where the panel already edits the name in place.
+- **The selection's `more_vert` draws that list too.** `panel.selection_menu` builds it
+  from the subject's `acts()` given the rows chosen, then adds *Clear selection* under a
+  rule of its own; no page fills one by hand. A right-click on a ticked row, while several
+  are ticked, acts on the selection under a header that counts it (*3 copies*); on an
+  unticked row it acts on that row alone and leaves the ticks. A verb with no meaning over
+  several (`Verb.one`) stays in place, dimmed and reading *One at a time*; one that asks
+  something about each row walks the selection, a dialog per row (`walks.each`). A grid
+  draws checkboxes only when it is given a selection handler, and has a header menu
+  wherever it has a row menu.
 - **Danger goes last, under a rule, in red.** A verb that cannot run right now stays in
   the list, dimmed, with the reason under it, so nobody wonders where it went. One this
   install can never perform is not in the list at all: a headless install has no window

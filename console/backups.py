@@ -293,17 +293,11 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 search.value = find
             with bar.bottom, panel.bar_end():
                 count = ui.label(summary(built)).classes("text-xs console-label")
-                bulk, bulk_menu = panel.menu_button(verbs.MORE,
-                                                    t("console.backups.actions_selected"))
-                with bulk_menu:
-                    ui.menu_item(t("word.restore"),
-                                 lambda: restore(library, picked(), refresh,
-                                                  check=bool(grid_module.hidden_count(table)))) \
-                        .classes("console-menu-item")
-                    ui.menu_item(t("word.delete"),
-                                 lambda: delete(library, picked(), refresh)) \
-                        .classes("console-menu-item console-menu-danger")
-                bulk.set_visibility(False)
+                show_selection = panel.selection_menu(
+                    t("console.backups.actions_selected"), lambda: picked(),
+                    lambda chosen: acts(library, chosen, refresh,
+                                        check=bool(grid_module.hidden_count(table))),
+                    lambda: table.run_grid_method("deselectAll"))
                 if built:
                     panel.icon_only(verbs.CLEAN,
                                     lambda: backup_cleanup.ask(library, built, refresh),
@@ -329,7 +323,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
 
         def on_selected(chosen_rows: list[dict[str, Any]]) -> None:
             on_screen["selected"] = len(chosen_rows)
-            bulk.set_visibility(bool(chosen_rows))
+            show_selection(bool(chosen_rows))
             count.text = counted_text()
 
         def fill_menu(row: dict | None) -> None:
@@ -337,17 +331,23 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
             if one is None:
                 menu.clear()
                 return
-            chosen = picked()
-            on = chosen if len(chosen) > 1 and one["id"] in {r["id"] for r in chosen} else [one]
+            on = grid_module.menu_rows(table, one)
             panel.verb_menu(menu, name_of(one) if len(on) == 1
                             else t("console.backups.selected_n", count=len(on)),
-                            acts(library, on, refresh, many=len(on) > 1,
-                                 check=bool(grid_module.hidden_count(table))))
+                            panel.for_selection(
+                                acts(library, on, refresh,
+                                     check=len(on) > 1
+                                     and bool(grid_module.hidden_count(table))), len(on)))
+
+        async def on_header_context(col_id: str | None) -> None:
+            await grid_module.header_menu(menu, table, columns, col_id)
 
         with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
             table: ui.aggrid = grid_module.build(columns, built, SCOPE,
                                                  on_select_rows=on_selected,
-                                                 on_context=fill_menu, view_of=showing)
+                                                 on_context=fill_menu,
+                                                 on_header_context=on_header_context,
+                                                 view_of=showing)
             menu: ui.context_menu = ui.context_menu()
         grid_module.on_row_focus(
             SCOPE, lambda event: on_select(by_id.get(grid_module.focused_row(event))))
@@ -401,7 +401,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
 
 
 def acts(library: Library, rows_on: list[dict[str, Any]],
-         refresh: Callable[[], Awaitable[None]], *, many: bool,
+         refresh: Callable[[], Awaitable[None]], *,
          check: bool = False) -> list[panel.Verb]:
     """What can be done to the copies a menu is open on. `check` is where the selection
     reaches rows the screen leaves out, so a restore asks first."""
@@ -410,9 +410,8 @@ def acts(library: Library, rows_on: list[dict[str, Any]],
         t("word.restore"),
         (lambda: restore(library, rows_on, refresh, check=check)) if present else None,
         hint="" if present else t("console.backups.owner_gone"))]
-    if not many:
-        one = rows_on[0]
-        entries.append(panel.Verb(t("console.backups.copy_path"), draw=_copy_path(one["path"])))
+    entries.append(panel.Verb(t("console.backups.copy_path"),
+                              draw=_copy_path(rows_on[0]["path"]), one=True))
     if not any(one["within"] for one in rows_on):
         entries.append(panel.Verb(t("word.delete"), lambda: delete(library, rows_on, refresh),
                                   danger=True))
@@ -833,7 +832,7 @@ def _part_line(library: Library, part: dict[str, Any],
                refresh: Callable[[], Awaitable[None]]) -> None:
     on = [part]
     menu = ui.context_menu()
-    panel.verb_menu(menu, name_of(part), acts(library, on, refresh, many=False))
+    panel.verb_menu(menu, name_of(part), acts(library, on, refresh))
     with ui.row().classes("items-center gap-2 w-full no-wrap console-member-row"):
         with ui.column().classes("gap-0 grow min-w-0"):
             with ui.row().classes("items-center gap-2 w-full no-wrap"):
