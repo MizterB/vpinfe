@@ -103,6 +103,23 @@ class LauncherApiTests(unittest.TestCase):
         self.assertEqual((ini["blank"], ini["left_empty"], "default_path" in ini),
                          ("Not found", "Visual Pinball makes it the first time it runs", False))
 
+    def test_standing_answers_for_an_app_before_any_launcher_holds_it(self) -> None:
+        own = pathlib.Path(self.tmp.name, "VPinballX.ini")
+
+        with patch("apps.vpx.config.own_file", return_value=own) as found:
+            body = self.client.post("/launchers/standing", json={
+                "app": "vpx", "settings": {"bin_path": "/x/VPinballX_BGFX"}}).json()
+
+        found.assert_called_with("/x/VPinballX_BGFX")
+        self.assertEqual(body["ini_path"]["default_path"], str(own))
+        self.assertNotIn("bin_path", body)
+        self.assertEqual(self.client.get("/launchers").json()["launchers"], [])
+
+    def test_standing_for_an_app_with_none_to_say_is_empty(self) -> None:
+        for app in ("generic", "nothing"):
+            self.assertEqual(self.client.post("/launchers/standing",
+                                              json={"app": app, "settings": {}}).json(), {})
+
     def test_a_launcher_says_whether_its_app_keeps_settings_of_its_own(self) -> None:
         self._put("vpx", display_name="VPX")
         self._put("gen", app="generic", display_name="Generic")

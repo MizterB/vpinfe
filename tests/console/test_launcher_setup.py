@@ -6,7 +6,7 @@ import unittest
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
-from console import workbench
+from console import launchers, workbench
 from tests.support.clicks import press
 
 LAUNCHER = {"launcher_id": "wide", "display_name": "VPX (4K)", "app_name": "Visual Pinball X",
@@ -132,18 +132,18 @@ class AFieldStandingForAFile(unittest.TestCase):
              "default_exists": True}
 
     def test_it_is_whose_default_it_is(self) -> None:
-        option = workbench._standing_option(self.FIELD, "Visual Pinball X")
+        option = launchers.standing_option(self.FIELD, "Visual Pinball X")
         self.assertEqual(option["default_whose"], "Visual Pinball X's default")
 
     def test_a_file_not_made_yet_says_so_on_a_line_of_its_own(self) -> None:
-        option = workbench._standing_option({**self.FIELD, "default_exists": False},
+        option = launchers.standing_option({**self.FIELD, "default_exists": False},
                                             "Visual Pinball X")
         self.assertEqual(option["default_whose"],
                          "Visual Pinball X's default\nNot created yet")
 
     def test_a_field_standing_for_nothing_is_left_as_it_came(self) -> None:
         field = {"key": "bin_path", "path": "exe"}
-        self.assertIs(workbench._standing_option(field, "Visual Pinball X"), field)
+        self.assertIs(launchers.standing_option(field, "Visual Pinball X"), field)
 
 
 if __name__ == "__main__":

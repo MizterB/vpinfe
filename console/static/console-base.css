@@ -912,6 +912,8 @@ body::before {
 /* Reset sits against the control it undoes, and is drawn only where the value is
    changed, so it never waits behind a hover. */
 .console-field-line > .console-field-row { flex: 0 1 auto; min-width: 0; }
+.console-dialog .console-field-line { width: 100%; max-width: var(--measure); }
+.console-dialog .console-field-line > .console-field-row { flex: 1 1 auto; }
 .console-field-line > .console-row-action {
   min-width: var(--target-inline); justify-content: center; opacity: 1;
 }

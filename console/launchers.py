@@ -14,6 +14,7 @@ program it names.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
@@ -267,6 +268,17 @@ async def _fill(library: Library, state: dict[str, Any], on_select: Callable[[di
         state["refresh_launchers"] = refresh_launchers
 
 
+def standing_option(field: dict[str, Any], app_name: str) -> dict[str, Any]:
+    """A launcher field as the control reads it: a path left empty stands for the file
+    the program uses, and the hover says whose it is, and that it is not made yet."""
+    if not field.get("default_path"):
+        return field
+    whose = t("console.workbench.app_default", app=app_name)
+    if not field.get("default_exists"):
+        whose = "\n".join((whose, t("console.workbench.not_created")))
+    return {**field, "default_whose": whose}
+
+
 @on_page
 async def _add(library: Library, state: dict[str, Any], redraw: Callable[[], None],
                app: dict) -> None:
@@ -286,8 +298,12 @@ async def _add(library: Library, state: dict[str, Any], redraw: Callable[[], Non
             "app": app["id"], "enabled": True, "settings": settings,
             "display_name": name or model.free_name(app["name"], names)})
 
+    async def standing(settings: dict[str, str]) -> dict[str, dict[str, Any]]:
+        found = await offload.io(library.launcher_standing, app["id"], settings)
+        return {key: standing_option(one, app["name"]) for key, one in found.items()}
+
     if await ask_name(t("console.launchers.new_title", app=app["name"]), t("word.add"),
-                      names, write, asked=asked, looking=library.folders,
+                      names, write, asked=asked, looking=library.folders, standing=standing,
                       placeholder=t("console.launchers.name_example", app=app["name"])):
         await _open(state, redraw, made)
 
@@ -352,10 +368,14 @@ async def ask_name(title: str, answer: str, names: list[str],
                    named: str = "", asked: list[dict] | None = None,
                    placeholder: str = "", icon: str = verbs.CREATE,
                    looking: Callable[..., dict] | None = None,
+                   standing: Callable[[dict[str, str]], Awaitable[dict[str, dict]]] | None = None,
                    place: str = "", walking: bool = False) -> bool | str:
     """Name a launcher, and fill the path fields `asked` lists, before it exists.
 
     `looking` lists a folder for the picker; without it the path fields are typed only.
+    `standing` answers, for the paths as typed, what each field the app can name a file
+    for would stand for left empty; a field it names shows that, and is asked again when
+    another path changes.
     `place` says where a walk has got to, and `walking` splits Cancel into Skip and Stop.
 
     True once `write` took it, False when skipped, `walks.STOPPED` when a walk is ended.
@@ -365,12 +385,13 @@ async def ask_name(title: str, answer: str, names: list[str],
     from common.games import launchers as model
 
     fields: dict[str, Any] = {}
+    holders: dict[str, Any] = {}
+    stands: dict[str, dict] = {}
+    asking = [one["key"] for one in asked or ()]
 
-    def draw(key: str, value: str = "", hint: str = "",
-             browse: Callable[[str], Awaitable[str | None]] | None = None) -> Callable[[], None]:
-        def drawn() -> None:
-            fields[key] = frame.field(value, placeholder=hint, browse=browse)
-        return drawn
+    def typed(key: str) -> str:
+        text = str(fields[key].value or "").strip()
+        return "" if text == (stands.get(key) or {}).get("default_path") else text
 
     def browsing(one: dict) -> Callable[[str], Awaitable[str | None]] | None:
         if not (kind := str(one.get("path") or "")) or looking is None:
@@ -382,6 +403,56 @@ async def ask_name(title: str, answer: str, names: list[str],
 
         return browsed
 
+    def draw(key: str, value: str = "", hint: str = "",
+             browse: Callable[[str], Awaitable[str | None]] | None = None) -> Callable[[], None]:
+        def drawn() -> None:
+            fields[key] = frame.field(value, placeholder=hint, browse=browse)
+        return drawn
+
+    def paint(one: dict, value: str) -> None:
+        key = one["key"]
+        stood = stands.get(key) or {}
+        extra: dict[str, Any] = {
+            "default": str(stood.get("default_path") or ""),
+            "whose": str(stood.get("default_whose") or ""),
+            "left_empty": str(stood.get("left_empty") or "")} if stood else {}
+        fields[key] = frame.field(
+            value, placeholder=str(stood.get("blank") or one.get("blank") or ""),
+            browse=browsing(one), **extra)
+
+    def asked_field(one: dict) -> Callable[[], None]:
+        def drawn() -> None:
+            with ui.element("div").classes("contents") as holders[one["key"]]:
+                paint(one, "")
+            if stands and one["key"] not in stands:
+                fields[one["key"]].on_value_change(refresh)
+        return drawn
+
+    latest = [0]
+
+    async def refresh() -> None:
+        """Ask again what the fields stand for once the paths stop changing."""
+        latest[0] += 1
+        mine = latest[0]
+        await asyncio.sleep(0.3)
+        if mine != latest[0] or standing is None or holders[asking[0]].is_deleted:
+            return
+        try:
+            found = await standing({key: typed(key) for key in asking})
+        except Exception:  # noqa: BLE001 - the fields keep what they showed
+            logger.exception("what a launcher field stands for could not be read")
+            return
+        if mine != latest[0]:
+            return
+        for one in asked or ():
+            key = one["key"]
+            if found.get(key) != stands.get(key):
+                now = typed(key)
+                stands[key] = found.get(key) or {}
+                holders[key].clear()
+                with holders[key]:
+                    paint(one, now)
+
     def refused(why: str) -> None:
         fields["name"].props["error"] = bool(why)
         fields["name"].props["error-message"] = why
@@ -392,20 +463,23 @@ async def ask_name(title: str, answer: str, names: list[str],
             refused(t("error.launchers.name_taken", name=name))
             return
         try:
-            await write(name, {one["key"]: str(fields[one["key"]].value or "").strip()
-                               for one in asked or ()})
+            await write(name, {key: typed(key) for key in asking})
         except Exception as exc:  # noqa: BLE001 - said where it can be put right
             refused(why(exc))
             return
         box.submit(True)
 
+    if standing is not None and asked:
+        try:
+            stands.update(await standing({key: "" for key in asking}))
+        except Exception:  # noqa: BLE001 - the fields draw as the app declares them
+            logger.exception("what a launcher field stands for could not be read")
+
     with frame.opened(title) as box:
         if place:
             ui.label(place).classes("console-help px-3")
         panel.facts(ui, [(t("word.name"), draw("name", named, placeholder))]
-                    + [(one["label"], draw(one["key"], hint=str(one.get("blank") or ""),
-                                           browse=browsing(one)))
-                       for one in asked or ()])
+                    + [(one["label"], asked_field(one)) for one in asked or ()])
         with frame.footer():
             frame.leave(box, walking)
             go = frame.answer(answer, keep, icon=icon)

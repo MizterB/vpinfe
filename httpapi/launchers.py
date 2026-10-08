@@ -32,6 +32,15 @@ def list_launchers() -> dict[str, Any]:
     return launcher_ops.listing()
 
 
+@router.post("/standing", summary="What an app's empty fields would read",
+             dependencies=[requires(scopes.CONFIG_READ)])
+def launcher_standing(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """For an app and the settings a launcher would hold, what each path field reads
+    while left empty. A read: nothing is written, and no launcher need exist."""
+    return launcher_ops.standing(str(body.get("app") or ""),
+                                 dict(body.get("settings") or {}))
+
+
 @router.get("/{launcher_id}/fallback", summary="Where its tables go if it is switched off",
             dependencies=[requires(scopes.CONFIG_READ)])
 def launcher_fallback(launcher_id: str) -> dict[str, Any]:

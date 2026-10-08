@@ -893,6 +893,10 @@ class ApiClient:
     def delete_launcher(self, launcher_id: str) -> None:
         self._delete(f"/config/launchers/{launcher_id}")
 
+    def launcher_standing(self, app: str, settings: dict) -> dict:
+        return dict(self._post("/launchers/standing", {"app": app, "settings": settings})
+                    or {})
+
     def launcher_fallback(self, launcher_id: str) -> dict:
         return dict(self._get(f"/launchers/{launcher_id}/fallback") or {})
 

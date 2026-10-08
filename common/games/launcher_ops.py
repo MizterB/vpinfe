@@ -76,6 +76,18 @@ def _standing_words(app_id: str, f: apps.Field, held: Standing | None) -> dict[s
             "left_empty": apps.field_nowhere(app_id, f) if nowhere else ""}
 
 
+def standing(app_id: str, settings: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """What each field of an app would read when left empty, for `settings` as they
+    stand, before any launcher holds them. Only the fields the app answers for appear."""
+    app = apps.get(app_id)
+    left_empty = getattr(getattr(app, "config", None), "left_empty", None)
+    if app is None or not callable(left_empty):
+        return {}
+    held = left_empty(dict(settings))
+    return {f.key: _standing_words(app_id, f, held[f.key])
+            for f in app.fields if f.key in held}
+
+
 def listing() -> dict[str, Any]:
     """The launchers in order, the tables that deviate, and which one is the default.
 

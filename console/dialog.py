@@ -62,12 +62,22 @@ def footer() -> ui.row:
 
 
 def field(value: str = "", *, placeholder: str = "", lines: int = 0,
-          browse: Callable[[str], Awaitable[str | None]] | None = None) -> Any:
+          browse: Callable[[str], Awaitable[str | None]] | None = None,
+          default: str = "", whose: str = "", left_empty: str = "") -> Any:
     """The panel's own field, answering nothing until the dialog does.
 
     `browse` takes the field's current value and returns the path picked, or None; what
     it returns replaces the text.
+
+    A path field given `default` or `left_empty` is the panel's own, which draws what an
+    empty field stands for. Its value is that default while empty.
     """
+    if browse is not None and (default or left_empty):
+        held: list[Any] = []
+        panel.field(value, lambda _text: None, placeholder=placeholder,
+                    left_empty=left_empty, default=default, whose=whose, browse=browse,
+                    on_control=held.append)()
+        return held[0]
     with ui.element("div").classes("console-fact-edit"):
         if lines:
             return ui.textarea(value=value, placeholder=placeholder) \

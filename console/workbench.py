@@ -5943,7 +5943,7 @@ async def _launcher_details(context: dict[str, Any]) -> None:
             entries.append((HEADING, t("console.workbench.commands")))
         entries.append((field["label"],
                         settings_page.control_for(
-                            _standing_option(field, launcher["app_name"]),
+                            launchers_page.standing_option(field, launcher["app_name"]),
                             launcher["settings"].get(field["key"]),
                             save_field(field["key"]),
                             check=(launcher.get("checks") or {}).get(field["key"]),
@@ -5955,17 +5955,6 @@ async def _launcher_details(context: dict[str, Any]) -> None:
             commands_help.add_to(entries, tokens.TABLE)
     with ui.column().classes("gap-0 console-form"):
         _rows(ui, entries)
-
-
-def _standing_option(field: dict[str, Any], app_name: str) -> dict[str, Any]:
-    """A launcher field as the control reads it: a path left empty stands for the file
-    the program uses, and the hover says whose it is, and that it is not made yet."""
-    if not field.get("default_path"):
-        return field
-    whose = t("console.workbench.app_default", app=app_name)
-    if not field.get("default_exists"):
-        whose = "\n".join((whose, t("console.workbench.not_created")))
-    return {**field, "default_whose": whose}
 
 
 def _app_keeps_settings(context: dict[str, Any]) -> bool:

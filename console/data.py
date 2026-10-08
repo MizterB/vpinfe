@@ -703,6 +703,9 @@ class Library:
     def delete_launcher(self, launcher_id: str) -> None:
         self._client.delete_launcher(launcher_id)
 
+    def launcher_standing(self, app: str, settings: dict) -> dict:
+        return self._client.launcher_standing(app, settings)
+
     def launcher_fallback(self, launcher_id: str) -> dict:
         return self._client.launcher_fallback(launcher_id)
 
