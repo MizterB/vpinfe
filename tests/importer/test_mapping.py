@@ -134,6 +134,37 @@ class FolderNameTests(unittest.TestCase):
                                       blurb="A pinball machine.")),
             "Attack from Mars")
 
+    def test_a_replacement_character_is_mended_from_the_key(self) -> None:
+        """A description read in the wrong encoding names a folder a share cannot read
+        back, so the name the key still holds is used."""
+        game = _game(key="Jack-Bot (Williams 1995)",
+                     display_name="Jack\ufffdBot (Williams 1995)")
+
+        self.assertEqual(mapping.folder_name(game), "Jack-Bot (Williams 1995)")
+
+    def test_a_mark_that_stood_for_more_than_one_character_is_mended_too(self) -> None:
+        game = _game(key="Electromec\u00e1nica (Fliperama 1990)",
+                     display_name="Electromec\ufffd\ufffdnica (Fliperama 1990)")
+
+        self.assertEqual(mapping.folder_name(game), "Electromec\u00e1nica (Fliperama 1990)")
+
+    def test_the_game_file_names_it_where_the_key_cannot(self) -> None:
+        game = _game(key="pb1", display_name="Pin\ufffdBot (Gottlieb 1980)",
+                     table_file="/tables/Pin-Bot (Gottlieb 1980).vpx")
+
+        self.assertEqual(mapping.folder_name(game), "Pin-Bot (Gottlieb 1980)")
+
+    def test_a_mark_nothing_can_mend_is_dropped(self) -> None:
+        game = _game(key="x", display_name="Elec\ufffdtro (Bally 1980)")
+
+        self.assertEqual(mapping.folder_name(game), "Electro (Bally 1980)")
+
+    def test_a_name_comes_out_composed(self) -> None:
+        decomposed = "Caf\u0065\u0301 (Bally 1980)"
+
+        self.assertEqual(mapping.folder_name(_game(display_name=decomposed)),
+                         "Caf\u00e9 (Bally 1980)")
+
 
 if __name__ == "__main__":
     unittest.main()

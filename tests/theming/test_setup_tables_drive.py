@@ -159,7 +159,7 @@ class SetupTablesDrive(unittest.TestCase):
     @classmethod
     async def _loose(cls, h: dict[str, Any]) -> dict[str, Any]:
         seen: dict[str, Any] = {"titles": []}
-        browser, walk = h["browser"], h["walk"]
+        browser = h["browser"]
         await h["at_tables"]()
         await h["type_the_path"](str(h["paths"]["pile"]))
         await browser.wait_for(f"!!document.querySelector({json.dumps(FOUND)})", timeout=30)
@@ -169,22 +169,21 @@ class SetupTablesDrive(unittest.TestCase):
             await h["forward"]()
             seen["titles"].append(await h["title"]())
         seen["last"] = await h["forward_says"]()
-        close = f"{CARD} button"
         await browser.click(FORWARD)
-        await browser.wait_for(
-            f"[...document.querySelectorAll({json.dumps(close)})]"
-            f".some(el => !el.disabled && el.innerText.includes({json.dumps(t('word.close'))}))",
-            timeout=60)
-        seen["result"] = await browser.evaluate(TEXT_OF % json.dumps(CARD))
         try:
-            await walk.act(lambda: h["click_text"](close, t("word.close")),
-                           mark="window.beforeFinish = true",
-                           until="window.beforeFinish !== true")
+            await browser.wait_for("location.search.includes('log=jobs')", timeout=60)
         except TimeoutError as exc:
-            buttons = await browser.evaluate(
-                f"[...document.querySelectorAll({json.dumps(close)})]"
-                ".map(el => el.className + '|' + el.innerText)")
-            raise AssertionError(f"{exc}\n{buttons}\n{h['instance'].output()[-1500:]}") from exc
+            now = await browser.evaluate(
+                "location.href + '\\n' + (document.querySelector('.console-wizard-card')"
+                " || document.body).innerText")
+            raise AssertionError(f"{exc}\n{now}\n{h['instance'].output()[-1500:]}") from exc
+        seen["where"] = await browser.evaluate("location.search")
+        seen["card_left"] = await browser.evaluate(
+            f"!document.querySelector({json.dumps(CARD)})")
+        for _ in range(300):
+            if len(h["instance"].api("/api/v1/games").get("games", [])) >= 3:
+                break
+            await asyncio.sleep(0.2)
         seen["pending"] = "setup_pending" in h["instance"].api("/api/v1")
         seen["games"] = len(h["instance"].api("/api/v1/games").get("games", []))
         return seen
@@ -273,8 +272,13 @@ class SetupTablesDrive(unittest.TestCase):
         seen = self.seen["loose"]
 
         self.assertGreaterEqual(seen["games"], 3)
-        self.assertIn("3", seen["result"])
         self.assertFalse(seen["pending"])
+
+    def test_an_import_that_starts_closes_setup_onto_the_jobs_view(self) -> None:
+        seen = self.seen["loose"]
+
+        self.assertIn("log=jobs", seen["where"])
+        self.assertTrue(seen["card_left"])
 
     def test_none_yet_waits_for_a_folder_and_then_finishes(self) -> None:
         seen = self.seen["none"]

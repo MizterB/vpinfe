@@ -108,7 +108,7 @@ class ExtensionGames:
             raise FileNotFoundError(t("error.games.missing_file", path=wanted))
         return wanted
 
-    def _inside_declared(self, wanted: Path) -> None:
+    def _inside_declared(self, wanted: Path, roots: list[Path] | None = None) -> None:
         """The bound itself, for something that may be a file or a folder.
 
         An asset arrives as a directory as often as a file - a ROM set is one, a sound
@@ -119,7 +119,8 @@ class ExtensionGames:
         unresolved root never contains a resolved path - which reads as an extension
         reaching somewhere it did not declare, for a folder it did.
         """
-        roots = [Path(one).expanduser().resolve() for one in self._files.roots()]
+        if roots is None:
+            roots = [Path(one).expanduser().resolve() for one in self._files.roots()]
         if not any(wanted == root or root in wanted.parents for root in roots):
             raise ContractError(
                 f"{self._name} offered {wanted}, which is not inside any folder it says "
@@ -259,6 +260,44 @@ class ExtensionGames:
 
         return tuple(one.name for one in
                      game_service.companions_beside(self._source(path)))
+
+    def companions_for(self, paths: Iterable[str | Path]) -> dict[str, tuple[str, ...]]:
+        """`companions_of` for many tables at once, each folder listed once.
+
+        Keyed by the path as it was given. A table that is not there is left out where
+        `companions_of` raises for it, so the caller can tell a table with nothing beside
+        it from one that is gone.
+        """
+        self._needs(GAMES_READ)
+        from common.games import game_service
+
+        roots = [Path(one).expanduser().resolve() for one in self._files.roots()]
+        folders: dict[Path, Path] = {}
+        found: dict[str, tuple[str, ...]] = {}
+        for given in paths:
+            wanted = Path(str(given or "")).expanduser()
+            if wanted.is_symlink():
+                try:
+                    found[str(given)] = self.companions_of(given)
+                except FileNotFoundError:
+                    pass
+                continue
+            if wanted.parent not in folders:
+                folders[wanted.parent] = wanted.parent.resolve()
+            source = folders[wanted.parent] / wanted.name
+            self._inside_declared(source, roots)
+            beside = game_service.files_in(source.parent)
+            if source in beside:
+                found[str(given)] = tuple(
+                    one.name for one in game_service.companions_beside(source, beside))
+                continue
+            # A name that differs from the file's in case is still the file on a
+            # case-insensitive mount, which the listing cannot say.
+            try:
+                found[str(given)] = self.companions_of(given)
+            except FileNotFoundError:
+                pass
+        return found
 
     def asset_kinds(self) -> tuple[str, ...]:
         """The kinds that live in a folder of their own, and so can be placed whole."""

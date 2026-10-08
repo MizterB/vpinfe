@@ -150,8 +150,11 @@ class Job:
     # and which did not, and without somewhere to put it every such job has to invent a
     # back channel of its own.
     result: object | None = None
-    # Whether whoever started it offers a way to stop it part way.
+    # Whether whoever started it offers a way to stop it part way, and where that is
+    # asked for. Stopping sets `halt`, which the work looks at between its units.
     stoppable: bool = False
+    stop_link: str = ""
+    halt: threading.Event = field(default_factory=threading.Event)
     # Set by the work when it ended early without failing. The job still finishes `done`:
     # `state` has three values and a consumer branches on `failed`.
     stopped: bool = False
@@ -263,10 +266,11 @@ def track(kind: str, *, progress_cb: ProgressCallback | None = None,
 
 def submit(kind: str, work: Callable[[Job], object], *,
            progress_cb: ProgressCallback | None = None,
-           log_cb: LogCallback | None = None, stoppable: bool = False) -> Job:
+           log_cb: LogCallback | None = None, stoppable: bool = False,
+           stop_link: str = "") -> Job:
     """Start work on its own thread and return its job immediately."""
     job = Job(id=uuid.uuid4().hex, kind=kind, progress_cb=progress_cb, log_cb=log_cb,
-              stoppable=stoppable)
+              stoppable=stoppable or bool(stop_link), stop_link=stop_link)
     with _lock:
         _refuse_if_busy(kind)
         _active[kind] = job

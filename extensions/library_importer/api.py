@@ -8,6 +8,7 @@ there.
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -18,6 +19,7 @@ from fastapi import APIRouter
 
 from . import adopt, folders, pinballx, popper
 from . import plan as plan_for
+from .held import Held, Progress
 from .plan import Plan
 from .source import SourceGame, SourceLibrary
 
@@ -194,6 +196,9 @@ def build(ctx: Any) -> None:
 
     follow_the_setting()
 
+    held = Held()
+    progress = Progress()
+
     def point_at(wanted: str) -> None:
         """Make this the source and declare it, before core is asked anything about it.
 
@@ -203,10 +208,36 @@ def build(ctx: Any) -> None:
         ctx.config.set(SOURCE_KEY, wanted)
         follow_the_setting()
 
-    def read(reader: ModuleType, path: Path, values: dict,
-             survey: Callable[..., dict]) -> SourceLibrary:
-        return reader.read(path, ctx.apps.plays, ctx.apps.names(),
-                           survey=survey, chosen=_chosen(values))
+    def read(reader: ModuleType, path: Path, values: dict, survey: Callable[..., dict],
+             fresh: bool = False, keep: bool = True) -> SourceLibrary:
+        """The source, read once for the steps of one import.
+
+        Only the Folders reader looks at what was chosen, so only for that one does the
+        answer to a step change what was read. `fresh` reads again whatever is held.
+        """
+        key = (reader.SOURCE_ID, str(path),
+               json.dumps(_chosen(values), sort_keys=True, default=str)
+               if reader is folders else "")
+        found = held.library_for(key, fresh) if keep else None
+        if found is not None:
+            return found
+        progress.stage("reading", ctx.t("progress.reading", source=_name(ctx, reader)))
+        library = reader.read(path, ctx.apps.plays, ctx.apps.names(),
+                              survey=survey, chosen=_chosen(values))
+        if keep:
+            held.keep(key, library)
+        return library
+
+    def look_beside(library: SourceLibrary) -> None:
+        """Ask core what sits beside every game file not yet asked about, in one call.
+
+        Core has to have been told where the source is first, which `declare_roots` does.
+        """
+        asked = held.unasked([game.table_file for system in library.systems
+                              for game in system.games if game.table_file])
+        if asked:
+            progress.stage("checking", ctx.t("progress.checking"))
+            held.remember_companions(asked, ctx.games.companions_for(asked))
 
     def known(library: SourceLibrary) -> list[dict]:
         """Every game already here, and the game folders a source holds in place.
@@ -220,12 +251,13 @@ def build(ctx: Any) -> None:
         return held + ctx.games.existing()
 
     def plan(library: SourceLibrary, values: dict, existing: list[dict]) -> Plan:
+        look_beside(library)
         return plan_for.build(library, existing, _chosen(values),
                               str(values.get("on_existing")
                                   or plan_for.DEFAULT_ON_EXISTING),
                               _systems(values), ctx.games.folder_name_for,
                               library.source_id, ctx.games.kinds(),
-                              ctx.games.companions_of)
+                              held.companions_of)
 
     def path_of(location: str) -> str:
         """Where a location is, or "" where it is not somewhere games can be made.
@@ -259,8 +291,10 @@ def build(ctx: Any) -> None:
         """
         if mode not in ("copy", "move", "in_place"):
             return 0, -1, ""
-        need = plan_for.bytes_to_copy(games, library.source_id, ctx.games.kinds(),
-                                      ctx.games.companions_of, move=mode != "copy")
+        need = plan_for.bytes_to_copy(
+            games, library.source_id, ctx.games.kinds(), held.companions_of,
+            move=mode != "copy",
+            sized=held.measured(progress, ctx.t("progress.measuring")))
         target = (into_of(values) if mode == "copy" else
                   next((plan_for.tables_folder(one)
                         for one in plan_for.systems_going(library, games)
@@ -292,7 +326,10 @@ def build(ctx: Any) -> None:
             return {"source_id": "", "root": state["path"], "systems": [],
                     "notes": [state["reason"]]}
         reader = next(one for one in READERS if one.SOURCE_ID == state["source_id"])
-        return _preview(read(reader, Path(state["path"]), {}, survey))
+        try:
+            return _preview(read(reader, Path(state["path"]), {}, survey, keep=False))
+        finally:
+            progress.clear()
 
     writing = APIRouter()
 
@@ -350,9 +387,21 @@ def build(ctx: Any) -> None:
             return next((one for one in READERS if one.SOURCE_ID == wanted), None)
         return reader_for(path, survey)
 
+    @reading.get("/wizard/progress")
+    def wizard_progress() -> dict:
+        """Where a check or a run in progress has got to: its stage, in words, and how
+        far through it is. Empty where nothing is going on."""
+        return progress.snapshot()
+
     @writing.post("/wizard/check")
     def wizard_check(body: dict) -> dict:
         """Whatever comes next: another question, or what it all adds up to."""
+        try:
+            return _check(body)
+        finally:
+            progress.clear()
+
+    def _check(body: dict) -> dict:
         values = body.get("values") or {}
         leaving = str(body.get("step") or "source")
         typed = str(values.get("path") or "").strip()
@@ -408,7 +457,7 @@ def build(ctx: Any) -> None:
             return _again(ctx.t("reason.not_this_source", source=_name(ctx, reader)),
                           values)
 
-        library = read(reader, path, values, survey)
+        library = read(reader, path, values, survey, fresh=leaving == "source")
         declare_roots(library, values)
         made = plan(library, values, known(library))
         games = plan_for.going(library, made, _systems(values))
@@ -626,6 +675,12 @@ def build(ctx: Any) -> None:
         for it would time out somewhere in the middle with no way to ask what happened.
         Progress and the outcome are on /api/v1/jobs, the same as a library scan.
         """
+        try:
+            return _start(body)
+        finally:
+            progress.clear()
+
+    def _start(body: dict) -> dict:
         values = body.get("values") or {}
         typed = str(values.get("path") or "").strip()
         location = str(body.get("location") or "")
@@ -682,18 +737,52 @@ def build(ctx: Any) -> None:
                     for one in plan_for.systems_going(library, games)
                     if plan_for.tables_folder(one)}
             want = plan_for.expected(made)
+            measure = held.measured(Progress(), "")
+            kinds = ctx.games.kinds()
+
+            def weigh(game: Any) -> int:
+                return plan_for.bytes_to_copy([game], library.source_id, kinds,
+                                              held.companions_of,
+                                              move=mode != "copy", sized=measure)
+
+            def tell(standing: adopt.Standing) -> None:
+                by_bytes = standing.bytes_total > 0
+                job.progress(
+                    standing.bytes_done if by_bytes else standing.games_done,
+                    standing.bytes_total if by_bytes else standing.games_total,
+                    ctx.t("job.importing", number=standing.games_done + 1,
+                          count=standing.games_total, name=standing.name,
+                          done=plan_for.size_of(standing.bytes_done),
+                          size=plan_for.size_of(standing.bytes_total))
+                    if by_bytes else
+                    ctx.t("job.importing_games", number=standing.games_done + 1,
+                          count=standing.games_total, name=standing.name))
+
+            progress.clear()
             report = adopt.run(ctx, library, systems, where, made,
-                               move=mode in ("move", "in_place"), places=places)
+                               move=mode in ("move", "in_place"), places=places,
+                               weigh=weigh, report=tell, halted=job.halt.is_set)
             # Counted again from the plan the run was handed, so the report says what
             # was asked for beside what happened rather than what was hoped for.
-            report["against"] = plan_for.against(want, report)
+            # A stopped run is short by what it was stopped before, which `left` says.
+            report["against"] = [] if report.get("stopped") else plan_for.against(want, report)
             report["expected"] = want
+            job.stopped = bool(report.get("stopped"))
+            job.detail = (
+                ctx.t("job.detail_stopped", made=report["games"], failed=report["failed"],
+                      left=report.get("left", 0)) if job.stopped else
+                ctx.t("job.detail", made=report["games"], failed=report["failed"]))
             job.log(f"Created {report['games']}, failed {report['failed']}")
             return report
 
-        job = ctx.jobs.submit("import", work)
+        job = ctx.jobs.submit("import", work, stop_route="/wizard/stop")
         return {"started": True, "job_id": job.id,
                 "links": {"job": f"/api/v1/jobs/{job.id}"}}
+
+    @writing.post("/wizard/stop")
+    def stop_import() -> dict:
+        """Ask a running import to stop after the game in hand. What it made stays."""
+        return {"stopped": ctx.jobs.stop("import")}
 
     ctx.ui.action("import", "/wizard")
     ctx.add_router(reading, scope=ctx.scope("read"))

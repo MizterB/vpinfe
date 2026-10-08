@@ -298,7 +298,7 @@ class SetupCallsTests(unittest.TestCase):
 
         self.assertEqual([setup.TABLES], self.finished)
 
-    def test_a_run_that_starts_a_job_does_not_finish_setup_itself(self) -> None:
+    def test_a_run_that_starts_a_job_finishes_setup_as_it_starts(self) -> None:
         async def run(found: Tables, values: dict[str, Any], key: str) -> dict[str, Any]:
             return {"job_id": "j1", "started": True}
 
@@ -306,7 +306,7 @@ class SetupCallsTests(unittest.TestCase):
             answer = _ran(setup.calls(self.session).run({}, "tables.summary"))
 
         self.assertEqual({"job_id": "j1", "started": True}, answer)
-        self.assertEqual([], self.finished)
+        self.assertEqual([setup.TABLES], self.finished)
 
     def test_import_opens_the_importer_from_the_run_again_view(self) -> None:
         async def open_importer(found: Tables) -> dict[str, Any]:

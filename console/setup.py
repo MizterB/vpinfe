@@ -26,6 +26,7 @@ from common.games import launchers as launcher_model
 from common.host import addresses
 from common.i18n import t
 from console import (
+    deeplink,
     offload,
     screens,
     setup_appearance,
@@ -48,6 +49,8 @@ VPX = "vpx"
 GLASS = "glass"
 VPX_KEYS = "vpxkeys"
 TABLES = "tables"
+# Where an import that Setup started is followed once Setup has closed.
+JOBS_VIEW = "/console?" + deeplink.query({"view": "logs", "log_view": "jobs"})
 
 # The launcher setting `presentation.cab_mode` mirrors in VPX's own ini.
 BGSET_KEY = "Player.BGSet"
@@ -348,6 +351,10 @@ def calls(session: Session) -> wizard.Calls:
     async def finish(values: dict[str, Any], key: str) -> dict:
         if setup_tables.inside(key):
             started = await setup_tables.run(tables, values, key)
+            if started.get("job_id"):
+                # Setup closes once the import has started, so it is over then rather
+                # than when the job is.
+                await _done(session, TABLES)
             return inside(started) if started.get("step") else started
         step = _step(key) or _resume(session)
         await _answer(session, step, values)
@@ -364,7 +371,10 @@ def calls(session: Session) -> wizard.Calls:
             await _done(session, TABLES)
         return found
 
-    return wizard.Calls(first, check, act, finish, job)
+    async def progress() -> dict:
+        return await setup_tables.progress(tables)
+
+    return wizard.Calls(first, check, act, finish, job, progress)
 
 
 @on_page
@@ -375,12 +385,15 @@ async def open_setup(*, window: bool = False) -> None:
                       tables=await offload.io(setup_tables.gather, vpx.chosen))
     session.vpx.answered = not session.again and VPX in install_setup.answered()
     session.screens.answered = not session.again and SCREENS in install_setup.answered()
+    handed: list[str] = []
     ran = await wizard.open_dialog(
         label=t("console.setup.title"), calls=calls(session), under="setup", mark=True,
         aside=t("word.close") if session.again else t("console.setup.finish_later"),
-        close_when_done=True)
+        close_when_done=True, hand_off=handed.append)
+    if handed:
+        ui.navigate.to(JOBS_VIEW)
     # The page was drawn for an unfinished install, line above it and all.
-    if ran and not session.again:
+    elif ran and not session.again:
         ui.navigate.reload()
     else:
         setup_appearance.restore()

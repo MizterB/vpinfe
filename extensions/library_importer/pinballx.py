@@ -27,6 +27,7 @@ from pathlib import Path, PureWindowsPath
 from common.extensions.contract import words
 
 from . import drivemap
+from .listing import files_across
 from .source import Note, SourceGame, SourceLibrary, SourceMedia, SourceSystem, failed
 
 logger = logging.getLogger(__name__)
@@ -445,19 +446,16 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
     order = sorted(folded, key=len, reverse=True)
 
     found: dict[str, list[SourceMedia]] = {game.key: [] for game in games}
-    for folder in MEDIA_FOLDERS:
-        try:
-            entries = [item for item in (media_root / folder).iterdir() if item.is_file()]
-        except OSError:
-            continue
-        for item in entries:
-            stem = item.stem
+    for folder, files in zip(MEDIA_FOLDERS, files_across(media_root, MEDIA_FOLDERS),
+                             strict=True):
+        for filename, path in files:
+            stem = Path(filename).stem
             if BACKUP_SUFFIX.search(stem):
                 continue
             stem = stem.lower()
             owner = next((folded[name] for name in order if stem.startswith(name)), None)
             if owner is not None:
-                found[owner].append(SourceMedia(source_kind=folder, path=str(item)))
+                found[owner].append(SourceMedia(source_kind=folder, path=path))
 
     return [SourceGame(**{**vars(game), "media": tuple(found.get(game.key, ()))})
             for game in games]

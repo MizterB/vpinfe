@@ -587,10 +587,26 @@ class ExtensionJobs:
     def __init__(self, name: str) -> None:
         self._name = name
 
-    def submit(self, kind: str, work: Callable[[jobs.Job], object]) -> jobs.Job:
+    def submit(self, kind: str, work: Callable[[jobs.Job], object], *,
+               stop_route: str = "") -> jobs.Job:
+        """Run `work` on its own thread. With `stop_route`, a route of this extension that
+        calls `stop(kind)`, the job offers to be stopped there: the work looks at
+        `job.halt` between its units and ends early when it is set."""
         from common import jobs
 
-        return jobs.submit(f"{self._name}.{str(kind or '').strip()}", work)
+        return jobs.submit(
+            f"{self._name}.{str(kind or '').strip()}", work,
+            stop_link=f"/api/v1/ext/{self._name}{stop_route}" if stop_route else "")
+
+    def stop(self, kind: str) -> bool:
+        """Ask this extension's running job of that kind to end early. False where there
+        is none."""
+        from common import jobs
+
+        running = jobs.active(f"{self._name}.{str(kind or '').strip()}")
+        for job in running:
+            job.halt.set()
+        return bool(running)
 
     def active(self) -> tuple[str, ...]:
         from common import jobs

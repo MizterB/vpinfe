@@ -335,3 +335,8 @@ async def run(found: Tables, values: dict[str, Any], key: str) -> dict[str, Any]
 
 async def job(found: Tables, job_id: str) -> dict[str, Any]:
     return await _calls(found).job(job_id)
+
+
+async def progress(found: Tables) -> dict[str, Any]:
+    ask = _calls(found).progress if found.action is not None else None
+    return await ask() if ask is not None else {}

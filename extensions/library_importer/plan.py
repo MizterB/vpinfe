@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -180,23 +181,31 @@ def _beside(companions_of: Callable[..., Any], table_file: str) -> tuple[str, ..
 
 
 def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...],
-                  companions_of: Callable[..., Any], move: bool = False) -> int:
+                  companions_of: Callable[..., Any], move: bool = False,
+                  sized: Callable[[list[Path]], dict[Path, int]] | None = None) -> int:
     """What a run writes, in bytes: the game files and what rides with them, unless they
     are moved, and the artwork.
 
     ROM sets and sound banks are not counted: which ROM a table wants is only known once
     the table is opened, and a whole ROM folder would be several times what is used.
+
+    `sized` measures a list of files at once, for a caller that can do it faster than one
+    after another.
     """
-    total = 0
+    wanted: list[Path] = []
     for game in games:
         if game.table_file and not move:
             table = Path(game.table_file)
-            total += _bytes(table)
-            total += sum(_bytes(table.parent / name)
-                         for name in _beside(companions_of, game.table_file))
-        total += sum(_bytes(Path(path))
-                     for _kind, path in mapping.media_for(source_id, game, kinds))
-    return total
+            wanted.append(table)
+            wanted += [table.parent / name
+                       for name in _beside(companions_of, game.table_file)]
+        wanted += [Path(path) for _kind, path in mapping.media_for(source_id, game, kinds)]
+    sizes = (sized or _measured)(wanted)
+    return sum(sizes.get(path, 0) for path in wanted)
+
+
+def _measured(paths: list[Path]) -> dict[Path, int]:
+    return {path: file_bytes(path) for path in dict.fromkeys(paths)}
 
 
 def tables_folder(system: SourceSystem) -> str:
@@ -210,7 +219,7 @@ def tables_folder(system: SourceSystem) -> str:
     return parents.pop() if len(parents) == 1 else system.tables_dir
 
 
-def _bytes(path: Path) -> int:
+def file_bytes(path: Path) -> int:
     try:
         return path.stat().st_size
     except OSError:
@@ -395,7 +404,7 @@ _QUOTES = str.maketrans("", "", "\"'‘’“”`")
 
 def _folded(name: Any) -> str:
     """A folder name as it is compared: cased down, quotes taken off, spaces collapsed."""
-    said = str(name or "").translate(_QUOTES).lower()
+    said = unicodedata.normalize("NFC", str(name or "")).translate(_QUOTES).lower()
     return " ".join(said.split())
 
 

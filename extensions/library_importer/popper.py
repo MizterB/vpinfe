@@ -26,6 +26,7 @@ from common.extensions.contract import words
 
 from . import drivemap
 from .gamestats import Played, stars
+from .listing import files_across
 from .source import Note, SourceGame, SourceLibrary, SourceMedia, SourceSystem, failed
 
 logger = logging.getLogger(__name__)
@@ -215,19 +216,16 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
     folded = {game.key.lower(): game.key for game in games if game.key}
     found: dict[str, list[SourceMedia]] = {game.key: [] for game in games}
 
-    for folder in MEDIA_FOLDERS:
-        try:
-            entries = [item for item in (media_root / folder).iterdir()
-                       if item.is_file() and item.name not in NOT_MEDIA]
-        except OSError:
-            continue
-        for item in entries:
-            stem = item.stem.lower()
+    for folder, files in zip(MEDIA_FOLDERS, files_across(media_root, MEDIA_FOLDERS),
+                             strict=True):
+        for filename, path in files:
+            if filename in NOT_MEDIA:
+                continue
+            stem = Path(filename).stem.lower()
             owner = max((key for key in folded if stem.startswith(key)),
                         key=len, default=None)
             if owner is not None:
-                found[folded[owner]].append(
-                    SourceMedia(source_kind=folder, path=str(item)))
+                found[folded[owner]].append(SourceMedia(source_kind=folder, path=path))
 
     return [SourceGame(**{**vars(game), "media": tuple(found.get(game.key, ()))})
             for game in games]

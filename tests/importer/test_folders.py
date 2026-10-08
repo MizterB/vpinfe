@@ -949,16 +949,26 @@ class SurveyedOnceTests(FolderCase):
 
         self.assertEqual(self.survey.call_count, 1)
 
-    def test_a_second_request_looks_again(self) -> None:
-        """Nothing is kept between requests: a folder somebody just changed is read as it
-        is now."""
+    def test_a_request_from_the_first_step_looks_again(self) -> None:
+        """A folder somebody just changed is read as it is now by the step that starts the
+        walk."""
+        self.step(self.tables)
+        self.loose("Quarry Run")
+        self.step(self.tables, leaving="source")
+
+        found = self.step(self.tables, leaving="sources")
+
+        self.assertEqual(self.survey.call_count, 3)
+        self.assertEqual(found["help"], "2 tables from Tables")
+
+    def test_a_later_step_takes_what_the_first_read(self) -> None:
         self.step(self.tables)
         self.loose("Quarry Run")
 
         found = self.step(self.tables, leaving="sources")
 
         self.assertEqual(self.survey.call_count, 2)
-        self.assertEqual(found["help"], "2 tables from Tables")
+        self.assertEqual(found["help"], "1 table from Tables")
 
     def test_the_preview_surveys_it_once(self) -> None:
         self.client.put(f"{BASE}/source", json={"path": str(self.tables)})

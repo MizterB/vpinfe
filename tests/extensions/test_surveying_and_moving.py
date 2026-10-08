@@ -45,6 +45,47 @@ class SurveyTests(TempTree):
             nothing.survey(self.tables)
 
 
+class CompanionsForTests(TempTree):
+    def setUp(self) -> None:
+        super().setUp()
+        self.tables = self.root / "Tables"
+        self.tables.mkdir()
+        for name in ("Quarry Run.vpx", "Quarry Run.directb2s", "Plain.vpx"):
+            (self.tables / name).write_bytes(b"x")
+        self.elsewhere = self.root / "Elsewhere"
+        self.elsewhere.mkdir()
+        (self.elsewhere / "Other.vpx").write_bytes(b"x")
+        files = ExtensionFiles("tester", allowed=True)
+        files.set_roots([str(self.tables)])
+        self.games = ExtensionGames("tester", ("games:read",), files)
+
+    def test_many_tables_are_answered_together_as_one_at_a_time_would_answer(self) -> None:
+        asked = [str(self.tables / "Quarry Run.vpx"), str(self.tables / "Plain.vpx")]
+
+        found = self.games.companions_for(asked)
+
+        self.assertEqual(found, {one: tuple(self.games.companions_of(one)) for one in asked})
+        self.assertEqual(found[asked[0]], ("Quarry Run.directb2s",))
+        self.assertEqual(found[asked[1]], ())
+
+    def test_a_table_that_is_not_there_is_left_out(self) -> None:
+        gone = str(self.tables / "Gone.vpx")
+
+        self.assertEqual(self.games.companions_for([gone]), {})
+        with self.assertRaises(FileNotFoundError):
+            self.games.companions_of(gone)
+
+    def test_a_folder_it_never_declared_is_refused(self) -> None:
+        with self.assertRaises(ContractError):
+            self.games.companions_for([str(self.elsewhere / "Other.vpx")])
+
+    def test_reading_is_the_scope_it_takes(self) -> None:
+        nothing = ExtensionGames("tester", (), self.games._files)
+
+        with self.assertRaises(ContractError):
+            nothing.companions_for([str(self.tables / "Plain.vpx")])
+
+
 class MovingTests(TempTree):
     def setUp(self) -> None:
         super().setUp()

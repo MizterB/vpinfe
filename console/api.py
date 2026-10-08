@@ -27,6 +27,10 @@ _LIBRARY_TIMEOUT = 120
 # gigabytes and the default would give up on it partway through. Sending a file's
 # bytes shares it.
 _IMPORT_TIMEOUT = 900
+# A step of an extension's action, which reads whatever it is pointed at: a library on a
+# network share is minutes before it has answered. The action reports how far it has got
+# on its own progress route, so a long wait is watched rather than assumed to have hung.
+STEP_TIMEOUT = _IMPORT_TIMEOUT
 # Three of the event stream's 15-second keepalives. An install that goes away without
 # closing the connection is otherwise waited on forever.
 _FOLLOW_TIMEOUT = 45
@@ -131,8 +135,8 @@ class ApiClient:
         know what an extension serves, and a method per extension is not a client."""
         return self._get(path)
 
-    def ext_post(self, path: str, body: dict) -> dict:
-        return self._post(path, body)
+    def ext_post(self, path: str, body: dict, timeout: int = _TIMEOUT) -> dict:
+        return self._post(path, body, timeout)
 
     def ext_put(self, path: str, body: dict) -> dict:
         return self._put(path, body)
@@ -459,9 +463,9 @@ class ApiClient:
                                       timeout=_TIMEOUT)
         self._answered(response)
 
-    def _post(self, path: str, body: dict) -> dict:
+    def _post(self, path: str, body: dict, timeout: int = _TIMEOUT) -> dict:
         _refuse_the_event_loop(path)
-        response = self._session.post(f"{self._base}{path}", json=body, timeout=_TIMEOUT)
+        response = self._session.post(f"{self._base}{path}", json=body, timeout=timeout)
         self._answered(response)
         return response.json()
 

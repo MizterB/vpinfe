@@ -10,6 +10,7 @@ extension (`console/ext_action.py`), or nothing at all for a flow with no bounda
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -81,6 +82,10 @@ class Calls:
     act: Callable[[str, dict[str, Any], str], Awaitable[dict]]
     run: Callable[[dict[str, Any], str], Awaitable[dict]]
     job: Callable[[str], Awaitable[dict]]
+    # How far a call that is still going has got: `message`, and `done` of `total` where
+    # it can count. Asked while one of the above is outstanding; a flow with nothing to
+    # say leaves it out.
+    progress: Callable[[], Awaitable[dict]] | None = None
 
 
 class Walk:
@@ -135,6 +140,72 @@ class Walk:
                 self.history.append(self.step)
             self.step = found
         return found
+
+
+async def _asking(calls: Calls, body: Any, buttons: Any, work: Awaitable[Any]) -> Any:
+    """Await one of the flow's calls, showing how far it has got once it is slow.
+
+    A call that answers at once draws nothing. One that takes longer than a poll gets a
+    bar and the flow's own words under the step, and the buttons are held so a second
+    press does not start the same read twice. The call is awaited where it was asked,
+    because a step may need the page it was asked from; it is the watching that runs
+    beside it.
+    """
+    shown: dict[str, Any] = {}
+    watching = asyncio.ensure_future(_watch_slow(calls, body, buttons, shown))
+    try:
+        return await work
+    finally:
+        watching.cancel()
+        if "block" in shown:
+            shown["block"].delete()
+        _release(shown.get("held", []))
+
+
+async def _watch_slow(calls: Calls, body: Any, buttons: Any, shown: dict[str, Any]) -> None:
+    await asyncio.sleep(POLL_SECONDS)
+    shown["held"] = _hold(buttons)
+    with body, ui.column().classes("w-full gap-1 px-3 mt-2") as block:
+        shown["bar"] = ui.linear_progress(show_value=False).props("indeterminate") \
+            .classes("w-full")
+        shown["said"] = ui.label(t("console.ext_action.working")).classes("console-help")
+    shown["block"] = block
+    while calls.progress is not None:
+        try:
+            _show(shown, await calls.progress())
+        except Exception:  # noqa: BLE001 - a wait is not made worse by not knowing
+            pass
+        await asyncio.sleep(POLL_SECONDS)
+
+
+def _show(shown: dict[str, Any], now: dict) -> None:
+    said = str(now.get("message") or "")
+    if not said:
+        return
+    total, done = int(now.get("total") or 0), int(now.get("done") or 0)
+    shown["said"].text = (t("console.ext_action.progress_of", message=said, done=done,
+                            total=total) if total else said)
+    if total:
+        shown["bar"].props(remove="indeterminate")
+        shown["bar"].value = min(done / total, 1.0)
+    else:
+        shown["bar"].props("indeterminate")
+
+
+def _hold(buttons: Any) -> list[Any]:
+    """Disable the forward button of a step that is being waited on, so a second press does
+    not start the same read twice. Back and Cancel stay, because a wait that does not end
+    must be leavable. Returns what it disabled, for `_release`."""
+    held = [one for one in buttons.default_slot.children
+            if _FORWARD in one.classes and getattr(one, "enabled", False)]
+    for one in held:
+        one.set_enabled(False)
+    return held
+
+
+def _release(held: list[Any]) -> None:
+    for one in held:
+        one.set_enabled(True)
 
 
 def _controls(fields: list[dict], values: dict[str, Any], *,
@@ -516,7 +587,8 @@ def _aside(text: str) -> Any:
 
 
 async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = False,
-                      aside: str = "", close_when_done: bool = False) -> bool:
+                      aside: str = "", close_when_done: bool = False,
+                      hand_off: Callable[[str], None] | None = None) -> bool:
     """Run one flow in the dialog host: ask what it asks, in as many steps as it asks
     it, then do it.
 
@@ -534,7 +606,8 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
     flow to finish later, drawn on the far left of every step; with it a first step has no
     Cancel as well. `close_when_done` closes the dialog on a run that answers at once,
     where the default says "Done" over a Close button; a run that starts a job is watched
-    either way.
+    either way. `hand_off` is given the job's id instead, and the dialog closes at once: a
+    run that takes minutes is followed where jobs are followed, not held open here.
 
     True when the flow was run and the dialog closed after it, False when it was cancelled
     before that.
@@ -652,7 +725,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
         async def _next() -> None:
             _sync(walk.values, held)
             try:
-                found = await walk.next()
+                found = await _asking(calls, body, buttons, walk.next())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -667,7 +740,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
         async def _act(key: str) -> None:
             _sync(walk.values, held)
             try:
-                found = await walk.act(key)
+                found = await _asking(calls, body, buttons, walk.act(key))
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -689,7 +762,7 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
         async def _start() -> None:
             _sync(walk.values, held)
             try:
-                started = await walk.run()
+                started = await _asking(calls, body, buttons, walk.run())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.start_failed"), caption=why(exc), type="negative")
                 return
@@ -702,6 +775,10 @@ async def open_dialog(*, label: str, calls: Calls, under: str, mark: bool = Fals
                           type="negative")
                 return
             if close_when_done and not job_id:
+                dialog.submit(True)
+                return
+            if job_id and hand_off is not None:
+                hand_off(job_id)
                 dialog.submit(True)
                 return
             track.clear()
@@ -803,7 +880,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
         async def _next() -> None:
             _sync(walk.values, held)
             try:
-                found = await walk.next()
+                found = await _asking(calls, body, buttons, walk.next())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -818,7 +895,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
         async def _act(key: str) -> None:
             _sync(walk.values, held)
             try:
-                found = await walk.act(key)
+                found = await _asking(calls, body, buttons, walk.act(key))
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("console.ext_action.step_failed"), caption=why(exc),
                           type="negative")
@@ -840,7 +917,7 @@ async def open_page(*, label: str, calls: Calls, under: str, step: str | None = 
         async def _start() -> None:
             _sync(walk.values, held)
             try:
-                started = await walk.run()
+                started = await _asking(calls, body, buttons, walk.run())
             except Exception as exc:  # noqa: BLE001
                 ui.notify(t("said.start_failed"), caption=why(exc), type="negative")
                 return

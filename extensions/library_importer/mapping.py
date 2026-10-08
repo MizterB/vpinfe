@@ -10,7 +10,13 @@ kind does not leave a stale list behind here.
 
 from __future__ import annotations
 
+import re
+import unicodedata
+from pathlib import Path
+
 from .source import SourceGame
+
+REPLACEMENT = "�"
 
 # A PinballX media folder is one of our kinds. The pairs are unambiguous in this
 # direction: the source files a still and a moving version of one subject in two folders,
@@ -114,9 +120,18 @@ def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...]) -> 
 
 
 def folder_name(game: SourceGame) -> str:
-    """What to call the game folder.
+    """What to call the game folder, with U+FFFD never in it.
 
-    What the source shows a person, where it has one: PinballX's is already
+    A name carrying it - a source written in one encoding and read as another - is mended
+    from the game's key or its file name where one says what it was, and has the mark
+    dropped where none does. A share can store the mark differently from how it was sent,
+    and the folder can then not be read back by name.
+    """
+    return _mended(_named(game), (game.key, Path(game.table_file).stem))
+
+
+def _named(game: SourceGame) -> str:
+    """What the source shows a person, where it has one: PinballX's is already
     "Title (Manufacturer Year)", which is our own convention arrived at independently, and
     taking it whole keeps a converted library recognizable to whoever converted it.
 
@@ -136,6 +151,19 @@ def folder_name(game: SourceGame) -> str:
     if maker or year:
         return f"{title} ({maker or year})"
     return title
+
+
+def _mended(name: str, references: tuple[str, ...]) -> str:
+    name = unicodedata.normalize("NFC", name)
+    if REPLACEMENT not in name:
+        return name
+    pieces = [re.escape(piece) for piece in re.split(f"{REPLACEMENT}+", name)]
+    pattern = re.compile(".+?".join(pieces), re.DOTALL)
+    for reference in references:
+        reference = unicodedata.normalize("NFC", reference.strip())
+        if reference and REPLACEMENT not in reference and pattern.fullmatch(reference):
+            return reference
+    return " ".join(name.replace(REPLACEMENT, "").split())
 
 
 def _title_from(game: SourceGame, text: str = "") -> str:

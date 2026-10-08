@@ -66,6 +66,7 @@ from console import themes as themes_page
 from console import whats_new as whats_new_page
 from console.api import ApiClient
 from console.data import Library
+from console.library_folders import KIND_IMPORT
 from console.on_page import on_page
 
 logger = logging.getLogger("vpinfe.console.page")
@@ -839,9 +840,12 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
     @on_page
     async def _stop(link: str, kind: str) -> None:
-        if kind == KIND_MEDIA_CAPTURE and not await confirm.ask(
-                t("console.page.stop_recording"),
-                detail=t("console.page.stop_recording_detail"),
+        asks = {KIND_MEDIA_CAPTURE: ("console.page.stop_recording",
+                                     "console.page.stop_recording_detail"),
+                KIND_IMPORT: ("console.page.stop_import",
+                              "console.page.stop_import_detail")}.get(kind)
+        if asks and not await confirm.ask(
+                t(asks[0]), detail=t(asks[1]),
                 confirm=t("console.page.stop"), icon=verbs.STOP):
             return
         try:

@@ -27,8 +27,9 @@ _STOPS = {job_registry.KIND_MEDIA_CAPTURE: "/api/v1/capture/runs/current/stop"}
 
 def resource(job: job_registry.Job, with_result: bool = False) -> dict:
     links = {"self": f"/api/v1/jobs/{job.id}", "events": "/api/v1/events"}
-    if job.stoppable and job.state == job_registry.RUNNING and job.kind in _STOPS:
-        links["stop"] = _STOPS[job.kind]
+    stop = job.stop_link or _STOPS.get(job.kind, "")
+    if job.stoppable and job.state == job_registry.RUNNING and stop:
+        links["stop"] = stop
     return {**job.snapshot(with_result), "links": links}
 
 

@@ -82,8 +82,8 @@ application, and that is the guarantee the model rests on.
 | `ctx.config` | `get`, `set`, `all` over its own settings |
 | `ctx.events` | `subscribe` to a core event; `publish` one of its own |
 | `ctx.files` | `set_roots` - the folders it works from, so core will take a path from inside one. Needs `fs:read`; moving a file out of one needs `fs:write` as well |
-| `ctx.jobs` | `submit(kind, work)` — slow work, one at a time per kind, answerable on `/api/v1/jobs` |
-| `ctx.games` | The library. `kinds`, `folder`, `folder_name_for`, `existing`, `survey`, `create`, `add_table`, `put_media`, plus every operation core offers by name - `reaches()` lists them. Each needs the core scope its manifest declared. `survey(path)` says which of a folder's children are game folders and which files are tables, leaving out any name that starts with a dot; `add_table(game_id, path, move=True)` takes the file out of where it was. Core offers `new_game_destination` under `config:read` and `use_library_folder(path)` under `config:write` |
+| `ctx.jobs` | `submit(kind, work, stop_route="")` — slow work, one at a time per kind, answerable on `/api/v1/jobs`. `work` receives the job: `job.progress(done, total, message)` and `job.detail` say how far it is, and with `stop_route` (a route of its own that calls `ctx.jobs.stop(kind)`) the job offers a stop, which sets `job.halt` for `work` to look at between its units; `job.stopped = True` says it ended early |
+| `ctx.games` | The library. `kinds`, `folder`, `folder_name_for`, `existing`, `survey`, `companions_of`, `companions_for`, `create`, `add_table`, `put_media`, plus every operation core offers by name - `reaches()` lists them. Each needs the core scope its manifest declared. `companions_for(paths)` is `companions_of` for many tables, each folder listed once - on a network share a listing is the cost, so ask for a library together. `survey(path)` says which of a folder's children are game folders and which files are tables, leaving out any name that starts with a dot; `add_table(game_id, path, move=True)` takes the file out of where it was. Core offers `new_game_destination` under `config:read` and `use_library_folder(path)` under `config:write` |
 | `ctx.apps` | `provide(...)` — add a way to play a table. `suffixes`, `plays`, `names` say what this build can play. Providing needs `apps:provide` |
 | `ctx.games.launch_game(...)` | Start a game on this play host. Needs `launch:invoke`, which `games:write` does not grant |
 | `ctx.scope(action)` | The scope name for one of its declared actions |
@@ -354,6 +354,7 @@ Four calls on the extension's own router, under `base`:
 | `POST {base}/check` | `ready`, `reason`, `summary`, `notes`, `errors`, `acts`, more `fields`, `confirm` — what would happen |
 | `POST {base}/act` | the same step again, redrawn — for something a step needs done before it can go on |
 | `POST {base}/run` | `{"job_id": …}`, or the outcome directly, or the next `step` |
+| `GET {base}/progress` | Optional. `{stage, message, done, total}` while a `check`, `act` or `run` is still working; core polls it once a step has taken a moment, and draws a bar and the `message`. An action without it is asked once |
 
 **How many steps an action has is read off what it answers, never declared.** No `fields`
 means press it and it happens. `fields` means fill them in first. A `confirm` means a step
@@ -365,7 +366,7 @@ button reads the `confirm` and pressing it runs. A run may answer with a `step` 
 an outcome, drawn the way a `/check` answer is, so an answer that changes the path can move
 on to a question that was not there when the last step was drawn.
 
-A run returns a `job_id` where the work is slow — core watches it on `/api/v1/jobs` — or
+A step is given up to 15 minutes to answer, so one that reads a slow source is waited for rather than reported as failed. A run returns a `job_id` where the work is slow — core hands it to the Jobs view and closes the dialog, where `job.progress` and the stop are drawn — or
 the outcome where it is not, with an optional `message` and `summary`. An action that is
 one call and a sentence should not have to wear a progress bar.
 

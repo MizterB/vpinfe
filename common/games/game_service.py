@@ -8,7 +8,10 @@ import logging
 import os
 import re
 import shutil
-from collections.abc import Callable
+import threading
+import time
+import unicodedata
+from collections.abc import Callable, Iterable
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -682,7 +685,36 @@ def set_details(game_dir: Path, values: dict) -> dict:
             for name in DETAIL_FIELDS}
 
 
-def companions_beside(source: Path) -> list[Path]:
+# A listing is reused while the folder's modification time and `_LISTING_KEPT` hold.
+_LISTING_KEPT = 20.0
+_LISTINGS = 8
+_listed: dict[Path, tuple[int, float, tuple[Path, ...]]] = {}
+_listed_lock = threading.Lock()
+
+
+def files_in(folder: Path) -> tuple[Path, ...]:
+    """The files directly in a folder, sorted. Nothing where it cannot be read."""
+    try:
+        stamp = folder.stat().st_mtime_ns
+    except OSError:
+        return ()
+    now = time.monotonic()
+    held = _listed.get(folder)
+    if held is not None and held[0] == stamp and now - held[1] < _LISTING_KEPT:
+        return held[2]
+    try:
+        with os.scandir(folder) as entries:
+            files = tuple(sorted(Path(entry.path) for entry in entries if entry.is_file()))
+    except OSError:
+        return ()
+    with _listed_lock:
+        if len(_listed) >= _LISTINGS:
+            _listed.pop(next(iter(_listed)))
+        _listed[folder] = (stamp, now, files)
+    return files
+
+
+def companions_beside(source: Path, beside: Iterable[Path] | None = None) -> list[Path]:
     """The files that belong to this table, where it currently sits.
 
     Matched on the exact stem rather than a prefix: a table called `Taxi` must not
@@ -692,6 +724,8 @@ def companions_beside(source: Path) -> list[Path]:
     beside a table is a fact about the program that plays it, and the next app's list
     will differ. A file nothing here plays has no companions, because nothing can say
     what they would be.
+
+    `beside` is the files of the table's folder where the caller already has them.
     """
     from common import apps
 
@@ -701,11 +735,7 @@ def companions_beside(source: Path) -> list[Path]:
         return []
 
     stem = source.stem.lower()
-    try:
-        entries = sorted(one for one in source.parent.iterdir() if one.is_file())
-    except OSError:
-        return []
-    return [one for one in entries
+    return [one for one in (files_in(source.parent) if beside is None else beside)
             if one != source and one.stem.lower() == stem
             and one.suffix.lower() in wanted]
 
@@ -802,8 +832,17 @@ def record_arrived_table(game_dir: Path, landing: Path, table_id: str,
 
 
 def sanitize_dir_name(name: str) -> str:
-    """Strip filesystem-reserved characters from a proposed game folder name."""
-    return "".join(c for c in (name or "") if c not in '<>:"/\\|?*').strip()
+    """Strip filesystem-reserved characters from a proposed game folder name.
+
+    Also what a share does not keep as it was given: the replacement character, which is
+    what a broken encoding leaves where a letter was and which a network share stores as
+    other bytes, and control, surrogate and private-use characters. The name is composed
+    (NFC), because a name sent decomposed comes back from a share as a different one.
+    """
+    kept = "".join(c for c in unicodedata.normalize("NFC", name or "")
+                   if c not in '<>:"/\\|?*�'
+                   and unicodedata.category(c) not in ("Cc", "Cs", "Co"))
+    return kept.strip()
 
 
 def create_game(name: str, location_id: str = "") -> Path:

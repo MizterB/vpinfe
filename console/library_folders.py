@@ -17,6 +17,8 @@ from console.data import Library
 from console.on_page import on_page
 
 IMPORTER = "library_importer"
+# The kind of job the importer's run is, which names the extension.
+KIND_IMPORT = f"{IMPORTER}.import"
 
 STATE_WORDS = {path_state.OK: "word.ready", path_state.READ_ONLY: "word.read_only",
                path_state.NOT_CONNECTED: "word.not_connected",

@@ -12,6 +12,8 @@ the library is.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
@@ -42,6 +44,17 @@ class AdoptedRow(TypedDict):
     skipped_media: list[str]
     error: Note
     joined: NotRequired[bool]
+
+
+@dataclass(frozen=True)
+class Standing:
+    """How far a run has got, said as it starts each game."""
+
+    games_done: int
+    games_total: int
+    bytes_done: int
+    bytes_total: int
+    name: str
 
 
 def _bring_rom(ctx: Any, game_id: str, rom: str, roms_dir: str) -> int:
@@ -215,7 +228,10 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
 
 def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = "",
         plan: Any = None, *, move: bool = False,
-        places: dict[str, str] | None = None) -> dict:
+        places: dict[str, str] | None = None,
+        weigh: Callable[[SourceGame], int] | None = None,
+        report: Callable[[Standing], None] | None = None,
+        halted: Callable[[], bool] | None = None) -> dict:
     """Convert the chosen systems. Answers with a row per game and the counts.
 
     `move` takes each game file out of where it was; artwork, ROMs and the rest are
@@ -229,6 +245,10 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     A game the library already holds is left alone unless the plan says to fill in what
     it is missing. Rewriting what somebody has curated since the last run is the worse
     mistake, so it is not the default.
+
+    `report` is told where the run has got to before each game, with `weigh` giving what
+    a game is worth in bytes. `halted` is asked between games: a run that is stopped ends
+    after the game in hand, so every folder it made is whole, and says so in `stopped`.
     """
     kinds = ctx.games.kinds()
     wanted = [system for system in library.systems
@@ -246,6 +266,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     # one game with three tables here, not three games. Without this the first wins the
     # folder and the rest fail on a name that is already taken.
     made_here: dict[str, str] = {}
+    to_do: list[tuple[str, SourceGame]] = []
     for system in wanted:
         where = (places or {}).get(system.name, location)
         for game in system.games:
@@ -255,18 +276,29 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
                                 "game_id": match.game_id,
                                 "how": ctx.t(f"match.{match.how}")})
                 continue
-            # Asked of core, not worked out here: the folder a name becomes is core's
-            # rule, and a copy of it drifts without saying so.
-            name = ctx.games.folder_name_for(mapping.folder_name(game))
-            seen = made_here.get(name.lower())
-            if seen:
-                rows.append(_another_build(ctx, game, name, seen, move, cleared))
-                continue
-            row = _one(ctx, library.source_id, game, kinds, where, name, sources,
-                       history, move, cleared)
-            if row["game_id"]:
-                made_here[name.lower()] = row["game_id"]
-            rows.append(row)
+            to_do.append((where, game))
+
+    weights = [weigh(game) if weigh else 0 for _where, game in to_do]
+    total_bytes, bytes_done, stopped = sum(weights), 0, False
+    for at, ((where, game), weight) in enumerate(zip(to_do, weights, strict=True)):
+        if halted and halted():
+            stopped = True
+            break
+        # Asked of core, not worked out here: the folder a name becomes is core's
+        # rule, and a copy of it drifts without saying so.
+        name = ctx.games.folder_name_for(mapping.folder_name(game))
+        if report:
+            report(Standing(at, len(to_do), bytes_done, total_bytes, name))
+        bytes_done += weight
+        seen = made_here.get(name.lower())
+        if seen:
+            rows.append(_another_build(ctx, game, name, seen, move, cleared))
+            continue
+        row = _one(ctx, library.source_id, game, kinds, where, name, sources,
+                   history, move, cleared)
+        if row["game_id"]:
+            made_here[name.lower()] = row["game_id"]
+        rows.append(row)
     made = [row for row in rows if row["game_id"]]
     return {
         "games": len({row["name"].lower() for row in made}),
@@ -277,6 +309,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         "altdata": sum(row["altdata"] for row in made),
         "history": sum(row["history"] for row in made),
         "failed": len(rows) - len(made),
+        "stopped": stopped,
+        "left": len(to_do) - len(rows),
         # Named rather than counted: after a partial run somebody wants to know which
         # ones were left, not how many.
         "already_here": skipped,
