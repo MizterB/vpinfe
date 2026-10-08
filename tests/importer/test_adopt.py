@@ -112,8 +112,12 @@ class ImportTests(AdoptCase):
         self.assertTrue(any("Wheel" in one for one in landed), landed)
         self.assertTrue(any("Playfield" in one for one in landed), landed)
 
-    def _planned(self, cleared: str):
-        """The fixture library with a game file and a backglass behind every game."""
+    def _planned(self, cleared: str, fill: bool = False, other_taxi: bool = False):
+        """The fixture library with a game file and a backglass behind every game.
+
+        `fill` plans against what the library holds, the way a second run does, with
+        *Add what they are missing*. `other_taxi` gives Taxi a game file of another name.
+        """
         import dataclasses
 
         from vpinfe_ext_library_importer import pinballx, plan
@@ -127,12 +131,17 @@ class ImportTests(AdoptCase):
             stem = game.display_name or game.key
             (files / f"{stem}.vpx").write_bytes(b"table")
             (files / f"{stem}.directb2s").write_bytes(b"beside it")
+            if other_taxi and game.key == "Taxi":
+                stem = "Taxi, the other build"
+                (files / f"{stem}.vpx").write_bytes(b"another table")
             return dataclasses.replace(game, table_file=str(files / f"{stem}.vpx"))
 
         library = dataclasses.replace(read, systems=tuple(
             dataclasses.replace(one, games=tuple(with_file(game) for game in one.games))
             for one in read.systems))
-        made = plan.build(library, [], systems=[VPX],
+        made = plan.build(library, self._ctx.games.existing() if fill else [],
+                          systems=[VPX],
+                          on_existing="fill" if fill else plan.DEFAULT_ON_EXISTING,
                           folder_name_for=self._ctx.games.folder_name_for,
                           source_id=library.source_id, kinds=self._ctx.games.kinds(),
                           companions_of=self._ctx.games.companions_of)
@@ -259,6 +268,45 @@ class ImportTests(AdoptCase):
 
         self.assertEqual(again["games"], 0)
         self.assertEqual(again["failed"], 3)
+
+    def test_adding_what_a_copy_is_missing_fills_it_and_replaces_nothing(self) -> None:
+        """A matched game is filled at its own id: an empty slot is filled, a held one
+        is left, and a game file joins only where none of that name is there."""
+        from vpinfe_ext_library_importer import adopt
+
+        library, made = self._planned("")
+        self.assertEqual(0, adopt.run(self._ctx, library, [VPX], "", made)["failed"])
+        afm = self.library / "Attack from Mars (Bally 1995)"
+        taxi = self.library / "Taxi (Williams 1988)"
+        kept = next((taxi / "medias").iterdir())
+        kept.write_bytes(b"what somebody chose")
+        shutil.rmtree(afm / "medias")
+        (taxi / "Taxi.vpx").write_bytes(b"edited since")
+
+        library, made = self._planned("", fill=True, other_taxi=True)
+        report = adopt.run(self._ctx, library, [VPX], "", made)
+
+        self.assertEqual(0, report["failed"], [row["error"] for row in report["rows"]])
+        self.assertTrue(all(row["game_id"] for row in report["rows"]))
+        self.assertTrue(any("Playfield" in one.name for one in (afm / "medias").iterdir()))
+        self.assertEqual(b"what somebody chose", kept.read_bytes())
+        self.assertEqual(b"edited since", (taxi / "Taxi.vpx").read_bytes())
+        self.assertEqual(b"another table", (taxi / "Taxi, the other build.vpx").read_bytes())
+        rows = {row["key"]: row for row in report["rows"]}
+        self.assertFalse(rows["Attack from Mars (Bally 1995)"]["table"])
+        self.assertTrue(rows["Taxi"]["table"])
+
+    def test_a_second_run_fills_nothing_that_is_already_there(self) -> None:
+        from vpinfe_ext_library_importer import adopt
+
+        library, made = self._planned("")
+        adopt.run(self._ctx, library, [VPX], "", made)
+
+        library, made = self._planned("", fill=True)
+        again = adopt.run(self._ctx, library, [VPX], "", made)
+
+        self.assertEqual(0, again["failed"])
+        self.assertEqual((0, 0, 0), (again["tables"], again["media"], again["companions"]))
 
 
 class BoundsTests(AdoptCase):

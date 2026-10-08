@@ -30,7 +30,8 @@ ALT_KINDS = {".crz": "altcolor_serum", ".cromc": "altcolor_serum",
 
 class AdoptedRow(TypedDict):
     """One game and what became of it. `joined` is only on a second build
-    of a machine the run has already made a game for."""
+    of a machine the run has already made a game for, `existing` on a game the library
+    already held and the run filled in."""
 
     key: str
     name: str
@@ -44,6 +45,7 @@ class AdoptedRow(TypedDict):
     skipped_media: list[str]
     error: Note
     joined: NotRequired[bool]
+    existing: NotRequired[bool]
 
 
 @dataclass(frozen=True)
@@ -137,8 +139,13 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
 def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          location: str, name: str = "", sources: Any = None,
          history: Any = None, move: bool = False,
-         cleared: frozenset[str] = frozenset()) -> AdoptedRow:
+         cleared: frozenset[str] = frozenset(), existing: str = "") -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
+
+    `existing` is the id of the game the library already holds for this one. It is filled
+    in rather than created: media only into a slot that is empty, the game file only if no
+    file of that name is there, and its details are not written, since they may be the
+    person's own edits.
 
     `cleared` holds the kinds whose source the person emptied. Those are not brought, which
     is what the summary told them and what the report expects.
@@ -151,16 +158,20 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     row: AdoptedRow = {"key": game.key, "name": name, "game_id": "", "table": False,
                        "media": 0, "companions": 0, "roms": 0, "altdata": 0,
                        "history": 0, "skipped_media": [], "error": ""}
-    try:
-        game_id = ctx.games.create(name, location)
-    except Exception as exc:
-        ctx.logger.warning("No folder for %s: %s", name, exc)
-        row["error"] = {"text": ctx.t("error.no_folder"), "detail": ctx.why(exc)}
-        return row
+    if existing:
+        game_id = existing
+        row["existing"] = True
+    else:
+        try:
+            game_id = ctx.games.create(name, location)
+        except Exception as exc:
+            ctx.logger.warning("No folder for %s: %s", name, exc)
+            row["error"] = {"text": ctx.t("error.no_folder"), "detail": ctx.why(exc)}
+            return row
 
     row["game_id"] = game_id
     details = mapping.details_for(game)
-    if details:
+    if details and not existing:
         ctx.games.set_details(game_id, **details)
 
     # The table first, because a media file named for a game file needs that file's name
@@ -175,14 +186,19 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
             row["companions"] = len(landed["companions"])
             rom = landed.get("rom", "")
         except Exception as exc:
-            ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
-            row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
+            # The copy already holding this file is the copy staying as it is, and its
+            # ROM was read when it arrived. Not a failure, and nothing to count.
+            if not (existing and isinstance(exc, FileExistsError)):
+                ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
+                row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
 
     if "media" not in cleared:
         for kind, path in mapping.media_for(source_id, game, kinds):
             try:
-                ctx.games.put_media(game_id, kind, path, stem)
+                ctx.games.put_media(game_id, kind, path, stem, replace=not existing)
                 row["media"] += 1
+            except FileExistsError:
+                continue
             except Exception as exc:
                 ctx.logger.warning("%s: %s did not come across: %s", name, kind, exc)
         row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
@@ -203,12 +219,14 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
 
 
 def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
-                   move: bool = False, cleared: frozenset[str] = frozenset()) -> AdoptedRow:
+                   move: bool = False, cleared: frozenset[str] = frozenset(),
+                   existing: bool = False) -> AdoptedRow:
     """A second build of a machine the run has already made a game for.
 
     Its file joins that game rather than starting another one. The artwork does not:
     what is already there was placed for the same machine, and a second build's playfield
-    would replace it with a picture of the same table.
+    would replace it with a picture of the same table. In a game the library already
+    held, a file of the same name is already there and stays.
     """
     row: AdoptedRow = {"key": game.key, "name": name, "game_id": game_id,
                        "table": False, "media": 0, "companions": 0, "roms": 0,
@@ -221,8 +239,9 @@ def _another_build(ctx: Any, game: SourceGame, name: str, game_id: str,
         row["table"] = True
         row["companions"] = len(landed["companions"])
     except Exception as exc:
-        ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
-        row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
+        if not (existing and isinstance(exc, FileExistsError)):
+            ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
+            row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
     return row
 
 
@@ -244,7 +263,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
 
     A game the library already holds is left alone unless the plan says to fill in what
     it is missing. Rewriting what somebody has curated since the last run is the worse
-    mistake, so it is not the default.
+    mistake, so it is not the default. Filling goes to the game it matched, adds what is
+    absent and never replaces what is there.
 
     `report` is told where the run has got to before each game, with `weigh` giving what
     a game is worth in bytes. `halted` is asked between games: a run that is stopped ends
@@ -266,6 +286,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     # one game with three tables here, not three games. Without this the first wins the
     # folder and the rest fail on a name that is already taken.
     made_here: dict[str, str] = {}
+    # The games this run fills in rather than makes, by the source's key.
+    held_ids: dict[str, str] = {}
     to_do: list[tuple[str, SourceGame]] = []
     for system in wanted:
         where = (places or {}).get(system.name, location)
@@ -276,6 +298,8 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
                                 "game_id": match.game_id,
                                 "how": ctx.t(f"match.{match.how}")})
                 continue
+            if match is not None and match.existing:
+                held_ids[game.key] = match.game_id
             to_do.append((where, game))
 
     weights = [weigh(game) if weigh else 0 for _where, game in to_do]
@@ -292,10 +316,11 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         bytes_done += weight
         seen = made_here.get(name.lower())
         if seen:
-            rows.append(_another_build(ctx, game, name, seen, move, cleared))
+            rows.append(_another_build(ctx, game, name, seen, move, cleared,
+                                       seen in held_ids.values()))
             continue
         row = _one(ctx, library.source_id, game, kinds, where, name, sources,
-                   history, move, cleared)
+                   history, move, cleared, held_ids.get(game.key, ""))
         if row["game_id"]:
             made_here[name.lower()] = row["game_id"]
         rows.append(row)

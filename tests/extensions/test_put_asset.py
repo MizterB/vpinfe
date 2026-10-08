@@ -136,6 +136,21 @@ class BoundsTests(PutAssetCase):
         self.assertEqual(f"Something is already at {self.game / where}",
                          why(caught.exception))
 
+    def test_media_fills_an_empty_slot_and_leaves_a_held_one_when_asked_not_to_replace(
+            self) -> None:
+        mine = self.source / "mine.png"
+        mine.write_bytes(b"mine")
+        theirs = self.source / "theirs.png"
+        theirs.write_bytes(b"theirs")
+        landed = self.games.put_media("g1", "wheel", mine, replace=False)
+
+        with self.assertRaises(FileExistsError):
+            self.games.put_media("g1", "wheel", theirs, replace=False)
+        self.assertEqual(b"mine", (self.game / "medias" / landed).read_bytes())
+
+        self.games.put_media("g1", "wheel", theirs)
+        self.assertEqual(b"theirs", (self.game / "medias" / landed).read_bytes())
+
     def test_placing_needs_the_write_scope(self) -> None:
         rom = self.source / "afm_113b.zip"
         rom.write_bytes(b"rom")
