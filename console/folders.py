@@ -376,10 +376,6 @@ def _row(block: Folders, folder: Folder, at: int, of: int) -> None:
             ui.label(folder.path).classes("console-fact-value truncate min-w-0") \
                 .tooltip(folder.path)
             _caption(block, folder)
-        if folder.id == block.plan.chip:
-            ui.label(t("console.folders.new_games")) \
-                .classes("console-member-chip console-chip-quiet") \
-                .tooltip(chip_tip(folder))
         if chip := state_chip(folder):
             word, level, tip = chip
             ui.label(word).classes(f"console-tier console-tier--{level} shrink-0") \
@@ -394,7 +390,8 @@ def _row(block: Folders, folder: Folder, at: int, of: int) -> None:
 
 def _caption(block: Folders, folder: Folder) -> None:
     parts = caption(folder)
-    if not parts:
+    takes_new = block.plan.switch and folder.id == block.plan.chip
+    if not parts and not takes_new:
         return
     with ui.row().classes("items-center gap-1 no-wrap"):
         for place, (said, is_link) in enumerate(parts):
@@ -406,6 +403,11 @@ def _caption(block: Folders, folder: Folder) -> None:
                              hint=t("console.folders.duplicates_help"))()
             else:
                 ui.label(said).classes("console-member-table")
+        if takes_new:
+            ui.label(t("console.folders.new_games")) \
+                .classes("console-member-chip console-chip-quiet") \
+                .tooltip(chip_tip(folder))
+
 
 
 def _buttons(block: Folders, importing: dict[str, Any] | None) -> None:

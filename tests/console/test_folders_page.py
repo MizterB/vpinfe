@@ -468,12 +468,12 @@ class DrawTests(unittest.TestCase):
                 said.append(f"switch:{one.value}")
         return said
 
-    def test_one_folder_that_takes_a_game_draws_the_chip_and_no_switch(self) -> None:
+    def test_one_folder_draws_no_chip_and_no_switch(self) -> None:
         said = self.drawn(row("a", write_to=True))
 
         self.assertIn("/games/a", said)
         self.assertIn("3 games", said)
-        self.assertIn(folders.t("console.folders.new_games"), said)
+        self.assertNotIn(folders.t("console.folders.new_games"), said)
         self.assertFalse([one for one in said if one.startswith("switch:")])
         self.assertNotIn(folders.t("console.folders.priority"), said)
 
@@ -489,6 +489,8 @@ class DrawTests(unittest.TestCase):
 
         self.assertIn("switch:False", said)
         self.assertEqual(said.count(folders.t("console.folders.new_games")), 1)
+        chip = said.index(folders.t("console.folders.new_games"))
+        self.assertEqual(said[chip - 1], "3 games")
 
     def test_a_folder_that_is_away_says_why_in_a_chip_and_gives_no_count(self) -> None:
         said = self.drawn(row("a", write_to=True),
