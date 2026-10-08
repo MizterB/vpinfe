@@ -87,6 +87,7 @@ class FolderCase(test_adopt.AdoptCase):
             if job is not None and job.finished_at is not None:
                 self.assertEqual(job.state, jobs.DONE, job.error)
                 assert isinstance(job.result, dict)
+                self.job = job
                 return job.result
             time.sleep(0.01)
         self.fail("the import did not finish")
@@ -575,6 +576,32 @@ class StartingPastAlreadyHereTests(FolderCase):
 
 
 class RunTests(FolderCase):
+    def test_a_run_keeps_its_report_and_counts_the_games_that_did_not_come_across(self) -> None:
+        self.loose("Harbor Lights", "Quarry Run")
+        copies = self.root / "Copies"
+        copies.mkdir()
+        (copies / "Harbor Lights").write_text("in the way", encoding="utf-8")
+
+        report = self.run_it(self.tables, how="copy", into=str(copies))
+
+        self.assertEqual(report["failed"], 1)
+        self.assertEqual(self.job.problems, 1)
+        wire = self.client.get(f"/jobs/{self.job.id}").json()
+        self.assertTrue(wire["report"])
+        self.assertEqual(wire["problems"], 1)
+        self.assertEqual(wire["result"]["failed"], 1)
+
+    def test_a_clean_run_has_a_report_and_no_problems(self) -> None:
+        self.loose("Harbor Lights")
+        copies = self.root / "Copies"
+        copies.mkdir()
+
+        self.run_it(self.tables, how="copy", into=str(copies))
+
+        wire = self.client.get(f"/jobs/{self.job.id}").json()
+        self.assertTrue(wire["report"])
+        self.assertEqual(wire["problems"], 0)
+
     def test_a_copy_makes_a_folder_for_each_table_and_leaves_the_source(self) -> None:
         self.loose("Harbor Lights", "Quarry Run")
         (self.tables / "Harbor Lights.directb2s").write_bytes(b"backglass")

@@ -8,15 +8,18 @@ asking later.
 
 from __future__ import annotations
 
+import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
+from unittest import mock
 
 import requests
 from fastapi.testclient import TestClient
 
 import httpapi
-from common import events, jobs
+from common import events, jobs, paths
 from common import jobs as job_registry
 from common.i18n import t
 
@@ -397,6 +400,96 @@ class ResultTests(unittest.TestCase):
 
         self.assertTrue(listed)
         self.assertIsNone(listed[0].get("result"))
+
+
+class KeptResultTests(unittest.TestCase):
+    """A job that asks to be kept can be opened after the page that started it has gone,
+    and after the install restarted."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        patched = mock.patch.object(paths, "JOBS_DIR", Path(tmp.name) / "jobs")
+        patched.start()
+        self.addCleanup(patched.stop)
+        jobs.reset_for_tests()
+        self.addCleanup(jobs.reset_for_tests)
+        self.dir = paths.JOBS_DIR
+
+    def _run(self, answer, *, keep: bool = True, problems: int = 0) -> jobs.Job:
+        def work(job):
+            job.problems = problems
+            return answer
+
+        job = jobs.submit("probe", work, keep_result=keep)
+        for _ in range(500):
+            if job.state != jobs.RUNNING:
+                break
+            time.sleep(0.01)
+        return job
+
+    def _restart(self) -> None:
+        jobs.reset_for_tests()
+        jobs._loaded = False
+
+    def test_a_kept_result_is_written_and_says_so_on_the_wire(self) -> None:
+        job = self._run({"games": 3}, problems=1)
+
+        self.assertTrue((self.dir / f"{job.id}.json").is_file())
+        wire = job.snapshot()
+        self.assertTrue(wire["report"])
+        self.assertEqual(wire["problems"], 1)
+
+    def test_a_job_that_did_not_ask_leaves_nothing_behind(self) -> None:
+        job = self._run({"games": 3}, keep=False)
+
+        self.assertFalse(self.dir.is_dir() and list(self.dir.glob("*.json")))
+        self.assertFalse(job.snapshot()["report"])
+
+    def test_a_failed_job_keeps_nothing(self) -> None:
+        def work(_job):
+            raise RuntimeError("no")
+
+        job = jobs.submit("probe", work, keep_result=True)
+        for _ in range(500):
+            if job.state != jobs.RUNNING:
+                break
+            time.sleep(0.01)
+
+        self.assertFalse(job.snapshot()["report"])
+
+    def test_it_comes_back_after_a_restart_with_its_result(self) -> None:
+        job = self._run({"games": 3}, problems=2)
+        self._restart()
+
+        found = jobs.get(job.id)
+
+        assert found is not None
+        self.assertEqual(found.state, jobs.DONE)
+        self.assertEqual(found.result, {"games": 3})
+        self.assertEqual(found.problems, 2)
+        self.assertTrue(found.snapshot()["report"])
+        self.assertIn(job.id, [one.id for one in jobs.recent()])
+
+    def test_only_the_latest_are_kept(self) -> None:
+        for number in range(jobs.KEPT_LIMIT + 3):
+            self._run({"n": number})
+
+        self.assertEqual(len(list(self.dir.glob("*.json"))), jobs.KEPT_LIMIT)
+
+    def test_a_file_that_cannot_be_read_does_not_hide_the_others(self) -> None:
+        job = self._run({"games": 3})
+        (self.dir / "broken.json").write_text("{", encoding="utf-8")
+        self._restart()
+
+        self.assertIsNotNone(jobs.get(job.id))
+
+    def test_a_result_that_cannot_be_written_does_not_fail_the_job(self) -> None:
+        with mock.patch.object(jobs, "write_atomic", side_effect=OSError("disk full")):
+            job = self._run({"games": 3})
+
+        self.assertEqual(job.state, jobs.DONE)
+        self.assertFalse(job.snapshot()["report"])
 
 
 if __name__ == "__main__":

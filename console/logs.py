@@ -36,7 +36,18 @@ from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
-from console import about, busy, deeplink, dropdown, grid, jobs_list, offload, panel, verbs
+from console import (
+    about,
+    busy,
+    deeplink,
+    dropdown,
+    grid,
+    job_report,
+    jobs_list,
+    offload,
+    panel,
+    verbs,
+)
 from console import devices as devices_page
 from console.data import Library
 from console.on_page import on_page
@@ -71,6 +82,11 @@ def build(library: Library, state: dict[str, Any], redraw: Callable[[], None]) -
         # What the jobs box holds now: the grid, or the words standing in for it.
         "table": None,
         "rows": [],
+        # The job the grid has focus on, and the slot the button that opens its report is
+        # drawn in.
+        "focused_job": "",
+        "report_slot": None,
+        "report_enabled": None,
         "bar_for": None,
         "error": "",
         "follow": state.get("log_follow", True),
@@ -289,6 +305,28 @@ def _jobs_controls(held: dict[str, Any], remember: Callable[[str, Any], Any]) ->
         .props("dense outlined clearable").classes("grow min-w-0") \
         .on_value_change(lambda e: find(e.value or ""))
 
+    held["report_slot"] = ui.element("div")
+    _sync_report(held)
+
+
+def _sync_report(held: dict[str, Any]) -> None:
+    """The report button is live for a focused job that kept one. It is drawn again in its
+    own slot, so the find box beside it keeps what is typed."""
+    slot = held["report_slot"]
+    if slot is None:
+        return
+    row = next((one for one in held["rows"] if one["id"] == held["focused_job"]), None)
+    enabled = bool(row and row["report"])
+    if held["report_enabled"] == enabled and len(slot.default_slot.children):
+        return
+    held["report_enabled"] = enabled
+    slot.clear()
+    with slot:
+        panel.action(t("console.jobs.view_report"),
+                     lambda: job_report.open_for(held["focused_job"]),
+                     icon=verbs.REVIEW, enabled=enabled,
+                     hint=t("console.jobs.view_report.hint"))()
+
 
 @on_page
 async def _load_jobs(library: Library, box: Any, bar: Any, held: dict[str, Any],
@@ -326,23 +364,49 @@ def _draw_jobs(box: Any, held: dict[str, Any], shown: list[dict[str, Any]],
         if held["table"] == said:
             return
         held["table"] = said
+        held["rows"], held["focused_job"] = [], ""
         box.clear()
         with box:
             panel.facts(ui, [panel.intro(t("console.logs.read_failed"),
                                          hint=held["error"])] if held["error"]
                         else [panel.intro(said[1])])
+        _sync_report(held)
         return
     table = held["table"]
     if table is None or isinstance(table, tuple):
         box.clear()
+        held["rows"], held["focused_job"] = shown, ""
         with box:
-            table = grid.build(jobs_list.COLUMNS, shown, jobs_list.SCOPE)
-        held["table"], held["rows"] = table, shown
+            menu: ui.context_menu
+
+            def fill_menu(row: dict | None) -> None:
+                found = next((one for one in held["rows"]
+                              if row and one["id"] == row.get("id")), None)
+                panel.verb_menu(menu, found["what"] if found else "", [
+                    panel.Verb(t("console.jobs.view_report"), icon=verbs.REVIEW,
+                               run=lambda: job_report.open_for(found["id"]))
+                ] if found and found["report"] else [])
+
+            async def on_header_context(col_id: str | None) -> None:
+                await grid.header_menu(menu, table, jobs_list.COLUMNS, col_id)
+
+            table = grid.build(jobs_list.COLUMNS, shown, jobs_list.SCOPE,
+                               on_context=fill_menu, on_header_context=on_header_context)
+            menu = ui.context_menu()
+
+        def focused(event: Any) -> None:
+            held["focused_job"] = grid.focused_row(event)
+            _sync_report(held)
+
+        grid.on_row_focus(jobs_list.SCOPE, focused)
+        held["table"] = table
         table.run_grid_method("setGridOption", "quickFilterText", held["find_jobs"])
+        _sync_report(held)
         return
     if held["rows"] != shown:
         held["rows"] = shown
         table.run_grid_method("setGridOption", "rowData", shown)
+        _sync_report(held)
 
 
 @on_page

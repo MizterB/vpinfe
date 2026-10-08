@@ -434,13 +434,13 @@ class LanguageTests(unittest.TestCase):
 
 def _said(job: dict, under: str = "ext.sample.action.run") -> list[str]:
     with ui.column() as body:
-        wizard._report(body, job, under)
+        wizard.report(body, job, under)
     return [one.text for one in body.descendants() if isinstance(one, ui.label)]
 
 
 def _reported(job: dict) -> dict[str, str]:
     with ui.column() as body:
-        wizard._report(body, job, "ext.sample.action.run")
+        wizard.report(body, job, "ext.sample.action.run")
     return lines.details(body)
 
 

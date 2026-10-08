@@ -588,15 +588,19 @@ class ExtensionJobs:
         self._name = name
 
     def submit(self, kind: str, work: Callable[[jobs.Job], object], *,
-               stop_route: str = "") -> jobs.Job:
+               stop_route: str = "", keep_result: bool = False) -> jobs.Job:
         """Run `work` on its own thread. With `stop_route`, a route of this extension that
         calls `stop(kind)`, the job offers to be stopped there: the work looks at
-        `job.halt` between its units and ends early when it is set."""
+        `job.halt` between its units and ends early when it is set. With `keep_result`
+        what `work` returns is written to disk, so the Jobs view can open it after the page
+        that started the job has gone; `job.problems` says how many parts did not come
+        across."""
         from common import jobs
 
         return jobs.submit(
             f"{self._name}.{str(kind or '').strip()}", work,
-            stop_link=f"/api/v1/ext/{self._name}{stop_route}" if stop_route else "")
+            stop_link=f"/api/v1/ext/{self._name}{stop_route}" if stop_route else "",
+            keep_result=keep_result)
 
     def stop(self, kind: str) -> bool:
         """Ask this extension's running job of that kind to end early. False where there

@@ -126,7 +126,7 @@ By default VPinFE keeps what you set in four places, each in the folder the OS g
 | Kind | Holds | Linux | macOS | Windows |
 |---|---|---|---|---|
 | Config | `vpinfe.json`, `themes/`, your collections and backups | `~/.config/vpinfe` | `~/Library/Application Support/vpinfe` | `%LOCALAPPDATA%\vpinfe\vpinfe` |
-| State | which device is this install, and the devices it has seen | `~/.local/state/vpinfe` | `state` inside the config folder | `State` inside the config folder |
+| State | which device is this install, the devices it has seen, and the reports of recent imports | `~/.local/state/vpinfe` | `state` inside the config folder | `State` inside the config folder |
 | Logs | `vpinfe.log` | `~/.local/state/vpinfe/log` | `~/Library/Logs/vpinfe` | `Logs` inside the config folder |
 | Cache | what it can download again: the VPS database, the theme list, thumbnails | `~/.cache/vpinfe` | `~/Library/Caches/vpinfe` | `Cache` inside the config folder |
 

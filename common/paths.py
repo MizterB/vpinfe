@@ -102,6 +102,8 @@ CACHE_DIR = _resolve_cache_dir()
 STATE_DIR = _resolve_state_dir()
 LOG_DIR = _resolve_log_dir()
 CAPTURE_DIR = STATE_DIR / "capture"
+# What a job that asks to be kept answered, one file per run, for the Jobs view to open.
+JOBS_DIR = STATE_DIR / "jobs"
 DERIVED_TAGS_PATH = CACHE_DIR / "derived_tags.json"
 THEME_CACHE_PATH = CACHE_DIR / "themes.json"
 UPDATE_CHECK_PATH = CACHE_DIR / "update.json"

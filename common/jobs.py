@@ -18,6 +18,7 @@ a user who clicked twice waits through two full scans.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -25,8 +26,10 @@ import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from pathlib import Path
 
-from common import events, service_errors
+from common import events, paths, service_errors
+from common.atomic_write import write_atomic
 from common.failures import why
 from common.i18n import t
 
@@ -65,8 +68,12 @@ KIND_TOOL_GET = "tools.get"
 # match. The watch's later refreshes are not this: they stay silent.
 KIND_SPREADSHEET_DOWNLOAD = "spreadsheet.download"
 
-# Finished jobs kept since startup, for the Jobs view. Memory only: a restart empties it.
+# Finished jobs kept since startup, for the Jobs view. Memory only: a restart empties it,
+# apart from the ones that asked to keep their result (`Job.keep_result`).
 HISTORY_LIMIT = 500
+# How many of those stay on disk. Each is a row per game for an import of a whole library,
+# so the oldest go first.
+KEPT_LIMIT = 20
 _LISTING = 20
 
 
@@ -158,6 +165,14 @@ class Job:
     # Set by the work when it ended early without failing. The job still finishes `done`:
     # `state` has three values and a consumer branches on `failed`.
     stopped: bool = False
+    # How many of its parts did not come across. The job still finishes `done` with the
+    # rest; a consumer that says how it went reads this beside `state`.
+    problems: int = 0
+    # Whether the result is written to disk when it finishes, so it can be opened after a
+    # restart and from a page that did not start the work. Set by whoever starts the job;
+    # `kept` is whether that has happened.
+    keep_result: bool = False
+    kept: bool = False
     # One line on what it did, counts mostly. Written when the work finishes, by the
     # describer registered for its kind or by the work itself.
     detail: str = ""
@@ -201,6 +216,8 @@ class Job:
             "finished_at": self.finished_at,
             "stoppable": self.stoppable,
             "stopped": self.stopped,
+            "problems": self.problems,
+            "report": self.kept,
             "detail": self.detail,
         }
         if with_result:
@@ -211,6 +228,7 @@ class Job:
 _lock = threading.RLock()
 _active: dict[str, Job] = {}
 _history: list[Job] = []
+_loaded = False
 
 
 def _detail(job: Job) -> str:
@@ -228,14 +246,22 @@ def _detail(job: Job) -> str:
 
 
 def _finish(job: Job, error: BaseException | None) -> None:
+    # The work is over, so nothing else writes these fields; the disk is touched outside the
+    # lock, which every reader of the registry waits on.
+    finished_at = time.time()
+    detail = _detail(job) if error is None else job.detail
+    kept = error is None and job.keep_result and _keep(job, finished_at, detail)
     with _lock:
         if _active.get(job.kind) is job:
             del _active[job.kind]
-        job.finished_at = time.time()
+        job.finished_at = finished_at
         if error is None:
+            job.detail = detail
+            # Set before the state turns, so nobody sees a finished job whose report is not
+            # yet there.
+            job.kept = kept
             job.state = DONE
             job.pct = 100
-            job.detail = _detail(job)
         else:
             job.state = FAILED
             job.error = why(error)
@@ -245,6 +271,59 @@ def _finish(job: Job, error: BaseException | None) -> None:
         events.emit(events.JOB_DONE, job_id=job.id)
     else:
         events.emit(events.JOB_FAILED, job_id=job.id, error=job.error)
+
+
+def _kept_path(job_id: str) -> Path:
+    return paths.JOBS_DIR / f"{job_id}.json"
+
+
+def _keep(job: Job, finished_at: float, detail: str) -> bool:
+    """Write a finished job's result to disk, and say whether it is there. A result that
+    cannot be written is no result: it must not fail a job that finished."""
+    try:
+        paths.JOBS_DIR.mkdir(parents=True, exist_ok=True)
+        write_atomic(_kept_path(job.id),
+                     lambda handle: json.dump({**job.snapshot(with_result=True),
+                                                  "state": DONE, "pct": 100,
+                                                  "finished_at": finished_at,
+                                                  "detail": detail}, handle))
+    except (OSError, TypeError, ValueError):
+        logger.warning("Could not keep the result of job %s", job.id, exc_info=True)
+        return False
+    try:
+        stale = sorted(paths.JOBS_DIR.glob("*.json"), key=lambda one: one.stat().st_mtime)
+        for old in stale[:-KEPT_LIMIT]:
+            old.unlink(missing_ok=True)
+    except OSError:
+        logger.debug("Could not prune the kept jobs", exc_info=True)
+    return True
+
+
+def _load_kept() -> None:
+    """Under `_lock`. The kept results of earlier runs, as finished jobs in the history,
+    read once. A file that cannot be read is left where it is."""
+    global _loaded
+    if _loaded:
+        return
+    _loaded = True
+    found: list[Job] = []
+    for path in paths.JOBS_DIR.glob("*.json") if paths.JOBS_DIR.is_dir() else ():
+        try:
+            said = json.loads(path.read_text(encoding="utf-8"))
+            found.append(Job(
+                id=str(said["id"]), kind=str(said["kind"]), state=DONE,
+                pct=100, message=str(said.get("message") or ""),
+                started_at=float(said["started_at"]),
+                finished_at=float(said["finished_at"]),
+                result=said.get("result"), stopped=bool(said.get("stopped")),
+                problems=int(said.get("problems") or 0),
+                detail=str(said.get("detail") or ""), keep_result=True, kept=True))
+        except (OSError, ValueError, KeyError, TypeError):
+            logger.warning("Could not read the kept job %s", path.name, exc_info=True)
+    known = {one.id for one in _history}
+    found = [one for one in found if one.id not in known]
+    _history[:0] = sorted(found, key=lambda one: one.finished_at or 0.0)
+    del _history[:-HISTORY_LIMIT]
 
 
 @contextmanager
@@ -267,10 +346,15 @@ def track(kind: str, *, progress_cb: ProgressCallback | None = None,
 def submit(kind: str, work: Callable[[Job], object], *,
            progress_cb: ProgressCallback | None = None,
            log_cb: LogCallback | None = None, stoppable: bool = False,
-           stop_link: str = "") -> Job:
-    """Start work on its own thread and return its job immediately."""
+           stop_link: str = "", keep_result: bool = False) -> Job:
+    """Start work on its own thread and return its job immediately.
+
+    With `keep_result` the result is written to disk when the work finishes, and the job
+    can be opened from the Jobs view after the page that started it has gone, and after a
+    restart."""
     job = Job(id=uuid.uuid4().hex, kind=kind, progress_cb=progress_cb, log_cb=log_cb,
-              stoppable=stoppable or bool(stop_link), stop_link=stop_link)
+              stoppable=stoppable or bool(stop_link), stop_link=stop_link,
+              keep_result=keep_result)
     with _lock:
         _refuse_if_busy(kind)
         _active[kind] = job
@@ -290,6 +374,7 @@ def submit(kind: str, work: Callable[[Job], object], *,
 
 def get(job_id: str) -> Job | None:
     with _lock:
+        _load_kept()
         for job in _active.values():
             if job.id == job_id:
                 return job
@@ -308,10 +393,15 @@ def active(kind: str | None = None) -> list[Job]:
 def recent(limit: int = _LISTING) -> list[Job]:
     """Running jobs first, then the most recently finished."""
     with _lock:
+        _load_kept()
         return list(_active.values()) + list(reversed(_history))[:limit]
 
 
 def reset_for_tests() -> None:
+    global _loaded
     with _lock:
         _active.clear()
         _history.clear()
+        # Not read: a test that wants the kept results of an earlier run sets this itself,
+        # and one that does not must not be handed the machine's.
+        _loaded = True

@@ -768,6 +768,9 @@ def build(ctx: Any) -> None:
             report["against"] = [] if report.get("stopped") else plan_for.against(want, report)
             report["expected"] = want
             job.stopped = bool(report.get("stopped"))
+            # Counted from the rows the report lists, not from `failed`: a game whose
+            # folder was made and whose file did not come across is in the report too.
+            job.problems = sum(1 for row in report["rows"] if row.get("error"))
             job.detail = (
                 ctx.t("job.detail_stopped", made=report["games"], failed=report["failed"],
                       left=report.get("left", 0)) if job.stopped else
@@ -775,7 +778,8 @@ def build(ctx: Any) -> None:
             job.log(f"Created {report['games']}, failed {report['failed']}")
             return report
 
-        job = ctx.jobs.submit("import", work, stop_route="/wizard/stop")
+        job = ctx.jobs.submit("import", work, stop_route="/wizard/stop",
+                              keep_result=True)
         return {"started": True, "job_id": job.id,
                 "links": {"job": f"/api/v1/jobs/{job.id}"}}
 

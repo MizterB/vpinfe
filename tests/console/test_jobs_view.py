@@ -30,6 +30,28 @@ class Outcome(unittest.TestCase):
         for state in (jobs.DONE, jobs.FAILED, jobs.RUNNING):
             self.assertEqual(state, jobs_list.outcome_of(_job(state=state)))
 
+    def test_a_done_job_with_problems_is_done_with_errors(self) -> None:
+        self.assertEqual(jobs_list.WITH_ERRORS, jobs_list.outcome_of(_job(problems=3)))
+
+    def test_a_stopped_job_stays_stopped_whatever_it_skipped(self) -> None:
+        self.assertEqual(jobs_list.STOPPED,
+                         jobs_list.outcome_of(_job(stopped=True, problems=3)))
+
+    def test_a_failed_job_stays_failed(self) -> None:
+        self.assertEqual(jobs.FAILED,
+                         jobs_list.outcome_of(_job(state=jobs.FAILED, problems=3)))
+
+    def test_a_row_says_whether_it_has_a_report_to_open(self) -> None:
+        self.assertTrue(jobs_list.row(_job(report=True), NOW)["report"])
+        self.assertFalse(jobs_list.row(_job(), NOW)["report"])
+
+    def test_done_with_errors_can_be_asked_for(self) -> None:
+        clean, rough = _job(started=NOW - 500), _job(started=NOW - 50, problems=2)
+
+        found = jobs_list.rows([clean, rough], NOW, jobs_list.WITH_ERRORS)
+
+        self.assertEqual([rough["id"]], [one["id"] for one in found])
+
     def test_every_outcome_has_a_word(self) -> None:
         for outcome in jobs_list.OUTCOMES:
             key = f"console.jobs.outcome.{outcome}"

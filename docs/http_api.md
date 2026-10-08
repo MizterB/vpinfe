@@ -1665,10 +1665,14 @@ The job resource exists because the stream isn't the only way in. A client that 
 late, missed `job.done`, or simply wants to know what is running asks `GET /jobs` or
 `GET /jobs/{id}` — `pct` and `message` hold the last progress reported, so a late reader is
 correct without having seen a single event. Finished jobs are kept in memory since startup,
-up to 500, and a restart empties them. The listing returns the last 20 unless `?limit=` asks
+up to 500, and a restart empties them, apart from a job that asked to keep its result: that
+one is written to disk when it finishes, the latest 20 stay, and they come back after a
+restart with `report` true on them. The listing returns the last 20 unless `?limit=` asks
 for more. A finished job says how it went: `detail` is one line of counts, in the install's
 language, for the kinds that have something to count, and `stopped` is true on a `done` job
-whose work was stopped part way - `state` stays `done`, `failed`, or `running`.
+whose work was stopped part way - `state` stays `done`, `failed`, or `running`. `problems`
+counts the parts of a `done` job that did not come across, an import's games that could not
+be made among them; a `done` job with `problems` above zero is the one to look at.
 
 Starting work is never a `POST /jobs`. The permission to run something is the permission of
 the thing itself, so a scan is `games:write` because that is what a scan does. `jobs:read`

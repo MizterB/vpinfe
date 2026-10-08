@@ -2921,6 +2921,11 @@ class JobResource(ApiModel):
     stoppable: bool = False
     # A person ended it early. `state` is still `done`: what it did before is kept.
     stopped: bool = False
+    # How many of its parts did not come across. `state` is still `done`: the rest did.
+    problems: int = 0
+    # Whether its result was written to disk, to open later and after a restart. Only a
+    # job that asked to be kept has one.
+    report: bool = False
     # One line on what it did, counts mostly. Empty while it runs and for kinds with
     # nothing to count.
     detail: str = ""

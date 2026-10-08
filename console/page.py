@@ -33,6 +33,7 @@ from console import (
     folders,
     games,
     grid,
+    job_report,
     offload,
     power,
     remembered,
@@ -46,6 +47,7 @@ from console import (
     verbs,
     views,
     waiting,
+    wizard,
     workbench,
 )
 from console import assets as assets_page
@@ -273,6 +275,17 @@ def reads_ended_since(jobs: list[dict[str, Any]], opened: float,
     """The ids of the library reads that finished after `opened`, not yet told."""
     return [str(job.get("id") or "") for job in jobs
             if job.get("kind") == KIND_LIBRARY_SCAN and job.get("state") == DONE
+            and float(job.get("finished_at") or 0) >= opened
+            and str(job.get("id") or "") not in told]
+
+
+def imports_ended_since(jobs: list[dict[str, Any]], opened: float,
+                        told: set[str]) -> list[dict[str, Any]]:
+    """The imports that finished after `opened`, not yet told.
+
+    A failed one is the rail's failure line, not a finish."""
+    return [job for job in jobs
+            if job.get("kind") == KIND_IMPORT and job.get("state") == DONE
             and float(job.get("finished_at") or 0) >= opened
             and str(job.get("id") or "") not in told]
 
@@ -900,6 +913,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
             return
         watch_jobs()
 
+    @on_page
     async def _watch_jobs() -> None:
         """Say what is running, or what failed since the page opened, wherever it was
         started from."""
@@ -913,6 +927,10 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
         told.update(ended)
         for job_id in ended:
             background_tasks.create(_tell_read(job_id), name="console-tell-read")
+        for job in imports_ended_since(found, opened, told):
+            told.add(str(job.get("id") or ""))
+            if not wizard.watching(str(job.get("id") or "")):
+                _tell_import(job)
         failed = None if running else failed_since(found, opened, dismissed)
         job_timer.interval = JOBS_RUNNING_S if running else JOBS_IDLE_S
         job_line.set_visibility(bool(running))
@@ -944,6 +962,23 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
 
     def _job_said(job: dict[str, Any]) -> str:
         return str(job.get("message") or "").strip() or t("console.page.working")
+
+    def _tell_import(job: dict[str, Any]) -> None:
+        """An import this page is not watching has ended. It says how it went and opens the
+        report, which is what an import that stopped, or skipped games, is read from."""
+        problems = int(job.get("problems") or 0)
+        if job.get("stopped"):
+            said = t("console.page.import_stopped")
+        elif problems:
+            said = t("console.page.import_problems", count=problems)
+        else:
+            said = t("console.page.import_done")
+        warn = bool(problems or job.get("stopped"))
+        if not job.get("report"):
+            ui.notify(said, type="warning" if warn else "positive")
+            return
+        undo.act(said, t("console.page.view_report"),
+                 partial(job_report.open_for, str(job.get("id") or "")), warn=warn)
 
     async def _tell_read(job_id: str) -> None:
         """A library read this page did not start, said when it found new games.

@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import weakref
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -973,6 +974,17 @@ def _lines(lines: list[Any], title: str) -> None:
         _line(*_worded(line))
 
 
+# The runs each page drew the report of itself, which that page's toast for a finished run
+# leaves alone. Per page: a run watched on one is still news on another. Weak, so a page
+# that has gone takes its set with it.
+_WATCHED: weakref.WeakKeyDictionary[Any, set[str]] = weakref.WeakKeyDictionary()
+
+
+def watching(job_id: str) -> bool:
+    """Whether this page is drawing the report of `job_id` itself."""
+    return job_id in _WATCHED.get(ui.context.client, ())
+
+
 async def _watch(poll: Callable[[str], Awaitable[dict]], job_id: str, *, body: Any,
                  buttons: Any, heading: Any, under: str,
                  close: Callable[[], Any] | None) -> None:
@@ -980,6 +992,7 @@ async def _watch(poll: Callable[[str], Awaitable[dict]], job_id: str, *, body: A
     it came to. `close` is the dismiss button's own action; a page has nothing to
     dismiss to and draws no button for it.
     """
+    _WATCHED.setdefault(ui.context.client, set()).add(job_id)
     body.clear()
     buttons.clear()
     with body, ui.column().classes("w-full gap-1 px-3"):
@@ -1003,7 +1016,7 @@ async def _watch(poll: Callable[[str], Awaitable[dict]], job_id: str, *, body: A
         stop.enable()
     heading.text = t("console.ext_action.what_happened") if job.get("state") == "done" \
         else t("console.ext_action.not_finish")
-    _report(body, job, under)
+    report(body, job, under)
 
 
 def _finished(body: Any, buttons: Any, close: Callable[[], Any] | None, answer: dict) -> None:
@@ -1056,11 +1069,13 @@ def _wait() -> None:
     time.sleep(POLL_SECONDS)
 
 
-def _report(body: Any, job: dict, under: str) -> None:
+def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
     """What happened, once it has. The counts, and every game that did not come across -
     a run that says only "done" leaves somebody to find the gaps themselves.
 
-    `under` is the flow's own place in its catalog."""
+    `under` is the flow's own place in its catalog. `limit` is how many of a list to
+    name before "and N more"; None names all of it.
+    """
     body.clear()
     with body:
         if job.get("state") == "failed":
@@ -1079,21 +1094,21 @@ def _report(body: Any, job: dict, under: str) -> None:
         held = list(result.get("already_here") or [])
         if held:
             panel.facts(ui, [(panel.HEADING, t("console.ext_action.already", count=len(held)))])
-            for row in held[:20]:
+            for row in held[:limit]:
                 name = row.get("name") or row.get("key")
                 ui.label(t("console.ext_action.matched", name=name, how=row["how"])
                          if row.get("how") else str(name)).classes("console-help px-3")
-            if len(held) > 20:
+            if limit is not None and len(held) > limit:
                 ui.label(t("console.ext_action.more",
-                        count=len(held) - 20)).classes("console-help px-3")
+                        count=len(held) - limit)).classes("console-help px-3")
         missed = [row for row in (result.get("rows") or []) if row.get("error")]
         if missed:
             panel.facts(ui, [(panel.HEADING,
                               t("console.ext_action.not_found", count=len(missed)))])
-            for row in missed[:20]:
+            for row in missed[:limit]:
                 error, detail = _worded(row["error"])
                 _line(t("console.ext_action.missed", name=(row.get("name") or row.get("key")),
                         error=error), detail)
-            if len(missed) > 20:
+            if limit is not None and len(missed) > limit:
                 ui.label(t("console.ext_action.more",
-                        count=len(missed) - 20)).classes("console-help px-3")
+                        count=len(missed) - limit)).classes("console-help px-3")

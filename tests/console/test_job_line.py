@@ -7,7 +7,8 @@ import unittest
 from common.capture import run
 from common.jobs import KIND_LIBRARY_SCAN, KIND_MEDIA_FILL
 from console import record
-from console.page import failed_since, reads_ended_since
+from console.library_folders import KIND_IMPORT
+from console.page import failed_since, imports_ended_since, reads_ended_since
 
 OPENED = 1000.0
 
@@ -77,6 +78,42 @@ class ReadsEndedSinceTests(unittest.TestCase):
     def test_other_work_is_not_a_read(self) -> None:
         self.assertEqual(reads_ended_since([_read("j1", kind=KIND_MEDIA_FILL)], OPENED, set()),
                          [])
+
+
+def _import(job_id: str, state: str = "done", finished_at: float | None = 1010.0,
+            report: bool = True) -> dict:
+    return {**_job(job_id, state, finished_at), "kind": KIND_IMPORT, "report": report}
+
+
+class ImportsEndedSinceTests(unittest.TestCase):
+    """The imports the page tells of once they end, wherever they started."""
+
+    def test_one_that_ended_after_the_page_opened_is_told(self) -> None:
+        found = imports_ended_since([_import("j1")], OPENED, set())
+
+        self.assertEqual([one["id"] for one in found], ["j1"])
+
+    def test_one_that_ended_before_the_page_opened_is_not_news(self) -> None:
+        self.assertEqual(
+            imports_ended_since([_import("j1", finished_at=990.0)], OPENED, set()), [])
+
+    def test_one_already_told_is_not_told_again(self) -> None:
+        self.assertEqual(imports_ended_since([_import("j1")], OPENED, {"j1"}), [])
+
+    def test_a_failed_import_has_the_failed_line(self) -> None:
+        jobs = [_import("j1", "failed", report=False)]
+
+        self.assertEqual(imports_ended_since(jobs, OPENED, set()), [])
+
+    def test_one_whose_report_could_not_be_kept_is_still_told(self) -> None:
+        found = imports_ended_since([_import("j1", report=False)], OPENED, set())
+
+        self.assertEqual([one["id"] for one in found], ["j1"])
+
+    def test_other_work_is_not_an_import(self) -> None:
+        job = {**_import("j1"), "kind": KIND_MEDIA_FILL}
+
+        self.assertEqual(imports_ended_since([job], OPENED, set()), [])
 
 
 class WaitingRunTests(unittest.TestCase):

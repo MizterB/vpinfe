@@ -1,7 +1,8 @@
 """What has run since this install started, one row per job.
 
 Drawn on the Logs page beside the log's own views. The registry keeps it in memory, so a
-restart starts the list again.
+restart starts the list again, apart from the jobs that kept their result: those come back
+with a report to open.
 """
 
 from __future__ import annotations
@@ -17,7 +18,10 @@ SCOPE = "console.jobs"
 LIMIT = jobs.HISTORY_LIMIT
 
 STOPPED = "stopped"
-OUTCOMES = (jobs.RUNNING, jobs.DONE, jobs.FAILED, STOPPED)
+# Finished, with parts that did not come across. A `done` job to the registry, which has
+# three states; to the person reading the list it is a run to open.
+WITH_ERRORS = "with_errors"
+OUTCOMES = (jobs.RUNNING, jobs.DONE, WITH_ERRORS, jobs.FAILED, STOPPED)
 
 
 def _said(field: str) -> dict[str, Any]:
@@ -33,7 +37,7 @@ COLUMNS = [
     grid.column("took", t("console.jobs.took"), 130, filter=False,
                 help=t("console.jobs.took.help"), **_said("took")),
     grid.column("outcome", t("console.jobs.outcome"), 120,
-                help=t("console.jobs.outcome.help"),
+                help="\n".join(t(f"console.jobs.outcome.{one}.help") for one in OUTCOMES),
                 **grid.choice_filter([{"value": one, "label": t(f"console.jobs.outcome.{one}")}
                                       for one in OUTCOMES])),
     grid.column("detail", t("console.jobs.detail"), 420,
@@ -45,6 +49,8 @@ def outcome_of(job: dict[str, Any]) -> str:
     state = str(job.get("state") or "")
     if state == jobs.DONE and job.get("stopped"):
         return STOPPED
+    if state == jobs.DONE and int(job.get("problems") or 0):
+        return WITH_ERRORS
     return state
 
 
@@ -73,6 +79,7 @@ def row(job: dict[str, Any], now: float) -> dict[str, Any]:
             "started": started, "started_said": when.at_second(started),
             "took": ran, "took_said": when.took(ran) if started else "",
             "outcome": outcome,
+            "report": bool(job.get("report")),
             "detail": _detail(job, outcome)}
 
 
