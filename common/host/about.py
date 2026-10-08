@@ -33,6 +33,11 @@ logger = logging.getLogger("vpinfe.common.host.about")
 _held: list[dict[str, Any]] | None = None
 
 
+class PathValue(str):
+    """A fact that is a path on disk. A placeholder like "Not set" stays a plain string, so
+    a client knows which values to draw as paths."""
+
+
 def details(refresh: bool = False) -> list[dict[str, Any]]:
     """Every group, in the order they are read and copied."""
     global _held
@@ -57,11 +62,21 @@ def details(refresh: bool = False) -> list[dict[str, Any]]:
             {"heading": t("about.heading.browser"), "facts": [
                 (t("word.name"), _browser_name(browser)),
                 (t("word.version"), _browser_version(browser) or t("word.unknown")),
-                (t("word.path"), browser or t("about.not_configured")),
+                (t("word.path"), PathValue(browser) if browser else t("about.not_configured")),
             ]},
             {"heading": t("about.heading.locations"), "facts": _locations()},
         ]
     return _held
+
+
+def described(refresh: bool = False) -> list[dict[str, Any]]:
+    """`details` as the wire carries it: each fact a `label` and `value`, and `path` where
+    the value is a path on disk."""
+    return [{"heading": one["heading"],
+             "facts": [{"label": label, "value": str(value),
+                        "path": isinstance(value, PathValue)}
+                       for label, value in one["facts"]]}
+            for one in details(refresh)]
 
 
 def as_text() -> str:
@@ -233,10 +248,11 @@ def _locations() -> list[tuple[str, str]]:
     from common.log_setup import log_file
     from common.paths import CONFIG_DIR, VPINFE_INI_PATH
 
-    found = [(t("about.fact.configuration"), str(CONFIG_DIR)),
-             (t("about.fact.settings_file"), str(VPINFE_INI_PATH))]
+    found: list[tuple[str, str]] = [
+        (t("about.fact.configuration"), PathValue(CONFIG_DIR)),
+        (t("about.fact.settings_file"), PathValue(VPINFE_INI_PATH))]
     log = log_file()
-    found.append((t("about.fact.log_file"), str(log) if log else t("about.no_log")))
+    found.append((t("about.fact.log_file"), PathValue(log) if log else t("about.no_log")))
     found += [(t("about.fact.library_folder"), path) for path in _library_folders()]
     return found
 
@@ -245,7 +261,7 @@ def _library_folders() -> list[str]:
     from common.games import library_folders
 
     try:
-        held = [one.path for one in library_folders.configured()]
+        held: list[str] = [PathValue(one.path) for one in library_folders.configured()]
     except Exception:  # noqa: BLE001
         logger.debug("Could not read the library folders", exc_info=True)
         return [t("word.unknown")]

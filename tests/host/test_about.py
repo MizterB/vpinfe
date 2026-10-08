@@ -56,6 +56,38 @@ class AboutTests(unittest.TestCase):
         self.assertEqual([value for label, value in facts if label == folder],
                          ["/games/first", "/games/one"])
 
+    def test_a_path_is_marked_and_a_placeholder_is_not(self) -> None:
+        """A client draws the marked values as paths, with their end and Copy path. "Not
+        set" is a word, and a Copy button on it would copy a word."""
+        from common.games.library_folders import Location
+        from common.i18n import t
+
+        with mock.patch("common.games.library_folders.configured",
+                        return_value=[Location("l1", "/games/first")]):
+            held = {label: value for group in about.details(refresh=True)
+                    for label, value in group["facts"]}
+        self.assertIsInstance(held[t("about.fact.library_folder")], about.PathValue)
+        self.assertIsInstance(held[t("about.fact.configuration")], about.PathValue)
+
+        with mock.patch("common.games.library_folders.configured", return_value=[]):
+            unset = [value for group in about.details(refresh=True)
+                     for label, value in group["facts"] if label == t("about.fact.library_folder")]
+        self.assertEqual([str(value) for value in unset], [t("about.not_set")])
+        self.assertNotIsInstance(unset[0], about.PathValue)
+
+    def test_the_route_says_which_facts_are_paths(self) -> None:
+        from fastapi.testclient import TestClient
+
+        import httpapi
+        from common.i18n import t
+
+        client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
+        groups = client.get("/about").json()["groups"]
+        facts = {fact["label"]: fact for group in groups for fact in group["facts"]}
+
+        self.assertTrue(facts[t("about.fact.settings_file")]["path"])
+        self.assertFalse(facts[t("word.version")]["path"])
+
     def test_it_is_read_once(self) -> None:
         """Every field costs a subprocess or a config read, and none of them changes
         while VPinFE is running."""

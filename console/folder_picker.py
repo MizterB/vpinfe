@@ -184,7 +184,7 @@ async def pick_path(list_entries: Callable[..., dict], start: str = "", *,
                 with control.add_slot("prepend"):
                     ui.icon(_ROW_ICON[kind] if kind != "dir" and state["selected"]
                             else _icon_for(places.get(here_now["path"], {}).get("name", ""),
-                                           here_now["path"])).classes("console-where-mark")
+                                           here_now["path"])).classes("console-path-mark")
                 with control.add_slot("append"):
                     mark = ui.element("div").classes("console-value-state")
                     panel.copy_path(control)

@@ -373,8 +373,7 @@ def _row(block: Folders, folder: Folder, at: int, of: int) -> None:
                 .props("tabindex=0 role=button") \
                 .tooltip(t("console.workbench.drag_hint"))
         with ui.column().classes("gap-0 grow min-w-0"):
-            ui.label(folder.path).classes("console-fact-value truncate min-w-0") \
-                .tooltip(folder.path)
+            panel.path_text(folder.path)
             _caption(block, folder)
         if chip := state_chip(folder):
             word, level, tip = chip

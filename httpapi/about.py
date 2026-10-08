@@ -29,11 +29,4 @@ def read(refresh: bool = False) -> dict[str, Any]:
     them changes while VPinFE runs - so `refresh` is there for the case somebody has
     changed a setting and wants to see it, not for a caller on a timer.
     """
-    groups = about.details(refresh)
-    return {
-        "groups": [{"heading": one["heading"],
-                    "facts": [{"label": label, "value": value}
-                              for label, value in one["facts"]]}
-                   for one in groups],
-        "text": about.as_text(),
-    }
+    return {"groups": about.described(refresh), "text": about.as_text()}

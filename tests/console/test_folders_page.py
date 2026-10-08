@@ -463,7 +463,7 @@ class DrawTests(unittest.TestCase):
         said = []
         for one in holder.descendants():
             if isinstance(one, (ui.label, ui.button)) and one.text:
-                said.append(one.text)
+                said.append(one.text.replace("\u200e", ""))
             elif isinstance(one, ui.switch):
                 said.append(f"switch:{one.value}")
         return said

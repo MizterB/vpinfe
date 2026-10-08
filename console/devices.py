@@ -1443,4 +1443,4 @@ def _log_lines(records: list[dict[str, Any]], path: str) -> None:
                 ui.label(str(record.get("logger") or "")).classes("console-log-source")
             ui.label(str(record.get("message") or "")).classes("console-log-message")
     if path:
-        ui.label(path).classes("console-log-path")
+        panel.path_text(path, classes="console-log-path")

@@ -721,12 +721,8 @@ def _taken(row: dict[str, Any]) -> Callable[[], None]:
 
 
 def _file(row: dict[str, Any]) -> Callable[[], None]:
-    def draw() -> None:
-        icon = "folder" if row["kind"] == kept_copies.KIND_THEME else "description"
-        _face, menu = panel.path_face(icon, row["path"], name=t("word.file"))
-        with menu:
-            _copy_path(row["path"])(menu.close)
-    return draw
+    icon = "folder" if row["kind"] == kept_copies.KIND_THEME else "description"
+    return panel.path_value(row["path"], icon=icon)
 
 
 def _name_of_owner(row: dict[str, Any]) -> None:

@@ -11,6 +11,7 @@ into an entry list as the second half of a pair.
 from __future__ import annotations
 
 import inspect
+import json
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
@@ -554,21 +555,28 @@ def icon_only(icon: str, on_click: Callable[[], Any], *, hint: str = "") -> Any:
     return control
 
 
-def path_face(icon: str, path: str, *, name: str) -> tuple[Any, Any]:
-    """A button drawn as the Console's outlined dropdown whose face is a path, and the
-    menu it opens. `name` is its accessible name and the whole `path` its tooltip. The
-    path reads right to left so a long one gives up its start to the ellipsis; the
-    left-to-right marks around it keep its slashes and colon where they were typed."""
-    ltr = "‎"
-    face = ui.button().props("flat no-caps align=left").classes("grow console-where")
-    face.props["aria-label"] = name
-    face.tooltip(path)
-    with face:
-        ui.icon(icon).classes("console-where-mark")
-        ui.label(f"{ltr}{path}{ltr}").classes("console-where-path grow")
-        ui.icon("arrow_drop_down").classes("console-where-caret")
-        menu = ui.menu().props("fit")
-    return face, menu
+def path_text(path: str, *, icon: str = "", classes: str = "") -> Any:
+    """A path drawn as text: its end in view with the start given up to an ellipsis, the
+    whole path as the tooltip, and Copy path after it. Returns the row.
+
+    The path reads right to left so the start is what gets cut; the left-to-right marks
+    around it keep its slashes and colon where they were typed.
+    """
+    ltr = "\u200e"
+    with ui.row().classes(f"items-center gap-1 no-wrap min-w-0 console-path-text {classes}"
+                          .strip()) as row:
+        if icon:
+            ui.icon(icon).classes("console-path-mark")
+        ui.label(f"{ltr}{path}{ltr}").classes("console-path-end min-w-0").tooltip(path)
+        copy_text(path)
+    return row
+
+
+def path_value(path: str, *, icon: str = "") -> Callable[[], None]:
+    """`path_text` as the value of a `facts` row, which draws what it is handed."""
+    def draw() -> None:
+        path_text(path, icon=icon)
+    return draw
 
 
 def selection_actions(hint: str) -> tuple[Any, Any]:
@@ -949,17 +957,29 @@ def path_ends(control: ui.input) -> None:
     ui.run_javascript(f"window.consolePathEnd && consolePathEnd('{native_id(control)}')")
 
 
-def copy_path(control: ui.input) -> ui.button:
-    """Copy path, drawn in a path field's append slot. It copies what the field holds, in
-    the browser at the click, which is the only moment it will copy."""
+def _copy_button(browser_text: str, text: Callable[[], str]) -> ui.button:
+    """A Copy path button. `browser_text` is the JavaScript expression for the text, read
+    in the browser at the click, which is the only moment the browser will copy."""
     from console import about
 
     button = ui.button(icon=verbs.COPY).props("flat round dense").tooltip(t("word.copy_path"))
     button.props["aria-label"] = t("word.copy_path")
-    button.on("click", lambda event: about.copied(bool(event.args), str(control.value or "")),
-              js_handler=about.COPY_JS % f"document.getElementById('{native_id(control)}').value")
+    button.on("click", lambda event: about.copied(bool(event.args), text()),
+              js_handler=about.COPY_JS % browser_text)
+    return button
+
+
+def copy_path(control: ui.input) -> ui.button:
+    """Copy path, drawn in a path field's append slot. It copies what the field holds."""
+    button = _copy_button(f"document.getElementById('{native_id(control)}').value",
+                          lambda: str(control.value or ""))
     button.bind_visibility_from(control, "value", backward=bool)
     return button
+
+
+def copy_text(path: str) -> ui.button:
+    """Copy path after a path drawn as text."""
+    return _copy_button(json.dumps(path), lambda: path)
 
 
 def path_buttons(control: ui.input, browsed: Callable[[], Any]) -> None:

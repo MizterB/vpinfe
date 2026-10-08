@@ -815,23 +815,41 @@ def _loose_media(context: dict[str, Any]) -> None:
     with ui.column().classes("w-full gap-1 console-slot p-2"):
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             with ui.row().classes("items-start gap-2 w-full no-wrap"):
-                ui.label(path or str(row.get("file") or "")) \
+                where = _on_disk(context, path)
+                named = ui.label(path or str(row.get("file") or "")) \
                     .classes("console-slot-file grow min-w-0")
+                if where:
+                    named.tooltip(where)
+                    panel.copy_text(where)
                 media_ownership.badge(tier)
             ui.label(t(media_ownership.tier_for(tier).why)).classes("console-help")
 
 
-def _file_line(context: dict[str, Any], kind: str, name: str, view: str) -> None:
-    """A file's name, which opens the file's own panel in `view` where a dock draws it.
-    `view` is "" in the file's own panel, where the name is already that panel's."""
+def _on_disk(context: dict[str, Any], path: str) -> str:
+    """Where a file the game's folder holds is on this machine, from the path it is
+    addressed by there. Empty when the folder or the path is not known."""
+    folder = str((context.get("game") or {}).get("folder") or "")
+    return str(Path(folder) / path) if folder and path else ""
+
+
+def _file_line(context: dict[str, Any], kind: str, name: str, view: str,
+               path: str = "") -> None:
+    """A file's name, which opens the file's own panel in `view` where a dock draws it,
+    with the whole path on hover and Copy path after it. `view` is "" in the file's own
+    panel, where the name is already that panel's."""
     classes = "console-slot-file grow min-w-0"
+    where = _on_disk(context, path)
     if not view:
-        ui.label(name).classes(classes)
-        return
-    table = str((context.get("row") or {}).get("table") or context["lens"] or "")
-    to = "/console?" + deeplink.query({"view": view, "game": context["game_id"],
-                                       "table": table, "slot": {"kind": kind}})
-    panel.link(name, to=to, classes=classes)()
+        named = ui.label(name).classes(classes)
+        if where:
+            named.tooltip(where)
+    else:
+        table = str((context.get("row") or {}).get("table") or context["lens"] or "")
+        to = "/console?" + deeplink.query({"view": view, "game": context["game_id"],
+                                           "table": table, "slot": {"kind": kind}})
+        panel.link(name, to=to, classes=classes, hint=where)()
+    if where:
+        panel.copy_text(where)
 
 
 def _asset_said(context: dict[str, Any], tier: str) -> str:
@@ -873,7 +891,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                 .classes("console-help")
             return
         with ui.row().classes("items-start gap-2 w-full no-wrap"):
-            _file_line(context, kind, path, str(context.get("link_view") or ""))
+            _file_line(context, kind, path, str(context.get("link_view") or ""), path)
             if tier not in media_ownership.SCOPES:
                 media_ownership.badge(tier)
             if glass and not glass["damaged"]:
@@ -2161,7 +2179,8 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
         with ui.column().classes("w-full gap-0 console-slot-facts"):
             if present:
                 with ui.row().classes("items-start gap-2 w-full no-wrap"):
-                    _file_line(context, kind, str(file_name), "media" if in_place else "")
+                    _file_line(context, kind, str(file_name), "media" if in_place else "",
+                               str(detail.get("path") or entry.get("path") or ""))
                     via = detail.get("via") or entry.get("via")
                     if scope_chip or media_ownership.key_of(via) not in media_ownership.SCOPES:
                         media_ownership.badge(via)
@@ -2522,8 +2541,6 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
                   links: Sequence[dict[str, Any]] = (),
                   copies: list[dict[str, Any]] | None = None) -> list[tuple[Any, Any]]:
     game = context["game"]
-    # The folder is the tail, not the whole path: the library root is the same for
-    # every game and repeating it costs the only column that has to hold a name.
     folder = str(game.get("folder") or "")
     found = game.get("discovered") or {}
 
@@ -2559,7 +2576,7 @@ def _game_entries(context: dict[str, Any], entry: dict[str, Any],
          _override(ipdb, str(found.get("ipdb_id") or ""), "VPS", save("alt_ipdb_id"),
                    beside=IPDB_URL.format(id=ipdb) if ipdb else "")),
         *_outside(links),
-        (t("word.folder"), PurePosixPath(folder).name or folder or "-"),
+        (t("word.folder"), panel.path_value(folder) if folder else "-"),
     ]
     if copies is not None:
         entries.append((t("console.section.backups"), backup_rows.row(
@@ -3132,10 +3149,10 @@ def _table_entries(table: dict[str, Any],
     elif reference:
         # Where it is comes first, because that is the fact that makes this entry
         # different from every other one on the page.
+        where = str(reference.get("resolved") or reference.get("path") or "")
         entries += [
             (HEADING, game_tables.ELSEWHERE),
-            (t("word.path"),
-                    reference.get("resolved") or reference.get("path") or "-"),
+            (t("word.path"), panel.path_value(where) if where else "-"),
             (t("word.now"), panel.state(
                 game_tables.word_for(game_tables.REACH_WORDS,
                                      not reference.get("reachable")),
@@ -5976,21 +5993,11 @@ async def _config_backups(context: dict[str, Any]) -> None:
     playing = bool(context.get("playing"))
     entries: list[tuple[Any, Any]] = []
     if named:
-        entries.append((t("word.file"), _file_value(named[0])))
+        entries.append((t("word.file"), panel.path_value(named[0])))
     entries.append((t("console.section.backups"), backup_rows.row(
         library, "launcher", launcher_id, str(launcher.get("display_name") or launcher_id),
         held, context["rebuild"], hint=t(PLAYING_NOTE) if playing else "")))
     _rows(ui, entries)
-
-
-def _file_value(path: str) -> Callable[[], None]:
-    """The name, with the whole path where a whole path belongs."""
-    from pathlib import Path as _Path
-
-    def draw() -> None:
-        ui.label(_Path(path).name).classes(
-            "console-fact-value truncate min-w-0").tooltip(path)
-    return draw
 
 
 async def _collection_details(context: dict[str, Any]) -> None:

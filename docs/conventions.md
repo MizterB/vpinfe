@@ -806,6 +806,10 @@ the default or choosing it clears the setting; any other path draws the dot befo
 Reset after it. Browse opens at the field's path, else at the default, else at the nearest
 folder above a default that is not there yet, saying nothing of the climb.
 
+A path drawn as text, not typed into, is its end with the start ellipsised, the whole path
+on hover, and **Copy path** after it. `panel.path_text`, `panel.path_value` (for a fact row)
+and `panel.copy_text` draw it; a bare `ui.label(path)` in a fact row does not.
+
 The picker's path is a field, not a face to open: beside Up, the folder you are in as text
 with that folder's icon, the check or cross of the path fields on the right, then **Copy
 path** and a caret that opens **Places**. Clicking in selects the whole path. Typing or

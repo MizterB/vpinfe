@@ -177,6 +177,26 @@ PATH_WIDTHS = """(() => {
 })()"""
 
 
+# A path drawn as text reads from its end and has Copy path after it; a path left in a fact
+# row as plain text has neither.
+PATH_TEXTS = r"""(() => {
+  const shown = el => el.getClientRects().length > 0;
+  const drawn = [...document.querySelectorAll('.console-path-text')].filter(shown);
+  const problems = [];
+  for (const row of drawn) {
+    const end = row.querySelector('.console-path-end');
+    const name = end ? end.textContent.replace(/\u200e/g, '') : '';
+    if (!end || getComputedStyle(end).direction !== 'rtl') problems.push([name, 'start first']);
+    if (!row.querySelector('button[aria-label]')) problems.push([name, 'no Copy path']);
+    if (end && getComputedStyle(end).pointerEvents === 'none') problems.push([name, 'no hover']);
+  }
+  const loose = [...document.querySelectorAll('.console-fact-value')].filter(shown)
+    .map(el => el.textContent.trim())
+    .filter(text => /^(\/|~\/|[A-Za-z]:[\\/])/.test(text));
+  return {drawn: drawn.length, problems, loose};
+})()"""
+
+
 def _vpx_install(root: Path) -> dict[str, str]:
     defaults = {"bool": "0", "int": "0", "number": "1.0", "string": "''",
                 "choice": "0, 0='One', 1='Two'"}
@@ -243,6 +263,7 @@ class ConsolePagesDrive(unittest.TestCase):
         dropdowns: dict = {"measured": 0, "problems": []}
         stretched: dict = {"measured": 0, "problems": []}
         paths: dict = {"measure": 0, "widths": []}
+        texts: dict = {"drawn": 0, "problems": [], "loose": []}
 
         async def look(where: str) -> None:
             said = await browser.evaluate(DROPDOWNS)
@@ -254,6 +275,10 @@ class ConsolePagesDrive(unittest.TestCase):
             said = await browser.evaluate(PATH_WIDTHS)
             paths["measure"] = said["measure"] or paths["measure"]
             paths["widths"] += [[where, *one] for one in said["widths"]]
+            said = await browser.evaluate(PATH_TEXTS)
+            texts["drawn"] += said["drawn"]
+            texts["problems"] += [[where, *one] for one in said["problems"]]
+            texts["loose"] += [[where, one] for one in said["loose"]]
 
         async with BrowserSession(chromium_path()) as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
@@ -302,7 +327,7 @@ class ConsolePagesDrive(unittest.TestCase):
             stretched["finding"] = await browser.evaluate(
                 "!!document.querySelector('.console-settings-body .console-attention')")
         return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns,
-                "stretched": stretched, "paths": paths}
+                "stretched": stretched, "paths": paths, "texts": texts}
 
     def test_every_rail_opened_something(self) -> None:
         for query, found in self.seen["headings"].items():
@@ -351,6 +376,12 @@ class ConsolePagesDrive(unittest.TestCase):
         paths = self.seen["paths"]
         self.assertGreater(len(paths["widths"]), 3, "an empty sweep passes and measures nothing")
         self.assertEqual([], [one for one in paths["widths"] if one[2] != paths["measure"]])
+
+    def test_a_path_drawn_as_text_reads_from_its_end_and_can_be_copied(self) -> None:
+        texts = self.seen["texts"]
+        self.assertGreater(texts["drawn"], 3, "an empty sweep passes and measures nothing")
+        self.assertEqual([], texts["problems"])
+        self.assertEqual([], texts["loose"])
 
 
 if __name__ == "__main__":

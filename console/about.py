@@ -103,7 +103,9 @@ def _draw(body: Any, groups: list[dict[str, Any]], held: dict[str, Any],
         entries: list[tuple[Any, Any]] = []
         for group in groups:
             entries.append((panel.HEADING, str(group.get("heading") or "")))
-            entries += [(str(fact.get("label") or ""), str(fact.get("value") or ""))
+            entries += [(str(fact.get("label") or ""),
+                         panel.path_value(str(fact["value"])) if fact.get("path")
+                         and fact.get("value") else str(fact.get("value") or ""))
                         for fact in group.get("facts") or []]
         panel.facts(ui, entries)
 
