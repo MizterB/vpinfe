@@ -12,6 +12,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from common import apps
+from common.config_store import ConfigStore
 from common.games import launcher_migration, launchers
 
 
@@ -29,15 +31,22 @@ class SeedTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.core = ConfigStore(os.path.join(self.tmp.name, "vpinfe.json"))
         self.profiles = os.path.join(self.tmp.name, "plugin_profiles")
 
-    def _seed(self, config=None) -> bool:
-        from pathlib import Path
-        with patch.object(launcher_migration, "PLUGIN_PROFILES_DIR",
-                          Path(self.profiles)):
-            return launcher_migration.seed(self.store, config or _config())
+    @property
+    def store(self) -> launchers.LauncherStore:
+        return launchers.LauncherStore(self.tmp.name)
+
+    def _seed(self, config=None) -> None:
+        for section in (config or _config()).sections():
+            if not self.core.config.has_section(section):
+                self.core.config.add_section(section)
+            for key, value in (config or _config()).items(section):
+                self.core.config.set(section, key, value)
+        with patch.object(launcher_migration, "PLUGIN_PROFILES_DIR", Path(self.profiles)):
+            launcher_migration.seed(self.core)
+        self.core.save()
 
     def _profile(self, name: str) -> None:
         os.makedirs(self.profiles, exist_ok=True)
@@ -71,6 +80,9 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(one.value("ini_path"), "/home/cab/VPinballX.ini")
         self.assertIs(one.value("log_delete_on_start"), True)
         self.assertNotIn("table_ini_override_mask", one.settings)
+        self.assertTrue(self.core.config.has_option(
+            "Settings", "globaltableinioverridemask"),
+            "left for the pass that renames the per-table files")
 
     def test_a_3x_file_seeds_from_the_current_spellings(self) -> None:
         parser = configparser.ConfigParser()
@@ -86,13 +98,14 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(one.value("ini_path"), "/cfg/other.ini",
                          "the override was the file Visual Pinball started with")
         self.assertNotIn("ini_override", one.settings)
+        self.assertFalse(self.core.config.has_option("general", "vpx_bin_path"))
 
     def test_an_install_with_nothing_configured_still_gets_one(self) -> None:
         """A launcher with no binary is something a person can fix from the Console. No
         launcher at all is a machine with nothing to point at."""
         self._seed(configparser.ConfigParser())
 
-        self.assertEqual(len(self.store.launchers()), 1)
+        self.assertEqual([one.app for one in self.store.launchers()], ["vpx"])
 
     def test_each_plugin_profile_becomes_a_launcher(self) -> None:
         self._profile("no-dmd.ini")
@@ -154,23 +167,21 @@ class SeedTests(unittest.TestCase):
 
         self.assertEqual(len(self.store.launchers()), 2)
 
-    def test_it_runs_once(self) -> None:
-        """Somebody who deletes a launcher they did not want must not find it back on
-        the next start."""
-        self.assertTrue(self._seed())
-        self.store.remove(self.store.launchers()[0].launcher_id)
-
-        self.assertFalse(self._seed())
-        self.assertEqual(self.store.launchers(), [])
-
-    def test_launchers_added_later_are_left_alone(self) -> None:
-        self._seed()
-        self.store.put(launchers.Launcher(launcher_id="mine", app="vpx"))
-
+    def test_it_carries_exactly_what_the_app_declares(self) -> None:
+        """A field left unseeded reads as its default, which for a path means the install
+        quietly stopped using what it was configured with."""
         self._seed()
 
-        self.assertEqual([one.launcher_id for one in self.store.launchers()][-1],
-                         "mine")
+        self.assertEqual(sorted(self.store.launchers()[0].settings),
+                         sorted(f.key for f in apps.launcher_fields("vpx")))
+
+    def test_the_keys_it_read_are_consumed(self) -> None:
+        """Seeding runs once because there is nothing left to read, and a launcher
+        somebody deletes does not come back."""
+        self._seed()
+
+        self.assertFalse(self.core.config.has_option("Settings", "vpxbinpath"))
+        self.assertFalse(self.core.config.has_option("Settings", "vpxlaunchenv"))
 
 
 class _Game:
@@ -188,8 +199,7 @@ class AssignmentTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.store = launchers.LauncherStore(self.tmp.name)
         self.store.save([launchers.Launcher(
             launcher_id="shipped", app="vpx",
             display_name=launcher_migration.SHIPPED_NAME,
@@ -310,11 +320,12 @@ class AssignmentTests(unittest.TestCase):
 
         self.assertEqual(written, [])
 
-    def test_it_runs_once(self) -> None:
-        self._run([_Game("vr", {"alt_launcher": "/opt/x/VPinballX"})])
+    def test_what_it_read_is_gone_so_a_second_pass_finds_nothing(self) -> None:
+        game = _Game("vr", {"alt_launcher": "/opt/x/VPinballX"})
+        self._run([game])
         self.store.assign("t-vr", "")
 
-        self._run([_Game("vr", {"alt_launcher": "/opt/x/VPinballX"})])
+        self._run([game])
 
         self.assertEqual(self.store.mappings(), {})
 
@@ -325,8 +336,8 @@ class TablePatternTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.core = ConfigStore(os.path.join(self.tmp.name, "vpinfe.json"))
+        self.core.config.add_section("Settings")
         self.game_dir = Path(self.tmp.name) / "Example (Maker 1990)"
         self.game_dir.mkdir()
         (self.game_dir / "Example.vpx").write_text("", encoding="utf-8")
@@ -338,10 +349,10 @@ class TablePatternTests(unittest.TestCase):
         return game
 
     def _run(self, enabled: str = "true", mask: str = "windows") -> int:
-        return launcher_migration.retire_table_pattern(
-            self.store,
-            _config(globaltableinioverrideenabled=enabled, globaltableinioverridemask=mask),
-            [self._game()])
+        for key, value in (("globaltableinioverrideenabled", enabled),
+                           ("globaltableinioverridemask", mask)):
+            self.core.config.set("Settings", key, value)
+        return launcher_migration.retire_table_pattern(self.core, [self._game()])
 
     def _file(self, name: str, text: str) -> Path:
         path = self.game_dir / name
@@ -373,13 +384,59 @@ class TablePatternTests(unittest.TestCase):
 
         self.assertFalse((self.game_dir / "Example.ini").exists())
 
-    def test_it_runs_once(self) -> None:
+    def test_the_keys_go_so_it_runs_once(self) -> None:
         self._run()
         self._file("Example.windows.ini", "[Player]\n")
 
-        self.assertEqual(self._run(), 0)
+        again = launcher_migration.retire_table_pattern(self.core, [self._game()])
 
+        self.assertEqual(again, 0)
         self.assertFalse((self.game_dir / "Example.ini").exists())
+
+
+
+class ConvertedIniTests(unittest.TestCase):
+    """A 2.x file read by the config store: the seed runs inside the conversion."""
+
+    def _converted(self, ini: str) -> tuple[ConfigStore, launchers.LauncherStore]:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        folder = Path(tmp.name)
+        (folder / "vpinfe.ini").write_text(ini, encoding="utf-8")
+        with patch.object(launcher_migration, "PLUGIN_PROFILES_DIR", folder / "none"):
+            core = ConfigStore(str(folder / "vpinfe.json"))
+        return core, launchers.LauncherStore(folder)
+
+    def test_the_seven_keys_become_the_first_launcher_and_leave_the_file(self) -> None:
+        core, store = self._converted(
+            "[Settings]\nvpxbinpath = /opt/vpinball/VPinballX_GL\n"
+            "vpxlogdeleteonstart = true\n")
+
+        [one] = store.launchers()
+        self.assertEqual(one.value("bin_path"), "/opt/vpinball/VPinballX_GL")
+        self.assertIs(one.value("log_delete_on_start"), True)
+        self.assertEqual(one.display_name, launcher_migration.SHIPPED_NAME)
+        for section in core.config.sections():
+            self.assertFalse(
+                {"vpxbinpath", "vpx_bin_path", "vpxlogdeleteonstart"}
+                & set(core.config.options(section)), section)
+
+    def test_the_pattern_keys_are_still_found_to_rename_the_files(self) -> None:
+        core, _ = self._converted(
+            "[Settings]\nglobaltableinioverrideenabled = true\n"
+            "globaltableinioverridemask = windows\n")
+
+        self.assertEqual(launcher_migration.retire_table_pattern(core, []), 0)
+        for section in core.config.sections():
+            self.assertFalse(
+                {"globaltableinioverridemask", "global_game_ini_override_mask"}
+                & set(core.config.options(section)), section)
+
+    def test_a_file_with_none_of_them_keeps_the_shipped_launcher(self) -> None:
+        _, store = self._converted("[Settings]\ntablerootdir = /games\n")
+
+        [one] = store.launchers()
+        self.assertEqual(one.value("bin_path"), "")
 
 
 if __name__ == "__main__":

@@ -345,7 +345,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     # the binary, its ini, the environment, the log-delete switch and the three override
     # keys. They are not settings an install has, they are fields of a way of running an
     # app, and a second way of running it would have collided with every one of them.
-    # `launchers.json` holds them now; `launcher_migration` reads them out of an older
+    # The `launchers` list holds them now; `launcher_migration` reads them out of an older
     # file once. What is left here belongs to the install itself.
     *in_section(
         "general",
@@ -383,7 +383,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
     # installed later arrives on. The Extensions page draws a switch per extension.
     *in_section("extensions", ConfigOption("switched_off", type="list", default="")),
     # Commands the install runs around itself. `table_commands` below is the same, around
-    # a table, and a launcher's own are in `launchers.json`.
+    # a table, and a launcher's own are in the `launchers` list.
     *in_section(
         "commands",
         # Declared first because it governs every command here and in `table_commands`.
@@ -1305,7 +1305,41 @@ def _typed_field(list_key: str, field: Field, value: Any) -> Any:
     return value
 
 
+def _launcher_kinds() -> Sequence[str]:
+    from common import apps
+
+    return [app.id for app in apps.all_apps()]
+
+
+def _launcher_fields(kind: str) -> Sequence[Field] | None:
+    from common import apps
+
+    return apps.launcher_fields(kind)
+
+
+def _default_launchers() -> list[dict[str, Any]]:
+    """The shipped launcher, under a fresh id."""
+    from common import apps
+    from common.install_identity import mint_id
+
+    return [{"id": mint_id(), "app": "vpx", "name": apps.app_name("vpx"), "enabled": True,
+             "owns_ini": False, "tables": [], "settings": {}}]
+
+
 CONFIG_LISTS: tuple[ConfigList, ...] = (
+    ConfigList(
+        "launchers",
+        (
+            Field("app", type="string"),
+            Field("name", type="string"),
+            Field("enabled", type="bool", default="true"),
+            Field("owns_ini", type="bool", default="false"),
+            Field("tables", type="list"),
+        ),
+        home="launchers",
+        variant=ListVariant("app", _launcher_kinds, _launcher_fields),
+        default=_default_launchers,
+    ),
     ConfigList(
         "locations",
         (
@@ -1342,20 +1376,21 @@ def normalize(key: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return fn(items) if fn else items
 
 
-_VALIDATORS: dict[str, Callable[[list[dict[str, Any]]], None]] = {}
+_VALIDATORS: dict[str, Callable[[list[dict[str, Any]], list[dict[str, Any]]], None]] = {}
 
 
-def register_validator(key: str, fn: Callable[[list[dict[str, Any]]], None]) -> None:
-    """`fn` sees a list's items at every write, after each is typed, and raises
-    `ConfigListError` to refuse the write. The normalizer is for a file somebody edited,
-    which has to load; this is for a write, which can be told no."""
+def register_validator(
+        key: str, fn: Callable[[list[dict[str, Any]], list[dict[str, Any]]], None]) -> None:
+    """`fn(items, held)` runs on every write, after typing, and raises `ConfigListError` to
+    refuse it. `held` is what the store holds now."""
     _VALIDATORS[key] = fn
 
 
-def validate(key: str, items: list[dict[str, Any]]) -> None:
+def validate(key: str, items: list[dict[str, Any]],
+             held: list[dict[str, Any]] | None = None) -> None:
     fn = _VALIDATORS.get(key)
     if fn:
-        fn(items)
+        fn(items, held or [])
 
 
 def register_seed(name: str, fn: Callable[[Any], None]) -> None:

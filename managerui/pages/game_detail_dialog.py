@@ -609,7 +609,7 @@ def _render_game_dialog(row_data: dict, on_close: Callable[[], None] | None = No
 
                 # Alt Launcher and Plugin Profile were here and are gone. Both wrote
                 # `.info` keys that nothing reads any more: which launcher plays a table
-                # is the install's business now, held in launchers.json and set from the
+                # is the install's business now, held in the launchers list and set from the
                 # Console. Leaving the controls would have been two fields that save
                 # successfully and change nothing.
 

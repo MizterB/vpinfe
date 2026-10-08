@@ -62,7 +62,7 @@ from common import (
 from common.config_store import ConfigStore
 
 # Registers the seed the 2.x conversion runs, so it has to be in before the ConfigStore below.
-from common.games import library_folders  # noqa: F401
+from common.games import launcher_migration, launchers, library_folders  # noqa: F401
 from common.host.dof_service import start_dof_service_if_enabled, stop_dof_service
 from common.host.libdmdutil_service import (
     stop_libdmdutil_service,
@@ -282,12 +282,10 @@ try:
     discover(games)
     ensure_unique_table_ids(games)
     # After the ids, because a launcher assignment is recorded against a table and a
-    # table has no id until the line above has run. One-time, marked so it never runs
-    # twice, and it only writes the games that carried an override.
-    from common.games.launcher_migration import migrate_assignments, retire_table_pattern
-    from common.games.launchers import get_launcher_store
-    migrate_assignments(get_launcher_store(), games)
-    retire_table_pattern(get_launcher_store(), config_store, games)
+    # table has no id until the line above has run. It only writes the games that carried
+    # an override, and takes the keys out as it reads them.
+    launcher_migration.migrate_assignments(launchers.get_launcher_store(), games)
+    launcher_migration.retire_table_pattern(config_store, games)
     if upgraded := sum(1 for game in awaiting_upgrade if not game.info_pending_upgrade):
         migration_ledger.record("info_upgrade", get_version(), upgraded)
 except Exception:

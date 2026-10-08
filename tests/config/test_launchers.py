@@ -5,14 +5,13 @@ launch path both read, and them disagreeing means what will actually happen at l
 is not visible anywhere before it happens.
 """
 
-import json
-import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from apps.vpx import FIELDS as VPX_FIELDS
+from common import apps
+from common.config_store import ConfigStore
 from common.games import launchers
 
 
@@ -27,19 +26,23 @@ class StoreTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.store = launchers.LauncherStore(self.tmp.name)
+        self.store.save([], {})
 
-    def test_a_first_run_has_none_and_that_is_not_an_error(self) -> None:
-        self.assertEqual(self.store.launchers(), [])
-        self.assertEqual(self.store.mappings(), {})
+    def test_a_first_run_has_the_shipped_launcher_and_no_assignments(self) -> None:
+        fresh = launchers.LauncherStore(Path(self.tmp.name) / "fresh")
+
+        self.assertEqual([one.app for one in fresh.launchers()], ["vpx"])
+        self.assertEqual(fresh.mappings(), {})
 
     def test_a_launcher_survives_being_written_and_read(self) -> None:
         one = _launcher("a", settings={"bin_path": "/usr/bin/vpx"}, owns_ini=True)
 
         self.store.put(one)
 
-        self.assertEqual(self.store.get("a"), one)
+        got = self.store.get("a")
+        self.assertEqual(got.settings["bin_path"], "/usr/bin/vpx")
+        self.assertTrue(got.owns_ini)
 
     def test_putting_the_same_id_replaces_in_place(self) -> None:
         """Order is what says which launcher is the default, so a replacement that moved
@@ -52,6 +55,25 @@ class StoreTests(unittest.TestCase):
         self.assertEqual([one.launcher_id for one in self.store.launchers()],
                          ["a", "b"])
         self.assertEqual(self.store.get("a").display_name, "renamed")
+
+    def test_a_table_moves_off_a_launcher_whose_app_is_gone(self) -> None:
+        """Moving a table changes only which launcher lists it, so a launcher this install
+        can no longer name does not block it."""
+        import json
+
+        self.store.put(_launcher("a"))
+        self.store.put(_launcher("b"))
+        self.store.assign("T1", "b")
+        path = Path(self.tmp.name) / "vpinfe.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for item in data["launchers"]:
+            if item["id"] == "b":
+                item["app"] = "gone"
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        self.store.assign("T1", "a")
+
+        self.assertEqual(self.store.mapped("T1"), "a")
 
     def test_removing_takes_its_mappings_with_it(self) -> None:
         """A table pointing at a launcher that was deleted is not a state anybody chose,
@@ -93,34 +115,32 @@ class StoreTests(unittest.TestCase):
 
         self.assertEqual(self.store.mappings(), {})
 
-    def test_a_mapping_to_a_launcher_that_is_gone_is_dropped_on_read(self) -> None:
-        """Hand-edited, or left by a build that wrote them apart. A table reporting an
-        override it does not have is worse than one reporting none."""
-        with open(self.store.path, "w", encoding="utf-8") as handle:
-            json.dump({"schema": 1,
-                       "launchers": [{"launcher_id": "a", "app": "vpx"}],
-                       "mappings": {"table-1": "a", "table-2": "ghost"}}, handle)
-
-        self.assertEqual(self.store.mappings(), {"table-1": "a"})
-
-    def test_an_unreadable_file_is_an_empty_store(self) -> None:
-        with open(self.store.path, "w", encoding="utf-8") as handle:
-            handle.write("{not json")
-
-        with self.assertLogs("vpinfe.common.games.launchers", level="ERROR"):
-            self.assertEqual(self.store.launchers(), [])
-
-    def test_a_field_a_newer_build_wrote_is_carried_through(self) -> None:
-        """A downgrade must not silently strip what it does not understand."""
-        with open(self.store.path, "w", encoding="utf-8") as handle:
-            json.dump({"schema": 1, "launchers": [
-                {"launcher_id": "a", "app": "vpx", "future": "kept"}]}, handle)
-
+    def test_a_table_listed_on_two_launchers_belongs_to_the_first(self) -> None:
+        """Hand-edited. Two launchers claiming one table would make which one plays it
+        depend on which was read last."""
+        self.store.put(_launcher("a"))
         self.store.put(_launcher("b"))
+        config = ConfigStore(str(Path(self.tmp.name) / "vpinfe.json"))
+        config.set_list("launchers", [
+            {**item, "tables": ["table-1"]} for item in config.get_list("launchers")])
+        config.save()
 
-        with open(self.store.path, encoding="utf-8") as handle:
-            written = json.load(handle)
-        self.assertEqual(written["launchers"][0]["future"], "kept")
+        self.assertEqual(launchers.LauncherStore(self.tmp.name).mappings(), {"table-1": "a"})
+
+    def test_a_blank_name_is_its_apps(self) -> None:
+        self.store.put(_launcher("a", display_name=""))
+
+        self.assertEqual(self.store.get("a").display_name, "Visual Pinball X")
+
+    def test_a_name_another_launcher_has_is_refused(self) -> None:
+        self.store.put(_launcher("a", display_name="Cab"))
+
+        with self.assertRaises(launchers.config_schema.ConfigListError):
+            self.store.put(_launcher("b", display_name=" cab"))
+
+    def test_an_app_this_install_lacks_is_refused(self) -> None:
+        with self.assertRaises(launchers.config_schema.ConfigListError):
+            self.store.put(_launcher("a", app="nope"))
 
 
 class ValueTests(unittest.TestCase):
@@ -141,7 +161,7 @@ class ValueTests(unittest.TestCase):
         listed, and the only fields it has are the ones every launcher has."""
         one = _launcher("a", app="future-pinball")
 
-        self.assertEqual(one.fields(), launchers.OWN_FIELDS)
+        self.assertEqual(one.fields(), apps.OWN_FIELDS)
         self.assertEqual(one.value("bin_path"), "")
 
 
@@ -191,37 +211,6 @@ class ResolutionTests(unittest.TestCase):
         held = [_launcher("fp", app="future-pinball")]
 
         self.assertIsNone(self._for("t1", {}, held))
-
-
-class SeedTests(unittest.TestCase):
-    """The launcher an install already had, from the values read out of its old config."""
-
-    VALUES = {
-        "bin_path": "/usr/bin/VPinballX_GL",
-        "ini_path": "/home/cab/.vpinball/VPinballX.ini",
-        "launch_env": "SDL_VIDEODRIVER=wayland",
-        "log_delete_on_start": True,
-    }
-
-    def test_the_values_arrive_as_one_launcher(self) -> None:
-        one = launchers.seeded_from(self.VALUES)
-
-        self.assertEqual(one.app, "vpx")
-        self.assertEqual(one.value("bin_path"), "/usr/bin/VPinballX_GL")
-        self.assertEqual(one.value("ini_path"), "/home/cab/.vpinball/VPinballX.ini")
-        self.assertIs(one.value("log_delete_on_start"), True)
-
-    def test_it_does_not_claim_to_own_visual_pinballs_own_ini(self) -> None:
-        """Removing a launcher offers to delete the file it owns, and this one points at
-        the ini Visual Pinball wrote. Claiming it would delete a person's real setup."""
-        self.assertFalse(launchers.seeded_from(self.VALUES).owns_ini)
-
-    def test_it_carries_exactly_what_the_app_declares(self) -> None:
-        """A field left unseeded reads as its default, which for a path means the install
-        quietly stopped using what it was configured with."""
-        one = launchers.seeded_from(self.VALUES)
-
-        self.assertEqual(sorted(one.settings), sorted(f.key for f in VPX_FIELDS))
 
 
 class InEffectTests(unittest.TestCase):

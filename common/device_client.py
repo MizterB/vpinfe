@@ -397,10 +397,13 @@ class RemoteDevice:
         cabinet under one name, and what lets a mapping mean the same thing everywhere.
         Renumbering on the way in would break every mapping that travelled with it.
         """
-        from common import http_client
+        from common import http_client, launcher_wire
 
-        return dict(http_client.put_json(self._url(f"/launchers/{launcher_id}"),
-                                         body) or {})
+        held = [one for one in http_client.get_json(self._url("/config/launchers")) or []
+                if isinstance(one, dict)]
+        return launcher_wire.from_item(dict(http_client.put_json(
+            self._url(f"/config/launchers/{launcher_id}"),
+            launcher_wire.to_item(launcher_id, body, held)) or {}))
 
     def put_launcher_mapping(self, table_id: str, launcher_id: str) -> dict[str, Any]:
         """Point a table on another machine at a launcher. Table ids travel because they

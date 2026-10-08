@@ -622,7 +622,7 @@ class ConfigStore:
         for item in cleaned:
             if isinstance(item, dict) and "/" in str(item.get("id")):
                 raise config_schema.ConfigListError(t("error.config.list.id_slash", list=spec.key))
-        config_schema.validate(spec.key, cleaned)
+        config_schema.validate(spec.key, cleaned, already)
         kept = config_schema.normalize(spec.key, cleaned)
         if len({item["id"] for item in kept}) != len(kept):
             raise config_schema.ConfigListError(t("error.config.list.shared_id", list=spec.key))

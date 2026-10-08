@@ -1,25 +1,21 @@
 """The configured ways this install runs an app, and which table uses which.
 
-A launcher is user data: a name, the app it wraps, whether it is enabled, and a value
-for each field that app declares. An install ships one, seeded from the configuration it
-already had. Duplicating it and pointing the copy at another ini is the case this exists
-for.
+A launcher is user data: a name, the app it wraps, whether it is enabled, a value for each
+field that app declares, and the tables that deviate from the default. An install ships
+one, seeded from the configuration it already had. Duplicating it and pointing the copy
+at another ini is the case this exists for.
 
-Follows `common/device_registry.py` and `common/games/collection_store.py` - a small JSON
-file, written whole and atomically, carrying its own schema version. Not config sections:
-a launcher is an object somebody creates, removes and duplicates, and the config file is
-for what an install is set to. Every other collection of user objects here is a file of
-its own, and `config_schema` has no dynamically named section for one to live in.
+They are the `launchers` list of `vpinfe.json`. `LauncherStore` is a view over it that
+answers in `Launcher`s.
 
 **Per install.** A binary path is a fact about one machine, so a launcher belongs to the
 machine that runs it. Sharing across cabinets is a copy that keeps the id, not shared
-storage - the same launcher then exists on every machine under one name, and a mapping
-means the same thing everywhere.
+storage - the same launcher then exists on every machine under one name, and the tables
+listed on it mean the same thing everywhere.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 from collections.abc import Iterable
@@ -27,30 +23,15 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from common import apps
-from common.atomic_write import write_atomic
+from common import apps, config_schema, config_service
+from common.config_store import ConfigStore
+from common.i18n import t
 from common.install_identity import mint_id
-from common.paths import CONFIG_DIR
+from common.paths import get_ini_config
 
 logger = logging.getLogger("vpinfe.common.games.launchers")
 
-LAUNCHERS_PATH = CONFIG_DIR / "launchers.json"
-SCHEMA = 1
-SCHEMA_KEY = "schema"
 LAUNCHERS_KEY = "launchers"
-MAPPINGS_KEY = "mappings"
-MIGRATIONS_KEY = "migrations"
-
-
-# What every launcher has, whatever app it wraps. Commands to run around a table are
-# not an app's business - Visual Pinball has no opinion about mounting a share - but they
-# are this launcher's, because they run only when this launcher is what plays the table.
-# The install-wide pair is in Settings, and runs outside these.
-OWN_FIELDS: tuple[apps.Field, ...] = (
-    apps.Field("on_table_start", type="text", lines=3),
-    apps.Field("on_table_exit", type="text", lines=3),
-    apps.Field("on_start_required", type="bool", default="false"),
-)
 
 
 def mint_launcher_id() -> str:
@@ -94,7 +75,6 @@ class Launcher:
     enabled: bool = True
     owns_ini: bool = False
     settings: dict[str, Any] = field(default_factory=dict)
-    extra: dict[str, Any] = field(default_factory=dict)
 
     def value(self, key: str) -> Any:
         """One setting, falling back to what its app declares. A launcher that does not
@@ -119,8 +99,7 @@ class Launcher:
     def fields(self) -> tuple[apps.Field, ...]:
         """What configuring this launcher takes: what its app declares, and what every
         launcher has whatever it wraps."""
-        found = apps.get(self.app)
-        return (found.fields if found is not None else ()) + OWN_FIELDS
+        return apps.launcher_fields(self.app) or apps.OWN_FIELDS
 
     def has_program(self) -> bool:
         """Whether every path to a program this launcher runs has been filled in."""
@@ -130,15 +109,13 @@ class Launcher:
     def as_dict(self) -> dict[str, Any]:
         return {"launcher_id": self.launcher_id, "app": self.app,
                 "display_name": self.display_name, "enabled": self.enabled,
-                "owns_ini": self.owns_ini, "settings": dict(self.settings),
-                **self.extra}
+                "owns_ini": self.owns_ini, "settings": dict(self.settings)}
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Launcher | None:
         launcher_id = str(raw.get("launcher_id", "") or "").strip()
         if not launcher_id:
             return None
-        known = {"launcher_id", "app", "display_name", "enabled", "owns_ini", "settings"}
         return cls(
             launcher_id=launcher_id,
             app=str(raw.get("app", "") or ""),
@@ -148,26 +125,62 @@ class Launcher:
             enabled=bool(raw.get("enabled", True)),
             owns_ini=bool(raw.get("owns_ini", False)),
             settings=dict(raw.get("settings") or {}),
-            # Anything a newer build wrote is carried through rather than dropped, so a
-            # downgrade does not silently strip fields it does not understand.
-            extra={k: v for k, v in raw.items() if k not in known},
         )
+
+    def as_item(self, tables: Iterable[str] = ()) -> dict[str, Any]:
+        """The row as `launchers` holds it: the tables that run on it are its own."""
+        return {"id": self.launcher_id, "app": self.app, "name": self.display_name,
+                "enabled": self.enabled, "owns_ini": self.owns_ini,
+                "tables": list(tables), "settings": dict(self.settings)}
+
+    @classmethod
+    def from_item(cls, raw: dict[str, Any]) -> Launcher | None:
+        return cls.from_dict({
+            "launcher_id": raw.get("id"), "app": raw.get("app"),
+            "display_name": raw.get("name"), "enabled": raw.get("enabled", True),
+            "owns_ini": raw.get("owns_ini", False), "settings": raw.get("settings")})
+
+
+def _item_tables(item: dict[str, Any]) -> list[str]:
+    return [str(one) for one in item.get("tables") or []]
 
 
 class LauncherStore:
     """Every launcher this install has, and which table uses which."""
 
-    def __init__(self, path: Path | str | None = None) -> None:
-        self.path = Path(path) if path is not None else LAUNCHERS_PATH
+    def __init__(self, folder: Path | str | None = None) -> None:
+        """Without `folder` this is the install's own. With one, the list lives in its
+        `vpinfe.json`."""
+        self._folder = Path(folder) if folder is not None else None
+        self._config: ConfigStore | None = None
         self._lock = threading.RLock()
+
+    def _core(self) -> ConfigStore:
+        if self._folder is None:
+            return get_ini_config()
+        if self._config is None:
+            self._folder.mkdir(parents=True, exist_ok=True)
+            self._config = ConfigStore(str(self._folder / "vpinfe.json"))
+        else:
+            self._config.reread()
+        return self._config
+
+    @staticmethod
+    def _items(config: ConfigStore) -> list[dict[str, Any]]:
+        return [one for one in config.get_list(LAUNCHERS_KEY) if isinstance(one, dict)]
+
+    @staticmethod
+    def _write(config: ConfigStore, items: list[dict[str, Any]]) -> None:
+        config.set_list(LAUNCHERS_KEY, items)
+        config_service.written(config, [LAUNCHERS_KEY])
 
     # -- reading -------------------------------------------------------------
 
     def launchers(self) -> list[Launcher]:
-        """Every launcher, in the order the file holds them. An unreadable file is an
-        empty set, never an error: a first run has none and that is not a fault."""
+        """Every launcher, in the order the list holds them."""
         with self._lock:
-            return self._load()[0]
+            return [one for one in (Launcher.from_item(raw)
+                                    for raw in self._items(self._core())) if one is not None]
 
     def get(self, launcher_id: str) -> Launcher | None:
         wanted = (launcher_id or "").strip()
@@ -183,7 +196,11 @@ class LauncherStore:
         everything that never asked for anything else.
         """
         with self._lock:
-            return self._load()[1]
+            found: dict[str, str] = {}
+            for item in self._items(self._core()):
+                for table in _item_tables(item):
+                    found.setdefault(table, str(item.get("id")))
+            return found
 
     def mapped(self, table_id: str) -> str:
         return self.mappings().get(str(table_id or "").strip(), "")
@@ -191,142 +208,135 @@ class LauncherStore:
     # -- writing -------------------------------------------------------------
 
     def save(self, launchers: list[Launcher], mappings: dict[str, str]) -> None:
-        """The whole file, atomically. Written whole because it is small and because a
-        partial write of a launcher that a mapping points at is a table that cannot
-        launch."""
-        with self._lock:
-            self._write(launchers, mappings)
+        """The whole list, in the order given, with each table on the launcher that
+        `mappings` names."""
+        with config_service.writing(), self._lock:
+            config = self._core()
+            self._write(config, [
+                one.as_item(table for table, to in mappings.items() if to == one.launcher_id)
+                for one in launchers])
 
     def put(self, launcher: Launcher) -> Launcher:
-        """Add one, or replace the one with its id.
+        """Add one, or replace the one with its id, keeping its place and its tables.
 
         Replace rather than merge, and by id rather than by position: this is also how a
         launcher copied from another machine lands, and that copy is the whole launcher.
         """
-        with self._lock:
-            held, mappings = self._load()
-            found = [one for one in held if one.launcher_id != launcher.launcher_id]
-            at = next((i for i, one in enumerate(held)
-                       if one.launcher_id == launcher.launcher_id), len(found))
-            found.insert(at, launcher)
-            self._write(found, mappings)
+        with config_service.writing(), self._lock:
+            config = self._core()
+            items = self._items(config)
+            at = next((i for i, one in enumerate(items)
+                       if one.get("id") == launcher.launcher_id), None)
+            if at is None:
+                items.append(launcher.as_item())
+            else:
+                items[at] = launcher.as_item(_item_tables(items[at]))
+            self._write(config, items)
             return launcher
 
     def to_front(self, launcher_id: str) -> bool:
         """Move one to the head of the list, which makes it its app's default while it
         is switched on. False where there is no such launcher."""
         wanted = (launcher_id or "").strip()
-        with self._lock:
-            held, mappings = self._load()
-            found = [one for one in held if one.launcher_id == wanted]
+        with config_service.writing(), self._lock:
+            config = self._core()
+            items = self._items(config)
+            found = [one for one in items if one.get("id") == wanted]
             if not found:
                 return False
-            self._write(found + [one for one in held if one.launcher_id != wanted],
-                        mappings)
+            self._write(config, found + [one for one in items if one.get("id") != wanted])
             return True
 
     def remove(self, launcher_id: str) -> bool:
-        """Forget a launcher and every mapping to it.
-
-        The mappings go with it rather than being left dangling: a table pointing at a
-        launcher that is not there falls back at launch, which is right for a launcher
-        that is switched off and wrong for one that was deleted - the second is not a
-        state anybody chose to be in.
-        """
+        """Forget a launcher. The tables listed on it go with it, back to the default."""
         wanted = (launcher_id or "").strip()
-        with self._lock:
-            held, mappings = self._load()
-            kept = [one for one in held if one.launcher_id != wanted]
-            if len(kept) == len(held):
+        with config_service.writing(), self._lock:
+            config = self._core()
+            items = self._items(config)
+            kept = [one for one in items if one.get("id") != wanted]
+            if len(kept) == len(items):
                 return False
-            self._write(kept, {table: to for table, to in mappings.items()
-                               if to != wanted})
+            self._write(config, kept)
             return True
 
     def assign(self, table_id: str, launcher_id: str) -> None:
         """Point a table at a launcher, or clear it with an empty id.
 
-        Clearing removes the row rather than storing a blank, because an absent mapping
-        already means "the default" and two spellings of one state is what makes a
-        reader ask which is which.
+        Clearing removes the entry rather than storing a blank, because an absent entry
+        already means "the default" and two spellings of one state is what makes a reader
+        ask which is which.
         """
         table = str(table_id or "").strip()
         if not table:
             return
-        with self._lock:
-            held, mappings = self._load()
-            found = dict(mappings)
-            wanted = str(launcher_id or "").strip()
-            if wanted:
-                found[table] = wanted
-            else:
-                found.pop(table, None)
-            self._write(held, found)
+        wanted = str(launcher_id or "").strip()
+        with config_service.writing(), self._lock:
+            config = self._core()
+            items = self._items(config)
+            moved = [{**one, "tables": [
+                *(name for name in _item_tables(one) if name != table),
+                *([table] if wanted and one.get("id") == wanted else [])]}
+                for one in items]
+            if moved != items:
+                self._write(config, moved)
 
-    def migrations(self) -> list[str]:
-        """Which one-time conversions have already run against this file."""
-        with self._lock:
-            return self._stored_migrations()
 
-    def mark_migration(self, name: str) -> None:
-        """Note that one has run, so it never runs twice."""
-        wanted = str(name or "").strip()
-        if not wanted:
-            return
-        with self._lock:
-            names = self._stored_migrations()
-            if wanted in names:
-                return
-            held, mappings = self._load()
-            self._write(held, mappings, migrations=names + [wanted])
+def _one_table_each(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A table is listed on one launcher: the first that names it keeps it."""
+    seen: set[str] = set()
+    out = []
+    for item in items:
+        tables = [name for name in _item_tables(item) if name not in seen]
+        seen.update(tables)
+        out.append({**item, "tables": tables} if tables != _item_tables(item) else item)
+    return out
 
-    # -- the file ------------------------------------------------------------
 
-    def _stored_migrations(self) -> list[str]:
-        try:
-            with open(self.path, encoding="utf-8") as handle:
-                payload = json.load(handle) or {}
-        except Exception:
-            return []
-        return [str(name) for name in payload.get(MIGRATIONS_KEY) or []
-                if str(name).strip()]
+def _apart_from_tables(item: dict[str, Any] | None) -> dict[str, Any] | None:
+    return None if item is None else {k: v for k, v in item.items() if k != "tables"}
 
-    def _load(self) -> tuple[list[Launcher], dict[str, str]]:
-        try:
-            with open(self.path, encoding="utf-8") as handle:
-                payload = json.load(handle) or {}
-        except FileNotFoundError:
-            return [], {}
-        except Exception:
-            logger.exception("Could not read %s; treating it as empty", self.path)
-            return [], {}
 
-        held = [one for one in
-                (Launcher.from_dict(raw) for raw in payload.get(LAUNCHERS_KEY) or []
-                 if isinstance(raw, dict))
-                if one is not None]
-        ids = {one.launcher_id for one in held}
-        # A mapping to a launcher that is not in the file leads nowhere, so it is dropped
-        # on read rather than resolved at launch: the alternative is a table that reports
-        # an override it does not have.
-        mappings = {str(table): str(to) for table, to in
-                    (payload.get(MAPPINGS_KEY) or {}).items()
-                    if str(table).strip() and str(to) in ids}
-        return held, mappings
+def _refuse_bad_launchers(items: list[dict[str, Any]], held: list[dict[str, Any]]) -> None:
+    """A write that names an app this install lacks, a name another launcher has, or
+    switches off a launcher whose tables nothing could play is refused by name.
 
-    def _write(self, launchers: list[Launcher], mappings: dict[str, str],
-               migrations: list[str] | None = None) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        # Read back rather than held: every other method here reads the file fresh, so
-        # keeping the markers in memory would let two writers drop each other's.
-        payload = {
-            SCHEMA_KEY: SCHEMA,
-            MIGRATIONS_KEY: (self._stored_migrations() if migrations is None
-                             else migrations),
-            LAUNCHERS_KEY: [one.as_dict() for one in launchers],
-            MAPPINGS_KEY: dict(mappings),
-        }
-        write_atomic(self.path, lambda handle: json.dump(payload, handle, indent=2))
+    Only items that are new or changed apart from their tables are asked: a launcher whose
+    extension was switched off since it was written would otherwise block every other write,
+    including moving a table off it.
+    """
+    kept = {one.get("id"): one for one in held}
+    names = [(one.get("id"), str(one.get("name") or "").strip()
+              or apps.app_name(str(one.get("app")))) for one in items]
+    for item in items:
+        if _apart_from_tables(item) == _apart_from_tables(kept.get(item.get("id"))):
+            continue
+        app_id = str(item.get("app") or "")
+        if apps.get(app_id) is None:
+            raise config_schema.ConfigListError(t(
+                "error.launchers.unknown_app", app_id=app_id,
+                apps=", ".join(app.id for app in apps.all_apps())))
+        name = str(item.get("name") or "").strip() or apps.app_name(app_id)
+        if any(same_name(name, other) for launcher_id, other in names
+               if launcher_id != item.get("id")):
+            raise config_schema.ConfigListError(t("error.launchers.name_taken", name=name))
+        before = kept.get(item.get("id"))
+        if before is not None and before.get("enabled") and not item.get("enabled"):
+            from common.games import launcher_ops
+
+            launcher = Launcher.from_item(before)
+            refused = launcher_ops.switch_off_refusal(launcher) if launcher else ""
+            if refused:
+                raise config_schema.ConfigListError(refused)
+
+
+def _name_the_blank(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [item if str(item.get("name") or "").strip()
+            else {**item, "name": apps.app_name(str(item.get("app")))} for item in items]
+
+
+config_schema.register_validator(LAUNCHERS_KEY, _refuse_bad_launchers)
+config_schema.register_normalizer(
+    LAUNCHERS_KEY, lambda items: _one_table_each(_name_the_blank(items)))
 
 
 def default_for(app_id: str, launchers: Iterable[Launcher]) -> Launcher | None:
@@ -371,26 +381,6 @@ def launcher_for_entry(app_id: str, table_id: str, launchers: Iterable[Launcher]
         if named is not None and named.enabled:
             return named
     return default_for(app.id, launchers)
-
-
-def seeded_from(values: dict[str, Any], app_id: str = "vpx") -> Launcher:
-    """The launcher an install already had, from the values read out of its old config.
-
-    Takes a plain mapping rather than a settings object: the seven keys it comes from are
-    no longer in the schema, so nothing types them for us any more and the reader that
-    finds them is the one that knows their old spellings.
-
-    `owns_ini` is False - the ini those keys named is Visual Pinball's own, and nothing
-    here created it.
-    """
-    return Launcher(
-        launcher_id=mint_launcher_id(),
-        app=app_id,
-        display_name=apps.app_name(app_id),
-        enabled=True,
-        owns_ini=False,
-        settings=dict(values),
-    )
 
 
 def default_launcher(app_id: str = "vpx") -> Launcher | None:

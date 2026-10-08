@@ -138,7 +138,7 @@ def _one_per_place(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 config_schema.register_normalizer(LOCATIONS_KEY, _one_per_place)
 
 
-def _refuse_bad_places(items: list[dict[str, Any]]) -> None:
+def _refuse_bad_places(items: list[dict[str, Any]], _held: list[dict[str, Any]]) -> None:
     """A write that names no folder, a relative one, or one another row holds is
     refused by name; the normalizer would drop the row without saying which."""
     held: dict[str, str] = {}

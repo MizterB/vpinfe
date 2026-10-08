@@ -30,6 +30,7 @@ from urllib.parse import urlencode, urlparse
 from nicegui import run, ui
 
 from common import apps, config_schema, i18n, icons, path_state, tokens
+from common.apps import OWN_FIELDS
 from common.failures import why
 from common.games import asset_registry, tag_registry
 from common.games.asset_registry import ALWAYS_KEPT as _ALWAYS_KEPT
@@ -44,7 +45,6 @@ from common.games.collection_store import (
     NATURAL_DIRECTION,
     SORT_LABELS,
 )
-from common.games.launchers import OWN_FIELDS
 from common.i18n import t
 from common.labels import field_label, humanize
 from common.media_specs import media_family, media_label_map

@@ -15,8 +15,8 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import launcher_migration, launchers
-from tests.support.library import TempTree, fake_game, write_game
+from common.games import launchers
+from tests.support.library import TempTree, fake_game, own_launchers, write_game
 
 GAME_ID = "Keyed0000001"
 FOLDER = "Medieval Madness (Williams 1997)"
@@ -37,11 +37,11 @@ class _Keyed(TempTree):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-        self.store = launchers.LauncherStore(str(self.root / "launchers.json"))
+        self.store = own_launchers(self, str(self.root))
         # Building the app runs the startup seed pass, which would replace this store
         # with a shipped launcher. A real install is in this state from its second
         # start onwards.
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store.save([], {})
         self.store.put(launchers.Launcher(
             launcher_id="gen1", app="generic", display_name="MAME",
             settings={"bin_path": "/usr/bin/mame"}))

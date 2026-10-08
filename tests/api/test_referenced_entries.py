@@ -20,8 +20,8 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import launcher_migration, launchers, library_folders
-from tests.support.library import TempTree, fake_game, write_game
+from common.games import launchers, library_folders
+from tests.support.library import TempTree, fake_game, own_launchers, write_game
 
 GAME_ID = "Ref000000001"
 FOLDER = "Attack from Mars (Bally 1995)"
@@ -42,8 +42,8 @@ class _Referenced(TempTree):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-        self.store = launchers.LauncherStore(str(self.root / "launchers.json"))
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store = own_launchers(self, str(self.root))
+        self.store.save([], {})
         self.store.put(launchers.Launcher(
             launcher_id="vpx1", app="vpx", display_name="Visual Pinball X",
             settings={"bin_path": "/opt/vpx"}))

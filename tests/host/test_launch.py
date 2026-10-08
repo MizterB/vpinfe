@@ -845,7 +845,7 @@ class FallbackTests(LaunchTests):
         self.addCleanup(tmp.cleanup)
         program = pathlib.Path(tmp.name, "vpx")
         program.touch()
-        store = LauncherStore(os.path.join(tmp.name, "launchers.json"))
+        store = LauncherStore(tmp.name)
         off = _launcher().__class__(launcher_id="l2", app="vpx", display_name="VPX 10.7",
                                     enabled=False, settings={"bin_path": "/opt/old"})
         store.save([_launcher(str(program)), off], {"t1": "l2"})
@@ -872,7 +872,8 @@ class LaunchedByTests(unittest.TestCase):
 
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.store = LauncherStore(os.path.join(tmp.name, "launchers.json"))
+        self.store = LauncherStore(tmp.name)
+        self.store.save([], {})
         patcher = mock.patch.object(launch.launchers, "get_launcher_store",
                                     return_value=self.store)
         patcher.start()

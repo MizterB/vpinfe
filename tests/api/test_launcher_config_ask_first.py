@@ -3,7 +3,6 @@ refusal comes as a blocked write in the shared words rather than an errno."""
 
 from __future__ import annotations
 
-import os
 import pathlib
 import unittest
 from tempfile import TemporaryDirectory
@@ -13,9 +12,11 @@ from fastapi.testclient import TestClient
 
 import httpapi
 from common import path_state, service_errors
-from common.games import launcher_migration, launcher_ops, launchers
+from common.games import launcher_ops, launchers
 from common.i18n import t
 from tests.support.hung_folder import never_answering
+from tests.support.launchers_api import put_launcher
+from tests.support.library import own_launchers
 from tests.support.skips import needs_posix_permissions
 
 
@@ -24,17 +25,16 @@ class LauncherFileTests(unittest.TestCase):
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.data = pathlib.Path(self.tmp.name, "data")
-        self.store = launchers.LauncherStore(os.path.join(self.tmp.name, "launchers.json"))
+        self.store = own_launchers(self, self.tmp.name)
         for patcher in (patch.object(launchers, "get_launcher_store", return_value=self.store),
                         patch("apps.vpx.config._machine_folders",
                               return_value=(self.data / "VPinballX", None)),
                         patch.object(path_state, "PROBE_SECONDS", 0.2)):
             patcher.start()
             self.addCleanup(patcher.stop)
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store.save([], {})
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
-        self.client.put("/launchers/l1",
-                        json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
         self.file = self.data / "VPinballX" / "10.8" / "VPinballX.ini"
         self.made = self.put(create=True)
         self.before = self.file.read_bytes()

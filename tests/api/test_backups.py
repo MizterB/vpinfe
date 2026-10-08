@@ -27,13 +27,13 @@ from common.config_store import ConfigStore
 from common.device_registry import DeviceRegistry
 from common.games import (
     game_repository,
-    launcher_migration,
     launchers,
     library_folders,
 )
 from common.games.info_migration import RESET, RESTORE, backup_path
 from httpapi import config as config_api
-from tests.support.library import game_info, write_game
+from tests.support.launchers_api import put_launcher
+from tests.support.library import game_info, own_launchers, write_game
 
 OLD = datetime(2026, 10, 1, 1, 2, 3, tzinfo=UTC)
 NEWER = datetime(2026, 10, 2, 1, 2, 3, tzinfo=UTC)
@@ -51,8 +51,8 @@ class BackupsCase(unittest.TestCase):
         self.state = root / "state"
         for folder in (self.library, self.config, self.themes, self.state):
             folder.mkdir()
-        self.store = launchers.LauncherStore(str(root / "launchers.json"))
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store = own_launchers(self, str(root))
+        self.store.save([], {})
         self.playing = False
         for patcher in (
                 patch.object(library_folders, "configured",
@@ -262,7 +262,7 @@ class LauncherListingTests(BackupsCase):
         super().setUp()
         self.ini = pathlib.Path(self.tmp.name) / "VPinballX.ini"
         self.ini.write_text("[Player]\nFXAA = 1\n")
-        put = self.client.put("/launchers/l1", json={
+        put = put_launcher(self.client, "l1", json={
             "app": "vpx", "display_name": "Main VPX",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(self.ini)}})
         self.assertEqual(put.status_code, 200, put.text)
@@ -332,7 +332,7 @@ class LauncherListingTests(BackupsCase):
         self.assertEqual(self.ini.read_text(), "[Player]\nFXAA = 1\n")
 
     def test_a_copy_beside_an_ini_two_launchers_share_is_listed_once(self) -> None:
-        second = self.client.put("/launchers/l2", json={
+        second = put_launcher(self.client, "l2", json={
             "app": "vpx", "display_name": "Second VPX",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(self.ini)}})
         self.assertEqual(second.status_code, 200, second.text)
@@ -344,7 +344,7 @@ class LauncherListingTests(BackupsCase):
         first = self.ini.with_name("VPinballX.ini.vpinfe-20261001T010203Z")
         first.write_text("[Player]\nFXAA = 0\n")
         copy = self.listing()[0]
-        self.client.put("/launchers/l1", json={
+        put_launcher(self.client, "l1", json={
             "app": "vpx", "display_name": "Renamed",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(self.ini)}})
 
@@ -355,7 +355,7 @@ class LauncherListingTests(BackupsCase):
 
     def test_the_listing_narrows_to_one_launcher(self) -> None:
         self.ini.with_name("VPinballX.ini.vpinfe-20261001T010203Z").write_text("x")
-        self.client.put("/launchers/l2", json={
+        put_launcher(self.client, "l2", json={
             "app": "vpx", "display_name": "Second VPX",
             "settings": {"bin_path": "/opt/vpx",
                          "ini_path": str(self.ini.with_name("Other.ini"))}})

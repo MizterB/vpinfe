@@ -13,6 +13,7 @@ from common.backups import archive, copies, ops, pending
 from common.device_registry import DeviceRegistry
 from tests.api.test_backups import OLD, BackupsCase
 from tests.support.hung_folder import never_answering
+from tests.support.launchers_api import put_launcher
 from tests.support.library import game_info, write_game
 
 
@@ -91,7 +92,7 @@ class TakingTests(ArchiveCase):
         (self.config / "players.json").write_text("{}")
         ini = pathlib.Path(self.tmp.name) / "Scratch.ini"
         ini.write_text("[Player]\nFXAA = 1\n")
-        self.put(self.client.put("/launchers/l1", json={
+        self.put(put_launcher(self.client, "l1", json={
             "app": "vpx", "display_name": "Main VPX",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(ini)}}))
 
@@ -105,7 +106,7 @@ class TakingTests(ArchiveCase):
     def test_a_launchers_backup_holds_that_launchers_files(self) -> None:
         ini = pathlib.Path(self.tmp.name) / "Scratch.ini"
         ini.write_text("[Player]\nFXAA = 1\n")
-        self.put(self.client.put("/launchers/l1", json={
+        self.put(put_launcher(self.client, "l1", json={
             "app": "vpx", "display_name": "Main VPX",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(ini)}}))
 
@@ -341,7 +342,7 @@ class RestoringTests(ArchiveCase):
     def test_a_launcher_part_goes_back_and_undoing_it_returns_what_it_replaced(self) -> None:
         ini = pathlib.Path(self.tmp.name) / "Scratch.ini"
         ini.write_text("[Player]\nFXAA = 1\n")
-        self.put(self.client.put("/launchers/l1", json={
+        self.put(put_launcher(self.client, "l1", json={
             "app": "vpx", "display_name": "Main VPX",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(ini)}}))
         self.put(self.take("launcher", launcher="l1"))
@@ -356,7 +357,7 @@ class RestoringTests(ArchiveCase):
     def test_launcher_parts_are_not_put_back_while_a_table_plays(self) -> None:
         ini = pathlib.Path(self.tmp.name) / "Scratch.ini"
         ini.write_text("[Player]\nFXAA = 1\n")
-        self.put(self.client.put("/launchers/l1", json={
+        self.put(put_launcher(self.client, "l1", json={
             "app": "vpx", "display_name": "Main VPX",
             "settings": {"bin_path": "/opt/vpx", "ini_path": str(ini)}}))
         self.put(self.take("launcher", launcher="l1"))

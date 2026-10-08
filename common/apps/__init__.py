@@ -35,11 +35,21 @@ from .contract import (
 
 __all__ = [
     "App", "Availability", "Buttons", "Claim", "ConfigGroup", "Entry", "Field", "Heading",
-    "Kinds", "Pair", "Parsed", "Pause", "Session", "all_apps", "app_for", "app_name", "default_app",
-    "field_blank", "field_help", "field_words", "get", "group_words", "heading_words",
-    "pair_words",
+    "Kinds", "OWN_FIELDS", "Pair", "Parsed", "Pause", "Session", "all_apps", "app_for",
+    "app_name", "default_app", "field_blank", "field_help", "field_words", "get",
+    "group_words", "heading_words", "launcher_fields", "pair_words",
     "strip_suffix", "table_suffixes",
 ]
+
+# What every launcher has, whatever app it wraps. Commands to run around a table are
+# not an app's business - Visual Pinball has no opinion about mounting a share - but they
+# are this launcher's, because they run only when this launcher is what plays the table.
+# The install-wide pair is in Settings, and runs outside these.
+OWN_FIELDS: tuple[Field, ...] = (
+    Field("on_table_start", type="text", lines=3),
+    Field("on_table_exit", type="text", lines=3),
+    Field("on_start_required", type="bool", default="false"),
+)
 
 _built_in_apps: tuple[App, ...] = ()
 
@@ -108,6 +118,13 @@ def get(app_id: str | None) -> App | None:
     rather than a programming error."""
     wanted = str(app_id or "").strip()
     return next((app for app in all_apps() if app.id == wanted), None)
+
+
+def launcher_fields(app_id: str | None) -> tuple[Field, ...] | None:
+    """What a launcher of this app holds: the app's fields, then `OWN_FIELDS`. None for
+    an app this install lacks."""
+    found = get(app_id)
+    return (*found.fields, *OWN_FIELDS) if found is not None else None
 
 
 def app_for(filename: str) -> App | None:

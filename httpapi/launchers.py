@@ -1,12 +1,12 @@
 """The configured ways this install runs a table, over the wire.
 
-Its own resource rather than part of `/config`, because a launcher is an object somebody
-creates, removes and duplicates - the config endpoints answer with a fixed set of settings
-and have nowhere to put a list of things.
+The launchers themselves are the `launchers` list in `/config`: add, replace and remove
+are `/config/launchers/{id}`. What stays here is what a list item cannot say - the
+refusal a switch-off would get, the app's own settings, the default, and which table
+runs on which.
 
-It keeps the config scopes all the same. These values were settings until they moved, so
-reading and writing them is the same power it always was, and a token that can already
-change what program plays a table should not need a new grant to keep doing it.
+It keeps the config scopes all the same: a token that can already change what program
+plays a table should not need a new grant to keep doing it.
 
 `common/games/launcher_ops.py` is what answers.
 """
@@ -30,14 +30,6 @@ router = APIRouter(prefix="/launchers", tags=["launchers"])
 def list_launchers() -> dict[str, Any]:
     """The launchers in order, the tables that deviate, and which one is the default."""
     return launcher_ops.listing()
-
-
-@router.put("/{launcher_id}", summary="Add or replace a launcher",
-            dependencies=[requires(scopes.CONFIG_WRITE)])
-def put_launcher(launcher_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    """Write one whole, under the id the caller names - which is also how a launcher
-    arrives from another device, mappings and all."""
-    return launcher_ops.put(launcher_id, body)
 
 
 @router.get("/{launcher_id}/fallback", summary="Where its tables go if it is switched off",
@@ -71,14 +63,6 @@ def make_launcher_default(launcher_id: str) -> dict[str, Any]:
     """The launcher its app's tables use unless they name another. It moves to the front
     of the list, since the default is the first one switched on."""
     return launcher_ops.make_default(launcher_id)
-
-
-@router.delete("/{launcher_id}", summary="Forget a launcher",
-               dependencies=[requires(scopes.CONFIG_WRITE)])
-def delete_launcher(launcher_id: str) -> dict[str, Any]:
-    """Its mappings go with it. A table pointing at a launcher that was deleted is not a
-    state anybody chose, so it goes back to the default."""
-    return launcher_ops.forget(launcher_id)
 
 
 @router.put("/mappings/{table_id}", summary="Point a table at a launcher",

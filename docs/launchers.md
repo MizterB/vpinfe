@@ -3,7 +3,7 @@
 How a table gets played. Two nouns, and the difference between them is the whole model.
 
 - **App** - the program that plays a table, and how to talk to it: which suffixes it claims, how to build a launch command, what its ini means, how to parse a table, how to resolve a ROM. Code, in `common/apps/`.
-- **Launcher** - a configured wrapper around an app: an id, a display name, the app it wraps, an enabled flag, and values for that app's settings. User data, in `launchers.json`. No two launchers on an install share a name, whatever their app, compared ignoring case (`launchers.same_name`); Add and Duplicate ask for the name first; Add left blank, Duplicate's offer and the 2.x migration take the next free one (`launchers.free_name`).
+- **Launcher** - a configured wrapper around an app: an id, a display name, the app it wraps, an enabled flag, and values for that app's settings. User data, the `launchers` list in `vpinfe.json`. No two launchers on an install share a name, whatever their app, compared ignoring case (`launchers.same_name`); Add and Duplicate ask for the name first; Add left blank, Duplicate's offer and the 2.x migration take the next free one (`launchers.free_name`).
 
 A table names a launcher; a launcher names an app. An install ships one launcher wrapping `vpx`, seeded from the configuration it already had.
 
@@ -24,7 +24,7 @@ Extensions contribute apps through `contribute()`, and `withdraw()` takes one ba
 
 ## Where a launcher's settings live
 
-`launchers.json` in the install's config directory, beside `collections.json` and `players.json`. Not a config section.
+The `launchers` list in `vpinfe.json`, one item each: `id`, `app`, `name`, `enabled`, `owns_ini`, the `tables` that run on it, and its `settings`. A list rather than a config section, because a launcher is created, named and removed by the user. It is read and written through the `/config/launchers` routes like any other list; the `/launchers` routes only add what a list cannot say (the fallback, the default, a table's assignment).
 
 A launcher is an object the user creates, names, duplicates, removes and switches off, rather than one of a fixed set of settings the install has. Nothing in the tree has a dynamically named config section and `config_schema` has no concept of one.
 
@@ -55,7 +55,7 @@ A table being played can be paused from outside it, which is how Take Picture fr
 
 ## Per-table assignment
 
-A table pointed at a specific launcher is recorded in `launchers.json` under `MAPPINGS_KEY`, not in the table's `.info`.
+A table pointed at a specific launcher is recorded in the `tables` of that launcher's item, not in the table's `.info`. A table is listed on one launcher; removing the launcher sends its tables back to the default.
 
 A table's **Launcher** picker shows the launcher that plays it. It lists the table's own app's launchers first, its default marked *Default*, then *Other Programs* (`launchers.launcher_offer` in the Console). A switched-off launcher is left out unless the table names it. A table that chose its own carries a dot, amber where the one it chose is switched off, and **Clear** takes it back to the default. One played by another program's launcher says what it gives up, where its own app has settings: *Runs with Generic - Visual Pinball X's settings, ROM and start-up check don't apply*.
 

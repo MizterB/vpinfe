@@ -13,7 +13,7 @@ from urllib.parse import quote, urlencode
 
 import requests
 
-from common import device_client, serving
+from common import device_client, launcher_wire, serving
 from common.i18n import t
 from common.paths import get_ini_config
 
@@ -856,17 +856,30 @@ class ApiClient:
         """Every launcher, the tables that deviate, and which one is the default.
 
         The field shape travels with each launcher, so the editor is drawn from what the
-        install says a launcher of that app holds rather than from a list kept here.
+        install says a launcher of that app holds rather than from a list kept here. Each
+        carries `checks` for the fields that name a path: `{field: {state, reason}}`.
         """
-        return dict(self._get("/launchers") or {})
+        found = dict(self._get("/launchers") or {})
+        checks: dict[str, dict[str, dict]] = {}
+        for one in self.config_path_checks():
+            if one.get("list") == "launchers":
+                checks.setdefault(str(one.get("id")), {})[str(one.get("field"))] = {
+                    "state": one.get("state", ""), "reason": one.get("reason", "")}
+        found["launchers"] = [{**one, "checks": checks.get(str(one.get("launcher_id")), {})}
+                              for one in found.get("launchers") or []]
+        return found
 
     def put_launcher(self, launcher_id: str, body: dict) -> dict:
         """One whole launcher, under an id the caller owns - which is also how one copied
-        from another machine lands without being renumbered."""
-        return dict(self._put(f"/launchers/{launcher_id}", body) or {})
+        from another machine lands without being renumbered. The tables already on it
+        stay on it."""
+        held = [one for one in self._get("/config/launchers") or [] if isinstance(one, dict)]
+        item = launcher_wire.to_item(launcher_id, body, held)
+        return launcher_wire.from_item(
+            dict(self._put(f"/config/launchers/{launcher_id}", item) or {}))
 
     def delete_launcher(self, launcher_id: str) -> None:
-        self._delete(f"/launchers/{launcher_id}")
+        self._delete(f"/config/launchers/{launcher_id}")
 
     def launcher_fallback(self, launcher_id: str) -> dict:
         return dict(self._get(f"/launchers/{launcher_id}/fallback") or {})

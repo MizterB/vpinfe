@@ -251,38 +251,38 @@ class NormalizeTests(ListStoreTests):
 
 class VariantTests(ListStoreTests):
     KINDS = {"a": (Field("speed", type="int", default="1"),), "b": ()}
-    LAUNCHERS = ConfigList(
-        "launchers", (Field("app"), Field("name")),
+    MACHINES = ConfigList(
+        "machines", (Field("app"), Field("name")),
         variant=ListVariant("app", kinds=lambda: list(VariantTests.KINDS),
                             fields=lambda kind: VariantTests.KINDS.get(kind)))
 
     def test_a_kinds_settings_are_filled_and_typed(self) -> None:
-        with declared(self.LAUNCHERS):
+        with declared(self.MACHINES):
             store = self._store()
-            store.set_list("launchers", [{"app": "a", "name": "N", "settings": {"speed": "4"}},
+            store.set_list("machines", [{"app": "a", "name": "N", "settings": {"speed": "4"}},
                                          {"app": "a", "name": "M"}])
 
-            first, second = store.get_list("launchers")
+            first, second = store.get_list("machines")
 
         self.assertEqual(first["settings"], {"speed": 4})
         self.assertEqual(second["settings"], {"speed": 1})
 
     def test_a_setting_its_kind_does_not_declare_is_refused(self) -> None:
-        with declared(self.LAUNCHERS):
+        with declared(self.MACHINES):
             with self.assertRaisesRegex(ConfigListError, "kind a has no setting fast"):
-                self._store().set_list("launchers", [{"app": "a", "settings": {"fast": "1"}}])
+                self._store().set_list("machines", [{"app": "a", "settings": {"fast": "1"}}])
 
     def test_a_kind_this_install_lacks_keeps_its_settings_as_written(self) -> None:
-        with declared(self.LAUNCHERS):
+        with declared(self.MACHINES):
             store = self._store()
-            store.set_list("launchers", [{"app": "gone", "settings": {"x": [1, 2]}}])
+            store.set_list("machines", [{"app": "gone", "settings": {"x": [1, 2]}}])
 
-            self.assertEqual(store.get_list("launchers")[0]["settings"], {"x": [1, 2]})
+            self.assertEqual(store.get_list("machines")[0]["settings"], {"x": [1, 2]})
 
     def test_settings_must_be_an_object(self) -> None:
-        with declared(self.LAUNCHERS):
+        with declared(self.MACHINES):
             with self.assertRaises(ConfigListError):
-                self._store().set_list("launchers", [{"app": "a", "settings": "x"}])
+                self._store().set_list("machines", [{"app": "a", "settings": "x"}])
 
     def test_a_list_without_a_variant_has_no_settings(self) -> None:
         with declared(WIDGETS):
@@ -402,7 +402,7 @@ class SchemaTests(ListStoreTests):
         self.assertIsNone(widgets["variant"])
 
     def test_a_variant_lists_the_fields_of_each_kind_it_has_now(self) -> None:
-        with declared(VariantTests.LAUNCHERS):
+        with declared(VariantTests.MACHINES):
             [launchers] = config_service.schema()["lists"]
 
         kinds = {k["kind"]: [f["key"] for f in k["fields"]]

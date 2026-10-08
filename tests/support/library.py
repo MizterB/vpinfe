@@ -52,6 +52,31 @@ def own_locations(case: unittest.TestCase, folder: Path | str):
     return store
 
 
+def own_launchers(case: unittest.TestCase, folder: Path | str):
+    """This install's launchers, kept in a config folder of the test's own.
+
+    The `/config` routes write through `get_ini_config`, so that is pointed at the same
+    `vpinfe.json` the store reads. Starts with none, so a count in a test is its own.
+    """
+    from unittest.mock import patch
+
+    from common import config_service
+    from common.config_store import ConfigStore
+    from common.games import launchers
+
+    kept = Path(folder)
+    kept.mkdir(parents=True, exist_ok=True)
+    store = launchers.LauncherStore(kept)
+    store.save([], {})
+    for target, replacement in (
+            (launchers, ("get_launcher_store", lambda: store)),
+            (config_service, ("get_ini_config", lambda: ConfigStore(kept / "vpinfe.json")))):
+        patcher = patch.object(target, replacement[0], replacement[1])
+        patcher.start()
+        case.addCleanup(patcher.stop)
+    return store
+
+
 class TempTree(unittest.TestCase):
     """A test case with `self.root`, a temporary directory cleaned up afterwards, and a
     device registry of its own, in a directory beside it, as `self.registry_path`."""

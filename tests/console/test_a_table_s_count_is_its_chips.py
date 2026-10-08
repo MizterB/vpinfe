@@ -12,9 +12,10 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import launcher_migration, launchers
+from common.games import launchers
 from console import games
-from tests.support.library import TempTree, fake_game, write_game
+from tests.support.launchers_api import put_launcher
+from tests.support.library import TempTree, fake_game, own_launchers, write_game
 
 CAMERA = "[TableOverride]\nViewCabMode = 1\nViewCabFOV = 55\nViewCabLayback = 0\n"
 BACKGLASS = "[Backglass]\nBackglassOutput = 0\n"
@@ -52,14 +53,14 @@ class CountIsItsChipsTests(TempTree):
                     files[f"{filename[:-4]}.ini"] = ini.encode()
             folder = write_game(self.root, name, info=info, vpx=False, files=files)
             catalog[game_id] = fake_game(folder, name, meta=info)
-        store = launchers.LauncherStore(str(self.root / "launchers.json"))
-        store.mark_migration(launcher_migration.SEEDED)
+        store = own_launchers(self, str(self.root))
+        store.save([], {})
         for patcher in (patch("common.games.game_repository.catalog", return_value=catalog),
                         patch.object(launchers, "get_launcher_store", return_value=store)):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
-        self.client.put("/launchers/vpx", json={"app": "vpx", "display_name": "VPX"})
+        put_launcher(self.client, "vpx", json={"app": "vpx", "display_name": "VPX"})
 
     def _grid(self) -> dict[str, tuple[int, list[str]]]:
         got = self.client.get("/tables")

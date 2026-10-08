@@ -17,7 +17,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from common import apps, i18n, path_state, service_errors
+from common import apps, config_schema, failures, i18n, path_state, service_errors
 from common.apps.contract import SCOPE_ENTRY, SCOPE_FOLDER, SCOPE_LAUNCHER
 from common.games import game_repository, launchers, library_folders, tables
 from common.games.table_identity import find_table_by_id
@@ -63,20 +63,7 @@ def _described(launcher: launchers.Launcher) -> dict[str, Any]:
                     "blank": apps.field_blank(launcher.app, f) or blanks.get(f.key, ""),
                     "left_empty": blanks.get(f.key, "")}
                    for f in launcher.fields()],
-        # Asked on every read, never stored: a launcher pointing at a program that has
-        # been uninstalled otherwise looks exactly like one that works.
-        "checks": _checks(launcher),
     }
-
-
-def _checks(launcher: launchers.Launcher) -> dict[str, dict[str, str]]:
-    """`{field: {state, reason}}`, for the fields that name a path and only those. A
-    state on every field would be a mark on every row, which says nothing."""
-    named = [field for field in launcher.fields() if field.path]
-    looked = path_state.look_all(
-        path_state.Ask(str(launcher.value(field.key) or ""), field.path) for field in named)
-    return {field.key: {"state": one.state, "reason": one.reason}
-            for field, one in zip(named, looked, strict=True)}
 
 
 def listing() -> dict[str, Any]:
@@ -111,47 +98,38 @@ def listing() -> dict[str, Any]:
 
 
 def put(launcher_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    """Write one whole, under the id the caller names.
+    """Write one whole, under the id the caller names, and answer as `/launchers` does.
 
-    Whole rather than a patch, and by the caller's id, because this is also how a
-    launcher arrives from another machine: that copy is the launcher, and renumbering it
-    on the way in would break every mapping that travelled with it.
+    Keeps the caller's id: a launcher copied from another machine arrives under the id its
+    tables name. The list's own rules refuse a bad write.
     """
     wanted = str(launcher_id or "").strip()
     if not wanted:
         raise service_errors.RefusedError(t("error.launchers.needs_id"))
-    app_id = str(body.get("app") or "").strip()
-    if apps.get(app_id) is None:
-        raise service_errors.RefusedError(
-            t("error.launchers.unknown_app", app_id=(app_id),
-                    apps=', '.join(app.id for app in apps.all_apps())))
-
     store = launchers.get_launcher_store()
-    name = str(body.get("display_name") or "").strip() or apps.app_name(app_id)
-    if any(launchers.same_name(name, one.display_name) for one in store.launchers()
-           if one.launcher_id != wanted):
-        raise service_errors.RefusedError(t("error.launchers.name_taken", name=name))
-    enabled = bool(body.get("enabled", True))
-    before = store.get(wanted)
-    if before is not None and before.enabled and not enabled:
-        refused = _fallback(before)["refused"]
-        if refused:
-            raise service_errors.RefusedError(refused)
-    written = store.put(launchers.Launcher(
-        launcher_id=wanted,
-        app=app_id,
-        display_name=name,
-        enabled=enabled,
-        owns_ini=bool(body.get("owns_ini", False)),
-        settings=dict(body.get("settings") or {}),
-    ))
-    return _described(written)
+    try:
+        store.put(launchers.Launcher(
+            launcher_id=wanted,
+            app=str(body.get("app") or "").strip(),
+            display_name=str(body.get("display_name") or "").strip(),
+            enabled=bool(body.get("enabled", True)),
+            owns_ini=bool(body.get("owns_ini", False)),
+            settings=dict(body.get("settings") or {}),
+        ))
+    except config_schema.ConfigListError as exc:
+        raise service_errors.RefusedError(failures.why(exc)) from exc
+    return _described(launcher_or_refuse(wanted))
 
 
 def fallback(launcher_id: str) -> dict[str, Any]:
     """What switching one off would do: the tables it plays, where each group of them
     would go, and the refusal `put` would give, or ""."""
     return _fallback(launcher_or_refuse(launcher_id))
+
+
+def switch_off_refusal(leaving: launchers.Launcher) -> str:
+    """Why switching this one off is refused, or "" where it is not."""
+    return str(_fallback(leaving)["refused"])
 
 
 def _fallback(leaving: launchers.Launcher) -> dict[str, Any]:
@@ -470,16 +448,6 @@ def make_default(launcher_id: str) -> dict[str, Any]:
     store = launchers.get_launcher_store()
     store.to_front(found.launcher_id)
     return {"launcher_id": found.launcher_id, "app": found.app}
-
-
-def forget(launcher_id: str) -> dict[str, Any]:
-    """Its mappings go with it. A table pointing at a launcher that was deleted is not a
-    state anybody chose, so it goes back to the default."""
-    store = launchers.get_launcher_store()
-    if not store.remove(launcher_id):
-        raise service_errors.NotFoundError(
-            t("error.launchers.no_launcher", launcher_id=(launcher_id)))
-    return {"launcher_id": launcher_id, "removed": True}
 
 
 def assign(table_id: str, launcher_id: str) -> dict[str, Any]:

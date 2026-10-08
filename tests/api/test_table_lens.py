@@ -16,10 +16,11 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 import httpapi
-from common.games import launcher_migration, launchers, table_lens
+from common.games import launchers, table_lens
 from common.host import launch
 from common.i18n import t
-from tests.support.library import TempTree, fake_game, write_game
+from tests.support.launchers_api import put_launcher
+from tests.support.library import TempTree, fake_game, own_launchers, write_game
 
 GAME_ID = "Lens00000001"
 FOLDER = "Cactus Canyon (Bally 1998)"
@@ -268,13 +269,13 @@ class TableScriptTests(_Lens):
 class OwnSettingsTests(_Lens):
     def setUp(self) -> None:
         super().setUp()
-        store = launchers.LauncherStore(str(self.root / "launchers.json"))
-        store.mark_migration(launcher_migration.SEEDED)
+        store = own_launchers(self, str(self.root))
+        store.save([], {})
         patcher = patch.object(launchers, "get_launcher_store", return_value=store)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
-        self.client.put("/launchers/vpx", json={"app": "vpx", "display_name": "VPX"})
+        put_launcher(self.client, "vpx", json={"app": "vpx", "display_name": "VPX"})
 
     def _held(self) -> dict:
         got = self.client.get(f"/games/{GAME_ID}/tables")

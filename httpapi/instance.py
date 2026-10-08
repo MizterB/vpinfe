@@ -16,7 +16,6 @@ from fastapi import APIRouter, BackgroundTasks, Body
 from fastapi.responses import JSONResponse
 
 from common import install_identity, install_presence, install_setup
-from common.games import launcher_migration
 from common.online import app_updater
 from common.paths import get_ini_config
 from common.vpinfe_version import get_version
@@ -31,21 +30,16 @@ announce_on_the_network = install_presence.announce_on_the_network
 
 
 def mint_identity() -> None:
-    """Give this install an id if it has none, seed its stores, and put it in its own
-    registry.
+    """Give this install an id if it has none, and put it in its own registry.
 
     At startup rather than on a request: discovery only reads, so a GET never writes to
-    the config file, and the id is on disk before anything can ask for it. Composed here
-    rather than in common/ because two of the three things it seeds belong to the games
-    package, and the layer that holds identity may not reach into a domain.
+    the config file, and the id is on disk before anything can ask for it.
     """
     try:
-        config = get_ini_config()
         install_identity.ensure_id()
     except Exception as exc:
         logger.warning("Could not mint this install's identity: %s", exc)
         return
-    launcher_migration.ensure_seeded(config)
     install_presence.record_self()
 
 

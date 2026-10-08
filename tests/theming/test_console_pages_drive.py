@@ -214,8 +214,8 @@ class ConsolePagesDrive(unittest.TestCase):
         instance.post("/api/v1/collections",
                       {"name": SMART, "filters": {"manufacturer": ["Bally"]}})
         for path, body in (("config/locations/second",{"path": second, "kind": "root"}),
-                           (f"launchers/{VPX}", {"app": "vpx", "enabled": True,
-                                                 "display_name": "Drive", "settings": vpx})):
+                           (f"config/launchers/{VPX}", {"id": VPX, "app": "vpx", "enabled": True,
+                                        "name": "Drive", "settings": vpx})):
             urllib.request.urlopen(urllib.request.Request(
                 instance.console_url(f"/api/v1/{path}"),
                 data=json.dumps(body).encode(), method="PUT",

@@ -60,7 +60,8 @@ class SettingsReadApartTests(unittest.TestCase):
         game = where / "Some Table" / "Some Table.vpx"
         game.parent.mkdir()
         game.write_text("", encoding="utf-8")
-        store = launchers.LauncherStore(str(where / "launchers.json"))
+        store = launchers.LauncherStore(str(where))
+        store.save([], {})
         store.put(launchers.Launcher("vpx", app="vpx", settings={
             "bin_path": "", "ini_path": str(_ini(where))}))
         with patch.object(launchers, "get_launcher_store", return_value=store), \

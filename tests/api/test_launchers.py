@@ -18,9 +18,11 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 import httpapi
-from common.games import launcher_migration, launchers
+from common.games import launchers
 from console import app_settings, data, workbench
 from console.api import ApiClient
+from tests.support.launchers_api import delete_launcher, put_launcher
+from tests.support.library import own_launchers
 
 
 def _client() -> TestClient:
@@ -31,8 +33,7 @@ class LauncherApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.store = own_launchers(self, self.tmp.name)
         patcher = patch.object(launchers, "get_launcher_store",
                                return_value=self.store)
         patcher.start()
@@ -40,12 +41,11 @@ class LauncherApiTests(unittest.TestCase):
         # Marked as already seeded: building the app runs the startup pass, and a
         # shipped launcher appearing under these would make every count here wrong.
         # A real install is in this state from its second start onwards.
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store.save([], {})
         self.client = _client()
 
     def _put(self, launcher_id: str, **body):
-        return self.client.put(f"/launchers/{launcher_id}",
-                               json={"app": "vpx", **body})
+        return put_launcher(self.client, launcher_id, json={"app": "vpx", **body})
 
     def test_an_install_with_none_answers_an_empty_list(self) -> None:
         body = self.client.get("/launchers").json()
@@ -215,17 +215,23 @@ class LauncherApiTests(unittest.TestCase):
 
     def test_an_app_this_build_does_not_know_is_refused(self) -> None:
         """A typo would make a launcher nothing can ever run, listed as though it could."""
-        response = self.client.put("/launchers/one", json={"app": "atari-pinball"})
+        response = put_launcher(self.client, "one", json={"app": "atari-pinball"})
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("atari-pinball", response.json()["error"]["message"])
+
+    def _checks(self) -> dict:
+        """The states `/config/paths` gives for launcher one, by field."""
+        found = self.client.get("/config/paths").json()["checks"]
+        return {one["field"]: one for one in found
+                if one.get("list") == "launchers" and one["id"] == "one"}
 
     def test_a_launcher_says_what_the_disk_makes_of_its_paths(self) -> None:
         """Without it, one pointing at a program that has been uninstalled looks exactly
         like one that works, and the list cannot say which of two can run a table."""
         self._put("one", settings={"bin_path": "/nope/VPinballX"})
 
-        checks = self.client.get("/launchers").json()["launchers"][0]["checks"]
+        checks = self._checks()
 
         self.assertEqual(checks["bin_path"]["state"], "missing")
         self.assertTrue(checks["bin_path"]["reason"])
@@ -238,7 +244,7 @@ class LauncherApiTests(unittest.TestCase):
         os.chmod(program, 0o755)
         self._put("one", settings={"bin_path": program})
 
-        checks = self.client.get("/launchers").json()["launchers"][0]["checks"]
+        checks = self._checks()
 
         self.assertEqual(checks["bin_path"]["state"], "ok")
         self.assertEqual(checks["bin_path"]["reason"], "")
@@ -247,7 +253,7 @@ class LauncherApiTests(unittest.TestCase):
         """A state on every field would be a mark on every row, which says nothing."""
         self._put("one", settings={"bin_path": "/nope/VPinballX"})
 
-        checks = self.client.get("/launchers").json()["launchers"][0]["checks"]
+        checks = self._checks()
 
         self.assertNotIn("launch_env", checks)
         self.assertNotIn("log_delete_on_start", checks)
@@ -256,14 +262,14 @@ class LauncherApiTests(unittest.TestCase):
         self._put("one", display_name="VPX")
         self.client.put("/launchers/mappings/t1", json={"launcher_id": "one"})
 
-        self.client.delete("/launchers/one")
+        delete_launcher(self.client, "one")
 
         body = self.client.get("/launchers").json()
         self.assertEqual(body["launchers"], [])
         self.assertEqual(body["mappings"], {})
 
     def test_removing_one_that_is_not_there_is_a_404(self) -> None:
-        self.assertEqual(self.client.delete("/launchers/ghost").status_code, 404)
+        self.assertEqual(delete_launcher(self.client, "ghost").status_code, 404)
 
     def test_a_table_can_be_pointed_at_one_and_cleared(self) -> None:
         self._put("one", display_name="VPX")
@@ -290,16 +296,15 @@ class ConfigFilesTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.store = own_launchers(self, self.tmp.name)
         patcher = patch.object(launchers, "get_launcher_store", return_value=self.store)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store.save([], {})
         self.client = _client()
         self.ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         self.ini.write_text("[Player]\nFXAA = 1\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(self.ini)}})
 
     def test_the_config_names_the_file_a_copy_takes(self) -> None:
@@ -321,16 +326,15 @@ class NeverRunTests(unittest.TestCase):
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.data = pathlib.Path(self.tmp.name, "data")
-        self.store = launchers.LauncherStore(os.path.join(self.tmp.name, "launchers.json"))
+        self.store = own_launchers(self, self.tmp.name)
         for patcher in (patch.object(launchers, "get_launcher_store", return_value=self.store),
                         patch("apps.vpx.config._machine_folders",
                               return_value=(self.data / "VPinballX", None))):
             patcher.start()
             self.addCleanup(patcher.stop)
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store.save([], {})
         self.client = _client()
-        self.client.put("/launchers/l1",
-                        json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
         self.file = self.data / "VPinballX" / "10.8" / "VPinballX.ini"
 
     def _put(self, **body):
@@ -369,16 +373,14 @@ class _TableCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.store = own_launchers(self, self.tmp.name)
         store_patch = patch.object(launchers, "get_launcher_store",
                                    return_value=self.store)
         store_patch.start()
         self.addCleanup(store_patch.stop)
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store.save([], {})
         self.client = _client()
-        self.client.put("/launchers/l1",
-                        json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
         folder = os.path.join(self.tmp.name, "Attack from Mars")
         os.makedirs(folder)
         self.table = os.path.join(folder, "afm.vpx")
@@ -431,7 +433,7 @@ class GameFileTests(_TableCase):
     def test_what_it_sets_that_a_table_with_its_own_file_does_not_read(self) -> None:
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\nFXAA = 1\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
         pathlib.Path(self.beside).write_text("[Player]\nFXAA = 2\n")
 
@@ -448,7 +450,7 @@ class ClearingTests(_TableCase):
         with it."""
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\nFXAA = 1\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
         self._write(values={"Player.FXAA": "2"})
 
@@ -464,7 +466,7 @@ class BlankWordsTests(_TableCase):
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\n; Width: Width of the window [Default: 16384]\n"
                            "PlayfieldWidth =\nFXAA = 1\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
         got = self.client.get("/launchers/l1/config")
@@ -482,7 +484,7 @@ class NamedValuesTests(_TableCase):
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\n; Limit Framerate:  [Default: -1.0 in -1.0 .. 1000.0]:\n"
                            "MaxFramerate =\nFXAA = 1\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
         got = self.client.get("/launchers/l1/config")
@@ -501,7 +503,7 @@ class ReportedValuesTests(_TableCase):
         log = pathlib.Path(self.tmp.name, "vpinball.log")
         log.write_text('INFO [VPX::Window::Window@86] No display configured. '
                        'Using display "Built-in Display".\n')
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
         with patch("apps.vpx.config.own_log", return_value=log):
@@ -521,7 +523,7 @@ class PointOfViewTests(_TableCase):
             "BGSet = 1\n[TableOverride]\n"
             "; View mode: How [Default: 2, 0='Legacy', 1='Camera', 2='Window']\n"
             "ViewCabMode =\n; Field of view: How wide [Default: 55]\nViewCabFOV =\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
         pathlib.Path(self.beside).write_text("[TableOverride]\nViewCabFOV = 50\n"
                                             "[TableOption]\nBall_Speed = 2\n")
@@ -557,7 +559,7 @@ class TwoVersionRowTests(_TableCase):
         super().setUp()
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Plugin.B2SLegacy]\nEnable = 1\nB2SDualMode =\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
     def _config(self) -> list[dict]:
@@ -591,7 +593,7 @@ class BackglassPluginAtATableTests(_TableCase):
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Plugin.B2S]\nEnable = 1\n"
                            + "".join(f"{key.rsplit('.', 1)[-1]} = \n" for key in self.VALUES))
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
     def test_each_is_written_to_the_table_s_file_and_read_back_from_it(self) -> None:
@@ -677,7 +679,7 @@ class _BackglassPanel(_TableCase, unittest.IsolatedAsyncioTestCase):
             "[Plugin.B2S]\nEnable = 1\nBackglassDMDOverlay = 1\nScoreViewDMDOverlay = 1\n"
             + "".join(f"{key.rsplit('.', 1)[-1]} = \n"
                       for key in BackglassPluginAtATableTests.VALUES))
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": str(program), "ini_path": str(app_ini)}})
         api = ApiClient("http://testserver")
         api._session = _Wire(self.client, "http://testserver/api/v1")  # type: ignore[assignment]
@@ -882,7 +884,7 @@ class AllTablesOnlyTests(_TableCase):
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Input]\nNudgeSensorCount = 2\n\n"
                            "[Player]\nShowFPS = 0\nFXAA = 1\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
     def _offered(self, scope: str) -> dict:
@@ -932,7 +934,7 @@ class TableOnlyTests(_TableCase):
         self.app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         self.app_ini.write_text("[Player]\nFXAA = 1\n\n"
                                 "[TableOverride]\nDifficulty =\nViewCabFOV =\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(self.app_ini)}})
 
     def _groups(self, scope: str) -> dict:
@@ -971,7 +973,7 @@ class CuratedTests(_TableCase):
         app_ini = pathlib.Path(self.tmp.name, "VPinballX.ini")
         app_ini.write_text("[Player]\nPlaySound = 1\nSound3D = 0\nShowFPS = 0\n\n"
                            "[Plugin.PinMAME]\nEnable = 1\nPinMAMEPath =\n")
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": "/opt/vpx", "ini_path": str(app_ini)}})
 
     def _groups(self, scope: str) -> dict:
@@ -1024,7 +1026,7 @@ class CuratedTests(_TableCase):
         manifest.parent.mkdir(parents=True)
         manifest.write_text('[configuration]\nid = "PinMAME"\nname = "Pinball MAME"\n'
                             'description = "Plays ROMs"\n')
-        self.client.put("/launchers/l1", json={"app": "vpx", "settings": {
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {
             "bin_path": str(program),
             "ini_path": str(pathlib.Path(self.tmp.name, "VPinballX.ini"))}})
 
@@ -1057,13 +1059,12 @@ class SwitchingOffTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.store = launchers.LauncherStore(
-            os.path.join(self.tmp.name, "launchers.json"))
+        self.store = own_launchers(self, self.tmp.name)
         store_patch = patch.object(launchers, "get_launcher_store",
                                    return_value=self.store)
         store_patch.start()
         self.addCleanup(store_patch.stop)
-        self.store.mark_migration(launcher_migration.SEEDED)
+        self.store.save([], {})
         library = [SimpleNamespace(meta_config={"tables": {
             one: {"id": one, "filename": f"{one}.vpx"} for one in ("t1", "t2", "t3")}})]
         games_patch = patch("common.games.game_repository.all_games",
@@ -1076,7 +1077,7 @@ class SwitchingOffTests(unittest.TestCase):
 
     def _put(self, launcher_id: str, *, app: str = "vpx", enabled: bool = True,
              display_name: str = "", bin_path: str = ""):
-        return self.client.put(f"/launchers/{launcher_id}", json={
+        return put_launcher(self.client, launcher_id, json={
             "app": app, "display_name": display_name, "enabled": enabled,
             "settings": {"bin_path": bin_path}})
 
@@ -1143,7 +1144,7 @@ class SwitchingOffTests(unittest.TestCase):
         self.assertIn("VPX Plain", said["refused"])
 
     def test_switching_off_the_last_launcher_for_its_tables_is_refused(self) -> None:
-        self.client.delete("/launchers/plain")
+        delete_launcher(self.client, "plain")
         self._put("gen", app="generic", display_name="Generic", bin_path="/opt/gen")
 
         got = self._put("wide", display_name="VPX Wide", bin_path="/opt/wide",

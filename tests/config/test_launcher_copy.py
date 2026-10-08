@@ -6,7 +6,6 @@ thing on both ends.
 """
 
 import json
-import os
 import unittest
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -148,7 +147,7 @@ class RefusedTests(unittest.TestCase):
     def setUp(self) -> None:
         tmp = TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.store = launchers.LauncherStore(os.path.join(tmp.name, "launchers.json"))
+        self.store = launchers.LauncherStore(tmp.name)
         patcher = patch.object(launchers, "get_launcher_store", return_value=self.store)
         patcher.start()
         self.addCleanup(patcher.stop)

@@ -17,11 +17,11 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from common import apps, i18n, tokens
+from common.apps import OWN_FIELDS
 from common.apps.contract import Availability, ConfigGroup, Field
 from common.config_schema import ConfigOption
 from common.games.asset_registry import ASSET_SPECS, AssetSpec
 from common.games.collection_filters import AXES, FilterAxis
-from common.games.launchers import OWN_FIELDS
 from common.input_registry import InputAction, actions
 from common.media_specs import MEDIA_SPECS, MediaSpec
 from common.tokens import Token

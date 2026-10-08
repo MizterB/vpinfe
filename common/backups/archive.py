@@ -66,8 +66,7 @@ RECORD_KINDS = {
     "vpinfe.json": KIND_SETTINGS, "vpinfe.ini": KIND_SETTINGS,
     COLLECTIONS_NAME: KIND_COLLECTIONS, COLLECTIONS_NAME_INI: KIND_COLLECTIONS,
     "devices.json": KIND_DEVICES, "players.json": KIND_PLAYERS,
-    "tags.json": KIND_RECORDS, "launchers.json": KIND_RECORDS,
-    "ui-preferences.json": KIND_RECORDS,
+    "tags.json": KIND_RECORDS, "ui-preferences.json": KIND_RECORDS,
 }
 
 # What reading a damaged or unsupported zip can raise besides OSError.

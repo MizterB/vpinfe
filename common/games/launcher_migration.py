@@ -6,11 +6,10 @@ saved under a name and opted into per table. Both were one idea written twice - 
 running Visual Pinball differently - so a profile is not carried alongside launchers, it
 is one.
 
-The per-table half is separate and runs where the library is read: a table's assignment
-needs a table, and this module only needs the config directory.
-
-Marked once so it never runs twice. Somebody who deletes a launcher they did not want
-should not find it back on the next start.
+The first half runs inside the conversion of a 2.x ini and consumes the keys it reads, so
+a converted file never converts again and a launcher somebody deletes does not come back.
+The per-table half runs where the library is read, because a table's assignment needs a
+table; it consumes what it reads too, so there is nothing to mark.
 """
 
 from __future__ import annotations
@@ -18,7 +17,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
+from common import config_schema
 from common.config_access import cfg_bool, cfg_get
 from common.config_store import ConfigStore
 from common.games import game_metadata, launchers, tables
@@ -26,8 +27,6 @@ from common.games.game import Game
 from common.paths import PLUGIN_PROFILES_DIR
 
 logger = logging.getLogger("vpinfe.common.games.launcher_migration")
-
-SEEDED = "seeded-from-config"
 
 # What the shipped launcher is called before anybody renames it. Its app's name rather
 # than something invented: on an install with one launcher, "Visual Pinball X" is what a
@@ -38,23 +37,26 @@ SHIPPED_NAME = "Visual Pinball X"
 PROFILE_FILE = "ini_path"
 
 
-def seed(store: launchers.LauncherStore, config: ConfigStore) -> bool:
-    """Give an install its launchers, once. Returns whether it wrote anything.
-
-    The shipped one is written first, and that is what makes it the default: an
-    unassigned table resolves to the first enabled launcher for its app.
-    """
-    if SEEDED in store.migrations():
-        return False
-
-    shipped = launchers.seeded_from(_kept(read_old_keys(config)))
-    found = [launchers.replace(shipped, display_name=SHIPPED_NAME)]
-    found += _from_profiles(shipped, [SHIPPED_NAME])
-
-    store.save(found, {})
-    store.mark_migration(SEEDED)
+def seed(store: Any) -> None:
+    """Give a converted install its launchers: the shipped one, written first so it is the
+    default, then one per plugin profile. An install that had none of the seven set and no
+    profiles keeps the list's default."""
+    config = store.config
+    old = read_old_keys(config)
+    shipped = launchers.Launcher(
+        launcher_id=launchers.mint_launcher_id(), app="vpx", display_name=SHIPPED_NAME,
+        settings=_kept(old))
+    found = [shipped, *_from_profiles(shipped, [SHIPPED_NAME])]
+    if len(found) == 1 and not any(shipped.settings.values()):
+        return
+    store.set_list(launchers.LAUNCHERS_KEY, [one.as_item() for one in found])
+    for key in _CONSUMED:
+        for section, name in _held(config, key):
+            config.remove_option(section, name)
     logger.info("Seeded %d launcher(s) from the existing configuration", len(found))
-    return True
+
+
+config_schema.register_seed("launchers", seed)
 
 
 # Where each launcher field was written before it was one, oldest spelling included.
@@ -84,6 +86,19 @@ _OLD_SPELLINGS = {
 }
 
 
+def _held(config: Any, key: str) -> list[tuple[str, str]]:
+    """Where the file holds this key. The conversion moves a key it does not declare to
+    `general` under its old spelling, so all four places are looked in."""
+    return [(section, name) for section in ("general", "Settings")
+            for name in (key, _OLD_SPELLINGS[key])
+            if config.has_section(section) and config.has_option(section, name)]
+
+
+# The two override keys stay for `retire_table_pattern`, which needs the files.
+_CONSUMED = tuple(key for key in _OLD_SPELLINGS
+                  if not key.startswith("global_game_ini_override_"))
+
+
 def _kept(old: dict[str, object]) -> dict[str, object]:
     """What a launcher holds of the seven: the override was the file Visual Pinball
     started with, so it is the Settings File where one was set."""
@@ -96,14 +111,13 @@ def _kept(old: dict[str, object]) -> dict[str, object]:
 def read_old_keys(config: ConfigStore) -> dict[str, object]:
     """The seven values, under whichever spelling the file happens to hold."""
     found: dict[str, object] = {}
-    for field, section, key, is_bool in _OLD_KEYS:
-        old = _OLD_SPELLINGS[key]
+    for field, _section, key, is_bool in _OLD_KEYS:
+        places = _held(getattr(config, "config", config), key)
         if is_bool:
-            found[field] = (cfg_bool(config, section, key, False)
-                            or cfg_bool(config, "Settings", old, False))
+            found[field] = any(cfg_bool(config, section, name, False) for section, name in places)
         else:
-            found[field] = (cfg_get(config, section, key, "").strip()
-                            or cfg_get(config, "Settings", old, "").strip())
+            found[field] = next((value for section, name in places
+                                 if (value := cfg_get(config, section, name, "").strip())), "")
     return found
 
 
@@ -136,9 +150,6 @@ def _from_profiles(shipped: launchers.Launcher,
     return found
 
 
-ASSIGNED = "assignments-from-info"
-
-
 def migrate_assignments(store: launchers.LauncherStore,
                         games: Iterable[Game]) -> dict[str, int]:
     """Turn each table's own override into a launcher and an assignment.
@@ -165,9 +176,6 @@ def migrate_assignments(store: launchers.LauncherStore,
     minting pass runs over the migrated library, so dropping them earlier would destroy
     the values before anything could record which table they belonged to.
     """
-    if ASSIGNED in store.migrations():
-        return {}
-
     held = store.launchers()
     mappings = dict(store.mappings())
     shipped = held[0] if held else None
@@ -206,9 +214,8 @@ def migrate_assignments(store: launchers.LauncherStore,
         counts["games"] += 1
         _consume(game, vpinfe)
 
-    store.save(held, mappings)
-    store.mark_migration(ASSIGNED)
     if counts["games"]:
+        store.save(held, mappings)
         logger.info("Moved %d game(s) onto launchers: %d table(s), %d new launcher(s)",
                     counts["games"], counts["tables"], counts["launchers"])
     return counts
@@ -259,18 +266,20 @@ def _profile_launcher(name: str, held: Iterable[launchers.Launcher]) -> str:
     return found.launcher_id if found is not None else ""
 
 
-PATTERN_RETIRED = "table-pattern-to-table-ini"
+_PATTERN_KEYS = ("global_game_ini_override_enabled", "global_game_ini_override_mask")
 
 
-def retire_table_pattern(store: launchers.LauncherStore, config: ConfigStore,
-                         games: Iterable[Game]) -> int:
+def retire_table_pattern(config: ConfigStore, games: Iterable[Game]) -> int:
     """Where 2.x started each table with `{stem}.{mask}.ini`, make that file the
     table's `{stem}.ini`, which Visual Pinball reads unaided. Returns how many moved.
 
     A table that already has a `{stem}.ini` keeps both, and the log names it: which of
-    the two somebody meant is not something to guess by overwriting one.
+    the two somebody meant is not something to guess by overwriting one. The two keys
+    are removed once the files have been looked at.
     """
-    if PATTERN_RETIRED in store.migrations():
+    parser = config.config
+    held = [place for key in _PATTERN_KEYS for place in _held(parser, key)]
+    if not held:
         return 0
     old = read_old_keys(config)
     mask = str(old.get("table_ini_override_mask") or "").strip()
@@ -283,7 +292,9 @@ def retire_table_pattern(store: launchers.LauncherStore, config: ConfigStore,
                 table = tables.entry_file(game_dir, entry)
                 if table and _to_table_ini(Path(table), mask):
                     moved += 1
-    store.mark_migration(PATTERN_RETIRED)
+    for section, name in held:
+        parser.remove_option(section, name)
+    config.save()
     if moved:
         logger.info("Renamed %d per-table pattern file(s) to the table's own", moved)
     return moved
@@ -304,11 +315,3 @@ def _to_table_ini(table: Path, mask: str) -> bool:
         logger.exception("Could not rename %s to %s", masked, own.name)
         return False
     return True
-
-
-def ensure_seeded(config: ConfigStore) -> None:
-    """Seed at startup, and never let it be the thing that stops an install starting."""
-    try:
-        seed(launchers.get_launcher_store(), config)
-    except Exception:
-        logger.exception("Could not seed launchers from the configuration")
