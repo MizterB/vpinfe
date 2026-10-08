@@ -179,12 +179,29 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
         return 0
 
 
+def _kept(details: dict, mode: str, chosen: tuple[str, ...],
+          gaps: tuple[str, ...] = ()) -> dict:
+    """Of the source's details, those a game matched to the catalog keeps. What is not
+    written is the entry's, which the match supplies, except where the entry leaves it
+    blank (`gaps`) and the source's is all there is."""
+    if mode == "source":
+        return details
+    chosen = (*chosen, *gaps) if mode == "some" else gaps
+    return {name: value for name, value in details.items() if name in chosen}
+
+
 def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          location: str, name: str = "", sources: Any = None,
          history: Any = None, move: bool = False,
          cleared: frozenset[str] = frozenset(), existing: str = "",
-         vps_id: str = "", guessed: bool = False) -> AdoptedRow:
+         vps_id: str = "", guessed: bool = False,
+         kept: tuple[str, tuple[str, ...], tuple[str, ...]] = ("source", (), ())
+         ) -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
+
+    `kept` is whose details a matched game keeps - the plan's `details` and
+    `detail_fields`, and the match's `gaps` - and says nothing of a game nothing matched,
+    which keeps the source's.
 
     `vps_id` is the catalog entry the look found for a game made new, and `guessed` says
     it was found by name alone. It is written once the game file is in, and a failure to
@@ -220,8 +237,9 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
 
     row["game_id"] = game_id
     details = mapping.details_for(game)
-    if details and not existing:
-        ctx.games.set_details(game_id, **details)
+    wanted = _kept(details, *kept) if vps_id else details
+    if wanted and not existing:
+        ctx.games.set_details(game_id, **wanted)
 
     # The table first, because a media file named for a game file needs that file's name
     # to exist. Its absence is not a failure: a source whose tables are still on the old
@@ -247,6 +265,12 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
             row["matched"] = True
         except Exception as exc:
             ctx.logger.warning("%s: the match did not get written: %s", name, exc)
+            # Left unmatched, the game has only the source to describe it.
+            if details != wanted:
+                try:
+                    ctx.games.set_details(game_id, **details)
+                except Exception as again:
+                    ctx.logger.warning("%s: its details did not get written: %s", name, again)
 
     if "media" not in cleared:
         for kind, path in mapping.media_for(source_id, game, kinds):
@@ -346,7 +370,12 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     kinds = ctx.games.kinds()
     wanted = [system for system in library.systems
               if not systems or system.name in systems]
-    held = {one.key: one for one in (plan.matches if plan else [])}
+    # Paired by position, as the plan was made: two source games can share a key.
+    games = [game for system in wanted for game in system.games]
+    matches = plan.matches if plan else []
+    by_key = {one.key: one for one in matches}
+    held = (dict(zip(map(id, games), matches, strict=True)) if len(matches) == len(games)
+            else {id(game): by_key[game.key] for game in games if game.key in by_key})
     sources = {one.key: one.path for one in (plan.sources if plan else ()) if one.active}
     cleared = frozenset(one.key for one in (plan.sources if plan else ())
                         if not one.active)
@@ -359,20 +388,20 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
     # one game with three tables here, not three games. Without this the first wins the
     # folder and the rest fail on a name that is already taken.
     made_here: dict[str, str] = {}
-    # The games this run fills in rather than makes, by the source's key.
-    held_ids: dict[str, str] = {}
+    # The games this run fills in rather than makes, by the game itself.
+    held_ids: dict[int, str] = {}
     to_do: list[tuple[str, SourceGame]] = []
     for system in wanted:
         where = (places or {}).get(system.name, location)
         for game in system.games:
-            match = held.get(game.key)
+            match = held.get(id(game))
             if match is not None and match.existing and not fill:
                 skipped.append({"key": game.key, "name": match.folder,
                                 "game_id": match.game_id,
                                 "how": ctx.t(f"match.{match.how}")})
                 continue
             if match is not None and match.existing:
-                held_ids[game.key] = match.game_id
+                held_ids[id(game)] = match.game_id
             to_do.append((where, game))
 
     weights = [weigh(game) if weigh else 0 for _where, game in to_do]
@@ -383,7 +412,9 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             break
         # Asked of core, not worked out here: the folder a name becomes is core's
         # rule, and a copy of it drifts without saying so.
-        name = ctx.games.folder_name_for(mapping.folder_name(game))
+        found = held.get(id(game))
+        name = found.folder if found else ctx.games.folder_name_for(
+            mapping.folder_name(game))
         if report:
             report(Standing(at, len(to_do), bytes_done, total_bytes, name))
         bytes_done += weight
@@ -392,11 +423,12 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
             rows.append(_another_build(ctx, library.source_id, game, kinds, name, seen,
                                        move, cleared, seen in held_ids.values()))
             continue
-        found = held.get(game.key)
         row = _one(ctx, library.source_id, game, kinds, where, name, sources,
-                   history, move, cleared, held_ids.get(game.key, ""),
+                   history, move, cleared, held_ids.get(id(game), ""),
                    found.vps_id if found else "",
-                   found.found_by == "name" if found else False)
+                   found.found_by == "name" if found else False,
+                   (plan.details, plan.detail_fields, found.gaps if found else ())
+                   if plan else ("source", (), ()))
         if row["game_id"]:
             made_here[name.lower()] = row["game_id"]
         rows.append(row)

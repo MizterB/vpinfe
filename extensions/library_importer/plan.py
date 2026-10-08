@@ -51,6 +51,19 @@ NOT_YET = ("registry",)
 ON_EXISTING = ("skip", "fill")
 DEFAULT_ON_EXISTING = "skip"
 
+# Whose name a matched game is called by: the catalog's (`vps`) or the source's (`source`).
+# A game nothing matched keeps the source's either way.
+NAMES = ("vps", "source")
+DEFAULT_NAMES = "vps"
+
+# Whose details a matched game's `.info` holds: only the catalog's (`vps`), the source's
+# (`source`), or the source's for the fields chosen (`some`).
+DETAILS = ("vps", "source", "some")
+DEFAULT_DETAILS = "vps"
+DETAIL_FIELDS = ("title", "manufacturer", "year", "type")
+
+RENAMES_SHOWN = 3
+
 
 @dataclass
 class Source:
@@ -80,6 +93,12 @@ class Match:
     vps_id: str = ""
     reason: str = ""
     found_by: str = ""
+    # Where the entry's name and the source's part, for the page to show and count: the
+    # folder the source would have made where the entry's name is used instead, and the
+    # details the two disagree on.
+    was: str = ""
+    differs: tuple[str, ...] = ()
+    gaps: tuple[str, ...] = ()
     # Counted here because here is where the game is in hand. Looking them up later by
     # key cannot work: a real library held two entries with byte-identical keys, and a
     # dict keyed on them silently counts one.
@@ -150,6 +169,11 @@ class Plan:
     # The catalog the look was made in: `enabled` is the Match new games switch, `ready`
     # that there was a catalog to look in.
     catalog: dict = field(default_factory=dict)
+    # Whose name a matched game's folder carries and whose details its `.info` holds; see
+    # `NAMES` and `DETAILS`. `detail_fields` is the chosen few where details is `some`.
+    names: str = DEFAULT_NAMES
+    details: str = DEFAULT_DETAILS
+    detail_fields: tuple[str, ...] = ()
 
     @property
     def new(self) -> list[Match]:
@@ -161,6 +185,31 @@ class Plan:
 
     def source(self, key: str) -> Source | None:
         return next((one for one in self.sources if one.key == key), None)
+
+    def renamed(self, shown: int = RENAMES_SHOWN) -> tuple[int, list[tuple[str, str]]]:
+        """How many games the entry's name changes the folder of, with the first few as
+        (as the source named it, as it will be named). One per folder: the games that
+        share a folder are one game."""
+        seen: set[str] = set()
+        changed: list[tuple[str, str]] = []
+        for one in self.new:
+            if one.was and one.folder.lower() not in seen:
+                seen.add(one.folder.lower())
+                changed.append((one.was, one.folder))
+        return len(changed), changed[:shown]
+
+    def differing(self) -> dict[str, int]:
+        """How many matched games the entry and the source disagree on, by detail. A game
+        that shares its folder with an earlier one is not counted twice."""
+        seen: set[str] = set()
+        counts = dict.fromkeys(DETAIL_FIELDS, 0)
+        for one in self.new:
+            if not one.vps_id or one.folder.lower() in seen:
+                continue
+            seen.add(one.folder.lower())
+            for name in one.differs:
+                counts[name] += 1
+        return counts
 
 
 # What the report counts, in the order it reads. The same keys come back from the run,
@@ -468,7 +517,8 @@ def match_existing(library: SourceLibrary, existing: list[dict],
                    kinds: tuple[str, ...] = (),
                    companions_of: Callable[..., Any] | None = None,
                    history: dict[str, gamestats.Played] | None = None,
-                   looked: dict[int, dict] | None = None) -> list[Match]:
+                   looked: dict[int, dict] | None = None,
+                   names: str = DEFAULT_NAMES) -> list[Match]:
     """Which of the source's games the library already holds.
 
     By the folder this import would create first, because that is what a previous run of
@@ -493,13 +543,21 @@ def match_existing(library: SourceLibrary, existing: list[dict],
 
     found = []
     for game in _games(library, systems):
-        folder = mapping.folder_name(game)
+        source_folder = mapping.folder_name(game)
         if folder_name_for:
-            folder = folder_name_for(folder)
-        folded = _folded(folder)
+            source_folder = folder_name_for(source_folder)
         answer = (looked or {}).get(id(game)) or {}
         entry = str(answer.get("vps_id") or "")
-        held = by_folder.get(folded)
+        said = answer.get("entry") or {}
+        folder, was = source_folder, ""
+        if names == "vps" and entry and said.get("folder_name"):
+            folder = (folder_name_for(said["folder_name"]) if folder_name_for
+                      else said["folder_name"])
+            was = source_folder if _folded(folder) != _folded(source_folder) else ""
+        held = by_folder.get(_folded(folder))
+        if held is None and (held := by_folder.get(_folded(source_folder))):
+            # Called what is on disk, which is the name it was made under.
+            folder, was = source_folder, ""
         how = "folder" if held else ""
         for wanted in (game.vps_id, entry):
             if held is None and wanted:
@@ -513,7 +571,9 @@ def match_existing(library: SourceLibrary, existing: list[dict],
         pictures = mapping.media_for(source_id, game, kinds)
         found.append(Match(key=game.key, folder=folder,
                            game_id=str(held.get("game_id") or "") if held else "",
-                           how=how, vps_id=entry,
+                           how=how, vps_id=entry, was=was,
+                           differs=disagreements(game, said) if entry else (),
+                           gaps=gaps(game, said) if entry else (),
                            found_by=str(answer.get("how") or ""),
                            reason=str(answer.get("reason") or ""),
                            tables=1 if game.table_file else 0,
@@ -526,6 +586,26 @@ def match_existing(library: SourceLibrary, existing: list[dict],
                                        if companions_of and game.table_file else 0),
                            history=1 if played and played.counts_as_history else 0))
     return found
+
+
+def _entry_says(entry: dict, name: str) -> str:
+    return _folded(entry.get("name" if name == "title" else name))
+
+
+def disagreements(game: SourceGame, entry: dict) -> tuple[str, ...]:
+    """The details the source states that the catalog entry states differently."""
+    stated = mapping.details_for(game)
+    return tuple(name for name in DETAIL_FIELDS
+                 if str(stated.get(name) or "").strip() and _entry_says(entry, name)
+                 and _folded(stated[name]) != _entry_says(entry, name))
+
+
+def gaps(game: SourceGame, entry: dict) -> tuple[str, ...]:
+    """The details the source states that the catalog entry leaves blank. Nothing else
+    supplies them, so they are the source's whichever way details are chosen."""
+    stated = mapping.details_for(game)
+    return tuple(name for name in (*DETAIL_FIELDS, "ipdb_id")
+                 if str(stated.get(name) or "").strip() and not _entry_says(entry, name))
 
 
 # Quotes and the characters a filesystem substitutes for them. Stopping here on purpose:
@@ -559,16 +639,22 @@ def build(library: SourceLibrary, existing: list[dict], chosen: dict | None = No
           folder_name_for: Callable[[str], str] | None = None,
           source_id: str = "", kinds: tuple[str, ...] = (),
           companions_of: Callable[..., Any] | None = None,
-          looked: dict[int, dict] | None = None) -> Plan:
+          looked: dict[int, dict] | None = None,
+          names: str = DEFAULT_NAMES, details: str = DEFAULT_DETAILS,
+          detail_fields: list[str] | None = None) -> Plan:
+    names = names if names in NAMES else DEFAULT_NAMES
+    details = details if details in DETAILS else DEFAULT_DETAILS
     sources = derive_sources(library, chosen)
     history, notes = _history(next((one.path for one in sources if one.key == "history"),
                                    ""))
     return Plan(sources=sources,
                 matches=match_existing(library, existing, systems, folder_name_for,
-                                       source_id, kinds, companions_of, history, looked),
+                                       source_id, kinds, companions_of, history, looked, names),
                 on_existing=on_existing if on_existing in ON_EXISTING
                 else DEFAULT_ON_EXISTING,
-                history=history, notes=notes)
+                history=history, notes=notes, names=names, details=details,
+                detail_fields=tuple(one for one in DETAIL_FIELDS
+                                    if one in (detail_fields or ())))
 
 
 def _history(path: str) -> tuple[dict[str, gamestats.Played], list[Note]]:

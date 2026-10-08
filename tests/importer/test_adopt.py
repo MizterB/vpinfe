@@ -602,20 +602,39 @@ class MatchingTests(AdoptCase):
 
     CATALOG = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Williams", "year": 1988}]
 
-    def run_with(self, found: dict[str, str], how: str = "vps_id") -> dict:
-        """Run the import with the look's answer for the games named, by source key."""
+    def run_with(self, found: dict[str, str], how: str = "vps_id",
+                 catalog: list[dict] | None = None, **chosen: object) -> dict:
+        """Run the import with the look's answer for the games named, by source key.
+
+        `chosen` is what the person picked for the plan: names, details, detail_fields.
+        """
         from vpinfe_ext_library_importer import adopt, pinballx
         from vpinfe_ext_library_importer import plan as plan_for
 
+        from common.games import auto_match
+
+        held = catalog or self.CATALOG
         library = pinballx.read(FIXTURE)
-        looked = {id(game): {"vps_id": found[game.key], "reason": "", "how": how}
+        looked = {id(game): {"vps_id": found[game.key], "reason": "", "how": how,
+                             "entry": auto_match._said(next(
+                                 one for one in held if one["id"] == found[game.key]))
+                             if found[game.key] in {one["id"] for one in held} else {}}
                   for system in library.systems for game in system.games
                   if game.key in found}
         made = plan_for.build(library, [], systems=[VPX], source_id="pinballx",
-                              kinds=self._ctx.games.kinds(), looked=looked)
+                              kinds=self._ctx.games.kinds(), looked=looked,
+                              folder_name_for=self._ctx.games.folder_name_for, **chosen)
         with unittest.mock.patch("common.games.game_service.load_vpsdb",
-                                 return_value=self.CATALOG):
+                                 return_value=held):
             return adopt.run(self._ctx, library, [VPX], plan=made)
+
+    PREMIER = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Premier", "year": 1989,
+                "type": "SS"}]
+
+    def info_of(self, folder: str) -> dict:
+        import json
+
+        return json.loads((self.library / folder / f"{folder}.info").read_text("utf-8"))
 
     def taxi_key(self) -> str:
         from vpinfe_ext_library_importer import pinballx
@@ -658,6 +677,58 @@ class MatchingTests(AdoptCase):
         self.assertEqual(report["matched"], 0)
         self.assertEqual(report["games"], 3)
         self.assertFalse(self.taxi()["vps_id"])
+
+    def test_a_matched_game_is_named_and_described_by_its_entry(self) -> None:
+        self.run_with({self.taxi_key(): "vps-taxi"}, catalog=self.PREMIER)
+
+        self.assertFalse((self.library / "Taxi (Williams 1988)").exists())
+        info = self.info_of("Taxi (Premier 1989)")
+        self.assertEqual(info["Info"]["Manufacturer"], "Premier")
+        from common.games.game_metadata import GAME_OVERRIDES
+
+        self.assertFalse([key for key, _theirs in GAME_OVERRIDES.values()
+                          if key in info.get("vpinfe", {})])
+
+    def test_a_detail_the_entry_leaves_blank_comes_from_the_source(self) -> None:
+        blank = [{"id": "vps-taxi", "name": "Taxi", "manufacturer": "Premier"}]
+
+        self.run_with({self.taxi_key(): "vps-taxi"}, catalog=blank, names="source")
+
+        vpinfe = self.info_of("Taxi (Williams 1988)")["vpinfe"]
+        self.assertEqual(vpinfe["alt_year"], "1988")
+        self.assertNotIn("alt_manufacturer", vpinfe)
+
+    def test_the_source_names_the_folder_where_asked(self) -> None:
+        self.run_with({self.taxi_key(): "vps-taxi"}, catalog=self.PREMIER, names="source")
+
+        self.assertTrue((self.library / "Taxi (Williams 1988)").is_dir())
+
+    def test_a_game_nothing_matched_keeps_the_source_name_and_details(self) -> None:
+        self.run_with({}, catalog=self.PREMIER)
+
+        info = self.info_of("Taxi (Williams 1988)")
+        self.assertEqual(info["vpinfe"]["alt_manufacturer"], "Williams")
+
+    def test_the_source_s_details_are_kept_where_asked(self) -> None:
+        self.run_with({self.taxi_key(): "vps-taxi"}, catalog=self.PREMIER,
+                      names="source", details="source")
+
+        vpinfe = self.info_of("Taxi (Williams 1988)")["vpinfe"]
+        self.assertEqual((vpinfe["alt_manufacturer"], vpinfe["alt_year"]), ("Williams", "1988"))
+
+    def test_only_the_chosen_details_are_kept(self) -> None:
+        self.run_with({self.taxi_key(): "vps-taxi"}, catalog=self.PREMIER,
+                      names="source", details="some", detail_fields=["manufacturer"])
+
+        vpinfe = self.info_of("Taxi (Williams 1988)")["vpinfe"]
+        self.assertEqual(vpinfe["alt_manufacturer"], "Williams")
+        self.assertNotIn("alt_year", vpinfe)
+
+    def test_a_match_that_cannot_be_written_leaves_the_source_s_details(self) -> None:
+        with self.assertLogs(level="WARNING"):
+            self.run_with({self.taxi_key(): "no-such-entry"})
+
+        self.assertEqual(self.info_of("Taxi (Williams 1988)")["vpinfe"]["alt_year"], "1988")
 
     def test_a_match_that_cannot_be_written_leaves_the_game_made(self) -> None:
         taxi = self.taxi_key()

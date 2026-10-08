@@ -78,6 +78,13 @@ class SettleTests(unittest.TestCase):
 
         self.assertEqual((found["vps_id"], found["how"]), ("own", "vps_id"))
 
+    def test_the_entry_carries_the_folder_name_vpinfe_would_give_the_game(self) -> None:
+        catalog = [{"id": "x", "name": "Dragon", "manufacturer": "Gottlieb", "year": 1978}]
+
+        found = self.settle(catalog, vps_id="x")
+
+        self.assertEqual(found["entry"]["folder_name"], "Dragon (Gottlieb 1978)")
+
     def test_an_id_the_catalog_does_not_hold_is_set_aside(self) -> None:
         catalog = [_numbered("real", "Dragon", "700")]
 

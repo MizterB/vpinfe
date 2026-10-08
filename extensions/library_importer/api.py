@@ -298,7 +298,10 @@ def build(ctx: Any) -> None:
                                   or plan_for.DEFAULT_ON_EXISTING),
                               _systems(values), ctx.games.folder_name_for,
                               library.source_id, ctx.games.kinds(),
-                              held.companions_of, looked)
+                              held.companions_of, looked,
+                              str(values.get("names") or plan_for.DEFAULT_NAMES),
+                              str(values.get("details") or plan_for.DEFAULT_DETAILS),
+                              [str(one) for one in values.get("details_some") or []])
         made.catalog = catalog
         return made
 

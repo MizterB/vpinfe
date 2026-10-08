@@ -199,6 +199,103 @@ class LookedTests(unittest.TestCase):
         self.assertEqual(plan_for.not_matched(made), {"not_found": 1})
 
 
+class NamedByTheEntryTests(unittest.TestCase):
+    """A matched game is called what its catalog entry is called."""
+
+    CATALOG = [{"id": "vps-trek", "name": "Star Trek: The Next Generation",
+                "manufacturer": "Williams", "year": 1993, "type": "SS"},
+               {"id": "vps-taxi", "name": "Taxi", "manufacturer": "Premier", "year": 1989,
+                "type": "SS"}]
+
+    def _plan(self, *games, **chosen):
+        from common.games import auto_match
+
+        rows = [{"title": game.title, "manufacturer": game.manufacturer,
+                 "year": game.year, "folder": game.key} for game in games]
+        looked = dict(zip((id(game) for game in games),
+                          auto_match.settle(self.CATALOG, rows), strict=True))
+        return plan_for.build(_library(*games), [], source_id="pinballx", kinds=(),
+                              looked=looked, **chosen)
+
+    def _trek(self):
+        return [_game(f"Star Trek {name} (Williams 1993)", title=f"Star Trek {name}",
+                      manufacturer="Williams", year="1993",
+                      table_file=f"/src/{number}.vpx")
+                for number, name in enumerate((": The Next Generation", " The Next Generation"))]
+
+    def test_builds_the_source_spells_two_ways_are_one_game(self) -> None:
+        made = self._plan(*self._trek())
+
+        self.assertEqual({one.folder for one in made.matches},
+                         {"Star Trek The Next Generation (Williams 1993)"})
+        self.assertEqual(plan_for.expected(made)["games"], 1)
+
+    def test_the_source_s_names_are_kept_where_asked(self) -> None:
+        made = self._plan(*self._trek(), names="source")
+
+        self.assertEqual(len({one.folder for one in made.matches}), 2)
+
+    def test_a_game_nothing_matched_keeps_the_source_name(self) -> None:
+        made = self._plan(_game("Funhouse (Williams 1990)", title="Funhouse",
+                                manufacturer="Williams", year="1990"))
+
+        self.assertEqual(made.matches[0].folder, "Funhouse (Williams 1990)")
+        self.assertEqual(made.renamed(), (0, []))
+
+    def test_the_renames_are_counted_with_a_few_shown(self) -> None:
+        made = self._plan(self._taxi())
+
+        self.assertEqual(made.renamed(), (1, [("Taxi (Premiere 1989)", "Taxi (Premier 1989)")]))
+
+    def _taxi(self):
+        return _game("Taxi (Premiere 1989)", title="Taxi", manufacturer="Premiere",
+                     year="1989", game_type="EM")
+
+    def test_the_details_that_differ_are_counted_per_detail(self) -> None:
+        made = self._plan(self._taxi())
+
+        self.assertEqual(made.differing(), {"title": 0, "manufacturer": 1, "year": 0,
+                                            "type": 1})
+        self.assertEqual(made.matches[0].differs, ("manufacturer", "type"))
+
+    def test_a_game_found_by_the_name_on_disk_is_called_that(self) -> None:
+        held = [{"game_id": "g1", "folder_name": "Taxi (Premiere 1989)", "name": "Taxi",
+                 "vps_id": "", "table_files": []}]
+        game = self._taxi()
+        from common.games import auto_match
+
+        looked = {id(game): auto_match.settle(self.CATALOG, [{
+            "title": "Taxi", "manufacturer": "Premiere", "year": "1989", "folder": game.key}])[0]}
+        made = plan_for.build(_library(game), held, source_id="pinballx", kinds=(),
+                              looked=looked)
+
+        self.assertEqual((made.matches[0].game_id, made.matches[0].folder, made.matches[0].was),
+                         ("g1", "Taxi (Premiere 1989)", ""))
+
+    def test_a_detail_the_entry_leaves_blank_is_a_gap_not_a_difference(self) -> None:
+        self.CATALOG.append({"id": "bare", "name": "Funhouse", "manufacturer": "Williams"})
+        self.addCleanup(self.CATALOG.pop)
+        game = _game("Funhouse (Williams 1990)", title="Funhouse", manufacturer="Williams",
+                     year="1990")
+
+        looked = {id(game): {"vps_id": "bare", "entry": self.CATALOG[-1]}}
+        made = plan_for.build(_library(game), [], source_id="pinballx", kinds=(),
+                              looked=looked)
+
+        self.assertEqual((made.matches[0].differs, made.matches[0].gaps), ((), ("year",)))
+
+    def test_the_choices_are_kept_or_fall_back_to_the_default(self) -> None:
+        game = _game("Taxi", title="Taxi")
+
+        chosen = self._plan(game, names="source", details="some",
+                            detail_fields=["year", "bogus", "title"])
+        odd = self._plan(game, names="nope", details="nope")
+
+        self.assertEqual((chosen.names, chosen.details, chosen.detail_fields),
+                         ("source", "some", ("title", "year")))
+        self.assertEqual((odd.names, odd.details), ("vps", "vps"))
+
+
 class ExpectedTests(unittest.TestCase):
     KINDS = ("playfield", "wheel")
 

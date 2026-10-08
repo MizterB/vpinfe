@@ -26,6 +26,7 @@ from common.games.game_metadata import (
 from common.games.info_file import GUIDES_KEY, guides_from_vps, info_from_vps, ipdb_of
 from common.online.vpsdb import guess, lookup, parse_folder_name
 from common.paths import get_ini_config
+from common.uploads.asset_import_service import vps_folder_name
 
 logger = logging.getLogger("vpinfe.common.games.auto_match")
 
@@ -122,7 +123,8 @@ CANDIDATES_SHOWN = 5
 def _said(entry: dict[str, Any]) -> dict[str, str]:
     return {"id": str(entry.get("id") or ""), "name": str(entry.get("name") or ""),
             "manufacturer": str(entry.get("manufacturer") or ""),
-            "year": str(entry.get("year") or ""), "type": str(entry.get("type") or "")}
+            "year": str(entry.get("year") or ""), "type": str(entry.get("type") or ""),
+            "ipdb_id": ipdb_of(entry), "folder_name": vps_folder_name(entry)}
 
 
 def settle(catalog: list[dict], rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
