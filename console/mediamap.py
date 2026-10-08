@@ -25,7 +25,8 @@ CAB_STACK: tuple[tuple[str, ...], ...] = (
     ("topper", "topper_video"),
     ("backglass", "backglass_video"),
     ("scoreview", "scoreview_video"),
-    ("real_dmd", "real_dmd_color"),
+    ("real_dmd", "real_dmd_video"),
+    ("real_dmd_color", "real_dmd_color_video"),
     ("playfield", "playfield_video"),
     # Paired, because a row splits its width between its tiles and a lone one takes
     # the whole of it.
@@ -49,6 +50,7 @@ TILE_AR = {
     "backglass": 1.9, "backglass_video": 1.9,
     "scoreview": 3.0, "scoreview_video": 3.0,
     "real_dmd": 4.0, "real_dmd_color": 4.0,
+    "real_dmd_video": 4.0, "real_dmd_color_video": 4.0,
     # docs/media_flow.md: an fss.png is "the same subject as a table.png photographed
     # differently", so it takes the playfield's shape rather than one of its own.
     "playfield": 1.78, "playfield_video": 1.78,

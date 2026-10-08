@@ -139,6 +139,22 @@ MEDIA_SPECS = (
         token="(RealColorDMD)",
     ),
     MediaSpec(
+        "real_dmd_video",
+        attr="real_dmd_video_path",
+        payload_key="realDMDVideoPath",
+        filename_template="realdmd.mp4",
+        token="(RealDMD)",
+        family=VIDEO_FAMILY,
+    ),
+    MediaSpec(
+        "real_dmd_color_video",
+        attr="real_dmd_color_video_path",
+        payload_key="realDMDColorVideoPath",
+        filename_template="realdmd-color.mp4",
+        token="(RealColorDMD)",
+        family=VIDEO_FAMILY,
+    ),
+    MediaSpec(
         "flyer",
         attr="flyer_image_path",
         payload_key="FlyerImagePath",

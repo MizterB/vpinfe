@@ -132,6 +132,51 @@ class NewKindTests(unittest.TestCase):
         self.assertEqual(resolved["rule_sheet"].name, f"(RuleSheet) {FOLDER}.md")
 
 
+class RealDmdVideoTests(unittest.TestCase):
+    """The panel's two videos, each sitting beside its picture as every video kind does."""
+
+    KINDS = (("real_dmd_video", "realdmd.mp4", "(RealDMD)", "real_dmd", "realdmd.png"),
+             ("real_dmd_color_video", "realdmd-color.mp4", "(RealColorDMD)",
+              "real_dmd_color", "realdmd-color.png"))
+
+    def test_each_kind_resolves_at_every_tier(self) -> None:
+        for kind, fixed, token, _, _ in self.KINDS:
+            for label, names, wanted in (
+                    ("table", [f"{token} {TABLE}.mp4", f"{token} {FOLDER}.mp4", fixed],
+                     f"{token} {TABLE}.mp4"),
+                    ("game", [f"{token} {FOLDER}.mp4", fixed], f"{token} {FOLDER}.mp4"),
+                    ("fixed", [fixed], fixed)):
+                with self.subTest(kind=kind, tier=label):
+                    self.assertEqual(_resolve(names)[kind].name, wanted)
+
+    def test_a_picture_and_its_video_at_one_tier_both_resolve(self) -> None:
+        for kind, _, token, picture_kind, _ in self.KINDS:
+            names = [f"{token} {FOLDER}.png", f"{token} {FOLDER}.mp4"]
+            with self.subTest(kind=kind):
+                resolved = _resolve(names)
+                self.assertEqual(resolved[picture_kind].name, f"{token} {FOLDER}.png")
+                self.assertEqual(resolved[kind].name, f"{token} {FOLDER}.mp4")
+
+    def test_a_video_alone_leaves_both_pictures_empty(self) -> None:
+        resolved = _resolve(["realdmd.mp4", "realdmd-color.mp4"])
+
+        self.assertIsNone(resolved["real_dmd"])
+        self.assertIsNone(resolved["real_dmd_color"])
+
+    def test_the_two_videos_do_not_borrow_each_other(self) -> None:
+        resolved = _resolve(["realdmd.mp4"])
+
+        self.assertIsNone(resolved["real_dmd_color_video"])
+
+    def test_a_video_is_read_back_by_its_token(self) -> None:
+        from common.media_specs import spec_named
+
+        self.assertEqual(spec_named(f"(RealDMD) {FOLDER}.mp4"), ("real_dmd_video", FOLDER))
+        self.assertEqual(spec_named(f"(RealColorDMD) {FOLDER}.mp4"),
+                         ("real_dmd_color_video", FOLDER))
+        self.assertEqual(spec_named(f"(RealDMD) {FOLDER}.png"), ("real_dmd", FOLDER))
+
+
 class TokenAliasTests(unittest.TestCase):
     """VPX publishes (GameHelp) and (GameInfo); we lead with the plain-English name.
 

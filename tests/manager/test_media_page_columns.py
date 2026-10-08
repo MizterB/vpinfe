@@ -48,7 +48,8 @@ class MediaPageColumnTests(unittest.TestCase):
         left_out = {spec.kind for spec in MEDIA_SPECS} - PAGE_KINDS
         self.assertEqual(
             sorted(left_out),
-            ["audio_launch", "instruction_card", "loading", "logo", "rule_sheet",
+            ["audio_launch", "instruction_card", "loading", "logo",
+             "real_dmd_color_video", "real_dmd_video", "rule_sheet",
              "topper", "topper_video"])
 
     def test_the_renamed_kinds_are_the_canonical_ones(self) -> None:

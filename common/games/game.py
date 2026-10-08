@@ -70,6 +70,8 @@ class Game:
     cab_image_path: str | None = None
     real_dmd_image_path: str | None = None
     real_dmd_color_image_path: str | None = None
+    real_dmd_video_path: str | None = None
+    real_dmd_color_video_path: str | None = None
     flyer_image_path: str | None = None
 
     playfield_video_path: str | None = None

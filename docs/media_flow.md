@@ -27,7 +27,7 @@ High-level flow:
 Standard filenames include:
 
 - Images: `table.png`, `fss.png`, `bg.png`, `dmd.png`, `wheel.png`, `logo.png`, `cab.png`, `realdmd.png`, `realdmd-color.png`, `flyer.png`, `instructioncard.png`, `topper.png`
-- Videos: `table.mp4`, `fss.mp4`, `bg.mp4`, `dmd.mp4`, `topper.mp4`, `loading.mp4`
+- Videos: `table.mp4`, `fss.mp4`, `bg.mp4`, `dmd.mp4`, `realdmd.mp4`, `realdmd-color.mp4`, `topper.mp4`, `loading.mp4`
 - Audio: `audio.mp3`, `audiolaunch.mp3`
 - Documents: `rulesheet.pdf`
 

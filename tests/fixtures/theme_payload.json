@@ -63,7 +63,9 @@
       },
       "pupPackExists": false,
       "realDMDColorImagePath": "/library/Attack from Mars (Bally 1995)/medias/realdmd-color.png",
+      "realDMDColorVideoPath": null,
       "realDMDImagePath": "/library/Attack from Mars (Bally 1995)/medias/realdmd.png",
+      "realDMDVideoPath": null,
       "tableDirName": "Attack from Mars (Bally 1995)"
     },
     {
@@ -126,7 +128,9 @@
       },
       "pupPackExists": false,
       "realDMDColorImagePath": null,
+      "realDMDColorVideoPath": null,
       "realDMDImagePath": null,
+      "realDMDVideoPath": null,
       "tableDirName": "Bare Table (Gottlieb 1980)"
     },
     {
@@ -191,7 +195,9 @@
       },
       "pupPackExists": false,
       "realDMDColorImagePath": null,
+      "realDMDColorVideoPath": null,
       "realDMDImagePath": null,
+      "realDMDVideoPath": null,
       "tableDirName": "Congo (Williams 1995)"
     },
     {
@@ -256,7 +262,9 @@
       },
       "pupPackExists": false,
       "realDMDColorImagePath": null,
+      "realDMDColorVideoPath": null,
       "realDMDImagePath": null,
+      "realDMDVideoPath": null,
       "tableDirName": "Medieval Madness (Williams 1997)"
     }
   ],

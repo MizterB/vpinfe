@@ -753,7 +753,7 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             "real_dmd_media_priority",
             type="choice",
             default="color",
-            choices=("color", "video", "image"),
+            choices=("color", "standard"),
             legacy=(("media", "realdmdmediapriority"),),
         ),
     ),

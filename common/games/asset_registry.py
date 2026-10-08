@@ -266,8 +266,11 @@ def match_media_kind(filename: str) -> str | None:
         return "audio"
 
     if "realdmd" in stem or "real dmd" in stem or "real-dmd" in stem:
+        color = "color" in stem
         if ext in IMAGE_EXTENSIONS:
-            return "real_dmd_color" if "color" in stem else "real_dmd"
+            return "real_dmd_color" if color else "real_dmd"
+        if ext in VIDEO_EXTENSIONS:
+            return "real_dmd_color_video" if color else "real_dmd_video"
         return None
 
     for keywords, image_kind, video_kind in _MEDIA_KEYWORDS:

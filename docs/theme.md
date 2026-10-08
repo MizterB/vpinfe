@@ -1572,7 +1572,7 @@ Returns an HTTP URL for a table's image. `kind` can be `"playfield"`, `"backglas
 Returns an HTTP URL for a table's video. `kind` can be `"playfield"`, `"backglass"`, or `"scoreview"`. Returns a fallback `/core/images/file_missing.png` URL if no video exists or `index` is outside the list, never `null`. See [Video Support](#video-support).
 
 #### getMediaURL(index, kind)
-Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"backglass"`, and `"scoreview"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
+Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"backglass"`, and `"scoreview"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. It answers with a picture; a theme that wants the video asks for `"real_dmd_video"` or `"real_dmd_color_video"` by their own names. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
 
 Kind names are snake_case, the same strings the payload and `/api/v1` use, and at contract 2 they are the only names that answer. A contract 1 theme can still use the spellings earlier builds accepted: `bg`, `bg_video`, `dmd`, `dmd_video`, `table`, `table_video`, `fss`, `realdmd`, `realdmd-color`, `rulecard`, `audiolaunch` and `rulesheet`.
 
@@ -1775,7 +1775,7 @@ and the root is the fallback, at every tier below.
 
 ### The kinds
 
-Twenty. `entry.media` lists the ones a game has a file for, using exactly these names, and
+Twenty-two. `entry.media` lists the ones a game has a file for, using exactly these names, and
 `/media/<table id>/<kind>` serves one.
 
 | Kind | Default filename | Spec token | Also accepted |
@@ -1792,6 +1792,8 @@ Twenty. `entry.media` lists the ones a game has a file for, using exactly these 
 | `topper` | `topper.png` | `(Topper)` | |
 | `real_dmd` | `realdmd.png` | `(RealDMD)` | |
 | `real_dmd_color` | `realdmd-color.png` | `(RealColorDMD)` | |
+| `real_dmd_video` | `realdmd.mp4` | `(RealDMD)` | |
+| `real_dmd_color_video` | `realdmd-color.mp4` | `(RealColorDMD)` | |
 | `playfield_video` | `table.mp4` | `(Playfield)` | |
 | `backglass_video` | `bg.mp4` | `(Backglass)` | |
 | `scoreview_video` | `dmd.mp4` | `(DMD)` | |

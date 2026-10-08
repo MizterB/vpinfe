@@ -1507,6 +1507,17 @@ not something a theme is expected to build its own version of.
 Covered by `tests/invariants/test_theme_api_surface.py`, `tests/js/internal-methods.test.js`
 and `tests/theming/test_render_smoke.py`.
 
+**PAR-105 - Two real DMD video kinds: real_dmd_video and real_dmd_color_video.**
+*(machine-checked)* Themes gain two payload fields, `realDMDVideoPath` (`realdmd.mp4`,
+token `(RealDMD)`) and `realDMDColorVideoPath` (`realdmd-color.mp4`, token
+`(RealColorDMD)`); every existing field is unchanged. Each video sits beside its picture,
+the way `bg` and `dmd` do: the token names the picture and the video, the extension family
+tells them apart. `getMedia(index, "real_dmd")` still answers with a picture; a theme that
+wants the video asks for the video kind.
+*Why:* a cabinet with a real DMD plays a game's video before its picture in the other
+frontends, and the shared sets of those videos are named this way.
+Covered by `tests/media/test_media_resolution.py`.
+
 ## Explicitly *not* exceptions
 
 The theme-facing payload (`tables_json` keys, media path fields, stable values) and

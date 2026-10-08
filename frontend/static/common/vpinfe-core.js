@@ -269,9 +269,9 @@ const VPINFE_RENAMED_MEMBERS = {
 // a lookup for a kind nobody serves returns nothing rather than complaining.
 const MEDIA_KINDS = [
   "backglass", "scoreview", "playfield", "playfield_fss", "wheel", "cab",
-  "real_dmd", "real_dmd_color", "flyer", "playfield_video", "backglass_video",
-  "scoreview_video", "audio", "instruction_card", "topper", "topper_video",
-  "loading", "audio_launch", "rule_sheet", "logo",
+  "real_dmd", "real_dmd_color", "real_dmd_video", "real_dmd_color_video", "flyer",
+  "playfield_video", "backglass_video", "scoreview_video", "audio", "instruction_card",
+  "topper", "topper_video", "loading", "audio_launch", "rule_sheet", "logo",
 ];
 
 // Kind names earlier builds accepted, against the canonical snake_case set.

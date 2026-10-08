@@ -326,8 +326,7 @@ def render_panel(tab=None):
             elif key in MEDIA_PRIORITY_KEYS and section == 'presentation':
                 normalized_priority = str(value or '').strip().lower()
                 if key == 'real_dmd_media_priority':
-                    priority_options = {'color': 'Colorized frame', 'video': 'Video',
-                                        'image': 'Image'}
+                    priority_options = {'color': 'Colorized frame', 'standard': 'Standard'}
                     priority_value = normalized_priority if normalized_priority in priority_options else 'color'
                 else:
                     priority_options = {'video': 'Video', 'image': 'Image'}

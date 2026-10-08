@@ -161,7 +161,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `playfield_media_priority` | choice (video, image) | `video` | Playfield Media Priority |
 | `backglass_media_priority` | choice (video, image) | `video` | Backglass Media Priority |
 | `scoreview_media_priority` | choice (video, image) | `video` | Score View Media Priority |
-| `real_dmd_media_priority` | choice (color, video, image) | `color` | Real DMD Media Priority |
+| `real_dmd_media_priority` | choice (color, standard) | `color` | Real DMD Media Priority |
 
 ### `behavior`
 

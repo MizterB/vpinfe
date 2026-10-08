@@ -70,10 +70,23 @@ class AssetRegistryTests(unittest.TestCase):
                 self.assertEqual(match_media_kind(filename), expected)
 
     def test_realdmd_not_claimed_by_dmd_rule(self):
-        # "real_dmd" contains "scoreview"; the realdmd rule must win, and a realdmd video
-        # (no such slot) must not fall through to dmd_video.
+        # "real_dmd" contains "scoreview"; the realdmd rule must win for the video too,
+        # or realdmd.mp4 would fall through to dmd_video.
         self.assertEqual(match_media_kind("realdmd.png"), "real_dmd")
-        self.assertIsNone(match_media_kind("realdmd.mp4"))
+        self.assertEqual(match_media_kind("realdmd.mp4"), "real_dmd_video")
+
+    def test_a_real_dmd_video_uploads_to_its_own_kind(self):
+        cases = [
+            ("realdmd.mp4", "real_dmd_video"),
+            ("realdmd-color.mp4", "real_dmd_color_video"),
+            ("(RealDMD) Attack from Mars.mp4", "real_dmd_video"),
+            ("(RealColorDMD) Attack from Mars.mp4", "real_dmd_color_video"),
+            ("Real DMD Color Attack from Mars.mp4", "real_dmd_color_video"),
+            ("(RealDMD) Attack from Mars.png", "real_dmd"),
+        ]
+        for filename, expected in cases:
+            with self.subTest(filename=filename):
+                self.assertEqual(match_media_kind(filename), expected)
 
     def test_spec_for_flags(self):
         self.assertFalse(spec_for("table").requires_game)

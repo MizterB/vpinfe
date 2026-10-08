@@ -13,6 +13,33 @@ from common.config_access import (
 )
 
 
+class RealDmdPriorityTests(unittest.TestCase):
+    """The setting asks one question, colour or standard, and what it offers is what the
+    reader takes."""
+
+    def _read(self, value: str) -> str:
+        parser = configparser.ConfigParser()
+        parser.read_dict({"Media": {"realdmdmediapriority": value}})
+        return MediaConfig.from_config(parser).realdmd_media_priority
+
+    def test_it_offers_color_and_standard(self) -> None:
+        from common import config_schema
+
+        option = config_schema.option("presentation", "real_dmd_media_priority")
+
+        assert option is not None
+        self.assertEqual(option.choices, ("color", "standard"))
+
+    def test_each_choice_reads_back_as_itself(self) -> None:
+        from common import config_schema
+
+        option = config_schema.option("presentation", "real_dmd_media_priority")
+        assert option is not None
+        for choice in option.choices:
+            with self.subTest(choice=choice):
+                self.assertEqual(self._read(choice), choice)
+
+
 class TypedConfigTests(unittest.TestCase):
     def test_typed_config_accessors_normalize_common_sections(self) -> None:
         parser = configparser.ConfigParser()
