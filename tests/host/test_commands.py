@@ -33,7 +33,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(plans, [["real"]])
 
     def test_a_name_this_context_does_not_offer_is_refused_by_name(self) -> None:
-        """`--config {launcher_ini}` resolved to nothing is a dangling flag the program
+        """`--config {settings_file}` resolved to nothing is a dangling flag the program
         reads as whatever comes next."""
         with self.assertRaises(tokens.UnknownTokenError) as raised:
             commands.planned("go {nonsense}", {}, context=tokens.TABLE)
@@ -121,7 +121,7 @@ class OfferedTests(unittest.TestCase):
         names = [one.name for one in tokens.offered(tokens.VPINFE)]
 
         self.assertNotIn("table", names)
-        self.assertNotIn("launcher_bin", names)
+        self.assertNotIn("program", names)
 
     def test_every_token_says_what_it_is(self) -> None:
         """It is shown beside the field, so a name with no sentence is a name nobody

@@ -295,7 +295,7 @@ but an http or https address, is left out.
 ## Adding a name a command can use
 
 A user writes commands that run when VPinFE starts and around every table. Core declares
-what one of them may say — `{table}`, `{rom}`, `{launcher_bin}` — and an extension adds to
+what one of them may say — `{table}`, `{rom}`, `{program}` — and an extension adds to
 that list.
 
 ```python

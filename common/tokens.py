@@ -12,7 +12,7 @@ first and each argument is resolved on its own, so a path with a space in it is 
 argument. Resolving first and splitting after is how the same path becomes two arguments,
 or worse.
 
-**An unknown name refuses.** Resolving it to nothing turns `--config {launcher_ini}` into
+**An unknown name refuses.** Resolving it to nothing turns `--config {settings_file}` into
 a dangling flag that the program reads as whatever comes next. Not knowing a name and
 having no value for one are different answers and both are said out loud.
 
@@ -66,8 +66,8 @@ TOKENS: tuple[Token, ...] = (
     Token("id", frozenset({TABLE})),
     Token("key", frozenset({TABLE})),
     Token("rom", frozenset({TABLE})),
-    Token("launcher_bin", frozenset({TABLE})),
-    Token("launcher_ini", frozenset({TABLE})),
+    Token("program", frozenset({TABLE})),
+    Token("settings_file", frozenset({TABLE})),
     Token("location", frozenset({TABLE})),
     Token("player", frozenset({TABLE})),
     Token("exit_code", frozenset({TABLE}), after_only=True),

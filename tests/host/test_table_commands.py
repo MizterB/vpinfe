@@ -91,8 +91,8 @@ class ValueTests(unittest.TestCase):
         self.assertEqual(values["table"], "/games/Attack from Mars/afm.vpx")
         self.assertEqual(values["table_stem"], "afm")
         self.assertEqual(values["game_name"], "Attack from Mars")
-        self.assertEqual(values["launcher_bin"], "/opt/vpx/VPinballX")
-        self.assertEqual(values["launcher_ini"], "/cfg/VPinballX.ini")
+        self.assertEqual(values["program"], "/opt/vpx/VPinballX")
+        self.assertEqual(values["settings_file"], "/cfg/VPinballX.ini")
         self.assertEqual(values["location"], "loc1")
 
     def test_a_command_names_the_one_player_up(self) -> None:
@@ -117,7 +117,7 @@ class ValueTests(unittest.TestCase):
         of them fails on a table that happens not to have it."""
         values = table_commands._values(_game(), _playing(entry_id=""), None)
 
-        for name in ("id", "key", "rom", "launcher_bin", "launcher_ini"):
+        for name in ("id", "key", "rom", "program", "settings_file"):
             self.assertEqual(values[name], "", name)
 
 

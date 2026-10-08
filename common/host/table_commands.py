@@ -66,8 +66,8 @@ def _values(game: Game, playing: apps.Entry, launcher: Launcher | None,
         # The app's own name for the entry. Something in the folder has none.
         "key": str(playing.key or ""),
         "rom": str(entry.get("rom") or ""),
-        "launcher_bin": str(settings.get("bin_path") or ""),
-        "launcher_ini": str((launcher.in_effect("ini_path") if launcher else "") or ""),
+        "program": str(settings.get("bin_path") or ""),
+        "settings_file": str((launcher.in_effect("ini_path") if launcher else "") or ""),
         "location": str(getattr(game, "location_id", "") or ""),
         "player": up[0].initials if len(up) == 1 else "",
     }
