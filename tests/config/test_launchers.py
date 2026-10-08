@@ -165,6 +165,18 @@ class ValueTests(unittest.TestCase):
         self.assertEqual(one.value("bin_path"), "")
 
 
+class OneToALineTests(unittest.TestCase):
+    def test_the_environment_field_takes_several_lines(self) -> None:
+        """A one-line input cannot take the second NAME=value its help text promises."""
+        for app_id in ("vpx", "generic"):
+            with self.subTest(app=app_id):
+                field = next(f for f in apps.launcher_fields(app_id)
+                             if f.key == "launch_env")
+
+                self.assertEqual(field.type, "text")
+                self.assertGreater(field.lines, 1)
+
+
 class ResolutionTests(unittest.TestCase):
     """Explicit assignment, then is it enabled, then the default for the app."""
 

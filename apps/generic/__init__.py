@@ -44,7 +44,7 @@ KINDS: frozenset[str] = frozenset({
 FIELDS: tuple[Field, ...] = (
     Field("bin_path", path="exe"),
     Field("args"),
-    Field("launch_env"),
+    Field("launch_env", type="text", lines=3),
 )
 
 

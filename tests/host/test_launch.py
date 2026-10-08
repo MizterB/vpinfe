@@ -377,6 +377,13 @@ class RecordingTests(LaunchTests):
                                  heard[events.TABLE_LAUNCHING]["table_id"])
 
 
+class LaunchEnvTests(unittest.TestCase):
+    def test_one_name_and_value_to_a_line_all_reach_the_launch(self) -> None:
+        env = launch.parse_launch_env_overrides("FIRST=1\nSECOND='two words'\n")
+
+        self.assertEqual(env, {"FIRST": "1", "SECOND": "two words"})
+
+
 class RecordingCommandTests(LaunchTests):
     """What a recording's table is launched with, which lasts as long as the table."""
 
