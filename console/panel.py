@@ -11,7 +11,7 @@ into an entry list as the second half of a pair.
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any
@@ -523,17 +523,21 @@ def selection_actions(hint: str) -> tuple[Any, Any]:
 
 def selection_menu(hint: str, rows: Callable[[], list[Any]],
                    acts: Callable[[list[Any]], Sequence[Verb]],
-                   clear: Callable[[], Any]) -> Callable[[bool], None]:
+                   clear: Callable[[], Any],
+                   ready: Callable[[], Awaitable[Any]] | None = None) -> Callable[[bool], None]:
     """A grid bar's `more_vert` for the selected rows, drawing the subject's own list.
 
     `acts` is given the rows chosen when the menu opens and answers what can be done to
     them, the list the row menu and the panel draw; `for_selection` and the way out
-    (*Clear selection*, under a rule of its own) are added here. Answers the function that
+    (*Clear selection*, under a rule of its own) are added here. `ready` is awaited first,
+    for what `acts` draws from and cannot read without waiting. Answers the function that
     shows the button, given whether any row is selected.
     """
     control, menu = selection_actions(hint)
 
-    def fill() -> None:
+    async def fill() -> None:
+        if ready is not None:
+            await ready()
         chosen = rows()
         menu.clear()
         with menu:
@@ -1281,7 +1285,7 @@ class Verb:
     `draw` stands in for an entry of its own: it draws several into the menu being built,
     given what closes that menu, for the one list that is a submenu with state of its own.
     `one` is a verb with no meaning over several rows: with several chosen it stays in the
-    menu, dimmed and saying so (`for_selection`).
+    menu, dimmed and saying so (`for_selection`). `tip` is what a hover adds to the label.
     """
     label: str
     run: Callable[[], Any] | None = None
@@ -1293,6 +1297,7 @@ class Verb:
     to: str = ""
     draw: Callable[[Callable[[], Any]], None] | None = None
     one: bool = False
+    tip: str = ""
 
 
 def for_selection(entries: Sequence[Verb], count: int) -> list[Verb]:
@@ -1324,6 +1329,8 @@ def _verb_entry(verb: Verb) -> None:
         item.props["href"] = verb.to
         if leaves(verb.to):
             item.props["target"] = "_blank"
+    if verb.tip:
+        item.tooltip(verb.tip)
     with item, ui.row().classes("items-center gap-2 no-wrap w-full"):
         with ui.column().classes("gap-0 grow min-w-0"):
             ui.label(verb.label)

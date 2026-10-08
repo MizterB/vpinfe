@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import json
 import logging
 from collections import Counter
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from functools import partial
 from typing import Any
@@ -15,14 +14,12 @@ from typing import Any
 from nicegui import run, ui
 
 from common import icons
-from common.failures import why
 from common.games import asset_registry
 from common.i18n import t
 from common.labels import humanize
 from common.media_specs import media_label_map
 from console import (
     art,
-    backup_rows,
     busy,
     collection_adds,
     deeplink,
@@ -30,7 +27,6 @@ from console import (
     game_acts,
     game_tables,
     grid,
-    media_fill,
     media_ownership,
     mediaview,
     offload,
@@ -38,19 +34,15 @@ from console import (
     renderers,
     row_drag,
     sections,
-    send_to_device,
     stars,
     table_features,
     tag_chips,
     thumbnails,
-    undo,
     verbs,
     views,
-    vps_match,
     workbench,
 )
 from console import dialog as frame
-from console import record as recorder
 from console import settings as settings_page
 from console.on_page import on_page
 
@@ -384,45 +376,6 @@ def media_columns(kinds: list[str], shown: list[str] | None = None) -> list[dict
             for kind, header in headers.items()]
 
 
-def auto_match_outcome(result: dict[str, Any]) -> tuple[str, bool]:
-    """What Auto-match says when it is done, and whether any match moved."""
-    moved = int(result.get("changed") or 0)
-    waiting = int(result.get("unmatched") or 0)
-    skipped = int(result.get("skipped") or 0)
-    parts = [t(key, count=count) for key, count in (
-        ("console.games.auto_matched", moved), ("console.games.unmatched", waiting),
-        ("console.games.auto_match_skipped", skipped)) if count]
-    if not parts:
-        return t("console.vps_match.nothing_changed"), False
-    if len(parts) == 1:
-        return parts[0], bool(moved)
-    if len(parts) == 2:
-        return t("console.games.auto_matched_some", matched=parts[0], waiting=parts[1]), bool(moved)
-    return t("console.games.auto_matched_all", matched=parts[0], waiting=parts[1],
-             skipped=parts[2]), True
-
-
-async def _rate(games: list[dict[str, Any]],
-                rate_games: Callable[[list[str], int], Awaitable[bool]]) -> None:
-    """Set a rating on every game passed in, through the writer the star click uses."""
-    if not games:
-        return
-
-    @on_page
-    async def apply(value: int) -> None:
-        if await rate_games([game["id"] for game in games], value):
-            box.close()
-            ui.notify(t("console.games.rated_game_s", count=len(games), value=value),
-                      type="positive")
-
-    with frame.opened(t("console.games.rate_game_s", count=len(games))) as box:
-        with ui.row().classes("px-3"):
-            stars.draw(0, lambda n: asyncio.create_task(apply(n)))()
-        with frame.footer():
-            frame.cancel(box.close)
-    box.open()
-
-
 def media_zoomed(state: dict[str, Any], event: Any) -> Any:
     """A media cell's zoom, answered by the grid drawn last."""
     zoom = state.get("media_zoom")
@@ -528,11 +481,15 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             # looking at - and it costs no vertical space of its own.
             count = ui.label(t("console.games.games", count=len(rows))) \
                 .classes("text-xs console-label")
-            actions, bulk_menu = panel.selection_actions(t("console.games.games_menu"))
+            show_selection = panel.selection_menu(
+                t("console.games.games_menu"), lambda: grid.selection(table),
+                lambda chosen: game_verbs(chosen, adding["known"]),
+                lambda: table.run_grid_method("deselectAll"), ready=lambda: read_collections())
             if rescan is not None:
                 panel.refresh(rescan, t("console.games.rescan"))
 
     shown: dict[str, int] = {"rows": len(rows)}
+    adding: dict[str, collection_adds.Read | None] = {"known": None}
 
     def said() -> str:
         if selected:
@@ -544,7 +501,7 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
 
     def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
-        actions.set_visibility(bool(rows_selected))
+        show_selection(bool(rows_selected))
         count.text = said()
 
     by_id = {row["id"]: row for row in rows}
@@ -583,18 +540,23 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
     grid.on_row_focus(SCOPE, focused)
     state["media_zoom"] = zoom_media
     state["rate"] = rate_row
+    state["rate_games"] = rate_games
     ui.run_javascript(_CELL_MEDIA)
     ui.run_javascript(stars.CLICK_JS)
 
     async def on_context(row: dict | None) -> None:
-        # The row menu acts on the row under the cursor, which is not necessarily the
-        # selection. Conflating the two is how people act on the wrong thing.
-        known = await collection_adds.read(library, narrowed_to()) if row else None
-        _fill_menu(row=row, known=known)
+        if row is None:
+            _fill_menu()
+            return
+        _fill_menu(on=grid.menu_rows(table, row),
+                   known=await collection_adds.read(library, narrowed_to()))
 
     def narrowed_to() -> str:
         """The collection the grid is filtered to, while it is one."""
         return str(state.get("collection") or "")
+
+    async def read_collections() -> None:
+        adding["known"] = await collection_adds.read(library, narrowed_to())
 
     def offer(games: list[dict[str, Any]], subject: str) -> collection_adds.Offer:
         return collection_adds.Offer(
@@ -603,126 +565,18 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
             then=partial(refresh_games, [str(one["id"]) for one in games]),
             narrowed=narrowed_to())
 
-    @on_page
-    async def auto_match(games: list[dict[str, Any]]) -> None:
-        ids = [str(one["id"]) for one in games]
-        try:
-            result = await offload.io(library.auto_match, ids)
-        except Exception as exc:  # noqa: BLE001 - said, and the grid is as it was
-            ui.notify(t("console.games.match_failed"), caption=why(exc), type="warning")
-            return
-        said, moved = auto_match_outcome(result)
-        ui.notify(said, type="positive" if moved else "info")
-        if moved:
-            await refresh_games(ids)
-            if state.get("game") in ids:
-                answer = on_select(by_id.get(str(state["game"])))
-                if inspect.isawaitable(answer):
-                    await answer
-
-    async def show_private(ids: list[str]) -> None:
-        await refresh_games(ids)
-        if state.get("game") in ids:
-            answer = on_select(by_id.get(str(state["game"])))
-            if inspect.isawaitable(answer):
-                await answer
-
-    @on_page
-    async def mark_private(games: list[dict[str, Any]], private: bool) -> None:
-        ids = [str(one["id"]) for one in games]
-        flipping = [str(one["id"]) for one in games if bool(one.get("private")) != private]
-        try:
-            await run.io_bound(library.set_games_private, ids, private)
-        except Exception as exc:  # noqa: BLE001 - said, and the grid is as it was
-            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
-            return
-        await show_private(ids)
-        said = t("console.games.marked_private" if private
-                 else "console.games.cleared_private", count=len(ids))
-
-        @on_page
-        async def put_back() -> None:
-            await run.io_bound(library.set_games_private, flipping, not private)
-            await show_private(flipping)
-
-        if flipping:
-            undo.offer(said, put_back)
-        else:
-            ui.notify(said, type="positive")
-
-    def private_entries(games: list[dict[str, Any]]) -> None:
-        marked = [bool(one.get("private")) for one in games]
-        panel.menu_entry(t("console.games.mark_private"), lambda: mark_private(games, True),
-                         refused=t("console.games.already_private", count=len(games))
-                         if all(marked) else "")
-        panel.menu_entry(t("console.games.clear_private"),
-                         lambda: mark_private(games, False),
-                         refused="" if any(marked)
-                         else t("console.games.none_private", count=len(games)))
-
-    async def get_missing_art(games: list[dict[str, Any]]) -> None:
-        ids = [str(one["id"]) for one in games]
-
-        @on_page
-        async def placed() -> None:
-            await run.io_bound(library.reread_media, ids)
-            await refresh_games(ids)
-
-        await media_fill.ask(ids, state, placed,
-                           name=str(games[0].get("name") or "") if len(games) == 1 else "")
-
-    async def record_media(games: list[dict[str, Any]]) -> None:
-        ids = [str(one["id"]) for one in games]
-
-        @on_page
-        async def placed() -> None:
-            await run.io_bound(library.reread_media, ids)
-            await refresh_games(ids)
-
-        name = str(games[0].get("name") or "") if len(games) == 1 else ""
-        title = t("console.record.title", name=name) if name \
-            else t("console.record.title_games", count=len(games))
-        await recorder.ask(library, [(game_id, "") for game_id in ids], title, state, placed)
-
-    async def fill_bulk() -> None:
-        chosen = grid.selection(table)
-        known = await collection_adds.read(library, narrowed_to())
-        bulk_menu.clear()
-        with bulk_menu:
-            panel.menu_entry(t("console.games.rate_selected"), lambda: _rate(chosen, rate_games))
-            private_entries(chosen)
-            # One picker at a time: a person decides every one, and Skip leaves a game
-            # exactly as it was.
-            panel.menu_entry(t("console.games.match_vps"),
-                             lambda: vps_match.walk(library, chosen))
-            panel.menu_entry(t("console.games.auto_match"),
-                             lambda: auto_match(chosen)) \
-                .tooltip(t("console.games.auto_match.help"))
-            panel.menu_entry(t("console.media_fill.get_missing"),
-                             lambda: get_missing_art(chosen))
-            recorder.menu_entry(library, t("console.record.record_media"),
-                                lambda: record_media(chosen))
-            # Where the games you have already picked go. From here rather than only
-            # from the device, because starting with the tables and choosing where they
-            # land is a different job from managing what a phone holds.
-            panel.menu_entry(t("console.games.send_device"),
-                             lambda: send_to_device.ask_where(chosen, state))
-            panel.menu_entry(t("console.backups.back_up_title"),
-                             lambda: backup_rows.back_up_games(library, chosen))
-            ui.separator()
-            collection_adds.draw(offer(chosen, ""), known, bulk_menu.close)
-            ui.separator()
-            panel.menu_entry(t("word.clear_selection"),
-                             lambda: table.run_grid_method("deselectAll"))
-        bulk_menu.open()
-
-    actions.on_click(fill_bulk)
+    def game_verbs(chosen: list[dict[str, Any]],
+                   known: collection_adds.Read | None) -> list[panel.Verb]:
+        subject = str(chosen[0].get("name") or "") if len(chosen) == 1 else ""
+        return game_acts.game_acts(
+            library, chosen, state, refresh_games, rate=rate_games,
+            collections=game_acts.collections_of(offer(chosen, subject), known))
 
     async def on_header_context(col_id: str | None) -> None:
         _fill_menu(col_id=col_id, pinning=await grid.pinning(table, col_id))
 
-    def _fill_menu(row: dict | None = None, col_id: str | None = None,
-                   pinning: grid.Pinning | None = None,
+    def _fill_menu(col_id: str | None = None, pinning: grid.Pinning | None = None,
+                   on: list[dict[str, Any]] | None = None,
                    known: collection_adds.Read | None = None) -> None:
         """One menu, filled for whatever was right-clicked.
 
@@ -734,12 +588,11 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
         if pinning is not None:
             with context_menu:
                 grid.column_menu(context_menu, table, columns, col_id, pinning)
-        elif row:
-            name = str(row.get("name") or "")
-            panel.verb_menu(context_menu, name, game_acts.game_acts(
-                library, str(row["id"]), name,
-                game_acts.collections_of(offer([row], name), known),
-                partial(record_cleared, str(row["id"])), state))
+        elif on:
+            header = (str(on[0].get("name") or "") if len(on) == 1
+                      else t("console.games.games", count=len(on)))
+            panel.verb_menu(context_menu, header,
+                            panel.for_selection(game_verbs(on, known), len(on)))
 
     # The menu hangs off a wrapper, not off the grid: ui.aggrid's Vue template is a bare
     # <div> with no slot, so a child of it is never rendered and the menu silently does
@@ -784,13 +637,6 @@ def build(rows: list[dict[str, Any]], kinds: list[str], library: Any,
                 await answer
 
     state["refresh_games"] = refresh_games
-
-    async def record_cleared(game_id: str) -> None:
-        if state.get("game") != game_id:
-            return
-        answer = on_select(by_id.get(game_id))
-        if inspect.isawaitable(answer):
-            await answer
 
     async def counted() -> None:
         seen = await table.run_grid_method("getDisplayedRowCount")
@@ -1375,7 +1221,11 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(_tables_said(built, len(built))) \
                 .classes("text-xs console-label")
-            actions, bulk_menu = panel.selection_actions(t("console.games.tables_menu"))
+            show_selection = panel.selection_menu(
+                t("console.games.tables_menu"), lambda: grid.selection(table),
+                lambda chosen: table_verbs(chosen, adding["known"]),
+                lambda: table.run_grid_method("deselectAll"),
+                ready=lambda: read_collections())
             if rescan is not None:
                 panel.refresh(rescan, t("console.games.rescan"))
 
@@ -1396,7 +1246,7 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     state["rate"] = rate_row
     ui.run_javascript(stars.CLICK_JS)
 
-    row_menu: dict[str, Any] = {}
+    adding: dict[str, collection_adds.Read | None] = {"known": None}
     selected: list[dict[str, Any]] = []
     displayed: dict[str, int] = {"rows": len(built)}
 
@@ -1408,65 +1258,40 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
 
     def on_select_rows(rows_selected: list[dict[str, Any]]) -> None:
         selected[:] = rows_selected
-        actions.set_visibility(bool(rows_selected))
+        show_selection(bool(rows_selected))
         count.text = said()
 
     async def on_context(row: dict | None) -> None:
-        # The menu acts on the row under the cursor, not on the selection. Conflating
-        # the two is how people act on the wrong thing.
-        row_menu["row"] = row
-        known = await collection_adds.read(library) if row else None
-        _fill(row, known=known)
+        if row is None:
+            _fill()
+            return
+        _fill(on=grid.menu_rows(table, row), known=await collection_adds.read(library))
+
+    async def read_collections() -> None:
+        adding["known"] = await collection_adds.read(library)
 
     def offer(tables: list[dict[str, Any]], subject: str) -> collection_adds.Offer:
         return collection_adds.Offer(
             library, [collection_adds.Row(str(one["game_id"]), str(one["id"]))
                       for one in tables],
             collection_adds.TABLES, subject,
-            then=partial(tables_added, [str(one["game_id"]) for one in tables]))
+            then=partial(after, [str(one["game_id"]) for one in tables], False))
 
-    async def tables_added(games: list[str]) -> None:
-        """The panel, where it is showing one of these: its rail counts them."""
-        if table.is_deleted or state.get("view") != "tables":
-            return
-        if state.get("game") in games:
-            answer = on_select(by_id.get(str(state.get("table") or "")))
-            if inspect.isawaitable(answer):
-                await answer
-
-    async def record_media(tables: list[dict[str, Any]]) -> None:
-        games = list(dict.fromkeys(str(one["game_id"]) for one in tables))
-
-        async def placed() -> None:
-            for game_id in games:
-                await refresh_game(game_id)
-
-        one = tables[0] if len(tables) == 1 else None
-        name = str(one.get("game") or "") if one else ""
-        title = t("console.record.title_table", name=name,
-                  table=game_tables.table_name(one)) if one \
-            else t("console.record.title_tables", count=len(tables))
-        await recorder.ask(library, [(str(row["game_id"]), str(row["id"])) for row in tables],
-                           title, state, placed)
-
-    async def fill_bulk() -> None:
-        chosen = grid.selection(table)
-        known = await collection_adds.read(library)
-        bulk_menu.clear()
-        with bulk_menu:
-            recorder.menu_entry(library, t("console.record.record_media"),
-                                lambda: record_media(chosen))
-            ui.separator()
-            collection_adds.draw(offer(chosen, ""), known, bulk_menu.close)
-            ui.separator()
-            panel.menu_entry(t("word.clear_selection"),
-                             lambda: table.run_grid_method("deselectAll"))
-        bulk_menu.open()
-
-    actions.on_click(fill_bulk)
+    def table_verbs(chosen: list[dict[str, Any]],
+                    known: collection_adds.Read | None) -> list[panel.Verb]:
+        siblings: dict[str, list[dict[str, Any]]] = {}
+        for item in by_id.values():
+            siblings.setdefault(str(item.get("game_id")), []).append(item)
+        targets = [game_acts.Target(str(one["game_id"]), str(one.get("game") or ""), one,
+                                    siblings.get(str(one["game_id"]), [one]))
+                   for one in chosen]
+        subject = _table_label(chosen[0]) if len(chosen) == 1 else ""
+        return game_acts.table_acts(
+            library, targets, after, state,
+            game_acts.collections_of(offer(chosen, subject), known))
 
     async def on_header_context(col_id: str | None) -> None:
-        _fill(None, col_id=col_id, pinning=await grid.pinning(table, col_id))
+        _fill(col_id=col_id, pinning=await grid.pinning(table, col_id))
 
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
         # The selection feeds the bulk menu, never `on_select`: that one is about the
@@ -1515,22 +1340,22 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     state["refresh_game"] = refresh_game
     state["open_table"] = open_table
 
-    def after(row: dict[str, Any]) -> game_acts.After:
+    async def after(game_ids: list[str], gone: bool) -> None:
         """Put only what changed back on screen. Rebuilding the page reads as the grid
         flashing: scroll position, focus and the open panel all go, for a write that
         touched one game's rows."""
-        async def put_right(gone: bool) -> None:
-            await refresh_game(str(row["game_id"]))
-            # The panel is about one of these rows and would otherwise still show what
-            # the write changed. `on_select` redraws the workbench alone, not the page.
-            answer = on_select(by_id.get(row["id"]))
-            if inspect.isawaitable(answer):
-                await answer
+        if table.is_deleted or state.get("view") != "tables":
+            return
+        for game_id in game_ids:
+            await refresh_game(game_id)
+        # The panel is about one of these rows and would otherwise still show what
+        # the write changed. `on_select` redraws the workbench alone, not the page.
+        answer = on_select(by_id.get(str(state.get("table") or "")))
+        if inspect.isawaitable(answer):
+            await answer
 
-        return put_right
-
-    def _fill(row: dict | None, col_id: str | None = None,
-              pinning: grid.Pinning | None = None,
+    def _fill(col_id: str | None = None, pinning: grid.Pinning | None = None,
+              on: list[dict[str, Any]] | None = None,
               known: collection_adds.Read | None = None) -> None:
         """One menu, filled for whatever was right-clicked.
 
@@ -1541,12 +1366,10 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         if pinning is not None:
             with menu:
                 grid.column_menu(menu, table, table_columns, col_id, pinning)
-        elif row:
-            panel.verb_menu(menu, _table_label(row), game_acts.table_acts(
-                library, str(row["game_id"]), str(row.get("game") or ""), row,
-                [one for one in by_id.values() if one.get("game_id") == row.get("game_id")],
-                after(row),
-                game_acts.collections_of(offer([row], _table_label(row)), known)))
+        elif on:
+            header = (_table_label(on[0]) if len(on) == 1
+                      else t("console.games.tables", count=len(on)))
+            panel.verb_menu(menu, header, panel.for_selection(table_verbs(on, known), len(on)))
 
     wire_views(table)
     search.on_value_change(

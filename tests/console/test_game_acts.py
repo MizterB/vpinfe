@@ -1,5 +1,5 @@
-"""A game's and a table's verbs: one list, drawn in the grid's row menu and in the panel's
-header menu, so the two cannot offer different things."""
+"""A game's and a table's verbs: one list, drawn in the grid's row menu, the panel's header
+menu and the grid's selection menu, so the three cannot offer different things."""
 
 from __future__ import annotations
 
@@ -14,17 +14,21 @@ from console import game_acts, panel
 _PAGE = ui.element()
 
 
-def _table(table_id: str, **fields: Any) -> dict[str, Any]:
-    return {"id": table_id, "game_id": "afm", "available": True, "filename": f"{table_id}.vpx",
+def _table(table_id: str, game_id: str = "afm", **fields: Any) -> dict[str, Any]:
+    return {"id": table_id, "game_id": game_id, "available": True, "filename": f"{table_id}.vpx",
             **fields}
 
 
-async def _after(_gone: bool) -> None:
+async def _after(_games: list[str], _gone: bool) -> None:
     return None
 
 
-async def _after_game() -> None:
+async def _refresh(_ids: list[str]) -> None:
     return None
+
+
+def _game(game_id: str = "afm", **fields: Any) -> dict[str, Any]:
+    return {"id": game_id, "name": "Attack from Mars", **fields}
 
 
 def _library(*games: dict[str, Any]) -> MagicMock:
@@ -38,57 +42,97 @@ def _labels(verbs: list[panel.Verb]) -> list[str]:
 
 
 def _acts(table: dict[str, Any], *tables: dict[str, Any], collections: Any = None,
-          ) -> list[panel.Verb]:
-    return game_acts.table_acts(MagicMock(), "afm", "Attack from Mars", table,
-                                list(tables) or [table], _after, collections)
+          library: Any = None) -> list[panel.Verb]:
+    return game_acts.table_acts(
+        library or MagicMock(),
+        [game_acts.Target(table["game_id"], "Attack from Mars", table, list(tables) or [table])],
+        _after, {}, collections)
+
+
+def _several(*tables: dict[str, Any], library: Any = None) -> list[panel.Verb]:
+    return game_acts.table_acts(
+        library or MagicMock(),
+        [game_acts.Target(one["game_id"], "Attack from Mars", one, list(tables))
+         for one in tables], _after, {}, None)
 
 
 class ForAGame(unittest.TestCase):
     def test_it_can_be_played_and_filed(self) -> None:
-        verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", lambda _: None,
-                                    _after_game)
+        verbs = game_acts.game_acts(_library(), [_game()], {}, _refresh,
+                                    collections=lambda _: None)
 
-        self.assertEqual(["Launch", "Add to Collection", "Send to device...", "Back up now"],
-                         _labels(verbs))
+        self.assertEqual(["Launch", "Mark Private", "Match to VPS...", "Auto-match",
+                          "Get missing media...", "Send to device...", "Back up now",
+                          "Add to Collection"], _labels(verbs))
 
-    def test_it_is_only_played_before_the_collections_are_read(self) -> None:
-        verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", None, _after_game)
+    def test_it_is_filed_only_once_the_collections_are_read(self) -> None:
+        verbs = game_acts.game_acts(_library(), [_game()], {}, _refresh)
 
-        self.assertEqual(["Launch", "Send to device...", "Back up now"], _labels(verbs))
+        self.assertNotIn("Add to Collection", _labels(verbs))
 
-    def test_sending_asks_where_for_this_game_with_the_pages_state(self) -> None:
+    def test_launching_is_for_one_game(self) -> None:
+        verbs = game_acts.game_acts(_library(), [_game(), _game("medusa")], {}, _refresh)
+
+        self.assertTrue(next(one for one in verbs if one.label == "Launch").one)
+
+    def test_rating_is_offered_where_the_caller_can_write_one(self) -> None:
+        async def rate(_ids: list[str], _value: int) -> bool:
+            return True
+
+        rated = game_acts.game_acts(_library(), [_game()], {}, _refresh, rate=rate)
+        unrated = game_acts.game_acts(_library(), [_game()], {}, _refresh)
+
+        self.assertEqual("Rate...", _labels(rated)[1])
+        self.assertNotIn("Rate...", _labels(unrated))
+
+    def test_private_is_offered_for_the_games_it_applies_to(self) -> None:
+        plain = game_acts.game_acts(_library(), [_game()], {}, _refresh)
+        marked = game_acts.game_acts(_library(), [_game(private=True)], {}, _refresh)
+        mixed = game_acts.game_acts(_library(), [_game(private=True), _game("medusa")], {},
+                                    _refresh)
+
+        self.assertIn("Mark Private", _labels(plain))
+        self.assertNotIn("Mark Not Private", _labels(plain))
+        self.assertIn("Mark Not Private", _labels(marked))
+        self.assertNotIn("Mark Private", _labels(marked))
+        self.assertIn("Mark Private", _labels(mixed))
+        self.assertIn("Mark Not Private", _labels(mixed))
+
+    def test_sending_asks_where_for_these_games_with_the_pages_state(self) -> None:
         state: dict[str, Any] = {"watch_jobs": lambda: None}
-        verbs = game_acts.game_acts(_library(), "afm", "Attack from Mars", None,
-                                    _after_game, state)
+        games = [_game()]
+        verbs = game_acts.game_acts(_library(), games, state, _refresh)
         send = next(one for one in verbs if one.label == "Send to device...")
 
         with patch.object(game_acts.send_to_device, "ask_where") as ask:
             send.run()
 
-        ask.assert_called_once_with([{"id": "afm"}], state)
+        ask.assert_called_once_with(games, state)
 
     def test_the_play_record_can_be_reset_only_where_there_is_one(self) -> None:
         played = _library({"id": "afm", "user": {"play_count": 3}})
         unplayed = _library({"id": "afm", "user": {"play_count": 0, "last_played": None}})
 
-        offered = game_acts.game_acts(played, "afm", "Attack from Mars", None, _after_game)
-        quiet = game_acts.game_acts(unplayed, "afm", "Attack from Mars", None, _after_game)
+        offered = game_acts.game_acts(played, [_game()], {}, _refresh)
+        quiet = game_acts.game_acts(unplayed, [_game()], {}, _refresh)
 
-        self.assertEqual(
-            ["Launch", "Send to device...", "Back up now", "Reset play record"],
-            _labels(offered))
+        self.assertEqual("Reset play record", offered[-1].label)
         self.assertTrue(offered[-1].danger)
-        self.assertEqual(["Launch", "Send to device...", "Back up now"], _labels(quiet))
+        self.assertNotIn("Reset play record", _labels(quiet))
+
+    def test_a_single_game_is_named_in_the_match_walk_and_several_are_not(self) -> None:
+        self.assertEqual("Attack from Mars", game_acts._only_name([_game()]))
+        self.assertEqual("", game_acts._only_name([_game(), _game("medusa")]))
 
 
 class ForATable(unittest.TestCase):
     def test_the_games_own_record_is_cleared_apart_from_the_tables(self) -> None:
         played = _library({"id": "afm", "user": {"play_count": 3}})
 
-        verb = game_acts.reset_game(played, "afm", _after_game, "Reset game's play record")
+        verb = game_acts.reset_games(played, ["afm"], _refresh, "Reset game's play record")
 
         self.assertEqual("Reset game's play record", verb.label if verb else "")
-        self.assertIsNone(game_acts.reset_game(_library({"id": "afm"}), "afm", _after_game))
+        self.assertIsNone(game_acts.reset_games(_library({"id": "afm"}), ["afm"], _refresh))
 
     def test_a_table_that_is_not_the_default_can_be_made_it(self) -> None:
         verbs = _acts(_table("a"), _table("a"), _table("b", default=True))
@@ -112,9 +156,9 @@ class ForATable(unittest.TestCase):
         verbs = _acts(_table("a", available=False, absent_since="2026-10-01"),
                       collections=lambda _: None)
 
-        self.assertEqual("Forget this table", verbs[-2].label)
-        self.assertTrue(verbs[-2].danger)
-        self.assertEqual("Add to Collection", verbs[-1].label)
+        self.assertEqual("Forget", verbs[-1].label)
+        self.assertTrue(verbs[-1].danger)
+        self.assertEqual("Add to Collection", verbs[-2].label)
 
     def test_the_play_record_can_be_reset_only_where_there_is_one(self) -> None:
         played = _acts(_table("a", user={"last_played": "2026-10-01T20:00:00Z"}))
@@ -124,6 +168,12 @@ class ForATable(unittest.TestCase):
         self.assertTrue(next(one for one in played
                              if one.label == "Reset play record").danger)
         self.assertNotIn("Reset play record", _labels(unplayed))
+
+    def test_the_games_record_is_reset_beside_the_tables(self) -> None:
+        verbs = _acts(_table("a"), library=_library({"id": "afm", "user": {"play_count": 2}}))
+
+        self.assertEqual("Reset game's play record", verbs[-1].label)
+        self.assertTrue(verbs[-1].danger)
 
     def test_a_table_on_disk_cannot_be_forgotten(self) -> None:
         self.assertFalse([one for one in _acts(_table("a")) if one.danger])
@@ -135,6 +185,32 @@ class ForATable(unittest.TestCase):
         self.assertIn("Delete script", _labels(verbs))
         self.assertNotIn("Extract script", _labels(verbs))
         self.assertTrue(next(one for one in verbs if one.label == "Delete script").danger)
+
+
+class ForSeveralTables(unittest.TestCase):
+    def test_nothing_chosen_offers_nothing(self) -> None:
+        self.assertEqual([], game_acts.table_acts(MagicMock(), [], _after, {}, None))
+
+    def test_a_verb_shows_when_it_applies_to_any_of_them(self) -> None:
+        verbs = _several(_table("a", hidden=True), _table("b", "medusa"))
+
+        self.assertIn("Hide", _labels(verbs))
+        self.assertIn("Unhide", _labels(verbs))
+
+    def test_making_a_default_is_for_one_table_and_says_so(self) -> None:
+        verbs = panel.for_selection(_several(_table("a"), _table("b", "medusa")), 2)
+
+        make = next(one for one in verbs if one.label == "Make default")
+        self.assertIsNone(make.run)
+        self.assertEqual("One at a time", make.hint)
+
+    def test_forgetting_is_one_verb_for_one_table_or_many(self) -> None:
+        gone = {"available": False, "absent_since": "2026-10-01"}
+        one = _acts(_table("a", **gone))
+        many = _several(_table("a", **gone), _table("b", "medusa", **gone))
+
+        self.assertEqual(["Forget"], [v.label for v in one if v.danger])
+        self.assertEqual(["Forget"], [v.label for v in many if v.danger])
 
 
 class DrawnIntoAMenu(unittest.TestCase):

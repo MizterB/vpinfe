@@ -1,22 +1,26 @@
-"""What a game and a table can be told to do, for the grid's row menu and the panel's
-header menu alike.
+"""What games and tables can be told to do, for the grid's row menu, the panel's header menu
+and the grid's selection menu alike.
 
-`after` is the caller's way of putting its own surface right once a write has landed: the
-Games and Tables pages refresh the rows they hold, the panel rebuilds itself. It is told
-whether the table is gone, because a panel about a table that no longer exists has
-nowhere to stay.
+Each list takes the rows it acts on: one, or every row selected. A verb shows when it applies
+to any of them and acts on those it applies to; one with no meaning over several is `one`.
+
+`refresh` and `after` are the caller's way of putting its own surface right once a write has
+landed: the Games and Tables pages repaint the rows they hold, the panel rebuilds itself.
+`after` is also told whether a table is gone, because a panel about a table that no longer
+exists has nowhere to stay.
 """
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from typing import Any
 
 from nicegui import run, ui
 
-from common.backups import copies as kept_copies
 from common.failures import why
 from common.i18n import t
 from console import (
@@ -24,13 +28,22 @@ from console import (
     collection_adds,
     confirm,
     game_tables,
+    media_fill,
+    offload,
     panel,
     send_to_device,
+    stars,
+    undo,
     verbs,
+    vps_match,
 )
+from console import dialog as frame
+from console import record as recorder
 from console.on_page import on_page
 
-After = Callable[[bool], Awaitable[None]]
+Refresh = Callable[[list[str]], Awaitable[None]]
+After = Callable[[list[str], bool], Awaitable[None]]
+Rate = Callable[[list[str], int], Awaitable[bool]]
 Collections = Callable[[Callable[[], Any]], None]
 
 PLAYED = ("last_played", "play_count", "play_time_seconds")
@@ -41,159 +54,384 @@ def has_record(record: dict[str, Any] | None) -> bool:
     return any((record or {}).get(key) for key in PLAYED)
 
 
-def game_acts(library: Any, game_id: str, name: str, collections: Collections | None,
-              after: Callable[[], Awaitable[None]],
-              state: dict[str, Any] | None = None) -> list[panel.Verb]:
-    """What can be done to a game: play it, file it in a collection, send it to a mobile
-    device, back it up, clear its play record. `after` puts the caller's surface right once
-    the record is cleared or a backup is taken. `state` is the page's, which the transfer
-    uses to start the drawer's job watch."""
+def auto_match_outcome(result: dict[str, Any]) -> tuple[str, bool]:
+    """What Auto-match says when it is done, and whether any match moved."""
+    moved = int(result.get("changed") or 0)
+    waiting = int(result.get("unmatched") or 0)
+    skipped = int(result.get("skipped") or 0)
+    parts = [t(key, count=count) for key, count in (
+        ("console.games.auto_matched", moved), ("console.games.unmatched", waiting),
+        ("console.games.auto_match_skipped", skipped)) if count]
+    if not parts:
+        return t("console.vps_match.nothing_changed"), False
+    if len(parts) == 1:
+        return parts[0], bool(moved)
+    if len(parts) == 2:
+        return t("console.games.auto_matched_some", matched=parts[0], waiting=parts[1]), bool(moved)
+    return t("console.games.auto_matched_all", matched=parts[0], waiting=parts[1],
+             skipped=parts[2]), True
+
+
+def _ids(rows: list[dict[str, Any]]) -> list[str]:
+    return [str(one["id"]) for one in rows]
+
+
+def _only_name(games: list[dict[str, Any]]) -> str:
+    return str(games[0].get("name") or "") if len(games) == 1 else ""
+
+
+# --- games ------------------------------------------------------------------------
+
+
+def game_acts(library: Any, games: list[dict[str, Any]], state: dict[str, Any],
+              refresh: Refresh, *, rate: Rate | None = None,
+              match: Callable[[list[dict[str, Any]]], Awaitable[Any]] | None = None,
+              collections: Collections | None = None) -> list[panel.Verb]:
+    """What can be done to these games. `rate` writes a rating and repaints the grid's
+    rows, absent where no grid holds them. `match` stands in for the walk through the VPS
+    picker, for a caller with its own way of asking about one game. `state` is the page's,
+    which the transfers and the media jobs use to start the drawer's job watch."""
+    ids = _ids(games)
+    name = _only_name(games)
+    marked = [bool(one.get("private")) for one in games]
+
     @on_page
     async def launch() -> None:
         try:
-            await run.io_bound(library.launch, game_id)
+            await run.io_bound(library.launch, ids[0])
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("console.workbench.launch_failed"), caption=why(exc), type="negative")
             return
-        ui.notify(t("console.games.launching", name=name), type="positive")
+        ui.notify(t("console.games.launching", name=str(games[0].get("name") or "")),
+                  type="positive")
 
-    offered = [panel.Verb(t("console.games.launch"), launch)]
-    if collections is not None:
-        offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
-    offered.append(panel.Verb(
-        t("console.games.send_device"),
-        lambda: send_to_device.ask_where([{"id": game_id}], state)))
+    @on_page
+    async def mark_private(private: bool) -> None:
+        flipping = [str(one["id"]) for one in games if bool(one.get("private")) != private]
+        try:
+            await run.io_bound(library.set_games_private, flipping, private)
+        except Exception as exc:  # noqa: BLE001 - said, and the grid is as it was
+            ui.notify(t("said.save_failed"), caption=why(exc), type="negative")
+            return
+        await refresh(flipping)
+        said = t("console.games.marked_private" if private
+                 else "console.games.cleared_private", count=len(flipping))
+
+        @on_page
+        async def put_back() -> None:
+            await run.io_bound(library.set_games_private, flipping, not private)
+            await refresh(flipping)
+
+        if flipping:
+            undo.offer(said, put_back)
+        else:
+            ui.notify(said, type="positive")
+
+    @on_page
+    async def matched() -> None:
+        if match is not None:
+            await match(games)
+            return
+        await vps_match.walk(library, games)
+        await refresh(ids)
+
+    @on_page
+    async def auto_match() -> None:
+        try:
+            result = await offload.io(library.auto_match, ids)
+        except Exception as exc:  # noqa: BLE001 - said, and the grid is as it was
+            ui.notify(t("console.games.match_failed"), caption=why(exc), type="warning")
+            return
+        said, moved = auto_match_outcome(result)
+        ui.notify(said, type="positive" if moved else "info")
+        if moved:
+            await refresh(ids)
+
+    @on_page
+    async def placed() -> None:
+        await run.io_bound(library.reread_media, ids)
+        await refresh(ids)
+
+    async def get_missing_media() -> None:
+        await media_fill.ask(ids, state, placed, name=name)
+
+    async def record_media() -> None:
+        title = t("console.record.title", name=name) if name \
+            else t("console.record.title_games", count=len(ids))
+        await recorder.ask(library, [(game_id, "") for game_id in ids], title, state, placed)
+
+    offered = [panel.Verb(t("console.games.launch"), launch, one=True)]
+    if rate is not None:
+        offered.append(panel.Verb(t("console.games.rate"), partial(_rate, games, rate)))
+    if not all(marked):
+        offered.append(panel.Verb(t("console.games.mark_private"), partial(mark_private, True)))
+    if any(marked):
+        offered.append(panel.Verb(t("console.games.clear_private"),
+                                  partial(mark_private, False)))
+    offered.append(panel.Verb(t("console.games.match_vps"), matched))
+    offered.append(panel.Verb(t("console.games.auto_match"), auto_match,
+                              tip=t("console.games.auto_match.help")))
+    offered.append(panel.Verb(t("console.media_fill.get_missing"), get_missing_media))
+    if recording := _record_verb(library, record_media):
+        offered.append(recording)
+    offered.append(panel.Verb(t("console.games.send_device"),
+                              lambda: send_to_device.ask_where(games, state)))
     offered.append(panel.Verb(
         t("console.backups.back_up_title"),
-        lambda: backup_rows.back_up(library, kept_copies.SUBJECT_GAME, game_id, name, after)))
-    if reset := reset_game(library, game_id, after):
+        lambda: backup_rows.back_up_games(library, games, lambda: refresh(ids))))
+    if collections is not None:
+        offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
+    if reset := reset_games(library, ids, refresh):
         offered.append(reset)
     return offered
 
 
-def reset_game(library: Any, game_id: str, after: Callable[[], Awaitable[None]],
-               label: str = "") -> panel.Verb | None:
-    """Clear a game's play record, or None where it holds nothing to clear."""
-    played = next((one.get("user") for one in library.games
-                   if one.get("id") == game_id), None)
-    if not has_record(played):
+def _record_verb(library: Any, run_it: Callable[[], Any]) -> panel.Verb | None:
+    """Record Media, refused with the device's reason where it records nothing, and left out
+    where the install does not record."""
+    able = recorder.capability(library)
+    if able is None:
+        return None
+    available = bool(able.get("available"))
+    return panel.Verb(t("console.record.record_media"), run_it if available else None,
+                      hint="" if available else str(able.get("reason") or ""))
+
+
+async def _rate(games: list[dict[str, Any]], rate: Rate) -> None:
+    """Set a rating on every game passed in, through the writer the star click uses."""
+    @on_page
+    async def apply(value: int) -> None:
+        if await rate(_ids(games), value):
+            box.close()
+            ui.notify(t("console.games.rated_game_s", count=len(games), value=value),
+                      type="positive")
+
+    with frame.opened(t("console.games.rate_game_s", count=len(games))) as box:
+        with ui.row().classes("px-3"):
+            stars.draw(0, lambda n: asyncio.create_task(apply(n)))()
+        with frame.footer():
+            frame.cancel(box.close)
+    box.open()
+
+
+def reset_games(library: Any, game_ids: list[str], refresh: Refresh,
+                label: str = "") -> panel.Verb | None:
+    """Clear the play record of those of these games that hold one, or None where none does."""
+    held = {str(one.get("id")): one.get("user") for one in library.games
+            if str(one.get("id")) in game_ids}
+    clearing = [game_id for game_id in game_ids if has_record(held.get(game_id))]
+    if not clearing:
         return None
 
     @on_page
     async def reset() -> None:
         if not await confirm.ask(
-                t("console.workbench.reset_game_question"),
+                t("console.workbench.reset_game_question", count=len(clearing)),
                 detail=t("console.workbench.reset_game_detail"),
                 confirm=t("word.reset"), icon=verbs.RESET):
             return
         try:
-            await run.io_bound(library.reset_play_record, game_id)
+            for game_id in clearing:
+                await run.io_bound(library.reset_play_record, game_id)
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
             return
         ui.notify(t("console.workbench.reset_done"), type="positive")
-        await after()
+        await refresh(clearing)
 
     return panel.Verb(label or t("console.workbench.reset_action"), reset, danger=True)
 
 
-def table_acts(library: Any, game_id: str, game_name: str, table: dict[str, Any],
-               tables: list[dict[str, Any]], after: After,
+# --- tables -----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Target:
+    """One table and what the acts on it need to know of its game: `siblings` is every
+    table of that game, which says whether it can be locked and what a forget would take
+    with it."""
+
+    game_id: str
+    game: str
+    table: dict[str, Any]
+    siblings: list[dict[str, Any]]
+
+    @property
+    def id(self) -> str:
+        return str(self.table.get("id") or "")
+
+
+def table_acts(library: Any, targets: list[Target], after: After, state: dict[str, Any],
                collections: Collections | None) -> list[panel.Verb]:
-    """What can be done to one table of a game. `tables` is every table of that game,
-    which says whether this one can be locked and what a forget would take with it."""
-    table_id = str(table.get("id") or "")
+    """What can be done to these tables."""
+    if not targets:
+        return []
+    one = len(targets) == 1
+    first = targets[0]
+
+    def games_of(some: list[Target]) -> list[str]:
+        return list(dict.fromkeys(item.game_id for item in some))
 
     @on_page
-    async def write(call: Callable[..., Any], *args: Any, said: str | Callable[[Any], str],
-                    failed: str, gone: bool = False) -> None:
+    async def write(some: list[Target], call: Callable[..., Any],
+                    args: Callable[[Target], tuple[Any, ...]], failed: str) -> list[Any] | None:
+        """Write to each in turn. Answers what the writes returned, or None where one failed
+        and said why; what was written before it is put right on screen either way."""
+        answers: list[Any] = []
         try:
-            answer = await run.io_bound(call, game_id, *args)
+            for item in some:
+                answers.append(await run.io_bound(call, item.game_id, *args(item)))
         except Exception as exc:  # noqa: BLE001
             ui.notify(failed, caption=why(exc), type="negative")
-            return
-        ui.notify(said(answer) if callable(said) else said, type="positive")
-        await after(gone)
+            if answers:
+                await after(games_of(some[:len(answers)]), False)
+            return None
+        return answers
 
-    def lock_said(lock: bool, answer: Any) -> str:
-        return game_tables.lock_said(game_name, table, (answer or {}).get("tables") or [],
-                                     lock=lock)
+    @on_page
+    async def make_default() -> None:
+        answers = await write([first], library.set_default_table, lambda item: (item.id,),
+                              t("console.workbench.change_failed"))
+        if answers is not None:
+            ui.notify(game_tables.now_plays(first.game, first.table), type="positive")
+            await after([first.game_id], False)
+
+    @on_page
+    async def lock(locking: bool) -> None:
+        answers = await write([first], library.set_default_table,
+                              lambda item: (item.id if locking else "",),
+                              t("console.workbench.change_failed"))
+        if answers is not None:
+            ui.notify(game_tables.lock_said(first.game, first.table,
+                                            (answers[0] or {}).get("tables") or [],
+                                            lock=locking), type="positive")
+            await after([first.game_id], False)
+
+    @on_page
+    async def hide(hidden: bool) -> None:
+        applies = [item for item in targets if bool(item.table.get("hidden")) != hidden]
+        answers = await write(applies, library.set_table_hidden,
+                              lambda item: (item.id, hidden), t("console.workbench.save_failed"))
+        if answers is None:
+            return
+        said = (game_tables.hidden_said(applies[0].game, applies[0].table, answers[0],
+                                        hidden=hidden)
+                if len(applies) == 1 else
+                t("console.game_tables.hid_n" if hidden else "console.game_tables.unhid_n",
+                  count=len(applies)))
+        ui.notify(said, type="positive")
+        await after(games_of(applies), False)
+
+    @on_page
+    async def extract() -> None:
+        applies = [item for item in targets if not game_tables.runs_its_own_script(item.table)]
+        if await write(applies, library.extract_script, lambda item: (item.id,),
+                       t("console.workbench.extract_failed")) is not None:
+            ui.notify(t("console.workbench.extract_done", count=len(applies)), type="positive")
+            await after(games_of(applies), False)
 
     @on_page
     async def drop_script() -> None:
-        every = game_tables.shares_its_script(table)
+        applies = [item for item in targets if game_tables.runs_its_own_script(item.table)]
+        every = all(game_tables.shares_its_script(item.table) for item in applies)
         if not await confirm.ask(
-                t("console.workbench.delete_question"),
+                t("console.workbench.delete_question", count=len(applies)),
                 detail=t("console.game_tables.script_detail" if every
                          else "console.workbench.delete_detail"),
-                lines=[f"{Path(table.get('filename') or '').stem}.vbs"]):
+                lines=[f"{Path(item.table.get('filename') or '').stem}.vbs"
+                       for item in applies]):
             return
-        await write(library.delete_script, table_id,
-                    said=t("console.game_tables.script_deleted" if every
-                           else "console.workbench.delete_done"),
-                    failed=t("console.workbench.delete_failed"))
-
-    @on_page
-    async def forget() -> None:
-        detail = ("console.workbench.forget_keyed" if game_tables.is_keyed(table)
-                  else "console.workbench.forget_reference" if game_tables.is_referenced(table)
-                  else "console.workbench.forget_missing")
-        made = game_tables.made_from_it_line(
-            [game_tables.name_among(one, tables)
-             for one in game_tables.made_from_it(table, tables)])
-        if not await confirm.ask(
-                t("console.workbench.forget_table"), detail=t(detail),
-                lines=[game_tables.name_among(table, tables), *([made] if made else [])],
-                confirm=t("word.forget"), icon=verbs.FORGET):
-            return
-        await write(library.forget_table, table_id, said=t("console.workbench.table_forgotten"),
-                    failed=t("console.workbench.forget_failed"), gone=True)
+        if await write(applies, library.delete_script, lambda item: (item.id,),
+                       t("console.workbench.delete_failed")) is not None:
+            ui.notify(t("console.game_tables.script_deleted" if every
+                        else "console.workbench.delete_done", count=len(applies)),
+                      type="positive")
+            await after(games_of(applies), False)
 
     @on_page
     async def reset() -> None:
+        applies = [item for item in targets if has_record(item.table.get("user"))]
         if not await confirm.ask(
-                t("console.workbench.reset_table_question"),
+                t("console.workbench.reset_table_question", count=len(applies)),
                 detail=t("console.workbench.reset_table_detail"),
                 confirm=t("word.reset"), icon=verbs.RESET):
             return
-        await write(library.reset_play_record, table_id,
-                    said=t("console.workbench.reset_done"),
-                    failed=t("console.workbench.save_failed"))
+        if await write(applies, library.reset_play_record, lambda item: (item.id,),
+                       t("console.workbench.save_failed")) is not None:
+            ui.notify(t("console.workbench.reset_done"), type="positive")
+            await after(games_of(applies), False)
+
+    @on_page
+    async def forget() -> None:
+        applies = [item for item in targets if game_tables.can_forget(item.table)]
+        if len(applies) == 1:
+            only = applies[0]
+            detail = ("console.workbench.forget_keyed" if game_tables.is_keyed(only.table)
+                      else "console.workbench.forget_reference"
+                      if game_tables.is_referenced(only.table)
+                      else "console.workbench.forget_missing")
+            made = game_tables.made_from_it_line(
+                [game_tables.name_among(derived, only.siblings)
+                 for derived in game_tables.made_from_it(only.table, only.siblings)])
+            lines = [game_tables.name_among(only.table, only.siblings),
+                     *([made] if made else [])]
+        else:
+            detail = "console.workbench.forget_several"
+            lines = [game_tables.JOIN.join((item.game, game_tables.name_among(
+                item.table, item.siblings))) for item in applies]
+        if not await confirm.ask(
+                t("console.workbench.forget_table", count=len(applies)), detail=t(detail),
+                lines=lines, confirm=t("word.forget"), icon=verbs.FORGET):
+            return
+        if await write(applies, library.forget_table, lambda item: (item.id,),
+                       t("console.workbench.forget_failed")) is not None:
+            ui.notify(t("console.workbench.table_forgotten", count=len(applies)),
+                      type="positive")
+            await after(games_of(applies), True)
+
+    @on_page
+    async def placed() -> None:
+        await run.io_bound(library.reread_media, games_of(targets))
+        await after(games_of(targets), False)
+
+    async def record_media() -> None:
+        title = t("console.record.title_table", name=first.game,
+                  table=game_tables.table_name(first.table)) if one \
+            else t("console.record.title_tables", count=len(targets))
+        await recorder.ask(library, [(item.game_id, item.id) for item in targets],
+                           title, state, placed)
 
     offered: list[panel.Verb] = []
-    if not table.get("default"):
+    table = first.table
+    if not one:
+        offered.append(panel.Verb(t("word.make_default"), one=True))
+    elif not table.get("default"):
         if not game_tables.why_not_default(table):
-            offered.append(panel.Verb(t("word.make_default"), partial(
-                write, library.set_default_table, table_id,
-                said=game_tables.now_plays(game_name, table),
-                failed=t("console.workbench.change_failed"))))
-    elif locking := game_tables.lock_act(table, tables):
-        lock, words = locking
-        offered.append(panel.Verb(words, partial(
-            write, library.set_default_table, table_id if lock else "",
-            said=partial(lock_said, lock), failed=t("console.workbench.change_failed"))))
-    hidden = bool(table.get("hidden"))
-    offered.append(panel.Verb(
-        t("console.games.unhide") if hidden else t("console.games.hide"),
-        partial(write, library.set_table_hidden, table_id, not hidden,
-                said=lambda answer: game_tables.hidden_said(game_name, table, answer,
-                                                            hidden=not hidden),
-                failed=t("console.workbench.save_failed"))))
-    if game_tables.runs_its_own_script(table):
-        offered.append(panel.Verb(t("console.games.delete_script"), drop_script, danger=True))
-    else:
-        offered.append(panel.Verb(
-            t("console.games.extract_script"),
-            partial(write, library.extract_script, table_id,
-                    said=t("console.workbench.extract_done"),
-                    failed=t("console.workbench.extract_failed"))))
-    if has_record(table.get("user")):
-        offered.append(panel.Verb(t("console.workbench.reset_action"), reset,
-                                  danger=True))
-    if not table.get("available"):
-        offered.append(panel.Verb(t("console.games.forget_table"), forget, danger=True))
+            offered.append(panel.Verb(t("word.make_default"), make_default, one=True))
+    elif locking := game_tables.lock_act(table, first.siblings):
+        locks, words = locking
+        offered.append(panel.Verb(words, partial(lock, locks), one=True))
+    hidden = [bool(item.table.get("hidden")) for item in targets]
+    if not all(hidden):
+        offered.append(panel.Verb(t("console.games.hide"), partial(hide, True)))
+    if any(hidden):
+        offered.append(panel.Verb(t("console.games.unhide"), partial(hide, False)))
+    if not all(game_tables.runs_its_own_script(item.table) for item in targets):
+        offered.append(panel.Verb(t("console.games.extract_script"), extract))
+    if recording := _record_verb(library, record_media):
+        offered.append(recording)
     if collections is not None:
         offered.append(panel.Verb(t("console.adds.verb"), draw=collections))
+    if any(game_tables.runs_its_own_script(item.table) for item in targets):
+        offered.append(panel.Verb(t("console.games.delete_script"), drop_script, danger=True))
+    if any(has_record(item.table.get("user")) for item in targets):
+        offered.append(panel.Verb(t("console.workbench.reset_action"), reset, danger=True))
+    if reset_game := reset_games(library, games_of(targets),
+                                 lambda ids: after(ids, False),
+                                 t("console.workbench.reset_game_action")):
+        offered.append(reset_game)
+    if any(game_tables.can_forget(item.table) for item in targets):
+        offered.append(panel.Verb(t("word.forget"), forget, danger=True))
     return offered
 
 

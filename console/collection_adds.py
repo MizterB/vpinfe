@@ -387,9 +387,6 @@ def renamed(old: str, new: str) -> None:
 
 # --- what a grid's menus offer ----------------------------------------------------
 
-_ADD_TO = {GAMES: "console.adds.bulk_games", TABLES: "console.adds.bulk_tables"}
-_ADD_TO_COLLECTION = {GAMES: "console.adds.parent_games",
-                      TABLES: "console.adds.parent_tables"}
 _PICK_TITLE = {GAMES: "console.adds.pick_games", TABLES: "console.adds.pick_tables"}
 
 
@@ -400,7 +397,7 @@ class Offer:
     library: Any
     rows: list[Row]
     what: str
-    # Names the one row, for a title; empty in a bulk menu.
+    # Names the one row, for a title; empty over several.
     subject: str
     then: Callable[[], Awaitable[Any]]
     # The collection the grid is narrowed to, whose Remove joins the menu.
@@ -441,9 +438,6 @@ def draw(offer: Offer, known: Read, close: Callable[[], Any]) -> None:
     """The adds for a grid's row or selection, drawn into the menu being built: the
     collection added to last, the recent ones under Add to Collection with the rest a
     dialog away, and Remove where the grid is narrowed to one."""
-    bulk = not offer.subject
-    count = len(offer.rows)
-
     def go(name: str) -> Callable[[], Any]:
         async def run_it() -> None:
             close()
@@ -452,12 +446,10 @@ def draw(offer: Offer, known: Read, close: Callable[[], Any]) -> None:
 
     if known.recent:
         top = known.recent[0]
-        _item(t(_ADD_TO[offer.what], count=count, name=top) if bulk
-              else t("console.adds.add_to", name=top), go(top),
+        _item(t("console.adds.add_to", name=top), go(top),
               smart=known.kinds.get(top, False),
               held=holds_all(known.held, top, offer.rows))
-    parent = _item(t(_ADD_TO_COLLECTION[offer.what], count=count) if bulk
-                   else t("console.adds.verb"), None, opens=True)
+    parent = _item(t("console.adds.verb"), None, opens=True)
     with parent, ui.menu().props('anchor="top end" self="top start"') as sub:
         if known.recent:
             ui.item_label(t("console.adds.recent")).props("header") \
@@ -485,8 +477,7 @@ def draw(offer: Offer, known: Read, close: Callable[[], Any]) -> None:
             await remove(offer.library, offer.narrowed, [row.game for row in offer.rows],
                          then=offer.then)
 
-        _item(t("console.adds.bulk_remove", count=count, name=offer.narrowed)
-              if bulk else t("console.adds.remove_from", name=offer.narrowed), take_out)
+        _item(t("console.adds.remove_from", name=offer.narrowed), take_out)
 
 
 def draw_every(offer: Offer, collections: list[dict[str, Any]],

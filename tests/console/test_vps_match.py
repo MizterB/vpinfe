@@ -46,8 +46,9 @@ def walk_answering(answers: list, chosen: list[dict[str, Any]]) -> FakeLibrary:
     handed = iter(answers)
 
     async def fake_ask(_library, _game, place="", walking=False):
-        assert walking, "the walk must ask in walking mode, or there is no Skip"
-        assert place, "every game in a walk says where it is in the run"
+        several = len(chosen) > 1
+        assert walking == several, "only a walk of several asks in walking mode, with a Skip"
+        assert bool(place) == several, "every game in a walk says where it is in the run"
         return next(handed)
 
     with patch.object(vps_match, "ask", fake_ask), \

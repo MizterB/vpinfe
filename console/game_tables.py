@@ -66,6 +66,12 @@ def is_referenced(table: dict[str, Any] | None) -> bool:
     return str((table or {}).get("form") or "") == "referenced"
 
 
+def can_forget(table: dict[str, Any] | None) -> bool:
+    """Whether this entry's record can be dropped: anything the game folder does not hold.
+    A table that is there only comes back at the next scan."""
+    return bool((table or {}).get("absent_since")) or is_keyed(table) or is_referenced(table)
+
+
 # How a game's default was decided, said as what happens next rather than who acted.
 # Locked is the word a collection row held to one table wears, and means the same.
 CHOSEN = "user"

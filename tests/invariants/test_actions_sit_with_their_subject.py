@@ -44,7 +44,7 @@ BUTTON_CEILING = 71
 
 # Grids that have not yet reached the selection rules in `docs/conventions.md`. A page
 # leaves a list when it conforms, and the test fails while one still listed already does.
-SELECTION_BY_HAND = {"games.py", "devices.py", "media.py", "collections.py"}
+SELECTION_BY_HAND = {"devices.py", "media.py", "collections.py"}
 ROW_MENU_WITHOUT_HEADER = {"tageditor.py", "launchers.py", "players.py"}
 HEADER_MENU_WITHOUT_ROW = {"media.py", "assets.py"}
 # A chooser in a dialog reads its ticks in the footer button, which is its selection menu;

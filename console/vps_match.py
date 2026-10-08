@@ -140,9 +140,11 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
 
 @on_page
 async def walk(library: Any, games: list[dict[str, Any]]) -> None:
-    """Work through several games' matches, one picker at a time."""
+    """Work through these games' matches, one picker at a time."""
+    several = len(games) > 1
+
     async def ask_one(game: dict[str, Any], place: str) -> Any:
-        return await ask(library, game, walking=True, place=place)
+        return await ask(library, game, walking=several, place=place if several else "")
 
     async def write(game: dict[str, Any], picked: Any) -> None:
         game_id = str(game.get("id") or "")

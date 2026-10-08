@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from console.games import auto_match_outcome
+from console.game_acts import auto_match_outcome
 from console.page import read_failure, read_outcome
 
 

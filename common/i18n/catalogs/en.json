@@ -444,22 +444,6 @@
   "console.about.refresh": "Refresh",
   "console.about.whats_new": "What's new",
   "console.about.whats_new_hint": "What changed in this version, and what it did to your files",
-  "console.adds.bulk_games": {
-    "one": "Add 1 Game to “{name}”",
-    "other": "Add {count} Games to “{name}”"
-  },
-  "console.adds.parent_games": {
-    "one": "Add 1 Game to Collection",
-    "other": "Add {count} Games to Collection"
-  },
-  "console.adds.bulk_tables": {
-    "one": "Add 1 Table to “{name}”",
-    "other": "Add {count} Tables to “{name}”"
-  },
-  "console.adds.parent_tables": {
-    "one": "Add 1 Table to Collection",
-    "other": "Add {count} Tables to Collection"
-  },
   "console.adds.add_to": "Add to “{name}”",
   "console.adds.verb": "Add to Collection",
   "console.adds.added_games": {
@@ -516,10 +500,6 @@
   },
   "console.adds.recent": "Recent",
   "console.adds.remove_from": "Remove from “{name}”",
-  "console.adds.bulk_remove": {
-    "one": "Remove 1 Game from “{name}”",
-    "other": "Remove {count} Games from “{name}”"
-  },
   "console.adds.removed_games": {
     "one": "Removed from “{name}”",
     "other": "Removed {count} games from “{name}”"
@@ -1295,10 +1275,6 @@
   "console.game_tables.where": "Where It Is",
   "console.games.games_menu": "Actions for the selected games",
   "console.games.tables_menu": "Actions for the selected tables",
-  "console.games.already_private": {
-    "one": "Already Private",
-    "other": "All {count} already Private"
-  },
   "console.games.alt_color": "Alt Color",
   "console.games.altsound": "AltSound",
   "console.games.auto_match": "Auto-match",
@@ -1325,7 +1301,6 @@
   "console.games.empty_tables": "Tables show up here once a folder of them is added under {page}.",
   "console.games.extract_script": "Extract script",
   "console.games.features": "Features",
-  "console.games.forget_table": "Forget this table",
   "console.games.game.help": "The game, as your library names it",
   "console.games.game_rating": "Game Rating",
   "console.games.game_themes": "Game Themes",
@@ -1366,10 +1341,6 @@
   "console.games.no": "No",
   "console.games.no_mod_known": "None known",
   "console.games.no_newer_version": "None known",
-  "console.games.none_private": {
-    "one": "Not Private",
-    "other": "None of the {count} is Private"
-  },
   "console.games.not_default": "Not the default",
   "console.games.not_recorded": "Not recorded",
   "console.games.on_vps": "On VPS",
@@ -1380,11 +1351,24 @@
   "console.games.rom_state": "ROM State",
   "console.games.rom_state.help": "Whether the ROM this table uses is installed. Unknown where VPinFE cannot check, which needs a VPX set in Settings",
   "console.games.private_game.help": "Private where the game is never sent to a community service",
+  "console.games.rate": "Rate...",
+  "console.games.tables": {
+    "one": "{count} table",
+    "other": "{count} tables"
+  },
+  "console.game_tables.hid_n": {
+    "one": "{count} table hidden",
+    "other": "{count} tables hidden"
+  },
+  "console.game_tables.unhid_n": {
+    "one": "{count} table unhidden",
+    "other": "{count} tables unhidden"
+  },
+  "console.workbench.forget_several": "Their records go and no file is deleted. If a file returns, it is a new table.",
   "console.games.rate_game_s": {
     "one": "Rate {count} game",
     "other": "Rate {count} games"
   },
-  "console.games.rate_selected": "Rate selected",
   "console.games.rated_game_s": {
     "one": "{count} game rated {value} of 5",
     "other": "{count} games rated {value} of 5"
@@ -3073,8 +3057,14 @@
   "console.workbench.default_help": "{app} tables use this launcher unless they name another",
   "console.workbench.default_needs_on": "Switch it on to make it the default",
   "console.workbench.default_needs_program": "“{name}” has no program",
-  "console.workbench.delete_question": "Delete the script beside this table?",
-  "console.workbench.delete_done": "Deleted - the table runs its own script",
+  "console.workbench.delete_question": {
+    "one": "Delete the script beside this table?",
+    "other": "Delete the scripts beside {count} tables?"
+  },
+  "console.workbench.delete_done": {
+    "one": "Deleted - the table runs its own script",
+    "other": "Deleted - {count} tables run their own scripts"
+  },
   "console.workbench.description": "Description",
   "console.workbench.details": "Details",
   "console.workbench.details_changed": "Changed",
@@ -3097,7 +3087,10 @@
   "console.workbench.enabled": "Enabled",
   "console.workbench.every_area": "Every Area",
   "console.workbench.extract": "Extract",
-  "console.workbench.extract_done": "Extracted - the table now runs the .vbs",
+  "console.workbench.extract_done": {
+    "one": "Extracted - the table now runs the .vbs",
+    "other": "Extracted - {count} tables now run their .vbs"
+  },
   "console.workbench.false": "False",
   "console.workbench.file_absent": "The file is not on disk",
   "console.workbench.file_offline": "The file is not there right now, usually a drive or share that has not come back",
@@ -3111,10 +3104,12 @@
   "console.workbench.find_collection": "Find in this collection",
   "console.workbench.this_game": "This Game",
   "console.workbench.folder_source.help": "Opens the source picker, to add or replace this folder",
-  "console.workbench.forget": "Forget this",
   "console.workbench.forget_keyed": "Its record goes. It never had a file, so nothing on disk changes.",
   "console.workbench.forget_reference": "Its record goes. The file stays where it is.",
-  "console.workbench.forget_table": "Forget this table?",
+  "console.workbench.forget_table": {
+    "one": "Forget this table?",
+    "other": "Forget {count} tables?"
+  },
   "console.workbench.forget_table.help": "Asks, then drops its record. If the file returns, it's a new table.",
   "console.workbench.slot_origin": "From its games",
   "console.workbench.filter_hint": "The frontend can filter on it",
@@ -3305,11 +3300,17 @@
     "other": "Removed {count} files"
   },
   "console.workbench.replaced": "Replaced",
-  "console.workbench.reset_game_question": "Reset this game's play record?",
+  "console.workbench.reset_game_question": {
+    "one": "Reset this game's play record?",
+    "other": "Reset the play record of {count} games?"
+  },
   "console.workbench.reset_action": "Reset play record",
   "console.workbench.reset_game_action": "Reset game's play record",
   "console.workbench.reset_done": "Play record reset",
-  "console.workbench.reset_table_question": "Reset this table's play record?",
+  "console.workbench.reset_table_question": {
+    "one": "Reset this table's play record?",
+    "other": "Reset the play record of {count} tables?"
+  },
   "console.workbench.revert": "Revert to {target} - from {source}",
   "console.workbench.rom": "ROM",
   "console.workbench.rom_missing": "ROM {rom} is not installed",
@@ -3358,7 +3359,10 @@
   "console.workbench.table_3": "Table",
   "console.workbench.table_4": "This table",
   "console.workbench.table_section": "Table",
-  "console.workbench.table_forgotten": "Table forgotten",
+  "console.workbench.table_forgotten": {
+    "one": "Table forgotten",
+    "other": "{count} tables forgotten"
+  },
   "console.workbench.offered_table": "The table this game offers",
   "console.workbench.delete_detail": "The table goes back to the script inside its .vpx. Anything the sidecar held - a patch, an edit - goes with it.",
   "console.workbench.table_gone": "That table is gone from the library",

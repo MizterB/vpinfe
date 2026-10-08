@@ -4051,7 +4051,7 @@ async def _extract_script(context: dict[str, Any], table: dict[str, Any]) -> Non
     """Not confirmed: it writes a new file and takes nothing away, and the way back is
     the Delete beside it."""
     await _script_act(context, context["library"].extract_script,
-                      table.get("id") or "", t("console.workbench.extract_done"),
+                      table.get("id") or "", t("console.workbench.extract_done", count=1),
                       t("console.workbench.extract_failed"))
 
 
@@ -4061,7 +4061,7 @@ async def _drop_script(context: dict[str, Any], table: dict[str, Any]) -> None:
     becomes an unpatched one."""
     every = game_tables.shares_its_script(table)
     if not await confirm.ask(
-            t("console.workbench.delete_question"),
+            t("console.workbench.delete_question", count=1),
             detail=t("console.game_tables.script_detail" if every
                      else "console.workbench.delete_detail"),
             lines=[f"{Path(table.get('filename') or '').stem}.vbs"]):
@@ -4069,7 +4069,7 @@ async def _drop_script(context: dict[str, Any], table: dict[str, Any]) -> None:
     await _script_act(context, context["library"].delete_script,
                       table.get("id") or "",
                       t("console.game_tables.script_deleted" if every
-                        else "console.workbench.delete_done"),
+                        else "console.workbench.delete_done", count=1),
                       t("console.workbench.delete_failed"))
 
 
@@ -4089,7 +4089,7 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
         [game_tables.name_among(one, context["tables"])
          for one in game_tables.made_from_it(table, context["tables"])])
     if not await confirm.ask(
-            t("console.workbench.forget_table"), detail=t(detail),
+            t("console.workbench.forget_table", count=1), detail=t(detail),
             lines=[game_tables.name_among(table, context["tables"]), *([made] if made else [])],
             confirm=t("word.forget"), icon=verbs.FORGET):
         return
@@ -4099,7 +4099,7 @@ async def _forget_table(context: dict[str, Any], table: dict[str, Any]) -> None:
     except Exception as exc:
         ui.notify(t("console.workbench.forget_failed"), caption=why(exc), type="negative")
         return
-    ui.notify(t("console.workbench.table_forgotten"), type="positive")
+    ui.notify(t("console.workbench.table_forgotten", count=1), type="positive")
     await _table_gone(context, table)
 
 
@@ -4342,12 +4342,11 @@ def _tables_block(context: dict[str, Any], held: bool = True) -> None:
                     # on disk here will mint it again, which is the opposite of a table
                     # that is there - dropping that record only means the next scan
                     # re-adds it.
-                    if since or game_tables.is_keyed(table) \
-                            or game_tables.is_referenced(table):
+                    if game_tables.can_forget(table):
                         ui.button(icon=verbs.FORGET,
                                   on_click=lambda _, t=table: _forget_table(context, t)) \
                             .props("flat dense round size=sm color=warning") \
-                            .tooltip(t("console.workbench.forget"))
+                            .tooltip(t("word.forget"))
                     if not since:
                         _lock_button(context, table, tables)
                         _release_button(context, table)
@@ -7312,15 +7311,36 @@ def _device_verbs(context: dict[str, Any]) -> list[panel.Verb]:
 
 
 def _game_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    library, game_id = context["library"], context["game_id"]
+    library, game_id, state = context["library"], context["game_id"], context["state"]
     name = str(context["game"].get("name") or "")
     offer = collection_adds.Offer(library, [collection_adds.Row(game_id)],
                                   collection_adds.GAMES, name,
                                   then=partial(_game_redrawn, context),
-                                  narrowed=str(context["state"].get("collection") or ""))
-    return game_acts.game_acts(library, game_id, name,
-                               game_acts.collections_of(offer, context["collections"]),
-                               context["rebuild"], context["state"])
+                                  narrowed=str(state.get("collection") or ""))
+
+    async def refresh(ids: list[str]) -> None:
+        again = state.get("refresh_games")
+        if callable(again):
+            await again(ids)
+        else:
+            await context["rebuild"]()
+
+    async def rate(ids: list[str], value: int) -> bool:
+        grid_rate = state.get("rate_games")
+        if not callable(grid_rate):
+            return False
+        landed = await grid_rate(ids, value)
+        if landed:
+            await context["rebuild"]()
+        return bool(landed)
+
+    async def match(_games: list[dict[str, Any]]) -> None:
+        await _pick_a_match(context)
+
+    return game_acts.game_acts(
+        library, [context["game"]], state, refresh,
+        rate=rate if callable(state.get("rate_games")) else None, match=match,
+        collections=game_acts.collections_of(offer, context["collections"]))
 
 
 def _table_verbs(context: dict[str, Any]) -> list[panel.Verb]:
@@ -7329,27 +7349,24 @@ def _table_verbs(context: dict[str, Any]) -> list[panel.Verb]:
     if table is None:
         return []
 
-    async def after(gone: bool) -> None:
+    async def after(game_ids: list[str], gone: bool) -> None:
         if gone:
             await _table_gone(context, table)
             return
         await context["rebuild"]()
         refresh = context["state"].get("refresh_game")
         if callable(refresh):
-            await refresh(game_id)
+            for one in game_ids:
+                await refresh(one)
 
     offer = collection_adds.Offer(
         library, [collection_adds.Row(game_id, table_id)], collection_adds.TABLES,
         game_tables.name_among(table, context["tables"]),
         then=partial(_game_redrawn, context))
-    offered = game_acts.table_acts(
-        library, game_id, str(context["game"].get("name") or ""), table, context["tables"],
-        after, game_acts.collections_of(offer, context["collections"]))
-    # The panel shows the game's record above the table's, so both can be cleared here.
-    if reset := game_acts.reset_game(library, game_id, context["rebuild"],
-                                     t("console.workbench.reset_game_action")):
-        offered.append(reset)
-    return offered
+    target = game_acts.Target(game_id, str(context["game"].get("name") or ""), table,
+                              context["tables"])
+    return game_acts.table_acts(library, [target], after, context["state"],
+                                game_acts.collections_of(offer, context["collections"]))
 
 
 # What the panel header's menu offers, per subject: the same lists the grids' row menus
