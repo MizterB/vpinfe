@@ -121,8 +121,10 @@ COLUMNS = [
                 help=t("console.collections.manually_removed.help")),
     grid.column("order", t("console.collections.order"), 200,
                 help=t("console.collections.order.help")),
-    grid.column("limit", t("console.collections.limit"), **_NUMERIC,
-                help=t("console.collections.limit.help")),
+    grid.column("limit", t("console.collections.limit"),
+                help=t("console.collections.limit.help"),
+                **{**_NUMERIC, ":valueFormatter": "params => params.value || (params.data && "
+                   f"params.data.pinned ? '' : {json.dumps(t('word.all'))})"}),
     grid.column("missing", t("console.collections.missing"), **_NUMERIC,
                 help=t("console.collections.missing.help")),
     grid.column("hidden", t("word.hidden"), **_NUMERIC,

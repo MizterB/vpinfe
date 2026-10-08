@@ -1222,17 +1222,14 @@ def with_discovery(schema: list[dict], found: list[dict]) -> list[dict]:
 
 
 def _left_empty(row: dict) -> dict[str, str]:
-    """The empty field's words, and its tooltip."""
-    state = row.get("state")
-    path = str(row.get("path") or "")
-    if state == tools.State.FOUND:
-        version = str(row.get("version") or "")
-        return {"blank": (t("console.settings.tool_found", path=path, version=version)
-                          if version else t("console.settings.tool_found_at", path=path)),
-                "left_empty": path}
-    if state == tools.State.UNUSABLE:
-        return {"blank": t("console.settings.tool_unusable", path=path),
-                "left_empty": tools.words(row.get("reason") or {})}
+    """What an empty Tool field stands for: the program found, quiet, or Not found with
+    how to get one on hover."""
+    path = str(row.get("default_path") or "")
+    version = str(row.get("default_version") or "")
+    if path:
+        return {"default_path": path,
+                "default_whose": t("console.settings.tool_found_version", version=version)
+                if version else t("console.settings.tool_found_here")}
     return {"blank": t("word.not_found"), "left_empty": tools.words(row.get("remedy") or {})}
 
 
@@ -1249,33 +1246,40 @@ def with_default_paths(schema: list[dict], checks: list[dict]) -> list[dict]:
 
 
 def with_browser_found(schema: list[dict], found: dict[str, Any]) -> list[dict]:
-    """The Browser Program field saying, left empty, which browser the windows will open."""
-    blank = _browser_left_empty(found)
-    return [{**block, "options": [{**option, **blank} if option.get("key") == "path" else option
+    """The Browser Program field standing, left empty, for the browser the windows will
+    open."""
+    stands = _browser_left_empty(found)
+    return [{**block, "options": [{**option, **stands} if option.get("key") == "path" else option
                                   for option in block.get("options") or []]}
             if block.get("name") == "chromium" else block
             for block in schema]
 
 
 def _browser_left_empty(found: dict[str, Any]) -> dict[str, str]:
-    path = str(found.get("path") or "")
-    if found.get("state") == frontend_browser.NO_BROWSER:
+    if (found.get("state") == frontend_browser.NO_BROWSER
+            and found.get("path") == found.get("default_path")):
         return {"blank": t("word.not_found"),
                 "left_empty": t("console.settings.browser_slim_build")
                 if found.get("variant") == "slim" else str(found.get("fix_text") or "")}
-    return {"blank": t("console.settings.browser_found_bundled") if found.get("bundled")
-            else t("console.settings.browser_found", path=path), "left_empty": path}
+    return {"default_path": str(found.get("default_path") or ""),
+            "default_whose": t("console.settings.browser_bundled")
+            if found.get("default_bundled") else t("console.settings.browser_found_here")}
 
 
 def tool_marks(found: list[dict], values: dict,
                marks: dict[tuple[str, str], dict]) -> dict[tuple[str, str], dict]:
-    """`marks`, with each set Tool path whose program is there and does not run marked."""
+    """`marks`, with each Tool whose program is there and does not run marked, set or
+    left empty."""
     held = dict(values.get(TOOLS) or {})
     marked = dict(marks)
     for row in found:
         section, _, key = str(row.get("setting") or "").partition(".")
-        if not str(held.get(key) or "").strip() \
-           or (marked.get((section, key)) or {}).get("state") != path_state.OK:
+        if not str(held.get(key) or "").strip():
+            if row.get("state") == tools.State.UNUSABLE:
+                marked[(section, key)] = {"state": panel.UNUSABLE,
+                                          "reason": tools.words(row.get("reason") or {})}
+            continue
+        if (marked.get((section, key)) or {}).get("state") != path_state.OK:
             continue
         if row.get("state") == tools.State.UNUSABLE and row.get("set_here"):
             said = tools.words(row.get("reason") or {})

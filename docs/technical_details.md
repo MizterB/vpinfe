@@ -89,7 +89,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `path` | string |  | The browser the frontend's windows open in. Blank finds one on this device. |
+| `path` | string |  | The browser the frontend's windows open in |
 | `defaults` | bool | `true` | Full screen, autoplay, no Chrome prompts. Off leaves only what places a window. |
 | `options_exclude` | text |  | Leave Out |
 | `options` | text |  | Added after the defaults. Where one sets the same option, yours is used. For example, --ozone-platform=x11. |
@@ -112,15 +112,15 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `rar_path` | string |  | Needed to import RAR archives. Blank finds unar, unrar, 7-Zip or bsdtar. |
-| `ffmpeg_path` | string |  | Needed to record media. Blank finds it on this device. |
-| `grim_path` | string |  | Needed to record pictures of the screens. Blank finds it on this device. |
-| `wf_recorder_path` | string |  | Needed to record video of the screens. Blank finds it on this device. |
-| `gstreamer_path` | string |  | Needed to record on KDE Plasma and GNOME. Blank finds it on this device. |
-| `wtype_path` | string |  | Needed on Wayland to press a table's keys. Blank finds it on this device. |
-| `ydotool_path` | string |  | Needed on Wayland to press a table's keys. Blank finds it on this device. |
-| `nvidia_smi_path` | string |  | Needed to read NVIDIA graphics cards. Blank finds it on this device. |
-| `nvtop_path` | string |  | Needed to read graphics cards VPinFE cannot read itself. Blank finds it on this device. |
+| `rar_path` | string |  | Needed to import RAR archives: unar, unrar, 7-Zip or bsdtar |
+| `ffmpeg_path` | string |  | Needed to record media |
+| `grim_path` | string |  | Needed to record pictures of the screens |
+| `wf_recorder_path` | string |  | Needed to record video of the screens |
+| `gstreamer_path` | string |  | Needed to record on KDE Plasma and GNOME |
+| `wtype_path` | string |  | Needed on Wayland to press a table's keys |
+| `ydotool_path` | string |  | Needed on Wayland to press a table's keys |
+| `nvidia_smi_path` | string |  | Needed to read NVIDIA graphics cards |
+| `nvtop_path` | string |  | Needed to read graphics cards VPinFE cannot read itself |
 
 ### `capture`
 
@@ -135,7 +135,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `quality` | choice (standard, high) | `standard` | High is sharper, in larger files |
 | `playfield_orientation` | choice (bottom_right, bottom_left, upright) | `bottom_right` | Which way round the playfield is stored |
 | `sound` | bool | `false` | Record the table's sound as a file of its own |
-| `sound_source` | string |  | A sound source by name. Left empty, what this device plays |
+| `sound_source` | string |  | A sound source by name |
 | `record_command` | string |  | The command that records each screen |
 | `encode_command` | string |  | Turns each recording into the stored file |
 
@@ -196,7 +196,7 @@ Runtime state written by VPinFE, not shown as a setting.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `folder` | string |  | Where Back up now keeps its backups. Blank keeps them in VPinFE's config folder. Changing it asks whether to move the backups already taken. |
+| `folder` | string |  | Where Back up now keeps its backups. Changing it asks whether to move the backups already taken. |
 
 ### `media`
 

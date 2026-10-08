@@ -108,6 +108,12 @@ def _in_use() -> tuple[str, bool]:
     return device_client.local().browser_in_use()
 
 
+def _unset() -> tuple[str, bool]:
+    from common import device_client
+
+    return device_client.local().browser_in_use("")
+
+
 def _variant() -> str:
     from common import device_client
 
@@ -218,6 +224,7 @@ def current(held: dict[str, Any] | None = None) -> dict[str, Any]:
     """The report as the API serves it: state, the browser, what it plays and does not,
     and the finding and fix in words."""
     path, bundled = _in_use()
+    default_path, default_bundled = _unset()
     held = _read() if held is None else held
     if held and str(held.get("path") or "") != path:
         held = None
@@ -235,6 +242,8 @@ def current(held: dict[str, Any] | None = None) -> dict[str, Any]:
         "browser": str((held or {}).get("browser") or ""),
         "path": path,
         "bundled": bundled,
+        "default_path": default_path,
+        "default_bundled": default_bundled,
         "variant": _variant(),
         "formats": formats,
         "plays": [one.name for one in FORMATS if formats[one.id]],

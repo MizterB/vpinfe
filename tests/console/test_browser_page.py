@@ -77,6 +77,10 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
         self.enterContext(patch.object(paths, "FRONTEND_BROWSER_PATH", self.report))
         self.enterContext(patch.object(frontend_browser, "_in_use",
                                        side_effect=lambda: (str(self.in_use), self.bundled)))
+        self.unset = None
+        self.enterContext(patch.object(
+            frontend_browser, "_unset",
+            side_effect=lambda: (str(self.unset or self.in_use), self.bundled)))
         self.enterContext(patch.object(frontend_browser, "_google_chrome",
                                        side_effect=lambda: self.chrome))
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)
@@ -168,22 +172,32 @@ class BrowserPageTests(unittest.IsolatedAsyncioTestCase):
             self.served.config_schema(), found) if one["name"] == "chromium"]
         return next(one for one in block["options"] if one["key"] == "path")
 
-    async def test_an_empty_browser_program_says_which_browser_was_found(self) -> None:
+    async def test_an_empty_browser_program_stands_for_the_browser_it_found(self) -> None:
         self._reported(PLAYS_ALL)
 
         field = self._program_field()
 
-        self.assertEqual(field["blank"], t("console.settings.browser_found", path=self.in_use))
-        self.assertEqual(field["left_empty"], str(self.in_use))
+        self.assertEqual(field["default_path"], str(self.in_use))
+        self.assertEqual(field["default_whose"], t("console.settings.browser_found_here"))
 
-    async def test_the_bundled_copy_is_said_by_name_rather_than_by_its_path(self) -> None:
+    async def test_a_set_browser_program_is_not_taken_for_the_default(self) -> None:
+        elsewhere = self.in_use.parent / "found-elsewhere"
+        elsewhere.touch()
+        self.unset = elsewhere
+        self._reported(PLAYS_ALL)
+
+        field = self._program_field()
+
+        self.assertEqual(field["default_path"], str(elsewhere))
+
+    async def test_the_bundled_copy_is_said_by_name(self) -> None:
         self.bundled = True
         self._reported(PLAYS_ALL)
 
         field = self._program_field()
 
-        self.assertEqual(field["blank"], t("console.settings.browser_found_bundled"))
-        self.assertEqual(field["left_empty"], str(self.in_use))
+        self.assertEqual(field["default_path"], str(self.in_use))
+        self.assertEqual(field["default_whose"], t("console.settings.browser_bundled"))
 
     async def test_no_browser_at_all_reads_not_found_with_the_fix_on_hover(self) -> None:
         self.in_use.unlink()

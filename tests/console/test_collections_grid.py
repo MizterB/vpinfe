@@ -122,6 +122,12 @@ class TheColumns(unittest.TestCase):
                           for one in kind["filterParams"]["choices"]])
         self.assertIn(t("console.collections.smart"), kind[":valueFormatter"])
 
+    def test_no_limit_reads_all_except_on_the_all_games_row(self) -> None:
+        shown = _column("limit")[":valueFormatter"]
+
+        self.assertIn(t("word.all"), shown)
+        self.assertIn("pinned ? ''", shown)
+
     def test_smart_wears_its_mark_and_the_one_the_cabinet_opens_on_wears_its_own(self) -> None:
         self.assertIn(verbs.SMART, _column("kind")[":cellRenderer"])
         self.assertIn(verbs.OPENS_ON, _column("name")[":cellRenderer"])

@@ -90,8 +90,8 @@ class ToolsPageTests(unittest.IsolatedAsyncioTestCase):
         return path
 
     async def _fields(self) -> dict[str, dict[str, Any]]:
-        """By label, what each Tool's field was drawn with: its placeholder, its tooltip
-        when empty, and the mark beside it."""
+        """By label, what each Tool's field was drawn with: the default it stands for and
+        whose, its placeholder and tooltip when nothing is found, and the mark beside it."""
         self.field.reset_mock()
         self.marked.reset_mock()
         await settings._draw_system_page(self.library, Mock(), MagicMock(), PAGE, {}, [])
@@ -99,6 +99,8 @@ class ToolsPageTests(unittest.IsolatedAsyncioTestCase):
         labels = [label for label, _value in drawn.args[1] if isinstance(label, str)]
         return {label: {"blank": call.kwargs.get("placeholder"),
                         "tooltip": call.kwargs.get("left_empty"),
+                        "default": call.kwargs.get("default"),
+                        "whose": call.kwargs.get("whose"),
                         "mark": marks.args}
                 for label, call, marks in zip(labels, self.field.call_args_list,
                                               self.marked.call_args_list, strict=True)}
@@ -136,9 +138,18 @@ class ToolsPageTests(unittest.IsolatedAsyncioTestCase):
 
         said = (await self._fields())[t("config.tools.ffmpeg_path.label")]
 
-        self.assertEqual(said["blank"], t("console.settings.tool_found", path=str(ffmpeg),
-                                          version="7.1"))
-        self.assertEqual(said["tooltip"], str(ffmpeg))
+        self.assertEqual(said["default"], str(ffmpeg))
+        self.assertEqual(said["whose"], t("console.settings.tool_found_version", version="7.1"))
+
+    async def test_a_set_program_leaves_the_default_what_would_be_found_without_it(self) -> None:
+        found = self._program("ffmpeg")
+        mine = self._program("ffmpeg", self.root / "mine")
+        self.served.put_config({"tools": {"ffmpeg_path": str(mine)}})
+
+        said = (await self._fields())[t("config.tools.ffmpeg_path.label")]
+
+        self.assertEqual(said["default"], str(found))
+        self.assertNotEqual(said["default"], str(mine))
 
     async def test_nothing_found_says_so_with_how_to_get_one(self) -> None:
         said = (await self._fields())[t("config.tools.rar_path.label")]
@@ -153,8 +164,9 @@ class ToolsPageTests(unittest.IsolatedAsyncioTestCase):
 
         said = (await self._fields())[t("config.tools.rar_path.label")]
 
-        self.assertEqual(said["blank"], t("console.settings.tool_unusable", path=str(broken)))
-        self.assertEqual(said["tooltip"], t(tools.FAILED))
+        self.assertEqual(said["default"], str(broken))
+        self.assertEqual(said["whose"], t("console.settings.tool_found_here"))
+        self.assertEqual(said["mark"], (panel.UNUSABLE, t(tools.FAILED)))
 
     async def test_a_set_program_that_does_not_run_is_marked_with_what_is_used(self) -> None:
         ffmpeg = self._program("ffmpeg")

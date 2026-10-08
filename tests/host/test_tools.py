@@ -165,7 +165,17 @@ class RowTests(_OnLinux):
         self.assertEqual(row, {
             "id": "thing", "name": "Thing", "setting": "tools.thing_path",
             "state": "found", "path": str(program), "version": "1.0", "set_here": False,
+            "default_path": str(program), "default_version": "1.0",
             "reason": None, "fix": "none", "remedy": None})
+
+    def test_a_set_program_leaves_the_default_what_is_found_without_it(self) -> None:
+        found = _program(self.path, "thing")
+        mine = _program(self.path.parent / "mine", "thing")
+
+        row = tools.row(tools.resolve(_tool(), str(mine)))
+
+        self.assertEqual((row["set_here"], row["path"]), (True, str(mine)))
+        self.assertEqual(row["default_path"], str(found))
 
     def test_missing_carries_its_remedy(self) -> None:
         row = tools.row(tools.resolve(_tool(), ""))

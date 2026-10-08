@@ -548,6 +548,7 @@ def row(found: Found) -> dict[str, Any]:
     stuck = found.state in (State.MISSING, State.UNUSABLE)
     said = remedy(tool, missing=True) if stuck else None
     reason = found.probe.reason if found.probe is not None else ""
+    unset = resolve(tool, "") if found.set_here else found
     return {
         "id": tool.id,
         "name": tool.name,
@@ -556,6 +557,8 @@ def row(found: Found) -> dict[str, Any]:
         "path": str(found.path or ""),
         "version": found.probe.version if found.probe is not None else "",
         "set_here": found.set_here,
+        "default_path": str(unset.path or ""),
+        "default_version": unset.probe.version if unset.probe is not None else "",
         "reason": ({"key": reason, "params": {}}
                    if found.state is State.UNUSABLE and reason else None),
         "fix": fix_of(said) if stuck else FIX_NONE,

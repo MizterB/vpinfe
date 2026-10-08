@@ -79,13 +79,14 @@ class LocalDevice:
         except Exception:
             return None
 
-    def browser_in_use(self) -> tuple[str, bool]:
+    def browser_in_use(self, configured: str | None = None) -> tuple[str, bool]:
         """The browser this device opens its windows with, and whether it is the bundled
-        copy. ("", False) on an install with no frontend."""
+        copy. ("", False) on an install with no frontend. `configured` stands in for the
+        Browser Program setting; "" asks what it would be with none set."""
         try:
             from frontend.chromium_manager import get_chromium_path
 
-            found = get_chromium_path()
+            found = get_chromium_path(configured)
             return str(found.path or ""), not bool(found.using_local_install)
         except Exception:
             return "", False

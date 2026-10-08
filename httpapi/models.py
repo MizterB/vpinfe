@@ -904,7 +904,8 @@ class ConfigTool(ApiModel):
     """One Tool on this device, as discovery finds it when asked.
 
     `state` is `found`, `missing`, `unusable` (found, and it does not run) or `not_here`
-    (nothing to look for on this platform). `set_here` says the setting is what found it.
+    (nothing to look for on this platform). `set_here` says the setting is what found it, and
+    `default_path` and `default_version` are what would be found with no setting.
     `fix` is `auto` where VPinFE can get it once a person agrees, `user` where a person has
     to act and `none` otherwise.
     """
@@ -916,6 +917,8 @@ class ConfigTool(ApiModel):
     path: str = ""
     version: str = ""
     set_here: bool = False
+    default_path: str = ""
+    default_version: str = ""
     reason: Said | None = None
     fix: str
     remedy: ToolRemedy | None = None
