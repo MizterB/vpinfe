@@ -62,6 +62,7 @@ from console import (
     confirm,
     deeplink,
     dropdown,
+    file_acts,
     game_acts,
     game_tables,
     grid,
@@ -720,7 +721,7 @@ def _file_title(target: ui.column, row: dict[str, Any], game: dict[str, Any],
                                        "console-workbench-links"):
             panel.link(str(game.get("name") or ""), to="/console?" + deeplink.query(
                 {"view": "games", "game": game["id"]}))()
-        orphan = _file_tier(row) == media_ownership.ORPHAN
+        orphan = file_acts.tier_of(row) == media_ownership.ORPHAN
         if table is None and not orphan:
             return
         with ui.element("div").classes("console-workbench-table console-workbench-links"):
@@ -729,20 +730,6 @@ def _file_title(target: ui.column, row: dict[str, Any], game: dict[str, Any],
                     {"view": "tables", "game": game["id"], "table": table["id"]}))()
             else:
                 ui.label(str(row.get("table_file") or ""))
-
-
-def _file_tier(row: dict[str, Any]) -> str:
-    """Who uses this file, in `media_ownership`'s words, for either lens."""
-    if "binding" not in row:
-        return media_ownership.key_of(row.get("via"))
-    binding = str(row.get("binding") or "")
-    if binding == "orphaned":
-        return media_ownership.ORPHAN
-    if not row.get("present"):
-        return media_ownership.MISSING
-    if binding == "game":
-        return media_ownership.UNUSED if row.get("serves") == 0 else media_ownership.GAME
-    return media_ownership.TABLE
 
 
 async def _asset_detail_of(library: Library, game_id: str,
@@ -763,7 +750,7 @@ def _media_has_stage(context: dict[str, Any]) -> bool:
     row = context.get("row") or {}
     if not row.get("present"):
         return False
-    if _file_tier(row) in (media_ownership.ORPHAN, media_ownership.UNUSED):
+    if file_acts.is_loose(row):
         return bool((context.get("game") or {}).get("folder") and row.get("path"))
     return True
 
@@ -787,7 +774,7 @@ def _stage(context: dict[str, Any]) -> ui.element:
 async def _media_file_block(context: dict[str, Any]) -> None:
     library, game_id, table_id = context["library"], context["game_id"], context["lens"]
     row, kind = context["row"], context["kind"]
-    if _file_tier(row) in (media_ownership.ORPHAN, media_ownership.UNUSED):
+    if file_acts.is_loose(row):
         _loose_media(context)
         return
     entries = await offload.io(library.media_for, game_id, table_id or None)
@@ -817,7 +804,7 @@ def _loose_media(context: dict[str, Any]) -> None:
     """No acts here: the slot's would act on the file the slot resolves to, which is
     another one."""
     row, kind = context["row"], context["kind"]
-    tier = _file_tier(row)
+    tier = file_acts.tier_of(row)
     folder = str(context["game"].get("folder") or "")
     path = str(row.get("path") or "")
     if context["dock"] is not None and folder and path:
@@ -870,7 +857,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
     present, path = bool(row.get("present")), str(row.get("path") or "")
     library, game_id = context["library"], context["game_id"]
     label = str(row.get("label") or _asset_name(kind))
-    tier = _file_tier(row)
+    tier = file_acts.tier_of(row)
     links = (await offload.io(library.outside_links, game_id, "", path)
              if present and path else [])
     glass = detail.get("backglass") if kind == "backglass" else None
@@ -921,7 +908,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
         entries: list[tuple[Any, Any]] = [
             (panel.HEADING, t("word.file")),
             (panel.FULL, lambda: identity(facts=False))]
-        if kind in _WHOLE_FOLDER or kind in _PLACEABLE:
+        if kind in file_acts.WHOLE_FOLDER or kind in file_acts.PLACEABLE:
             entries.append((panel.FULL, acts))
         if glass and not glass["damaged"] and (about := _backglass_facts(context, glass)):
             entries += [(panel.HEADING, t("console.workbench.details")),
@@ -1173,18 +1160,13 @@ def _fit_row(inner: dict[str, Any], part: str) -> tuple[Any, Any]:
         hint=t("console.backglass.dmd_fit.hint"), enabled=not inner.get("playing"))
 
 
-# The kinds VPX finds by name, which a file can be placed as and removed from.
-_PLACEABLE = frozenset(one.key for one in VPX_ASSET_KINDS)
-_WHOLE_FOLDER = frozenset({"pup_pack", "alt_color", "alt_sound", "music"})
-
-
 def _asset_actions(context: dict[str, Any], kind: str, label: str, present: bool,
                    path: str, tier: str, detail: dict[str, Any]) -> None:
-    if kind in _WHOLE_FOLDER:
+    if kind in file_acts.WHOLE_FOLDER:
         _folder_actions(context, kind, label, present, path,
                         int(detail.get("files") or 0))
         return
-    if kind not in _PLACEABLE:
+    if kind not in file_acts.PLACEABLE:
         return
     loose = tier in (media_ownership.ORPHAN, media_ownership.UNUSED)
     table = next((one for one in context["tables"]
@@ -1228,13 +1210,7 @@ def _folder_actions(context: dict[str, Any], kind: str, label: str, present: boo
 @on_page
 async def _remove_asset(context: dict[str, Any], kind: str, path: str, tier: str,
                         files: int | None = None) -> None:
-    falls_back = any(one.key == kind and one.folder_fallback for one in VPX_ASSET_KINDS)
-    detail = {media_ownership.TABLE: t("console.workbench.remove_asset.table" if falls_back
-                                       else "console.workbench.remove_asset.table_only"),
-              media_ownership.GAME: t("console.workbench.remove_asset.game")}.get(
-                  tier, t("console.workbench.remove_asset.loose"))
-    if files is not None:
-        detail = t("console.workbench.remove_asset.folder", count=files)
+    detail = file_acts.asset_removal_detail(kind, tier, files)
     if not await confirm.ask(t("console.workbench.remove_asset", name=PurePosixPath(path).name),
                              detail=detail, confirm=t("word.remove"), icon=verbs.REMOVE):
         return
@@ -2083,35 +2059,6 @@ def running_time(seconds: float) -> str:
     return f"{hours}:{minutes:02}:{rest:02}" if hours else f"{minutes}:{rest:02}"
 
 
-def _removal(context: dict[str, Any], tiers: list[dict[str, Any]] | None,
-             entry: dict[str, Any], then: str | None = None) -> tuple[str, str] | None:
-    """The file this lens's Remove takes and who loses it, or None where the lens has no
-    file at its own tier and Remove takes nothing. `then` is the file shown after it.
-
-    `tiers` is None when the slot's detail could not be read, and then only the file on
-    show is known.
-    """
-    table_id = context["lens"]
-    table = next((one for one in context["tables"] if one.get("id") == table_id), None)
-    own = bool(table_id) and not game_tables.named_as_folder(table, context["game"])
-    tier = media_ownership.TABLE if own else media_ownership.GAME
-    known = tiers is not None
-    if tiers is None:
-        tiers = [{"tier": entry.get("via"), "file": entry.get("file")}] \
-            if entry.get("present") else []
-    at = next((i for i, one in enumerate(tiers) if one.get("tier") == tier), None)
-    if at is None:
-        return None
-    name = str(tiers[at].get("file") or "")
-    if not own:
-        return name, t("console.workbench.remove_asset.game")
-    if not known:
-        return name, t("console.workbench.remove_asset.table")
-    if then:
-        return name, t("console.workbench.remove_asset.table_then", name=then)
-    return name, t("console.workbench.remove_asset.table_only")
-
-
 def _used_as(candidate: dict[str, Any]) -> str:
     """Who a file in a slot's detail answers for: its own tier while some table is shown
     it, otherwise Unused."""
@@ -2169,7 +2116,8 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
 
     @on_page
     async def remove() -> None:
-        taken = _removal(context, detail.get("tiers"), entry, detail.get("after_remove"))
+        taken = file_acts.removal(context["tables"], context["game"], table_id,
+                                  detail.get("tiers"), entry, detail.get("after_remove"))
         if taken is not None and not await confirm.ask(
                 t("console.workbench.remove_asset", name=taken[0]), detail=taken[1],
                 confirm=t("word.remove"), icon=verbs.REMOVE):
@@ -3742,14 +3690,14 @@ def _add_action(context: dict[str, Any], kind: str) -> None:
                      hint=t("console.workbench.add_missing.help"))()
 
 
-def _add_opener(context: dict[str, Any], kind: str) -> Callable[[], None] | None:
+def _add_opener(context: dict[str, Any], kind: str) -> Callable[[], Any] | None:
     label = _asset_name(kind)
     done = context["rebuild"]
     if kind == "readme":
         return partial(mediasource.open_notes_sources, context, label, done)
-    if kind in _WHOLE_FOLDER or kind == "rom":
+    if kind in file_acts.WHOLE_FOLDER or kind == "rom":
         return partial(mediasource.open_folder_sources, context, kind, label, done)
-    if kind in _PLACEABLE:
+    if kind in file_acts.PLACEABLE:
         return partial(mediasource.open_asset_sources, context, kind, label, done)
     return None
 
@@ -4425,22 +4373,11 @@ def _release_button(context: dict[str, Any], table: dict[str, Any]) -> None:
     button.tooltip(t("console.workbench.releases_unmatched"))
 
 
-def _listed_as(kind: str, inventory: str) -> Any:
-    """What VPSdb calls this kind, when it is asking about the right inventory.
-
-    `backglass` is a picture among media and a `.directb2s` among assets, and VPS
-    lists the second. Matching by name alone offered a media slot the assets that
-    view is explicitly not about.
-    """
-    listed = vps_kinds.BY_OURS.get(kind)
-    return listed if listed is not None and listed.held_in == inventory else None
-
-
 async def _match_line(context: dict[str, Any], kind: str, matched_to: Any) -> str:
     """What the bound record is called. Resolved here because the catalog is already
     open on this side and an id is not something to put on screen."""
     said = str(matched_to or "")
-    listed = _listed_as(kind, vps_kinds.MEDIA)
+    listed = file_acts.listed_as(kind, vps_kinds.MEDIA)
     if not said or listed is None:
         return ""
     library = context["library"]
@@ -4470,7 +4407,7 @@ def _match_button(context: dict[str, Any], kind: str, label: str,
                   entry: dict[str, Any], redraw: Callable[[], None]) -> None:
     """The way to say which VPS record one file is. Only for media kinds VPSdb lists -
     a picker over a kind nothing publishes opens empty every time."""
-    listed = _listed_as(kind, vps_kinds.MEDIA)
+    listed = file_acts.listed_as(kind, vps_kinds.MEDIA)
     if listed is None:
         return
     path = str(entry.get("path") or "")
@@ -4500,12 +4437,25 @@ async def _pick_a_record(context: dict[str, Any], listed_as: str, label: str,
     The assets ledger's twin of `_pick_a_release`, unordered for the same reason: a
     scorer over this question is no better than chance.
     """
-    library = context["library"]
+    picked = await ask_a_record(context, listed_as, label, path, bound)
+    if picked is None:
+        return
+    await _write(context, context["library"].set_asset_source, context["game_id"], path,
+                 str(picked))
+    redraw()
+
+
+async def ask_a_record(context: dict[str, Any], listed_as: str, label: str, path: str,
+                       bound: str, place: str = "") -> Any:
+    """The record the person picked, "" to take the binding back, or what leaving answers:
+    nothing, or in a walk (`place` is its position) Skip and Stop."""
     records, empty, reason = await _listed_by_vps(
         context, t("console.workbench.kind_unlisted", kind=label), listed_as)
 
     with frame.opened(t("console.workbench.published", kind=label), wide=True,
                       persistent=True) as box:
+        if place:
+            ui.label(place).classes("console-help px-3")
         ui.label(path).classes("console-help px-3")
         with ui.column().classes("w-full gap-0 console-source-list console-pick-list px-3"):
             _in_place_of_list(empty, reason)
@@ -4514,14 +4464,9 @@ async def _pick_a_record(context: dict[str, Any], listed_as: str, label: str,
         with frame.footer():
             if bound:
                 frame.aside(t("word.clear"), lambda: box.submit(""), icon=verbs.CLEAR)
-            frame.cancel(lambda: box.submit(None))
+            frame.leave(box, bool(place))
 
-    picked = await box
-    if picked is None:
-        return
-    await _write(context, library.set_asset_source, context["game_id"], path,
-                 str(picked))
-    redraw()
+    return await box
 
 
 def _record_row(record: dict[str, Any], dialog: Any, bound: str) -> None:
@@ -7365,8 +7310,26 @@ def _table_verbs(context: dict[str, Any]) -> list[panel.Verb]:
                                 game_acts.collections_of(offer, context["collections"]))
 
 
+def _file_after(context: dict[str, Any]) -> Callable[[list[str]], Awaitable[None]]:
+    async def after(_game_ids: list[str]) -> None:
+        await context["rebuild"]()
+    return after
+
+
+def _media_file_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    one = file_acts.File(context["row"], context["game"])
+    return file_acts.media_acts(context["library"], [one], context["state"],
+                                _file_after(context))
+
+
+def _asset_file_verbs(context: dict[str, Any]) -> list[panel.Verb]:
+    one = file_acts.File(context["row"], context["game"])
+    return file_acts.asset_acts(context["library"], [one], context["state"],
+                                _file_after(context))
+
+
 # What the panel header's menu offers, per subject: the same lists the grids' row menus
-# draw. A subject with none - a file - has no menu.
+# draw. A subject with none has no menu.
 SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
     "game": _game_verbs,
     "table": _table_verbs,
@@ -7377,6 +7340,8 @@ SUBJECT_VERBS: dict[str, Callable[[dict[str, Any]], list[panel.Verb]]] = {
     "device": _device_verbs,
     "player": _player_verbs,
     "backup": _backup_verbs,
+    "media_file": _media_file_verbs,
+    "asset_file": _asset_file_verbs,
 }
 
 

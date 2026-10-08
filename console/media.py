@@ -21,20 +21,16 @@ from common.games import asset_origin
 from common.i18n import t
 from common.media_specs import media_label_map
 from console import (
+    file_acts,
     game_tables,
     grid,
-    media_fill,
     media_ownership,
-    media_rotate,
     offload,
     panel,
     thumbnails,
-    verbs,
     views,
 )
-from console import record as recorder
 from console.games import view_control
-from console.on_page import on_page
 
 SCOPE = "console.media.columns"
 
@@ -106,7 +102,8 @@ def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
                                    "" if row.get("present") else _MISSING),
              "source": media_ownership.source_name(str(row.get("origin") or "")),
              "match": str(row.get("matched_to") or ""),
-             "covered_by": _standing_in(str(row.get("standing_in") or ""))}
+             "covered_by": _standing_in(str(row.get("standing_in") or "")),
+             grid.NO_MENU: file_acts.is_loose(row)}
             for row in found]
 
 
@@ -249,68 +246,34 @@ def build(found: list[dict[str, Any]], library: Any,
             search = panel.search(t("console.media.search_media"))
         with bar.bottom, panel.bar_end():
             count = ui.label(said(0)).classes("text-xs console-label")
-            actions = ui.button(icon=verbs.MORE).props("flat round dense") \
-                .tooltip(t("console.media.actions"))
+            show_selection = panel.selection_menu(
+                t("console.media.media_menu"), lambda: grid.selection(table),
+                lambda chosen: acts_on(chosen),
+                lambda: table.run_grid_method("deselectAll"))
             if rescan is not None:
                 panel.refresh(rescan, t("console.media.rescan"))
 
-        @on_page
-        async def get_missing_art() -> None:
-            picked = grid.selection(table)
-            ids = list(dict.fromkeys(str(row["game_id"]) for row in picked))
+    async def changed(ids: list[str]) -> None:
+        await refill(library, table, built, by_id, ids)
 
-            def placed() -> Any:
-                return refill(library, table, built, by_id, ids)
-
-            if grid.hidden_count(table) or len(picked) < on_screen["rows"]:
-                await media_fill.confirm_slots(picked, state, placed)
-                return
-            await media_fill.ask(ids, state, placed,
-                               name=str(picked[0].get("game") or "") if len(ids) == 1 else "")
-
-        @on_page
-        async def record_missing() -> None:
-            picked = grid.selection(table)
-            ids = list(dict.fromkeys(str(row["game_id"]) for row in picked))
-            gaps = sorted({str(row["kind"]) for row in picked if not row.get("present")})
-
-            def placed() -> Any:
-                return refill(library, table, built, by_id, ids)
-
-            name = str(picked[0].get("game") or "") if len(ids) == 1 else ""
-            title = t("console.record.title_missing_one", name=name) if name \
-                else t("console.record.title_missing", count=len(ids))
-            await recorder.ask(library, [(game_id, "") for game_id in ids], title, state,
-                               placed, only=gaps)
-
-        def turn(way: str) -> Callable[[], Any]:
-            @on_page
-            async def go() -> None:
-                picked = grid.selection(table)
-                ids = list(dict.fromkeys(str(row["game_id"]) for row in picked))
-                await media_rotate.ask(picked, way, state,
-                                       lambda: refill(library, table, built, by_id, ids))
-            return go
-
-        with actions:
-            with ui.menu():
-                ui.menu_item(t("console.media_fill.get_missing"), get_missing_art) \
-                    .classes("console-menu-item")
-                recorder.menu_entry(library, t("console.record.record_missing"),
-                                    record_missing)
-                ui.separator()
-                for way, word in media_rotate.MENU:
-                    ui.menu_item(t(word), turn(way)).classes("console-menu-item")
-                ui.separator()
-                ui.menu_item(t("word.clear_selection"),
-                             lambda: table.run_grid_method("deselectAll")) \
-                    .classes("console-menu-item")
-        actions.set_visibility(False)
+    def acts_on(chosen: list[dict[str, Any]]) -> list[panel.Verb]:
+        return file_acts.media_acts(library, file_acts.files_of(library, chosen), state,
+                                    changed)
 
     def on_select_rows(picked: list[dict[str, Any]]) -> None:
         selected[:] = picked
-        actions.set_visibility(bool(picked))
+        show_selection(bool(picked))
         count.text = said(len(picked))
+
+    def on_context(row: dict | None) -> None:
+        if not row:
+            menu.clear()
+            return
+        on = grid.menu_rows(table, row)
+        panel.verb_menu(
+            menu, str(row["game"]) + " - " + str(row["label"]) if len(on) == 1
+            else t("console.media.files", count=len(on)),
+            panel.for_selection(acts_on(on), len(on)))
 
     by_id = {row["id"]: row for row in built}
     grid.on_row_focus(SCOPE,
@@ -320,7 +283,7 @@ def build(found: list[dict[str, Any]], library: Any,
         await grid.header_menu(menu, table, columns, col_id)
 
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-        table: ui.aggrid = grid.build(columns, built, SCOPE, on_select_rows,
+        table: ui.aggrid = grid.build(columns, built, SCOPE, on_select_rows, on_context,
                                       on_header_context=on_header_context,
                                       view_of=showing)
         menu: ui.context_menu = ui.context_menu()

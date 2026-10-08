@@ -28,10 +28,10 @@ _POLLS = 7200
 _WAYS = {media_rotate.LEFT: "console.media_rotate.way_left",
          media_rotate.RIGHT: "console.media_rotate.way_right",
          media_rotate.AROUND: "console.media_rotate.way_around"}
-# What the Media page's menu offers, in order.
-MENU = ((media_rotate.LEFT, "console.media_rotate.turn_left"),
-        (media_rotate.RIGHT, "console.media_rotate.turn_right"),
-        (media_rotate.AROUND, "console.media_rotate.turn_around"))
+# What the Turn submenu offers, in order.
+MENU = ((media_rotate.LEFT, "console.media_rotate.left"),
+        (media_rotate.RIGHT, "console.media_rotate.right"),
+        (media_rotate.AROUND, "console.media_rotate.around"))
 _ICONS = {media_rotate.LEFT: verbs.ROTATE_LEFT, media_rotate.RIGHT: verbs.ROTATE_RIGHT,
           media_rotate.AROUND: verbs.ROTATE_RIGHT}
 

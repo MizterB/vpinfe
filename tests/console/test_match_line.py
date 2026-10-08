@@ -11,7 +11,7 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from common.online import vps_kinds
-from console import workbench
+from console import file_acts, workbench
 
 RECORD = "wheel_KtY1"
 
@@ -99,13 +99,13 @@ class MatchLineTests(unittest.IsolatedAsyncioTestCase):
         """The two vocabularies share the word. `backglass` is a picture among media
         and a .directb2s among assets, and VPS lists the second - so matching a media
         slot by name alone offered it the assets that view is explicitly not about."""
-        self.assertIsNone(workbench._listed_as("backglass", vps_kinds.MEDIA))
-        self.assertIsNotNone(workbench._listed_as("backglass", vps_kinds.ASSET))
+        self.assertIsNone(file_acts.listed_as("backglass", vps_kinds.MEDIA))
+        self.assertIsNotNone(file_acts.listed_as("backglass", vps_kinds.ASSET))
 
     def test_the_media_kinds_vps_does_list_still_match(self) -> None:
         for kind in ("wheel", "topper", "rule_sheet"):
             with self.subTest(kind=kind):
-                self.assertIsNotNone(workbench._listed_as(kind, vps_kinds.MEDIA))
+                self.assertIsNotNone(file_acts.listed_as(kind, vps_kinds.MEDIA))
 
     async def test_the_records_asked_for_are_that_kind_s(self) -> None:
         """One entry answers a different list per kind, and the local kind is not the

@@ -10,8 +10,7 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from console import game_tables
-from console.workbench import _removal
+from console import file_acts, game_tables
 
 GAME = {"folder": "/tables/Multi VPX (Original 2024)"}
 TABLES = [{"id": "a1", "filename": "Multi VPX (Original 2024).vpx"},
@@ -27,6 +26,12 @@ GOES_WITHOUT = t("console.workbench.remove_asset.table_only")
 
 def _context(lens: str) -> dict[str, Any]:
     return {"lens": lens, "tables": TABLES, "game": GAME}
+
+
+def _removal(context: dict[str, Any], tiers: Any, entry: dict[str, Any],
+             then: str | None = None) -> Any:
+    return file_acts.removal(context["tables"], context["game"], context["lens"], tiers,
+                             entry, then)
 
 
 class RemovalTests(unittest.TestCase):

@@ -354,22 +354,21 @@ class EntryTests(unittest.TestCase):
         self.assertIsNone(drawn)
         action.assert_not_called()
 
-    def test_a_selection_menus_entry_is_refused_with_the_devices_reason(self) -> None:
-        for capabilities, drawn in (
-                ([{"name": "capture", "available": True}], ""),
+    def test_the_verb_is_refused_with_the_devices_reason(self) -> None:
+        for capabilities, hint, runs in (
+                ([{"name": "capture", "available": True}], "", True),
                 ([{"name": "capture", "available": False, "reason": "Needs FFmpeg"}],
-                 "Needs FFmpeg")):
+                 "Needs FFmpeg", False)):
             library = SimpleNamespace(discovery=lambda capabilities=capabilities:
                                       {"capabilities": capabilities})
-            with self.subTest(drawn), \
-                    mock.patch.object(record.panel, "menu_entry") as entry:
-                record.menu_entry(library, "Record Media...", lambda: None)
-            self.assertEqual(entry.call_args.kwargs["refused"], drawn)
+            with self.subTest(hint):
+                verb = record.verb(library, lambda: None)
+                assert verb is not None
+                self.assertEqual(verb.hint, hint)
+                self.assertEqual(verb.run is not None, runs)
 
         library = SimpleNamespace(discovery=lambda: {"capabilities": []})
-        with mock.patch.object(record.panel, "menu_entry") as entry:
-            record.menu_entry(library, "Record Media...", lambda: None)
-        entry.assert_not_called()
+        self.assertIsNone(record.verb(library, lambda: None))
 
 
 # The reference cab: no screen shows the DMD, so every game fails its DMD video.

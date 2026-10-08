@@ -149,6 +149,9 @@ class _Sources:
     backglass = False
     # The tab the dialog opens on, where it is not the first.
     first = ""
+    # Where this dialog is in a walk over several files ("2 of 5"), which turns Cancel into
+    # Skip and Stop. Empty outside one.
+    walk_place = ""
 
     def __init__(self, library: Any, label: str, done: Callable, current: str = "") -> None:
         self.library = library
@@ -217,10 +220,13 @@ class _Sources:
     def picked(self, tab: str) -> None:
         """`tab` was opened."""
 
-    def open(self) -> None:
+    def open(self) -> ui.dialog:
+        """Show the dialog and answer it: a walk awaits it, which resolves when it closes."""
         with frame.opened(self.title(), classes="console-sources-card") as box:
             self.dialog = box
             card = ui.context.slot.parent
+            if self.walk_place:
+                ui.label(self.walk_place).classes("console-help px-3")
             self.before()
             above = ui.column().classes("w-full gap-0 px-3")
 
@@ -280,7 +286,10 @@ class _Sources:
                     with ui.tab_panel("record"):
                         record_body = ui.column().classes("w-full gap-2 console-source-fill")
             with frame.footer().classes("console-dialog-footer--ruled"):
-                frame.cancel(box.close)
+                if self.walk_place:
+                    frame.leave(box, True)
+                else:
+                    frame.cancel(box.close)
         if self.uploads:
             card.on("dragover", js_handler=_LIGHT)
             card.on("dragleave", js_handler=_DIM)
@@ -325,6 +334,7 @@ class _Sources:
             self.picked("record")
             with box:
                 busy.fill(record_body, lambda: self.record_tab(record_body))
+        return box
 
     async def finish(self, message: str) -> None:
         self.dialog.close()
@@ -1586,29 +1596,37 @@ def records(library: Any, kind: str) -> dict[str, Any] | None:
 
 def open_sources(context: dict[str, Any], kind: str, label: str,
                  done: Callable, current: str = "", *, recording_it: bool = False,
-                 backglass_file: dict[str, Any] | None = None) -> None:
+                 backglass_file: dict[str, Any] | None = None,
+                 place: str = "") -> ui.dialog:
     """Open the ways to fill this slot. Returns as soon as the dialog is up.
 
     `current` is what fills it now, as a path in the game's folder. `recording_it` opens
     it on its Record tab. `backglass_file` is the picture the game's backglass file draws,
-    which adds a tab and, on an empty slot, is where the dialog opens.
+    which adds a tab and, on an empty slot, is where the dialog opens. `place` is the
+    position in a walk, which makes the way out Skip and Stop.
     """
     library = context["library"]
     first = "record" if recording_it else \
         "backglass" if backglass_file and not current else ""
-    _Slot(context, kind, label, done, _media(library, kind), current,
-          records=records(library, kind) is not None, first=first,
-          backglass_file=backglass_file).open()
+    sources = _Slot(context, kind, label, done, _media(library, kind), current,
+                    records=records(library, kind) is not None, first=first,
+                    backglass_file=backglass_file)
+    sources.walk_place = place
+    return sources.open()
 
 
 def open_asset_sources(context: dict[str, Any], kind: str, label: str,
-                       done: Callable, current: str = "") -> None:
-    _Slot(context, kind, label, done, _asset(context["library"], kind), current).open()
+                       done: Callable, current: str = "", place: str = "") -> ui.dialog:
+    sources = _Slot(context, kind, label, done, _asset(context["library"], kind), current)
+    sources.walk_place = place
+    return sources.open()
 
 
 def open_folder_sources(context: dict[str, Any], kind: str, label: str,
-                        done: Callable, current: str = "") -> None:
-    _Folder(context, kind, label, done, current).open()
+                        done: Callable, current: str = "", place: str = "") -> ui.dialog:
+    sources = _Folder(context, kind, label, done, current)
+    sources.walk_place = place
+    return sources.open()
 
 
 def open_notes_sources(context: dict[str, Any], label: str, done: Callable) -> None:

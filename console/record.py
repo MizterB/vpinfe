@@ -486,14 +486,15 @@ def capability(library: Any) -> dict[str, Any] | None:
                  if one.get("name") == "capture"), None)
 
 
-def menu_entry(library: Any, label: str, run: Callable[[], Any]) -> None:
-    """Into the menu being built: `label`, refused with the device's reason where it
-    records nothing, and left out where the install does not record."""
+def verb(library: Any, run_it: Callable[[], Any]) -> panel.Verb | None:
+    """Record Media, refused with the device's reason where it records nothing, and left
+    out where the install does not record."""
     able = capability(library)
     if able is None:
-        return
-    panel.menu_entry(label, run, refused="" if able.get("available")
-                     else str(able.get("reason") or ""))
+        return None
+    available = bool(able.get("available"))
+    return panel.Verb(t("console.record.record_media"), run_it if available else None,
+                      hint="" if available else str(able.get("reason") or ""))
 
 
 @on_page

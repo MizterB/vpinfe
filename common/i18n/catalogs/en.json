@@ -613,9 +613,6 @@
   "console.media_rotate.keep": "Turn and Keep Copies",
   "console.media_rotate.no_copies": "Turn Without Copies",
   "console.media_rotate.nothing": "Select pictures or videos to turn",
-  "console.media_rotate.turn_around": "Turn Around",
-  "console.media_rotate.turn_left": "Turn Left",
-  "console.media_rotate.turn_right": "Turn Right",
   "console.media_rotate.way_around": "A half turn",
   "console.media_rotate.way_left": "A quarter turn to the left",
   "console.media_rotate.way_right": "A quarter turn to the right",
@@ -1650,7 +1647,6 @@
   "console.logs.vpinfe_previous": "VPinFE previous",
   "console.logs.vpinfe_previous_n": "VPinFE previous {number}",
   "console.logs.wrap": "Wrap long lines",
-  "console.media.actions": "Actions for the selected media",
   "console.media.view_orphans.help": "Media left behind when a table was renamed, replaced or deleted",
   "console.media.view_missing.help": "The media you do not have: one row per game, whatever its tables have, for the kinds you collect. Select rows to get them in one go.",
   "console.media.view_have.help": "The files that are here: in use, unused or orphaned",
@@ -2186,7 +2182,6 @@
   "console.record.record": "Record",
   "console.record.replace_confirm": "Record and Replace",
   "console.record.record_media": "Record Media...",
-  "console.record.record_missing": "Record Missing Media...",
   "console.record.recorded": {
     "one": "Recorded 1 file",
     "other": "Recorded {count} files"
@@ -4634,5 +4629,28 @@
   "word.volumes": "Volumes",
   "word.where": "Where",
   "word.year": "Year",
-  "word.yes": "Yes"
+  "word.yes": "Yes",
+  "console.files.add": "Add...",
+  "console.files.replace": "Replace...",
+  "console.files.either": "Add or Replace...",
+  "console.files.remove_several": {
+    "one": "Remove 1 file?",
+    "other": "Remove {count} files?"
+  },
+  "console.files.remove_detail": "Tables that used them go to the next file they can find, or without one.",
+  "console.media_rotate.turn": "Turn",
+  "console.media_rotate.left": "Left",
+  "console.media_rotate.right": "Right",
+  "console.media_rotate.around": "Around",
+  "console.media.media_menu": "Actions for the selected media",
+  "console.media.files": {
+    "one": "1 file",
+    "other": "{count} files"
+  },
+  "console.assets.assets_menu": "Actions for the selected files",
+  "console.assets.files": {
+    "one": "1 file",
+    "other": "{count} files"
+  },
+  "console.assets.selected": "{picked} of {shown} selected"
 }

@@ -172,7 +172,7 @@ def game_acts(library: Any, games: list[dict[str, Any]], state: dict[str, Any],
     offered.append(panel.Verb(t("console.games.auto_match"), auto_match,
                               tip=t("console.games.auto_match.help")))
     offered.append(panel.Verb(t("console.media_fill.get_missing"), get_missing_media))
-    if recording := _record_verb(library, record_media):
+    if recording := recorder.verb(library, record_media):
         offered.append(recording)
     offered.append(panel.Verb(t("console.games.send_device"),
                               lambda: send_to_device.ask_where(games, state)))
@@ -184,17 +184,6 @@ def game_acts(library: Any, games: list[dict[str, Any]], state: dict[str, Any],
     if reset := reset_games(library, ids, refresh):
         offered.append(reset)
     return offered
-
-
-def _record_verb(library: Any, run_it: Callable[[], Any]) -> panel.Verb | None:
-    """Record Media, refused with the device's reason where it records nothing, and left out
-    where the install does not record."""
-    able = recorder.capability(library)
-    if able is None:
-        return None
-    available = bool(able.get("available"))
-    return panel.Verb(t("console.record.record_media"), run_it if available else None,
-                      hint="" if available else str(able.get("reason") or ""))
 
 
 async def _rate(games: list[dict[str, Any]], rate: Rate) -> None:
@@ -418,7 +407,7 @@ def table_acts(library: Any, targets: list[Target], after: After, state: dict[st
         offered.append(panel.Verb(t("console.games.unhide"), partial(hide, False)))
     if not all(game_tables.runs_its_own_script(item.table) for item in targets):
         offered.append(panel.Verb(t("console.games.extract_script"), extract))
-    if recording := _record_verb(library, record_media):
+    if recording := recorder.verb(library, record_media):
         offered.append(recording)
     if collections is not None:
         offered.append(panel.Verb(t("console.adds.verb"), draw=collections))

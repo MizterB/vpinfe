@@ -6,7 +6,7 @@ import unittest
 from typing import Any
 
 from common.i18n import t
-from console import art, grid, media_ownership, workbench
+from console import art, file_acts, grid, media_ownership, workbench
 
 
 def _row(kind: str = "backglass", table: str = "", present: bool = True, **more: Any) -> dict:
@@ -48,7 +48,7 @@ class WhoUsesIt(unittest.TestCase):
     def test_media_says_it_by_its_tier(self) -> None:
         self.assertEqual([media_ownership.TABLE, media_ownership.GAME,
                           media_ownership.ORPHAN],
-                         [workbench._file_tier({"via": via})
+                         [file_acts.tier_of({"via": via})
                           for via in ("table", "default", "orphan")])
 
     def test_a_file_under_a_slot_says_what_its_media_row_says(self) -> None:
@@ -56,18 +56,18 @@ class WhoUsesIt(unittest.TestCase):
                                   ("default", 0, "unused"), ("set:classic", 0, "unused")):
             with self.subTest(tier=tier, serves=serves):
                 self.assertEqual(
-                    workbench._file_tier({"via": via, "serves": serves}),
+                    file_acts.tier_of({"via": via, "serves": serves}),
                     media_ownership.key_of(workbench._used_as(
                         {"tier": tier, "file": "bg.png", "wins": False, "serves": serves})))
 
     def test_an_asset_named_for_the_folder_that_nothing_loads_is_unused(self) -> None:
-        self.assertEqual(media_ownership.UNUSED, workbench._file_tier(
+        self.assertEqual(media_ownership.UNUSED, file_acts.tier_of(
             {"binding": "game", "present": True, "serves": 0}))
 
     def test_an_asset_says_it_by_its_binding(self) -> None:
         self.assertEqual([media_ownership.TABLE, media_ownership.GAME,
                           media_ownership.ORPHAN, media_ownership.MISSING],
-                         [workbench._file_tier(one) for one in (
+                         [file_acts.tier_of(one) for one in (
                              {"binding": "table", "present": True},
                              {"binding": "game", "present": True, "serves": 2},
                              {"binding": "orphaned", "present": True},
@@ -81,7 +81,7 @@ class TheLineUnderIt(unittest.TestCase):
             {"kind": kind, "lens": lens,
              "tables": [{"id": f"t{number}"} for number in range(tables)],
              "served": [{"id": f"t{number}"} for number in range(serves)]},
-            workbench._file_tier(row))
+            file_acts.tier_of(row))
 
     def test_a_file_every_table_loads_says_so(self) -> None:
         self.assertEqual(t("console.media_ownership.via_game"), self._said("ini", 2, 2))

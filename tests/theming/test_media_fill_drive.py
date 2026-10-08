@@ -55,6 +55,7 @@ def _gaps() -> list[dict]:
 class _Library:
     def __init__(self) -> None:
         self.found = _gaps()
+        self.games = [{"id": row["game_id"], "name": row["game"]} for row in self.found]
 
     def preferences(self, key: str) -> dict:
         """The grid opens on Have; these rows are all gaps, so the drive opens it on Missing."""
@@ -112,7 +113,7 @@ def serve(port: int) -> None:
 
     async def fill_slots(rows: list[dict[str, Any]], state: dict[str, Any],
                          then: Callable[[], Any]) -> None:
-        await fill([str(row["game_id"]) for row in rows], state, then)
+        await fill(list(dict.fromkeys(str(row["game_id"]) for row in rows)), state, then)
 
     media_fill.ask = fill
     media_fill.confirm_slots = fill_slots
@@ -179,7 +180,11 @@ class MediaFillDrive(unittest.TestCase):
                 ".setAttribute('data-drive', 'actions')")
             await browser.click("[data-drive=actions]")
             await browser.wait_for("!!document.querySelector('.console-menu-item')")
-            await walk.act(lambda: browser.click(".console-menu-item"),
+            await browser.evaluate(
+                "[...document.querySelectorAll('.console-menu-item')].find(el => "
+                f"el.textContent.includes({json.dumps(t('console.media_fill.get_missing'))}))"
+                ".setAttribute('data-drive', 'fill')")
+            await walk.act(lambda: browser.click("[data-drive=fill]"),
                            until=f"{API}.getDisplayedRowCount() !== {before['shown']}"
                                  f" && {COUNTED % json.dumps(COUNT_SAYS)}")
             return {"before": before, "after": await looking(),

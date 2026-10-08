@@ -35,18 +35,20 @@ GRID_OF = {
     "backup": ("backups.py", "acts", "backups.py"),
     "game": ("game_acts.py", "game_acts", "games.py"),
     "table": ("game_acts.py", "table_acts", "games.py"),
+    "media_file": ("file_acts.py", "media_acts", "media.py"),
+    "asset_file": ("file_acts.py", "asset_acts", "assets.py"),
 }
 
 # Direct `ui.button(` calls outside `panel.py`. A count that only comes down: lower it
 # when one moves to a constructor, never raise it.
-BUTTON_CEILING = 70
+BUTTON_CEILING = 69
 
 
 # Grids that have not yet reached the selection rules in `docs/conventions.md`. A page
 # leaves a list when it conforms, and the test fails while one still listed already does.
-SELECTION_BY_HAND = {"media.py"}
+SELECTION_BY_HAND: set[str] = set()
 ROW_MENU_WITHOUT_HEADER: set[str] = set()
-HEADER_MENU_WITHOUT_ROW = {"media.py", "assets.py"}
+HEADER_MENU_WITHOUT_ROW: set[str] = set()
 # A chooser in a dialog reads its ticks in the footer button, which is its selection menu;
 # Community's rows come from an extension and have no subject to act on.
 NO_SELECTION_MENU = {"backup_rows.py"}

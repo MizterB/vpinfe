@@ -613,9 +613,6 @@
   "console.media_rotate.keep": "Ţûřñ àñđ Ķèèþ Çöþîèš",
   "console.media_rotate.no_copies": "Ţûřñ Ŵîţĥöûţ Çöþîèš",
   "console.media_rotate.nothing": "Šèŀèçţ þîçţûřèš öř ṽîđèöš ţö ţûřñ",
-  "console.media_rotate.turn_around": "Ţûřñ Àřöûñđ",
-  "console.media_rotate.turn_left": "Ţûřñ Ŀèƒţ",
-  "console.media_rotate.turn_right": "Ţûřñ Řîĝĥţ",
   "console.media_rotate.way_around": "À ĥàŀƒ ţûřñ",
   "console.media_rotate.way_left": "À ǫûàřţèř ţûřñ ţö ţĥè ŀèƒţ",
   "console.media_rotate.way_right": "À ǫûàřţèř ţûřñ ţö ţĥè řîĝĥţ",
@@ -1650,7 +1647,6 @@
   "console.logs.vpinfe_previous": "ṼÞîñƑÈ þřèṽîöûš",
   "console.logs.vpinfe_previous_n": "ṼÞîñƑÈ þřèṽîöûš {number}",
   "console.logs.wrap": "Ŵřàþ ŀöñĝ ŀîñèš",
-  "console.media.actions": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ ɱèđîà",
   "console.media.view_orphans.help": "Ḿèđîà ŀèƒţ ƀèĥîñđ ŵĥèñ à ţàƀŀè ŵàš řèñàɱèđ, řèþŀàçèđ öř đèŀèţèđ",
   "console.media.view_missing.help": "Ţĥè ɱèđîà ýöû đö ñöţ ĥàṽè: öñè řöŵ þèř ĝàɱè, ŵĥàţèṽèř îţš ţàƀŀèš ĥàṽè, ƒöř ţĥè ķîñđš ýöû çöŀŀèçţ. Šèŀèçţ řöŵš ţö ĝèţ ţĥèɱ îñ öñè ĝö.",
   "console.media.view_have.help": "Ţĥè ƒîŀèš ţĥàţ àřè ĥèřè: îñ ûšè, ûñûšèđ öř öřþĥàñèđ",
@@ -2186,7 +2182,6 @@
   "console.record.record": "Řèçöřđ",
   "console.record.replace_confirm": "Řèçöřđ àñđ Řèþŀàçè",
   "console.record.record_media": "Řèçöřđ Ḿèđîà...",
-  "console.record.record_missing": "Řèçöřđ Ḿîššîñĝ Ḿèđîà...",
   "console.record.recorded": {
     "one": "Řèçöřđèđ 1 ƒîŀè",
     "other": "Řèçöřđèđ {count} ƒîŀèš"
@@ -4634,5 +4629,28 @@
   "word.volumes": "Ṽöŀûɱèš",
   "word.where": "Ŵĥèřè",
   "word.year": "Ýèàř",
-  "word.yes": "Ýèš"
+  "word.yes": "Ýèš",
+  "console.files.add": "Àđđ...",
+  "console.files.replace": "Řèþŀàçè...",
+  "console.files.either": "Àđđ öř Řèþŀàçè...",
+  "console.files.remove_several": {
+    "one": "Řèɱöṽè 1 ƒîŀè?",
+    "other": "Řèɱöṽè {count} ƒîŀèš?"
+  },
+  "console.files.remove_detail": "Ţàƀŀèš ţĥàţ ûšèđ ţĥèɱ ĝö ţö ţĥè ñèẋţ ƒîŀè ţĥèý çàñ ƒîñđ, öř ŵîţĥöûţ öñè.",
+  "console.media_rotate.turn": "Ţûřñ",
+  "console.media_rotate.left": "Ŀèƒţ",
+  "console.media_rotate.right": "Řîĝĥţ",
+  "console.media_rotate.around": "Àřöûñđ",
+  "console.media.media_menu": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ ɱèđîà",
+  "console.media.files": {
+    "one": "1 ƒîŀè",
+    "other": "{count} ƒîŀèš"
+  },
+  "console.assets.assets_menu": "Àçţîöñš ƒöř ţĥè šèŀèçţèđ ƒîŀèš",
+  "console.assets.files": {
+    "one": "1 ƒîŀè",
+    "other": "{count} ƒîŀèš"
+  },
+  "console.assets.selected": "{picked} öƒ {shown} šèŀèçţèđ"
 }

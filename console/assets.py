@@ -22,7 +22,16 @@ from nicegui import ui
 from common import icons
 from common.games import asset_lens
 from common.i18n import t
-from console import game_tables, grid, media_ownership, offload, panel, thumbnails, views
+from console import (
+    file_acts,
+    game_tables,
+    grid,
+    media_ownership,
+    offload,
+    panel,
+    thumbnails,
+    views,
+)
 from console.games import view_control
 
 logger = logging.getLogger("vpinfe.console.assets")
@@ -87,7 +96,8 @@ def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
              "reason": _reason(row),
              "source": media_ownership.source_name(str(row.get("origin") or "")),
              "match": str(row.get("matched_to") or ""),
-             "path": row.get("path") or ""}
+             "path": row.get("path") or "",
+             grid.NO_MENU: not file_acts.asset_has_acts(row)}
             for row in found]
 
 
@@ -169,7 +179,12 @@ def build(found: list[dict[str, Any]], library: Any,
     gaps = sum(1 for row in built if not row.get("present"))
     on_screen = {"rows": len(built)}
 
-    def said() -> str:
+    selected: list[dict[str, Any]] = []
+
+    def said(picked: int = 0) -> str:
+        if picked:
+            return grid.selection_said(table, picked, t(
+                "console.assets.selected", picked=picked, shown=on_screen["rows"]))
         if on_screen["rows"] == len(built):
             return t("console.assets.assets_missing", count=(len(built)), gaps=(gaps))
         return t("console.assets.assets", shown=on_screen["rows"], count=len(built))
@@ -185,10 +200,38 @@ def build(found: list[dict[str, Any]], library: Any,
             search = panel.search(t("console.assets.search_assets"))
         with bar.bottom, panel.bar_end():
             count = ui.label(said()).classes("text-xs console-label")
+            show_selection = panel.selection_menu(
+                t("console.assets.assets_menu"), lambda: grid.selection(table),
+                lambda chosen: acts_on(chosen),
+                lambda: table.run_grid_method("deselectAll"))
             if rescan is not None:
                 panel.refresh(rescan, t("console.assets.rescan"))
 
     by_id = {row["id"]: row for row in built}
+
+    async def changed(ids: list[str]) -> None:
+        for game_id in ids:
+            await refresh_files(game_id)
+
+    def acts_on(chosen: list[dict[str, Any]]) -> list[panel.Verb]:
+        return file_acts.asset_acts(library, file_acts.files_of(library, chosen), state,
+                                    changed)
+
+    def on_select_rows(picked: list[dict[str, Any]]) -> None:
+        selected[:] = picked
+        show_selection(bool(picked))
+        count.text = said(len(picked))
+
+    def on_context(row: dict | None) -> None:
+        if not row:
+            menu.clear()
+            return
+        on = grid.menu_rows(table, row)
+        panel.verb_menu(
+            menu, str(row["game"]) + " - " + str(row["label"]) if len(on) == 1
+            else t("console.assets.files", count=len(on)),
+            panel.for_selection(acts_on(on), len(on)))
+
     grid.on_row_focus(SCOPE,
                       lambda event: on_select(by_id.get(grid.focused_row(event))))
 
@@ -196,7 +239,7 @@ def build(found: list[dict[str, Any]], library: Any,
         await grid.header_menu(menu, table, columns, col_id)
 
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-        table = grid.build(columns, built, SCOPE,
+        table = grid.build(columns, built, SCOPE, on_select_rows, on_context,
                            on_header_context=on_header_context, view_of=showing)
         menu = ui.context_menu()
     search.on_value_change(
@@ -207,7 +250,7 @@ def build(found: list[dict[str, Any]], library: Any,
         """Whatever narrowed the rows - a filter, the search, a view - lands here."""
         seen = await table.run_grid_method("getDisplayedRowCount")
         on_screen["rows"] = int(seen if isinstance(seen, int) else len(built))
-        count.text = said()
+        count.text = said(len(selected))
 
     table.on("modelUpdated", counted)
 
