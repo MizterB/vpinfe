@@ -18,7 +18,18 @@ from nicegui import ui
 from common.failures import why
 from common.games.tag_registry import derived_color
 from common.i18n import t
-from console import confirm, grid, offload, panel, renderers, tag_chips, verbs, views
+from console import (
+    confirm,
+    grid,
+    offload,
+    panel,
+    rename,
+    renderers,
+    tag_chips,
+    verbs,
+    views,
+    walks,
+)
 from console import dialog as frame
 from console.data import Library
 from console.on_page import on_page
@@ -171,6 +182,10 @@ def build(rows: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(t("console.tageditor.tags_counted", count=len(rows))) \
                 .classes("text-xs console-label")
+            show_selection = panel.selection_menu(
+                t("console.tageditor.tags_menu"), lambda: grid.selection(table),
+                lambda chosen: acts(library, chosen, redrawn),
+                lambda: table.run_grid_method("deselectAll"))
             panel.add_action([(t("console.tageditor.new_tag"), write_down)],
                              empty=not rows)
 
@@ -180,33 +195,50 @@ def build(rows: list[dict[str, Any]], library: Any,
         return
     by_id = {row["id"]: row for row in rows}
 
-    menu_row: dict[str, Any] = {}
+    picked: list[dict[str, Any]] = []
 
     async def redrawn(_next: str | None) -> None:
         if rerender is not None:
             rerender()
 
-    def fill(row: dict | None) -> None:
+    def said() -> str:
+        if picked:
+            return grid.selection_said(table, len(picked), t(
+                "console.tageditor.selected", picked=len(picked), shown=shown["rows"]))
+        if shown["rows"] != len(rows):
+            return t("console.tageditor.tags_of", shown=shown["rows"], count=len(rows))
+        return t("console.tageditor.tags_counted", count=len(rows))
+
+    def on_selected(chosen: list[dict[str, Any]]) -> None:
+        picked[:] = chosen
+        show_selection(bool(chosen))
+        count.text = said()
+
+    def on_context(row: dict | None) -> None:
         if not row:
             menu.clear()
             return
-        tag = str(row.get("tag") or "")
-        panel.verb_menu(menu, tag, acts(library, tag, int(row.get("games") or 0), redrawn))
+        derived = library.derived_tags()
+        on = [one for one in grid.menu_rows(table, row)
+              if str(one.get("tag") or "") not in derived]
+        panel.verb_menu(menu, str(row.get("tag") or "") if len(on) == 1
+                        else t("console.tageditor.tags_counted", count=len(on)),
+                        panel.for_selection(acts(library, on, redrawn), len(on)))
 
-    def on_context(row: dict | None) -> None:
-        menu_row["row"] = row
-        fill(row)
+    async def on_header_context(col_id: str | None) -> None:
+        await grid.header_menu(menu, table, COLUMNS, col_id)
 
+    shown = {"rows": len(rows)}
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
-        table = grid.build(COLUMNS, rows, SCOPE, on_context=on_context, view_of=showing)
+        table = grid.build(COLUMNS, rows, SCOPE, on_selected, on_context, on_header_context,
+                           view_of=showing)
         menu = ui.context_menu()
     wire_views(table)
 
     async def counted() -> None:
         seen = await table.run_grid_method("getDisplayedRowCount")
-        seen = int(seen if isinstance(seen, int) else len(rows))
-        count.text = (t("console.tageditor.tags_counted", count=len(rows)) if seen == len(rows)
-                      else t("console.tageditor.tags_of", shown=seen, count=len(rows)))
+        shown["rows"] = int(seen if isinstance(seen, int) else len(rows))
+        count.text = said()
 
     table.on("modelUpdated", counted)
     grid.on_row_focus(SCOPE, lambda event: on_select(by_id.get(grid.focused_row(event))))
@@ -216,6 +248,7 @@ def build(rows: list[dict[str, Any]], library: Any,
 
     async def refresh_rows() -> None:
         fresh = without_menu_where_derived(library.tag_rows())
+        rows[:] = fresh
         by_id.clear()
         by_id.update({row["id"]: row for row in fresh})
         tag_chips.install(library.tag_looks())
@@ -279,61 +312,95 @@ async def _new_tag(library: Library) -> tuple[str, dict[str, str]] | None:
     return await box
 
 
-def acts(library: Any, tag: str, games: int,
+def acts(library: Any, rows_on: list[dict[str, Any]],
          after: Callable[[str | None], Awaitable[None]]) -> list[panel.Verb]:
-    """What can be done to one tag. `after` is given the tag to show next, or None when
-    this one has gone."""
+    """What can be done to the tags `rows_on`. A derived tag is nobody's to change, so a row
+    for one is left out, and where that is every row there is nothing to offer. `after` is
+    given the tag to show next, or None when there is no one to follow."""
     derived = library.derived_tags()
-    if tag in derived:
+    mine = [one for one in rows_on if str(one.get("tag") or "") not in derived]
+    if not mine:
         return []
-    others = sorted((one for one in library.tag_looks() if one != tag and one not in derived),
+    tags = [str(one.get("tag") or "") for one in mine]
+    several = len(tags) > 1
+    games = {str(one.get("tag") or ""): int(one.get("games") or 0) for one in mine}
+    others = sorted((one for one in library.tag_looks() if one not in tags and one not in derived),
                     key=str.casefold)
 
+    def counted(tag: str) -> str:
+        return t("console.tageditor.tag_game" if games[tag] == 1
+                 else "console.tageditor.tag_games", tag=tag, count=games[tag])
+
     @on_page
-    async def rename() -> None:
-        said = await _ask_for_a_name(tag)
-        if not said or said == tag:
-            return
-        try:
-            await offload.io(library.merge_tags, [tag], said)
-        except Exception as exc:  # noqa: BLE001
-            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
-            return
-        ui.notify(t("console.tageditor.renamed", said=(said)), type="positive")
-        await after(said)
+    async def rename_them() -> None:
+        renamed: list[str] = []
+
+        async def ask(row: dict[str, Any], place: str) -> Any:
+            said = await rename.ask(
+                str(row["tag"]), title=t("console.tageditor.rename_tag"),
+                label=t("console.tageditor.tag"), hint=t("console.tageditor.rename_hint"),
+                place=place if several else "", walking=several)
+            if (said in (walks.SKIPPED, walks.STOPPED) or said not in library.tag_looks()
+                    or await confirm.ask(t("console.tageditor.merge", into=said),
+                                         detail=t("console.tageditor.merge_detail"),
+                                         confirm=t("word.merge"), icon=verbs.MERGE)):
+                return said
+            return walks.SKIPPED
+
+        async def write(row: dict[str, Any], said: str) -> None:
+            await offload.io(library.merge_tags, [str(row["tag"])], said)
+            renamed.append(said)
+
+        if await walks.each(mine, ask, write, t("said.action_failed")):
+            ui.notify(t("console.tageditor.renamed", said=renamed[0]) if not several
+                      else t("console.tageditor.renamed_several", count=len(renamed)),
+                      type="positive")
+            await after(renamed[0] if not several else None)
 
     @on_page
     async def merge(into: str) -> None:
         if not await confirm.ask(t("console.tageditor.merge", into=into),
                                  detail=t("console.tageditor.merge_detail"),
-                                 lines=[t("console.tageditor.tag_game" if games == 1
-                                          else "console.tageditor.tag_games",
-                                          tag=tag, count=games)],
+                                 lines=[counted(tag) for tag in tags],
                                  confirm=t("word.merge"), icon=verbs.MERGE):
             return
         try:
-            await offload.io(library.merge_tags, [tag], into)
+            await offload.io(library.merge_tags, tags, into)
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
             return
-        ui.notify(t("console.tageditor.merged", into=(into)), type="positive")
+        ui.notify(t("console.tageditor.merged", into=into), type="positive")
         await after(into)
 
     @on_page
     async def delete() -> None:
-        if not await confirm.ask(t("console.tageditor.delete", tag=tag),
-                                 detail=t("console.tageditor.delete_detail", count=games),
-                                 confirm=t("word.delete"), icon=verbs.DELETE):
+        if several:
+            asked = await confirm.ask(
+                t("console.tageditor.delete_several", count=len(tags)),
+                detail=t("console.tageditor.delete_several_detail"),
+                lines=[counted(tag) for tag in tags], confirm=t("word.delete"),
+                icon=verbs.DELETE)
+        else:
+            asked = await confirm.ask(
+                t("console.tageditor.delete", tag=tags[0]),
+                detail=t("console.tageditor.delete_detail", count=games[tags[0]]),
+                confirm=t("word.delete"), icon=verbs.DELETE)
+        if not asked:
             return
+        gone = 0
         try:
-            await offload.io(library.delete_tag, tag)
+            for tag in tags:
+                await offload.io(library.delete_tag, tag)
+                gone += 1
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+        if not gone:
             return
-        ui.notify(t("console.tageditor.deleted", tag=tag), type="positive")
+        ui.notify(t("console.tageditor.deleted", tag=tags[0]) if not several
+                  else t("console.tageditor.deleted_several", count=gone), type="positive")
         await after(None)
 
-    offered = [panel.Verb(t("console.tageditor.rename"), rename, in_panel=False)]
+    offered = [panel.Verb(t("console.tageditor.rename"), rename_them, in_panel=False)]
     if others:
         offered.append(panel.Verb(t("console.tags.merge_into"), choices=tuple(
             (other, partial(merge, other)) for other in others)))
@@ -343,21 +410,3 @@ def acts(library: Any, tag: str, games: int,
 
 def _named(fields: dict[str, Any]) -> str:
     return " ".join(str(fields["name"].value or "").split())
-
-
-async def _ask_for_a_name(current: str, *, title: str = "", help_: str = "",
-                          verb: str = "") -> str:
-    held: dict[str, Any] = {}
-    with frame.opened(title or t("console.tageditor.rename_tag")) as box:
-        ui.label(help_ or t("console.tageditor.rename_hint")) \
-            .classes("console-help px-3")
-        panel.facts(ui, [(t("console.tageditor.tag"),
-                          lambda: held.update(field=frame.field(current)))])
-        with frame.footer():
-            frame.cancel(lambda: box.submit(""))
-            go = frame.answer(verb or t("console.tageditor.rename_2"),
-                              lambda: box.submit(held["field"].value or ""),
-                              icon=verbs.CREATE if verb else verbs.RENAME)
-    frame.focus(box, held["field"])
-    frame.enter_presses(go)
-    return str(await box or "")

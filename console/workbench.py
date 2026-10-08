@@ -6100,19 +6100,16 @@ def _text_control(context: dict[str, Any], row: dict[str, Any], field: str,
 
 @on_page
 async def _rename(context: dict[str, Any], wanted: str) -> None:
-    old = _collection(context)["name"]
+    # Imported here: console.collections imports console.games, which imports this module.
+    from console.collections import renamed_to
+
+    state = context["state"]
     try:
-        made = await offload.io(context["library"].patch_collection, old, {"name": wanted})
+        new = await renamed_to(context["library"], state, _collection(context)["name"], wanted)
     except Exception as exc:
         ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
         return
-    new = str(made.get("name") or wanted.strip())
-    collection_adds.renamed(old, new)
-    state = context["state"]
     state["collection"] = new
-    drafts = state.setdefault("collection_drafts", {})
-    if old in drafts:
-        drafts[new] = drafts.pop(old)
     reread = state.get("refresh_collections")
     if callable(reread):
         await reread(new)
@@ -6588,7 +6585,7 @@ async def _keep_what_it_found(context: dict[str, Any]) -> None:
     # Imported here: console.collections imports console.games, which imports this module.
     from console.collections import keep_result
 
-    await keep_result(context["library"], context["state"], _collection(context)["name"],
+    await keep_result(context["library"], context["state"], [_collection(context)["name"]],
                       lambda name: _written(context, name or ""))
 
 
@@ -7238,8 +7235,7 @@ def _add_control(context: dict[str, Any], members: list[dict]) -> None:
 
 
 def _tag_verbs(context: dict[str, Any]) -> list[panel.Verb]:
-    return tageditor.acts(context["library"], context["name"],
-                          int(context["tag"].get("games") or 0),
+    return tageditor.acts(context["library"], [{**context["tag"], "tag": context["name"]}],
                           partial(_tag_changed, context))
 
 
@@ -7262,8 +7258,7 @@ def _collection_verbs(context: dict[str, Any]) -> list[panel.Verb]:
         await context["rebuild"]()
 
     row = _collection(context)
-    return acts(context["library"], state, row["name"], after,
-                smart=_is_dynamic(row), count=int(row.get("count") or 0))
+    return acts(context["library"], state, [row], after)
 
 
 def _page_redraw(context: dict[str, Any]) -> Callable[[], None]:

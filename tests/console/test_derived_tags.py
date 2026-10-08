@@ -78,7 +78,7 @@ class OnTheTagsPage(unittest.TestCase):
                          [sorted(row["tag"] for row in group) for group in groups])
 
     def test_its_menu_offers_nothing(self) -> None:
-        self.assertEqual([], tageditor.acts(_library(), DERIVED, 0, _after))
+        self.assertEqual([], tageditor.acts(_library(), [{"tag": DERIVED, "games": 0}], _after))
 
     def test_a_refresh_gives_the_grid_rows_with_the_flag_too(self) -> None:
         # Both the first draw and the refresh hand rows to the grid.
@@ -93,7 +93,7 @@ class OnTheTagsPage(unittest.TestCase):
                           if row["tag"] in (DERIVED, "Wide Body")})
 
     def test_another_tag_cannot_be_merged_into_it(self) -> None:
-        verbs = tageditor.acts(_library(), "weekly challenge", 1, _after)
+        verbs = tageditor.acts(_library(), [{"tag": "weekly challenge", "games": 1}], _after)
         into = next(verb for verb in verbs if verb.choices)
 
         self.assertNotIn(DERIVED, [label for label, _ in into.choices])

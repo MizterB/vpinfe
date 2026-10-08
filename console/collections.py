@@ -11,7 +11,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from functools import partial
 from typing import Any
 
@@ -32,9 +32,11 @@ from console import (
     grid,
     offload,
     panel,
+    rename,
     thumbnails,
     verbs,
     views,
+    walks,
 )
 from console.games import view_control
 from console.on_page import on_page
@@ -282,17 +284,6 @@ def build(collections: list[dict[str, Any]], library: Any,
     columns = grid.with_art(COLUMNS, look)
     fields = [definition["field"] for definition in columns]
 
-    @on_page
-    async def act(what: Callable, *args: Any, said: str = "") -> None:
-        try:
-            await run.io_bound(what, *args)
-        except Exception as exc:
-            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
-            return
-        ui.notify(said, type="positive")
-        if rerender is not None:
-            rerender()
-
     arrangement: dict[str, Any] = {"shown": [row["id"] for row in collections_only()],
                                    "sorted": ""}
     hint: dict[str, Any] = {}
@@ -313,14 +304,11 @@ def build(collections: list[dict[str, Any]], library: Any,
         with bar.bottom, panel.bar_end():
             count = ui.label(t("console.collections.collections",
                                count=len(collections_only()))).classes("text-xs console-label")
-            bulk = ui.button(icon=verbs.MORE).props("flat round dense") \
-                .tooltip(t("console.collections.bulk_menu"))
-            with bulk, ui.menu():
-                ui.menu_item(t("console.collections.delete_selected"),
-                             lambda: _ask_delete_many(grid.selection(table), library,
-                                                      act)) \
-                    .classes("console-menu-item console-menu-danger")
-            bulk.set_visibility(False)
+            show_selection = panel.selection_menu(
+                t("console.collections.collections_menu"), lambda: grid.selection(table),
+                lambda chosen: acts(library, state, [one["_raw"] for one in chosen], redrawn,
+                                    moves=moves(chosen[0]["name"]) if chosen else ()),
+                lambda: table.run_grid_method("deselectAll"))
             panel.add_action([(t("console.collections.new_collection"),
                                lambda: collection_adds.ask_new(library, reread))],
                               empty=not collections_only())
@@ -344,15 +332,23 @@ def build(collections: list[dict[str, Any]], library: Any,
 
     def on_selected(rows_selected: list[dict[str, Any]]) -> None:
         picked[:] = rows_selected
-        bulk.set_visibility(bool(rows_selected))
+        show_selection(bool(rows_selected))
         count.text = said()
 
     def on_context(row: dict | None) -> None:
-        # The menu acts on the row under the cursor, not on the selection.
-        _fill(row)
+        if not row or row["id"] == BUILTIN_ALL:
+            menu.clear()
+            return
+        on = grid.menu_rows(table, row)
+        panel.verb_menu(
+            menu, row["name"] if len(on) == 1
+            else t("console.collections.collections", count=len(on)),
+            panel.for_selection(
+                acts(library, state, [one["_raw"] for one in on], redrawn,
+                     moves=moves(row["name"])), len(on)))
 
     async def on_header_context(col_id: str | None) -> None:
-        _fill(None, col_id=col_id, pinning=await grid.pinning(table, col_id))
+        await grid.header_menu(menu, table, columns, col_id)
 
     with ui.element("div").classes("w-full grow min-h-0 flex flex-col"):
         table: ui.aggrid = grid.build(columns, built, SCOPE, on_selected,
@@ -364,22 +360,11 @@ def build(collections: list[dict[str, Any]], library: Any,
     table.options[":postSortRows"] = _KEEP_FIRST
     table.options[":rowDragText"] = "params => params.rowNode.data.name"
 
-    async def redrawn(_next: str | None) -> None:
-        if rerender is not None:
+    async def redrawn(then: str | None) -> None:
+        if then:
+            await reread(then)
+        elif rerender is not None:
             rerender()
-
-    def _fill(row: dict | None, col_id: str | None = None,
-              pinning: grid.Pinning | None = None) -> None:
-        """One menu, filled for whatever was right-clicked."""
-        menu.clear()
-        with menu:
-            if pinning is not None:
-                grid.column_menu(menu, table, columns, col_id, pinning)
-            elif row and row["id"] != BUILTIN_ALL:
-                panel.verb_menu(menu, row["name"],
-                                moves(row["name"])
-                                + acts(library, state, row["name"], redrawn,
-                                       smart=row["kind"] == "filter", count=row["count"]))
 
     def moves(name: str) -> list[panel.Verb]:
         out = []
@@ -390,7 +375,7 @@ def build(collections: list[dict[str, Any]], library: Any,
             out.append(panel.Verb(
                 label, partial(arrange, order, name) if order else None,
                 hint=sorted_said() if not order and arrangement["sorted"] else "",
-                in_panel=False))
+                in_panel=False, one=True))
         return out
 
     def sorted_said() -> str:
@@ -484,90 +469,149 @@ def build(collections: list[dict[str, Any]], library: Any,
     state["mark_unsaved"] = mark_unsaved
 
 
-async def _ask_delete_many(picked: list[dict], library: Any, act: Callable) -> None:
-    """Several at once, asked once. The games stay in the library either way."""
-    names = [row["name"] for row in picked]
-    if not names:
-        return
-    # Eight, then a count: the list is here to say which ones, and a hundred names is
-    # a dialog nobody reads to the end of.
-    shown = names[:8] + ([t("said.and_more", count=len(names) - 8)]
-            if len(names) > 8 else [])
-    if await confirm.ask(t("console.collections.delete_collections", count=len(names)),
-                         detail=await what_deleting_leaves(library, names),
-                         lines=shown):
-        for name in names:
-            await act(library.delete_collection, name,
-                    said=t("console.collections.deleted", name=(name)))
+async def renamed_to(library: Any, state: dict[str, Any], old: str, wanted: str) -> str:
+    """Rename `old`, carrying everything the console keeps under its name, and answer the
+    name it was given."""
+    made = await offload.io(library.patch_collection, old, {"name": wanted})
+    new = str(made.get("name") or wanted.strip())
+    collection_adds.renamed(old, new)
+    if state.get("collection") == old:
+        state["collection"] = new
+    drafts = state.setdefault("collection_drafts", {})
+    if old in drafts:
+        drafts[new] = drafts.pop(old)
+    return new
 
 
-def acts(library: Any, state: dict[str, Any], name: str,
-         after: Callable[[str | None], Awaitable[None]], *, smart: bool,
-         count: int) -> list[panel.Verb]:
-    """What can be done to one collection. `after` is given the collection to show next,
-    or None when this one has gone. `smart` and `count` say whether it can be converted
-    to hand-picked and how many games that would keep.
+def acts(library: Any, state: dict[str, Any], rows_on: list[dict[str, Any]],
+         after: Callable[[str | None], Awaitable[None]], *,
+         moves: Sequence[panel.Verb] = ()) -> list[panel.Verb]:
+    """What can be done to the collections `rows_on`, as the library holds them.
 
-    No Rename: the name is a field in the panel's Details, beside the description, and
-    a name editable in two places is two answers."""
+    `after` is given the collection to show next, or None when there is no one to follow:
+    the one has gone, or several were acted on. `moves` are the grid's own, which need its
+    order.
+    """
+    names = [str(one.get("name") or "") for one in rows_on]
+    several = len(names) > 1
+    drafts = state.get("collection_drafts", {})
+    smart = [one for one in rows_on if one.get("type") == "filter"
+             and "rules" not in drafts.get(str(one.get("name")), {})]
+
+    @on_page
+    async def rename_them() -> None:
+        renamed: list[str] = []
+
+        async def ask(row: dict[str, Any], place: str) -> Any:
+            return await rename.ask(
+                str(row["name"]), title=t("console.collections.rename_title"),
+                label=t("word.name"), place=place if several else "", walking=several)
+
+        async def write(row: dict[str, Any], wanted: str) -> None:
+            renamed.append(await renamed_to(library, state, str(row["name"]), wanted))
+
+        if await walks.each(rows_on, ask, write, t("said.action_failed")):
+            ui.notify(t("console.collections.renamed", name=renamed[0]) if not several
+                      else t("console.collections.renamed_several", count=len(renamed)),
+                      type="positive")
+            await after(renamed[0] if not several else None)
+
     @on_page
     async def duplicate() -> None:
+        copies: list[str] = []
         try:
             taken = {str(one.get("name") or "")
                      for one in await offload.io(library.load_collections)}
-            made = await offload.io(library.copy_collection, _copy_name(name, taken), name)
+            for name in names:
+                made = await offload.io(library.copy_collection, _copy_name(name, taken), name)
+                copies.append(str(made.get("name") or ""))
+                taken.add(copies[-1])
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+        if not copies:
             return
-        copy = str(made.get("name") or "")
-        ui.notify(t("console.collections.created", name=copy), type="positive")
-        await after(copy)
+        ui.notify(t("console.collections.created", name=copies[0]) if not several
+                  else t("console.collections.duplicated", count=len(copies)),
+                  type="positive")
+        await after(copies[0] if not several else None)
 
     @on_page
     async def delete() -> None:
         # Asked, because a manual collection is somebody's hand-picked list and there
         # is no undo behind this.
-        if not await confirm.ask(t("console.collections.delete", name=(name)),
-                                 detail=await what_deleting_leaves(library, [name])):
+        if several:
+            # Eight, then a count: the list is here to say which ones, and a hundred names
+            # is a dialog nobody reads to the end of.
+            shown = names[:8] + ([t("said.and_more", count=len(names) - 8)]
+                                 if len(names) > 8 else [])
+            asked = await confirm.ask(
+                t("console.collections.delete_collections", count=len(names)),
+                detail=await what_deleting_leaves(library, names), lines=shown)
+        else:
+            asked = await confirm.ask(t("console.collections.delete", name=names[0]),
+                                      detail=await what_deleting_leaves(library, names))
+        if not asked:
             return
+        gone: list[str] = []
         try:
-            await run.io_bound(library.delete_collection, name)
+            for name in names:
+                await run.io_bound(library.delete_collection, name)
+                gone.append(name)
         except Exception as exc:  # noqa: BLE001
             ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+        if not gone:
             return
-        ui.notify(t("console.collections.deleted", name=(name)), type="positive")
-        state.setdefault("collection_drafts", {}).pop(name, None)
-        if state.get("collection") == name:
+        ui.notify(t("console.collections.deleted", name=gone[0]) if not several
+                  else t("console.collections.deleted_several", count=len(gone)),
+                  type="positive")
+        for name in gone:
+            state.setdefault("collection_drafts", {}).pop(name, None)
+        if state.get("collection") in gone:
             state["collection"] = None
         await after(None)
 
     @on_page
     async def convert() -> None:
-        if not await confirm.ask(t("console.workbench.convert_question", name=name),
-                                 detail=t("console.workbench.convert_detail", count=count),
-                                 confirm=t("console.workbench.convert"), icon=verbs.KEEP,
-                                 danger=False):
-            return
-        await keep_result(library, state, name, after)
+        kept = [str(one.get("name") or "") for one in smart]
+        if len(kept) == 1:
+            asked = await confirm.ask(
+                t("console.workbench.convert_question", name=kept[0]),
+                detail=t("console.workbench.convert_detail", count=int(smart[0].get("count") or 0)),
+                confirm=t("console.workbench.convert"), icon=verbs.KEEP, danger=False)
+        else:
+            asked = await confirm.ask(
+                t("console.workbench.convert_several", count=len(kept)),
+                detail=t("console.workbench.convert_several_detail"),
+                lines=kept[:8] + ([t("said.and_more", count=len(kept) - 8)]
+                                  if len(kept) > 8 else []),
+                confirm=t("console.workbench.convert"), icon=verbs.KEEP, danger=False)
+        if asked:
+            await keep_result(library, state, kept, after)
 
-    offered = [panel.Verb(t("console.workbench.duplicate"), duplicate)]
-    if smart and "rules" not in state.get("collection_drafts", {}).get(name, {}):
+    offered = [panel.Verb(t("console.tageditor.rename"), rename_them, in_panel=False),
+               panel.Verb(t("console.workbench.duplicate"), duplicate)]
+    if smart:
         offered.append(panel.Verb(t("console.workbench.convert_static"), convert))
-    return [*offered, panel.Verb(t("word.delete"), delete, danger=True)]
+    return [*offered, *moves, panel.Verb(t("word.delete"), delete, danger=True)]
 
 
 @on_page
-async def keep_result(library: Any, state: dict[str, Any], name: str,
+async def keep_result(library: Any, state: dict[str, Any], names: list[str],
                       after: Callable[[str | None], Awaitable[None]]) -> None:
-    """Fix a smart collection's members to the games it shows now, and stop updating."""
+    """Fix smart collections' members to the games each shows now, and stop updating them."""
+    kept: list[str] = []
     try:
-        await run.io_bound(library.keep_collection_result, name)
+        for name in names:
+            await run.io_bound(library.keep_collection_result, name)
+            kept.append(name)
+            state.setdefault("collection_drafts", {}).get(name, {}).pop("rules", None)
     except Exception as exc:  # noqa: BLE001
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+    if not kept:
         return
-    state.setdefault("collection_drafts", {}).get(name, {}).pop("rules", None)
-    ui.notify(t("console.workbench.converted", name=name), type="positive")
-    await after(name)
+    ui.notify(t("console.workbench.converted", name=kept[0]) if len(kept) == 1
+              else t("console.workbench.converted_several", count=len(kept)), type="positive")
+    await after(kept[0] if len(kept) == 1 else None)
 
 
 def _copy_name(name: str, taken: set[str]) -> str:

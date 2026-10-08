@@ -936,7 +936,6 @@
   "console.collection_rules.played_no": "you have never played it",
   "console.collection_rules.favorite_no": "you have not marked it a favorite",
   "console.collection_rules.you_played": "you have played it",
-  "console.collections.bulk_menu": "Actions for the selected collections",
   "console.collections.manually_added": "Manually Added",
   "console.collections.manually_added.help": "Games you added by hand",
   "console.collections.rule_matched": "Rule Matched",
@@ -946,6 +945,21 @@
     "other": "{count} collections"
   },
   "console.collections.collections_of": "{shown} of {count} collections",
+  "console.collections.collections_menu": "Actions for the selected collections",
+  "console.collections.duplicated": {
+    "one": "{count} collection duplicated",
+    "other": "{count} collections duplicated"
+  },
+  "console.collections.renamed": "Renamed to “{name}”",
+  "console.collections.renamed_several": {
+    "one": "{count} collection renamed",
+    "other": "{count} collections renamed"
+  },
+  "console.collections.rename_title": "Rename collection",
+  "console.collections.deleted_several": {
+    "one": "{count} collection deleted",
+    "other": "{count} collections deleted"
+  },
   "console.collections.all_games": "All Games",
   "console.collections.copy_of": "{name} copy",
   "console.collections.copy_of_n": "{name} copy {n}",
@@ -965,7 +979,6 @@
     "one": "Delete {count} collection?",
     "other": "Delete {count} collections?"
   },
-  "console.collections.delete_selected": "Delete selected",
   "console.collections.deleted": "Deleted “{name}”",
   "console.collections.games": "Games",
   "console.collections.games.help": "How many games the frontend shows",
@@ -2703,7 +2716,7 @@
   "console.tageditor.deleted": "Deleted “{tag}”",
   "console.tageditor.merge_note": "Merging turns these spellings into the most-used one",
   "console.tageditor.merge_detail": "Every game carrying one of the others is retagged. This cannot be undone.",
-  "console.tageditor.rename_hint": "Every game carrying it is retagged.",
+  "console.tageditor.rename_hint": "Every game carrying it is retagged",
   "console.tageditor.game_changed": {
     "one": "{said} - 1 game changed",
     "other": "{said} - {count} games changed"
@@ -2718,7 +2731,6 @@
   "console.tageditor.empty": "No tags yet. Tag a game from its Play section, or write one down with New tag.",
   "console.tageditor.one_spelling": "One spelling",
   "console.tageditor.rename": "Rename…",
-  "console.tageditor.rename_2": "Rename",
   "console.tageditor.rename_tag": "Rename this tag",
   "console.tageditor.renamed": "Renamed to {said}",
   "console.tageditor.search_tags": "Search tags",
@@ -2740,6 +2752,21 @@
   "console.tageditor.tags_of": {
     "one": "{shown} of {count} tag",
     "other": "{shown} of {count} tags"
+  },
+  "console.tageditor.selected": "{picked} of {shown} selected",
+  "console.tageditor.tags_menu": "Actions for the selected tags",
+  "console.tageditor.renamed_several": {
+    "one": "{count} tag renamed",
+    "other": "{count} tags renamed"
+  },
+  "console.tageditor.delete_several": {
+    "one": "Delete {count} tag?",
+    "other": "Delete {count} tags?"
+  },
+  "console.tageditor.delete_several_detail": "Every game carrying one loses it. Their descriptions and colors go too.",
+  "console.tageditor.deleted_several": {
+    "one": "{count} tag deleted",
+    "other": "{count} tags deleted"
   },
   "console.tageditor.two_spellings": "Two Spellings",
   "console.tageditor.two_spellings.help": "Another tag is the same word in different case or spacing",
@@ -2905,8 +2932,6 @@
   "console.vps_match.no_results": "Nothing in VPS matches “{said}”",
   "console.vps_match.open_in_vps": "Open this entry in the Visual Pinball Spreadsheet",
   "console.vps_match.search": "Search",
-  "console.vps_match.skip": "Skip",
-  "console.vps_match.stop": "Stop",
   "console.vps_match.search_hint": "Type a name, a maker or a year",
   "console.vps_match.no_vps_data": "VPS has not been downloaded yet",
   "console.vps_match.you_cleared": "You cleared the match. The auto-match was {name}.",
@@ -3012,6 +3037,15 @@
   "console.workbench.convert_static": "Convert to Hand-picked",
   "console.workbench.convert_question": "Convert “{name}” to hand-picked?",
   "console.workbench.converted": "“{name}” is hand-picked now",
+  "console.workbench.converted_several": {
+    "one": "{count} collection is hand-picked now",
+    "other": "{count} collections are hand-picked now"
+  },
+  "console.workbench.convert_several": {
+    "one": "Convert {count} collection to hand-picked?",
+    "other": "Convert {count} collections to hand-picked?"
+  },
+  "console.workbench.convert_several_detail": "Each keeps the games it shows now and stops updating.",
   "console.workbench.copied": "Copied in",
   "console.workbench.copy_detail": "It is copied, not moved - whatever else uses that file keeps it. Afterwards this game plays its own copy and no longer needs the place it came from.",
   "console.workbench.copy": "Copy it in",
@@ -4506,6 +4540,7 @@
   "word.read_only": "Read-only",
   "word.ready": "Ready",
   "word.remove": "Remove",
+  "word.rename": "Rename",
   "word.replace": "Replace",
   "word.reset": "Reset",
   "word.restore": "Restore",
@@ -4515,6 +4550,8 @@
   "word.runs": "Runs",
   "word.save": "Save",
   "word.size": "Size",
+  "word.skip": "Skip",
+  "word.stop": "Stop",
   "word.software": "Software",
   "word.source": "Source",
   "word.state": "State",

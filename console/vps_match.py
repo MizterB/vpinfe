@@ -90,9 +90,9 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
 
         with dialog.footer():
             if walking:
-                ui.button(t("console.vps_match.stop"), icon=verbs.STOP,
+                ui.button(t("word.stop"), icon=verbs.STOP,
                           on_click=lambda: box.submit(STOPPED)).props("flat no-caps")
-                ui.button(t("console.vps_match.skip"), icon=verbs.SKIP,
+                ui.button(t("word.skip"), icon=verbs.SKIP,
                           on_click=lambda: box.submit(CANCELLED)).props("flat no-caps")
             else:
                 ui.button(t("word.cancel"), icon=verbs.CANCEL,
