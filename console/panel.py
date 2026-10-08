@@ -258,6 +258,10 @@ def switch(value: bool | None, on_change: Callable[[Any], Any], *,
     """Every binary value the user can set, drawn the same way. None draws it neither
     on nor off, and a click from there turns it on.
 
+    With `wrap`, a one-line field is drawn as a box that grows a line at a time instead of
+    cropping: a value that runs long, such as a command, stays readable. Enter still
+    leaves it, so it holds one logical line.
+
     `on_control` is handed the control once it exists, for a caller that needs it back -
     the wizard's own first-field focus and per-field refusals among them.
     """
@@ -309,7 +313,7 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
           refuses: bool = False, left_empty: str = "",
           browse: Callable[[str], Any] | None = None,
           on_control: Callable[[Any], Any] | None = None,
-          prefix: str = "", suffix: str = "",
+          prefix: str = "", suffix: str = "", wrap: bool = False,
           held: dict[str, str] | None = None) -> Callable[[], None]:
     """Free text the user can set.
 
@@ -374,16 +378,17 @@ def field(value: str, on_save: Callable[[str], Any], *, lines: int = 0,
                     .classes("console-edit-field")
                 control.on_value_change(lambda: on_save(control.value or ""))
             else:
-                control = ui.input(placeholder=placeholder)
+                control = (ui.textarea if wrap else ui.input)(placeholder=placeholder)
                 control.value = value
-                control.props("dense borderless debounce=0") \
+                control.props("dense borderless debounce=0" + (" autogrow" if wrap else "")) \
                     .classes("console-edit-field")
                 if prefix:
                     control.props["prefix"] = prefix
                 if suffix:
                     control.props["suffix"] = suffix
                 control.on("blur", lambda: leave(control, control.value or ""))
-                control.on("keydown.enter", lambda: control.run_method("blur"))
+                control.on("keydown.enter.prevent" if wrap else "keydown.enter",
+                           lambda: control.run_method("blur"))
                 if left_empty:
                     with control:
                         ui.tooltip().bind_text_from(

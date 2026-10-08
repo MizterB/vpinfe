@@ -97,14 +97,14 @@ def command_editor(option: dict, value: Any, save: Callable[[Any], Any], *,
                          inline=True, hint=t("console.recording.command_reset.help"))()
 
     field = panel.field(now["kept"] or own, keep, placeholder=own, disabled=not writable,
-                        refuses=True, held=held,
+                        refuses=True, held=held, wrap=True,
                         on_control=lambda control: state.__setitem__("control", control))
 
     def draw() -> None:
         if not own:
             field()
             return
-        with ui.column().classes("gap-1 min-w-0 w-full"):
+        with ui.column().classes("gap-1 min-w-0 w-full items-stretch"):
             field()
             state["row"] = ui.row().classes("items-center gap-2 no-wrap")
             status()

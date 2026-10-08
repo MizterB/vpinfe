@@ -72,6 +72,20 @@ class AFieldLeftAsItWas(unittest.TestCase):
         _ran(run)
         self.assertEqual(["/Volumes/media"], saved)
 
+    def test_a_wrapping_field_grows_with_its_text_and_still_writes_on_leaving(self) -> None:
+        saved: list[str] = []
+
+        async def run() -> None:
+            control = _input(_drawn("a long command", saved, wrap=True))
+            self.assertIsInstance(control, ui.textarea)
+            self.assertTrue(control.props.get("autogrow"))
+            said(control, "update:value", "a longer command")
+            said(control, "blur")
+            await _settled()
+
+        _ran(run)
+        self.assertEqual(["a longer command"], saved)
+
     def test_a_browsed_path_is_written_after_the_field_is_redrawn_under_it(self) -> None:
         saved: list[str] = []
         drawn: dict[str, ui.element] = {}
