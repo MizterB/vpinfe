@@ -1573,7 +1573,7 @@ def subject_menu(slot: Any, entries: Sequence[Verb]) -> None:
 
 
 def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
-         hint: str = "", classes: str = "") -> Callable[[], None]:
+         hint: str = "", classes: str = "", window: str = "") -> Callable[[], None]:
     """A link to somewhere else in the Console.
 
     An anchor, never a click handler on a label. A destination has an address, so a row
@@ -1585,10 +1585,15 @@ def link(label: str, *, to: str, on_click: Callable[[], Any] | None = None,
     leaves every modified one alone, so the fast path works and the address still means
     something. Without one the browser simply follows the href.
 
+    `window` is the named window the address opens in, so a link in a tab of its own lands
+    in the tab that already holds the Console.
+
     Carries no icon; `link_out` is the one that does.
     """
     def draw() -> None:
         row = ui.link(label, target=to).classes(f"console-link {classes}".strip())
+        if window:
+            row.props(f"target={window}")
         if on_click is not None:
             row.classes("console-link--inplace")
             row.on("click", on_click)
@@ -1619,14 +1624,20 @@ def tag_link(tag: str, color: str, *, to: str, mark: str = "",
     return draw
 
 
-def link_out(label: str, *, to: str, hint: str = "") -> Callable[[], None]:
+def link_out(label: str, *, to: str, hint: str = "",
+             opener: bool = False) -> Callable[[], None]:
     """A link that leaves the Console, opening in a new tab and marked `open_in_new`.
 
     `label` is the thing being opened wherever the surface has one to give - a name
     already on the row reads better than a verb added beside it.
+
+    A new tab has no opener unless `opener` asks for one, and only a tab with an opener can
+    find the Console's window by name from a link of its own.
     """
     def draw() -> None:
         row = ui.link(target=to, new_tab=True).classes("console-link console-link-out")
+        if opener:
+            row.props("rel=opener")
         with row:
             ui.label(label)
             ui.icon("open_in_new")

@@ -32,6 +32,7 @@ from console import (
     offload,
     panel,
     renderers,
+    report_groups,
     row_drag,
     sections,
     stars,
@@ -419,7 +420,7 @@ def _nothing_yet(words: str, library: Any, state: dict[str, Any],
     """What a page shows in place of a grid with no rows: where rows come from, and a
     way to pick up ones that arrived by hand. A link's filter is spent here, not held
     for the first row that appears."""
-    for key in ("arriving", "launcher", "sets"):
+    for key in ("arriving", "launcher", "sets", "reported"):
         state.pop(key, None)
     sections.metadata_line(library, state)
     panel.facts(ui, [panel.intro(t(words, page=t("console.section.library_folders")))])
@@ -794,6 +795,9 @@ _MOD_DRAWN: dict[str, Any] = {
 # Which settings those are, by key.
 OWN_SETTINGS_COLUMN = "own_settings"
 
+# The group of a kept report a table's game is in; a column only while a report asked for it.
+REPORTED_COLUMN = "reported"
+
 # The game's rating on a table's row: `rating` there is the table's own.
 GAME_RATING = "game_rating"
 
@@ -1087,6 +1091,16 @@ def table_rows(rows: list[dict[str, Any]], art: bool = False) -> list[dict[str, 
             for row in rows]
 
 
+def stamp_report(built: list[dict[str, Any]],
+                 group: report_groups.Group | None) -> list[dict[str, Any]]:
+    """Each row says which group of the report it belongs to, in the Import column."""
+    if group is not None:
+        ids = set(group.game_ids)
+        for row in built:
+            row[REPORTED_COLUMN] = [group.label] if row.get("game_id") in ids else []
+    return built
+
+
 def _mod_cell(mod: dict[str, Any] | None) -> dict[str, Any]:
     said = game_tables.mod_of_said(mod)
     return {"mod_of": _MOD if said else "", "mod_of_said": said}
@@ -1166,12 +1180,19 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
     tag_chips.install(library.tag_looks())
     renderers.install_setting_names(own_setting_names(library.setting_groups()))
     look = library.thumbnail_look()
-    built = table_rows(rows, look is not None)
+    reported = state.pop("reported", None)
+    built = stamp_report(table_rows(rows, look is not None), reported)
     # Taken once, as the Games grid takes its own.
     arriving = setting_their_own(rows, str(state.pop("launcher", None) or ""),
                                  str(state.pop("sets", None) or ""))
+    if reported is not None:
+        arriving = {REPORTED_COLUMN: {"values": [reported.label]}}
     table_columns = grid.with_art(TABLE_COLUMNS, look) \
         + table_asset_columns(table_asset_keys(library))
+    if reported is not None:
+        table_columns.append(grid.list_column(
+            REPORTED_COLUMN, t("console.games.import_group"), 160,
+            help=t("console.games.import_group.help")))
     fields = [definition["field"] for definition in table_columns]
 
     sections.metadata_line(library, state)
@@ -1321,8 +1342,9 @@ def build_tables(rows: list[dict[str, Any]], library: Any,
         # carries no game name, manufacturer, year or resolved rom: patching from it
         # blanks four columns on exactly the rows just acted on.
         rows_now = await offload.io(library.load_tables)
-        fresh = table_rows([item for item in rows_now
-                            if item.get("game_id") == game_id], look is not None)
+        fresh = stamp_report(table_rows([item for item in rows_now
+                                        if item.get("game_id") == game_id], look is not None),
+                             reported)
         transaction = row_transaction(by_id, game_id, fresh)
         add_index(built, game_id, transaction)
         if transaction:

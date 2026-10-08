@@ -40,6 +40,9 @@ _FIELDS = (
     ("backup", lambda state: state.get("backup") or ""),
     # A setting by its key: the Tables grid arrives on the launcher's tables that set it.
     ("sets", lambda state: state.get("sets") or ""),
+    # The Tables grid on one group of one kept report: the job, then which of its groups.
+    ("report", lambda state: state.get("report") or ""),
+    ("group", lambda state: state.get("group") or ""),
 )
 
 # Only where they mean something. A slot on the devices page is noise in an address
@@ -54,6 +57,7 @@ _PANEL = ("games", "tables", "media", "assets")
 _ONLY_ON = {"game": _PANEL, "table": _PANEL, "section": _PANEL, "slot": _PANEL,
             "page": ("settings",), "log": ("logs",), "collection": ("collections", "games"),
             "launcher": ("launchers", "tables"), "sets": ("tables",),
+            "report": ("tables",), "group": ("tables",),
             "player": ("players",), "backup": ("backups",)}
 
 
@@ -128,6 +132,9 @@ def apply(state: dict[str, Any], params: dict[str, str], *,
         state["launcher"] = str(params["launcher"]).strip()
     if str(params.get("sets") or "").strip():
         state["sets"] = str(params["sets"]).strip()
+    if str(params.get("report") or "").strip() and str(params.get("group") or "").strip():
+        state["report"] = str(params["report"]).strip()
+        state["group"] = str(params["group"]).strip()
     if str(params.get("player") or "").strip():
         state["player"] = str(params["player"]).strip()
     if str(params.get("backup") or "").strip():

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import Callable
@@ -39,6 +40,7 @@ from console import (
     rail_marks,
     remembered,
     remote,
+    report_groups,
     row_drag,
     sections,
     tageditor,
@@ -413,6 +415,22 @@ def why_not_loaded(exc: Exception) -> str:
     return why(exc)
 
 
+@on_page
+async def _group_of_report(library: Library, job_id: str,
+                           group: str) -> report_groups.Group | None:
+    """The games of one group of a kept report, or None, said on the page, where the report
+    is gone or has no games in that group."""
+    try:
+        job = await offload.io(library.job, job_id)
+    except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
+        ui.notify(t("console.jobs.report_unavailable"), caption=why(exc), type="negative")
+        return None
+    found = report_groups.groups(job).get(group)
+    if found is None:
+        ui.notify(t("console.report.no_group"), type="warning")
+    return found
+
+
 def _not_loaded(loading: ui.element, exc: Exception) -> None:
     """The loading line, replaced by what went wrong and a way to ask again."""
     loading.delete()
@@ -536,7 +554,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
                    slot: str = "", page: str = "", mode: str = "",
                    collection: str = "", launcher: str = "", sets: str = "",
                    player: str = "", setup: str = "", log: str = "", find: str = "",
-                   backup: str = "") -> None:
+                   backup: str = "", report: str = "", group: str = "") -> None:
     """The Console. Query parameters say where in it, so a place can be linked to."""
     # 2.x's own page keys, still sitting in bookmarks and manager-ui-state.json.
     if page.strip().lower() in ("vpinplay_account", "vpinplay_player"):
@@ -562,8 +580,9 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     ui.on(row_drag.DROPPED,
           lambda event: row_drag.dropped(library, state, event.args))
     ui.on("hub_guide_moved", lambda event: workbench.guide_moved(state, event.args))
-    for group, moved in theme_sources.MOVED.items():
-        ui.on(moved, lambda event, group=group: theme_sources.moved(state, group, event))
+    for source_group, moved in theme_sources.MOVED.items():
+        ui.on(moved, lambda event, source_group=source_group: theme_sources.moved(
+            state, source_group, event))
     ui.on(folders.MOVED, lambda event: folders.moved(state, event))
     ui.on("hub_dock_px", lambda event: workbench.dock_dragged(state, event.args))
     ui.on("hub_row_focus", grid.row_focused)
@@ -631,7 +650,8 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     deeplink.apply(state, {"view": view, "game": game, "table": table,
                            "section": section, "slot": slot, "page": page,
                            "collection": collection, "launcher": launcher, "sets": sets,
-                           "player": player, "log": log, "find": find, "backup": backup},
+                           "player": player, "log": log, "find": find, "backup": backup,
+                           "report": report, "group": group},
                    views=[key for key, _label, _icon, _feature in nav_items],
                    sections=[item.key for item in workbench.SECTIONS])
 
@@ -644,6 +664,11 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     reads = reads_before_drawing(state["view"], library)
     if reads is not None:
         await run.io_bound(reads)
+    # So a report's links, from a tab of its own, can land here.
+    ui.run_javascript(f"window.name = {json.dumps(report_groups.CONSOLE_WINDOW)}")
+    reported_job, reported_group = state.pop("report", ""), state.pop("group", "")
+    if reported_job and state["view"] == "tables":
+        state["reported"] = await _group_of_report(library, reported_job, reported_group)
     if ui.context.client.is_deleted:
         return
 

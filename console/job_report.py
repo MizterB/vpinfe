@@ -1,14 +1,16 @@
 """The report a finished job kept, opened from the Jobs view or from the toast that told
-it ended."""
+it ended, and drawn on a page of its own."""
 
 from __future__ import annotations
+
+from typing import Any
 
 from nicegui import ui
 
 from common.failures import why
 from common.i18n import t
 from console import dialog as frame
-from console import jobs_list, offload, wizard
+from console import jobs_list, offload, panel, report_groups, wizard
 from console.api import ApiClient
 from console.on_page import on_page
 
@@ -18,6 +20,18 @@ UNDER = {"library_importer.import": "setup"}
 # Rows of a list drawn before it says how many more there are: a library of thousands that
 # all failed must not draw a label each.
 SHOWN = 200
+
+
+def draw(body: Any, job: dict) -> None:
+    """The report of `job` in `body`."""
+    wizard.report(body, job, UNDER.get(str(job.get("kind") or ""), ""), limit=SHOWN)
+
+
+def in_its_own_tab(job_id: str) -> None:
+    """The report's own address, with the opener kept: a link in it finds the Console's
+    window by name only from a tab that has one."""
+    panel.link_out(t("console.report.own_tab"), to=report_groups.report_address(job_id),
+                   hint=t("console.report.own_tab.hint"), opener=True)()
 
 
 @on_page
@@ -35,6 +49,7 @@ async def open_for(job_id: str) -> None:
                 .classes("console-dialog-title console-wizard-title")
             body = ui.column().classes("w-full gap-0 console-wizard-body")
         with frame.footer():
+            in_its_own_tab(job_id)
             frame.cancel(dialog.close, t("word.close"))
-    wizard.report(body, job, UNDER.get(kind, ""), limit=SHOWN)
+    draw(body, job)
     dialog.open()

@@ -22,7 +22,15 @@ from nicegui import run, ui
 
 from common.failures import why
 from common.i18n import literal_or, t
-from console import appearance, appearance_picker, more_below, panel, verbs, wizard_lists
+from console import (
+    appearance,
+    appearance_picker,
+    more_below,
+    panel,
+    report_groups,
+    verbs,
+    wizard_lists,
+)
 from console import dialog as frame
 from console.api import ApiClient
 from console.on_page import on_page
@@ -1140,6 +1148,17 @@ def _wait() -> None:
     time.sleep(POLL_SECONDS)
 
 
+def _show_all(job: dict, group: str) -> None:
+    """The link to a group's games in Tables, where it holds more than a few."""
+    found = report_groups.groups(job).get(group)
+    if found is None or len(found.game_ids) <= report_groups.SHOW_ALL_OVER:
+        return
+    with ui.row().classes("px-3"):
+        panel.link(t("console.report.show_all", count=len(found.game_ids)),
+                   to=report_groups.tables_address(str(job.get("id") or ""), group),
+                   window=report_groups.CONSOLE_WINDOW)()
+
+
 def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
     """What happened, once it has. The counts, and every game that did not come across -
     a run that says only "done" leaves somebody to find the gaps themselves.
@@ -1162,6 +1181,7 @@ def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
                               str(value))
                              for key, value in result.items()
                              if isinstance(value, (int, str))])
+        _show_all(job, report_groups.IMPORTED)
         held = list(result.get("already_here") or [])
         if held:
             panel.facts(ui, [(panel.HEADING, t("console.ext_action.already", count=len(held)))])
@@ -1172,6 +1192,7 @@ def report(body: Any, job: dict, under: str, *, limit: int | None = 20) -> None:
             if limit is not None and len(held) > limit:
                 ui.label(t("console.ext_action.more",
                         count=len(held) - limit)).classes("console-help px-3")
+            _show_all(job, report_groups.ALREADY_HERE)
         missed = [row for row in (result.get("rows") or []) if row.get("error")]
         if missed:
             panel.facts(ui, [(panel.HEADING,
