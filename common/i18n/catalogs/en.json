@@ -1616,7 +1616,7 @@
   "console.folders.nowhere": "None of these can take a new game",
   "console.folders.import": "Import a library",
   "console.folders.add_help": "Add a folder of games, or one game folder",
-  "console.folders.import_help": "Bring in the library another program kept",
+  "console.folders.import_help": "Import the library another program kept",
   "console.folders.more": "More",
   "console.folders.none_yet": "No folders yet",
   "console.folders.none_yet_help": "Add the folder your games are in, or a new one for the games you add",
