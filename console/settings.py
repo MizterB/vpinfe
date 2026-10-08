@@ -241,6 +241,9 @@ def _browse_path(browse: Callable[..., dict] | None, kind: str, suffixes: tuple[
     return browsed
 
 
+# Where the key under `dof` comes from: the cabinet's page on this site.
+DOF_CONFIG_TOOL = "https://configtool.vpuniverse.com/app/home"
+
 # What a suggested setting can say besides one of its suggestions, where the empty value
 # is an answer of its own.
 _FIRST_CHOICES: dict[str, Callable[[], dict[str, str]]] = {
@@ -1565,6 +1568,9 @@ def section_rows(source: Any, section: str, options: list[dict], values: dict,
             entries.append(note)
         if previewed is not None and option["key"] == chrome_options.ADD:
             entries.append(previewed.warning_row())
+        if section == "dof" and option["key"] == "config_tool_api_key":
+            entries.append((panel.ASIDE, panel.link_out(t("console.settings.dof_key_site"),
+                                                        to=DOF_CONFIG_TOOL)))
         for text, fix in option.get("findings") or ():
             entries.append(_finding(text, fix))
         if option.get("editor") == config_schema.EDITOR_CAPTURE_COMMAND:

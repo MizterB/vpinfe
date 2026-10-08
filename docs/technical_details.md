@@ -235,7 +235,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enabled` | bool | `false` | Enable DOF |
-| `config_tool_api_key` | string |  | DOF Config Tool API Key |
+| `config_tool_api_key` | string |  | Downloads your DOF config. Sign in to the tool and copy the key from Cabinets |
 
 ### `real_dmd`
 
