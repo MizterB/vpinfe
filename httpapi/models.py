@@ -2411,12 +2411,10 @@ class FolderEntry(ApiModel):
 
 class FolderListing(ApiModel):
     """Unbounded, unlike `FilesystemListing`: a Browse button is choosing something on
-    this device's disk, `above` is the folders above `path` nearest first, and `roots` is
-    where it can jump to start again."""
+    this device's disk, and `roots` is where it can jump to start again."""
 
     path: str
     parent: str
-    above: list[FolderEntry]
     folders: list[FolderEntry]
     files: list[FolderEntry]
     roots: list[FolderEntry]

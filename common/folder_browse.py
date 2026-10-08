@@ -51,17 +51,6 @@ def _name(path: Path) -> str:
     return path.name or str(path)
 
 
-def _anchor_name(path: Path) -> str:
-    """The top of a path as a person names it: `C:` for a drive, `/` for the root."""
-    return path.drive or str(path)
-
-
-def _above(path: Path) -> list[dict]:
-    """The folders above `path`, nearest first, to `/` or the drive."""
-    return [{"name": _name(one) if one.parent != one else _anchor_name(one), "path": str(one)}
-            for one in path.parents]
-
-
 def _private_roots() -> tuple[Path, ...]:
     home = Path.home()
     relative = _PRIVATE_COMMON + _PRIVATE_BY_PLATFORM.get(sys.platform, ())
@@ -192,8 +181,21 @@ def _program_roots() -> list[dict]:
     return found
 
 
+def _shown(path: str) -> str:
+    """A place's path as a person writes it: `~` for home where the system has one."""
+    home = str(Path.home())
+    if sys.platform != "win32" and (path == home or path.startswith(home + os.sep)):
+        return "~" + path[len(home):]
+    return path
+
+
 def _roots(kind: str) -> list[dict]:
-    return _program_roots() if kind == "exe" else _common_roots()
+    """The places browsing can restart from, named so no two read alike - places of one
+    name are told apart by their paths."""
+    found = _program_roots() if kind == "exe" else _common_roots()
+    names = [one["name"].casefold() for one in found]
+    return [{**one, "name": _shown(one["path"])} if names.count(one["name"].casefold()) > 1
+            else one for one in found]
 
 
 def _start(kind: str) -> Path:
@@ -208,7 +210,7 @@ def _start(kind: str) -> Path:
 
 def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
             hidden: bool = False) -> dict:
-    """One folder's contents, the folders above it, and where browsing can start over.
+    """One folder's contents, and where browsing can start over.
 
     `kind` says what `files` holds: nothing for `dir`, whatever this account can run for
     `exe` - an `.app` bundle included, on macOS, as one of its own entries rather than
@@ -235,7 +237,7 @@ def listing(path: str = "", kind: str = "dir", suffixes: tuple[str, ...] = (),
     parent = here.parent
     folders, files = _entries(here, private, kind, suffixes, hidden)
     return {"path": str(here), "parent": "" if parent == here else str(parent),
-            "above": _above(here), "folders": folders, "files": files, "roots": _roots(kind)}
+            "folders": folders, "files": files, "roots": _roots(kind)}
 
 
 def _resolved(path: str) -> Path:

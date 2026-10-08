@@ -79,25 +79,13 @@ class FolderApiTests(TempTree):
 
         self.assertTrue(body["roots"])
 
-    def test_the_folders_above_a_path_come_nearest_first_to_the_top(self) -> None:
-        deep = self.root / "one" / "two"
-        deep.mkdir(parents=True)
+    def test_the_top_of_the_disk_has_no_parent(self) -> None:
+        body = self._get(self.root.resolve().anchor).json()
 
-        above = self._get(str(deep)).json()["above"]
-
-        self.assertEqual([one["path"] for one in above][:2],
-                         [str(self.root / "one"), str(self.root)])
-        self.assertEqual(above[0]["name"], "one")
-        self.assertEqual(above[-1]["path"], str(deep.resolve().anchor))
-        self.assertEqual(above[-1]["name"], deep.resolve().anchor)
-
-    def test_the_top_of_the_disk_has_nothing_above_it(self) -> None:
-        anchor = self.root.resolve().anchor
-
-        body = self._get(anchor).json()
-
-        self.assertEqual(body["above"], [])
         self.assertEqual(body["parent"], "")
+
+    def test_a_listing_does_not_carry_the_folders_above_it(self) -> None:
+        self.assertNotIn("above", self._get(str(self.root)).json())
 
     def test_home_is_named_home_among_the_places(self) -> None:
         with patch("common.folder_browse.Path.home", return_value=self.root):
@@ -112,6 +100,26 @@ class FolderApiTests(TempTree):
 
         names = {one["path"]: one["name"] for one in body["roots"]}
         self.assertEqual(names[str(self.root)], "Home")
+
+    def test_places_of_one_name_are_told_apart_by_their_paths(self) -> None:
+        home = self.root / "home"
+        places = [{"name": "Applications", "path": "/Applications"},
+                  {"name": "Applications", "path": str(home / "Applications")},
+                  {"name": "bin", "path": "/usr/local/bin"},
+                  {"name": "Home", "path": str(home)}]
+
+        with patch("common.folder_browse.Path.home", return_value=home), \
+                patch("common.folder_browse._program_roots", return_value=places):
+            shown = folder_browse._roots("exe")
+
+        mine = "~/Applications" if sys.platform != "win32" else str(home / "Applications")
+        self.assertEqual([one["name"] for one in shown],
+                         ["/Applications", mine, "bin", "Home"])
+
+    def test_the_places_a_listing_offers_are_each_there_once(self) -> None:
+        for kind in ("dir", "exe"):
+            paths = [one["path"] for one in self._get(str(self.root), kind=kind).json()["roots"]]
+            self.assertEqual(len(paths), len(set(paths)))
 
     def test_a_network_caller_is_refused(self) -> None:
         with patch("httpapi.folders.caller_is_local", return_value=False):

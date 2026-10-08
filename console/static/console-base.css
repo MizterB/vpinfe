@@ -912,6 +912,15 @@ body::before {
 /* Reset sits against the control it undoes, and is drawn only where the value is
    changed, so it never waits behind a hover. */
 .console-field-line > .console-field-row { flex: 0 1 auto; min-width: 0; }
+/* A path is the long value, so it takes the measure whether it holds a typed path or the
+   default it stands for - a field that is as wide as its text is a different width for
+   every path. The line adds the Reset slot beside the measure, so the field is the
+   width of one with no Reset to draw. */
+.console-field-line:has(input.console-path-input),
+.console-waiting-row:has(.console-field-line input.console-path-input) {
+  width: 100%; max-width: calc(var(--measure) + var(--target-inline) + 4px);
+}
+.console-field-line > .console-field-row:has(input.console-path-input) { flex: 1 1 auto; }
 .console-dialog .console-field-line { width: 100%; max-width: var(--measure); }
 .console-dialog .console-field-line > .console-field-row { flex: 1 1 auto; }
 .console-field-line > .console-row-action {

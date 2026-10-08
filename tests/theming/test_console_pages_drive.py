@@ -159,6 +159,24 @@ STRETCHED = """(() => {
 })()"""
 
 
+# A path field in a settings page against the measure a path takes: the same width
+# whether it holds a typed path or the default it stands for.
+PATH_WIDTHS = """(() => {
+  const body = document.querySelector('.console-settings-body');
+  if (!body) return {measure: 0, widths: []};
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:absolute;visibility:hidden;width:var(--measure)';
+  document.body.append(probe);
+  const measure = Math.round(probe.getBoundingClientRect().width);
+  probe.remove();
+  const widths = [...body.querySelectorAll('input.console-path-input')]
+    .filter(input => input.getClientRects().length > 0)
+    .map(input => [input.value.slice(-24), Math.round(
+      input.closest('.q-field').getBoundingClientRect().width)]);
+  return {measure, widths};
+})()"""
+
+
 def _vpx_install(root: Path) -> dict[str, str]:
     defaults = {"bool": "0", "int": "0", "number": "1.0", "string": "''",
                 "choice": "0, 0='One', 1='Two'"}
@@ -224,6 +242,7 @@ class ConsolePagesDrive(unittest.TestCase):
         drawn: dict[str, list[str]] = {}
         dropdowns: dict = {"measured": 0, "problems": []}
         stretched: dict = {"measured": 0, "problems": []}
+        paths: dict = {"measure": 0, "widths": []}
 
         async def look(where: str) -> None:
             said = await browser.evaluate(DROPDOWNS)
@@ -232,6 +251,9 @@ class ConsolePagesDrive(unittest.TestCase):
             wide = await browser.evaluate(STRETCHED)
             stretched["measured"] += wide["measured"]
             stretched["problems"] += [[where, one] for one in wide["problems"]]
+            said = await browser.evaluate(PATH_WIDTHS)
+            paths["measure"] = said["measure"] or paths["measure"]
+            paths["widths"] += [[where, *one] for one in said["widths"]]
 
         async with BrowserSession(chromium_path()) as browser:
             await browser.send("Emulation.setDeviceMetricsOverride",
@@ -280,7 +302,7 @@ class ConsolePagesDrive(unittest.TestCase):
             stretched["finding"] = await browser.evaluate(
                 "!!document.querySelector('.console-settings-body .console-attention')")
         return {"headings": headings, "drawn": drawn, "dropdowns": dropdowns,
-                "stretched": stretched}
+                "stretched": stretched, "paths": paths}
 
     def test_every_rail_opened_something(self) -> None:
         for query, found in self.seen["headings"].items():
@@ -324,6 +346,11 @@ class ConsolePagesDrive(unittest.TestCase):
         self.assertTrue(self.seen["stretched"]["finding"],
                         "the empty Folders page was not drawn, so its finding was not measured")
         self.assertEqual([], self.seen["stretched"]["problems"])
+
+    def test_every_path_in_settings_takes_the_measure_default_or_typed(self) -> None:
+        paths = self.seen["paths"]
+        self.assertGreater(len(paths["widths"]), 3, "an empty sweep passes and measures nothing")
+        self.assertEqual([], [one for one in paths["widths"] if one[2] != paths["measure"]])
 
 
 if __name__ == "__main__":

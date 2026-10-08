@@ -934,6 +934,15 @@ def path_input(control: ui.input, tip: PathTip | None = None, *,
     return tip
 
 
+def path_box(value: str, *, name: str) -> ui.input:
+    """A path's input drawn as the Console draws one, for a caller that makes its own
+    append slot; `name` is its accessible name."""
+    control = ui.input(value=value).props("outlined dense debounce=0") \
+        .classes("grow min-w-0 console-adorned")
+    control.props["aria-label"] = name
+    return control
+
+
 def path_ends(control: ui.input) -> None:
     """Put the end of the path back in view after the value is set from here: the page
     script does it for what the browser changes."""

@@ -806,13 +806,17 @@ the default or choosing it clears the setting; any other path draws the dot befo
 Reset after it. Browse opens at the field's path, else at the default, else at the nearest
 folder above a default that is not there yet, saying nothing of the climb.
 
-The picker's **Where** is one dropdown and it is the path: beside Up, the current folder's
-whole path with that folder's icon, a long one giving up its start to an ellipsis so the
-folder you are in stays readable. Its menu lists the current folder (ticked, and choosing
-it does nothing), each folder above it nearest first, a rule, then the places browsing can
-start over from, each with its path under its name where that is not just the name. Home
-reads **Home**, not the account's name. A menu rather than a row of buttons because a row
-of places above the path read as a poorly assembled path.
+The picker's path is a field, not a face to open: beside Up, the folder you are in as text
+with that folder's icon, the check or cross of the path fields on the right, then **Copy
+path** and a caret that opens **Places**. Clicking in selects the whole path. Typing or
+pasting a path and pressing Enter goes there - a folder opens, a file of the wanted kind
+opens its folder with the file chosen, `~` is Home, a bare name is looked for in the folder
+you are in, and the quotes Windows' Copy as path adds are dropped. The mark says whether
+Enter can go there, with the reason on hover. Enter on the path as shown takes it, **Choose**
+takes a typed path, and Escape puts the shown path back (with nothing typed it closes the
+dialog). Places lists where browsing can start over, each once, the one you are in ticked
+and no folders above it; places of one name are named by their path. Home reads **Home**,
+not the account's name.
 
 The picker's **New folder** is the dialog's aside, beside Cancel: it adds a row named
 *New folder* to the listing, selected for typing, the way Finder and Explorer do, and
