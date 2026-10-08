@@ -120,7 +120,7 @@ class MediaTests(unittest.TestCase):
             for one in games[1].media))
 
         self.assertEqual(mapping.left_behind("pinballx", games, KINDS),
-                         {"Flyer Images/Back": 1, "Real DMD Videos": 2})
+                         {("Flyer Images/Back", ""): 1, ("Real DMD Videos", ""): 2})
 
     def test_a_shared_file_listed_for_two_systems_is_one_file_left_behind(self) -> None:
         item = SourceMedia(source_kind="Flyer Images/Back", path="/m/Back/Taxi.png",
@@ -128,7 +128,97 @@ class MediaTests(unittest.TestCase):
         games = [_game(media=(item,)), _game(media=(item,))]
 
         self.assertEqual(mapping.left_behind("pinballx", games, KINDS),
-                         {"Flyer Images/Back": 1})
+                         {("Flyer Images/Back", ""): 1})
+
+    def _paged(self, source_kind: str, *names: str, key: str = "Doom") -> SourceGame:
+        return _game(key=key, media=tuple(
+            SourceMedia(source_kind=source_kind, path=f"/m/{one}") for one in names))
+
+    def test_the_file_named_for_the_game_alone_is_the_first_page(self) -> None:
+        game = self._paged("GameHelp", "Doom02.png", "Doom.png", "Doom01.png")
+        known = (*KINDS, "instruction_card")
+
+        self.assertEqual(mapping.media_for("popper", game, known),
+                         [("instruction_card", "/m/Doom.png")])
+        self.assertEqual(mapping.left_behind("popper", [game], known),
+                         {("GameHelp", "pages"): 2})
+
+    def test_a_numbered_file_is_the_first_page_where_none_is_named_for_the_game(self) -> None:
+        game = self._paged("Instruction Cards", "Doom 2.png", "Doom 1.png")
+        known = (*KINDS, "instruction_card")
+
+        self.assertEqual(mapping.media_for("pinballx", game, known),
+                         [("instruction_card", "/m/Doom 1.png")])
+
+    def test_pages_compare_as_numbers_and_zeros_do_not_count(self) -> None:
+        game = self._paged("Instruction Cards", "Doom 10.png", "Doom 9.png", "Doom 09.png")
+        known = (*KINDS, "instruction_card")
+
+        self.assertEqual(mapping.media_for("pinballx", game, known),
+                         [("instruction_card", "/m/Doom 09.png")])
+
+    def test_a_file_with_something_else_after_the_name_comes_after_the_numbered_pages(
+            self) -> None:
+        game = self._paged("Instruction Cards", "Doom (alt).png", "Doom 3.png")
+        known = (*KINDS, "instruction_card")
+
+        self.assertEqual(mapping.media_for("pinballx", game, known),
+                         [("instruction_card", "/m/Doom 3.png")])
+
+    def test_the_first_page_does_not_depend_on_the_order_the_folder_was_listed(self) -> None:
+        names = ["Doom.png", "Doom.jpg", "Doom 1.png"]
+        known = (*KINDS, "instruction_card")
+
+        first = mapping.media_for("pinballx", self._paged("Instruction Cards", *names), known)
+        again = mapping.media_for("pinballx",
+                                  self._paged("Instruction Cards", *reversed(names)), known)
+
+        self.assertEqual(first, again)
+
+    def test_a_file_carrying_none_of_the_games_name_comes_last(self) -> None:
+        game = self._paged("GameHelp", "Other.png", "Doom 2.png")
+
+        self.assertEqual(mapping.media_for("popper", game, (*KINDS, "instruction_card")),
+                         [("instruction_card", "/m/Doom 2.png")])
+
+    def test_a_digit_that_is_not_ascii_does_not_stop_the_import(self) -> None:
+        game = self._paged("GameHelp", "Doom\u00b2.png", "Doom.png")
+
+        self.assertEqual(mapping.media_for("popper", game, (*KINDS, "instruction_card")),
+                         [("instruction_card", "/m/Doom.png")])
+
+    def test_the_systems_own_file_comes_before_the_shared_folders_at_the_same_page(
+            self) -> None:
+        game = _game(key="Doom", media=(
+            SourceMedia(source_kind="Instruction Cards", path="/shared/Doom.png",
+                        shared=True),
+            SourceMedia(source_kind="Instruction Cards", path="/zz/Doom.png")))
+
+        self.assertEqual(mapping.media_for("pinballx", game, (*KINDS, "instruction_card")),
+                         [("instruction_card", "/zz/Doom.png")])
+
+    def test_a_clip_or_flash_file_for_a_picture_kind_is_named_and_not_placed(self) -> None:
+        game = self._paged("GameHelp", "Doom.png", "Doom.mp4", "Doom.swf", "Doom.wmv")
+        known = (*KINDS, "instruction_card")
+
+        self.assertEqual(mapping.media_for("popper", game, known),
+                         [("instruction_card", "/m/Doom.png")])
+        self.assertEqual(mapping.left_behind("popper", [game], known),
+                         {("GameHelp", "videos"): 3})
+
+    def test_a_video_kind_keeps_its_clip(self) -> None:
+        game = self._paged("PlayField", "Doom.mp4")
+
+        self.assertEqual(mapping.media_for("popper", game, KINDS),
+                         [("playfield_video", "/m/Doom.mp4")])
+
+    def test_a_name_with_a_character_a_file_cannot_hold_still_finds_its_pages(self) -> None:
+        game = _game(key="Who? Dunnit", media=(
+            SourceMedia(source_kind="Instruction Cards", path="/m/Who Dunnit 2.png"),
+            SourceMedia(source_kind="Instruction Cards", path="/m/Who Dunnit.png")))
+
+        self.assertEqual(mapping.media_for("pinballx", game, (*KINDS, "instruction_card")),
+                         [("instruction_card", "/m/Who Dunnit.png")])
 
     def test_a_source_nothing_maps_carries_nothing_rather_than_guessing(self) -> None:
         game = self._with("Table Images")

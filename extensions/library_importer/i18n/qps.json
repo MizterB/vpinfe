@@ -104,6 +104,8 @@
   "wizard.summary.comes_across": "Ŵĥàţ çöɱèš àçřöšš",
   "wizard.summary.left_behind": "Ŀèƒţ ƀèĥîñđ",
   "wizard.summary.left_behind_folder": "{folder} ({count})",
+  "wizard.summary.left_behind_pages": "{folder}, ŀàţèř þàĝèš ({count})",
+  "wizard.summary.left_behind_videos": "{folder} ṽîđèöš ({count})",
   "wizard.summary.confirm": {
     "one": "Îɱþöřţ {count} ĝàɱè",
     "other": "Îɱþöřţ {count} ĝàɱèš"

@@ -216,6 +216,24 @@ def _put(ctx: Any, game_id: str, kind: str, path: Path, rom: str) -> int:
         return 0
 
 
+def _place_media(ctx: Any, game_id: str, source_id: str, game: SourceGame,
+                 kinds: tuple[str, ...], stem: str, replace: bool, row: AdoptedRow) -> None:
+    """The game's artwork, one file per kind. Counts what was placed; a folder core would
+    not take a file from is named in `skipped_media` beside the folders with no kind."""
+    refused: set[str] = set()
+    for kind, path in mapping.media_for(source_id, game, kinds):
+        try:
+            ctx.games.put_media(game_id, kind, path, stem, replace=replace)
+            row["media"] += 1
+        except FileExistsError:
+            continue
+        except Exception as exc:
+            ctx.logger.warning("%s: %s did not come across: %s", row["name"], kind, exc)
+            refused.add(mapping.folder_of(game, path))
+    row["skipped_media"] = sorted(
+        {*mapping.unmapped_kinds(source_id, game, kinds), *refused} - {""})
+
+
 def _kept(details: dict, mode: str, chosen: tuple[str, ...],
           gaps: tuple[str, ...] = ()) -> dict:
     """Of the source's details, those a game matched to the catalog keeps. What is not
@@ -311,15 +329,7 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
                     ctx.logger.warning("%s: its details did not get written: %s", name, again)
 
     if "media" not in cleared:
-        for kind, path in mapping.media_for(source_id, game, kinds):
-            try:
-                ctx.games.put_media(game_id, kind, path, stem, replace=not existing)
-                row["media"] += 1
-            except FileExistsError:
-                continue
-            except Exception as exc:
-                ctx.logger.warning("%s: %s did not come across: %s", name, kind, exc)
-        row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
+        _place_media(ctx, game_id, source_id, game, kinds, stem, not existing, row)
 
     # After the table, because the ROM comes out of the table. A game with no ROM has
     # nothing keyed on it, which is most of a library and not a failure. A filled game's
@@ -369,15 +379,7 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
                 ctx.logger.warning("%s: the game file did not come across: %s", name, exc)
                 row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
     if "media" not in cleared:
-        for kind, path in mapping.media_for(source_id, game, kinds):
-            try:
-                ctx.games.put_media(game_id, kind, path, "", replace=False)
-                row["media"] += 1
-            except FileExistsError:
-                continue
-            except Exception as exc:
-                ctx.logger.warning("%s: %s did not come across: %s", name, kind, exc)
-        row["skipped_media"] = mapping.unmapped_kinds(source_id, game, kinds)
+        _place_media(ctx, game_id, source_id, game, kinds, "", False, row)
     if row["table"] and sources:
         _bring_keyed(ctx, game_id, game, name, rom, sources, row)
     return row

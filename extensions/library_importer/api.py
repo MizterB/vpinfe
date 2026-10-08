@@ -721,6 +721,13 @@ def build(ctx: Any) -> None:
                  ", ".join(ctx.t(f"unmatched.{why}", count=count)
                            for why, count in sorted(left.items()))]]
 
+    def _left_behind(folder: str, why: str, count: int) -> str:
+        if why == "pages":
+            return ctx.t("wizard.summary.left_behind_pages", folder=folder, count=count)
+        if why == "videos":
+            return ctx.t("wizard.summary.left_behind_videos", folder=folder, count=count)
+        return ctx.t("wizard.summary.left_behind_folder", folder=folder, count=count)
+
     def _where(source: Any) -> str:
         if source.path:
             return str(source.path)
@@ -784,9 +791,8 @@ def build(ctx: Any) -> None:
             left = mapping.left_behind(library.source_id, games, ctx.games.kinds())
             if left:
                 rows.append([ctx.t("wizard.summary.left_behind"),
-                             ", ".join(ctx.t("wizard.summary.left_behind_folder",
-                                             folder=folder, count=count)
-                                       for folder, count in left.items())])
+                             ", ".join(_left_behind(folder, why, count)
+                                       for (folder, why), count in left.items())])
 
         ready = bool(games) or mode == "as_is"
         reason = short or ("" if ready else ctx.t("reason.nothing_left"))

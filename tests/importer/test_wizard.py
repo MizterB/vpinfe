@@ -302,7 +302,18 @@ class SummaryShapeTests(WizardCase):
         found = self._check(FIXTURE)
 
         left = dict(one for one in found["summary"] if len(one) == 2)["Left behind"]
-        self.assertEqual(left, "Flyer Images/Inside1 (1), Real DMD Videos (1)")
+        self.assertEqual(left, "Flyer Images/Inside1 (1), Real DMD Videos (1), "
+                               "Wheel Images, later pages (1)")
+
+    def test_a_clip_in_the_cards_folder_is_named_as_videos(self) -> None:
+        source = self.root / "pinballx"
+        shutil.copytree(FIXTURE, source)
+        (source / "Media" / "Instruction Cards" / "Taxi.mp4").write_bytes(b"a clip")
+
+        found = self._check(source)
+
+        left = dict(one for one in found["summary"] if len(one) == 2)["Left behind"]
+        self.assertIn("Instruction Cards videos (1)", left)
 
     def test_the_summary_counts_the_games_whose_play_history_comes_across(self) -> None:
         source = self.root / "pinballx"

@@ -14,7 +14,7 @@ import re
 import unicodedata
 from pathlib import Path
 
-from .source import SourceGame
+from .source import SourceGame, SourceMedia
 
 REPLACEMENT = "�"
 
@@ -60,8 +60,8 @@ POPPER_KINDS = {
     "Wheel": "wheel",
     "Topper": "topper",
     "Loading": "loading",
-    "GameInfo": "instruction_card",
-    "GameHelp": "rule_sheet",
+    "GameInfo": "flyer",
+    "GameHelp": "instruction_card",
     "Audio": "audio",
     "AudioLaunch": "audio_launch",
 }
@@ -75,6 +75,10 @@ MOVING = {
     "topper": "topper_video",
 }
 VIDEO_SUFFIXES = frozenset({".mp4", ".m4v", ".mkv", ".avi", ".mov", ".webm", ".f4v"})
+# These two kinds take pictures only, and a source's folder for them can hold a clip or a
+# Flash file beside the pictures.
+PICTURES_ONLY = frozenset({"flyer", "instruction_card"})
+NOT_A_PICTURE = VIDEO_SUFFIXES | {".swf", ".wmv", ".mpg", ".mpeg", ".flv", ".ogv", ".3gp"}
 
 KINDS_BY_SOURCE = {
     "pinballx": PINBALLX_KINDS,
@@ -85,20 +89,76 @@ KINDS_BY_SOURCE = {
 
 
 def media_for(source_id: str, game: SourceGame, known: tuple[str, ...]) -> list[tuple[str, str]]:
-    """(kind, path) for every file we have a slot for.
+    """(kind, path) for each kind core stores (`known`): its first page, one file."""
+    return _chosen(source_id, game, known)[0]
 
-    `known` is what core says it stores. A folder this build has no kind for is left
-    behind rather than guessed at - PinballX's full-DMD menu video is a real example, and
-    putting it somewhere approximate would be worse than not carrying it.
-    """
+
+def held_back(source_id: str, game: SourceGame,
+              known: tuple[str, ...]) -> list[tuple[str, str, str]]:
+    """(source folder, path, why) for each file of a kind we have a slot for that is not
+    placed: `pages` for one that is not the kind's first page, `videos` for a clip or a
+    Flash file in a folder of a kind that takes pictures only."""
+    return _chosen(source_id, game, known)[1]
+
+
+def folder_of(game: SourceGame, path: str) -> str:
+    """The source folder a game's file was found in."""
+    return next((item.source_kind for item in game.media if item.path == path), "")
+
+
+def _chosen(source_id: str, game: SourceGame, known: tuple[str, ...]
+            ) -> tuple[list[tuple[str, str]], list[tuple[str, str, str]]]:
     table = KINDS_BY_SOURCE.get(source_id, {})
-    found = []
+    forms = _name_forms(game)
+    by_kind: dict[str, list[SourceMedia]] = {}
+    held: list[tuple[str, str, str]] = []
     for item in game.media:
-        kind = table.get(item.source_kind, "")
-        kind = _moving_form(kind, item.path)
-        if kind and kind in known:
-            found.append((kind, item.path))
-    return found
+        kind = _moving_form(table.get(item.source_kind, ""), item.path)
+        if not kind or kind not in known:
+            continue
+        if kind in PICTURES_ONLY and Path(item.path).suffix.lower() in NOT_A_PICTURE:
+            held.append((item.source_kind, item.path, "videos"))
+            continue
+        by_kind.setdefault(kind, []).append(item)
+    placed = []
+    for kind, items in by_kind.items():
+        first, *later = sorted(items, key=lambda one: _page_order(forms, one))
+        placed.append((kind, first.path))
+        held += [(one.source_kind, one.path, "pages") for one in later]
+    return placed, held
+
+
+_NOT_IN_A_FILE_NAME = str.maketrans("", "", '<>:"/\\|?*')
+
+
+def _name_forms(game: SourceGame) -> list[str]:
+    """What a source may have filed a game's files under, longest first: the key and the
+    display name, as written and with the characters a Windows file name cannot hold
+    dropped."""
+    forms = set()
+    for name in (game.key, game.display_name):
+        written = unicodedata.normalize("NFC", name).lower().strip()
+        forms.add(written)
+        forms.add(" ".join(written.translate(_NOT_IN_A_FILE_NAME).split()))
+    return sorted((one for one in forms if one), key=len, reverse=True)
+
+
+def _page_order(forms: list[str], item: SourceMedia) -> tuple[int, int, str, bool, str]:
+    """Where a file stands among a game's files of one kind: the one named for the game
+    alone first, then those with a number after the name by that number as a number, then
+    the rest by what follows the name, then a file whose name carries none of the game's.
+    The system's own file beats the shared folder's at the same place, and the path settles
+    what is left, so the order never depends on how a folder was listed."""
+    stem = unicodedata.normalize("NFC", Path(item.path).stem).lower()
+    rest = next((stem[len(name):] for name in forms if stem.startswith(name)), None)
+    if rest is None:
+        return (3, 0, stem, item.shared, item.path)
+    rest = rest.strip()
+    if not rest:
+        return (0, 0, "", item.shared, item.path)
+    if rest.isascii() and rest.isdigit():
+        return (1, int(rest), "", item.shared, item.path)
+    return (2, 0, rest, item.shared, item.path)
 
 
 def _moving_form(kind: str, path: str) -> str:
@@ -110,9 +170,7 @@ def _moving_form(kind: str, path: str) -> str:
     """
     if kind not in MOVING:
         return kind
-    from pathlib import Path as _Path
-
-    return MOVING[kind] if _Path(path).suffix.lower() in VIDEO_SUFFIXES else kind
+    return MOVING[kind] if Path(path).suffix.lower() in VIDEO_SUFFIXES else kind
 
 
 def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...]) -> list[str]:
@@ -123,23 +181,26 @@ def unmapped_kinds(source_id: str, game: SourceGame, known: tuple[str, ...]) -> 
                    not in known})
 
 
-def left_behind(source_id: str, games: list[SourceGame], known: tuple[str, ...]) -> dict[str, int]:
-    """Files by source folder that have no slot, across `games`.
+def left_behind(source_id: str, games: list[SourceGame],
+                known: tuple[str, ...]) -> dict[tuple[str, str], int]:
+    """Files that are not placed, counted by (source folder, why) across `games`.
 
-    A shared folder is read once per system, so a file is counted once however many
-    systems list it.
+    `why` is "" for a folder we have no slot for, and `pages` or `videos` as `held_back`
+    gives them. A shared folder is read once per system, so a file is counted once
+    however many systems list it.
     """
     table = KINDS_BY_SOURCE.get(source_id, {})
     seen: set[str] = set()
-    counts: dict[str, int] = {}
+    counts: dict[tuple[str, str], int] = {}
     for game in games:
-        for item in game.media:
-            if item.path in seen:
+        unplaced = [(item.source_kind, item.path, "") for item in game.media
+                    if _moving_form(table.get(item.source_kind, ""), item.path)
+                    not in known]
+        for folder, path, why in [*unplaced, *held_back(source_id, game, known)]:
+            if path in seen:
                 continue
-            if _moving_form(table.get(item.source_kind, ""), item.path) in known:
-                continue
-            seen.add(item.path)
-            counts[item.source_kind] = counts.get(item.source_kind, 0) + 1
+            seen.add(path)
+            counts[(folder, why)] = counts.get((folder, why), 0) + 1
     return dict(sorted(counts.items()))
 
 

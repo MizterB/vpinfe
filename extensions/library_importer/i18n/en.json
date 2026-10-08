@@ -104,6 +104,8 @@
   "wizard.summary.comes_across": "What comes across",
   "wizard.summary.left_behind": "Left behind",
   "wizard.summary.left_behind_folder": "{folder} ({count})",
+  "wizard.summary.left_behind_pages": "{folder}, later pages ({count})",
+  "wizard.summary.left_behind_videos": "{folder} videos ({count})",
   "wizard.summary.confirm": {
     "one": "Import {count} game",
     "other": "Import {count} games"

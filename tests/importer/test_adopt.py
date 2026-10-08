@@ -196,6 +196,64 @@ class ImportTests(AdoptCase):
         return {row["key"]: (row["expected"], row["actual"], row["short"])
                 for row in plan.against(plan.expected(made), report)}
 
+    def _brought(self, source_id: str, key: str, files: dict[str, tuple[str, bytes]]):
+        """One game with a file in each of the folders given, imported on its own.
+
+        `files` maps a file name to the source folder it sits in and its bytes. Answers the
+        row and the names that landed beside the game.
+        """
+        from vpinfe_ext_library_importer import adopt
+        from vpinfe_ext_library_importer.source import SourceGame, SourceMedia
+
+        folder = self.root / f"artwork {key}"
+        folder.mkdir()
+        self._ctx.files.set_roots([str(FIXTURE), str(folder)])
+        media = []
+        for name, (source_kind, data) in files.items():
+            (folder / name).write_bytes(data)
+            media.append(SourceMedia(source_kind=source_kind, path=str(folder / name)))
+        game = SourceGame(key=key, media=tuple(media))
+        row = adopt._one(self._ctx, source_id, game, self._ctx.games.kinds(), "")
+        landed = self.library / key / "medias"
+        return row, sorted(one.name for one in landed.iterdir()) if landed.is_dir() else []
+
+    def test_poppers_info_screen_is_the_flyer_and_its_help_screen_the_card(self) -> None:
+        row, landed = self._brought("popper", "Doom", {
+            "Doom.png": ("GameInfo", b"the flyer"),
+            "Doom01.png": ("GameHelp", b"the card")})
+
+        self.assertEqual(row["media"], 2)
+        self.assertTrue(any(one.startswith("(Flyer)") for one in landed), landed)
+        self.assertTrue(any(one.startswith("(InstructionCard)") for one in landed), landed)
+
+    def test_the_first_page_is_the_one_placed_whatever_order_the_folder_lists(self) -> None:
+        row, landed = self._brought("popper", "Doom", {
+            "Doom02.png": ("GameHelp", b"page three"),
+            "Doom01.png": ("GameHelp", b"page two"),
+            "Doom.png": ("GameHelp", b"page one")})
+
+        self.assertEqual(row["media"], 1)
+        cards = self.library / "Doom" / "medias"
+        found = [one.read_bytes() for one in cards.iterdir()]
+        self.assertEqual(found, [b"page one"], landed)
+
+    def test_a_video_in_a_picture_folder_never_reaches_core(self) -> None:
+        with unittest.mock.patch.object(self._ctx.games, "put_media") as put:
+            row, _landed = self._brought("popper", "Doom", {
+                "Doom.png": ("GameHelp", b"the card"),
+                "Doom.mp4": ("GameHelp", b"a clip")})
+
+        self.assertEqual([call.args[2].rsplit("/", 1)[-1] for call in put.call_args_list],
+                         ["Doom.png"])
+        self.assertEqual(row["media"], 1)
+
+    def test_a_file_core_refuses_is_named_on_the_row_and_not_counted(self) -> None:
+        row, _landed = self._brought("pinballx", "Doom", {
+            "Doom.pdf": ("Instruction Cards", b"not a picture")})
+
+        self.assertEqual(row["media"], 0)
+        self.assertEqual(row["skipped_media"], ["Instruction Cards"])
+
     def test_a_cleared_media_source_brings_no_artwork_and_the_report_agrees(self) -> None:
         from vpinfe_ext_library_importer import plan
 
