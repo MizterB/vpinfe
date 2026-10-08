@@ -16,6 +16,7 @@ from __future__ import annotations
 import errno
 import logging
 import os
+import unicodedata
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -218,8 +219,11 @@ class ExtensionGames:
         folder = game_service.create_game(name, location)
         from common.games.game_repository import all_games
 
+        wanted = unicodedata.normalize("NFC", str(folder.resolve()))
         made = next((game for game in all_games()
-                     if Path(str(game.full_path_game)).resolve() == folder.resolve()), None)
+                     if unicodedata.normalize(
+                         "NFC", str(Path(str(game.full_path_game)).resolve())) == wanted),
+                    None)
         if made is None:
             logger.warning("%s created %s, which is not among the games this device reads",
                            self._name, folder)

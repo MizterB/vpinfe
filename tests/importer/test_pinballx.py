@@ -305,9 +305,140 @@ class ReadTests(unittest.TestCase):
 
             library = self.pinballx.read(root)
 
-        self.assertIn(f"{VPX}.xml is not UTF-8, so it was read as Windows-1252",
-                      library.notes)
+        self.assertIn(f"{VPX}.xml has characters that are not UTF-8, so those were read "
+                      "as Windows-1252", library.notes)
         self.assertTrue(any("no name" in note for note in library.notes), library.notes)
+
+
+class EncodingTests(unittest.TestCase):
+    """A database that is UTF-8 with a stray Windows-1252 byte somewhere in it."""
+
+    def setUp(self) -> None:
+        self.pinballx = _reader()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.path = Path(self._tmp.name) / "Visual Pinball X.xml"
+
+    def _read(self, raw: bytes):
+        self.path.write_bytes(raw)
+        games, notes = self.pinballx.read_database(self.path)
+        return {game.key: game for game in games}, notes
+
+    def test_one_stray_byte_leaves_every_other_entry_as_it_was_written(self) -> None:
+        raw = ("<menu>"
+               "<game name='Tron™'><description>Tron™ (Bally 1982)</description></game>"
+               "<game name='Café'><description>Café (Test 2000)</description></game>"
+               "<game name='Stray'><description>Stray @ (Test 2001)</description></game>"
+               "</menu>").encode().replace(b"@", b"\xb7")
+
+        games, notes = self._read(raw)
+
+        self.assertEqual(sorted(games), ["Café", "Stray", "Tron™"])
+        self.assertEqual(games["Tron™"].display_name, "Tron™ (Bally 1982)")
+        self.assertEqual(games["Stray"].display_name, "Stray \u00b7 (Test 2001)")
+        self.assertEqual(notes, [f"{self.path.name} has characters that are not UTF-8, "
+                                 "so those were read as Windows-1252"])
+
+    def test_a_large_database_in_windows_1252_reads_in_one_pass(self) -> None:
+        import time
+
+        entry = "<game name='Caf\u00e9'><description>Caf\u00e9</description></game>"
+        raw = f"<menu>{entry * 40000}</menu>".encode("cp1252")
+
+        started = time.monotonic()
+        text, stray, lost = self.pinballx._decoded(raw)
+
+        self.assertLess(time.monotonic() - started, 1.0)
+        self.assertEqual((text.count("\u00e9"), stray, lost), (80000, True, False))
+
+    def test_a_database_that_is_all_utf_8_says_nothing(self) -> None:
+        games, notes = self._read(
+            "<menu><game name='Café'/></menu>".encode("utf-8-sig"))
+
+        self.assertEqual(list(games), ["Café"])
+        self.assertEqual(notes, [])
+
+    def test_a_byte_windows_1252_does_not_define_is_named_as_lost(self) -> None:
+        games, notes = self._read(b"<menu><game name='Odd \x81'/></menu>")
+
+        self.assertEqual(len(games), 1)
+        self.assertTrue(any("may be wrong" in note
+                            for note in notes), notes)
+
+
+class NamesTests(unittest.TestCase):
+    """A source's names against a share's file names."""
+
+    def setUp(self) -> None:
+        self.pinballx = _reader()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name) / "source"
+        shutil.copytree(FIXTURE, self.root)
+        self.images = self.root / "Media" / VPX / "Table Images"
+
+    def _add_game(self, name: str, description: str) -> None:
+        database = self.root / "Databases" / VPX / f"{VPX}.xml"
+        database.write_text(database.read_text(encoding="utf-8").replace(
+            "</menu>", f"<game name=\"{name}\"><description>{description}</description>"
+                       "</game></menu>"), encoding="utf-8")
+
+    def _images(self, key: str) -> list[str]:
+        library = self.pinballx.read(self.root)
+        found = next(game for game in library.games if game.key == key)
+        return sorted(Path(item.path).name for item in found.media
+                      if item.source_kind == "Table Images")
+
+    def test_a_character_a_file_name_cannot_hold_is_not_in_the_media_file(self) -> None:
+        self._add_game("Terminator 2: Judgment Day", "Terminator 2: Judgment Day (Williams 1991)")
+        (self.images / "Terminator 2 Judgment Day (Williams 1991).png").write_bytes(b"x")
+
+        self.assertEqual(self._images("Terminator 2: Judgment Day"),
+                         ["Terminator 2 Judgment Day (Williams 1991).png"])
+
+    def test_a_file_that_kept_the_character_is_still_found(self) -> None:
+        self._add_game("Terminator 2: Judgment Day", "Terminator 2: Judgment Day (Williams 1991)")
+        (self.images / "Terminator 2: Judgment Day.png").write_bytes(b"x")
+
+        self.assertEqual(self._images("Terminator 2: Judgment Day"),
+                         ["Terminator 2: Judgment Day.png"])
+
+    def test_a_name_with_only_those_characters_matches_nothing(self) -> None:
+        self._add_game("???", "???")
+        (self.images / "Unclaimed.png").write_bytes(b"x")
+
+        self.assertEqual(self._images("???"), [])
+
+    def test_a_name_written_exactly_beats_one_that_only_matches_with_a_character_dropped(
+            self) -> None:
+        self._add_game("Foo: Bar", "Foo: Bar")
+        self._add_game("Foo Bar", "Foo Bar")
+        (self.images / "Foo Bar.png").write_bytes(b"x")
+
+        self.assertEqual(self._images("Foo Bar"), ["Foo Bar.png"])
+        self.assertEqual(self._images("Foo: Bar"), [])
+
+    def test_a_space_left_either_side_of_a_dropped_character_is_one(self) -> None:
+        self._add_game("Dr. Who : The Game", "Dr. Who : The Game")
+        (self.images / "Dr. Who The Game.png").write_bytes(b"x")
+
+        self.assertEqual(self._images("Dr. Who : The Game"), ["Dr. Who The Game.png"])
+
+    def test_a_decomposed_media_name_is_found_by_the_composed_one(self) -> None:
+        self._add_game("Caf\u00e9", "Caf\u00e9 (Test 2000)")
+        (self.images / "Cafe\u0301 (Test 2000).png").write_bytes(b"x")
+
+        self.assertEqual(len(self._images("Caf\u00e9")), 1)
+
+    def test_a_decomposed_table_file_is_the_composed_games_table(self) -> None:
+        tables = self.root / "tables"
+        tables.mkdir()
+        (tables / "Cafe\u0301.vpx").write_bytes(b"x")
+
+        index = self.pinballx._table_index(tables)
+
+        self.assertTrue(self.pinballx._table_file(index, "Caf\u00e9").endswith(".vpx"))
+        self.assertTrue(self.pinballx._table_file(index, "Cafe\u0301").endswith(".vpx"))
 
 
 class TableFileTests(unittest.TestCase):

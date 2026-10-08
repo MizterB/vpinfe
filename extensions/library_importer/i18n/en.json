@@ -146,7 +146,7 @@
   "note.unopened": "{file} could not be opened",
   "note.read_stopped": "{file} could not be read to the end",
   "note.no_config": "No {config} and no {settings}, so the emulators were not read",
-  "note.encoding_fallback": "{file} is not UTF-8, so it was read as Windows-1252",
+  "note.encoding_fallback": "{file} has characters that are not UTF-8, so those were read as Windows-1252",
   "note.bytes_lost": "{file} is in no encoding this reads cleanly, so some characters may be wrong",
   "note.no_encoding": "{file} is not in an encoding this can read",
   "note.not_registry": "{file} does not look like a registry export",

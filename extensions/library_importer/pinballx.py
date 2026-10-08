@@ -16,10 +16,12 @@ which is why a source with a database needs to be asked almost nothing.
 
 from __future__ import annotations
 
+import codecs
 import configparser
 import logging
 import os
 import re
+import unicodedata
 import xml.etree.ElementTree as ElementTree
 from collections.abc import Callable
 from pathlib import Path, PureWindowsPath
@@ -337,6 +339,7 @@ def _table_index(tables_dir: Path,
                 stem, suffix = os.path.splitext(entry.name)
                 if not plays(suffix):
                     continue
+                stem = _composed(stem)
                 exact.setdefault(stem, entry.path)
                 folded.setdefault(stem.lower(), entry.path)
     except OSError:
@@ -351,7 +354,25 @@ def _table_file(index: tuple[dict[str, str], dict[str, str]], key: str) -> str:
     from a case-sensitive share is the ordinary way this goes wrong.
     """
     exact, folded = index
+    key = _composed(key)
     return exact.get(key) or folded.get(key.lower(), "")
+
+
+def _composed(name: str) -> str:
+    """One Unicode form for comparing names. A share hands file names back decomposed
+    (`i` and a combining diaeresis) where the database has the composed letter."""
+    return unicodedata.normalize("NFC", name)
+
+
+_NOT_IN_A_FILE_NAME = str.maketrans("", "", '<>:"/\\|?*')
+
+
+def _filed_as(name: str) -> tuple[str, str]:
+    """The names a game's media might be filed under: as written, and with the characters
+    a Windows file name cannot hold dropped. Either may be "" when it says nothing."""
+    written = _composed(name).lower()
+    dropped = " ".join(written.translate(_NOT_IN_A_FILE_NAME).split())
+    return written.strip(), "" if dropped == written.strip() else dropped
 
 
 # What the frontend leaves behind when it replaces a media file. A real library held
@@ -360,17 +381,36 @@ def _table_file(index: tuple[dict[str, str], dict[str, str]], key: str) -> str:
 BACKUP_SUFFIX = re.compile(r"\.old\[\d+\]$", re.IGNORECASE)
 
 
+def _stray_bytes_as_windows_1252(exc: UnicodeError) -> tuple[str, int]:
+    if not isinstance(exc, UnicodeDecodeError):
+        raise exc
+    return bytes(exc.object[exc.start:exc.end]).decode("cp1252", "replace"), exc.end
+
+
+codecs.register_error("windows_1252_for_strays", _stray_bytes_as_windows_1252)
+
+
+def _decoded(raw: bytes) -> tuple[str, bool, bool]:
+    """The text, with only the bytes that are not UTF-8 read as Windows-1252.
+
+    Answers the text, whether any byte was read that way, and whether one was a byte
+    Windows-1252 does not define, which comes out as U+FFFD.
+    """
+    try:
+        return raw.decode("utf-8-sig"), False, False
+    except UnicodeDecodeError:
+        text = raw.decode("utf-8-sig", "windows_1252_for_strays")
+        return text, True, text.count("\ufffd") > raw.count("\ufffd".encode())
+
+
 def _database_text(path: Path) -> tuple[str | None, list[Note]]:
     """The database as text, whatever it was written in.
 
     These files carry no encoding declaration and are not reliably one encoding. One
-    Windows-1252 byte inside a table name - a middle dot, say - is enough to make a
-    strict parse fail on the whole file and lose every game in it.
-
-    That is the shape worth guarding: an all-or-nothing loss caused by one cosmetic
-    character in one name. So the encoding is tried rather than assumed, and the last
-    step replaces what it cannot decode instead of refusing - a game whose name has one
-    wrong character is a far better answer than no library.
+    Windows-1252 byte inside a table name is enough to make a strict parse fail on the
+    whole file and lose every game in it, so what is not UTF-8 is read as Windows-1252
+    and the rest is left alone. A game whose name has one wrong character is a far better
+    answer than no library.
     """
     try:
         raw = path.read_bytes()
@@ -378,15 +418,11 @@ def _database_text(path: Path) -> tuple[str | None, list[Note]]:
         logger.warning("Could not read %s: %s", path, exc)
         return None, [failed(t("note.unreadable", file=path.name), exc)]
 
-    for encoding in ("utf-8-sig", "utf-8"):
-        try:
-            return raw.decode(encoding), []
-        except UnicodeDecodeError:
-            continue
-    try:
-        return raw.decode("cp1252"), [t("note.encoding_fallback", file=path.name)]
-    except UnicodeDecodeError:
-        return raw.decode("utf-8", "replace"), [t("note.bytes_lost", file=path.name)]
+    text, stray, lost = _decoded(raw)
+    notes: list[Note] = [t("note.encoding_fallback", file=path.name)] if stray else []
+    if lost:
+        notes.append(t("note.bytes_lost", file=path.name))
+    return text, notes
 
 
 def read_database(path: Path | str, tables_dir: str = "",
@@ -441,8 +477,13 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
     folded: dict[str, str] = {}
     for game in games:
         for name in (game.key, game.display_name):
-            if name:
-                folded.setdefault(name.lower(), game.key)
+            for form in _filed_as(name)[:1]:
+                if form:
+                    folded.setdefault(form, game.key)
+    for game in games:
+        for name in (game.key, game.display_name):
+            if form := _filed_as(name)[1]:
+                folded.setdefault(form, game.key)
     order = sorted(folded, key=len, reverse=True)
 
     found: dict[str, list[SourceMedia]] = {game.key: [] for game in games}
@@ -452,7 +493,7 @@ def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGa
             stem = Path(filename).stem
             if BACKUP_SUFFIX.search(stem):
                 continue
-            stem = stem.lower()
+            stem = _composed(stem).lower()
             owner = next((folded[name] for name in order if stem.startswith(name)), None)
             if owner is not None:
                 found[owner].append(SourceMedia(source_kind=folder, path=path))

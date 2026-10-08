@@ -146,7 +146,7 @@
   "note.unopened": "{file} çöûŀđ ñöţ ƀè öþèñèđ",
   "note.read_stopped": "{file} çöûŀđ ñöţ ƀè řèàđ ţö ţĥè èñđ",
   "note.no_config": "Ñö {config} àñđ ñö {settings}, šö ţĥè èɱûŀàţöřš ŵèřè ñöţ řèàđ",
-  "note.encoding_fallback": "{file} îš ñöţ ÛŢƑ-8, šö îţ ŵàš řèàđ àš Ŵîñđöŵš-1252",
+  "note.encoding_fallback": "{file} ĥàš çĥàřàçţèřš ţĥàţ àřè ñöţ ÛŢƑ-8, šö ţĥöšè ŵèřè řèàđ àš Ŵîñđöŵš-1252",
   "note.bytes_lost": "{file} îš îñ ñö èñçöđîñĝ ţĥîš řèàđš çŀèàñŀý, šö šöɱè çĥàřàçţèřš ɱàý ƀè ŵřöñĝ",
   "note.no_encoding": "{file} îš ñöţ îñ àñ èñçöđîñĝ ţĥîš çàñ řèàđ",
   "note.not_registry": "{file} đöèš ñöţ ŀööķ ŀîķè à řèĝîšţřý èẋþöřţ",

@@ -90,6 +90,20 @@ class ExtensionWriteTests(TempTree):
             self.extension.set_default_table(GAME_ID, "tbl0009999")
         self.assertNotIn("default_table", self._vpinfe())
 
+    def test_a_folder_the_share_hands_back_decomposed_is_still_the_one_made(self) -> None:
+        """A share stores `é` as `e` and a combining accent, and the folder was made with
+        the composed letter, so a plain path compare finds nothing and the import fails."""
+        import unicodedata
+
+        made = self.root / "Caf\u00e9"
+        made.mkdir()
+        listed = fake_game(unicodedata.normalize("NFD", str(made)), "Caf\u00e9", meta=INFO)
+
+        with patch("common.games.game_service.create_game", return_value=made), \
+                patch("common.games.game_repository.all_games", return_value=[listed]), \
+                patch("common.games.game_identity.ensure_id", return_value=GAME_ID):
+            self.assertEqual(self.extension.create("Caf\u00e9"), GAME_ID)
+
     def test_rating_a_game_lands_on_the_record(self) -> None:
         self.assertEqual(self.extension.rate_game(GAME_ID, 4), {"rating": 4})
 
