@@ -10,15 +10,20 @@ library is somebody's own.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import tempfile
+import time
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
+from unittest import mock
 
 from common.extensions import host
 
 host.Registry().load(host.BUNDLED_DIR / "library_importer")
 
+from vpinfe_ext_library_importer import plan as plan_for  # noqa: E402
 from vpinfe_ext_library_importer import popper  # noqa: E402
 
 EMULATORS = ("EMUID integer primary key, EmuName text, Description text, DirGames text, "
@@ -137,6 +142,98 @@ class PlayableTests(PopperCase):
                              [(1, 1, "A", "A.vpx", "A", 1, "", "", "")])
 
         self.assertEqual([one.name for one in popper.read(root).systems], ["Something"])
+
+
+STATS = ("UniqueID integer primary key, GameID integer, LastPlayed datetime, "
+         "NumberPlays integer default 0, TimePlayedSecs integer, HighScores text")
+
+
+class StatsTests(PopperCase):
+    """What Popper remembers about playing, which lives in the database itself."""
+
+    def _stats(self, *rows) -> Path:
+        root = self._library(
+            [(1, "Visual Pinball X", "", "", 1, "vpx")],
+            [(1, 1, "Leprechaun King (Orbital 2020)", "a.vpx", "Leprechaun King", 1,
+              "", "", ""),
+             (2, 1, "2 in 1 (Bally 1964)", "b.vpx", "2 in 1", 1, "", "", ""),
+             (3, 1, "Joust (Bally 1969)", "c.vpx", "Joust", 1, "", "", "")])
+        db = sqlite3.connect(root / popper.DATABASE)
+        db.execute(f"create table GamesStats ({STATS})")
+        db.executemany("insert into GamesStats (GameID, LastPlayed, NumberPlays, "
+                       "TimePlayedSecs) values (?, ?, ?, ?)", rows)
+        db.commit()
+        db.close()
+        return root / popper.DATABASE
+
+    def test_a_played_game_brings_its_count_time_and_date(self) -> None:
+        found, notes = popper.read_stats(
+            self._stats((1, "2021-02-26 22:26:43.645", 7, 386)))
+
+        self.assertEqual(notes, [])
+        self.assertEqual(found[0].name, "Leprechaun King (Orbital 2020)")
+        self.assertEqual(found[0].play_count, 7)
+        self.assertEqual(found[0].play_time_seconds, 386)
+
+    @unittest.skipUnless(hasattr(time, "tzset"), "no tzset on this platform")
+    def test_the_date_is_read_as_the_time_somebody_was_standing_there(self) -> None:
+        """No zone is written beside it, so it is local - reading it as UTC moves every
+        date by however far the machine is from Greenwich."""
+        path = self._stats((1, "2021-02-26 22:26:43.645", 7, 386))
+        with mock.patch.dict(os.environ, {"TZ": "America/New_York"}):
+            time.tzset()
+            self.addCleanup(time.tzset)
+            found, _ = popper.read_stats(path)
+
+        self.assertEqual(found[0].last_played,
+                         int(datetime(2021, 2, 27, 3, 26, 43, tzinfo=UTC).timestamp()))
+
+    def test_a_date_without_milliseconds_is_read_too(self) -> None:
+        with_ms, _ = popper.read_stats(self._stats((1, "2021-02-26 22:26:43.000", 7, 386)))
+        self.root.joinpath(popper.DATABASE).unlink()
+        without, _ = popper.read_stats(self._stats((1, "2021-02-26 22:26:43", 7, 386)))
+
+        self.assertEqual(without[0].last_played, with_ms[0].last_played)
+
+    def test_a_date_before_1970_does_not_stop_the_read(self) -> None:
+        found, notes = popper.read_stats(self._stats((1, "1900-01-01 00:00:00", 7, 386)))
+
+        self.assertEqual(notes, [])
+        self.assertEqual(found[0].play_count, 7)
+
+    def test_a_game_nobody_played_is_left_out_and_not_zeroed(self) -> None:
+        """A row Popper made without a play has no count and no date. Carrying it would
+        overwrite what is already here with nothing."""
+        found, _ = popper.read_stats(self._stats((1, None, 0, None), (2, "", 0, 0),
+                                                 (3, "2026-09-28 20:11:00.000", 1, 95)))
+
+        self.assertEqual([one.name for one in found], ["Joust (Bally 1969)"])
+
+    def test_a_database_with_no_statistics_says_nothing(self) -> None:
+        root = self._library([], [])
+
+        self.assertEqual(popper.read_stats(root / popper.DATABASE), ([], []))
+
+    def test_a_file_that_is_not_a_database_is_reported(self) -> None:
+        path = self.root / popper.DATABASE
+        path.write_bytes(b"not a database, and long enough to be read as one" * 8)
+
+        found, notes = popper.read_stats(path)
+
+        self.assertEqual(found, [])
+        self.assertEqual(len(notes), 1)
+
+    def test_the_plan_takes_the_history_from_the_database_it_reads_the_games_from(
+            self) -> None:
+        path = self._stats((1, "2021-02-26 22:26:43.645", 7, 386),
+                           (3, "2026-09-28 20:11:00.000", 1, 95))
+        library = popper.read(path.parent)
+
+        made = plan_for.build(library, [])
+
+        self.assertEqual(next(one.path for one in made.sources if one.key == "history"),
+                         str(path))
+        self.assertEqual(plan_for.expected(made)["history"], 2)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ from typing import Any
 
 from common.extensions.contract import words
 
-from . import folders, gamestats, mapping
+from . import folders, gamestats, mapping, popper
 from .source import Note, SourceGame, SourceLibrary, SourceSystem
 
 t = words("library_importer")
@@ -293,7 +293,9 @@ def derive_sources(library: SourceLibrary, chosen: dict | None = None) -> list[S
     guessed = {"tables": tables, "media": media,
                "roms": _under(working, ("VPinMAME", "roms"), ("roms",)),
                "altdata": _under(working, ("VPinMAME",), ()),
-               "history": _file_at(library.root, gamestats.STATS_FILE),
+               "history": _file_at(library.root, popper.DATABASE
+                                   if library.source_id == popper.SOURCE_ID
+                                   else gamestats.STATS_FILE),
                "registry": ""}
 
     found = []
@@ -436,7 +438,8 @@ def _history(path: str) -> tuple[dict[str, gamestats.Played], list[Note]]:
     """
     if not path:
         return {}, []
-    found, notes = gamestats.read(path)
+    read = popper.read_stats if Path(path).suffix.lower() == ".db" else gamestats.read
+    found, notes = read(path)
     return {_filed_as(one.name): one for one in found}, notes
 
 

@@ -120,6 +120,15 @@ class CheckTests(WizardCase):
         self.assertEqual(summary["Games"], "4")
         self.assertEqual(summary["Reads as"], "PinballX / PinballY")
 
+    def test_the_play_history_is_a_file_and_the_rest_are_folders(self) -> None:
+        """A folder check marks a file missing, and the history is one file."""
+        found = self._step(FIXTURE)
+        wants = {one["key"]: one.get("wants") for one in found["fields"]
+                 if one["type"] == "path"}
+
+        self.assertEqual(wants["history"], "file")
+        self.assertIsNone(wants["tables"])
+
     def test_a_kind_with_no_source_says_it_is_not_coming(self) -> None:
         """"No media" should be a choice somebody can see they made, not a silence
         they notice afterwards."""

@@ -448,6 +448,9 @@ def build(ctx: Any) -> None:
         fields: list[dict[str, Any]] = [{
             "key": source.key, "type": "path", "label": source.label,
             "value": source.path,
+            # Play history is one file - GameStats.csv or the Popper database - where
+            # every other source is a folder, and a folder check marks it missing.
+            **({"wants": "file"} if source.key == "history" else {}),
             "help": (ctx.t("wizard.sources.worked_out", help=source.help)
                      if source.derived else source.help),
         } for source in sources]

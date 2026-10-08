@@ -17,12 +17,14 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from common.extensions.contract import words
 
 from . import drivemap
+from .gamestats import Played
 from .source import Note, SourceGame, SourceLibrary, SourceMedia, SourceSystem, failed
 
 logger = logging.getLogger(__name__)
@@ -118,6 +120,67 @@ def _game_from(row: sqlite3.Row, tables_dir: str) -> SourceGame | None:
         table_file=table_file,
         extras={key: _text(row, key) for key in CARRIED if _text(row, key)},
     )
+
+
+def read_stats(path: Path | str) -> tuple[list[Played], list[Note]]:
+    """What Popper remembers about playing, from the `GamesStats` table in its database.
+
+    Keyed by the game's name, which is how the plan looks a game up. A game with no row,
+    or a row with no plays and no date, is left out rather than read as a zero.
+    """
+    path = Path(path)
+    if not path.is_file():
+        return [], []
+    try:
+        db = _open(path)
+    except sqlite3.Error as exc:
+        logger.warning("Could not open %s: %s", path, exc)
+        return [], [failed(t("note.unopened", file=path.name), exc)]
+    try:
+        if not db.execute("select 1 from sqlite_master where name = 'GamesStats'").fetchone():
+            return [], []
+        rows = list(db.execute(
+            "select g.GameName, s.NumberPlays, s.TimePlayedSecs, s.LastPlayed "
+            "from GamesStats s join Games g on g.GameID = s.GameID"))
+    except sqlite3.Error as exc:
+        logger.warning("Could not read %s to the end: %s", path, exc)
+        return [], [failed(t("note.read_stopped", file=path.name), exc)]
+    finally:
+        db.close()
+
+    found = []
+    for row in rows:
+        name = _text(row, "GameName")
+        played = Played(name=name, system="",
+                        play_count=_positive(row["NumberPlays"]),
+                        play_time_seconds=_positive(row["TimePlayedSecs"]),
+                        last_played=_when(row["LastPlayed"]))
+        if name and played.has_play_record:
+            found.append(played)
+    return found, []
+
+
+def _positive(value: Any) -> int | None:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _when(value: Any) -> int | None:
+    """`2026-09-20 21:14:05.100` as epoch seconds, read as local time (no zone is written)."""
+    said = str(value or "").strip()
+    if not said:
+        return None
+    for shape in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return int(datetime.strptime(said, shape).astimezone(UTC).timestamp())
+        except ValueError:
+            continue
+        except (OverflowError, OSError):
+            return None
+    return None
 
 
 def read_media(media_root: Path | str, games: list[SourceGame]) -> list[SourceGame]:
