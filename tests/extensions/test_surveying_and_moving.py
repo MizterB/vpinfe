@@ -221,7 +221,7 @@ class LibraryFolderTests(TempTree):
 
         self.assertIn("new_game_destination", offered())
         self.assertEqual(reader.reaches(), ("new_game_destination",))
-        self.assertEqual(writer.reaches(), ("use_library_folder",))
+        self.assertEqual(writer.reaches(), ("use_library_folder", "write_table_settings"))
         self.assertEqual(nothing.reaches().count("use_library_folder"), 0)
         with self.assertRaises(ContractError):
             nothing.use_library_folder("/anywhere")

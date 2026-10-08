@@ -758,6 +758,9 @@ class FoldersFoundTests(unittest.TestCase):
         self.assertFalse(found["music"].active)
 
 
+MAP = {"taxi_l1": "taxi_l4"}
+
+
 class RomsCountTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
@@ -776,6 +779,13 @@ class RomsCountTests(unittest.TestCase):
         names = {self.games[0].table_file: "taxi_l4"}
 
         self.assertEqual(self.bytes_of(roms=names, roms_dir=str(self.roms)), 1700)
+
+    def test_a_name_the_source_maps_counts_the_set_it_points_to(self) -> None:
+        names = {self.games[0].table_file: "taxi_l1"}
+
+        self.assertEqual(self.bytes_of(roms=names, roms_dir=str(self.roms)), 1000)
+        self.assertEqual(self.bytes_of(roms=names, roms_dir=str(self.roms),
+                                       real=lambda name: MAP.get(name, "")), 1700)
 
     def test_a_move_still_copies_the_rom(self) -> None:
         names = {self.games[0].table_file: "taxi_l4"}
@@ -842,6 +852,16 @@ class MissingRomsTests(unittest.TestCase):
         plan_for.attach_roms(made, library, {"/t/A.vpx": "afm_113b"})
 
         self.assertEqual([one.rom for one in made.matches], ["afm_113b", ""])
+
+    def test_a_name_the_source_maps_is_the_set_the_game_needs(self) -> None:
+        library = _library(_game("A", table_file="/t/A.vpx"))
+        made = self.plan(plan_for.Match(key="A", folder="A", machine="SS"))
+
+        plan_for.attach_roms(made, library, {"/t/A.vpx": "taxi_l1"},
+                             real=lambda name: MAP.get(name, ""))
+
+        self.assertEqual(made.matches[0].rom, "taxi_l4")
+        self.assertEqual(plan_for.missing_roms(made), 0)
 
 
 if __name__ == "__main__":

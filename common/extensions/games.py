@@ -434,6 +434,32 @@ class ExtensionGames:
         # path here - the same rule every other path this project hands out follows.
         return landing.relative_to(game_dir).as_posix()
 
+    def put_rom_alias(self, game_id: str, alias: str, rom: str) -> str:
+        """Write the game's ROM name map with one line: `alias` names `rom`.
+
+        The name a table's script asks for, and the ROM set that answers it. Answers with
+        the path it wrote, relative to the game. Never replaces: a game that has a name
+        map keeps it whole, and the line is not merged into it.
+        """
+        self._needs(GAMES_WRITE)
+        from common.games import library_folders
+        from common.uploads.asset_import_service import folder_for
+
+        names = (str(alias or "").strip(), str(rom or "").strip())
+        if not all(names) or any("," in one or "\n" in one for one in names):
+            raise ValueError(t("error.games.rom_needed", kind="rom_alias"))
+        game_dir = library_folders.writable_game_folder(self.folder(game_id))
+        into = folder_for("rom_alias", game_dir)
+        if into is None:
+            raise ValueError(t("error.games.no_folder", kind="rom_alias"))
+        landing = into / "alias.txt"
+        if landing.exists():
+            raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(landing))
+        into.mkdir(parents=True, exist_ok=True)
+        landing.write_text(f"{names[0]},{names[1]}\n", encoding="utf-8", newline="\n")
+        logger.info("%s wrote %s", self._name, landing)
+        return landing.relative_to(game_dir).as_posix()
+
     def put_media(self, game_id: str, kind: str, path: str | Path,
                   table_stem: str = "", replace: bool = True, page: int = 1) -> str:
         """Put a file in one of an entry's media slots. Answers with what it landed as.

@@ -350,7 +350,8 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
                   sized: Callable[[list[Path]], dict[Path, int]] | None = None,
                   roms: dict[str, str] | None = None, roms_dir: str = "",
                   named: dict[str, tuple[str, ...]] | None = None,
-                  saved: Saved | None = None) -> int:
+                  saved: Saved | None = None,
+                  real: Callable[[str], str] | None = None) -> int:
     """What a run writes, in bytes: the game files and what rides with them, unless they
     are moved, the artwork, the ROM set each game's file names where `roms_dir` has it
     with its scores and settings, and the saved files its script names.
@@ -361,7 +362,8 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
     PUP packs are not counted, being folders of sets rather than files.
 
     `roms` is the ROM each game file names, by path, as `ExtensionGames.roms_of` read it,
-    and `named` the saved names its script mentions, as `reads_of` read them.
+    and `named` the saved names its script mentions, as `reads_of` read them. `real` turns
+    a name the script asks for into the ROM set it loads, where the source keeps a map.
     `sized` measures a list of files at once, for a caller that can do it faster than one
     after another.
     """
@@ -374,6 +376,7 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
                        for name in _beside(companions_of, game.table_file)]
         wanted += [Path(path) for _kind, path in mapping.media_for(source_id, game, kinds)]
         rom = (roms or {}).get(game.table_file, "") if game.table_file else ""
+        rom = (real(rom) if real and rom else "") or rom
         found = finding.rom_file(roms_dir, rom) if rom and roms_dir else None
         if found is not None:
             wanted.append(found)
@@ -386,10 +389,13 @@ def bytes_to_copy(games: list[SourceGame], source_id: str, kinds: tuple[str, ...
 
 
 def attach_roms(plan: Plan, library: SourceLibrary, roms: dict[str, str],
-                systems: list[str] | None = None) -> None:
-    """Put on each match the ROM its game file names, by position as `going` pairs them."""
+                systems: list[str] | None = None,
+                real: Callable[[str], str] | None = None) -> None:
+    """Put on each match the ROM set its game file names, by position as `going` pairs
+    them: the one the source's name map points to where `real` knows the name."""
     for game, match in zip(_games(library, systems), plan.matches, strict=True):
-        match.rom = roms.get(game.table_file, "") if game.table_file else ""
+        asked = roms.get(game.table_file, "") if game.table_file else ""
+        match.rom = (real(asked) if real and asked else "") or asked
 
 
 def missing_roms(plan: Plan) -> int:

@@ -27,6 +27,7 @@ from common.games import (
     game_lens,
     game_ops,
     game_service,
+    launcher_ops,
     library_folder_ops,
     library_vps_state,
     media_ops,
@@ -101,6 +102,9 @@ CONFIG_READS: dict[str, Callable[..., Any]] = {
 
 CONFIG_WRITES: dict[str, Callable[..., Any]] = {
     "use_library_folder": library_folder_ops.use_library_folder,
+    # One table's own settings, never the launcher's: what an import carries over from a
+    # table's old cabinet must not change the new one.
+    "write_table_settings": launcher_ops.write_table_settings,
 }
 
 LAUNCHES: dict[str, Callable[..., Any]] = {

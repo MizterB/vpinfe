@@ -12,6 +12,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from .beside import Beside
 from .plan import file_bytes
 from .saved import Saved
 from .source import SourceLibrary
@@ -63,6 +64,7 @@ class Held:
         self.named: dict[str, tuple[str, ...]] = {}
         self._names: tuple[str, ...] = ()
         self._saved: dict[str, Saved] = {}
+        self.name_maps: dict[str, Beside] = {}
         # What the look found for each game of one library, by the game's identity, and
         # the state of the catalog it looked in. Kept with the library it was made for.
         self.look: tuple[SourceLibrary, dict, dict[int, dict]] | None = None
@@ -82,6 +84,7 @@ class Held:
             self.companions, self._asked, self.sizes = {}, set(), {}
             self.roms, self._roms_asked = {}, set()
             self.named, self._names, self._saved = {}, (), {}
+            self.name_maps = {}
             self.look = None
 
     def forget(self) -> None:
@@ -90,6 +93,7 @@ class Held:
             self.companions, self._asked, self.sizes = {}, set(), {}
             self.roms, self._roms_asked = {}, set()
             self.named, self._names, self._saved = {}, (), {}
+            self.name_maps = {}
             self.look = None
 
     def remember_look(self, library: SourceLibrary, catalog: dict,

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
-from . import finding, mapping, saved
+from . import beside, finding, mapping, saved
 from .plan import Held, Missing, history_for, missing_history, score_folders
 from .source import Note, SourceGame, SourceLibrary
 
@@ -146,21 +146,23 @@ def _bring_named(ctx: Any, game_id: str, kind: str, folder: str, names: list[str
     return 0
 
 
-def _names_of(game: SourceGame, folder: str, rom: str) -> list[str]:
+def _names_of(game: SourceGame, folder: str, rom: str, asked: str = "") -> list[str]:
     """What a set kept for a game may be called: its ROM, the folder it becomes, its game
     file, its title. In that order, because a ROM names one machine and a title names many."""
     stem = Path(game.table_file).stem if game.table_file else ""
     title = str(mapping.details_for(game).get("title") or "")
-    return [one for one in dict.fromkeys((rom, folder, stem, title)) if one]
+    return [one for one in dict.fromkeys((rom, asked, folder, stem, title)) if one]
 
 
 def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str,
                  sources: dict[str, str], row: AdoptedRow,
-                 kept: saved.Saved | None = None, named: tuple[str, ...] = ()) -> None:
+                 kept: saved.Saved | None = None, named: tuple[str, ...] = (),
+                 asked: str = "") -> None:
     """What a source keeps for a game by its ROM or its name, once the game file is in.
 
     A game with no ROM has nothing keyed on one, which is most of a library and not a
-    failure; music and PUP packs are named for the game as often as for a ROM.
+    failure; music and PUP packs are named for the game as often as for a ROM. `rom` is
+    the set PinMAME loads and `asked` the name the table gives where that differs.
     """
     rom_there = False
     if rom and sources.get("roms"):
@@ -169,7 +171,7 @@ def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str
         rom_there = state in ("placed", "there")
     if rom and sources.get("altdata"):
         row["altdata"] = _bring_alt_data(ctx, game_id, rom, sources["altdata"])
-    names = _names_of(game, folder, rom)
+    names = _names_of(game, folder, rom, asked)
     if sources.get("music"):
         row["music"] = _bring_named(ctx, game_id, "music", sources["music"], names)
     if sources.get("pups"):
@@ -177,6 +179,38 @@ def _bring_keyed(ctx: Any, game_id: str, game: SourceGame, folder: str, rom: str
     if sources.get("roms") or sources.get("user"):
         row["scores"] = _bring_scores(ctx, game_id, rom, sources, kept or saved.Saved(),
                                       named, rom_there)
+
+
+def _bring_beside(ctx: Any, game_id: str, game: SourceGame, table_id: str, rom: str,
+                  named: tuple[str, ...], here: beside.Beside) -> None:
+    """What the table needs to start that the source kept beside its tables.
+
+    The name map's line for the ROM the table asks for, the scripts and DMD folders its
+    script names, and the backglass server's entry as the table's own settings. The line,
+    scripts and folders are left as they are where the game already holds one. The settings
+    go in only for a table this run added, and values the launcher already has make no
+    file, so a table that was already there keeps what it has.
+    """
+    real = here.real_rom(rom)
+    if rom and real:
+        try:
+            ctx.games.put_rom_alias(game_id, rom, real)
+        except FileExistsError:
+            pass
+        except Exception as exc:
+            ctx.logger.warning("%s: the ROM name map did not come across: %s", game.key, exc)
+    for one in here.scripts_for(named):
+        _put(ctx, game_id, "scripts", one, "")
+    for one in here.dmd_for(game.table_file, named):
+        _put(ctx, game_id, "dmd_content", one, "")
+    keys = (rom,) if rom else (Path(game.table_file).stem,) if game.table_file else ()
+    wanted = here.settings_for(*keys) if table_id else {}
+    if wanted:
+        try:
+            ctx.games.write_table_settings(table_id, wanted)
+        except Exception as exc:
+            ctx.logger.warning("%s: its backglass settings did not come across: %s",
+                               game.key, exc)
 
 
 def _remember(ctx: Any, game_id: str, played: Any, held: Held | None = None) -> int:
@@ -288,18 +322,21 @@ def _kept(details: dict, mode: str, chosen: tuple[str, ...],
     return {name: value for name, value in details.items() if name in chosen}
 
 
-def _asked(kept: saved.Saved | None) -> tuple[str, ...]:
+def _asked(kept: saved.Saved | None, here: beside.Beside | None = None,
+           table_file: str = "") -> tuple[str, ...]:
     """What to look for in a table's script as it lands."""
-    return kept.names if kept else ()
+    return (*(kept.names if kept else ()), *(here.asked_of(table_file) if here else ()))
 
 
-def _named_in(ctx: Any, game: SourceGame, kept: saved.Saved | None) -> tuple[str, ...]:
+def _named_in(ctx: Any, game: SourceGame, kept: saved.Saved | None,
+              here: beside.Beside | None = None) -> tuple[str, ...]:
     """What a table that is already in the library mentions, for a fill that does not add
     its file again."""
-    if not game.table_file or not kept:
+    asked = _asked(kept, here, game.table_file)
+    if not game.table_file or not asked:
         return ()
     try:
-        read = ctx.games.reads_of([game.table_file], kept.names)
+        read = ctx.games.reads_of([game.table_file], asked)
     except Exception as exc:
         ctx.logger.warning("%s could not be read for what it saved: %s", game.key, exc)
         return ()
@@ -312,7 +349,8 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
          cleared: frozenset[str] = frozenset(), existing: str = "",
          vps_id: str = "", guessed: bool = False,
          kept: tuple[str, tuple[str, ...], tuple[str, ...]] = ("source", (), ()),
-         saved_here: saved.Saved | None = None) -> AdoptedRow:
+         saved_here: saved.Saved | None = None,
+         beside_here: beside.Beside | None = None) -> AdoptedRow:
     """One game, and what became of it. Returns a row for the report.
 
     `kept` is whose details a matched game keeps - the plan's `details` and
@@ -362,15 +400,17 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     # to exist. Its absence is not a failure: a source whose tables are still on the old
     # machine imports as entries with artwork and no game file, which is a state the
     # library has a word for.
-    stem, rom = "", ""
+    stem, rom, table_id = "", "", ""
     named: tuple[str, ...] = ()
     if game.table_file and "tables" not in cleared:
         try:
-            landed = ctx.games.add_table(game_id, game.table_file, move=move,
-                                         names=_asked(saved_here))
+            landed = ctx.games.add_table(
+                game_id, game.table_file, move=move,
+                names=_asked(saved_here, beside_here, game.table_file))
             row["table"] = True
             row["companions"] = len(landed["companions"])
             rom = landed.get("rom", "")
+            table_id = landed.get("table_id", "")
             named = tuple(landed.get("named", ()))
         except Exception as exc:
             # The copy already holding this file is the copy staying as it is, and its
@@ -401,10 +441,13 @@ def _one(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str, ...],
     held = _held(ctx, game_id) if existing else None
     if held and not rom:
         rom = held.rom
-    if existing and not row["table"] and _asked(saved_here):
-        named = _named_in(ctx, game, saved_here)
+    if existing and not row["table"] and _asked(saved_here, beside_here, game.table_file):
+        named = _named_in(ctx, game, saved_here, beside_here)
+    asked, rom = rom, (beside_here.real_rom(rom) if beside_here else "") or rom
     if (row["table"] or existing) and sources:
-        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named)
+        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked)
+    if (row["table"] or existing) and beside_here:
+        _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here)
 
     played = history_for(history or {}, game)
     if played is not None and (held or not existing):
@@ -417,7 +460,8 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
                    cleared: frozenset[str] = frozenset(),
                    existing: bool = False,
                    sources: dict[str, str] | None = None,
-                   saved_here: saved.Saved | None = None) -> AdoptedRow:
+                   saved_here: saved.Saved | None = None,
+                   beside_here: beside.Beside | None = None) -> AdoptedRow:
     """A second build of a machine the run has already made a game for.
 
     Its file joins that game rather than starting another one. Its artwork fills the
@@ -434,15 +478,17 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
                        "skipped_media": [], "error": "", "joined": True}
     if existing:
         row["existing"] = True
-    rom = ""
+    rom, table_id = "", ""
     named: tuple[str, ...] = ()
     if game.table_file and "tables" not in cleared:
         try:
-            landed = ctx.games.add_table(game_id, game.table_file, move=move,
-                                         names=_asked(saved_here))
+            landed = ctx.games.add_table(
+                game_id, game.table_file, move=move,
+                names=_asked(saved_here, beside_here, game.table_file))
             row["table"] = True
             row["companions"] = len(landed["companions"])
             rom = landed.get("rom", "")
+            table_id = landed.get("table_id", "")
             named = tuple(landed.get("named", ()))
         except Exception as exc:
             if not (existing and isinstance(exc, FileExistsError)):
@@ -450,8 +496,11 @@ def _another_build(ctx: Any, source_id: str, game: SourceGame, kinds: tuple[str,
                 row["error"] = {"text": ctx.t("error.game_file"), "detail": ctx.why(exc)}
     if "media" not in cleared:
         _place_media(ctx, game_id, source_id, game, kinds, "", False, row)
+    asked, rom = rom, (beside_here.real_rom(rom) if beside_here else "") or rom
     if row["table"] and sources:
-        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named)
+        _bring_keyed(ctx, game_id, game, name, rom, sources, row, saved_here, named, asked)
+    if row["table"] and beside_here:
+        _bring_beside(ctx, game_id, game, table_id, asked, named, beside_here)
     return row
 
 
@@ -495,6 +544,7 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
                         if not one.active)
     history = plan.history if plan else {}
     kept_here = saved.read(ctx, sources.get("user", ""))
+    beside_here = beside.read(ctx, sources)
     fill = bool(plan and plan.on_existing == "fill")
 
     rows, skipped = [], []
@@ -537,14 +587,14 @@ def run(ctx: Any, library: SourceLibrary, systems: list[str], location: str = ""
         if seen:
             rows.append(_another_build(ctx, library.source_id, game, kinds, name, seen,
                                        move, cleared, seen in held_ids.values(), sources,
-                                       kept_here))
+                                       kept_here, beside_here))
             continue
         row = _one(ctx, library.source_id, game, kinds, where, name, sources,
                    history, move, cleared, held_ids.get(id(game), ""),
                    found.vps_id if found else "",
                    found.found_by == "name" if found else False,
                    (plan.details, plan.detail_fields, found.gaps if found else ())
-                   if plan else ("source", (), ()), kept_here)
+                   if plan else ("source", (), ()), kept_here, beside_here)
         if row["game_id"]:
             made_here[name.lower()] = row["game_id"]
         rows.append(row)

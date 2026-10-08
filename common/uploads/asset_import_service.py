@@ -166,7 +166,12 @@ _FOLDERS: dict[str, tuple[str, ...]] = {
     "nvram": ("pinmame", "nvram"),
     "cfg": ("pinmame", "cfg"),
     "user": ("user",),
+    "scripts": ("scripts",),
+    # Empty: the folder is a game's own, beside the table, named for what its script asks.
+    "dmd_content": (),
 }
+# The ROM name map sits in the folder that holds the machine's saved state.
+_FOLDERS["rom_alias"] = _FOLDERS["cfg"][:-1]
 
 
 def folder_for(kind: str, game_dir: str | Path, rom: str = "") -> Path | None:

@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from . import adopt, folders, mapping, pinballx, popper, saved
+from . import adopt, beside, folders, mapping, pinballx, popper, saved
 from . import plan as plan_for
 from .held import Held, Progress
 from .plan import Plan
@@ -209,12 +209,20 @@ def build(ctx: Any) -> None:
         found = plan_for.derive_sources(library, _chosen(values))
         roms = next((source.path for source in found if source.key == "roms"), "")
         follow_the_setting(*[source.path for source in found if source.active],
-                           *plan_for.score_folders(roms).values())
+                           *plan_for.score_folders(roms).values(),
+                           *beside.roots({source.key: source.path for source in found
+                                          if source.active}))
 
     follow_the_setting()
 
     held = Held()
     progress = Progress()
+
+    def real_of(roms: str) -> Callable[[str], str]:
+        """The ROM set a name the script asks for stands for, from the map beside `roms`."""
+        if roms not in held.name_maps:
+            held.name_maps[roms] = beside.name_map(ctx, roms)
+        return held.name_maps[roms].real_rom
 
     def point_at(wanted: str) -> None:
         """Make this the source and declare it, before core is asked anything about it.
@@ -342,7 +350,8 @@ def build(ctx: Any) -> None:
                                        exc_info=True)
                     held.remember_roms(batch, {})
                 progress.advance(start + len(batch))
-        plan_for.attach_roms(made, library, held.roms, systems)
+        plan_for.attach_roms(made, library, held.roms, systems,
+                             real_of(folder.path if reading_roms and folder else ""))
 
     def saved_of(folder: str) -> Saved:
         """The saved files in a folder, read once per library."""
@@ -410,7 +419,8 @@ def build(ctx: Any) -> None:
             move=mode != "copy",
             sized=held.measured(progress, ctx.t("progress.measuring")),
             roms=held.roms, roms_dir=folders_of.get("roms", ""),
-            named=held.named, saved=saved_of(folders_of.get("user", "")))
+            named=held.named, saved=saved_of(folders_of.get("user", "")),
+            real=real_of(folders_of.get("roms", "")))
         target = (into_of(values) if mode == "copy" else
                   next((plan_for.tables_folder(one)
                         for one in plan_for.systems_going(library, games)
@@ -912,7 +922,8 @@ def build(ctx: Any) -> None:
                                               held.companions_of,
                                               move=mode != "copy", sized=measure,
                                               roms=held.roms, roms_dir=roms_dir,
-                                              named=held.named, saved=kept)
+                                              named=held.named, saved=kept,
+                                              real=real_of(roms_dir))
 
             def tell(standing: adopt.Standing) -> None:
                 by_bytes = standing.bytes_total > 0

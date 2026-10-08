@@ -435,6 +435,30 @@ def write_config(launcher_id: str, body: dict[str, Any]) -> dict[str, Any] | job
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
 
 
+def write_table_settings(table_id: str, values: dict[str, Any]) -> dict[str, Any] | jobs.Job:
+    """Values for one table alone, in the settings file its program keeps beside it.
+
+    Named for the table rather than a launcher: the caller is holding a table it just
+    made, and which launcher plays it is this install's answer. Never the launcher's
+    own values, so nothing cabinet-wide changes. A value equal to what the table would
+    follow anyway is not written, and a table left with nothing to keep has no file.
+    """
+    found = find_table_by_id(game_repository.all_games(), str(table_id or "").strip())
+    if found is None:
+        raise service_errors.NotFoundError(t("error.launchers.unknown_table", wanted=table_id))
+    _game, filename = found
+    store = launchers.get_launcher_store()
+    launcher = launchers.launcher_for_table(filename, table_id, store.launchers(),
+                                            store.mappings())
+    if launcher is None:
+        app = apps.app_for(filename)
+        raise service_errors.RefusedError(t(
+            "error.launchers.no_own_settings",
+            app_name=apps.app_name(app.id) if app is not None else filename))
+    return write_config(launcher.launcher_id,
+                        {"scope": SCOPE_ENTRY, "table": table_id, "values": dict(values)})
+
+
 def _write_tables(launcher: launchers.Launcher, config: Any, settings: dict[str, Any],
                   scope: str, ids: list[str], writing: dict[str, str]) -> jobs.Job:
     """The same values written into each of several tables' own files, as a job: one table

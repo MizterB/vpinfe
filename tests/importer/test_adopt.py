@@ -904,5 +904,92 @@ class KeyedSetTests(unittest.TestCase):
         self.assertEqual((row["roms"], row["error"]), (0, ""))
 
 
+class BesideTheTablesTests(AdoptCase):
+    """What a source keeps beside its tables, through the real context and real core.
+
+    The name map, a script the program does not ship, a DMD folder and the backglass
+    server's entry each belong to a table because its script mentions them, so the
+    table's script is the one thing faked: everything it decides runs for real.
+    """
+
+    GRILL = "Plugin.B2SLegacy.B2SHideGrill"
+    SCRIPT = {"rom": "taxi_l1",
+              "game_data": 'Const cGameName = "taxi_l1"\nExecuteGlobal "Granny.vbs"\n'
+                           'x = "Taxi.UltraDMD"\n'}
+
+    def setUp(self) -> None:
+        super().setUp()
+        from common.extensions.context import ExtensionContext
+        from tests.support.launchers_api import put_launcher
+        from tests.support.library import own_launchers
+
+        own_launchers(self, self.root / "config")
+        for patcher in (
+                unittest.mock.patch("apps.vpx.config._machine_folders",
+                                    return_value=(self.root / "vpx-home", None)),
+                unittest.mock.patch("common.games.library_enrichment.read_one",
+                                    return_value=dict(self.SCRIPT))):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.client.put("/config/locations/one", json={"path": str(self.library)})
+        put_launcher(self.client, "l1", json={"app": "vpx", "settings": {"bin_path": "/opt/vpx"}})
+        self.assertEqual(self.client.put("/launchers/l1/config", json={
+            "scope": "launcher", "create": True, "values": {self.GRILL: "0"}}).status_code, 200)
+
+        install = self.root / "Pinball"
+        self.tables = install / "Tables"
+        for folder in (self.tables / "Taxi.UltraDMD", install / "Scripts", install / "User",
+                       install / "VPinMAME" / "roms"):
+            folder.mkdir(parents=True)
+        (self.tables / "Taxi.vpx").write_bytes(b"table")
+        (self.tables / "Taxi.UltraDMD" / "a.png").write_bytes(b"png")
+        (self.tables / "B2STableSettings.xml").write_text(
+            "<B2STableSettings><taxi_l1><HideGrill>1</HideGrill></taxi_l1></B2STableSettings>")
+        (install / "Scripts" / "Granny.vbs").write_text("x")
+        (install / "Scripts" / "WPC.vbs").write_text("x")
+        (install / "VPinMAME" / "VPMAlias.txt").write_text("taxi_l1,taxi_l4\n")
+        (install / "VPinMAME" / "roms" / "taxi_l4.zip").write_bytes(b"rom")
+
+        self._ctx = ExtensionContext(self.record.manifest, self.store,
+                                     on_failure=lambda why: None)
+        self.places = {"tables": str(self.tables), "roms": str(install / "VPinMAME" / "roms"),
+                       "user": str(install / "User")}
+        from vpinfe_ext_library_importer import beside
+        self._ctx.files.set_roots([*self.places.values(), *beside.roots(self.places)])
+
+    def run_import(self) -> dict:
+        from vpinfe_ext_library_importer import adopt
+        from vpinfe_ext_library_importer.plan import Plan, Source
+        from vpinfe_ext_library_importer.source import SourceGame, SourceLibrary, SourceSystem
+
+        game = SourceGame(key="Taxi", display_name="Taxi (Williams 1988)",
+                          table_file=str(self.tables / "Taxi.vpx"))
+        plan = Plan(sources=[Source(key, key, "", path) for key, path in self.places.items()])
+        library = SourceLibrary("pinballx", str(self.root),
+                                (SourceSystem(name=VPX, games=(game,)),))
+        return adopt.run(self._ctx, library, [VPX], plan=plan)
+
+    def test_each_thing_lands_with_the_table_that_asked_for_it(self) -> None:
+        report = self.run_import()
+        self.assertEqual((report["games"], report["failed"]), (1, 0), report)
+
+        home = self.library / "Taxi (Williams 1988)"
+        self.assertEqual((home / "pinmame" / "alias.txt").read_text(), "taxi_l1,taxi_l4\n")
+        self.assertTrue((home / "pinmame" / "roms" / "taxi_l4.zip").is_file())
+        self.assertTrue((home / "scripts" / "Granny.vbs").is_file())
+        self.assertFalse((home / "scripts" / "WPC.vbs").exists())
+        self.assertTrue((home / "Taxi.UltraDMD" / "a.png").is_file())
+
+    def test_the_backglass_entry_is_the_tables_own_and_the_launchers_is_unchanged(self) -> None:
+        from common.games import launcher_ops
+
+        self.run_import()
+
+        table = (self.library / "Taxi (Williams 1988)" / "Taxi.ini")
+        self.assertTrue(table.is_file(), "the table has no settings of its own")
+        self.assertRegex(table.read_text(), r"B2SHideGrill\s*=\s*1")
+        self.assertEqual(launcher_ops.effective_values("l1")[self.GRILL], "0")
+
+
 if __name__ == "__main__":
     unittest.main()

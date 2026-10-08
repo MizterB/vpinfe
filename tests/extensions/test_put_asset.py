@@ -134,8 +134,47 @@ class ScoreAndSavedPlaceTests(PutAssetCase):
 
         self.assertEqual(self.games.put_asset("g1", "user", saved), "user/Scores.txt")
 
+    def test_scripts_and_a_dmd_folder_land_beside_the_table(self) -> None:
+        script = self.source / "Granny.vbs"
+        script.write_text("x")
+        dmd = self.source / "Taxi.UltraDMD"
+        dmd.mkdir()
+        (dmd / "a.png").write_bytes(b"png")
+
+        self.assertEqual(self.games.put_asset("g1", "scripts", script), "scripts/Granny.vbs")
+        self.assertEqual(self.games.put_asset("g1", "dmd_content", dmd), "Taxi.UltraDMD")
+        self.assertTrue((self.game / "Taxi.UltraDMD" / "a.png").is_file())
+
+    def test_a_name_map_line_is_where_the_alias_reader_looks(self) -> None:
+        from common.games.asset_resolver import read_alias_map
+
+        where = self.games.put_rom_alias("g1", "taxi_l1", "taxi_l4")
+
+        self.assertEqual(where, "pinmame/alias.txt")
+        self.assertEqual(read_alias_map(self.game).get("taxi_l1"), "taxi_l4")
+
+    def test_a_name_map_the_game_already_holds_is_not_written_over(self) -> None:
+        self.games.put_rom_alias("g1", "taxi_l1", "taxi_l4")
+
+        with self.assertRaises(FileExistsError):
+            self.games.put_rom_alias("g1", "taxi_l2", "taxi_l5")
+        self.assertEqual((self.game / "pinmame" / "alias.txt").read_text(), "taxi_l1,taxi_l4\n")
+
+    def test_a_name_map_line_needs_both_names_and_no_comma(self) -> None:
+        for alias, rom in (("", "taxi_l4"), ("taxi_l1", ""), ("a,b", "taxi_l4")):
+            with self.subTest(alias=alias, rom=rom), self.assertRaises(ValueError):
+                self.games.put_rom_alias("g1", alias, rom)
+
+    def test_a_reader_cannot_write_a_name_map(self) -> None:
+        reader = ExtensionGames("reader", ("games:read",), _Files(self.source))
+        reader.folder = lambda game_id: str(self.game)
+
+        with self.assertRaises(ContractError):
+            reader.put_rom_alias("g1", "taxi_l1", "taxi_l4")
+
     def test_the_new_places_are_in_the_list_of_kinds(self) -> None:
-        self.assertTrue({"nvram", "cfg", "user"} <= set(self.games.asset_kinds()))
+        kinds = {"nvram", "cfg", "user", "scripts", "dmd_content"}
+        self.assertTrue(kinds <= set(self.games.asset_kinds()))
 
     def test_a_score_placed_there_is_where_the_score_reader_looks(self) -> None:
         from common.games import score_parser
