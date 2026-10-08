@@ -412,7 +412,7 @@ class StepTests(FolderCase):
         found = self.step(source, leaving="sources")
 
         choices = found["fields"][0]["choices"]
-        self.assertIn("will still point at where they were", choices[1][2])
+        self.assertIn("find these tables", choices[1][2])
         self.assertIn("PinballX", choices[1][2])
 
     def test_moving_from_a_folder_names_no_frontend(self) -> None:
@@ -420,7 +420,7 @@ class StepTests(FolderCase):
 
         choices = self.step(self.tables, leaving="sources")["fields"][0]["choices"]
 
-        self.assertNotIn("will still point at where they were", choices[1][2])
+        self.assertNotIn("find these tables", choices[1][2])
 
     def test_copying_with_nowhere_to_copy_to_is_sent_back(self) -> None:
         self.loose("Harbor Lights")

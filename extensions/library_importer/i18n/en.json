@@ -38,7 +38,7 @@
   "wizard.how.copy.help": "Copying leaves your {folder} folder as it is",
   "wizard.how.move": "Move them",
   "wizard.how.move.folders_help": "Moving leaves no second copy, so whatever else opens them must find them again",
-  "wizard.how.move.frontend_help": "Moving leaves no second copy, and {source} will still point at where they were",
+  "wizard.how.move.frontend_help": "After moving, {source} won't find these tables",
   "wizard.how.move.where": "Each one moves into a folder of its own, inside {folder}",
   "wizard.how.into.label": "Copy into",
   "wizard.how.into.needs": "Needs {size}",
