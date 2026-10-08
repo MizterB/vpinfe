@@ -7,9 +7,11 @@ for the manufacturer. Nothing ships in the tree.
 
 A file and a manufacturer meet at a slug of the name with case, punctuation and corporate
 suffixes dropped, so "Williams Electronics.PNG", "williams.png" and a table whose
-manufacturer is "Williams" all find each other. The exceptions no rule can cover
+manufacturer is "Williams" all find each other. Slugs are compared with their hyphens
+removed as well, so "Game Plan" finds GamePlan.png. The exceptions no rule can cover
 ("D. Gottlieb & Co.") belong in an alias map beside the images: manufacturers.json,
-{"name or slug": "canonical-slug"}.
+{"name or slug": "canonical-slug"}. One alias ships in the code, Taito do Brasil to Taito;
+a logo of the name's own comes before it, and a name in manufacturers.json overrides it.
 """
 
 from __future__ import annotations
@@ -29,7 +31,15 @@ DEFAULT_FOLDER = "manufacturer_logos"
 _SUFFIX_TOKENS = {
     "mfg", "manufacturing", "corp", "corporation", "co", "company",
     "inc", "incorporated", "ltd", "limited", "electronics", "industries",
+    "llc", "gmbh", "ltda",
 }
+# "S.A." and "S.A.L." as a word of their own that ends the name or a clause. Anywhere else
+# the letters belong to the name ("U.S.A.", "S.A.R.L.").
+_DOTTED_SUFFIX = re.compile(r"(?<!\S)s\.\s*a(?:\.\s*l)?\b\.?(?=$|[\s,;])")
+
+# A maker whose name is another maker's plus a place, which no rule can see. Used only
+# when the name has no logo of its own.
+_BUILTIN_ALIASES = {"taito-do-brasil": "taito"}
 
 _folder: Path | None = None
 
@@ -44,12 +54,23 @@ def resolve_logos_dir(configured: str, config_dir: str | Path) -> Path:
 
 
 def manufacturer_slug(name: str) -> str:
-    words = re.split(r"[^a-z0-9]+", str(name or "").lower())
-    kept = [w for w in words if w and w not in _SUFFIX_TOKENS]
-    return "-".join(kept or [w for w in words if w])
+    lowered = str(name or "").lower()
+    words = [w for w in re.split(r"[^a-z0-9]+", _DOTTED_SUFFIX.sub(" ", lowered)) if w]
+    kept = [w for w in words if w not in _SUFFIX_TOKENS]
+    if kept or words:
+        return "-".join(kept or words)
+    return "-".join(w for w in re.split(r"[^a-z0-9]+", lowered) if w)
 
 
-def _alias_map(folder: Path) -> dict[str, str]:
+def _key(slug: str) -> str:
+    """What two slugs are compared by: the slug without its hyphens."""
+    return slug.replace("-", "")
+
+
+def _alias_map(folder: Path | None) -> dict[str, str]:
+    """The folder's own aliases, by key."""
+    if folder is None:
+        return {}
     try:
         data = json.loads((folder / _ALIAS_FILE).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -57,36 +78,42 @@ def _alias_map(folder: Path) -> dict[str, str]:
     if not isinstance(data, dict):
         return {}
     # Empty values are placeholders, not aliases - honoring one would erase a working slug.
-    return {manufacturer_slug(k): str(v) for k, v in data.items()
+    return {_key(manufacturer_slug(k)): str(v) for k, v in data.items()
             if isinstance(v, str) and v.strip()}
 
 
-def _logos_by_slug(folder: Path) -> dict[str, Path]:
-    """The folder's images by slug, read on every call so a file dropped in shows without
-    a restart."""
+def _logos(folder: Path) -> tuple[dict[str, Path], dict[str, Path]]:
+    """The folder's images by slug and by key, read on every call so a file dropped in
+    shows without a restart."""
     rank = {ext: place for place, ext in enumerate(IMAGE_FAMILY)}
     try:
         files = sorted((one for one in folder.iterdir()
                         if one.suffix.lower() in rank and one.is_file()),
                        key=lambda one: (rank[one.suffix.lower()], one.name))
     except OSError:
-        return {}
-    found: dict[str, Path] = {}
+        return {}, {}
+    by_slug: dict[str, Path] = {}
+    by_key: dict[str, Path] = {}
     for one in files:
-        found.setdefault(manufacturer_slug(one.stem), one)
-    return found
+        slug = manufacturer_slug(one.stem)
+        by_slug.setdefault(slug, one)
+        by_key.setdefault(_key(slug), one)
+    return by_slug, by_key
 
 
 def manufacturer_logo_file(slug: str) -> Path | None:
     """The image a slug's logo is, or None. A slug is what `manufacturer_slug` returns."""
     if _folder is None or not slug or slug != manufacturer_slug(slug):
         return None
-    return _logos_by_slug(_folder).get(slug)
+    by_slug, by_key = _logos(_folder)
+    return by_slug.get(slug) or by_key.get(_key(slug))
 
 
 def _entry(name: str, aliases: dict[str, str]) -> dict:
     slug = manufacturer_slug(name)
-    target = manufacturer_slug(aliases.get(slug, "")) or None
+    target = manufacturer_slug(aliases.get(_key(slug), "")) or None
+    if not target and slug and manufacturer_logo_file(slug) is None:
+        target = _BUILTIN_ALIASES.get(slug)
     effective = target or slug
     found = manufacturer_logo_file(effective) if effective else None
     return {"name": name, "slug": slug, "aliased_to": target,
@@ -107,7 +134,7 @@ def manufacturer_report(names: Iterable[object]) -> list[dict]:
     manufacturer find" without running the algorithm in your head, and the only
     way to see that an alias is redirecting past a file you named for the manufacturer.
     """
-    aliases = _alias_map(_folder) if _folder is not None else {}
+    aliases = _alias_map(_folder)
     distinct = sorted({str(n).strip() for n in names if str(n or "").strip()},
                       key=str.lower)
     return [_entry(name, aliases) for name in distinct]

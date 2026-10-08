@@ -53,6 +53,27 @@ class SlugTests(unittest.TestCase):
     def test_punctuation_never_reaches_the_filename(self) -> None:
         self.assertEqual(manufacturer_slug("D. Gottlieb & Co."), "d-gottlieb")
 
+    def test_the_wider_suffixes_drop_as_written(self) -> None:
+        for name, slug in (("Playmatic S.A.", "playmatic"),
+                           ("Recreativos Franco S.A.L.", "recreativos-franco"),
+                           ("Stern Pinball LLC", "stern-pinball"),
+                           ("Bally Wulff GmbH", "bally-wulff"),
+                           ("Maibesa Ltda", "maibesa")):
+            self.assertEqual(manufacturer_slug(name), slug)
+
+    def test_the_letters_of_a_suffix_stay_in_a_name_that_uses_them(self) -> None:
+        self.assertEqual(manufacturer_slug("Sega"), "sega")
+        self.assertEqual(manufacturer_slug("Sal Gonzalez"), "sal-gonzalez")
+        self.assertEqual(manufacturer_slug("S.A."), "s-a")
+        self.assertEqual(manufacturer_slug("Premier U.S.A."), "premier-u-s-a")
+        self.assertEqual(manufacturer_slug("Sonic S.A.R.L."), "sonic-s-a-r-l")
+
+    def test_a_slug_is_its_own_slug_whatever_the_name_it_came_from(self) -> None:
+        for name in ("Electronics S.A.", "S.A. Inc", "Co", "Premier U.S.A.", "Taito do Brasil",
+                     "Williams Electronics", "S.A."):
+            slug = manufacturer_slug(name)
+            self.assertEqual(manufacturer_slug(slug), slug, name)
+
 
 class LookupTests(unittest.TestCase):
     def test_a_logo_is_found_by_the_manufacturers_name(self) -> None:
@@ -72,6 +93,80 @@ class LookupTests(unittest.TestCase):
             self.assertEqual(manufacturer_logo_url("data east"), "/manufacturers/data-east/logo")
             self.assertEqual(manufacturer_logo_file("williams"),
                              root / "WILLIAMS Electronics.jpg")
+
+    def test_names_compare_with_their_spaces_removed(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            (root / "GamePlan.png").write_bytes(b"png")
+            (root / "Data East.png").write_bytes(b"png")
+
+            self.assertEqual(manufacturer_logo_file("game-plan"), root / "GamePlan.png")
+            self.assertEqual(manufacturer_logo_url("Game Plan"), "/manufacturers/game-plan/logo")
+            self.assertEqual(manufacturer_logo_url("DataEast"), "/manufacturers/dataeast/logo")
+            self.assertEqual(manufacturer_logo_file("data-east"), root / "Data East.png")
+
+    def test_taito_do_brasil_finds_the_taito_logo(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            (root / "Taito.png").write_bytes(b"png")
+
+            self.assertEqual(manufacturer_logo_url("Taito do Brasil"),
+                             "/manufacturers/taito/logo")
+            self.assertEqual(manufacturer_logo_file("taito"), root / "Taito.png")
+
+    def test_a_logo_named_for_taito_do_brasil_is_not_shadowed_by_the_alias_file(self) -> None:
+        """The folder's own alias map wins over the one that ships."""
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            (root / "Taito.png").write_bytes(b"png")
+            (root / "Sao Paulo.png").write_bytes(b"png")
+            (root / "manufacturers.json").write_text(
+                json.dumps({"Taito do Brasil": "sao-paulo"}), encoding="utf-8")
+
+            self.assertEqual(manufacturer_logo_url("Taito do Brasil"),
+                             "/manufacturers/sao-paulo/logo")
+
+    def test_a_logo_of_its_own_comes_before_the_alias_that_ships(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            (root / "Taito do Brasil.png").write_bytes(b"png")
+
+            self.assertEqual(manufacturer_logo_url("Taito do Brasil"),
+                             "/manufacturers/taito-do-brasil/logo")
+
+            (root / "Taito.png").write_bytes(b"png")
+
+            self.assertEqual(manufacturer_logo_url("Taito do Brasil"),
+                             "/manufacturers/taito-do-brasil/logo")
+            self.assertEqual(manufacturer_logo_file("taito-do-brasil"),
+                             root / "Taito do Brasil.png")
+
+    def test_a_file_named_for_the_slug_beats_one_that_only_shares_its_key(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            (root / "DataEast.png").write_bytes(b"png")
+            (root / "data-east.png").write_bytes(b"png")
+
+            self.assertEqual(manufacturer_logo_file("data-east"), root / "data-east.png")
+            self.assertEqual(manufacturer_logo_file("dataeast"), root / "DataEast.png")
+
+    def test_every_name_that_matched_before_still_does(self) -> None:
+        pairs = (("Williams Electronics", "williams.png"),
+                 ("Bally Manufacturing Corporation", "Bally.png"),
+                 ("D. Gottlieb & Co.", "D Gottlieb.png"),
+                 ("Mylstar Electronics, Incorporated", "Mylstar.png"),
+                 ("Mr. Game", "Mr Game.png"),
+                 ("Data East", "Data East.PNG"),
+                 ("Chicago Coin", "chicago-coin.png"))
+        with TemporaryDirectory() as tmp:
+            root = _logos(self, tmp)
+            for _, file in pairs:
+                (root / file).write_bytes(b"png")
+
+            for name, file in pairs:
+                found = manufacturer_logo_url(name)
+                self.assertIsNotNone(found, f"{name} lost {file}")
+                self.assertEqual(manufacturer_logo_file(found.split("/")[2]), root / file)
 
     def test_a_folder_that_is_not_an_image_is_not_a_logo(self) -> None:
         with TemporaryDirectory() as tmp:
