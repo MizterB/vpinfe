@@ -184,6 +184,13 @@ class ContractTwoReader {
   }
 
   imageURL(entry, kind) { return this.url(entry, kind) || MISSING_MEDIA_URL; }
+  // Page 1 is the kind's own URL, so a page-aware theme and a plain one share a cache entry.
+  pageURLs(entry, kind) {
+    const first = this.url(entry, kind);
+    if (!first) return [];
+    const count = Math.max(1, Number(entry.pages?.[kind]) || 1);
+    return Array.from({ length: count }, (_, n) => (n === 0 ? first : `${first}?page=${n + 1}`));
+  }
   // Contract 2 names kinds; it never locates files, so there is no path to hand back.
   path()                { return null; }
   videoURL(entry, kind) { return this.url(entry, VIDEO_KIND[kind] || kind) || MISSING_MEDIA_URL; }
@@ -628,6 +635,8 @@ class ContractOneReader {
   has(game, kind)      { return !!this.field(game, MEDIA_PATH_FIELDS[kind]); }
   path(game, kind)     { return this.field(game, MEDIA_PATH_FIELDS[kind]) || null; }
   imageURL(game, kind) { return this.pathToURL(this.field(game, MEDIA_PATH_FIELDS[kind])); }
+  // Contract 1 is the 2.x shape: one path per kind, so one page.
+  pageURLs(game, kind) { return this.has(game, kind) ? [this.imageURL(game, kind)] : []; }
   videoURL(game, kind) { return this.pathToURL(this.field(game, MEDIA_VIDEO_PATH_FIELDS[kind])); }
   audioURL(game)       { return game.AudioPath ? this.pathToURL(game.AudioPath) : null; }
   logo(game)           { return game.ManufacturerLogoPath || null; }
@@ -1062,6 +1071,11 @@ class VPinFECore {
     const item = this.tableData[index];
     const path = item ? this._reader.logo(item) : null;
     return path ? `${this.endpoints.files}${path}` : null;
+  }
+
+  getMediaPages(index, kind) {
+    const item = this.tableData[index];
+    return item ? this._reader.pageURLs(item, this.#canonicalKind(kind)) : [];
   }
 
   getPreferredMediaURL(index, kind) {

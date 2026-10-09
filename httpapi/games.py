@@ -49,6 +49,9 @@ logger = logging.getLogger("vpinfe.httpapi.games")
 
 router = APIRouter(prefix="/games", tags=["games"])
 
+PAGE = Query(1, ge=1, description="Which page of a paged kind; page 1 is the kind itself")
+REMOVE_PAGE = Query(None, ge=1, description="Remove this page alone; none removes the kind")
+
 
 @router.get("", summary="List games", dependencies=[requires(scopes.GAMES_READ)])
 def list_games(
@@ -249,8 +252,9 @@ def get_media_overrides(game_id: str) -> models.MediaOverrideList:
             dependencies=[requires(scopes.GAMES_READ)])
 def get_game_media_file(game_id: str, kind: str, request: Request,
                         size: int | None = responses.ART_SIZE,
-                        v: str = responses.ART_VERSION) -> Response:
-    return responses.art_file(media_ops.media_file(game_id, kind, "", size), request, v)
+                        v: str = responses.ART_VERSION, page: int = PAGE) -> Response:
+    return responses.art_file(
+        media_ops.media_file(game_id, kind, "", size, page), request, v)
 
 
 @router.get("/{game_id}/tables/{table_id}/media", summary="One table's media",
@@ -264,9 +268,9 @@ def get_table_media(game_id: str, table_id: str,
             dependencies=[requires(scopes.GAMES_READ)])
 def get_table_media_file(game_id: str, table_id: str, kind: str, request: Request,
                          size: int | None = responses.ART_SIZE,
-                         v: str = responses.ART_VERSION) -> Response:
+                         v: str = responses.ART_VERSION, page: int = PAGE) -> Response:
     return responses.art_file(
-        media_ops.media_file(game_id, kind, table_id, size), request, v)
+        media_ops.media_file(game_id, kind, table_id, size, page), request, v)
 
 
 @router.get("/{game_id}/media/{kind}/placements",
@@ -289,7 +293,7 @@ def import_media(game_id: str, kind: str, body: models.MediaImport) -> models.Me
     """
     source = media_browse.within_roots(body.path)
     return models.MediaWritten(
-        **media_ops.place_file(game_id, kind, body.table, source))
+        **media_ops.place_file(game_id, kind, body.table, source, page=body.page))
 
 
 @router.post("/{game_id}/media/backglass/from-file",
@@ -311,15 +315,16 @@ def fetch_media(game_id: str, kind: str, body: models.MediaFetch) -> models.Medi
 
 @router.get("/{game_id}/media/{kind}/detail", summary="One shared slot, in detail",
             dependencies=[requires(scopes.GAMES_READ)])
-def get_game_media_detail(game_id: str, kind: str) -> models.MediaDetail:
-    return models.MediaDetail(**media_ops.detail(game_id, kind))
+def get_game_media_detail(game_id: str, kind: str, page: int = PAGE) -> models.MediaDetail:
+    return models.MediaDetail(**media_ops.detail(game_id, kind, "", page))
 
 
 @router.get("/{game_id}/tables/{table_id}/media/{kind}/detail",
             summary="One table's slot, in detail",
             dependencies=[requires(scopes.GAMES_READ)])
-def get_table_media_detail(game_id: str, table_id: str, kind: str) -> models.MediaDetail:
-    return models.MediaDetail(**media_ops.detail(game_id, kind, table_id))
+def get_table_media_detail(game_id: str, table_id: str, kind: str,
+                           page: int = PAGE) -> models.MediaDetail:
+    return models.MediaDetail(**media_ops.detail(game_id, kind, table_id, page))
 
 
 @router.post("/{game_id}/media/{kind}/retier",
@@ -337,22 +342,23 @@ def retier_media(game_id: str, kind: str, body: models.MediaRetier,
 @router.get("/{game_id}/media/{kind}/displaced",
             summary="What placing this file here would replace",
             dependencies=[requires(scopes.GAMES_READ)])
-def get_game_media_displaced(game_id: str, kind: str,
-                             filename: str = Query(...)) -> models.MediaDisplaced:
-    return models.MediaDisplaced(**media_ops.displaced(game_id, kind, filename))
+def get_game_media_displaced(game_id: str, kind: str, filename: str = Query(...),
+                             page: int = PAGE) -> models.MediaDisplaced:
+    return models.MediaDisplaced(**media_ops.displaced(game_id, kind, filename, "", page))
 
 
 @router.get("/{game_id}/tables/{table_id}/media/{kind}/displaced",
             summary="What placing this file for one table would replace",
             dependencies=[requires(scopes.GAMES_READ)])
 def get_table_media_displaced(game_id: str, table_id: str, kind: str,
-                              filename: str = Query(...)) -> models.MediaDisplaced:
+                              filename: str = Query(...),
+                              page: int = PAGE) -> models.MediaDisplaced:
     return models.MediaDisplaced(
-        **media_ops.displaced(game_id, kind, filename, table_id))
+        **media_ops.displaced(game_id, kind, filename, table_id, page))
 
 
 async def _staged_write(game_id: str, kind: str, table_id: str, stem: str,
-                        upload: UploadFile) -> dict:
+                        upload: UploadFile, page: int) -> dict:
     """Hold the upload's bytes somewhere real, then hand the path to the service.
 
     Here rather than in the service because the staging is the request's: this owns the
@@ -362,43 +368,52 @@ async def _staged_write(game_id: str, kind: str, table_id: str, stem: str,
     staged = await _stage(upload)
     try:
         return await run_in_threadpool(media_ops.place_upload, game_id, kind, table_id,
-                                       staged, stem)
+                                       staged, stem, page)
     finally:
         staged.unlink(missing_ok=True)
 
 
 @router.put("/{game_id}/media/{kind}", summary="Place a file every table shares",
             dependencies=[requires(scopes.GAMES_WRITE)])
-async def put_game_media(game_id: str, kind: str,
-                         file: UploadFile = File(...)) -> models.MediaWritten:
-    """Named for the folder, so every table in it resolves this unless it has its own."""
+async def put_game_media(game_id: str, kind: str, file: UploadFile = File(...),
+                         page: int = PAGE) -> models.MediaWritten:
+    """Named for the folder, so every table in it resolves this unless it has its own.
+
+    A `page` from 2 to one past the last is added to the flyer the slot shows, at the tier
+    where that flyer's page 1 is."""
     stem = Path(game_lens.game_or_refuse(game_id).full_path_game or "").name
-    return models.MediaWritten(**await _staged_write(game_id, kind, "", stem, file))
+    return models.MediaWritten(**await _staged_write(game_id, kind, "", stem, file, page))
 
 
 @router.put("/{game_id}/tables/{table_id}/media/{kind}",
             summary="Place a file for one table", dependencies=[requires(scopes.GAMES_WRITE)])
 async def put_table_media(game_id: str, table_id: str, kind: str,
-                          file: UploadFile = File(...)) -> models.MediaWritten:
-    """Named for this .vpx, so it serves this table and no other."""
+                          file: UploadFile = File(...),
+                          page: int = PAGE) -> models.MediaWritten:
+    """Named for this .vpx, so it serves this table and no other. A `page` past 1 follows
+    page 1 as `PUT .../media/{kind}` does."""
     stem = media_ops.stem_or_refuse(game_lens.game_or_refuse(game_id), table_id)
     return models.MediaWritten(
-        **await _staged_write(game_id, kind, table_id, stem, file))
+        **await _staged_write(game_id, kind, table_id, stem, file, page))
 
 
 @router.delete("/{game_id}/media/{kind}", summary="Remove the file every table shares",
                dependencies=[requires(scopes.GAMES_WRITE)])
-def delete_game_media(game_id: str, kind: str) -> models.MediaRemoved:
-    """Only the folder-named file. A table's own art and the default both survive."""
-    return models.MediaRemoved.model_validate(media_ops.remove(game_id, kind))
+def delete_game_media(game_id: str, kind: str, page: int | None = REMOVE_PAGE
+                      ) -> models.MediaRemoved:
+    """Only the folder-named file. A table's own art and the default both survive. With a
+    `page`, that page alone goes and the ones after it move down a number; with none, the
+    kind goes with all its pages."""
+    return models.MediaRemoved.model_validate(media_ops.remove(game_id, kind, "", page))
 
 
 @router.delete("/{game_id}/tables/{table_id}/media/{kind}",
                summary="Remove one table's file",
                dependencies=[requires(scopes.GAMES_WRITE)])
-def delete_table_media(game_id: str, table_id: str, kind: str) -> models.MediaRemoved:
+def delete_table_media(game_id: str, table_id: str, kind: str,
+                       page: int | None = REMOVE_PAGE) -> models.MediaRemoved:
     return models.MediaRemoved.model_validate(
-        media_ops.remove(game_id, kind, table_id))
+        media_ops.remove(game_id, kind, table_id, page))
 
 
 @router.put("/{game_id}/tables/{table_id}/hidden",

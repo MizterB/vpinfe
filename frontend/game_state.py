@@ -42,7 +42,7 @@ from common.games.game_metadata import (
     table_descriptor,
     vpinfe_section,
 )
-from common.games.media_lookup import resolved_kinds
+from common.games.media_lookup import page_counts, resolved_kinds
 from common.games.tables import entry_file
 from common.manufacturer_logos import manufacturer_logo_url
 from common.media_specs import game_media_payload
@@ -183,6 +183,7 @@ def _entry_row(entry: Entry, logo_cache: dict[str, str | None],
         # bytes are fetched when something is shown - naming the files here would put a
         # filesystem path in a web page and several hundred kilobytes on the wire.
         "media": resolved_kinds(game, entry.table_id),
+        "pages": page_counts(game, entry.table_id),
         # None when the order has no groups; `group_by` on the payload says which.
         "group": group,
         # What extensions have contributed about this game. Always here and empty at

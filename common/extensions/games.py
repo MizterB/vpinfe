@@ -494,11 +494,8 @@ class ExtensionGames:
             raise ValueError(t("error.games.kind_not_found", kind=kind))
         source = self._source(path)
         game_dir = library_folders.writable_game_folder(self.folder(game_id))
-        stem = table_stem or game_dir.name
-        if page != 1:
-            # `FIXED` is the empty stem, so a tier that is there is told from none by None.
-            tier = media_placement.page_tier(game_dir, kind, table_stem)
-            stem = stem if tier is None else tier
+        stem = media_placement.page_stem(game_dir, kind, table_stem or game_dir.name,
+                                         table_stem, page)
         if not replace:
             held = media_placement.displaced(game_dir, kind, stem, source.suffix, page)
             if held:

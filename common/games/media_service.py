@@ -26,6 +26,7 @@ from common.media_specs import (
     media_label_map,
     resolve_media_entries,
     resolve_media_files,
+    resolve_media_pages,
 )
 from common.paths import CACHE_DIR, get_ini_config
 
@@ -118,6 +119,27 @@ def resolved_media(game_dir: Path, table_stem: str | None = None) -> dict:
                                  table_stem, active_sets)
 
 
+def resolved_pages(game_dir: Path, table_stem: str | None = None) -> dict[str, list[Path]]:
+    """Each paged kind with two or more pages, as its files in page order."""
+    files, medias = media_contents(game_dir)
+    variant, active_sets = media_settings()
+    resolved = resolve_media_entries(game_dir, files, medias, variant, table_stem,
+                                     active_sets)
+    return resolve_media_pages(game_dir, files, medias, resolved, variant, table_stem)
+
+
+def page_file(game_dir: Path, kind: str, page: int,
+              table_stem: str | None = None) -> Path | None:
+    """The file page `page` of a kind shows, or None where the kind has no such page."""
+    hit = resolved_media(game_dir, table_stem).get(kind)
+    if hit is None or hit.path is None:
+        return None
+    if page == 1:
+        return hit.path
+    pages = resolved_pages(game_dir, table_stem).get(kind, [])
+    return pages[page - 1] if 1 <= page <= len(pages) else None
+
+
 class ShownArt(NamedTuple):
     kind: str
     version: str
@@ -152,12 +174,13 @@ def media_map(game_dir: Path, prefix: str, table_stem: str | None = None, *,
               codecs: bool = False) -> dict:
     """Every kind described for one game, or for one of its tables. Resolve and
     describe together, so no caller can resolve for one table and describe another."""
+    pages = resolved_pages(game_dir, table_stem)
     return media_entries(resolved_media(game_dir, table_stem), game_dir, prefix,
-                         codecs=codecs)
+                         codecs=codecs, pages={kind: len(found) for kind, found in pages.items()})
 
 
 def media_entries(resolved: dict, game_dir: Path, prefix: str, *,
-                  codecs: bool = False) -> dict:
+                  codecs: bool = False, pages: dict[str, int] | None = None) -> dict:
     """What a curator asks of a slot: does it resolve, how specific, and where from.
 
     `via` is why this file is the one being used - "table", "game", "default",
@@ -166,6 +189,8 @@ def media_entries(resolved: dict, game_dir: Path, prefix: str, *,
     here rather than once per kind. Neither answer implies the other.
 
     `codecs` reads each video's header for its `video_codec`, which is null otherwise.
+    `pages` is a paged kind's count where it has two or more; every other kind present is
+    one page.
     """
     recorded = asset_origin.sources(game_dir)
     hosts = {key: str(source.get("host", "") or "").strip()
@@ -180,6 +205,7 @@ def media_entries(resolved: dict, game_dir: Path, prefix: str, *,
             "origin": asset_origin.origin_of(hosts, game_dir, hit.path) or None,
             "matched_to": asset_origin.match_of(recorded, game_dir, hit.path) or None,
             "version": sized_media.version(hit.path),
+            "pages": (pages or {}).get(key, 1 if hit.path is not None else 0),
             "video_codec": (media_probe.probe(hit.path)["video_codec"]
                             if codecs and hit.path is not None
                             and media_family(key) == "video" else None),

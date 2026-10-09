@@ -39,7 +39,8 @@ from common.media_specs import (
 
 logger = logging.getLogger("vpinfe.common.games.media_ops")
 
-_KINDS = {spec.kind for spec in MEDIA_SPECS}
+_SPECS = {spec.kind: spec for spec in MEDIA_SPECS}
+_KINDS = set(_SPECS)
 _LOGO_SET = "logo"  # the reserved wheel set that resolves from each game's logo
 
 
@@ -96,15 +97,14 @@ def table_media(game_id: str, table_id: str, codecs: bool = False) -> dict:
 
 
 def media_file(game_id: str, kind: str, table_id: str = "",
-               size: int | None = None) -> sized_media.Served:
+               size: int | None = None, page: int = 1) -> sized_media.Served:
     """The file a slot currently resolves to, at `size` if one is asked for, or a
-    refusal. The caller sends it."""
+    refusal. The caller sends it. `page` is the page of a kind that has them."""
     game = game_lens.game_or_refuse(game_id)
     kind = kind_or_refuse(kind)
     size = sized_media.size_or_refuse(size, media_family(kind))
     stem = stem_or_refuse(game, table_id) if table_id else None
-    hit = media_service.resolved_media(_folder(game), stem).get(kind)
-    path = hit.path if hit is not None else None
+    path = media_service.page_file(_folder(game), kind, page, stem)
     if path is None or not path.is_file():
         raise service_errors.NotFoundError(t("error.games.no_media", kind=(kind)))
     return sized_media.served(path, size)
@@ -186,7 +186,8 @@ def _after_remove(game_dir: Path, files: set[str], medias: set[str], kind: str,
                   variant: str, active_sets: dict[str, str] | None,
                   stem: str | None) -> Path | None:
     """The file this lens is shown once `remove` has taken the files at its tier."""
-    gone = media_placement.removable(game_dir, kind, stem or game_dir.name)
+    gone = media_placement.removable(game_dir, kind,
+                                     game_dir.name if stem is None else stem)
     left_in_root = files - {path.name for path in gone if path.parent == game_dir}
     left_in_medias = medias - {path.name for path in gone
                                if path.parent == game_dir / "medias"}
@@ -195,12 +196,14 @@ def _after_remove(game_dir: Path, files: set[str], medias: set[str], kind: str,
     return hit.path if hit is not None else None
 
 
-def detail(game_id: str, kind: str, table_id: str = "") -> dict:
+def detail(game_id: str, kind: str, table_id: str = "", page: int = 1) -> dict:
     """One slot: the winner, what it is, and every tier that holds a file for it, with
     how many of the game's tables each of those is shown to, and the file that takes
     over once Remove has taken this lens's own.
 
-    What a curator needs and a frontend never asks for.
+    What a curator needs and a frontend never asks for. For a later page, the page's own
+    file and facts: it has no tiers of its own, being read where page 1 resolves, and
+    what takes over once it is removed is the page after it.
     """
     game = game_lens.game_or_refuse(game_id)
     kind = kind_or_refuse(kind)
@@ -208,6 +211,12 @@ def detail(game_id: str, kind: str, table_id: str = "") -> dict:
     game_dir = _folder(game)
     hit = media_service.resolved_media(game_dir, stem).get(kind)
     path = hit.path if hit is not None else None
+    pages = media_service.resolved_pages(game_dir, stem).get(kind, [])
+    if page > 1:
+        if not 1 < page <= len(pages):
+            raise service_errors.NotFoundError(
+                t("error.games.no_such_page", slot=_SPECS[kind].label, page=page))
+        path = pages[page - 1]
 
     files, medias = media_service.media_contents(game_dir)
     variant, active_sets = media_service.media_settings()
@@ -215,7 +224,8 @@ def detail(game_id: str, kind: str, table_id: str = "") -> dict:
     for item in media_candidates(game_dir, files, medias, kind, variant, stem, active_sets):
         candidates.setdefault(item.path, item)
     serves = _shown_to(game, game_dir, files, medias, kind, variant, active_sets)
-    after_remove = _after_remove(game_dir, files, medias, kind, variant, active_sets, stem)
+    after_remove = (_after_remove(game_dir, files, medias, kind, variant, active_sets, stem)
+                    if page == 1 else (pages[page] if page < len(pages) else None))
     recorded = asset_origin.sources(game_dir)
     hosts = {key: str(source.get("host", "") or "").strip()
              for key, source in recorded.items()
@@ -235,11 +245,16 @@ def detail(game_id: str, kind: str, table_id: str = "") -> dict:
         "origin": (asset_origin.origin_of(hosts, game_dir, path)
                    or None) if path is not None else None,
         "matched_to": asset_origin.match_of(recorded, game_dir, path) or None,
+        "page": page,
+        "pages": max(len(pages), 1 if path is not None else 0),
         "tiers": [{"tier": item.tier, "file": item.path.name,
                    "wins": item.path == path, "serves": serves.get(item.path, 0)}
-                  for item in candidates.values()],
+                  for item in candidates.values()] if page == 1 or path is None else [
+            {"tier": hit.tier if hit is not None else "", "file": path.name, "wins": True,
+             "serves": serves.get(hit.path, 0) if hit is not None else 0}],
         "after_remove": after_remove.name if after_remove is not None else None,
-        "links": {"self": f"{prefix}/{kind}" if path is not None else None},
+        "links": {"self": (None if path is None else f"{prefix}/{kind}" if page == 1
+                           else f"{prefix}/{kind}?page={page}")},
         **(_file_facts(path) if path is not None else _NO_FACTS),
     }
 
@@ -292,17 +307,20 @@ def placements(game_id: str, kind: str) -> dict:
     return {"placements": found, "extensions": list(spec.family)}
 
 
-def displaced(game_id: str, kind: str, filename: str, table_id: str = "") -> dict:
-    """What placing `filename` at this tier would replace.
+def displaced(game_id: str, kind: str, filename: str, table_id: str = "",
+              page: int = 1) -> dict:
+    """What placing `filename` at this tier would replace, as page `page` of a kind that
+    has them.
 
     Asked before an upload, so a confirmation can name the files rather than warn in the
     abstract - and so the bytes are not sent for a drop the user cancels.
     """
     game = game_lens.game_or_refuse(game_id)
     game_dir = _folder(game)
-    stem = stem_or_refuse(game, table_id) if table_id else game_dir.name
+    lens = stem_or_refuse(game, table_id) if table_id else game_dir.name
     try:
-        going = media_placement.displaced(game_dir, kind, stem, Path(filename).suffix)
+        stem = media_placement.page_stem(game_dir, kind, lens, lens if table_id else "", page)
+        going = media_placement.displaced(game_dir, kind, stem, Path(filename).suffix, page)
     except media_placement.UnplaceableError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     # Forward-slashed on the wire whatever host built it - see `_placement`.
@@ -324,8 +342,9 @@ def reread(game_dir: Path) -> None:
 
 
 def place_file(game_id: str, kind: str, table_id: str, source: Path,
-               origin: str = "user", md5: str = "") -> dict:
-    """Copy a file into the slot and answer with what now resolves.
+               origin: str = "user", md5: str = "", page: int = 1) -> dict:
+    """Copy a file into the slot and answer with what now resolves. A `page` past 1 goes
+    beside the page 1 the slot shows.
 
     Shared by every caller that fills a slot from a file that already exists somewhere -
     one on this machine, one an online catalog published. Where the source is allowed to be
@@ -339,7 +358,9 @@ def place_file(game_id: str, kind: str, table_id: str, source: Path,
     game_dir = _folder(game)
     table_stem = stem_or_refuse(game, table_id) if table_id else game_dir.name
     try:
-        written = media_placement.place(game_dir, kind, table_stem, source)
+        stem = media_placement.page_stem(game_dir, kind, table_stem,
+                                         table_stem if table_id else "", page)
+        written = media_placement.place(game_dir, kind, stem, source, page)
     except media_placement.UnplaceableError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     # Recorded with who placed it, which is what lets a later media refresh tell its own
@@ -350,7 +371,7 @@ def place_file(game_id: str, kind: str, table_id: str, source: Path,
 
 
 def place_upload(game_id: str, kind: str, table_id: str, staged: Path,
-                 stem: str) -> dict:
+                 stem: str, page: int = 1) -> dict:
     """Store bytes that have already arrived at `stem`'s tier, then say what resolves.
 
     Split from `place_file` because the caller owns the staging: it holds the upload, it
@@ -360,7 +381,8 @@ def place_upload(game_id: str, kind: str, table_id: str, staged: Path,
     kind = kind_or_refuse(kind)
     game_dir = _folder(game)
     try:
-        written = media_placement.place(game_dir, kind, stem, str(staged))
+        at = media_placement.page_stem(game_dir, kind, stem, stem if table_id else "", page)
+        written = media_placement.place(game_dir, kind, at, str(staged), page)
     except media_placement.UnplaceableError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     media_placement.record_origin(game_dir, written)
@@ -418,14 +440,17 @@ def retier(game_id: str, kind: str, from_table: str, to_table: str) -> dict:
                   to_stem if to_table else None)
 
 
-def remove(game_id: str, kind: str, table_id: str = "") -> dict:
+def remove(game_id: str, kind: str, table_id: str = "", page: int | None = None) -> dict:
     """Take a file out of one tier. A build's own art and the default both survive the
-    folder's file going."""
+    folder's file going. With no `page` the kind goes with all its pages; with one, only
+    that page does and the pages after it move down a number. Always at the tier asked
+    for: a page that lives at another tier is not this lens's to remove.
+    """
     game = game_lens.game_for_writing(game_id)
     game_dir = _folder(game)
-    stem = stem_or_refuse(game, table_id) if table_id else game_dir.name
+    lens = stem_or_refuse(game, table_id) if table_id else game_dir.name
     try:
-        removed = media_placement.remove(game_dir, kind, stem)
+        removed = media_placement.remove(game_dir, kind, lens, page)
     except media_placement.UnplaceableError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     except OSError as exc:

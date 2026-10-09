@@ -321,6 +321,7 @@
           "playfield_video",
           "audio"
         ],
+        "pages": {},
         "siblings": 1,
         "table": {
           "authors": [],
@@ -400,6 +401,7 @@
         },
         "group": "B",
         "media": [],
+        "pages": {},
         "siblings": 1,
         "table": {
           "authors": [],
@@ -481,6 +483,7 @@
         "media": [
           "wheel"
         ],
+        "pages": {},
         "siblings": 1,
         "table": {
           "authors": [],
@@ -563,6 +566,7 @@
           "backglass",
           "wheel"
         ],
+        "pages": {},
         "siblings": 1,
         "table": {
           "authors": [],

@@ -100,6 +100,31 @@ describe("media is named, and the URL follows from the name", () => {
     assert.ok(!url.includes("/tables/"), "no filesystem path reaches a contract-2 theme");
   });
 
+  test("a kind with pages lists them in order, page 1 first", async () => {
+    const withPages = {
+      ...PAYLOAD,
+      entries: PAYLOAD.entries.map((entry, n) => (n === 0
+        ? { ...entry, media: [...new Set([...entry.media, "flyer"])], pages: { flyer: 3 } }
+        : entry)),
+    };
+    const vpin = await coreWithEntries(withPages);
+
+    const urls = vpin.getMediaPages(0, "flyer");
+
+    assert.equal(urls.length, 3);
+    assert.ok(urls[0].endsWith(`/media/${vpin.entries[0].table.id}/flyer`), urls[0]);
+    assert.deepEqual(urls.slice(1), [`${urls[0]}?page=2`, `${urls[0]}?page=3`]);
+  });
+
+  test("a kind with one page lists that one, and a kind with none lists nothing", async () => {
+    const vpin = await coreWithEntries();
+    const kind = vpin.entries[0].media[0];
+
+    assert.equal(vpin.getMediaPages(0, kind).length, 1);
+    assert.deepEqual(vpin.getMediaPages(0, "topper"), []);
+    assert.deepEqual(vpin.getMediaPages(9999, kind), []);
+  });
+
   test("a kind the entry lacks answers missing, not undefined", async () => {
     const vpin = await coreWithEntries();
 

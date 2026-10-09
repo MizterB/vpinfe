@@ -156,15 +156,15 @@ the documented entry point is a plain 200. Both spellings work.
 | GET | `/api/v1/assets` | Every asset file in the library, the same way. A file named for no table gets a row too, and says so |
 | GET | `/api/v1/games/{id}/links` | Where the game is elsewhere, as extensions have contributed. `?table=` for one table, `?path=` for one of its files |
 | GET | `/api/v1/games/{id}/media` | Every media kind, present or not. `?codecs=true` reads each video's header for its `video_codec`, which is null otherwise |
-| GET | `/api/v1/games/{id}/media/{kind}` | Stream one media file. `?size=` sends a picture smaller; `?v=` lets it be kept |
+| GET | `/api/v1/games/{id}/media/{kind}` | Stream one media file. `?size=` sends a picture smaller; `?v=` lets it be kept. `?page=n` streams page *n* of a flyer or an instruction card; page 1 is the kind itself and a page past the last is a 404 |
 | GET | `/api/v1/games/{id}/media/{kind}/detail` | What that file is. `format` is what the file's header says it is, `width`/`height` are an image's or a video's, `duration_s` is a video's or a sound's running time, and `video_codec` is a video's codec as `GET /frontend/browser` names the format - `h264`, `hevc`, `vp9` or `av1`, null for any other or where the header does not say. A `backglass` slot's detail also carries `backglass_file`, the `.directb2s` the table reads when it has a readable one: its `path` and `file`, whether the renderer in effect cuts the `grill`, and the `version` its picture is addressed by. Null otherwise |
 | GET | `/api/v1/games/{id}/media/overrides` | The kinds where a table has art of its own |
 | GET | `/api/v1/games/{id}/media/{kind}/placements` | Where a file of that kind could go, and what each place would replace |
 | GET | `/api/v1/games/{id}/media/{kind}/displaced?filename=` | What placing that file under the folder's name would replace, asked before the bytes are sent |
-| PUT | `/api/v1/games/{id}/media/{kind}` | Place a file every table shares, named for the folder (multipart: `file`) |
-| DELETE | `/api/v1/games/{id}/media/{kind}` | Remove the file every table shares. A table's own file and the default stay |
+| PUT | `/api/v1/games/{id}/media/{kind}` | Place a file every table shares, named for the folder (multipart: `file`). `?page=n` replaces page *n* of a flyer or an instruction card, or adds it when *n* is one past the last; it is named at the tier of page 1. A gap, or a page on a kind that does not page, is refused |
+| DELETE | `/api/v1/games/{id}/media/{kind}` | Remove the file every table shares. A table's own file and the default stay. With `?page=n`, that page alone goes, if it is at this tier, and the pages after it move down a number; with none, the kind goes with all its pages |
 | POST | `/api/v1/games/{id}/media/backglass/from-file` | Draw the game's backglass file as its backglass picture, `{"table"}`: lit at start and cut as the renderer in effect cuts it. It is recorded as drawn from the file, and drawn again when the file or the grill setting changes, for as long as nobody has replaced it |
-| POST | `/api/v1/games/{id}/media/{kind}/import` | Place a file from this device, `{"path", "table"}`, under a browsable root |
+| POST | `/api/v1/games/{id}/media/{kind}/import` | Place a file from this device, `{"path", "table"}` with an optional `"page"`, under a browsable root |
 | POST | `/api/v1/games/{id}/media/{kind}/fetch` | Place a file from an online catalog, `{"source", "vps_id"}` with optional `size` and `table` |
 | POST | `/api/v1/games/{id}/media/{kind}/retier?table=` | Rename a placed file so it serves another table, or every table. `?table=` is the table it serves now and `{"table"}` the one it should; empty means every table |
 | GET | `/api/v1/games/{id}/tables/{table_id}/media` | One table's media. `?codecs=true` as for the game's |
@@ -411,6 +411,10 @@ VPinFE shows you while browsing; assets are what the game needs to *play* as int
 Media is served under `GET /games/{id}/media`: every kind from `common/media_specs.py`,
 present or not, so a client enumerates what is possible instead of guessing from omissions.
 A present kind links to `/media/{kind}`, which streams the file with its real content type.
+Each entry carries `pages`: 0 for nothing, 1 for a single file, and for a flyer or an
+instruction card the number of pictures it has. `?page=n` on the file, `detail`, `displaced`,
+`PUT` and `DELETE` routes, on a game's and on a table's, addresses one of them. Pages
+follow page 1: they are named at its tier and show up for the tables it shows up for.
 Resolution is the same three-tier chain the scan uses, applied to the folder as it is at
 request time: a spec-named file for the launching table (`(Wheel) <table>.png`) beats a
 folder-named one (`(Wheel) <folder>.png`) beats the fixed default (`wheel.png`), each kind

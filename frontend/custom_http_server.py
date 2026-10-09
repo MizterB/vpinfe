@@ -20,7 +20,7 @@ from functools import partial
 from pathlib import Path
 from socketserver import ThreadingTCPServer
 from typing import Any
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import requests
 
@@ -332,6 +332,14 @@ class CustomHTTPServer:
             except (ConnectionResetError, BrokenPipeError):
                 return
 
+        def _requested_page(self) -> int:
+            """The `page` in the query: 1 when it is absent, and 0 - a page nothing has -
+            when it is not a positive whole number."""
+            asked = parse_qs(urlsplit(self.path).query).get("page")
+            if not asked:
+                return 1
+            return int(asked[0]) if asked[0].isdecimal() and len(asked[0]) < 9 else 0
+
         def _serve_game_media(self, request_path: str) -> bool:
             """/media/<table_id>/<kind> - the art a theme asks for, addressed by id.
 
@@ -343,10 +351,11 @@ class CustomHTTPServer:
                 return False
             table_id, kind = parts
 
+            page = self._requested_page()
             from common.games import game_repository, media_lookup
             try:
                 games = game_repository.all_games()
-                path = media_lookup.media_path(games, table_id, kind)
+                path = media_lookup.media_path(games, table_id, kind, page)
             except Exception:
                 logger.exception("[HTTP] media lookup failed for %s/%s", table_id, kind)
                 self.send_error(500, "Media lookup failed")

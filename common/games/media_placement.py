@@ -155,6 +155,20 @@ def page_tier(game_dir: str | Path, kind: str, table_stem: str = "") -> str | No
     return None
 
 
+def page_stem(game_dir: str | Path, kind: str, lens_stem: str, table_stem: str = "",
+              page: int = 1) -> str:
+    """The stem to write or remove page `page` at. Page 1 goes at the tier asked for,
+    `lens_stem`. A later page goes beside the page 1 the slot shows, whichever tier that
+    is, and with no page 1 it stays at `lens_stem`, where the file becomes page 1.
+
+    `table_stem` is the table the slot is shown for, or empty for the game.
+    """
+    if page == 1:
+        return lens_stem
+    tier = page_tier(game_dir, kind, table_stem)
+    return lens_stem if tier is None else tier
+
+
 def _number_for(game_dir: Path, kind: str, stem: str, page: int) -> int:
     """The number the file at position `page` carries, or the next number for a page added
     after the last. With no page 1 there is nothing to add to, and the file is page 1."""

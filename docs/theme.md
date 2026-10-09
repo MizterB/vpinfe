@@ -225,6 +225,11 @@ and on a large library it keeps several hundred kilobytes off the wire each time
 is rebuilt. Responses carry an `ETag` and ask to be revalidated, so replacing art in the
 Manager UI shows up without a hard refresh.
 
+**Pages.** The flyer and the instruction card can be several pictures. `entries[].pages` maps
+a kind to its page count, for the kinds that have two or more; a kind with one page is not
+in it. Page 1 is `/media/<table id>/<kind>` as always, and page *n* is the same address with
+`?page=n`. `vpin.getMediaPages(index, kind)` returns them in order.
+
 **There is no `meta` at contract 2.** `meta` was the `.info` file passed through, so a
 storage change reached themes whether or not it meant anything to them. Contract 2 serves
 a payload of its own instead, and `.info` can be reshaped without touching your theme.
@@ -1575,6 +1580,9 @@ Returns an HTTP URL for a table's video. `kind` can be `"playfield"`, `"backglas
 Returns an HTTP URL using the user's configured media priority from Manager UI > Configuration > Media > Media Priorities. For `"playfield"`, `"backglass"`, and `"scoreview"`, VPinFE chooses image or video first based on the setting and falls back to the alternate when the preferred file is missing. For `"real_dmd"`, VPinFE chooses `realdmd-color.png` or `realdmd.png` first based on the setting and falls back to the other frame. It answers with a picture; a theme that wants the video asks for `"real_dmd_video"` or `"real_dmd_color_video"` by their own names. Returns `/core/images/file_missing.png` when neither exists or `index` is outside the list, never `null`.
 
 Kind names are snake_case, the same strings the payload and `/api/v1` use, and at contract 2 they are the only names that answer. A contract 1 theme can still use the spellings earlier builds accepted: `bg`, `bg_video`, `dmd`, `dmd_video`, `table`, `table_video`, `fss`, `realdmd`, `realdmd-color`, `rulecard`, `audiolaunch` and `rulesheet`.
+
+#### getMediaPages(index, kind)
+Returns the URLs of every page of a kind, page 1 first, or `[]` when there is none. Only the flyer and the instruction card have more than one page; any other kind answers with its one URL. At contract 2 page 2 onward is the kind's URL with `?page=n` on it, and `entries[].pages` carries the count for a kind with two or more pages, so a theme can draw "1 / 3" without asking for them. Contract 1 has page 1 only. A page past the last answers 404.
 
 #### getMedia(index, kind)
 Returns the same priority-aware selection with metadata: `{ url, kind, priority, path }`. Real DMD selections also include `variant` with `"color"` or `"standard"`. When there is nothing to show, including for an `index` outside the list, `kind` is `"missing"` and `url` is `/core/images/file_missing.png`.

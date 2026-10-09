@@ -2244,6 +2244,8 @@ class Entry(ApiModel):
     # bytes come from `endpoints.files`, so naming files here would put a filesystem
     # path on the wire and several hundred kilobytes with it.
     media: list[str] = Field(default_factory=list)
+    # How many pages a kind has, for the kinds with two or more; a kind with one is absent.
+    pages: dict[str, int] = Field(default_factory=dict)
     # Which group this entry falls in under the collection's order - a letter, a year, a
     # rating. Absent when the order has no groups; `EntryList.group_by` says which.
     group: str | None = None
@@ -2290,6 +2292,8 @@ class MediaEntry(ApiModel):
     version: str | None = None
     # A format id of `GET /frontend/browser`'s; null unless asked with `?codecs=true`.
     video_codec: str | None = None
+    # How many pages the kind has: 0 for nothing, 1 for a kind that does not page.
+    pages: int = 0
     links: MediaEntryLinks
 
 
@@ -2349,6 +2353,9 @@ class MediaDetail(ApiModel):
 
     kind: str
     family: str
+    # The page this answers for, and how many the kind has.
+    page: int = 1
+    pages: int = 0
     present: bool
     file: str | None
     path: str | None = None
@@ -2481,6 +2488,8 @@ class MediaImport(ApiModel):
 
     path: str
     table: str = ""
+    # From 2, the page of a paged kind to add or replace.
+    page: int = Field(1, ge=1)
 
 
 class MediaFromFile(ApiModel):

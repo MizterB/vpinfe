@@ -54,6 +54,12 @@ def resolved_kinds(game: GameRecord, table_id: str = "") -> list[str]:
     return [kind for kind in _ATTR_BY_KIND if _resolved(game, table_id, kind)]
 
 
+def page_counts(game: GameRecord, table_id: str = "") -> dict[str, int]:
+    """How many pages each kind has for a table, for the kinds with two or more."""
+    return {kind: len(pages) for kind in _PAGED
+            if _PAGED[kind] and len(pages := _resolved_pages(game, table_id, kind)) > 1}
+
+
 def game_for_table(games: Sequence[Any], table_id: str) -> Any | None:
     """The game that owns a table id, or the game with that id.
 

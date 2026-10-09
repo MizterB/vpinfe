@@ -22,7 +22,7 @@ from common.games.game_metadata import (
     play_record,
     table_descriptor,
 )
-from common.games.media_lookup import resolved_kinds
+from common.games.media_lookup import page_counts, resolved_kinds
 from common.manufacturer_logos import manufacturer_logo_url
 from common.timestamps import epoch_to_iso
 
@@ -73,6 +73,7 @@ def entry_resource(entry: Entry, group: str | None = None) -> dict:
             "alt_sound": bool(entry.game.alt_sound_exists),
         },
         "media": resolved_kinds(entry.game, entry.table_id),
+        "pages": page_counts(entry.game, entry.table_id),
         # None when the order has no groups; `group_by` on the list says which.
         "group": group,
         # What extensions have contributed. Here as well as in the theme payload
