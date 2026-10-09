@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 from nicegui import core, ui
@@ -16,7 +17,7 @@ from nicegui import core, ui
 from common import i18n, service_errors
 from common.games.collections_service import IMAGE_EXTENSIONS
 from common.media_specs import IMAGE_FAMILY
-from console import mediasource
+from console import folder_picker, mediasource
 from console.data import Library
 from tests.support import clicks
 
@@ -200,14 +201,8 @@ async def _now(callback, *args, **kwargs):
 
 
 class WhatThePickerLooksAt(unittest.TestCase):
-    def test_it_lists_the_whole_machine_held_to_what_the_slot_takes(self) -> None:
-        library = _library()
-        library.disk_listing.return_value = {"path": "/x", "parent": "/", "entries": []}
-
-        found = _wheel_slot(library).listing("/x")
-
-        library.disk_listing.assert_called_once_with("/x", IMAGE_FAMILY)
-        self.assertEqual(found["path"], "/x")
+    def test_it_lists_the_files_the_slot_takes_and_no_others(self) -> None:
+        self.assertEqual(tuple(IMAGE_FAMILY), _wheel_slot(_library()).suffixes())
 
     def test_it_starts_where_the_library_does_and_then_the_rest_of_the_machine(self) -> None:
         client = mock.Mock()
@@ -222,18 +217,39 @@ class WhatThePickerLooksAt(unittest.TestCase):
         self.assertEqual(["/games/Afm", "/Volumes/share", "/"], [one["path"] for one in starts])
         client.browse_roots.assert_called_once_with("game")
 
-    def test_folders_come_first_and_each_entry_says_which_it_is(self) -> None:
-        client = mock.Mock()
-        client.folders.return_value = {
-            "path": "/x", "parent": "/", "above": [], "roots": [],
-            "folders": [{"name": "sub", "path": "/x/sub"}],
-            "files": [{"name": "a.png", "path": "/x/a.png"}]}
+    def test_it_opens_on_the_folder_of_what_fills_the_slot(self) -> None:
+        slot = _wheel_slot(_library())
+        slot.current = "/games/Afm/medias/wheel.png"
 
-        found = Library(client).disk_listing("/x", (".png",))
+        self.assertEqual("/games/Afm/medias/wheel.png",
+                         slot._opens_at([{"path": "/games/Afm", "source": "game"}]))
 
-        self.assertEqual([("folder", "sub"), ("file", "a.png")],
-                         [(one["kind"], one["name"]) for one in found["entries"]])
-        client.folders.assert_called_once_with("/x", "file", (".png",))
+    def test_it_opens_on_the_game_or_library_folder_when_nothing_fills_it(self) -> None:
+        slot = _wheel_slot(_library())
+
+        self.assertEqual("/lib", slot._opens_at([{"path": "/", "name": "/"},
+                                                 {"path": "/lib", "source": "library"}]))
+
+    def test_a_whole_folder_opens_beside_itself_so_its_own_row_is_on_screen(self) -> None:
+        pack = _folder("pup_pack")
+        pack.current = "/games/Afm/pupvideos"
+
+        self.assertEqual("/games/Afm", pack._opens_at([]))
+
+    def test_it_never_opens_at_the_top_of_the_disk(self) -> None:
+        slot = _wheel_slot(_library())
+
+        self.assertEqual("", slot._opens_at([{"path": "/", "name": "/"},
+                                             {"path": "/Users/x", "name": "Home"}]))
+
+    def test_places_are_named_by_the_dialog_and_a_shared_name_falls_back_to_the_path(
+            self) -> None:
+        named = mediasource._places([
+            {"path": "/games/Afm", "name": "Afm", "source": "game"},
+            {"path": "/a/Art", "name": "Art", "source": "library"},
+            {"path": "/b/Art", "name": "Art", "source": "library"}])
+
+        self.assertEqual(["This game's folder", "/a/Art", "/b/Art"], [one["name"] for one in named])
 
 
 class WhereAFileIsShownFrom(unittest.TestCase):
@@ -347,79 +363,113 @@ class TakingAFileFromTheDisk(unittest.IsolatedAsyncioTestCase):
         taken.assert_awaited_once_with("art.png", b"bytes")
 
 
-def _folder_of(count: int) -> dict:
-    sessions = [{"kind": "folder", "name": f"session-{n:03}", "path": f"/x/session-{n:03}"}
-                for n in range(count)]
-    return {"path": "/x", "parent": "/", "entries": [
-        *sessions,
-        {"kind": "folder", "name": "Outside-Art", "path": "/x/Outside-Art"},
-        {"kind": "file", "name": "Wheel Art.png", "path": "/x/Wheel Art.png"}]}
+def _browser_over(count: int, *, limit: int = 60) -> tuple[list[str], ui.column, Any]:
+    """The embedded browser over `count` session folders, a folder named Outside-Art and
+    a file, drawing file rows into the list it returns."""
+    here = {"path": "/x", "parent": "/", "above": [], "roots": [],
+            "folders": [*({"name": f"session-{n:03}", "path": f"/x/session-{n:03}"}
+                          for n in range(count)),
+                        {"name": "Outside-Art", "path": "/x/Outside-Art"}],
+            "files": [{"name": "Wheel Art.png", "path": "/x/Wheel Art.png"}]}
+    drawn: list[str] = []
+    with ui.column() as host:
+        folder_picker.draw_browser(
+            folder_picker.Start(here, "", None), mock.Mock(), kind="file",
+            suffixes=(".png",), take=mock.AsyncMock(),
+            file_row=lambda item: drawn.append(item["name"]), limit=limit, embedded=True)
+    return drawn, host, here
+
+
+def _filter_box(host: ui.column) -> ui.input:
+    return next(one for one in host.descendants() if isinstance(one, ui.input)
+                and one.props.get("placeholder") == i18n.t("console.folder_picker.filter"))
+
+
+def _rows(host: ui.column) -> list[str]:
+    return [one.text for one in host.descendants() if isinstance(one, ui.label)
+            and "console-source-name" in one.classes]
+
+
+def _notes(host: ui.column) -> list[str]:
+    return [one.text for one in host.descendants() if isinstance(one, ui.label)
+            and "console-help" in one.classes and "console-picker-note" not in one.classes]
 
 
 class AFolderLongerThanTheListIsNarrowedByName(unittest.TestCase):
     """Whole-disk browsing meets folders of hundreds, and what the list cuts off has
     to stay reachable."""
 
-    def _drawn(self, wanted: str) -> tuple[list[str], list[str]]:
-        slot = _wheel_slot(_library())
-        slot.here = _folder_of(200)
-        slot.narrow = SimpleNamespace(value=wanted)
-        names: list[str] = []
-        with mock.patch.object(slot, "_folder_link",
-                               new=lambda name, *_a, up=False: up or names.append(name)), \
-                mock.patch.object(slot, "file_row",
-                                  new=lambda item: names.append(item["name"])):
-            with ui.column() as listing:
-                slot._draw_folder(listing)
-        notes = [one.text for one in listing.descendants() if isinstance(one, ui.label)]
-        return names, notes
+    def setUp(self) -> None:
+        self.enterContext(mock.patch.object(ui, "run_javascript"))
 
     def test_without_a_filter_the_list_is_cut_and_says_how_much(self) -> None:
-        names, notes = self._drawn("")
+        _, host, _ = _browser_over(200)
 
-        self.assertEqual((60, ["142 more not shown"]), (len(names), notes))
-        self.assertNotIn("Outside-Art", names)
+        self.assertEqual((60, ["142 more not shown"]), (len(_rows(host)), _notes(host)))
+        self.assertNotIn("Outside-Art", _rows(host))
 
     def test_a_filter_reaches_what_the_cut_left_out(self) -> None:
-        names, notes = self._drawn("outside")
+        _, host, _ = _browser_over(200)
 
-        self.assertEqual((["Outside-Art"], []), (names, notes))
+        _filter_box(host).value = "outside"
+
+        self.assertEqual((["Outside-Art"], []), (_rows(host), _notes(host)))
 
     def test_a_filter_matches_files_and_ignores_case_and_edge_spaces(self) -> None:
-        names, _ = self._drawn("  WHEEL art ")
+        drawn, host, _ = _browser_over(200)
 
-        self.assertEqual(["Wheel Art.png"], names)
+        _filter_box(host).value = "  WHEEL art "
+
+        self.assertEqual(["Wheel Art.png"], drawn[-1:])
+        self.assertEqual([], _rows(host))
 
     def test_a_filter_that_matches_nothing_says_so(self) -> None:
-        names, notes = self._drawn("zzz")
+        _, host, _ = _browser_over(200)
 
-        self.assertEqual(([], ["Nothing here"]), (names, notes))
+        _filter_box(host).value = "zzz"
+
+        self.assertEqual(([], ["Nothing here"]), (_rows(host), _notes(host)))
+
+    def test_an_empty_folder_says_what_it_has_none_of(self) -> None:
+        self.enterContext(mock.patch.object(ui, "run_javascript"))
+        with ui.column() as host:
+            folder_picker.draw_browser(
+                folder_picker.Start({"path": "/x", "parent": "/", "above": [], "roots": [],
+                                     "folders": [], "files": []}, "", None),
+                mock.Mock(), kind="file", suffixes=(".png",), take=mock.AsyncMock(),
+                empty="Nothing here to use as Wheel", embedded=True)
+
+        self.assertEqual(["Nothing here to use as Wheel"], _notes(host))
 
 
 class OpeningAFolderUnderAFilter(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         # Built here because a coroutine has no slot to put an element in.
-        self.slot = _wheel_slot(_library())
-        self.slot.browse_roots = []
-        self.slot.listing = lambda path: {
-            "path": path, "parent": "/",
-            "entries": [{"kind": "file", "name": name, "path": f"{path}/{name}"}
-                        for name in ("a.png", "b.png")]}
-        with ui.column() as self.listing:
-            self.slot.narrow = ui.input(value="b")
-        self.slot.narrow.on_value_change(lambda: self.slot._draw_folder(self.listing))
+        self.enterContext(mock.patch.object(ui, "run_javascript"))
+        opened = {"path": "/x/y", "parent": "/x", "above": [], "roots": [], "folders": [],
+                  "files": [{"name": name, "path": f"/x/y/{name}"} for name in
+                            ("a.png", "b.png")]}
+        self.drawn: list[str] = []
+        here = {"path": "/x", "parent": "/", "above": [], "roots": [],
+                "folders": [{"name": "y", "path": "/x/y"}], "files": []}
+        with ui.column() as self.host:
+            folder_picker.draw_browser(
+                folder_picker.Start(here, "", None), mock.Mock(return_value=opened),
+                kind="file", suffixes=(".png",), take=mock.AsyncMock(),
+                file_row=lambda item: self.drawn.append(item["name"]), embedded=True)
 
     async def test_the_filter_clears_and_the_new_folder_is_drawn_once_in_full(self) -> None:
-        drawn: list[str] = []
         self.enterContext(mock.patch.object(core, "loop", asyncio.get_running_loop()))
         self.enterContext(mock.patch("console.offload.run.io_bound", new=_now))
-        self.enterContext(mock.patch.object(self.slot, "_folder_link"))
-        self.enterContext(mock.patch.object(
-            self.slot, "file_row", new=lambda item: drawn.append(item["name"])))
+        box = _filter_box(self.host)
+        box.value = "y"
+        row = next(one for one in self.host.descendants() if isinstance(one, ui.row)
+                   and "console-source-row" in one.classes)
 
-        await self.slot._show_folder(self.listing, "/y")
+        clicks.said(row, "click")
+        await asyncio.sleep(0.2)
 
-        self.assertEqual(("", ["a.png", "b.png"]), (self.slot.narrow.value, drawn))
+        self.assertEqual(("", ["a.png", "b.png"]), (box.value, self.drawn))
 
 
 if __name__ == "__main__":

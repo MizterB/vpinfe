@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from console import confirm, mediamap, mediasource
 
-LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None)
+LIBRARY = SimpleNamespace(placements=None, displaced_by=None, place_media=None,
+                          folders=None)
 
 
 async def _nothing() -> None:
@@ -26,12 +27,13 @@ class KindNamesInSentences(unittest.TestCase):
     def test_a_folder_with_nothing_to_use(self) -> None:
         folder = mediasource._Folder({"library": LIBRARY, "game_id": "game", "game": {}},
                                      "pup_pack", "PUP Pack", _nothing)
-        with patch.object(mediasource, "ui") as ui, \
-                patch.object(mediasource.offload, "io",
-                             AsyncMock(return_value={"path": "", "entries": []})):
-            asyncio.run(folder._show_folder(MagicMock(), ""))
+        with patch.object(mediasource, "ui"), \
+                patch.object(mediasource.folder_picker, "read_start", AsyncMock()), \
+                patch.object(mediasource.folder_picker, "draw_browser") as drawn, \
+                patch.object(mediasource.offload, "io", AsyncMock(return_value=[])):
+            asyncio.run(folder.host_tab(MagicMock()))
 
-        self.assertIn(call("Nothing here to use as PUP Pack"), ui.label.call_args_list)
+        self.assertEqual("Nothing here to use as PUP Pack", drawn.call_args.kwargs["empty"])
 
     def test_a_file_already_in_a_slot(self) -> None:
         slot = mediasource._Slot(

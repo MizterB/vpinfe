@@ -341,14 +341,6 @@ class Library:
         return library + [one for one in self._client.folders()["roots"]
                           if one["path"] not in named]
 
-    def disk_listing(self, path: str, suffixes: Iterable[str]) -> dict:
-        """One folder on this machine as `browse` answers: folders, then the files that
-        end in `suffixes`."""
-        found = self._client.folders(path, "file", suffixes)
-        return {"path": found["path"], "parent": found["parent"],
-                "entries": [{"kind": "folder", **one} for one in found["folders"]]
-                           + [{"kind": "file", **one} for one in found["files"]]}
-
     def disk_file(self, path: str, suffixes: Iterable[str]) -> bytes:
         """A file on this machine, for a write that takes the bytes rather than the path.
         Read here, not asked of the API: the API is never handed a path to trust."""

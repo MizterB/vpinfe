@@ -18,15 +18,15 @@ _pick_path = getattr(folder_picker.pick_path, "__wrapped__")  # noqa: B009
 
 class Enclosing(unittest.TestCase):
     def test_the_folder_that_holds_a_path_is_the_one_above(self) -> None:
-        self.assertEqual(folder_picker._enclosing("/a/b/c"), "/a/b")
-        self.assertEqual(folder_picker._enclosing("/a/b/c/"), "/a/b")
+        self.assertEqual(folder_picker.enclosing("/a/b/c"), "/a/b")
+        self.assertEqual(folder_picker.enclosing("/a/b/c/"), "/a/b")
 
     def test_the_top_of_a_drive_or_root_is_kept_with_its_separator(self) -> None:
-        self.assertEqual(folder_picker._enclosing("/a"), "/")
-        self.assertEqual(folder_picker._enclosing("C:\\a"), "C:\\")
+        self.assertEqual(folder_picker.enclosing("/a"), "/")
+        self.assertEqual(folder_picker.enclosing("C:\\a"), "C:\\")
 
     def test_a_bare_name_has_nothing_above_it(self) -> None:
-        self.assertEqual(folder_picker._enclosing("a"), "")
+        self.assertEqual(folder_picker.enclosing("a"), "")
 
 
 class BrowseStart(unittest.IsolatedAsyncioTestCase):
