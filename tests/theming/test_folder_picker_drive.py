@@ -102,7 +102,7 @@ def serve(port: int) -> None:
     @app.get("/heard")
     def said() -> dict:
         return {**heard, "made": (base / TYPED).is_dir(),
-                "default_left": (base / t("console.folder_picker.new_folder")).exists()}
+                "default_left": (base / t("console.folder_picker.new_folder_name")).exists()}
 
     ui.run(port=port, show=False, reload=False, title="Folder picker drive")
 
@@ -272,7 +272,7 @@ class FolderPickerDrive(unittest.TestCase):
 
     def test_the_row_is_named_and_selected_for_typing(self) -> None:
         named = self.seen["named"]
-        self.assertEqual(named["value"], t("console.folder_picker.new_folder"))
+        self.assertEqual(named["value"], t("console.folder_picker.new_folder_name"))
         self.assertTrue(named["focused"])
         self.assertEqual((named["from"], named["to"]), (0, len(named["value"])))
 
