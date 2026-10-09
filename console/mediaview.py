@@ -387,14 +387,3 @@ def _act(dialog: Any, icon: str, said: str, act: Callable[[], Awaitable[Any]]) -
         await act()
 
     panel.icon_action(said, pressed, icon=icon, hint=said)()
-
-
-def open_text(label: str, text: str) -> None:
-    """Show a text file whole, in the viewer's frame."""
-    with frame.made() as dialog, ui.card().classes("console-viewer-card"):
-        with ui.row().classes("items-center gap-2 w-full no-wrap console-viewer-bar"):
-            ui.label(label).classes("console-card-title shrink-0")
-            ui.space()
-            ui.button(icon=verbs.CLOSE, on_click=dialog.close).props("flat dense round")
-        ui.label(text).classes("console-file-text console-file-text--whole")
-    dialog.open()

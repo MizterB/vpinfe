@@ -12,7 +12,7 @@ from unittest import mock
 from nicegui import ui
 
 from console import dialog as frame
-from console import mediaview, remote
+from console import mediaview, remote, text_editor
 from tests.support.clicks import said
 
 # Made at import, outside any task, where NiceGUI still hands out the script's own page.
@@ -141,7 +141,7 @@ class OnesWithTheirOwnCardGoToo(unittest.TestCase):
                                                       "Loading"))
 
     def test_a_text_file_shown_whole(self) -> None:
-        self._each_time(lambda: mediaview.open_text("notes.txt", "A line"))
+        self._each_time(lambda: text_editor.show_whole("notes.txt", "A line"))
 
     def test_the_remote_sheet_for_a_game(self) -> None:
         self._each_time(lambda: remote._game_sheet(

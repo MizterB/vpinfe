@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 from nicegui import ui
@@ -19,6 +20,7 @@ from nicegui.elements.codemirror.constants import SUPPORTED_LANGUAGES, SUPPORTED
 from common.failures import why
 from common.i18n import t
 from console import appearance, confirm, offload, panel, verbs
+from console import dialog as frame
 from console.api import ApiError
 from console.on_page import on_page
 
@@ -94,40 +96,98 @@ def drop_all(state: dict[str, Any]) -> None:
     note(state)
 
 
+def show_whole(label: str, text: str) -> None:
+    """A file that is not edited, read whole in the full dialog."""
+    with frame.opened("", full=True) as dialog:
+        with ui.row().classes("items-center gap-2 w-full no-wrap"):
+            ui.label(label).classes("console-dialog-title")
+            ui.space()
+            panel.icon_only(verbs.CLOSE, dialog.close, hint=t("word.close"))
+        with ui.element("div").classes("console-editor"):
+            with ui.element("div").classes("console-editor-box"):
+                ui.codemirror(text, theme=_THEMES[_DARK.get(ui.context.client, True)]).disable()
+    dialog.open()
+
+
+@dataclass
+class Held:
+    """What the file has on disk as far as the page knows, and whether a save is going.
+    One per file on a page, shared by the stage's editor and the enlarged one over it.
+    `views` redraw each editor's strip."""
+
+    base: str
+    version: str
+    saving: bool = False
+    views: list[Callable[[], None]] = field(default_factory=list)
+
+    def touch(self) -> None:
+        for view in list(self.views):
+            view()
+
+
 def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any],
-           locked: str, enlarge: Callable[[str], Awaitable[None] | None],
-           locked_help: str = "") -> None:
+           locked: str, locked_help: str = "", *,
+           held: Held | None = None) -> None:
     """The file's text in an editor with its strip under it. `found` is what the API read,
-    and `locked` the reason it cannot be saved, or blank."""
+    and `locked` the reason it cannot be saved, or blank.
+
+    Enlarge draws a second editor over the same draft, passing the stage's `held` (the text
+    and version the file has on disk) so a save in either moves both. The stage's editor is
+    not touched until the enlarged one closes, and then it is brought up to date.
+    """
     state, library = context["state"], context["library"]
     game_id, kind = context["game_id"], context["kind"]
-    saving = False
+    enlarged = held is not None
     key = draft_key(game_id, path)
     drafts = drafts_of(state)
     draft = drafts.get(key)
-    held = {"base": draft["base"] if draft else found["text"],
-            "version": draft["version"] if draft else found["version"]}
+    if held is None:
+        held = Held(draft["base"] if draft else found["text"],
+                    draft["version"] if draft else found["version"])
     name = str((context.get("game") or {}).get("name") or game_id) + " - " + label
+    big: ui.button | None = None
 
     def current() -> str:
-        return str(drafts[key]["text"]) if key in drafts else str(held["base"])
+        return str(drafts[key]["text"]) if key in drafts else str(held.base)
 
     def show() -> None:
+        if said.is_deleted:
+            return
         dirty = key in drafts
         said.set_visibility(dirty)
         cancel.set_visibility(dirty or not locked)
-        cancel.set_enabled(dirty)
-        save.set_enabled(dirty and not saving)
+        cancel.set_enabled(dirty and not held.saving)
+        save.set_enabled(dirty and not held.saving)
+        if big is not None:
+            big.set_enabled(not held.saving)
+
+    def catch_up() -> None:
+        if not code.is_deleted and code.value != current():
+            code.value = current()
+        held.touch()
+
+    def enlarge() -> None:
+        with frame.opened("", full=True) as dialog:
+            with ui.row().classes("items-center gap-2 w-full no-wrap"):
+                with ui.column().classes("gap-0 min-w-0"):
+                    ui.label(label).classes("console-dialog-title")
+                    ui.label(str((context.get("game") or {}).get("name") or game_id)) \
+                        .classes("console-help truncate")
+                ui.space()
+                panel.icon_only(verbs.CLOSE, dialog.close, hint=t("word.close"))
+            editor(context, path, label, found, locked, locked_help, held=held)
+        dialog.on("hide", catch_up)
+        dialog.open()
 
     def changed(event: Any) -> None:
         text = str(event.value or "")
         was = key in drafts
-        if text == held["base"]:
+        if text == held.base:
             drafts.pop(key, None)
         else:
-            drafts[key] = {"text": text, "base": held["base"], "version": held["version"],
+            drafts[key] = {"text": text, "base": held.base, "version": held.version,
                            "name": name}
-        show()
+        held.touch()
         if was != (key in drafts):
             note(state)
 
@@ -135,22 +195,21 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
         ui.notify(t("console.workbench.save_failed"), caption=why(exc), type="negative")
 
     async def write(replace_changed: bool = False, keep_copy: bool = True) -> None:
-        nonlocal saving
-        if locked or saving or key not in drafts:
+        if locked or held.saving or key not in drafts:
             return
         text = drafts[key]["text"]
-        saving = True
-        show()
+        held.saving = True
+        held.touch()
         try:
             await send(text, replace_changed, keep_copy)
         finally:
-            saving = False
-            show()
+            held.saving = False
+            held.touch()
 
     async def send(text: str, replace_changed: bool, keep_copy: bool) -> None:
         try:
             done = await offload.io(library.save_asset_text, game_id, path, text,
-                                    held["version"], replace_changed, keep_copy)
+                                    held.version, replace_changed, keep_copy)
         except ApiError as exc:
             refused = exc.details.get("refused")
             if refused == CHANGED:
@@ -171,10 +230,10 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
             logger.debug("Could not save %s", path, exc_info=True)
             await notify_failed(exc)
             return
-        held["base"], held["version"] = text, done["version"]
+        held.base, held.version = text, done["version"]
         typed = drafts.get(key)
         if typed is not None and typed["text"] != text:
-            typed["base"], typed["version"] = held["base"], held["version"]
+            typed["base"], typed["version"] = held.base, held.version
         else:
             drafts.pop(key, None)
         note(state)
@@ -189,16 +248,18 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
 
     @on_page
     async def cancel_it() -> None:
+        if held.saving:
+            return
         try:
             fresh = await offload.io(library.asset_text, game_id, path)
         except Exception as exc:  # noqa: BLE001 - the text it had is the text it goes back to
             logger.debug("Could not read %s again", path, exc_info=True)
             ui.notify(t("console.workbench.read_failed"), caption=why(exc), type="negative")
         else:
-            held["base"], held["version"] = fresh["text"], fresh["version"]
+            held.base, held.version = fresh["text"], fresh["version"]
         drafts.pop(key, None)
-        code.value = held["base"]
-        show()
+        code.value = held.base
+        held.touch()
         note(state)
 
     with ui.element("div").classes("console-editor"):
@@ -216,8 +277,8 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
             if locked:
                 panel.line(locked, hint=locked_help, classes="console-help truncate")
             with ui.row().classes("items-center gap-1 no-wrap ml-auto"):
-                panel.icon_only(verbs.ENLARGE, lambda: enlarge(current()),
-                                hint=t("word.enlarge"))
+                if not enlarged:
+                    big = panel.icon_only(verbs.ENLARGE, enlarge, hint=t("word.enlarge"))
                 cancel = panel.draft_button(t("word.cancel"), cancel_it, icon=verbs.CANCEL,
                                             hint=t("console.text_editor.cancel.help"))
                 save = panel.draft_button(t("word.save"), save_it, icon=verbs.SAVE,
@@ -225,4 +286,5 @@ def editor(context: dict[str, Any], path: str, label: str, found: dict[str, Any]
                                           primary=True)
             if locked:
                 save.set_visibility(False)
+    held.views.append(show)
     show()

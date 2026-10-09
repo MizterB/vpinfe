@@ -2969,7 +2969,6 @@ a.console-tag:hover { background: var(--wash-hover); }
   background: var(--surface-2);
   color: var(--ink-2);
 }
-.console-file-text--whole { max-height: 75vh; width: min(960px, 85vw); }
 .console-workbench-links { max-width: 100%; overflow: hidden; }
 .console-workbench-links .console-link {
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -3016,7 +3015,7 @@ a.console-tag:hover { background: var(--wash-hover); }
   flex: 1 1 0; min-height: 160px; position: relative; overflow: hidden;
   border: 1px solid var(--line); border-radius: 8px;
 }
-.console-editor-box .nicegui-codemirror { position: absolute; inset: 0; }
+.console-editor-box .nicegui-codemirror { position: absolute; inset: 0; height: auto; }
 .console-editor-box .cm-editor { height: 100%; background: var(--surface-2); color: var(--ink); }
 .console-editor-box .cm-gutters {
   background: var(--surface-2); color: var(--ink-3); border-right: 1px solid var(--line);

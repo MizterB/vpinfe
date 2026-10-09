@@ -11,6 +11,7 @@ from unittest import mock
 from nicegui import core, ui
 
 from console import assets, offload, text_editor, workbench
+from console.api import ApiError
 
 
 def _draft(name: str) -> dict[str, Any]:
@@ -86,6 +87,7 @@ class _Library:
         self.version = 1
         self.on_disk = "x = 1"
         self.unreadable = False
+        self.hold: Any = None
 
     def asset_text(self, game_id: str, path: str) -> dict[str, Any]:
         if self.unreadable:
@@ -95,8 +97,12 @@ class _Library:
     def save_asset_text(self, game_id: str, path: str, text: str, version: str,
                         replace_changed: bool, keep_copy: bool) -> dict[str, Any]:
         self.saved.append(text)
+        if version != f"v{self.version}":
+            raise ApiError("changed", {"refused": text_editor.CHANGED})
         if self.typing:
             self.typing()
+        if self.hold:
+            self.hold()
         self.on_disk = text
         self.version += 1
         return {"version": f"v{self.version}"}
@@ -107,7 +113,7 @@ async def _inline(callback: Any, *args: Any) -> Any:
     return callback(*args)
 
 
-class TheStrip(unittest.TestCase):
+class _Editor(unittest.TestCase):
     FOUND = {"text": "x = 1", "version": "v1"}
 
     def setUp(self) -> None:
@@ -121,13 +127,13 @@ class TheStrip(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def _drawn(self, locked: str = "") -> ui.card:
+    def _drawn(self, locked: str = "", extra: dict[str, Any] | None = None) -> ui.card:
         context = {"state": self.state, "library": self.library, "game_id": "g",
-                   "kind": "ini"}
+                   "kind": "ini", **(extra or {})}
         holder = ui.card()
         with holder:
             text_editor.editor(context, "a.ini", "Table INI", self.FOUND, locked,
-                               lambda text: None, locked_help="why")
+                               locked_help="why")
         self.holder = holder
         return holder
 
@@ -157,6 +163,8 @@ class TheStrip(unittest.TestCase):
 
         asyncio.run(together())
 
+
+class TheStrip(_Editor):
     def test_a_file_that_cannot_be_saved_is_read_only_with_no_save(self) -> None:
         self._drawn("Playing")
 
@@ -218,6 +226,124 @@ class TheStrip(unittest.TestCase):
 
         self.assertEqual("x = 1", self._editor().value)
         self.assertEqual(1, len(self.notes))
+        self.assertEqual([], text_editor.waiting(self.state))
+
+
+class TheEnlargedEditor(_Editor):
+    def _enlarged(self) -> ui.dialog:
+        before = set(self.holder.client.elements.values())
+        listener = next(one for one in self._enlarge_button()._event_listeners.values()
+                        if one.type == "click")
+        assert listener.handler is not None
+        listener.handler(None)
+        return next(one for one in set(self.holder.client.elements.values()) - before
+                    if isinstance(one, ui.dialog))
+
+    def _enlarge_button(self) -> ui.button:
+        return next(one for one in self.holder.descendants()
+                    if isinstance(one, ui.button) and one.props.get("icon") == "open_in_full")
+
+    @staticmethod
+    def _pressed_in(dialog: ui.dialog, label: str) -> None:
+        button = next(one for one in dialog.descendants()
+                      if isinstance(one, ui.button) and one.props.get("label") == label)
+        listener = next(one for one in button._event_listeners.values() if one.type == "click")
+        handler = listener.handler
+        assert handler is not None
+
+        async def run() -> None:
+            was = core.loop
+            core.loop = asyncio.get_running_loop()
+            try:
+                handler(None)
+                await asyncio.sleep(0.05)
+            finally:
+                core.loop = was
+
+        asyncio.run(run())
+
+    @staticmethod
+    def _hidden(dialog: ui.dialog) -> None:
+        for listener in list(dialog._event_listeners.values()):
+            if listener.type == "hide" and listener.handler is not None:
+                listener.handler()
+
+    @staticmethod
+    def _editor_in(dialog: ui.dialog) -> ui.codemirror:
+        return next(one for one in dialog.descendants() if isinstance(one, ui.codemirror))
+
+    def test_it_opens_on_the_text_the_stage_holds(self) -> None:
+        self._drawn()
+        self._editor().value = "x = 2"
+        dialog = self._enlarged()
+
+        self.assertEqual("x = 2", self._editor_in(dialog).value)
+
+    def test_it_has_no_enlarge_of_its_own(self) -> None:
+        self._drawn()
+        dialog = self._enlarged()
+
+        self.assertFalse([one for one in dialog.descendants()
+                          if isinstance(one, ui.button)
+                          and one.props.get("icon") == "open_in_full"])
+
+    def test_what_is_typed_there_is_the_stages_draft_once_it_closes(self) -> None:
+        self._drawn()
+        dialog = self._enlarged()
+        self._editor_in(dialog).value = "x = 5"
+        self._hidden(dialog)
+
+        self.assertEqual("x = 5", self._editor().value)
+        self.assertEqual(1, len(text_editor.waiting(self.state)))
+
+    def test_a_save_there_leaves_the_stage_with_nothing_to_save(self) -> None:
+        self._drawn()
+        dialog = self._enlarged()
+        self._editor_in(dialog).value = "x = 5"
+        self._pressed_in(dialog, "Save")
+        self._hidden(dialog)
+
+        self.assertEqual(["x = 5"], self.library.saved)
+        self.assertEqual("x = 5", self._editor().value)
+        self.assertEqual([], text_editor.waiting(self.state))
+        self._editor().value = "x = 6"
+        self._press("Save")
+        self.assertEqual(["x = 5", "x = 6"], self.library.saved)
+
+    def test_a_save_in_the_dialog_reaches_the_hooks_once(self) -> None:
+        heard: list[str] = []
+
+        async def after() -> None:
+            heard.append("after")
+
+        self._drawn(extra={"after_save": after})
+        dialog = self._enlarged()
+        self._editor_in(dialog).value = "x = 5"
+        self._pressed_in(dialog, "Save")
+
+        self.assertEqual(["after"], heard)
+
+    def test_a_save_going_in_the_dialog_holds_the_stage_back(self) -> None:
+        self._drawn()
+        dialog = self._enlarged()
+        self._editor_in(dialog).value = "x = 5"
+        seen: list[bool] = []
+        self.library.hold = lambda: seen.append(self._button("Save").enabled)
+        self._pressed_in(dialog, "Save")
+
+        self.assertEqual([False], seen)
+        self.assertEqual(["x = 5"], self.library.saved)
+
+    def test_the_stage_saves_with_the_version_the_dialog_left(self) -> None:
+        self._drawn()
+        dialog = self._enlarged()
+        self._editor_in(dialog).value = "x = 5"
+        self._pressed_in(dialog, "Save")
+        self._hidden(dialog)
+        self._editor().value = "x = 6"
+        self._press("Save")
+
+        self.assertEqual("x = 6", self.library.on_disk)
         self.assertEqual([], text_editor.waiting(self.state))
 
 

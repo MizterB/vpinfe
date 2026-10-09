@@ -1069,10 +1069,7 @@ async def _asset_stage(context: dict[str, Any], path: str, glass: dict[str, Any]
         elif not found["editable"]:
             locked = str(found["why"])
 
-        async def enlarge(text: str) -> None:
-            mediaview.open_text(label, text)
-
-        text_editor.editor(context, path, label, found, locked, enlarge, help_)
+        text_editor.editor(context, path, label, found, locked, help_)
         return
     with ui.element("div").classes("console-slot-art console-slot-art--text"):
         ui.label(head).classes("console-file-text")
@@ -1399,7 +1396,7 @@ async def _open_whole(context: dict[str, Any], path: str, label: str) -> None:
         ui.notify(t("console.workbench.read_failed"), caption=why(exc),
                   type="negative")
         return
-    mediaview.open_text(label, str(found.get("head") or ""))
+    text_editor.show_whole(label, str(found.get("head") or ""))
 
 
 async def build_backup(container: ui.column, title: ui.column, library: Library,
