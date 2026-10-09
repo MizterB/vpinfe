@@ -3006,6 +3006,25 @@ a.console-tag:hover { background: var(--wash-hover); }
   max-height: 100%;
 }
 .console-stage .console-file-text { max-height: none; height: 100%; }
+/* The text editor: the stage's one child, the text above and a strip below it. The editor
+   fills the box rather than sizing it, so the strip stays on screen whatever the file's
+   length. The page's tokens repaint what CodeMirror's theme draws. */
+.console-editor {
+  flex: 1 1 0; min-height: 0; width: 100%; display: flex; flex-direction: column; gap: 6px;
+}
+.console-editor-box {
+  flex: 1 1 0; min-height: 160px; position: relative; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.console-editor-box .nicegui-codemirror { position: absolute; inset: 0; }
+.console-editor-box .cm-editor { height: 100%; background: var(--surface-2); color: var(--ink); }
+.console-editor-box .cm-gutters {
+  background: var(--surface-2); color: var(--ink-3); border-right: 1px solid var(--line);
+}
+.console-editor-box .cm-activeLine, .console-editor-box .cm-activeLineGutter {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.console-editor-strip { flex: 0 0 auto; min-height: 28px; }
 /* A backglass file's picture: the window as VPX draws it. The stage is stretched to the
    box and turned about its centre, so a quarter turn is a stage of swapped size.
    `--fit` is the height every window is drawn at: what is left of the stage after its

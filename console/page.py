@@ -44,6 +44,7 @@ from console import (
     row_drag,
     sections,
     tageditor,
+    text_editor,
     theme_sources,
     undo,
     uploads,
@@ -296,11 +297,11 @@ def imports_ended_since(jobs: list[dict[str, Any]], opened: float,
             and str(job.get("id") or "") not in told]
 
 
-# The browser's own question, for a reload or a link out while a rule is unsaved. The
-# panel keeps the flag current.
+# The browser's own question, for a reload or a link out while a rule or a file is
+# unsaved. The panel keeps the flag current.
 _ASK_BEFORE_UNLOAD = """
 window.addEventListener('beforeunload', (event) => {
-  if (!window.__hubUnsavedRules) return;
+  if (!window.__hubUnsaved) return;
   event.preventDefault();
   event.returnValue = '';
 });
@@ -557,6 +558,7 @@ async def console_page(view: str = "", game: str = "", table: str = "", section:
     # changed, so a pane collapsed the moment the header it was subtracting went away.
     ui.query(".nicegui-content").classes("p-0 gap-0 h-screen")
 
+    ui.on(text_editor.DARK_EVENT, text_editor.wire())
     ui.on("hub_window_px", lambda event: on_window_width(int(event.args or 0)))
     ui.on("hub_member_moved", lambda event: workbench.member_moved(state, event.args))
     ui.on(row_drag.DRAGGED, lambda: row_drag.dragging(library, state))
@@ -1898,18 +1900,18 @@ def leave_for(state: dict[str, Any], view: str) -> None:
 
 @on_page
 async def may_leave(state: dict[str, Any], view: str) -> bool:
-    """Whether to go to `view`: asked first where that would drop rules nobody saved,
-    and the rules dropped on a yes."""
-    waiting = sorted(state.get("unsaved_rules") or ())
+    """Whether to go to `view`: asked first where that would drop rules or text nobody
+    saved, and both dropped on a yes."""
+    waiting = sorted(set(state.get("unsaved_rules") or ()) | set(text_editor.waiting(state)))
     if not waiting or view == state.get("view"):
         return True
-    if not await confirm.ask(t("console.page.leave_unsaved_rules"),
-                             detail=t("console.page.unsaved_rules_lost"), lines=waiting,
+    if not await confirm.ask(t("console.page.leave_unsaved"),
+                             detail=t("console.page.unsaved_lost"), lines=waiting,
                              confirm=t("console.page.leave"), icon=verbs.GO):
         return False
     state["collection_drafts"] = {}
     state["unsaved_rules"] = set()
-    ui.run_javascript("window.__hubUnsavedRules = false;")
+    text_editor.drop_all(state)
     return True
 
 

@@ -1392,6 +1392,20 @@ def action(label: str,
     return draw
 
 
+def draft_button(label: str, on_click: Callable[[], Any], *, icon: str, hint: str = "",
+                 primary: bool = False) -> ui.button:
+    """Cancel or Save at the foot of a draft. Returned, for the caller to dim until the
+    draft has something in it. `primary` is the filled one, Save."""
+    control = ui.button(label, icon=icon, on_click=on_click)
+    if primary:
+        control.props("dense no-caps no-wrap unelevated size=sm")
+    else:
+        control.props("flat dense no-caps size=sm").classes("console-action")
+    if hint:
+        control.tooltip(hint)
+    return control
+
+
 def remote_action(label: str, on_click: Callable[..., Any] | None = None, *, icon: str,
                   primary: bool = False, danger: bool = False, hint: str = "") -> ui.button:
     """A verb on the Remote, the width of its row. `primary` for the one a screen is for,

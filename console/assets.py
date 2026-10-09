@@ -13,8 +13,9 @@ only.
 
 from __future__ import annotations
 
+import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from typing import Any
 
 from nicegui import ui
@@ -29,6 +30,7 @@ from console import (
     media_ownership,
     offload,
     panel,
+    text_editor,
     thumbnails,
     views,
 )
@@ -88,9 +90,12 @@ def _reason(row: dict[str, Any]) -> str:
     return UNUSED if row.get("serves") == 0 else ""
 
 
-def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The API's assets, flattened for a grid."""
+def rows(found: list[dict[str, Any]],
+         unsaved: Collection[tuple[str, str]] = ()) -> list[dict[str, Any]]:
+    """The API's assets, flattened for a grid; `unsaved` is the (game, path) of the files
+    with text typed and not saved."""
     return [{**row,
+             "unsaved": (str(row.get("game_id") or ""), str(row.get("path") or "")) in unsaved,
              "scope": game_tables.scope_of(row),
              "used_by": row.get("serves"),
              "reason": _reason(row),
@@ -100,6 +105,20 @@ def rows(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
              grid.NO_MENU: not file_acts.asset_has_acts(row)}
             for row in found]
 
+
+_ESCAPE = ("const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')"
+           ".replace(/\"/g, '&quot;');")
+
+_KIND = (
+    "params => {" + _ESCAPE +
+    f" const unsaved = esc({json.dumps(t('word.not_saved'))});"
+    f" const why = esc({json.dumps(t('console.text_editor.not_saved.help'))});"
+    " let said = esc(params.value == null ? '' : params.value);"
+    " if ((params.data || {}).unsaved) said += ' <span class=\"console-member-chip"
+    " console-cell-chip console-tier console-tier--warn\" title=\"' + why + '\">'"
+    " + unsaved + '</span>';"
+    " return said; }"
+)
 
 _FILE = "word.file"
 _GAME = "word.game"
@@ -114,6 +133,7 @@ COLUMNS: list[dict[str, Any]] = [
                 **grid.choice_filter(_SCOPE_CHOICES),
                 help=t("console.assets.scope.help")),
     grid.column("label", t("word.kind"), 160, group=t(_FILE),
+                **{":cellRenderer": _KIND},
                 help=t("console.assets.kind.help")),
     grid.column("used_by", t("word.used_by"), type="numericColumn", group=t(_FILE),
                 help=t("console.assets.used_by.help")),
@@ -174,7 +194,7 @@ def build(found: list[dict[str, Any]], library: Any,
           rescan: Callable[[], Any] | None = None) -> None:
     """The asset lens: one row per file, and one per file that is not there."""
     state = state if state is not None else {}
-    built = rows(found)
+    built = rows(found, text_editor.drafts_of(state))
     columns = _with_kind_filter(grid.with_art(COLUMNS, library.thumbnail_look()), library)
     gaps = sum(1 for row in built if not row.get("present"))
     on_screen = {"rows": len(built)}
@@ -255,8 +275,17 @@ def build(found: list[dict[str, Any]], library: Any,
     table.on("modelUpdated", counted)
 
     async def refresh_files(game_id: str) -> None:
-        fresh = rows(await offload.io(library.files_of, "asset", game_id))
+        fresh = rows(await offload.io(library.files_of, "asset", game_id),
+                     text_editor.drafts_of(state))
         grid.replace_rows(table, built, by_id, fresh, lambda row: row["game_id"] == game_id)
 
     state["refresh_files"] = refresh_files
+
+    def mark_unsaved(drafted: set[tuple[str, str]]) -> None:
+        changed = [{**row, "unsaved": not row["unsaved"]} for row in built
+                   if row["unsaved"] != ((row["game_id"], row["path"]) in drafted)]
+        if changed:
+            grid.transact(table, built, {"update": changed}, by_id)
+
+    state["mark_unsaved_files"] = mark_unsaved
     wire_views(table)

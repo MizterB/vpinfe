@@ -83,6 +83,7 @@ from console import (
     table_features,
     tag_chips,
     tageditor,
+    text_editor,
     thumbnails,
     undo,
     verbs,
@@ -824,10 +825,16 @@ async def _asset_detail_of(library: Library, game_id: str,
     if not (row.get("present") and path):
         return {}
     try:
-        return await offload.io(library.asset_detail, game_id, path)
+        detail = await offload.io(library.asset_detail, game_id, path)
     except Exception:  # noqa: BLE001 - the panel draws without what it would add
         logger.debug("No detail for %s", path, exc_info=True)
         return {}
+    if text_editor.edits(str(row.get("kind") or "")):
+        try:
+            detail = {**detail, "text": await offload.io(library.asset_text, game_id, path)}
+        except Exception:  # noqa: BLE001 - not text, or not readable: the head stands in
+            logger.debug("No text for %s", path, exc_info=True)
+    return detail
 
 
 def _media_has_stage(context: dict[str, Any]) -> bool:
@@ -847,7 +854,8 @@ def _asset_has_stage(context: dict[str, Any]) -> bool:
     column carries."""
     detail = context.get("detail") or {}
     glass = detail.get("backglass") if context.get("kind") == "backglass" else None
-    return bool(glass and not glass["damaged"]) or bool(detail.get("head"))
+    return (bool(glass and not glass["damaged"]) or bool(detail.get("head"))
+            or bool(detail.get("text")))
 
 
 def _stage(context: dict[str, Any]) -> ui.element:
@@ -967,6 +975,19 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
     links = (await offload.io(library.outside_links, game_id, "", path)
              if present and path else [])
     glass = detail.get("backglass") if kind == "backglass" else None
+    spoken: dict[str, ui.label] = {}
+
+    async def after_save() -> None:
+        """The size and date under the name, as the file is now."""
+        try:
+            fresh = await offload.io(library.asset_detail, game_id, path)
+        except Exception:  # noqa: BLE001 - the line stays as it was
+            return
+        detail.update({one: fresh[one] for one in fresh if one != "text"})
+        if "spec" in spoken and not spoken["spec"].is_deleted:
+            spoken["spec"].text = _asset_spec(detail)
+
+    context["after_save"] = after_save
     if context["dock"] is not None:
         with _stage(context):
             await _asset_stage(context, path, glass, str(detail.get("head") or ""), label)
@@ -986,7 +1007,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                 _backglass_chips(glass)
         spec = _asset_spec(detail)
         if spec:
-            ui.label(spec).classes("console-help")
+            spoken["spec"] = ui.label(spec).classes("console-help")
         if glass and glass["damaged"]:
             _alert(t("console.backglass.damaged"), None)()
         elif glass and facts:
@@ -1040,6 +1061,18 @@ async def _asset_stage(context: dict[str, Any], path: str, glass: dict[str, Any]
                        head: str, label: str) -> None:
     if glass and not glass["damaged"]:
         await _backglass_picture(context, path, glass, label)
+        return
+    if found := context["detail"].get("text"):
+        locked, help_ = "", ""
+        if context["kind"] == "ini" and await offload.io(_playing, context["library"]):
+            locked, help_ = t(PLAYING_NOTE), t(PLAYING_WHY)
+        elif not found["editable"]:
+            locked = str(found["why"])
+
+        async def enlarge(text: str) -> None:
+            mediaview.open_text(label, text)
+
+        text_editor.editor(context, path, label, found, locked, enlarge, help_)
         return
     with ui.element("div").classes("console-slot-art console-slot-art--text"):
         ui.label(head).classes("console-file-text")
@@ -1718,7 +1751,7 @@ def _note_unsaved(state: dict[str, Any], names: set[str]) -> None:
     mark = state.get("mark_unsaved")
     if callable(mark):
         mark(set(names))
-    ui.run_javascript(f"window.__hubUnsavedRules = {json.dumps(bool(names))};")
+    text_editor.flag(state)
 
 
 async def _rail(context: dict[str, Any], subject: str,

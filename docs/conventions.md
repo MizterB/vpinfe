@@ -1207,7 +1207,7 @@ that shows one puts the choice beside it as a toggle.
 
 ### A value is written when it is set
 
-No save bar, but for one draft, below. A control that changes a value writes it, and
+No save bar, but for two drafts, below. A control that changes a value writes it, and
 anything that cannot be undone asks first. Two answers had shipped — the pane wrote on
 change or on blur, Settings collected edits into a dirty set behind Save and Discard — so
 whether an edit had taken effect depended on which surface you were on.
@@ -1217,11 +1217,17 @@ keystroke reaches it, and reading it on blur without that gets whatever the last
 happened to hold. Several lines settle as you stop typing instead, because a paragraph has
 no natural moment of leaving. Everything else writes on change.
 
-The one draft is a collection's rules. A rule is several rows that mean nothing until they
+The first draft is a collection's rules. A rule is several rows that mean nothing until they
 are all there, so the rows wait behind a bar held at the foot of the panel - how many games
 match, join and leave, with Cancel and Save Rules - while the grid marks the collection
 *Not saved* and leaving the page asks. The rest of that panel, its order and limit
 included, writes on change.
+
+The second is the text of a game's file in the editor on its stage. Half a line of a script
+is a table that will not start, so what is typed waits behind Save, with Cancel beside it
+and *Not saved* when there is something to save. The draft is kept per file while other rows
+are picked, the Assets grid marks that file *Not saved*, and leaving the view or reloading
+asks, listing the files. Save is also Cmd-S or Ctrl-S inside the editor.
 
 ### Chips say what the absence costs
 
