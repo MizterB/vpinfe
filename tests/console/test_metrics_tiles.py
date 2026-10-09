@@ -414,6 +414,12 @@ class MarkWordsTests(unittest.TestCase):
 
         self.assertEqual(f"{i18n.t('console.jobs.kind.library_scan')}, {self._time()}", said)
 
+    def test_a_job_with_a_name_of_its_own_is_said_by_it(self) -> None:
+        said = metrics._mark_said({"at": self.AT, "kind": "job", "name": "library_scan",
+                                   "title": "Auto-match"})
+
+        self.assertEqual(f"Auto-match, {self._time()}", said)
+
     def test_a_kind_nothing_names_is_said_as_it_is(self) -> None:
         said = metrics._mark_said({"at": self.AT, "kind": "job", "name": "ext.thing"})
 

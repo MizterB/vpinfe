@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common import jobs, migration_ledger
+from common import job_details, jobs, migration_ledger
 from common.atomic_write import staged_for
 from common.config_store import ConfigStore
 from common.games import game_index_service, game_repository, info_maintenance, metadata_service
@@ -593,7 +593,7 @@ def restorable_game_names() -> list[str]:
 
 
 def _as_a_job[T](work: Callable[[jobs.Job], T], progress_cb: ProgressCallback | None,
-                 log_cb: LogCallback | None, job: jobs.Job | None) -> T:
+                 log_cb: LogCallback | None, job: jobs.Job | None, title: str = "") -> T:
     """Run one pass over the library's `.info` files, as a job either way.
 
     `job` is for a caller that started one already - the API submits to the registry and
@@ -608,8 +608,8 @@ def _as_a_job[T](work: Callable[[jobs.Job], T], progress_cb: ProgressCallback | 
     if job is not None:
         result = work(job)
     else:
-        with jobs.track(jobs.KIND_LIBRARY_SCAN,
-                        progress_cb=progress_cb, log_cb=log_cb) as owned:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN, progress_cb=progress_cb, log_cb=log_cb,
+                        title=title) as owned:
             result = work(owned)
     game_repository.refresh_games()
     return result
@@ -619,12 +619,15 @@ def upgrade_info(progress_cb: ProgressCallback | None = None,
                  log_cb: LogCallback | None = None, *, job: jobs.Job | None = None,
                  game_name: str | None = None) -> UpgradeResult:
     """Upgrade every game's .info in one pass."""
-    result = _as_a_job(
-        lambda owned: info_maintenance.upgrade_library(
+    def run(owned: jobs.Job) -> UpgradeResult:
+        done = info_maintenance.upgrade_library(
             game_name=game_name,
             progress_cb=owned.progress, log_cb=owned.log,
-            route_match=route_legacy_match),
-        progress_cb, log_cb, job)
+            route_match=route_legacy_match)
+        owned.detail = job_details.info_upgraded(done)
+        return done
+
+    result = _as_a_job(run, progress_cb, log_cb, job, t("said.title_info_upgrade"))
     if result["upgraded"] and not game_name:
         migration_ledger.record("info_upgrade", get_version(), result["upgraded"])
     return result
@@ -634,11 +637,14 @@ def restore_info(progress_cb: ProgressCallback | None = None,
                  log_cb: LogCallback | None = None, *, job: jobs.Job | None = None,
                  game_name: str | None = None) -> RestoreResult:
     """Put back the .info files saved before upgrade, for every game that has one."""
-    return _as_a_job(
-        lambda owned: info_maintenance.restore_library(
+    def run(owned: jobs.Job) -> RestoreResult:
+        done = info_maintenance.restore_library(
             game_name=game_name, config_dir=CONFIG_DIR,
-            progress_cb=owned.progress, log_cb=owned.log),
-        progress_cb, log_cb, job)
+            progress_cb=owned.progress, log_cb=owned.log)
+        owned.detail = job_details.info_restored(done)
+        return done
+
+    return _as_a_job(run, progress_cb, log_cb, job, t("said.title_info_restore"))
 
 
 def apply_vpx_patches(progress_cb: ProgressCallback | None = None) -> None:

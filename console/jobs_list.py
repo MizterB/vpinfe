@@ -98,8 +98,13 @@ def unseen_said(items: list[dict[str, Any]]) -> str:
     if len(items) > NAMED_UP_TO:
         return t("console.page.jobs_unseen", count=len(items))
     return "; ".join(
-        t("console.page.job_outcome", what=what_ran(str(job.get("kind") or "")),
+        t("console.page.job_outcome", what=named(job),
           outcome=t(f"console.jobs.outcome.{outcome_of(job)}")) for job in items)
+
+
+def named(job: dict[str, Any]) -> str:
+    """What the job calls itself, else its kind in words."""
+    return str(job.get("title") or "") or what_ran(str(job.get("kind") or ""))
 
 
 def what_ran(kind: str) -> str:
@@ -122,7 +127,7 @@ def row(job: dict[str, Any], now: float) -> dict[str, Any]:
     outcome = outcome_of(job)
     ran = (float(finished) if finished else now) - started
     return {"id": str(job.get("id") or ""),
-            "what": what_ran(str(job.get("kind") or "")),
+            "what": named(job),
             "kind": str(job.get("kind") or ""),
             "started": started, "started_said": when.at_second(started),
             "took": ran, "took_said": when.took(ran) if started else "",

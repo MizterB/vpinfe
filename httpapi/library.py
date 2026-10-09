@@ -236,7 +236,8 @@ def info_maintenance() -> models.InfoMaintenance:
 def upgrade_info(response: Response) -> models.JobResource:
     """Accepted, not done. Each file is copied to `<name>.info.vpinfe-<stamp>` before it
     is rewritten, and `/backups` lists it."""
-    return _accepted(response, library_ops.one_info_pass(game_service.upgrade_info))
+    return _accepted(response, library_ops.one_info_pass(
+        game_service.upgrade_info, t("said.title_info_upgrade")))
 
 
 @router.get("/patches", summary="What script fixes are published for this library",

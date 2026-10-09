@@ -385,7 +385,7 @@ def _mark_said(mark: dict[str, Any]) -> str:
     """What happened and when: a job by what it is, a table by its game."""
     at = datetime.fromtimestamp(float(mark.get("at") or 0)).astimezone()
     if mark.get("kind") == "job":
-        what = jobs_list.what_ran(str(mark.get("name") or ""))
+        what = str(mark.get("title") or "") or jobs_list.what_ran(str(mark.get("name") or ""))
     elif mark.get("name"):
         what = t("console.metrics.mark.launched", name=mark["name"])
     else:

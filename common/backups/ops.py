@@ -121,7 +121,7 @@ def _restore_game(one: Copy, path: Path) -> Restored:
     folder = path.parent
     target = folder / f"{folder.name}.info"
     try:
-        with track(KIND_LIBRARY_SCAN):
+        with track(KIND_LIBRARY_SCAN, title=t("said.title_backup_restore")):
             kept = info_maintenance.restore_file(target, path, keep_id=True)
     except ValueError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
@@ -245,7 +245,8 @@ def _put_member(path: Path, member: archive.Member) -> tuple[Copy | None, bool]:
 
 
 def _putting_back(members: list[archive.Member]) -> contextlib.AbstractContextManager[Any]:
-    return (track(KIND_LIBRARY_SCAN) if any(one.kind == KIND_GAME for one in members)
+    return (track(KIND_LIBRARY_SCAN, title=t("said.title_put_back"))
+            if any(one.kind == KIND_GAME for one in members)
             else contextlib.nullcontext())
 
 

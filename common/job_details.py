@@ -34,6 +34,22 @@ def _library_scan(result: Any) -> str:
     return ""
 
 
+def auto_matched(counts: dict[str, int]) -> str:
+    """The line for a match-again pass, from the counts it answered."""
+    return t("said.job_auto_matched", changed=int(counts.get("changed") or 0),
+             unmatched=int(counts.get("unmatched") or 0))
+
+
+def info_upgraded(result: Any) -> str:
+    return t("said.job_info_upgraded", upgraded=int(result["upgraded"]),
+             current=int(result["already_current"]), failed=int(result["failed"]))
+
+
+def info_restored(result: Any) -> str:
+    return t("said.job_info_restored", restored=int(result["restored"]),
+             failed=int(result["failed"]))
+
+
 def _media_fill(result: Any) -> str:
     if not isinstance(result, dict):
         return ""

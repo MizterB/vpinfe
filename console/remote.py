@@ -1294,7 +1294,8 @@ def _running_jobs(state: dict[str, Any]) -> None:
             # The kind is a wire word - `library.scan` - and nothing on this surface
             # shows one. A percentage says more than the name does anyway, so the name
             # is the label and the bar is the answer.
-            ui.label(humanize(str(job.get("kind") or "").replace(".", " "))) \
+            ui.label(str(job.get("title") or "")
+                     or humanize(str(job.get("kind") or "").replace(".", " "))) \
                 .classes("remote-headline")
             ui.linear_progress(value=float(job.get("pct") or 0) / 100,
                                show_value=False).props("rounded")

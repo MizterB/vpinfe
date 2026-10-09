@@ -310,11 +310,13 @@ def on_launched(game: Any = None, private: bool = False, **_payload: Any) -> Non
 def marks(seconds: float = 0.0) -> list[dict[str, Any]]:
     """What happened this session worth setting beside a graph, oldest first: each job
     started and each table launched, as `{at, kind, name}`. A job's `name` is its kind,
-    which the page puts in words; a table's is the game's title, empty when it is private."""
+    which the page puts in words, and it adds `title` where the job has one of its own; a
+    table's `name` is the game's title, empty when it is private."""
     from common import jobs
 
     cutoff = time.time() - seconds if seconds else 0.0
-    found = [{"at": one.started_at, "kind": "job", "name": one.kind}
+    found = [{"at": one.started_at, "kind": "job", "name": one.kind,
+              **({"title": one.title} if one.title else {})}
              for one in jobs.recent(jobs.HISTORY_LIMIT) if one.started_at >= cutoff]
     with _launch_lock:
         found += [dict(one) for one in _launches if one["at"] >= cutoff]

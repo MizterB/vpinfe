@@ -14,8 +14,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from common import job_details, service_errors
 from common import jobs as job_registry
-from common import service_errors
 from common.games import (
     derived_tags,
     entry_lens,
@@ -42,9 +42,10 @@ from common.games.tables import table_entries
 from common.i18n import t
 
 
-def start(kind: str, work: Callable[[job_registry.Job], object]) -> job_registry.Job:
+def start(kind: str, work: Callable[[job_registry.Job], object],
+          title: str = "") -> job_registry.Job:
     """Put a library-wide pass on the queue, or refuse because one is already running."""
-    return job_registry.submit(kind, work)
+    return job_registry.submit(kind, work, title=title)
 
 
 def filter_axes() -> dict[str, Any]:
@@ -196,7 +197,7 @@ def refresh() -> job_registry.Job:
     from common.games.library_refresh import refresh as run_refresh
 
     return start(job_registry.KIND_LIBRARY_SCAN,
-                 lambda job: run_refresh(job.reporter()))
+                 lambda job: run_refresh(job.reporter()), t("said.title_refresh"))
 
 
 def auto_match(game_ids: Iterable[str]) -> dict[str, int]:
@@ -214,8 +215,10 @@ def auto_match(game_ids: Iterable[str]) -> dict[str, int]:
     held = game_repository.catalog()
     games = [held[one] for one in dict.fromkeys(game_ids) if one in held]
     blocked = {id(game) for game, _ in library_folders.blocked_games(games)}
-    with job_registry.track(job_registry.KIND_LIBRARY_SCAN):
+    with job_registry.track(job_registry.KIND_LIBRARY_SCAN,
+                            title=t("said.title_auto_match")) as job:
         counts, moved = matching.match_again([g for g in games if id(g) not in blocked])
+        job.detail = job_details.auto_matched(counts)
     for game in moved:
         game_repository.refresh_game(Path(str(game.full_path_game)))
     return {**counts, "skipped": len(blocked)}
@@ -227,16 +230,17 @@ def recount_vps_state() -> job_registry.Job:
                  lambda job: library_vps_state.recount(job.reporter()))
 
 
-def one_info_pass(work: Callable[..., object]) -> job_registry.Job:
+def one_info_pass(work: Callable[..., object], title: str = "") -> job_registry.Job:
     """The scan's job kind, because these rewrite exactly the files a scan does and two
     at once would interleave writes to the same file."""
-    return start(job_registry.KIND_LIBRARY_SCAN, lambda job: work(job=job))
+    return start(job_registry.KIND_LIBRARY_SCAN, lambda job: work(job=job), title)
 
 
 def apply_script_patches() -> job_registry.Job:
     """Each fix lands as a `.vbs` sidecar beside the table it is for."""
     return start(job_registry.KIND_LIBRARY_SCAN,
-                 lambda job: game_service.apply_vpx_patches(progress_cb=job.progress))
+                 lambda job: game_service.apply_vpx_patches(progress_cb=job.progress),
+                 t("said.title_script_fixes"))
 
 
 def watching_since() -> dict[str, Any]:

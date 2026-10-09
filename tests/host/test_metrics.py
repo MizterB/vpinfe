@@ -132,6 +132,16 @@ class MarksTests(unittest.TestCase):
 
         self.assertEqual(1, len(metrics.marks()))
 
+    def test_a_job_with_a_name_of_its_own_is_marked_with_it(self) -> None:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN, title="Auto-match"):
+            pass
+        self._job(jobs.KIND_TOOL_GET, 1000.0)
+
+        found = {one["name"]: one for one in metrics.marks()}
+
+        self.assertEqual("Auto-match", found[jobs.KIND_LIBRARY_SCAN]["title"])
+        self.assertNotIn("title", found[jobs.KIND_TOOL_GET])
+
     def test_a_job_is_marked_when_it_started_by_its_kind(self) -> None:
         self._job("library_scan", 990.0)
 

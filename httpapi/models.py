@@ -2956,6 +2956,9 @@ class JobResource(ApiModel):
     # One line on what it did, counts mostly. Empty while it runs and for kinds with
     # nothing to count.
     detail: str = ""
+    # What this run is called where its kind is shared by several operations, in the
+    # install's language. Empty means the kind's own name.
+    title: str = ""
     links: JobLinks
 
 

@@ -42,10 +42,9 @@ async def open_for(job_id: str) -> None:
     except Exception as exc:  # noqa: BLE001 - the reason belongs on screen
         ui.notify(t("console.jobs.report_unavailable"), caption=why(exc), type="negative")
         return
-    kind = str(job.get("kind") or "")
     with frame.opened("", wide=True, classes="console-wizard-card") as dialog:
         with ui.element("div").classes("console-wizard-scroll"):
-            ui.label(jobs_list.what_ran(kind)) \
+            ui.label(jobs_list.named(job)) \
                 .classes("console-dialog-title console-wizard-title")
             body = ui.column().classes("w-full gap-0 console-wizard-body")
         with frame.footer():

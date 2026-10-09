@@ -155,6 +155,9 @@ class Job:
 
     id: str
     kind: str
+    # What this run is called where its kind is shared by several operations, as the person
+    # reads it. Empty: the kind's own name.
+    title: str = ""
     state: str = RUNNING
     pct: int = 0
     message: str = ""
@@ -217,6 +220,7 @@ class Job:
         found = {
             "id": self.id,
             "kind": self.kind,
+            "title": self.title,
             "state": self.state,
             "pct": self.pct,
             "message": self.message,
@@ -320,7 +324,8 @@ def _load_kept() -> None:
         try:
             said = json.loads(path.read_text(encoding="utf-8"))
             found.append(Job(
-                id=str(said["id"]), kind=str(said["kind"]), state=DONE,
+                id=str(said["id"]), kind=str(said["kind"]),
+                title=str(said.get("title") or ""), state=DONE,
                 pct=100, message=str(said.get("message") or ""),
                 started_at=float(said["started_at"]),
                 finished_at=float(said["finished_at"]),
@@ -337,9 +342,10 @@ def _load_kept() -> None:
 
 @contextmanager
 def track(kind: str, *, progress_cb: ProgressCallback | None = None,
-          log_cb: LogCallback | None = None) -> Iterator[Job]:
+          log_cb: LogCallback | None = None, title: str = "") -> Iterator[Job]:
     """Run work on the caller's thread as a job. Raises JobBusyError if one is running."""
-    job = Job(id=uuid.uuid4().hex, kind=kind, progress_cb=progress_cb, log_cb=log_cb)
+    job = Job(id=uuid.uuid4().hex, kind=kind, title=title, progress_cb=progress_cb,
+              log_cb=log_cb)
     with _lock:
         _refuse_if_busy(kind)
         _active[kind] = job
@@ -355,14 +361,14 @@ def track(kind: str, *, progress_cb: ProgressCallback | None = None,
 def submit(kind: str, work: Callable[[Job], object], *,
            progress_cb: ProgressCallback | None = None,
            log_cb: LogCallback | None = None, stoppable: bool = False,
-           stop_link: str = "", keep_result: bool = False) -> Job:
+           stop_link: str = "", keep_result: bool = False, title: str = "") -> Job:
     """Start work on its own thread and return its job immediately.
 
     With `keep_result` the result is written to disk when the work finishes, and the job
     can be opened from the Jobs view after the page that started it has gone, and after a
     restart."""
-    job = Job(id=uuid.uuid4().hex, kind=kind, progress_cb=progress_cb, log_cb=log_cb,
-              stoppable=stoppable or bool(stop_link), stop_link=stop_link,
+    job = Job(id=uuid.uuid4().hex, kind=kind, title=title, progress_cb=progress_cb,
+              log_cb=log_cb, stoppable=stoppable or bool(stop_link), stop_link=stop_link,
               keep_result=keep_result)
     with _lock:
         _refuse_if_busy(kind)

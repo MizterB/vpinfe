@@ -52,6 +52,20 @@ class Describers(unittest.TestCase):
         self.assertEqual(t("said.job_tool_version", version="7"),
                          job_details.of(jobs.KIND_TOOL_GET, {"version": "7"}))
 
+    def test_a_match_again_counts_what_moved_and_what_is_still_unmatched(self) -> None:
+        self.assertEqual(t("said.job_auto_matched", changed=4, unmatched=2),
+                         job_details.auto_matched({"changed": 4, "unmatched": 2}))
+
+    def test_an_info_upgrade_counts_each_outcome(self) -> None:
+        said = job_details.info_upgraded({"upgraded": 3, "already_current": 5, "failed": 1})
+
+        self.assertEqual(t("said.job_info_upgraded", upgraded=3, current=5, failed=1), said)
+
+    def test_an_info_restore_counts_each_outcome(self) -> None:
+        said = job_details.info_restored({"restored": 2, "failed": 0})
+
+        self.assertEqual(t("said.job_info_restored", restored=2, failed=0), said)
+
     def test_a_result_of_a_shape_not_named_has_no_line(self) -> None:
         for result in (None, "text", 3, [], {}, {"unrelated": 1}):
             for kind in (jobs.KIND_LIBRARY_SCAN, jobs.KIND_MEDIA_FILL,

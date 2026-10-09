@@ -161,7 +161,8 @@ def start_periodic(minutes: int) -> None:
             if shutdown.requested():
                 return
             try:
-                jobs.submit(jobs.KIND_LIBRARY_SCAN, lambda job: refresh(job.reporter()))
+                jobs.submit(jobs.KIND_LIBRARY_SCAN, lambda job: refresh(job.reporter()),
+                            title=t("said.title_refresh"))
             except jobs.JobBusyError:
                 logger.debug("Periodic refresh skipped; the library is busy")
             except Exception:

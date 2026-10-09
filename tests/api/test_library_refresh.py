@@ -13,6 +13,7 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common import jobs
+from common.i18n import t
 
 
 class LibraryRefreshTests(unittest.TestCase):
@@ -29,6 +30,12 @@ class LibraryRefreshTests(unittest.TestCase):
         self.assertIn("/api/v1/jobs/", response.headers["Location"])
         self.assertEqual(response.json()["kind"], jobs.KIND_LIBRARY_SCAN)
         ran.assert_called_once()
+
+    def test_it_is_called_what_it_is_not_the_scan(self) -> None:
+        with patch("common.games.library_refresh.refresh", return_value={}):
+            response = self.client.post("/library/refresh")
+
+        self.assertEqual(response.json()["title"], t("said.title_refresh"))
 
     def test_it_will_not_run_beside_a_scan(self) -> None:
         """Both write a .info for every game they touch, so the second caller is
@@ -63,6 +70,16 @@ class AutoMatchRouteTests(unittest.TestCase):
         self.assertEqual(response.json(), {**counts, "skipped": 0})
         self.assertEqual(ran.call_args[0][0], [self.game])
         reread.assert_called_once()
+
+    def test_it_is_a_job_of_its_own_name_that_says_what_it_matched(self) -> None:
+        counts = {"games": 1, "changed": 1, "unmatched": 3, "yours": 0}
+        with patch("common.games.auto_match.match_again", return_value=(counts, [])), \
+                patch("common.games.library_folders.blocked_games", return_value=[]):
+            self.client.post("/library/auto_match", json={"game_ids": ["g1"]})
+
+        (job,) = jobs.recent(5)
+        self.assertEqual(job.snapshot()["title"], t("said.title_auto_match"))
+        self.assertEqual(job.detail, t("said.job_auto_matched", changed=1, unmatched=3))
 
     def test_a_game_whose_folder_cannot_be_written_to_is_counted_not_matched(self) -> None:
         with patch("common.games.auto_match.match_again",

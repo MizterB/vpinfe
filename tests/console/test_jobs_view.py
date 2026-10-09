@@ -65,6 +65,26 @@ class Outcome(unittest.TestCase):
             self.assertNotEqual(key, t(key))
 
 
+class Named(unittest.TestCase):
+    def test_a_title_the_job_carries_is_what_it_is_called(self) -> None:
+        job = {"kind": jobs.KIND_LIBRARY_SCAN, "title": "Auto-match"}
+
+        self.assertEqual("Auto-match", jobs_list.named(job))
+
+    def test_a_job_with_no_title_is_called_what_its_kind_is(self) -> None:
+        for job in ({"kind": jobs.KIND_LIBRARY_SCAN}, {"kind": jobs.KIND_LIBRARY_SCAN,
+                                                       "title": ""}):
+            self.assertEqual(jobs_list.what_ran(jobs.KIND_LIBRARY_SCAN),
+                             jobs_list.named(job))
+
+    def test_a_row_and_the_unseen_phrase_use_the_title(self) -> None:
+        job = {"id": "j", "kind": jobs.KIND_LIBRARY_SCAN, "title": "Auto-match",
+               "state": jobs.DONE, "started_at": 1.0, "finished_at": 2.0}
+
+        self.assertEqual("Auto-match", jobs_list.row(job, 3.0)["what"])
+        self.assertIn("Auto-match", jobs_list.unseen_said([job]))
+
+
 class WhatRan(unittest.TestCase):
     def test_a_known_kind_is_named_in_words(self) -> None:
         self.assertEqual(t("console.jobs.kind.spreadsheet_download"),

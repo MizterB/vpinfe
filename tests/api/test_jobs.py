@@ -237,6 +237,25 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(job.state, jobs.DONE)
         self.assertEqual(job.detail, "")
 
+    def test_a_title_is_kept_on_the_job_and_on_the_wire(self) -> None:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN, title="Reload from disk") as tracked:
+            pass
+        started = jobs.submit(jobs.KIND_MEDIA_FILL, lambda job: None, title="Fill art")
+
+        self.assertEqual(tracked.snapshot()["title"], "Reload from disk")
+        self.assertEqual(started.snapshot()["title"], "Fill art")
+
+    def test_a_job_with_no_title_has_an_empty_one(self) -> None:
+        with jobs.track(jobs.KIND_TOOL_GET) as job:
+            pass
+
+        self.assertEqual(job.snapshot()["title"], "")
+
+    def test_a_job_sharing_the_scan_kind_still_takes_its_lock(self) -> None:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN, title="Auto-match"):
+            with self.assertRaises(jobs.JobBusyError):
+                jobs.track(jobs.KIND_LIBRARY_SCAN, title="Reload from disk").__enter__()
+
     def test_a_job_is_not_stopped_unless_its_work_says_so(self) -> None:
         with jobs.track("test.kind") as job:
             pass
@@ -310,6 +329,12 @@ class JobEndpointTests(unittest.TestCase):
 
         self.assertTrue(body["stopped"])
         self.assertEqual(body["detail"], t("said.job_tool_version", version="3"))
+
+    def test_a_title_comes_over_the_wire(self) -> None:
+        with jobs.track(jobs.KIND_LIBRARY_SCAN, title="Auto-match") as job:
+            pass
+
+        self.assertEqual(self.client.get(f"/jobs/{job.id}").json()["title"], "Auto-match")
 
     def test_filtering_by_kind(self) -> None:
         with jobs.track("test.wanted"), jobs.track("test.other"):
